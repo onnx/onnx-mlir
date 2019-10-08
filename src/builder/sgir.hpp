@@ -25,10 +25,16 @@ class OwningModuleRef;
 
 namespace onnf {
 /*!
- *  Import an ONNX Model into SGIR
+ *  Import an ONNX Model into SGIR.
  *  @param model onnx model.
- *  @return MLIR::module generated for the ONNX model
+ *  @return MLIR::module generated for the ONNX model.
  */
 mlir::OwningModuleRef SGIRImportModel(onnx::ModelProto model);
 
+/*!
+ * Import an ONNX Model file into SGIR.
+ * @param model_fname file name pointing to the onnx model protobuf.
+ * @return MLIR::module generated for the ONNX model.
+ */
+mlir::OwningModuleRef SGIRImportModelFile(std::string model_fname);
 }  // namespace onnf

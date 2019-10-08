@@ -157,7 +157,7 @@ class SGIRGenImpl {
     result.addOperands(inputs);
     auto op = builder_.createOperation(result);
     for (int i = 0; i < node.output().size(); i++) {
-      auto r = builder_.createOperation(result)->getResult(i);
+      auto r = op->getResult(i);
       sgir_symbols_.AddMapping(legalize_name(node.output()[i]), r);
     }
 
@@ -212,14 +212,10 @@ class SGIRGenImpl {
 };  // SGIRGenImpl class
 
 }  // namespace
-}  // namespace dlc
+}  // namespace onnf
 
 namespace onnf {
-/*!
- * Generate SGIR with MLIR for a onnx model
- * @param model onnx model.
- * @return module mlir module generated for the onnx model
- */
+
 mlir::OwningModuleRef SGIRImportModel(onnx::ModelProto model) {
   mlir::MLIRContext context;
   SGIRGenImpl mySGIRGen(context);
@@ -229,4 +225,11 @@ mlir::OwningModuleRef SGIRImportModel(onnx::ModelProto model) {
   return module;
 }
 
+mlir::OwningModuleRef SGIRImportModelFile(std::string model_fname) {
+  onnx::ModelProto model;
+  std::fstream input(model_fname, std::ios::in | std::ios::binary);
+
+  auto parse_success = model.ParseFromIstream(&input);
+  return SGIRImportModel(model);
+}
 }  // namespace onnf

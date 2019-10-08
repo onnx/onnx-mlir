@@ -20,6 +20,10 @@
 
 #include <boost/program_options.hpp>
 
+#include "src/builder/sgir.hpp"
+
+#include "mlir/IR/Module.h"
+
 using namespace std;
 
 int main(int ac, char* av[]) {
@@ -39,6 +43,9 @@ int main(int ac, char* av[]) {
     cout << desc << endl;
     return 0;
   }
+
+  string model_filename = vm["onnx-model"].as<string>();
+  auto module = SGIRImportModelFile(model_filename);
 
   return 0;
 }

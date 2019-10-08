@@ -35,6 +35,9 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
+include(MLIR.cmake)
+
 add_subdirectory(src/builder)
+add_subdirectory(src/compiler)
 add_subdirectory(src)
 
