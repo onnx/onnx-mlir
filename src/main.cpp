@@ -25,6 +25,7 @@
 #include "mlir/IR/Module.h"
 
 using namespace std;
+using namespace onnf;
 
 int main(int ac, char* av[]) {
   namespace po = boost::program_options;

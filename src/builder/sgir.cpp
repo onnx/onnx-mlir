@@ -131,7 +131,7 @@ class SGIRGenImpl {
       mlir::Type elementType =
           TypeConvert(input.type().tensor_type().elem_type());
       llvm::ArrayRef<int64_t> llvmdimsAR(dims.data(), dims.size());
-      auto dataType = builder_.getTensorType(llvmdimsAR, elementType);
+      auto dataType = mlir::RankedTensorType::get(llvmdimsAR, elementType);
       mlir::OperationState result(
           UnknownLoc(), "sgir.input " + input_tensor_legalized_name);
       result.addTypes(dataType);
@@ -152,7 +152,7 @@ class SGIRGenImpl {
     }
     mlir::OperationState result(UnknownLoc(), "SGIR." + node.op_type());
     for (auto item : node.output()) {
-      result.addTypes(builder_.getTensorType(builder_.getF32Type()));
+      result.addTypes(mlir::UnrankedTensorType::get(builder_.getF32Type()));
     }
     result.addOperands(inputs);
     auto op = builder_.createOperation(result);
@@ -167,7 +167,7 @@ class SGIRGenImpl {
   void ImportOutputTensor(onnx::ValueInfoProto& output) {
     if (sgir_symbols_.ContainKey(legalize_name(output.name()))) {
       mlir::OperationState result(UnknownLoc(), "sgir.output " + output.name());
-      result.addTypes(builder_.getTensorType(builder_.getF32Type()));
+      result.addTypes(mlir::UnrankedTensorType::get(builder_.getF32Type()));
       result.addOperands(sgir_symbols_.GetTensorByOnnxName(output.name()));
       builder_.createOperation(result);
     } else {

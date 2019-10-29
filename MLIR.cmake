@@ -1,34 +1,41 @@
 # Flags to link with LLVM/MLIR libraries
-if(DEFINED ENV{LLVM_PROJECT_ROOT})
-  set(LLVM_PROJECT_ROOT $ENV{LLVM_PROJECT_ROOT})
-  if(EXISTS ${LLVM_PROJECT_ROOT})
-    message(STATUS "LLVM_PROJECT_ROOT " ${LLVM_PROJECT_ROOT})
+
+# Path to LLVM source folder.
+if(DEFINED ENV{LLVM_SRC})
+  set(LLVM_SRC $ENV{LLVM_SRC})
+  if(EXISTS ${LLVM_SRC})
+    message(STATUS "LLVM_SRC " ${LLVM_SRC})
   else()
     message(
-      FATAL_ERROR "The path specified by LLVM_PROJECT_ROOT does not exist: "
-                  ${LLVM_PROJECT_ROOT})
+      FATAL_ERROR "The path specified by LLVM_SRC does not exist: "
+                  ${LLVM_SRC})
   endif()
 else()
-  message(FATAL_ERROR "env variable LLVM_PROJECT_ROOT not set")
+  message(FATAL_ERROR "env variable LLVM_SRC not set")
 endif()
 
-if(DEFINED ENV{LLVM_PROJECT_LIB})
-  set(LLVM_PROJECT_LIB $ENV{LLVM_PROJECT_LIB})
+# Path to LLVM build folder
+if(DEFINED ENV{LLVM_BUILD})
+  set(LLVM_BUILD $ENV{LLVM_BUILD})
+  if(EXISTS ${LLVM_BUILD})
+    message(STATUS "LLVM_BUILD " ${LLVM_BUILD})
+  else()
+    message(
+      FATAL_ERROR "The path specified by LLVM_BUILD does not exist: "
+                  ${LLVM_BUILD})
+  endif()
 else()
-  set(LLVM_PROJECT_LIB $ENV{LLVM_PROJECT_ROOT}/build/lib)
-endif()
-if(EXISTS ${LLVM_PROJECT_LIB})
-  message(STATUS "LLVM_PROJECT_LIB " ${LLVM_PROJECT_LIB})
-else()
-  message(FATAL_ERROR "The path specified by LLVM_PROJECT_LIB does not exist: "
-                      ${LLVM_PROJECT_LIB})
+  message(FATAL_ERROR "env variable LLVM_BUILD not set")
 endif()
 
-# include path
-set(LLVM_SRC_INCLUDE_PATH ${LLVM_PROJECT_ROOT}/llvm/include)
-set(LLVM_BIN_INCLUDE_PATH ${LLVM_PROJECT_ROOT}/build/include)
-set(MLIR_SRC_INCLUDE_PATH ${LLVM_PROJECT_ROOT}/llvm/projects/mlir/include)
-set(MLIR_BIN_INCLUDE_PATH ${LLVM_PROJECT_ROOT}/build/projects/mlir/include)
+# LLVM project lib folder
+set(LLVM_PROJECT_LIB ${LLVM_BUILD}/lib)
+
+# Include paths for MLIR
+set(LLVM_SRC_INCLUDE_PATH ${LLVM_SRC}/include)
+set(LLVM_BIN_INCLUDE_PATH ${LLVM_BUILD}/include)
+set(MLIR_SRC_INCLUDE_PATH ${LLVM_SRC}/projects/mlir/include)
+set(MLIR_BIN_INCLUDE_PATH ${LLVM_BUILD}/projects/mlir/include)
 
 set(MLIR_INCLUDE_PATHS
     ${LLVM_SRC_INCLUDE_PATH};${LLVM_BIN_INCLUDE_PATH};${MLIR_SRC_INCLUDE_PATH};${MLIR_BIN_INCLUDE_PATH})
@@ -85,7 +92,7 @@ set(MLIRLIBS
     ${LLVMLIBSUPPORT})
 
 # Set up TableGen environment.
-include(${LLVM_PROJECT_ROOT}/build/lib/cmake/llvm/TableGen.cmake)
+include(${LLVM_BUILD}/lib/cmake/llvm/TableGen.cmake)
 
 function(onnf_tablegen ofn)
   tablegen(MLIR
@@ -103,5 +110,5 @@ endfunction()
 add_executable(mlir-tblgen IMPORTED)
 set_property(TARGET mlir-tblgen
              PROPERTY IMPORTED_LOCATION
-                      ${LLVM_PROJECT_ROOT}/build/bin/mlir-tblgen)
+                      ${LLVM_BUILD}/bin/mlir-tblgen)
 set(MLIR_TABLEGEN_EXE mlir-tblgen)
