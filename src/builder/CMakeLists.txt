@@ -1,8 +1,10 @@
 add_library(builder
-        sgir.cpp
+        frontend_dialect_transformer.cpp
         )
 
-target_link_libraries(builder onnx ${MLIRLIBS} curses)
+target_include_directories(builder PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(builder PRIVATE ${CMAKE_BINARY_DIR})
+target_link_libraries(builder compiler onnx ${MLIRLIBS} curses)
 target_include_directories(builder
                            PRIVATE
                            ${CMAKE_SOURCE_DIR}/third_party/onnx

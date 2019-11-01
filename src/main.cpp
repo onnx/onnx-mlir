@@ -20,7 +20,8 @@
 
 #include <boost/program_options.hpp>
 
-#include "src/builder/sgir.hpp"
+#include "src/builder/frontend_dialect_transformer.hpp"
+#include "src/compiler/dialect/onnx/onnx_ops.hpp"
 
 #include "mlir/IR/Module.h"
 
@@ -45,8 +46,10 @@ int main(int ac, char* av[]) {
     return 0;
   }
 
+  mlir::registerDialect<mlir::ONNXOpsDialect>();
+
   string model_filename = vm["onnx-model"].as<string>();
-  auto module = SGIRImportModelFile(model_filename);
+  auto module = ImportFrontendModelFile(model_filename);
 
   return 0;
 }

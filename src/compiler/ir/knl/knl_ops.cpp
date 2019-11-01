@@ -15,7 +15,7 @@ KnlOpsDialect::KnlOpsDialect(MLIRContext* context)
     : Dialect(getDialectNamespace(), context) {
   addOperations<
 #define GET_OP_LIST
-#include "knl.cpp.inc"
+#include "src/compiler/knl.cpp.inc"
       >();
 }
 }  // namespace mlir

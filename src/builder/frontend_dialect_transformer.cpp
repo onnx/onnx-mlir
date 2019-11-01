@@ -1,8 +1,16 @@
-//===----------------------------------------------------------------------===//
+//===- frontend_dialect_transformer.cpp - MLIR Operations -----------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019 The IBM Research Authors. 
 //
 // =============================================================================
+//
+// This file transforms the input to available MLIR dialects that can represent
+// the operations of the model. Models use the ONNX dialect and any other
+// extension dialects that comprise the the operations not supported or covered
+// by the ONNX specification.
+//
+// A `frontend` placeholder dialect is used to encode operations that are not
+// covered by any existing dialects.
 //
 //===----------------------------------------------------------------------===//
 
@@ -26,7 +34,8 @@
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "sgir.hpp"
+#include "frontend_dialect_transformer.hpp"
+#include "src/compiler/dialect/onnx/onnx_ops.hpp"
 
 namespace onnf {
 namespace {
@@ -84,14 +93,14 @@ struct OnnxOnnfSymbolMapping {
   std::map<std::string, mlir::Value*> onnx_name2onnf_tensor;
 };
 
-class SGIRGenImpl {
+class FrontendGenImpl {
  public:
-  SGIRGenImpl(mlir::MLIRContext& context)
+  FrontendGenImpl(mlir::MLIRContext& context)
       : context_(context), builder_(&context) {
     module_ = mlir::ModuleOp::create(mlir::UnknownLoc::get(&context));
   }
 
-  mlir::ModuleOp ImportModel(onnx::ModelProto model) {
+  mlir::ModuleOp ImportONNXModel(onnx::ModelProto model) {
     ImportGraph(model.graph());
     return module_;
   }
@@ -101,7 +110,7 @@ class SGIRGenImpl {
   mlir::ModuleOp module_;
   mlir::OpBuilder builder_;
   // mapping between string name and symbol
-  OnnxOnnfSymbolMapping sgir_symbols_;
+  OnnxOnnfSymbolMapping frontend_symbols_;
 
   mlir::Location UnknownLoc() { return mlir::UnknownLoc::get(&context_); }
 
@@ -127,17 +136,17 @@ class SGIRGenImpl {
         dims.push_back(-1);
       }
     }
-    if (!sgir_symbols_.ContainKey(input_tensor_legalized_name)) {
+    if (!frontend_symbols_.ContainKey(input_tensor_legalized_name)) {
       mlir::Type elementType =
           TypeConvert(input.type().tensor_type().elem_type());
       llvm::ArrayRef<int64_t> llvmdimsAR(dims.data(), dims.size());
       auto dataType = mlir::RankedTensorType::get(llvmdimsAR, elementType);
       mlir::OperationState result(
-          UnknownLoc(), "sgir.input " + input_tensor_legalized_name);
+          UnknownLoc(), "frontend.input " + input_tensor_legalized_name);
       result.addTypes(dataType);
       auto op = builder_.createOperation(result);
       auto value = op->getResult(0);
-      sgir_symbols_.AddMapping(input_tensor_legalized_name, value);
+      frontend_symbols_.AddMapping(input_tensor_legalized_name, value);
     } else {
       // TODO  Should not happen
     }
@@ -146,11 +155,23 @@ class SGIRGenImpl {
   void ImportNode(onnx::NodeProto node) {
     std::vector<mlir::Value*> inputs;
     for (auto item : node.input()) {
-      if (sgir_symbols_.ContainKey(legalize_name(item))) {
-        inputs.push_back(sgir_symbols_.GetTensorByOnnxName(item));
+      if (frontend_symbols_.ContainKey(legalize_name(item))) {
+        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
     }
-    mlir::OperationState result(UnknownLoc(), "SGIR." + node.op_type());
+
+    // Handle ONNX Add Operation by using its representation in the
+    // ONNX Dialect.
+    llvm::StringRef OpName = node.op_type();
+    if (OpName == "Add") {
+      auto op =
+          builder_.create<mlir::ONNXAddOp>(UnknownLoc(), inputs[0], inputs[1]);
+      frontend_symbols_.AddMapping(legalize_name(node.output()[0]), op.getResult());
+      return;
+    }
+
+    // Old way of doing things.
+    mlir::OperationState result(UnknownLoc(), "frontend." + node.op_type());
     for (auto item : node.output()) {
       result.addTypes(mlir::UnrankedTensorType::get(builder_.getF32Type()));
     }
@@ -158,17 +179,17 @@ class SGIRGenImpl {
     auto op = builder_.createOperation(result);
     for (int i = 0; i < node.output().size(); i++) {
       auto r = op->getResult(i);
-      sgir_symbols_.AddMapping(legalize_name(node.output()[i]), r);
+      frontend_symbols_.AddMapping(legalize_name(node.output()[i]), r);
     }
 
     // TODO more info from node: attributes
   }
 
   void ImportOutputTensor(onnx::ValueInfoProto& output) {
-    if (sgir_symbols_.ContainKey(legalize_name(output.name()))) {
-      mlir::OperationState result(UnknownLoc(), "sgir.output " + output.name());
+    if (frontend_symbols_.ContainKey(legalize_name(output.name()))) {
+      mlir::OperationState result(UnknownLoc(), "frontend.output " + output.name());
       result.addTypes(mlir::UnrankedTensorType::get(builder_.getF32Type()));
-      result.addOperands(sgir_symbols_.GetTensorByOnnxName(output.name()));
+      result.addOperands(frontend_symbols_.GetTensorByOnnxName(output.name()));
       builder_.createOperation(result);
     } else {
       // TODO: Why not in the symbol table? something is wrong
@@ -209,27 +230,28 @@ class SGIRGenImpl {
     }
   }
 
-};  // SGIRGenImpl class
+};  // FrontendGenImpl class
 
 }  // namespace
 }  // namespace onnf
 
 namespace onnf {
 
-mlir::OwningModuleRef SGIRImportModel(onnx::ModelProto model) {
+mlir::OwningModuleRef ImportFrontendModel(onnx::ModelProto model) {
   mlir::MLIRContext context;
-  SGIRGenImpl mySGIRGen(context);
-  auto module = mySGIRGen.ImportModel(model);
+  FrontendGenImpl myONNXGen(context);
+  auto module = myONNXGen.ImportONNXModel(model);
   module.dump();
 
   return module;
 }
 
-mlir::OwningModuleRef SGIRImportModelFile(std::string model_fname) {
+mlir::OwningModuleRef ImportFrontendModelFile(std::string model_fname) {
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
 
   auto parse_success = model.ParseFromIstream(&input);
-  return SGIRImportModel(model);
+
+  return ImportFrontendModel(model);
 }
 }  // namespace onnf

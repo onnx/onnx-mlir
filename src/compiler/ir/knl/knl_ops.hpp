@@ -13,7 +13,7 @@ class KnlOpsDialect : public Dialect {
 };
 
 #define GET_OP_CLASSES
-#include "knl.hpp.inc"
+#include "src/compiler/knl.hpp.inc"
 }  // namespace mlir
 
 namespace onnf {}
