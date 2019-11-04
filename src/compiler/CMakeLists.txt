@@ -24,6 +24,13 @@ target_link_libraries(compiler
         ${Boost_LIBRARIES}
         )
 
+add_executable(onnf-opt
+        tool/onnf_opt/onnf_opt.cpp)
+
+target_link_libraries(onnf-opt ${Boost_LIBRARIES} ${MLIRLIBS} curses compiler)
+target_include_directories(onnf-opt PRIVATE ../..)
+target_include_directories(onnf-opt PRIVATE ${CMAKE_BINARY_DIR})
+
 set(LLVM_TARGET_DEFINITIONS ir/knl/knl.td)
 onnf_tablegen(knl.hpp.inc -gen-op-decls)
 onnf_tablegen(knl.cpp.inc -gen-op-defs)

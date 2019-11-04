@@ -41,55 +41,84 @@ set(MLIR_INCLUDE_PATHS
     ${LLVM_SRC_INCLUDE_PATH};${LLVM_BIN_INCLUDE_PATH};${MLIR_SRC_INCLUDE_PATH};${MLIR_BIN_INCLUDE_PATH})
 include_directories(${MLIR_INCLUDE_PATHS})
 
-find_library(MLIRLIBANALYSIS
+find_library(MLIR_LIB_ANALYSIS
              NAMES MLIRAnalysis
              PATHS ${LLVM_PROJECT_LIB}
              NO_DEFAULT_PATH)
 
-find_library(MLIRLIBIR NAMES MLIRIR PATHS ${LLVM_PROJECT_LIB} NO_DEFAULT_PATH)
+find_library(MLIR_LIB_IR NAMES MLIRIR PATHS ${LLVM_PROJECT_LIB} NO_DEFAULT_PATH)
 
-find_library(MLIRLIBPARSER
+find_library(MLIR_LIB_PARSER
              NAMES MLIRParser
              PATHS ${LLVM_PROJECT_LIB}
              NO_DEFAULT_PATH)
 
-find_library(MLIRLIBTRANSFORMS
+find_library(MLIR_LIB_PASS
+             NAMES MLIRPass
+             PATHS ${LLVM_PROJECT_LIB}
+             NO_DEFAULT_PATH)
+
+find_library(MLIR_LIB_TRANSFORMS
              NAMES MLIRTransforms
              PATHS ${LLVM_PROJECT_LIB}
              NO_DEFAULT_PATH)
 
-find_library(MLIRLIBVECTOROPS
+find_library(MLIR_LIB_VECTOR_OPS
              NAMES MLIRVectorOps
              PATHS ${LLVM_PROJECT_LIB}
              NO_DEFAULT_PATH)
 
-find_library(MLIRLIBSUPPORT
+find_library(MLIR_LIB_SUPPORT
              NAMES MLIRSupport
              PATHS ${LLVM_PROJECT_LIB}
              NO_DEFAULT_PATH)
 
-find_library(MLIRLIBSTANDARDOPS
+find_library(MLIR_LIB_STANDARD_OPS
              NAMES MLIRStandardOps
              PATHS ${LLVM_PROJECT_LIB}
              NO_DEFAULT_PATH)
 
-find_library(LLVMLIBSUPPORT
+find_library(MLIR_LIB_OPT_MAIN
+             NAMES MLIROptMain
+             PATHS ${LLVM_PROJECT_LIB}
+             NO_DEFAULT_PATH)
+
+find_library(MLIR_LLVM_IR
+             NAMES MLIRLLVMIR
+             PATHS ${LLVM_PROJECT_LIB}
+             NO_DEFAULT_PATH)
+
+find_library(LLVM_LIB_SUPPORT
              NAMES LLVMSupport
              PATHS ${LLVM_PROJECT_LIB}
              NO_DEFAULT_PATH)
 
-# libraries are set according to toy/Ch2
+# Threading libraries required due to parallel pass execution.
+find_package(Threads REQUIRED)
+
 set(MLIRLIBS
-    ${MLIRLIBANALYSIS}
-    ${MLIRLIBIR}
-    ${MLIRLIBPARSER}
-    ${MLIRLIBTRANSFORMS}
-    ${MLIRLIBANALYSIS}
-    ${MLIRLIBVECTOROPS}
-    ${MLIRLIBIR}
-    ${MLIRLIBSUPPORT}
-    ${MLIRLIBSTANDARDOPS}
-    ${LLVMLIBSUPPORT})
+    ${MLIR_LIB_ANALYSIS}
+    ${MLIR_LIB_IR}
+    ${MLIR_LIB_PARSER}
+    ${MLIR_LIB_PASS}
+    ${MLIR_LIB_TRANSFORMS}
+    ${MLIR_LIB_VECTOR_OPS}
+    ${MLIR_LIB_STANDARD_OPS}
+    ${MLIR_LIB_OPT_MAIN}
+    ${MLIR_LIB_SUPPORT}
+
+    ${MLIR_LIB_ANALYSIS}
+    ${MLIR_LIB_IR}
+    ${MLIR_LIB_PARSER}
+    ${MLIR_LIB_PASS}
+    ${MLIR_LIB_TRANSFORMS}
+    ${MLIR_LIB_VECTOR_OPS}
+    ${MLIR_LIB_STANDARD_OPS}
+    ${MLIR_LIB_OPT_MAIN}
+    ${MLIR_LIB_SUPPORT}
+
+    ${LLVM_LIB_SUPPORT}
+    Threads::Threads)
 
 # Set up TableGen environment.
 include(${LLVM_BUILD}/lib/cmake/llvm/TableGen.cmake)
@@ -112,3 +141,4 @@ set_property(TARGET mlir-tblgen
              PROPERTY IMPORTED_LOCATION
                       ${LLVM_BUILD}/bin/mlir-tblgen)
 set(MLIR_TABLEGEN_EXE mlir-tblgen)
+
