@@ -8,13 +8,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_DIALECT_ONNX_ONNXOPS_H
-#define MLIR_DIALECT_ONNX_ONNXOPS_H
+#pragma once
 
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/StandardTypes.h"
+
+#include "src/compiler/pass/shape_inference_interface.hpp"
 
 namespace mlir {
 
@@ -35,5 +36,3 @@ class ONNXOpsDialect : public Dialect {
 }  // end namespace mlir
 
 namespace onnf {}
-
-#endif  // MLIR_DIALECT_ONNX_ONNXOPS_H

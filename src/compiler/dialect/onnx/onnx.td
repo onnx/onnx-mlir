@@ -17,6 +17,11 @@
 include "mlir/IR/OpBase.td"
 #endif // OP_BASE
 
+#ifdef SHAPE_INFERENCE_INTERFACE
+#else
+include "pass/shape_inference_interface.td"
+#endif // SHAPE_INFERENCE_INTERFACE
+
 def ONNX_Dialect : Dialect {
   let name = "onnx";
   let cppNamespace = "";
@@ -35,7 +40,8 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 //===----------------------------------------------------------------------===//
 
 // We define an ONNX operation for adding two tensors elementwise.
-def ONNXAddOp: ONNX_Op<"add", [NoSideEffect]> {
+def ONNXAddOp: ONNX_Op<"add",
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX add operation";
   let description = [{
 

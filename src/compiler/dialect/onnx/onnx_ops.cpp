@@ -46,6 +46,12 @@ static void buildONNXAddOp(mlir::Builder* builder, mlir::OperationState& state,
   state.addOperands({lhs, rhs});
 }
 
+/// Infer the output shape of the ONNXAddOp. This method is required by the
+/// shape inference interface.
+void ONNXAddOp::inferShapes() {
+  getResult()->setType(getOperand(0)->getType());
+}
+
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//

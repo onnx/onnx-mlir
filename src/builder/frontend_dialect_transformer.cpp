@@ -279,12 +279,15 @@ mlir::OwningModuleRef ImportFrontendModel(onnx::ModelProto model) {
   return module;
 }
 
-mlir::OwningModuleRef ImportFrontendModelFile(std::string model_fname) {
+void ImportFrontendModelFile(std::string model_fname,
+    mlir::MLIRContext& context, mlir::OwningModuleRef& module) {
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
 
   auto parse_success = model.ParseFromIstream(&input);
 
-  return ImportFrontendModel(model);
+  FrontendGenImpl myONNXGen(context);
+  module = myONNXGen.ImportONNXModel(model);
+  module->dump();
 }
 }  // namespace onnf

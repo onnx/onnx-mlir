@@ -3,7 +3,10 @@ add_library(
         ir/knl/knl_ops.cpp
         ir/knl/knl_ops.hpp
         dialect/onnx/onnx_ops.cpp
-        dialect/onnx/onnx_ops.hpp)
+        dialect/onnx/onnx_ops.hpp
+        pass/shape_inference_pass.cpp
+        pass/shape_inference_interface.hpp
+        pass/passes.hpp)
 
 # Include root src directory.
 target_include_directories(compiler PRIVATE ../..)
@@ -37,8 +40,14 @@ onnf_tablegen(knl.cpp.inc -gen-op-defs)
 add_public_tablegen_target(gen_kir)
 add_dependencies(compiler gen_kir)
 
+set(LLVM_TARGET_DEFINITIONS pass/shape_inference_interface.td)
+onnf_tablegen(shape_inference.hpp.inc -gen-op-interface-decls)
+onnf_tablegen(shape_inference.cpp.inc -gen-op-interface-defs)
+add_public_tablegen_target(gen_shape_inference)
+add_dependencies(compiler gen_shape_inference)
+
 set(LLVM_TARGET_DEFINITIONS dialect/onnx/onnx.td)
-onnf_tablegen(onnx.hpp.inc -gen-op-decls)
-onnf_tablegen(onnx.cpp.inc -gen-op-defs)
+onnf_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
+onnf_tablegen(onnx.cpp.inc -gen-op-defs "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 add_public_tablegen_target(gen_onnx)
 add_dependencies(compiler gen_onnx)

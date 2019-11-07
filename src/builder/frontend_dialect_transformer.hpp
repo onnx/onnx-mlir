@@ -40,7 +40,8 @@ mlir::OwningModuleRef ImportFrontendModel(onnx::ModelProto model);
  *  @param model_fname file name pointing to the onnx model protobuf.
  *  @return MLIR::module generated for the ONNX model.
  */
-mlir::OwningModuleRef ImportFrontendModelFile(std::string model_fname);
+void ImportFrontendModelFile(std::string model_fname,
+    mlir::MLIRContext& context, mlir::OwningModuleRef& module);
 
 /*!
  *  TODO: Import models into other extension dialects that cover the

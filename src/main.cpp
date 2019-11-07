@@ -22,8 +22,18 @@
 
 #include "src/builder/frontend_dialect_transformer.hpp"
 #include "src/compiler/dialect/onnx/onnx_ops.hpp"
+#include "src/compiler/pass/passes.hpp"
 
+#include "mlir/Analysis/Verifier.h"
+#include "mlir/ExecutionEngine/ExecutionEngine.h"
+#include "mlir/ExecutionEngine/OptUtils.h"
+#include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Module.h"
+#include "mlir/Parser.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Target/LLVMIR.h"
+#include "mlir/Transforms/Passes.h"
 
 using namespace std;
 using namespace onnf;
@@ -48,8 +58,15 @@ int main(int ac, char* av[]) {
 
   mlir::registerDialect<mlir::ONNXOpsDialect>();
 
+  mlir::MLIRContext context;
+  mlir::OwningModuleRef module;
+
   string model_filename = vm["onnx-model"].as<string>();
-  auto module = ImportFrontendModelFile(model_filename);
+  ImportFrontendModelFile(model_filename, context, module);
+
+  mlir::PassManager pm(&context);
+  pm.addPass(mlir::createShapeInferencePass());
+  pm.run(*module);
 
   return 0;
 }
