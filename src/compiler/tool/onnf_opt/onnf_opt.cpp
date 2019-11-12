@@ -16,6 +16,11 @@
 #include <mlir/Support/MlirOptMain.h>
 #include <mlir/Dialect/StandardOps/Ops.h>
 
+#include "src/compiler/dialect/krnl/krnl_ops.hpp"
+#include "src/compiler/helper.hpp"
+
+using namespace onnf;
+
 static llvm::cl::opt<std::string> input_filename(
     llvm::cl::Positional, llvm::cl::desc("<input file>"), llvm::cl::init("-"));
 
@@ -52,6 +57,7 @@ int main(int argc, char** argv) {
 
   auto output = mlir::openOutputFile(output_filename, &error_message);
 
+  mlir::registerDialect<mlir::KrnlOpsDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();
 
   return failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,

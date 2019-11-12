@@ -1,3 +1,11 @@
+//===--------------------------- main.cpp ---------------------------------===//
+//
+// Copyright 2019 The IBM Research Authors.
+//
+// =============================================================================
+//
+//===----------------------------------------------------------------------===//
+
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -21,6 +29,7 @@
 #include <boost/program_options.hpp>
 
 #include "src/builder/frontend_dialect_transformer.hpp"
+#include "src/compiler/dialect/krnl/krnl_ops.hpp"
 #include "src/compiler/dialect/onnx/onnx_ops.hpp"
 #include "src/compiler/pass/passes.hpp"
 
@@ -57,6 +66,7 @@ int main(int ac, char* av[]) {
   }
 
   mlir::registerDialect<mlir::ONNXOpsDialect>();
+  mlir::registerDialect<mlir::KrnlOpsDialect>();
 
   mlir::MLIRContext context;
   mlir::OwningModuleRef module;
