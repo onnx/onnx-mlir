@@ -193,10 +193,32 @@ class FrontendGenImpl {
     // ONNX Dialect.
     llvm::StringRef OpName = node.op_type();
     if (OpName == "Add") {
-      auto op =
-          builder_.create<mlir::ONNXAddOp>(UnknownLoc(), inputs[0], inputs[1]);
+      auto op = builder_.create<mlir::ONNXAddOp>(UnknownLoc(),
+          mlir::UnrankedTensorType::get(builder_.getF32Type()), inputs[0],
+          inputs[1]);
       frontend_symbols_.AddMapping(
           legalize_name(node.output()[0]), op.getResult());
+      return;
+    } else if (OpName == "MatMul") {
+      auto op = builder_.create<mlir::ONNXMatMulOp>(UnknownLoc(),
+          mlir::UnrankedTensorType::get(builder_.getF32Type()), inputs[0],
+          inputs[1]);
+      frontend_symbols_.AddMapping(
+          legalize_name(node.output()[0]), op.getResult());
+      return;
+    } else if (OpName == "Gemm") {
+      if (inputs.size() == 3) {
+        auto op = builder_.create<mlir::ONNXFullGemmOp>(UnknownLoc(),
+            mlir::UnrankedTensorType::get(builder_.getF32Type()), inputs[0],
+            inputs[1], inputs[2]);
+        frontend_symbols_.AddMapping(
+            legalize_name(node.output()[0]), op.getResult());
+      } else {
+        auto op = builder_.create<mlir::ONNXGemmOp>(UnknownLoc(),
+            mlir::UnrankedTensorType::get(builder_.getF32Type()), inputs);
+        frontend_symbols_.AddMapping(
+            legalize_name(node.output()[0]), op.getResult());
+      }
       return;
     }
 

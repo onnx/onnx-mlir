@@ -40,17 +40,53 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext* ctx)
 // ONNX Operations
 //===----------------------------------------------------------------------===//
 
-static void buildONNXAddOp(mlir::Builder* builder, mlir::OperationState& state,
-    mlir::Value* lhs, mlir::Value* rhs) {
-  state.addTypes(UnrankedTensorType::get(builder->getF32Type()));
-  state.addOperands({lhs, rhs});
-}
+// Add
 
-/// Infer the output shape of the ONNXAddOp. This method is required by the
-/// shape inference interface.
 void ONNXAddOp::inferShapes() {
   getResult()->setType(getOperand(0)->getType());
 }
+
+//===----------------------------------------------------------------------===//
+
+// MatMul
+
+void ONNXMatMulOp::inferShapes() {
+  auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
+  SmallVector<int64_t, 2> dims(lhsTy.getShape()[0]);
+  dims.emplace_back(rhsTy.getShape()[1]);
+  getResult()->setType(RankedTensorType::get(dims, lhsTy.getElementType()));
+}
+
+// TODO:
+//   Verify that matrix sizes are valid.
+//   Take into account the dimensionality of the matrix.
+
+//===----------------------------------------------------------------------===//
+
+// Gemm
+
+void ONNXGemmOp::inferShapes() {
+  auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
+  SmallVector<int64_t, 2> dims(lhsTy.getShape()[0]);
+  dims.emplace_back(rhsTy.getShape()[1]);
+  getResult()->setType(RankedTensorType::get(dims, lhsTy.getElementType()));
+}
+
+// FullGemm
+
+void ONNXFullGemmOp::inferShapes() {
+  auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
+  SmallVector<int64_t, 2> dims(lhsTy.getShape()[0]);
+  dims.emplace_back(rhsTy.getShape()[1]);
+  getResult()->setType(RankedTensorType::get(dims, lhsTy.getElementType()));
+}
+
+// TODO:
+//   Verify that matrix sizes are valid for multiplication and addition.
+//   Take into account the dimensionality of the matrix.
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions

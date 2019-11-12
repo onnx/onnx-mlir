@@ -10,14 +10,17 @@
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/ToolOutputFile.h>
+#include <mlir/Dialect/StandardOps/Ops.h>
 #include <mlir/Pass/Pass.h>
 #include <mlir/Pass/PassManager.h>
 #include <mlir/Support/FileUtilities.h>
 #include <mlir/Support/MlirOptMain.h>
-#include <mlir/Dialect/StandardOps/Ops.h>
+#include "llvm/Support/SourceMgr.h"
 
 #include "src/compiler/dialect/krnl/krnl_ops.hpp"
+#include "src/compiler/dialect/onnx/onnx_ops.hpp"
 #include "src/compiler/helper.hpp"
+#include "src/compiler/pass/passes.hpp"
 
 using namespace onnf;
 
@@ -45,6 +48,8 @@ static llvm::cl::opt<bool> verify_passes("verify-each",
 int main(int argc, char** argv) {
   llvm::InitLLVM y(argc, argv);
 
+  mlir::registerDialect<mlir::ONNXOpsDialect>();
+
   // Register any pass manager command line options.
   mlir::registerPassManagerCLOptions();
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
@@ -56,9 +61,6 @@ int main(int argc, char** argv) {
   auto file = mlir::openInputFile(input_filename, &error_message);
 
   auto output = mlir::openOutputFile(output_filename, &error_message);
-
-  mlir::registerDialect<mlir::KrnlOpsDialect>();
-  mlir::registerDialect<mlir::StandardOpsDialect>();
 
   return failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,
       split_input_file, verify_diagnostics, verify_passes));

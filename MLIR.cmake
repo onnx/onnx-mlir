@@ -88,6 +88,11 @@ find_library(MLIR_LLVM_IR
              PATHS ${LLVM_PROJECT_LIB}
              NO_DEFAULT_PATH)
 
+find_library(MLIR_LIB_TRANSFORM_UTILS
+             NAMES MLIRTransformUtils
+             PATHS ${LLVM_PROJECT_LIB}
+             NO_DEFAULT_PATH)
+
 find_library(LLVM_LIB_SUPPORT
              NAMES LLVMSupport
              PATHS ${LLVM_PROJECT_LIB}
@@ -106,6 +111,7 @@ set(MLIRLIBS
     ${MLIR_LIB_STANDARD_OPS}
     ${MLIR_LIB_OPT_MAIN}
     ${MLIR_LIB_SUPPORT}
+    ${MLIR_LIB_TRANSFORM_UTILS}
 
     ${MLIR_LIB_ANALYSIS}
     ${MLIR_LIB_IR}
@@ -116,9 +122,30 @@ set(MLIRLIBS
     ${MLIR_LIB_STANDARD_OPS}
     ${MLIR_LIB_OPT_MAIN}
     ${MLIR_LIB_SUPPORT}
+    ${MLIR_LIB_TRANSFORM_UTILS}
 
     ${LLVM_LIB_SUPPORT}
     Threads::Threads)
+
+function(whole_archive_link target)
+  if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
+    set(link_flags "-L${LLVM_BUILD}/lib ")
+    FOREACH(LIB ${ARGN})
+      string(CONCAT link_flags ${link_flags} "-Wl,-force_load ${LLVM_BUILD}/lib/lib${LIB}.a ")
+    ENDFOREACH(LIB)
+  elseif(MSVC)
+    FOREACH(LIB ${ARGN})
+      string(CONCAT link_flags ${link_flags} "/WHOLEARCHIVE:${LIB} ")
+    ENDFOREACH(LIB)
+  else()
+    set(link_flags "-L${LLVM_BUILD}/lib -Wl,--whole-archive,")
+    FOREACH(LIB ${ARGN})
+      string(CONCAT link_flags ${link_flags} "-l${LIB},")
+    ENDFOREACH(LIB)
+    string(CONCAT link_flags ${link_flags} "--no-whole-archive")
+  endif()
+  set_target_properties(${target} PROPERTIES LINK_FLAGS ${link_flags})
+endfunction(whole_archive_link)
 
 # Set up TableGen environment.
 include(${LLVM_BUILD}/lib/cmake/llvm/TableGen.cmake)

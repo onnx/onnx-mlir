@@ -10,6 +10,7 @@ add_library(
         dialect/krnl/parser_helper.hpp
         pass/shape_inference_pass.cpp
         pass/shape_inference_interface.hpp
+        pass/onnx_combine.cpp
         pass/passes.hpp)
 
 # Include root src directory.
@@ -32,7 +33,10 @@ target_link_libraries(compiler
         ${MLIRLIBS} curses)
 
 add_executable(onnf-opt
-        tool/onnf_opt/onnf_opt.cpp)
+               tool/onnf_opt/onnf_opt.cpp)
+
+set(LIB_LIST MLIRAffineOps MLIRLoopOps MLIRTransformUtils MLIREDSC MLIRTransforms)
+whole_archive_link(onnf-opt ${LIB_LIST})
 
 target_link_libraries(onnf-opt ${Boost_LIBRARIES} ${MLIRLIBS} curses compiler)
 target_include_directories(onnf-opt PRIVATE ../..)
@@ -43,6 +47,11 @@ onnf_tablegen(shape_inference.hpp.inc -gen-op-interface-decls)
 onnf_tablegen(shape_inference.cpp.inc -gen-op-interface-defs)
 add_public_tablegen_target(gen_shape_inference)
 add_dependencies(compiler gen_shape_inference)
+
+set(LLVM_TARGET_DEFINITIONS pass/onnx_combine.td)
+onnf_tablegen(onnx_combine.inc -gen-rewriters)
+add_public_tablegen_target(gen_onnx_combine)
+add_dependencies(compiler gen_onnx_combine)
 
 set(LLVM_TARGET_DEFINITIONS dialect/onnx/onnx.td)
 onnf_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")

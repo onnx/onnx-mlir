@@ -58,13 +58,47 @@ def ONNXAddOp: ONNX_Op<"add",
   //
   let arguments = (ins AnyTensor:$lhs_in, AnyTensor:$rhs_in);
   let results = (outs AnyTensor);
+  let hasCanonicalizer = 1;
+}
 
-  // Build an ONNX Add operation using two input operands.
-  let builders = [
-    OpBuilder<"Builder *b, OperationState &result, Value *lhs, Value *rhs", [{
-      buildONNXAddOp(b, result, lhs, rhs);
-    }]
-  >];
+def ONNXMatMulOp: ONNX_Op<"matmul",
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX matrix multiply operation";
+  let description = [{
+
+    The "onnx.mul" multiplies two matrices.
+
+  }];
+
+  let arguments = (ins AnyTypeOf<[F32Tensor, F64Tensor]>:$lhs_in,
+                       AnyTypeOf<[F32Tensor, F64Tensor]>:$rhs_in);
+  let results = (outs AnyTypeOf<[F32Tensor, F64Tensor]>);
+}
+
+def ONNXGemmOp: ONNX_Op<"gemm",
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX general matrix multiply operation";
+  let description = [{
+
+    The "onnx.gemm" generic matrix multiplication with bias.
+
+  }];
+
+  let arguments = (ins Variadic<AnyTensor>:$inputs);
+  let results = (outs AnyTensor);
+}
+
+def ONNXFullGemmOp: ONNX_Op<"full_gemm",
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX general matrix multiply operation";
+  let description = [{
+
+    The "onnx.gemm" generic matrix multiplication with bias.
+
+  }];
+
+  let arguments = (ins AnyTensor:$lhs_in, AnyTensor:$rhs_in, AnyTensor:$bias_in);
+  let results = (outs AnyTensor);
 }
 
 #endif // ONNX_OPS
