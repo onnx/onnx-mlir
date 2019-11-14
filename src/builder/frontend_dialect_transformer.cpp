@@ -238,16 +238,19 @@ class FrontendGenImpl {
   }
 
   void ImportOutputTensor(onnx::ValueInfoProto& output) {
-    if (frontend_symbols_.ContainKey(legalize_name(output.name()))) {
+    auto output_tensor_legalized_name = legalize_name(output.name());
+    if (frontend_symbols_.ContainKey(output_tensor_legalized_name)) {
       mlir::OperationState result(
-          UnknownLoc(), "frontend.output " + output.name());
+	  UnknownLoc(), "frontend.output " + output_tensor_legalized_name);
       mlir::Type elementType =
           TypeConvert(output.type().tensor_type().elem_type());
       result.addTypes(mlir::UnrankedTensorType::get(elementType));
-      result.addOperands(frontend_symbols_.GetTensorByOnnxName(output.name()));
+      result.addOperands(frontend_symbols_.GetTensorByOnnxName(
+	  output_tensor_legalized_name));
       builder_.createOperation(result);
     } else {
       // TODO: Why not in the symbol table? something is wrong
+      assert(false && "output name not found");
     }
   }
 
