@@ -51,9 +51,14 @@ void ONNXAddOp::inferShapes() {
 // MatMul
 
 void ONNXMatMulOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!getOperand(0)->getType().isa<RankedTensorType>() ||
+      !getOperand(1)->getType().isa<RankedTensorType>())
+    return;
   auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
-  SmallVector<int64_t, 2> dims(lhsTy.getShape()[0]);
+  SmallVector<int64_t, 2> dims;
+  dims.emplace_back(lhsTy.getShape()[0]);
   dims.emplace_back(rhsTy.getShape()[1]);
   getResult()->setType(RankedTensorType::get(dims, lhsTy.getElementType()));
 }
@@ -67,9 +72,14 @@ void ONNXMatMulOp::inferShapes() {
 // Gemm
 
 void ONNXGemmOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!getOperand(0)->getType().isa<RankedTensorType>() ||
+      !getOperand(1)->getType().isa<RankedTensorType>())
+    return;
   auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
-  SmallVector<int64_t, 2> dims(lhsTy.getShape()[0]);
+  SmallVector<int64_t, 2> dims;
+  dims.emplace_back(lhsTy.getShape()[0]);
   dims.emplace_back(rhsTy.getShape()[1]);
   getResult()->setType(RankedTensorType::get(dims, lhsTy.getElementType()));
 }
@@ -77,9 +87,14 @@ void ONNXGemmOp::inferShapes() {
 // FullGemm
 
 void ONNXFullGemmOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!getOperand(0)->getType().isa<RankedTensorType>() ||
+      !getOperand(1)->getType().isa<RankedTensorType>())
+    return;
   auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
-  SmallVector<int64_t, 2> dims(lhsTy.getShape()[0]);
+  SmallVector<int64_t, 2> dims;
+  dims.emplace_back(lhsTy.getShape()[0]);
   dims.emplace_back(rhsTy.getShape()[1]);
   getResult()->setType(RankedTensorType::get(dims, lhsTy.getElementType()));
 }
