@@ -10,7 +10,13 @@ project(onnf)
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
-set(ONNF_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
+
+set(ONNF_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
+set(ONNF_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+#TODO(eventually enable the following)
+#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/benchmark)
@@ -36,7 +42,6 @@ if(Boost_FOUND)
 endif()
 
 include(MLIR.cmake)
-
 add_subdirectory(src/builder)
 add_subdirectory(src/compiler)
 add_subdirectory(src)

@@ -42,3 +42,6 @@ cmake3 -DONNF_ENABLE_MODEL_TEST_CPP=ON         \
 # Build and test:
 make -j "$(nproc)" install
 OMP_NUM_THREADS=20 OMP_THREAD_LIMIT=20 ctest3 -j "$(nproc)"
+
+# Run lit+FileCheck tests:
+make check-mlir-lit

@@ -14,12 +14,21 @@ add_library(
         pass/passes.hpp)
 
 # Include root src directory.
-target_include_directories(compiler PRIVATE ../..)
-target_include_directories(compiler PRIVATE ${CMAKE_SOURCE_DIR})
-target_include_directories(compiler PRIVATE ${CMAKE_BINARY_DIR})
+target_include_directories(compiler PRIVATE ${ONNF_SRC_ROOT})
+
+# Include third-party libraries.
+target_include_directories(compiler PRIVATE ${ONNF_SRC_ROOT}/third_party/isl/include)
+target_include_directories(compiler PRIVATE ${ONNF_BIN_ROOT}/third_party/isl/include)
+target_include_directories(compiler PRIVATE ${ONNF_SRC_ROOT}/third_party/Linq)
+target_include_directories(compiler PRIVATE ${ONNF_SRC_ROOT}/third_party/inja/src)
+target_include_directories(compiler PRIVATE ${ONNF_SRC_ROOT}/third_party/fmt/include)
+
+# Include tablegen generated header files.
+target_include_directories(compiler PRIVATE ${ONNF_BIN_ROOT})
 
 find_package(Boost 1.54.0
-        COMPONENTS graph
+        COMPONENTS
+        graph
         program_options
         log_setup
         log
@@ -27,20 +36,14 @@ find_package(Boost 1.54.0
         filesystem
         REQUIRED)
 
-# target_link_libraries(compiler isl inja ${Boost_LIBRARIES})
 target_link_libraries(compiler
         ${Boost_LIBRARIES}
-        ${MLIRLIBS} curses)
+        ${CMAKE_THREAD_LIBS_INIT}
+        ${CMAKE_DL_LIBS}
+        ${MLIRLIBS}
+        curses)
 
-add_executable(onnf-opt
-               tool/onnf_opt/onnf_opt.cpp)
-
-set(LIB_LIST MLIRAffineOps MLIRLoopOps MLIRTransformUtils MLIREDSC MLIRTransforms)
-whole_archive_link(onnf-opt ${LIB_LIST})
-
-target_link_libraries(onnf-opt ${Boost_LIBRARIES} ${MLIRLIBS} curses compiler)
-target_include_directories(onnf-opt PRIVATE ../..)
-target_include_directories(onnf-opt PRIVATE ${CMAKE_BINARY_DIR})
+add_subdirectory(tool)
 
 set(LLVM_TARGET_DEFINITIONS pass/shape_inference_interface.td)
 onnf_tablegen(shape_inference.hpp.inc -gen-op-interface-decls)

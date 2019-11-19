@@ -53,7 +53,7 @@ using namespace onnf;
 
 void LoadMLIR(string inputFilename, mlir::MLIRContext& context,
     mlir::OwningModuleRef& module) {
-  // Handle '.mlir' input to the DLC compiler.
+  // Handle '.mlir' input to the ONNF frontend.
   // The mlir format indicates that one or more of the supported
   // representations are used in the file.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =

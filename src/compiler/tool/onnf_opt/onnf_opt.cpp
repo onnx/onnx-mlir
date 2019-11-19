@@ -19,7 +19,6 @@
 
 #include "src/compiler/dialect/krnl/krnl_ops.hpp"
 #include "src/compiler/dialect/onnx/onnx_ops.hpp"
-#include "src/compiler/helper.hpp"
 #include "src/compiler/pass/passes.hpp"
 
 using namespace onnf;
@@ -49,6 +48,7 @@ int main(int argc, char** argv) {
   llvm::InitLLVM y(argc, argv);
 
   mlir::registerDialect<mlir::ONNXOpsDialect>();
+  mlir::registerDialect<mlir::KrnlOpsDialect>();
 
   // Register any pass manager command line options.
   mlir::registerPassManagerCLOptions();
@@ -59,8 +59,10 @@ int main(int argc, char** argv) {
   // Set up the input file.
   std::string error_message;
   auto file = mlir::openInputFile(input_filename, &error_message);
+  assert(file);
 
   auto output = mlir::openOutputFile(output_filename, &error_message);
+  assert(output);
 
   return failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,
       split_input_file, verify_diagnostics, verify_passes));

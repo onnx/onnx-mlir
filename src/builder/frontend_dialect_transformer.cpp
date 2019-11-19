@@ -18,6 +18,7 @@
 #include <regex>
 #include <string>
 #include <tuple>
+#include <map>
 
 #include "mlir/Analysis/Verifier.h"
 #include "mlir/Dialect/StandardOps/Ops.h"
@@ -34,8 +35,9 @@
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "frontend_dialect_transformer.hpp"
 #include "src/compiler/dialect/onnx/onnx_ops.hpp"
+
+#include "frontend_dialect_transformer.hpp"
 
 namespace onnf {
 namespace {
@@ -147,7 +149,14 @@ class FrontendGenImpl {
     }
   }
 
-  void ImportInputTensor(onnx::ValueInfoProto& input) {
+  /*!
+   * Import an onnx input tensor type by determining and recording its type
+   * in a list of input tensor mlir types.
+   * @param input onnx input tensor ValueInfoProto.
+   * @param arg_types list of mlir types representing types of graph input.
+   */
+  void ImportInputTensorType(const onnx::ValueInfoProto& input,
+      llvm::SmallVector<mlir::Type, 4>& arg_types) {
     std::vector<int64_t> dims;
     auto shape_proto = input.type().tensor_type().shape();
     auto input_tensor_legalized_name = legalize_name(input.name());
@@ -165,20 +174,28 @@ class FrontendGenImpl {
         dims.push_back(-1);
       }
     }
-    if (!frontend_symbols_.ContainKey(input_tensor_legalized_name)) {
-      mlir::Type elementType =
-          TypeConvert(input.type().tensor_type().elem_type());
-      llvm::ArrayRef<int64_t> llvmdimsAR(dims.data(), dims.size());
-      auto dataType = mlir::RankedTensorType::get(llvmdimsAR, elementType);
-      mlir::OperationState result(
-          UnknownLoc(), "frontend.input " + input_tensor_legalized_name);
-      result.addTypes(dataType);
-      auto op = builder_.createOperation(result);
-      auto value = op->getResult(0);
-      frontend_symbols_.AddMapping(input_tensor_legalized_name, value);
-    } else {
-      // TODO  Should not happen
-    }
+
+    mlir::Type elementType =
+        TypeConvert(input.type().tensor_type().elem_type());
+    llvm::ArrayRef<int64_t> tensor_dims(dims.data(), dims.size());
+    arg_types.emplace_back(
+        mlir::RankedTensorType::get(tensor_dims, elementType));
+  }
+
+  /*!
+   * Import a input tensor symbol by recording a new entry in frontend_symbols_
+   * recording the mapping between legalized onnx tensor name and mlir::Value*
+   * for further lookup in computation node importing.
+   * @param input onnx input tensor ValueInfoProto.
+   * @param symbol mlir input argument.
+   */
+  void ImportInputTensorSymbol(
+      const onnx::ValueInfoProto& input, mlir::Value* symbol) {
+    auto input_tensor_legalized_name = legalize_name(input.name());
+    assert(
+        !frontend_symbols_.ContainKey(input_tensor_legalized_name) &&
+        "Found duplicate legalized input tensor names.");
+    frontend_symbols_.AddMapping(input_tensor_legalized_name, symbol);
   }
 
   void ImportNode(onnx::NodeProto node) {
@@ -237,59 +254,80 @@ class FrontendGenImpl {
     // TODO more info from node: attributes
   }
 
-  void ImportOutputTensor(onnx::ValueInfoProto& output) {
+  /*!
+   * Import output tensor, by doing the following:
+   * - Add the type of this output tensor to a list of tensor
+   *   types representing return types of this graph function.
+   * - Add this output tensor to the list of mlir::Value*
+   *   to be returned by the function representing computation graph.
+   * @param output onnx output tensor ValueInfoProto.
+   * @param ret_types a vector of tensor types representing graph's
+   *   output tensor types.
+   * @param ret_vals a vector of mlir Value* representing graph's
+   *   output tensor.
+   */
+  void ImportOutputTensor(const onnx::ValueInfoProto& output,
+      llvm::SmallVectorImpl<mlir::Type>& ret_types,
+      llvm::SmallVectorImpl<mlir::Value*>& ret_vals) {
     auto output_tensor_legalized_name = legalize_name(output.name());
-    if (frontend_symbols_.ContainKey(output_tensor_legalized_name)) {
-      mlir::OperationState result(
-	  UnknownLoc(), "frontend.output " + output_tensor_legalized_name);
-      mlir::Type elementType =
-          TypeConvert(output.type().tensor_type().elem_type());
-      result.addTypes(mlir::UnrankedTensorType::get(elementType));
-      result.addOperands(frontend_symbols_.GetTensorByOnnxName(
-	  output_tensor_legalized_name));
-      builder_.createOperation(result);
-    } else {
-      // TODO: Why not in the symbol table? something is wrong
-      assert(false && "output name not found");
-    }
+    assert(
+        frontend_symbols_.ContainKey(output_tensor_legalized_name) &&
+        "Output tensor not found");
+
+    auto tensor_val =
+        frontend_symbols_.GetTensorByOnnxName(output_tensor_legalized_name);
+    ret_types.emplace_back(tensor_val->getType());
+    ret_vals.push_back(tensor_val);
   }
 
-  void ImportGraph(onnx::GraphProto graph) {
+  void ImportGraph(
+      const onnx::GraphProto& graph, const std::string& name = "main") {
     // create a function for the graph
     // TODO:
     //  * get name and type for the function.
     //  * maintain a list of the defined graph
-    llvm::SmallVector<mlir::Type, 4> ret_types;
     llvm::SmallVector<mlir::Type, 4> arg_types;
-    auto func_type = builder_.getFunctionType(arg_types, ret_types);
-    auto llvmfunction = mlir::FuncOp::create(
-        UnknownLoc(), graph.name(), func_type, /* attrs = */ {});
-    auto& entryBlock = *llvmfunction.addEntryBlock();
-    builder_.setInsertionPointToStart(&entryBlock);
-    module_.push_back(llvmfunction);
+
+    // Import the input tensor types.
+    for (const auto& input : graph.input()) {
+      ImportInputTensorType(input, arg_types);
+    }
 
     // TODO: import the initializer
-    //
+    auto func_type = builder_.getFunctionType(arg_types, {});
+    auto main_func =
+        mlir::FuncOp::create(UnknownLoc(), name, func_type, /* attrs = */ {});
+    auto& entryBlock = *main_func.addEntryBlock();
 
-    // import the input tensors
-    for (auto input : graph.input()) {
-      ImportInputTensor(input);
+    builder_.setInsertionPointToStart(&entryBlock);
+    module_.push_back(main_func);
+
+    for (auto it : llvm::zip(graph.input(), entryBlock.getArguments())) {
+      ImportInputTensorSymbol(std::get<0>(it), std::get<1>(it));
     }
 
     // import nodes in the graph
     auto node = graph.node();
-    for (auto item : node) {
+    for (const auto& item : node) {
       ImportNode(item);
     }
 
-    // import the output tensors
-    for (auto output : graph.output()) {
-      ImportOutputTensor(output);
+    llvm::SmallVector<mlir::Type, 4> ret_types;
+    llvm::SmallVector<mlir::Value*, 4> ret_vals;
+    // Import the output tensors
+    for (const auto& output : graph.output()) {
+      ImportOutputTensor(output, ret_types, ret_vals);
     }
+
+    // Create a return operation to return all ONNX output tensors.
+    builder_.create<mlir::ReturnOp>(UnknownLoc(), ret_vals);
+    // Update main function signature to reflect types of newly imported
+    // output tensors.
+    func_type = builder_.getFunctionType(arg_types, ret_types);
+    main_func.setType(func_type);
   }
 
 };  // FrontendGenImpl class
-
 }  // namespace
 }  // namespace onnf
 
