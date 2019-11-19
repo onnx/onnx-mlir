@@ -39,9 +39,9 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext* ctx)
 //===----------------------------------------------------------------------===//
 // ONNX Operations
 //===----------------------------------------------------------------------===//
-
 // Add
-
+/// Infer the output shape of the ONNXAddOp. This method is required by the
+/// shape inference interface.
 void ONNXAddOp::inferShapes() {
   getResult()->setType(getOperand(0)->getType());
 }

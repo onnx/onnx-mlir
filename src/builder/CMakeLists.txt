@@ -1,5 +1,6 @@
 add_library(builder
         frontend_dialect_transformer.cpp
+        op_build_table.inc
         )
 
 target_include_directories(builder PRIVATE ${CMAKE_SOURCE_DIR})

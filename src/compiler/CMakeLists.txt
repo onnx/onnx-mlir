@@ -10,8 +10,9 @@ add_library(
         dialect/krnl/parser_helper.hpp
         pass/shape_inference_pass.cpp
         pass/shape_inference_interface.hpp
-        pass/onnx_combine.cpp
-        pass/passes.hpp)
+        pass/passes.hpp
+        dialect/onnx/onnxop.inc
+        pass/onnx_combine.cpp)
 
 # Include root src directory.
 target_include_directories(compiler PRIVATE ${ONNF_SRC_ROOT})

@@ -39,66 +39,36 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 // ONNX Operations
 //===----------------------------------------------------------------------===//
 
-// We define an ONNX operation for adding two tensors elementwise.
-def ONNXAddOp: ONNX_Op<"add",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX add operation";
-  let description = [{
+//the tablegen code onnxop.in is generated with gen_doc.py
+//clone and install onnx
+//   git clone --recursive https://github.com/onnx/onnx.git
+// set up env for anaconda3 and for DLC (BOOSTROOT, cmake, gcc ...)
+//   cd onnx
+//install onnx
+//  CC=gcc CXX=g++ pip install -e .
+//run the script
+//  python onnx/defs/gen_doc.py
+//result is in docs/onnxop.inc
+//current limitations:
+// 1. Attributes are not processed
+// 2. output type inference not implemented except Add
+// 3. Type Attribute: 'optional' and 'Variadic hetergeneous' are ignored
+// 4. type of string, complex64 and complex128 for input/output are ignored 
+// 5. unsigned int are treated as signed one
 
-    The "onnx.add" adds two tensors element-wise.
+include "dialect/onnx/onnxop.inc"
 
-  }];
+def ONNXFullGemmOp: ONNX_Op<"full_gemm",	
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {	
+  let summary = "ONNX general matrix multiply operation";	
+  let description = [{	
 
-  // TODO: AnyTensor might be too wide for ONNX and may need to be constrained
-  // to fewer valid types.
-  // In the ONNX spec:
-  //     T : tensor(uint32), tensor(uint64),
-  //         tensor(int32), tensor(int64),
-  //         tensor(float16), tensor(float), tensor(double)
-  //
-  let arguments = (ins AnyTensor:$lhs_in, AnyTensor:$rhs_in);
-  let results = (outs AnyTensor);
-  let hasCanonicalizer = 1;
-}
+    The "onnx.gemm" generic matrix multiplication with bias.	
 
-def ONNXMatMulOp: ONNX_Op<"matmul",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX matrix multiply operation";
-  let description = [{
+  }];	
 
-    The "onnx.mul" multiplies two matrices.
-
-  }];
-
-  let arguments = (ins AnyTypeOf<[F32Tensor, F64Tensor]>:$lhs_in,
-                       AnyTypeOf<[F32Tensor, F64Tensor]>:$rhs_in);
-  let results = (outs AnyTypeOf<[F32Tensor, F64Tensor]>);
-}
-
-def ONNXGemmOp: ONNX_Op<"gemm",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX general matrix multiply operation";
-  let description = [{
-
-    The "onnx.gemm" generic matrix multiplication with bias.
-
-  }];
-
-  let arguments = (ins Variadic<AnyTensor>:$inputs);
-  let results = (outs AnyTensor);
-}
-
-def ONNXFullGemmOp: ONNX_Op<"full_gemm",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX general matrix multiply operation";
-  let description = [{
-
-    The "onnx.gemm" generic matrix multiplication with bias.
-
-  }];
-
-  let arguments = (ins AnyTensor:$lhs_in, AnyTensor:$rhs_in, AnyTensor:$bias_in);
-  let results = (outs AnyTensor);
+  let arguments = (ins AnyTensor:$lhs_in, AnyTensor:$rhs_in, AnyTensor:$bias_in);	
+  let results = (outs AnyTensor);	
 }
 
 #endif // ONNX_OPS
