@@ -24,12 +24,15 @@ include "dialect/onnx/onnx.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+def HasOneUse : Constraint<CPred<"$0->hasOneUse()">>;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
 
-// onnx.add(onnx.matmult(%X, %Y), %Z) = onnx.gemm(%X, %Y, %Z)
-def MulAddToGemmOptPattern : Pat<(ONNXAddOp(ONNXMatMulOp $m1, $m2), $m3),
-                                 (ONNXFullGemmOp $m1, $m2, $m3)>;
+// onnx.add(onnx.matmul(%X, %Y), %Z) = onnx.full_gemm(%X, %Y, %Z)
+def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),
+                                 (ONNXFullGemmOp $m1, $m2, $m3),
+				 [(HasOneUse $res)]>;
 
 #endif // ONNX_COMBINE
