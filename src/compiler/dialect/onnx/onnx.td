@@ -58,17 +58,17 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 
 include "dialect/onnx/onnxop.inc"
 
-def ONNXFullGemmOp: ONNX_Op<"full_gemm",	
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {	
-  let summary = "ONNX general matrix multiply operation";	
-  let description = [{	
+def ONNXFullGemmOp: ONNX_Op<"FullGemm",
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX general matrix multiply operation";
+  let description = [{
 
-    The "onnx.gemm" generic matrix multiplication with bias.	
+    The "onnx.gemm" generic matrix multiplication with bias.
 
-  }];	
+  }];
 
-  let arguments = (ins AnyTensor:$lhs_in, AnyTensor:$rhs_in, AnyTensor:$bias_in);	
-  let results = (outs AnyTensor);	
+  let arguments = (ins AnyTensor:$lhs_in, AnyTensor:$rhs_in, AnyTensor:$bias_in);
+  let results = (outs AnyTensor);
 }
 
 #endif // ONNX_OPS

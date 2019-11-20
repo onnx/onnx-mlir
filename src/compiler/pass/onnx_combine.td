@@ -30,7 +30,7 @@ def HasOneUse : Constraint<CPred<"$0->hasOneUse()">>;
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
 
-// onnx.add(onnx.matmul(%X, %Y), %Z) = onnx.full_gemm(%X, %Y, %Z)
+// onnx.add(onnx.matmul(%X, %Y), %Z) = onnx.FullGemm(%X, %Y, %Z)
 def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),
                                  (ONNXFullGemmOp $m1, $m2, $m3),
 				 [(HasOneUse $res)]>;

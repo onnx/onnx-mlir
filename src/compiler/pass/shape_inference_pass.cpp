@@ -82,10 +82,10 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
     // All operations which do not return a ranked tensor type have dynamic
     // shaped outputs. All those operation need to implement the inferShape()
     // method.
-    if (op->getName().getStringRef() != "onnx.add" &&
-        op->getName().getStringRef() != "onnx.matmul" &&
-        op->getName().getStringRef() != "onnx.gemm" &&
-        op->getName().getStringRef() != "onnx.full_gemm")
+    if (op->getName().getStringRef() != "onnx.Add" &&
+        op->getName().getStringRef() != "onnx.MatMul" &&
+        op->getName().getStringRef() != "onnx.Gemm" &&
+        op->getName().getStringRef() != "onnx.FullGemm")
       return false;
     return llvm::any_of(op->getResultTypes(),
         [](Type result_type) { return !result_type.isa<RankedTensorType>(); });
