@@ -264,7 +264,7 @@ def  collect_types(schema, input) :
 
 def gen_schema(schema) :
     ShapeInferenceList=['Add', 'MatMul', 'Gemm']
-    CanonicalList=['Add']
+    CanonicalList=['Add', 'Identity']
     line_indent = '  '
 
     #s = 'def ONNX'+schema.name+str(schema.since_version)+'Op:ONNX_Op<"'+schema.name+'", \n'

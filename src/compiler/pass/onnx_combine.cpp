@@ -28,3 +28,8 @@ void ONNXAddOp::getCanonicalizationPatterns(
     OwningRewritePatternList& results, MLIRContext* context) {
   results.insert<MulAddToGemmOptPattern>(context);
 }
+/// on the ONNXIdentityOp.
+void ONNXIdentityOp::getCanonicalizationPatterns(
+    OwningRewritePatternList& results, MLIRContext* context) {
+  results.insert<IdentityEliminationPattern>(context);
+}

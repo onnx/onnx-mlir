@@ -35,4 +35,8 @@ def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),
                                  (ONNXFullGemmOp $m1, $m2, $m3),
 				 [(HasOneUse $res)]>;
 
+// ONNX_Op (onnx.Identity (%X)) = ONNX_Op (%X)
+def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
+				     (replaceWithValue $arg)>;
+
 #endif // ONNX_COMBINE
