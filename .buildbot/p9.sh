@@ -1,10 +1,14 @@
 #!/bin/bash
 
+# Exit on error:
+set -e
+
 # Check for required env variables ONNF_DEP_DIR, LLVM_PROJECT_ROOT
 if [[ -z "${ONNF_DEP_DIR}" ]]; then
   echo "ONNF_DEP_DIR env var is missing."
   exit 1
 fi
+
 if [[ -z "${LLVM_PROJECT_ROOT}" ]]; then
   echo "LLVM_PROJECT_ROOT env var is missing."
   exit 1

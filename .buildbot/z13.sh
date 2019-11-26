@@ -1,8 +1,16 @@
 #!/bin/bash
 
+# Exit on error:
+set -e
+
 # Check for required env variables JAVA_HOME
 if [[ -z "${JAVA_HOME}" ]]; then
   echo "JAVA_HOME env var is missing."
+  exit 1
+fi
+
+if [[ -z "${LLVM_PROJECT_ROOT}" ]]; then
+  echo "LLVM_PROJECT_ROOT env var is missing."
   exit 1
 fi
 
@@ -22,13 +30,13 @@ export BUILD_PATH=$(pwd)
 export CPATH=$(pwd)/../runtime/
 
 mkdir build && cd build
-cmake -DCMAKE_C_COMPILER=$CC \
-      -DCMAKE_CXX_COMPILER=$CXX \
-      -DCMAKE_VERBOSE_MAKEFILE=ON \
-      -DCMAKE_INSTALL_PREFIX=$INSTALL_PATH \
-      -DONNF_ENABLE_NODE_TEST_JAVA=ON \
-      -DONNF_ENABLE_NODE_TEST_JNI=ON \
-      -DONNF_ENABLE_NODE_TEST_CPP=OFF \
+cmake -DCMAKE_C_COMPILER=$CC                  \
+      -DCMAKE_CXX_COMPILER=$CXX               \
+      -DCMAKE_VERBOSE_MAKEFILE=ON             \
+      -DCMAKE_INSTALL_PREFIX=$INSTALL_PATH    \
+      -DONNF_ENABLE_NODE_TEST_JAVA=ON         \
+      -DONNF_ENABLE_NODE_TEST_JNI=ON          \
+      -DONNF_ENABLE_NODE_TEST_CPP=OFF         \
       -DONNF_TARGET_ARCH=z13 ..
 
 make -j "$(nproc)" install
