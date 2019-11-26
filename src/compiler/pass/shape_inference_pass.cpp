@@ -71,6 +71,12 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
           << op_worklist.size() << " operations couldn't be inferred\n";
       signalPassFailure();
     }
+
+    if (auto terminator_op = f.getBody().back().getTerminator()) {
+      auto results = terminator_op->getOperandTypes();
+      f.setType(FunctionType::get(f.getType().getInputs(),
+                std::vector<Type>(results.begin(), results.end()), f.getContext()));
+    }
   }
 
   /*!

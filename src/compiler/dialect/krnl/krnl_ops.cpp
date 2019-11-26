@@ -176,7 +176,7 @@ void KrnlIterateOp::build(Builder* builder, OperationState& result,
   result.addAttribute(KrnlIterateOp::getBoundTypesAttrName(),
       builder->getI32ArrayAttr(bound_types));
 
-  // Create a region and a block for the body. The arguments of the region is
+  // Create a region and a block for the body. The arguments of the region are
   // the loop induction variables; there can be multiple induction variables
   // associated with the same krnl.iterate operation.
   Region* bodyRegion = result.addRegion();
@@ -207,16 +207,16 @@ void print(OpAsmPrinter& p, KrnlIterateOp& op) {
   auto print_bound = [&](ArrayRef<Attribute> bound_types, size_t idx) {
     IntegerAttr type = bound_types[idx].dyn_cast<IntegerAttr>();
     if (type.getValue().getSExtValue() == 0) {
-      // Bound is an operand.
-      p.printOperand(*next_operand_bound);
-      next_operand_bound = std::next(next_operand_bound);
-    } else {
       // Bound is an integer attribute.
       auto bound_idx = idx / 2;
       auto is_ub = idx % 2;
       IntegerAttr bound = op.getAttrOfType<IntegerAttr>(
           KrnlIterateOp::getBoundAttrName(bound_idx, is_ub));
       p << bound.getValue().getSExtValue();
+    } else {
+      // Bound is an operand.
+      p.printOperand(*next_operand_bound);
+      next_operand_bound = std::next(next_operand_bound);
     }
   };
 

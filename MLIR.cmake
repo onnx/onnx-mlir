@@ -44,89 +44,95 @@ set(
   )
 include_directories(${MLIR_INCLUDE_PATHS})
 
-find_library(MLIR_LIB_ANALYSIS
-             NAMES MLIRAnalysis
-             PATHS ${LLVM_PROJECT_LIB}
-             NO_DEFAULT_PATH)
-
-find_library(MLIR_LIB_IR NAMES MLIRIR PATHS ${LLVM_PROJECT_LIB} NO_DEFAULT_PATH)
-
-find_library(MLIR_LIB_PARSER
-             NAMES MLIRParser
-             PATHS ${LLVM_PROJECT_LIB}
-             NO_DEFAULT_PATH)
-
-find_library(MLIR_LIB_PASS
-             NAMES MLIRPass
-             PATHS ${LLVM_PROJECT_LIB}
-             NO_DEFAULT_PATH)
-
-find_library(MLIR_LIB_TRANSFORMS
-             NAMES MLIRTransforms
-             PATHS ${LLVM_PROJECT_LIB}
-             NO_DEFAULT_PATH)
-
-find_library(MLIR_LIB_VECTOR_OPS
-             NAMES MLIRVectorOps
-             PATHS ${LLVM_PROJECT_LIB}
-             NO_DEFAULT_PATH)
-
-find_library(MLIR_LIB_SUPPORT
-             NAMES MLIRSupport
-             PATHS ${LLVM_PROJECT_LIB}
-             NO_DEFAULT_PATH)
-
-find_library(MLIR_LIB_STANDARD_OPS
-             NAMES MLIRStandardOps
-             PATHS ${LLVM_PROJECT_LIB}
-             NO_DEFAULT_PATH)
-
-find_library(MLIR_LIB_OPT_MAIN
-             NAMES MLIROptMain
-             PATHS ${LLVM_PROJECT_LIB}
-             NO_DEFAULT_PATH)
-
-find_library(MLIR_LLVM_IR
-             NAMES MLIRLLVMIR
-             PATHS ${LLVM_PROJECT_LIB}
-             NO_DEFAULT_PATH)
-
-find_library(MLIR_LIB_TRANSFORM_UTILS
-             NAMES MLIRTransformUtils
-             PATHS ${LLVM_PROJECT_LIB}
-             NO_DEFAULT_PATH)
-
-find_library(LLVM_LIB_SUPPORT
-             NAMES LLVMSupport
-             PATHS ${LLVM_PROJECT_LIB}
-             NO_DEFAULT_PATH)
-
 # Threading libraries required due to parallel pass execution.
 find_package(Threads REQUIRED)
 
-set(MLIRLIBS
-    ${MLIR_LIB_ANALYSIS}
-    ${MLIR_LIB_IR}
-    ${MLIR_LIB_PARSER}
-    ${MLIR_LIB_PASS}
-    ${MLIR_LIB_TRANSFORMS}
-    ${MLIR_LIB_VECTOR_OPS}
-    ${MLIR_LIB_STANDARD_OPS}
-    ${MLIR_LIB_OPT_MAIN}
-    ${MLIR_LIB_SUPPORT}
-    ${MLIR_LIB_TRANSFORM_UTILS}
-    ${MLIR_LIB_ANALYSIS}
-    ${MLIR_LIB_IR}
-    ${MLIR_LIB_PARSER}
-    ${MLIR_LIB_PASS}
-    ${MLIR_LIB_TRANSFORMS}
-    ${MLIR_LIB_VECTOR_OPS}
-    ${MLIR_LIB_STANDARD_OPS}
-    ${MLIR_LIB_OPT_MAIN}
-    ${MLIR_LIB_SUPPORT}
-    ${MLIR_LIB_TRANSFORM_UTILS}
-    ${LLVM_LIB_SUPPORT}
-    Threads::Threads)
+function(find_mlir_lib lib)
+  find_library(${lib}
+               NAMES ${lib}
+               PATHS ${LLVM_PROJECT_LIB}
+               NO_DEFAULT_PATH)
+endfunction(find_mlir_lib)
+
+find_mlir_lib(MLIRAffineOps)
+find_mlir_lib(MLIRAffineToStandard)
+find_mlir_lib(MLIRAnalysis)
+find_mlir_lib(MLIRExecutionEngine)
+find_mlir_lib(MLIRIR)
+find_mlir_lib(MLIRLLVMIR)
+find_mlir_lib(MLIRLoopToStandard)
+find_mlir_lib(MLIRParser)
+find_mlir_lib(MLIRPass)
+find_mlir_lib(MLIRStandardOps)
+find_mlir_lib(MLIRStandardToLLVM)
+find_mlir_lib(MLIRTargetLLVMIR)
+find_mlir_lib(MLIRTransforms)
+find_mlir_lib(MLIRTransforms)
+find_mlir_lib(MLIRTransformUtils)
+find_mlir_lib(MLIRSupport)
+find_mlir_lib(MLIROptMain)
+
+find_mlir_lib(LLVMCore)
+find_mlir_lib(LLVMSupport)
+find_mlir_lib(LLVMAsmParser)
+find_mlir_lib(LLVMBinaryFormat)
+find_mlir_lib(LLVMRemarks)
+find_mlir_lib(LLVMIRReader)
+find_mlir_lib(LLVMTransformUtils)
+find_mlir_lib(LLVMBitstreamReader)
+
+set(MLIRLibsOnce
+        MLIRAffineOps
+        MLIRAffineToStandard
+        MLIRAnalysis
+        MLIRExecutionEngine
+        MLIRIR
+        MLIRLLVMIR
+        MLIRLoopToStandard
+        MLIRParser
+        MLIRPass
+        MLIRStandardOps
+        MLIRStandardToLLVM
+        MLIRTargetLLVMIR
+        MLIRTransforms
+        MLIRAffineOps
+        MLIRAffineToStandard
+        MLIRAnalysis
+        MLIRExecutionEngine
+        MLIRIR
+        MLIRLLVMIR
+        MLIRLoopToStandard
+        MLIRParser
+        MLIRPass
+        MLIRStandardOps
+        MLIRStandardToLLVM
+        MLIRTargetLLVMIR
+        MLIRTransforms
+        MLIRTransformUtils
+        MLIRLoopOps
+        MLIRSupport
+        MLIROptMain
+        LLVMCore
+        LLVMSupport
+        LLVMAsmParser
+        LLVMIRReader
+        LLVMTransformUtils
+        LLVMBinaryFormat
+        LLVMRemarks
+        LLVMBitstreamReader)
+
+set(MLIRLibs
+        ${MLIRLibsOnce}
+        ${MLIRLibsOnce}
+        Threads::Threads)
+
+set(MLIRWholeArchiveLibs
+        MLIRAffineToStandard
+        MLIRAffineOps
+        MLIRLLVMIR
+        MLIRStandardOps
+        MLIRStandardToLLVM
+        MLIRLoopToStandard)
 
 function(whole_archive_link target lib_dir)
   get_property(link_flags TARGET ${target} PROPERTY LINK_FLAGS)
@@ -155,6 +161,9 @@ function(whole_archive_link_mlir target)
 endfunction(whole_archive_link_mlir)
 
 function(whole_archive_link_onnf target)
+  foreach(LIB ${ARGN})
+    add_dependencies(${target} ${LIB})
+  endforeach(LIB)
   whole_archive_link(${target} ${CMAKE_BINARY_DIR}/lib ${ARGN})
 endfunction(whole_archive_link_onnf)
 

@@ -46,3 +46,5 @@ add_subdirectory(src/builder)
 add_subdirectory(src/compiler)
 add_subdirectory(src)
 
+add_subdirectory(test)
+

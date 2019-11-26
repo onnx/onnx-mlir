@@ -17,7 +17,8 @@ class Pass;
 
 std::unique_ptr<Pass> createShapeInferencePass();
 
-// TODO: Add pass for lowering to kernel IR.
+/// Add pass for lowering to Krnl IR.
+std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 
 // TODO: Add pass for lowering to LLVM IR.
 

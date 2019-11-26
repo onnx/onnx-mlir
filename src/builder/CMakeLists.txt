@@ -5,7 +5,8 @@ add_library(builder
 
 target_include_directories(builder PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(builder PRIVATE ${CMAKE_BINARY_DIR})
-target_link_libraries(builder compiler onnx ${MLIRLIBS} curses)
+
+target_link_libraries(builder compiler onnx ${MLIRLibs} curses)
 target_include_directories(builder
                            PRIVATE
                            ${CMAKE_SOURCE_DIR}/third_party/onnx

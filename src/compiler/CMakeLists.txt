@@ -10,9 +10,10 @@ add_library(
         dialect/krnl/parser_helper.hpp
         pass/shape_inference_pass.cpp
         pass/shape_inference_interface.hpp
-        pass/passes.hpp
         dialect/onnx/onnxop.inc
-        pass/onnx_combine.cpp)
+        pass/onnx_combine.cpp
+        pass/lower_frontend_to_krnl.cpp
+        pass/passes.hpp)
 
 # Include root src directory.
 target_include_directories(compiler PRIVATE ${ONNF_SRC_ROOT})
@@ -41,7 +42,7 @@ target_link_libraries(compiler
         ${Boost_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT}
         ${CMAKE_DL_LIBS}
-        ${MLIRLIBS}
+        ${MLIRLibs}
         curses)
 
 add_subdirectory(tool)

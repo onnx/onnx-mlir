@@ -124,6 +124,7 @@ int main(int ac, char* av[]) {
   mlir::PassManager pm(&context);
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::createLowerToKrnlPass());
   pm.run(*module);
 
   return 0;
