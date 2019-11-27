@@ -45,8 +45,6 @@ target_link_libraries(compiler
         ${MLIRLibs}
         curses)
 
-add_subdirectory(tool)
-
 set(LLVM_TARGET_DEFINITIONS pass/shape_inference_interface.td)
 onnf_tablegen(shape_inference.hpp.inc -gen-op-interface-decls)
 onnf_tablegen(shape_inference.cpp.inc -gen-op-interface-defs)
@@ -69,4 +67,19 @@ onnf_tablegen(krnl.hpp.inc -gen-op-decls)
 onnf_tablegen(krnl.cpp.inc -gen-op-defs)
 add_public_tablegen_target(gen_krnl_ops)
 add_dependencies(compiler gen_krnl_ops)
-add_dependencies(onnf-opt gen_krnl_ops)
+
+add_library(onnf_shape_inference pass/shape_inference_pass.cpp)
+target_include_directories(onnf_shape_inference
+                           PRIVATE ${ONNF_SRC_ROOT} ${ONNF_BIN_ROOT}
+                                   ${ONNF_SRC_ROOT})
+target_link_libraries(onnf_shape_inference ${MLIRLibs})
+add_dependencies(onnf_shape_inference gen_krnl_ops)
+
+add_library(onnf_lower_frontend pass/lower_frontend_to_krnl.cpp)
+target_include_directories(onnf_lower_frontend
+                           PRIVATE ${ONNF_SRC_ROOT} ${ONNF_BIN_ROOT}
+                                   ${ONNF_SRC_ROOT})
+target_link_libraries(onnf_lower_frontend ${MLIRLibs})
+add_dependencies(onnf_lower_frontend gen_krnl_ops)
+
+add_subdirectory(tool)

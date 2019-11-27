@@ -67,10 +67,10 @@ find_mlir_lib(MLIRStandardOps)
 find_mlir_lib(MLIRStandardToLLVM)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransforms)
-find_mlir_lib(MLIRTransforms)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRSupport)
 find_mlir_lib(MLIROptMain)
+find_mlir_lib(MLIRVectorOps)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -132,7 +132,9 @@ set(MLIRWholeArchiveLibs
         MLIRLLVMIR
         MLIRStandardOps
         MLIRStandardToLLVM
-        MLIRLoopToStandard)
+        MLIRTransforms
+        MLIRLoopToStandard
+        MLIRVectorOps)
 
 function(whole_archive_link target lib_dir)
   get_property(link_flags TARGET ${target} PROPERTY LINK_FLAGS)

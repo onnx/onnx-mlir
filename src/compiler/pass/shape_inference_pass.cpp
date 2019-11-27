@@ -105,3 +105,6 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
 std::unique_ptr<mlir::Pass> mlir::createShapeInferencePass() {
   return std::make_unique<ShapeInferencePass>();
 }
+
+static PassRegistration<ShapeInferencePass> pass(
+     "shape-inference", "Shape inference for frontend dialects.");
