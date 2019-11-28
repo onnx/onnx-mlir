@@ -44,8 +44,9 @@ static MemRefType convertTensorToMemRef(TensorType type) {
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
-static Value* insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter& rewriter, Value* oldMemRef = nullptr) {
+static Value* insertAllocAndDealloc(
+    MemRefType type, Location loc, PatternRewriter& rewriter,
+    bool insertDealloc, Value *oldMemRef = nullptr) {
   // Put together alloc operands for any dynamic dimensions of the memref.
   AllocOp alloc;
   if (oldMemRef) {
@@ -54,7 +55,6 @@ static Value* insertAllocAndDealloc(MemRefType type, Location loc,
     for (int i = 0; i < memRefShape.size(); ++i)
       if (memRefShape[i] < 0)
         allocOperands.push_back(rewriter.create<DimOp>(loc, oldMemRef, i));
-
     alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
   } else {
     alloc = rewriter.create<AllocOp>(loc, type);
@@ -66,7 +66,34 @@ static Value* insertAllocAndDealloc(MemRefType type, Location loc,
   if (hasAllConstantDimensions(type))
     alloc.getOperation()->moveBefore(&parentBlock->front());
 
+  if (insertDealloc) {
+    auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+    dealloc.getOperation()->moveBefore(&parentBlock->back());
+  }
+
   return alloc;
+}
+
+// Determine if current function returns the result value of the
+// current op being lowered. If it does then dealloc should not be
+// inserted.
+static bool checkInsertDealloc(Operation *currentOp) {
+  auto parentBlock = currentOp->getBlock();
+
+  bool insertDealloc = true;
+  parentBlock->walk([&insertDealloc, currentOp](ReturnOp op) {
+    assert(currentOp->getNumResults() < 2 &&
+        "No more than one result supported (for now).");
+    // If there is at least one result to investigate.
+    if (currentOp->getNumResults() > 0) {
+      auto result = currentOp->getResult(0);
+      for(auto operand : op.getOperands())
+        if (operand == result)
+          insertDealloc = false;
+    }
+  });
+
+  return insertDealloc;
 }
 
 namespace {
@@ -95,11 +122,15 @@ struct ONNXAddOpLowering : public ConversionPattern {
     // dimensions with the result at this pre-optimization phase.
     // TODO: verify that dimensions match.
     // TODO: can the dimension of the result differ after optimizations?
-    Value* alloc;
+    Value *alloc;
+    bool insertDealloc = checkInsertDealloc(op);
+
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter);
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc);
     else
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, operands[0]);
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, operands[0]);
 
     // Number of loops
     auto memRefShape = memRefType.getShape();
