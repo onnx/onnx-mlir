@@ -17,9 +17,10 @@ class Pass;
 
 std::unique_ptr<Pass> createShapeInferencePass();
 
-/// Pass for lowering frontend dialects to Krnl IR dialect.
-std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
+/// Add pass for lowering to Krnl IR.
+std::unique_ptr<Pass> createLowerToKrnlPass();
 
-// TODO: Add pass for lowering to LLVM IR.
+/// Pass for lowering frontend dialects to Krnl IR dialect.
+std::unique_ptr<Pass> createLowerKrnlPass();
 
 }  // end namespace mlir

@@ -28,6 +28,7 @@
 
 #include <boost/program_options.hpp>
 
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/SourceMgr.h"
@@ -38,6 +39,8 @@
 #include "src/compiler/pass/passes.hpp"
 
 #include "mlir/Analysis/Verifier.h"
+#include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
+#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/IR/MLIRContext.h"
@@ -125,7 +128,20 @@ int main(int ac, char* av[]) {
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createLowerToKrnlPass());
+  pm.addPass(mlir::createLowerKrnlPass());
+  pm.addPass(mlir::createLowerAffinePass());
+  pm.addPass(mlir::createLowerToCFGPass());
+  pm.addPass(mlir::createLowerToLLVMPass());
+  pm.addPass(mlir::createCanonicalizerPass());
   pm.run(*module);
+
+  // Write LLVM bitcode to disk.
+  std::error_code EC;
+  llvm::raw_fd_ostream moduleBitcodeStream(
+      "model.bc", EC, llvm::sys::fs::F_None);
+  llvm::WriteBitcodeToFile(
+      *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
+  moduleBitcodeStream.flush();
 
   return 0;
 }

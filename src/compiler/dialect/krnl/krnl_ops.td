@@ -8,6 +8,7 @@
 
 include "mlir/IR/OpBase.td"
 
+
 def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "";
@@ -119,17 +120,14 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator]> {
 
   let builders = [
     OpBuilder<"Builder *builder, OperationState &result, "
-              "ArrayRef<Value*> input_loops, ArrayRef<Value*> optimized_loops, "
-              "ArrayRef<Value*> operand_bounds, ArrayRef<int64_t> const_bounds, "
-              "ArrayRef<int> bound_types">
+              "KrnlIterateOperandPack operandPack">
   ];
 
   let extraClassDeclaration = [{
-
-    // In krnl.iterate operation, three types of SSA values are stored:
+    // In krnl.iterate operation, operands are stored as such
     // - Optimized krnl.loops.
-    // - Input krnl.loops.
-    // - SSA value based induction variable bound (parametric bound).
+    // - Input krnl.loops and their operand bounds. (TODO(Tian) explain better how we store them).
+
     // We record the number of optimized and input loops to separate these three
     // group of operands out.
     static StringRef getNumOptimizedLoopsAttrName() { return "num_optimized_loops"; }
@@ -143,32 +141,8 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator]> {
       return num_optimized_loops;
     }
 
-    static StringRef getNumInputLoopsAttrName() { return "num_input_loops"; }
-
-    int64_t getNumInputLoops() {
-      auto num_loops =
-        getAttrOfType<IntegerAttr>(
-                getNumInputLoopsAttrName())
-              .getValue()
-              .getSExtValue();
-      return num_loops;
-    }
-
-    // Constant bounds are stored here as a list attribute.
-    static StringRef getConstantBoundsAttrName() { return "constant_bounds"; }
-
-    // Store type of each bound as three types:
-    // - 0 = constant attribute.
-    // - 1 = operand type.
-    // - 2 = affine maps (TODO).
-    static StringRef getBoundTypesAttrName() { return "bound_types"; }
-
-    // Get dynamic attribute name for the i-th lower and upper bound.
-    static std::string getBoundAttrName(int64_t i, bool is_ub) {
-      std::string bound_type = is_ub ? "_ub" : "_lb";
-      std::string bound_idx = std::to_string(i);
-      return "__bound_" + bound_idx + bound_type;
-    }
+    // Get name of the attribute for storing bound represented using affine maps.
+    static StringRef getBoundsAttrName() { return "bounds"; }
     }];
 
   let printer = [{ return ::print(p, *this); }];

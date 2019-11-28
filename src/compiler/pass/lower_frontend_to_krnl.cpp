@@ -16,6 +16,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 
+#include "src/compiler/dialect/krnl/krnl_helper.hpp"
 #include "src/compiler/dialect/krnl/krnl_ops.hpp"
 #include "src/compiler/dialect/onnx/onnx_ops.hpp"
 
@@ -43,13 +44,12 @@ static MemRefType convertTensorToMemRef(TensorType type) {
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
-static Value* insertAllocAndDealloc(
-    MemRefType type, Location loc, PatternRewriter& rewriter,
-    Value *oldMemRef = nullptr) {
+static Value* insertAllocAndDealloc(MemRefType type, Location loc,
+    PatternRewriter& rewriter, Value* oldMemRef = nullptr) {
   // Put together alloc operands for any dynamic dimensions of the memref.
   AllocOp alloc;
   if (oldMemRef) {
-    SmallVector<Value *, 4> allocOperands;
+    SmallVector<Value*, 4> allocOperands;
     auto memRefShape = type.getShape();
     for (int i = 0; i < memRefShape.size(); ++i)
       if (memRefShape[i] < 0)
@@ -95,7 +95,7 @@ struct ONNXAddOpLowering : public ConversionPattern {
     // dimensions with the result at this pre-optimization phase.
     // TODO: verify that dimensions match.
     // TODO: can the dimension of the result differ after optimizations?
-    Value *alloc;
+    Value* alloc;
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter);
     else
@@ -122,33 +122,22 @@ struct ONNXAddOpLowering : public ConversionPattern {
     }
     Block& optimizationBlock = optimizedLoopsOp.region().front();
 
+    KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
     // Iterate over the loop nest.
     // TODO (Tian): move this logic inside KrnlIterateOp. Pass MemRefShape
     // to KrnlIterateOp instead.
-    SmallVector<Value*, 8> operandBounds;
-    SmallVector<int64_t, 8> constBounds;
-    SmallVector<int, 16> boundTypes;
     for (int i = 0; i < rank; ++i) {
       if (memRefShape[i] < 0) {
-        // This is a dynamic value, hence use operands.
-        // Lower bound
-        constBounds.push_back(0);
-        boundTypes.push_back(0);
-        // Upper bound
-        operandBounds.push_back(
+        pack.pushConstantBound(0);
+        pack.pushOperandBound(
             rewriter.create<DimOp>(loc, operands[0], i).getResult());
-        boundTypes.push_back(1);
       } else {
-        // Lower bound
-        constBounds.push_back(0);
-        boundTypes.push_back(0);
-        // Upper bound
-        constBounds.push_back(memRefShape[i]);
-        boundTypes.push_back(0);
+        pack.pushConstantBound(0);
+        pack.pushConstantBound(memRefShape[i]);
       }
     }
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, originalLoops,
-        optimizedLoops, operandBounds, constBounds, boundTypes);
+
+    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
     Block& iterationBlock = iterateOp.bodyRegion().front();
 
     // Now perform the insertions into the body of the
@@ -169,14 +158,12 @@ struct ONNXAddOpLowering : public ConversionPattern {
     SmallVector<Value*, 4> loopIVs;
     for (auto arg : iterationBlock.getArguments())
       loopIVs.push_back(arg);
-    auto loadedFirstVal =
-        rewriter.create<LoadOp>(loc, operands[0], loopIVs);
-    auto loadedSecondVal =
-        rewriter.create<LoadOp>(loc, operands[1], loopIVs);
+    auto loadedFirstVal = rewriter.create<LoadOp>(loc, operands[0], loopIVs);
+    auto loadedSecondVal = rewriter.create<LoadOp>(loc, operands[1], loopIVs);
 
     // TODO: Choose type of the Add for now use the Float Add.
-    auto addOpResult = rewriter.create<AddFOp>(
-        loc, loadedFirstVal, loadedSecondVal);
+    auto addOpResult =
+        rewriter.create<AddFOp>(loc, loadedFirstVal, loadedSecondVal);
 
     // Store result in the resulting array.
     rewriter.create<StoreOp>(loc, addOpResult, alloc, loopIVs);
@@ -209,8 +196,8 @@ struct TensorTypeConverter : public TypeConverter {
   /// inputs. Once unranked results can be handled gracefully this
   /// override needs to be removed in favour of the original MLIR one.]
   bool isSignatureLegal(FunctionType funcType) {
-    return llvm::all_of(funcType.getInputs(),
-        [this](Type type) { return isLegal(type); });
+    return llvm::all_of(
+        funcType.getInputs(), [this](Type type) { return isLegal(type); });
   }
 };
 
@@ -272,8 +259,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
   // operations were not converted successfully.
-  if (failed(applyPartialConversion(
-          module, target, patterns)))
+  if (failed(applyPartialConversion(module, target, patterns)))
     signalPassFailure();
 }
 

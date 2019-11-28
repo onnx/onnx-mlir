@@ -18,6 +18,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 #TODO(eventually enable the following)
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+include(MLIR.cmake)
+
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/benchmark)
 add_subdirectory(third_party/pybind11)
@@ -41,7 +43,6 @@ if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
-include(MLIR.cmake)
 add_subdirectory(src/builder)
 add_subdirectory(src/compiler)
 add_subdirectory(src)

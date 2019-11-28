@@ -5,7 +5,7 @@ if(DEFINED ENV{LLVM_SRC})
     message(STATUS "LLVM_SRC " ${LLVM_SRC})
   else()
     message(FATAL_ERROR "The path specified by LLVM_SRC does not exist: "
-                        ${LLVM_SRC})
+            ${LLVM_SRC})
   endif()
 else()
   message(FATAL_ERROR "env variable LLVM_SRC not set")
@@ -18,7 +18,7 @@ if(DEFINED ENV{LLVM_BUILD})
     message(STATUS "LLVM_BUILD " ${LLVM_BUILD})
   else()
     message(FATAL_ERROR "The path specified by LLVM_BUILD does not exist: "
-                        ${LLVM_BUILD})
+            ${LLVM_BUILD})
   endif()
 else()
   message(FATAL_ERROR "env variable LLVM_BUILD not set")
@@ -39,9 +39,9 @@ set(ONNF_LIT_TEST_SRC_DIR ${CMAKE_SOURCE_DIR}/test/mlir)
 set(ONNF_LIT_TEST_BUILD_DIR ${CMAKE_BINARY_DIR}/test/mlir)
 
 set(
-  MLIR_INCLUDE_PATHS
-  ${LLVM_SRC_INCLUDE_PATH};${LLVM_BIN_INCLUDE_PATH};${MLIR_SRC_INCLUDE_PATH};${MLIR_BIN_INCLUDE_PATH}
-  )
+        MLIR_INCLUDE_PATHS
+        ${LLVM_SRC_INCLUDE_PATH};${LLVM_BIN_INCLUDE_PATH};${MLIR_SRC_INCLUDE_PATH};${MLIR_BIN_INCLUDE_PATH}
+)
 include_directories(${MLIR_INCLUDE_PATHS})
 
 # Threading libraries required due to parallel pass execution.
@@ -49,9 +49,9 @@ find_package(Threads REQUIRED)
 
 function(find_mlir_lib lib)
   find_library(${lib}
-               NAMES ${lib}
-               PATHS ${LLVM_PROJECT_LIB}
-               NO_DEFAULT_PATH)
+          NAMES ${lib}
+          PATHS ${LLVM_PROJECT_LIB}
+          NO_DEFAULT_PATH)
 endfunction(find_mlir_lib)
 
 find_mlir_lib(MLIRAffineOps)
@@ -70,6 +70,10 @@ find_mlir_lib(MLIRTransforms)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRSupport)
 find_mlir_lib(MLIROptMain)
+find_mlir_lib(MLIRTargetLLVMIRModuleTranslation)
+find_mlir_lib(MLIRTargetLLVMIR)
+find_mlir_lib(MLIRTransformUtils)
+find_mlir_lib(MLIRTranslation)
 find_mlir_lib(MLIRVectorOps)
 
 find_mlir_lib(LLVMCore)
@@ -80,46 +84,52 @@ find_mlir_lib(LLVMRemarks)
 find_mlir_lib(LLVMIRReader)
 find_mlir_lib(LLVMTransformUtils)
 find_mlir_lib(LLVMBitstreamReader)
+find_mlir_lib(LLVMAnalysis)
+find_mlir_lib(LLVMBitWriter)
+find_mlir_lib(LLVMBitReader)
+find_mlir_lib(LLVMMC)
+find_mlir_lib(LLVMMCParser)
+find_mlir_lib(LLVMObject)
+find_mlir_lib(LLVMProfileData)
+find_mlir_lib(LLVMDemangle)
+
 
 set(MLIRLibsOnce
+        LLVMAnalysis
+        LLVMAsmParser
+        LLVMBinaryFormat
+        LLVMBitReader
+        LLVMBitstreamReader
+        LLVMBitWriter
+        LLVMCore
+        LLVMIRReader
+        LLVMMC
+        LLVMMCParser
+        LLVMObject
+        LLVMRemarks
+        LLVMSupport
+        LLVMTransformUtils
+        LLVMProfileData
+        LLVMDemangle
         MLIRAffineOps
         MLIRAffineToStandard
         MLIRAnalysis
         MLIRExecutionEngine
         MLIRIR
         MLIRLLVMIR
+        MLIRLoopOps
         MLIRLoopToStandard
+        MLIROptMain
         MLIRParser
         MLIRPass
         MLIRStandardOps
         MLIRStandardToLLVM
+        MLIRSupport
         MLIRTargetLLVMIR
-        MLIRTransforms
-        MLIRAffineOps
-        MLIRAffineToStandard
-        MLIRAnalysis
-        MLIRExecutionEngine
-        MLIRIR
-        MLIRLLVMIR
-        MLIRLoopToStandard
-        MLIRParser
-        MLIRPass
-        MLIRStandardOps
-        MLIRStandardToLLVM
-        MLIRTargetLLVMIR
+        MLIRTargetLLVMIRModuleTranslation
         MLIRTransforms
         MLIRTransformUtils
-        MLIRLoopOps
-        MLIRSupport
-        MLIROptMain
-        LLVMCore
-        LLVMSupport
-        LLVMAsmParser
-        LLVMIRReader
-        LLVMTransformUtils
-        LLVMBinaryFormat
-        LLVMRemarks
-        LLVMBitstreamReader)
+        MLIRTranslation)
 
 set(MLIRLibs
         ${MLIRLibsOnce}
@@ -142,7 +152,7 @@ function(whole_archive_link target lib_dir)
     set(link_flags "${link_flags} -L${lib_dir} ")
     foreach(LIB ${ARGN})
       string(CONCAT link_flags ${link_flags}
-                    "-Wl,-force_load ${lib_dir}/lib${LIB}.a ")
+              "-Wl,-force_load ${lib_dir}/lib${LIB}.a ")
     endforeach(LIB)
   elseif(MSVC)
     foreach(LIB ${ARGN})
@@ -170,20 +180,20 @@ function(whole_archive_link_onnf target)
 endfunction(whole_archive_link_onnf)
 
 set(LLVM_CMAKE_DIR
-    "${LLVM_BUILD}/lib/cmake/llvm"
-    CACHE PATH "Path to LLVM cmake modules")
+        "${LLVM_BUILD}/lib/cmake/llvm"
+        CACHE PATH "Path to LLVM cmake modules")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
 include(TableGen)
 
 function(onnf_tablegen ofn)
   tablegen(MLIR
-           ${ARGV}
-           "-I${MLIR_SRC_INCLUDE_PATH}"
-           "-I${MLIR_BIN_INCLUDE_PATH}")
+          ${ARGV}
+          "-I${MLIR_SRC_INCLUDE_PATH}"
+          "-I${MLIR_BIN_INCLUDE_PATH}")
   set(TABLEGEN_OUTPUT
-      ${TABLEGEN_OUTPUT} ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
-      PARENT_SCOPE)
+          ${TABLEGEN_OUTPUT} ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
+          PARENT_SCOPE)
 endfunction()
 
 # Import the pre-built mlir TableGen as an imported exetuable. It is required by
@@ -191,5 +201,5 @@ endfunction()
 # table gen utility itself can be detected and cause re-compilation of .td file.
 add_executable(mlir-tblgen IMPORTED)
 set_property(TARGET mlir-tblgen
-             PROPERTY IMPORTED_LOCATION ${LLVM_BUILD}/bin/mlir-tblgen)
+        PROPERTY IMPORTED_LOCATION ${LLVM_BUILD}/bin/mlir-tblgen)
 set(MLIR_TABLEGEN_EXE mlir-tblgen)

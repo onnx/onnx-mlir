@@ -14,6 +14,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/StandardTypes.h"
 
+#include "src/compiler/dialect/krnl/krnl_helper.hpp"
 #include "src/compiler/dialect/krnl/krnl_types.hpp"
 
 namespace mlir {

@@ -6,8 +6,8 @@ add_library(
         dialect/krnl/krnl_types.hpp
         dialect/onnx/onnx_ops.cpp
         dialect/onnx/onnx_ops.hpp
-        dialect/krnl/parser_helper.cpp
-        dialect/krnl/parser_helper.hpp
+        dialect/krnl/krnl_helper.cpp
+        dialect/krnl/krnl_helper.hpp
         pass/shape_inference_pass.cpp
         pass/shape_inference_interface.hpp
         dialect/onnx/onnxop.inc
@@ -82,4 +82,5 @@ target_include_directories(onnf_lower_frontend
 target_link_libraries(onnf_lower_frontend ${MLIRLibs})
 add_dependencies(onnf_lower_frontend gen_krnl_ops)
 
+add_subdirectory(transform)
 add_subdirectory(tool)
