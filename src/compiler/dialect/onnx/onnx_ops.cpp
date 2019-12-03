@@ -47,6 +47,54 @@ void ONNXAddOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Mul
+/// Infer the output shape of the ONNXMulOp. This method is required by the
+/// shape inference interface.
+void ONNXMulOp::inferShapes() {
+  getResult()->setType(getOperand(0)->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Div
+/// Infer the output shape of the ONNXDivOp. This method is required by the
+/// shape inference interface.
+void ONNXDivOp::inferShapes() {
+  getResult()->setType(getOperand(0)->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Sub
+/// Infer the output shape of the ONNXSubOp. This method is required by the
+/// shape inference interface.
+void ONNXSubOp::inferShapes() {
+  getResult()->setType(getOperand(0)->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// And
+/// Infer the output shape of the ONNXAndOp. This method is required by the
+/// shape inference interface.
+void ONNXAndOp::inferShapes() {
+  getResult()->setType(getOperand(0)->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Or
+/// Infer the output shape of the ONNXOrOp. This method is required by the
+/// shape inference interface.
+void ONNXOrOp::inferShapes() {
+  getResult()->setType(getOperand(0)->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Xor
+/// Infer the output shape of the ONNXXorOp. This method is required by the
+/// shape inference interface.
+void ONNXXorOp::inferShapes() {
+  getResult()->setType(getOperand(0)->getType());
+}
+
+//===----------------------------------------------------------------------===//
 
 // MatMul
 

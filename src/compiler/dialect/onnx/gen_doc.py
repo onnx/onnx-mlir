@@ -263,7 +263,7 @@ def  collect_types(schema, input) :
     return allowedTypeStr
 
 def gen_schema(schema) :
-    ShapeInferenceList=['Add', 'MatMul', 'Gemm']
+    ShapeInferenceList=['Add', 'Mul', 'Div', 'Sub', 'And', 'Or', 'Xor', 'MatMul', 'Gemm']
     CanonicalList=['Add', 'Identity']
     line_indent = '  '
 
@@ -314,7 +314,7 @@ def gen_schema(schema) :
                     #TODO handle  (variadic, heterogeneous)"
                     print('variadic, heterogeneous', input.name)
             if etypes == '':
-                s+= 'AnyTensor'
+                s+= 'AnyTypeOf<[AnyMemRef, AnyTensor]>'
             else:
                 s+= 'TensorOf<['+etypes+']>'
 
@@ -339,7 +339,7 @@ def gen_schema(schema) :
             #need to interpret output.typeStr
             etypes=collect_types(schema, output)
             if etypes == '':
-                s+= 'AnyTensor'
+                s+= 'AnyTypeOf<[AnyMemRef, AnyTensor]>'
             else:
                 s+= 'TensorOf<['+etypes+']>'
     s+= ');'

@@ -44,7 +44,7 @@ def ONNXAddOp:ONNX_Op<"Add",
 }
 
 def ONNXAndOp:ONNX_Op<"And", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX And operation";
   let description = [{
     "Returns the tensor resulted from performing the `and` logical operation"
@@ -61,8 +61,11 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
   let summary = "ONNX ArgMax operation";
   let description = [{
     "Computes the indices of the max elements of the input tensor's element along the "
-    "provided axis. The resulted tensor has the same rank as the input if keepdims equal 1."
-    "If keepdims equal 0, then the resulted tensor have the reduced dimension pruned. "
+    "provided axis. The resulting tensor has the same rank as the input if keepdims equal 1. "
+    "If keepdims equal 0, then the resulting tensor have the reduced dimension pruned. "
+    "If select_last_index is True (default False), the index of the last occurence of the max "
+    "is selected if the max appears more than once in the input. Otherwise the index of the "
+    "first occurence is selected."
     "The type of the output tensor is integer."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
@@ -74,8 +77,11 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
   let summary = "ONNX ArgMin operation";
   let description = [{
     "Computes the indices of the min elements of the input tensor's element along the "
-    "provided axis. The resulted tensor has the same rank as the input if keepdims equal 1."
-    "If keepdims equal 0, then the resulted tensor have the reduced dimension pruned. "
+    "provided axis. The resulting tensor has the same rank as the input if keepdims equal 1. "
+    "If keepdims equal 0, then the resulting tensor have the reduced dimension pruned. "
+    "If select_last_index is True (default False), the index of the last occurence of the min "
+    "is selected if the min appears more than once in the input. Otherwise the index of the "
+    "first occurence is selected."
     "The type of the output tensor is integer."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
@@ -467,7 +473,7 @@ def ONNXDetOp:ONNX_Op<"Det",
 }
 
 def ONNXDivOp:ONNX_Op<"Div", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Div operation";
   let description = [{
     "Performs element-wise binary division (with Numpy-style broadcasting support)."
@@ -1576,7 +1582,7 @@ def ONNXModOp:ONNX_Op<"Mod",
 }
 
 def ONNXMulOp:ONNX_Op<"Mul", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Mul operation";
   let description = [{
     "Performs element-wise binary multiplication (with Numpy-style broadcasting support)."
@@ -1678,7 +1684,7 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
 }
 
 def ONNXOrOp:ONNX_Op<"Or", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Or operation";
   let description = [{
     "Returns the tensor resulted from performing the `or` logical operation"
@@ -2954,7 +2960,7 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
 }
 
 def ONNXSubOp:ONNX_Op<"Sub", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sub operation";
   let description = [{
     "Performs element-wise binary subtraction (with Numpy-style broadcasting support)."
@@ -3223,7 +3229,7 @@ def ONNXWhereOp:ONNX_Op<"Where",
 }
 
 def ONNXXorOp:ONNX_Op<"Xor", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Xor operation";
   let description = [{
     "Returns the tensor resulted from performing the `xor` logical operation"

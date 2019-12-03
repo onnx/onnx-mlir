@@ -89,6 +89,12 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
     // shaped outputs. All those operation need to implement the inferShape()
     // method.
     if (op->getName().getStringRef() != "onnx.Add" &&
+	op->getName().getStringRef() != "onnx.Mul" &&
+	op->getName().getStringRef() != "onnx.Div" &&
+	op->getName().getStringRef() != "onnx.Sub" &&
+	op->getName().getStringRef() != "onnx.And" &&
+	op->getName().getStringRef() != "onnx.Or" &&
+	op->getName().getStringRef() != "onnx.Xor" &&
         op->getName().getStringRef() != "onnx.MatMul" &&
         op->getName().getStringRef() != "onnx.Gemm" &&
         op->getName().getStringRef() != "onnx.FullGemm")

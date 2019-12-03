@@ -99,17 +99,17 @@ static bool checkInsertDealloc(Operation *currentOp) {
 namespace {
 
 //===----------------------------------------------------------------------===//
-// Binary ops lowering to Krnl dialect.
+// Element-wise binary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename BinaryOp, typename LoweredBinaryOp>
-struct ONNXBinaryOpLowering : public ConversionPattern {
-  ONNXBinaryOpLowering(MLIRContext* ctx)
+struct ONNXEWBinaryOpLowering : public ConversionPattern {
+  ONNXEWBinaryOpLowering(MLIRContext* ctx)
       : ConversionPattern(BinaryOp::getOperationName(), 1, ctx) {}
 
   PatternMatchResult matchAndRewrite(Operation* op, ArrayRef<Value*> operands,
       ConversionPatternRewriter& rewriter) const final {
     // TODO: Check that the types are valid.
-    // Add is an operation that must have all operands and the result of
+    // An element-wise binary operation must have all operands and the result of
     // the same type. This should have been verified by the verifier.
     auto tensorType = (*op->result_type_begin()).cast<TensorType>();
     auto loc = op->getLoc();
@@ -118,8 +118,8 @@ struct ONNXBinaryOpLowering : public ConversionPattern {
     auto memRefType = convertTensorToMemRef(tensorType);
 
     // If the output has a dynamic dimension, pass the operands required for
-    // each dynamic dimension to the AllocOp. The first operand of the Add
-    // operation is used. The operands of the Add need to match in terms of
+    // each dynamic dimension to the AllocOp. The first operand of the binary
+    // operation is used. The operands of the op need to match in terms of
     // dimensions with the result at this pre-optimization phase.
     // TODO: verify that dimensions match.
     // TODO: can the dimension of the result differ after optimizations?
@@ -186,14 +186,13 @@ struct ONNXBinaryOpLowering : public ConversionPattern {
     // 2. Insert instructions inside the KernelIterateOp body.
     rewriter.setInsertionPointToStart(&iterationBlock);
 
-    // Handle AddOp:
+    // Handle the operation:
     SmallVector<Value*, 4> loopIVs;
     for (auto arg : iterationBlock.getArguments())
       loopIVs.push_back(arg);
     auto loadedFirstVal = rewriter.create<LoadOp>(loc, operands[0], loopIVs);
     auto loadedSecondVal = rewriter.create<LoadOp>(loc, operands[1], loopIVs);
 
-    // TODO: Choose type of the Add for now use the Float Add.
     auto loweredOpResult =
         rewriter.create<LoweredBinaryOp>(loc, loadedFirstVal, loadedSecondVal);
 
@@ -205,11 +204,6 @@ struct ONNXBinaryOpLowering : public ConversionPattern {
     return matchSuccess();
   }
 };
-
-//===----------------------------------------------------------------------===//
-// AddOp lowering to Krnl dialect.
-//===----------------------------------------------------------------------===//
-using ONNXAddOpLowering = ONNXBinaryOpLowering<mlir::ONNXAddOp, AddFOp>;
 
 //===----------------------------------------------------------------------===//
 // Conversion from Tensor type to the Standard dialect MemRef type.
@@ -291,7 +285,15 @@ void FrontendToKrnlLoweringPass::runOnModule() {
       patterns, &getContext(), tensor_to_memref_converter);
 
   // Frontent operation lowering.
-  patterns.insert<ONNXAddOpLowering>(&getContext());
+  // TODO: Support 1-N mapping (e.g. different types of the lowered op)
+  patterns.insert<ONNXEWBinaryOpLowering<mlir::ONNXAddOp, AddFOp>,
+		  ONNXEWBinaryOpLowering<mlir::ONNXMulOp, MulFOp>,
+		  ONNXEWBinaryOpLowering<mlir::ONNXDivOp, DivFOp>,
+		  ONNXEWBinaryOpLowering<mlir::ONNXSubOp, SubFOp>,
+		  ONNXEWBinaryOpLowering<mlir::ONNXAndOp, AndOp>,
+		  ONNXEWBinaryOpLowering<mlir::ONNXOrOp, OrOp>,
+		  ONNXEWBinaryOpLowering<mlir::ONNXXorOp, XOrOp>>
+   (&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
