@@ -79,6 +79,14 @@ void ONNXSigmoidOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Relu
+/// Infer the output shape of the ONNXReluOp. This method is required by the
+/// shape inference interface.
+void ONNXReluOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
+}
+
+//===----------------------------------------------------------------------===//
 // Add
 /// Infer the output shape of the ONNXAddOp. This method is required by the
 /// shape inference interface.

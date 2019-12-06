@@ -2185,7 +2185,7 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
 }
 
 def ONNXReluOp:ONNX_Op<"Relu", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Relu operation";
   let description = [{
     "Relu takes one input data (Tensor<T>) and produces one output data"

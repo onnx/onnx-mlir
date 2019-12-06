@@ -252,6 +252,23 @@ Value* mapToLowerScalarOp<ONNXSigmoidOp>(Location loc,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXReluOp
+//===----------------------------------------------------------------------===//
+template <>
+Value* mapToLowerScalarOp<ONNXReluOp>(Location loc, ArrayRef<Type> result_types,
+    ArrayRef<Value*> operands, ConversionPatternRewriter& rewriter) {
+  // ONNXReluOp(%X) = SelectOp(CmpFOp(OLT, %X, ConstantOp 0),
+  //                           ConstantOp 0,
+  //                           %X)
+  Value* operand = operands[0];
+  auto zero = rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(0.0f));
+  auto lessThanZero =
+      rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, operand, zero);
+  auto result = rewriter.create<SelectOp>(loc, lessThanZero, zero, operand);
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
 // Element-wise n-ary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseNaryOp, unsigned numArgs>
@@ -452,6 +469,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSinhOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXMulOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXDivOp>,

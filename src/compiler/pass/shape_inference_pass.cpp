@@ -89,20 +89,21 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
     // shaped outputs. All those operation need to implement the inferShape()
     // method.
     if (op->getName().getStringRef() != "onnx.Exp" &&
-	op->getName().getStringRef() != "onnx.Tanh" &&
-	op->getName().getStringRef() != "onnx.Sinh" &&
-	op->getName().getStringRef() != "onnx.Cosh" &&
-	op->getName().getStringRef() != "onnx.Sigmoid" &&
-	op->getName().getStringRef() != "onnx.Mul" &&
-	op->getName().getStringRef() != "onnx.Add" &&
-	op->getName().getStringRef() != "onnx.Div" &&
-	op->getName().getStringRef() != "onnx.Sub" &&
-	op->getName().getStringRef() != "onnx.And" &&
-	op->getName().getStringRef() != "onnx.Or" &&
-	op->getName().getStringRef() != "onnx.Xor" &&
-	op->getName().getStringRef() != "onnx.MatMul" &&
-	op->getName().getStringRef() != "onnx.Gemm" &&
-	op->getName().getStringRef() != "onnx.FullGemm")
+        op->getName().getStringRef() != "onnx.Tanh" &&
+        op->getName().getStringRef() != "onnx.Sinh" &&
+        op->getName().getStringRef() != "onnx.Cosh" &&
+        op->getName().getStringRef() != "onnx.Sigmoid" &&
+        op->getName().getStringRef() != "onnx.Relu" &&
+        op->getName().getStringRef() != "onnx.Mul" &&
+        op->getName().getStringRef() != "onnx.Add" &&
+        op->getName().getStringRef() != "onnx.Div" &&
+        op->getName().getStringRef() != "onnx.Sub" &&
+        op->getName().getStringRef() != "onnx.And" &&
+        op->getName().getStringRef() != "onnx.Or" &&
+        op->getName().getStringRef() != "onnx.Xor" &&
+        op->getName().getStringRef() != "onnx.MatMul" &&
+        op->getName().getStringRef() != "onnx.Gemm" &&
+        op->getName().getStringRef() != "onnx.FullGemm")
       return false;
     return llvm::any_of(op->getResultTypes(),
         [](Type result_type) { return !result_type.isa<RankedTensorType>(); });
@@ -118,4 +119,4 @@ std::unique_ptr<mlir::Pass> mlir::createShapeInferencePass() {
 }
 
 static PassRegistration<ShapeInferencePass> pass(
-     "shape-inference", "Shape inference for frontend dialects.");
+    "shape-inference", "Shape inference for frontend dialects.");

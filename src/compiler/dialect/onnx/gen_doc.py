@@ -263,7 +263,7 @@ def  collect_types(schema, input) :
     return allowedTypeStr
 
 def gen_schema(schema) :
-    ShapeInferenceList=['Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid',
+    ShapeInferenceList=['Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid', 'Relu',
                         'Add', 'Mul', 'Div', 'Sub', 'And', 'Or', 'Xor',
                         'MatMul', 'Gemm']
     CanonicalList=['Add', 'Identity']
