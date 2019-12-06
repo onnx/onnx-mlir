@@ -44,9 +44,8 @@ static MemRefType convertTensorToMemRef(TensorType type) {
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
-static Value* insertAllocAndDealloc(
-    MemRefType type, Location loc, PatternRewriter& rewriter,
-    bool insertDealloc, Value *oldMemRef = nullptr) {
+static Value* insertAllocAndDealloc(MemRefType type, Location loc,
+    PatternRewriter& rewriter, bool insertDealloc, Value* oldMemRef = nullptr) {
   // Put together alloc operands for any dynamic dimensions of the memref.
   AllocOp alloc;
   if (oldMemRef) {
@@ -77,7 +76,7 @@ static Value* insertAllocAndDealloc(
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
 // inserted.
-static bool checkInsertDealloc(Operation *currentOp) {
+static bool checkInsertDealloc(Operation* currentOp) {
   auto parentBlock = currentOp->getBlock();
 
   bool insertDealloc = true;
@@ -87,7 +86,7 @@ static bool checkInsertDealloc(Operation *currentOp) {
     // If there is at least one result to investigate.
     if (currentOp->getNumResults() > 0) {
       auto result = currentOp->getResult(0);
-      for(auto operand : op.getOperands())
+      for (auto operand : op.getOperands())
         if (operand == result)
           insertDealloc = false;
     }
@@ -98,14 +97,166 @@ static bool checkInsertDealloc(Operation *currentOp) {
 
 namespace {
 
-//===----------------------------------------------------------------------===//
-// Element-wise binary ops lowering to Krnl dialect.
-//===----------------------------------------------------------------------===//
-template <typename BinaryOp, typename LoweredBinaryOp>
-struct ONNXEWBinaryOpLowering : public ConversionPattern {
-  ONNXEWBinaryOpLowering(MLIRContext* ctx)
-      : ConversionPattern(BinaryOp::getOperationName(), 1, ctx) {}
+template <typename ElementwiseNaryOp>
+struct ScalarOp;
 
+template <>
+struct ScalarOp<ONNXAddOp> {
+  using FOp = AddFOp;
+  using IOp = AddIOp;
+};
+
+template <>
+struct ScalarOp<ONNXMulOp> {
+  using FOp = MulFOp;
+  using IOp = MulIOp;
+};
+
+template <>
+struct ScalarOp<ONNXDivOp> {
+  using FOp = DivFOp;
+  using IOp = DivISOp;
+};
+
+template <>
+struct ScalarOp<ONNXSubOp> {
+  using FOp = SubFOp;
+  using IOp = SubIOp;
+};
+
+template <>
+struct ScalarOp<ONNXAndOp> {
+  using FOp = AndOp;  // not use
+  using IOp = AndOp;
+};
+
+template <>
+struct ScalarOp<ONNXOrOp> {
+  using FOp = OrOp;  // not use
+  using IOp = OrOp;
+};
+
+template <>
+struct ScalarOp<ONNXXorOp> {
+  using FOp = XOrOp;  // not use
+  using IOp = XOrOp;
+};
+
+template <>
+struct ScalarOp<ONNXExpOp> {
+  using FOp = ExpOp;
+  using IOp = ExpOp;  // not use
+};
+
+template <typename ElementwiseNaryOp>
+using ScalarFOp = typename ScalarOp<ElementwiseNaryOp>::FOp;
+template <typename ElementwiseNaryOp>
+using ScalarIOp = typename ScalarOp<ElementwiseNaryOp>::IOp;
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering to Krnl dialect.
+//===----------------------------------------------------------------------===//
+template <typename UnaryOp>
+Value* mapToLowerScalarOp(Location loc, ArrayRef<Type> result_types,
+    ArrayRef<Value*> operands, ConversionPatternRewriter& rewriter) {
+  /* Lower UnaryOp to Ops in the Standard dialect.
+   */
+
+  Type element_type = operands.front()->getType();
+  if (element_type.isa<IntegerType>()) {
+    return rewriter.create<ScalarIOp<UnaryOp>>(
+        loc, result_types, operands, mlir::None);
+  } else if (element_type.isa<FloatType>()) {
+    return rewriter.create<ScalarFOp<UnaryOp>>(
+        loc, result_types, operands, mlir::None);
+  } else {
+    return nullptr;
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXTanhOp
+//===----------------------------------------------------------------------===//
+template <>
+Value* mapToLowerScalarOp<ONNXTanhOp>(Location loc, ArrayRef<Type> result_types,
+    ArrayRef<Value*> operands, ConversionPatternRewriter& rewriter) {
+  // ONNXTanhOp(%X) = DivFOp(SubFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
+  //                         AddFOp(ExpOp(%X), ExpOp(NegFOp(%X))))
+  Value* operand = operands[0];
+  auto zero = rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(0.0f));
+  auto neg = rewriter.create<SubFOp>(loc, zero, operand);
+  auto exp = rewriter.create<ExpOp>(loc, operand);
+  auto negExp = rewriter.create<ExpOp>(loc, neg);
+  auto result =
+      rewriter.create<DivFOp>(loc, rewriter.create<SubFOp>(loc, exp, negExp),
+          rewriter.create<AddFOp>(loc, exp, negExp));
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXSinhOp
+//===----------------------------------------------------------------------===//
+template <>
+Value* mapToLowerScalarOp<ONNXSinhOp>(Location loc, ArrayRef<Type> result_types,
+    ArrayRef<Value*> operands, ConversionPatternRewriter& rewriter) {
+  // ONNXSinhOp(%X) = DivFOp(SubFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
+  //                         ConstantOp 2)
+  Value* operand = operands[0];
+  auto zero = rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(0.0f));
+  auto two = rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(2.0f));
+  auto neg = rewriter.create<SubFOp>(loc, zero, operand);
+  auto exp = rewriter.create<ExpOp>(loc, operand);
+  auto negExp = rewriter.create<ExpOp>(loc, neg);
+  auto result = rewriter.create<DivFOp>(
+      loc, rewriter.create<SubFOp>(loc, exp, negExp), two);
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXCoshOp
+//===----------------------------------------------------------------------===//
+template <>
+Value* mapToLowerScalarOp<ONNXCoshOp>(Location loc, ArrayRef<Type> result_types,
+    ArrayRef<Value*> operands, ConversionPatternRewriter& rewriter) {
+  // ONNXCoshOp(%X) = DivFOp(AddFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
+  //                         ConstantOp 2)
+  Value* operand = operands[0];
+  auto zero = rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(0.0f));
+  auto two = rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(2.0f));
+  auto neg = rewriter.create<SubFOp>(loc, zero, operand);
+  auto exp = rewriter.create<ExpOp>(loc, operand);
+  auto negExp = rewriter.create<ExpOp>(loc, neg);
+  auto result = rewriter.create<DivFOp>(
+      loc, rewriter.create<AddFOp>(loc, exp, negExp), two);
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXSigmoidOp
+//===----------------------------------------------------------------------===//
+template <>
+Value* mapToLowerScalarOp<ONNXSigmoidOp>(Location loc,
+    ArrayRef<Type> result_types, ArrayRef<Value*> operands,
+    ConversionPatternRewriter& rewriter) {
+  // ONNXSigmoidOp(%X) = DivFOp(ConstantOp 1,
+  //                            AddFOp(ConstantOp 1, ExpOp(NegFOp(%X))))
+  Value* operand = operands[0];
+  auto zero = rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(0.0f));
+  auto one = rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(1.0f));
+  auto neg = rewriter.create<SubFOp>(loc, zero, operand);
+  auto negExp = rewriter.create<ExpOp>(loc, neg);
+  auto result = rewriter.create<DivFOp>(
+      loc, one, rewriter.create<AddFOp>(loc, one, negExp));
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
+// Element-wise n-ary ops lowering to Krnl dialect.
+//===----------------------------------------------------------------------===//
+template <typename ElementwiseNaryOp, unsigned numArgs>
+struct ONNXElementwiseNaryOpLowering : public ConversionPattern {
+  ONNXElementwiseNaryOpLowering(MLIRContext* ctx)
+      : ConversionPattern(ElementwiseNaryOp::getOperationName(), 1, ctx) {}
   PatternMatchResult matchAndRewrite(Operation* op, ArrayRef<Value*> operands,
       ConversionPatternRewriter& rewriter) const final {
     // TODO: Check that the types are valid.
@@ -123,12 +274,11 @@ struct ONNXEWBinaryOpLowering : public ConversionPattern {
     // dimensions with the result at this pre-optimization phase.
     // TODO: verify that dimensions match.
     // TODO: can the dimension of the result differ after optimizations?
-    Value *alloc;
+    Value* alloc;
     bool insertDealloc = checkInsertDealloc(op);
 
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
       alloc = insertAllocAndDealloc(
           memRefType, loc, rewriter, insertDealloc, operands[0]);
@@ -190,11 +340,15 @@ struct ONNXEWBinaryOpLowering : public ConversionPattern {
     SmallVector<Value*, 4> loopIVs;
     for (auto arg : iterationBlock.getArguments())
       loopIVs.push_back(arg);
-    auto loadedFirstVal = rewriter.create<LoadOp>(loc, operands[0], loopIVs);
-    auto loadedSecondVal = rewriter.create<LoadOp>(loc, operands[1], loopIVs);
 
-    auto loweredOpResult =
-        rewriter.create<LoweredBinaryOp>(loc, loadedFirstVal, loadedSecondVal);
+    SmallVector<Value*, numArgs> loadedVals;
+    for (unsigned i = 0; i < numArgs; i++) {
+      auto loadedVal = rewriter.create<LoadOp>(loc, operands[i], loopIVs);
+      loadedVals.push_back(loadedVal);
+    }
+
+    auto loweredOpResult = mapToLowerScalarOp<ElementwiseNaryOp>(
+        loc, memRefType.getElementType(), loadedVals, rewriter);
 
     // Store result in the resulting array.
     rewriter.create<StoreOp>(loc, loweredOpResult, alloc, loopIVs);
@@ -204,6 +358,13 @@ struct ONNXEWBinaryOpLowering : public ConversionPattern {
     return matchSuccess();
   }
 };
+
+template <typename ElementwiseNaryOp>
+using ONNXElementwiseUnaryOpLowering =
+    ONNXElementwiseNaryOpLowering<ElementwiseNaryOp, 1>;
+template <typename ElementwiseNaryOp>
+using ONNXElementwiseBinaryOpLowering =
+    ONNXElementwiseNaryOpLowering<ElementwiseNaryOp, 2>;
 
 //===----------------------------------------------------------------------===//
 // Conversion from Tensor type to the Standard dialect MemRef type.
@@ -285,15 +446,18 @@ void FrontendToKrnlLoweringPass::runOnModule() {
       patterns, &getContext(), tensor_to_memref_converter);
 
   // Frontent operation lowering.
-  // TODO: Support 1-N mapping (e.g. different types of the lowered op)
-  patterns.insert<ONNXEWBinaryOpLowering<mlir::ONNXAddOp, AddFOp>,
-		  ONNXEWBinaryOpLowering<mlir::ONNXMulOp, MulFOp>,
-		  ONNXEWBinaryOpLowering<mlir::ONNXDivOp, DivFOp>,
-		  ONNXEWBinaryOpLowering<mlir::ONNXSubOp, SubFOp>,
-		  ONNXEWBinaryOpLowering<mlir::ONNXAndOp, AndOp>,
-		  ONNXEWBinaryOpLowering<mlir::ONNXOrOp, OrOp>,
-		  ONNXEWBinaryOpLowering<mlir::ONNXXorOp, XOrOp>>
-   (&getContext());
+  patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSinhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXAddOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXMulOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXDivOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXSubOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXAndOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXOrOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXXorOp>>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
@@ -307,4 +471,4 @@ std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {
 }
 
 static PassRegistration<FrontendToKrnlLoweringPass> pass(
-     "lower-frontend", "Lower frontend ops to Krnl dialect.");
+    "lower-frontend", "Lower frontend ops to Krnl dialect.");

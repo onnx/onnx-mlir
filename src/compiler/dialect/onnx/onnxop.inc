@@ -371,7 +371,7 @@ def ONNXCosOp:ONNX_Op<"Cos",
 }
 
 def ONNXCoshOp:ONNX_Op<"Cosh", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Cosh operation";
   let description = [{
     "Calculates the hyperbolic cosine of the given input tensor element-wise."
@@ -567,7 +567,7 @@ def ONNXErfOp:ONNX_Op<"Erf",
 }
 
 def ONNXExpOp:ONNX_Op<"Exp", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Exp operation";
   let description = [{
     "Calculates the exponential of the given input tensor, element-wise."
@@ -2731,7 +2731,7 @@ def ONNXShrinkOp:ONNX_Op<"Shrink",
 }
 
 def ONNXSigmoidOp:ONNX_Op<"Sigmoid", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sigmoid operation";
   let description = [{
     "Sigmoid takes one input data (Tensor<T>) and produces one output data"
@@ -2764,7 +2764,7 @@ def ONNXSinOp:ONNX_Op<"Sin",
 }
 
 def ONNXSinhOp:ONNX_Op<"Sinh", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sinh operation";
   let description = [{
     "Calculates the hyperbolic sine of the given input tensor element-wise."
@@ -2994,7 +2994,7 @@ def ONNXTanOp:ONNX_Op<"Tan",
 }
 
 def ONNXTanhOp:ONNX_Op<"Tanh", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Tanh operation";
   let description = [{
     "Calculates the hyperbolic tangent of the given input tensor element-wise."

@@ -39,6 +39,46 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext* ctx)
 //===----------------------------------------------------------------------===//
 // ONNX Operations
 //===----------------------------------------------------------------------===//
+// Exp
+/// Infer the output shape of the ONNXExpOp. This method is required by the
+/// shape inference interface.
+void ONNXExpOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Tanh
+/// Infer the output shape of the ONNXTanhOp. This method is required by the
+/// shape inference interface.
+void ONNXTanhOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Sinh
+/// Infer the output shape of the ONNXSinhOp. This method is required by the
+/// shape inference interface.
+void ONNXSinhOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Cosh
+/// Infer the output shape of the ONNXCoshOp. This method is required by the
+/// shape inference interface.
+void ONNXCoshOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Sigmoid
+/// Infer the output shape of the ONNXSigmoidOp. This method is required by the
+/// shape inference interface.
+void ONNXSigmoidOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
+}
+
+//===----------------------------------------------------------------------===//
 // Add
 /// Infer the output shape of the ONNXAddOp. This method is required by the
 /// shape inference interface.

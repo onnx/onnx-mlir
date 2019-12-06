@@ -287,3 +287,244 @@ func @test_xor_xor(%arg0 : tensor<?x10xi32>, %arg1 : tensor<?x10xi32>) -> tensor
 
   // CHECK: return [[RET_RES]] : memref<?x10xi32>
 }
+
+func @test_exp_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Exp"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  %1 = "onnx.Exp"(%0) : (tensor<*xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_exp_exp
+  /// First Exp
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: store [[EXP]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  
+  /// Second Exp
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: store [[EXP]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  
+  /// Dealloc of first result.
+  // CHECK: dealloc [[RES]] : memref<?x10xf32>
+  // CHECK-NOT: dealloc [[RET_RES]] : memref<?x10xf32>
+
+  // CHECK: return [[RET_RES]] : memref<?x10xf32>
+}
+
+func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Tanh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  %1 = "onnx.Tanh"(%0) : (tensor<*xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_tanh_tanh
+  /// First Tanh
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
+  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[TANH_RES:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
+  // CHECK: store [[TANH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  
+  /// Second Tanh
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
+  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[TANH_RES:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
+  // CHECK: store [[TANH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+
+  /// Dealloc of first result.
+  // CHECK: dealloc [[RES]] : memref<?x10xf32>
+  // CHECK-NOT: dealloc [[RET_RES]] : memref<?x10xf32>
+
+  // CHECK: return [[RET_RES]] : memref<?x10xf32>
+}
+
+func @test_sinh_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Sinh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  %1 = "onnx.Sinh"(%0) : (tensor<*xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_sinh_sinh
+  /// First Sinh
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
+  // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
+  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[SINH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
+  // CHECK: store [[SINH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  
+  /// Second Sinh
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
+  // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
+  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[SINH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
+  // CHECK: store [[SINH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+
+  /// Dealloc of first result.
+  // CHECK: dealloc [[RES]] : memref<?x10xf32>
+  // CHECK-NOT: dealloc [[RET_RES]] : memref<?x10xf32>
+
+  // CHECK: return [[RET_RES]] : memref<?x10xf32>
+}
+
+func @test_cosh_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Cosh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  %1 = "onnx.Cosh"(%0) : (tensor<*xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_cosh_cosh
+  /// First Cosh
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
+  // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
+  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[DIVIDEND:%.+]] = addf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[COSH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
+  // CHECK: store [[COSH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  
+  /// Second Cosh
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
+  // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
+  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[DIVIDEND:%.+]] = addf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[COSH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
+  // CHECK: store [[COSH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+
+  /// Dealloc of first result.
+  // CHECK: dealloc [[RES]] : memref<?x10xf32>
+  // CHECK-NOT: dealloc [[RET_RES]] : memref<?x10xf32>
+
+  // CHECK: return [[RET_RES]] : memref<?x10xf32>
+}
+
+func @test_sigmoid_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  %1 = "onnx.Sigmoid"(%0) : (tensor<*xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_sigmoid_sigmoid
+  /// First Sigmoid
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
+  // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
+  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[DIVISOR:%.+]] = addf [[ONE]], [[NEXP]] : f32
+  // CHECK: [[SIGMOID_RES:%.+]] = divf [[ONE]], [[DIVISOR]] : f32
+  // CHECK: store [[SIGMOID_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  
+  /// Second Sigmoid
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
+  // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
+  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[DIVISOR:%.+]] = addf [[ONE]], [[NEXP]] : f32
+  // CHECK: [[SIGMOID_RES:%.+]] = divf [[ONE]], [[DIVISOR]] : f32
+  // CHECK: store [[SIGMOID_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+
+  /// Dealloc of first result.
+  // CHECK: dealloc [[RES]] : memref<?x10xf32>
+  // CHECK-NOT: dealloc [[RET_RES]] : memref<?x10xf32>
+
+  // CHECK: return [[RET_RES]] : memref<?x10xf32>
+}
