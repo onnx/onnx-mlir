@@ -170,6 +170,7 @@ Value* mapToLowerScalarOp(Location loc, ArrayRef<Type> result_types,
     return rewriter.create<ScalarFOp<UnaryOp>>(
         loc, result_types, operands, mlir::None);
   } else {
+    emitError(loc, "unsupported element type");
     return nullptr;
   }
 }
