@@ -278,3 +278,169 @@ func @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: store [[RELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+func @test_sum(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_sum
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<?x10xf32>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<?x10xf32>
+  // CHECK: [[ADD:%.+]] = addf [[LOAD1]], [[LOAD2]] : f32
+  // CHECK: store [[ADD]], [[RES]][%arg2, %arg3] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+func @test_max(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Max"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_max
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<?x10xf32>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<?x10xf32>
+  // CHECK: [[MAX:%.+]] = cmpf "ogt", [[LOAD1]], [[LOAD2]] : f32
+  // CHECK: [[RELU_RES:%.+]] = select [[MAX]], [[LOAD1]], [[LOAD2]] : f32
+  // CHECK: store [[RELU_RES]], [[RES]][%arg2, %arg3] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+func @test_min(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Min"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_min
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<?x10xf32>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<?x10xf32>
+  // CHECK: [[MIN:%.+]] = cmpf "olt", [[LOAD1]], [[LOAD2]] : f32
+  // CHECK: [[RELU_RES:%.+]] = select [[MIN]], [[LOAD1]], [[LOAD2]] : f32
+  // CHECK: store [[RELU_RES]], [[RES]][%arg2, %arg3] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+func @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Elu"(%arg0) {Elu.alpha=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_elu
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
+  // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32 
+  // CHECK: [[ALPHA:%.+]] = constant {{2.+}} : f32 
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[CMP:%.+]] = cmpf "olt", [[LOAD]], [[ZERO]] : f32
+  // CHECK: [[SUB:%.+]] = subf [[EXP]], [[ONE]] : f32
+  // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[SUB]] : f32
+  // CHECK: [[SELECT:%.+]] = select [[CMP]], [[MUL]], [[LOAD]] : f32
+  // CHECK: store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+func @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.LeakyRelu"(%arg0) {LeakyRelu.alpha=1.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_leakyrelu
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
+  // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32 
+  // CHECK: [[CMP:%.+]] = cmpf "olt", [[LOAD]], [[ZERO]] : f32
+  // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[LOAD]] : f32
+  // CHECK: [[SELECT:%.+]] = select [[CMP]], [[MUL]], [[LOAD]] : f32
+  // CHECK: store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+func @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Selu"(%arg0) {Selu.alpha=1.0:f32, Selu.gamma=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_selu
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
+  // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32 
+  // CHECK: [[GAMMA:%.+]] = constant {{2.+}} : f32 
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[CMP:%.+]] = cmpf "ogt", [[LOAD]], [[ZERO]] : f32
+  // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[EXP]] : f32
+  // CHECK: [[SUB:%.+]] = subf [[MUL]], [[ALPHA]] : f32
+  // CHECK: [[SELECT:%.+]] = select [[CMP]], [[LOAD]], [[SUB]] : f32
+  // CHECK: [[SELU_RES:%.+]] = mulf [[GAMMA]], [[SELECT]] : f32
+  // CHECK: store [[SELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+func @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.HardSigmoid"(%arg0) {HardSigmoid.alpha=1.0:f32, HardSigmoid.beta=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_hardsigmoid
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
+  // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32 
+  // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32 
+  // CHECK: [[BETA:%.+]] = constant {{2.+}} : f32 
+  // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[LOAD]] : f32
+  // CHECK: [[ADD:%.+]] = addf [[MUL]], [[BETA]] : f32
+  // CHECK: [[CMP1:%.+]] = cmpf "ogt", [[ADD]], [[ZERO]] : f32
+  // CHECK: [[SELECT1:%.+]] = select [[CMP1]], [[ADD]], [[ZERO]] : f32
+  // CHECK: [[CMP2:%.+]] = cmpf "olt", [[SELECT1]], [[ONE]] : f32
+  // CHECK: [[SELECT2:%.+]] = select [[CMP2]], [[SELECT1]], [[ONE]] : f32
+  // CHECK: store [[SELECT2]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}

@@ -71,6 +71,14 @@ void ONNXCoshOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// HardSigmoid
+/// Infer the output shape of the ONNXHardSigmoidOp. This method is required by
+/// the shape inference interface.
+void ONNXHardSigmoidOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
+}
+
+//===----------------------------------------------------------------------===//
 // Sigmoid
 /// Infer the output shape of the ONNXSigmoidOp. This method is required by the
 /// shape inference interface.
@@ -79,10 +87,34 @@ void ONNXSigmoidOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Elu
+/// Infer the output shape of the ONNXEluOp. This method is required by the
+/// shape inference interface.
+void ONNXEluOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
+}
+
+//===----------------------------------------------------------------------===//
 // Relu
 /// Infer the output shape of the ONNXReluOp. This method is required by the
 /// shape inference interface.
 void ONNXReluOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// LeakyRelu
+/// Infer the output shape of the ONNXLeakyReluOp. This method is required by
+/// the shape inference interface.
+void ONNXLeakyReluOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Selu
+/// Infer the output shape of the ONNXSeluOp. This method is required by
+/// the shape inference interface.
+void ONNXSeluOp::inferShapes() {
   getResult()->setType(getOperand()->getType());
 }
 
@@ -139,6 +171,32 @@ void ONNXOrOp::inferShapes() {
 /// Infer the output shape of the ONNXXorOp. This method is required by the
 /// shape inference interface.
 void ONNXXorOp::inferShapes() {
+  getResult()->setType(getOperand(0)->getType());
+}
+
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Sum
+/// Infer the output shape of the ONNXSumOp. This method is required by the
+/// shape inference interface.
+void ONNXSumOp::inferShapes() {
+  getResult()->setType(getOperand(0)->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Max
+/// Infer the output shape of the ONNXMaxOp. This method is required by the
+/// shape inference interface.
+void ONNXMaxOp::inferShapes() {
+  getResult()->setType(getOperand(0)->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Min
+/// Infer the output shape of the ONNXMinOp. This method is required by the
+/// shape inference interface.
+void ONNXMinOp::inferShapes() {
   getResult()->setType(getOperand(0)->getType());
 }
 

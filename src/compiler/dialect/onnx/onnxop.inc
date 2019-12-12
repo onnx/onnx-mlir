@@ -531,7 +531,7 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
 }
 
 def ONNXEluOp:ONNX_Op<"Elu", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Elu operation";
   let description = [{
     "Elu takes one input data (Tensor<T>) and produces one output data"
@@ -991,7 +991,7 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
 }
 
 def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX HardSigmoid operation";
   let description = [{
     "HardSigmoid takes one input data (Tensor<T>) and produces one output data"
@@ -1191,7 +1191,7 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
 }
 
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LeakyRelu operation";
   let description = [{
     "LeakyRelu takes input data (Tensor<T>) and an argument alpha, and produces one"
@@ -1436,7 +1436,7 @@ def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
 }
 
 def ONNXMaxOp:ONNX_Op<"Max", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Max operation";
   let description = [{
     "Element-wise max of each of the input tensors (with Numpy-style broadcasting support)."
@@ -1548,7 +1548,7 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
 }
 
 def ONNXMinOp:ONNX_Op<"Min", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Min operation";
   let description = [{
     "Element-wise min of each of the input tensors (with Numpy-style broadcasting support)."
@@ -2625,7 +2625,7 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
 }
 
 def ONNXSeluOp:ONNX_Op<"Selu", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Selu operation";
   let description = [{
     "Selu takes one input data (Tensor<T>) and produces one output data"
@@ -2972,7 +2972,7 @@ def ONNXSubOp:ONNX_Op<"Sub",
 }
 
 def ONNXSumOp:ONNX_Op<"Sum", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sum operation";
   let description = [{
     "Element-wise sum of each of the input tensors (with Numpy-style broadcasting support)."

@@ -93,7 +93,11 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
         op->getName().getStringRef() != "onnx.Sinh" &&
         op->getName().getStringRef() != "onnx.Cosh" &&
         op->getName().getStringRef() != "onnx.Sigmoid" &&
+        op->getName().getStringRef() != "onnx.HardSigmoid" &&
+        op->getName().getStringRef() != "onnx.Elu" &&
         op->getName().getStringRef() != "onnx.Relu" &&
+        op->getName().getStringRef() != "onnx.LeakyRelu" &&
+        op->getName().getStringRef() != "onnx.Selu" &&
         op->getName().getStringRef() != "onnx.Mul" &&
         op->getName().getStringRef() != "onnx.Add" &&
         op->getName().getStringRef() != "onnx.Div" &&
@@ -101,6 +105,9 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
         op->getName().getStringRef() != "onnx.And" &&
         op->getName().getStringRef() != "onnx.Or" &&
         op->getName().getStringRef() != "onnx.Xor" &&
+        op->getName().getStringRef() != "onnx.Sum" &&
+        op->getName().getStringRef() != "onnx.Max" &&
+        op->getName().getStringRef() != "onnx.Min" &&
         op->getName().getStringRef() != "onnx.MatMul" &&
         op->getName().getStringRef() != "onnx.Gemm" &&
         op->getName().getStringRef() != "onnx.FullGemm")
