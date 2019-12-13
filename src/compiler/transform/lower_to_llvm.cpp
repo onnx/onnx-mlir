@@ -1,6 +1,6 @@
 //====- LowerToLLVM.cpp - Lowering from KRNL+Affine+Std to LLVM -----------===//
 //
-// Copyright 2019 The DLC Authors.
+// Copyright 2019 The IBM Research Authors.
 //
 //===----------------------------------------------------------------------===//
 
