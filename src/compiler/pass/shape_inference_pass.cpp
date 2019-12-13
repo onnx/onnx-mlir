@@ -75,7 +75,7 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
     if (auto terminator_op = f.getBody().back().getTerminator()) {
       auto results = terminator_op->getOperandTypes();
       f.setType(FunctionType::get(f.getType().getInputs(),
-          std::vector<Type>(results.begin(), results.end()), f.getContext()));
+                std::vector<Type>(results.begin(), results.end()), f.getContext()));
     }
   }
 
@@ -110,7 +110,8 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
         op->getName().getStringRef() != "onnx.Min" &&
         op->getName().getStringRef() != "onnx.MatMul" &&
         op->getName().getStringRef() != "onnx.Gemm" &&
-        op->getName().getStringRef() != "onnx.FullGemm")
+        op->getName().getStringRef() != "onnx.FullGemm" &&
+        op->getName().getStringRef() != "onnx.Reshape")
       return false;
     return llvm::any_of(op->getResultTypes(),
         [](Type result_type) { return !result_type.isa<RankedTensorType>(); });

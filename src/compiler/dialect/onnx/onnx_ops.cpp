@@ -42,9 +42,7 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext* ctx)
 // Exp
 /// Infer the output shape of the ONNXExpOp. This method is required by the
 /// shape inference interface.
-void ONNXExpOp::inferShapes() {
-  getResult()->setType(getOperand()->getType());
-}
+void ONNXExpOp::inferShapes() { getResult()->setType(getOperand()->getType()); }
 
 //===----------------------------------------------------------------------===//
 // Tanh
@@ -90,9 +88,7 @@ void ONNXSigmoidOp::inferShapes() {
 // Elu
 /// Infer the output shape of the ONNXEluOp. This method is required by the
 /// shape inference interface.
-void ONNXEluOp::inferShapes() {
-  getResult()->setType(getOperand()->getType());
-}
+void ONNXEluOp::inferShapes() { getResult()->setType(getOperand()->getType()); }
 
 //===----------------------------------------------------------------------===//
 // Relu
@@ -162,9 +158,7 @@ void ONNXAndOp::inferShapes() {
 // Or
 /// Infer the output shape of the ONNXOrOp. This method is required by the
 /// shape inference interface.
-void ONNXOrOp::inferShapes() {
-  getResult()->setType(getOperand(0)->getType());
-}
+void ONNXOrOp::inferShapes() { getResult()->setType(getOperand(0)->getType()); }
 
 //===----------------------------------------------------------------------===//
 // Xor
@@ -256,6 +250,36 @@ void ONNXFullGemmOp::inferShapes() {
 // TODO:
 //   Verify that matrix sizes are valid for multiplication and addition.
 //   Take into account the dimensionality of the matrix.
+
+//===----------------------------------------------------------------------===//
+
+// Reshape
+
+void ONNXReshapeOp::inferShapes() {
+  // Cannot infer shape if no shape tensor is specified.
+  if (!getOperand(1)->getType().isa<RankedTensorType>())
+    emitError("Shape tensor not ranked.");
+
+  auto inputTensorTy = getOperand(0)->getType().cast<RankedTensorType>();
+  auto shapeTensorTy = getOperand(1)->getType().cast<RankedTensorType>();
+
+  // Only rank 1 shape tensors are supported.
+  if (shapeTensorTy.getShape().size() != 1)
+    emitError("Shape tensor must have rank one.");
+
+  int64_t outputRank = shapeTensorTy.getShape()[0];
+
+  // Shape tensor must have constant shape.
+  if (outputRank < 0)
+    emitError("Shape tensor must have constant shape.");
+
+  SmallVector<int64_t, 2> dims;
+  for (int i = 0; i < outputRank; ++i)
+    dims.emplace_back(-1);
+
+  getResult()->setType(
+      RankedTensorType::get(dims, inputTensorTy.getElementType()));
+}
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions

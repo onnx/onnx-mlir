@@ -131,7 +131,7 @@ int main(int ac, char* av[]) {
   pm.addPass(mlir::createLowerKrnlPass());
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
-  pm.addPass(mlir::createLowerToLLVMPass());
+  pm.addPass(mlir::createKrnlLowerToLLVMPass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.run(*module);
 

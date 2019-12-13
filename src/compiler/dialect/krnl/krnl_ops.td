@@ -181,3 +181,16 @@ def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
   // Fully specified by traits.
   let verifier = ?;
 }
+
+def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy"> {
+  let summary = "Krnl memcpy operation";
+  let description = [{
+    In the KRNL dialect the reshape op doesn't generate a new memory entry and
+    treats a reshape like a cast.
+  }];
+
+  let arguments = (ins AnyMemRef:$dest, AnyMemRef:$src, AnyInteger:$size);
+
+  let parser = ?;
+  let printer = ?;
+}

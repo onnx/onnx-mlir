@@ -1,4 +1,6 @@
-add_library(onnf_transform lower_krnl.cpp)
+add_library(onnf_transform
+            lower_krnl.cpp
+            lower_to_llvm.cpp)
 
 target_include_directories(onnf_transform
                            PRIVATE ${ONNF_SRC_ROOT} ${ONNF_BIN_ROOT}

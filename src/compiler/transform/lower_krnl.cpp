@@ -142,6 +142,7 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   target.addLegalDialect<AffineOpsDialect, StandardOpsDialect>();
   // We expect IR to be free of Krnl Dialect Ops.
   target.addIllegalDialect<KrnlOpsDialect>();
+  target.addLegalOp<KrnlMemcpyOp>();
 
   OwningRewritePatternList patterns;
   patterns.insert<KrnlIterateOpLowering, KrnlTerminatorLowering,

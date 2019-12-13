@@ -279,6 +279,37 @@ func @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+func @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi32>) -> tensor<*xf32> {
+  %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<4xi32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reshape
+  // CHECK: [[TYPE_IN_BYTES:%.+]] = constant 4 : i64
+  // CHECK: %[[INDEX_0:.+]] = constant 0 : index
+  // CHECK: [[LOAD_0:%.+]] = load %arg1[%[[INDEX_0]]] : memref<4xi32>
+  // CHECK: [[EXT_0:%.+]] = zexti [[LOAD_0]] : i32 to i64
+  // CHECK: [[MUL_0:%.+]] = muli [[TYPE_IN_BYTES]], [[EXT_0]] : i64
+  // CHECK: [[CAST_0:%.+]] = index_cast [[LOAD_0]] : i32 to index
+  // CHECK: %[[INDEX_1:.+]] = constant 1 : index
+  // CHECK: [[LOAD_1:%.+]] = load %arg1[%[[INDEX_1]]] : memref<4xi32>
+  // CHECK: [[EXT_1:%.+]] = zexti [[LOAD_1]] : i32 to i64
+  // CHECK: [[MUL_1:%.+]] = muli [[MUL_0]], [[EXT_1]] : i64
+  // CHECK: [[CAST_1:%.+]] = index_cast [[LOAD_1]] : i32 to index
+  // CHECK: %[[INDEX_2:.+]] = constant 2 : index
+  // CHECK: [[LOAD_2:%.+]] = load %arg1[%[[INDEX_2]]] : memref<4xi32>
+  // CHECK: [[EXT_2:%.+]] = zexti [[LOAD_2]] : i32 to i64
+  // CHECK: [[MUL_2:%.+]] = muli [[MUL_1]], [[EXT_2]] : i64
+  // CHECK: [[CAST_2:%.+]] = index_cast [[LOAD_2]] : i32 to index
+  // CHECK: %[[INDEX_3:.+]] = constant 3 : index
+  // CHECK: [[LOAD_3:%.+]] = load %arg1[%[[INDEX_3]]] : memref<4xi32>
+  // CHECK: [[EXT_3:%.+]] = zexti [[LOAD_3]] : i32 to i64
+  // CHECK: [[MUL_3:%.+]] = muli [[MUL_2]], [[EXT_3]] : i64
+  // CHECK: [[CAST_3:%.+]] = index_cast [[LOAD_3]] : i32 to index
+  // CHECK: [[ALLOC:%.+]] = alloc([[CAST_0]], [[CAST_1]], [[CAST_2]], [[CAST_3]]) : memref<?x?x?x?xf32>
+  // CHECK: "krnl.memcpy"([[ALLOC]], %arg0, [[MUL_3]]) : (memref<?x?x?x?xf32>, memref<?x10xf32>, i64) -> ()
+  // CHECK: return [[ALLOC]] : memref<?x?x?x?xf32>
+}
+
 func @test_sum(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
