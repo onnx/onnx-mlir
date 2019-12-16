@@ -9,9 +9,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Pass/Pass.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
-#include "mlir/Pass/Pass.h"
 
 #include "shape_inference_interface.hpp"
 #include "src/compiler/dialect/onnx/onnx_ops.hpp"
@@ -30,14 +30,14 @@ namespace {
  *  of operations is empty [credit MLIR authors].
  */
 class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
- public:
+public:
   void runOnFunction() override {
     auto f = getFunction();
 
     // Populate the worklist with the operations that need shape inference:
     // these are operations that return a dynamic shape.
-    llvm::SmallPtrSet<mlir::Operation*, 16> op_worklist;
-    f.walk([&](mlir::Operation* op) {
+    llvm::SmallPtrSet<mlir::Operation *, 16> op_worklist;
+    f.walk([&](mlir::Operation *op) {
       if (returnsDynamicShape(op))
         op_worklist.insert(op);
     });
@@ -51,16 +51,15 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
       if (nextop == op_worklist.end())
         break;
 
-      Operation* op = *nextop;
+      Operation *op = *nextop;
       op_worklist.erase(op);
 
       // Ask the operation to infer its output shapes.
       if (auto shape_op = dyn_cast<ShapeInference>(op)) {
         shape_op.inferShapes();
       } else {
-        op->emitError(
-            "unable to infer shape of operation without shape "
-            "inference interface");
+        op->emitError("unable to infer shape of operation without shape "
+                      "inference interface");
         return signalPassFailure();
       }
     }
@@ -74,15 +73,16 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
 
     if (auto terminator_op = f.getBody().back().getTerminator()) {
       auto results = terminator_op->getOperandTypes();
-      f.setType(FunctionType::get(f.getType().getInputs(),
-                std::vector<Type>(results.begin(), results.end()), f.getContext()));
+      f.setType(FunctionType::get(
+          f.getType().getInputs(),
+          std::vector<Type>(results.begin(), results.end()), f.getContext()));
     }
   }
 
   /*!
    *  Check if the given operation has a dynamically shaped result.
    */
-  static bool returnsDynamicShape(Operation* op) {
+  static bool returnsDynamicShape(Operation *op) {
     // TODO: remove this check.
     // Temporary fix until more ops are supported.
     // All operations which do not return a ranked tensor type have dynamic
@@ -109,16 +109,18 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
         op->getName().getStringRef() != "onnx.Sum" &&
         op->getName().getStringRef() != "onnx.Max" &&
         op->getName().getStringRef() != "onnx.Min" &&
+        op->getName().getStringRef() != "onnx.Identity" &&
         op->getName().getStringRef() != "onnx.MatMul" &&
         op->getName().getStringRef() != "onnx.Gemm" &&
         op->getName().getStringRef() != "onnx.FullGemm" &&
         op->getName().getStringRef() != "onnx.Reshape")
       return false;
-    return llvm::any_of(op->getResultTypes(),
-        [](Type result_type) { return !result_type.isa<RankedTensorType>(); });
+    return llvm::any_of(op->getResultTypes(), [](Type result_type) {
+      return !result_type.isa<RankedTensorType>();
+    });
   }
 };
-}  // end anonymous namespace
+} // end anonymous namespace
 
 /*!
  * Create a Shape Inference pass.
@@ -127,5 +129,5 @@ std::unique_ptr<mlir::Pass> mlir::createShapeInferencePass() {
   return std::make_unique<ShapeInferencePass>();
 }
 
-static PassRegistration<ShapeInferencePass> pass(
-    "shape-inference", "Shape inference for frontend dialects.");
+static PassRegistration<ShapeInferencePass>
+    pass("shape-inference", "Shape inference for frontend dialects.");

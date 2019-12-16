@@ -266,7 +266,8 @@ def gen_schema(schema) :
     ShapeInferenceList=['Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid', 'Relu',
                         'Add', 'Mul', 'Div', 'Sub', 'And', 'Or', 'Xor',
                         'Sum', 'Max', 'Min', 'MatMul', 'Gemm', 'LeakyRelu',
-                        'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal']
+                        'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
+                        'Identity']
     CanonicalList=['Add', 'Identity']
     line_indent = '  '
 

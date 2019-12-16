@@ -8,8 +8,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallBitVector.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Function.h"
@@ -17,6 +15,8 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/PatternMatch.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallBitVector.h"
 
 #include "onnx_ops.hpp"
 
@@ -28,7 +28,7 @@ using namespace mlir;
 
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
-ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext* ctx)
+ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
     : mlir::Dialect(getDialectNamespace(), ctx) {
   addOperations<
 #define GET_OP_LIST
@@ -200,6 +200,14 @@ void ONNXMaxOp::inferShapes() {
 /// shape inference interface.
 void ONNXMinOp::inferShapes() {
   getResult()->setType(getOperand(0)->getType());
+}
+
+//===----------------------------------------------------------------------===//
+// Identity
+/// Infer the output shape of the ONNXIdentityOp. This method is required by the
+/// shape inference interface.
+void ONNXIdentityOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
 }
 
 //===----------------------------------------------------------------------===//
