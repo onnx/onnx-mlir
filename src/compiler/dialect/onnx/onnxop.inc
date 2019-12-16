@@ -1821,6 +1821,8 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
     "and computes the quantized output. Each scale and zero-point pair must have same shape."
     "It means they must be either scalars (per tensor) or 1-D tensors (per output channel)."
     "Each input or output and its related zero point must have same type."
+    "When bias is present it must be quantized using scale = input scale * weight scale and "
+    "zero point as 0."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x, AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_zero_point, AnyTypeOf<[AnyMemRef, AnyTensor]>:$w, AnyTypeOf<[AnyMemRef, AnyTensor]>:$w_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$w_zero_point, AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
@@ -2023,7 +2025,7 @@ def ONNXRangeOp:ONNX_Op<"Range",
 }
 
 def ONNXReciprocalOp:ONNX_Op<"Reciprocal", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Reciprocal operation";
   let description = [{
     "Reciprocal takes one input data (Tensor<T>) and produces one output data"

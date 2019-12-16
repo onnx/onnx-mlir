@@ -98,6 +98,7 @@ class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
         op->getName().getStringRef() != "onnx.Relu" &&
         op->getName().getStringRef() != "onnx.LeakyRelu" &&
         op->getName().getStringRef() != "onnx.Selu" &&
+        op->getName().getStringRef() != "onnx.Reciprocal" &&
         op->getName().getStringRef() != "onnx.Mul" &&
         op->getName().getStringRef() != "onnx.Add" &&
         op->getName().getStringRef() != "onnx.Div" &&

@@ -115,6 +115,14 @@ void ONNXSeluOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Reciprocal
+/// Infer the output shape of the ONNXReciprocalOp. This method is required by
+/// the shape inference interface.
+void ONNXReciprocalOp::inferShapes() {
+  getResult()->setType(getOperand()->getType());
+}
+
+//===----------------------------------------------------------------------===//
 // Add
 /// Infer the output shape of the ONNXAddOp. This method is required by the
 /// shape inference interface.

@@ -910,3 +910,44 @@ func @test_hardsigmoid_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK: return [[RET_RES]] : memref<?x10xf32>
 }
+
+func @test_reciprocal_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Reciprocal"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  %1 = "onnx.Reciprocal"(%0) : (tensor<*xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reciprocal_reciprocal
+  /// First Reciprocal
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
+  // CHECK: [[RECIPROCAL_RES:%.+]] = divf [[ONE]], [[LOAD]] : f32
+  // CHECK: store [[RECIPROCAL_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+
+  /// Second Reciprocal
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
+  // CHECK: [[RECIPROCAL_RES:%.+]] = divf [[ONE]], [[LOAD]] : f32
+  // CHECK: store [[RECIPROCAL_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+
+  /// Dealloc of first result.
+  // CHECK: dealloc [[RES]] : memref<?x10xf32>
+  // CHECK-NOT: dealloc [[RET_RES]] : memref<?x10xf32>
+
+  // CHECK: return [[RET_RES]] : memref<?x10xf32>
+}

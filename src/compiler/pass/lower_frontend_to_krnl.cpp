@@ -426,6 +426,22 @@ Value* mapToLowerScalarOp<ONNXSeluOp>(Operation* op,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXReciprocalOp
+//===----------------------------------------------------------------------===//
+template <>
+Value* mapToLowerScalarOp<ONNXReciprocalOp>(Operation* op, ArrayRef<Type> result_types,
+    ArrayRef<Value*> operands, ConversionPatternRewriter& rewriter) {
+  // ONNXReciprocalOp(%X) = DivFOp(ConstantOp 1, %X)
+  auto loc = op->getLoc();
+  Value* operand = operands[0];
+
+  auto one = rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(1.0f));
+  auto result = rewriter.create<DivFOp>(loc, one, operand);
+
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXMaxOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -815,6 +831,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
