@@ -57,7 +57,7 @@ namespace onnf {
 
 int SGIRTest() {
   mlir::MLIRContext context;
-  
+
   mlir::OwningModuleRef module = SGIRGenImpl(context).mlirGen();
   if (!module)
     return 1;

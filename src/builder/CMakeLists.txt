@@ -1,5 +1,3 @@
-add_definitions(-DBOOST_LOG_DYN_LINK)
-
 add_library(builder
         sgir.cpp
         )
