@@ -12,8 +12,29 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 set(ONNF_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
+add_subdirectory(third_party/onnx)
+add_subdirectory(third_party/benchmark)
+add_subdirectory(third_party/pybind11)
+
 # Set cxx standard only for onnf project files.
 set(CMAKE_CXX_STANDARD 14)
 
+# Boost 1.61.0 required for boost::dll:program_location()
+find_package(Boost 1.61.0
+        COMPONENTS graph
+        program_options
+        log_setup
+        log
+        system
+        filesystem
+        REQUIRED)
+
+if(Boost_FOUND)
+  message("Boost_INCLUDE_DIRS = ${Boost_INCLUDE_DIRS}")
+  message("Boost_LIBRARY_DIRS = ${Boost_LIBRARY_DIRS}")
+  include_directories(${Boost_INCLUDE_DIRS})
+endif()
+
 add_subdirectory(src/builder)
+add_subdirectory(src)
 

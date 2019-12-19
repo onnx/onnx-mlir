@@ -1,3 +1,5 @@
+add_definitions(-DBOOST_LOG_DYN_LINK)
+
 add_library(builder
         sgir.cpp
         )
@@ -77,7 +79,7 @@ set(MLIRLIBS ${MLIRLIBANALYSIS} ${MLIRLIBIR} ${MLIRLIBPARSER} ${MLIRLIBTRANSFORM
   ${LLVMLIBSUPPORT})
 
 
-target_link_libraries(builder compiler op onnx ${MLIRLIBS} curses)
+target_link_libraries(builder onnx ${MLIRLIBS} curses)
 target_include_directories(builder
                            PRIVATE
                            ${CMAKE_SOURCE_DIR}/third_party/onnx
