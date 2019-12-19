@@ -9,6 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <map>
+
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 #include "mlir/Dialect/AffineOps/AffineOps.h"
@@ -44,16 +46,51 @@ static MemRefType convertTensorToMemRef(TensorType type) {
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
-static Value* insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter& rewriter, bool insertDealloc, Value* oldMemRef = nullptr) {
+static Value *insertAllocAndDealloc(MemRefType type, Location loc,
+                                    PatternRewriter &rewriter,
+                                    bool insertDealloc,
+                                    ArrayRef<Value *> operands = {}) {
   // Put together alloc operands for any dynamic dimensions of the memref.
   AllocOp alloc;
-  if (oldMemRef) {
-    SmallVector<Value*, 4> allocOperands;
+  if (!operands.empty()) {
     auto memRefShape = type.getShape();
-    for (int i = 0; i < memRefShape.size(); ++i)
+    auto rank = memRefShape.size();
+
+    std::map<int, Value *> fromOperands;
+    for (int reversedIdx = 0; reversedIdx < rank; ++reversedIdx) {
+      int memRefDimIdx = rank - 1 - reversedIdx;
+      if (memRefShape[memRefDimIdx] < 0) { // unknown dimension
+        Value *maxDim = nullptr;
+        for (int i = 0; i < operands.size(); i++) {
+          auto operandShape =
+              operands[i]->getType().cast<MemRefType>().getShape();
+          int operandDimIdx = operandShape.size() - 1 - reversedIdx;
+
+          if (operandDimIdx < 0)
+            continue;
+
+          // In case of operations with broadcasting, the dimension of the
+          // alloc result is the maximum size along each dimension of the
+          // operands.
+          auto operandDim =
+              rewriter.create<DimOp>(loc, operands[i], operandDimIdx);
+          if (maxDim) {
+            auto maxCondition = rewriter.create<CmpIOp>(loc, CmpIPredicate::sgt,
+                                                        operandDim, maxDim);
+            maxDim = rewriter.create<SelectOp>(loc, maxCondition, operandDim,
+                                               maxDim);
+          } else {
+            maxDim = operandDim;
+          }
+        }
+        fromOperands.insert(std::make_pair(memRefDimIdx, maxDim));
+      }
+    }
+
+    SmallVector<Value *, 4> allocOperands;
+    for (int i = 0; i < rank; ++i)
       if (memRefShape[i] < 0)
-        allocOperands.push_back(rewriter.create<DimOp>(loc, oldMemRef, i));
+        allocOperands.push_back(fromOperands[i]);
     alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
   } else {
     alloc = rewriter.create<AllocOp>(loc, type);
@@ -107,6 +144,89 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
         vectorType.getElementTypeBitWidth() * vectorType.getNumElements();
   }
   return llvm::divideCeil(sizeInBits, 8);
+}
+
+// Get run-time dimension information for unknown dimensions used for
+// broadcasting.
+std::map<int, std::map<int, Value *> >
+getBroadcastedDimInfo(Location loc, ConversionPatternRewriter &rewriter,
+                      MemRefType memRefType, ArrayRef<Value *> operands) {
+  auto memRefShape = memRefType.getShape();
+  int64_t rank = memRefShape.size();
+  // For unknown dimensions, we need to get dimension values at runtime in
+  // order to do broadcasting.
+  std::map<int, std::map<int, Value *>> DimInfo;
+  // For each result dimension, compute the number of sharing operands.
+  // Sharing operands are operands sharing the same index (counting from the
+  // rightmost to the leftmost) for a given dimension.
+  std::map<int, int> sharedDimCount;
+  for (int reversedIdx = 0; reversedIdx < rank; ++reversedIdx) {
+    int dimIdx = rank - 1 - reversedIdx;
+    sharedDimCount[dimIdx] = 0;
+    for (int i = 0; i < operands.size(); ++i) {
+      auto shape = operands[i]->getType().cast<MemRefType>().getShape();
+      if (reversedIdx <= shape.size() - 1)
+        sharedDimCount[dimIdx]++;
+    }
+  }
+  // An unknown dimension can have a value of 1 or N (N > 1).
+  // If its value is 1, it is broadcasted dimension.
+  // Otherwise, non-broadcasted dimension.
+  // We only care about unknown dimensions whose number of sharing operands is
+  // more than one, since they are potentially broadcasted dimensions.
+  for (int i = 0; i < operands.size(); ++i) {
+    std::map<int, Value *> broadcastedDims;
+    auto shape = operands[i]->getType().cast<MemRefType>().getShape();
+    int size = shape.size();
+    for (int j = 0; j < shape.size(); ++j) {
+      if (shape[j] < 0 and sharedDimCount[rank - size + j] > 1) {
+        auto dim = rewriter.create<DimOp>(loc, operands[i], j).getResult();
+        auto one = rewriter.create<ConstantIndexOp>(loc, 1);
+        auto isBroadcasted =
+            rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, dim, one);
+        broadcastedDims.insert(std::make_pair(j, isBroadcasted));
+      }
+    }
+    DimInfo.insert(std::make_pair(i, broadcastedDims));
+  }
+  return DimInfo;
+}
+
+// Extract induction variables that are used for broadcasting values of a
+// given operand.
+std::vector<Value *>
+getLoopIVsForBroadcasting(Location loc, ConversionPatternRewriter &rewriter,
+                           ArrayRef<Value *> loopIVs, Value *operand,
+                           std::map<int, Value *> broadcastedDims) {
+  // `operand` must has a ranked type. This should have been checked by the
+  // shape inference pass.
+  auto operandShape = operand->getType().cast<MemRefType>().getShape();
+  auto rank = operandShape.size();
+  auto loopCount = loopIVs.size();
+
+  std::vector<Value*> newLoopIVs;
+  for (unsigned reversedIdx = 0; reversedIdx < rank; ++reversedIdx) {
+    auto dimIdx = rank - 1 - reversedIdx;
+    auto loopIdx = loopCount - 1 - reversedIdx;
+    if (operandShape[dimIdx] == 1) {
+      // Broadcasted dimension
+      auto zero = rewriter.create<ConstantIndexOp>(loc, 0);
+      newLoopIVs.insert(newLoopIVs.begin(), zero);
+    } else if ((operandShape[dimIdx] == -1) &&
+               (broadcastedDims.find(dimIdx) != broadcastedDims.end())) {
+      // Unknown dimension, it can have a value of 1 or N (N > 1).
+      // If its value is 1, it is broadcasted dimension.
+      // Otherwise, non-broadcasted dimension.
+      auto zero = rewriter.create<ConstantIndexOp>(loc, 0);
+      auto idx = rewriter.create<SelectOp>(loc, broadcastedDims[dimIdx],
+                                           zero, loopIVs[loopIdx]);
+      newLoopIVs.insert(newLoopIVs.begin(), idx);
+    } else {
+      // Non-broadcasted dimension
+      newLoopIVs.insert(newLoopIVs.begin(), loopIVs[loopIdx]);
+    }
+  }
+  return newLoopIVs;
 }
 
 namespace {
@@ -505,7 +625,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
       alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, operands[0]);
+          memRefType, loc, rewriter, insertDealloc, {operands[0]});
 
     // Number of loops
     auto memRefShape = memRefType.getShape();
@@ -595,20 +715,18 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertTensorToMemRef(tensorType);
 
-    // If the output has a dynamic dimension, pass the operands required for
-    // each dynamic dimension to the AllocOp. The first operand of the
-    // operation is used. The operands of the op need to match in terms of
-    // dimensions with the result at this pre-optimization phase.
-    // TODO: verify that dimensions match.
-    // TODO: can the dimension of the result differ after optimizations?
     Value* alloc;
     bool insertDealloc = checkInsertDealloc(op);
-
+    // If the output has a dynamic dimension, we compute its dimension at
+    // runtime by using dimensions from the operands.
+    // In particular, we need to know from which operand a result dimension
+    // comes from.
+    // TODO: can the dimension of the result differ after optimizations?
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
       alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, operands[0]);
+          memRefType, loc, rewriter, insertDealloc, operands);
 
     // Number of loops
     auto memRefShape = memRefType.getShape();
@@ -639,12 +757,17 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       if (memRefShape[i] < 0) {
         pack.pushConstantBound(0);
         pack.pushOperandBound(
-            rewriter.create<DimOp>(loc, operands[0], i).getResult());
+            rewriter.create<DimOp>(loc, alloc, i).getResult());
       } else {
         pack.pushConstantBound(0);
         pack.pushConstantBound(memRefShape[i]);
       }
     }
+
+    // Get run-time dimension information for unknown dimensions used for
+    // broadcasting.
+    std::map<int, std::map<int, Value *>> broadcastedDimInfo =
+        getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
 
     auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
     Block& iterationBlock = iterateOp.bodyRegion().front();
@@ -655,8 +778,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
     rewriter.setInsertionPointToEnd(&optimizationBlock);
     // Return from KrnlOptimizeLoopsOp body.
-    // When no optimizations are present we just return the loops
-    // unchaged.
+    // When no optimizations are present we just return the loops unchaged.
     rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
     rewriter.setInsertionPoint(optimizedLoopsOp);
 
@@ -670,9 +792,13 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Fold over operands for each of their scalar values
     Value *accumulated, *next;
-    accumulated = rewriter.create<LoadOp>(loc, operands[0], loopIVs);
+    auto accumulatedLoopIVs = getLoopIVsForBroadcasting(
+        loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
+    accumulated = rewriter.create<LoadOp>(loc, operands[0], accumulatedLoopIVs);
     for (unsigned i = 1; i < numArgs; i++) {
-      next = rewriter.create<LoadOp>(loc, operands[i], loopIVs);
+      auto nextLoopIVs = getLoopIVsForBroadcasting(
+          loc, rewriter, loopIVs, operands[i], broadcastedDimInfo[i]);
+      next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
       accumulated = mapToLowerScalarOp<ElementwiseVariadicOp>(
           op, memRefType.getElementType(), {accumulated, next}, rewriter);
     }

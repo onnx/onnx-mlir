@@ -8,6 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Function.h"
@@ -21,6 +22,7 @@
 #include "onnx_ops.hpp"
 
 using namespace mlir;
+using namespace mlir::OpTrait::util;
 
 //===----------------------------------------------------------------------===//
 // ONNXOpsDialect
@@ -127,7 +129,12 @@ void ONNXReciprocalOp::inferShapes() {
 /// Infer the output shape of the ONNXAddOp. This method is required by the
 /// shape inference interface.
 void ONNXAddOp::inferShapes() {
-  getResult()->setType(getOperand(0)->getType());
+  if (!getOperand(0)->getType().isa<RankedTensorType>() ||
+      !getOperand(1)->getType().isa<RankedTensorType>())
+    return;
+  auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
+  getResult()->setType(getBroadcastedType(lhsTy, rhsTy));
 }
 
 //===----------------------------------------------------------------------===//
@@ -135,7 +142,12 @@ void ONNXAddOp::inferShapes() {
 /// Infer the output shape of the ONNXMulOp. This method is required by the
 /// shape inference interface.
 void ONNXMulOp::inferShapes() {
-  getResult()->setType(getOperand(0)->getType());
+  if (!getOperand(0)->getType().isa<RankedTensorType>() ||
+      !getOperand(1)->getType().isa<RankedTensorType>())
+    return;
+  auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
+  getResult()->setType(getBroadcastedType(lhsTy, rhsTy));
 }
 
 //===----------------------------------------------------------------------===//
@@ -143,7 +155,12 @@ void ONNXMulOp::inferShapes() {
 /// Infer the output shape of the ONNXDivOp. This method is required by the
 /// shape inference interface.
 void ONNXDivOp::inferShapes() {
-  getResult()->setType(getOperand(0)->getType());
+  if (!getOperand(0)->getType().isa<RankedTensorType>() ||
+      !getOperand(1)->getType().isa<RankedTensorType>())
+    return;
+  auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
+  getResult()->setType(getBroadcastedType(lhsTy, rhsTy));
 }
 
 //===----------------------------------------------------------------------===//
@@ -151,7 +168,12 @@ void ONNXDivOp::inferShapes() {
 /// Infer the output shape of the ONNXSubOp. This method is required by the
 /// shape inference interface.
 void ONNXSubOp::inferShapes() {
-  getResult()->setType(getOperand(0)->getType());
+  if (!getOperand(0)->getType().isa<RankedTensorType>() ||
+      !getOperand(1)->getType().isa<RankedTensorType>())
+    return;
+  auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
+  getResult()->setType(getBroadcastedType(lhsTy, rhsTy));
 }
 
 //===----------------------------------------------------------------------===//
@@ -159,21 +181,38 @@ void ONNXSubOp::inferShapes() {
 /// Infer the output shape of the ONNXAndOp. This method is required by the
 /// shape inference interface.
 void ONNXAndOp::inferShapes() {
-  getResult()->setType(getOperand(0)->getType());
+  if (!getOperand(0)->getType().isa<RankedTensorType>() ||
+      !getOperand(1)->getType().isa<RankedTensorType>())
+    return;
+  auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
+  getResult()->setType(getBroadcastedType(lhsTy, rhsTy));
 }
 
 //===----------------------------------------------------------------------===//
 // Or
 /// Infer the output shape of the ONNXOrOp. This method is required by the
 /// shape inference interface.
-void ONNXOrOp::inferShapes() { getResult()->setType(getOperand(0)->getType()); }
+void ONNXOrOp::inferShapes() {
+  if (!getOperand(0)->getType().isa<RankedTensorType>() ||
+      !getOperand(1)->getType().isa<RankedTensorType>())
+    return;
+  auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
+  getResult()->setType(getBroadcastedType(lhsTy, rhsTy));
+}
 
 //===----------------------------------------------------------------------===//
 // Xor
 /// Infer the output shape of the ONNXXorOp. This method is required by the
 /// shape inference interface.
 void ONNXXorOp::inferShapes() {
-  getResult()->setType(getOperand(0)->getType());
+  if (!getOperand(0)->getType().isa<RankedTensorType>() ||
+      !getOperand(1)->getType().isa<RankedTensorType>())
+    return;
+  auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
+  getResult()->setType(getBroadcastedType(lhsTy, rhsTy));
 }
 
 //===----------------------------------------------------------------------===//
@@ -183,7 +222,16 @@ void ONNXXorOp::inferShapes() {
 /// Infer the output shape of the ONNXSumOp. This method is required by the
 /// shape inference interface.
 void ONNXSumOp::inferShapes() {
-  getResult()->setType(getOperand(0)->getType());
+  for (int i = 0; i < getNumOperands(); ++i) {
+    if (!getOperand(i)->getType().cast<RankedTensorType>())
+      return;
+  }
+  Type resultTy = getOperand(0)->getType().cast<RankedTensorType>();
+  for (int i = 1; i < getNumOperands(); ++i) {
+    Type nextTy = getOperand(i)->getType().cast<RankedTensorType>();
+    resultTy = getBroadcastedType(resultTy, nextTy);
+  }
+  getResult()->setType(resultTy);
 }
 
 //===----------------------------------------------------------------------===//
@@ -191,7 +239,16 @@ void ONNXSumOp::inferShapes() {
 /// Infer the output shape of the ONNXMaxOp. This method is required by the
 /// shape inference interface.
 void ONNXMaxOp::inferShapes() {
-  getResult()->setType(getOperand(0)->getType());
+  for (int i = 0; i < getNumOperands(); ++i) {
+    if (!getOperand(i)->getType().cast<RankedTensorType>())
+      return;
+  }
+  Type resultTy = getOperand(0)->getType().cast<RankedTensorType>();
+  for (int i = 1; i < getNumOperands(); ++i) {
+    Type nextTy = getOperand(i)->getType().cast<RankedTensorType>();
+    resultTy = getBroadcastedType(resultTy, nextTy);
+  }
+  getResult()->setType(resultTy);
 }
 
 //===----------------------------------------------------------------------===//
@@ -199,7 +256,16 @@ void ONNXMaxOp::inferShapes() {
 /// Infer the output shape of the ONNXMinOp. This method is required by the
 /// shape inference interface.
 void ONNXMinOp::inferShapes() {
-  getResult()->setType(getOperand(0)->getType());
+  for (int i = 0; i < getNumOperands(); ++i) {
+    if (!getOperand(i)->getType().cast<RankedTensorType>())
+      return;
+  }
+  Type resultTy = getOperand(0)->getType().cast<RankedTensorType>();
+  for (int i = 1; i < getNumOperands(); ++i) {
+    Type nextTy = getOperand(i)->getType().cast<RankedTensorType>();
+    resultTy = getBroadcastedType(resultTy, nextTy);
+  }
+  getResult()->setType(resultTy);
 }
 
 //===----------------------------------------------------------------------===//

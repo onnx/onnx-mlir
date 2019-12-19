@@ -8,10 +8,10 @@ ONNX operations for which some work is needed.
 
 | ONNX Oper   | Person working on it  | ONNX 2 KRNL    | Basic functionality   | Extended functionality (e.g. broadcast)  |
 | ----------  | --------------------- | -------------- | --------------------- | ---------------------------------------- |
-| Add         | Tung (updated)        | v              | v                     | noM                                      |
-| And         | Tung                  | v              | v                     | noM                                      |
-| Cosh        | Tung                  | v              | v                     | noM                                      |
-| Div         | Tung                  | v              | v                     |                                          |
+| Add         | Tung (updated)        | v              | v                     | M                                        |
+| And         | Tung                  | v              | v                     | M                                        |
+| Cosh        | Tung                  | v              | v                     |                                          |
+| Div         | Tung                  | v              | v                     | M                                        |
 | Elu         | Tung                  | v              | v                     |                                          |
 | Exp         | Tung                  | v              | v                     |                                          |
 | FullGemm    |                       |                |                       | noU                                      |
@@ -19,18 +19,18 @@ ONNX operations for which some work is needed.
 | HardSigmoid | Tung                  | v              | v                     |                                          |
 | LeakyRelu   | Tung                  | v              | v                     |                                          |
 | MatMul      |                       |                |                       | noM                                      |
-| Max         | Tung                  | v              | v                     | noM                                      |
-| Min         | Tung                  | v              | v                     | noM                                      |
-| Mul         | Tung                  | v              | v                     | noM                                      |
-| Or          | Tung                  | v              | v                     | noM                                      |
+| Max         | Tung                  | v              | v                     | M                                        |
+| Min         | Tung                  | v              | v                     | M                                        |
+| Mul         | Tung                  | v              | v                     | M                                        |
+| Or          | Tung                  | v              | v                     | M                                        |
 | Relu        | Tung                  | v              | v                     |                                          |
 | Selu        | Tung                  | v              | v                     |                                          |
 | Sigmoid     | Tung                  | v              | v                     |                                          |
 | Sinh        | Tung                  | v              | v                     |                                          |
-| Sub         | Tung                  | v              | v                     | noM                                      |
-| Sum         | Tung                  | v              | v                     | noM                                      |
+| Sub         | Tung                  | v              | v                     | M                                        |
+| Sum         | Tung                  | v              | v                     | M                                        |
 | Tanh        | Tung                  | v              | v                     |                                          |
-| Xor         | Tung                  | v              | v                     | noM                                      |
+| Xor         | Tung                  | v              | v                     | M                                        |
 
 
 ONNX operations for which the work is completed (full functionality) and tested

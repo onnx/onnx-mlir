@@ -57,6 +57,7 @@ endfunction(find_mlir_lib)
 find_mlir_lib(MLIRAffineOps)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAnalysis)
+find_mlir_lib(MLIRDialect)
 find_mlir_lib(MLIRExecutionEngine)
 find_mlir_lib(MLIRIR)
 find_mlir_lib(MLIRLLVMIR)
@@ -114,6 +115,7 @@ set(MLIRLibsOnce
         MLIRAffineOps
         MLIRAffineToStandard
         MLIRAnalysis
+        MLIRDialect
         MLIRExecutionEngine
         MLIRIR
         MLIRLLVMIR
