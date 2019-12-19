@@ -17,8 +17,8 @@ namespace {
 struct KrnlIterateOpLowering : public OpRewritePattern<KrnlIterateOp> {
   using OpRewritePattern<KrnlIterateOp>::OpRewritePattern;
 
-  PatternMatchResult matchAndRewrite(
-      KrnlIterateOp iterateOp, PatternRewriter& rewriter) const override {
+  PatternMatchResult matchAndRewrite(KrnlIterateOp iterateOp,
+                                     PatternRewriter &rewriter) const override {
     auto boundMapAttrs =
         iterateOp.getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
             .getValue();
@@ -30,23 +30,23 @@ struct KrnlIterateOpLowering : public OpRewritePattern<KrnlIterateOp> {
       operandItr++;
 
       // Organize operands into lower/upper bounds in affine.for ready formats.
-      SmallVector<Value*, 4> lbOperands, ubOperands;
+      SmallVector<Value *, 4> lbOperands, ubOperands;
       AffineMap lbMap, ubMap;
       for (int boundType = 0; boundType < 2; boundType++) {
-        auto& operands = boundType == 0 ? lbOperands : ubOperands;
-        auto& map = boundType == 0 ? lbMap : ubMap;
+        auto &operands = boundType == 0 ? lbOperands : ubOperands;
+        auto &map = boundType == 0 ? lbMap : ubMap;
         map = boundMapAttrs[boundIdx + boundType]
                   .cast<AffineMapAttr>()
                   .getValue();
-        operands.insert(
-            operands.end(), operandItr, operandItr + map.getNumInputs());
+        operands.insert(operands.end(), operandItr,
+                        operandItr + map.getNumInputs());
         std::advance(operandItr, map.getNumInputs());
       }
 
       nestedForOps.emplace_back(rewriter.create<AffineForOp>(
           iterateOp.getLoc(), lbOperands, lbMap, ubOperands, ubMap));
       rewriter.setInsertionPoint(nestedForOps.back().getBody(),
-          nestedForOps.back().getBody()->begin());
+                                 nestedForOps.back().getBody()->begin());
     }
 
     // Replace induction variable references from those introduced by a
@@ -68,7 +68,7 @@ struct KrnlIterateOpLowering : public OpRewritePattern<KrnlIterateOp> {
     auto innermostForOp = nestedForOps.back();
     innermostForOp.region().getBlocks().clear();
     rewriter.inlineRegionBefore(iterateOp.bodyRegion(), innermostForOp.region(),
-        innermostForOp.region().end());
+                                innermostForOp.region().end());
 
     rewriter.eraseOp(iterateOp);
     return matchSuccess();
@@ -80,11 +80,11 @@ struct KrnlIterateOpLowering : public OpRewritePattern<KrnlIterateOp> {
 //===----------------------------------------------------------------------===//
 
 class KrnlTerminatorLowering : public OpRewritePattern<KrnlTerminatorOp> {
- public:
+public:
   using OpRewritePattern<KrnlTerminatorOp>::OpRewritePattern;
 
-  PatternMatchResult matchAndRewrite(
-      KrnlTerminatorOp op, PatternRewriter& rewriter) const override {
+  PatternMatchResult matchAndRewrite(KrnlTerminatorOp op,
+                                     PatternRewriter &rewriter) const override {
     rewriter.replaceOpWithNewOp<AffineTerminatorOp>(op);
     return matchSuccess();
   }
@@ -95,11 +95,11 @@ class KrnlTerminatorLowering : public OpRewritePattern<KrnlTerminatorOp> {
 //===----------------------------------------------------------------------===//
 
 class KrnlDefineLoopsLowering : public OpRewritePattern<KrnlDefineLoopsOp> {
- public:
+public:
   using OpRewritePattern<KrnlDefineLoopsOp>::OpRewritePattern;
 
-  PatternMatchResult matchAndRewrite(
-      KrnlDefineLoopsOp op, PatternRewriter& rewriter) const override {
+  PatternMatchResult matchAndRewrite(KrnlDefineLoopsOp op,
+                                     PatternRewriter &rewriter) const override {
     rewriter.eraseOp(op);
     return matchSuccess();
   }
@@ -110,11 +110,11 @@ class KrnlDefineLoopsLowering : public OpRewritePattern<KrnlDefineLoopsOp> {
 //===----------------------------------------------------------------------===//
 
 class KrnlOptimizeLoopsLowering : public OpRewritePattern<KrnlOptimizeLoopsOp> {
- public:
+public:
   using OpRewritePattern<KrnlOptimizeLoopsOp>::OpRewritePattern;
 
-  PatternMatchResult matchAndRewrite(
-      KrnlOptimizeLoopsOp op, PatternRewriter& rewriter) const override {
+  PatternMatchResult matchAndRewrite(KrnlOptimizeLoopsOp op,
+                                     PatternRewriter &rewriter) const override {
     rewriter.eraseOp(op);
     return matchSuccess();
   }
@@ -132,7 +132,7 @@ struct KrnlToAffineLoweringPass
     : public FunctionPass<KrnlToAffineLoweringPass> {
   void runOnFunction() final;
 };
-}  // end anonymous namespace.
+} // end anonymous namespace.
 
 void KrnlToAffineLoweringPass::runOnFunction() {
   auto function = getFunction();
@@ -146,17 +146,18 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 
   OwningRewritePatternList patterns;
   patterns.insert<KrnlIterateOpLowering, KrnlTerminatorLowering,
-      KrnlDefineLoopsLowering, KrnlOptimizeLoopsLowering>(&getContext());
+                  KrnlDefineLoopsLowering, KrnlOptimizeLoopsLowering>(
+      &getContext());
 
   if (failed(applyPartialConversion(getFunction(), target, patterns)))
     signalPassFailure();
 }
 
-}  // namespace
+} // namespace
 
 std::unique_ptr<Pass> mlir::createLowerKrnlPass() {
   return std::make_unique<KrnlToAffineLoweringPass>();
 }
 
-static PassRegistration<KrnlToAffineLoweringPass> pass(
-    "lower-krnl", "Lower Krnl dialect.");
+static PassRegistration<KrnlToAffineLoweringPass> pass("lower-krnl",
+                                                       "Lower Krnl dialect.");

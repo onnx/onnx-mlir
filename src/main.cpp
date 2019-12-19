@@ -76,7 +76,7 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext& context,
   }
 }
 
-int main(int ac, char* av[]) {
+int main(int ac, char *av[]) {
   namespace po = boost::program_options;
 
   po::options_description desc("ONNF available options");
@@ -91,8 +91,8 @@ int main(int ac, char* av[]) {
   po::positional_options_description p;
   p.add("onnx-model", -1);
   po::variables_map vm;
-  po::store(
-      po::command_line_parser(ac, av).options(desc).positional(p).run(), vm);
+  po::store(po::command_line_parser(ac, av).options(desc).positional(p).run(),
+            vm);
 
   // TODO: allow multiple input files
   assert(vm.count("onnx-model") < 2 && "At most one input file can be provided!");
@@ -137,10 +137,10 @@ int main(int ac, char* av[]) {
 
   // Write LLVM bitcode to disk.
   std::error_code EC;
-  llvm::raw_fd_ostream moduleBitcodeStream(
-      "model.bc", EC, llvm::sys::fs::F_None);
-  llvm::WriteBitcodeToFile(
-      *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
+  llvm::raw_fd_ostream moduleBitcodeStream("model.bc", EC,
+                                           llvm::sys::fs::F_None);
+  llvm::WriteBitcodeToFile(*mlir::translateModuleToLLVMIR(*module),
+                           moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
   return 0;

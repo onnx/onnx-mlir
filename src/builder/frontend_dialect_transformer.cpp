@@ -382,7 +382,7 @@ private:
       auto end = default_str.find(",", start + 1);
       if (end == std::string::npos) {
         end = default_str.find("}", start + 1);
-        if (end != std::string::npos && end > start+1) {
+        if (end != std::string::npos && end > start + 1) {
           r.push_back(std::stoi(default_str.substr(start + 1, end)));
         }
         break;
@@ -401,7 +401,7 @@ private:
       auto end = default_str.find(",", start + 1);
       if (end == std::string::npos) {
         end = default_str.find("}", start + 1);
-        if (end != std::string::npos && end > start+1) {
+        if (end != std::string::npos && end > start + 1) {
           r.push_back(std::stof(default_str.substr(start + 1, end)));
         }
         break;
@@ -420,7 +420,7 @@ private:
       auto end = default_str.find(",", start + 1);
       if (end == std::string::npos) {
         end = default_str.find("}", start + 1);
-        if (end != std::string::npos && end > start+1) {
+        if (end != std::string::npos && end > start + 1) {
           r.push_back(default_str.substr(start + 1, end));
         }
         break;
@@ -529,18 +529,19 @@ private:
     }
 
     std::vector<mlir::NamedAttribute> attributes;
-    //for (auto [attr_name, attr_type, attr_default] : attrs) {
-    for (auto oneAttr: attrs) {
+    // for (auto [attr_name, attr_type, attr_default] : attrs) {
+    for (auto oneAttr : attrs) {
       std::string attr_name;
       std::string attr_type;
       std::string attr_default;
-      std::tie (attr_name, attr_type, attr_default) = oneAttr; 
+      std::tie(attr_name, attr_type, attr_default) = oneAttr;
       if (attr_type != "") {
         auto attr = ImportNodeAttr(node, attr_name, attr_type, attr_default);
         attributes.push_back(attr);
       } else {
         // TODO: the attributes need special handling
-        //std::cout << "missing " << node.op_type() << " " << attr_name << std::endl;
+        // std::cout << "missing " << node.op_type() << " " << attr_name <<
+        // std::endl;
       }
     }
 
@@ -575,17 +576,18 @@ private:
     }
 
     std::vector<mlir::NamedAttribute> attributes;
-    for (auto oneAttr: attrs) {
+    for (auto oneAttr : attrs) {
       std::string attr_name;
       std::string attr_type;
       std::string attr_default;
-      std::tie (attr_name, attr_type, attr_default) = oneAttr; 
+      std::tie(attr_name, attr_type, attr_default) = oneAttr;
       if (attr_type != "") {
         auto attr = ImportNodeAttr(node, attr_name, attr_type, attr_default);
         attributes.push_back(attr);
       } else {
         // TODO: the attributes need special handling
-        //std::cout << "missing " << node.op_type() << " " << attr_name << std::endl;
+        // std::cout << "missing " << node.op_type() << " " << attr_name <<
+        // std::endl;
       }
     }
 

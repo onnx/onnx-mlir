@@ -19,12 +19,12 @@
 
 namespace mlir {
 class KrnlOpsDialect : public Dialect {
- public:
-  KrnlOpsDialect(MLIRContext* context);
+public:
+  KrnlOpsDialect(MLIRContext *context);
   static StringRef getDialectNamespace() { return "krnl"; }
 
   /// Parse a type registered to this dialect.
-  Type parseType(DialectAsmParser& parser) const override {
+  Type parseType(DialectAsmParser &parser) const override {
     if (succeeded(parser.parseOptionalKeyword("loop")))
       return LoopType::get(parser.getBuilder().getContext());
 
@@ -32,15 +32,15 @@ class KrnlOpsDialect : public Dialect {
   }
 
   /// Print a type registered to this dialect.
-  void printType(Type type, DialectAsmPrinter& os) const override {
+  void printType(Type type, DialectAsmPrinter &os) const override {
     switch (type.getKind()) {
-      case KrnlTypes::Loop:
-        os << "loop";
-        return;
+    case KrnlTypes::Loop:
+      os << "loop";
+      return;
     }
   }
 };
 
 #define GET_OP_CLASSES
 #include "src/compiler/krnl.hpp.inc"
-}  // namespace mlir
+} // namespace mlir
