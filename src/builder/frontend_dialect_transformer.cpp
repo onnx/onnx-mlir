@@ -116,7 +116,7 @@ class FrontendGenImpl {
 
   // Convert type to MLIR type.
   // A complete list of types can be found in:
-  // <dlc-build-folder>/third_party/onnx/onnx/onnx.pb.h
+  // <onnf-build-folder>/third_party/onnx/onnx/onnx.pb.h
   mlir::Type TypeConvert(onnx::TensorProto_DataType intype) {
     switch (intype) {
       case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
@@ -143,7 +143,6 @@ class FrontendGenImpl {
       case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
       case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
       case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
-        DLC_REQUIRE_MSG_CTX(false, "Unsupported data type encountered.");
         return nullptr;
     }
   }
