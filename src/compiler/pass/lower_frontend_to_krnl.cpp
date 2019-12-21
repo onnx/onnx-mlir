@@ -1,6 +1,6 @@
 //====- lower_frontend_to_krnl.cpp - Frontend dialects to Krnl lowering ---===//
 //
-// Copyright 2019 The DLC Authors.
+// Copyright 2019 The IBM Research Authors.
 //
 // =============================================================================
 //
