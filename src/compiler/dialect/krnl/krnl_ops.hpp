@@ -21,7 +21,7 @@ class KrnlOpsDialect : public Dialect {
  public:
   KrnlOpsDialect(MLIRContext* context);
   static StringRef getDialectNamespace() { return "krnl"; }
-  
+
   /// Parse a type registered to this dialect.
   Type parseType(DialectAsmParser& parser) const override {
     if (succeeded(parser.parseOptionalKeyword("loop")))
@@ -38,7 +38,6 @@ class KrnlOpsDialect : public Dialect {
         return;
     }
   }
->>>>>>> 011cc1b... Update type parser (#376)
 };
 
 #define GET_OP_CLASSES
