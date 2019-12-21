@@ -1,4 +1,4 @@
-// RUN: dlc-opt --shape-inference --lower-frontend %s -split-input-file | FileCheck %s
+// RUN: onnf-opt --shape-inference --lower-frontend %s -split-input-file | FileCheck %s
 
 func @test_add_add(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<*xf32>
