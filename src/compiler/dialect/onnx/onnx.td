@@ -71,4 +71,26 @@ def ONNXFullGemmOp: ONNX_Op<"FullGemm",
   let results = (outs AnyTensor);
 }
 
+def ONNXConv1Op:ONNX_Op<"Conv1", 
+    [NoSideEffect]> {
+  let summary = "ONNX Conv operation";
+  let description = [{
+    "The convolution operator consumes an input tensor and a filter, and"
+    "computes the output."
+  }];
+  let arguments = (ins AnyTensor:$X);
+  let results = (outs AnyTensor);
+}
+
+def ONNXConv3Op:ONNX_Op<"Conv3", 
+    [NoSideEffect]> {
+  let summary = "ONNX Conv operation";
+  let description = [{
+    "The convolution operator consumes an input tensor and a filter, and"
+    "computes the output."
+  }];
+  let arguments = (ins AnyTensor:$X, AnyTensor:$W, AnyTensor:$B);
+  let results = (outs AnyTensor);
+}
+
 #endif // ONNX_OPS

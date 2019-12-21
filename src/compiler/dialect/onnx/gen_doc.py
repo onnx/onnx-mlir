@@ -352,6 +352,121 @@ def gen_schema(schema) :
 
     return s
 
+"""
+special cases:
+* Split: attr split default value: sizeof(output1) namely 1
+* Conv: attr dilations default value is {num_dim of first input - 2, 1}
+* Conv: attr kernel_shape type is ints
+* Transpose: attr perm default value is {} empty int list
+"""
+
+def gen_code(schema,fefile) :
+    special_handler = dict([
+        ("Conv", "ImportNodeConv"),
+        #("Transpose", "ImportNodeTranspose")
+        ])
+    special_type = dict([
+        ("AveragePool "+"kernel_shape", '"ints", ""'),
+        ("MaxPool "+"kernel_shape", '"ints", ""'),
+        ("Cast "+"to", '"int", "0"'),
+        ("Concat "+"axis", '"int", "0"'),
+        ("Conv "+"group", '"int", "1"'),
+        ("Unsqueeze "+"axes", '"ints", ""'),
+        ("RNN "+"activation_alpha", '"floats", "{}"'),
+        ("RNN "+"activation_beta", '"floats", "{}"'),
+        ("RNN "+"activations", '"", "{Tannh, Tanh}"'),
+        ("LRN "+"size", '"int", ""')
+        ])
+    line_indent = '  '
+    fefile.write('    '+'}else if (OpName == "'+schema.name+'") {\n')
+    op_type_str='mlir::ONNX'+schema.name+'Op'
+    if schema.name in special_handler :
+        fefile.write('       '+special_handler[schema.name]+'(node, '
+          +str(len(schema.inputs))
+          +', ' +str(len(schema.outputs))+', {\n')
+    elif len(schema.outputs) > 1 :
+        fefile.write('       '+'ImportNodeMultipleOuts<'+op_type_str+'>(node, '
+          +str(len(schema.inputs))
+          +', ' +str(len(schema.outputs))+', {\n')
+    else :
+        fefile.write('       '+'ImportNodeOneOut<'+op_type_str+'>(node, '
+          +str(len(schema.inputs))
+          +', ' +str(len(schema.outputs))+', {\n')
+    
+
+    if schema.attributes:
+        first_attr = True
+        for _, attr in sorted(schema.attributes.items()):
+            attr_line = line_indent+line_indent+line_indent+line_indent
+            if not first_attr:
+                attr_line += ',{'
+            else :
+                attr_line += ' {'
+            first_attr = False
+
+            attr_line += '"'+attr.name+'",'
+
+            if schema.name+' '+attr.name in special_type:
+                attr_line += special_type[schema.name+' '+attr.name]
+            # option holds either required or default value
+            elif attr.required:
+                attr_line += '"", ""'
+      
+            elif attr.default_value.name:
+                default_value = helper.get_attribute_value(attr.default_value)
+
+                def format_value(value):  # type: (Any) -> Text
+                    if isinstance(value, float):
+                        formatted = str(np.round(value, 5))
+                        # use default formatting, unless too long.
+                        if (len(formatted) > 10):
+                            formatted = str("({:e})".format(value))
+                        return formatted
+                    elif isinstance(value, (bytes, bytearray)) and sys.version_info[0] == 3:
+                        return str(value.decode('utf-8'))
+                    return str(value)
+
+                if isinstance(default_value, list):
+                    value = default_value[0]
+                    default_value = [format_value(val) for val in default_value]
+                    # TODO the list type is homogenous or htergeneous?
+                   
+                    if isinstance(value, float) : 
+                        attr_type_str = '"floats"'
+                    elif isinstance(value, int) :
+                        attr_type_str = '"ints"'
+                    elif isinstance(value, str) :
+                        attr_type_str = '"strs"'
+                    elif isinstance(value, (bytes, bytearray)) :
+                        attr_type_str = '"strs"'
+                    else :
+                        attr_type_str = '"unknowns"'
+                    attr_option_str = '"{}"'.format(default_value)
+                    attr_option_str = attr_option_str.replace('[', '{', 1)
+                    attr_option_str = attr_option_str.replace(']', '}', 1)
+                else:
+                    if isinstance(default_value, float) : 
+                        attr_type_str = '"float"'
+                    elif isinstance(default_value, int) :
+                        attr_type_str = '"int"'
+                    elif isinstance(default_value, str) :
+                        attr_type_str = '"str"'
+                    elif isinstance(default_value, (bytes, bytearray)) :
+                        attr_type_str = '"str"'
+                    else :
+                        attr_type_str = '"unknown"'
+                    default_value = format_value(default_value)
+                    attr_option_str = '"{}"'.format(default_value)
+                attr_line += attr_type_str+','+attr_option_str
+            else:
+                #TODO why?
+                attr_line += '"", ""'
+            attr_line += '}\n'
+            fefile.write(attr_line)
+    fefile.write(line_indent+line_indent+line_indent+'});\n')
+          
+
+
 def main(args):  # type: (Type[Args]) -> None
     with io.open(args.changelog, 'w', newline='') as fout:
         fout.write('## Operator Changelog\n')
@@ -453,6 +568,7 @@ def main(args):  # type: (Type[Args]) -> None
         fefile=io.open('op_build_table.inc', 'w', newline='')
         firstfunc = True
 
+        fefile.write('    '+'if (OpName == "DUMMY") {\n')
         for domain, supportmap in operator_schemas:
             s = '## {}\n'.format(display_domain_short(domain))
             fout.write(s)
@@ -461,21 +577,8 @@ def main(args):  # type: (Type[Args]) -> None
                 for op_type, schema, versions in namemap:
                     # op_type
                     #print("check point 1", schema.name, len(schema.inputs), len(schema.outputs))
-                    if firstfunc :
-                        fefile.write('    '+'if (OpName == "'+schema.name+'") {\n')
-                        firstfunc = False
-                    else :
-                        fefile.write('    '+'}else if (OpName == "'+schema.name+'") {\n')
-                    if len(schema.outputs) > 1 :
-                        fefile.write('       '+'MultipleOuts('+schema.name+', '
-                          +str(schema.since_version)+', '
-                          +str(len(schema.inputs))+', '
-                          +str(len(schema.outputs))+');\n')
-                    else :
-                        fefile.write('       '+'OneOut('+schema.name+', '
-                          +str(schema.since_version)+', '
-                          +str(len(schema.inputs))+', '
-                          +str(len(schema.outputs))+');\n')
+                    gen_code(schema, fefile)
+
                     r = gen_schema(schema)
                     tdfile.write(r)
                     s = ('### {}<a name="{}"></a><a name="{}">**{}**' + (' (deprecated)' if schema.deprecated else '') + '</a>\n').format(
