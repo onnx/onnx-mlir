@@ -614,7 +614,6 @@ private:
       onnx::NodeProto node, int nIn, int nOut,
       std::initializer_list<std::tuple<std::string, std::string, std::string>>
           attrs) {
-
     // Conv has attribute dilations, kernel_shape, pads, the default value of
     // which  is determined by the shape of first argument. However, since the
     // shape is unknown now, these attributes can be not generated auto
@@ -686,7 +685,7 @@ private:
   }
 
   void ImportGraph(const onnx::GraphProto &graph,
-                   const std::string &name = "main") {
+                   const std::string &name = "main_graph") {
     // create a function for the graph
     // TODO:
     //  * get name and type for the function.
@@ -699,13 +698,18 @@ private:
     }
 
     // TODO: import the initializer
-    auto func_type = builder_.getFunctionType(arg_types, {});
-    auto main_func =
-        mlir::FuncOp::create(UnknownLoc(), name, func_type, /* attrs = */ {});
-    auto &entryBlock = *main_func.addEntryBlock();
+    auto funcType = builder_.getFunctionType(arg_types, {});
+    auto mainFunc =
+        mlir::FuncOp::create(UnknownLoc(), name, funcType, /* attrs = */ {});
+    auto entryPoint = mlir::ONNXEntryPointOp::create(
+        UnknownLoc(), mainFunc, /*numInputs=*/graph.input().size(),
+        /*numOutputs=*/graph.output().size());
 
+    auto &entryBlock = *mainFunc.addEntryBlock();
     builder_.setInsertionPointToStart(&entryBlock);
-    module_.push_back(main_func);
+
+    module_.push_back(mainFunc);
+    module_.push_back(entryPoint);
 
     for (auto it : llvm::zip(graph.input(), entryBlock.getArguments())) {
       ImportInputTensorSymbol(std::get<0>(it), std::get<1>(it));
@@ -728,8 +732,8 @@ private:
     builder_.create<mlir::ReturnOp>(UnknownLoc(), ret_vals);
     // Update main function signature to reflect types of newly imported
     // output tensors.
-    func_type = builder_.getFunctionType(arg_types, ret_types);
-    main_func.setType(func_type);
+    funcType = builder_.getFunctionType(arg_types, ret_types);
+    mainFunc.setType(funcType);
   }
 };  // FrontendGenImpl class
 }  // namespace

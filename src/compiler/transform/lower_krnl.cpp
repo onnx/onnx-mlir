@@ -143,14 +143,16 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   // We expect IR to be free of Krnl Dialect Ops.
   target.addIllegalDialect<KrnlOpsDialect>();
   target.addLegalOp<KrnlMemcpyOp>();
+  target.addLegalOp<KrnlEntryPointOp>();
 
   OwningRewritePatternList patterns;
   patterns.insert<KrnlIterateOpLowering, KrnlTerminatorLowering,
                   KrnlDefineLoopsLowering, KrnlOptimizeLoopsLowering>(
       &getContext());
 
-  if (failed(applyPartialConversion(getFunction(), target, patterns)))
+  if (failed(applyPartialConversion(getFunction(), target, patterns))) {
     signalPassFailure();
+  }
 }
 
 } // namespace

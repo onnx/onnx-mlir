@@ -58,6 +58,27 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 
 include "dialect/onnx/onnxop.inc"
 
+// Indicate entry point functions of ONNX graph.
+def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
+  let summary = "Indicate ONNX entry point";
+  let description = [{
+    The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
+  }];
+
+  let builders = [OpBuilder<[{Builder *builder, OperationState &state,
+                             FuncOp function, int numInputs, int numOutputs}]>];
+
+  let extraClassDeclaration = [{
+    static ONNXEntryPointOp create(Location location, FuncOp& func,
+                                   int numInputs, int numOutputs);
+
+    static StringRef getEntryPointFuncAttrName() { return "func"; }
+    static StringRef getNumInputsAttrName() { return "numInputs"; }
+    static StringRef getNumOutputsAttrName() { return "numOutputs"; }
+  }];
+}
+
+
 def ONNXFullGemmOp: ONNX_Op<"FullGemm",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX general matrix multiply operation";

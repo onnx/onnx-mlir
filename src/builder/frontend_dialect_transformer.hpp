@@ -21,7 +21,7 @@
 namespace mlir {
 class MLIRContext;
 class OwningModuleRef;
-}  // namespace mlir
+} // namespace mlir
 
 //===----------------------------------------------------------------------===//
 // Import a model into one of ONNF's frontend models.
@@ -41,7 +41,8 @@ mlir::OwningModuleRef ImportFrontendModel(onnx::ModelProto model);
  *  @return MLIR::module generated for the ONNX model.
  */
 void ImportFrontendModelFile(std::string model_fname,
-    mlir::MLIRContext& context, mlir::OwningModuleRef& module);
+                             mlir::MLIRContext &context,
+                             mlir::OwningModuleRef &module);
 
 /*!
  *  TODO: Import models into other extension dialects that cover the

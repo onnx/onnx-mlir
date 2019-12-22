@@ -8,7 +8,6 @@
 // Krnl IR and standard operations.
 //
 //===----------------------------------------------------------------------===//
-
 #include <map>
 
 #include "mlir/Dialect/AffineOps/AffineOps.h"
@@ -885,6 +884,27 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 };
 
 //===----------------------------------------------------------------------===//
+// EntryPoint Op lowering to Krnl Entry Point.
+//===----------------------------------------------------------------------===//
+
+class ONNXEntryPointLowering : public OpRewritePattern<ONNXEntryPointOp> {
+public:
+  using OpRewritePattern<ONNXEntryPointOp>::OpRewritePattern;
+
+  PatternMatchResult matchAndRewrite(ONNXEntryPointOp op,
+                                     PatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(
+        op,
+        op.getAttrOfType<SymbolRefAttr>(
+            ONNXEntryPointOp::getEntryPointFuncAttrName()),
+        op.getAttrOfType<IntegerAttr>(ONNXEntryPointOp::getNumInputsAttrName()),
+        op.getAttrOfType<IntegerAttr>(
+            ONNXEntryPointOp::getNumOutputsAttrName()));
+    return matchSuccess();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Conversion from Tensor type to the Standard dialect MemRef type.
 //===----------------------------------------------------------------------===//
 
@@ -985,7 +1005,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
-                  ONNXReshapeOpLowering>(&getContext());
+                  ONNXReshapeOpLowering, ONNXEntryPointLowering>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

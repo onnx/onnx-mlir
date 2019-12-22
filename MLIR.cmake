@@ -34,7 +34,7 @@ set(MLIR_SRC_INCLUDE_PATH ${LLVM_SRC}/projects/mlir/include)
 set(MLIR_BIN_INCLUDE_PATH ${LLVM_BUILD}/projects/mlir/include)
 set(MLIR_TOOLS_DIR ${LLVM_BUILD}/bin)
 
-set(ONNF_TOOLS_DIR ${ONNF_BIN_ROOT}/src/compiler/tool/onnf_opt)
+set(ONNF_TOOLS_DIR ${ONNF_BIN_ROOT}/bin)
 set(ONNF_LIT_TEST_SRC_DIR ${CMAKE_SOURCE_DIR}/test/mlir)
 set(ONNF_LIT_TEST_BUILD_DIR ${CMAKE_BINARY_DIR}/test/mlir)
 

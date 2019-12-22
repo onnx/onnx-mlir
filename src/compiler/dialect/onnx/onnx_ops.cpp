@@ -7,7 +7,6 @@
 // This file defines ONNX operations in the MLIR operation set.
 //
 //===----------------------------------------------------------------------===//
-
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
@@ -36,6 +35,28 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
 #define GET_OP_LIST
 #include "src/compiler/onnx.cpp.inc"
       >();
+}
+
+void ONNXEntryPointOp::build(mlir::Builder *builder,
+                             mlir::OperationState &state, mlir::FuncOp function,
+                             int numInputs, int numOutputs) {
+  state.addAttribute(ONNXEntryPointOp::getEntryPointFuncAttrName(),
+                     builder->getSymbolRefAttr(function));
+  state.addAttribute(ONNXEntryPointOp::getNumInputsAttrName(),
+                     builder->getI32IntegerAttr(numInputs));
+  state.addAttribute(ONNXEntryPointOp::getNumOutputsAttrName(),
+                     builder->getI32IntegerAttr(numOutputs));
+}
+
+ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
+                                          mlir::FuncOp &func, int numInputs,
+                                          int numOutputs) {
+  mlir::OperationState state(location, "onnx.EntryPoint");
+  Builder builder(location->getContext());
+  mlir::ONNXEntryPointOp::build(&builder, state, func, numInputs, numOutputs);
+  Operation *op = mlir::Operation::create(state);
+  auto onnxEntryOp = llvm::cast<mlir::ONNXEntryPointOp>(op);
+  return onnxEntryOp;
 }
 
 //===----------------------------------------------------------------------===//

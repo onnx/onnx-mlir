@@ -7,10 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <cmath>
-#include <cstdlib>
 #include <iostream>
-#include <random>
-#include <tuple>
 
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Support/CommandLine.h"
@@ -24,9 +21,7 @@
 #include "src/compiler/dialect/onnx/onnx_ops.hpp"
 #include "src/compiler/pass/passes.hpp"
 
-#include "mlir/Analysis/Verifier.h"
 #include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/IR/MLIRContext.h"

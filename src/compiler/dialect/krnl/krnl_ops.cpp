@@ -364,6 +364,14 @@ ParseResult parseKrnlReturnLoopsOp(OpAsmParser &parser,
   return success();
 }
 
+void KrnlEntryPointOp::build(mlir::Builder *builder, OperationState &state,
+                             SymbolRefAttr funcAttr, IntegerAttr numInputs,
+                             IntegerAttr numOutputs) {
+  state.addAttribute(KrnlEntryPointOp::getEntryPointFuncAttrName(), funcAttr);
+  state.addAttribute(KrnlEntryPointOp::getNumInputsAttrName(), numInputs);
+  state.addAttribute(KrnlEntryPointOp::getNumOutputsAttrName(), numOutputs);
+}
+
 #define GET_OP_CLASSES
 #include "src/compiler/krnl.cpp.inc"
 } // namespace mlir
