@@ -6,6 +6,9 @@ jobs:
 
     steps:
       - checkout
+      
+      - run:
+          command: which git
 
       - run:
           name: Set up MLIR.
