@@ -62,6 +62,7 @@ find_mlir_lib(MLIRExecutionEngine)
 find_mlir_lib(MLIRIR)
 find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopToStandard)
+find_mlir_lib(MLIRLoopOps)
 find_mlir_lib(MLIRParser)
 find_mlir_lib(MLIRPass)
 find_mlir_lib(MLIRStandardOps)
@@ -96,42 +97,42 @@ find_mlir_lib(LLVMDemangle)
 
 
 set(MLIRLibsOnce
-        LLVMAnalysis
-        LLVMAsmParser
-        LLVMBinaryFormat
-        LLVMBitReader
-        LLVMBitstreamReader
-        LLVMBitWriter
-        LLVMCore
-        LLVMIRReader
-        LLVMMC
-        LLVMMCParser
-        LLVMObject
-        LLVMRemarks
-        LLVMSupport
-        LLVMTransformUtils
-        LLVMProfileData
-        LLVMDemangle
-        MLIRAffineOps
-        MLIRAffineToStandard
-        MLIRAnalysis
-        MLIRDialect
-        MLIRExecutionEngine
-        MLIRIR
-        MLIRLLVMIR
-        MLIRLoopOps
-        MLIRLoopToStandard
-        MLIROptMain
-        MLIRParser
-        MLIRPass
-        MLIRStandardOps
-        MLIRStandardToLLVM
-        MLIRSupport
-        MLIRTargetLLVMIR
-        MLIRTargetLLVMIRModuleTranslation
-        MLIRTransforms
-        MLIRTransformUtils
-        MLIRTranslation)
+        ${LLVMAnalysis}
+        ${LLVMAsmParser}
+        ${LLVMBinaryFormat}
+        ${LLVMBitReader}
+        ${LLVMBitstreamReader}
+        ${LLVMBitWriter}
+        ${LLVMCore}
+        ${LLVMIRReader}
+        ${LLVMMC}
+        ${LLVMMCParser}
+        ${LLVMObject}
+        ${LLVMRemarks}
+        ${LLVMSupport}
+        ${LLVMTransformUtils}
+        ${LLVMProfileData}
+        ${LLVMDemangle}
+        ${MLIRAffineOps}
+        ${MLIRAffineToStandard}
+        ${MLIRAnalysis}
+        ${MLIRDialect}
+        ${MLIRExecutionEngine}
+        ${MLIRIR}
+        ${MLIRLLVMIR}
+        ${MLIRLoopToStandard}
+        ${MLIRLoopOps}
+        ${MLIROptMain}
+        ${MLIRParser}
+        ${MLIRPass}
+        ${MLIRStandardOps}
+        ${MLIRStandardToLLVM}
+        ${MLIRSupport}
+        ${MLIRTargetLLVMIR}
+        ${MLIRTargetLLVMIRModuleTranslation}
+        ${MLIRTransforms}
+        ${MLIRTransformUtils}
+        ${MLIRTranslation})
 
 set(MLIRLibs
         ${MLIRLibsOnce}
@@ -146,7 +147,8 @@ set(MLIRWholeArchiveLibs
         MLIRStandardToLLVM
         MLIRTransforms
         MLIRLoopToStandard
-        MLIRVectorOps)
+        MLIRVectorOps
+        MLIRLoopOps)
 
 function(whole_archive_link target lib_dir)
   get_property(link_flags TARGET ${target} PROPERTY LINK_FLAGS)

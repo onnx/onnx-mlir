@@ -28,18 +28,7 @@ target_include_directories(compiler PRIVATE ${ONNF_SRC_ROOT}/third_party/fmt/inc
 # Include tablegen generated header files.
 target_include_directories(compiler PRIVATE ${ONNF_BIN_ROOT})
 
-find_package(Boost 1.54.0
-        COMPONENTS
-        graph
-        program_options
-        log_setup
-        log
-        system
-        filesystem
-        REQUIRED)
-
 target_link_libraries(compiler
-        ${Boost_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT}
         ${CMAKE_DL_LIBS}
         ${MLIRLibs}

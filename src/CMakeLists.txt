@@ -1,11 +1,8 @@
 add_executable(onnf main.cpp)
 
-target_link_libraries(onnf builder compiler ${MLIRLibs} ${Boost_LIBRARIES})
-set_target_properties(onnf PROPERTIES LINK_FLAGS "-lz")
-
+target_link_libraries(onnf builder compiler ${MLIRLibs} onnf_transform)
 whole_archive_link_mlir(onnf ${MLIRWholeArchiveLibs})
-whole_archive_link_onnf(onnf onnf_transform)
-
+set_target_properties(onnf PROPERTIES LINK_FLAGS "-lz")
 
 target_include_directories(onnf PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(onnf PRIVATE ${CMAKE_BINARY_DIR})
