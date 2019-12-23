@@ -14,14 +14,14 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "shape_inference_interface.hpp"
-#include "src/compiler/dialect/onnx/onnx_ops.hpp"
+#include "src/dialect/onnx/onnx_ops.hpp"
 
 #include "passes.hpp"
 
 using namespace mlir;
 
 // Include the auto-generated definitions for the shape inference interfaces.
-#include "src/compiler/shape_inference.cpp.inc"
+#include "src/shape_inference.cpp.inc"
 
 namespace {
 /*!

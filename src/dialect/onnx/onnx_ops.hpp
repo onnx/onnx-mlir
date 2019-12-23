@@ -16,7 +16,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/StandardTypes.h"
 
-#include "src/compiler/pass/shape_inference_interface.hpp"
+#include "src/pass/shape_inference_interface.hpp"
 
 namespace mlir {
 
@@ -32,7 +32,7 @@ class ONNXOpsDialect : public Dialect {
 /// Include the auto-generated header file containing the declarations of the
 /// ONNX operations.
 #define GET_OP_CLASSES
-#include "src/compiler/onnx.hpp.inc"
+#include "src/onnx.hpp.inc"
 
 }  // end namespace mlir
 

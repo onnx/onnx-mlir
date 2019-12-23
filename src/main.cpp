@@ -17,9 +17,9 @@
 #include "llvm/Support/SourceMgr.h"
 
 #include "src/builder/frontend_dialect_transformer.hpp"
-#include "src/compiler/dialect/krnl/krnl_ops.hpp"
-#include "src/compiler/dialect/onnx/onnx_ops.hpp"
-#include "src/compiler/pass/passes.hpp"
+#include "src/dialect/krnl/krnl_ops.hpp"
+#include "src/dialect/onnx/onnx_ops.hpp"
+#include "src/pass/passes.hpp"
 
 #include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"

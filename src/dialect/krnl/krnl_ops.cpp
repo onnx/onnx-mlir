@@ -24,7 +24,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
 
-#include "src/compiler/dialect/krnl/krnl_helper.hpp"
+#include "krnl_helper.hpp"
 
 #include "krnl_ops.hpp"
 
@@ -35,7 +35,7 @@ KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
     : Dialect(getDialectNamespace(), context) {
   addOperations<
 #define GET_OP_LIST
-#include "src/compiler/krnl.cpp.inc"
+#include "src/krnl.cpp.inc"
       >();
   addTypes<LoopType>();
 }
@@ -373,5 +373,5 @@ void KrnlEntryPointOp::build(mlir::Builder *builder, OperationState &state,
 }
 
 #define GET_OP_CLASSES
-#include "src/compiler/krnl.cpp.inc"
+#include "src/krnl.cpp.inc"
 } // namespace mlir

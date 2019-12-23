@@ -35,7 +35,7 @@
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/compiler/dialect/onnx/onnx_ops.hpp"
+#include "src/dialect/onnx/onnx_ops.hpp"
 
 #include "frontend_dialect_transformer.hpp"
 

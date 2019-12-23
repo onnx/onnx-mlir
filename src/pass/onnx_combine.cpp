@@ -13,13 +13,13 @@
 #include "mlir/IR/PatternMatch.h"
 
 #include <numeric>
-#include "src/compiler/dialect/onnx/onnx_ops.hpp"
+#include "src/dialect/onnx/onnx_ops.hpp"
 
 using namespace mlir;
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/compiler/onnx_combine.inc"
+#include "src/onnx_combine.inc"
 }  // end anonymous namespace
 
 /// Register optimization patterns as "canonicalization" patterns

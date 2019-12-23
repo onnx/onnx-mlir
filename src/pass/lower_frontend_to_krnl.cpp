@@ -17,10 +17,10 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 
-#include "src/compiler/dialect/krnl/krnl_helper.hpp"
-#include "src/compiler/dialect/krnl/krnl_ops.hpp"
-#include "src/compiler/dialect/onnx/onnx_ops.hpp"
-#include "src/compiler/pass/passes.hpp"
+#include "src/dialect/krnl/krnl_helper.hpp"
+#include "src/dialect/krnl/krnl_ops.hpp"
+#include "src/dialect/onnx/onnx_ops.hpp"
+#include "passes.hpp"
 
 using namespace mlir;
 
