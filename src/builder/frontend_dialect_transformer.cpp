@@ -745,8 +745,6 @@ mlir::OwningModuleRef ImportFrontendModel(onnx::ModelProto model) {
   mlir::MLIRContext context;
   FrontendGenImpl myONNXGen(context);
   auto module = myONNXGen.ImportONNXModel(model);
-  module.dump();
-
   return module;
 }
 
@@ -761,6 +759,5 @@ void ImportFrontendModelFile(std::string model_fname,
 
   FrontendGenImpl myONNXGen(context);
   module = myONNXGen.ImportONNXModel(model);
-  module->dump();
 }
 }  // namespace onnf

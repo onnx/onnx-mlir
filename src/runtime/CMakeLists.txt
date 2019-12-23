@@ -15,3 +15,4 @@ target_link_libraries(pyruntime PRIVATE ${CMAKE_DL_LIBS})
 target_include_directories(pyruntime
         PRIVATE ${ONNF_SRC_ROOT} ${ONNF_BIN_ROOT}
         ${ONNF_SRC_ROOT})
+add_dependencies(pyruntime cruntime)
