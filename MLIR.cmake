@@ -140,15 +140,15 @@ set(MLIRLibs
         Threads::Threads)
 
 set(MLIRWholeArchiveLibs
-        ${MLIRAffineToStandard}
-        ${MLIRAffineOps}
-        ${MLIRLLVMIR}
-        ${MLIRStandardOps}
-        ${MLIRStandardToLLVM}
-        ${MLIRTransforms}
-        ${MLIRLoopToStandard}
-        ${MLIRVectorOps}
-        ${MLIRLoopOps})
+        MLIRAffineToStandard
+        MLIRAffineOps
+        MLIRLLVMIR
+        MLIRStandardOps
+        MLIRStandardToLLVM
+        MLIRTransforms
+        MLIRLoopToStandard
+        MLIRVectorOps
+        MLIRLoopOps)
 
 function(whole_archive_link target lib_dir)
   get_property(link_flags TARGET ${target} PROPERTY LINK_FLAGS)
@@ -156,7 +156,7 @@ function(whole_archive_link target lib_dir)
     set(link_flags "${link_flags} -L${lib_dir}  ")
     foreach(LIB ${ARGN})
       string(CONCAT link_flags ${link_flags}
-              "-Wl,-force_load,${LIB} ")
+              "-Wl,-force_load, ${lib_dir}/lib${LIB}.a ")
     endforeach(LIB)
   elseif(MSVC)
     foreach(LIB ${ARGN})
@@ -177,9 +177,9 @@ function(whole_archive_link_mlir target)
 endfunction(whole_archive_link_mlir)
 
 function(whole_archive_link_onnf target)
-  foreach(LIB ${ARGN})
-    add_dependencies(${target} ${LIB})
-  endforeach(LIB)
+  foreach(lib_target ${ARGN})
+    add_dependencies(${target} ${lib_target})
+  endforeach(lib_target)
   whole_archive_link(${target} ${CMAKE_BINARY_DIR}/lib ${ARGN})
 endfunction(whole_archive_link_onnf)
 
