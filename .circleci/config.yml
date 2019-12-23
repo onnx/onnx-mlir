@@ -6,26 +6,28 @@ jobs:
 
     steps:
       - checkout
-      
+
+      - run:
+          name: Check current directory
+          command: pwd
       - run:
           name: Installing GCC
           command: 'sudo apt-get update && sudo apt-get install -y gcc g++'
       - run:
           name: Install CMAKE
           command: 'sudo apt-get update && sudo apt-get install -y cmake ninja-build'
-
       - run:
+          name: Check gcc version
           command: gcc --version
-
       - run:
-          name: Set up MLIR.
+          name: Install MLIR
           command: |
             git clone https://github.com/llvm/llvm-project.git  
             git clone https://github.com/tensorflow/mlir llvm-project/llvm/projects/mlir 
             mkdir llvm-project/build 
             cd llvm-project/build 
             cmake -G Ninja ../llvm -DLLVM_ENABLE_RTTI=ON  -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_TARGETS_TO_BUILD="host" 
-            cmake --build . --target check-mlir
+            cmake --build . --target check-mlir -- -j 1
 
       - run:
           name: Print the Current Time
