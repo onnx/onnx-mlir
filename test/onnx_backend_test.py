@@ -12,17 +12,14 @@ import onnx.backend.test
 from onnx.backend.base import Device, DeviceType
 import onnx.shape_inference
 import onnx.version_converter
-from typing import Optional, Text, Any, Tuple, Sequence
-from onnx import NodeProto, ModelProto, TensorProto
-import numpy  # type: ignore
 import subprocess
 from pyruntime import ExecutionSession
 
 CXX = os.getenv('CXX')
-FE = os.getenv('FE')
+ONNF = os.getenv('ONNF')
 LLC = os.getenv('LLC')
 RT_DIR = os.getenv('RT_DIR')
-assert CXX and FE and LLC and RT_DIR, "tools path not set"
+assert CXX and ONNF and LLC and RT_DIR, "tools path not set"
 
 class DummyBackend(onnx.backend.base.Backend):
     @classmethod
@@ -36,7 +33,7 @@ class DummyBackend(onnx.backend.base.Backend):
         # Save model to disk as temp_model.onnx.
         onnx.save(model, "temp_model.onnx")
         # Call frontend to process temp_model.onnx, bit code will be generated.
-        subprocess.run([FE, "temp_model.onnx"], stdout=subprocess.PIPE)
+        subprocess.run([ONNF, "temp_model.onnx"], stdout=subprocess.PIPE)
         # Call llc to generate object file from bitcode.
         subprocess.run([LLC, "-filetype=obj", "model.bc"],
                        stdout=subprocess.PIPE)
