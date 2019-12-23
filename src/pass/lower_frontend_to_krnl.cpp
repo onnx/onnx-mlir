@@ -20,7 +20,7 @@
 #include "src/dialect/krnl/krnl_helper.hpp"
 #include "src/dialect/krnl/krnl_ops.hpp"
 #include "src/dialect/onnx/onnx_ops.hpp"
-#include "passes.hpp"
+#include "src/pass/passes.hpp"
 
 using namespace mlir;
 

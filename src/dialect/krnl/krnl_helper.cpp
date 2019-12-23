@@ -1,7 +1,7 @@
 #include "mlir/Dialect/AffineOps/AffineOps.h"
 #include "mlir/IR/AffineExpr.h"
 
-#include "krnl_ops.hpp"
+#include "src/dialect/krnl/krnl_ops.hpp"
 
 #include "krnl_helper.hpp"
 
