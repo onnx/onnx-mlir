@@ -12,7 +12,7 @@ jobs:
           command: 'sudo apt-get update && sudo apt-get install -y gcc g++'
       - run:
           name: Install CMAKE
-          command: 'sudo apt-get update && sudo apt-get install -y cmake'
+          command: 'sudo apt-get update && sudo apt-get install -y cmake ninja-build'
 
       - run:
           command: gcc --version
