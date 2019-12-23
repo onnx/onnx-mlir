@@ -140,23 +140,23 @@ set(MLIRLibs
         Threads::Threads)
 
 set(MLIRWholeArchiveLibs
-        MLIRAffineToStandard
-        MLIRAffineOps
-        MLIRLLVMIR
-        MLIRStandardOps
-        MLIRStandardToLLVM
-        MLIRTransforms
-        MLIRLoopToStandard
-        MLIRVectorOps
-        MLIRLoopOps)
+        ${MLIRAffineToStandard}
+        ${MLIRAffineOps}
+        ${MLIRLLVMIR}
+        ${MLIRStandardOps}
+        ${MLIRStandardToLLVM}
+        ${MLIRTransforms}
+        ${MLIRLoopToStandard}
+        ${MLIRVectorOps}
+        ${MLIRLoopOps})
 
 function(whole_archive_link target lib_dir)
   get_property(link_flags TARGET ${target} PROPERTY LINK_FLAGS)
   if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
-    set(link_flags "${link_flags} -L${lib_dir} ")
+    set(link_flags "${link_flags} -L${lib_dir}  ")
     foreach(LIB ${ARGN})
       string(CONCAT link_flags ${link_flags}
-              "-Wl,-force_load ${lib_dir}/lib${LIB}.a ")
+              "-Wl,-force_load,${LIB} ")
     endforeach(LIB)
   elseif(MSVC)
     foreach(LIB ${ARGN})
