@@ -17,9 +17,9 @@
 #include "llvm/Support/SourceMgr.h"
 
 #include "src/builder/frontend_dialect_transformer.hpp"
-#include "src/compiler/dialect/krnl/krnl_ops.hpp"
-#include "src/compiler/dialect/onnx/onnx_ops.hpp"
-#include "src/compiler/pass/passes.hpp"
+#include "src/dialect/krnl/krnl_ops.hpp"
+#include "src/dialect/onnx/onnx_ops.hpp"
+#include "src/pass/passes.hpp"
 
 #include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
@@ -87,10 +87,13 @@ int main(int argc, char *argv[]) {
   llvm::cl::opt<EmissionTargetType> emissionTarget(
       llvm::cl::desc("Choose target to emit:"),
       llvm::cl::values(
-          clEnumVal(EmitONNXIR, "No optimizations, enable debugging"),
-          clEnumVal(EmitMLIR, "Enable trivial optimizations"),
-          clEnumVal(EmitLLVMIR, "Enable default optimizations"),
-          clEnumVal(EmitLLVMBC, "Enable expensive optimizations")),
+          clEnumVal(EmitONNXIR,
+                    "Ingest ONNX and emit corresponding ONNX dialect."),
+          clEnumVal(EmitMLIR,
+                    "Lower model to MLIR built-in transformation dialect."),
+          clEnumVal(EmitLLVMIR, "Lower model to LLVM IR (LLVM dialect)."),
+          clEnumVal(EmitLLVMBC, "Lower model to LLVM IR and emit (to file) "
+                                "LLVM bitcode for model.")),
       llvm::cl::init(EmitLLVMBC), llvm::cl::cat(OnnfOptions));
 
   llvm::cl::HideUnrelatedOptions(OnnfOptions);

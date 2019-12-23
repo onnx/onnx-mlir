@@ -33,7 +33,7 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
     : mlir::Dialect(getDialectNamespace(), ctx) {
   addOperations<
 #define GET_OP_LIST
-#include "src/compiler/onnx.cpp.inc"
+#include "src/onnx.cpp.inc"
       >();
 }
 
@@ -389,4 +389,4 @@ void ONNXReshapeOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 
 #define GET_OP_CLASSES
-#include "src/compiler/onnx.cpp.inc"
+#include "src/onnx.cpp.inc"

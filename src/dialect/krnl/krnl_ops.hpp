@@ -15,8 +15,8 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/StandardTypes.h"
 
-#include "src/compiler/dialect/krnl/krnl_helper.hpp"
-#include "src/compiler/dialect/krnl/krnl_types.hpp"
+#include "src/dialect/krnl/krnl_helper.hpp"
+#include "src/dialect/krnl/krnl_types.hpp"
 
 namespace mlir {
 class KrnlOpsDialect : public Dialect {
@@ -43,5 +43,5 @@ public:
 };
 
 #define GET_OP_CLASSES
-#include "src/compiler/krnl.hpp.inc"
+#include "src/krnl.hpp.inc"
 } // namespace mlir
