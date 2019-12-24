@@ -331,9 +331,9 @@ Value *mapToLowerScalarOp<ONNXTanhOp>(Operation *op,
   auto neg = rewriter.create<SubFOp>(loc, zero, operand);
   auto exp = rewriter.create<ExpOp>(loc, operand);
   auto negExp = rewriter.create<ExpOp>(loc, neg);
-  auto result =
-      rewriter.create<DivFOp>(loc, rewriter.create<SubFOp>(loc, exp, negExp),
-                              rewriter.create<AddFOp>(loc, exp, negExp));
+  auto diff = rewriter.create<SubFOp>(loc, exp, negExp);
+  auto sum = rewriter.create<AddFOp>(loc, exp, negExp);
+  auto result = rewriter.create<DivFOp>(loc, diff, sum);
 
   return result;
 }
