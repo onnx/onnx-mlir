@@ -23,7 +23,6 @@ jobs:
           name: Check gcc version
           command: gcc --version
 
-      
       - restore_cache:
           keys: {{ arch }}
           paths:
@@ -45,7 +44,6 @@ jobs:
           key: {{ arch }}
           paths:
             - llvm-project
-      
 
       - run:
           name: Install ONNF
