@@ -31,7 +31,6 @@ jobs:
 
       - restore_cache:
           key: ONNF-MLIR-{{ arch }}
-
       - run:
           name: Install MLIR
           command: |
@@ -45,19 +44,16 @@ jobs:
               cmake -G Ninja ../llvm -DLLVM_ENABLE_RTTI=ON  -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_TARGETS_TO_BUILD="host" -DCMAKE_BUILD_TYPE=Release
               CMAKE_EXE_LINKER_FLAGS="-Wl,--reduce-memory-overheads -Wl,--hash-size=512" cmake --build . --target check-mlir -- -j 4
             fi
-
       - save_cache:
           key: ONNF-MLIR-{{ arch }}
           paths:
             - llvm-project
-
       - run:
           name: Install ONNF
           command: |
             mkdir build && cd build
             LLVM_SRC=$(pwd)/../llvm-project/llvm LLVM_BUILD=$(pwd)/../llvm-project/build cmake ..
-            make -j4
-
+            make check-mlir-lit
       - run:
           name: Print the Current Time
           command: date
