@@ -7,11 +7,9 @@ add_library(compiler
         dialect/onnx/onnx_ops.hpp
         dialect/krnl/krnl_helper.cpp
         dialect/krnl/krnl_helper.hpp
-        pass/shape_inference_pass.cpp
         pass/shape_inference_interface.hpp
         dialect/onnx/onnxop.inc
         pass/onnx_combine.cpp
-        pass/lower_frontend_to_krnl.cpp
         pass/passes.hpp)
 
 # Include root src directory.
