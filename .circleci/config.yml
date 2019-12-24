@@ -53,7 +53,7 @@ jobs:
           command: |
             mkdir build && cd build
             LLVM_SRC=$(pwd)/../llvm-project/llvm LLVM_BUILD=$(pwd)/../llvm-project/build cmake ..
-            make check-mlir-lit
+            VERBOSE=1 make check-mlir-lit
       - run:
           name: Print the Current Time
           command: date
