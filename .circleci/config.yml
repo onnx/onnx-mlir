@@ -53,7 +53,7 @@ jobs:
           command: |
             mkdir build && cd build
             LLVM_SRC=$(pwd)/../llvm-project/llvm LLVM_BUILD=$(pwd)/../llvm-project/build cmake ..
-            VERBOSE=1 make check-mlir-lit
+            VERBOSE=1 LIT_OPTS=-v make check-mlir-lit
             cd /home/circleci/project/build/test/mlir && /usr/local/bin/python /home/circleci/project/build/../llvm-project/build/bin/llvm-lit -v /home/circleci/project/build/test/mlir
       - run:
           name: Print the Current Time
