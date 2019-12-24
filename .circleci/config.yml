@@ -11,6 +11,9 @@ jobs:
           name: Check current directory
           command: pwd
       - run:
+          name: Check current directory content
+          command: ls
+      - run:
           name: Installing GCC
           command: 'sudo apt-get update && sudo apt-get install -y gcc g++'
       - run:
@@ -19,15 +22,37 @@ jobs:
       - run:
           name: Check gcc version
           command: gcc --version
+
+      
+      - restore_cache:
+          keys: {{ arch }}
+          paths:
+            - llvm-project
+
       - run:
           name: Install MLIR
           command: |
-            git clone https://github.com/llvm/llvm-project.git  
-            git clone https://github.com/tensorflow/mlir llvm-project/llvm/projects/mlir 
-            mkdir llvm-project/build 
-            cd llvm-project/build 
-            cmake -G Ninja ../llvm -DLLVM_ENABLE_RTTI=ON  -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_TARGETS_TO_BUILD="host" -DCMAKE_BUILD_TYPE=Release
-            CMAKE_EXE_LINKER_FLAGS="-Wl,--reduce-memory-overheads -Wl,--hash-size=512" cmake --build . --target check-mlir -- -j 4
+            if [ ! -f /llvm-project/build/bin/mlir-opt ]; then
+              git clone https://github.com/llvm/llvm-project.git  
+              git clone https://github.com/tensorflow/mlir llvm-project/llvm/projects/mlir 
+              mkdir llvm-project/build 
+              cd llvm-project/build 
+              cmake -G Ninja ../llvm -DLLVM_ENABLE_RTTI=ON  -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_TARGETS_TO_BUILD="host" -DCMAKE_BUILD_TYPE=Release
+              CMAKE_EXE_LINKER_FLAGS="-Wl,--reduce-memory-overheads -Wl,--hash-size=512" cmake --build . --target check-mlir -- -j 4
+            fi
+
+      - save_cache:
+          key: {{ arch }}
+          paths:
+            - llvm-project
+      
+
+      - run:
+          name: Install ONNF
+          command: |
+            mkdir ONNF/build && cd ONNF/build
+            LLVM_SRC=$(pwd)/llvm-project/llvm LLVM_BUILD=$(pwd)/llvm-project/build cmake ..
+            make -j4
 
       - run:
           name: Print the Current Time
