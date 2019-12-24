@@ -1,5 +1,5 @@
 # ONNF
-Open Neural Network Frontend : an ONNX frontend to MLIR.
+Open Neural Network Frontend : an ONNX frontend for MLIR.
 
 [![CircleCI](https://circleci.com/gh/clang-ykt/ONNF.svg?style=svg)](https://circleci.com/gh/clang-ykt/ONNF)
 
