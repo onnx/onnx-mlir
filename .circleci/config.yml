@@ -2,15 +2,59 @@ version: 2
 jobs:
   build:
     docker:
-      - image: debian:stretch
+      - image: circleci/python
 
     steps:
       - checkout
-
       - run:
-          name: Greeting
-          command: echo Hello, world.
+          name: "Pull Submodules"
+          command: |
+            git submodule update --init --recursive
+      - run:
+          name: Check current directory
+          command: pwd
+      - run:
+          name: Check current directory content
+          command: ls
+      - run:
+          name: Installing GCC
+          command: 'sudo apt-get update && sudo apt-get install -y gcc g++'
+      - run:
+          name: Install CMAKE
+          command: 'sudo apt-get update && sudo apt-get install -y cmake ninja-build'
+      - run:
+          name: Install Protobuf
+          command: 'sudo apt-get update && sudo apt-get install -y protobuf-compiler'
+      - run:
+          name: Check gcc version
+          command: gcc --version
 
+      - restore_cache:
+          key: ONNF-MLIR-{{ arch }}
+      - run:
+          name: Install MLIR
+          command: |
+            if [ ! -f llvm-project/build/bin/mlir-opt ]; then
+              git clone https://github.com/llvm/llvm-project.git  
+              cd llvm-project && git checkout 9b6ad8466bb8b97082b705270603ad7f4559e931 && cd ..
+              git clone https://github.com/tensorflow/mlir llvm-project/llvm/projects/mlir 
+              cd llvm-project/llvm/projects/mlir && git checkout 0710266d0f56cf6ab0f437badbd7416b6cecdf5f && cd ../../../..
+              mkdir llvm-project/build 
+              cd llvm-project/build 
+              cmake -G Ninja ../llvm -DLLVM_ENABLE_RTTI=ON  -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_TARGETS_TO_BUILD="host" -DCMAKE_BUILD_TYPE=Release
+              CMAKE_EXE_LINKER_FLAGS="-Wl,--reduce-memory-overheads -Wl,--hash-size=512" cmake --build . --target check-mlir -- -j 4
+            fi
+      - save_cache:
+          key: ONNF-MLIR-{{ arch }}
+          paths:
+            - llvm-project
+      - run:
+          name: Install ONNF
+          command: |
+            mkdir build && cd build
+            LLVM_SRC=$(pwd)/../llvm-project/llvm LLVM_BUILD=$(pwd)/../llvm-project/build cmake ..
+            make all
+            LIT_OPTS=-v make check-mlir-lit
       - run:
           name: Print the Current Time
           command: date
