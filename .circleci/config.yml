@@ -27,7 +27,7 @@ jobs:
             mkdir llvm-project/build 
             cd llvm-project/build 
             cmake -G Ninja ../llvm -DLLVM_ENABLE_RTTI=ON  -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_TARGETS_TO_BUILD="host" 
-            CMAKE_EXE_LINKER_FLAGS="-Wl,--reduce-memory-overheads -Wl,--hash-size=1021" cmake --build . --target check-mlir -- -j 4
+            CMAKE_EXE_LINKER_FLAGS="-Wl,--reduce-memory-overheads -Wl,--hash-size=512" cmake --build . --target check-mlir -- -j 4
 
       - run:
           name: Print the Current Time
