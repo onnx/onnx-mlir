@@ -27,7 +27,7 @@ jobs:
             mkdir llvm-project/build 
             cd llvm-project/build 
             cmake -G Ninja ../llvm -DLLVM_ENABLE_RTTI=ON  -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_TARGETS_TO_BUILD="host" 
-            cmake --build . --target check-mlir -- -j 1
+            cmake --build . --target check-mlir -- -j 2
 
       - run:
           name: Print the Current Time
