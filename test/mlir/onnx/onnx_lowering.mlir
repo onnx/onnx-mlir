@@ -145,9 +145,9 @@ func @test_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
-// func @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
-//   %0 = "onnx.Tanh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-//   "std.return"(%0) : (tensor<*xf32>) -> ()
+func @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Tanh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
 
 //   // CHECK-LABEL: test_tanh
 //   // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
@@ -168,7 +168,7 @@ func @test_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 //   // CHECK: [[TANH_RES:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
 //   // CHECK: store [[TANH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
 //   // CHECK: return [[RES]] : memref<?x10xf32>
-// }
+}
 
 func @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sinh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
