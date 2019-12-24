@@ -29,7 +29,7 @@ jobs:
       - run:
           name: Install MLIR
           command: |
-            if [ ! -f /llvm-project/build/bin/mlir-opt ]; then
+            if [ ! -f llvm-project/build/bin/mlir-opt ]; then
               git clone https://github.com/llvm/llvm-project.git  
               git clone https://github.com/tensorflow/mlir llvm-project/llvm/projects/mlir 
               mkdir llvm-project/build 
