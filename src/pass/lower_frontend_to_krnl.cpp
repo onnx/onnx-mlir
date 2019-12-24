@@ -616,7 +616,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       : ConversionPattern(ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
   PatternMatchResult
   matchAndRewrite(Operation *op, ArrayRef<Value *> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+                  ConversionPatternRewriter &rewriter) const override {
     // TODO: Check that the types are valid.
     // An element-wise unary operation must have all operands and the result of
     // the same type. This should have been verified by the verifier.
@@ -719,7 +719,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       : ConversionPattern(ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
   PatternMatchResult
   matchAndRewrite(Operation *op, ArrayRef<Value *> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+                  ConversionPatternRewriter &rewriter) const override {
     // TODO: Check that the types are valid.
     // An element-wise variadic operation must have all operands and the result
     // of the same type. This should have been verified by the verifier.
@@ -832,7 +832,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 
   PatternMatchResult
   matchAndRewrite(Operation *op, ArrayRef<Value *> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+                  ConversionPatternRewriter &rewriter) const override {
     auto tensorType = (*op->result_type_begin()).cast<TensorType>();
     auto loc = op->getLoc();
 
