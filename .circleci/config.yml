@@ -24,7 +24,7 @@ jobs:
           command: gcc --version
 
       - restore_cache:
-          keys: {{ arch }}
+          key: {{ arch }}
           paths:
             - llvm-project
 
