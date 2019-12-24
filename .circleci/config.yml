@@ -46,8 +46,8 @@ jobs:
       - run:
           name: Install ONNF
           command: |
-            mkdir ONNF/build && cd ONNF/build
-            LLVM_SRC=$(pwd)/llvm-project/llvm LLVM_BUILD=$(pwd)/llvm-project/build cmake ..
+            mkdir build && cd build
+            LLVM_SRC=$(pwd)/../llvm-project/llvm LLVM_BUILD=$(pwd)/../llvm-project/build cmake ..
             make -j4
 
       - run:
