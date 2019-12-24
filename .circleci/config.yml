@@ -24,7 +24,7 @@ jobs:
           command: gcc --version
 
       - restore_cache:
-          key: {{ arch }}
+          key: ONNF-{{ arch }}
 
       - run:
           name: Install MLIR
@@ -39,7 +39,7 @@ jobs:
             fi
 
       - save_cache:
-          key: {{ arch }}
+          key: ONNF-{{ arch }}
           paths:
             - llvm-project
 
