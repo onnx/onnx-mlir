@@ -149,25 +149,25 @@ func @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Tanh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-//   // CHECK-LABEL: test_tanh
-//   // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
-//   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
-//   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-//   // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-//   // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
-//   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
-//   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
-//   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-//   // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
-//   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
-//   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-//   // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-//   // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
-//   // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
-//   // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
-//   // CHECK: [[TANH_RES:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
-//   // CHECK: store [[TANH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
-//   // CHECK: return [[RES]] : memref<?x10xf32>
+  // CHECK-LABEL: test_tanh
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
+  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[TANH_RES:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
+  // CHECK: store [[TANH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
 func @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
