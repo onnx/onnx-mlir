@@ -54,8 +54,6 @@ jobs:
             mkdir build && cd build
             LLVM_SRC=$(pwd)/../llvm-project/llvm LLVM_BUILD=$(pwd)/../llvm-project/build cmake ..
             make all
-            ./bin/onnf-opt --shape-inference --lower-frontend ../test/mlir/onnx/onnx_lowering.mlir
-            ./bin/onnf-opt --shape-inference --lower-frontend ../test-tanh.mlir
             LIT_OPTS=-v make check-mlir-lit
       - run:
           name: Print the Current Time
