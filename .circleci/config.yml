@@ -30,14 +30,16 @@ jobs:
           command: gcc --version
 
       - restore_cache:
-          key: ONNF-{{ arch }}
+          key: ONNF-MLIR-{{ arch }}
 
       - run:
           name: Install MLIR
           command: |
             if [ ! -f llvm-project/build/bin/mlir-opt ]; then
               git clone https://github.com/llvm/llvm-project.git  
+              cd llvm-project && git checkout 9b6ad8466bb8b97082b705270603ad7f4559e931 && cd ..
               git clone https://github.com/tensorflow/mlir llvm-project/llvm/projects/mlir 
+              cd llvm-project/llvm/projects/mlir && git checkout 0710266d0f56cf6ab0f437badbd7416b6cecdf5f && cd ../../../..
               mkdir llvm-project/build 
               cd llvm-project/build 
               cmake -G Ninja ../llvm -DLLVM_ENABLE_RTTI=ON  -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_TARGETS_TO_BUILD="host" -DCMAKE_BUILD_TYPE=Release
@@ -45,7 +47,7 @@ jobs:
             fi
 
       - save_cache:
-          key: ONNF-{{ arch }}
+          key: ONNF-MLIR-{{ arch }}
           paths:
             - llvm-project
 
