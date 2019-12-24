@@ -6,7 +6,10 @@ jobs:
 
     steps:
       - checkout
-
+      - run:
+          name: "Pull Submodules"
+          command: |
+            git submodule update --init --recursive
       - run:
           name: Check current directory
           command: pwd
