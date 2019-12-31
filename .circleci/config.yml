@@ -46,7 +46,7 @@ jobs:
                  -DLLVM_ENABLE_ASSERTIONS=ON \
                  -DLLVM_ENABLE_RTTI=ON
               # TODO(tjingrant): why is RTTI necessary?
-              cmake --build . --target check-mlir
+              cmake --build . --target check-mlir -- -j 4
             fi
       - save_cache:
           key: LLVM-PROJECT-{{ arch }}
