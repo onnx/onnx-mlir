@@ -30,8 +30,8 @@ set(LLVM_PROJECT_LIB ${LLVM_BUILD}/lib)
 # Include paths for MLIR
 set(LLVM_SRC_INCLUDE_PATH ${LLVM_SRC}/include)
 set(LLVM_BIN_INCLUDE_PATH ${LLVM_BUILD}/include)
-set(MLIR_SRC_INCLUDE_PATH ${LLVM_SRC}/projects/mlir/include)
-set(MLIR_BIN_INCLUDE_PATH ${LLVM_BUILD}/projects/mlir/include)
+set(MLIR_SRC_INCLUDE_PATH ${LLVM_SRC}/../mlir/include)
+set(MLIR_BIN_INCLUDE_PATH ${LLVM_BUILD}/tools/mlir/include)
 set(MLIR_TOOLS_DIR ${LLVM_BUILD}/bin)
 
 set(ONNF_TOOLS_DIR ${ONNF_BIN_ROOT}/bin)
