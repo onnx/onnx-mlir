@@ -9,4 +9,5 @@ cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_ASSERTIONS=ON \
    -DLLVM_ENABLE_RTTI=ON
 
+export MAKEFLAGS=-j4
 cmake --build . --target check-mlir
