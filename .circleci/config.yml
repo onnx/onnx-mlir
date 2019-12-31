@@ -11,45 +11,21 @@ jobs:
           command: |
             git submodule update --init --recursive
       - run:
-          name: Check current directory
-          command: pwd
-      - run:
-          name: Check current directory content
-          command: ls
-      - run:
-          name: Installing GCC
-          command: 'sudo apt-get update && sudo apt-get install -y gcc g++'
-      - run:
-          name: Install CMAKE
-          command: 'sudo apt-get update && sudo apt-get install -y cmake ninja-build'
-      - run:
-          name: Install Protobuf
-          command: 'sudo apt-get update && sudo apt-get install -y protobuf-compiler'
-      - run:
-          name: Check gcc version
-          command: gcc --version
-
+          name: Installing GCC, CMake, Ninja, Protobuf
+          command: 'sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler'
+      # Use cached mlir installation if possible.
       - restore_cache:
-          key: LLVM-PROJECT-{{ arch }}
+          key: V1-LLVM-PROJECT-{{ arch }}
       - run:
           name: Install MLIR
           command: |
+            # Check whether cache restoration succeeds by checking whether
+            # mlir-opt executable exists.
             if [ ! -f llvm-project/build/bin/mlir-opt ]; then
-              git clone https://github.com/llvm/llvm-project.git
-              mkdir llvm-project/build
-              cd llvm-project/build
-              cmake -G Ninja ../llvm \
-                 -DLLVM_ENABLE_PROJECTS=mlir \
-                 -DLLVM_BUILD_EXAMPLES=ON \
-                 -DLLVM_TARGETS_TO_BUILD="host" \
-                 -DCMAKE_BUILD_TYPE=Release \
-                 -DLLVM_ENABLE_ASSERTIONS=ON \
-                 -DLLVM_ENABLE_RTTI=ON
-              # TODO(tjingrant): why is RTTI necessary?
-              cmake --build . --target check-mlir -- -j 4
+              sh .circleci/install-mlir.sh
             fi
       - save_cache:
-          key: LLVM-PROJECT-{{ arch }}
+          key: V1-LLVM-PROJECT-{{ arch }}
           paths:
             - llvm-project
       - run:
