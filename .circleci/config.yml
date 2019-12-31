@@ -30,22 +30,26 @@ jobs:
           command: gcc --version
 
       - restore_cache:
-          key: ONNF-MLIR-{{ arch }}
+          key: LLVM-PROJECT-{{ arch }}
       - run:
           name: Install MLIR
           command: |
             if [ ! -f llvm-project/build/bin/mlir-opt ]; then
-              git clone https://github.com/llvm/llvm-project.git  
-              cd llvm-project && git checkout 9b6ad8466bb8b97082b705270603ad7f4559e931 && cd ..
-              git clone https://github.com/tensorflow/mlir llvm-project/llvm/projects/mlir 
-              cd llvm-project/llvm/projects/mlir && git checkout 0710266d0f56cf6ab0f437badbd7416b6cecdf5f && cd ../../../..
-              mkdir llvm-project/build 
-              cd llvm-project/build 
-              cmake -G Ninja ../llvm -DLLVM_ENABLE_RTTI=ON  -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_TARGETS_TO_BUILD="host" -DCMAKE_BUILD_TYPE=Release
-              CMAKE_EXE_LINKER_FLAGS="-Wl,--reduce-memory-overheads -Wl,--hash-size=512" cmake --build . --target check-mlir -- -j 4
+              git clone https://github.com/llvm/llvm-project.git
+              mkdir llvm-project/build
+              cd llvm-project/build
+              cmake -G Ninja ../llvm \
+                 -DLLVM_ENABLE_PROJECTS=mlir \
+                 -DLLVM_BUILD_EXAMPLES=ON \
+                 -DLLVM_TARGETS_TO_BUILD="host" \
+                 -DCMAKE_BUILD_TYPE=Release \
+                 -DLLVM_ENABLE_ASSERTIONS=ON \
+                 -DLLVM_ENABLE_RTTI=ON
+              # TODO(tjingrant): why is RTTI necessary?
+              cmake --build . --target check-mlir
             fi
       - save_cache:
-          key: ONNF-MLIR-{{ arch }}
+          key: LLVM-PROJECT-{{ arch }}
           paths:
             - llvm-project
       - run:
