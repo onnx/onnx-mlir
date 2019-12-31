@@ -8,5 +8,5 @@ cmake -G Ninja ../llvm \
    -DCMAKE_BUILD_TYPE=Release \
    -DLLVM_ENABLE_ASSERTIONS=ON \
    -DLLVM_ENABLE_RTTI=ON
-# TODO(tjingrant): why is RTTI necessary?
-cmake --build . --target check-mlir -- -j ${PARALLEL_JOBS_LIMIT:-4}
+
+cmake --build . --target check-mlir
