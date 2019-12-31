@@ -17,20 +17,22 @@ class KrnlDialectOperandParser {
       : _parser(parser), _builder(parser.getBuilder()){};
 
   // Parse an optional operand.
-  mlir::ParseResult ParseOptionalOperand(
-      const mlir::Type& operandType, mlir::Value*& operand);
+  mlir::ParseResult ParseOptionalOperand(const mlir::Type &operandType,
+                                         mlir::Value &operand);
 
   // Parse an optional operand and push it to an operand list.
-  mlir::ParseResult ParseOptionalOperand(const mlir::Type& operandType,
-      llvm::SmallVectorImpl<mlir::Value*>& operandList);
+  mlir::ParseResult
+  ParseOptionalOperand(const mlir::Type &operandType,
+                       llvm::SmallVectorImpl<mlir::Value> &operandList);
 
   // Parse a required operand.
-  mlir::ParseResult ParseOperand(
-      const mlir::Type& operandType, mlir::Value*& operand);
+  mlir::ParseResult ParseOperand(const mlir::Type &operandType,
+                                 mlir::Value &operand);
 
   // Parse a required operand and push it to an operand list.
-  mlir::ParseResult ParseOperand(const mlir::Type& operandType,
-      llvm::SmallVectorImpl<mlir::Value*>& operandList);
+  mlir::ParseResult
+  ParseOperand(const mlir::Type &operandType,
+               llvm::SmallVectorImpl<mlir::Value> &operandList);
 
   // Do we have more operands to parse?
   bool hasOperandLeft() { return !_operandRefQueue.empty(); }
@@ -63,11 +65,10 @@ void printBound(mlir::AffineMapAttr boundMap,
 namespace mlir {
 
 struct KrnlIterateOperandPack {
-  KrnlIterateOperandPack(mlir::Builder& builder,
-      llvm::ArrayRef<mlir::Value*> inputLoops,
-      llvm::ArrayRef<mlir::Value*> optimizedLoops)
-      : builder(builder),
-        inputLoops(inputLoops),
+  KrnlIterateOperandPack(mlir::Builder &builder,
+                         llvm::ArrayRef<mlir::Value> inputLoops,
+                         llvm::ArrayRef<mlir::Value> optimizedLoops)
+      : builder(builder), inputLoops(inputLoops),
         optimizedLoops(optimizedLoops) {
     _operands.insert(
         _operands.end(), optimizedLoops.begin(), optimizedLoops.end());
@@ -75,9 +76,9 @@ struct KrnlIterateOperandPack {
 
   void pushConstantBound(int64_t bound);
 
-  void pushOperandBound(mlir::Value* operand);
+  void pushOperandBound(mlir::Value operand);
 
-  llvm::SmallVector<mlir::Value*, 8> getOperands() const { return _operands; }
+  llvm::SmallVector<mlir::Value, 8> getOperands() const { return _operands; }
 
   mlir::ArrayAttr getAttributes() const {
     return builder.getArrayAttr(boundMaps);
@@ -90,11 +91,11 @@ struct KrnlIterateOperandPack {
  private:
   int _boundIdx = 0;
 
-  llvm::SmallVector<mlir::Value*, 8> _operands;
+  llvm::SmallVector<mlir::Value, 8> _operands;
 
   llvm::SmallVector<mlir::Attribute, 8> boundMaps;
 
-  llvm::ArrayRef<mlir::Value*> inputLoops, optimizedLoops;
+  llvm::ArrayRef<mlir::Value> inputLoops, optimizedLoops;
 
   mlir::Builder& builder;
 };

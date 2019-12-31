@@ -71,7 +71,7 @@ struct OnnxOnnfSymbolMapping {
    *  @param name onnx tensor name.
    *  @return onnf tensor corresponding to `name`.
    */
-  mlir::Value *GetTensorByOnnxName(std::string name) {
+  mlir::Value GetTensorByOnnxName(std::string name) {
     assert(onnx_name2onnf_tensor.find(legalize_name(name)) !=
                             onnx_name2onnf_tensor.end() &&
                         "Tensor not found");
@@ -81,9 +81,9 @@ struct OnnxOnnfSymbolMapping {
   /*!
    *  Add a new mapping from onnx tensor name to MLIR symbol.
    *  @param name onnx tensor name.
-   *  @param tensor MLIR Value* pointer.
+   *  @param tensor MLIR Value  pointer.
    */
-  void AddMapping(std::string name, mlir::Value *tensor) {
+  void AddMapping(std::string name, mlir::Value tensor) {
     assert(onnx_name2onnf_tensor.count(legalize_name(name)) == 0 &&
                         "Tensor already exists.");
     onnx_name2onnf_tensor.emplace(legalize_name(name), tensor);
@@ -97,7 +97,7 @@ private:
   /*!
    *  mapping from onnx tensor names to MLIR tensor.
    */
-  std::map<std::string, mlir::Value*> onnx_name2onnf_tensor;
+  std::map<std::string, mlir::Value> onnx_name2onnf_tensor;
 };
 
 class FrontendGenImpl {
@@ -192,13 +192,13 @@ private:
 
   /*!
    * Import a input tensor symbol by recording a new entry in frontend_symbols_
-   * recording the mapping between legalized onnx tensor name and mlir::Value*
+   * recording the mapping between legalized onnx tensor name and mlir::Value
    * for further lookup in computation node importing.
    * @param input onnx input tensor ValueInfoProto.
    * @param symbol mlir input argument.
    */
   void ImportInputTensorSymbol(const onnx::ValueInfoProto &input,
-                               mlir::Value *symbol) {
+                               mlir::Value symbol) {
     auto input_tensor_legalized_name = legalize_name(input.name());
     assert(
         !frontend_symbols_.ContainKey(input_tensor_legalized_name) &&
@@ -480,7 +480,7 @@ private:
   }
 
   void ImportNodeGeneric(onnx::NodeProto node) {
-    std::vector<mlir::Value *> inputs;
+    std::vector<mlir::Value> inputs;
     for (auto item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
@@ -515,7 +515,7 @@ private:
       onnx::NodeProto node, int nIn, int nOut,
       std::initializer_list<std::tuple<std::string, std::string, std::string>>
           attrs) {
-    std::vector<mlir::Value *> inputs;
+    std::vector<mlir::Value> inputs;
     for (auto item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
@@ -562,7 +562,7 @@ private:
       onnx::NodeProto node, int nIn, int nOut,
       std::initializer_list<std::tuple<std::string, std::string, std::string>>
           attrs) {
-    std::vector<mlir::Value *> inputs;
+    std::vector<mlir::Value> inputs;
     for (auto item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
@@ -633,7 +633,7 @@ private:
   }
 
   void ImportNode(onnx::NodeProto node) {
-    std::vector<mlir::Value *> inputs;
+    std::vector<mlir::Value> inputs;
     for (auto item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
@@ -662,17 +662,17 @@ private:
    * Import output tensor, by doing the following:
    * - Add the type of this output tensor to a list of tensor
    *   types representing return types of this graph function.
-   * - Add this output tensor to the list of mlir::Value*
+   * - Add this output tensor to the list of mlir::Value
    *   to be returned by the function representing computation graph.
    * @param output onnx output tensor ValueInfoProto.
    * @param ret_types a vector of tensor types representing graph's
    *   output tensor types.
-   * @param ret_vals a vector of mlir Value* representing graph's
+   * @param ret_vals a vector of mlir Value  representing graph's
    *   output tensor.
    */
   void ImportOutputTensor(const onnx::ValueInfoProto &output,
                           llvm::SmallVectorImpl<mlir::Type> &ret_types,
-                          llvm::SmallVectorImpl<mlir::Value *> &ret_vals) {
+                          llvm::SmallVectorImpl<mlir::Value> &ret_vals) {
     auto output_tensor_legalized_name = legalize_name(output.name());
     assert(
         frontend_symbols_.ContainKey(output_tensor_legalized_name) &&
@@ -722,7 +722,7 @@ private:
     }
 
     llvm::SmallVector<mlir::Type, 4> ret_types;
-    llvm::SmallVector<mlir::Value *, 4> ret_vals;
+    llvm::SmallVector<mlir::Value, 4> ret_vals;
     // Import the output tensors
     for (const auto &output : graph.output()) {
       ImportOutputTensor(output, ret_types, ret_vals);
