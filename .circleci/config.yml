@@ -33,7 +33,7 @@ jobs:
           name: Install ONNF
           command: |
             mkdir build && cd build
-            LLVM_SRC=$(pwd)/../llvm-project/llvm LLVM_BUILD=$(pwd)/../llvm-project/build cmake ..
+            LLVM_PROJ_SRC=$(pwd)/../llvm-project/ LLVM_PROJ_BUILD=$(pwd)/../llvm-project/build cmake ..
             make all
             LIT_OPTS=-v make check-mlir-lit
       - run:

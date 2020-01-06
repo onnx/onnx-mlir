@@ -2,7 +2,7 @@
 import lit.llvm
 
 config.llvm_tools_dir = "@MLIR_TOOLS_DIR@"
-config.mlir_obj_root = "@LLVM_BUILD@"
+config.mlir_obj_root = "@LLVM_PROJ_BUILD@"
 config.mlir_tools_dir = "@MLIR_TOOLS_DIR@"
 config.suffixes = ['.mlir']
 
