@@ -9,8 +9,9 @@ namespace onnf {
 
 using namespace mlir;
 
-ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
-    const Type& operandType, Value*& operand) {
+ParseResult
+KrnlDialectOperandParser::ParseOptionalOperand(const Type &operandType,
+                                               Value &operand) {
   // If operand queue is empty, parse more operands and cache them.
   if (_operandRefQueue.empty()) {
     // Parse operand types:
@@ -27,7 +28,7 @@ ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
     auto operand_ref = _operandRefQueue.front();
     _operandRefQueue.pop();
 
-    llvm::SmallVector<Value*, 1> operands;
+    llvm::SmallVector<Value, 1> operands;
     _parser.resolveOperand(operand_ref, operandType, operands);
     operand = operands.front();
     return success();
@@ -38,8 +39,8 @@ ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
 }
 
 ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
-    const Type& operandType, llvm::SmallVectorImpl<Value*>& operandList) {
-  Value* operand = nullptr;
+    const Type &operandType, llvm::SmallVectorImpl<Value> &operandList) {
+  Value operand = nullptr;
   if (ParseOptionalOperand(operandType, operand))
     return failure();
 
@@ -47,8 +48,8 @@ ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
   return success();
 }
 
-ParseResult KrnlDialectOperandParser::ParseOperand(
-    const Type& operandType, Value*& operand) {
+ParseResult KrnlDialectOperandParser::ParseOperand(const Type &operandType,
+                                                   Value &operand) {
   if (ParseOptionalOperand(operandType, operand))
     return _parser.emitError(
         _parser.getCurrentLocation(), "Expecting an operand.");
@@ -56,7 +57,7 @@ ParseResult KrnlDialectOperandParser::ParseOperand(
 }
 
 ParseResult KrnlDialectOperandParser::ParseOperand(
-    const Type& operandType, llvm::SmallVectorImpl<Value*>& operandList) {
+    const Type &operandType, llvm::SmallVectorImpl<Value> &operandList) {
   if (ParseOptionalOperand(operandType, operandList))
     return _parser.emitError(
         _parser.getCurrentLocation(), "Expecting an operand.");
@@ -129,7 +130,7 @@ void KrnlIterateOperandPack::pushConstantBound(int64_t bound) {
   boundMaps.emplace_back(AffineMapAttr::get(map));
 }
 
-void KrnlIterateOperandPack::pushOperandBound(mlir::Value* operand) {
+void KrnlIterateOperandPack::pushOperandBound(mlir::Value operand) {
   if (boundMaps.size() % 2 == 0)
     _operands.emplace_back(inputLoops[boundMaps.size() / 2]);
   AffineMap map = builder.getSymbolIdentityMap();

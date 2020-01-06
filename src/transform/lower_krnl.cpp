@@ -30,7 +30,7 @@ struct KrnlIterateOpLowering : public OpRewritePattern<KrnlIterateOp> {
       operandItr++;
 
       // Organize operands into lower/upper bounds in affine.for ready formats.
-      SmallVector<Value *, 4> lbOperands, ubOperands;
+      SmallVector<Value, 4> lbOperands, ubOperands;
       AffineMap lbMap, ubMap;
       for (int boundType = 0; boundType < 2; boundType++) {
         auto &operands = boundType == 0 ? lbOperands : ubOperands;

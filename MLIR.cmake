@@ -1,38 +1,38 @@
 # Path to LLVM source folder.
-if(DEFINED ENV{LLVM_SRC})
-  set(LLVM_SRC $ENV{LLVM_SRC})
-  if(EXISTS ${LLVM_SRC})
-    message(STATUS "LLVM_SRC " ${LLVM_SRC})
+if(DEFINED ENV{LLVM_PROJ_SRC})
+  set(LLVM_PROJ_SRC $ENV{LLVM_PROJ_SRC})
+  if(EXISTS ${LLVM_PROJ_SRC})
+    message(STATUS "LLVM_PROJ_SRC " ${LLVM_PROJ_SRC})
   else()
-    message(FATAL_ERROR "The path specified by LLVM_SRC does not exist: "
-            ${LLVM_SRC})
+    message(FATAL_ERROR "The path specified by LLVM_PROJ_SRC does not exist: "
+            ${LLVM_PROJ_SRC})
   endif()
 else()
-  message(FATAL_ERROR "env variable LLVM_SRC not set")
+  message(FATAL_ERROR "env variable LLVM_PROJ_SRC not set")
 endif()
 
 # Path to LLVM build folder
-if(DEFINED ENV{LLVM_BUILD})
-  set(LLVM_BUILD $ENV{LLVM_BUILD})
-  if(EXISTS ${LLVM_BUILD})
-    message(STATUS "LLVM_BUILD " ${LLVM_BUILD})
+if(DEFINED ENV{LLVM_PROJ_BUILD})
+  set(LLVM_PROJ_BUILD $ENV{LLVM_PROJ_BUILD})
+  if(EXISTS ${LLVM_PROJ_BUILD})
+    message(STATUS "LLVM_PROJ_BUILD " ${LLVM_PROJ_BUILD})
   else()
-    message(FATAL_ERROR "The path specified by LLVM_BUILD does not exist: "
-            ${LLVM_BUILD})
+    message(FATAL_ERROR "The path specified by LLVM_PROJ_BUILD does not exist: "
+            ${LLVM_PROJ_BUILD})
   endif()
 else()
-  message(FATAL_ERROR "env variable LLVM_BUILD not set")
+  message(FATAL_ERROR "env variable LLVM_PROJ_BUILD not set")
 endif()
 
 # LLVM project lib folder
-set(LLVM_PROJECT_LIB ${LLVM_BUILD}/lib)
+set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/lib)
 
 # Include paths for MLIR
-set(LLVM_SRC_INCLUDE_PATH ${LLVM_SRC}/include)
-set(LLVM_BIN_INCLUDE_PATH ${LLVM_BUILD}/include)
-set(MLIR_SRC_INCLUDE_PATH ${LLVM_SRC}/projects/mlir/include)
-set(MLIR_BIN_INCLUDE_PATH ${LLVM_BUILD}/projects/mlir/include)
-set(MLIR_TOOLS_DIR ${LLVM_BUILD}/bin)
+set(LLVM_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/llvm/include)
+set(LLVM_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/include)
+set(MLIR_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/mlir/include)
+set(MLIR_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/tools/mlir/include)
+set(MLIR_TOOLS_DIR ${LLVM_PROJ_BUILD}/bin)
 
 set(ONNF_TOOLS_DIR ${ONNF_BIN_ROOT}/bin)
 set(ONNF_LIT_TEST_SRC_DIR ${CMAKE_SOURCE_DIR}/test/mlir)
@@ -173,7 +173,7 @@ function(whole_archive_link target lib_dir)
 endfunction(whole_archive_link)
 
 function(whole_archive_link_mlir target)
-  whole_archive_link(${target} ${LLVM_BUILD}/lib ${ARGN})
+  whole_archive_link(${target} ${LLVM_PROJ_BUILD}/lib ${ARGN})
 endfunction(whole_archive_link_mlir)
 
 function(whole_archive_link_onnf target)
@@ -184,7 +184,7 @@ function(whole_archive_link_onnf target)
 endfunction(whole_archive_link_onnf)
 
 set(LLVM_CMAKE_DIR
-        "${LLVM_BUILD}/lib/cmake/llvm"
+        "${LLVM_PROJ_BUILD}/lib/cmake/llvm"
         CACHE PATH "Path to LLVM cmake modules")
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
@@ -205,5 +205,5 @@ endfunction()
 # table gen utility itself can be detected and cause re-compilation of .td file.
 add_executable(mlir-tblgen IMPORTED)
 set_property(TARGET mlir-tblgen
-        PROPERTY IMPORTED_LOCATION ${LLVM_BUILD}/bin/mlir-tblgen)
+        PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BUILD}/bin/mlir-tblgen)
 set(MLIR_TABLEGEN_EXE mlir-tblgen)

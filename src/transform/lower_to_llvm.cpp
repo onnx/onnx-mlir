@@ -51,7 +51,7 @@ public:
       : ConversionPattern(KrnlMemcpyOp::getOperationName(), 1, context) {}
 
   PatternMatchResult
-  matchAndRewrite(Operation *op, ArrayRef<Value *> operands,
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
     auto *context = op->getContext();
     auto loc = op->getLoc();
@@ -66,27 +66,27 @@ public:
     // First operand.
     Type dstType =
         operands[0]->getType().cast<LLVM::LLVMType>().getStructElementType(1);
-    Value *alignedDstMemory = rewriter.create<LLVM::ExtractValueOp>(
+    Value alignedDstMemory = rewriter.create<LLVM::ExtractValueOp>(
         loc, dstType, operands[0], rewriter.getI64ArrayAttr(1));
-    Value *alignedInt8PtrDstMemory = rewriter.create<LLVM::BitcastOp>(
+    Value alignedInt8PtrDstMemory = rewriter.create<LLVM::BitcastOp>(
         loc, LLVM::LLVMType::getInt8PtrTy(llvmDialect), alignedDstMemory);
 
     // Second operand.
     Type srcType =
         operands[1]->getType().cast<LLVM::LLVMType>().getStructElementType(1);
-    Value *alignedSrcMemory = rewriter.create<LLVM::ExtractValueOp>(
+    Value alignedSrcMemory = rewriter.create<LLVM::ExtractValueOp>(
         loc, srcType, operands[1], rewriter.getI64ArrayAttr(1));
-    Value *alignedInt8PtrSrcMemory = rewriter.create<LLVM::BitcastOp>(
+    Value alignedInt8PtrSrcMemory = rewriter.create<LLVM::BitcastOp>(
         loc, LLVM::LLVMType::getInt8PtrTy(llvmDialect), alignedSrcMemory);
 
     // Size.
-    Value *int64Size = rewriter.create<LLVM::SExtOp>(
+    Value int64Size = rewriter.create<LLVM::SExtOp>(
         loc, LLVM::LLVMType::getInt64Ty(llvmDialect), operands[2]);
 
     // Memcpy call
     rewriter.create<CallOp>(
         loc, memcpyRef, LLVM::LLVMType::getVoidTy(llvmDialect),
-        ArrayRef<Value *>(
+        ArrayRef<Value>(
             {alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory, int64Size}));
 
     rewriter.eraseOp(op);
@@ -210,7 +210,7 @@ public:
 
     // Retrieve dynamic mem refs from wrapped input, and convert every one of
     // them to static mem refs.
-    SmallVector<Value *, 4> staticInputs;
+    SmallVector<Value, 4> staticInputs;
     auto wrappedInput = entryPointEntryBlock.getArgument(0);
     for (size_t i = 0; i < staticEntryPointTy.getFunctionNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
@@ -225,13 +225,12 @@ public:
       auto memRefTy = memRefPtrTy.getPointerElementTy();
       auto one = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(1));
-      Value *ptrToMemRef =
-          rewriter.create<LLVM::AllocaOp>(loc, memRefPtrTy, one,
-                                          /*alignment=*/0);
+      Value ptrToMemRef = rewriter.create<LLVM::AllocaOp>(loc, memRefPtrTy, one,
+                                                          /*alignment=*/0);
 
       // Fill in the memref underlying ptrToMemRef with information extracted
       // from dynMemRef.
-      fillPtrToMemRefWithDynMemRef(*dynMemRef, *ptrToMemRef, rewriter, loc,
+      fillPtrToMemRefWithDynMemRef(dynMemRef, ptrToMemRef, rewriter, loc,
                                    apiRegistry, llvmDialect);
 
       // ptrToMemRef will be an input to main computation graph function.
@@ -261,8 +260,8 @@ public:
         loc, int32Ty, rewriter.getI32IntegerAttr(outMemRefRank));
     auto outDynMemRef = callApi(rewriter, loc, apiRegistry,
                                 API::CREATE_DYN_MEM_REF, {outMemRefRankVal});
-    fillDynMemRefWithMemRef(*outMemRef, *outDynMemRef, rewriter, loc,
-                            apiRegistry, llvmDialect);
+    fillDynMemRefWithMemRef(outMemRef, outDynMemRef, rewriter, loc, apiRegistry,
+                            llvmDialect);
     auto zero = rewriter.create<LLVM::ConstantOp>(
         loc, int32Ty, rewriter.getI32IntegerAttr(0));
     callApi(rewriter, loc, apiRegistry, API::SET_DYN_MEM_REF,
@@ -270,7 +269,7 @@ public:
 
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(loc,
-                                    SmallVector<Value *, 1>({wrappedOutput}));
+                                    SmallVector<Value, 1>({wrappedOutput}));
     return matchSuccess();
   }
 
@@ -315,11 +314,11 @@ private:
 
   // Call a registered API, return the return SSA values if only one result is
   // returned, otherwise return nullptr.
-  Value *callApi(PatternRewriter &rewriter, Location loc, ApiRegistry registry,
-                 API apiId, ArrayRef<Value *> params) const {
+  Value callApi(PatternRewriter &rewriter, Location loc, ApiRegistry registry,
+                API apiId, ArrayRef<Value> params) const {
     auto returnVals = rewriter.create<LLVM::CallOp>(
         loc, registry.at(apiId).outputTy, registry.at(apiId).symbolRef,
-        ArrayRef<Value *>(params));
+        ArrayRef<Value>(params));
     if (returnVals.getNumResults() == 1)
       return returnVals.getResult(0);
     return nullptr;
@@ -348,12 +347,11 @@ private:
     auto memRefTy = memRefPtrTy.getPointerElementTy();
     auto int64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
 
-    Value *memRef =
-        rewriter.create<LLVM::LoadOp>(loc, memRefPtrTy, &ptrToMemRef);
+    Value memRef = rewriter.create<LLVM::LoadOp>(loc, memRefPtrTy, ptrToMemRef);
 
     // Set dataPtr and alignedDataPtr;
     auto dataPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_DATA, {&dynMemRef});
+        callApi(rewriter, loc, apiRegistry, API::GET_DATA, {dynMemRef});
     dataPtr = rewriter.create<LLVM::BitcastOp>(
         loc, memRefTy.getStructElementType(0), dataPtr);
     memRef = rewriter.create<LLVM::InsertValueOp>(
@@ -373,9 +371,9 @@ private:
     // Get rank, sizes array ptr and strides array ptr.
     auto rank = memRefTy.getStructElementType(3).getArrayNumElements();
     auto sizesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_SIZES, {&dynMemRef});
+        callApi(rewriter, loc, apiRegistry, API::GET_SIZES, {dynMemRef});
     auto stridesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_STRIDES, {&dynMemRef});
+        callApi(rewriter, loc, apiRegistry, API::GET_STRIDES, {dynMemRef});
 
     for (decltype(rank) i = 0; i < rank; i++) {
       auto dimIdx = rewriter.create<LLVM::ConstantOp>(
@@ -384,7 +382,7 @@ private:
       // Insert size of the dimension.
       auto dimSizePtr = rewriter.create<LLVM::GEPOp>(
           loc, int64Ty.getPointerTo(), sizesArrayPtr,
-          ArrayRef<Value *>({dimIdx}));
+          ArrayRef<Value>({dimIdx}));
       auto dimSize = rewriter.create<LLVM::LoadOp>(loc, int64Ty.getPointerTo(),
                                                    dimSizePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(
@@ -395,7 +393,7 @@ private:
       // Insert stride of the dimension.
       auto dimStridePtr = rewriter.create<LLVM::GEPOp>(
           loc, int64Ty.getPointerTo(), sizesArrayPtr,
-          ArrayRef<Value *>({dimIdx}));
+          ArrayRef<Value>({dimIdx}));
       auto dimStride = rewriter.create<LLVM::LoadOp>(
           loc, int64Ty.getPointerTo(), dimStridePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(
@@ -404,7 +402,7 @@ private:
               {rewriter.getI64IntegerAttr(4), rewriter.getI64IntegerAttr(i)}));
     }
 
-    rewriter.create<LLVM::StoreOp>(loc, memRef, &ptrToMemRef);
+    rewriter.create<LLVM::StoreOp>(loc, memRef, ptrToMemRef);
   }
 
   void fillDynMemRefWithMemRef(Value &outMemRef, Value &outDynMemRef,
@@ -415,19 +413,19 @@ private:
     auto int64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
 
     // Extract the data pointer, and record it in dynamic mem ref created.
-    Value *outMemRefDataPtr = rewriter.create<LLVM::ExtractValueOp>(
-        loc, outMemRefTy.getStructElementType(0), &outMemRef,
+    Value outMemRefDataPtr = rewriter.create<LLVM::ExtractValueOp>(
+        loc, outMemRefTy.getStructElementType(0), outMemRef,
         rewriter.getArrayAttr({rewriter.getI64IntegerAttr(0)}));
     outMemRefDataPtr = rewriter.create<LLVM::BitcastOp>(
         loc, LLVM::LLVMType::getInt8PtrTy(llvmDialect), outMemRefDataPtr);
     callApi(rewriter, loc, apiRegistry, API::SET_DATA,
-            {&outDynMemRef, outMemRefDataPtr});
+            {outDynMemRef, outMemRefDataPtr});
 
     auto rank = outMemRefTy.getStructElementType(3).getArrayNumElements();
     auto sizesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_SIZES, {&outDynMemRef});
+        callApi(rewriter, loc, apiRegistry, API::GET_SIZES, {outDynMemRef});
     auto stridesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_STRIDES, {&outDynMemRef});
+        callApi(rewriter, loc, apiRegistry, API::GET_STRIDES, {outDynMemRef});
 
     for (decltype(rank) i = 0; i < rank; i++) {
       auto dimIdx = rewriter.create<LLVM::ConstantOp>(
@@ -435,22 +433,22 @@ private:
 
       // Transfer size of dimension from memref to dynamic memref.
       auto dimSize = rewriter.create<LLVM::ExtractValueOp>(
-          loc, int64Ty, &outMemRef,
+          loc, int64Ty, outMemRef,
           rewriter.getArrayAttr(
               {rewriter.getI64IntegerAttr(3), rewriter.getI64IntegerAttr(i)}));
       auto dimSizePtr = rewriter.create<LLVM::GEPOp>(
           loc, int64Ty.getPointerTo(), sizesArrayPtr,
-          ArrayRef<Value *>({dimIdx}));
+          ArrayRef<Value>({dimIdx}));
       rewriter.create<LLVM::StoreOp>(loc, dimSize, dimSizePtr);
 
       // Transfer stride of dimension from memref to dynamic memref.
       auto dimStride = rewriter.create<LLVM::ExtractValueOp>(
-          loc, int64Ty, &outMemRef,
+          loc, int64Ty, outMemRef,
           rewriter.getArrayAttr(
               {rewriter.getI64IntegerAttr(4), rewriter.getI64IntegerAttr(i)}));
       auto dimStridePtr = rewriter.create<LLVM::GEPOp>(
           loc, int64Ty.getPointerTo(), stridesArrayPtr,
-          ArrayRef<Value *>({dimIdx}));
+          ArrayRef<Value>({dimIdx}));
       rewriter.create<LLVM::StoreOp>(loc, dimStride, dimStridePtr);
     }
   }
