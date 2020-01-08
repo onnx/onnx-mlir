@@ -361,7 +361,7 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
 }
 
 def ONNXCosOp:ONNX_Op<"Cos", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Cos operation";
   let description = [{
     "Calculates the cosine of the given input tensor, element-wise."
@@ -1216,7 +1216,7 @@ def ONNXLessOp:ONNX_Op<"Less",
 }
 
 def ONNXLogOp:ONNX_Op<"Log", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Log operation";
   let description = [{
     "Calculates the natural log of the given input tensor, element-wise."

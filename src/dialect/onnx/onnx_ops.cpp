@@ -92,6 +92,18 @@ void ONNXCoshOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Cos
+/// Infer the output shape of the ONNXCosOp. This method is required by the
+/// shape inference interface.
+void ONNXCosOp::inferShapes() { getResult()->setType(getOperand()->getType()); }
+
+//===----------------------------------------------------------------------===//
+// Log
+/// Infer the output shape of the ONNXLogOp. This method is required by the
+/// shape inference interface.
+void ONNXLogOp::inferShapes() { getResult()->setType(getOperand()->getType()); }
+
+//===----------------------------------------------------------------------===//
 // HardSigmoid
 /// Infer the output shape of the ONNXHardSigmoidOp. This method is required by
 /// the shape inference interface.
