@@ -92,6 +92,8 @@ public:
         op->getName().getStringRef() != "onnx.Tanh" &&
         op->getName().getStringRef() != "onnx.Sinh" &&
         op->getName().getStringRef() != "onnx.Cosh" &&
+        op->getName().getStringRef() != "onnx.Cos" &&
+        op->getName().getStringRef() != "onnx.Log" &&
         op->getName().getStringRef() != "onnx.Sigmoid" &&
         op->getName().getStringRef() != "onnx.HardSigmoid" &&
         op->getName().getStringRef() != "onnx.Elu" &&

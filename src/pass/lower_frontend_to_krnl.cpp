@@ -286,6 +286,24 @@ struct ScalarOp<ONNXSumOp> {
   using IOp = AddIOp;
 };
 
+template <>
+struct ScalarOp<ONNXTanhOp> {
+  using FOp = TanhOp;
+  using IOp = TanhOp; // not use
+};
+
+template <>
+struct ScalarOp<ONNXCosOp> {
+  using FOp = CosOp;
+  using IOp = CosOp; // not use
+};
+
+template <>
+struct ScalarOp<ONNXLogOp> {
+  using FOp = LogOp;
+  using IOp = LogOp; // not use
+};
+
 template <typename ElementwiseNaryOp>
 using ScalarFOp = typename ScalarOp<ElementwiseNaryOp>::FOp;
 template <typename ElementwiseNaryOp>
@@ -312,30 +330,6 @@ Value mapToLowerScalarOp(Operation *op, ArrayRef<Type> result_types,
     emitError(loc, "unsupported element type");
     return nullptr;
   }
-}
-
-//===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXTanhOp
-//===----------------------------------------------------------------------===//
-template <>
-Value mapToLowerScalarOp<ONNXTanhOp>(Operation *op, ArrayRef<Type> result_types,
-                                     ArrayRef<Value> operands,
-                                     ConversionPatternRewriter &rewriter) {
-  // ONNXTanhOp(%X) = DivFOp(SubFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
-  //                         AddFOp(ExpOp(%X), ExpOp(NegFOp(%X))))
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
-
-  auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
-  auto neg = rewriter.create<SubFOp>(loc, zero, operand);
-  auto exp = rewriter.create<ExpOp>(loc, operand);
-  auto negExp = rewriter.create<ExpOp>(loc, neg);
-  auto diff = rewriter.create<SubFOp>(loc, exp, negExp);
-  auto sum = rewriter.create<AddFOp>(loc, exp, negExp);
-  auto result = rewriter.create<DivFOp>(loc, diff, sum);
-
-  return result;
 }
 
 //===----------------------------------------------------------------------===//
@@ -992,6 +986,8 @@ void FrontendToKrnlLoweringPass::runOnModule() {
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXSinhOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
+                  ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
+                  ONNXElementwiseUnaryOpLowering<mlir::ONNXLogOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
