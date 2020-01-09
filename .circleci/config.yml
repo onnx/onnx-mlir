@@ -5,11 +5,6 @@ jobs:
       - image: circleci/python
 
     steps:
-      - checkout
-      - run:
-          name: Pull Submodules
-          command: |
-            git submodule update --init --recursive
       - run:
           name: Installing GCC, CMake, Ninja, Protobuf
           command: sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler
@@ -23,19 +18,25 @@ jobs:
             # mlir-opt executable exists.
             if [ ! -f llvm-project/build/bin/mlir-opt ]; then
               export MAKEFLAGS=-j4
-              source .circleci/install-mlir.sh
+              source utils/install-mlir.sh
             fi
       - save_cache:
           key: V2-LLVM-PROJECT-{{ arch }}
           paths:
             - llvm-project
+      - checkout:
+          path: ONNF
+      - run:
+          name: Pull Submodules
+          command: |
+            cd ONNF
+            git submodule update --init --recursive
       - run:
           name: Install ONNF
-          command: |
-            mkdir build && cd build
-            LLVM_PROJ_SRC=$(pwd)/../llvm-project/ LLVM_PROJ_BUILD=$(pwd)/../llvm-project/build cmake ..
-            make all
-            LIT_OPTS=-v make check-mlir-lit
+          command: source ONNF/utils/install-onnf.sh
+      - run:
+          name: Run DocCheck
+          command: cd ONNF/build && cmake --build . --target check-doc
       - run:
           name: Print the Current Time
           command: date

@@ -25,6 +25,6 @@ add_subdirectory(third_party/pybind11)
 
 set(CMAKE_CXX_STANDARD 14)
 add_subdirectory(src)
-
+add_subdirectory(doc)
 add_subdirectory(test)
 

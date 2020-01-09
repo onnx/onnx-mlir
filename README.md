@@ -5,19 +5,44 @@ Open Neural Network Frontend : an ONNX frontend for MLIR.
 
 ## Installation
 
-We assume an existing installation of MLIR. The LLVM-Project repo commit hash we used to test against is 9b6ad8466bb8b97082b705270603ad7f4559e931 and the MLIR repo commit hash we used is 0710266d0f56cf6ab0f437badbd7416b6cecdf5f. 
+Firstly, install MLIR (as a part of LLVM-Project):
+
+[same-as-file]: <> (utils/install-mlir.sh)
+``` bash
+git clone https://github.com/llvm/llvm-project.git
+mkdir llvm-project/build
+cd llvm-project/build
+cmake -G Ninja ../llvm \
+   -DLLVM_ENABLE_PROJECTS=mlir \
+   -DLLVM_BUILD_EXAMPLES=ON \
+   -DLLVM_TARGETS_TO_BUILD="host" \
+   -DCMAKE_BUILD_TYPE=Release \
+   -DLLVM_ENABLE_ASSERTIONS=ON \
+   -DLLVM_ENABLE_RTTI=ON
+
+cmake --build . --target check-mlir -- ${MAKEFLAGS}
+```
 
 Two environment variables need to be set:
-- LLVM_SRC should point to the llvm src directory (e.g., llvm-project/llvm).
-- LLVM_BUILD should point to the llvm build directory (e.g., llvm-project/build).
+- LLVM_PROJ_SRC should point to the llvm src directory (e.g., llvm-project/llvm).
+- LLVM_PROJ_BUILD should point to the llvm build directory (e.g., llvm-project/build).
 
 To build ONNF, use the following command:
+
+[same-as-file]: <> ({"ref": "utils/install-onnf.sh", "skip-doc": 2})
 ```
 git clone --recursive git@github.com:clang-ykt/ONNF.git
-mkdir build
-cd build
+
+# Export environment variables pointing to LLVM-Projects.
+export LLVM_PROJ_SRC=$(pwd)/llvm-project/
+export LLVM_PROJ_BUILD=$(pwd)/llvm-project/build
+
+mkdir ONNF/build && cd ONNF/build
 cmake ..
-cmake --build . --target all
+cmake --build . --target onnf
+
+# Run FileCheck tests:
+cmake --build . --target check-mlir-lit
 ```
 
 After the above commands succeed, an `onnf` executable should appear in the `bin` directory. 
@@ -63,4 +88,3 @@ module {
   }
 }
 ```
-
