@@ -397,6 +397,24 @@ void ONNXReshapeOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+
+// Transpose
+
+void ONNXTransposeOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!getOperand()->getType().isa<RankedTensorType>())
+    emitError("Shape tensor not ranked.");
+
+  // Naive transposition which handles the default case of
+  // reversing the shape of the tensor (similar to numpy.transpose).
+  // TODO: Once attributes are supported we can handle the case where the
+  // transposition uses a permutation vector to interchange the axes.
+  auto arrayTy = getOperand()->getType().cast<RankedTensorType>();
+  SmallVector<int64_t, 2> dims(llvm::reverse(arrayTy.getShape()));
+  getResult()->setType(RankedTensorType::get(dims, arrayTy.getElementType()));
+}
+
+//===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 
