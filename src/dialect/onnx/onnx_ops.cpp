@@ -407,10 +407,6 @@ void ONNXMatMulOp::inferShapes() {
   getResult()->setType(RankedTensorType::get(dims, lhsTy.getElementType()));
 }
 
-// TODO:
-//   Verify that matrix sizes are valid.
-//   Take into account the dimensionality of the matrix.
-
 //===----------------------------------------------------------------------===//
 
 // Gemm
