@@ -389,8 +389,11 @@ void ONNXMatMulOp::inferShapes() {
     dims.emplace_back(rhsShape[rightDims - 1]);
   } else {
     // This case covers all remaining combinations of 1 and 2-D matrices.
-    dims.emplace_back(lhsShape.size() == 1 ? 1 : lhsShape[0]);
-    dims.emplace_back(rhsShape.size() == 1 ? 1 : rhsShape[1]);
+    if (lhsShape.size() != 1)
+      dims.emplace_back(lhsShape[0]);
+
+    if (rhsShape.size() != 1)
+      dims.emplace_back(rhsShape[1]);
   }
 
   getResult()->setType(RankedTensorType::get(dims, lhsTy.getElementType()));
