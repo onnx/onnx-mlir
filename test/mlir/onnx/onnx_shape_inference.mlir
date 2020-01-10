@@ -1,5 +1,6 @@
 // RUN: onnf-opt --shape-inference %s -split-input-file | FileCheck %s
 
+
 /// Test the default behavior of transpose when no information for the
 /// permutation of the axes is provided.
 func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
@@ -10,3 +11,14 @@ func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
 // CHECK-LABEL: test_default_transpose
 // CHECK: [[RES:%.+]] = "onnx.Transpose"(%arg0) : (tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32>
 // CHECK: return [[RES]] : tensor<32x1x5x5xf32>
+
+
+/// Test the shape inferencing scheme for the matmul operation.
+func @test_matmul_1(%arg0 : tensor<32xf32>, %arg1 : tensor<32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<32xf32>, tensor<32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// CHECK-LABEL: test_matmul_1
+// CHECK: [[RES1:%.+]] = "onnx.MatMul"(%arg0, %arg1) : (tensor<32xf32>, tensor<32xf32>) -> tensor<1xf32>
+// CHECK: return [[RES1]] : tensor<1xf32>
