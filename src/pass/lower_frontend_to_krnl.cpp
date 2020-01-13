@@ -61,7 +61,7 @@ static Value insertAllocAndDealloc(MemRefType type, Location loc,
         Value maxDim = nullptr;
         for (int i = 0; i < operands.size(); i++) {
           auto operandShape =
-              operands[i]->getType().cast<MemRefType>().getShape();
+              operands[i].getType().cast<MemRefType>().getShape();
           int operandDimIdx = operandShape.size() - 1 - reversedIdx;
 
           if (operandDimIdx < 0)
@@ -162,7 +162,7 @@ getBroadcastedDimInfo(Location loc, ConversionPatternRewriter &rewriter,
     int dimIdx = rank - 1 - reversedIdx;
     sharedDimCount[dimIdx] = 0;
     for (int i = 0; i < operands.size(); ++i) {
-      auto shape = operands[i]->getType().cast<MemRefType>().getShape();
+      auto shape = operands[i].getType().cast<MemRefType>().getShape();
       if (reversedIdx <= shape.size() - 1)
         sharedDimCount[dimIdx]++;
     }
@@ -174,7 +174,7 @@ getBroadcastedDimInfo(Location loc, ConversionPatternRewriter &rewriter,
   // more than one, since they are potentially broadcasted dimensions.
   for (int i = 0; i < operands.size(); ++i) {
     std::map<int, Value> broadcastedDims;
-    auto shape = operands[i]->getType().cast<MemRefType>().getShape();
+    auto shape = operands[i].getType().cast<MemRefType>().getShape();
     int size = shape.size();
     for (int j = 0; j < shape.size(); ++j) {
       if (shape[j] < 0 and sharedDimCount[rank - size + j] > 1) {
@@ -198,7 +198,7 @@ getLoopIVsForBroadcasting(Location loc, ConversionPatternRewriter &rewriter,
                           std::map<int, Value> broadcastedDims) {
   // `operand` must has a ranked type. This should have been checked by the
   // shape inference pass.
-  auto operandShape = operand->getType().cast<MemRefType>().getShape();
+  auto operandShape = operand.getType().cast<MemRefType>().getShape();
   auto rank = operandShape.size();
   auto loopCount = loopIVs.size();
 
@@ -319,7 +319,7 @@ Value mapToLowerScalarOp(Operation *op, ArrayRef<Type> result_types,
   /* Lower UnaryOp to Ops in the Standard dialect.
    */
   auto loc = op->getLoc();
-  Type element_type = operands.front()->getType();
+  Type element_type = operands.front().getType();
   if (element_type.isa<IntegerType>()) {
     return rewriter.create<ScalarIOp<UnaryOp>>(loc, result_types, operands,
                                                mlir::None);

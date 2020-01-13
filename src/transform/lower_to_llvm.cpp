@@ -65,7 +65,7 @@ public:
 
     // First operand.
     Type dstType =
-        operands[0]->getType().cast<LLVM::LLVMType>().getStructElementType(1);
+        operands[0].getType().cast<LLVM::LLVMType>().getStructElementType(1);
     Value alignedDstMemory = rewriter.create<LLVM::ExtractValueOp>(
         loc, dstType, operands[0], rewriter.getI64ArrayAttr(1));
     Value alignedInt8PtrDstMemory = rewriter.create<LLVM::BitcastOp>(
@@ -73,7 +73,7 @@ public:
 
     // Second operand.
     Type srcType =
-        operands[1]->getType().cast<LLVM::LLVMType>().getStructElementType(1);
+        operands[1].getType().cast<LLVM::LLVMType>().getStructElementType(1);
     Value alignedSrcMemory = rewriter.create<LLVM::ExtractValueOp>(
         loc, srcType, operands[1], rewriter.getI64ArrayAttr(1));
     Value alignedInt8PtrSrcMemory = rewriter.create<LLVM::BitcastOp>(
@@ -253,7 +253,7 @@ public:
     // Get the first memref returned, convert to a dynamic memref and store
     // it in the wrapped Output.
     auto outMemRef = outputMemRefs.getResult(0);
-    auto outMemRefTy = outMemRef->getType().dyn_cast<LLVMType>();
+    auto outMemRefTy = outMemRef.getType().dyn_cast<LLVMType>();
     auto outMemRefRank =
         outMemRefTy.getStructElementType(3).getArrayNumElements();
     auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(

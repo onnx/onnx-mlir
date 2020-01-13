@@ -24,7 +24,7 @@ include "dialect/onnx/onnx.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
-def HasOneUse : Constraint<CPred<"$0->hasOneUse()">>;
+def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite

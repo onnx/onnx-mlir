@@ -55,7 +55,7 @@ struct KrnlIterateOpLowering : public OpRewritePattern<KrnlIterateOp> {
     for (size_t i = 0; i < nestedForOps.size() - 1; i++) {
       auto iterateIV = iterateOp.bodyRegion().front().getArgument(0);
       auto forIV = nestedForOps[i].getBody()->getArgument(0);
-      iterateIV->replaceAllUsesWith(forIV);
+      iterateIV.replaceAllUsesWith(forIV);
       iterateOp.bodyRegion().front().eraseArgument(0);
     }
 

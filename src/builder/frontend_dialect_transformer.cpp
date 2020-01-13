@@ -680,7 +680,7 @@ private:
 
     auto tensor_val =
         frontend_symbols_.GetTensorByOnnxName(output_tensor_legalized_name);
-    ret_types.emplace_back(tensor_val->getType());
+    ret_types.emplace_back(tensor_val.getType());
     ret_vals.push_back(tensor_val);
   }
 
