@@ -24,8 +24,8 @@ cmake --build . --target check-mlir -- ${MAKEFLAGS}
 ```
 
 Two environment variables need to be set:
-- LLVM_PROJ_SRC should point to the llvm src directory (e.g., llvm-project/llvm).
-- LLVM_PROJ_BUILD should point to the llvm build directory (e.g., llvm-project/build).
+- LLVM_PROJ_SRC should point to the llvm-project src directory (e.g., llvm-project/).
+- LLVM_PROJ_BUILD should point to the llvm-project build directory (e.g., llvm-project/build).
 
 To build ONNF, use the following command:
 
