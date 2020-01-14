@@ -322,7 +322,7 @@ def ONNXConvOp:ONNX_Op<"Conv",
     "The convolution operator consumes an input tensor and a filter, and"
     "computes the output."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W, Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
 }
 
