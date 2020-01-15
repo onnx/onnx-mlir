@@ -87,7 +87,7 @@
          {"value","", ""}
       });
     }else if (OpName == "Conv") {
-       ImportNodeConv(node, 3, 1, {
+       ImportNodeConv(node, 1, {
          {"auto_pad","str","NOTSET"}
         ,{"dilations","", ""}
         ,{"group","int", "1"}

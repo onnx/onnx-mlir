@@ -315,14 +315,14 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
 }
 
-def ONNXConvOp:ONNX_Op<"Conv", 
+def ONNXConvOp:ONNX_Op<"Conv",
     [NoSideEffect]> {
   let summary = "ONNX Conv operation";
   let description = [{
     "The convolution operator consumes an input tensor and a filter, and"
     "computes the output."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W, Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$B);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
 }
 
