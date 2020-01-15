@@ -90,39 +90,28 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
 // or outputs. This decision affects only ONNX operations with optional
 // arguments not ONNX operations with variadic operands.
 
-def ONNXFullGemmOp: ONNX_Op<"FullGemm",
+def ONNXGemmNoBiasOp: ONNX_Op<"GemmNoBias",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX general matrix multiply operation";
+  let summary = "ONNX general matrix multiply operation without bias.";
   let description = [{
 
-    The "onnx.gemm" generic matrix multiplication with bias.
+    The "onnx.Gemm" generic matrix multiplication without bias.
 
   }];
 
-  let arguments = (ins AnyTensor:$lhs_in, AnyTensor:$rhs_in, AnyTensor:$bias_in);
-  let results = (outs AnyTensor);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$lhs_in, AnyTypeOf<[AnyMemRef, AnyTensor]>:$rhs_in);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
 }
 
-def ONNXConv1Op:ONNX_Op<"Conv1", 
+def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
     [NoSideEffect]> {
-  let summary = "ONNX Conv operation";
+  let summary = "ONNX Conv operation with no Bias operand.";
   let description = [{
     "The convolution operator consumes an input tensor and a filter, and"
     "computes the output."
   }];
-  let arguments = (ins AnyTensor:$X);
-  let results = (outs AnyTensor);
-}
-
-def ONNXConv3Op:ONNX_Op<"Conv3", 
-    [NoSideEffect]> {
-  let summary = "ONNX Conv operation";
-  let description = [{
-    "The convolution operator consumes an input tensor and a filter, and"
-    "computes the output."
-  }];
-  let arguments = (ins AnyTensor:$X, AnyTensor:$W, AnyTensor:$B);
-  let results = (outs AnyTensor);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
 }
 
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
