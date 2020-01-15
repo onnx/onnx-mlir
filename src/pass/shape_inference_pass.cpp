@@ -114,7 +114,7 @@ public:
         op->getName().getStringRef() != "onnx.Identity" &&
         op->getName().getStringRef() != "onnx.MatMul" &&
         op->getName().getStringRef() != "onnx.Gemm" &&
-        op->getName().getStringRef() != "onnx.FullGemm" &&
+        op->getName().getStringRef() != "onnx.GemmNoBias" &&
         op->getName().getStringRef() != "onnx.Reshape" &&
         op->getName().getStringRef() != "onnx.Transpose")
       return false;

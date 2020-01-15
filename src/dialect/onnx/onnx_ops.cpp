@@ -347,7 +347,7 @@ void ONNXGemmOp::inferShapes() {
   getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
 }
 
-// FullGemm
+// GemmNoBias
 
 void ONNXGemmNoBiasOp::inferShapes() {
   // Cannot infer shape if no shape exists.
