@@ -103,26 +103,15 @@ def ONNXGemmNoBiasOp: ONNX_Op<"GemmNoBias",
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
 }
 
-def ONNXConv1Op:ONNX_Op<"Conv1", 
+def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
     [NoSideEffect]> {
-  let summary = "ONNX Conv operation";
+  let summary = "ONNX Conv operation with no Bias operand.";
   let description = [{
     "The convolution operator consumes an input tensor and a filter, and"
     "computes the output."
   }];
-  let arguments = (ins AnyTensor:$X);
-  let results = (outs AnyTensor);
-}
-
-def ONNXConv3Op:ONNX_Op<"Conv3", 
-    [NoSideEffect]> {
-  let summary = "ONNX Conv operation";
-  let description = [{
-    "The convolution operator consumes an input tensor and a filter, and"
-    "computes the output."
-  }];
-  let arguments = (ins AnyTensor:$X, AnyTensor:$W, AnyTensor:$B);
-  let results = (outs AnyTensor);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
 }
 
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",

@@ -315,7 +315,7 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
 }
 
-def ONNXConvOp:ONNX_Op<"Conv", 
+def ONNXConvOp:ONNX_Op<"Conv",
     [NoSideEffect]> {
   let summary = "ONNX Conv operation";
   let description = [{
