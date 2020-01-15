@@ -365,6 +365,7 @@ special cases:
 def gen_code(schema,fefile) :
     special_handler = dict([
         ("Conv", "ImportNodeConv"),
+        ("MaxPool", "ImportNodeMaxPool"),
         #("Transpose", "ImportNodeTranspose")
         ])
     special_type = dict([
