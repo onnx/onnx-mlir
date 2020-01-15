@@ -632,6 +632,21 @@ private:
       ImportNodeOneOut<mlir::ONNXConvOp>(node, nOps, nOut, attrs);
   }
 
+  /*!
+   * Special handle for MaxPool operations.
+   */
+  void ImportNodeMaxPool(
+      onnx::NodeProto node, int nIn,
+      std::initializer_list<std::tuple<std::string, std::string, std::string>>
+          attrs) {
+    int nOuts = node.output().size();
+    if (nOuts == 1) {
+      ImportNodeOneOut<mlir::ONNXMaxPoolSingleOutOp>(node, nIn, nOuts, attrs);
+    } else {
+      ImportNodeMultipleOuts<mlir::ONNXMaxPoolOp>(node, nIn, nOuts, attrs);
+    }
+  }
+
   void ImportNode(onnx::NodeProto node) {
     std::vector<mlir::Value> inputs;
     for (auto item : node.input()) {
