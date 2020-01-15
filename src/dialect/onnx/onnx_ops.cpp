@@ -349,7 +349,7 @@ void ONNXGemmOp::inferShapes() {
 
 // FullGemm
 
-void ONNXFullGemmOp::inferShapes() {
+void ONNXGemmNoBiasOp::inferShapes() {
   // Cannot infer shape if no shape exists.
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
