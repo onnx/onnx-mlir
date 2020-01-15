@@ -90,17 +90,17 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
 // or outputs. This decision affects only ONNX operations with optional
 // arguments not ONNX operations with variadic operands.
 
-def ONNXFullGemmOp: ONNX_Op<"FullGemm",
+def ONNXGemmNoBiasOp: ONNX_Op<"GemmNoBias",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX general matrix multiply operation";
+  let summary = "ONNX general matrix multiply operation without bias.";
   let description = [{
 
-    The "onnx.gemm" generic matrix multiplication with bias.
+    The "onnx.Gemm" generic matrix multiplication without bias.
 
   }];
 
-  let arguments = (ins AnyTensor:$lhs_in, AnyTensor:$rhs_in, AnyTensor:$bias_in);
-  let results = (outs AnyTensor);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$lhs_in, AnyTypeOf<[AnyMemRef, AnyTensor]>:$rhs_in);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
 }
 
 def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
