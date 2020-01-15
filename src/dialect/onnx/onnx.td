@@ -114,4 +114,15 @@ def ONNXConv3Op:ONNX_Op<"Conv3",
   let results = (outs AnyTensor);
 }
 
+def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
+    [NoSideEffect]> {
+  let summary = "ONNX MaxPool operation with a single output.";
+  let description = [{
+    "ONNX MaxPool operation with a single output."
+    "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
+  }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+}
+
 #endif // ONNX_OPS
