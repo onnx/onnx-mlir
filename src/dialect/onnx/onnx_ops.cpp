@@ -464,8 +464,8 @@ void ONNXConvNoBiasOp::inferShapes() {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return;
-  auto dataTy = getOperand(0)->getType().cast<RankedTensorType>();
-  auto weightTy = getOperand(1)->getType().cast<RankedTensorType>();
+  auto dataTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto weightTy = getOperand(1).getType().cast<RankedTensorType>();
   auto dataShape = dataTy.getShape();
   auto weightShape = weightTy.getShape();
 
