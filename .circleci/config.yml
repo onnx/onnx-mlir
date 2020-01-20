@@ -3,27 +3,12 @@ jobs:
   build:
     docker:
       - image: circleci/python
+    resource_class: medium+
 
     steps:
       - run:
           name: Installing GCC, CMake, Ninja, Protobuf
           command: sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler
-      # Use cached mlir installation if possible.
-      - restore_cache:
-          key: V2-LLVM-PROJECT-{{ arch }}
-      - run:
-          name: Install MLIR
-          command: |
-            # Check whether cache restoration succeeds by checking whether
-            # mlir-opt executable exists.
-            if [ ! -f llvm-project/build/bin/mlir-opt ]; then
-              export MAKEFLAGS=-j4
-              source utils/install-mlir.sh
-            fi
-      - save_cache:
-          key: V2-LLVM-PROJECT-{{ arch }}
-          paths:
-            - llvm-project
       - checkout:
           path: ONNF
       - run:
@@ -31,9 +16,30 @@ jobs:
           command: |
             cd ONNF
             git submodule update --init --recursive
+      # Use cached mlir installation if possible.
+      - restore_cache:
+          key: V4-LLVM-PROJECT-{{ arch }}
+      - run:
+          name: Install MLIR
+          command: |
+            # Check whether cache restoration succeeds by checking whether
+            # mlir-opt executable exists.
+            if [ ! -f llvm-project/build/bin/mlir-opt ]; then
+              source ONNF/utils/install-mlir.sh
+            fi
+      - save_cache:
+          key: V4-LLVM-PROJECT-{{ arch }}
+          paths:
+            - llvm-project
       - run:
           name: Install ONNF
           command: source ONNF/utils/install-onnf.sh
+      - run:
+          name: Run End-To-End Tests
+          command: |
+            sudo pip install -q onnx
+            cd ONNF/build
+            cmake --build . --target run-onnx-backend-test
       - run:
           name: Run DocCheck
           command: cd ONNF/build && cmake --build . --target check-doc
