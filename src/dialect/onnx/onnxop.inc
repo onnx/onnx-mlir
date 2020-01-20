@@ -3102,6 +3102,8 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
   let extraClassDeclaration = [{
     static StringRef getPermAttrName() { return "perm"; }
   }];
+
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXUniqueOp:ONNX_Op<"Unique", 
