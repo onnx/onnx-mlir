@@ -13,6 +13,7 @@
 #include "mlir/IR/Function.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Matchers.h"
+#include "mlir/IR/Module.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/SetVector.h"
@@ -407,11 +408,36 @@ void ONNXTransposeOp::inferShapes() {
 
   // Naive transposition which handles the default case of
   // reversing the shape of the tensor (similar to numpy.transpose).
-  // TODO: Once attributes are supported we can handle the case where the
-  // transposition uses a permutation vector to interchange the axes.
   auto arrayTy = getOperand().getType().cast<RankedTensorType>();
-  SmallVector<int64_t, 2> dims(llvm::reverse(arrayTy.getShape()));
+  SmallVector<int64_t, 2> dims;
+
+  if (auto permutation = getAttrOfType<ArrayAttr>(
+          ONNXTransposeOp::getPermAttrName())) {
+    // Perform transposition according to perm attribute.
+    for (auto perm : permutation.getValue())
+      dims.emplace_back(arrayTy.getShape()[perm.cast<IntegerAttr>().getInt()]);
+  } else {
+    // Default
+    for (auto dim : llvm::reverse(arrayTy.getShape()))
+      dims.emplace_back(dim);
+  }
+
   getResult().setType(RankedTensorType::get(dims, arrayTy.getElementType()));
+}
+
+LogicalResult verify(ONNXTransposeOp op) {
+  auto module = op.getParentOfType<ModuleOp>();
+  if (!module)
+    op.emitError("Expected to belong to a module.");
+
+  if (auto permutation = op.getAttrOfType<ArrayAttr>(
+          ONNXTransposeOp::getPermAttrName())) {
+    for (auto perm : permutation.getValue())
+      if (perm.cast<IntegerAttr>().getInt() < 0)
+        op.emitError("Cannot tranpose, permuation contains negative index.");
+  }
+
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

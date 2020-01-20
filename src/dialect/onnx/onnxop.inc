@@ -3098,6 +3098,12 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+
+  let extraClassDeclaration = [{
+    static StringRef getPermAttrName() { return "perm"; }
+  }];
+
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXUniqueOp:ONNX_Op<"Unique", 
