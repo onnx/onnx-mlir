@@ -408,7 +408,7 @@ void ONNXTransposeOp::inferShapes() {
 
   // Naive transposition which handles the default case of
   // reversing the shape of the tensor (similar to numpy.transpose).
-  auto arrayTy = getOperand()->getType().cast<RankedTensorType>();
+  auto arrayTy = getOperand().getType().cast<RankedTensorType>();
   SmallVector<int64_t, 2> dims;
 
   if (auto permutation = getAttrOfType<ArrayAttr>(
@@ -422,7 +422,7 @@ void ONNXTransposeOp::inferShapes() {
       dims.emplace_back(dim);
   }
 
-  getResult()->setType(RankedTensorType::get(dims, arrayTy.getElementType()));
+  getResult().setType(RankedTensorType::get(dims, arrayTy.getElementType()));
 }
 
 LogicalResult verify(ONNXTransposeOp op) {
