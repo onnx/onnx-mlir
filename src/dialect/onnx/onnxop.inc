@@ -2831,7 +2831,7 @@ def ONNXSliceOp:ONNX_Op<"Slice",
 }
 
 def ONNXSoftmaxOp:ONNX_Op<"Softmax", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Softmax operation";
   let description = [{
     "The operator computes the softmax (normalized exponential) values for each layer in the batch"

@@ -159,6 +159,14 @@ void ONNXReciprocalOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Softmax
+/// Infer the output shape of the ONNXSoftmaxOp. This method is required by
+/// the shape inference interface.
+void ONNXSoftmaxOp::inferShapes() {
+  getResult().setType(getOperand().getType());
+}
+
+//===----------------------------------------------------------------------===//
 // Add
 /// Infer the output shape of the ONNXAddOp. This method is required by the
 /// shape inference interface.

@@ -533,3 +533,49 @@ func @test_add_with_broadcasting(%arg0 : tensor<?xf32>, %arg1 : tensor<?x10xf32>
   // CHECK: }
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Softmax"(%arg0) {Softmax.axis=1:i32} : (tensor<10x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_softmax
+  // CHECK: [[MAX:%.+]] = alloc() : memref<f32>
+  // CHECK: [[SUM:%.+]] = alloc() : memref<f32>
+  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
+  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[CST_0:%.+]] = constant 0xFF800000 : f32
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:  krnl.return_loops [[DEF_LOOPS]]#0, %3#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to 10) {
+  // CHECK: store [[CST]], [[SUM]][] : memref<f32>
+  // CHECK: store [[CST_0]], [[MAX]][] : memref<f32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK:   [[LOAD1:%.+]] = load [[MAX]][] : memref<f32>
+  // CHECK:   [[LOAD2:%.+]] = load %arg0[%arg1, %arg2] : memref<10x10xf32>
+  // CHECK:   [[COND:%.+]] = cmpf "ogt", [[LOAD1]], [[LOAD2]] : f32
+  // CHECK:   [[SELECT:%.+]] = select [[COND]], [[LOAD1]], [[LOAD2]] : f32
+  // CHECK:   store [[SELECT]], [[MAX]][] : memref<f32>
+  // CHECK: }
+  // CHECK: %5 = load [[MAX]][] : memref<f32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK:   [[LOAD1]] = load [[SUM]][] : memref<f32>
+  // CHECK:   [[LOAD2]] = load %arg0[%arg1, %arg2] : memref<10x10xf32>
+  // CHECK:   [[SUB:%.+]] = subf [[LOAD2]], %5 : f32
+  // CHECK:   [[EXP:%.+]] = exp [[SUB]] : f32
+  // CHECK:   [[ADD:%.+]] = addf [[LOAD1]], [[EXP]] : f32
+  // CHECK:   store [[ADD]], [[SUM]][] : memref<f32>
+  // CHECK:   store %10, [[RES]][%arg1, %arg2] : memref<10x10xf32>
+  // CHECK: }
+  // CHECK: %6 = load [[SUM]][] : memref<f32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK:   [[LOAD1]] = load [[RES]][%arg1, %arg2] : memref<10x10xf32>
+  // CHECK:   [[DIV:%.+]] = divf [[LOAD1]], %6 : f32
+  // CHECK:   store [[DIV]], [[RES]][%arg1, %arg2] : memref<10x10xf32>
+  // CHECK: }
+  // CHECK: }
+  // CHECK: dealloc [[SUM]] : memref<f32>
+  // CHECK: dealloc [[MAX]] : memref<f32>
+  // CHECK: return [[RES]] : memref<10x10xf32>
+}

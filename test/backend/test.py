@@ -130,6 +130,14 @@ test_to_enable = [
     "test_sigmoid_cpu",
     "test_sigmoid_example_cpu",
 
+    # Softmax Op:
+    "test_softmax_axis_0_cpu",
+    "test_softmax_axis_1_cpu",
+    "test_softmax_axis_2_cpu",
+    "test_softmax_default_axis_cpu",
+    "test_softmax_example_cpu",
+    "test_softmax_large_number_cpu",
+
     # Sum Op:
     #"test_sum_example_cpu", <- error
     "test_sum_one_input_cpu",
