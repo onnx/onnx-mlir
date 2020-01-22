@@ -420,8 +420,8 @@ Value mapToLowerScalarOp<ONNXHardSigmoidOp>(
   //                                  Constant 1)
   auto loc = op->getLoc();
   Value operand = operands[0];
-  auto alphaAttr = op->getAttrOfType<FloatAttr>("HardSigmoid.alpha");
-  auto betaAttr = op->getAttrOfType<FloatAttr>("HardSigmoid.beta");
+  auto alphaAttr = op->getAttrOfType<FloatAttr>("alpha");
+  auto betaAttr = op->getAttrOfType<FloatAttr>("beta");
   auto elementType = result_types[0];
 
   auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
@@ -455,7 +455,7 @@ Value mapToLowerScalarOp<ONNXEluOp>(Operation *op, ArrayRef<Type> result_types,
   Value operand = operands[0];
   auto elementType = result_types[0];
 
-  auto alphaAttr = op->getAttrOfType<FloatAttr>("Elu.alpha");
+  auto alphaAttr = op->getAttrOfType<FloatAttr>("alpha");
   auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
   auto one = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 1));
   auto alpha = rewriter.create<ConstantOp>(loc, alphaAttr);
@@ -508,7 +508,7 @@ Value mapToLowerScalarOp<ONNXLeakyReluOp>(Operation *op,
   Value operand = operands[0];
   auto elementType = result_types[0];
 
-  auto alphaAttr = op->getAttrOfType<FloatAttr>("LeakyRelu.alpha");
+  auto alphaAttr = op->getAttrOfType<FloatAttr>("alpha");
   auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
   auto alpha = rewriter.create<ConstantOp>(loc, alphaAttr);
   auto lessThanZero =
@@ -533,8 +533,8 @@ Value mapToLowerScalarOp<ONNXSeluOp>(Operation *op, ArrayRef<Type> result_types,
   //                                         alpha)))
   auto loc = op->getLoc();
   Value operand = operands[0];
-  auto alphaAttr = op->getAttrOfType<FloatAttr>("Selu.alpha");
-  auto gammaAttr = op->getAttrOfType<FloatAttr>("Selu.gamma");
+  auto alphaAttr = op->getAttrOfType<FloatAttr>("alpha");
+  auto gammaAttr = op->getAttrOfType<FloatAttr>("gamma");
   auto elementType = result_types[0];
 
   auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
@@ -836,7 +836,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     //                    exp_x / sum
     auto tensorType = (*op->result_type_begin()).cast<RankedTensorType>();
     int64_t rank = tensorType.getRank();
-    int64_t axis = op->getAttrOfType<IntegerAttr>("Softmax.axis").getInt();
+    int64_t axis = op->getAttrOfType<IntegerAttr>("axis").getInt();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
 

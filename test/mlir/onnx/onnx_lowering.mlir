@@ -385,7 +385,7 @@ func @test_min(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*
 }
 
 func @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Elu"(%arg0) {Elu.alpha=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
+  %0 = "onnx.Elu"(%arg0) {alpha=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_elu
@@ -411,7 +411,7 @@ func @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 func @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.LeakyRelu"(%arg0) {LeakyRelu.alpha=1.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
+  %0 = "onnx.LeakyRelu"(%arg0) {alpha=1.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_leakyrelu
@@ -434,7 +434,7 @@ func @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 func @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Selu"(%arg0) {Selu.alpha=1.0:f32, Selu.gamma=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
+  %0 = "onnx.Selu"(%arg0) {alpha=1.0:f32, gamma=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_selu
@@ -461,7 +461,7 @@ func @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 func @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.HardSigmoid"(%arg0) {HardSigmoid.alpha=1.0:f32, HardSigmoid.beta=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
+  %0 = "onnx.HardSigmoid"(%arg0) {alpha=1.0:f32, beta=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_hardsigmoid
@@ -535,7 +535,7 @@ func @test_add_with_broadcasting(%arg0 : tensor<?xf32>, %arg1 : tensor<?x10xf32>
 }
 
 func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Softmax"(%arg0) {Softmax.axis=1:i32} : (tensor<10x10xf32>) -> tensor<*xf32>
+  %0 = "onnx.Softmax"(%arg0) {axis=1:i32} : (tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_softmax

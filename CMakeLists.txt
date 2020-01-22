@@ -22,6 +22,7 @@ include(MLIR.cmake)
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/benchmark)
 add_subdirectory(third_party/pybind11)
+add_subdirectory(third_party/variant)
 
 set(CMAKE_CXX_STANDARD 14)
 add_subdirectory(src)

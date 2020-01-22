@@ -368,17 +368,17 @@ def gen_code(schema,fefile) :
         ("MaxPool", "ImportNodeMaxPool"),
         #("Transpose", "ImportNodeTranspose")
         ])
-    special_type = dict([
-        ("AveragePool "+"kernel_shape", '"ints", ""'),
-        ("MaxPool "+"kernel_shape", '"ints", ""'),
-        ("Cast "+"to", '"int", "0"'),
-        ("Concat "+"axis", '"int", "0"'),
-        ("Conv "+"group", '"int", "1"'),
-        ("Unsqueeze "+"axes", '"ints", ""'),
-        ("RNN "+"activation_alpha", '"floats", "{}"'),
-        ("RNN "+"activation_beta", '"floats", "{}"'),
-        ("RNN "+"activations", '"", "{Tannh, Tanh}"'),
-        ("LRN "+"size", '"int", ""')
+    list_str = 'std::vector'
+    empty_ints = list_str+'<int> {}' 
+    empty_floats = list_str+'<float> {}' 
+    special_default = dict([
+        ("AveragePool "+"kernel_shape", empty_ints),
+        ("MaxPool "+"kernel_shape", empty_ints),
+        ("Cast "+"to", '0'),
+        ("Concat "+"axis", '0'),
+        ("Unsqueeze "+"axes", empty_ints),
+        ("RNN "+"activation_alpha", empty_floats),
+        ("RNN "+"activation_beta", empty_floats)
         ])
     line_indent = '  '
     fefile.write('    '+'}else if (OpName == "'+schema.name+'") {\n')
@@ -400,21 +400,9 @@ def gen_code(schema,fefile) :
     if schema.attributes:
         first_attr = True
         for _, attr in sorted(schema.attributes.items()):
-            attr_line = line_indent+line_indent+line_indent+line_indent
-            if not first_attr:
-                attr_line += ',{'
-            else :
-                attr_line += ' {'
-            first_attr = False
-
-            attr_line += '"'+attr.name+'",'
-
-            if schema.name+' '+attr.name in special_type:
-                attr_line += special_type[schema.name+' '+attr.name]
-            # option holds either required or default value
-            elif attr.required:
-                attr_line += '"", ""'
-      
+            #only generate default attr list
+            if schema.name+' '+attr.name in special_default:
+                attr_value = special_default[schema.name+' '+attr.name]
             elif attr.default_value.name:
                 default_value = helper.get_attribute_value(attr.default_value)
 
@@ -430,28 +418,35 @@ def gen_code(schema,fefile) :
                     return str(value)
 
                 if isinstance(default_value, list):
+
                     value = default_value[0]
                     default_value = [format_value(val) for val in default_value]
+                    attr_option_str = '{}'.format(default_value)
+                    attr_option_str = attr_option_str.replace('[', '{', 1)
+                    attr_option_str = attr_option_str.replace(']', '}', 1)
                     # TODO the list type is homogenous or htergeneous?
                    
                     if isinstance(value, float) : 
-                        attr_type_str = '"floats"'
+                        attr_type_str = list_str+'<float>'
+                        attr_option_str = attr_option_str.replace("'", '')
                     elif isinstance(value, int) :
-                        attr_type_str = '"ints"'
+                        attr_type_str = list_str+'<int>'
+                        attr_option_str = attr_option_str.replace("'", '')
                     elif isinstance(value, str) :
-                        attr_type_str = '"strs"'
+                        attr_type_str = list_str+'<std::string>'
+                        attr_option_str = attr_option_str.replace("'", '"')
                     elif isinstance(value, (bytes, bytearray)) :
-                        attr_type_str = '"strs"'
+                        attr_type_str = list_str+'<std::string>'
+                        attr_option_str = attr_option_str.replace("'", '"')
                     else :
                         attr_type_str = '"unknowns"'
-                    attr_option_str = '"{}"'.format(default_value)
-                    attr_option_str = attr_option_str.replace('[', '{', 1)
-                    attr_option_str = attr_option_str.replace(']', '}', 1)
                 else:
                     if isinstance(default_value, float) : 
-                        attr_type_str = '"float"'
+                        attr_type_str = '(float)'
+                        attr_option_str = default_value
                     elif isinstance(default_value, int) :
-                        attr_type_str = '"int"'
+                        attr_option_str = default_value
+                        attr_type_str=''
                     elif isinstance(default_value, str) :
                         attr_type_str = '"str"'
                     elif isinstance(default_value, (bytes, bytearray)) :
@@ -459,11 +454,25 @@ def gen_code(schema,fefile) :
                     else :
                         attr_type_str = '"unknown"'
                     default_value = format_value(default_value)
-                    attr_option_str = '"{}"'.format(default_value)
-                attr_line += attr_type_str+','+attr_option_str
+                    if attr_type_str == '"str"' :
+                        attr_option_str = '"'+default_value+'"'
+                        attr_type_str=''
+                    else :
+                        attr_option_str = default_value
+                attr_value = attr_type_str+attr_option_str
             else:
-                #TODO why?
-                attr_line += '"", ""'
+                #no default value
+                continue
+
+            attr_line = line_indent+line_indent+line_indent+line_indent
+            if not first_attr:
+                attr_line += ',{'
+            else :
+                attr_line += ' {'
+            first_attr = False
+
+            attr_line += '"'+attr.name+'", '
+            attr_line += attr_value
             attr_line += '}\n'
             fefile.write(attr_line)
     fefile.write(line_indent+line_indent+line_indent+'});\n')
