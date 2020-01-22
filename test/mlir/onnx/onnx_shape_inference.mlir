@@ -125,8 +125,8 @@ func @test_conv_no_bias_9(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7x
 }
 
 // CHECK-LABEL: test_conv_no_bias_9
-// CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : i32} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x18x40xf32>
-// CHECK: return [[RES_ATTR]] : tensor<1x5x18x40xf32>
+// CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : i32} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x20x42xf32>
+// CHECK: return [[RES_ATTR]] : tensor<1x5x20x42xf32>
 
 /// dilations attribute with stride.
 
@@ -136,5 +136,5 @@ func @test_conv_no_bias_10(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7
 }
 
 // CHECK-LABEL: test_conv_no_bias_10
-// CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : i32, strides = [2, 2]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x9x20xf32>
-// CHECK: return [[RES_ATTR]] : tensor<1x5x9x20xf32>
+// CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : i32, strides = [2, 2]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x10x21xf32>
+// CHECK: return [[RES_ATTR]] : tensor<1x5x10x21xf32>

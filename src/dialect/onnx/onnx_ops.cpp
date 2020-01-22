@@ -540,7 +540,7 @@ void ONNXConvNoBiasOp::inferShapes() {
       emitError("dilations length incompatible with spatial dimensions.");
     for (int i = 0; i < nDims; ++i)
       kernelDims[i] = (kernelDims[i] + 1) *
-          (dilations.getValue()[i]).cast<IntegerAttr>().getInt() + 1;
+          (dilations.getValue()[i]).cast<IntegerAttr>().getInt() - 1;
   }
 
   // Subtract kernel dimensions from input data dimensions.
