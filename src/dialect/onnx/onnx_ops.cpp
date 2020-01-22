@@ -328,8 +328,8 @@ void ONNXMatMulOp::inferShapes() {
       !getOperand(1).getType().isa<RankedTensorType>())
     return;
 
-  auto lhsTy = getOperand(0)->getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1)->getType().cast<RankedTensorType>();
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
 
   SmallVector<int64_t, 2> dims;
   auto lhsShape = lhsTy.getShape();
@@ -413,7 +413,7 @@ void ONNXMatMulOp::inferShapes() {
       dims.emplace_back(rhsShape[1]);
   }
 
-  getResult()->setType(RankedTensorType::get(dims, lhsTy.getElementType()));
+  getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
 }
 
 //===----------------------------------------------------------------------===//
