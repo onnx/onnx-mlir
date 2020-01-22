@@ -1,12 +1,12 @@
 // RUN: onnf-opt %s -mlir-print-op-generic | FileCheck -check-prefix=GENERIC %s
 // RUN: onnf-opt %s | FileCheck %s
 
-// GENERIC-DAG: #{{.*}} = () -> (0)
-// GENERIC-DAG: #{{.*}} = () -> (10)
-// GENERIC-DAG: #{{.*}} = () -> (1)
-// GENERIC-DAG: #{{.*}} = () -> (11)
-// GENERIC-DAG: #{{.*}} = (d0, d1) -> (d0 - d1)
-// GENERIC-DAG: #{{.*}} = (d0, d1) -> (d0 + d1)
+// GENERIC-DAG: #{{.*}} = affine_map<() -> (0)>
+// GENERIC-DAG: #{{.*}} = affine_map<() -> (10)>
+// GENERIC-DAG: #{{.*}} = affine_map<() -> (1)>
+// GENERIC-DAG: #{{.*}} = affine_map<() -> (11)>
+// GENERIC-DAG: #{{.*}} = affine_map<(d0, d1) -> (d0 - d1)>
+// GENERIC-DAG: #{{.*}} = affine_map<(d0, d1) -> (d0 + d1)>
 
 func @simple_iterate(%N : index) {
   %ii, %ij, %ik = krnl.define_loops 3
@@ -55,18 +55,18 @@ func @affine_map_bound(%N : index) {
   // GENERIC: "krnl.iterate"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) ( {
   // GENERIC-NEXT: ^bb0(%{{.*}}: index, %{{.*}}: index):
   // CHECK: krnl.iterate(%{{.*}}, %{{.*}}) with (%{{.*}} -> %{{.*}} = 0 to 10, %{{.*}} -> %{{.*}} = 0 to 10) {
-  krnl.iterate(%oi, %oj) with (%ii -> %i = ()->(0)() to ()->(10)(), %ij -> %j = 0 to 10) {
+  krnl.iterate(%oi, %oj) with (%ii -> %i = affine_map<()->(0)>() to affine_map<()->(10)>(), %ij -> %j = 0 to 10) {
     // GENERIC: "krnl.iterate"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) ( {
     // GENERIC-NEXT: ^bb0(%{{.*}}: index):
     // CHECK: krnl.iterate(%{{.*}}) with (%{{.*}} -> %{{.*}} = #{{.*}}(%{{.*}}, %{{.*}}) to #{{.*}}(%{{.*}}, %{{.*}})) {
-    krnl.iterate(%ok) with (%ik -> %k = (d0, d1)->(d0 - d1)(%i, %j) to (d0, d1)->(d0 + d1)(%i, %j)) {
+    krnl.iterate(%ok) with (%ik -> %k = affine_map<(d0, d1)->(d0 - d1)>(%i, %j) to affine_map<(d0, d1)->(d0 + d1)>(%i, %j)) {
 
     }
 
     // GENERIC: "krnl.iterate"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) ( {
     // GENERIC-NEXT: ^bb0(%{{.*}}: index):
     // CHECK: krnl.iterate(%{{.*}}) with (%{{.*}} -> %{{.*}} = max #map{{.*}}(%{{.*}}, %{{.*}}) to min #map{{.*}}(%{{.*}}, %{{.*}})[%{{.*}}]) {
-    krnl.iterate(%ok) with (%ik -> %k = max (d0, d1)->(d0 - d1, 0)(%i, %j) to min (d0, d1)[s0]->(d0 + d1, s0)(%i, %j)[%N]) {
+    krnl.iterate(%ok) with (%ik -> %k = max affine_map<(d0, d1)->(d0 - d1, 0)>(%i, %j) to min affine_map<(d0, d1)[s0]->(d0 + d1, s0)>(%i, %j)[%N]) {
 
     }
   }

@@ -27,6 +27,7 @@ ONNX operations for which some work is needed.
 | Selu        | Tung                  | v              | v                     |                                          |
 | Sigmoid     | Tung                  | v              | v                     |                                          |
 | Sinh        | Tung                  | v              | v                     |                                          |
+| Softmax     | Tung                  | v              | v                     |                                          |
 | Sub         | Tung                  | v              | v                     | M                                        |
 | Sum         | Tung                  | v              | v                     | M                                        |
 | Tanh        | Tung                  | v              | v                     |                                          |

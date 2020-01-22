@@ -3,46 +3,51 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import itertools
 import os
+import sys
 import unittest
 import onnx.backend.base
 import onnx.backend.test
 
 from onnx.backend.base import Device, DeviceType
-import onnx.shape_inference
-import onnx.version_converter
 import subprocess
+import test_config
+
+VERBOSE = bool(os.environ.get("VERBOSE"))
+
+CXX = test_config.CXX_PATH
+ONNF = os.path.join(test_config.ONNF_BUILD_PATH, "bin/onnf")
+LLC = os.path.join(test_config.LLVM_PROJ_BUILD_PATH, "bin/llc")
+
+# Make lib folder under build directory visible in PYTHONPATH
+doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
+RUNTIME_DIR = os.path.join(test_config.ONNF_BUILD_PATH, "lib")
+sys.path.append(RUNTIME_DIR)
 from pyruntime import ExecutionSession
 
-CXX = os.getenv('CXX')
-ONNF = os.getenv('ONNF')
-LLC = os.getenv('LLC')
-RT_DIR = os.getenv('RT_DIR')
-assert CXX and ONNF and LLC and RT_DIR, "tools path not set"
+
+def execute_commands(cmds):
+    if (VERBOSE):
+        print(" ".join(cmds))
+    subprocess.run(cmds, stdout=subprocess.PIPE)
+
 
 class DummyBackend(onnx.backend.base.Backend):
     @classmethod
-    def prepare(
-            cls,
-            model,
-            device='CPU',
-            **kwargs
-    ):
+    def prepare(cls, model, device='CPU', **kwargs):
         super(DummyBackend, cls).prepare(model, device, **kwargs)
         # Save model to disk as temp_model.onnx.
         onnx.save(model, "temp_model.onnx")
         # Call frontend to process temp_model.onnx, bit code will be generated.
-        subprocess.run([ONNF, "temp_model.onnx"], stdout=subprocess.PIPE)
+        execute_commands([ONNF, "temp_model.onnx"])
         # Call llc to generate object file from bitcode.
-        subprocess.run([LLC, "-filetype=obj", "model.bc"],
-                       stdout=subprocess.PIPE)
+        execute_commands(
+            [LLC, "-filetype=obj", "-relocation-model=pic", "model.bc"])
         # Generate shared library from object file, linking with c runtime.
-        subprocess.run([
-            CXX, "-shared", "model.o", "-o", "model.so", "-L" + RT_DIR,
-            "-lcruntime"
-        ],
-                       stdout=subprocess.PIPE)
+        execute_commands([
+            CXX, "-shared", "-fPIC", "model.o", "-o", "model.so",
+            "-L" + RUNTIME_DIR, "-lcruntime"
+        ])
         return ExecutionSession("./model.so", "_dyn_entry_point_main_graph")
 
     @classmethod
@@ -124,7 +129,15 @@ test_to_enable = [
     # Sigmoid Op:
     "test_sigmoid_cpu",
     "test_sigmoid_example_cpu",
-    
+
+    # Softmax Op:
+    "test_softmax_axis_0_cpu",
+    "test_softmax_axis_1_cpu",
+    "test_softmax_axis_2_cpu",
+    "test_softmax_default_axis_cpu",
+    "test_softmax_example_cpu",
+    "test_softmax_large_number_cpu",
+
     # Sum Op:
     #"test_sum_example_cpu", <- error
     "test_sum_one_input_cpu",
@@ -140,17 +153,14 @@ import inspect
 all_tests = inspect.getmembers(
     backend_test.test_cases["OnnxBackendNodeModelTest"])
 all_test_names = list(map(lambda x: x[0], all_tests))
+
+# Ensure that test names specified in test_to_enable actually exist.
 for test_name in test_to_enable:
-    assert test_name in all_test_names, "test name {} not found".format(test_name)
+    assert test_name in all_test_names, "test name {} not found, it is likely "
+    "that you may have misspelled the test name or the specified test does not "
+    "exist in the version of onnx package you installed.".format(
+        test_name)
     backend_test.include(r"^{}$".format(test_name))
-
-
-def tearDownModule():
-    print()
-    print("*" * 40)
-    print("A total of {} tests should have run".format(len(test_to_enable)))
-    print("*" * 40)
-
 
 # import all test cases at global scope to make them visible to python.unittest
 globals().update(backend_test.test_cases)
