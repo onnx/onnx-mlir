@@ -104,7 +104,7 @@ def ONNXGemmNoBiasOp: ONNX_Op<"GemmNoBias",
 }
 
 def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Conv operation with no Bias operand.";
   let description = [{
     "The convolution operator consumes an input tensor and a filter, and"
@@ -112,6 +112,8 @@ def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+
+  let verifier = [{ return ::verify(*this); }];
 }
 
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
