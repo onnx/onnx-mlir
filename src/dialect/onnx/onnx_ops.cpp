@@ -520,6 +520,26 @@ void ONNXConvNoBiasOp::inferShapes() {
       kernelDims.emplace_back(weightShape[i + 2]);
   }
 
+  // Check if dilations attribute is present.
+  // If it is then compute new kernel size that includes the receptive field.
+  // In this calculation we assume that the receptive field pixels must all be
+  // within the bounds of the image. In this case the new kernel size is given
+  // by:
+  //
+  // ( K + 1 ) * d - 1
+  // where K is a kernel dimension and d is the dilation along that axis.
+  //
+  // From a dimensionality perspective the kernel size becomes the dilated
+  // kernel size.
+  if (auto dilations = getAttrOfType<ArrayAttr>(
+          ONNXConvOp::getDilationsAttrName())) {
+    if (dilations.getValue().size() != nDims)
+      emitError("dilations length incompatible with spatial dimensions.");
+    for (int i = 0; i < nDims; ++i)
+      kernelDims[i] = (kernelDims[i] + 1) *
+          (dilations.getValue()[i]).cast<IntegerAttr>().getInt() + 1;
+  }
+
   // Subtract kernel dimensions from input data dimensions.
   for (int i = 0; i < nDims; ++i)
     outSpatialDims[i] -= kernelDims[i];
@@ -545,13 +565,14 @@ void ONNXConvNoBiasOp::inferShapes() {
     }
   } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
     // Pad input so that output size matches input size.
-    // Each spatial dimension needs to be padded by:
+    // Each spatial dimension needs to be padded by a total of:
     //
-    // ( K - 1 ) / 2
+    // K - 1
     //
     // where K is a kernel spatial dimension.
+    // Pad as if stride is 1.
     for (int i = 0; i < nDims; ++i)
-      outSpatialDims[i] += floor((kernelDims[i] - 1) / 2);
+      outSpatialDims[i] += kernelDims[i] - 1;
   } else if (autoPad == "VALID") {
     // No padding
   } else {
