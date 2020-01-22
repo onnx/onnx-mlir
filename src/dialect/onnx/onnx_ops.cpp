@@ -484,6 +484,9 @@ void ONNXConvNoBiasOp::inferShapes() {
   if (dataShape[1] != (weightShape[1] * group))
     emitError("Channel dimension mismatch.");
 
+  // Note: the value of the group attribut only impacts the way the
+  // computation is carried out and not the actual output size.
+
   // First two output dimensions consist of the number of batches and the
   // number of kernels being applied.
   //
