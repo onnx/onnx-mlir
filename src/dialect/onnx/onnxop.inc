@@ -324,6 +324,15 @@ def ONNXConvOp:ONNX_Op<"Conv",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+
+  let extraClassDeclaration = [{
+     static StringRef getAutoPadAttrName() { return "auto_pad"; }
+     static StringRef getDilationsAttrName() { return "dilations"; }
+     static StringRef getGroupAttrName() { return "group"; }
+     static StringRef getKernelShapeAttrName() { return "kernel_shape"; }
+     static StringRef getPadsAttrName() { return "pads"; }
+     static StringRef getStridesAttrName() { return "strides"; }
+  }];
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger", 
