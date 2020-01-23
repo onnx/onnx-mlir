@@ -144,8 +144,8 @@ test_to_enable = [
     #"test_sum_two_inputs_cpu", <- error
 
     # Reciprocal Op:
-    #"test_reciprocal_cpu", <- error on shape inference.
-    #"test_reciprocal_example_cpu", <- error on shape inference.
+    "test_reciprocal_cpu",
+    "test_reciprocal_example_cpu",
 ]
 
 # Extract name of all test cases.
