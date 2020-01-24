@@ -571,6 +571,46 @@ Value mapToLowerScalarOp<ONNXReciprocalOp>(
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXSoftplusOp
+//===----------------------------------------------------------------------===//
+template <>
+Value mapToLowerScalarOp<ONNXSoftplusOp>(
+    Operation *op, ArrayRef<Type> result_types, ArrayRef<Value> operands,
+    ConversionPatternRewriter &rewriter) {
+  // ONNXSoftplusOp(%X) = LogOp(AddFOp(ExpOp(%X), ConstantOp 1))
+  auto loc = op->getLoc();
+  Value operand = operands[0];
+  auto elementType = result_types[0];
+
+  auto exp = rewriter.create<ExpOp>(loc, operand);
+  auto one = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 1));
+  auto add = rewriter.create<AddFOp>(loc, exp, one);
+  auto result = rewriter.create<LogOp>(loc, add);
+
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXSoftsignOp
+//===----------------------------------------------------------------------===//
+template <>
+Value mapToLowerScalarOp<ONNXSoftsignOp>(
+    Operation *op, ArrayRef<Type> result_types, ArrayRef<Value> operands,
+    ConversionPatternRewriter &rewriter) {
+  // ONNXSoftsignOp(%X) = DivFOp(ConstantOp 1, %X)
+  auto loc = op->getLoc();
+  Value operand = operands[0];
+  auto elementType = result_types[0];
+
+  auto abs = rewriter.create<AbsFOp>(loc, operand);
+  auto one = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 1));
+  auto add = rewriter.create<AddFOp>(loc, abs, one);
+  auto result = rewriter.create<DivFOp>(loc, operand, add);
+
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXMaxOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -1214,6 +1254,8 @@ void FrontendToKrnlLoweringPass::runOnModule() {
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
+                  ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftplusOp>,
+                  ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftsignOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
