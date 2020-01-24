@@ -146,6 +146,14 @@ test_to_enable = [
     # Reciprocal Op:
     "test_reciprocal_cpu",
     "test_reciprocal_example_cpu",
+
+    # SoftplusOp:
+    "test_softplus_cpu",
+    "test_softplus_example_cpu",
+
+    # SoftsignOp:
+    "test_softsign_cpu",
+    "test_softsign_example_cpu",
 ]
 
 # Extract name of all test cases.

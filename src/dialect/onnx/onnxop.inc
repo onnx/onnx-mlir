@@ -2863,7 +2863,7 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Softplus operation";
   let description = [{
     "Softplus takes one input data (Tensor<T>) and produces one output data"
@@ -2875,7 +2875,7 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
 }
 
 def ONNXSoftsignOp:ONNX_Op<"Softsign", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Softsign operation";
   let description = [{
     "Calculates the softsign (x/(1+|x|)) of the given input tensor element-wise."
