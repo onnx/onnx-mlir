@@ -343,17 +343,98 @@ void ONNXMatMulOp::inferShapes() {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return;
+
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+
   SmallVector<int64_t, 2> dims;
-  dims.emplace_back(lhsTy.getShape()[0]);
-  dims.emplace_back(rhsTy.getShape()[1]);
+  auto lhsShape = lhsTy.getShape();
+  auto rhsShape = rhsTy.getShape();
+
+  if (lhsShape.size() < 1 && rhsShape.size() < 1) {
+    // Multiplication by scalars is not allowed.
+    emitError("Multiplication by scalar arguments not allowed.");
+  } else if (lhsShape.size() == 1 && rhsShape.size() == 1) {
+    // Special case when both arrays are 1-dimensional and according to
+    // numpy rules the types need to be extended to 1xN and Nx1. Helper sizes
+    // need to be removed after the multiplication but cannot be removed if all
+    // sizes are 1.
+    if (lhsShape[0] != -1 && rhsShape[0] != -1 &&
+        lhsShape[0] != rhsShape[0])
+      emitError("Attempt to multiply incompatible matrices.");
+    dims.emplace_back(1);
+  } else if (lhsShape.size() > 2 && rhsShape.size() == 2) {
+    // (s1 x s2 x... x sK x M x N) MATMUL (N x P)
+    // =>
+    // (s1 x s2 x... x sK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned lhsRank = lhsShape.size();
+    if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
+        lhsShape[lhsRank - 1] != rhsShape[0])
+      emitError("Attempt to multiply incompatible matrices.");
+
+    for (int i = 0; i < lhsRank - 1; ++i)
+      dims.emplace_back(lhsShape[i]);
+    dims.emplace_back(rhsShape[1]);
+  } else if (lhsShape.size() == 2 && rhsShape.size() > 2) {
+    // (M x N) MATMUL (s1 x s2 x... x sK x N x P)
+    // =>
+    // (s1 x s2 x... x sK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned rhsRank = rhsShape.size();
+    if (lhsShape[1] != -1 && rhsShape[rhsRank - 2] != -1 &&
+        lhsShape[1] != rhsShape[rhsRank - 2])
+      emitError("Attempt to multiply incompatible matrices.");
+
+    for (int i = 0; i < rhsRank - 2; ++i)
+      dims.emplace_back(rhsShape[i]);
+    dims.emplace_back(lhsShape[0]);
+    dims.emplace_back(rhsShape[rhsRank - 1]);
+  } else if (lhsShape.size() > 2 && rhsShape.size() > 2) {
+    // (s1 x s2 x... x sK x M x N) MATMUL (t1 x t2 x... x tK x N x P)
+    // =>
+    // (u1 x u2 x... x uK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned lhsRank = lhsShape.size();
+    unsigned rhsRank = rhsShape.size();
+    if (lhsShape[lhsRank - 1] != -1 && rhsShape[rhsRank - 2] != -1 &&
+        lhsShape[lhsRank - 1] != rhsShape[rhsRank - 2])
+      emitError("Attempt to multiply incompatible matrices.");
+
+    // Check and perform broadcasting for the shapes.
+    SmallVector<int64_t, 2> lhsBcastShape;
+    for (int i = 0; i < lhsRank - 2; ++i)
+      lhsBcastShape.emplace_back(lhsShape[i]);
+    SmallVector<int64_t, 2> rhsBcastShape;
+    for (int i = 0; i < rhsRank - 2; ++i)
+      rhsBcastShape.emplace_back(rhsShape[i]);
+    if (!getBroadcastedShape(lhsBcastShape, rhsBcastShape, dims))
+      emitError("Broadcasted dimensions are incompatible.");
+
+    dims.emplace_back(lhsShape[lhsRank - 2]);
+    dims.emplace_back(rhsShape[rhsRank - 1]);
+  } else {
+    // This case covers all remaining combinations of 1 and 2-D matrices.
+    int64_t lhsDim = lhsShape[0];
+    int64_t rhsDim = rhsShape[0];
+    if (lhsShape.size() > 1) {
+      lhsDim = lhsShape[1];
+      dims.emplace_back(lhsShape[0]);
+    }
+
+    // Check legality of matrix multiplication.
+    if (lhsDim != -1 && rhsDim != -1 && lhsDim != rhsDim)
+      emitError("Attempt to multiply incompatible matrices.");
+
+    if (rhsShape.size() > 1)
+      dims.emplace_back(rhsShape[1]);
+  }
+
   getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
 }
-
-// TODO:
-//   Verify that matrix sizes are valid.
-//   Take into account the dimensionality of the matrix.
 
 //===----------------------------------------------------------------------===//
 
