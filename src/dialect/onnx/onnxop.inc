@@ -7,7 +7,7 @@ def ONNXAbsOp:ONNX_Op<"Abs",
     "the tensor elementwise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXAcosOp:ONNX_Op<"Acos", 
@@ -17,7 +17,7 @@ def ONNXAcosOp:ONNX_Op<"Acos",
     "Calculates the arccosine (inverse of cosine) of the given input tensor, element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXAcoshOp:ONNX_Op<"Acosh", 
@@ -27,7 +27,7 @@ def ONNXAcoshOp:ONNX_Op<"Acosh",
     "Calculates the hyperbolic arccosine of the given input tensor element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXAddOp:ONNX_Op<"Add", 
@@ -39,8 +39,9 @@ def ONNXAddOp:ONNX_Op<"Add",
     ""
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
 
 def ONNXAndOp:ONNX_Op<"And", 
@@ -52,8 +53,9 @@ def ONNXAndOp:ONNX_Op<"And",
     ""
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
 
 def ONNXArgMaxOp:ONNX_Op<"ArgMax", 
@@ -61,15 +63,14 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
   let summary = "ONNX ArgMax operation";
   let description = [{
     "Computes the indices of the max elements of the input tensor's element along the "
-    "provided axis. The resulting tensor has the same rank as the input if keepdims equal 1. "
-    "If keepdims equal 0, then the resulting tensor have the reduced dimension pruned. "
-    "If select_last_index is True (default False), the index of the last occurence of the max "
-    "is selected if the max appears more than once in the input. Otherwise the index of the "
-    "first occurence is selected."
+    "provided axis. The resulted tensor has the same rank as the input if keepdims equal 1."
+    "If keepdims equal 0, then the resulted tensor have the reduced dimension pruned. "
     "The type of the output tensor is integer."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           DefaultValuedAttr<I64Attr, "0">:$axis,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXArgMinOp:ONNX_Op<"ArgMin", 
@@ -77,15 +78,14 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
   let summary = "ONNX ArgMin operation";
   let description = [{
     "Computes the indices of the min elements of the input tensor's element along the "
-    "provided axis. The resulting tensor has the same rank as the input if keepdims equal 1. "
-    "If keepdims equal 0, then the resulting tensor have the reduced dimension pruned. "
-    "If select_last_index is True (default False), the index of the last occurence of the min "
-    "is selected if the min appears more than once in the input. Otherwise the index of the "
-    "first occurence is selected."
+    "provided axis. The resulted tensor has the same rank as the input if keepdims equal 1."
+    "If keepdims equal 0, then the resulted tensor have the reduced dimension pruned. "
     "The type of the output tensor is integer."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           DefaultValuedAttr<I64Attr, "0">:$axis,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXAsinOp:ONNX_Op<"Asin", 
@@ -95,7 +95,7 @@ def ONNXAsinOp:ONNX_Op<"Asin",
     "Calculates the arcsine (inverse of sine) of the given input tensor, element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXAsinhOp:ONNX_Op<"Asinh", 
@@ -105,7 +105,7 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
     "Calculates the hyperbolic arcsine of the given input tensor element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXAtanOp:ONNX_Op<"Atan", 
@@ -115,7 +115,7 @@ def ONNXAtanOp:ONNX_Op<"Atan",
     "Calculates the arctangent (inverse of tangent) of the given input tensor, element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXAtanhOp:ONNX_Op<"Atanh", 
@@ -125,7 +125,7 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
     "Calculates the hyperbolic arctangent of the given input tensor element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool", 
@@ -162,8 +162,14 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
     " The output of each pooling window is divided by the number of elements (exclude pad when attribute count_include_pad is zero)."
     " "
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           DefaultValuedAttr<I64Attr, "0">:$ceil_mode,
+           DefaultValuedAttr<I64Attr, "0">:$count_include_pad,
+           DefaultValuedAttr<I64ArrayAttr, "{}">:$kernel_shape,
+           OptionalAttr<I64ArrayAttr>:$pads,
+           OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization", 
@@ -181,8 +187,14 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
     "to flatten the input shape to (N x C*D1*D2 ..*Dn) before a BatchNormalization Op."
     "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B, AnyTypeOf<[AnyMemRef, AnyTensor]>:$mean, AnyTypeOf<[AnyMemRef, AnyTensor]>:$var);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$mean,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$var,
+           DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
+           DefaultValuedAttr<F32Attr, "0.9">:$momentum);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_mean, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_var, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_saved_mean, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_saved_var);
 }
 
 def ONNXBitShiftOp:ONNX_Op<"BitShift", 
@@ -202,8 +214,10 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
     " not necessarily identical."
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y,
+           StrAttr:$direction);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Z);
 }
 
 def ONNXCastOp:ONNX_Op<"Cast", 
@@ -230,8 +244,9 @@ def ONNXCastOp:ONNX_Op<"Cast",
     "For example, a 64-bit float 3.1415926459 may be round to a 32-bit float 3.141592. Similarly, converting"
     "an integer 36 to Boolean may produce 1 because we truncate bits which can't be stored in the targeted type."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           DefaultValuedAttr<I64Attr, "0">:$to);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXCeilOp:ONNX_Op<"Ceil", 
@@ -243,7 +258,7 @@ def ONNXCeilOp:ONNX_Op<"Ceil",
     "the tensor elementwise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXClipOp:ONNX_Op<"Clip", 
@@ -254,8 +269,10 @@ def ONNXClipOp:ONNX_Op<"Clip",
     "specified by the inputs 'min' and 'max'. They default to"
     "numeric_limits::lowest() and numeric_limits::max(), respectively."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input, AnyTypeOf<[AnyMemRef, AnyTensor]>:$min, AnyTypeOf<[AnyMemRef, AnyTensor]>:$max);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$min,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$max);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXCompressOp:ONNX_Op<"Compress", 
@@ -267,8 +284,10 @@ def ONNXCompressOp:ONNX_Op<"Compress",
     "    Compress behaves like numpy.compress: https://docs.scipy.org/doc/numpy/reference/generated/numpy.compress.html"
     "    "
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input, AnyTypeOf<[AnyMemRef, AnyTensor]>:$condition);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$condition,
+           OptionalAttr<I64Attr>:$axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXConcatOp:ONNX_Op<"Concat", 
@@ -277,8 +296,9 @@ def ONNXConcatOp:ONNX_Op<"Concat",
   let description = [{
     "Concatenate a list of tensors into a single tensor. All input tensors must have the same shape, except for the dimension size of the axis to concatenate on."
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$inputs);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$inputs,
+           DefaultValuedAttr<I64Attr, "0">:$axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_concat_result);
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence", 
@@ -290,8 +310,10 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
     "By default 'new_axis' is 0, the behavior is similar to numpy.concatenate."
     "When 'new_axis' is 1, the behavior is similar to numpy.stack."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
+           I64Attr:$axis,
+           DefaultValuedAttr<I64Attr, "0">:$new_axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_concat_result);
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant", 
@@ -301,8 +323,9 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     "A constant tensor. Exactly one of the two attributes, either value or sparse_value,"
     "must be specified."
   }];
-  let arguments = (ins );
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins OptionalAttr<AnyAttr>:$sparse_value,
+           OptionalAttr<AnyAttr>:$value);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape", 
@@ -311,28 +334,28 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
   let description = [{
     "Generate a tensor with given value and shape."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           OptionalAttr<AnyAttr>:$value);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
-def ONNXConvOp:ONNX_Op<"Conv",
+def ONNXConvOp:ONNX_Op<"Conv", 
     [NoSideEffect]> {
   let summary = "ONNX Conv operation";
   let description = [{
     "The convolution operator consumes an input tensor and a filter, and"
     "computes the output."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
-
-  let extraClassDeclaration = [{
-     static StringRef getAutoPadAttrName() { return "auto_pad"; }
-     static StringRef getDilationsAttrName() { return "dilations"; }
-     static StringRef getGroupAttrName() { return "group"; }
-     static StringRef getKernelShapeAttrName() { return "kernel_shape"; }
-     static StringRef getPadsAttrName() { return "pads"; }
-     static StringRef getStridesAttrName() { return "strides"; }
-  }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           OptionalAttr<I64ArrayAttr>:$dilations,
+           DefaultValuedAttr<I64Attr, "1">:$group,
+           OptionalAttr<I64ArrayAttr>:$kernel_shape,
+           OptionalAttr<I64ArrayAttr>:$pads,
+           OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger", 
@@ -342,8 +365,17 @@ def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
     "The integer convolution operator consumes an input tensor, its zero-point, a filter, and its zero-point,"
     "and computes the output. The production MUST never overflow. The accumulation may overflow if and only if in 32 bits."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x, AnyTypeOf<[AnyMemRef, AnyTensor]>:$w, AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_zero_point, AnyTypeOf<[AnyMemRef, AnyTensor]>:$w_zero_point);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$w,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_zero_point,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$w_zero_point,
+           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           OptionalAttr<I64ArrayAttr>:$dilations,
+           DefaultValuedAttr<I64Attr, "1">:$group,
+           OptionalAttr<I64ArrayAttr>:$kernel_shape,
+           OptionalAttr<I64ArrayAttr>:$pads,
+           OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_y);
 }
 
 def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose", 
@@ -365,8 +397,18 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
     ""
     "    "
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           OptionalAttr<I64ArrayAttr>:$dilations,
+           DefaultValuedAttr<I64Attr, "1">:$group,
+           OptionalAttr<I64ArrayAttr>:$kernel_shape,
+           OptionalAttr<I64ArrayAttr>:$output_padding,
+           OptionalAttr<I64ArrayAttr>:$output_shape,
+           OptionalAttr<I64ArrayAttr>:$pads,
+           OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXCosOp:ONNX_Op<"Cos", 
@@ -376,7 +418,7 @@ def ONNXCosOp:ONNX_Op<"Cos",
     "Calculates the cosine of the given input tensor, element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXCoshOp:ONNX_Op<"Cosh", 
@@ -386,7 +428,7 @@ def ONNXCoshOp:ONNX_Op<"Cosh",
     "Calculates the hyperbolic cosine of the given input tensor element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXCumSumOp:ONNX_Op<"CumSum", 
@@ -414,8 +456,11 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
     "```"
     " "
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x, AnyTypeOf<[AnyMemRef, AnyTensor]>:$axis);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$axis,
+           DefaultValuedAttr<I64Attr, "0">:$exclusive,
+           DefaultValuedAttr<I64Attr, "0">:$reverse);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_y);
 }
 
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace", 
@@ -450,8 +495,10 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
     "y = np.reshape(tmp, [b, c // (blocksize ** 2), h * blocksize, w * blocksize])"
     ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           I64Attr:$blocksize,
+           DefaultValuedAttr<StrAttr, "DCR">:$mode);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear", 
@@ -463,8 +510,10 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
     "'x_zero_point' and 'x' must have same type. 'x' and 'y' must have same shape. In the case of dequantizing int32,"
     "there's no zero point (zero point is supposed to be 0)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x, AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_zero_point);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_zero_point);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_y);
 }
 
 def ONNXDetOp:ONNX_Op<"Det", 
@@ -478,7 +527,7 @@ def ONNXDetOp:ONNX_Op<"Det",
     "e.g., When the input is 2-D, the output is a scalar(shape is empty: `[]`)."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXDivOp:ONNX_Op<"Div", 
@@ -489,8 +538,9 @@ def ONNXDivOp:ONNX_Op<"Div",
     ""
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
 
 def ONNXDropoutOp:ONNX_Op<"Dropout", 
@@ -504,8 +554,9 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
     "the training phase, so during testing nothing needs to be done."
     "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           DefaultValuedAttr<F32Attr, "0.5">:$ratio);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_mask);
 }
 
 def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear", 
@@ -536,7 +587,7 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
     "```"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_y, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_y_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_y_zero_point);
 }
 
 def ONNXEluOp:ONNX_Op<"Elu", 
@@ -548,8 +599,9 @@ def ONNXEluOp:ONNX_Op<"Elu",
     "0`, `f(x) = x for x >= 0`., is applied to the tensor elementwise."
     ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<F32Attr, "1.0">:$alpha);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXEqualOp:ONNX_Op<"Equal", 
@@ -561,8 +613,9 @@ def ONNXEqualOp:ONNX_Op<"Equal",
     ""
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
 
 def ONNXErfOp:ONNX_Op<"Erf", 
@@ -572,7 +625,7 @@ def ONNXErfOp:ONNX_Op<"Erf",
     "Computes the error function of the given input tensor element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXExpOp:ONNX_Op<"Exp", 
@@ -582,7 +635,7 @@ def ONNXExpOp:ONNX_Op<"Exp",
     "Calculates the exponential of the given input tensor, element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXExpandOp:ONNX_Op<"Expand", 
@@ -598,8 +651,9 @@ def ONNXExpandOp:ONNX_Op<"Expand",
     "It is possible that the output.shape is not equal to shape, when some dimensions in shape is equal to 1,"
     "or the shape.ndim < input.shape.ndim."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input, AnyTypeOf<[AnyMemRef, AnyTensor]>:$shape);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$shape);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike", 
@@ -614,8 +668,10 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
     "The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the"
     "TensorProto message and be valid as an output type."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           OptionalAttr<I64Attr>:$dtype,
+           DefaultValuedAttr<I64Attr, "0">:$k);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXFlattenOp:ONNX_Op<"Flatten", 
@@ -626,8 +682,9 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
     "(d_0, d_1, ... d_n) then the output will have shape"
     "(d_0 X d_1 ... d_(axis-1), d_axis X d_(axis+1) ... X dn)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           DefaultValuedAttr<I64Attr, "1">:$axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXFloorOp:ONNX_Op<"Floor", 
@@ -639,7 +696,7 @@ def ONNXFloorOp:ONNX_Op<"Floor",
     "the tensor elementwise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXGRUOp:ONNX_Op<"GRU", 
@@ -720,8 +777,20 @@ def ONNXGRUOp:ONNX_Op<"GRU",
     "  - Ht = (1 - zt) (.) ht + zt (.) Ht-1"
     "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W, AnyTypeOf<[AnyMemRef, AnyTensor]>:$R, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B, AnyTypeOf<[AnyMemRef, AnyTensor]>:$sequence_lens, AnyTypeOf<[AnyMemRef, AnyTensor]>:$initial_h);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$R,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$sequence_lens,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$initial_h,
+           OptionalAttr<F32ArrayAttr>:$activation_alpha,
+           OptionalAttr<F32ArrayAttr>:$activation_beta,
+           OptionalAttr<StrArrayAttr>:$activations,
+           OptionalAttr<F32Attr>:$clip,
+           DefaultValuedAttr<StrAttr, "forward">:$direction,
+           OptionalAttr<I64Attr>:$hidden_size,
+           DefaultValuedAttr<I64Attr, "0">:$linear_before_reset);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y_h);
 }
 
 def ONNXGatherOp:ONNX_Op<"Gather", 
@@ -786,8 +855,10 @@ def ONNXGatherOp:ONNX_Op<"Gather",
     "  ]"
     "```"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data, AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
+           DefaultValuedAttr<I64Attr, "0">:$axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXGatherElementsOp:ONNX_Op<"GatherElements", 
@@ -850,8 +921,10 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
     "  ]"
     "```"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data, AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
+           DefaultValuedAttr<I64Attr, "0">:$axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXGatherNDOp:ONNX_Op<"GatherND", 
@@ -924,8 +997,9 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
     "  output  = [[[2,3]],[[4,5]]]             # output_shape = [2, 1, 2] "
     ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data, AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXGemmOp:ONNX_Op<"Gemm", 
@@ -946,8 +1020,14 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
     "This operator supports **unidirectional broadcasting** (tensor C should be unidirectional broadcastable to tensor A * B); for more details please check [the doc](Broadcasting.md)."
     "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B, AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$C,
+           DefaultValuedAttr<F32Attr, "1.0">:$alpha,
+           DefaultValuedAttr<F32Attr, "1.0">:$beta,
+           DefaultValuedAttr<I64Attr, "0">:$transA,
+           DefaultValuedAttr<I64Attr, "0">:$transB);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool", 
@@ -959,7 +1039,7 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
     " equal to the spatial dimension of input tensor."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool", 
@@ -970,8 +1050,9 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
     " the values in the same channel. This is equivalent to LpPool with kernel size"
     " equal to the spatial dimension of input tensor."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<I64Attr, "2">:$p);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool", 
@@ -983,7 +1064,7 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
     " equal to the spatial dimension of input tensor."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXGreaterOp:ONNX_Op<"Greater", 
@@ -995,8 +1076,9 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
     ""
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
 
 def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid", 
@@ -1007,8 +1089,10 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
     "(Tensor<T>) where the HardSigmoid function, y = max(0, min(1, alpha * x + beta)),"
     "is applied to the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<F32Attr, "0.2">:$alpha,
+           DefaultValuedAttr<F32Attr, "0.5">:$beta);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXHardmaxOp:ONNX_Op<"Hardmax", 
@@ -1030,8 +1114,9 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
     "will throw errors. The output tensor has the same shape"
     "and contains the hardmax values of the corresponding input."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           DefaultValuedAttr<I64Attr, "1">:$axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXIdentityOp:ONNX_Op<"Identity", 
@@ -1042,7 +1127,7 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
     "Identity operator"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXIfOp:ONNX_Op<"If", 
@@ -1051,8 +1136,10 @@ def ONNXIfOp:ONNX_Op<"If",
   let description = [{
     "If conditional"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$cond);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$cond,
+           AnyAttr:$else_branch,
+           AnyAttr:$then_branch);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_outputs);
 }
 
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization", 
@@ -1066,8 +1153,11 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
     "where mean and variance are computed per instance per channel."
     ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input, AnyTypeOf<[AnyMemRef, AnyTensor]>:$scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           DefaultValuedAttr<F32Attr, "1e-05">:$epsilon);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXIsInfOp:ONNX_Op<"IsInf", 
@@ -1076,8 +1166,10 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
   let description = [{
     "Map infinity to true and other values to false."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<I64Attr, "1">:$detect_negative,
+           DefaultValuedAttr<I64Attr, "1">:$detect_positive);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXIsNaNOp:ONNX_Op<"IsNaN", 
@@ -1087,7 +1179,7 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
     "Returns which elements of the input are NaN."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXLRNOp:ONNX_Op<"LRN", 
@@ -1105,8 +1197,12 @@ def ONNXLRNOp:ONNX_Op<"LRN",
     ""
     "Y[n, c, d1, ..., dk] = X[n, c, d1, ..., dk] / (bias + alpha / size * square_sum[n, c, d1, ..., dk] ) ^ beta"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<F32Attr, "0.0001">:$alpha,
+           DefaultValuedAttr<F32Attr, "0.75">:$beta,
+           DefaultValuedAttr<F32Attr, "1.0">:$bias,
+           I64Attr:$size);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXLSTMOp:ONNX_Op<"LSTM", 
@@ -1195,8 +1291,22 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
     "  - Ht = ot (.) h(Ct)"
     "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W, AnyTypeOf<[AnyMemRef, AnyTensor]>:$R, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B, AnyTypeOf<[AnyMemRef, AnyTensor]>:$sequence_lens, AnyTypeOf<[AnyMemRef, AnyTensor]>:$initial_h, AnyTypeOf<[AnyMemRef, AnyTensor]>:$initial_c, AnyTypeOf<[AnyMemRef, AnyTensor]>:$P);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$R,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$sequence_lens,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$initial_h,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$initial_c,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$P,
+           OptionalAttr<F32ArrayAttr>:$activation_alpha,
+           OptionalAttr<F32ArrayAttr>:$activation_beta,
+           OptionalAttr<StrArrayAttr>:$activations,
+           OptionalAttr<F32Attr>:$clip,
+           DefaultValuedAttr<StrAttr, "forward">:$direction,
+           OptionalAttr<I64Attr>:$hidden_size,
+           DefaultValuedAttr<I64Attr, "0">:$input_forget);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y_h, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y_c);
 }
 
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu", 
@@ -1207,8 +1317,9 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
     "output data (Tensor<T>) where the function `f(x) = alpha * x for x < 0`,"
     "`f(x) = x for x >= 0`, is applied to the data tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<F32Attr, "0.01">:$alpha);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXLessOp:ONNX_Op<"Less", 
@@ -1220,8 +1331,9 @@ def ONNXLessOp:ONNX_Op<"Less",
     ""
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
 
 def ONNXLogOp:ONNX_Op<"Log", 
@@ -1231,7 +1343,7 @@ def ONNXLogOp:ONNX_Op<"Log",
     "Calculates the natural log of the given input tensor, element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax", 
@@ -1253,8 +1365,9 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
     "will throw errors. The output tensor has the same shape"
     "and contains the logsoftmax values of the corresponding input."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           DefaultValuedAttr<I64Attr, "1">:$axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop", 
@@ -1395,8 +1508,11 @@ def ONNXLoopOp:ONNX_Op<"Loop",
     "the scan_outputs from the previous layer, possibly going through several"
     "point-wise operators (e.g. dropout, residual connections, linear layer)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$M, AnyTypeOf<[AnyMemRef, AnyTensor]>:$cond, AnyTypeOf<[AnyMemRef, AnyTensor]>:$v_initial);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$M,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$cond,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$v_initial,
+           AnyAttr:$body);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_v_final_and_scan_outputs);
 }
 
 def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization", 
@@ -1405,8 +1521,10 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
   let description = [{
     "Given a matrix, apply Lp-normalization along the provided axis."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           DefaultValuedAttr<I64Attr, "-1">:$axis,
+           DefaultValuedAttr<I64Attr, "2">:$p);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXLpPoolOp:ONNX_Op<"LpPool", 
@@ -1419,8 +1537,13 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
     " of the input tensor according to the kernel size and downsampling the"
     " data into the output tensor Y for further processing."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           I64ArrayAttr:$kernel_shape,
+           DefaultValuedAttr<I64Attr, "2">:$p,
+           OptionalAttr<I64ArrayAttr>:$pads,
+           OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXMatMulOp:ONNX_Op<"MatMul", 
@@ -1429,8 +1552,9 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
   let description = [{
     "Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger", 
@@ -1440,8 +1564,11 @@ def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
     "Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html."
     "The production MUST never overflow. The accumulation may overflow if and only if in 32 bits."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B, AnyTypeOf<[AnyMemRef, AnyTensor]>:$a_zero_point, AnyTypeOf<[AnyMemRef, AnyTensor]>:$b_zero_point);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$a_zero_point,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$b_zero_point);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXMaxOp:ONNX_Op<"Max", 
@@ -1453,7 +1580,7 @@ def ONNXMaxOp:ONNX_Op<"Max",
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_max);
 }
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool", 
@@ -1490,8 +1617,15 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
     " The output of each pooling window is maximum number of elements exclude pad."
     " "
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           DefaultValuedAttr<I64Attr, "0">:$ceil_mode,
+           OptionalAttr<I64ArrayAttr>:$dilations,
+           DefaultValuedAttr<I64ArrayAttr, "{}">:$kernel_shape,
+           OptionalAttr<I64ArrayAttr>:$pads,
+           DefaultValuedAttr<I64Attr, "0">:$storage_order,
+           OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Indices);
 }
 
 def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool", 
@@ -1502,8 +1636,11 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
     " apply max pooling across each RoI, to produce output 4-D tensor of shape"
     " (num_rois, channels, pooled_shape[0], pooled_shape[1])."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$rois);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$rois,
+           I64ArrayAttr:$pooled_shape,
+           DefaultValuedAttr<F32Attr, "1.0">:$spatial_scale);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool", 
@@ -1529,8 +1666,13 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
     " which define the exact unpooling op. The attributes typically have the same values as the corrsponding"
     " pooling op that the unpooling op is trying to invert."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$I, AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_shape);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$I,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_shape,
+           I64ArrayAttr:$kernel_shape,
+           OptionalAttr<I64ArrayAttr>:$pads,
+           OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXMeanOp:ONNX_Op<"Mean", 
@@ -1542,7 +1684,7 @@ def ONNXMeanOp:ONNX_Op<"Mean",
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_mean);
 }
 
 def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization", 
@@ -1552,8 +1694,9 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
     "A MeanVarianceNormalization Function: Perform mean variance normalization"
     "      on the input tensor X using formula: <br/> ``` (X-EX)/sqrt(E(X-EX)^2) ```"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<I64ArrayAttr, "{0, 2, 3}">:$axes);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXMinOp:ONNX_Op<"Min", 
@@ -1565,7 +1708,7 @@ def ONNXMinOp:ONNX_Op<"Min",
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_min);
 }
 
 def ONNXModOp:ONNX_Op<"Mod", 
@@ -1586,8 +1729,10 @@ def ONNXModOp:ONNX_Op<"Mod",
     ""
     "  This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           DefaultValuedAttr<I64Attr, "0">:$fmod);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
 
 def ONNXMulOp:ONNX_Op<"Mul", 
@@ -1598,8 +1743,9 @@ def ONNXMulOp:ONNX_Op<"Mul",
     ""
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
 
 def ONNXMultinomialOp:ONNX_Op<"Multinomial", 
@@ -1609,8 +1755,11 @@ def ONNXMultinomialOp:ONNX_Op<"Multinomial",
     "Generate a tensor of samples from a multinomial distribution according to the probabilities"
     "of each of the possible outcomes."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           DefaultValuedAttr<I64Attr, "6">:$dtype,
+           DefaultValuedAttr<I64Attr, "1">:$sample_size,
+           OptionalAttr<F32Attr>:$seed);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXNegOp:ONNX_Op<"Neg", 
@@ -1622,7 +1771,7 @@ def ONNXNegOp:ONNX_Op<"Neg",
     "the tensor elementwise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression", 
@@ -1637,8 +1786,13 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
     "The selected_indices output is a set of integers indexing into the input collection of bounding boxes representing the selected boxes."
     "The bounding box coordinates corresponding to the selected indices can then be obtained using the Gather or GatherND operation."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$boxes, AnyTypeOf<[AnyMemRef, AnyTensor]>:$scores, AnyTypeOf<[AnyMemRef, AnyTensor]>:$max_output_boxes_per_class, AnyTypeOf<[AnyMemRef, AnyTensor]>:$iou_threshold, AnyTypeOf<[AnyMemRef, AnyTensor]>:$score_threshold);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$boxes,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$scores,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$max_output_boxes_per_class,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$iou_threshold,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$score_threshold,
+           DefaultValuedAttr<I64Attr, "0">:$center_point_box);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_selected_indices);
 }
 
 def ONNXNonZeroOp:ONNX_Op<"NonZero", 
@@ -1651,7 +1805,7 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
     "    https://docs.scipy.org/doc/numpy/reference/generated/numpy.nonzero.html"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXNotOp:ONNX_Op<"Not", 
@@ -1661,7 +1815,7 @@ def ONNXNotOp:ONNX_Op<"Not",
     "Returns the negation of the input tensor element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXOneHotOp:ONNX_Op<"OneHot", 
@@ -1688,8 +1842,11 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
     "    output[i, j, k, input[i, j, k]] = 1 for all i, j, k and 0 otherwise."
     ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices, AnyTypeOf<[AnyMemRef, AnyTensor]>:$depth, AnyTypeOf<[AnyMemRef, AnyTensor]>:$values);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$depth,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$values,
+           DefaultValuedAttr<I64Attr, "-1">:$axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXOrOp:ONNX_Op<"Or", 
@@ -1701,8 +1858,9 @@ def ONNXOrOp:ONNX_Op<"Or",
     ""
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
 
 def ONNXPReluOp:ONNX_Op<"PRelu", 
@@ -1714,8 +1872,9 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
     "`f(x) = x for x >= 0`., is applied to the data tensor elementwise."
     "This operator supports **unidirectional broadcasting** (tensor slope should be unidirectional broadcastable to input tensor X); for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$slope);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$slope);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXPadOp:ONNX_Op<"Pad", 
@@ -1804,8 +1963,11 @@ def ONNXPadOp:ONNX_Op<"Pad",
     "  ]"
     ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data, AnyTypeOf<[AnyMemRef, AnyTensor]>:$pads, AnyTypeOf<[AnyMemRef, AnyTensor]>:$constant_value);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$pads,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$constant_value,
+           DefaultValuedAttr<StrAttr, "constant">:$mode);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXPowOp:ONNX_Op<"Pow", 
@@ -1817,8 +1979,9 @@ def ONNXPowOp:ONNX_Op<"Pow",
     "is applied to the data tensor elementwise."
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Z);
 }
 
 def ONNXQLinearConvOp:ONNX_Op<"QLinearConv", 
@@ -1830,11 +1993,23 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
     "and computes the quantized output. Each scale and zero-point pair must have same shape."
     "It means they must be either scalars (per tensor) or 1-D tensors (per output channel)."
     "Each input or output and its related zero point must have same type."
-    "When bias is present it must be quantized using scale = input scale * weight scale and "
-    "zero point as 0."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x, AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_zero_point, AnyTypeOf<[AnyMemRef, AnyTensor]>:$w, AnyTypeOf<[AnyMemRef, AnyTensor]>:$w_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$w_zero_point, AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_zero_point,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$w,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$w_scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$w_zero_point,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           OptionalAttr<I64ArrayAttr>:$dilations,
+           DefaultValuedAttr<I64Attr, "1">:$group,
+           OptionalAttr<I64ArrayAttr>:$kernel_shape,
+           OptionalAttr<I64ArrayAttr>:$pads,
+           OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_y);
 }
 
 def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul", 
@@ -1850,8 +2025,15 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
     "and the number of elements of scale and zero point tensor of input 'b' should be equal to the number of columns of input 'b'."
     "Production must never overflow, and accumulation may overflow if and only if in 32 bits."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$a, AnyTypeOf<[AnyMemRef, AnyTensor]>:$a_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$a_zero_point, AnyTypeOf<[AnyMemRef, AnyTensor]>:$b, AnyTypeOf<[AnyMemRef, AnyTensor]>:$b_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$b_zero_point, AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$a,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$a_scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$a_zero_point,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$b,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$b_scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$b_zero_point,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_y);
 }
 
 def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear", 
@@ -1862,8 +2044,10 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
     "The quantization formula is y = saturate ((x / y_scale) + y_zero_point). For saturation, it saturates to [0, 255] if it's uint8, or [-128, 127] if it's int8."
     "For (x / y_scale), it's rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details. 'y_zero_point' and 'y' must have same type."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x, AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale, AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_y);
 }
 
 def ONNXRNNOp:ONNX_Op<"RNN", 
@@ -1932,8 +2116,19 @@ def ONNXRNNOp:ONNX_Op<"RNN",
     "  - Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)"
     "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W, AnyTypeOf<[AnyMemRef, AnyTensor]>:$R, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B, AnyTypeOf<[AnyMemRef, AnyTensor]>:$sequence_lens, AnyTypeOf<[AnyMemRef, AnyTensor]>:$initial_h);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$R,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$sequence_lens,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$initial_h,
+           DefaultValuedAttr<F32ArrayAttr, "{}">:$activation_alpha,
+           DefaultValuedAttr<F32ArrayAttr, "{}">:$activation_beta,
+           DefaultValuedAttr<StrArrayAttr, "{\"Tanh\", \"Tanh\"}">:$activations,
+           OptionalAttr<F32Attr>:$clip,
+           DefaultValuedAttr<StrAttr, "forward">:$direction,
+           OptionalAttr<I64Attr>:$hidden_size);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y_h);
 }
 
 def ONNXRandomNormalOp:ONNX_Op<"RandomNormal", 
@@ -1948,8 +2143,12 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
     "be one of the data types specified in the 'DataType' enum field in the"
     "TensorProto message."
   }];
-  let arguments = (ins );
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins DefaultValuedAttr<I64Attr, "1">:$dtype,
+           DefaultValuedAttr<F32Attr, "0.0">:$mean,
+           DefaultValuedAttr<F32Attr, "1.0">:$scale,
+           OptionalAttr<F32Attr>:$seed,
+           I64ArrayAttr:$shape);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike", 
@@ -1964,8 +2163,12 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
     "The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the"
     "TensorProto message, and be valid as an output type."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           OptionalAttr<I64Attr>:$dtype,
+           DefaultValuedAttr<F32Attr, "0.0">:$mean,
+           DefaultValuedAttr<F32Attr, "1.0">:$scale,
+           OptionalAttr<F32Attr>:$seed);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform", 
@@ -1979,8 +2182,12 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
     "be one of the data types specified in the 'DataType' enum field in the"
     "TensorProto message."
   }];
-  let arguments = (ins );
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins DefaultValuedAttr<I64Attr, "1">:$dtype,
+           DefaultValuedAttr<F32Attr, "1.0">:$high,
+           DefaultValuedAttr<F32Attr, "0.0">:$low,
+           OptionalAttr<F32Attr>:$seed,
+           I64ArrayAttr:$shape);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike", 
@@ -1995,8 +2202,12 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
     "The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the"
     "TensorProto message and be valid as an output type."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           OptionalAttr<I64Attr>:$dtype,
+           DefaultValuedAttr<F32Attr, "1.0">:$high,
+           DefaultValuedAttr<F32Attr, "0.0">:$low,
+           OptionalAttr<F32Attr>:$seed);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXRangeOp:ONNX_Op<"Range", 
@@ -2029,8 +2240,10 @@ def ONNXRangeOp:ONNX_Op<"Range",
     "Output: [10, 8, 6]"
     ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$start, AnyTypeOf<[AnyMemRef, AnyTensor]>:$limit, AnyTypeOf<[AnyMemRef, AnyTensor]>:$delta);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$start,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$limit,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$delta);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXReciprocalOp:ONNX_Op<"Reciprocal", 
@@ -2042,7 +2255,7 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
     "the tensor elementwise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXReduceL1Op:ONNX_Op<"ReduceL1", 
@@ -2056,8 +2269,10 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
     "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
     "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$axes,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXReduceL2Op:ONNX_Op<"ReduceL2", 
@@ -2071,8 +2286,10 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
     "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
     "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$axes,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum", 
@@ -2086,8 +2303,10 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
     "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
     "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$axes,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp", 
@@ -2101,8 +2320,10 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
     "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
     "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$axes,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXReduceMaxOp:ONNX_Op<"ReduceMax", 
@@ -2116,8 +2337,10 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
     "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
     "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$axes,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean", 
@@ -2131,8 +2354,10 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
     "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
     "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$axes,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXReduceMinOp:ONNX_Op<"ReduceMin", 
@@ -2146,8 +2371,10 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
     "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
     "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$axes,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXReduceProdOp:ONNX_Op<"ReduceProd", 
@@ -2161,8 +2388,10 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
     "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
     "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$axes,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXReduceSumOp:ONNX_Op<"ReduceSum", 
@@ -2176,8 +2405,10 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
     "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
     "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$axes,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare", 
@@ -2191,8 +2422,10 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
     "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
     "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$axes,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reduced);
 }
 
 def ONNXReluOp:ONNX_Op<"Relu", 
@@ -2204,7 +2437,7 @@ def ONNXReluOp:ONNX_Op<"Relu",
     "the tensor elementwise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXReshapeOp:ONNX_Op<"Reshape", 
@@ -2218,8 +2451,9 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
     "could also be 0, in which case the actual dimension value is unchanged (i.e. taken"
     "from the input tensor)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data, AnyTypeOf<[AnyMemRef, AnyTensor]>:$shape);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$shape);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_reshaped);
 }
 
 def ONNXResizeOp:ONNX_Op<"Resize", 
@@ -2230,8 +2464,17 @@ def ONNXResizeOp:ONNX_Op<"Resize",
     "Each dimension value of the output tensor is:"
     "  output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \"sizes\" is not specified."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$roi, AnyTypeOf<[AnyMemRef, AnyTensor]>:$scales, AnyTypeOf<[AnyMemRef, AnyTensor]>:$sizes);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$roi,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$scales,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$sizes,
+           DefaultValuedAttr<StrAttr, "half_pixel">:$coordinate_transformation_mode,
+           DefaultValuedAttr<F32Attr, "-0.75">:$cubic_coeff_a,
+           DefaultValuedAttr<I64Attr, "0">:$exclude_outside,
+           DefaultValuedAttr<F32Attr, "0.0">:$extrapolation_value,
+           DefaultValuedAttr<StrAttr, "nearest">:$mode,
+           DefaultValuedAttr<StrAttr, "round_prefer_floor">:$nearest_mode);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence", 
@@ -2272,8 +2515,11 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
     "            [10.0, 9.0,  8.0,  11.0],"
     "            [15.0, 14.0, 13.0, 12.0]]"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input, AnyTypeOf<[AnyMemRef, AnyTensor]>:$sequence_lens);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$sequence_lens,
+           DefaultValuedAttr<I64Attr, "1">:$batch_axis,
+           DefaultValuedAttr<I64Attr, "0">:$time_axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXRoiAlignOp:ONNX_Op<"RoiAlign", 
@@ -2292,8 +2538,15 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
     "the value of the sampled locations are computed directly"
     "through bilinear interpolation."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$rois, AnyTypeOf<[AnyMemRef, AnyTensor]>:$batch_indices);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$rois,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$batch_indices,
+           DefaultValuedAttr<StrAttr, "avg">:$mode,
+           DefaultValuedAttr<I64Attr, "1">:$output_height,
+           DefaultValuedAttr<I64Attr, "1">:$output_width,
+           DefaultValuedAttr<I64Attr, "0">:$sampling_ratio,
+           DefaultValuedAttr<F32Attr, "1.0">:$spatial_scale);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXRoundOp:ONNX_Op<"Round", 
@@ -2315,7 +2568,7 @@ def ONNXRoundOp:ONNX_Op<"Round",
     "```"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXScanOp:ONNX_Op<"Scan", 
@@ -2444,8 +2697,14 @@ def ONNXScanOp:ONNX_Op<"Scan",
     "    }"
     ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$initial_state_and_scan_inputs);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$initial_state_and_scan_inputs,
+           AnyAttr:$body,
+           I64Attr:$num_scan_inputs,
+           OptionalAttr<I64ArrayAttr>:$scan_input_axes,
+           OptionalAttr<I64ArrayAttr>:$scan_input_directions,
+           OptionalAttr<I64ArrayAttr>:$scan_output_axes,
+           OptionalAttr<I64ArrayAttr>:$scan_output_directions);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_final_state_and_scan_outputs);
 }
 
 def ONNXScatterOp:ONNX_Op<"Scatter", 
@@ -2506,8 +2765,11 @@ def ONNXScatterOp:ONNX_Op<"Scatter",
     "  output = [[1.0, 1.1, 3.0, 2.1, 5.0]]"
     "```"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data, AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices, AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates,
+           DefaultValuedAttr<I64Attr, "0">:$axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXScatterElementsOp:ONNX_Op<"ScatterElements", 
@@ -2566,8 +2828,11 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
     "  output = [[1.0, 1.1, 3.0, 2.1, 5.0]]"
     "```"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data, AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices, AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates,
+           DefaultValuedAttr<I64Attr, "0">:$axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXScatterNDOp:ONNX_Op<"ScatterND", 
@@ -2631,8 +2896,10 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
     "             [[8, 7, 6, 5], [4, 3, 2, 1], [1, 2, 3, 4], [5, 6, 7, 8]]]"
     "```"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data, AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices, AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXSeluOp:ONNX_Op<"Selu", 
@@ -2644,8 +2911,10 @@ def ONNXSeluOp:ONNX_Op<"Selu",
     "`y = gamma * (alpha * e^x - alpha) for x <= 0`, `y = gamma * x for x > 0`,"
     "is applied to the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<F32Attr, "1.67326">:$alpha,
+           DefaultValuedAttr<F32Attr, "1.0507">:$gamma);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXSequenceAtOp:ONNX_Op<"SequenceAt", 
@@ -2656,8 +2925,9 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
     "Accepted range for 'position' is in `[-n, n - 1]`, where `n` is the number of tensors in 'input_sequence'."
     "Negative value means counting positions from the back."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence, AnyTypeOf<[AnyMemRef, AnyTensor]>:$position);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$position);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_tensor);
 }
 
 def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct", 
@@ -2668,7 +2938,7 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
     "All tensors in 'inputs' must have the same data type."
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$inputs);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output_sequence);
 }
 
 def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty", 
@@ -2677,8 +2947,8 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
   let description = [{
     "Construct an empty tensor sequence, with given data type."
   }];
-  let arguments = (ins );
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins OptionalAttr<I64Attr>:$dtype);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase", 
@@ -2690,8 +2960,9 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
     "Negative value means counting positions from the back."
     "'position' is optional, by default it erases the last tensor from 'input_sequence'."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence, AnyTypeOf<[AnyMemRef, AnyTensor]>:$position);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$position);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output_sequence);
 }
 
 def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert", 
@@ -2704,8 +2975,10 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
     "Negative value means counting positions from the back."
     "'position' is optional, by default it inserts 'tensor' to the back of 'input_sequence'."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence, AnyTypeOf<[AnyMemRef, AnyTensor]>:$tensor, AnyTypeOf<[AnyMemRef, AnyTensor]>:$position);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$tensor,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$position);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output_sequence);
 }
 
 def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength", 
@@ -2715,7 +2988,7 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
     "Produces a scalar(tensor of empty shape) containing the number of tensors in 'input_sequence'."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_length);
 }
 
 def ONNXShapeOp:ONNX_Op<"Shape", 
@@ -2725,7 +2998,7 @@ def ONNXShapeOp:ONNX_Op<"Shape",
     "Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_shape);
 }
 
 def ONNXShrinkOp:ONNX_Op<"Shrink", 
@@ -2737,8 +3010,10 @@ def ONNXShrinkOp:ONNX_Op<"Shrink",
     "bias. The formula of this operator is: If x < -lambd, y = x + bias;"
     "If x > lambd, y = x - bias; Otherwise, y = 0."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           DefaultValuedAttr<F32Attr, "0.0">:$bias,
+           DefaultValuedAttr<F32Attr, "0.5">:$lambd);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXSigmoidOp:ONNX_Op<"Sigmoid", 
@@ -2750,7 +3025,7 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
     "tensor elementwise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXSignOp:ONNX_Op<"Sign", 
@@ -2761,7 +3036,7 @@ def ONNXSignOp:ONNX_Op<"Sign",
     "If input > 0, output 1. if input < 0, output -1. if input == 0, output 0."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXSinOp:ONNX_Op<"Sin", 
@@ -2771,7 +3046,7 @@ def ONNXSinOp:ONNX_Op<"Sin",
     "Calculates the sine of the given input tensor, element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXSinhOp:ONNX_Op<"Sinh", 
@@ -2781,7 +3056,7 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
     "Calculates the hyperbolic sine of the given input tensor element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXSizeOp:ONNX_Op<"Size", 
@@ -2791,7 +3066,7 @@ def ONNXSizeOp:ONNX_Op<"Size",
     "Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_size);
 }
 
 def ONNXSliceOp:ONNX_Op<"Slice", 
@@ -2803,13 +3078,11 @@ def ONNXSliceOp:ONNX_Op<"Slice",
     "Slices uses `starts`, `ends`, `axes` and `steps` inputs to specify the start and end"
     "dimension and step for each axis in the list of axes, it uses this information to"
     "slice the input `data` tensor. If a negative value is passed for any of the"
-    "start or end indices, it represents number of elements before the end of that"
+    "start or end indices, it represent number of elements before the end of that"
     "dimension. If the value passed to start or end is larger than the `n` (the"
     "number of elements in this dimension), it represents `n`. For slicing to the"
-    "end of a dimension with unknown size, it is recommended to pass in `INT_MAX` "
-    "when sclicing forward and 'INT_MIN' when slicing backward."
-    "If a negative value is passed for step, it represents slicing backward. "
-    "However step value cannot be 0."
+    "end of a dimension with unknown size, it is recommended to pass in `INT_MAX`."
+    "If a negative value is passed for step, it represents slicing backward."
     "If `axes` are omitted, they are set to `[0, ..., ndim-1]`."
     "If `steps` are omitted, they are set to `[1, ..., 1]` of length `len(starts)`"
     "Example 1:"
@@ -2835,8 +3108,12 @@ def ONNXSliceOp:ONNX_Op<"Slice",
     "      [2, 3, 4],"
     "  ]"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data, AnyTypeOf<[AnyMemRef, AnyTensor]>:$starts, AnyTypeOf<[AnyMemRef, AnyTensor]>:$ends, AnyTypeOf<[AnyMemRef, AnyTensor]>:$axes, AnyTypeOf<[AnyMemRef, AnyTensor]>:$steps);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$starts,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$ends,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$axes,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$steps);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXSoftmaxOp:ONNX_Op<"Softmax", 
@@ -2858,8 +3135,9 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
     "will throw errors. The output tensor has the same shape"
     "and contains the softmax values of the corresponding input."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           DefaultValuedAttr<I64Attr, "1">:$axis);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus", 
@@ -2871,7 +3149,7 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
     "the tensor elementwise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXSoftsignOp:ONNX_Op<"Softsign", 
@@ -2881,7 +3159,7 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
     "Calculates the softsign (x/(1+|x|)) of the given input tensor element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth", 
@@ -2892,8 +3170,9 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
     "this op outputs a copy of the input tensor where values from the height and width dimensions"
     "are moved to the depth dimension."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           I64Attr:$blocksize);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXSplitOp:ONNX_Op<"Split", 
@@ -2904,8 +3183,10 @@ def ONNXSplitOp:ONNX_Op<"Split",
     "'axis'. Lengths of the parts can be specified using argument 'split'."
     "Otherwise, the tensor is split to equal sized parts."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           DefaultValuedAttr<I64Attr, "0">:$axis,
+           OptionalAttr<I64ArrayAttr>:$split);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_outputs);
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence", 
@@ -2923,8 +3204,11 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
     "specified in 'split'. In this scenario, the sum of entries in 'split' must be equal to the"
     "dimension size of input tensor on 'axis'."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input, AnyTypeOf<[AnyMemRef, AnyTensor]>:$split);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$split,
+           DefaultValuedAttr<I64Attr, "0">:$axis,
+           DefaultValuedAttr<I64Attr, "1">:$keepdims);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output_sequence);
 }
 
 def ONNXSqrtOp:ONNX_Op<"Sqrt", 
@@ -2936,7 +3220,7 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
     "the tensor elementwise. If x is negative, then it will return NaN."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze", 
@@ -2948,8 +3232,9 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
     "If `axes` is not provided, all the single dimensions will be removed from"
     "the shape. If an axis is selected with shape entry not equal to one, an error is raised."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$axes);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_squeezed);
 }
 
 def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer", 
@@ -2966,8 +3251,12 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
     "If all elements in X are dropped, the output will be the empty value of string tensor with shape [1]"
     "if input shape is [C] and shape [1, 1] if input shape is [1, C]."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<StrAttr, "NONE">:$case_change_action,
+           DefaultValuedAttr<I64Attr, "0">:$is_case_sensitive,
+           OptionalAttr<StrAttr>:$locale,
+           OptionalAttr<StrArrayAttr>:$stopwords);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXSubOp:ONNX_Op<"Sub", 
@@ -2978,8 +3267,9 @@ def ONNXSubOp:ONNX_Op<"Sub",
     ""
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
 
 def ONNXSumOp:ONNX_Op<"Sum", 
@@ -2991,7 +3281,7 @@ def ONNXSumOp:ONNX_Op<"Sum",
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_sum);
 }
 
 def ONNXTanOp:ONNX_Op<"Tan", 
@@ -3001,7 +3291,7 @@ def ONNXTanOp:ONNX_Op<"Tan",
     "Calculates the tangent of the given input tensor, element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXTanhOp:ONNX_Op<"Tanh", 
@@ -3011,7 +3301,7 @@ def ONNXTanhOp:ONNX_Op<"Tanh",
     "Calculates the hyperbolic tangent of the given input tensor element-wise."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer", 
@@ -3046,8 +3336,17 @@ def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
     "Only one of pool_strings and pool_int64s can be set. If pool_int64s is set, the input should be an integer tensor."
     "If pool_strings is set, the input must be a string tensor."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           I64Attr:$max_gram_length,
+           I64Attr:$max_skip_count,
+           I64Attr:$min_gram_length,
+           StrAttr:$mode,
+           I64ArrayAttr:$ngram_counts,
+           I64ArrayAttr:$ngram_indexes,
+           OptionalAttr<I64ArrayAttr>:$pool_int64s,
+           OptionalAttr<StrArrayAttr>:$pool_strings,
+           OptionalAttr<F32ArrayAttr>:$weights);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu", 
@@ -3058,8 +3357,9 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
     "(Tensor<T>) where the rectified linear function, y = x for x > alpha, y = 0 otherwise,"
     "is applied to the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<F32Attr, "1.0">:$alpha);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXTileOp:ONNX_Op<"Tile", 
@@ -3070,8 +3370,9 @@ def ONNXTileOp:ONNX_Op<"Tile",
     "This is the same as function `tile` in Numpy, but no broadcast."
     "For example A = [[1, 2], [3, 4]], B = [1, 2], tile(A, B) = [[1, 2, 1, 2], [3, 4, 3, 4]]"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input, AnyTypeOf<[AnyMemRef, AnyTensor]>:$repeats);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$repeats);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXTopKOp:ONNX_Op<"TopK", 
@@ -3093,8 +3394,12 @@ def ONNXTopKOp:ONNX_Op<"TopK",
     "Given two equivalent values, this operator uses the indices along the axis as"
     " a tiebreaker. That is, the element with the lower index will appear first."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$K);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$K,
+           DefaultValuedAttr<I64Attr, "-1">:$axis,
+           DefaultValuedAttr<I64Attr, "1">:$largest,
+           DefaultValuedAttr<I64Attr, "1">:$sorted);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Values, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Indices);
 }
 
 def ONNXTransposeOp:ONNX_Op<"Transpose", 
@@ -3105,14 +3410,9 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
     "perm=(1, 0, 2), given an input tensor of shape (1, 2, 3), the output shape"
     "will be (2, 1, 3)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
-
-  let extraClassDeclaration = [{
-    static StringRef getPermAttrName() { return "perm"; }
-  }];
-
-  let verifier = [{ return ::verify(*this); }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           OptionalAttr<I64ArrayAttr>:$perm);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_transposed);
 }
 
 def ONNXUniqueOp:ONNX_Op<"Unique", 
@@ -3195,8 +3495,10 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
     ""
     "  output_counts = [2 1 1]"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>, AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           OptionalAttr<I64Attr>:$axis,
+           DefaultValuedAttr<I64Attr, "1">:$sorted);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_indices, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_inverse_indices, AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_counts);
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze", 
@@ -3216,8 +3518,9 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
     "The order of values in `axes` does not matter and can come in any order. "
     ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           DefaultValuedAttr<I64ArrayAttr, "{}">:$axes);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_expanded);
 }
 
 def ONNXUpsampleOp:ONNX_Op<"Upsample", 
@@ -3228,8 +3531,10 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
     "Each dimension value of the output tensor is:"
     "  output_dimension = floor(input_dimension * scale)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$scales);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$scales,
+           DefaultValuedAttr<StrAttr, "nearest">:$mode);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXWhereOp:ONNX_Op<"Where", 
@@ -3241,8 +3546,10 @@ def ONNXWhereOp:ONNX_Op<"Where",
     "    Where behaves like numpy.where with three parameters:"
     "    https://docs.scipy.org/doc/numpy/reference/generated/numpy.where.html"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$condition, AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$condition,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_output);
 }
 
 def ONNXXorOp:ONNX_Op<"Xor", 
@@ -3254,7 +3561,8 @@ def ONNXXorOp:ONNX_Op<"Xor",
     ""
     "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A, AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
 

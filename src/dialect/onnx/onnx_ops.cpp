@@ -435,8 +435,10 @@ void ONNXTransposeOp::inferShapes() {
   auto arrayTy = getOperand().getType().cast<RankedTensorType>();
   SmallVector<int64_t, 2> dims;
 
-  if (auto permutation = getAttrOfType<ArrayAttr>(
-          ONNXTransposeOp::getPermAttrName())) {
+  //if (auto permutation = getAttrOfType<ArrayAttr>(
+   //       ONNXTransposeOp::getPermAttrName())) {
+  auto permutation = ONNXTransposeOp::permAttr();
+  if (permutation) {
     // Perform transposition according to perm attribute.
     for (auto perm : permutation.getValue())
       dims.emplace_back(arrayTy.getShape()[perm.cast<IntegerAttr>().getInt()]);
@@ -449,20 +451,6 @@ void ONNXTransposeOp::inferShapes() {
   getResult().setType(RankedTensorType::get(dims, arrayTy.getElementType()));
 }
 
-LogicalResult verify(ONNXTransposeOp op) {
-  auto module = op.getParentOfType<ModuleOp>();
-  if (!module)
-    op.emitError("Expected to belong to a module.");
-
-  if (auto permutation = op.getAttrOfType<ArrayAttr>(
-          ONNXTransposeOp::getPermAttrName())) {
-    for (auto perm : permutation.getValue())
-      if (perm.cast<IntegerAttr>().getInt() < 0)
-        op.emitError("Cannot tranpose, permuation contains negative index.");
-  }
-
-  return success();
-}
 
 //===----------------------------------------------------------------------===//
 
@@ -491,11 +479,9 @@ void ONNXConvNoBiasOp::inferShapes() {
     emitError("Weight size not compatible with data size.");
 
   // Required attribute auto_pad defaults to NOTSET.
-  auto autoPad = getAttrOfType<StringAttr>(
-      ONNXConvOp::getAutoPadAttrName()).getValue();
+  auto autoPad = auto_pad();
   // Group is a required attribute and should have default value of 1.
-  int64_t group = getAttrOfType<IntegerAttr>(
-      ONNXConvOp::getGroupAttrName()).getInt();
+  int64_t group = ONNXConvNoBiasOp::group().getSExtValue(); //.getLimitedValue();
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (dataShape[1] != (weightShape[1] * group))
     emitError("Channel dimension mismatch.");
@@ -527,8 +513,7 @@ void ONNXConvNoBiasOp::inferShapes() {
   // Use kernel_shape attribute if present otherwise use size from weight
   // argument.
   SmallVector<int64_t, 2> kernelDims;
-  if (auto kernelShape = getAttrOfType<ArrayAttr>(
-          ONNXConvOp::getKernelShapeAttrName())) {
+  if (auto kernelShape = kernel_shapeAttr()) {
     if (kernelShape.getValue().size() != nDims)
       emitError("kernel_shape length incompatible with spatial dimensions.");
     for (int i = 0; i < nDims; ++i)
@@ -550,8 +535,7 @@ void ONNXConvNoBiasOp::inferShapes() {
   //
   // From a dimensionality perspective the kernel size becomes the dilated
   // kernel size.
-  if (auto dilations = getAttrOfType<ArrayAttr>(
-          ONNXConvOp::getDilationsAttrName())) {
+  if (auto dilations = dilationsAttr()) {
     if (dilations.getValue().size() != nDims)
       emitError("dilations length incompatible with spatial dimensions.");
     for (int i = 0; i < nDims; ++i)
@@ -567,8 +551,7 @@ void ONNXConvNoBiasOp::inferShapes() {
   if (autoPad == "NOTSET") {
     // Use pads to to determine the padding. If attribute is not
     // present then pads is considered to be all zeros (no padding).
-    if (auto pads = getAttrOfType<ArrayAttr>(
-            ONNXConvOp::getPadsAttrName())) {
+    if (auto pads = padsAttr()) {
       // pads consists of two entries for each spatial axis.
       if (pads.getValue().size() != 2 * nDims)
         emitError("pads size is not twice the spatial size.");
@@ -599,13 +582,12 @@ void ONNXConvNoBiasOp::inferShapes() {
   }
 
   // Strides
-  if (auto strides = getAttrOfType<ArrayAttr>(
-      ONNXConvOp::getStridesAttrName())) {
+  if (auto strides = ONNXConvNoBiasOp::stridesAttr()) {
     if (strides.getValue().size() != nDims)
       emitError("strides length incompatible with spatial dimensions.");
     for (int i = 0; i < nDims; ++i) {
       int64_t stride =
-          (strides.getValue()[i]).cast<IntegerAttr>().getInt();
+          strides.getValue()[i].cast<IntegerAttr>().getInt();
       outSpatialDims[i] = floor(outSpatialDims[i] / stride);
     }
   }
@@ -615,28 +597,6 @@ void ONNXConvNoBiasOp::inferShapes() {
 
   dims.append(outSpatialDims.begin(), outSpatialDims.end());
   getResult().setType(RankedTensorType::get(dims, dataTy.getElementType()));
-}
-
-LogicalResult verify(ONNXConvNoBiasOp op) {
-  auto module = op.getParentOfType<ModuleOp>();
-  if (!module)
-    op.emitError("expected to belong to a module");
-
-  auto autoPadAttr = op.getAttrOfType<StringAttr>(
-      ONNXConvOp::getAutoPadAttrName());
-  if (!autoPadAttr)
-    op.emitError("auto_pad attribute not specified.");
-  if (autoPadAttr.getValue() != "NOTSET")
-    if (auto pads = op.getAttrOfType<ArrayAttr>(
-            ONNXConvOp::getPadsAttrName()))
-      op.emitError("auto_pad and pads are both set.");
-
-  auto groupAttr =
-      op.getAttrOfType<IntegerAttr>(ONNXConvOp::getGroupAttrName());
-  if (!groupAttr)
-    op.emitError("group attribute not specified.");
-
-  return success();
 }
 
 //===----------------------------------------------------------------------===//
