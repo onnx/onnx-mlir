@@ -270,6 +270,12 @@ def gen_schema(schema) :
                         'Identity', 'Cos', 'Log', 'Transpose', 'Softmax',
                         'Softplus', 'Softsign']
     CanonicalList=['Add', 'Identity']
+    manual_code = dict([
+      ('DummyExample', '  let extraClassDeclaration = [{ \n'+
+                    '    static StringRef getPermAttrName() { return "perm"; }\n'+
+                    '    }];\n')
+      ])
+    skip_attr_gen = []
     line_indent = '  '
 
     #s = 'def ONNX'+schema.name+str(schema.since_version)+'Op:ONNX_Op<"'+schema.name+'", \n'
@@ -303,21 +309,23 @@ def gen_schema(schema) :
 
     #input
     s+= '\n'+line_indent+'let arguments = (ins '
+    isfirst = True
     if schema.inputs:
+        isfirst = False
         for input in schema.inputs:
             if input != schema.inputs[0] :
-                s+= ', '
+                s+= ',\n           '
             etypes=collect_types(schema, input)
 
             if OpSchema.FormalParameterOption.Optional == input.option:
                 #TODO: handle optional
-                print("optional ", input.name)
+                print("warning: optional input for"+schema.name+' '+input.name)
             elif OpSchema.FormalParameterOption.Variadic == input.option:
                 if input.isHomogeneous:
                     s+= 'Variadic<'
                 else:
                     #TODO handle  (variadic, heterogeneous)"
-                    print('variadic, heterogeneous', input.name)
+                    print("warning: (variadic, heterogeneous) for"+schema.name+' '+input.name)
             if etypes == '':
                 s+= 'AnyTypeOf<[AnyMemRef, AnyTensor]>'
             else:
@@ -333,6 +341,8 @@ def gen_schema(schema) :
                     #TODO handle  (variadic, heterogeneous)"
                     t=''
             s+=':$'+input.name
+    if not schema.name in skip_attr_gen :
+        s += gen_attr_ins(schema, isfirst)
     s+= ');'
 
     #output
@@ -347,11 +357,15 @@ def gen_schema(schema) :
                 s+= 'AnyTypeOf<[AnyMemRef, AnyTensor]>'
             else:
                 s+= 'TensorOf<['+etypes+']>'
-    s+= ');'
+            s += ':$o_'+output.name
+    s+= ');\n'
 
     #s+= 'let hasCanonicalizer = 1;'
+    #add special code
+    if schema.name in manual_code :
+        s += manual_code[schema.name]
 
-    s += '\n}\n\n'
+    s += '}\n\n'
 
     return s
 
@@ -369,44 +383,91 @@ def gen_code(schema,fefile) :
         ("MaxPool", "ImportNodeMaxPool"),
         #("Transpose", "ImportNodeTranspose")
         ])
-    list_str = 'std::vector'
-    empty_ints = list_str+'<int> {}' 
-    empty_floats = list_str+'<float> {}' 
-    special_default = dict([
-        ("AveragePool "+"kernel_shape", empty_ints),
-        ("MaxPool "+"kernel_shape", empty_ints),
-        ("Cast "+"to", '0'),
-        ("Concat "+"axis", '0'),
-        ("Unsqueeze "+"axes", empty_ints),
-        ("RNN "+"activation_alpha", empty_floats),
-        ("RNN "+"activation_beta", empty_floats)
-        ])
+
     line_indent = '  '
     fefile.write('    '+'}else if (OpName == "'+schema.name+'") {\n')
     op_type_str='mlir::ONNX'+schema.name+'Op'
     if schema.name in special_handler :
         fefile.write('       '+special_handler[schema.name]+'(node, '
           +str(len(schema.inputs))
-          +', ' +str(len(schema.outputs))+', {\n')
+          +', ' +str(len(schema.outputs)))
     elif len(schema.outputs) > 1 :
         fefile.write('       '+'ImportNodeMultipleOuts<'+op_type_str+'>(node, '
           +str(len(schema.inputs))
-          +', ' +str(len(schema.outputs))+', {\n')
+          +', ' +str(len(schema.outputs)))
     else :
         fefile.write('       '+'ImportNodeOneOut<'+op_type_str+'>(node, '
           +str(len(schema.inputs))
-          +', ' +str(len(schema.outputs))+', {\n')
+          +', ' +str(len(schema.outputs)))
+    fefile.write(');\n')
+
+def gen_attr_ins(schema, isfirst) :
+    special_defaults = dict([
+        ("AveragePool "+"kernel_shape", ('ints', '{}')),
+        ("MaxPool "+"kernel_shape", ('ints', '{}')),
+        ("Cast "+"to", ('int', '0')),
+        ("Concat "+"axis", ('int', '0')),
+        ("Conv "+"group", ('int', '1')),
+        ("Unsqueeze "+"axes", ('ints', '{}')),
+        ("RNN "+"activation_alpha", ('floats', '{}')),
+        ("RNN "+"activation_beta", ('floats', '{}')),
+        ])
     
+    def get_attr_type_basic(attr_type) :
+        if attr_type == 'int' :
+            mytype = 'I64Attr'
+        elif attr_type == 'float' :
+            mytype = 'F32Attr'
+        elif attr_type == 'ints' :
+            mytype = 'I64ArrayAttr'
+        elif attr_type == 'floats' :
+            mytype = 'F32ArrayAttr'
+        elif attr_type == "string" :
+            mytype = 'StrAttr'
+        elif attr_type == "strings" :
+            mytype = 'StrArrayAttr'
+        else :
+            mytype ='AnyAttr'
+        #TODO: tensor and sparse tensor
+        return mytype
 
+    def get_attr_type_optional(attr_type) :
+        mytype = 'OptionalAttr<'
+        mytype += get_attr_type_basic(attr_type)
+        mytype += '>'
+        return mytype
+
+    def get_attr_type_with_default(attr_type, attr_default) :
+        mytype = 'DefaultValuedAttr<'
+        mytype += get_attr_type_basic(attr_type)
+        mytype += ', "'+attr_default+'">'
+        return mytype
+
+    attr_line = ''
     if schema.attributes:
-        first_attr = True
         for _, attr in sorted(schema.attributes.items()):
-            #only generate default attr list
-            if schema.name+' '+attr.name in special_default:
-                attr_value = special_default[schema.name+' '+attr.name]
-            elif attr.default_value.name:
-                default_value = helper.get_attribute_value(attr.default_value)
+            #attr_line = line_indent+line_indent+line_indent+line_indent
+            if not isfirst:
+                attr_line += ',\n           '
+            else :
+                isfirst = False
+            
+            if schema.name+' '+attr.name in special_defaults:
+                (attr_type_str, attr_default_str) = special_defaults[schema.name+' '+attr.name]
+                attr_line += get_attr_type_with_default(attr_type_str, attr_default_str)
+                attr_line += ':$'+attr.name
+            elif attr.required:
+                s = Text(attr.type)
+                attr_type_str  = s[s.rfind('.') + 1:].lower()
+                attr_line += get_attr_type_basic(attr_type_str)
+                attr_line += ':$'+attr.name
 
+            # option holds either required or default value
+            elif attr.default_value.name:
+                s = Text(attr.type)
+                attr_type_str  = s[s.rfind('.') + 1:].lower()
+
+                default_value = helper.get_attribute_value(attr.default_value)
                 def format_value(value):  # type: (Any) -> Text
                     if isinstance(value, float):
                         formatted = str(np.round(value, 5))
@@ -419,66 +480,25 @@ def gen_code(schema,fefile) :
                     return str(value)
 
                 if isinstance(default_value, list):
-
-                    value = default_value[0]
                     default_value = [format_value(val) for val in default_value]
                     attr_option_str = '{}'.format(default_value)
                     attr_option_str = attr_option_str.replace('[', '{', 1)
                     attr_option_str = attr_option_str.replace(']', '}', 1)
-                    # TODO the list type is homogenous or htergeneous?
-                   
-                    if isinstance(value, float) : 
-                        attr_type_str = list_str+'<float>'
-                        attr_option_str = attr_option_str.replace("'", '')
-                    elif isinstance(value, int) :
-                        attr_type_str = list_str+'<int>'
-                        attr_option_str = attr_option_str.replace("'", '')
-                    elif isinstance(value, str) :
-                        attr_type_str = list_str+'<std::string>'
-                        attr_option_str = attr_option_str.replace("'", '"')
-                    elif isinstance(value, (bytes, bytearray)) :
-                        attr_type_str = list_str+'<std::string>'
-                        attr_option_str = attr_option_str.replace("'", '"')
+                    if attr_type_str == 'strings' :
+                        attr_option_str = attr_option_str.replace("'", '\\"')
                     else :
-                        attr_type_str = '"unknowns"'
+                        attr_option_str = attr_option_str.replace("'", '')
                 else:
-                    if isinstance(default_value, float) : 
-                        attr_type_str = '(float)'
-                        attr_option_str = default_value
-                    elif isinstance(default_value, int) :
-                        attr_option_str = default_value
-                        attr_type_str=''
-                    elif isinstance(default_value, str) :
-                        attr_type_str = '"str"'
-                    elif isinstance(default_value, (bytes, bytearray)) :
-                        attr_type_str = '"str"'
-                    else :
-                        attr_type_str = '"unknown"'
                     default_value = format_value(default_value)
-                    if attr_type_str == '"str"' :
-                        attr_option_str = '"'+default_value+'"'
-                        attr_type_str=''
-                    else :
-                        attr_option_str = default_value
-                attr_value = attr_type_str+attr_option_str
+                    attr_option_str = default_value
+                attr_line += get_attr_type_with_default(attr_type_str, attr_option_str)
+                attr_line += ':$'+attr.name
             else:
-                #no default value
-                continue
-
-            attr_line = line_indent+line_indent+line_indent+line_indent
-            if not first_attr:
-                attr_line += ',{'
-            else :
-                attr_line += ' {'
-            first_attr = False
-
-            attr_line += '"'+attr.name+'", '
-            attr_line += attr_value
-            attr_line += '}\n'
-            fefile.write(attr_line)
-    fefile.write(line_indent+line_indent+line_indent+'});\n')
-          
-
+                s = Text(attr.type)
+                attr_type_str  = s[s.rfind('.') + 1:].lower()
+                attr_line += get_attr_type_optional(attr_type_str)
+                attr_line += ':$'+attr.name
+    return attr_line
 
 def main(args):  # type: (Type[Args]) -> None
     with io.open(args.changelog, 'w', newline='') as fout:
@@ -496,7 +516,6 @@ def main(args):  # type: (Type[Args]) -> None
         fout.write('\n')
 
         for domain, versionmap in sorted(dv_index.items()):
-            print("domain", domain)
             if not should_render_domain(domain):
                 continue
 
@@ -633,6 +652,6 @@ if __name__ == '__main__':
     class Args(object):
         output = os.path.join(docs_dir, 'Operators' + ext)
         changelog = os.path.join(docs_dir, 'Changelog' + ext)
-        tdfile = os.path.join(docs_dir, 'onnxop.inc')
+        tdfile = os.path.join(base_dir, 'onnxop.inc')
     print(Args)
     main(Args)

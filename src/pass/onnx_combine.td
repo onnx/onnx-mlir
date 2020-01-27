@@ -30,9 +30,14 @@ def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
 
+def GemmAlpha : NativeCodeCall<"$_builder.getF32FloatAttr(1.0)">;
+def GemmBeta : NativeCodeCall<"$_builder.getF32FloatAttr(1.0)">;
+def GemmTransA : NativeCodeCall<"$_builder.getI64IntegerAttr(0)">;
+def GemmTransB : NativeCodeCall<"$_builder.getI64IntegerAttr(0)">;
+
 // onnx.add(onnx.matmul(%X, %Y), %Z) = onnx.Gemm(%X, %Y, %Z)
 def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),
-                                 (ONNXGemmOp $m1, $m2, $m3),
+                                 (ONNXGemmOp $m1, $m2, $m3, (GemmAlpha), (GemmBeta), (GemmTransA), (GemmTransB)),
 				 [(HasOneUse $res)]>;
 
 // ONNX_Op (onnx.Identity (%X)) = ONNX_Op (%X)

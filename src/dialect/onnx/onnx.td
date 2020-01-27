@@ -99,8 +99,14 @@ def ONNXGemmNoBiasOp: ONNX_Op<"GemmNoBias",
 
   }];
 
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$lhs_in, AnyTypeOf<[AnyMemRef, AnyTensor]>:$rhs_in);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           DefaultValuedAttr<F32Attr, "1.0">:$alpha,
+           DefaultValuedAttr<F32Attr, "1.0">:$beta,
+           DefaultValuedAttr<I64Attr, "0">:$transA,
+           DefaultValuedAttr<I64Attr, "0">:$transB);
+
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
@@ -110,10 +116,15 @@ def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
     "The convolution operator consumes an input tensor and a filter, and"
     "computes the output."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X, AnyTypeOf<[AnyMemRef, AnyTensor]>:$W);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
-
-  let verifier = [{ return ::verify(*this); }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
+           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           OptionalAttr<I64ArrayAttr>:$dilations,
+           DefaultValuedAttr<I64Attr, "1">:$group,
+           OptionalAttr<I64ArrayAttr>:$kernel_shape,
+           OptionalAttr<I64ArrayAttr>:$pads,
+           OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
@@ -123,8 +134,15 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     "ONNX MaxPool operation with a single output."
     "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           DefaultValuedAttr<I64Attr, "0">:$ceil_mode,
+           OptionalAttr<I64ArrayAttr>:$dilations,
+           DefaultValuedAttr<I64ArrayAttr, "{}">:$kernel_shape,
+           OptionalAttr<I64ArrayAttr>:$pads,
+           DefaultValuedAttr<I64Attr, "0">:$storage_order,
+           OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
 #endif // ONNX_OPS
