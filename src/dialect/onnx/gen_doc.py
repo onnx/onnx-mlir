@@ -384,6 +384,8 @@ def gen_code(schema,fefile) :
         #("Transpose", "ImportNodeTranspose")
         ])
 
+    handle_variadic = False
+
     line_indent = '  '
     fefile.write('    '+'}else if (OpName == "'+schema.name+'") {\n')
     op_type_str='mlir::ONNX'+schema.name+'Op'
@@ -399,7 +401,22 @@ def gen_code(schema,fefile) :
         fefile.write('       '+'ImportNodeOneOut<'+op_type_str+'>(node, '
           +str(len(schema.inputs))
           +', ' +str(len(schema.outputs)))
-    fefile.write(');\n')
+
+    variadicIn = 'false'
+    variadicOut = 'false'
+    for input in schema.inputs:
+        if OpSchema.FormalParameterOption.Variadic == input.option:
+            if input.isHomogeneous:
+                variadicIn = 'true'
+                handle_variadic = True
+    for output in schema.outputs:
+        if OpSchema.FormalParameterOption.Variadic == output.option:
+            if output.isHomogeneous:
+                variadicOut = 'true'
+    if not handle_variadic:
+        fefile.write(');\n')
+    else:
+        fefile.write(', '+variadicIn+', '+variadicOut+');\n')
 
 def gen_attr_ins(schema, isfirst) :
     special_defaults = dict([

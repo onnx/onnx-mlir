@@ -36,7 +36,7 @@
     }else if (OpName == "Compress") {
        ImportNodeOneOut<mlir::ONNXCompressOp>(node, 2, 1);
     }else if (OpName == "Concat") {
-       ImportNodeOneOut<mlir::ONNXConcatOp>(node, 1, 1);
+       ImportNodeOneOut<mlir::ONNXConcatOp>(node, 1, 1, true, false);
     }else if (OpName == "ConcatFromSequence") {
        ImportNodeOneOut<mlir::ONNXConcatFromSequenceOp>(node, 1, 1);
     }else if (OpName == "Constant") {
@@ -138,7 +138,7 @@
     }else if (OpName == "MatMulInteger") {
        ImportNodeOneOut<mlir::ONNXMatMulIntegerOp>(node, 4, 1);
     }else if (OpName == "Max") {
-       ImportNodeOneOut<mlir::ONNXMaxOp>(node, 1, 1);
+       ImportNodeOneOut<mlir::ONNXMaxOp>(node, 1, 1, true, false);
     }else if (OpName == "MaxPool") {
        ImportNodeMaxPool(node, 1, 2);
     }else if (OpName == "MaxRoiPool") {
@@ -146,11 +146,11 @@
     }else if (OpName == "MaxUnpool") {
        ImportNodeOneOut<mlir::ONNXMaxUnpoolOp>(node, 3, 1);
     }else if (OpName == "Mean") {
-       ImportNodeOneOut<mlir::ONNXMeanOp>(node, 1, 1);
+       ImportNodeOneOut<mlir::ONNXMeanOp>(node, 1, 1, true, false);
     }else if (OpName == "MeanVarianceNormalization") {
        ImportNodeOneOut<mlir::ONNXMeanVarianceNormalizationOp>(node, 1, 1);
     }else if (OpName == "Min") {
-       ImportNodeOneOut<mlir::ONNXMinOp>(node, 1, 1);
+       ImportNodeOneOut<mlir::ONNXMinOp>(node, 1, 1, true, false);
     }else if (OpName == "Mod") {
        ImportNodeOneOut<mlir::ONNXModOp>(node, 2, 1);
     }else if (OpName == "Mul") {
@@ -240,7 +240,7 @@
     }else if (OpName == "SequenceAt") {
        ImportNodeOneOut<mlir::ONNXSequenceAtOp>(node, 2, 1);
     }else if (OpName == "SequenceConstruct") {
-       ImportNodeOneOut<mlir::ONNXSequenceConstructOp>(node, 1, 1);
+       ImportNodeOneOut<mlir::ONNXSequenceConstructOp>(node, 1, 1, true, false);
     }else if (OpName == "SequenceEmpty") {
        ImportNodeOneOut<mlir::ONNXSequenceEmptyOp>(node, 0, 1);
     }else if (OpName == "SequenceErase") {
@@ -286,7 +286,7 @@
     }else if (OpName == "Sub") {
        ImportNodeOneOut<mlir::ONNXSubOp>(node, 2, 1);
     }else if (OpName == "Sum") {
-       ImportNodeOneOut<mlir::ONNXSumOp>(node, 1, 1);
+       ImportNodeOneOut<mlir::ONNXSumOp>(node, 1, 1, true, false);
     }else if (OpName == "Tan") {
        ImportNodeOneOut<mlir::ONNXTanOp>(node, 1, 1);
     }else if (OpName == "Tanh") {
