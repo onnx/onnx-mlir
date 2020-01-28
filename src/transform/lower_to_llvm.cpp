@@ -83,11 +83,17 @@ public:
     Value int64Size = rewriter.create<LLVM::SExtOp>(
         loc, LLVM::LLVMType::getInt64Ty(llvmDialect), operands[2]);
 
+    // Is volatile (set to false).
+    Value isVolatile = rewriter.create<LLVM::ConstantOp>(
+        loc, LLVM::LLVMType::getInt1Ty(llvmDialect),
+        rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
+
     // Memcpy call
     rewriter.create<CallOp>(
         loc, memcpyRef, LLVM::LLVMType::getVoidTy(llvmDialect),
         ArrayRef<Value>(
-            {alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory, int64Size}));
+            {alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory, int64Size,
+             isVolatile}));
 
     rewriter.eraseOp(op);
     return matchSuccess();
@@ -107,9 +113,10 @@ private:
     auto llvmVoidTy = LLVM::LLVMType::getVoidTy(llvmDialect);
     auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
     auto llvmI64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
+    auto llvmI1Ty = LLVM::LLVMType::getInt1Ty(llvmDialect);
     auto llvmFnType = LLVM::LLVMType::getFunctionTy(
         llvmVoidTy,
-        ArrayRef<mlir::LLVM::LLVMType>({llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty}),
+        ArrayRef<mlir::LLVM::LLVMType>({llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}),
         false);
 
     // Insert the memcpy function into the body of the parent module.

@@ -154,6 +154,9 @@ test_to_enable = [
     # SoftsignOp:
     "test_softsign_cpu",
     "test_softsign_example_cpu",
+
+    # ReshapeOp:
+    "test_reshape_reordered_all_dims_cpu",
 ]
 
 # Extract name of all test cases.
