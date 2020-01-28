@@ -120,6 +120,7 @@ public:
         op->getName().getStringRef() != "onnx.Reshape" &&
         op->getName().getStringRef() != "onnx.Transpose" &&
         op->getName().getStringRef() != "onnx.Softmax" &&
+        op->getName().getStringRef() != "onnx.Sqrt" &&
         op->getName().getStringRef() != "onnx.ConvNoBias")
       return false;
     return llvm::any_of(op->getResultTypes(), [](Type result_type) {

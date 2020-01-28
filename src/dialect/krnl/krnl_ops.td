@@ -190,3 +190,17 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy"> {
   let parser = ?;
   let printer = ?;
 }
+
+def KrnlSqrtOp : Op<Krnl_Dialect, "sqrt", [NoSideEffect]> {
+  let summary = "Krnl sqrt operation";
+  let description = [{
+    "The `sqrt` computes the square root value. It takes one operand and returns
+    one result with the same type."
+  }];
+
+  let arguments = (ins FloatLike:$operand);
+  let results = (outs FloatLike);
+
+  let parser = ?;
+  let printer = ?;
+}

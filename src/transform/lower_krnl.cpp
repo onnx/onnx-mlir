@@ -144,6 +144,7 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   target.addIllegalDialect<KrnlOpsDialect>();
   target.addLegalOp<KrnlMemcpyOp>();
   target.addLegalOp<KrnlEntryPointOp>();
+  target.addLegalOp<KrnlSqrtOp>();
 
   OwningRewritePatternList patterns;
   patterns.insert<KrnlIterateOpLowering, KrnlTerminatorLowering,

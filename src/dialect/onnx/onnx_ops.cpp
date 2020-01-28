@@ -183,6 +183,14 @@ void ONNXSoftsignOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Sqrt
+/// Infer the output shape of the ONNXSqrtOp. This method is required by
+/// the shape inference interface.
+void ONNXSqrtOp::inferShapes() {
+  getResult().setType(getOperand().getType());
+}
+
+//===----------------------------------------------------------------------===//
 // Add
 /// Infer the output shape of the ONNXAddOp. This method is required by the
 /// shape inference interface.

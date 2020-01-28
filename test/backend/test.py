@@ -138,6 +138,10 @@ test_to_enable = [
     "test_softmax_example_cpu",
     "test_softmax_large_number_cpu",
 
+    # Sqrt Op:
+    "test_sqrt_cpu",
+    "test_sqrt_example_cpu",
+
     # Sum Op:
     "test_sum_example_cpu",
     "test_sum_one_input_cpu",
