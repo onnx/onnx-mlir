@@ -117,6 +117,28 @@ func @test_matmul_8(%arg0 : tensor<32x64xf32>, %arg1 : tensor<64x128xf32>) -> te
   // CHECK: return [[RES8]] : tensor<32x128xf32>
 }
 
+/// MatMul: 1-D x N-D
+
+func @test_matmul_9(%arg0 : tensor<42xf32>, %arg1 : tensor<?x42x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<42xf32>, tensor<?x42x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_matmul_9
+  // CHECK: [[RES1:%.+]] = "onnx.MatMul"(%arg0, %arg1) : (tensor<42xf32>, tensor<?x42x32xf32>) -> tensor<?x32xf32>
+  // CHECK: return [[RES1]] : tensor<?x32xf32>
+}
+
+/// MatMul: N-D x 1-D
+
+func @test_matmul_10(%arg0 : tensor<?x42x32xf32>, %arg1 : tensor<32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x42x32xf32>, tensor<32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_matmul_10
+  // CHECK: [[RES1:%.+]] = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x42x32xf32>, tensor<32xf32>) -> tensor<?x42xf32>
+  // CHECK: return [[RES1]] : tensor<?x42xf32>
+}
+
 //===----------------------------------------------------------------------===//
 /// Test shape inference for ConvNoBias operation and all its attributes.
 //===----------------------------------------------------------------------===//
