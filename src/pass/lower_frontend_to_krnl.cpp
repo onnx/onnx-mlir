@@ -1118,6 +1118,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     } else {
       auto memRefShape = memRefType.getShape();
+      auto inputShape = operands[0].getType().cast<MemRefType>().getShape();
       SmallVector<Value, 4> allocOperands;
       for (int i = 0; i < memRefShape.size(); ++i) {
         // The shape array can always be used to construct shape information of
@@ -1126,6 +1127,24 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
             loc, rewriter.getIntegerAttr(rewriter.getIndexType(), i));
         // Load index from array of indices.
         Value loadedVal = rewriter.create<LoadOp>(loc, operands[1], index);
+        // If a dimension is zero, the actual dimension value is taken from the
+        // input tensor.
+        if (i < inputShape.size()) {
+          Value dimVal;
+          auto dimTy = loadedVal.getType().cast<IntegerType>();
+          if (inputShape[i] < 0) {
+            Value dim = rewriter.create<DimOp>(loc, operands[0], i);
+            dimVal = rewriter.create<IndexCastOp>(loc, dim, dimTy);
+          } else {
+            dimVal = rewriter.create<ConstantOp>(
+                loc, rewriter.getIntegerAttr(dimTy, inputShape[i]));
+          }
+          auto zero = rewriter.create<ConstantOp>(
+              loc, rewriter.getIntegerAttr(dimTy, 0));
+          auto isZero =
+              rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, loadedVal, zero);
+          loadedVal = rewriter.create<SelectOp>(loc, isZero, dimVal, loadedVal);
+        }
         // Check if the loaded index is already the correct width of 64 bits.
         // Convert the value to a 64 bit integer if needed.
         Value int64LoadedVal = loadedVal;
