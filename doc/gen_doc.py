@@ -18,6 +18,44 @@ from onnx.backend.sample.ops import collect_sample_implementations
 from typing import Any, Text, Sequence, Dict, List, Type, Set, Tuple
 
 
+#controls on ONNF code gen
+#specify attr default value 
+special_attr_defaults = dict([
+#        ("AveragePool "+"kernel_shape", ('ints', '{}')),
+#        ("MaxPool "+"kernel_shape", ('ints', '{}')),
+#        ("Cast "+"to", ('int', '0')),
+#        ("Concat "+"axis", ('int', '0')),
+#        ("Conv "+"group", ('int', '1')),
+#        ("Unsqueeze "+"axes", ('ints', '{}')),
+#        ("RNN "+"activation_alpha", ('floats', '{}')),
+#        ("RNN "+"activation_beta", ('floats', '{}')),
+        ])
+
+#specify the function name in src/builder/frontend_dialect_transformer.cpp
+#the reason for Conv and MaPool is to handled optional arguments
+special_op_handler = dict([
+        ("Conv", "ImportNodeConv"),
+        ("MaxPool", "ImportNodeMaxPool"),
+        #("Transpose", "ImportNodeTranspose")
+        ])
+
+#add an Op in this list if ShapeInterference is defined for this Op
+ShapeInferenceList=['Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid', 'Relu',
+                   'Add', 'Mul', 'Div', 'Sub', 'And', 'Or', 'Xor',
+                   'Sum', 'Max', 'Min', 'MatMul', 'Gemm', 'LeakyRelu',
+                   'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
+                   'Identity', 'Cos', 'Log', 'Transpose', 'Softmax',
+                   'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze']
+
+CanonicalList=['Add', 'Identity']
+
+manual_code_in_op_def = dict([
+      ('DummyExample', '  let extraClassDeclaration = [{ \n'+
+                    '    static StringRef getPermAttrName() { return "perm"; }\n'+
+                    '    }];\n')
+      ])
+
+
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
 ONNX_ML = not bool(os.getenv('ONNX_ML') == '0')
@@ -263,18 +301,6 @@ def  collect_types(schema, input) :
     return allowedTypeStr
 
 def gen_schema(schema) :
-    ShapeInferenceList=['Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid', 'Relu',
-                        'Add', 'Mul', 'Div', 'Sub', 'And', 'Or', 'Xor',
-                        'Sum', 'Max', 'Min', 'MatMul', 'Gemm', 'LeakyRelu',
-                        'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
-                        'Identity', 'Cos', 'Log', 'Transpose', 'Softmax',
-                        'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze']
-    CanonicalList=['Add', 'Identity']
-    manual_code = dict([
-      ('DummyExample', '  let extraClassDeclaration = [{ \n'+
-                    '    static StringRef getPermAttrName() { return "perm"; }\n'+
-                    '    }];\n')
-      ])
     skip_attr_gen = []
     line_indent = '  '
 
@@ -362,8 +388,8 @@ def gen_schema(schema) :
 
     #s+= 'let hasCanonicalizer = 1;'
     #add special code
-    if schema.name in manual_code :
-        s += manual_code[schema.name]
+    if schema.name in manual_code_in_op_def :
+        s += manual_code_in_op_def[schema.name]
 
     s += '}\n\n'
 
@@ -378,19 +404,14 @@ special cases:
 """
 
 def gen_code(schema,fefile) :
-    special_handler = dict([
-        ("Conv", "ImportNodeConv"),
-        ("MaxPool", "ImportNodeMaxPool"),
-        #("Transpose", "ImportNodeTranspose")
-        ])
 
     handle_variadic = False
 
     line_indent = '  '
     fefile.write('    '+'}else if (OpName == "'+schema.name+'") {\n')
     op_type_str='mlir::ONNX'+schema.name+'Op'
-    if schema.name in special_handler :
-        fefile.write('       '+special_handler[schema.name]+'(node, '
+    if schema.name in special_op_handler :
+        fefile.write('       '+special_op_handler[schema.name]+'(node, '
           +str(len(schema.inputs))
           +', ' +str(len(schema.outputs)))
     elif len(schema.outputs) > 1 :
@@ -419,16 +440,6 @@ def gen_code(schema,fefile) :
         fefile.write(', '+variadicIn+', '+variadicOut+');\n')
 
 def gen_attr_ins(schema, isfirst) :
-    special_defaults = dict([
-        ("AveragePool "+"kernel_shape", ('ints', '{}')),
-        ("MaxPool "+"kernel_shape", ('ints', '{}')),
-        ("Cast "+"to", ('int', '0')),
-        ("Concat "+"axis", ('int', '0')),
-        ("Conv "+"group", ('int', '1')),
-        ("Unsqueeze "+"axes", ('ints', '{}')),
-        ("RNN "+"activation_alpha", ('floats', '{}')),
-        ("RNN "+"activation_beta", ('floats', '{}')),
-        ])
     
     def get_attr_type_basic(attr_type) :
         if attr_type == 'int' :
@@ -469,8 +480,8 @@ def gen_attr_ins(schema, isfirst) :
             else :
                 isfirst = False
             
-            if schema.name+' '+attr.name in special_defaults:
-                (attr_type_str, attr_default_str) = special_defaults[schema.name+' '+attr.name]
+            if schema.name+' '+attr.name in special_attr_defaults:
+                (attr_type_str, attr_default_str) = special_attr_defaults[schema.name+' '+attr.name]
                 attr_line += get_attr_type_with_default(attr_type_str, attr_default_str)
                 attr_line += ':$'+attr.name
             elif attr.required:
@@ -614,9 +625,21 @@ def main(args):  # type: (Type[Args]) -> None
 
         fout.write('\n')
         tdfile= io.open(args.tdfile, 'w', newline='') 
+        tdfile.write('//********************************************************\n'+
+                     '//   Warning: Do not modify this file directly\n'+
+                     '//   This file is automatically generated via script\n'+
+                     '//   Details can be found in doc/readonnxdefs.md\n'+
+                     '//********************************************************\n\n'
+               )
         fefile=io.open('op_build_table.inc', 'w', newline='')
         firstfunc = True
 
+        fefile.write('//********************************************************\n'+
+                     '//   Warning: Do not modify this file directly\n'+
+                     '//   This file is automatically generated via script\n'+
+                     '//   Details can be found in doc/readonnxdefs.md\n'+
+                     '//********************************************************\n\n'
+               )
         fefile.write('    '+'if (OpName == "DUMMY") {\n')
         for domain, supportmap in operator_schemas:
             s = '## {}\n'.format(display_domain_short(domain))
