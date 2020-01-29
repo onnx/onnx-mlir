@@ -15,7 +15,7 @@ ONNX operations for which some work is needed.
 | Elu         | Tung                  | v              | v                     |                                          |
 | Exp         | Tung                  | v              | v                     |                                          |
 | FullGemm    |                       |                |                       | noU                                      |
-| Gemm        |                       |                |                       | noU                                      |
+| Gemm        | Tung                  | v              |                       | U                                        |
 | HardSigmoid | Tung                  | v              | v                     |                                          |
 | LeakyRelu   | Tung                  | v              | v                     |                                          |
 | MatMul      |                       |                |                       | noM                                      |
