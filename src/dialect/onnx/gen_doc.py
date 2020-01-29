@@ -268,7 +268,7 @@ def gen_schema(schema) :
                         'Sum', 'Max', 'Min', 'MatMul', 'Gemm', 'LeakyRelu',
                         'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
                         'Identity', 'Cos', 'Log', 'Transpose', 'Softmax',
-                        'Softplus', 'Softsign', 'Sqrt']
+                        'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze']
     CanonicalList=['Add', 'Identity']
     manual_code = dict([
       ('DummyExample', '  let extraClassDeclaration = [{ \n'+

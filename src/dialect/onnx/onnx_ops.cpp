@@ -725,6 +725,46 @@ void ONNXConvNoBiasOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Unsqueeze
+
+void ONNXUnsqueezeOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return;
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  int inRank = operandTy.getRank();
+
+  ArrayAttr axisAttrs = axesAttr();
+  SmallVector<int, 4> axes;
+  int outRank = 0;
+  if (axisAttrs) {
+    outRank = inRank + axisAttrs.getValue().size();
+    for (auto axisAttr : axisAttrs.getValue()) {
+      int axis = axisAttr.cast<IntegerAttr>().getInt();
+      axis = axis >= 0 ? axis : (outRank + axis);
+      // Valid range
+      assert(axis >= -outRank && axis <= outRank - 1);
+      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
+        axes.emplace_back(axis);
+      else
+        emitError("Duplicated axes.");
+    }
+  } else {
+    emitError("Axes attribute is required.");
+  }
+
+  SmallVector<int64_t, 4> dims;
+  for (int i = 0, j = 0; i < outRank || j < inRank; ++i) {
+    if (std::find(axes.begin(), axes.end(), i) != axes.end()) {
+      dims.emplace_back(1);
+    } else {
+      dims.emplace_back(operandTy.getShape()[j++]);
+    }
+  }
+  getResult().setType(RankedTensorType::get(dims, operandTy.getElementType()));
+}
+
+//===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 

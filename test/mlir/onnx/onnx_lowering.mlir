@@ -652,3 +652,22 @@ func @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+func @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Unsqueeze"(%arg0) {axes=[0,3]} : (tensor<10x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_unsqueeze
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x10x10x1xf32>
+  // CHECK: [[INBYTES:%.+]] = constant 4 : i64
+  // CHECK: [[DIM1:%.+]] = constant 1 : i64
+  // CHECK: [[SIZE1:%.+]] = muli [[INBYTES]], [[DIM1]] : i64
+  // CHECK: [[DIM2:%.+]] = constant 10 : i64
+  // CHECK: [[SIZE2:%.+]] = muli [[SIZE1]], [[DIM2]] : i64
+  // CHECK: [[DIM3:%.+]] = constant 10 : i64
+  // CHECK: [[SIZE3:%.+]] = muli [[SIZE2]], [[DIM3]] : i64
+  // CHECK: [[DIM4:%.+]] = constant 1 : i64
+  // CHECK: [[SIZE4:%.+]] = muli [[SIZE3]], [[DIM4]] : i64
+  // CHECK: "krnl.memcpy"([[RES]], %arg0, [[SIZE4]]) : (memref<1x10x10x1xf32>, memref<10x10xf32>, i64) -> ()
+  // CHECK: return [[RES]] : memref<1x10x10x1xf32>
+}
+
