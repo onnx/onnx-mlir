@@ -1,0 +1,23 @@
+# Import ONNX specifications into ONNF
+The specifications of ONNX are defined under onnx/defs directory in ONNX projects. 
+There is a python script onnx/defs/gen_doc.py that automatically generate documents about operations in ONNX (docs/Operations.md). 
+ONNF modified this script to import ONNX specifications into ONNF. There are two files generated for ONNF with the modified gen_doc.py:
+1. src/dialect/onnx/onnxop.inc: Operation defintion for MLIR tablegen. Will be included in src/dialect/onnx/onnx.td
+2. src/builder/op_build_table.inc: c code for ONNF frontend to import operation nodes from ONNX model. Will be included in src/builder/frontend_dialect_transformer.cpp
+
+## How to use the script
+1. Get ONNX. You can use ONNF/third_party/onnx
+2. In your ONNX directory, copy the script docs/gen_doc.py in your ONNF to onnx/defs in ONNX 
+3. Run the script:  python onnx/defs/gen_doc.py
+4. Two files, onnxop.inc and op_buid_table.inc should be generated in current directory
+5. copy the two file into your ONNF: cp onnxop.inc your_ONNF/src/dialect/onnx/onnxop.inc; cp op_build_table.inc your_ONNF/src/builder
+6. go to your ONNF and build
+
+## Customization
+In addition to following the ONNF specification, the modified gen_doc.py provides some mechanism for you to customize the output. 
+Several tables are defined at the beginning of the script:
+1. special_attr_defaults: gives attribute special default value. 
+2. special_op_handler: creates special import function in frontend_dialect_transformer.cpp. Currently special handler is used for operations with oprational arguments
+3. ShapeInferenceList: list of operations which has shape inference defined
+4. CanonicalList : list of operations which has canonical form
+5. manual_code_in_op_def: provides a way to specify any code for an operation in its tablegen
