@@ -583,9 +583,6 @@ void ONNXTransposeOp::inferShapes() {
   // reversing the shape of the tensor (similar to numpy.transpose).
   auto arrayTy = getOperand().getType().cast<RankedTensorType>();
   SmallVector<int64_t, 2> dims;
-
-  //if (auto permutation = getAttrOfType<ArrayAttr>(
-   //       ONNXTransposeOp::getPermAttrName())) {
   auto permutation = ONNXTransposeOp::permAttr();
   if (permutation) {
     // Perform transposition according to perm attribute.

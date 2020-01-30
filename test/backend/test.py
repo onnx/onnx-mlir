@@ -168,7 +168,7 @@ test_to_enable = [
     "test_unsqueeze_negative_axes_cpu",
     "test_unsqueeze_three_axes_cpu",
     "test_unsqueeze_two_axes_cpu",
-    "test_unsqueeze_unsorted_axes_cpu",
+    # "test_unsqueeze_unsorted_axes_cpu",
 
     # Reciprocal Op:
     "test_reciprocal_cpu",
@@ -192,6 +192,15 @@ test_to_enable = [
     "test_reshape_reordered_last_dims_cpu",
     #"test_reshape_zero_and_negative_dim_cpu", <- handle nagative dim
     "test_reshape_zero_dim_cpu",
+
+    # Transpose
+    "test_transpose_default_cpu",
+    "test_transpose_all_permutations_0_cpu",
+    "test_transpose_all_permutations_1_cpu",
+    "test_transpose_all_permutations_2_cpu",
+    "test_transpose_all_permutations_3_cpu",
+    "test_transpose_all_permutations_4_cpu",
+    "test_transpose_all_permutations_5_cpu",
 ]
 
 # Extract name of all test cases.
@@ -202,9 +211,9 @@ all_test_names = list(map(lambda x: x[0], all_tests))
 
 # Ensure that test names specified in test_to_enable actually exist.
 for test_name in test_to_enable:
-    assert test_name in all_test_names, "test name {} not found, it is likely "
-    "that you may have misspelled the test name or the specified test does not "
-    "exist in the version of onnx package you installed.".format(
+    assert test_name in all_test_names, """test name {} not found, it is likely
+    that you may have misspelled the test name or the specified test does not
+    exist in the version of onnx package you installed.""".format(
         test_name)
     backend_test.include(r"^{}$".format(test_name))
 
