@@ -25,6 +25,7 @@ jobs:
             # Check whether cache restoration succeeds by checking whether
             # mlir-opt executable exists.
             if [ ! -f llvm-project/build/bin/mlir-opt ]; then
+              export MAKEFLAGS=-j4
               source ONNF/utils/install-mlir.sh
             fi
       - save_cache:
