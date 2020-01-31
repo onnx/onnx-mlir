@@ -10,6 +10,7 @@ add_library(compiler
         pass/shape_inference_interface.hpp
         dialect/onnx/onnxop.inc
         pass/onnx_combine.cpp
+        pass/onnx_rewrite.cpp
         pass/passes.hpp)
 
 # Include root src directory.

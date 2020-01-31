@@ -2266,6 +2266,7 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
 
 def ONNXReduceL1Op:ONNX_Op<"ReduceL1", 
     [NoSideEffect]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceL1 operation";
   let description = [{
     "Computes the L1 norm of the input tensor's element along the provided axes. The resulted"
@@ -2283,6 +2284,7 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
 
 def ONNXReduceL2Op:ONNX_Op<"ReduceL2", 
     [NoSideEffect]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceL2 operation";
   let description = [{
     "Computes the L2 norm of the input tensor's element along the provided axes. The resulted"
@@ -2300,6 +2302,7 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
 
 def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum", 
     [NoSideEffect]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceLogSum operation";
   let description = [{
     "Computes the log sum of the input tensor's element along the provided axes. The resulted"
@@ -2317,6 +2320,7 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
 
 def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp", 
     [NoSideEffect]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceLogSumExp operation";
   let description = [{
     "Computes the log sum exponent of the input tensor's element along the provided axes. The resulted"
@@ -2419,6 +2423,7 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
 
 def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare", 
     [NoSideEffect]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX ReduceSumSquare operation";
   let description = [{
     "Computes the sum square of the input tensor's element along the provided axes. The resulted"
