@@ -103,6 +103,7 @@ public:
         op->getName().getStringRef() != "onnx.Reciprocal" &&
         op->getName().getStringRef() != "onnx.Softplus" &&
         op->getName().getStringRef() != "onnx.Softsign" &&
+        op->getName().getStringRef() != "onnx.Sign" &&
         op->getName().getStringRef() != "onnx.Mul" &&
         op->getName().getStringRef() != "onnx.Add" &&
         op->getName().getStringRef() != "onnx.Div" &&

@@ -201,6 +201,9 @@ test_to_enable = [
     "test_transpose_all_permutations_3_cpu",
     "test_transpose_all_permutations_4_cpu",
     "test_transpose_all_permutations_5_cpu",
+
+    # Sign Op:
+    "test_sign_cpu",
 ]
 
 # Extract name of all test cases.

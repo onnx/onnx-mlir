@@ -23,9 +23,11 @@ ONNX operations for which some work is needed.
 | Min         | Tung                  | v              | v                     | M                                        |
 | Mul         | Tung                  | v              | v                     | M                                        |
 | Or          | Tung                  | v              | v                     | M                                        |
+| Reciprocal  | Imai                  | v              | v                     |                                          |
 | Relu        | Tung                  | v              | v                     |                                          |
 | Selu        | Tung                  | v              | v                     |                                          |
 | Sigmoid     | Tung                  | v              | v                     |                                          |
+| Sign        | Imai                  | v              | v                     |                                          |
 | Sinh        | Tung                  | v              | v                     |                                          |
 | Softmax     | Tung                  | v              | v                     |                                          |
 | Sub         | Tung                  | v              | v                     | M                                        |

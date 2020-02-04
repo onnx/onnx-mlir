@@ -623,6 +623,64 @@ Value mapToLowerScalarOp<ONNXSoftsignOp>(
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXSignOp
+//===----------------------------------------------------------------------===//
+template <>
+Value mapToLowerScalarOp<ONNXSignOp>(Operation *op, ArrayRef<Type> result_types,
+                                     ArrayRef<Value> operands,
+                                     ConversionPatternRewriter &rewriter) {
+
+  auto loc = op->getLoc();
+  Value operand = operands[0];
+  Type element_type = operands.front().getType();
+  // TODO: unsigned int should be supported separately?
+  if (element_type.isa<IntegerType>()) {
+    // %Y = SelectOP(CmpIOp(GT, %X, ConstantOp 0),
+    //               ConstantOp 1,
+    //               COnstantOp -1)
+    // ONNXSignOp(%X) = SelectOP(CmpIOp(EQ, %X, ConstantOp 0),
+    //                           ConstantOp 0,
+    //                           %Y)
+    auto zero = rewriter.create<ConstantOp>(loc, rewriter.getI32IntegerAttr(0));
+    auto one = rewriter.create<ConstantOp>(loc, rewriter.getI32IntegerAttr(1));
+    auto minusOne =
+        rewriter.create<ConstantOp>(loc, rewriter.getI32IntegerAttr(-1));
+    auto plusPredicate =
+        rewriter.create<CmpIOp>(loc, CmpIPredicate::sgt, operand, zero);
+    auto plusSelect =
+        rewriter.create<SelectOp>(loc, plusPredicate, one, minusOne);
+    auto zeroPredicate =
+        rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, operand, zero);
+    auto result =
+        rewriter.create<SelectOp>(loc, zeroPredicate, zero, plusSelect);
+    return result;
+  } else if (element_type.isa<FloatType>()) {
+    // %Y = SelectOP(CmpFOp(OGT, %X, ConstantOp 0),
+    //               ConstantOp 1,
+    //               ConstantOp -1)
+    // ONNXSignOp(%X) = SelectOP(CmpFOp(OEQ, %X, ConstantOp 0),
+    //                           ConstantOp 0,
+    //                           %Y)
+    auto zero =
+        rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(0.0f));
+    auto one = rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(1.0f));
+    auto minusOne =
+        rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(-1.0f));
+    auto plusPredicate =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, operand, zero);
+    auto plusSelect =
+        rewriter.create<SelectOp>(loc, plusPredicate, one, minusOne);
+    auto zeroPredicate =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OEQ, operand, zero);
+    auto result =
+        rewriter.create<SelectOp>(loc, zeroPredicate, zero, plusSelect);
+    return result;
+  } else {
+    emitError(loc, "unsupported element type");
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXMaxOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -1697,6 +1755,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftplusOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftsignOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXSqrtOp>,
+                  ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,

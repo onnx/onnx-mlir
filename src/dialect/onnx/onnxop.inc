@@ -1620,7 +1620,7 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
     " ```"
     " pad_shape[i] = (output_spatial_shape[i] - 1) * strides_spatial_shape[i] + ((kernel_spatial_shape[i] - 1) * dilations[i] + 1) - input_spatial_shape[i]"
     " ```"
-    " The output of each pooling window is maximum number of elements exclude pad."
+    " The output of each pooling window is maximum number of elements exclude pad. "
     " "
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
@@ -3040,7 +3040,7 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
 }
 
 def ONNXSignOp:ONNX_Op<"Sign", 
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sign operation";
   let description = [{
     "Calculate the sign of the given input tensor element-wise."
@@ -3576,4 +3576,3 @@ def ONNXXorOp:ONNX_Op<"Xor",
            AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_C);
 }
-
