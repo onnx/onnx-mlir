@@ -434,6 +434,18 @@ private:
     }
   }
 
+  /*!
+   * Special handle for Gemm operations.
+   */
+  void ImportNodeGemm(onnx::NodeProto node, int nIn, int nOut) {
+    int nOps = node.input().size();
+    if (nOps == 2) {
+      ImportNodeOneOut<mlir::ONNXGemmNoBiasOp>(node, 2, nOut);
+    } else {
+      ImportNodeOneOut<mlir::ONNXGemmOp>(node, nIn, nOut);
+    }
+  }
+
   void ImportNode(const onnx::NodeProto &node) {
     std::vector<mlir::Value> inputs;
     for (const auto &item : node.input()) {

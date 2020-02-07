@@ -98,7 +98,7 @@
     }else if (OpName == "GatherND") {
        ImportNodeOneOut<mlir::ONNXGatherNDOp>(node, 2, 1);
     }else if (OpName == "Gemm") {
-       ImportNodeOneOut<mlir::ONNXGemmOp>(node, 3, 1);
+       ImportNodeGemm(node, 3, 1);
     }else if (OpName == "GlobalAveragePool") {
        ImportNodeOneOut<mlir::ONNXGlobalAveragePoolOp>(node, 1, 1);
     }else if (OpName == "GlobalLpPool") {
