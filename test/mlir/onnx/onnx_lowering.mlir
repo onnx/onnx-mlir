@@ -568,15 +568,15 @@ func @test_add_with_broadcasting(%arg0 : tensor<?xf32>, %arg1 : tensor<?x10xf32>
   // CHECK-LABEL: test_add_with_broadcasting
   // CHECK: [[DIM1:%.+]] = dim %arg1, 0 : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM1]]) : memref<?x10xf32>
+  // CHECK: [[DIM2:%.+]] = dim %arg0, 0 : memref<?xf32>
+  // CHECK: [[ONE:%.+]] = constant 1 : index
+  // CHECK: [[IS_ONE:%.+]] = cmpi "eq", [[DIM2]], [[ONE]] : index
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
   // CHECK: krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
-  // CHECK: [[DIM2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
-  // CHECK: [[DIM3:%.+]] = dim %arg0, 0 : memref<?xf32>
-  // CHECK: [[ONE:%.+]] = constant 1 : index
-  // CHECK: [[IS_ONE:%.+]] = cmpi "eq", [[DIM3]], [[ONE]] : index
-  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to [[DIM2]], [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
+  // CHECK: [[DIM3:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to [[DIM3]], [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
   // CHECK: [[ZERO:%.+]] = constant 0 : index
   // CHECK: %[[SELECT1:.+]] = select [[IS_ONE]], [[ZERO]], %arg3 : index
   // CHECK: [[LOAD1:%.+]] = load %arg0[%[[SELECT1]]] : memref<?xf32>
@@ -787,4 +787,94 @@ func @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   // CHECK: [[SIGN_RES:%.+]] = select [[EQZERO]], [[ZERO]], [[SELECT_PLUS]] : i32
   // CHECK: store [[SIGN_RES]], [[RES]][%arg1, %arg2] : memref<?x10xi32>
   // CHECK: return [[RES]] : memref<?x10xi32>
+}
+
+func @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", group = 1 : i64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_conv_no_bias_no_pad
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x5x27x58xf32>
+  // CHECK: [[CONST0:%.+]] = constant 5 : index
+  // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[CONST2:%.+]] = constant 2 : index
+  // CHECK: [[OUTER_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_OUTER_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+
+  // CHECK: krnl.iterate([[OPT_OUTER_LOOPS]]#0, [[OPT_OUTER_LOOPS]]#1) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 5) {
+  // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_SPATIAL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+
+  // CHECK: krnl.iterate([[OPT_SPATIAL_LOOPS]]#0, [[OPT_SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg4 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg5 = 0 to 58) {
+  // CHECK: store [[CONST1]], [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<1x5x27x58xf32>
+  // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[OPT_INNER_LOOPS:%.+]]:3 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
+
+  // CHECK: krnl.iterate([[OPT_INNER_LOOPS]]#0, [[OPT_INNER_LOOPS]]#1, [[OPT_INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg6 = 0 to 2, [[INNER_LOOPS]]#1 -> %arg7 = 0 to 6, [[INNER_LOOPS]]#2 -> %arg8 = 0 to 7) {
+  // CHECK: [[R1PLUSK1:%.+]] = addi %arg4, %arg7 : index
+  // CHECK: [[R2PLUSK2:%.+]] = addi %arg5, %arg8 : index
+  // CHECK: [[DATA:%.+]] = load %arg0[%arg2, %arg6, [[R1PLUSK1]], [[R2PLUSK2]]] : memref<1x2x32x64xf32>
+  // CHECK: [[KERNEL:%.+]] = load %arg1[%arg3, %arg6, %arg7, %arg8] : memref<5x2x6x7xf32>
+  // CHECK: [[ACC_RES:%.+]] = load %0[%arg2, %arg3, %arg4, %arg5] : memref<1x5x27x58xf32>
+  // CHECK: [[MUL:%.+]] = mulf [[DATA]], [[KERNEL]] : f32
+  // CHECK: [[ADD:%.+]] = addf [[ACC_RES]], [[MUL]] : f32
+  // CHECK: store [[ADD]], [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<1x5x27x58xf32>
+  // CHECK: }
+  // CHECK: }
+  // CHECK: }
+
+  // CHECK: return [[RES]] : memref<1x5x27x58xf32>
+}
+
+func @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %arg1 : tensor<5x3x6x7xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", group = 3 : i64} : (tensor<1x9x32x64xf32>, tensor<5x3x6x7xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_conv_no_bias_no_pad_w_group
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x5x27x58xf32>
+  // CHECK: [[CONST0:%.+]] = constant 1 : index
+  // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[CONST2:%.+]] = constant 3 : index
+  // CHECK: [[OUTER_LOOPS:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[OPT_OUTER_LOOPS:%.+]]:3 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1, [[OUTER_LOOPS]]#2
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
+
+  // CHECK: krnl.iterate([[OPT_OUTER_LOOPS]]#0, [[OPT_OUTER_LOOPS]]#1, [[OPT_OUTER_LOOPS]]#2) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 3, [[OUTER_LOOPS]]#2 -> %arg4 = 0 to 1) {
+  // CHECK: [[MUL1:%.+]] = muli %arg3, [[CONST0]] : index
+  // CHECK: %[[ADD1:.+]] = addi [[MUL1]], %arg4 : index
+  // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_SPATIAL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+
+  // CHECK: krnl.iterate([[OPT_SPATIAL_LOOPS]]#0, [[OPT_SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg5 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg6 = 0 to 58) {
+  // CHECK: store [[CONST1]], [[RES]][%arg2, %[[ADD1]], %arg5, %arg6] : memref<1x5x27x58xf32>
+  // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[OPT_INNER_LOOPS:%.+]]:3 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
+
+  // CHECK: krnl.iterate([[OPT_INNER_LOOPS]]#0, [[OPT_INNER_LOOPS]]#1, [[OPT_INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg7 = 0 to 3, [[INNER_LOOPS]]#1 -> %arg8 = 0 to 6, [[INNER_LOOPS]]#2 -> %arg9 = 0 to 7) {
+  // CHECK: [[MUL2:%.+]] = muli [[CONST2]], %arg3 : index
+  // CHECK: [[ADD2:%.+]] = addi %arg7, [[MUL2]] : index
+  // CHECK: [[R1PLUSK1:%.+]] = addi %arg5, %arg8 : index
+  // CHECK: [[R2PLUSK2:%.+]] = addi %arg6, %arg9 : index
+  // CHECK: [[DATA:%.+]] = load %arg0[%arg2, [[ADD2]], [[R1PLUSK1]], [[R2PLUSK2]]] : memref<1x9x32x64xf32>
+  // CHECK: [[KERNEL:%.+]] = load %arg1[%[[ADD1]], %arg7, %arg8, %arg9] : memref<5x3x6x7xf32>
+  // CHECK: [[ACC_RES:%.+]] = load %0[%arg2, %[[ADD1]], %arg5, %arg6] : memref<1x5x27x58xf32>
+  // CHECK: [[MUL:%.+]] = mulf [[DATA]], [[KERNEL]] : f32
+  // CHECK: [[ADD:%.+]] = addf [[ACC_RES]], [[MUL]] : f32
+  // CHECK: store [[ADD]], [[RES]][%arg2, %[[ADD1]], %arg5, %arg6] : memref<1x5x27x58xf32>
+  // CHECK: }
+  // CHECK: }
+  // CHECK: }
+
+  // CHECK: return [[RES]] : memref<1x5x27x58xf32>
 }

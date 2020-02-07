@@ -628,6 +628,10 @@ void ONNXConvNoBiasOp::inferShapes() {
   auto dataShape = dataTy.getShape();
   auto weightShape = weightTy.getShape();
 
+  // Lowest ranked input supported is of shape (N x C x H x W).
+  if (dataShape.size() < 4)
+     emitError("Data input shape must be at least (NxCxHxW).");
+
   // Check that shape of weight and data have same length.
   if (dataShape.size() != weightShape.size())
     emitError("Weight size not compatible with data size.");

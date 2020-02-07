@@ -202,6 +202,9 @@ test_to_enable = [
     "test_transpose_all_permutations_4_cpu",
     "test_transpose_all_permutations_5_cpu",
 
+    # Conv
+    "test_basic_conv_without_padding_cpu",
+
     # Sign Op:
     "test_sign_cpu",
 ]
