@@ -120,6 +120,11 @@ def display_version_link(name, version):  # type: (Text, int) -> Text
     name_with_ver = '{}-{}'.format(name, version)
     return '<a href="{}#{}">{}</a>'.format(changelog_md, name_with_ver, name_with_ver)
 
+def get_unique_output_name(schema, name):
+    for input in schema.inputs :
+        if input.name == name :
+            return 'out_'+name
+    return name
 
 def display_schema(schema, versions):  # type: (OpSchema, Sequence[OpSchema]) -> Text
     s = ''
@@ -223,7 +228,7 @@ def display_schema(schema, versions):  # type: (OpSchema, Sequence[OpSchema]) ->
                     option_str = " (variadic)"
                 else:
                     option_str = " (variadic, heterogeneous)"
-            s += '<dt><tt>{}</tt>{} : {}</dt>\n'.format(output.name, option_str, output.typeStr)
+            s += '<dt><tt>{}</tt>{} : {}</dt>\n'.format(get_unique_output_name(schema, output.name), option_str, output.typeStr)
             s += '<dd>{}</dd>\n'.format(output.description)
         s += '</dl>\n'
 
@@ -302,7 +307,6 @@ def  collect_types(schema, input) :
     return allowedTypeStr
 
 def gen_schema(schema) :
-    skip_attr_gen = []
     line_indent = '  '
 
     #s = 'def ONNX'+schema.name+str(schema.since_version)+'Op:ONNX_Op<"'+schema.name+'", \n'
@@ -368,8 +372,7 @@ def gen_schema(schema) :
                     #TODO handle  (variadic, heterogeneous)"
                     t=''
             s+=':$'+input.name
-    if not schema.name in skip_attr_gen :
-        s += gen_attr_ins(schema, isfirst)
+    s += gen_attr_ins(schema, isfirst)
     s+= ');'
 
     #output
@@ -377,14 +380,14 @@ def gen_schema(schema) :
     if schema.outputs:
         for output in schema.outputs:
             if output != schema.outputs[0] :
-                s+= ', '
+                s+= ',\n           '
             #need to interpret output.typeStr
             etypes=collect_types(schema, output)
             if etypes == '':
                 s+= 'AnyTypeOf<[AnyMemRef, AnyTensor]>'
             else:
                 s+= 'TensorOf<['+etypes+']>'
-            s += ':$o_'+output.name
+            s += ':$'+get_unique_output_name(schema, output.name)
     s+= ');\n'
 
     #s+= 'let hasCanonicalizer = 1;'
