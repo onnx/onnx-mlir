@@ -44,7 +44,15 @@ class Directive(object):
         :param directive_config: a list used to output parsed directive configuration.
         :return: parse result.
         """
-        line = ctx.doc_file.next_non_empty_line()
+        try:
+            line = ctx.doc_file.next_non_empty_line()
+        except RuntimeError as e:
+            # Do not raise exception when next non-empty line
+            # does not exist. Instead, return failure.
+            if str(e) != "Enf of file.":
+                raise
+            return failure()
+
         matches = self.ext_to_patterns[ctx.doc_file_ext()].findall(line)
         if len(matches) > 1:
             raise ValueError("more than one directives in a line")

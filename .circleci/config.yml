@@ -45,5 +45,12 @@ jobs:
           name: Run DocCheck
           command: cd ONNF/build && cmake --build . --target check-doc
       - run:
+          name: Ensure tablegen documentation is up-to-date
+          command: |
+            cd ONNF/build
+            cmake --build . --target onnf-doc
+            # Check whether dialect documentation is up-to-date.
+            diff doc/Dialects ../doc/Dialects
+      - run:
           name: Print the Current Time
           command: date
