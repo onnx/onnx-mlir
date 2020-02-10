@@ -25,6 +25,54 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 
 //===----------------------------------------------------------------------===//
+// Get reduction type
+//===----------------------------------------------------------------------===//
+RankedTensorType getReductionOutputType(RankedTensorType operandTy,
+                                        Optional<ArrayAttr> axesAttrs,
+                                        APInt keepdims) {
+  int64_t rank = operandTy.getRank();
+
+  SmallVector<int64_t, 4> axes;
+  if (axesAttrs != llvm::None) {
+    for (auto axisAttr : axesAttrs.getValue()) {
+      int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+      axis = axis >= 0 ? axis : (rank + axis);
+      assert(axis >= -rank && axis <= rank - 1);
+      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
+        axes.emplace_back(axis);
+    }
+  } else {
+    for (decltype(rank) i = 0; i < rank; ++i) {
+      axes.emplace_back(i);
+    }
+  }
+
+  // Mark reduction axes.
+  SmallVector<bool, 4> isReductionAxis;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    if (std::find(axes.begin(), axes.end(), i) != axes.end())
+      isReductionAxis.emplace_back(true);
+    else
+      isReductionAxis.emplace_back(false);
+  }
+
+  // KeepDims
+  bool isKeepdims = (keepdims == 1) ? true : false;
+
+  SmallVector<int64_t, 4> dims;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    if (isReductionAxis[i]) {
+      if (isKeepdims)
+        dims.emplace_back(1); // reduction dimension
+    } else {
+      dims.emplace_back(operandTy.getShape()[i]);
+    }
+  }
+
+  return RankedTensorType::get(dims, operandTy.getElementType());
+}
+
+//===----------------------------------------------------------------------===//
 // ONNXOpsDialect
 //===----------------------------------------------------------------------===//
 
@@ -607,6 +655,60 @@ void ONNXTransposeOp::inferShapes() {
 
 
 //===----------------------------------------------------------------------===//
+
+// ReduceMax
+
+void ONNXReduceMaxOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>()) {
+    emitError("Shape tensor not ranked.");
+    return;
+  }
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+}
+
+//===----------------------------------------------------------------------===//
+
+// ReduceMin
+
+void ONNXReduceMinOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>()) {
+    emitError("Shape tensor not ranked.");
+    return;
+  }
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+}
+
+//===----------------------------------------------------------------------===//
+
+// ReduceProd
+
+void ONNXReduceProdOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>()) {
+    emitError("Shape tensor not ranked.");
+    return;
+  }
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+}
+
+//===----------------------------------------------------------------------===//
+
+// ReduceSum
+
+void ONNXReduceSumOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>()) {
+    emitError("Shape tensor not ranked.");
+    return;
+  }
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+}
 
 // Conv
 

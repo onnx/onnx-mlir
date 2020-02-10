@@ -587,6 +587,116 @@ func @test_add_with_broadcasting(%arg0 : tensor<?xf32>, %arg1 : tensor<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+func @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceMax"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reducemax
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x2xf32>
+  // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS1:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS1]]#0, [[OPT_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2) {
+  // CHECK: [[IDENTITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK: store [[IDENTITY]], [[RES]][%arg1, %arg2] : memref<3x2xf32>
+
+  // CHECK: [[DEF_LOOPS2:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[OPT_LOOPS2:%.+]]:3 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1, [[DEF_LOOPS2]]#2
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS2]]#0, [[OPT_LOOPS2]]#1, [[OPT_LOOPS2]]#2) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 2, [[DEF_LOOPS2]]#2 -> %arg3 = 0 to 2) {
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg1, %arg2, %arg3] : memref<3x2x2xf32>
+  // CHECK: [[LOAD2:%.+]] = load %0[%arg1, %arg3] : memref<3x2xf32>
+  // CHECK: [[CMP:%.+]] = cmpf "ogt", [[LOAD2]], [[LOAD1]] : f32
+  // CHECK: [[SELECT:%.+]] = select %7, %6, %5 : f32
+  // CHECK: store [[SELECT]], [[RES]][%arg1, %arg3] : memref<3x2xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x2xf32>
+}
+
+func @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceMin"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reducemin
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x2xf32>
+  // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS1:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS1]]#0, [[OPT_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2) {
+  // CHECK: [[IDENTITY:%.+]] = constant 0x7F800000 : f32
+  // CHECK: store [[IDENTITY]], [[RES]][%arg1, %arg2] : memref<3x2xf32>
+
+  // CHECK: [[DEF_LOOPS2:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[OPT_LOOPS2:%.+]]:3 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1, [[DEF_LOOPS2]]#2
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS2]]#0, [[OPT_LOOPS2]]#1, [[OPT_LOOPS2]]#2) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 2, [[DEF_LOOPS2]]#2 -> %arg3 = 0 to 2) {
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg1, %arg2, %arg3] : memref<3x2x2xf32>
+  // CHECK: [[LOAD2:%.+]] = load %0[%arg1, %arg3] : memref<3x2xf32>
+  // CHECK: [[CMP:%.+]] = cmpf "olt", [[LOAD2]], [[LOAD1]] : f32
+  // CHECK: [[SELECT:%.+]] = select %7, %6, %5 : f32
+  // CHECK: store [[SELECT]], [[RES]][%arg1, %arg3] : memref<3x2xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x2xf32>
+}
+
+func @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceProd"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reduceprod
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x2xf32>
+  // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS1:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS1]]#0, [[OPT_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2) {
+  // CHECK: [[IDENTITY:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: store [[IDENTITY]], [[RES]][%arg1, %arg2] : memref<3x2xf32>
+
+  // CHECK: [[DEF_LOOPS2:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[OPT_LOOPS2:%.+]]:3 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1, [[DEF_LOOPS2]]#2
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS2]]#0, [[OPT_LOOPS2]]#1, [[OPT_LOOPS2]]#2) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 2, [[DEF_LOOPS2]]#2 -> %arg3 = 0 to 2) {
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg1, %arg2, %arg3] : memref<3x2x2xf32>
+  // CHECK: [[LOAD2:%.+]] = load %0[%arg1, %arg3] : memref<3x2xf32>
+  // CHECK: [[REDUCE:%.+]] = mulf %6, %5 : f32
+  // CHECK: store [[REDUCE]], [[RES]][%arg1, %arg3] : memref<3x2xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x2xf32>
+}
+
+func @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceSum"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reducesum
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x2xf32>
+  // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS1:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS1]]#0, [[OPT_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2) {
+  // CHECK: [[IDENTITY:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: store [[IDENTITY]], [[RES]][%arg1, %arg2] : memref<3x2xf32>
+
+  // CHECK: [[DEF_LOOPS2:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[OPT_LOOPS2:%.+]]:3 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1, [[DEF_LOOPS2]]#2
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS2]]#0, [[OPT_LOOPS2]]#1, [[OPT_LOOPS2]]#2) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 2, [[DEF_LOOPS2]]#2 -> %arg3 = 0 to 2) {
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg1, %arg2, %arg3] : memref<3x2x2xf32>
+  // CHECK: [[LOAD2:%.+]] = load %0[%arg1, %arg3] : memref<3x2xf32>
+  // CHECK: [[REDUCE:%.+]] = addf %6, %5 : f32
+  // CHECK: store [[REDUCE]], [[RES]][%arg1, %arg3] : memref<3x2xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x2xf32>
+}
+  
 func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis=1:i64} : (tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
