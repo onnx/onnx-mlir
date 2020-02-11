@@ -224,13 +224,13 @@ test_to_enable = [
 
     # ReshapeOp:
     "test_reshape_extended_dims_cpu",
-    #"test_reshape_negative_dim_cpu", <- handle nagative dim
-    #"test_reshape_negative_extended_dims_cpu", <- handle nagative dim
+    "test_reshape_negative_dim_cpu",
+    "test_reshape_negative_extended_dims_cpu",
     "test_reshape_one_dim_cpu",
     "test_reshape_reduced_dims_cpu",
     "test_reshape_reordered_all_dims_cpu",
     "test_reshape_reordered_last_dims_cpu",
-    #"test_reshape_zero_and_negative_dim_cpu", <- handle nagative dim
+    "test_reshape_zero_and_negative_dim_cpu",
     "test_reshape_zero_dim_cpu",
 
     # Transpose
