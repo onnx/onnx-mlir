@@ -244,6 +244,7 @@ test_to_enable = [
 
     # Conv
     "test_basic_conv_without_padding_cpu",
+    "test_conv_with_strides_no_padding_cpu",
 
     # Sign Op:
     "test_sign_cpu",
