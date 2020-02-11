@@ -2859,6 +2859,60 @@ ONNX PRelu operation
 
 1. `Y`: memref of any type values or tensor of any type values
 
+### onnx.PadConstantValue (ONNXPadConstantValueOp)
+ONNX Pad operation with constant padding value
+
+#### Description:
+
+
+"this operation is introduced to handle situation"
+   " in which the padding value is a constant.
+   " The value will become an attribute."
+   "This operation is also used to handle the optional value input is missing and the default value 0."
+   "is used."
+
+#### Operands:
+
+1. `data`: memref of any type values or tensor of any type values
+1. `pads`: memref of any type values or tensor of any type values
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `constant_value` | `FloatAttr` | 32-bit float attribute attribute |
+| `mode` | `StringAttr` | string attribute attribute |
+
+#### Results:
+
+1. `output`: memref of any type values or tensor of any type values
+
+### onnx.PadConstatValuePad (ONNXPadConstantValuePadOp)
+ONNX Pad operation with constant padding value
+
+#### Description:
+
+
+"this operation is introduced to handle situation"
+   " in which the padding value and padding are constants"
+   "They will become attributes."
+
+#### Operands:
+
+1. `data`: memref of any type values or tensor of any type values
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `pads` | `ArrayAttr` | 64-bit integer array attribute attribute |
+| `constant_value` | `FloatAttr` | 32-bit float attribute attribute |
+| `mode` | `StringAttr` | string attribute attribute |
+
+#### Results:
+
+1. `output`: memref of any type values or tensor of any type values
+
 ### onnx.Pad (ONNXPadOp)
 ONNX Pad operation
 

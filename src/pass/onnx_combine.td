@@ -45,4 +45,8 @@ def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),
 def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
 				     (replaceWithValue $arg)>;
 
+def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $v1, $v2), $m2, $m3),
+                             (ONNXPadConstantValuePadOp $m1, $v2, $m2, $m3),
+			     [(HasOneUse $res)]>;
+
 #endif // ONNX_COMBINE

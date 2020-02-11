@@ -145,4 +145,36 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
+def ONNXPadConstantValueOp : ONNX_Op<"PadConstantValue",
+    [NoSideEffect ]> {
+  let summary = "ONNX Pad operation with constant padding value";
+  let hasCanonicalizer = 1;
+  let description = [{ "this operation is introduced to handle situation"
+    " in which the padding value is a constant.
+    " The value will become an attribute."
+    "This operation is also used to handle the optional value input is missing and the default value 0."
+    "is used."
+   }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$pads,
+           DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
+           DefaultValuedAttr<StrAttr, "constant">:$mode);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+}
+
+def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstatValuePad",
+    [NoSideEffect ]> {
+  let summary = "ONNX Pad operation with constant padding value";
+  let description = [{ "this operation is introduced to handle situation"
+    " in which the padding value and padding are constants"
+    "They will become attributes."
+   }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           I64ArrayAttr:$pads,
+           DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
+           DefaultValuedAttr<StrAttr, "constant">:$mode);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+}
+
+
 #endif // ONNX_OPS

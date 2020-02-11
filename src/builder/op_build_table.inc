@@ -178,7 +178,7 @@
     }else if (OpName == "PRelu") {
        ImportNodeOneOut<mlir::ONNXPReluOp>(node, 2, 1);
     }else if (OpName == "Pad") {
-       ImportNodeOneOut<mlir::ONNXPadOp>(node, 3, 1);
+       ImportNodePad(node, 3, 1);
     }else if (OpName == "Pow") {
        ImportNodeOneOut<mlir::ONNXPowOp>(node, 2, 1);
     }else if (OpName == "QLinearConv") {

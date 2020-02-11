@@ -446,6 +446,18 @@ private:
     }
   }
 
+  /*!
+   * Special handle for Pad operations.
+   */
+  void ImportNodePad(onnx::NodeProto node, int nIn, int nOut) {
+    int nOps = node.input().size();
+    if (nOps == 2) {
+      ImportNodeOneOut<mlir::ONNXPadConstantValueOp>(node, 2, nOut);
+    } else {
+      ImportNodeOneOut<mlir::ONNXPadOp>(node, nIn, nOut);
+    }
+  }
+
   void ImportNode(const onnx::NodeProto &node) {
     std::vector<mlir::Value> inputs;
     for (const auto &item : node.input()) {
