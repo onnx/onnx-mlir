@@ -174,6 +174,53 @@ test_to_enable = [
     "test_reduce_sum_negative_axes_keepdims_example_cpu",
     "test_reduce_sum_negative_axes_keepdims_random_cpu",
 
+    # ReduceL1: this op depends on ONNXAbsOp so we will turn these tests on once ONNXAbsOp is implemented.
+    #"test_reduce_l1_default_axes_keepdims_example_cpu",
+    #"test_reduce_l1_default_axes_keepdims_random_cpu",
+    #"test_reduce_l1_do_not_keepdims_example_cpu",
+    #"test_reduce_l1_do_not_keepdims_random_cpu",
+    #"test_reduce_l1_keep_dims_example_cpu",
+    #"test_reduce_l1_keep_dims_random_cpu",
+    #"test_reduce_l1_negative_axes_keep_dims_example_cpu",
+    #"test_reduce_l1_negative_axes_keep_dims_random_cpu",
+
+    # ReduceL2
+    "test_reduce_l2_default_axes_keepdims_example_cpu",
+    "test_reduce_l2_default_axes_keepdims_random_cpu",
+    "test_reduce_l2_do_not_keepdims_example_cpu",
+    "test_reduce_l2_do_not_keepdims_random_cpu",
+    "test_reduce_l2_keep_dims_example_cpu",
+    "test_reduce_l2_keep_dims_random_cpu",
+    "test_reduce_l2_negative_axes_keep_dims_example_cpu",
+    "test_reduce_l2_negative_axes_keep_dims_random_cpu",
+
+    # ReduceLogSum
+    "test_reduce_log_sum_asc_axes_cpu",
+    "test_reduce_log_sum_cpu",
+    "test_reduce_log_sum_default_cpu",
+    "test_reduce_log_sum_desc_axes_cpu",
+
+    # ReduceLogSumExp
+    "test_reduce_log_sum_exp_default_axes_keepdims_example_cpu",
+    "test_reduce_log_sum_exp_default_axes_keepdims_random_cpu",
+    "test_reduce_log_sum_exp_do_not_keepdims_example_cpu",
+    "test_reduce_log_sum_exp_do_not_keepdims_random_cpu",
+    "test_reduce_log_sum_exp_keepdims_example_cpu",
+    "test_reduce_log_sum_exp_keepdims_random_cpu",
+    "test_reduce_log_sum_exp_negative_axes_keepdims_example_cpu",
+    "test_reduce_log_sum_exp_negative_axes_keepdims_random_cpu",
+    "test_reduce_log_sum_negative_axes_cpu",
+
+    # ReduceSumSquare
+    "test_reduce_sum_square_default_axes_keepdims_example_cpu",
+    "test_reduce_sum_square_default_axes_keepdims_random_cpu",
+    "test_reduce_sum_square_do_not_keepdims_example_cpu",
+    "test_reduce_sum_square_do_not_keepdims_random_cpu",
+    "test_reduce_sum_square_keepdims_example_cpu",
+    "test_reduce_sum_square_keepdims_random_cpu",
+    "test_reduce_sum_square_negative_axes_keepdims_example_cpu",
+    "test_reduce_sum_square_negative_axes_keepdims_random_cpu",
+
     # Selu Op:
     "test_selu_cpu",
     "test_selu_default_cpu",
