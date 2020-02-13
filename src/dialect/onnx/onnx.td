@@ -162,8 +162,22 @@ def ONNXPadConstantValueOp : ONNX_Op<"PadConstantValue",
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
 }
 
-def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstatValuePad",
-    [NoSideEffect ]> {
+def ONNXPadConstantPadOp : ONNX_Op<"PadConstantPad",
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface> ]> {
+  let summary = "ONNX Pad operation with constant padding value";
+  let description = [{ "this operation is introduced to handle situation"
+    " in which the padding value and padding are constants"
+    "They will become attributes."
+   }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$constant_value,
+           I64ArrayAttr:$pads,
+           DefaultValuedAttr<StrAttr, "constant">:$mode);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+}
+
+def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface> ]> {
   let summary = "ONNX Pad operation with constant padding value";
   let description = [{ "this operation is introduced to handle situation"
     " in which the padding value and padding are constants"

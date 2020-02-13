@@ -1015,6 +1015,80 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
 
 //===----------------------------------------------------------------------===//
 
+// PadConstantPad
+
+void ONNXPadConstantPadOp::inferShapes(){
+  // Cannot infer shape if no shape exists.
+  if (!data().getType().isa<RankedTensorType>())
+    return;
+
+  // 1) get shape of input "data"
+  auto dataTy = data().getType().cast<RankedTensorType>();
+  auto dataShape = dataTy.getShape();
+  auto dataRank = dataShape.size();
+
+  SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
+  auto padsOpt = pads();
+  if (padsOpt) {
+    auto padsArray = padsOpt.getValue();
+    // pads consists of two entries for each spatial axis.
+    if (padsArray.size() != 2 * dataRank)
+      emitError("pads rank is not twice the spatial rank.");
+    // fill in the actual values
+    for (int i = 0; i < dataRank; ++i) {
+      int64_t p1 = (padsArray[2*i]).cast<IntegerAttr>().getInt();
+      if (p1 < 0) 
+        emitError("pads value must be nonnegative.");
+      int64_t p2 = (padsArray[2*i+1]).cast<IntegerAttr>().getInt();
+      if (p2 < 0) 
+        emitError("pads value must be nonnegative.");
+      outputShape[i] += p1+p2;
+    }
+    getResult().setType(RankedTensorType::get(outputShape, dataTy.getElementType()));
+  } else {
+    emitError("pads attribute is not available.");
+  }
+}
+
+//===----------------------------------------------------------------------===//
+
+// PadConstantValuePad
+
+void ONNXPadConstantValuePadOp::inferShapes(){
+  // Cannot infer shape if no shape exists.
+  if (!data().getType().isa<RankedTensorType>())
+    return;
+
+  // 1) get shape of input "data"
+  auto dataTy = data().getType().cast<RankedTensorType>();
+  auto dataShape = dataTy.getShape();
+  auto dataRank = dataShape.size();
+
+  SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
+  auto padsOpt = pads();
+  if (padsOpt) {
+    auto padsArray = padsOpt.getValue();
+    // pads consists of two entries for each spatial axis.
+    if (padsArray.size() != 2 * dataRank)
+      emitError("pads rank is not twice the spatial rank.");
+    // fill in the actual values
+    for (int i = 0; i < dataRank; ++i) {
+      int64_t p1 = (padsArray[2*i]).cast<IntegerAttr>().getInt();
+      if (p1 < 0) 
+        emitError("pads value must be nonnegative.");
+      int64_t p2 = (padsArray[2*i+1]).cast<IntegerAttr>().getInt();
+      if (p2 < 0) 
+        emitError("pads value must be nonnegative.");
+      outputShape[i] += p1+p2;
+    }
+    getResult().setType(RankedTensorType::get(outputShape, dataTy.getElementType()));
+  } else {
+    emitError("pads attribute is not available.");
+  }
+}
+
+//===----------------------------------------------------------------------===//
+
 // Unsqueeze
 
 void ONNXUnsqueezeOp::inferShapes() {
