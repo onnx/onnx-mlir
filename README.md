@@ -3,6 +3,12 @@ Open Neural Network Frontend : an ONNX frontend for MLIR.
 
 [![CircleCI](https://circleci.com/gh/clang-ykt/ONNF.svg?style=svg)](https://circleci.com/gh/clang-ykt/ONNF)
 
+## Prerequisites
+
+gcc >= 6.4
+libprotoc >= 3.11.0
+cmake >= 3.15.4
+
 ## Installation
 
 Firstly, install MLIR (as a part of LLVM-Project):
