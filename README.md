@@ -5,9 +5,11 @@ Open Neural Network Frontend : an ONNX frontend for MLIR.
 
 ## Prerequisites
 
+```
 gcc >= 6.4
 libprotoc >= 3.11.0
 cmake >= 3.15.4
+```
 
 ## Installation
 
