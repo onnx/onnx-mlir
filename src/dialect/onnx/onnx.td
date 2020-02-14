@@ -111,6 +111,7 @@ def ONNXGemmNoBiasOp: ONNX_Op<"GemmNoBias",
 
 def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Conv operation with no Bias operand.";
   let description = [{
     "The convolution operator consumes an input tensor and a filter, and"
