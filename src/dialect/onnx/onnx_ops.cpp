@@ -442,7 +442,7 @@ void ONNXMatMulOp::inferShapes() {
         lhsShape[0] != rhsShape[rhsRank - 2])
       emitError("Attempt to multiply incompatible matrices.");
 
-    for (int i = 0; i < rhsRank - 2; ++i)
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       dims.emplace_back(rhsShape[i]);
     dims.emplace_back(rhsShape[rhsRank - 1]);
   } else if (lhsShape.size() >= 2 && rhsShape.size() == 1) {
@@ -460,7 +460,7 @@ void ONNXMatMulOp::inferShapes() {
         lhsShape[lhsRank - 1] != rhsShape[0])
       emitError("Attempt to multiply incompatible matrices.");
 
-    for (int i = 0; i < lhsRank - 2; ++i)
+    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
       dims.emplace_back(lhsShape[i]);
     dims.emplace_back(lhsShape[lhsRank - 2]);
   } else if (lhsShape.size() > 2 && rhsShape.size() == 2) {
@@ -474,7 +474,7 @@ void ONNXMatMulOp::inferShapes() {
         lhsShape[lhsRank - 1] != rhsShape[0])
       emitError("Attempt to multiply incompatible matrices.");
 
-    for (int i = 0; i < lhsRank - 1; ++i)
+    for (decltype(lhsRank) i = 0; i < lhsRank - 1; ++i)
       dims.emplace_back(lhsShape[i]);
     dims.emplace_back(rhsShape[1]);
   } else if (lhsShape.size() == 2 && rhsShape.size() > 2) {
@@ -488,7 +488,7 @@ void ONNXMatMulOp::inferShapes() {
         lhsShape[1] != rhsShape[rhsRank - 2])
       emitError("Attempt to multiply incompatible matrices.");
 
-    for (int i = 0; i < rhsRank - 2; ++i)
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       dims.emplace_back(rhsShape[i]);
     dims.emplace_back(lhsShape[0]);
     dims.emplace_back(rhsShape[rhsRank - 1]);
@@ -506,10 +506,10 @@ void ONNXMatMulOp::inferShapes() {
 
     // Check and perform broadcasting for the shapes.
     SmallVector<int64_t, 2> lhsBcastShape;
-    for (int i = 0; i < lhsRank - 2; ++i)
+    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
       lhsBcastShape.emplace_back(lhsShape[i]);
     SmallVector<int64_t, 2> rhsBcastShape;
-    for (int i = 0; i < rhsRank - 2; ++i)
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       rhsBcastShape.emplace_back(rhsShape[i]);
     if (!getBroadcastedShape(lhsBcastShape, rhsBcastShape, dims))
       emitError("Broadcasted dimensions are incompatible.");
@@ -730,9 +730,9 @@ void ONNXConvNoBiasOp::inferShapes() {
   auto dataShape = dataTy.getShape();
   auto weightShape = weightTy.getShape();
 
-  // Lowest ranked input supported is of shape (N x C x H x W).
-  if (dataShape.size() < 4)
-     emitError("Data input shape must be at least (NxCxHxW).");
+  // Lowest supported convolution is a one dimensional convolution.
+  if (dataShape.size() < 3)
+    emitError("Data input shape must be at least (NxCxD1).");
 
   // Check that shape of weight and data have same length.
   if (dataShape.size() != weightShape.size())
