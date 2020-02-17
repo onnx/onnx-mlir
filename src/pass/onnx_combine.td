@@ -39,14 +39,14 @@ def GemmTransB : NativeCodeCall<"$_builder.getI64IntegerAttr(0)">;
 // onnx.add(onnx.matmul(%X, %Y), %Z) = onnx.Gemm(%X, %Y, %Z)
 def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),
                                  (ONNXGemmOp $m1, $m2, $m3, (GemmAlpha), (GemmBeta), (GemmTransA), (GemmTransB)),
-				 [(HasOneUse $res), (HasRankOf<2> $m1), (HasRankOf<2> $m2)]>;
+                                 [(HasOneUse $res), (HasRankOf<2> $m1), (HasRankOf<2> $m2)]>;
 
 // ONNX_Op (onnx.Identity (%X)) = ONNX_Op (%X)
 def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
-				     (replaceWithValue $arg)>;
+                                     (replaceWithValue $arg)>;
 
 def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $v1, $v2), $m2, $m3),
                              (ONNXPadConstantValuePadOp $m1, $v2, $m2, $m3),
-			     [(HasOneUse $res)]>;
+                             [(HasOneUse $res)]>;
 
 #endif // ONNX_COMBINE
