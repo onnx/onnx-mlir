@@ -425,7 +425,11 @@ public:
 struct TensorTypeConverter : public TypeConverter {
   using TypeConverter::TypeConverter;
 
-  LogicalResult convertType(Type t, SmallVectorImpl<Type> &results) override {
+  TensorTypeConverter() {
+    addConversion(convertType);
+  }
+
+  static LogicalResult convertType(Type t, SmallVectorImpl<Type> &results) {
     if (auto tensor_type = t.dyn_cast<TensorType>()) {
       results.push_back(convertTensorToMemRef(tensor_type));
       return success();
