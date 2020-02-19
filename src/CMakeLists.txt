@@ -57,7 +57,7 @@ target_include_directories(onnf_shape_inference
 target_link_libraries(onnf_shape_inference ${MLIRLibs})
 add_dependencies(onnf_shape_inference gen_krnl_ops)
 
-add_library(onnf_lower_frontend pass/lower_frontend_to_krnl.cpp)
+add_library(onnf_lower_frontend conversion/onnx_to_krnl/convert_onnx_to_krnl.cpp)
 target_include_directories(onnf_lower_frontend
         PRIVATE ${ONNF_SRC_ROOT} ${ONNF_BIN_ROOT}
         ${ONNF_SRC_ROOT})
