@@ -145,9 +145,9 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     auto memRefInType = operands[0].getType().cast<MemRefType>();
     auto memRefInShape = memRefInType.getShape();
-    auto tensorOutType = (*op->result_type_begin()).cast<TensorType>();
+    auto memRefOutType = convertToMemRefType(*op->result_type_begin());
     int64_t inRank = memRefInType.getRank();
-    int64_t outRank = tensorOutType.getRank();
+    int64_t outRank = memRefOutType.getRank();
 
     // Get attributes
     ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).axesAttr();
@@ -171,7 +171,6 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     bool isKeepdims = (keepdims == 1) ? true : false;
 
     // Get type information
-    auto memRefOutType = convertTensorToMemRef(tensorOutType);
     auto memRefOutShape = memRefOutType.getShape();
     auto elementOutType = memRefOutType.getElementType();
     std::map<int64_t, int64_t> outInDimMap =

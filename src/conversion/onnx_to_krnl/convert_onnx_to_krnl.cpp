@@ -37,10 +37,18 @@ static bool hasAllConstantDimensions(MemRefType type) {
   return true;
 }
 
-/// Convert the given TensorType into the corresponding MemRefType.
-static MemRefType convertTensorToMemRef(TensorType type) {
-  assert(type.hasRank() && "expected only ranked shapes");
-  return MemRefType::get(type.getShape(), type.getElementType());
+/// Get the corresponding MemRefType of a given TensorType/MemRefType.
+static MemRefType convertToMemRefType(Type type) {
+  MemRefType memRefType;
+  auto tensorType = type.dyn_cast<TensorType>();
+  if (tensorType) {
+    assert(tensorType.hasRank() && "expected only ranked shapes");
+    memRefType =
+        MemRefType::get(tensorType.getShape(), tensorType.getElementType());
+  } else {
+    memRefType = type.dyn_cast<MemRefType>();
+  }
+  return memRefType;
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
@@ -430,8 +438,8 @@ struct TensorTypeConverter : public TypeConverter {
   }
 
   static LogicalResult convertType(Type t, SmallVectorImpl<Type> &results) {
-    if (auto tensor_type = t.dyn_cast<TensorType>()) {
-      results.push_back(convertTensorToMemRef(tensor_type));
+    if (auto type = convertToMemRefType(t)) {
+      results.push_back(type);
       return success();
     }
 

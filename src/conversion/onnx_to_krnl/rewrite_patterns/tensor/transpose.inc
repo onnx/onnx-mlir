@@ -15,10 +15,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
   PatternMatchResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
-    auto tensorType = (*op->result_type_begin()).cast<TensorType>();
     auto loc = op->getLoc();
     // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertTensorToMemRef(tensorType);
+    auto memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
 

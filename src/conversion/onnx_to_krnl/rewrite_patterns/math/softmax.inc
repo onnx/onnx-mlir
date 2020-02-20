@@ -18,8 +18,8 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     //                let exp_x = exp(x - max_x) in
     //                  let sum = sum(exp_x) in
     //                    exp_x / sum
-    auto tensorType = (*op->result_type_begin()).cast<RankedTensorType>();
-    int64_t rank = tensorType.getRank();
+    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    int64_t rank = memRefType.getRank();
     int64_t axis = llvm::dyn_cast<ONNXSoftmaxOp>(op).axis().getSExtValue();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
@@ -27,7 +27,6 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertTensorToMemRef(tensorType);
     auto elementType = memRefType.getElementType();
 
     Value alloc;

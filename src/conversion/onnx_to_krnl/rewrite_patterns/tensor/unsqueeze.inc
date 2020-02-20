@@ -16,8 +16,8 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
-    auto tensorType = (*op->result_type_begin()).cast<TensorType>();
-    int outRank = tensorType.getRank();
+    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    int outRank = memRefType.getRank();
 
     // Assume that `axes` has been validated by shape inference.
     // So, here we just get it.
@@ -30,7 +30,6 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
     }
 
     // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertTensorToMemRef(tensorType);
     Value alloc;
 
     // Compute size in bytes.
