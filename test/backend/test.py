@@ -98,7 +98,7 @@ test_to_enable = [
     "test_gemm_alpha_cpu",
     "test_gemm_beta_cpu",
     "test_gemm_default_matrix_bias_cpu",
-    # "test_gemm_default_no_bias_cpu", <- error, need support for optional operands
+    "test_gemm_default_no_bias_cpu",
     "test_gemm_default_scalar_bias_cpu",
     "test_gemm_default_single_elem_vector_bias_cpu",
     "test_gemm_default_vector_bias_cpu",
