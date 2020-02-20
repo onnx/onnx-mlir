@@ -435,6 +435,21 @@ private:
   }
 
   /*!
+   * Special handle for BatchNormalization operations.
+   */
+  void ImportNodeBatchNormalization(onnx::NodeProto node, int nIn, int nOut) {
+    int nOuts = node.output().size();
+    if (nOuts == 1) {
+      // Test mode with one output.
+      ImportNodeOneOut<mlir::ONNXBatchNormalizationTestModeOp>(node, nIn,
+                                                               nOuts);
+    } else {
+      // Training mode with four trailing optional outputs. Not handled yet.
+      ImportNodeMultipleOuts<mlir::ONNXBatchNormalizationOp>(node, nIn, nOuts);
+    }
+  }
+
+  /*!
    * Special handle for Gemm operations.
    */
   void ImportNodeGemm(onnx::NodeProto node, int nIn, int nOut) {

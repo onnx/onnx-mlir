@@ -36,6 +36,7 @@ special_attr_defaults = dict([
 special_op_handler = dict([
         ("Conv", "ImportNodeConv"),
         ("MaxPool", "ImportNodeMaxPool"),
+        ("BatchNormalization", "ImportNodeBatchNormalization"),
         ("Gemm", "ImportNodeGemm"),
         ("Pad", "ImportNodePad"),
         #("Transpose", "ImportNodeTranspose")

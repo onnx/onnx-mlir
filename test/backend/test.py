@@ -301,6 +301,10 @@ test_to_enable = [
     "test_matmul_3d_cpu",
     "test_matmul_4d_cpu",
 
+    # BatchNormalization (test mode)
+    "test_batchnorm_epsilon_cpu",
+    "test_batchnorm_example_cpu",
+
 ]
 
 # Extract name of all test cases.

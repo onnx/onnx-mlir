@@ -30,7 +30,7 @@
     }else if (OpName == "AveragePool") {
        ImportNodeOneOut<mlir::ONNXAveragePoolOp>(node, 1, 1);
     }else if (OpName == "BatchNormalization") {
-       ImportNodeMultipleOuts<mlir::ONNXBatchNormalizationOp>(node, 5, 5);
+       ImportNodeBatchNormalization(node, 5, 5);
     }else if (OpName == "BitShift") {
        ImportNodeOneOut<mlir::ONNXBitShiftOp>(node, 2, 1);
     }else if (OpName == "Cast") {
