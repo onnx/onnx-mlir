@@ -332,6 +332,42 @@ ONNX BatchNormalization operation
 1. `saved_mean`: memref of any type values or tensor of any type values
 1. `saved_var`: memref of any type values or tensor of any type values
 
+### onnx.BatchNormalizationTestMode (ONNXBatchNormalizationTestModeOp)
+ONNX BatchNormalization operation in test mode
+
+#### Description:
+
+
+"Carries out batch normalization as described in the paper"
+"https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,"
+"there are multiple cases for the number of outputs, which we list below:"
+""
+"Output case #1: Y, mean, var, saved_mean, saved_var (training mode)"
+"Output case #2: Y (test mode)"
+""
+"For previous (depreciated) non-spatial cases, implementors are suggested"
+"to flatten the input shape to (N x C*D1*D2 ..*Dn) before a BatchNormalization Op."
+"This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
+
+#### Operands:
+
+1. `X`: memref of any type values or tensor of any type values
+1. `scale`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values
+1. `mean`: memref of any type values or tensor of any type values
+1. `var`: memref of any type values or tensor of any type values
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `epsilon` | `FloatAttr` | 32-bit float attribute attribute |
+| `momentum` | `FloatAttr` | 32-bit float attribute attribute |
+
+#### Results:
+
+1. `o_Y`: memref of any type values or tensor of any type values
+
 ### onnx.BitShift (ONNXBitShiftOp)
 ONNX BitShift operation
 

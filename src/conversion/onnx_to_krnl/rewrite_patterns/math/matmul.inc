@@ -15,7 +15,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   PatternMatchResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
-    auto tensorType = (*op->result_type_begin()).cast<TensorType>();
     auto loc = op->getLoc();
 
     Value A = operands[0];
@@ -29,7 +28,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // - Both arguments are 1-D
 
     // Result type
-    auto memRefType = convertTensorToMemRef(tensorType);
+    auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto elementType = memRefType.getElementType();
     auto memRefShape = memRefType.getShape();
 

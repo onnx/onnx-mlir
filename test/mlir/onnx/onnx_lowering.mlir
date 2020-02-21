@@ -795,12 +795,42 @@ func @test_gemm(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tenso
   // CHECK: [[SUM:%.+]] = addf [[Y]], [[AB]] : f32
   // CHECK: store [[SUM]], [[RES]][%arg3, %arg4] : memref<10x10xf32>
   // CHECK: }
-  // CHECK: [[C:%.+]] = load %arg2[%arg4] : memref<10xf32>
   // CHECK: [[LOAD_Y:%.+]] = load [[RES]][%arg3, %arg4] : memref<10x10xf32>
   // CHECK: [[ALPHA_AB:%.+]] = mulf [[ALPHA]], [[LOAD_Y]] : f32
+  // CHECK: [[C:%.+]] = load %arg2[%arg4] : memref<10xf32>
   // CHECK: [[BETA_C:%.+]] = mulf [[BETA]], [[C]] : f32
   // CHECK: [[Y_RES:%.+]] = addf [[ALPHA_AB]], [[BETA_C]] : f32
   // CHECK: store [[Y_RES]], [[RES]][%arg3, %arg4] : memref<10x10xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<10x10xf32>
+  // CHECK: }
+}
+
+func @test_gemm_no_bias(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>) -> tensor<*xf32> {
+  %0 ="onnx.GemmNoBias"(%arg0, %arg1) {alpha = 1.0 : f32, beta = 5.0 : f32, transA = 1, transB = 0} : (tensor<5x10xf32>, tensor<5x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_gemm_no_bias
+  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
+  // CHECK: [[ALPHA:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[BETA:%.+]] = constant 5.000000e+00 : f32
+  // CHECK: [[DEF_LOOPS:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[OPT_LOOPS:%.+]]:3 = krnl.optimize_loops  {
+  // CHECK: krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1, [[DEF_LOOPS]]#2
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#2) with ([[DEF_LOOPS]]#2 -> %arg4 = 0 to 5) {
+  // CHECK: [[A:%.+]] = load %arg0[%arg4, %arg2] : memref<5x10xf32>
+  // CHECK: [[B:%.+]] = load %arg1[%arg4, %arg3] : memref<5x10xf32>
+  // CHECK: [[Y:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[AB:%.+]] = mulf [[A]], [[B]] : f32
+  // CHECK: [[SUM:%.+]] = addf [[Y]], [[AB]] : f32
+  // CHECK: store [[SUM]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: }
+  // CHECK: [[LOAD_Y:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[ALPHA_AB:%.+]] = mulf [[ALPHA]], [[LOAD_Y]] : f32
+  // CHECK: store [[ALPHA_AB]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: }
   // CHECK: return [[RES]] : memref<10x10xf32>
   // CHECK: }
 }
@@ -1283,3 +1313,63 @@ func @test_conv_no_bias_no_pad_w_strides(%arg0 : tensor<1x9x32x64xf32>, %arg1 : 
 
   // CHECK: return [[RES]] : memref<1x5x14x29xf32>
 }
+
+func @test_batchnorm_testmode_Nd(%arg0: tensor<1x2x1x3xf32>, %arg1: tensor<2xf32>, %arg2: tensor<2xf32>, %arg3: tensor<2xf32>, %arg4: tensor<2xf32>) -> tensor<1x2x1x3xf32> {
+  %0 = "onnx.BatchNormalizationTestMode"(%arg0, %arg1, %arg2, %arg3, %arg4) : (tensor<1x2x1x3xf32>, tensor<2xf32>, tensor<2xf32>, tensor<2xf32>, tensor<2xf32>) -> tensor<1x2x1x3xf32>
+  return %0 : tensor<1x2x1x3xf32>
+
+  // CHECK-LABEL: test_batchnorm_testmode_Nd
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x2x1x3xf32>
+  // CHECK: [[EPSILON:%.+]] = constant 9.99999974E-6 : f32
+  // CHECK: [[DEF_LOOPS:%.+]]:4 = krnl.define_loops 4
+  // CHECK: [[OPT_LOOPS:%.+]]:4 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1, [[DEF_LOOPS]]#2, [[DEF_LOOPS]]#3
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#1 -> %arg5 = 0 to 2) {
+  // CHECK:   [[SCALE:%.+]] = load %arg1[%arg5] : memref<2xf32>
+  // CHECK:   [[BIAS:%.+]] = load %arg2[%arg5] : memref<2xf32>
+  // CHECK:   [[MEAN:%.+]] = load %arg3[%arg5] : memref<2xf32>
+  // CHECK:   [[VARIANCE:%.+]] = load %arg4[%arg5] : memref<2xf32>
+  // CHECK:   krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#2, [[OPT_LOOPS]]#3) with ([[DEF_LOOPS]]#0 -> %arg6 = 0 to 1, [[DEF_LOOPS]]#2 -> %arg7 = 0 to 1, [[DEF_LOOPS]]#3 -> %arg8 = 0 to 3) {
+  // CHECK:     [[LOADED_VAL:%.+]] = load %arg0[%arg6, %arg5, %arg7, %arg8] : memref<1x2x1x3xf32>
+  // CHECK:     [[DIVIDEND:%.+]] = subf [[LOADED_VAL]], [[MEAN]] : f32
+  // CHECK:     [[ADJUSTED_VARIANCE:%.+]] = addf [[VARIANCE]], [[EPSILON]] : f32
+  // CHECK:     [[DIVISOR:%.+]] = "krnl.sqrt"([[ADJUSTED_VARIANCE]]) : (f32) -> f32
+  // CHECK:     [[NORM:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
+  // CHECK:     [[SCALE_NORM:%.+]] = mulf [[SCALE]], [[NORM]] : f32
+  // CHECK:     [[SHIFT_SCALE_NORM:%.+]] = addf [[SCALE_NORM]], [[BIAS]] : f32
+  // CHECK:     store [[SHIFT_SCALE_NORM]], [[RES]][%arg6, %arg5, %arg7, %arg8] : memref<1x2x1x3xf32>
+  // CHECK:   }
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<1x2x1x3xf32>
+}
+
+func @test_batchnorm_testmode_1d(%arg0: tensor<10xf32>, %arg1: tensor<1xf32>, %arg2: tensor<1xf32>, %arg3: tensor<1xf32>, %arg4: tensor<1xf32>) -> tensor<10xf32> {
+  %0 = "onnx.BatchNormalizationTestMode"(%arg0, %arg1, %arg2, %arg3, %arg4) : (tensor<10xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<10xf32>
+  return %0 : tensor<10xf32>
+
+  // CHECK-LABEL: test_batchnorm_testmode_1d
+  // CHECK: [[RES:%.+]] = alloc() : memref<10xf32>
+  // CHECK: [[EPSILON:%.+]] = constant 9.99999974E-6 : f32
+  // CHECK: [[DEF_LOOPS:%.+]] = krnl.define_loops 1
+  // CHECK: [[OPT_LOOPS:%.+]] = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]
+  // CHECK: } : () -> !krnl.loop
+  // CHECK: %[[ZERO_INDEX:.+]] = constant 0 : index
+  // CHECK: [[SCALE:%.+]] = load %arg1[%[[ZERO_INDEX]]] : memref<1xf32>
+  // CHECK: [[BIAS:%.+]] = load %arg2[%[[ZERO_INDEX]]] : memref<1xf32>
+  // CHECK: [[MEAN:%.+]] = load %arg3[%[[ZERO_INDEX]]] : memref<1xf32>
+  // CHECK: [[VARIANCE:%.+]] = load %arg4[%[[ZERO_INDEX]]] : memref<1xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]) with ([[DEF_LOOPS]] -> %arg5 = 0 to 10) {
+  // CHECK:   [[LOADED_VAL:%.+]] = load %arg0[%arg5] : memref<10xf32>
+  // CHECK:   [[DIVIDEND:%.+]] = subf [[LOADED_VAL]], [[MEAN]] : f32
+  // CHECK:   [[ADJUSTED_VARIANCE:%.+]] = addf [[VARIANCE]], [[EPSILON]] : f32
+  // CHECK:   [[DIVISOR:%.+]] = "krnl.sqrt"([[ADJUSTED_VARIANCE]]) : (f32) -> f32
+  // CHECK:   [[NORM:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
+  // CHECK:   [[SCALE_NORM:%.+]] = mulf [[SCALE]], [[NORM]] : f32
+  // CHECK:   [[SHIFT_SCALE_NORM:%.+]] = addf [[SCALE_NORM]], [[BIAS]] : f32
+  // CHECK:   store [[SHIFT_SCALE_NORM]], [[RES]][%arg5] : memref<10xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<10xf32>
+}
+

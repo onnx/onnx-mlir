@@ -24,6 +24,7 @@
 #include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
+#include "mlir/InitAllDialects.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Module.h"
 #include "mlir/Parser.h"
@@ -69,6 +70,10 @@ void EmitLLVMBitCode(const mlir::OwningModuleRef &module) {
 }
 
 int main(int argc, char *argv[]) {
+  mlir::registerDialect<mlir::AffineOpsDialect>();
+  mlir::registerDialect<mlir::LLVM::LLVMDialect>();
+  mlir::registerDialect<mlir::loop::LoopOpsDialect>();
+  mlir::registerDialect<mlir::StandardOpsDialect>();
   mlir::registerDialect<mlir::ONNXOpsDialect>();
   mlir::registerDialect<mlir::KrnlOpsDialect>();
 

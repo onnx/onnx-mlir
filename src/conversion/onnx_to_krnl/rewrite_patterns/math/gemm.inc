@@ -8,33 +8,34 @@
 //
 //===----------------------------------------------------------------------===//
 
+template <typename GemmOp>
 struct ONNXGemmOpLowering : public ConversionPattern {
   ONNXGemmOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXGemmOp::getOperationName(), 1, ctx) {}
+      : ConversionPattern(GemmOp::getOperationName(), 1, ctx) {}
 
   PatternMatchResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
-    auto tensorType = (*op->result_type_begin()).cast<TensorType>();
     auto loc = op->getLoc();
+    auto has_bias = (operands.size() == 3);
 
     Value A, B, C;
     A = operands[0];
     B = operands[1];
-    C = operands[2];
+    if (has_bias)
+      C = operands[2];
 
-    auto alphaAttr = FloatAttr::get(tensorType.getElementType(),
-        llvm::dyn_cast<ONNXGemmOp>(op).alpha().convertToFloat());
-    auto betaAttr = FloatAttr::get(tensorType.getElementType(),
-        llvm::dyn_cast<ONNXGemmOp>(op).beta().convertToFloat());
+    auto memRefType = convertToMemRefType(*op->result_type_begin());
+
+    auto alphaAttr = FloatAttr::get(memRefType.getElementType(),
+        llvm::dyn_cast<GemmOp>(op).alpha().convertToFloat());
+    auto betaAttr = FloatAttr::get(memRefType.getElementType(),
+        llvm::dyn_cast<GemmOp>(op).beta().convertToFloat());
     auto alpha = rewriter.create<ConstantOp>(loc, alphaAttr);
     auto beta = rewriter.create<ConstantOp>(loc, betaAttr);
 
-    bool isTransA = (llvm::dyn_cast<ONNXGemmOp>(op).transA() != 0);
-    bool isTransB = (llvm::dyn_cast<ONNXGemmOp>(op).transB() != 0);
-
-    // Result type
-    auto memRefType = convertTensorToMemRef(tensorType);
+    bool isTransA = (llvm::dyn_cast<GemmOp>(op).transA() != 0);
+    bool isTransB = (llvm::dyn_cast<GemmOp>(op).transB() != 0);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
@@ -118,14 +119,16 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // GemmOp supports unidirectional broadcasting from C to A*B.
     // Hence, it must be enough to get broadcasting information for C only.
     std::map<int, Value> broadcastedDimInfo;
-    auto shape = C.getType().cast<MemRefType>().getShape();
-    for (int i = 0; i < shape.size(); ++i) {
-      if (shape[i] < 0) {
-        auto dim = rewriter.create<DimOp>(loc, C, i).getResult();
-        auto one = rewriter.create<ConstantIndexOp>(loc, 1);
-        auto isBroadcasted =
-          rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, dim, one);
-        broadcastedDimInfo.insert(std::make_pair(i, isBroadcasted));
+    if (has_bias) {
+      auto shape = C.getType().cast<MemRefType>().getShape();
+      for (int i = 0; i < shape.size(); ++i) {
+        if (shape[i] < 0) {
+          auto dim = rewriter.create<DimOp>(loc, C, i).getResult();
+          auto one = rewriter.create<ConstantIndexOp>(loc, 1);
+          auto isBroadcasted =
+              rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, dim, one);
+          broadcastedDimInfo.insert(std::make_pair(i, isBroadcasted));
+        }
       }
     }
 
@@ -157,14 +160,18 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     auto matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, reductionPack);
 
     // Compute beta*C, and add up to alpha*A*B (unidirectional broadcasting)
-    auto loopCIVs = getLoopIVsForBroadcasting(
-        loc, rewriter, loopMNIVs, C, broadcastedDimInfo);
-    auto loadedC = rewriter.create<LoadOp>(loc, C, loopCIVs);
     auto loadedAB = rewriter.create<LoadOp>(loc, alloc, loopMNIVs);
     auto alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
-    auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
-    auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-    rewriter.create<StoreOp>(loc, Y, alloc, loopMNIVs);
+    if (has_bias) {
+      auto loopCIVs = getLoopIVsForBroadcasting(loc, rewriter, loopMNIVs, C,
+                                                broadcastedDimInfo);
+      auto loadedC = rewriter.create<LoadOp>(loc, C, loopCIVs);
+      auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
+      auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
+      rewriter.create<StoreOp>(loc, Y, alloc, loopMNIVs);
+    } else {
+      rewriter.create<StoreOp>(loc, alphaAB, alloc, loopMNIVs);
+    }
 
     // Insert instructions to do matrix multiplication: A*B
     Block &matmulIterationBlock = matmulIterateOp.bodyRegion().front();
@@ -205,5 +212,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
 void populateLoweringONNXGemmOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXGemmOpLowering>(ctx);
+  patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
+  patterns.insert<ONNXGemmOpLowering<ONNXGemmNoBiasOp>>(ctx);
 }

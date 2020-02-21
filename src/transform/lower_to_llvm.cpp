@@ -224,7 +224,10 @@ public:
 
     // Based on the static entry point type signature, unpack dynamic memory
     // refs to corresponding static memory refs.
-    auto *staticEntryPointFunc = module.lookupSymbol(staticEntryPointFuncName);
+    auto wrappedStaticEntryPointFuncName =
+        "_mlir_ciface_" + staticEntryPointFuncName.lower();
+    auto *staticEntryPointFunc =
+        module.lookupSymbol(wrappedStaticEntryPointFuncName);
     assert(staticEntryPointFunc &&
            isa<LLVM::LLVMFuncOp>(staticEntryPointFunc) &&
            "entry point func must exist and be an llvm func op");
@@ -268,7 +271,8 @@ public:
     // Call static entry point with the memref ptrs created, and get output.
     auto outputMemRefs = rewriter.create<LLVM::CallOp>(
         loc, staticEntryPointTy.getFunctionResultType(),
-        rewriter.getSymbolRefAttr(staticEntryPointFuncName), staticInputs);
+        rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
+        staticInputs);
 
     // Create wrapped output.
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
@@ -563,7 +567,9 @@ void KrnlToLLVMLoweringPass::runOnModule() {
   OwningRewritePatternList patterns;
   populateAffineToStdConversionPatterns(patterns, &getContext());
   populateLoopToStdConversionPatterns(patterns, &getContext());
-  populateStdToLLVMConversionPatterns(typeConverter, patterns);
+  populateStdToLLVMConversionPatterns(typeConverter, patterns,
+                                      /*useAlloca=*/false,
+                                      /*emitCWrapper=*/true);
 
   // Lower from the `krnl` dialect i.e. the Reshape operation.
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering,

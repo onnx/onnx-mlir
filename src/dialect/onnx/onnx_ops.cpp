@@ -586,10 +586,70 @@ void ONNXGemmNoBiasOp::inferShapes() {
     return;
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+
+  int64_t M, N, K_A, K_B;
+  M = (transA() == 0) ? lhsTy.getShape()[0] : lhsTy.getShape()[1];
+  K_A = (transA() == 0) ? lhsTy.getShape()[1] : lhsTy.getShape()[0];
+  N = (transB() == 0) ? rhsTy.getShape()[1] : rhsTy.getShape()[0];
+  K_B = (transB() == 0) ? rhsTy.getShape()[0] : rhsTy.getShape()[1];
+
+  if ((K_A != -1) and (K_B != -1) and (K_A != K_B)) {
+    emitError("Tensor shapes mismatched.");
+  }
+
   SmallVector<int64_t, 2> dims;
-  dims.emplace_back(lhsTy.getShape()[0]);
-  dims.emplace_back(rhsTy.getShape()[1]);
+  dims.emplace_back(M);
+  dims.emplace_back(N);
   getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
+}
+
+/// BatchNormalizationTestMode
+void ONNXBatchNormalizationTestModeOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>() ||
+      !getOperand(2).getType().isa<RankedTensorType>() ||
+      !getOperand(3).getType().isa<RankedTensorType>() ||
+      !getOperand(4).getType().isa<RankedTensorType>())
+    return;
+
+  auto input = getOperand(0).getType().cast<RankedTensorType>();
+  auto scale = getOperand(1).getType().cast<RankedTensorType>();
+  auto bias = getOperand(2).getType().cast<RankedTensorType>();
+  auto mean = getOperand(3).getType().cast<RankedTensorType>();
+  auto variance = getOperand(4).getType().cast<RankedTensorType>();
+
+  // Check whether the shapes of scale, bias, mean and variance are valid.
+  // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
+  // In case of N, C is assumed to be 1.
+  // Shapes of scale, bias, mean and variance must be C.
+  int64_t c = -1;
+  if (input.getShape().size() == 1) {
+    c = 1;
+  } else if (input.getShape().size() > 2) {
+    c = (input.getShape()[1] != -1) ? input.getShape()[1] : -1;
+  } else {
+    emitError("Wrong rank for the input.");
+  }
+
+  if (c != -1) {
+    auto s = scale.getShape();
+    auto b = bias.getShape();
+    auto m = mean.getShape();
+    auto v = variance.getShape();
+
+    if ((s.size() != 1) || (s[0] != -1 && s[0] != c))
+      emitError("Wrong rank for the scale.");
+    if ((b.size() != 1) || (b[0] != -1 && b[0] != c))
+      emitError("Wrong rank for the bias.");
+    if ((m.size() != 1) || (m[0] != -1 && m[0] != c))
+      emitError("Wrong rank for the mean.");
+    if ((v.size() != 1) || (v[0] != -1 && v[0] != c))
+      emitError("Wrong rank for the variance.");
+  }
+
+  // The output tensor of the same shape as the input.
+  getResult().setType(getOperand(0).getType());
 }
 
 // TODO:

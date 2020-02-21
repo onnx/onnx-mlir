@@ -9,6 +9,7 @@
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/ToolOutputFile.h>
+#include <mlir/InitAllDialects.h>
 #include <mlir/Pass/Pass.h>
 #include <mlir/Pass/PassManager.h>
 #include <mlir/Support/FileUtilities.h>
@@ -46,6 +47,10 @@ static llvm::cl::opt<bool> verify_passes(
     llvm::cl::init(true));
 
 int main(int argc, char **argv) {
+  mlir::registerDialect<mlir::AffineOpsDialect>();
+  mlir::registerDialect<mlir::LLVM::LLVMDialect>();
+  mlir::registerDialect<mlir::loop::LoopOpsDialect>();
+  mlir::registerDialect<mlir::StandardOpsDialect>();
   llvm::InitLLVM y(argc, argv);
 
   mlir::registerDialect<mlir::ONNXOpsDialect>();

@@ -37,10 +37,18 @@ static bool hasAllConstantDimensions(MemRefType type) {
   return true;
 }
 
-/// Convert the given TensorType into the corresponding MemRefType.
-static MemRefType convertTensorToMemRef(TensorType type) {
-  assert(type.hasRank() && "expected only ranked shapes");
-  return MemRefType::get(type.getShape(), type.getElementType());
+/// Get the corresponding MemRefType of a given TensorType/MemRefType.
+static MemRefType convertToMemRefType(Type type) {
+  MemRefType memRefType;
+  auto tensorType = type.dyn_cast<TensorType>();
+  if (tensorType) {
+    assert(tensorType.hasRank() && "expected only ranked shapes");
+    memRefType =
+        MemRefType::get(tensorType.getShape(), tensorType.getElementType());
+  } else {
+    memRefType = type.dyn_cast<MemRefType>();
+  }
+  return memRefType;
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
@@ -396,6 +404,7 @@ Value mapToLowerScalarOp(Operation *op, ArrayRef<Type> result_types,
 #include "src/conversion/onnx_to_krnl/rewrite_patterns/tensor/unsqueeze.inc"
 // Neural network
 #include "src/conversion/onnx_to_krnl/rewrite_patterns/nn/conv.inc"
+#include "src/conversion/onnx_to_krnl/rewrite_patterns/nn/normalization.inc"
 
 //===----------------------------------------------------------------------===//
 // EntryPoint Op lowering to Krnl Entry Point.
@@ -425,9 +434,13 @@ public:
 struct TensorTypeConverter : public TypeConverter {
   using TypeConverter::TypeConverter;
 
-  LogicalResult convertType(Type t, SmallVectorImpl<Type> &results) override {
-    if (auto tensor_type = t.dyn_cast<TensorType>()) {
-      results.push_back(convertTensorToMemRef(tensor_type));
+  TensorTypeConverter() {
+    addConversion(convertType);
+  }
+
+  static LogicalResult convertType(Type t, SmallVectorImpl<Type> &results) {
+    if (auto type = convertToMemRefType(t)) {
+      results.push_back(type);
       return success();
     }
 
@@ -511,6 +524,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
   populateLoweringONNXIdentityOpPattern(patterns, &getContext());
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, &getContext());
+  populateLoweringONNXNormalizationOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
 

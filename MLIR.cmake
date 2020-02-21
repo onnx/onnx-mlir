@@ -58,9 +58,11 @@ find_mlir_lib(MLIRAffineOps)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAnalysis)
 find_mlir_lib(MLIRDialect)
+find_mlir_lib(MLIREDSC)
 find_mlir_lib(MLIRExecutionEngine)
 find_mlir_lib(MLIRIR)
 find_mlir_lib(MLIRLLVMIR)
+find_mlir_lib(MLIRLoopAnalysis)
 find_mlir_lib(MLIRLoopToStandard)
 find_mlir_lib(MLIRLoopOps)
 find_mlir_lib(MLIRParser)
@@ -71,7 +73,8 @@ find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransforms)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRSupport)
-find_mlir_lib(MLIROptMain)
+find_mlir_lib(MLIRMlirOptMain)
+find_mlir_lib(MLIROptLib)
 find_mlir_lib(MLIRTargetLLVMIRModuleTranslation)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransformUtils)
@@ -117,12 +120,15 @@ set(MLIRLibsOnce
         ${MLIRAffineToStandard}
         ${MLIRAnalysis}
         ${MLIRDialect}
+        ${MLIREDSC}
         ${MLIRExecutionEngine}
         ${MLIRIR}
         ${MLIRLLVMIR}
         ${MLIRLoopToStandard}
         ${MLIRLoopOps}
-        ${MLIROptMain}
+        ${MLIRLoopAnalysis}
+        ${MLIRMlirOptMain}
+        ${MLIROptLib}
         ${MLIRParser}
         ${MLIRPass}
         ${MLIRStandardOps}

@@ -146,6 +146,31 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
 }
 
+def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ONNX BatchNormalization operation in test mode";
+  let description = [{
+    "Carries out batch normalization as described in the paper"
+    "https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,"
+    "there are multiple cases for the number of outputs, which we list below:"
+    ""
+    "Output case #1: Y, mean, var, saved_mean, saved_var (training mode)"
+    "Output case #2: Y (test mode)"
+    ""
+    "For previous (depreciated) non-spatial cases, implementors are suggested"
+    "to flatten the input shape to (N x C*D1*D2 ..*Dn) before a BatchNormalization Op."
+    "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
+  }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$scale,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$mean,
+           AnyTypeOf<[AnyMemRef, AnyTensor]>:$var,
+           DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
+           DefaultValuedAttr<F32Attr, "0.9">:$momentum);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
+}
+
 def ONNXPadConstantValueOp : ONNX_Op<"PadConstantValue",
     [NoSideEffect ]> {
   let summary = "ONNX Pad operation with constant padding value";
