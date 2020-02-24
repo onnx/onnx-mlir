@@ -1,4 +1,5 @@
 #include "mlir/Dialect/AffineOps/AffineOps.h"
+#include "mlir/Dialect/StandardOps/Ops.h"
 #include "mlir/IR/AffineExpr.h"
 
 #include "src/dialect/krnl/krnl_ops.hpp"
@@ -9,9 +10,8 @@ namespace onnf {
 
 using namespace mlir;
 
-ParseResult
-KrnlDialectOperandParser::ParseOptionalOperand(const Type &operandType,
-                                               Value &operand) {
+ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
+    const Type &operandType, Value &operand) {
   // If operand queue is empty, parse more operands and cache them.
   if (_operandRefQueue.empty()) {
     // Parse operand types:
@@ -19,7 +19,7 @@ KrnlDialectOperandParser::ParseOptionalOperand(const Type &operandType,
     _parser.parseOperandList(operand_refs);
 
     // Record operands:
-    for (auto& operand_ref : operand_refs)
+    for (auto &operand_ref : operand_refs)
       _operandRefQueue.emplace(operand_ref);
   }
 
@@ -48,8 +48,8 @@ ParseResult KrnlDialectOperandParser::ParseOptionalOperand(
   return success();
 }
 
-ParseResult KrnlDialectOperandParser::ParseOperand(const Type &operandType,
-                                                   Value &operand) {
+ParseResult KrnlDialectOperandParser::ParseOperand(
+    const Type &operandType, Value &operand) {
   if (ParseOptionalOperand(operandType, operand))
     return _parser.emitError(
         _parser.getCurrentLocation(), "Expecting an operand.");
@@ -65,8 +65,8 @@ ParseResult KrnlDialectOperandParser::ParseOperand(
   return success();
 }
 
-void printDimAndSymbolList(Operation::operand_iterator& begin, unsigned numDims,
-    unsigned numSymbols, OpAsmPrinter& p) {
+void printDimAndSymbolList(Operation::operand_iterator &begin, unsigned numDims,
+    unsigned numSymbols, OpAsmPrinter &p) {
   p << '(';
   p.printOperands(begin, begin + numDims);
   p << ')';
@@ -81,8 +81,8 @@ void printDimAndSymbolList(Operation::operand_iterator& begin, unsigned numDims,
 }
 
 void printBound(AffineMapAttr boundMap,
-    Operation::operand_iterator& boundOperandsBeg, const char* prefix,
-    OpAsmPrinter& p) {
+    Operation::operand_iterator &boundOperandsBeg, const char *prefix,
+    OpAsmPrinter &p) {
   AffineMap map = boundMap.getValue();
 
   // Check if this bound should be printed using custom assembly form.
@@ -120,9 +120,10 @@ void printBound(AffineMapAttr boundMap,
   printDimAndSymbolList(
       boundOperandsBeg, map.getNumDims(), map.getNumSymbols(), p);
 }
-}  // namespace onnf
+} // namespace onnf
 
 namespace mlir {
+
 void KrnlIterateOperandPack::pushConstantBound(int64_t bound) {
   if (boundMaps.size() % 2 == 0)
     _operands.emplace_back(inputLoops[boundMaps.size() / 2]);
@@ -137,4 +138,125 @@ void KrnlIterateOperandPack::pushOperandBound(mlir::Value operand) {
   boundMaps.emplace_back(AffineMapAttr::get(map));
   _operands.emplace_back(operand);
 }
-}  // namespace mlir
+
+BuildKrnlLoop::BuildKrnlLoop(
+    ConversionPatternRewriter &rewriter, Location loc, int loopNum)
+    : rewriter(rewriter), loc(loc), originalLoopNum(loopNum), pack(NULL),
+      pushCount(0), createdDefineOp(false), createdOptimizeOp(false),
+      createdIterateOp(false) {
+  if (originalLoopNum <= 0)
+    emitError(loc, "expected positive number of original loops");
+}
+
+BuildKrnlLoop::BuildKrnlLoop(
+    ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand)
+    : BuildKrnlLoop(rewriter, loc,
+          memRefOperand.getType().cast<MemRefType>().getShape().size()) {}
+
+BuildKrnlLoop::~BuildKrnlLoop() {
+  if (!createdDefineOp)
+    emitError(loc, "expected to create define op");
+  if (!createdIterateOp)
+    emitError(loc, "expected to create iteration op");
+  if (pack)
+    free(pack);
+}
+
+void BuildKrnlLoop::createDefineAndOptimizeOp(bool withEmptyOptimization) {
+  // insert define loop op
+  auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, originalLoopNum);
+  originalLoops.reserve(originalLoopNum);
+  for (auto result : loopsOp.getResults())
+    originalLoops.push_back(result);
+  // inserte optimize loop op.
+  auto optimizedLoopsOp =
+      rewriter.create<KrnlOptimizeLoopsOp>(loc, originalLoopNum);
+  optLoops.reserve(originalLoopNum);
+  // Emit empty optimizations
+  if (withEmptyOptimization) {
+    for (auto result : optimizedLoopsOp.getResults())
+      optLoops.push_back(result);
+    optBlock = &optimizedLoopsOp.region().front();
+    auto ip = rewriter.saveInsertionPoint();
+    rewriter.setInsertionPointToEnd(optBlock);
+    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
+    rewriter.restoreInsertionPoint(ip);
+  }
+  // prepare data structure to push bounds
+  pack = new KrnlIterateOperandPack(rewriter, originalLoops, optLoops);
+  createdOptimizeOp = true;
+}
+
+// push bounds (lower and upper) and return index for loop info
+int BuildKrnlLoop::pushBounds(int64_t lowerBound, int64_t upperBound) {
+  pack->pushConstantBound(lowerBound);
+  pack->pushConstantBound(upperBound);
+  return pushCount++;
+}
+
+int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
+  pack->pushConstantBound(lowerBound);
+  pack->pushOperandBound(upperBound);
+  return pushCount++;
+}
+
+int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
+    int upperBoundMemRefIndex, bool upperBoundMustBeConstant) {
+  pack->pushConstantBound(lowerBound);
+  // process upperBound as a dimension of mem ref, possibly non-constant
+  auto shape = upperBoundMemRefOperand.getType().cast<MemRefType>().getShape();
+  if (shape[upperBoundMemRefIndex] < 0) {
+    if (upperBoundMustBeConstant)
+      emitError(loc, "bound expected to be constant");
+    pack->pushOperandBound(
+        rewriter
+            .create<DimOp>(loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
+            .getResult());
+  } else
+    pack->pushConstantBound(shape[upperBoundMemRefIndex]);
+  return pushCount++;
+}
+
+int BuildKrnlLoop::pushBounds(Value lowerBound, Value upperBound) {
+  pack->pushOperandBound(lowerBound);
+  pack->pushOperandBound(upperBound);
+  return pushCount++;
+}
+
+// create iter
+void BuildKrnlLoop::createIterateOp() {
+  if (!createdDefineOp)
+    emitError(loc, "must create define op before iterate op");
+  // Tight now, optimize (possibly empty) is mandatory. This may change
+  if (!createdOptimizeOp)
+    emitError(loc, "must create optimize op before iterate op");
+  // have to have defined all bounds
+  if (pushCount != originalLoopNum) {
+    printf(" push count %d, original loop %d\n", pushCount, originalLoopNum);
+    emitError(loc, "must push bounds for all original loops");
+  }
+  // create iterate op
+  auto iterateOp = rewriter.create<KrnlIterateOp>(loc, *pack);
+  iterBlock = &iterateOp.bodyRegion().front();
+  createdIterateOp = true;
+}
+
+void BuildKrnlLoop::createDefineOptimizeAndIterateOp(
+    Value memRefOperand, bool withEmptyOptimization) {
+  int loopNum = memRefOperand.getType().cast<MemRefType>().getShape().size();
+  if (originalLoopNum != loopNum)
+    emitError(loc, "mismatch in loop numbers from constructor and define");
+  createDefineAndOptimizeOp(withEmptyOptimization);
+  for (int i = 0; i < originalLoopNum; ++i)
+    pushBounds(0, memRefOperand, i);
+  createIterateOp();
+}
+
+// get induction variable to be use within iter
+BlockArgument &BuildKrnlLoop::getInductionVar(int originalLoopIndex) {
+  if (originalLoopIndex < 0 || originalLoopIndex >= originalLoopNum)
+    emitError(loc, "original loop index is out of bound");
+  return iterBlock->getArguments()[originalLoopIndex];
+}
+
+} // namespace mlir
