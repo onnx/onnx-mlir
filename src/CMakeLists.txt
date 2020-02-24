@@ -36,6 +36,11 @@ onnf_tablegen(onnx_combine.inc -gen-rewriters)
 add_public_tablegen_target(gen_onnx_combine)
 add_dependencies(compiler gen_onnx_combine)
 
+set(LLVM_TARGET_DEFINITIONS pass/onnx_rewrite.td)
+onnf_tablegen(onnx_rewrite.inc -gen-rewriters)
+add_public_tablegen_target(gen_onnx_rewrite)
+add_dependencies(compiler gen_onnx_rewrite)
+
 set(LLVM_TARGET_DEFINITIONS dialect/onnx/onnx.td)
 onnf_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 onnf_tablegen(onnx.cpp.inc -gen-op-defs "-I${CMAKE_SOURCE_DIR}/compiler/pass")

@@ -14,6 +14,18 @@ def ONNXAbsOp:ONNX_Op<"Abs",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let builders = [
+    OpBuilder<"Builder *builder, OperationState &state, Value X", [{
+      auto elementType = X.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), X);
+    }]>,
+    OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+  ];
 }
 
 def ONNXAcosOp:ONNX_Op<"Acos", 
@@ -649,6 +661,18 @@ def ONNXExpOp:ONNX_Op<"Exp",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let builders = [
+    OpBuilder<"Builder *builder, OperationState &state, Value input", [{
+      auto elementType = input.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), input);
+    }]>,
+    OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+  ];
 }
 
 def ONNXExpandOp:ONNX_Op<"Expand", 
@@ -1763,6 +1787,18 @@ def ONNXMulOp:ONNX_Op<"Mul",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
            AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let builders = [
+    OpBuilder<"Builder *builder, OperationState &state, Value A, Value B", [{
+      auto elementType = A.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), A, B);
+    }]>,
+    OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+  ];
 }
 
 def ONNXMultinomialOp:ONNX_Op<"Multinomial", 
@@ -2431,6 +2467,18 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
            OptionalAttr<I64ArrayAttr>:$axes,
            DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let builders = [
+    OpBuilder<"Builder *builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
+      auto elementType = data.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+    }]>,
+    OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+  ];
 }
 
 def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare", 
@@ -2449,6 +2497,18 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
            OptionalAttr<I64ArrayAttr>:$axes,
            DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let builders = [
+    OpBuilder<"Builder *builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
+      auto elementType = data.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+    }]>,
+    OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+  ];
 }
 
 def ONNXReluOp:ONNX_Op<"Relu", 

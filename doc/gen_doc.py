@@ -54,6 +54,15 @@ ShapeInferenceList=['Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid', 'Relu',
 CanonicalList=['Add', 'Identity', 'ReduceL1', 'ReduceL2', 'ReduceLogSum',
                'ReduceLogSumExp', 'ReduceSumSquare']
 
+#add an Op in this list if the Op needs result type deduction which is required
+#when writing declarative rewriting rules. Deduced type is always
+#an UnrankedTensorType whose element type is the same as the first operand's
+#element type.
+#currenlty, there are only two build methods generated:
+# - one with operands and attributes having a separate parameter, and
+# - one with operands and attributes having aggregated parameters.
+custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare']
+
 manual_code_in_op_def = dict([
       ('DummyExample', '  let extraClassDeclaration = [{ \n'+
                     '    static StringRef getPermAttrName() { return "perm"; }\n'+
@@ -345,38 +354,23 @@ def gen_schema(schema) :
     #input
     s+= '\n'+line_indent+'let arguments = (ins '
     isfirst = True
-    if schema.inputs:
-        isfirst = False
-        for input in schema.inputs:
-            if input != schema.inputs[0] :
-                s+= ',\n           '
-            etypes=collect_types(schema, input)
+    # add operands
+    operand_ins = get_operand_ins(schema)
+    for operand_type, operand_name in operand_ins:
+        if not isfirst:
+            s+= ',\n           '
+        else:
+            isfirst = False
+        s+=operand_type+':$'+operand_name
 
-            if OpSchema.FormalParameterOption.Optional == input.option:
-                #TODO: handle optional
-                print("warning: optional input for"+schema.name+' '+input.name)
-            elif OpSchema.FormalParameterOption.Variadic == input.option:
-                if input.isHomogeneous:
-                    s+= 'Variadic<'
-                else:
-                    #TODO handle  (variadic, heterogeneous)"
-                    print("warning: (variadic, heterogeneous) for"+schema.name+' '+input.name)
-            if etypes == '':
-                s+= 'AnyTypeOf<[AnyMemRef, AnyTensor]>'
-            else:
-                s+= 'TensorOf<['+etypes+']>'
-
-            if OpSchema.FormalParameterOption.Optional == input.option:
-                #TODO: handle optional
-                t=''
-            elif OpSchema.FormalParameterOption.Variadic == input.option:
-                if input.isHomogeneous:
-                    s+= '>'
-                else:
-                    #TODO handle  (variadic, heterogeneous)"
-                    t=''
-            s+=':$'+input.name
-    s += gen_attr_ins(schema, isfirst)
+    # add attributes
+    attr_ins = get_attr_ins(schema)
+    for attr_type, attr_name in attr_ins:
+        if not isfirst:
+            s += ',\n           '
+        else :
+            isfirst = False
+        s += attr_type+':$'+attr_name
     s+= ');'
 
     #output
@@ -395,6 +389,71 @@ def gen_schema(schema) :
     s+= ');\n'
 
     #s+= 'let hasCanonicalizer = 1;'
+
+    #TODO: any better way to do this.
+    def get_attr_type_for_builder(attr_type) :
+        if 'I64Attr' in attr_type :
+            mytype = 'IntegerAttr'
+        elif 'F32Attr' in attr_type :
+            mytype = 'FloatAttr'
+        elif 'I64ArrayAttr' in attr_type or 'F32ArrayAttr' in attr_type:
+            mytype = 'ArrayAttr'
+        elif 'StrAttr' in attr_type :
+            mytype = 'StringAttr'
+        elif 'strings' in attr_type :
+            mytype = 'ArrayAttr'
+        else :
+            mytype ='Attribute'
+        return mytype
+
+    def get_op_type_for_builder(op_type):
+        if op_type.startswith('Variadic'):
+            mytype = 'ValueRange'
+        else:
+            mytype = 'Value'
+        return mytype
+
+    # add custom builders
+    # use element type of the first operand to construct an UnrankedTensorType for the output.
+    if schema.name in custom_builder_ops_list:
+        if len(operand_ins) == 0:
+            print("warning: not generate custom build methods for " + schema.name + " since it does not have operands.")
+        else:
+            if get_op_type_for_builder(operand_ins[0][0]) == 'ValueRange':
+                first_operand = operand_ins[0][1]+'[0]'
+            else:
+                first_operand = operand_ins[0][1]
+
+            s += line_indent+'let builders = [\n'
+
+            # custom builders with operands and attributes having a seperate parameter.
+            # E.g. OpBuilder<"Builder *builder, OperationState &state, Value X, Value, Y, Attribute A", [{}]>
+            s += line_indent*2+'OpBuilder<"Builder *builder, OperationState &state'
+            for arg_type, arg_name in operand_ins:
+                s += ', '+get_op_type_for_builder(arg_type)+' '+arg_name
+            for attr_type, attr_name in attr_ins:
+                s += ', '+get_attr_type_for_builder(attr_type)+' '+attr_name
+            s += '", [{\n'
+            s += line_indent*3+'auto elementType = '+first_operand+'.getType().cast<TensorType>().getElementType();\n'
+            s += line_indent*3+'build(builder, state, UnrankedTensorType::get(elementType)'
+            for _, arg_name in operand_ins:
+                s += ', '+arg_name
+            for _, attr_name in attr_ins:
+                s += ', '+attr_name
+            s += ');\n'
+            s += line_indent*2+'}]>,\n'
+
+            # custom builders with all operands and attributes having aggregate parameters.
+            # E.g. OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{}]>'
+            s += line_indent*2+'OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
+            s += line_indent*3+'auto elementType = '+first_operand+'.getType().cast<TensorType>().getElementType();\n'
+            s += line_indent*3+'std::vector<mlir::Type> outputTypes;\n'
+            s += line_indent*3+'outputTypes.emplace_back(UnrankedTensorType::get(elementType));\n'
+            s += line_indent*3+'build(builder, state, outputTypes, operands, attributes);\n'
+            s += line_indent*2+'}]>'
+
+            s += '\n'+line_indent+'];\n'
+
     #add special code
     if schema.name in manual_code_in_op_def :
         s += manual_code_in_op_def[schema.name]
@@ -447,7 +506,41 @@ def gen_code(schema,fefile) :
     else:
         fefile.write(', '+variadicIn+', '+variadicOut+');\n')
 
-def gen_attr_ins(schema, isfirst) :
+def get_operand_ins(schema):
+    operand_type_and_name_list = []  # [(optype, opname)]
+    if schema.inputs:
+        for input in schema.inputs:
+            optype = ""
+
+            etypes=collect_types(schema, input)
+
+            if OpSchema.FormalParameterOption.Optional == input.option:
+                #TODO : handle optional
+                print("warning: optional input for"+schema.name+' '+input.name)
+            elif OpSchema.FormalParameterOption.Variadic == input.option:
+                if input.isHomogeneous:
+                    optype += 'Variadic<'
+                else:
+                    #TODO handle(variadic, heterogeneous) "
+                    print("warning: (variadic, heterogeneous) for"+schema.name+' '+input.name)
+            if etypes == '':
+                optype += 'AnyTypeOf<[AnyMemRef, AnyTensor]>'
+            else:
+                optype += 'TensorOf<['+etypes+']>'
+
+            if OpSchema.FormalParameterOption.Optional == input.option:
+                #TODO : handle optional
+                t=''
+            elif OpSchema.FormalParameterOption.Variadic == input.option:
+                if input.isHomogeneous:
+                    optype += '>'
+                else:
+                    #TODO handle(variadic, heterogeneous) "
+                    t=''
+            operand_type_and_name_list.append((optype, input.name))
+    return operand_type_and_name_list
+
+def get_attr_ins(schema) :
     
     def get_attr_type_basic(attr_type) :
         if attr_type == 'int' :
@@ -479,24 +572,22 @@ def gen_attr_ins(schema, isfirst) :
         mytype += ', "'+attr_default+'">'
         return mytype
 
+    attr_type_and_name_list = []  # :: [(attrtype, attrname)]
     attr_line = ''
     if schema.attributes:
         for _, attr in sorted(schema.attributes.items()):
             #attr_line = line_indent+line_indent+line_indent+line_indent
-            if not isfirst:
-                attr_line += ',\n           '
-            else :
-                isfirst = False
-            
+            found = False
+            attr_type = ""
             if schema.name+' '+attr.name in special_attr_defaults:
                 (attr_type_str, attr_default_str) = special_attr_defaults[schema.name+' '+attr.name]
-                attr_line += get_attr_type_with_default(attr_type_str, attr_default_str)
-                attr_line += ':$'+attr.name
+                attr_type = get_attr_type_with_default(attr_type_str, attr_default_str)
+                found = True
             elif attr.required:
                 s = Text(attr.type)
                 attr_type_str  = s[s.rfind('.') + 1:].lower()
-                attr_line += get_attr_type_basic(attr_type_str)
-                attr_line += ':$'+attr.name
+                attr_type = get_attr_type_basic(attr_type_str)
+                found = True
 
             # option holds either required or default value
             elif attr.default_value.name:
@@ -527,14 +618,15 @@ def gen_attr_ins(schema, isfirst) :
                 else:
                     default_value = format_value(default_value)
                     attr_option_str = default_value
-                attr_line += get_attr_type_with_default(attr_type_str, attr_option_str)
-                attr_line += ':$'+attr.name
+                attr_type = get_attr_type_with_default(attr_type_str, attr_option_str)
+                found = True
             else:
                 s = Text(attr.type)
                 attr_type_str  = s[s.rfind('.') + 1:].lower()
-                attr_line += get_attr_type_optional(attr_type_str)
-                attr_line += ':$'+attr.name
-    return attr_line
+                attr_type = get_attr_type_optional(attr_type_str)
+            if found:
+                attr_type_and_name_list.append((attr_type, attr.name))
+    return attr_type_and_name_list
 
 def main(args):  # type: (Type[Args]) -> None
     with io.open(args.changelog, 'w', newline='') as fout:
