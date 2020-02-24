@@ -121,6 +121,7 @@ private:
   mlir::MLIRContext &context_;
   mlir::ModuleOp module_;
   mlir::OpBuilder builder_;
+  mlir::Value none_;
   // mapping between string name and symbol
   OnnxOnnfSymbolMapping frontend_symbols_;
 
@@ -287,8 +288,8 @@ private:
     }
   }
 
-  std::vector<mlir::NamedAttribute> ImportNodeAttributes(
-      const onnx::NodeProto &node) {
+  std::vector<mlir::NamedAttribute>
+  ImportNodeAttributes(const onnx::NodeProto &node) {
     std::vector<mlir::NamedAttribute> attributes;
     for (int i = 0; i < node.attribute_size(); ++i) {
       auto attr = node.attribute(i);
@@ -317,27 +318,21 @@ private:
     }
   }
 
-  // if c++17 is used, ImportNodeOneOut and ImportNodeMultipleOuts can be
-  // combined with 'if constexpr' the issue is the type of the output is
-  // different. alternative way to use variadic output for all the op
-
-  /*!
-   * Important onnx node which generates only one output
-   * @param node onnx node
-   * @param nIn number of expected inputs
-   * @param nOut number of expected outputs
-   * @param attrs  list of desription for attributes with format {name, type,
-   * default}
-   */
   template <typename T>
-  void ImportNodeOneOut(const onnx::NodeProto &node, int nIn, int nOut,
-                        bool variadicIn = false, bool variadicOut = false) {
+  void buildOperation(const onnx::NodeProto &node, int expectedNumOperands = -1,
+                      int expectedNumResults = -1) {
+    bool variadicIn = expectedNumOperands == -1;
+    bool variadicOut = expectedNumResults == -1;
     std::vector<mlir::Value> inputs;
     for (const auto &item : node.input()) {
       if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
     }
+
+    if (!variadicIn)
+      for (auto i = inputs.size(); i < expectedNumOperands; i++)
+        inputs.emplace_back(none_);
 
     std::vector<mlir::Type> outputTypes;
     for (auto item : node.output()) {
@@ -347,49 +342,11 @@ private:
 
     auto attributes = ImportNodeAttributes(node);
 
-    llvm::StringRef OpName = node.op_type();
-    if ((variadicIn || nIn == inputs.size()) &&
-        (variadicOut || nOut == outputTypes.size())) {
-      auto op =
-          builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
-      frontend_symbols_.AddMapping(legalize_name(node.output()[0]),
-                                   op.getResult());
-    } else {
-      ImportNodeGeneric(node);
-    }
-  }
-
-  template <typename T>
-  void ImportNodeMultipleOuts(const onnx::NodeProto &node, int nIn, int nOut,
-                              bool variadicIn = false,
-                              bool variadicOut = false) {
-    std::vector<mlir::Value> inputs;
-    for (const auto &item : node.input()) {
-      if (frontend_symbols_.ContainKey(legalize_name(item))) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
-      }
-    }
-
-    std::vector<mlir::Type> outputTypes;
-    for (auto item : node.output()) {
-      outputTypes.push_back(
-          mlir::UnrankedTensorType::get(builder_.getF32Type()));
-    }
-
-    auto attributes = ImportNodeAttributes(node);
-
-    llvm::StringRef OpName = node.op_type();
-
-    if ((variadicIn || nIn == inputs.size()) &&
-        (variadicOut || nOut == outputTypes.size())) {
-      auto op =
-          builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
-      for (int i = 0; i < node.output().size(); i++) {
-        frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
-                                     op.getResult(i));
-      }
-    } else {
-      ImportNodeGeneric(node);
+    // TODO: Handle optional inputs.
+    auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
+    for (int i = 0; i < node.output().size(); i++) {
+      frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
+                                   *(op.getODSResults(i).begin()));
     }
   }
 
@@ -398,8 +355,7 @@ private:
    * c++ does not allow template specialization inside a class scope
    * a specialized function is used
    */
-  void
-  ImportNodeConv(onnx::NodeProto node, int nIn, int nOut) {
+  void ImportNodeConv(onnx::NodeProto node, int nIn, int nOut) {
     // Conv has attribute dilations, kernel_shape, pads, the default value of
     // which  is determined by the shape of first argument. However, since the
     // shape is unknown now, these attributes can be not generated auto
@@ -413,24 +369,20 @@ private:
     int nOps = node.input().size();
 
     if (nOps == 2)
-      ImportNodeOneOut<mlir::ONNXConvNoBiasOp>(
-          node, nOps, nOut);
+      buildOperation<mlir::ONNXConvNoBiasOp>(node, nOps, nOut);
     else
-      ImportNodeOneOut<mlir::ONNXConvOp>(node, nOps, nOut);
+      buildOperation<mlir::ONNXConvOp>(node, nOps, nOut);
   }
 
   /*!
    * Special handle for MaxPool operations.
    */
-  void ImportNodeMaxPool(
-      onnx::NodeProto node, int nIn, int nOut) {
+  void ImportNodeMaxPool(onnx::NodeProto node, int nIn, int nOut) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
-      ImportNodeOneOut<mlir::ONNXMaxPoolSingleOutOp>(
-          node, nIn, nOuts);
+      buildOperation<mlir::ONNXMaxPoolSingleOutOp>(node, nIn, nOuts);
     } else {
-      ImportNodeMultipleOuts<mlir::ONNXMaxPoolOp>(
-          node, nIn, nOuts);
+      buildOperation<mlir::ONNXMaxPoolOp>(node, nIn, nOuts);
     }
   }
 
@@ -441,23 +393,10 @@ private:
     int nOuts = node.output().size();
     if (nOuts == 1) {
       // Test mode with one output.
-      ImportNodeOneOut<mlir::ONNXBatchNormalizationTestModeOp>(node, nIn,
-                                                               nOuts);
+      buildOperation<mlir::ONNXBatchNormalizationTestModeOp>(node, nIn, nOuts);
     } else {
       // Training mode with four trailing optional outputs. Not handled yet.
-      ImportNodeMultipleOuts<mlir::ONNXBatchNormalizationOp>(node, nIn, nOuts);
-    }
-  }
-
-  /*!
-   * Special handle for Gemm operations.
-   */
-  void ImportNodeGemm(onnx::NodeProto node, int nIn, int nOut) {
-    int nOps = node.input().size();
-    if (nOps == 2) {
-      ImportNodeOneOut<mlir::ONNXGemmNoBiasOp>(node, 2, nOut);
-    } else {
-      ImportNodeOneOut<mlir::ONNXGemmOp>(node, nIn, nOut);
+      buildOperation<mlir::ONNXBatchNormalizationOp>(node, nIn, nOuts);
     }
   }
 
@@ -467,28 +406,14 @@ private:
   void ImportNodePad(onnx::NodeProto node, int nIn, int nOut) {
     int nOps = node.input().size();
     if (nOps == 2) {
-      ImportNodeOneOut<mlir::ONNXPadConstantValueOp>(node, 2, nOut);
+      buildOperation<mlir::ONNXPadConstantValueOp>(node, 2, nOut);
     } else {
-      ImportNodeOneOut<mlir::ONNXPadOp>(node, nIn, nOut);
+      buildOperation<mlir::ONNXPadOp>(node, nIn, nOut);
     }
   }
 
   void ImportNode(const onnx::NodeProto &node) {
-    std::vector<mlir::Value> inputs;
-    for (const auto &item : node.input()) {
-      if (frontend_symbols_.ContainKey(legalize_name(item))) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
-      }
-    }
-
-    std::vector<mlir::Type> outputTypes;
-    for (auto item : node.output()) {
-      outputTypes.push_back(
-          mlir::UnrankedTensorType::get(builder_.getF32Type()));
-    }
-
-    std::vector<mlir::NamedAttribute> attributes;
-    llvm::StringRef OpName = node.op_type();
+    llvm::StringRef opName = node.op_type();
 
     // the following code is generated by gen_doc.py
     // refer to dialect/onnx/onnx.td for details
@@ -555,9 +480,11 @@ private:
       ImportInputTensorSymbol(std::get<0>(it), std::get<1>(it));
     }
 
-    // import nodes in the graph
-    auto node = graph.node();
-    for (const auto &item : node) {
+    // Create a NoneTyped constant.
+    none_ =
+        builder_.create<mlir::ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
+    // Import nodes in the graph.
+    for (const auto &item : graph.node()) {
       ImportNode(item);
     }
 

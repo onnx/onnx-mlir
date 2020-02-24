@@ -327,10 +327,10 @@ ONNX BatchNormalization operation
 #### Results:
 
 1. `Y`: memref of any type values or tensor of any type values
-1. `out_mean`: memref of any type values or tensor of any type values
-1. `out_var`: memref of any type values or tensor of any type values
-1. `saved_mean`: memref of any type values or tensor of any type values
-1. `saved_var`: memref of any type values or tensor of any type values
+1. `out_mean`: memref of any type values or tensor of any type values or none type
+1. `out_var`: memref of any type values or tensor of any type values or none type
+1. `saved_mean`: memref of any type values or tensor of any type values or none type
+1. `saved_var`: memref of any type values or tensor of any type values or none type
 
 ### onnx.BatchNormalizationTestMode (ONNXBatchNormalizationTestModeOp)
 ONNX BatchNormalization operation in test mode
@@ -375,12 +375,12 @@ ONNX BitShift operation
 
 
 "Bitwise shift operator performs element-wise operation. For each input element, if the"
-" attribute "direction" is "RIGHT", this operator moves its binary representation toward"
-" the right side so that the input value is effectively decreased. If the attribute "direction""
-" is "LEFT", bits of binary representation moves toward the left side, which results the"
+" attribute \"direction\" is \"RIGHT\", this operator moves its binary representation toward"
+" the right side so that the input value is effectively decreased. If the attribute \"direction\""
+" is \"LEFT\", bits of binary representation moves toward the left side, which results the"
 " increase of its actual value. The input X is the tensor to be shifted and another input"
-" Y specifies the amounts of shifting. For example, if "direction" is "Right", X is [1, 4],"
-" and S is [1, 1], the corresponding output Z would be [0, 2]. If "direction" is "LEFT" with"
+" Y specifies the amounts of shifting. For example, if \"direction\" is \"Right\", X is [1, 4],"
+" and S is [1, 1], the corresponding output Z would be [0, 2]. If \"direction\" is \"LEFT\" with"
 " X=[1, 2] and S=[1, 2], the corresponding output Y would be [2, 8]."
 " "
 " Because this operator supports Numpy-style broadcasting, X's and Y's shapes are"
@@ -413,15 +413,15 @@ ONNX Cast operation
 "the converted type. The 'to' argument must be one of the data types specified"
 "in the 'DataType' enum field in the TensorProto message."
 ""
-"Casting from string tensor in plain (e.g., "3.14" and "1000") and scientific numeric representations"
-"(e.g., "1e-5" and "1E8") to float types is supported. For example, converting string "100.5" to an integer may"
+"Casting from string tensor in plain (e.g., \"3.14\" and \"1000\") and scientific numeric representations"
+"(e.g., \"1e-5\" and \"1E8\") to float types is supported. For example, converting string \"100.5\" to an integer may"
 "result 100. There are some string literals reserved for special floating-point values;"
-""+INF" (and "INF"), "-INF", and "NaN" are positive infinity, negative infinity, and not-a-number, respectively."
-"Any string which can exactly match "+INF" in a case-insensitive way would be mapped to positive infinite. Similarly,"
-"this case-insensitive rule is applied to "INF" and "NaN". When casting from numeric tensors"
-"to string tensors, plain floating-point representation (such as "314.15926") would be used. "
-"Converting non-numerical-literal string such as "Hello World!" is an undefined behavior. Cases "
-"of converting string representing floating-point arithmetic value, such as "2.718", to INT is an undefined behavior."
+"\"+INF\" (and \"INF\"), \"-INF\", and \"NaN\" are positive infinity, negative infinity, and not-a-number, respectively."
+"Any string which can exactly match \"+INF\" in a case-insensitive way would be mapped to positive infinite. Similarly,"
+"this case-insensitive rule is applied to \"INF\" and \"NaN\". When casting from numeric tensors"
+"to string tensors, plain floating-point representation (such as \"314.15926\") would be used. "
+"Converting non-numerical-literal string such as \"Hello World!\" is an undefined behavior. Cases "
+"of converting string representing floating-point arithmetic value, such as \"2.718\", to INT is an undefined behavior."
 ""
 "Conversion from a numerical type to any numerical type is always allowed."
 "User must be aware of precision loss and value change caused by range difference between two types."
@@ -476,8 +476,8 @@ ONNX Clip operation
 #### Operands:
 
 1. `input`: memref of any type values or tensor of any type values
-1. `min`: memref of any type values or tensor of any type values
-1. `max`: memref of any type values or tensor of any type values
+1. `min`: memref of any type values or tensor of any type values or none type
+1. `max`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -618,8 +618,8 @@ ONNX ConvInteger operation
 
 1. `x`: memref of any type values or tensor of any type values
 1. `w`: memref of any type values or tensor of any type values
-1. `x_zero_point`: memref of any type values or tensor of any type values
-1. `w_zero_point`: memref of any type values or tensor of any type values
+1. `x_zero_point`: memref of any type values or tensor of any type values or none type
+1. `w_zero_point`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -678,7 +678,7 @@ ONNX Conv operation
 
 1. `X`: memref of any type values or tensor of any type values
 1. `W`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -720,7 +720,7 @@ ONNX ConvTranspose operation
 
 1. `X`: memref of any type values or tensor of any type values
 1. `W`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -884,7 +884,7 @@ ONNX DequantizeLinear operation
 
 1. `x`: memref of any type values or tensor of any type values
 1. `x_scale`: memref of any type values or tensor of any type values
-1. `x_zero_point`: memref of any type values or tensor of any type values
+1. `x_zero_point`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -964,7 +964,7 @@ ONNX Dropout operation
 #### Results:
 
 1. `output`: memref of any type values or tensor of any type values
-1. `mask`: memref of any type values or tensor of any type values
+1. `mask`: memref of any type values or tensor of any type values or none type
 
 ### onnx.DynamicQuantizeLinear (ONNXDynamicQuantizeLinearOp)
 ONNX DynamicQuantizeLinear operation
@@ -1297,9 +1297,9 @@ ONNX GRU operation
 1. `X`: memref of any type values or tensor of any type values
 1. `W`: memref of any type values or tensor of any type values
 1. `R`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
-1. `sequence_lens`: memref of any type values or tensor of any type values
-1. `initial_h`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
+1. `sequence_lens`: memref of any type values or tensor of any type values or none type
+1. `initial_h`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -1315,8 +1315,8 @@ ONNX GRU operation
 
 #### Results:
 
-1. `Y`: memref of any type values or tensor of any type values
-1. `Y_h`: memref of any type values or tensor of any type values
+1. `Y`: memref of any type values or tensor of any type values or none type
+1. `Y_h`: memref of any type values or tensor of any type values or none type
 
 ### onnx.GatherElements (ONNXGatherElementsOp)
 ONNX GatherElements operation
@@ -1609,7 +1609,7 @@ ONNX Gemm operation
 
 1. `A`: memref of any type values or tensor of any type values
 1. `B`: memref of any type values or tensor of any type values
-1. `C`: memref of any type values or tensor of any type values
+1. `C`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -2013,11 +2013,11 @@ ONNX LSTM operation
 1. `X`: memref of any type values or tensor of any type values
 1. `W`: memref of any type values or tensor of any type values
 1. `R`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
-1. `sequence_lens`: memref of any type values or tensor of any type values
-1. `initial_h`: memref of any type values or tensor of any type values
-1. `initial_c`: memref of any type values or tensor of any type values
-1. `P`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
+1. `sequence_lens`: memref of any type values or tensor of any type values or none type
+1. `initial_h`: memref of any type values or tensor of any type values or none type
+1. `initial_c`: memref of any type values or tensor of any type values or none type
+1. `P`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -2033,9 +2033,9 @@ ONNX LSTM operation
 
 #### Results:
 
-1. `Y`: memref of any type values or tensor of any type values
-1. `Y_h`: memref of any type values or tensor of any type values
-1. `Y_c`: memref of any type values or tensor of any type values
+1. `Y`: memref of any type values or tensor of any type values or none type
+1. `Y_h`: memref of any type values or tensor of any type values or none type
+1. `Y_c`: memref of any type values or tensor of any type values or none type
 
 ### onnx.LeakyRelu (ONNXLeakyReluOp)
 ONNX LeakyRelu operation
@@ -2160,24 +2160,24 @@ ONNX Loop operation
 ""
 "    Operator inputs defined as (max_trip_count, condition_var)."
 ""
-"    input ("", ""):"
+"    input (\"\", \"\"):"
 "        for (int i=0; ; ++i) {"
 "          cond = ... // Note this value is ignored, but is required in the body"
 "        }"
 ""
-"    input ("", cond) // Note this is analogous to a while loop"
+"    input (\"\", cond) // Note this is analogous to a while loop"
 "        bool cond = ...;"
 "        for (int i=0; cond; ++i) {"
 "          cond = ...;"
 "        }"
 ""
-"    input ("", 1) // Note this is analogous to a do-while loop"
+"    input (\"\", 1) // Note this is analogous to a do-while loop"
 "        bool cond = true"
 "        for (int i=0; cond; ++i) {"
 "          cond = ...;"
 "        }"
 ""
-"    input (trip_count, "") // Note this is analogous to a for loop"
+"    input (trip_count, \"\") // Note this is analogous to a for loop"
 "        int trip_count = ..."
 "        for (int i=0; i < trip_count; ++i) {"
 "          cond = ...; // ignored"
@@ -2203,15 +2203,15 @@ ONNX Loop operation
 "    }"
 ""
 "    graph body-net ("
-"      %i[INT32, scalar]           // iteration number"
-"      %keepgoing_in[BOOL, scalar] // incoming loop-termination-condition; not used"
-"      %b_in[INT32, scalar]        // incoming value of loop-carried-dependency b"
+"      %i[INT32, scalar]"
+"      %keepgoing[BOOL, scalar]"
+"      %b[INT32, scalar]"
 "    ) {"
-"      %my_local = Add(%a, %b_in)"
-"      %b_out = Sub(%a, %b_in) // outgoing value of loop-carried-dependency b"
-"      %keepgoing_out = Greater(%my_local, %b_out) // outgoing loop-termination-condition"
-"      %user_defined_val = Add(%b_in, %b_in) // scan-output value to be accumulated"
-"      return %keepgoing_out, %b_out, %user_defined_val"
+"      %my_local = Add(%a, %b)"
+"      %b_out = Sub(%a, %b)"
+"      %keepgoing_out = Greater(%my_local, %b_out)"
+"      %user_defined_vals = Add(%b, %b)"
+"      return %keepgoing_out, %b_out, %user_defined_vals"
 "    }"
 ""
 "*Sample equivalent C code*"
@@ -2226,51 +2226,31 @@ ONNX Loop operation
 "      const int max_trip_count = 10; // Analogous to input M"
 "      int user_defined_vals[]; // Imagine this is resizable"
 "      /* End implicitly-defined code */"
-"      /* initialize loop-carried variables and scan-output variables */"
-"      bool keepgoing_out = keepgoing"
-"      int b_out = b"
-""
-"      for (int i=0; i < max_trip_count && keepgoing_out; ++i) {"
-"        /* Implicitly-defined code: bind actual parameter values"
-"           to formal parameter variables of loop-body */"
-"        bool keepgoing_in = keepgoing_out; "
-"        bool b_in = b_out;"
-""
+"      for (int i=0; i < max_trip_count && keepgoing; ++i) {"
 "        /* User-defined code (loop body) */"
-"        int my_local = a + b_in; // Reading value "a" from the enclosing scope is fine"
-"        b_out = a - b_in;"
-"        keepgoing_out = my_local > b_out; "
-"        user_defined_val = b_in + b_in; // b_in and b_out are different variables"
+"        int my_local = a + b; // Reading values in the enclosing scope is fine"
+"        b = a - b; // writes fine if we specify b as a loop-carried dependency"
+"        keepgoing = my_local > b; // keepgoing is a loop-carried dependency"
+"        user_defined_vals[i] = b + b;"
 "        /* End user-defined code */"
-""
-"        /* Implicitly defined-code */"
-"        user_defined_vals[i] = user_defined_val // accumulate scan-output values"
 "      }"
-"      // int t = my_local; // Can't do this. my_local is not accessible here."
+"      // my_local = 123; // Can't do this. my_local was defined in the the body"
 ""
-"      // The values below are bound to the output variables of the loop and therefore accessible"
-"      // b_out; user_defined_vals; keepgoing_out;"
+"      // These below values are live-out from the loop and therefore accessible"
+"      b_out; user_defined_vals; keepgoing_out;"
 "    }"
 ""
 "There are several things of note in this code snippet:"
 ""
-"1) Values from the enclosing scope (i.e. variable "a" here) are in scope and can"
+"1) Values from the enclosing scope (i.e. variable a here) are in scope and can"
 "   be referenced in the inputs of the loop."
-"2) Any values computed in the loop body that needs to be used in a subsequent"
-"   iteration or after the loop are modelled using a pair of variables in the loop-body,"
-"   consisting of an input variable (eg., b_in) and an output variable (eg., b_out)."
-"   These are referred to as loop-carried dependences. The loop operation node"
-"   supplies the input value of the input variable for the first iteration, and"
-"   returns the output value of the output variable produced by the final"
-"   iteration."
-"3) Scan_output variables are used to implicitly concatenate values computed across"
-"   all the iterations. In the above example, the value of user_defined_val computed"
-"   over all iterations are concatenated and returned as the value of user_defined_vals"
-"   after the loop."
-"4) Values created in the body cannot be accessed in the enclosing scope,"
-"   except using the mechanism described above."
+"2) Any variables which you wish to make available in the enclosing scope (i.e."
+"   the variables b and keepgoing) must be declared as either loop-carried"
+"   dependencies (both at the op inputs and output and at the body net input and"
+"   output) or scan_outputs."
+"3) Values created in the body cannot be accessed in the enclosing scope."
 ""
-"Note that the semantics of this op support "diagonal" or "wavefront" execution."
+"Note that the semantics of this op support \"diagonal\" or \"wavefront\" execution."
 "(See Step 3 here for an example:"
 "https://devblogs.nvidia.com/optimizing-recurrent-neural-networks-cudnn-5/)."
 "Frontends should emit multi-layer RNNs as a series of While operators (with"
@@ -2280,8 +2260,8 @@ ONNX Loop operation
 
 #### Operands:
 
-1. `M`: memref of any type values or tensor of any type values
-1. `cond`: memref of any type values or tensor of any type values
+1. `M`: memref of any type values or tensor of any type values or none type
+1. `cond`: memref of any type values or tensor of any type values or none type
 1. `v_initial`: memref of any type values or tensor of any type values
 
 #### Attributes:
@@ -2360,8 +2340,8 @@ ONNX MatMulInteger operation
 
 1. `A`: memref of any type values or tensor of any type values
 1. `B`: memref of any type values or tensor of any type values
-1. `a_zero_point`: memref of any type values or tensor of any type values
-1. `b_zero_point`: memref of any type values or tensor of any type values
+1. `a_zero_point`: memref of any type values or tensor of any type values or none type
+1. `b_zero_point`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -2444,7 +2424,7 @@ ONNX MaxPool operation
 " ```"
 " pad_shape[i] = (output_spatial_shape[i] - 1) * strides_spatial_shape[i] + ((kernel_spatial_shape[i] - 1) * dilations[i] + 1) - input_spatial_shape[i]"
 " ```"
-" The output of each pooling window is maximum number of elements exclude pad. "
+" The output of each pooling window is maximum number of elements exclude pad."
 " "
 
 #### Operands:
@@ -2466,7 +2446,7 @@ ONNX MaxPool operation
 #### Results:
 
 1. `Y`: memref of any type values or tensor of any type values
-1. `Indices`: memref of any type values or tensor of any type values
+1. `Indices`: memref of any type values or tensor of any type values or none type
 
 ### onnx.MaxPoolSingleOut (ONNXMaxPoolSingleOutOp)
 ONNX MaxPool operation with a single output.
@@ -2552,7 +2532,7 @@ ONNX MaxUnpool operation
 
 1. `X`: memref of any type values or tensor of any type values
 1. `I`: memref of any type values or tensor of any type values
-1. `output_shape`: memref of any type values or tensor of any type values
+1. `output_shape`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -2752,9 +2732,9 @@ ONNX NonMaxSuppression operation
 
 1. `boxes`: memref of any type values or tensor of any type values
 1. `scores`: memref of any type values or tensor of any type values
-1. `max_output_boxes_per_class`: memref of any type values or tensor of any type values
-1. `iou_threshold`: memref of any type values or tensor of any type values
-1. `score_threshold`: memref of any type values or tensor of any type values
+1. `max_output_boxes_per_class`: memref of any type values or tensor of any type values or none type
+1. `iou_threshold`: memref of any type values or tensor of any type values or none type
+1. `score_threshold`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -3067,7 +3047,7 @@ ONNX Pad operation
 
 1. `data`: memref of any type values or tensor of any type values
 1. `pads`: memref of any type values or tensor of any type values
-1. `constant_value`: memref of any type values or tensor of any type values
+1. `constant_value`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -3124,7 +3104,7 @@ ONNX QLinearConv operation
 1. `w_zero_point`: memref of any type values or tensor of any type values
 1. `y_scale`: memref of any type values or tensor of any type values
 1. `y_zero_point`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -3188,7 +3168,7 @@ ONNX QuantizeLinear operation
 
 1. `x`: memref of any type values or tensor of any type values
 1. `y_scale`: memref of any type values or tensor of any type values
-1. `y_zero_point`: memref of any type values or tensor of any type values
+1. `y_zero_point`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -3270,9 +3250,9 @@ ONNX RNN operation
 1. `X`: memref of any type values or tensor of any type values
 1. `W`: memref of any type values or tensor of any type values
 1. `R`: memref of any type values or tensor of any type values
-1. `B`: memref of any type values or tensor of any type values
-1. `sequence_lens`: memref of any type values or tensor of any type values
-1. `initial_h`: memref of any type values or tensor of any type values
+1. `B`: memref of any type values or tensor of any type values or none type
+1. `sequence_lens`: memref of any type values or tensor of any type values or none type
+1. `initial_h`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -3287,8 +3267,8 @@ ONNX RNN operation
 
 #### Results:
 
-1. `Y`: memref of any type values or tensor of any type values
-1. `Y_h`: memref of any type values or tensor of any type values
+1. `Y`: memref of any type values or tensor of any type values or none type
+1. `Y_h`: memref of any type values or tensor of any type values or none type
 
 ### onnx.RandomNormalLike (ONNXRandomNormalLikeOp)
 ONNX RandomNormalLike operation
@@ -3813,14 +3793,14 @@ ONNX Resize operation
 
 "Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor."
 "Each dimension value of the output tensor is:"
-"  output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \"sizes\" is not specified."
+"  output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \\"sizes\\" is not specified."
 
 #### Operands:
 
 1. `X`: memref of any type values or tensor of any type values
 1. `roi`: memref of any type values or tensor of any type values
 1. `scales`: memref of any type values or tensor of any type values
-1. `sizes`: memref of any type values or tensor of any type values
+1. `sizes`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -4438,7 +4418,7 @@ ONNX SequenceErase operation
 #### Operands:
 
 1. `input_sequence`: memref of any type values or tensor of any type values
-1. `position`: memref of any type values or tensor of any type values
+1. `position`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -4463,7 +4443,7 @@ ONNX SequenceInsert operation
 
 1. `input_sequence`: memref of any type values or tensor of any type values
 1. `tensor`: memref of any type values or tensor of any type values
-1. `position`: memref of any type values or tensor of any type values
+1. `position`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -4680,8 +4660,8 @@ ONNX Slice operation
 1. `data`: memref of any type values or tensor of any type values
 1. `starts`: memref of any type values or tensor of any type values
 1. `ends`: memref of any type values or tensor of any type values
-1. `axes`: memref of any type values or tensor of any type values
-1. `steps`: memref of any type values or tensor of any type values
+1. `axes`: memref of any type values or tensor of any type values or none type
+1. `steps`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -4834,7 +4814,7 @@ ONNX SplitToSequence operation
 #### Operands:
 
 1. `input`: memref of any type values or tensor of any type values
-1. `split`: memref of any type values or tensor of any type values
+1. `split`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 
@@ -4902,9 +4882,9 @@ ONNX StringNormalizer operation
 "StringNormalization performs string operations for basic cleaning."
 "This operator has only one input (denoted by X) and only one output"
 "(denoted by Y). This operator first examines the elements in the X,"
-"and removes elements specified in "stopwords" attribute."
+"and removes elements specified in \"stopwords\" attribute."
 "After removing stop words, the intermediate result can be further lowercased,"
-"uppercased, or just returned depending the "case_change_action" attribute."
+"uppercased, or just returned depending the \"case_change_action\" attribute."
 "This operator only accepts [C]- and [1, C]-tensor."
 "If all elements in X are dropped, the output will be the empty value of string tensor with shape [1]"
 "if input shape is [C] and shape [1, 1] if input shape is [1, C]."
@@ -5034,8 +5014,8 @@ ONNX TfIdfVectorizer operation
 "respectively. An n-gram which cannot be found in pool_strings/pool_int64s should be ignored and has no effect on the output."
 "Note that we may consider all skips up to S when generating the n-grams."
 ""
-"The examples used above are true if mode is "TF". If mode is "IDF", all the counts larger than 1 would be truncated to 1 and"
-"the i-th element in weights would be used to scale (by multiplication) the count of the i-th n-gram in pool. If mode is "TFIDF","
+"The examples used above are true if mode is \"TF\". If mode is \"IDF\", all the counts larger than 1 would be truncated to 1 and"
+"the i-th element in weights would be used to scale (by multiplication) the count of the i-th n-gram in pool. If mode is \"TFIDF\","
 "this operator first computes the counts of all n-grams and then scale them by the associated values in the weights attribute."
 ""
 "Only one of pool_strings and pool_int64s can be set. If pool_int64s is set, the input should be an integer tensor."
@@ -5123,9 +5103,9 @@ ONNX TopK operation
 "   contains the indices of the top k elements (original indices from the input"
 "   tensor)."
 ""
-"If "largest" is 1 (the default value) then the k largest elements are returned."
-"If "sorted" is 1 (the default value) then the resulting k elements will be sorted."
-"If "sorted" is 0, order of returned 'Values' and 'Indices' are undefined."
+"If \"largest\" is 1 (the default value) then the k largest elements are returned."
+"If \"sorted\" is 1 (the default value) then the resulting k elements will be sorted."
+"If \"sorted\" is 0, order of returned 'Values' and 'Indices' are undefined."
 ""
 "Given two equivalent values, this operator uses the indices along the axis as"
 " a tiebreaker. That is, the element with the lower index will appear first."
@@ -5184,7 +5164,7 @@ ONNX Unique operation
 "This operator returns the unique values or sliced unique subtensors of the input tensor and three optional outputs. "
 "The first output tensor 'Y' contains all unique values or subtensors of the input. "
 "The second optional output tensor 'indices' contains indices of 'Y' elements' first occurance in 'X'.. "
-"The third optional output tensor 'inverse_indices' contains, for elements of 'X', its corresponding indices in 'Y'. ". "
+"The third optional output tensor 'inverse_indices' contains, for elements of 'X', its corresponding indices in 'Y'. \". "
 "The fourth optional output tensor 'counts' contains the count of each element of 'Y' in the input. "
 ""
 "Outputs are either sorted in ascending order or optionally in the order of the first occurrence of the values in the input. "
@@ -5268,9 +5248,9 @@ ONNX Unique operation
 #### Results:
 
 1. `Y`: memref of any type values or tensor of any type values
-1. `indices`: memref of any type values or tensor of any type values
-1. `inverse_indices`: memref of any type values or tensor of any type values
-1. `counts`: memref of any type values or tensor of any type values
+1. `indices`: memref of any type values or tensor of any type values or none type
+1. `inverse_indices`: memref of any type values or tensor of any type values or none type
+1. `counts`: memref of any type values or tensor of any type values or none type
 
 ### onnx.Unsqueeze (ONNXUnsqueezeOp)
 ONNX Unsqueeze operation

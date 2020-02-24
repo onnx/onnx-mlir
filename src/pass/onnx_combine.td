@@ -26,6 +26,7 @@ include "dialect/onnx/onnx.td"
 
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 class HasRankOf<int rank> : Constraint<CPred<"$0.getType().isa<ShapedType>() && $0.getType().cast<ShapedType>().getRank() == " # rank>>;
+def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
@@ -40,6 +41,11 @@ def GemmTransB : NativeCodeCall<"$_builder.getI64IntegerAttr(0)">;
 def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),
                                  (ONNXGemmOp $m1, $m2, $m3, (GemmAlpha), (GemmBeta), (GemmTransA), (GemmTransB)),
                                  [(HasOneUse $res), (HasRankOf<2> $m1), (HasRankOf<2> $m2)]>;
+
+// onnx.add(onnx.Gemm(%X, %Y, None), %Z) = onnx.Gemm(%X, %Y, %Z)
+def FuseGemmFollowedByAddition : Pat<(ONNXAddOp (ONNXGemmOp:$res $m1, $m2, $none, $alpha, $beta, $transA, $transB), $bias),
+                                     (ONNXGemmOp $m1, $m2, $bias, $alpha, $beta, $transA, $transB),
+                                     [(HasOneUse $res), (HasRankOf<2> $m1), (HasRankOf<2> $m2), (HasNoneType $none)]>;
 
 // ONNX_Op (onnx.Identity (%X)) = ONNX_Op (%X)
 def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),

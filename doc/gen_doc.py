@@ -4,10 +4,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import io
 import os
 import sys
+import datetime
 
 import numpy as np  # type: ignore
 
@@ -17,58 +18,52 @@ from onnx.backend.test.case import collect_snippets
 from onnx.backend.sample.ops import collect_sample_implementations
 from typing import Any, Text, Sequence, Dict, List, Type, Set, Tuple
 
-
-#controls on ONNF code gen
-#specify attr default value 
+# Manual specification of attribute defaults.
 special_attr_defaults = dict([
-#        ("AveragePool "+"kernel_shape", ('ints', '{}')),
-#        ("MaxPool "+"kernel_shape", ('ints', '{}')),
-#        ("Cast "+"to", ('int', '0')),
-#        ("Concat "+"axis", ('int', '0')),
-#        ("Conv "+"group", ('int', '1')),
-#        ("Unsqueeze "+"axes", ('ints', '{}')),
-#        ("RNN "+"activation_alpha", ('floats', '{}')),
-#        ("RNN "+"activation_beta", ('floats', '{}')),
-        ])
+    # ("AveragePool.kernel_shape", ('ints', '{}')),
+    # ("MaxPool.kernel_shape", ('ints', '{}')),
+    # ("Cast.to", ('int', '0')),
+    # ("Concat.axis", ('int', '0')),
+    # ("Conv.group", ('int', '1')),
+    # ("Unsqueeze.axes", ('ints', '{}')),
+    # ("RNN.activation_alpha", ('floats', '{}')),
+    # ("RNN.activation_beta", ('floats', '{}')),
+])
 
-#specify the function name in src/builder/frontend_dialect_transformer.cpp
-#the reason for Conv and MaPool is to handled optional arguments
+# Special operation importing handlers.
 special_op_handler = dict([
-        ("Conv", "ImportNodeConv"),
-        ("MaxPool", "ImportNodeMaxPool"),
-        ("BatchNormalization", "ImportNodeBatchNormalization"),
-        ("Gemm", "ImportNodeGemm"),
-        ("Pad", "ImportNodePad"),
-        #("Transpose", "ImportNodeTranspose")
-        ])
+    ("Conv", "ImportNodeConv"),
+    ("MaxPool", "ImportNodeMaxPool"),
+    ("BatchNormalization", "ImportNodeBatchNormalization"),
+    ("Pad", "ImportNodePad"),
+    #("Transpose", "ImportNodeTranspose")
+])
 
-#add an Op in this list if ShapeInterference is defined for this Op
-ShapeInferenceList=['Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid', 'Relu',
-                   'Add', 'Mul', 'Div', 'Sub', 'And', 'Or', 'Xor',
-                   'Sum', 'Max', 'Min', 'MatMul', 'Gemm', 'LeakyRelu',
-                   'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
-                   'Identity', 'Cos', 'Log', 'Transpose', 'Softmax',
-                   'ReduceMax', 'ReduceMin', 'ReduceProd', 'ReduceSum',
-                   'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze', 'Sign']
+# Operations supporting shape inference.
+OpsWithShapeInference = [
+    'Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid', 'Relu', 'Add', 'Mul', 'Div',
+    'Sub', 'And', 'Or', 'Xor', 'Sum', 'Max', 'Min', 'MatMul', 'Gemm',
+    'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
+    'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
+    'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
+    'Sign'
+]
 
-CanonicalList=['Add', 'Identity', 'ReduceL1', 'ReduceL2', 'ReduceLogSum',
-               'ReduceLogSumExp', 'ReduceSumSquare']
+# Operations supporting canonicalization.
+OpsWithCanonicalizer = [
+    'Add', 'Identity', 'ReduceL1', 'ReduceL2', 'ReduceLogSum',
+    'ReduceLogSumExp', 'ReduceSumSquare', 'Gemm'
+]
 
-#add an Op in this list if the Op needs result type deduction which is required
-#when writing declarative rewriting rules. Deduced type is always
-#an UnrankedTensorType whose element type is the same as the first operand's
-#element type.
-#currenlty, there are only two build methods generated:
-# - one with operands and attributes having a separate parameter, and
-# - one with operands and attributes having aggregated parameters.
+# Add an Op in this list if the Op needs result type deduction which is required
+# when writing declarative rewriting rules. Deduced type is always
+# an UnrankedTensorType whose element type is the same as the first operand's
+# element type.
+#
+# Currenlty, there are only two build methods generated:
+#  - one with operands and attributes having a separate parameter, and
+#  - one with operands and attributes having aggregated parameters.
 custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare']
-
-manual_code_in_op_def = dict([
-      ('DummyExample', '  let extraClassDeclaration = [{ \n'+
-                    '    static StringRef getPermAttrName() { return "perm"; }\n'+
-                    '    }];\n')
-      ])
-
 
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
@@ -77,17 +72,10 @@ ONNX_ML = not bool(os.getenv('ONNX_ML') == '0')
 ONNX_ML = False
 print("ONNX_ML", ONNX_ML)
 
-
 if ONNX_ML:
     ext = '-ml.md'
 else:
     ext = '.md'
-
-
-def display_number(v):  # type: (int) -> Text
-    if defs.OpSchema.is_infinite(v):
-        return '&#8734;'
-    return Text(v)
 
 
 def should_render_domain(domain):  # type: (Text) -> bool
@@ -96,13 +84,6 @@ def should_render_domain(domain):  # type: (Text) -> bool
     elif ONNX_ML and domain != ONNX_ML_DOMAIN:
         return False
     return True
-
-
-def format_name_with_domain(domain, schema_name):  # type: (Text, Text) -> Text
-    if domain:
-        return '{}.{}'.format(domain, schema_name)
-    else:
-        return schema_name
 
 
 def display_attr_type(v):  # type: (OpSchema.AttrType) -> Text
@@ -114,353 +95,314 @@ def display_attr_type(v):  # type: (OpSchema.AttrType) -> Text
     return s
 
 
-def display_domain(domain):  # type: (Text) -> Text
-    if domain:
-        return "the '{}' operator set".format(domain)
-    else:
-        return "the default ONNX operator set"
-
-
-def display_domain_short(domain):  # type: (Text) -> Text
-    if domain:
-        return domain
-    else:
-        return 'ai.onnx (default)'
-
-
-def display_version_link(name, version):  # type: (Text, int) -> Text
-    changelog_md = 'Changelog' + ext
-    name_with_ver = '{}-{}'.format(name, version)
-    return '<a href="{}#{}">{}</a>'.format(changelog_md, name_with_ver, name_with_ver)
-
 def get_unique_output_name(schema, name):
-    for input in schema.inputs :
-        if input.name == name :
-            return 'out_'+name
+    for input in schema.inputs:
+        if input.name == name:
+            return 'out_' + name
     return name
 
-def display_schema(schema, versions):  # type: (OpSchema, Sequence[OpSchema]) -> Text
-    s = ''
 
-    # doc
-    if schema.doc:
-        s += '\n'
-        s += '\n'.join('  ' + line
-                       for line in schema.doc.lstrip().splitlines())
-        s += '\n'
+def onnx_attr_type_to_mlir_attr_type(t):
+    onnx_attr_type = Text(t)
+    onnx_attr_type = onnx_attr_type[onnx_attr_type.rfind('.') + 1:].lower()
 
-    # since version
-    s += '\n#### Version\n'
-    if schema.support_level == OpSchema.SupportType.EXPERIMENTAL:
-        s += '\nNo versioning maintained for experimental ops.'
+    if onnx_attr_type == 'int':
+        mlir_attr_type = 'I64Attr'
+    elif onnx_attr_type == 'float':
+        mlir_attr_type = 'F32Attr'
+    elif onnx_attr_type == 'ints':
+        mlir_attr_type = 'I64ArrayAttr'
+    elif onnx_attr_type == 'floats':
+        mlir_attr_type = 'F32ArrayAttr'
+    elif onnx_attr_type == "string":
+        mlir_attr_type = 'StrAttr'
+    elif onnx_attr_type == "strings":
+        mlir_attr_type = 'StrArrayAttr'
     else:
-        s += '\nThis version of the operator has been ' + ('deprecated' if schema.deprecated else 'available') + ' since version {}'.format(schema.since_version)
-        s += ' of {}.\n'.format(display_domain(schema.domain))
-        if len(versions) > 1:
-            # TODO: link to the Changelog.md
-            s += '\nOther versions of this operator: {}\n'.format(
-                ', '.join(display_version_link(format_name_with_domain(v.domain, v.name),
-                                               v.since_version) for v in versions[:-1]))
-
-    # If this schema is deprecated, don't display any of the following sections
-    if schema.deprecated:
-        return s
-
-    # attributes
-    if schema.attributes:
-        s += '\n#### Attributes\n\n'
-        s += '<dl>\n'
-        for _, attr in sorted(schema.attributes.items()):
-            # option holds either required or default value
-            opt = ''
-            if attr.required:
-                opt = 'required'
-            elif attr.default_value.name:
-                default_value = helper.get_attribute_value(attr.default_value)
-
-                def format_value(value):  # type: (Any) -> Text
-                    if isinstance(value, float):
-                        formatted = str(np.round(value, 5))
-                        # use default formatting, unless too long.
-                        if (len(formatted) > 10):
-                            formatted = str("({:e})".format(value))
-                        return formatted
-                    elif isinstance(value, (bytes, bytearray)) and sys.version_info[0] == 3:
-                        return str(value.decode('utf-8'))
-                    return str(value)
-
-                if isinstance(default_value, list):
-                    default_value = [format_value(val) for val in default_value]
-                else:
-                    default_value = format_value(default_value)
-                opt = 'default is {}'.format(default_value)
-
-            s += '<dt><tt>{}</tt> : {}{}</dt>\n'.format(
-                attr.name,
-                display_attr_type(attr.type),
-                ' ({})'.format(opt) if opt else '')
-            s += '<dd>{}</dd>\n'.format(attr.description)
-        s += '</dl>\n'
-
-    # inputs
-    s += '\n#### Inputs'
-    if schema.min_input != schema.max_input:
-        s += ' ({} - {})'.format(display_number(schema.min_input),
-                                 display_number(schema.max_input))
-    s += '\n\n'
-    if schema.inputs:
-        s += '<dl>\n'
-        for input in schema.inputs:
-            option_str = ""
-            if OpSchema.FormalParameterOption.Optional == input.option:
-                option_str = " (optional)"
-            elif OpSchema.FormalParameterOption.Variadic == input.option:
-                if input.isHomogeneous:
-                    option_str = " (variadic)"
-                else:
-                    option_str = " (variadic, heterogeneous)"
-            s += '<dt><tt>{}</tt>{} : {}</dt>\n'.format(input.name, option_str, input.typeStr)
-            s += '<dd>{}</dd>\n'.format(input.description)
-        s += '</dl>\n'
-
-    # outputs
-    s += '\n#### Outputs'
-    if schema.min_output != schema.max_output:
-        s += ' ({} - {})'.format(display_number(schema.min_output),
-                                 display_number(schema.max_output))
-    s += '\n\n'
-
-    if schema.outputs:
-        s += '<dl>\n'
-        for output in schema.outputs:
-            option_str = ""
-            if OpSchema.FormalParameterOption.Optional == output.option:
-                option_str = " (optional)"
-            elif OpSchema.FormalParameterOption.Variadic == output.option:
-                if output.isHomogeneous:
-                    option_str = " (variadic)"
-                else:
-                    option_str = " (variadic, heterogeneous)"
-            s += '<dt><tt>{}</tt>{} : {}</dt>\n'.format(get_unique_output_name(schema, output.name), option_str, output.typeStr)
-            s += '<dd>{}</dd>\n'.format(output.description)
-        s += '</dl>\n'
-
-    # type constraints
-    s += '\n#### Type Constraints'
-    s += '\n\n'
-    if schema.type_constraints:
-        s += '<dl>\n'
-        for type_constraint in schema.type_constraints:
-            allowedTypes = type_constraint.allowed_type_strs
-            if (len(allowedTypes) > 0):
-                allowedTypeStr = allowedTypes[0]
-            for allowedType in allowedTypes[1:]:
-                allowedTypeStr += ', ' + allowedType
-            s += '<dt><tt>{}</tt> : {}</dt>\n'.format(
-                type_constraint.type_param_str, allowedTypeStr)
-            s += '<dd>{}</dd>\n'.format(type_constraint.description)
-        s += '</dl>\n'
-
-    # Function Body
-    if schema.has_function:  # type: ignore
-        s += '\n#### Function\n'
-        s += '\nThe Function can be represented as a function.\n'
-
-    return s
+        mlir_attr_type = 'AnyAttr'
+    #TODO: tensor and sparse tensor
+    return mlir_attr_type
 
 
-def support_level_str(level):  # type: (OpSchema.SupportType) -> Text
-    return \
-        "<sub>experimental</sub> " if level == OpSchema.SupportType.EXPERIMENTAL else ""
+#TODO: any better way to do this.
+def tblgen_attr_type_to_cpp_type(t):
+    if 'I64Attr' in t:
+        cpp_type = 'IntegerAttr'
+    elif 'F32Attr' in t:
+        cpp_type = 'FloatAttr'
+    elif 'I64ArrayAttr' in t or 'F32ArrayAttr' in t:
+        cpp_type = 'ArrayAttr'
+    elif 'StrAttr' in t:
+        cpp_type = 'StringAttr'
+    elif 'strings' in t:
+        cpp_type = 'ArrayAttr'
+    else:
+        cpp_type = 'Attribute'
+    return cpp_type
 
-def convert_type(tstr) :
-    tfrom = np.array(['bool', 'int8', 'int16', 'int32', 'int64',
-            'unkown', 'float16', 'float', 'double'])
-    tto =np.array(['I1', 'I8', 'I16', 'I32', 'I64',
-         'BF16', 'F16', 'F32', 'F64'])
+
+def tblgen_operand_type_to_cpp_type(op_type):
+    if op_type.startswith('Variadic'):
+        mytype = 'ValueRange'
+    else:
+        mytype = 'Value'
+    return mytype
+
+
+def np_type_to_tblgen_attr_type(tstr):
+    tfrom = np.array([
+        'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
+        'float', 'double'
+    ])
+    tto = np.array(
+        ['I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64'])
     index = -1
-    for i in range(len(tfrom)) :
-        if tfrom[i] in tstr :
+    for i in range(len(tfrom)):
+        if tfrom[i] in tstr:
             index = i
             break
-    if index == -1 :
+    if index == -1:
         print("error", tstr)
         return ''
-    else :
+    else:
         return tto[i]
 
-def  collect_types(schema, input) :
-    allowedTypeStr=''
-    #first step just ignore the type constraints
-    return allowedTypeStr
-    if input.typeStr :
-        tstr = input.typeStr
-    else :
-        return allwedTypeStr
-    if schema.type_constraints:
-        for type_constraint in schema.type_constraints:
-            if type_constraint.type_param_str != tstr :
-                continue
-            allowedTypes = type_constraint.allowed_type_strs
-            allowedTypeStr=''
-            if (len(allowedTypes) > 0):
-                t = convert_type(allowedTypes[0])
-                if t == '' :
-                    return ''
-                allowedTypeStr += t
-            for allowedType in allowedTypes[1:]:
-                t = convert_type(allowedType)
-                if t == '' :
-                    return ''
-                if  not t in allowedTypeStr :
-                    allowedTypeStr += ', '+t
 
-            return allowedTypeStr
+def get_allowed_elem_types(schema, input):
+    allowed_types_str = None
+    return allowed_types_str
+    # TODO: enable type constraints.
+    # if input.typeStr :
+    #     tstr = input.typeStr
+    # else :
+    #     return allwedTypeStr
+    # if schema.type_constraints:
+    #     for type_constraint in schema.type_constraints:
+    #         if type_constraint.type_param_str != tstr :
+    #             continue
+    #         allowedTypes = type_constraint.allowed_type_strs
+    #         allowedTypeStr=''
+    #         if (len(allowedTypes) > 0):
+    #             t = convert_type(allowedTypes[0])
+    #             if t == '' :
+    #                 return ''
+    #             allowedTypeStr += t
+    #         for allowedType in allowedTypes[1:]:
+    #             t = convert_type(allowedType)
+    #             if t == '' :
+    #                 return ''
+    #             if  not t in allowedTypeStr :
+    #                 allowedTypeStr += ', '+t
+    #
+    #         return allowedTypeStr
+    #
+    # return allowedTypeStr
 
-    return allowedTypeStr
 
-def gen_schema(schema) :
-    line_indent = '  '
+def inc_indent(indent=None):
+    return "" if indent is None else indent + ' ' * 2
 
-    #s = 'def ONNX'+schema.name+str(schema.since_version)+'Op:ONNX_Op<"'+schema.name+'", \n'
-    s = 'def ONNX'+schema.name+'Op:ONNX_Op<"'+schema.name+'", \n'
-    s += line_indent+'  [NoSideEffect'
-    if schema.name in ShapeInferenceList :
-        s+= ', DeclareOpInterfaceMethods<ShapeInferenceOpInterface>'
-    s += ']> {'
 
-    if schema.name in CanonicalList:
-        s += '\n'+line_indent+'let hasCanonicalizer = 1;'
+def dec_indent(indent):
+    return indent[:-2]
 
-    #summary
-    s += '\n'+line_indent
-    s += 'let summary = "ONNX '+schema.name+' operation";'
 
-    #description
-    s += '\n'+line_indent
-    s += 'let description = [{'
-    if schema.doc:
-        """
-        s += '\n'.join(line_indent + line
-                   for line in schema.doc.lstrip().splitlines())
-        """
-        for line in schema.doc.lstrip().splitlines():
-            line = line.replace('}]', '\}\]')
-            s += '\n'+line_indent+'  '+'"'+line+'"'
-    else :
-        s += '\n'+line_indent*2 +'no doc for this op from onnx'
-    s += '\n'+line_indent+'}];'
+def join_args(args):
+    return ", ".join(args)
 
-    #input
-    s+= '\n'+line_indent+'let arguments = (ins '
-    isfirst = True
-    # add operands
-    operand_ins = get_operand_ins(schema)
-    for operand_type, operand_name in operand_ins:
-        if not isfirst:
-            s+= ',\n           '
+
+def get_operands_or_results(schema, is_input):
+    value_list = schema.inputs if is_input else schema.outputs
+    if not value_list:
+        return OrderedDict()
+
+    def any_type_of(types):
+        assert isinstance(types, list)
+        if len(types) == 1:
+            return types[0]
         else:
-            isfirst = False
-        s+=operand_type+':$'+operand_name
+            return "AnyTypeOf<[{}]>".format(", ".join(types))
 
-    # add attributes
-    attr_ins = get_attr_ins(schema)
-    for attr_type, attr_name in attr_ins:
-        if not isfirst:
-            s += ',\n           '
-        else :
-            isfirst = False
-        s += attr_type+':$'+attr_name
-    s+= ');'
+    name_to_types = OrderedDict()
+    for value in value_list:
+        elem_types = get_allowed_elem_types(schema, value)
 
-    #output
-    s+= '\n'+line_indent+'let results = (outs '
-    if schema.outputs:
-        for output in schema.outputs:
-            if output != schema.outputs[0] :
-                s+= ',\n           '
-            #need to interpret output.typeStr
-            etypes=collect_types(schema, output)
-            if etypes == '':
-                s+= 'AnyTypeOf<[AnyMemRef, AnyTensor]>'
+        if elem_types is None:
+            types = ["AnyMemRef", "AnyTensor"]
+        else:
+            types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
+            types = list(map(lambda x: x.format(elem_types), types))
+
+        if OpSchema.FormalParameterOption.Optional == value.option:
+            types.append("NoneType")
+        elif OpSchema.FormalParameterOption.Variadic == value.option:
+            if value.isHomogeneous:
+                types = ["Variadic<{}>".format(any_type_of(types))]
             else:
-                s+= 'TensorOf<['+etypes+']>'
-            s += ':$'+get_unique_output_name(schema, output.name)
-    s+= ');\n'
+                #TODO handle(variadic, heterogeneous) "
+                print("warning: (variadic, heterogeneous) for" + schema.name +
+                      ' ' + value.name)
 
-    #s+= 'let hasCanonicalizer = 1;'
-
-    #TODO: any better way to do this.
-    def get_attr_type_for_builder(attr_type) :
-        if 'I64Attr' in attr_type :
-            mytype = 'IntegerAttr'
-        elif 'F32Attr' in attr_type :
-            mytype = 'FloatAttr'
-        elif 'I64ArrayAttr' in attr_type or 'F32ArrayAttr' in attr_type:
-            mytype = 'ArrayAttr'
-        elif 'StrAttr' in attr_type :
-            mytype = 'StringAttr'
-        elif 'strings' in attr_type :
-            mytype = 'ArrayAttr'
-        else :
-            mytype ='Attribute'
-        return mytype
-
-    def get_op_type_for_builder(op_type):
-        if op_type.startswith('Variadic'):
-            mytype = 'ValueRange'
+        # Since output name can coincide with that of an input, we explicitly
+        # append a suffix "_out" to such names for disambiguation.
+        if is_input:
+            value_name = value.name
         else:
-            mytype = 'Value'
-        return mytype
+            value_name = get_unique_output_name(schema, value.name)
+
+        name_to_types[value_name] = any_type_of(types)
+    return name_to_types
+
+
+def get_attrs(schema):
+    def get_attr_type_optional(attr_type):
+        return 'OptionalAttr<{}>'.format(
+            onnx_attr_type_to_mlir_attr_type(attr_type))
+
+    def get_attr_type_with_default(attr_type, attr_default):
+        return 'DefaultValuedAttr<{}, "{}">'.format(
+            onnx_attr_type_to_mlir_attr_type(attr_type), attr_default)
+
+    if not schema.attributes:
+        return OrderedDict()
+
+    name_to_type = OrderedDict()
+    for _, attr in sorted(schema.attributes.items()):
+        qualified_attr_name = "{}.{}".format(schema.name, attr.name)
+        if qualified_attr_name in special_attr_defaults:
+            name_to_type[attr.name] = get_attr_type_with_default(
+                *special_attr_defaults[qualified_attr_name])
+
+        # option holds either required or default value
+        elif attr.required:
+            name_to_type[attr.name] = onnx_attr_type_to_mlir_attr_type(
+                attr.type)
+        elif attr.default_value.name:
+
+            def format_value(value):  # type: (Any) -> Text
+                if isinstance(value, float):
+                    formatted = str(np.round(value, 5))
+                    # use default formatting, unless too long.
+                    if (len(formatted) > 10):
+                        formatted = str("({:e})".format(value))
+                    return formatted
+                elif isinstance(
+                        value,
+                    (bytes, bytearray)) and sys.version_info[0] == 3:
+                    return str(value.decode('utf-8'))
+                return str(value)
+
+            default_value = helper.get_attribute_value(attr.default_value)
+            if isinstance(default_value, list):
+                default_value = [format_value(val) for val in default_value]
+                default_value_str = '{}'.format(default_value)
+                default_value_str = default_value_str.replace('[', '{', 1)
+                default_value_str = default_value_str.replace(']', '}', 1)
+                if Text(attr.type) == "AttrType.STRINGS":
+                    default_value_str = default_value_str.replace("'", '\\"')
+                else:
+                    default_value_str = default_value_str.replace("'", '')
+            else:
+                default_value = format_value(default_value)
+                default_value_str = default_value
+
+            name_to_type[attr.name] = get_attr_type_with_default(
+                attr.type, default_value_str)
+        else:
+            name_to_type[attr.name] = get_attr_type_optional(attr.type)
+    return name_to_type
+
+
+def gen_op_def(schema):
+    indent = inc_indent()
+    s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
+
+    # Generate decl for op traits.
+    traits = ["NoSideEffect"]
+    if schema.name in OpsWithShapeInference:
+        traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
+    s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
+
+    # Generate decl for canonicalizer.
+    indent = inc_indent(indent)
+    if schema.name in OpsWithCanonicalizer:
+        s += indent + 'let hasCanonicalizer = 1;\n'
+
+    # Generate decl for summary.
+    s += indent + 'let summary = "ONNX {} operation";\n'.format(schema.name)
+
+    # Generate description.
+    s += indent + 'let description = [{\n'
+    if schema.doc:
+        lines = schema.doc.lstrip().splitlines()
+        for line in lines:
+            escaped_line = line.replace('"', '\\"')\
+                               .replace('}]', '\\}\\]')
+            s += indent + '"{}"\n'.format(escaped_line)
+    s += indent + '}];\n'
+
+    # Generate ins (consisting of operands and attributes).
+    ins = get_operands_or_results(schema, is_input=True)
+    ins.update(get_attrs(schema))
+    ins_strs = ["{1}:${0}".format(*i) for i in ins.items()]
+    s += indent + 'let arguments = (ins {});\n'.format(
+        (',\n' + inc_indent(indent)).join(ins_strs))
+
+    # Generate outs (operation results).
+    outs = get_operands_or_results(schema, is_input=False)
+    outs_strs = ["{1}:${0}".format(*i) for i in outs.items()]
+    s += indent + 'let results = (outs {});\n'.format(
+        (',\n' + inc_indent(indent)).join(outs_strs))
 
     # add custom builders
     # use element type of the first operand to construct an UnrankedTensorType for the output.
     if schema.name in custom_builder_ops_list:
-        if len(operand_ins) == 0:
-            print("warning: not generate custom build methods for " + schema.name + " since it does not have operands.")
+        if len(ins) == 0:
+            raise RuntimeWarning(
+                "warning: not generate custom build methods for " +
+                schema.name + " since it does not have operands.")
         else:
-            if get_op_type_for_builder(operand_ins[0][0]) == 'ValueRange':
-                first_operand = operand_ins[0][1]+'[0]'
-            else:
-                first_operand = operand_ins[0][1]
-
-            s += line_indent+'let builders = [\n'
-
-            # custom builders with operands and attributes having a seperate parameter.
+            s += indent + 'let builders = [\n'
+            # Custom builders with operands and attributes having a seperate parameter.
             # E.g. OpBuilder<"Builder *builder, OperationState &state, Value X, Value, Y, Attribute A", [{}]>
-            s += line_indent*2+'OpBuilder<"Builder *builder, OperationState &state'
-            for arg_type, arg_name in operand_ins:
-                s += ', '+get_op_type_for_builder(arg_type)+' '+arg_name
-            for attr_type, attr_name in attr_ins:
-                s += ', '+get_attr_type_for_builder(attr_type)+' '+attr_name
+            indent = inc_indent(indent)
+            s += indent + 'OpBuilder<"Builder *builder, OperationState &state'
+            operands_dict = get_operands_or_results(schema, is_input=True)
+            for name, ty in operands_dict.items():
+                s += ', {} {}'.format(tblgen_operand_type_to_cpp_type(ty),
+                                      name)
+            for name, ty in get_attrs(schema).items():
+                s += ', {} {}'.format(tblgen_attr_type_to_cpp_type(ty), name)
             s += '", [{\n'
-            s += line_indent*3+'auto elementType = '+first_operand+'.getType().cast<TensorType>().getElementType();\n'
-            s += line_indent*3+'build(builder, state, UnrankedTensorType::get(elementType)'
-            for _, arg_name in operand_ins:
-                s += ', '+arg_name
-            for _, attr_name in attr_ins:
-                s += ', '+attr_name
+            indent = inc_indent(indent)
+
+            # Get output type from first operand's type.
+            first_operand_name = list(ins.items())[0][0]
+            s += indent + 'auto elementType = {}.getType().cast<TensorType>().getElementType();\n'.format(
+                first_operand_name)
+            s += indent + 'build(builder, state, UnrankedTensorType::get(elementType)'
+            for name, _ in ins.items():
+                s += ', ' + name
             s += ');\n'
-            s += line_indent*2+'}]>,\n'
+            indent = dec_indent(indent)
+            s += indent + '}]>,\n'
 
-            # custom builders with all operands and attributes having aggregate parameters.
+            # Custom builders with all operands and attributes having aggregate parameters.
             # E.g. OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += line_indent*2+'OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
-            s += line_indent*3+'auto elementType = '+first_operand+'.getType().cast<TensorType>().getElementType();\n'
-            s += line_indent*3+'std::vector<mlir::Type> outputTypes;\n'
-            s += line_indent*3+'outputTypes.emplace_back(UnrankedTensorType::get(elementType));\n'
-            s += line_indent*3+'build(builder, state, outputTypes, operands, attributes);\n'
-            s += line_indent*2+'}]>'
+            s += indent + 'OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
+            indent = inc_indent(indent)
+            s += indent + 'auto elementType = operands[0].getType().cast<TensorType>().getElementType();\n'
+            s += indent + 'std::vector<mlir::Type> outputTypes;\n'
+            s += indent + 'outputTypes.emplace_back(UnrankedTensorType::get(elementType));\n'
+            s += indent + 'build(builder, state, outputTypes, operands, attributes);\n'
+            indent = dec_indent(indent)
+            s += indent + '}]>'
 
-            s += '\n'+line_indent+'];\n'
-
-    #add special code
-    if schema.name in manual_code_in_op_def :
-        s += manual_code_in_op_def[schema.name]
+            s += '\n' + indent + '];\n'
 
     s += '}\n\n'
-
     return s
+
 
 """
 special cases:
@@ -470,328 +412,101 @@ special cases:
 * Transpose: attr perm default value is {} empty int list
 """
 
-def gen_code(schema,fefile) :
 
-    handle_variadic = False
+def gen_op_importer(schema, file):
+    indent = inc_indent()
+    s = indent + 'if (opName == "' + schema.name + '")\n'
 
-    line_indent = '  '
-    fefile.write('    '+'}else if (OpName == "'+schema.name+'") {\n')
-    op_type_str='mlir::ONNX'+schema.name+'Op'
-    if schema.name in special_op_handler :
-        fefile.write('       '+special_op_handler[schema.name]+'(node, '
-          +str(len(schema.inputs))
-          +', ' +str(len(schema.outputs)))
-    elif len(schema.outputs) > 1 :
-        fefile.write('       '+'ImportNodeMultipleOuts<'+op_type_str+'>(node, '
-          +str(len(schema.inputs))
-          +', ' +str(len(schema.outputs)))
-    else :
-        fefile.write('       '+'ImportNodeOneOut<'+op_type_str+'>(node, '
-          +str(len(schema.inputs))
-          +', ' +str(len(schema.outputs)))
-
-    variadicIn = 'false'
-    variadicOut = 'false'
+    expected_num_operands = len(schema.inputs)
+    expected_num_results = len(schema.outputs)
     for input in schema.inputs:
         if OpSchema.FormalParameterOption.Variadic == input.option:
-            if input.isHomogeneous:
-                variadicIn = 'true'
-                handle_variadic = True
+            expected_num_operands = -1
     for output in schema.outputs:
         if OpSchema.FormalParameterOption.Variadic == output.option:
-            if output.isHomogeneous:
-                variadicOut = 'true'
-    if not handle_variadic:
-        fefile.write(');\n')
-    else:
-        fefile.write(', '+variadicIn+', '+variadicOut+');\n')
+            expected_num_results = -1
 
-def get_operand_ins(schema):
-    operand_type_and_name_list = []  # [(optype, opname)]
-    if schema.inputs:
-        for input in schema.inputs:
-            optype = ""
+    handler_func = special_op_handler.get(
+        schema.name, "buildOperation<mlir::ONNX{}Op>".format(schema.name))
 
-            etypes=collect_types(schema, input)
+    # Special handlers currently require expected num operands/results to be specified.
+    # TODO: remove special handlers.
+    args = ["node"]
+    if expected_num_operands != -1 or expected_num_results != -1 or "buildOperation" not in handler_func:
+        args.append(
+            "/* expected_num_operands = */ {}".format(expected_num_operands))
+        args.append(
+            '/* expected_num_results = */ {}'.format(expected_num_results))
+    s += inc_indent(indent) + "return {}({});\n".format(
+        handler_func, ", ".join(args))
 
-            if OpSchema.FormalParameterOption.Optional == input.option:
-                #TODO : handle optional
-                print("warning: optional input for"+schema.name+' '+input.name)
-            elif OpSchema.FormalParameterOption.Variadic == input.option:
-                if input.isHomogeneous:
-                    optype += 'Variadic<'
-                else:
-                    #TODO handle(variadic, heterogeneous) "
-                    print("warning: (variadic, heterogeneous) for"+schema.name+' '+input.name)
-            if etypes == '':
-                optype += 'AnyTypeOf<[AnyMemRef, AnyTensor]>'
-            else:
-                optype += 'TensorOf<['+etypes+']>'
+    file.write(s)
 
-            if OpSchema.FormalParameterOption.Optional == input.option:
-                #TODO : handle optional
-                t=''
-            elif OpSchema.FormalParameterOption.Variadic == input.option:
-                if input.isHomogeneous:
-                    optype += '>'
-                else:
-                    #TODO handle(variadic, heterogeneous) "
-                    t=''
-            operand_type_and_name_list.append((optype, input.name))
-    return operand_type_and_name_list
 
-def get_attr_ins(schema) :
-    
-    def get_attr_type_basic(attr_type) :
-        if attr_type == 'int' :
-            mytype = 'I64Attr'
-        elif attr_type == 'float' :
-            mytype = 'F32Attr'
-        elif attr_type == 'ints' :
-            mytype = 'I64ArrayAttr'
-        elif attr_type == 'floats' :
-            mytype = 'F32ArrayAttr'
-        elif attr_type == "string" :
-            mytype = 'StrAttr'
-        elif attr_type == "strings" :
-            mytype = 'StrArrayAttr'
-        else :
-            mytype ='AnyAttr'
-        #TODO: tensor and sparse tensor
-        return mytype
+def build_operator_schemas():
+    # domain -> support level -> name -> [schema]
+    index = defaultdict(lambda: defaultdict(lambda: defaultdict(
+        list)))  # type: Dict[Text, Dict[int, Dict[Text, List[OpSchema]]]]
+    for schema in defs.get_all_schemas_with_history():
+        index[schema.domain][int(
+            schema.support_level)][schema.name].append(schema)
 
-    def get_attr_type_optional(attr_type) :
-        mytype = 'OptionalAttr<'
-        mytype += get_attr_type_basic(attr_type)
-        mytype += '>'
-        return mytype
+    # Preprocess the Operator Schemas
+    # [(domain, [(support_level, [(schema name, current schema, all versions schemas)])])]
+    operator_schemas = list(
+    )  # type: List[Tuple[Text, List[Tuple[int, List[Tuple[Text, OpSchema, List[OpSchema]]]]]]]
+    exsting_ops = set()  # type: Set[Text]
+    for domain, _supportmap in sorted(index.items()):
+        if not should_render_domain(domain):
+            continue
 
-    def get_attr_type_with_default(attr_type, attr_default) :
-        mytype = 'DefaultValuedAttr<'
-        mytype += get_attr_type_basic(attr_type)
-        mytype += ', "'+attr_default+'">'
-        return mytype
+        processed_supportmap = list()
+        for _support, _namemap in sorted(_supportmap.items()):
+            processed_namemap = list()
+            for n, unsorted_versions in sorted(_namemap.items()):
+                versions = sorted(unsorted_versions,
+                                  key=lambda s: s.since_version)
+                schema = versions[-1]
+                if schema.name in exsting_ops:
+                    continue
+                exsting_ops.add(schema.name)
+                processed_namemap.append((n, schema, versions))
+            processed_supportmap.append((_support, processed_namemap))
+        operator_schemas.append((domain, processed_supportmap))
+    return operator_schemas
 
-    attr_type_and_name_list = []  # :: [(attrtype, attrname)]
-    attr_line = ''
-    if schema.attributes:
-        for _, attr in sorted(schema.attributes.items()):
-            #attr_line = line_indent+line_indent+line_indent+line_indent
-            found = False
-            attr_type = ""
-            if schema.name+' '+attr.name in special_attr_defaults:
-                (attr_type_str, attr_default_str) = special_attr_defaults[schema.name+' '+attr.name]
-                attr_type = get_attr_type_with_default(attr_type_str, attr_default_str)
-                found = True
-            elif attr.required:
-                s = Text(attr.type)
-                attr_type_str  = s[s.rfind('.') + 1:].lower()
-                attr_type = get_attr_type_basic(attr_type_str)
-                found = True
-
-            # option holds either required or default value
-            elif attr.default_value.name:
-                s = Text(attr.type)
-                attr_type_str  = s[s.rfind('.') + 1:].lower()
-
-                default_value = helper.get_attribute_value(attr.default_value)
-                def format_value(value):  # type: (Any) -> Text
-                    if isinstance(value, float):
-                        formatted = str(np.round(value, 5))
-                        # use default formatting, unless too long.
-                        if (len(formatted) > 10):
-                            formatted = str("({:e})".format(value))
-                        return formatted
-                    elif isinstance(value, (bytes, bytearray)) and sys.version_info[0] == 3:
-                        return str(value.decode('utf-8'))
-                    return str(value)
-
-                if isinstance(default_value, list):
-                    default_value = [format_value(val) for val in default_value]
-                    attr_option_str = '{}'.format(default_value)
-                    attr_option_str = attr_option_str.replace('[', '{', 1)
-                    attr_option_str = attr_option_str.replace(']', '}', 1)
-                    if attr_type_str == 'strings' :
-                        attr_option_str = attr_option_str.replace("'", '\\"')
-                    else :
-                        attr_option_str = attr_option_str.replace("'", '')
-                else:
-                    default_value = format_value(default_value)
-                    attr_option_str = default_value
-                attr_type = get_attr_type_with_default(attr_type_str, attr_option_str)
-                found = True
-            else:
-                s = Text(attr.type)
-                attr_type_str  = s[s.rfind('.') + 1:].lower()
-                attr_type = get_attr_type_optional(attr_type_str)
-            if found:
-                attr_type_and_name_list.append((attr_type, attr.name))
-    return attr_type_and_name_list
 
 def main(args):  # type: (Type[Args]) -> None
-    with io.open(args.changelog, 'w', newline='') as fout:
-        fout.write('## Operator Changelog\n')
-        fout.write(
-            "*This file is automatically generated from the\n"
-            "            [def files](/onnx/defs) via [this script](/onnx/defs/gen_doc.py).\n"
-            "            Do not modify directly and instead edit operator definitions.*\n")
+    curr_utc_time = datetime.datetime.now(
+        datetime.timezone.utc).strftime("%m/%d/%Y, %H:%M:%S")
+    autogen_warning = (
+        '//********************************************************\n'
+        '//   This file is generated on UTC-{}.\n'
+        '//   Do not modify this file directly.\n'
+        '//   This file is automatically generated via script.\n'
+        '//   Details can be found in doc/readonnxdefs.md .\n'
+        '//********************************************************\n\n')
+    autogen_warning = autogen_warning.format(curr_utc_time)
 
-        # domain -> version -> [schema]
-        dv_index = defaultdict(lambda: defaultdict(list))  # type: Dict[Text, Dict[int, List[OpSchema]]]
-        for schema in defs.get_all_schemas_with_history():
-            dv_index[schema.domain][schema.since_version].append(schema)
+    op_def = io.open(args.op_def_file, 'w', newline='')
+    op_def.write(autogen_warning)
 
-        fout.write('\n')
+    op_importer = io.open(args.op_importer_file, 'w', newline='')
+    op_importer.write(autogen_warning)
 
-        for domain, versionmap in sorted(dv_index.items()):
-            if not should_render_domain(domain):
-                continue
-
-            s = '# {}\n'.format(display_domain_short(domain))
-
-            for version, unsorted_schemas in sorted(versionmap.items()):
-                s += '## Version {} of {}\n'.format(version, display_domain(domain))
-                for schema in sorted(unsorted_schemas, key=lambda s: s.name):
-                    name_with_ver = '{}-{}'.format(format_name_with_domain(domain, schema.name),
-                                                   schema.since_version)
-                    s += ('### <a name="{}"></a>**{}**' + (' (deprecated)' if schema.deprecated else '') + '</a>\n').format(name_with_ver, name_with_ver)
-                    s += display_schema(schema, [schema])
-                    s += '\n'
-
-            fout.write(s)
-
-    with io.open(args.output, 'w', newline='', encoding="utf-8") as fout:
-        fout.write('## Operator Schemas\n')
-        fout.write(
-            "*This file is automatically generated from the\n"
-            "            [def files](/onnx/defs) via [this script](/onnx/defs/gen_doc.py).\n"
-            "            Do not modify directly and instead edit operator definitions.*\n")
-
-        # domain -> support level -> name -> [schema]
-        index = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))  # type: Dict[Text, Dict[int, Dict[Text, List[OpSchema]]]]
-        for schema in defs.get_all_schemas_with_history():
-            #print("check point 0", schema.name, schema.domain, schema.support_level)
-            #gen_schema(schema)
-            index[schema.domain][int(schema.support_level)][schema.name].append(schema)
-
-        fout.write('\n')
-
-        # Preprocess the Operator Schemas
-        # [(domain, [(support_level, [(schema name, current schema, all versions schemas)])])]
-        operator_schemas = list()  # type: List[Tuple[Text, List[Tuple[int, List[Tuple[Text, OpSchema, List[OpSchema]]]]]]]
-        exsting_ops = set()  # type: Set[Text]
-        for domain, _supportmap in sorted(index.items()):
-            if not should_render_domain(domain):
-                continue
-
-            processed_supportmap = list()
-            for _support, _namemap in sorted(_supportmap.items()):
-                processed_namemap = list()
-                for n, unsorted_versions in sorted(_namemap.items()):
-                    versions = sorted(unsorted_versions, key=lambda s: s.since_version)
-                    schema = versions[-1]
-                    #print("check point 2", schema)
-                    if schema.name in exsting_ops:
-                        continue
-                    exsting_ops.add(schema.name)
-                    processed_namemap.append((n, schema, versions))
-                processed_supportmap.append((_support, processed_namemap))
-            operator_schemas.append((domain, processed_supportmap))
-
-        # Table of contents
-        for domain, supportmap in operator_schemas:
-            s = '* {}\n'.format(display_domain_short(domain))
-            fout.write(s)
-            function_ops = list()
-            for _, namemap in supportmap:
-                for n, schema, versions in namemap:
-                    if schema.has_function:  # type: ignore
-                        function_ops.append((n, schema, versions))
-                        continue
-                    s = '  * {}<a href="#{}">{}</a>\n'.format(
-                        support_level_str(schema.support_level),
-                        format_name_with_domain(domain, n),
-                        format_name_with_domain(domain, n))
-                    fout.write(s)
-            if len(function_ops):
-                fout.write('\n')
-                fout.write('  **Operators with function registered:**\n')
-                for n, schema, versions in function_ops:
-                    s = '  * {}<a href="#{}">{}</a>\n'.format(
-                        support_level_str(schema.support_level),
-                        format_name_with_domain(domain, n),
-                        format_name_with_domain(domain, n))
-                    fout.write(s)
-
-        fout.write('\n')
-        tdfile= io.open(args.tdfile, 'w', newline='') 
-        tdfile.write('//********************************************************\n'+
-                     '//   Warning: Do not modify this file directly\n'+
-                     '//   This file is automatically generated via script\n'+
-                     '//   Details can be found in doc/readonnxdefs.md\n'+
-                     '//********************************************************\n\n'
-               )
-        fefile=io.open('op_build_table.inc', 'w', newline='')
-        firstfunc = True
-
-        fefile.write('//********************************************************\n'+
-                     '//   Warning: Do not modify this file directly\n'+
-                     '//   This file is automatically generated via script\n'+
-                     '//   Details can be found in doc/readonnxdefs.md\n'+
-                     '//********************************************************\n\n'
-               )
-        fefile.write('    '+'if (OpName == "DUMMY") {\n')
-        for domain, supportmap in operator_schemas:
-            s = '## {}\n'.format(display_domain_short(domain))
-            fout.write(s)
-
-            for _, namemap in supportmap:
-                for op_type, schema, versions in namemap:
-                    # op_type
-                    #print("check point 1", schema.name, len(schema.inputs), len(schema.outputs))
-                    gen_code(schema, fefile)
-
-                    r = gen_schema(schema)
-                    tdfile.write(r)
-                    s = ('### {}<a name="{}"></a><a name="{}">**{}**' + (' (deprecated)' if schema.deprecated else '') + '</a>\n').format(
-                        support_level_str(schema.support_level),
-                        format_name_with_domain(domain, op_type),
-                        format_name_with_domain(domain, op_type.lower()),
-                        format_name_with_domain(domain, op_type))
-                    
-                    s += display_schema(schema, versions)
-
-                    s += '\n\n'
-
-                    if op_type in SNIPPETS:
-                        s += '#### Examples\n\n'
-                        for summary, code in sorted(SNIPPETS[op_type]):
-                            s += '<details>\n'
-                            s += '<summary>{}</summary>\n\n'.format(summary)
-                            s += '```python\n{}\n```\n\n'.format(code)
-                            s += '</details>\n'
-                            s += '\n\n'
-                    if op_type.lower() in SAMPLE_IMPLEMENTATIONS:
-                        s += '#### Sample Implementation\n\n'
-                        s += '<details>\n'
-                        s += '<summary>{}</summary>\n\n'.format(op_type)
-                        s += '```python\n{}\n```\n\n'.format(SAMPLE_IMPLEMENTATIONS[op_type.lower()])
-                        s += '</details>\n'
-                        s += '\n\n'
-
-                    fout.write(s)
-        fefile.write('    }')
-        fefile.close()
+    for domain, supportmap in build_operator_schemas():
+        for _, namemap in supportmap:
+            for op_type, schema, versions in namemap:
+                gen_op_importer(schema, op_importer)
+                r = gen_op_def(schema)
+                op_def.write(r)
 
 
 if __name__ == '__main__':
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-    docs_dir = os.path.join(base_dir, 'docs')
-    print(docs_dir)
+    curr_dir = os.path.dirname(os.path.realpath(__file__))
 
     class Args(object):
-        output = os.path.join(docs_dir, 'Operators' + ext)
-        changelog = os.path.join(docs_dir, 'Changelog' + ext)
-        tdfile = os.path.join(base_dir, 'onnxop.inc')
-    print(Args)
+        op_def_file = os.path.join(curr_dir, 'onnxop.inc')
+        op_importer_file = os.path.join(curr_dir, 'op_build_table.inc')
+
     main(Args)

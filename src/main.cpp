@@ -127,6 +127,10 @@ int main(int argc, char *argv[]) {
 
   if (emissionTarget >= EmitMLIR) {
     pm.addPass(mlir::createLowerToKrnlPass());
+    // An additional pass of canonicalization is helpful because lowering
+    // from ONNX dialect to Standard dialect exposes additional canonicalization
+    // oppertunities.
+    pm.addPass(mlir::createCanonicalizerPass());
     pm.addPass(mlir::createLowerKrnlPass());
   }
 
