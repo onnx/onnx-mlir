@@ -12,9 +12,8 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
   ONNXConvNoBiasOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConvNoBiasOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -25,12 +24,14 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc,
-                                    {operands[0]});
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, {operands[0]});
 
     auto resultShape = memRefType.getShape();
-    auto inputShape = operands[0].getType().cast<MemRefType>().getShape();
-    auto kernelShape = operands[1].getType().cast<MemRefType>().getShape();
+    auto &inputOperand = operands[0];
+    auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
+    auto &kernelOperand = operands[1];
+    auto kernelShape = kernelOperand.getType().cast<MemRefType>().getShape();
 
     // R = ConvNoBias(D, K)
     //
@@ -91,123 +92,82 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
         loc, FloatAttr::get(memRefType.getElementType(), 0));
     Value subchannels;
     if (kernelShape[1] < 0) {
-      subchannels =
-          rewriter.create<DimOp>(loc, operands[1], 1).getResult();
+      subchannels = rewriter.create<DimOp>(loc, kernelOperand, 1).getResult();
     } else {
-      subchannels = rewriter.create<ConstantIndexOp>(
-          loc, kernelShape[1]);
+      subchannels = rewriter.create<ConstantIndexOp>(loc, kernelShape[1]);
     }
 
     // 1. Define outer loops and emit empty optimization block:
     int64_t nOuterLoops = (group > 1) ? 3 : 2;
-    std::vector<Value> outerLoops;
-    std::vector<Value> optimizedOuterLoops;
-    Block *optimizationBlock = defineLoops(rewriter, loc, outerLoops,
-        optimizedOuterLoops, nOuterLoops);
-
-    // Prepare iteration arguments over outer loop nest.
-    KrnlIterateOperandPack pack(
-        rewriter, outerLoops, optimizedOuterLoops);
+    BuildKrnlLoop outerLoops(rewriter, loc, nOuterLoops);
+    outerLoops.createDefineAndOptimizeOp();
     //   for n = 0 .. N:
-    pack.pushConstantBound(0);
-    if (inputShape[0] < 0)
-      pack.pushOperandBound(
-          rewriter.create<DimOp>(loc, operands[0], 0).getResult());
-    else
-      pack.pushConstantBound(inputShape[0]);
+    int nIndex = outerLoops.pushBounds(0, inputOperand, 0);
     //   for g = 0 .. N:
-    if (group > 1) {
-      pack.pushConstantBound(0);
-      pack.pushConstantBound(group);
-    }
+    int gIndex = -1;
+    if (group > 1)
+      gIndex = outerLoops.pushBounds(0, group);
     //   for m = 0 .. kernelsPerGroup:
-    pack.pushConstantBound(0);
-    pack.pushConstantBound(kernelsPerGroup);
-    // Outer loop iteration.
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
-    Block &outerIterationBlock = iterateOp.bodyRegion().front();
-    // Emit optimizations for outer loops:
-    rewriter.setInsertionPointToEnd(optimizationBlock);
-    rewriter.create<KrnlReturnLoopsOp>(loc, outerLoops);
-    rewriter.setInsertionPointToStart(&outerIterationBlock);
+    int mIndex = outerLoops.pushBounds(0, kernelsPerGroup);
+    // Outer loop iteration
+    outerLoops.createIterateOp();
+    rewriter.setInsertionPointToStart(outerLoops.getIterateBlock());
     {
       // 2. Emit the body of the outer loop nest.
 
       // 2.1 Compute kernel order number: kernel = g * kernelsPerGroup + m;
       // If group is not set then the value of the kernel ID is
       // identical to that of the loop over kernels.
-      Value kernel = outerIterationBlock.getArguments()[1];
+      Value kernel = outerLoops.getInductionVar(mIndex);
       if (group > 1) {
         // Middle loop is over groups and third loop is over the
         // kernel identifiers in the current group.
-        auto kernelsOffset = rewriter.create<MulIOp>(loc,
-            outerIterationBlock.getArguments()[1],
-            kernelsPerGroupValue);
-        kernel = rewriter.create<AddIOp>(loc, kernelsOffset,
-            outerIterationBlock.getArguments()[2]);
+        auto kernelsOffset = rewriter.create<MulIOp>(
+            loc, outerLoops.getInductionVar(gIndex), kernelsPerGroupValue);
+        kernel = rewriter.create<AddIOp>(
+            loc, kernelsOffset, outerLoops.getInductionVar(mIndex));
       }
 
       // 2.2 Define spatial loops
       int64_t nSpatialLoops = resultShape.size() - 2;
-      std::vector<Value> spatialLoops;
-      std::vector<Value> optimizedSpatialLoops;
-      Block *optSpatialLoopBlock = defineLoops(rewriter, loc, spatialLoops,
-        optimizedSpatialLoops, nSpatialLoops);
-
-      // 2.3 Prepare iteration arguments for spatial loop nest.
-      KrnlIterateOperandPack spatialPack(
-        rewriter, spatialLoops, optimizedSpatialLoops);
+      BuildKrnlLoop spatialLoops(rewriter, loc, nSpatialLoops);
+      spatialLoops.createDefineAndOptimizeOp();
       for (int i = 2; i < resultShape.size(); ++i)
-        addDimensionToPack(rewriter, loc, spatialPack, alloc, i);
+        spatialLoops.pushBounds(0, alloc, i);
 
       // 2.4 Emit loop nest over output spatial dimensions.
       //   for rX = 0 .. RX
-      auto spatialIterateOp =
-          rewriter.create<KrnlIterateOp>(loc, spatialPack);
-      Block &spatialIterationBlock = spatialIterateOp.bodyRegion().front();
-      // 2.5 Emit optimizations for outer loops:
-      rewriter.setInsertionPointToEnd(optSpatialLoopBlock);
-      rewriter.create<KrnlReturnLoopsOp>(loc, spatialLoops);
-      rewriter.setInsertionPointToStart(&spatialIterationBlock);
+      spatialLoops.createIterateOp();
+      rewriter.setInsertionPointToStart(spatialLoops.getIterateBlock());
+
       {
         // 3. Emit the body of the spatial loop nest.
         // 3.1 Emit: R[n][kernel][r1][r2] = 0;
         SmallVector<Value, 4> resultIndices;
         // n
-        resultIndices.emplace_back(outerIterationBlock.getArguments()[0]);
+        resultIndices.emplace_back(outerLoops.getInductionVar(nIndex));
         // kernel
         resultIndices.emplace_back(kernel);
         // rX
-        for (auto arg : spatialIterationBlock.getArguments())
+        for (auto arg : spatialLoops.getIterateBlock()->getArguments())
           resultIndices.emplace_back(arg);
         // Store initializer value into output location.
         rewriter.create<StoreOp>(loc, zero, alloc, resultIndices);
 
         // 3.2 Define inner loops.
         int64_t nInnerLoops = 1 + (kernelShape.size() - 2);
-        std::vector<Value> innerLoops;
-        std::vector<Value> optimizedInnerLoops;
-        Block *optInnerLoopBlock = defineLoops(rewriter, loc, innerLoops,
-            optimizedInnerLoops, nInnerLoops);
-
-        // 3.3 Prepare iteration arguments for inner loop nest.
-        KrnlIterateOperandPack innerPack(
-            rewriter, innerLoops, optimizedInnerLoops);
+        BuildKrnlLoop innerLoops(rewriter, loc, nInnerLoops);
+        innerLoops.createDefineAndOptimizeOp();
         //   for c = 0 .. C/group
-        innerPack.pushConstantBound(0);
-        innerPack.pushConstantBound(kernelShape[1]);
+        int cIndex = innerLoops.pushBounds(0, kernelShape[1]);
         //   for Kx = 0 .. KX
         for (int i = 2; i < kernelShape.size(); ++i)
-          addDimensionToPack(rewriter, loc, innerPack, operands[1], i);
+          innerLoops.pushBounds(0, kernelOperand, i);
 
         // 3.4 Emit inner loop nest.
-        auto innerIterateOp =
-            rewriter.create<KrnlIterateOp>(loc, innerPack);
-        Block &innerIterationBlock = innerIterateOp.bodyRegion().front();
-        // 3.5 Emit optimizations for outer loops:
-        rewriter.setInsertionPointToEnd(optInnerLoopBlock);
-        rewriter.create<KrnlReturnLoopsOp>(loc, innerLoops);
-        rewriter.setInsertionPointToStart(&innerIterationBlock);
+        innerLoops.createIterateOp();
+        rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
+
         {
           // 4. Emit inner loop body
           // R[n][kernel][r1][r2] =
@@ -217,13 +177,13 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
           // 4.1 Prepare indices for accesing the data tensor.
           SmallVector<Value, 4> dataIndices;
           // n
-          dataIndices.emplace_back(outerIterationBlock.getArguments()[0]);
+          dataIndices.emplace_back(outerLoops.getInductionVar(nIndex));
           // g * (C / group) + c
-          Value channelDepth = innerIterationBlock.getArguments()[0];
+          Value channelDepth = innerLoops.getInductionVar(cIndex);
           if (group > 1)
             channelDepth = rewriter.create<AddIOp>(loc, channelDepth,
-                rewriter.create<MulIOp>(loc, subchannels,
-                    outerIterationBlock.getArguments()[1]));
+                rewriter.create<MulIOp>(
+                    loc, subchannels, outerLoops.getInductionVar(gIndex)));
           dataIndices.emplace_back(channelDepth);
           // sX * rX + kX
           auto stridesAttribute = convOp.stridesAttr();
@@ -233,15 +193,14 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
             for (auto stride : stridesAttribute.getValue())
               strides.emplace_back(stride.cast<IntegerAttr>().getInt());
           for (int i = 0; i < kernelShape.size() - 2; ++i) {
-            Value spatialIndex = spatialIterationBlock.getArguments()[i];
+            Value spatialIndex = spatialLoops.getInductionVar(i);
             // If strides are present then emit the correct access index.
             if (stridesAttribute && strides[i] > 1)
               spatialIndex = rewriter.create<MulIOp>(loc,
                   rewriter.create<ConstantIndexOp>(loc, strides[i]),
-                  spatialIterationBlock.getArguments()[i]);
-            dataIndices.emplace_back(
-                rewriter.create<AddIOp>(loc, spatialIndex,
-                    innerIterationBlock.getArguments()[i+1]));
+                  spatialLoops.getInductionVar(i));
+            dataIndices.emplace_back(rewriter.create<AddIOp>(
+                loc, spatialIndex, innerLoops.getInductionVar(i + 1)));
           }
 
           // 4.2 Prepare indices for accessing the kernel tensor.
@@ -249,17 +208,16 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
           // kernel
           kernelIndices.emplace_back(kernel);
           // c
-          kernelIndices.emplace_back(innerIterationBlock.getArguments()[0]);
+          kernelIndices.emplace_back(innerLoops.getInductionVar(cIndex));
           // kX
           for (int i = 0; i < kernelShape.size() - 2; ++i)
-            kernelIndices.emplace_back(
-                innerIterationBlock.getArguments()[i+1]);
+            kernelIndices.emplace_back(innerLoops.getInductionVar(i + 1));
 
           // 4.3 Compute convolution.
           auto loadData =
-              rewriter.create<LoadOp>(loc, operands[0], dataIndices);
+              rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
           auto loadKernel =
-              rewriter.create<LoadOp>(loc, operands[1], kernelIndices);
+              rewriter.create<LoadOp>(loc, kernelOperand, kernelIndices);
           auto loadPartialSum =
               rewriter.create<LoadOp>(loc, alloc, resultIndices);
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
