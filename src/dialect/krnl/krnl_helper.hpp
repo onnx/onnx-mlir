@@ -106,19 +106,21 @@ private:
 //
 // The sequence is as follow:
 //
-//   1) Create a object giving the rewriter, location, and number of loop in the
-//   original (non optimized) loop.
+//   1) Create an object giving the rewriter, location, and number of loop in
+//   the original (non optimized) loop.
 //
 //   2) Create define & optimize ops (currently paired). Optimizations can then
-//   be added to the inner block of the optimize operation. Make sure to set the
-//   insertion point to that block for optimizations to go in the right place.
+//   be added to the inner block of the optimize operation. Make sure to set
+//   the insertion point to that block for optimizations to go in the right
+//   place.
 //
 //   3) Push the bounds for each of the original loops. Bounds are pushed in
-//   pairs (lower & upper bounds). THere are a few methods to do it depending on
-//   the type of the bounds. When pushing bounds, the method returns a number
-//   that represent the index associated with that iteration (induction variable
-//   and bounds). That index can be used later to extract the induction variable
-//   for reference in computation and/or index calculations of mem refs.
+//   pairs (lower & upper bounds). There are a few methods to do it depending
+//   on the type of the bounds. When pushing bounds, the method returns a
+//   number that represent the index associated with that iteration (induction
+//   variable and bounds). That index can be used later to extract the
+//   induction variable for reference in computation and/or index calculations
+//   of mem refs.
 //
 //   4) Once all the bounds are pushed, create the iterate operation. Once this
 //   is done, we can add operations within the iterate blocks by setting the
@@ -127,67 +129,90 @@ private:
 
 class BuildKrnlLoop {
 public:
-  // Create a build kernel loop for the given location and loop number.
+  // Create kernel loop builder for a loop nest of depth loopNum.
   BuildKrnlLoop(ConversionPatternRewriter &rewriter, Location loc, int loopNum);
-  // Do the same, but where the loop number corresponds to the dimensionality of
-  // the mem ref operand.
+
+  // Create kernel loop builder for a loop nest of depth equal to the
+  // dimensionality of the operand. An operand of MemRef type is requied.
   BuildKrnlLoop(
       ConversionPatternRewriter &rewriter, Location loc, Value memRefOperand);
   ~BuildKrnlLoop();
 
   // Create define and optimize loop with loopNum original loops. If
-  // withEmptyOptimization, the optimization is simply the identity function (no
-  // optimizations).
+  // withEmptyOptimization is true, the optimization is simply the identity
+  // function (no optimizations).
   void createDefineAndOptimizeOp(bool withEmptyOptimization = true);
 
-  // Push bounds (lower and upper) for each of the loops, in order. It returns
-  // the index associated with the loop iteration. This index is in the range
-  // from zero to original loop number -1, and is monotonally increasing from
-  // call to call. This index is later used in the getInductionVar call.
+  // Push bounds (lower and upper) for each of the loops (order matters).
+  // The function returns the order number associated with the loop iteration.
+  // This index is used by the getInductionVar call. Non-constant operands
+  // must be of MemRef type.
   int pushBounds(int64_t lowerBound, int64_t upperBound);
   int pushBounds(int64_t lowerBound, Value upperBound);
   int pushBounds(Value lowerBound, Value upperBound);
-  // same, where the lower bound is an integer, and the uppoer bound is given by
-  // the size of the mem ref operand along the upperBoundMemRefIndex dimension.
   int pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
       int upperBoundMemRefIndex, bool upperBoundMustBeConstant = false);
 
-  // Create an iterate op.
+  // Create the KrnlIterateOp assiciated with this loop nest. The loops
+  // iteration will be created if the definition and the optimization
+  // operations associated with this loop nest have been emitted already.
   void createIterateOp();
-  // Create an define, optimize and iterate op, with the same loop nummber as
-  // the rank of the memRefOperand. The lower bound of each loops is zero, and
-  // the upper bound of each loops is the dimension given by the mem refs
+
+  // Create the loop nest definition, optimization and iteration operations
+  // for a given operand of MemRef type. The loop nest has a depth equal to the
+  // rank of the MemRef operand. The lower bound of each loop is zero. The
+  // upper bound of each loop is given by the corresponding dimension of the
+  // MemRef operand.
   void createDefineOptimizeAndIterateOp(
       Value memRefOperand, bool withEmptyOptimization = true);
 
-  // Get the (original loop) induction variable associated with the given index.
-  // Use the index returned when pushing the bounds.
+  // Get the (original loop) induction variable associated with the given
+  // index. Use the index returned when pushing the bounds.
   BlockArgument &getInductionVar(int originalLoopIndex);
 
-  // Get blocks. This allow us to set the insertion point to the inner block of
-  // the optimize and the iterate Operation
+  // Get a reference to the code region of the optimization operation.
+  // This allows us to set the insertion point to the inner block of the
+  // loop nest optimization operation.
   Block *getOptimizationBlock() { return optBlock; }
+
+  // Get a reference to the code region of the iteration operation.
+  // This allows us to set the insertion point to the inner block of the
+  // loop nest iteration operation.
   Block *getIterateBlock() { return iterBlock; }
 
-  // get original or optimized loops
+  // Get original loop nest.
   std::vector<Value> &getOriginalLoops() { return originalLoops; }
+
+  // Get optimized loop nest.
   std::vector<Value> &getOptimizedLoops() { return optLoops; }
 
 private:
-  // inputs
+  // Required for emitting operations.
   ConversionPatternRewriter &rewriter;
   Location loc;
   int originalLoopNum;
-  // track loops and bounds
+
+  // List of original, un-optimized loops.
   std::vector<Value> originalLoops;
+
+  // List of optimized loops.
   std::vector<Value> optLoops;
+
+  // List of lower-upper bound pairs needed by the KrnlIterateOp.
   KrnlIterateOperandPack *pack;
+
+  // Number of lower-upper bound pairs pushed.
   int pushCount;
+
+  // Flags that keep track of emitted operations.
   bool createdDefineOp;
   bool createdOptimizeOp;
   bool createdIterateOp;
-  // insertion points (opt block, iterate)
+
+  // Saved insertion point in the code region of the KrnlOptimizeLoopsOp.
   Block *optBlock;
+
+  // Saved insertion point in the code region of the KrnlIterateOp.
   Block *iterBlock;
 };
 

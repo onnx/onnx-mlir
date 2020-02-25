@@ -1,4 +1,4 @@
-//===----- identity.inc - Lowering Identity Op ----------------------------===//
+//===----- identity.cpp - Lowering Identity Op ----------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers the ONNX Identity Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 struct ONNXIdentityOpLowering : public ConversionPattern {
   ONNXIdentityOpLowering(MLIRContext *ctx)

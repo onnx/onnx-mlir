@@ -1,4 +1,4 @@
-//===----- matmul.inc - Lowering Matmul Op --------------------------------===//
+//===----- matmul.cpp - Lowering Matmul Op --------------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers the ONNX Matmul Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(MLIRContext *ctx)

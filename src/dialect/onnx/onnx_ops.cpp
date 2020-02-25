@@ -565,32 +565,6 @@ void ONNXGemmOp::inferShapes() {
   getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
 }
 
-// GemmNoBias
-
-void ONNXGemmNoBiasOp::inferShapes() {
-  // Cannot infer shape if no shape exists.
-  if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
-    return;
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
-
-  int64_t M, N, K_A, K_B;
-  M = (transA() == 0) ? lhsTy.getShape()[0] : lhsTy.getShape()[1];
-  K_A = (transA() == 0) ? lhsTy.getShape()[1] : lhsTy.getShape()[0];
-  N = (transB() == 0) ? rhsTy.getShape()[1] : rhsTy.getShape()[0];
-  K_B = (transB() == 0) ? rhsTy.getShape()[0] : rhsTy.getShape()[1];
-
-  if ((K_A != -1) and (K_B != -1) and (K_A != K_B)) {
-    emitError("Tensor shapes mismatched.");
-  }
-
-  SmallVector<int64_t, 2> dims;
-  dims.emplace_back(M);
-  dims.emplace_back(N);
-  getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
-}
-
 /// BatchNormalizationTestMode
 void ONNXBatchNormalizationTestModeOp::inferShapes() {
   // Cannot infer shape if no shape exists.

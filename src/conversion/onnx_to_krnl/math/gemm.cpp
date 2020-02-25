@@ -1,4 +1,4 @@
-//===----- gemm.inc - Lowering Gemm Op ------------------------------------===//
+//===----- gemm.cpp - Lowering Gemm Op ------------------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers the ONNX Gemm Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 template <typename GemmOp>
 struct ONNXGemmOpLowering : public ConversionPattern {
@@ -17,9 +21,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
-    // The first predicate is unnecessary when we remove ONXGemmNoBiasOp.
-    bool hasBias = (operands.size() == 3) &&
-                   (!op->getOperand(2).getType().isa<NoneType>());
+    bool hasBias = !op->getOperand(2).getType().isa<NoneType>();
 
     Value A, B, C;
     A = operands[0];
@@ -215,5 +217,4 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 void populateLoweringONNXGemmOpPattern(OwningRewritePatternList &patterns,
                                        MLIRContext *ctx) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
-  patterns.insert<ONNXGemmOpLowering<ONNXGemmNoBiasOp>>(ctx);
 }

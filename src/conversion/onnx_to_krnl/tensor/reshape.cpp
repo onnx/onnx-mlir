@@ -1,4 +1,4 @@
-//===----- reshape.inc - Lowering Reshape Op ------------------------------===//
+//===----- reshape.cpp - Lowering Reshape Op ------------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers the ONNX Reshape Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 struct ONNXReshapeOpLowering : public ConversionPattern {
   ONNXReshapeOpLowering(MLIRContext *ctx)
