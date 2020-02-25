@@ -1,4 +1,4 @@
-//===----- conv.inc - Lowering Convolution Op -----------------------------===//
+//===----- conv.cpp - Lowering Convolution Op -----------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers the ONNX Convolution Operators to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 struct ONNXConvNoBiasOpLowering : public ConversionPattern {
   ONNXConvNoBiasOpLowering(MLIRContext *ctx)

@@ -62,7 +62,21 @@ target_include_directories(onnf_shape_inference
 target_link_libraries(onnf_shape_inference ${MLIRLibs})
 add_dependencies(onnf_shape_inference gen_krnl_ops)
 
-add_library(onnf_lower_frontend conversion/onnx_to_krnl/convert_onnx_to_krnl.cpp)
+add_library(onnf_lower_frontend
+        conversion/onnx_to_krnl/onnx_to_krnl_common.cpp
+        conversion/onnx_to_krnl/onnx_to_krnl_common.hpp
+        conversion/onnx_to_krnl/math/elementwise.cpp
+        conversion/onnx_to_krnl/math/gemm.cpp
+        conversion/onnx_to_krnl/math/matmul.cpp
+        conversion/onnx_to_krnl/math/reduction.cpp
+        conversion/onnx_to_krnl/math/softmax.cpp
+        conversion/onnx_to_krnl/nn/conv.cpp
+        conversion/onnx_to_krnl/nn/normalization.cpp
+        conversion/onnx_to_krnl/tensor/identity.cpp
+        conversion/onnx_to_krnl/tensor/reshape.cpp
+        conversion/onnx_to_krnl/tensor/transpose.cpp
+        conversion/onnx_to_krnl/tensor/unsqueeze.cpp
+        conversion/onnx_to_krnl/convert_onnx_to_krnl.cpp)
 target_include_directories(onnf_lower_frontend
         PRIVATE ${ONNF_SRC_ROOT} ${ONNF_BIN_ROOT}
         ${ONNF_SRC_ROOT})

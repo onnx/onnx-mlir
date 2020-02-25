@@ -1,4 +1,4 @@
-//===----- unsqueeze.inc - Lowering Unsqueeze Op --------------------------===//
+//===----- unsqueeze.cpp - Lowering Unsqueeze Op --------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers the ONNX Unsqueeze Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 struct ONNXUnsqueezeOpLowering : public ConversionPattern {
   ONNXUnsqueezeOpLowering(MLIRContext *ctx)
