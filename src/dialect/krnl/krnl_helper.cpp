@@ -131,7 +131,7 @@ void KrnlIterateOperandPack::pushConstantBound(int64_t bound) {
   boundMaps.emplace_back(AffineMapAttr::get(map));
 }
 
-void KrnlIterateOperandPack::pushOperandBound(mlir::Value operand) {
+void KrnlIterateOperandPack::pushOperandBound(Value operand) {
   if (boundMaps.size() % 2 == 0)
     _operands.emplace_back(inputLoops[boundMaps.size() / 2]);
   AffineMap map = builder.getSymbolIdentityMap();
@@ -145,7 +145,7 @@ BuildKrnlLoop::BuildKrnlLoop(
       pushCount(0), createdDefineOp(false), createdOptimizeOp(false),
       createdIterateOp(false) {
   if (originalLoopNum <= 0)
-    emitError(loc, "expected positive number of original loops");
+    emitError(loc, "Expected positive number of original loops.");
 }
 
 BuildKrnlLoop::BuildKrnlLoop(
@@ -154,27 +154,24 @@ BuildKrnlLoop::BuildKrnlLoop(
           memRefOperand.getType().cast<MemRefType>().getShape().size()) {}
 
 BuildKrnlLoop::~BuildKrnlLoop() {
-  if (!createdDefineOp)
-    emitError(loc, "expected to create define op");
-  if (!createdIterateOp)
-    emitError(loc, "expected to create iteration op");
   if (pack)
     free(pack);
 }
 
 void BuildKrnlLoop::createDefineAndOptimizeOp(bool withEmptyOptimization) {
-  // insert define loop op
+  // Insert define loop operation.
   auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, originalLoopNum);
   originalLoops.reserve(originalLoopNum);
   for (auto result : loopsOp.getResults())
     originalLoops.push_back(result);
   createdDefineOp = true;
 
-  // inserte optimize loop op.
+  // Insert optimize loop operation.
   auto optimizedLoopsOp =
       rewriter.create<KrnlOptimizeLoopsOp>(loc, originalLoopNum);
   optLoops.reserve(originalLoopNum);
-  // Emit empty optimizations
+
+  // Emit empty optimizations if flag is set.
   if (withEmptyOptimization) {
     for (auto result : optimizedLoopsOp.getResults())
       optLoops.push_back(result);
@@ -190,7 +187,6 @@ void BuildKrnlLoop::createDefineAndOptimizeOp(bool withEmptyOptimization) {
   pack = new KrnlIterateOperandPack(rewriter, originalLoops, optLoops);
 }
 
-// push bounds (lower and upper) and return index for loop info
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, int64_t upperBound) {
   pack->pushConstantBound(lowerBound);
   pack->pushConstantBound(upperBound);
@@ -206,17 +202,20 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
     int upperBoundMemRefIndex, bool upperBoundMustBeConstant) {
   pack->pushConstantBound(lowerBound);
-  // process upperBound as a dimension of mem ref, possibly non-constant
+
+  // Process upperBound as a dimension of the MemRef. Non-constant dimensions
+  // are supported.
   auto shape = upperBoundMemRefOperand.getType().cast<MemRefType>().getShape();
   if (shape[upperBoundMemRefIndex] < 0) {
     if (upperBoundMustBeConstant)
-      emitError(loc, "bound expected to be constant");
+      emitError(loc, "Bound expected to be constant.");
     pack->pushOperandBound(
         rewriter
             .create<DimOp>(loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
             .getResult());
   } else
     pack->pushConstantBound(shape[upperBoundMemRefIndex]);
+
   return pushCount++;
 }
 
@@ -226,19 +225,20 @@ int BuildKrnlLoop::pushBounds(Value lowerBound, Value upperBound) {
   return pushCount++;
 }
 
-// create iter
 void BuildKrnlLoop::createIterateOp() {
+  // Loop definition operation is mandatory.
   if (!createdDefineOp)
-    emitError(loc, "must create define op before iterate op");
-  // Tight now, optimize (possibly empty) is mandatory. This may change
+    emitError(loc, "Must create define op before iterate op.");
+
+  // Loop optimization operation is mandatory (for now).
   if (!createdOptimizeOp)
-    emitError(loc, "must create optimize op before iterate op");
-  // have to have defined all bounds
-  if (pushCount != originalLoopNum) {
-    printf(" push count %d, original loop %d\n", pushCount, originalLoopNum);
-    emitError(loc, "must push bounds for all original loops");
-  }
-  // create iterate op
+    emitError(loc, "Must create optimize op before iterate op.");
+
+  // Check if all bounds have been defined.
+  if (pushCount != originalLoopNum)
+    emitError(loc, "Must push bounds for all original loops.");
+
+  // Emit iteration operation.
   auto iterateOp = rewriter.create<KrnlIterateOp>(loc, *pack);
   iterBlock = &iterateOp.bodyRegion().front();
   createdIterateOp = true;
@@ -246,19 +246,27 @@ void BuildKrnlLoop::createIterateOp() {
 
 void BuildKrnlLoop::createDefineOptimizeAndIterateOp(
     Value memRefOperand, bool withEmptyOptimization) {
+  // Rank of the MemRef operand. We will emit a loop for each dimension.
   int loopNum = memRefOperand.getType().cast<MemRefType>().getShape().size();
   if (originalLoopNum != loopNum)
-    emitError(loc, "mismatch in loop numbers from constructor and define");
+    emitError(loc, "Mismatch in loop numbers from constructor and define.");
+
+  // Emit the definition and the optimization operations for the loop nest.
   createDefineAndOptimizeOp(withEmptyOptimization);
+
+  // Push a lower-upper bound pair for each dimension of the MemRef operand.
+  // The lower bound in this case is always zero.
   for (int i = 0; i < originalLoopNum; ++i)
     pushBounds(0, memRefOperand, i);
+
+  // Emit the iteration operation over the current loop nest.
   createIterateOp();
 }
 
-// get induction variable to be use within iter
 BlockArgument &BuildKrnlLoop::getInductionVar(int originalLoopIndex) {
+  // Check if loop iteration variable is within bounds.
   if (originalLoopIndex < 0 || originalLoopIndex >= originalLoopNum)
-    emitError(loc, "original loop index is out of bound");
+    emitError(loc, "Original loop index is out of bounds.");
   return iterBlock->getArguments()[originalLoopIndex];
 }
 
