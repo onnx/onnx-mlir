@@ -405,6 +405,7 @@ Value mapToLowerScalarOp(Operation *op, ArrayRef<Type> result_types,
 // Neural network
 #include "src/conversion/onnx_to_krnl/rewrite_patterns/nn/conv.inc"
 #include "src/conversion/onnx_to_krnl/rewrite_patterns/nn/normalization.inc"
+#include "src/conversion/onnx_to_krnl/rewrite_patterns/nn/pooling.inc"
 
 //===----------------------------------------------------------------------===//
 // EntryPoint Op lowering to Krnl Entry Point.
@@ -525,6 +526,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, &getContext());
   populateLoweringONNXNormalizationOpPattern(patterns, &getContext());
+  populateLoweringONNXPoolingOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
 
