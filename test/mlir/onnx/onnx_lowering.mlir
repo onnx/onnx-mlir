@@ -806,35 +806,6 @@ func @test_gemm(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tenso
   // CHECK: }
 }
 
-func @test_gemm_no_bias(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>) -> tensor<*xf32> {
-  %0 ="onnx.GemmNoBias"(%arg0, %arg1) {alpha = 1.0 : f32, beta = 5.0 : f32, transA = 1, transB = 0} : (tensor<5x10xf32>, tensor<5x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_gemm_no_bias
-  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
-  // CHECK: [[ALPHA:%.+]] = constant 1.000000e+00 : f32
-  // CHECK: [[BETA:%.+]] = constant 5.000000e+00 : f32
-  // CHECK: [[DEF_LOOPS:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_LOOPS:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1, [[DEF_LOOPS]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: krnl.iterate([[OPT_LOOPS]]#2) with ([[DEF_LOOPS]]#2 -> %arg4 = 0 to 5) {
-  // CHECK: [[A:%.+]] = load %arg0[%arg4, %arg2] : memref<5x10xf32>
-  // CHECK: [[B:%.+]] = load %arg1[%arg4, %arg3] : memref<5x10xf32>
-  // CHECK: [[Y:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[AB:%.+]] = mulf [[A]], [[B]] : f32
-  // CHECK: [[SUM:%.+]] = addf [[Y]], [[AB]] : f32
-  // CHECK: store [[SUM]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: }
-  // CHECK: [[LOAD_Y:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[ALPHA_AB:%.+]] = mulf [[ALPHA]], [[LOAD_Y]] : f32
-  // CHECK: store [[ALPHA_AB]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<10x10xf32>
-  // CHECK: }
-}
-
 func @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sqrt"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()

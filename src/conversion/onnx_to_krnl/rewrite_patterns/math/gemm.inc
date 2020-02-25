@@ -17,9 +17,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
-    // The first predicate is unnecessary when we remove ONXGemmNoBiasOp.
-    bool hasBias = (operands.size() == 3) &&
-                   (!op->getOperand(2).getType().isa<NoneType>());
+    bool hasBias = !op->getOperand(2).getType().isa<NoneType>();
 
     Value A, B, C;
     A = operands[0];
@@ -215,5 +213,4 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 void populateLoweringONNXGemmOpPattern(OwningRewritePatternList &patterns,
                                        MLIRContext *ctx) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
-  patterns.insert<ONNXGemmOpLowering<ONNXGemmNoBiasOp>>(ctx);
 }
