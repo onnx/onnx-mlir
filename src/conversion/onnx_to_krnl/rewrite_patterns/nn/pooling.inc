@@ -49,6 +49,9 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
     if (kernelShapeAttribute)
       for (auto dim : kernelShapeAttribute.getValue())
         kernelShape.emplace_back(dim.cast<IntegerAttr>().getInt());
+    else
+      emitError(loc, "kernel_shape is a mandatory attribute for which there is "
+                     "no default.");
 
     // Read strides attribute
     SmallVector<int, 4> strides;
@@ -87,7 +90,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
     //   for c = 0 .. C:
     //     for r1 = 0 .. RH:
     //       for r2 = 0 .. RW:
-    //         R[n][c][r1][r2] = 0;
+    //         R[n][c][r1][r2] = negative_infinity;
     //           for k1 = 0 .. KH:
     //             for k2 = 0 .. KW:
     //               t = D[n][c][s1 * r1 + k1][s2 * r2 + k2];
@@ -125,7 +128,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(spatialLoops.getIterateBlock());
       {
         // 3. Emit the body of the spatial loop nest.
-        // 3.1 Emit: R[n][c][r1][r2] = 0;
+        // 3.1 Emit: R[n][c][r1][r2] = negative_infinity;
         SmallVector<Value, 4> resultIndices;
         // n
         resultIndices.emplace_back(outerLoops.getInductionVar(nIndex));
@@ -157,7 +160,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
         for (int i = 0; i < nInnerLoops; ++i)
           innerLoops.pushBounds(0, kernelShape[i]);
 
-        // 3.4 Emit inner loop nest.
+        // 3.3 Emit inner loop nest.
         innerLoops.createIterateOp();
         rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
 
@@ -191,7 +194,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
               rewriter.create<LoadOp>(loc, alloc, resultIndices);
           Value result = mapToLowerScalarOp<ONNXMaxPoolSingleOutOp>(
               op, resultElementType, {loadPartialResult, loadData}, rewriter);
-          // 4.4 Store computed value into output location.
+          // 4.3 Store computed value into output location.
           rewriter.create<StoreOp>(loc, result, alloc, resultIndices);
         }
       }
