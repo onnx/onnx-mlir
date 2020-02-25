@@ -168,6 +168,8 @@ void BuildKrnlLoop::createDefineAndOptimizeOp(bool withEmptyOptimization) {
   originalLoops.reserve(originalLoopNum);
   for (auto result : loopsOp.getResults())
     originalLoops.push_back(result);
+  createdDefineOp = true;
+
   // inserte optimize loop op.
   auto optimizedLoopsOp =
       rewriter.create<KrnlOptimizeLoopsOp>(loc, originalLoopNum);
@@ -182,9 +184,10 @@ void BuildKrnlLoop::createDefineAndOptimizeOp(bool withEmptyOptimization) {
     rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
     rewriter.restoreInsertionPoint(ip);
   }
+  createdOptimizeOp = true;
+
   // prepare data structure to push bounds
   pack = new KrnlIterateOperandPack(rewriter, originalLoops, optLoops);
-  createdOptimizeOp = true;
 }
 
 // push bounds (lower and upper) and return index for loop info
