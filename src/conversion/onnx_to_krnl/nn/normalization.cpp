@@ -1,4 +1,4 @@
-//===----- normalization.inc - Lowering Normalization Ops -----------------===//
+//===----- normalization.cpp - Lowering Normalization Ops -----------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers ONNX Normalization Operators to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
   ONNXBatchNormalizationTestModeOpLowering(MLIRContext *ctx)

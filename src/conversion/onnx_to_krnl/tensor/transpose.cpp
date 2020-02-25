@@ -1,4 +1,4 @@
-//===----- transpose.inc - Lowering Transpose Op --------------------------===//
+//===----- transpose.cpp - Lowering Transpose Op --------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers the ONNX Transpose Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 struct ONNXTransposeOpLowering : public ConversionPattern {
   ONNXTransposeOpLowering(MLIRContext *ctx)
