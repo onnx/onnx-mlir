@@ -189,8 +189,9 @@ private:
       }
     }
 
-    mlir::Type elementType =
-        convertONNXTypeToMLIRType(input.type().tensor_type().elem_type());
+    auto elementOnnxType =
+        (onnx::TensorProto_DataType)input.type().tensor_type().elem_type();
+    mlir::Type elementType = convertONNXTypeToMLIRType(elementOnnxType);
     llvm::ArrayRef<int64_t> tensor_dims(dims.data(), dims.size());
     arg_types.emplace_back(
         mlir::RankedTensorType::get(tensor_dims, elementType));
