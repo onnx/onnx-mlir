@@ -1,4 +1,4 @@
-//===----- pool.inc - Lowering Pooling Ops --------------------------------===//
+//===----- pool.cpp - Lowering Pooling Ops --------------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers the ONNX Pooling Operators to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 // Identity values
 template <>
