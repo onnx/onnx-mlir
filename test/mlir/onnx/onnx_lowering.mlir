@@ -1420,3 +1420,49 @@ func @test_maxpooling_singleout_no_pad_w_strides(%arg0 : tensor<1x3x32x32xf32>) 
   // CHECK: return [[RES]] : memref<1x3x16x16xf32>
 }
 
+func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], strides = [2, 2], ceil_mode = 1} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x3x16x16xf32>
+  // CHECK: [[DEF_LOOPS_0:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS_0:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS_0]]#0, [[DEF_LOOPS_0]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS_0]]#0, [[OPT_LOOPS_0]]#1) with ([[DEF_LOOPS_0]]#0 -> %arg1 = 0 to 1, [[DEF_LOOPS_0]]#1 -> %arg2 = 0 to 3) {
+  // CHECK:   [[DEF_LOOPS_1:%.+]]:2 = krnl.define_loops 2
+  // CHECK:   [[OPT_LOOPS_1:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:     krnl.return_loops [[DEF_LOOPS_1]]#0, [[DEF_LOOPS_1]]#1
+  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK:   krnl.iterate([[OPT_LOOPS_1]]#0, [[OPT_LOOPS_1]]#1) with ([[DEF_LOOPS_1]]#0 -> %arg3 = 0 to 16, [[DEF_LOOPS_1]]#1 -> %arg4 = 0 to 16) {
+  // CHECK:     [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK:     store [[NEGATIVE_INFINITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
+  // CHECK:     [[DEF_LOOPS_2:%.+]]:2 = krnl.define_loops 2
+  // CHECK:     [[OPT_LOOPS_2:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:       krnl.return_loops [[DEF_LOOPS_2]]#0, [[DEF_LOOPS_2]]#1
+  // CHECK:     } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK:     krnl.iterate([[OPT_LOOPS_2]]#0, [[OPT_LOOPS_2]]#1) with ([[DEF_LOOPS_2]]#0 -> %arg5 = 0 to 3, [[DEF_LOOPS_2]]#1 -> %arg6 = 0 to 3) {
+  // CHECK:       [[STRIDE_0:%.+]] = constant 2 : index
+  // CHECK:       [[MUL_0:%.+]] = muli [[STRIDE_0]], %arg3 : index
+  // CHECK:       [[SPATIAL_H:%.+]] = addi [[MUL_0]], %arg5 : index
+  // CHECK:       [[INPUT_INDEX_0:%.+]] = constant 31 : index
+  // CHECK:       [[CMP_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[INPUT_INDEX_0]] : index
+  // CHECK:       [[H:%.+]] = select [[CMP_0]], [[INPUT_INDEX_0]], [[SPATIAL_H]] : index
+  // CHECK:       [[STRIDE_1:%.+]] = constant 2 : index
+  // CHECK:       [[MUL_1:%.+]] = muli [[STRIDE_1]], %arg4 : index
+  // CHECK:       [[SPATIAL_W:%.+]] = addi [[MUL_1]], %arg6 : index
+  // CHECK:       [[INPUT_INDEX_1:%.+]] = constant 31 : index
+  // CHECK:       [[CMP_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[INPUT_INDEX_1]] : index
+  // CHECK:       [[W:%.+]] = select [[CMP_1]], [[INPUT_INDEX_1]], [[SPATIAL_W]] : index
+  // CHECK:       [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[H]], [[W]]] : memref<1x3x32x32xf32>
+  // CHECK:       [[LOAD_Y:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
+  // CHECK:       [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[LOAD_X]] : f32
+  // CHECK:       [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[LOAD_X]] : f32
+  // CHECK:       store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
+  // CHECK:     }
+  // CHECK:   }
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<1x3x16x16xf32>
+}
+

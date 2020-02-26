@@ -64,6 +64,9 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
       for (auto stride : stridesAttribute.getValue())
         strides.emplace_back(stride.cast<IntegerAttr>().getInt());
 
+    // Read ceil_mode attribute
+    auto ceilMode = poolOp.ceil_mode().getSExtValue();
+
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc;
@@ -109,8 +112,8 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
     //
 
     // 1. Define outer loops and emit empty optimization block:
-    int64_t nOuterLoops = 2;
-    BuildKrnlLoop outerLoops(rewriter, loc, nOuterLoops);
+    int batchRank = 2;  // N and C dimensions
+    BuildKrnlLoop outerLoops(rewriter, loc, batchRank);
     outerLoops.createDefineAndOptimizeOp();
     int nIndex = outerLoops.pushBounds(0, inputOperand, 0);
     int cIndex = outerLoops.pushBounds(0, inputOperand, 1);
@@ -121,10 +124,10 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
       // 2. Emit the body of the outer loop nest.
 
       // 2.1 Define spatial loops
-      int64_t nSpatialLoops = resultShape.size() - 2;
+      int nSpatialLoops = resultShape.size() - batchRank;
       BuildKrnlLoop spatialLoops(rewriter, loc, nSpatialLoops);
       spatialLoops.createDefineAndOptimizeOp();
-      for (int i = 2; i < resultShape.size(); ++i)
+      for (int i = batchRank; i < resultShape.size(); ++i)
         spatialLoops.pushBounds(0, alloc, i);
 
       // 2.2 Emit loop nest over output spatial dimensions.
@@ -157,7 +160,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
         rewriter.create<StoreOp>(loc, identity, alloc, resultIndices);
 
         // 3.2 Define inner loops.
-        int64_t nInnerLoops = kernelShape.size();
+        int nInnerLoops = kernelShape.size();
         BuildKrnlLoop innerLoops(rewriter, loc, nInnerLoops);
         innerLoops.createDefineAndOptimizeOp();
         //   for Kx = 0 .. KX
@@ -183,12 +186,27 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
           for (int i = 0; i < kernelShape.size(); ++i) {
             Value spatialIndex = spatialLoops.getInductionVar(i);
             // If strides are present then emit the correct access index.
-            if (stridesAttribute && strides[i] > 1)
+            if (stridesAttribute && strides[i] > 1) {
               spatialIndex = rewriter.create<MulIOp>(loc,
                   rewriter.create<ConstantIndexOp>(loc, strides[i]),
                   spatialLoops.getInductionVar(i));
-            dataIndices.emplace_back(rewriter.create<AddIOp>(
-                loc, spatialIndex, innerLoops.getInductionVar(i)));
+            }
+            spatialIndex = rewriter.create<AddIOp>(
+                loc, spatialIndex, innerLoops.getInductionVar(i));
+            // If ceil mode is enabled, then the calculated access index may
+            // exceed its dimension. In such a case, we will use the maximum
+            // index, which causes multiple visits to the element of the
+            // maximum index.
+            // TODO: Avoid multiple visits.
+            if (ceilMode) {
+              auto inputIndex = rewriter.create<ConstantIndexOp>(
+                  loc, inputShape[batchRank + i] - 1);
+              auto greaterCondition = rewriter.create<CmpIOp>(
+                  loc, CmpIPredicate::sgt, spatialIndex, inputIndex);
+              spatialIndex = rewriter.create<SelectOp>(
+                  loc, greaterCondition, inputIndex, spatialIndex);
+            }
+            dataIndices.emplace_back(spatialIndex);
           }
 
           // 4.2 Do pooling.

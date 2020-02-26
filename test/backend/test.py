@@ -307,6 +307,7 @@ test_to_enable = [
 
     # Pooling
     "test_maxpool_1d_default_cpu",
+    "test_maxpool_2d_ceil_cpu",
     "test_maxpool_2d_default_cpu",
     "test_maxpool_2d_strides_cpu",
     "test_maxpool_3d_default_cpu",
