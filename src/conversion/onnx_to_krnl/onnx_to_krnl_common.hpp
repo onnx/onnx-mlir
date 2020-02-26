@@ -215,3 +215,6 @@ void populateLoweringONNXReshapeOpPattern(
 
 void populateLoweringONNXIdentityOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXPadConstantValuePadOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
