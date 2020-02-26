@@ -1,10 +1,10 @@
-//===----- transpose.inc - Lowering Transpose Op --------------------------===//
+//===----padconstantvaluepad.cpp - Lowering PadConstantValuePad Op --------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file lowers the ONNX Transpose Operator to Krnl dialect.
+// This file lowers the ONNX PadConstantValuePad  Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,7 +14,8 @@ using namespace mlir;
 
 struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
   ONNXPadConstantValuePadOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXPadConstantValuePadOp::getOperationName(), 1, ctx) {}
+      : ConversionPattern(mlir::ONNXPadConstantValuePadOp::getOperationName(),
+                          1, ctx) {}
 
   PatternMatchResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -22,11 +23,12 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
     auto tensorType = (*op->result_type_begin()).cast<TensorType>();
     auto loc = op->getLoc();
 
-    //Only constant padding is supported now.
+    // Only constant padding is supported now.
     auto padMode = llvm::dyn_cast<ONNXPadConstantValuePadOp>(op).mode();
     if (padMode != "constant")
       emitError(loc, "unsupported mode for PadConstantValuePad");
-    auto constantValAttr = llvm::dyn_cast<ONNXPadConstantValuePadOp>(op).constant_valueAttr();
+    auto constantValAttr =
+        llvm::dyn_cast<ONNXPadConstantValuePadOp>(op).constant_valueAttr();
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(tensorType);
@@ -42,91 +44,58 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
     auto memRefShape = memRefType.getShape();
     int64_t rank = memRefShape.size();
 
-    // Copy the input data into the output.
-
-    // Define loops.
-    std::vector<Value> originalLoops;
-    std::vector<Value> optimizedLoops;
-    KrnlOptimizeLoopsOp optimizedLoopsOp = emitOptimizedLoops(rewriter, loc, originalLoops,
-        optimizedLoops, rank);
-    Block *optimizationBlock = &optimizedLoopsOp.region().front();
+    // Iterate over the loop nest using the output shape.
+    BuildKrnlLoop padLoops(rewriter, loc, rank);
+    padLoops.createDefineAndOptimizeOp();
+    for (int i = 0; i < rank; ++i)
+      padLoops.pushBounds(0, alloc, i);
+    padLoops.createIterateOp();
 
     // Iterate over the loop nest using the input shape.
-    KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
+    BuildKrnlLoop valueLoops(rewriter, loc, rank);
+    valueLoops.createDefineAndOptimizeOp();
     for (int i = 0; i < rank; ++i)
-      addDimensionToPack(rewriter, loc, pack, operands[0], i);
+      valueLoops.pushBounds(0, operands[0], i);
+    valueLoops.createIterateOp();
 
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
-    Block &iterationBlock = iterateOp.bodyRegion().front();
+    // Copy the input data into the output.
+    rewriter.setInsertionPointToStart(valueLoops.getIterateBlock());
 
-    // Now perform the insertions into the body of the
-    // just generated instructions:
-
-    // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-    rewriter.setInsertionPointToEnd(optimizationBlock);
-    // Return from KrnlOptimizeLoopsOp body.
-    // When no optimizations are present we just return the loops
-    // unchaged.
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
-    // 2. Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation.
     SmallVector<Value, 4> inLoopIVs;
-    for (auto arg : iterationBlock.getArguments())
-      inLoopIVs.emplace_back(arg);
+    for (int i = 0; i < rank; ++i)
+      inLoopIVs.emplace_back(valueLoops.getInductionVar(i));
 
     auto pads = llvm::dyn_cast<ONNXPadConstantValuePadOp>(op).pads();
     SmallVector<int64_t, 4> pad_begin;
-    for (int i=0; i<pads.size(); i+=2 ) {
-        pad_begin.emplace_back(pads.getValue()[i].cast<IntegerAttr>().getInt());
+    for (int i = 0; i < pads.size(); i += 2) {
+      pad_begin.emplace_back(pads.getValue()[i].cast<IntegerAttr>().getInt());
     }
 
     SmallVector<Value, 4> outLoopIVs;
-    for (int i=0; i<iterationBlock.getArguments().size(); ++i) {
-      //Calculate the index.
+    for (int i = 0; i < rank; ++i) {
+      // Calculate the index for the load and store.
       if (pad_begin[i] == 0) {
-        outLoopIVs.emplace_back(iterationBlock.getArguments()[i]);
-      }else {
-        auto outIV = rewriter.create<AddIOp>(loc, rewriter.create<ConstantIndexOp>(loc, pad_begin[i]), iterationBlock.getArguments()[i]);
+        outLoopIVs.emplace_back(valueLoops.getInductionVar(i));
+      } else {
+        auto outIV = rewriter.create<AddIOp>(
+            loc, rewriter.create<ConstantIndexOp>(loc, pad_begin[i]),
+            valueLoops.getInductionVar(i));
         outLoopIVs.emplace_back(outIV);
       }
     }
 
     auto inVal = rewriter.create<LoadOp>(loc, operands[0], inLoopIVs);
     rewriter.create<StoreOp>(loc, inVal, alloc, outLoopIVs);
-    rewriter.setInsertionPoint(optimizedLoopsOp);
+    rewriter.setInsertionPointToStart(padLoops.getIterateBlock());
 
-    //Copy padding value into the output
-
-    // Define loops.
-    std::vector<Value> originalLoops1;
-    std::vector<Value> optimizedLoops1;
-    Block *optimizationBlock1 = defineLoops(rewriter, loc, originalLoops1,
-        optimizedLoops1, rank);
-    KrnlIterateOperandPack pack1(rewriter, originalLoops1, optimizedLoops1);
-
-    // Iterate over the loop nest using the input shape.
-    for (int i = 0; i < rank; ++i) {
-      pack1.pushConstantBound(0);
-      pack1.pushConstantBound(memRefShape[i]);
-    }
-
-    auto iterateOp1 = rewriter.create<KrnlIterateOp>(loc, pack1);
-    Block &iterationBlock1 = iterateOp1.bodyRegion().front();
-
-    rewriter.setInsertionPointToEnd(optimizationBlock1);
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops1);
-    rewriter.setInsertionPointToStart(&iterationBlock1);
     SmallVector<Value, 4> outLoopIVs1;
-    for (auto arg : iterationBlock1.getArguments())
-      outLoopIVs1.emplace_back(arg);
+    for (int i = 0; i < rank; ++i)
+      outLoopIVs1.emplace_back(padLoops.getInductionVar(i));
 
     auto inVal1 = rewriter.create<ConstantOp>(loc, constantValAttr);
     rewriter.create<StoreOp>(loc, inVal1, alloc, outLoopIVs1);
 
-
+    // Replace the original op with the generated code.
     rewriter.replaceOp(op, alloc);
 
     return matchSuccess();
