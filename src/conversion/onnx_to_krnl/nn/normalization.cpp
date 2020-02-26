@@ -123,8 +123,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     auto dividend = rewriter.create<SubFOp>(loc, xVal, meanVal);
     auto adjustedVarianceVal =
         rewriter.create<AddFOp>(loc, varianceVal, epsilon);
-    auto divisor = rewriter.create<KrnlSqrtOp>(loc, memRefType.getElementType(),
-                                               adjustedVarianceVal);
+    auto divisor = rewriter.create<SqrtOp>(loc, adjustedVarianceVal);
     auto normVal = rewriter.create<DivFOp>(loc, dividend, divisor);
     // scale and shift
     auto scaleNormVal = rewriter.create<MulFOp>(loc, scaleVal, normVal);
