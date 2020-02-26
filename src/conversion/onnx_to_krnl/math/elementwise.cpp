@@ -1,4 +1,4 @@
-//===----- elementwise.inc - Elementwise Ops ------------------------------===//
+//===----- elementwise.cpp - Elementwise Ops ------------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers ONNX element-wise operators to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 template <>
 struct ScalarOp<ONNXAddOp> {

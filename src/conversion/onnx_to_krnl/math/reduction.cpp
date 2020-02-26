@@ -1,4 +1,4 @@
-//===----- reduction.inc - Lowering Reduction Ops -------------------------===//
+//===----- reduction.cpp - Lowering Reduction Ops -------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers the ONNX Reduction Operators to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 // Identity values
 template <>

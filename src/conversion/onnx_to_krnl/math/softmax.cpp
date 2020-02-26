@@ -1,4 +1,4 @@
-//===----- softmax.inc - Softmax Op ---------------------------------------===//
+//===----- softmax.cpp - Softmax Op ---------------------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers ONNX softmax operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 struct ONNXSoftmaxOpLowering : public ConversionPattern {
   ONNXSoftmaxOpLowering(MLIRContext *ctx)

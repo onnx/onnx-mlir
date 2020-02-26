@@ -1,4 +1,4 @@
-//===----- gemm.inc - Lowering Gemm Op ------------------------------------===//
+//===----- gemm.cpp - Lowering Gemm Op ------------------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -7,6 +7,10 @@
 // This file lowers the ONNX Gemm Operator to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+
+using namespace mlir;
 
 template <typename GemmOp>
 struct ONNXGemmOpLowering : public ConversionPattern {
