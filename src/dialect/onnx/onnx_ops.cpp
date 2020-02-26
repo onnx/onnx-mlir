@@ -1045,6 +1045,57 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
 
 //===----------------------------------------------------------------------===//
 
+static Type padShapeInferenceHelper(Value data, ArrayAttr padsOpt) {
+  // Cannot infer shape if no shape exists.
+  if (!data.getType().isa<RankedTensorType>())
+    return (Type)NULL;
+  auto dataTy = data.getType().cast<RankedTensorType>();
+  auto dataShape = dataTy.getShape();
+  auto dataRank = dataShape.size();
+  SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
+  if (padsOpt) {
+    auto padsArray = padsOpt.getValue();
+    // Pads consists of two values for each axis of data.
+    // The two values specify the number of elements padded before and after respectively.
+    for (int i = 0; i < dataRank; ++i) {
+      int64_t p1 = (padsArray[2*i]).cast<IntegerAttr>().getInt();
+      int64_t p2 = (padsArray[2*i+1]).cast<IntegerAttr>().getInt();
+      //Have to non-negative constant
+      if (p1 < 0 || p2 <0) 
+        return (Type)NULL;
+      outputShape[i] += p1+p2;
+    }
+
+    return (RankedTensorType::get(outputShape, dataTy.getElementType()));
+  } else {
+    return (Type)NULL;
+  }
+}
+
+// PadConstantPad
+
+void ONNXPadConstantPadOp::inferShapes(){
+  auto outputType = padShapeInferenceHelper(data(), pads());
+  if (outputType) {
+    getResult().setType(outputType);
+  } 
+  return;
+}
+
+//===----------------------------------------------------------------------===//
+
+// PadConstantValuePad
+
+void ONNXPadConstantValuePadOp::inferShapes(){
+  auto outputType = padShapeInferenceHelper(data(), pads());
+  if (outputType) {
+    getResult().setType(outputType);
+  } 
+  return;
+}
+
+//===----------------------------------------------------------------------===//
+
 // Unsqueeze
 
 void ONNXUnsqueezeOp::inferShapes() {
