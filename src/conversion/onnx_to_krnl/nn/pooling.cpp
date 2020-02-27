@@ -62,21 +62,107 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
     // Read ceil_mode attribute
     auto ceilMode = poolOp.ceil_mode().getSExtValue();
 
-    // Insert an allocation and deallocation for the result of this operation.
+    // Read pads attribute
+    SmallVector<int, 4> pads;
+    auto padsAttribute = poolOp.padsAttr();
+    for (auto pad : padsAttribute.getValue())
+      pads.emplace_back(pad.cast<IntegerAttr>().getInt());
+
+    // Read dilations attribute
+    SmallVector<int, 4> dilations;
+    auto dilationsAttribute = poolOp.dilationsAttr();
+    for (auto dilation : dilationsAttribute.getValue())
+      dilations.emplace_back(dilation.cast<IntegerAttr>().getInt());
+
+    // Type information about the input and result of this operation.
+    auto &inputOperand = operands[0];
+    auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
+    auto resultShape = memRefType.getShape();
+    auto resultElementType = memRefType.getElementType();
+
+    // Batch indices: N and C dimensions
+    int batchRank = 2;
+
+    // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
 
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {operands[0]});
+    else {
+      // Compute dimensions of the result of this operation.
+      SmallVector<Value, 2> allocOperands;
+      for (int i = 0; i < batchRank; ++i) {
+        if (resultShape[i] < 0) {
+          auto dim = rewriter.create<DimOp>(loc, inputOperand, i);
+          allocOperands.emplace_back(dim);
+        }
+      }
 
-    auto resultShape = memRefType.getShape();
-    auto resultElementType = memRefType.getElementType();
-    auto &inputOperand = operands[0];
-    auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
+      Value zero, one;
+      if (ceilMode) {
+        zero = rewriter.create<ConstantOp>(
+            loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
+      }
+      one = rewriter.create<ConstantOp>(
+          loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 1));
+
+      int spatialRank = resultShape.size() - batchRank;
+      for (int i = batchRank; i < resultShape.size(); ++i) {
+        if (resultShape[i] < 0) {
+          // dim =
+          //   let numerator = (input + pad - (kernel - 1) * dilation + 1)
+          //   in let denomitor = stride
+          //      in
+          //        if (ceilMode)
+          //          ceil(numerator / denominator) + 1
+          //        else
+          //          floor(numerator / denominator) + 1
+          int spatialIndex = i - batchRank;
+
+          // numerator = (input + pad - (kernel - 1) * dilation + 1)
+          auto inputDim = rewriter.create<DimOp>(loc, inputOperand, i);
+          auto inputVal = rewriter.create<IndexCastOp>(
+              loc, inputDim, rewriter.getIntegerType(64));
+          int64_t padKernelDilation =
+              (pads[spatialIndex] + pads[spatialIndex + spatialRank]) -
+              (kernelShape[spatialIndex] - 1) * dilations[spatialIndex] + 1;
+          auto padKernelDilationVal = rewriter.create<ConstantOp>(
+              loc, rewriter.getIntegerAttr(
+                       rewriter.getIntegerType(64), padKernelDilation));
+          auto numeratorVal =
+              rewriter.create<AddIOp>(loc, inputVal, padKernelDilationVal);
+          // denominator
+          auto denominatorVal = rewriter.create<ConstantOp>(
+              loc, rewriter.getIntegerAttr(
+                       rewriter.getIntegerType(64), strides[spatialIndex]));
+
+          // numerator / denominator
+          Value dimVal =
+              rewriter.create<SignedDivIOp>(loc, numeratorVal, denominatorVal);
+
+          if (ceilMode) {
+            auto remainder = rewriter.create<SignedRemIOp>(
+                loc, numeratorVal, denominatorVal);
+            auto isZero = rewriter.create<CmpIOp>(
+                loc, CmpIPredicate::eq, remainder, zero);
+            auto dimPlusOne = rewriter.create<AddIOp>(loc, dimVal, one);
+            dimVal = rewriter.create<SelectOp>(loc, isZero, dimVal, dimPlusOne);
+          }
+
+          dimVal = rewriter.create<AddIOp>(loc, dimVal, one);
+          allocOperands.emplace_back(rewriter.create<IndexCastOp>(
+              loc, dimVal, rewriter.getIndexType()));
+        }
+      }
+      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+      if (insertDealloc) {
+        auto *parentBlock = alloc.getDefiningOp()->getBlock();
+        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        dealloc.getOperation()->moveBefore(&parentBlock->back());
+      }
+    }
 
     // R = MaxPool(D)
     //
@@ -151,7 +237,6 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
         // 3.1 Prepare indices for accesing the data tensor.
         SmallVector<Value, 4> dataIndices;
         // Batch indices: n, c
-        int batchRank = 2;
         for (int i = 0; i < batchRank; ++i)
           dataIndices.emplace_back(outerLoops.getInductionVar(i));
         // Spatial indices: sX * rX + kX
@@ -171,8 +256,15 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
           // maximum index.
           // TODO: Avoid multiple visits.
           if (ceilMode) {
-            auto inputIndex =
-                rewriter.create<ConstantIndexOp>(loc, inputShape[i] - 1);
+            Value inputIndex;
+            if (inputShape[i] < 0) {
+              Value inputDim = rewriter.create<DimOp>(loc, inputOperand, i);
+              Value one = rewriter.create<ConstantIndexOp>(loc, 1);
+              inputIndex = rewriter.create<SubIOp>(loc, inputDim, one);
+            } else {
+              inputIndex =
+                  rewriter.create<ConstantIndexOp>(loc, inputShape[i] - 1);
+            }
             auto greaterCondition = rewriter.create<CmpIOp>(
                 loc, CmpIPredicate::sgt, spatialIndex, inputIndex);
             spatialIndex = rewriter.create<SelectOp>(
