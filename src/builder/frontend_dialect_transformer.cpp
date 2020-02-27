@@ -105,6 +105,69 @@ private:
   std::map<std::string, mlir::Value> onnx_name2onnf_tensor;
 };
 
+struct InitializedTensor {
+  InitializedTensor(std::vector<int64_t> dims) : _dims(dims) {}
+
+private:
+
+}
+
+struct InitializedTensorMapping {
+
+  std::string name;
+}
+
+// struct OnnxDlcTensorMapping {
+//   /*!
+//    * Get dlc tensor by onnx tensor name.
+//    * @param name onnx tensor name.
+//    * @return dlc tensor corresponding to `name`.
+//    */
+//   TensorPtr GetTensorByOnnxName(std::string name) {
+//     return onnx_name2dlc_tensor.at(legalize_name(name));
+//   }
+
+//   /*!
+//    * Get dlc tensor by onnx tensor name; if tensor does not exist by the name
+//    * specified, return defualt value.
+//    * @param name onnx tensor name.
+//    * @param default default tensor pointer to return, in case `name` does not
+//    * have an existing corresponding tensor pointer.
+//    * @return dlc tensor corresponding to `name` or `default`.
+//    */
+//   TensorPtr GetTensorByOnnxNameWithDefault(
+//       std::string name, TensorPtr default_tensor = nullptr) {
+//     return onnx_name2dlc_tensor.count(legalize_name(name)) == 0
+//         ? default_tensor
+//         : onnx_name2dlc_tensor.at(legalize_name(name));
+//   }
+
+//   /*!
+//    * Add a new mapping from onnx tensor name to dlc tensor.
+//    * @param name onnx tensor name.
+//    * @param tensor dlc tensor pointer.
+//    */
+//   void AddMapping(std::string name, TensorPtr tensor) {
+//     onnx_name2dlc_tensor.emplace(legalize_name(name), tensor);
+//   }
+
+//   /*!
+//    * Check if an onnx tensor name corresponds to a seen dlc tensor.
+//    * @param name onnx tensor name.
+//    * @return true iff onnx tensor name corresponds to a seen dlc tensor, false
+//    * otherwise.
+//    */
+//   bool ContainKey(std::string name) {
+//     return onnx_name2dlc_tensor.count(name) != 0;
+//   }
+
+//  private:
+//   /*!
+//    * mapping from onnx tensor names to dlc tensor.
+//    */
+//   std::map<std::string, TensorPtr> onnx_name2dlc_tensor;
+// };
+
 class FrontendGenImpl {
 public:
   FrontendGenImpl(mlir::MLIRContext &context)
@@ -450,16 +513,117 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
+  // template <typename T> TensorPtr ImportInitializer(
+  //     OnnxDlcTensorMapping& tensor_map, onnx::TensorProto initializer) {
+  //   // Convert dimension to dlc format.
+  //   std::vector<Dim> dims;
+  //   for (int i = 0; i < initializer.dims().size(); i++) {
+  //     dims.push_back(Dim(initializer.dims()[i]));
+  //   }
+
+  //   std::vector<char> initializer_data_byte_array;
+  //   auto name = initializer.name();
+
+  //   if (initializer.raw_data().size()) {  // copy & take care of endianness
+  //     std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
+  //         back_inserter(initializer_data_byte_array));
+  //     dlc_little_to_native<T>((T*)&initializer_data_byte_array[0],
+  //         initializer_data_byte_array.size());
+  //   } else {  // copy, no need to take care of endianness
+  //     auto data = cpp_type_to_onnx_data_field_trait<T>::data(initializer);
+  //     initializer_data_byte_array.reserve(data.size() * sizeof(T));
+  //     initializer_data_byte_array = std::vector<char>(data.size() * sizeof(T));
+  //     std::copy(data.begin(), data.end(),
+  //         reinterpret_cast<T*>(&initializer_data_byte_array[0]));
+  //   }
+
+  //   auto tensor = Tensor::Create(
+  //       legalize_name(name), cpp_type_to_dlc_type_trait<T>::dlc_type, dims);
+  //   tensor->initial_data(initializer_data_byte_array);
+
+  //   tensor_map.AddMapping(legalize_name(name), tensor);
+  //   return tensor;
+  // }
+
+  template <typename T> void ImportInitializer(onnx::TensorProto initializer) {
+    // Convert dimension to dlc format.
+    std::vector<int64_t> dims;
+    for (int i = 0; i < initializer.dims().size(); i++) {
+      dims.push_back((int64_t)initializer.dims()[i]);
+    }
+
+    auto name = initializer.name();
+    printf("Dims of %s: ", name.c_str());
+    for (int i = 0; i < initializer.dims().size(); i++) {
+      printf(" %d ", dims[i]);
+    }
+    printf("\n");
+
+    if (initializer.raw_data().size()) {
+      printf("Has raw data\n");
+    } else {
+      printf("Has TYPED data.\n");
+    }
+
+    std::vector<char> dataByteArrayInitializer;
+
+    if (initializer.raw_data().size()) {
+      // copy & take care of endianness
+      std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
+          back_inserter(dataByteArrayInitializer));
+    } else {  // copy, no need to take care of endianness
+      auto data = cpp_type_to_onnx_data_field_trait<T>::data(initializer);
+      dataByteArrayInitializer.reserve(data.size() * sizeof(T));
+      dataByteArrayInitializer = std::vector<char>(data.size() * sizeof(T));
+      std::copy(data.begin(), data.end(),
+          reinterpret_cast<T*>(&dataByteArrayInitializer[0]));
+    }
+
+  }
+
   void ImportGraph(const onnx::GraphProto &graph,
                    const std::string &name = "main_graph") {
+    // std::vector<TensorPtr> initialized;
+    printf("Print constant input data types:\n");
+    for (auto initializer : graph.initializer()) {
+      printf("Arg:\n");
+      switch (initializer.data_type()) {
+        case (onnx::TensorProto::FLOAT): {
+          printf("onnx::TensorProto::FLOAT case!\n");
+          ImportInitializer<float>(initializer);
+          // initialized.push_back(
+          //     ImportInitializer<float>(tensor_map, initializer));
+          break;
+        }
+        case (onnx::TensorProto::INT32): {
+          printf("onnx::TensorProto::INT32 case!\n");
+          ImportInitializer<int32_t>(initializer);
+          // initialized.push_back(
+          //     ImportInitializer<int32_t>(tensor_map, initializer));
+          break;
+        }
+        case (onnx::TensorProto::INT64): {
+          printf("onnx::TensorProto::INT64 case!\n");
+          ImportInitializer<int64_t>(initializer);
+          // initialized.push_back(
+          //     ImportInitializer<int64_t>(tensor_map, initializer));
+          break;
+        }
+        default:
+          printf("Default case!\n");
+      }
+    }
+
     // create a function for the graph
     // TODO:
     //  * get name and type for the function.
     //  * maintain a list of the defined graph
     llvm::SmallVector<mlir::Type, 4> arg_types;
 
+    printf("Import graph, num inputs = %d\n", graph.input().size());
     // Import the input tensor types.
     for (const auto &input : graph.input()) {
+      printf(" %s \n", legalize_name(input.name()).c_str());
       ImportInputTensorType(input, arg_types);
     }
 
@@ -510,6 +674,7 @@ private:
 namespace onnf {
 
 mlir::OwningModuleRef ImportFrontendModel(onnx::ModelProto model) {
+  printf(" --> ImportFrontendModel\n");
   mlir::MLIRContext context;
   FrontendGenImpl myONNXGen(context);
   auto module = myONNXGen.ImportONNXModel(model);
@@ -519,6 +684,7 @@ mlir::OwningModuleRef ImportFrontendModel(onnx::ModelProto model) {
 void ImportFrontendModelFile(std::string model_fname,
                              mlir::MLIRContext &context,
                              mlir::OwningModuleRef &module) {
+  printf(" --> ImportFrontendModelFile\n");
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
 

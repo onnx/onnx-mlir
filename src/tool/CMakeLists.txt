@@ -1,1 +1,2 @@
 add_subdirectory(onnf_opt)
+add_subdirectory(onnf_run)
