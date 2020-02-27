@@ -45,7 +45,7 @@ def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),
 // onnx.add(onnx.Gemm(%X, %Y, None), %Z) = onnx.Gemm(%X, %Y, %Z)
 def FuseGemmFollowedByAddition : Pat<(ONNXAddOp (ONNXGemmOp:$res $m1, $m2, $none, $alpha, $beta, $transA, $transB), $bias),
                                      (ONNXGemmOp $m1, $m2, $bias, $alpha, $beta, $transA, $transB),
-                                     [(HasOneUse $res), (HasRankOf<2> $m1), (HasRankOf<2> $m2), (HasNoneType $none)]>;
+                                     [(HasOneUse $res), (HasNoneType $none)]>;
 
 // ONNX_Op (onnx.Identity (%X)) = ONNX_Op (%X)
 def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),

@@ -86,8 +86,8 @@ struct ScalarOp<ONNXLogOp> {
 
 template <>
 struct ScalarOp<ONNXSqrtOp> {
-  using FOp = KrnlSqrtOp;
-  using IOp = KrnlSqrtOp; // not use
+  using FOp = SqrtOp;
+  using IOp = SqrtOp; // not use
 };
 
 //===----------------------------------------------------------------------===//
