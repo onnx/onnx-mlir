@@ -105,68 +105,114 @@ private:
   std::map<std::string, mlir::Value> onnx_name2onnf_tensor;
 };
 
+enum DataType {
+  UNDEFINED = 0,  // undefined
+  DOUBLE    = 1,  // double
+  FLOAT     = 2,  // float
+  UINT8     = 3,  // uint8_t
+  INT8      = 4,  // int8_t
+  UINT16    = 5,  // uint16_t
+  INT16     = 6,  // int16_t
+  INT32     = 7,  // int32_t
+  INT64     = 8,  // int64_t
+  STRING    = 9,  // string
+  BOOL      = 10, // bool
+};
+
+template <typename T>
+struct TransformValueToONNXData {
+  static const google::protobuf::RepeatedField<T> data(
+      onnx::TensorProto initializer) {
+    return google::protobuf::RepeatedField<T>();
+  }
+};
+
+template <>
+struct TransformValueToONNXData<double> {
+  static const google::protobuf::RepeatedField<double> data(
+      onnx::TensorProto initializer) {
+    return initializer.double_data();
+  }
+};
+
+template <>
+struct TransformValueToONNXData<float> {
+  static const google::protobuf::RepeatedField<float> data(
+      onnx::TensorProto initializer) {
+    return initializer.float_data();
+  }
+};
+
+template <>
+struct TransformValueToONNXData<int32_t> {
+  static const google::protobuf::RepeatedField<int32_t> data(
+      onnx::TensorProto initializer) {
+    return initializer.int32_data();
+  }
+};
+
+template <>
+struct TransformValueToONNXData<int64_t> {
+  static const google::protobuf::RepeatedField<int64_t> data(
+      onnx::TensorProto initializer) {
+    return initializer.int64_data();
+  }
+};
+
 struct InitializedTensor {
-  InitializedTensor(std::vector<int64_t> dims) : _dims(dims) {}
+  InitializedTensor(std::vector<char> data, std::vector<int64_t> dims,
+      DataType type) : _data(data), _dims(dims), _type(type) {}
+
+  std::vector<char> getData() {
+    return _data;
+  }
+
+  std::vector<int64_t> getDimensions() {
+    return _dims;
+  }
+
+  DataType getType() {
+    return _type;
+  }
 
 private:
+  // Data which represents the value of the tensor.
+  std::vector<char> _data;
 
-}
+  // Tensor dimension.
+  std::vector<int64_t> _dims;
+
+  // Data type.
+  DataType _type;
+};
 
 struct InitializedTensorMapping {
+  // Get initialized tensor.
+  InitializedTensor GetInitializedTensor(const std::string &name) {
+    assert(nameToInitializedTensor.find(legalize_name(name)) !=
+               nameToInitializedTensor.end() &&
+           "Tensor not found");
+    return nameToInitializedTensor.at(legalize_name(name));
+  }
 
-  std::string name;
-}
+  // Add new entry.
+  void AddMapping(const std::string &name, InitializedTensor tensor) {
+    assert(nameToInitializedTensor.count(legalize_name(name)) == 0 &&
+           "Tensor already exists.");
+    nameToInitializedTensor.emplace(legalize_name(name), tensor);
+  }
 
-// struct OnnxDlcTensorMapping {
-//   /*!
-//    * Get dlc tensor by onnx tensor name.
-//    * @param name onnx tensor name.
-//    * @return dlc tensor corresponding to `name`.
-//    */
-//   TensorPtr GetTensorByOnnxName(std::string name) {
-//     return onnx_name2dlc_tensor.at(legalize_name(name));
-//   }
+  // Check if input is initialized. Not all inputs are, some of the inputs
+  // require input from the user and are not stored inside the ONNX model
+  // itself.
+  bool ContainKey(std::string name) {
+    return nameToInitializedTensor.count(name) != 0;
+  }
 
-//   /*!
-//    * Get dlc tensor by onnx tensor name; if tensor does not exist by the name
-//    * specified, return defualt value.
-//    * @param name onnx tensor name.
-//    * @param default default tensor pointer to return, in case `name` does not
-//    * have an existing corresponding tensor pointer.
-//    * @return dlc tensor corresponding to `name` or `default`.
-//    */
-//   TensorPtr GetTensorByOnnxNameWithDefault(
-//       std::string name, TensorPtr default_tensor = nullptr) {
-//     return onnx_name2dlc_tensor.count(legalize_name(name)) == 0
-//         ? default_tensor
-//         : onnx_name2dlc_tensor.at(legalize_name(name));
-//   }
-
-//   /*!
-//    * Add a new mapping from onnx tensor name to dlc tensor.
-//    * @param name onnx tensor name.
-//    * @param tensor dlc tensor pointer.
-//    */
-//   void AddMapping(std::string name, TensorPtr tensor) {
-//     onnx_name2dlc_tensor.emplace(legalize_name(name), tensor);
-//   }
-
-//   /*!
-//    * Check if an onnx tensor name corresponds to a seen dlc tensor.
-//    * @param name onnx tensor name.
-//    * @return true iff onnx tensor name corresponds to a seen dlc tensor, false
-//    * otherwise.
-//    */
-//   bool ContainKey(std::string name) {
-//     return onnx_name2dlc_tensor.count(name) != 0;
-//   }
-
-//  private:
-//   /*!
-//    * mapping from onnx tensor names to dlc tensor.
-//    */
-//   std::map<std::string, TensorPtr> onnx_name2dlc_tensor;
-// };
+private:
+  // Mapping from ONNX tensor name to InitializedTensor.
+  std::map<std::string, InitializedTensor> nameToInitializedTensor;
+};
 
 class FrontendGenImpl {
 public:
@@ -230,8 +276,7 @@ private:
    * @param input onnx input tensor ValueInfoProto.
    * @param arg_types list of mlir types representing types of graph input.
    */
-  void ImportInputTensorType(const onnx::ValueInfoProto &input,
-                             llvm::SmallVector<mlir::Type, 4> &arg_types) {
+  mlir::Type ImportInputTensorType(const onnx::ValueInfoProto &input) {
     std::vector<int64_t> dims;
     auto shape_proto = input.type().tensor_type().shape();
     auto input_tensor_legalized_name = legalize_name(input.name());
@@ -256,8 +301,9 @@ private:
         (onnx::TensorProto_DataType)input.type().tensor_type().elem_type();
     mlir::Type elementType = convertONNXTypeToMLIRType(elementOnnxType);
     llvm::ArrayRef<int64_t> tensor_dims(dims.data(), dims.size());
-    arg_types.emplace_back(
-        mlir::RankedTensorType::get(tensor_dims, elementType));
+    // arg_types.emplace_back(
+    //     mlir::RankedTensorType::get(tensor_dims, elementType));
+    return mlir::RankedTensorType::get(tensor_dims, elementType);
   }
 
   /*!
@@ -545,24 +591,12 @@ private:
   //   return tensor;
   // }
 
-  template <typename T> void ImportInitializer(onnx::TensorProto initializer) {
+  template <typename T> InitializedTensor ReadInitializerValueFromModel(
+      onnx::TensorProto initializer, DataType type) {
     // Convert dimension to dlc format.
     std::vector<int64_t> dims;
     for (int i = 0; i < initializer.dims().size(); i++) {
       dims.push_back((int64_t)initializer.dims()[i]);
-    }
-
-    auto name = initializer.name();
-    printf("Dims of %s: ", name.c_str());
-    for (int i = 0; i < initializer.dims().size(); i++) {
-      printf(" %d ", dims[i]);
-    }
-    printf("\n");
-
-    if (initializer.raw_data().size()) {
-      printf("Has raw data\n");
-    } else {
-      printf("Has TYPED data.\n");
     }
 
     std::vector<char> dataByteArrayInitializer;
@@ -572,41 +606,62 @@ private:
       std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
           back_inserter(dataByteArrayInitializer));
     } else {  // copy, no need to take care of endianness
-      auto data = cpp_type_to_onnx_data_field_trait<T>::data(initializer);
+      auto data = TransformValueToONNXData<T>::data(initializer);
       dataByteArrayInitializer.reserve(data.size() * sizeof(T));
       dataByteArrayInitializer = std::vector<char>(data.size() * sizeof(T));
       std::copy(data.begin(), data.end(),
           reinterpret_cast<T*>(&dataByteArrayInitializer[0]));
+      printf(" data.size() = %d\n", data.size());
     }
 
+    return InitializedTensor(dataByteArrayInitializer, dims, type);
+  }
+
+  template <typename T> T* CreateArrayAttribute(
+      onnx::TensorProto initializer, int *size) {
+    printf("CreateArrayAttribute \n");
+    if (initializer.raw_data().size()) {
+      printf("This tensor is stored in RAW format!\n");
+      // copy & take care of endianness
+      std::vector<char> byteInitializer;
+      std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
+          back_inserter(byteInitializer));
+      *size = initializer.raw_data().size() / sizeof(T);
+      return reinterpret_cast<T*>(&byteInitializer[0]);
+    }
+
+    // copy, no need to take care of endianness
+    auto data = TransformValueToONNXData<T>::data(initializer);
+    printf(" data.size() = %d\n", data.size());
+    *size = data.size();
+    printf("CreateArrayAttribute size = %d\n", *size);
+    return &data[0];
   }
 
   void ImportGraph(const onnx::GraphProto &graph,
                    const std::string &name = "main_graph") {
-    // std::vector<TensorPtr> initialized;
+    InitializedTensorMapping initializedTensors;
     printf("Print constant input data types:\n");
     for (auto initializer : graph.initializer()) {
-      printf("Arg:\n");
+      printf("\nArg: %s\n", initializer.name().c_str());
+      auto name = initializer.name();
       switch (initializer.data_type()) {
         case (onnx::TensorProto::FLOAT): {
           printf("onnx::TensorProto::FLOAT case!\n");
-          ImportInitializer<float>(initializer);
-          // initialized.push_back(
-          //     ImportInitializer<float>(tensor_map, initializer));
+          initializedTensors.AddMapping(legalize_name(name),
+              ReadInitializerValueFromModel<float>(initializer, FLOAT));
           break;
         }
         case (onnx::TensorProto::INT32): {
           printf("onnx::TensorProto::INT32 case!\n");
-          ImportInitializer<int32_t>(initializer);
-          // initialized.push_back(
-          //     ImportInitializer<int32_t>(tensor_map, initializer));
+          initializedTensors.AddMapping(legalize_name(name),
+              ReadInitializerValueFromModel<int32_t>(initializer, INT32));
           break;
         }
         case (onnx::TensorProto::INT64): {
           printf("onnx::TensorProto::INT64 case!\n");
-          ImportInitializer<int64_t>(initializer);
-          // initialized.push_back(
-          //     ImportInitializer<int64_t>(tensor_map, initializer));
+          initializedTensors.AddMapping(legalize_name(name),
+              ReadInitializerValueFromModel<int64_t>(initializer, INT64));
           break;
         }
         default:
@@ -621,33 +676,103 @@ private:
     llvm::SmallVector<mlir::Type, 4> arg_types;
 
     printf("Import graph, num inputs = %d\n", graph.input().size());
-    // Import the input tensor types.
-    for (const auto &input : graph.input()) {
-      printf(" %s \n", legalize_name(input.name()).c_str());
-      ImportInputTensorType(input, arg_types);
-    }
+    // Import the input tensor types that are not constant.
+    for (const auto &input : graph.input())
+      if (!initializedTensors.ContainKey(input.name()))
+        arg_types.emplace_back(ImportInputTensorType(input));
 
-    // TODO: import the initializer
+    // Create the main function.
     auto funcType = builder_.getFunctionType(arg_types, {});
     auto mainFunc =
         mlir::FuncOp::create(UnknownLoc(), name, funcType, /* attrs = */ {});
+
+    // Emit the entry point operation which specifies the number of user
+    // inputs and outputs.
     auto entryPoint = mlir::ONNXEntryPointOp::create(
-        UnknownLoc(), mainFunc, /*numInputs=*/graph.input().size(),
+        UnknownLoc(), mainFunc,
+        /*numInputs=*/graph.input().size() - graph.initializer().size(),
         /*numOutputs=*/graph.output().size());
 
+    // Get the entru block inside the main function and set the insertion point
+    // to it.
     auto &entryBlock = *mainFunc.addEntryBlock();
     builder_.setInsertionPointToStart(&entryBlock);
 
     module_.push_back(mainFunc);
     module_.push_back(entryPoint);
 
-    for (auto it : llvm::zip(graph.input(), entryBlock.getArguments())) {
-      ImportInputTensorSymbol(std::get<0>(it), std::get<1>(it));
+    // Map graph inputs to entry block arguments.
+    for (int i = 0; i < graph.input().size(); ++i)
+      if (!initializedTensors.ContainKey(graph.input()[i].name()))
+        ImportInputTensorSymbol(
+            graph.input()[i], entryBlock.getArguments()[i]);
+
+    // Create a NoneTyped constant to be used for optional operation inputs
+    // which are not used.
+    none_ = builder_.create<mlir::ConstantOp>(UnknownLoc(),
+        builder_.getUnitAttr());
+
+    // Emit constant arguments (initialized arguments) as ConstantOps.
+    // For every argument which can be initialized with a tensor of constant
+    // values we emit a ConstantOp with the constant value as an attribute.
+    // This will allow the propagation of shapes given as an argument to
+    // operations such as Reshape and enable other optimizations such as
+    // constant folding.
+    for (auto initializer : graph.initializer()) {
+      // Emit ConstantOp and record the mapping between the input and
+      // the constant value.
+      std::string inputName = initializer.name();
+      printf("\nARG --->  %s\n", inputName.c_str());
+
+      mlir::ArrayAttr constantArrayAttribute;
+      int length;
+      printf("Dims: ");
+      for (int j = 0; j < initializer.dims().size(); j++) {
+        printf(" %d ", initializer.dims()[j]);
+      }
+      printf("\n");
+      switch (initializer.data_type()) {
+        case (onnx::TensorProto::FLOAT): {
+          float *typeArray =
+              CreateArrayAttribute<float>(initializer, &length);
+          std::vector<float> arrayAttrInitializer(typeArray, typeArray + length);
+          llvm::ArrayRef<float> array(typeArray, length);
+          constantArrayAttribute = builder_.getF32ArrayAttr(array);
+          break;
+        }
+        case (onnx::TensorProto::INT32): {
+          int32_t *typeArray =
+              CreateArrayAttribute<int32_t>(initializer, &length);
+          std::vector<int32_t> arrayAttrInitializer(typeArray, typeArray + length);
+          llvm::ArrayRef<int32_t> array(typeArray, length);
+          constantArrayAttribute = builder_.getI32ArrayAttr(array);
+          break;
+        }
+        case (onnx::TensorProto::INT64): {
+          int64_t *typeArray =
+              CreateArrayAttribute<int64_t>(initializer, &length);
+          std::vector<int64_t> arrayAttrInitializer(typeArray, typeArray + length);
+          llvm::ArrayRef<int64_t> array(typeArray, length);
+          constantArrayAttribute = builder_.getI64ArrayAttr(array);
+          break;
+        }
+      }
+
+      onnx::ValueInfoProto inputTensor;
+      for (const auto &input : graph.input()) {
+        if (input.name() == initializer.name()) {
+          inputTensor = input;
+          break;
+        }
+      }
+      auto initializedArg = builder_.create<mlir::ConstantOp>(
+          UnknownLoc(), ImportInputTensorType(inputTensor),
+          constantArrayAttribute);
+
+      frontend_symbols_.AddMapping(
+          legalize_name(inputName), initializedArg);
     }
 
-    // Create a NoneTyped constant.
-    none_ =
-        builder_.create<mlir::ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
     // Import nodes in the graph.
     for (const auto &item : graph.node()) {
       ImportNode(item);
