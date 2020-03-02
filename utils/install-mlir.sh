@@ -1,6 +1,6 @@
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNF.
-cd llvm-project && git checkout 391cc4dd41db934081c37ee523cb2149bf0e3a41 && cd ..
+cd llvm-project && git checkout 476ca094c846a0b6d4d9f37710aba21a6b0b265a && cd ..
 mkdir llvm-project/build
 cd llvm-project/build
 cmake -G Ninja ../llvm \
