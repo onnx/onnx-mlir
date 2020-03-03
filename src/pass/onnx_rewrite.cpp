@@ -41,7 +41,7 @@ struct SplitConvOpPattern : public RewritePattern {
                        1, context) {}
 
   PatternMatchResult matchAndRewrite(Operation *op,
-                                     PatternRewriter &rewriter) const override {
+      PatternRewriter &rewriter) const override {
     auto loc = op->getLoc();
 
     // If convolution does not use padding then no rewrite is required.
@@ -116,6 +116,32 @@ struct SplitConvOpPattern : public RewritePattern {
     return matchSuccess();
   };
 };
+
+//===----------------------------------------------------------------------===//
+// Rewrite:
+// %0 = onnx.Reshape(_, %inputConstArg) :
+//          (_, tensor<kxi64>) -> tensor<*xf32>
+//
+// as:
+// %0 = onnx.Constant [D0, D1, ..., Dk]
+// %1 = onnx.Reshape(_, %inputConstArg) :
+//          (_, tensor<kxi64>) -> tensor<D0xD1x...xDkxf32>
+//===----------------------------------------------------------------------===//
+// struct ReshapeConstantDataInputPattern : public RewritePattern {
+//   ReshapeConstantDataInputPattern(MLIRContext *context)
+//       : RewritePattern(ONNXReshapeOp::getOperationName(),
+//                        {ONNXConstantOp::getOperationName(),
+//                         ONNXReshapeOp::getOperationName()},
+//                        1, context) {}
+
+//   PatternMatchResult matchAndRewrite(Operation *op,
+//       PatternRewriter &rewriter) const override {
+//     auto loc = op->getLoc();
+
+//     // Check that second argument is an input initialized by the ONNX model.
+//     ONNXReshapeOp reshapeOp = llvm::dyn_cast<ONNXReshapeOp>(op);
+//     auto shapeTensor = reshapeOp.shape();
+//   };
 } // end anonymous namespace
 
 /// on the ONNXReduceL1Op.
