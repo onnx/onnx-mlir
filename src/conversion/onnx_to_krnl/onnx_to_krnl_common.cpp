@@ -322,3 +322,41 @@ getLoopIVsForBroadcasting(Location loc, ConversionPatternRewriter &rewriter,
   }
   return newLoopIVs;
 }
+
+Value emitConstantOp(ConversionPatternRewriter &rewriter, Location loc,
+    Type type, double value) {
+  Attribute constantAttr;
+  auto typeKind = type.getKind();
+  if (typeKind == StandardTypes::F16) {
+    constantAttr = rewriter.getF16FloatAttr((float)value);
+  } else if (typeKind == StandardTypes::F32) {
+    constantAttr = rewriter.getF32FloatAttr((float)value);
+  } else if (typeKind == StandardTypes::F64) {
+    constantAttr = rewriter.getF64FloatAttr(value);
+  } else if (typeKind == StandardTypes::Integer) {
+    auto width = type.cast<IntegerType>().getWidth();
+    if (width == 1) {
+      constantAttr = rewriter.getBoolAttr(false);
+    } else {
+      constantAttr =
+          rewriter.getIntegerAttr(type, APInt(width, (int64_t)value));
+    }
+  } else if (typeKind == StandardTypes::Index) {
+    constantAttr = rewriter.getIntegerAttr(type, (int64_t)value);
+  } else {
+    emitError(loc, "unsupported element type");
+  }
+
+  return rewriter.create<ConstantOp>(loc, constantAttr);
+}
+
+Value emitPositiveInfinityConstantOp(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return nullptr;
+}
+
+// Emit a negative infinity constant of a specific type.
+Value emitNegativeInfinityConstantOp(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return nullptr;
+}

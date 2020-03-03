@@ -98,6 +98,20 @@ getLoopIVsForBroadcasting(Location loc, ConversionPatternRewriter &rewriter,
                           ArrayRef<Value> loopIVs, Value operand,
                           std::map<int, Value> broadcastedDims);
 
+// Emit a constant of a specific type.
+// Use this function for small values only to avoid unexpected loss in type
+// casting.
+Value emitConstantOp(
+    ConversionPatternRewriter &rewriter, Location loc, Type type, double value);
+
+// Emit a positive infinity constant of a specific type.
+Value emitPositiveInfinityConstantOp(
+    ConversionPatternRewriter &rewriter, Location loc, Type type);
+
+// Emit a negative infinity constant of a specific type.
+Value emitNegativeInfinityConstantOp(
+    ConversionPatternRewriter &rewriter, Location loc, Type type);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
