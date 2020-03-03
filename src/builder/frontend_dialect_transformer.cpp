@@ -397,7 +397,7 @@ private:
 
   void ImportGraph(const onnx::GraphProto &graph,
                    const std::string &name = "main_graph") {
-    // InitializedTensorMapping initializedTensors;
+    // Maintain a mapping between the parameter and its initializer.
     for (auto initializer : graph.initializer()) {
       auto name = initializer.name();
       initializedTensors.AddMapping(legalize_name(name), initializer);
