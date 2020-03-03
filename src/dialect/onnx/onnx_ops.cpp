@@ -656,9 +656,23 @@ void ONNXReshapeOp::inferShapes() {
   if (outputRank < 0)
     emitError("Shape tensor must have constant shape");
 
+  // Check if second argument of ReshapeOp is a constant.
+  // Get operation that defines the second argument. If this operation is a
+  // `ConstantTensor` operation, the shape of this `Reshape` operation
+  // resides in the `value` attribute of the `ConstantTensor` operation.
+  auto *secondArgDefiningOp = (*getODSOperands(1).begin()).getDefiningOp();
+  auto constantTensorOp =
+      dyn_cast_or_null<mlir::ONNXConstantTensorOp>(secondArgDefiningOp);
+
   SmallVector<int64_t, 2> dims;
-  for (int i = 0; i < outputRank; ++i)
-    dims.emplace_back(-1);
+  if (!constantTensorOp) {
+    for (int i = 0; i < outputRank; ++i)
+      dims.emplace_back(-1);
+  } else {
+    auto valueAttribute = constantTensorOp.valueAttr();
+    for (auto value : valueAttribute.getValue())
+      dims.emplace_back(value.cast<IntegerAttr>().getInt());
+  }
 
   getResult().setType(
       RankedTensorType::get(dims, inputTensorTy.getElementType()));
@@ -1134,6 +1148,12 @@ void ONNXUnsqueezeOp::inferShapes() {
   }
   getResult().setType(RankedTensorType::get(dims, operandTy.getElementType()));
 }
+
+//===----------------------------------------------------------------------===//
+
+// ConstantValue
+
+void ONNXConstantTensorOp::inferShapes() {}
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions

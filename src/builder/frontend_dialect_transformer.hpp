@@ -46,7 +46,7 @@ class OwningModuleRef;
 } // namespace mlir
 
 //===----------------------------------------------------------------------===//
-// Helper method for handling input ONNX models.
+// Helper methods for handling input ONNX models.
 //===----------------------------------------------------------------------===//
 
 namespace onnf {
@@ -217,12 +217,12 @@ struct InitializedTensorMapping {
     }
 
     llvm::ArrayRef<int64_t> tensorDims(initializer.dims().data(),
-    	initializer.dims().size());
+        initializer.dims().size());
     mlir::Type tensorType =
         mlir::RankedTensorType::get(tensorDims, elementType);
 
-    return builder.create<mlir::ConstantOp>(loc, tensorType,
-        constantArrayAttribute);
+    return builder.create<mlir::ONNXConstantTensorOp>(
+        loc, tensorType, constantArrayAttribute);
   }
 
 private:

@@ -147,7 +147,7 @@ void ONNXReduceSumSquareOp::getCanonicalizationPatterns(
   results.insert<ReduceSumSquareOpPattern>(context);
 }
 
-/// on the ONNXReduceSumSquareOp.
+/// on the ONNXConvNoBiasOp.
 void ONNXConvNoBiasOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<SplitConvOpPattern>(context);
