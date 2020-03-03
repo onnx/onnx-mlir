@@ -1,7 +1,7 @@
 # ONNF
 Open Neural Network Frontend : an ONNX frontend for MLIR.
 
-[![CircleCI](https://circleci.com/gh/clang-ykt/ONNF.svg?style=svg)](https://circleci.com/gh/clang-ykt/ONNF)
+[![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)
 
 ## Prerequisites
 
@@ -18,6 +18,8 @@ Firstly, install MLIR (as a part of LLVM-Project):
 [same-as-file]: <> (utils/install-mlir.sh)
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
+# Check out a specific branch that is known to work with ONNF.
+cd llvm-project && git checkout 076475713c236081a3247a53e9dbab9043c3eac2 && cd ..
 mkdir llvm-project/build
 cd llvm-project/build
 cmake -G Ninja ../llvm \
