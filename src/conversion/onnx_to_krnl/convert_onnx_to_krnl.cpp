@@ -35,6 +35,26 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
+// ConstantTensor operations are simply removed.
+// The should be used to populate attributes and tensor dimensions of other
+// operations (such as Reshape) and that information should have already been
+// propagated in previous passes. This means that ConstantTensor operations
+// are no longer used and can be removed.
+//===----------------------------------------------------------------------===//
+
+class ONNXConstantTensorLowering
+    : public OpRewritePattern<ONNXConstantTensorOp> {
+public:
+  using OpRewritePattern<ONNXConstantTensorOp>::OpRewritePattern;
+
+  PatternMatchResult matchAndRewrite(ONNXConstantTensorOp op,
+                                     PatternRewriter &rewriter) const override {
+    rewriter.eraseOp(op);
+    return matchSuccess();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Frontend to Krnl Dialect lowering pass
 //===----------------------------------------------------------------------===//
 
@@ -101,6 +121,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
   populateLoweringONNXNormalizationOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
+  patterns.insert<ONNXConstantTensorLowering>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
