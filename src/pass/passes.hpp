@@ -15,6 +15,9 @@
 namespace mlir {
 class Pass;
 
+/// Pass for rewriting inside frontend dialect.
+std::unique_ptr<Pass> createDecomposeONNXToONNXPass();
+
 std::unique_ptr<Pass> createShapeInferencePass();
 
 /// Add pass for lowering to Krnl IR.

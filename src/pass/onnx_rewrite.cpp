@@ -118,35 +118,6 @@ struct SplitConvOpPattern : public RewritePattern {
 };
 } // end anonymous namespace
 
-/// on the ONNXReduceL1Op.
-void ONNXReduceL1Op::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<ReduceL1OpPattern>(context);
-}
-/// on the ONNXReduceL2Op.
-void ONNXReduceL2Op::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<ReduceL2OpPattern>(context);
-}
-
-/// on the ONNXReduceLogSumOp.
-void ONNXReduceLogSumOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<ReduceLogSumOpPattern>(context);
-}
-
-/// on the ONNXReduceLogSumExpOp.
-void ONNXReduceLogSumExpOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<ReduceLogSumExpOpPattern>(context);
-}
-
-/// on the ONNXReduceSumSquareOp.
-void ONNXReduceSumSquareOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<ReduceSumSquareOpPattern>(context);
-}
-
 /// on the ONNXConvNoBiasOp.
 void ONNXConvNoBiasOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {

@@ -52,8 +52,7 @@ OpsWithShapeInference = [
 
 # Operations supporting canonicalization.
 OpsWithCanonicalizer = [
-    'Add', 'Identity', 'ReduceL1', 'ReduceL2', 'ReduceLogSum',
-    'ReduceLogSumExp', 'ReduceSumSquare', 'Gemm'
+    'Add', 'Identity', 'Gemm'
 ]
 
 # Add an Op in this list if the Op needs result type deduction which is required
