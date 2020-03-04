@@ -605,6 +605,27 @@ ONNX Constant operation
 
 1. `output`: memref of any type values or tensor of any type values
 
+### onnx.ConstantTensor (ONNXConstantTensorOp)
+ONNX Constant value operation
+
+#### Description:
+
+
+"Defines a constant tensor in its value attribute."
+
+#### Operands:
+
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `value` | `ArrayAttr` | array attribute attribute |
+
+#### Results:
+
+1. `output`: memref of any type values or tensor of any type values
+
 ### onnx.ConvInteger (ONNXConvIntegerOp)
 ONNX ConvInteger operation
 
