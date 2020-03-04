@@ -11,6 +11,7 @@ add_library(compiler
         dialect/onnx/onnxop.inc
         pass/onnx_combine.cpp
         pass/onnx_rewrite.cpp
+        pass/onnx_decompose.cpp
         pass/passes.hpp)
 
 # Include root src directory.
@@ -24,6 +25,11 @@ target_link_libraries(compiler
         ${CMAKE_DL_LIBS}
         ${MLIRLibs}
         curses)
+
+set(LLVM_TARGET_DEFINITIONS pass/onnx_decompose.td)
+onnf_tablegen(onnx_decompose.inc -gen-rewriters)
+add_public_tablegen_target(gen_onnx_decompose)
+add_dependencies(compiler gen_onnx_decompose)
 
 set(LLVM_TARGET_DEFINITIONS pass/shape_inference_interface.td)
 onnf_tablegen(shape_inference.hpp.inc -gen-op-interface-decls)
@@ -54,6 +60,13 @@ onnf_tablegen(krnl.hpp.inc -gen-op-decls)
 onnf_tablegen(krnl.cpp.inc -gen-op-defs)
 add_public_tablegen_target(gen_krnl_ops)
 add_dependencies(compiler gen_krnl_ops)
+
+add_library(onnf_onnx_decompose pass/onnx_decompose.cpp)
+target_include_directories(onnf_onnx_decompose
+        PRIVATE ${ONNF_SRC_ROOT} ${ONNF_BIN_ROOT}
+        ${ONNF_SRC_ROOT})
+target_link_libraries(onnf_onnx_decompose ${MLIRLibs})
+add_dependencies(onnf_onnx_decompose gen_krnl_ops)
 
 add_library(onnf_shape_inference pass/shape_inference_pass.cpp)
 target_include_directories(onnf_shape_inference
@@ -90,7 +103,7 @@ add_subdirectory(runtime)
 
 add_executable(onnf main.cpp)
 
-target_link_libraries(onnf builder ${MLIRLibs} onnf_transform onnf_shape_inference onnf_lower_frontend)
+target_link_libraries(onnf builder ${MLIRLibs} onnf_transform onnf_onnx_decompose onnf_shape_inference onnf_lower_frontend)
 whole_archive_link_mlir(onnf ${MLIRWholeArchiveLibs})
 find_package(ZLIB REQUIRED)
 target_link_libraries(onnf ${ZLIB_LIBRARIES})
