@@ -85,6 +85,7 @@ add_library(onnf_lower_frontend
         conversion/onnx_to_krnl/math/softmax.cpp
         conversion/onnx_to_krnl/nn/conv.cpp
         conversion/onnx_to_krnl/nn/normalization.cpp
+        conversion/onnx_to_krnl/nn/pooling.cpp
         conversion/onnx_to_krnl/tensor/identity.cpp
         conversion/onnx_to_krnl/tensor/reshape.cpp
         conversion/onnx_to_krnl/tensor/transpose.cpp
