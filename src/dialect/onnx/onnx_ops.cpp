@@ -838,12 +838,15 @@ void ONNXConvNoBiasOp::inferShapes() {
       emitError("dilations length incompatible with spatial dimensions");
     for (int i = 0; i < nDims; ++i)
       kernelDims[i] =
-          (kernelDims[i] + 1) * ArrayAttrIntVal(dilations, i)  -        1;
+          (kernelDims[i] + 1) * ArrayAttrIntVal(dilations, i) - 1;
   }
 
   // Subtract kernel dimensions from input data dimensions.
   for (int i = 0; i < nDims; ++i)
     outSpatialDims[i] -= kernelDims[i];
+
+  // Array which holds the padding information.
+  SmallVector<int64_t, 2> actualPads(2 * nDims, 0);
 
   // Add padding information.
   if (autoPad == "NOTSET") {
@@ -868,9 +871,31 @@ void ONNXConvNoBiasOp::inferShapes() {
     // K - 1
     //
     // where K is a kernel spatial dimension.
-    // Pad as if stride is 1.
-    for (int i = 0; i < nDims; ++i)
-      outSpatialDims[i] += kernelDims[i] - 1;
+    // Take into consideration the stride.
+    auto strides = ONNXConvNoBiasOp::stridesAttr();
+    for (int i = 0; i < nDims; ++i) {
+      // If strides are given use them otherwise stride is 1.
+      int64_t stride = 1;
+      if (strides)
+        stride = ArrayAttrIntVal(strides, i);
+
+      // Compute necessary padding.
+      int64_t totalPadding = stride * (dataShape[i + 2] - 1) +
+          kernelDims[i] - dataShape[i + 2];
+
+      // Adjust current output value with the value of the padding.
+      // When dividing by the number of slides later on, the output
+      // dimension should be equal to the input dimension.
+      outSpatialDims[i] += totalPadding;
+
+      // Record the upper and lower axis padding.
+      actualPads[i] = actualPads[i + nDims] = totalPadding / 2;
+      if (autoPad == "SAME_LOWER") {
+        actualPads[i]++;
+      } else {
+        actualPads[i + nDims]++;
+      }
+    }
   } else if (autoPad == "VALID") {
     // No padding
   } else {
@@ -889,6 +914,22 @@ void ONNXConvNoBiasOp::inferShapes() {
 
   for (int i = 0; i < nDims; ++i)
     outSpatialDims[i] += 1;
+
+  // Check input and output sizes match.
+  if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+    for (int i = 0; i < nDims; ++i)
+      if (outSpatialDims[i] != dataShape[i + 2])
+        emitError("input and output spatial dimension mismatch");
+
+    // Set pads values in attributes.
+    auto builder = mlir::Builder(this->getContext());
+    ArrayRef<int64_t> defaultRefs(actualPads);
+    padsAttr(builder.getI64ArrayAttr(defaultRefs));
+
+    // Change auto padding attribute to NOTSET since padding values
+    // are now explicitly included in the operation.
+    auto_padAttr(builder.getStringAttr("NOTSET"));
+  }
 
   dims.append(outSpatialDims.begin(), outSpatialDims.end());
   getResult().setType(RankedTensorType::get(dims, dataTy.getElementType()));
