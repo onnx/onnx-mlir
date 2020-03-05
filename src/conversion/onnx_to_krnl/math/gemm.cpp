@@ -156,8 +156,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     }
 
     // Initialize the output of A*B
-    auto zero = rewriter.create<ConstantOp>(
-        loc, FloatAttr::get(memRefType.getElementType(), 0));
+    auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
     rewriter.create<StoreOp>(loc, zero, alloc, loopMNIVs);
 
     // Compute A*B

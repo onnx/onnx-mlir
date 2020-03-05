@@ -92,8 +92,7 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
     int64_t kernelsPerGroup = floor(kernelShape[0] / group);
     auto kernelsPerGroupValue =
         rewriter.create<ConstantIndexOp>(loc, kernelsPerGroup);
-    auto zero = rewriter.create<ConstantOp>(
-        loc, FloatAttr::get(memRefType.getElementType(), 0));
+    auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
     Value subchannels;
     if (kernelShape[1] < 0) {
       subchannels = rewriter.create<DimOp>(loc, kernelOperand, 1).getResult();
