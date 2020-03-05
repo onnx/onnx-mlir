@@ -37,16 +37,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     auto memRefShape = memRefType.getShape();
 
     // A value zero
-    Value zero;
-    if (elementType.isa<IntegerType>()) {
-      zero = rewriter.create<ConstantOp>(
-          loc, IntegerAttr::get(memRefType.getElementType(), 0));
-    } else if (elementType.isa<FloatType>()) {
-      zero = rewriter.create<ConstantOp>(
-          loc, FloatAttr::get(memRefType.getElementType(), 0));
-    } else {
-      emitError(loc, "unsupported element type");
-    }
+    auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
