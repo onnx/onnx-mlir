@@ -202,6 +202,9 @@ void populateLoweringONNXConvOpPattern(
 void populateLoweringONNXNormalizationOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXPoolingOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 // `tensor` directory methods:
 
 void populateLoweringONNXUnsqueezeOpPattern(
