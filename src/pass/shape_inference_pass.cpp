@@ -36,24 +36,16 @@ public:
 
     // Populate the worklist with the operations that need shape inference:
     // these are operations that return a dynamic shape.
-    llvm::SmallPtrSet<mlir::Operation *, 16> op_worklist;
+    llvm::SmallVector<mlir::Operation *, 16> op_worklist;
     f.walk([&](mlir::Operation *op) {
       if (returnsDynamicShape(op))
-        op_worklist.insert(op);
+        op_worklist.emplace_back(op);
     });
 
     // Iterate on the operations in the worklist until all operations have been
     // inferred or no change happened (fix point).
-    while (!op_worklist.empty()) {
-      // Find the next operation ready for inference, that is an operation
-      // with all operands already resolved (non-generic).
-      auto nextop = llvm::find_if(op_worklist, returnsDynamicShape);
-      if (nextop == op_worklist.end())
-        break;
-
-      Operation *op = *nextop;
-      op_worklist.erase(op);
-
+    // while (!op_worklist.empty()) {
+    for (auto op: op_worklist) {
       // Ask the operation to infer its output shapes.
       if (auto shape_op = dyn_cast<ShapeInference>(op)) {
         shape_op.inferShapes();
@@ -64,8 +56,14 @@ public:
       }
     }
 
-    // If the operation worklist isn't empty, this indicates a failure.
-    if (!op_worklist.empty()) {
+    int64_t dynamicOperations = 0;
+    f.walk([&](mlir::Operation *op) {
+      if (returnsDynamicShape(op))
+        dynamicOperations++;
+    });
+
+    // If any dynamic operations remain, this indicates a failure.
+    if (dynamicOperations != 0) {
       f.emitError("Shape inference failed, ")
           << op_worklist.size() << " operations couldn't be inferred\n";
       signalPassFailure();
