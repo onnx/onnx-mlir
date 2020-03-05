@@ -14,43 +14,27 @@ using namespace mlir;
 
 // Identity values
 template <>
-float getIdentityValue<float, ONNXReduceMaxOp>(){
-  return (float)-std::numeric_limits<float>::infinity();
+Value getIdentityValue<ONNXReduceMaxOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return emitNegativeInfinityConstantOp(rewriter, loc, type);
 }
 
 template <>
-int getIdentityValue<int, ONNXReduceMaxOp>(){
-  return std::numeric_limits<int>::min();
+Value getIdentityValue<ONNXReduceMinOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return emitPositiveInfinityConstantOp(rewriter, loc, type);
 }
 
 template <>
-float getIdentityValue<float, ONNXReduceMinOp>(){
-  return (float)std::numeric_limits<float>::infinity();
+Value getIdentityValue<ONNXReduceProdOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return emitConstantOp(rewriter, loc, type, 1);
 }
 
 template <>
-int getIdentityValue<int, ONNXReduceMinOp>(){
-  return std::numeric_limits<int>::max();
-}
-
-template <>
-float getIdentityValue<float, ONNXReduceProdOp>(){
-  return (float)1.0;
-}
-
-template <>
-int getIdentityValue<int, ONNXReduceProdOp>(){
-  return 1;
-}
-
-template <>
-float getIdentityValue<float, ONNXReduceSumOp>(){
-  return (float)0;
-}
-
-template <>
-int getIdentityValue<int, ONNXReduceSumOp>(){
-  return 0;
+Value getIdentityValue<ONNXReduceSumOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return emitConstantOp(rewriter, loc, type, 0);
 }
 
 // Scalar ops
@@ -234,18 +218,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       loopIVs.push_back(arg);
     }
 
-    Value identity;
-    if (elementOutType.isa<FloatType>()) {
-      identity = rewriter.create<ConstantOp>(
-          loc, FloatAttr::get(elementOutType,
-                              getIdentityValue<float, ONNXReductionOp>()));
-    } else if (elementOutType.isa<IntegerType>()) {
-      identity = rewriter.create<ConstantOp>(
-          loc, IntegerAttr::get(elementOutType,
-                                getIdentityValue<int, ONNXReductionOp>()));
-    } else {
-      emitError(loc, "unsupported element type");
-    }
+    Value identity =
+        getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
     rewriter.create<StoreOp>(loc, identity, alloc, loopIVs);
 
     // Define an Krnl loop to do reduction.
