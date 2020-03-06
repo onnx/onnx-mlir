@@ -44,7 +44,6 @@ public:
 
     // Iterate on the operations in the worklist until all operations have been
     // inferred or no change happened (fix point).
-    // while (!op_worklist.empty()) {
     for (auto op: op_worklist) {
       // Ask the operation to infer its output shapes.
       if (auto shape_op = dyn_cast<ShapeInference>(op)) {
