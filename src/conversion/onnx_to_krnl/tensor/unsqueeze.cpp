@@ -37,18 +37,16 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
     Value alloc;
 
     // Compute size in bytes.
-    Value tensorSize = rewriter.create<ConstantOp>(
-        loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64),
-                                     getMemRefEltSizeInBytes(memRefType)));
+    Value tensorSize = emitConstantOp(rewriter, loc,
+        rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
 
     bool insertDealloc = checkInsertDealloc(op);
     auto memRefShape = memRefType.getShape();
     if (hasAllConstantDimensions(memRefType)) {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
       for (int i = 0; i < memRefShape.size(); ++i) {
-        Value dimVal = rewriter.create<ConstantOp>(
-            loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64),
-                                         memRefShape[i]));
+        Value dimVal = emitConstantOp(
+            rewriter, loc, rewriter.getIntegerType(64), memRefShape[i]);
         tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
       }
     } else {
@@ -62,9 +60,8 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
               loc, index, rewriter.getIntegerType(64));
           allocOperands.emplace_back(index);
         } else {
-          dimVal = rewriter.create<ConstantOp>(
-              loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64),
-                                           memRefShape[outIdx]));
+          dimVal = emitConstantOp(
+              rewriter, loc, rewriter.getIntegerType(64), memRefShape[outIdx]);
         }
         tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
         if (std::find(axes.begin(), axes.end(), outIdx) == axes.end())
