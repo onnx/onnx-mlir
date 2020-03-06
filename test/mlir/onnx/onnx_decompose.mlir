@@ -47,21 +47,3 @@ func @test_reducesumsquare(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
   // CHECK-NEXT: %{{[0-9]+}} = "onnx.ReduceSum"([[SQUARE]]) {axes = [1], keepdims = 0 : i64} : (tensor<*xf32>) -> tensor<*xf32>
 }
 
-//CHECK-LABEL: @test_maxpoolsingleout_split(%{{.*}}: tensor<5x5x32x32xf32>) -> tensor<*xf32> {
-func @test_maxpoolsingleout_split(%arg0: tensor<5x5x32x32xf32>) -> tensor<*xf32> {
-  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", ceil_mode = 0, kernel_shape = [5,3], pads = [1, 2, 3, 4] } : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-NEXT: %0 = "onnx.PadConstantValuePad"(%arg0) {constant_value = 0.000000e+00 : f32, mode = "constant", pads = [0, 0, 1, 2, 0, 0, 3, 4]} : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
-  // CHECK-NEXT: %1 = "onnx.MaxPoolSingleOutNoPads"(%0) {auto_pad = "NOTSET", ceil_mode = 0 : i64, kernel_shape = [5, 3], pads = [0, 0, 0, 0, 0, 0, 0, 0], storage_order = 0 : i64} : (tensor<*xf32>) -> tensor<*xf32>
-  // CHECK-NEXT: return %1 : tensor<*xf32>
-}
-
-//CHECK-LABEL: @test_maxpoolsingleout_no_split(%{{.*}}: tensor<5x5x32x32xf32>) -> tensor<*xf32> {
-func @test_maxpoolsingleout_no_split(%arg0: tensor<5x5x32x32xf32>) -> tensor<*xf32> {
-  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [5,3]} : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-NEXT: %0 = "onnx.MaxPoolSingleOutNoPads"(%arg0) {auto_pad = "NOTSET", ceil_mode = 0 : i64, kernel_shape = [5, 3], storage_order = 0 : i64} : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
-  // CHECK-NEXT: return %0 : tensor<*xf32>
-}

@@ -17,6 +17,46 @@
 using namespace mlir;
 
 namespace {
+
+// Check whether an ArrayAttr contains non-zero values or not.
+bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
+  bool allZeros = true;
+  if (attrs) {
+    for (auto attr: attrs.getValue()) {
+      if (attr.cast<IntegerAttr>().getInt() > 0) {
+        allZeros = false;
+        break;
+      }
+    }
+  }
+  return !allZeros;
+}
+
+// Create an ArrayAttr of IntergerAttr(s) of zero values.
+// This function is used for padding attribute in MaxPoolSingleOut.
+ArrayAttr createArrayAttrOfZeroWithTrail(
+    PatternRewriter &rewriter, ArrayAttr origAttrs, int trailCount) {
+  int nElements = origAttrs.getValue().size() + trailCount * 2;
+  SmallVector<int64_t, 4> vals(nElements, 0);
+  return rewriter.getI64ArrayAttr(vals);
+}
+
+// Pad a ArrayAttr with trails of zeros.
+// This function is used for padding attribute in MaxPoolSingleOut.
+ArrayAttr padArrayAttrWithZeroTrail(
+    PatternRewriter &rewriter, ArrayAttr origAttrs, int trailCount) {
+  int nDims = (int) origAttrs.getValue().size() / 2;
+  int nElements = (nDims + trailCount) * 2;
+  SmallVector<int64_t, 4> pads(nElements, 0);
+  for (int i = 0; i < nDims; ++i) {
+    int64_t beginPad = origAttrs.getValue()[i].cast<IntegerAttr>().getInt();
+    int64_t endPad =
+        origAttrs.getValue()[nDims + i].cast<IntegerAttr>().getInt();
+    pads[i + trailCount] = beginPad;
+    pads[nDims + trailCount + i + trailCount] = endPad;
+  }
+  return rewriter.getI64ArrayAttr(pads);
+}
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/onnx_rewrite.inc"
 
@@ -118,6 +158,11 @@ struct SplitConvOpPattern : public RewritePattern {
 };
 } // end anonymous namespace
 
+/// on the ONNXMaxPoolSingleOutSquareOp.
+void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<MaxPoolSingleOutOpPaddingPattern>(context);
+}
 /// on the ONNXReduceSumSquareOp.
 void ONNXConvNoBiasOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {

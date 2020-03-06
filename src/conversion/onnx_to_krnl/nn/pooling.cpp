@@ -14,13 +14,13 @@ using namespace mlir;
 
 // Identity values
 template <>
-Value getIdentityValue<ONNXMaxPoolSingleOutNoPadsOp>(
+Value getIdentityValue<ONNXMaxPoolSingleOutOp>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
   return emitNegativeInfinityConstantOp(rewriter, loc, type);
 }
 
 template <>
-Value mapToLowerScalarOp<ONNXMaxPoolSingleOutNoPadsOp>(Operation *op,
+Value mapToLowerScalarOp<ONNXMaxPoolSingleOutOp>(Operation *op,
     ArrayRef<Type> result_types, ArrayRef<Value> operands,
     ConversionPatternRewriter &rewriter) {
   auto loc = op->getLoc();
@@ -31,18 +31,17 @@ Value mapToLowerScalarOp<ONNXMaxPoolSingleOutNoPadsOp>(Operation *op,
   return result;
 }
 
-struct ONNXMaxPoolSingleOutNoPadsOpLowering : public ConversionPattern {
-  ONNXMaxPoolSingleOutNoPadsOpLowering(MLIRContext *ctx)
+struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
+  ONNXMaxPoolSingleOutOpLowering(MLIRContext *ctx)
       : ConversionPattern(
-            mlir::ONNXMaxPoolSingleOutNoPadsOp::getOperationName(), 1, ctx) {}
+            mlir::ONNXMaxPoolSingleOutOp::getOperationName(), 1, ctx) {}
 
   PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
 
     // Match
-    ONNXMaxPoolSingleOutNoPadsOp poolOp =
-        llvm::dyn_cast<ONNXMaxPoolSingleOutNoPadsOp>(op);
+    ONNXMaxPoolSingleOutOp poolOp = llvm::dyn_cast<ONNXMaxPoolSingleOutOp>(op);
 
     // Read kernel_shape attribute
     SmallVector<int, 4> kernelShape;
@@ -201,7 +200,7 @@ struct ONNXMaxPoolSingleOutNoPadsOpLowering : public ConversionPattern {
         resultIndices.emplace_back(outerLoops.getInductionVar(i));
 
       // 2.1 Emit: R[n][c][r1][r2] = negative_infinity;
-      Value identity = getIdentityValue<ONNXMaxPoolSingleOutNoPadsOp>(
+      Value identity = getIdentityValue<ONNXMaxPoolSingleOutOp>(
           rewriter, loc, resultElementType);
       rewriter.create<StoreOp>(loc, identity, alloc, resultIndices);
 
@@ -264,7 +263,7 @@ struct ONNXMaxPoolSingleOutNoPadsOpLowering : public ConversionPattern {
         auto loadData = rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
         auto loadPartialResult =
             rewriter.create<LoadOp>(loc, alloc, resultIndices);
-        Value result = mapToLowerScalarOp<ONNXMaxPoolSingleOutNoPadsOp>(
+        Value result = mapToLowerScalarOp<ONNXMaxPoolSingleOutOp>(
             op, resultElementType, {loadPartialResult, loadData}, rewriter);
         rewriter.create<StoreOp>(loc, result, alloc, resultIndices);
       }
@@ -277,5 +276,5 @@ struct ONNXMaxPoolSingleOutNoPadsOpLowering : public ConversionPattern {
 
 void populateLoweringONNXPoolingOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXMaxPoolSingleOutNoPadsOpLowering>(ctx);
+  patterns.insert<ONNXMaxPoolSingleOutOpLowering>(ctx);
 }

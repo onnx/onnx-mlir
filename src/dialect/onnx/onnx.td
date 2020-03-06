@@ -110,28 +110,11 @@ def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
 }
 
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
-    [NoSideEffect]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX MaxPool operation with a single output.";
   let description = [{
     "ONNX MaxPool operation with a single output."
-    "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
-  }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
-           DefaultValuedAttr<I64Attr, "0">:$ceil_mode,
-           OptionalAttr<I64ArrayAttr>:$dilations,
-           DefaultValuedAttr<I64ArrayAttr, "{}">:$kernel_shape,
-           OptionalAttr<I64ArrayAttr>:$pads,
-           DefaultValuedAttr<I64Attr, "0">:$storage_order,
-           OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
-}
-
-def ONNXMaxPoolSingleOutNoPadsOp: ONNX_Op<"MaxPoolSingleOutNoPads",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX MaxPool operation with a single output and its pads attribute contains only zero values.";
-  let description = [{
-    "ONNX MaxPool operation with a single output and its pads attribute contains only zero values."
     "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
