@@ -129,9 +129,9 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
 
 def ONNXMaxPoolSingleOutNoPadsOp: ONNX_Op<"MaxPoolSingleOutNoPads",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ONNX MaxPool operation with a single output.";
+  let summary = "ONNX MaxPool operation with a single output and its pads attribute contains only zero values.";
   let description = [{
-    "ONNX MaxPool operation with a single output."
+    "ONNX MaxPool operation with a single output and its pads attribute contains only zero values."
     "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
@@ -213,7 +213,7 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
            DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
-  // A build method with the result deduction.
+  // A build method with the result type deduction.
   let builders = [
     OpBuilder<"Builder *builder, OperationState &state, Value data, ArrayAttr pads, FloatAttr constant_value, StringAttr mode", [{
       auto elementType = data.getType().cast<TensorType>().getElementType();

@@ -2422,12 +2422,12 @@ ONNX MaxPool operation
 1. `Indices`: memref of any type values or tensor of any type values or none type
 
 ### onnx.MaxPoolSingleOutNoPads (ONNXMaxPoolSingleOutNoPadsOp)
-ONNX MaxPool operation with a single output.
+ONNX MaxPool operation with a single output and its pads attribute contains only zero values.
 
 #### Description:
 
 
-"ONNX MaxPool operation with a single output."
+"ONNX MaxPool operation with a single output and its pads attribute contains only zero values."
 "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
 
 #### Operands:

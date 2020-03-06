@@ -83,7 +83,7 @@ def ReduceSumSquareOpPattern: Pat<(ONNXReduceSumSquareOp $oprd, $axes, $keepdims
 // %0 = onnx.PadConstantValuePadOp(%D)
 //     {pads = [0, 0, b0, b1, ... bK, 0, 0, e0, e1, ..., eK]} ->
 //     tensor<DPaddedShape>
-// %1 = onnx.MaxPoolSingleOut(%0 : tensor<DPaddedShape>) {pads = [0, ..., 0]} ->
+// %1 = onnx.MaxPoolSingleOutNoPads(%0 : tensor<DPaddedShape>) {pads = [0, ..., 0]} ->
 //     tensor<OutShape>
 //===----------------------------------------------------------------------===//
 
