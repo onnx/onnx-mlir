@@ -34,26 +34,19 @@ public:
   void runOnFunction() override {
     auto f = getFunction();
 
-    // Populate the worklist with the operations that need shape inference:
-    // these are operations that return a dynamic shape.
-    llvm::SmallVector<mlir::Operation *, 16> op_worklist;
+    // Iterate on the operations that need shape inference i.e the operations
+    // that return a dynamic shape.
     f.walk([&](mlir::Operation *op) {
-      if (returnsDynamicShape(op))
-        op_worklist.emplace_back(op);
-    });
-
-    // Iterate on the operations in the worklist until all operations have been
-    // inferred or no change happened (fix point).
-    for (auto op: op_worklist) {
-      // Ask the operation to infer its output shapes.
-      if (auto shape_op = dyn_cast<ShapeInference>(op)) {
-        shape_op.inferShapes();
-      } else {
-        op->emitError("unable to infer shape of operation without shape "
-                      "inference interface");
-        return signalPassFailure();
+      if (returnsDynamicShape(op)) {
+        if (auto shape_op = dyn_cast<ShapeInference>(op)) {
+          shape_op.inferShapes();
+        } else {
+          op->emitError("unable to infer shape of operation without shape "
+                        "inference interface");
+          return signalPassFailure();
+        }
       }
-    }
+    });
 
     int64_t dynamicOperations = 0;
     f.walk([&](mlir::Operation *op) {
@@ -64,7 +57,7 @@ public:
     // If any dynamic operations remain, this indicates a failure.
     if (dynamicOperations != 0) {
       f.emitError("Shape inference failed, ")
-          << op_worklist.size() << " operations couldn't be inferred\n";
+          << dynamicOperations << " operations couldn't be inferred\n";
       signalPassFailure();
     }
 
