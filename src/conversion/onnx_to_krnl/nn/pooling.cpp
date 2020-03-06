@@ -14,13 +14,9 @@ using namespace mlir;
 
 // Identity values
 template <>
-float getIdentityValue<float, ONNXMaxPoolSingleOutNoPadsOp>() {
-  return (float)-std::numeric_limits<float>::infinity();
-}
-
-template <>
-int getIdentityValue<int, ONNXMaxPoolSingleOutNoPadsOp>() {
-  return std::numeric_limits<int>::min();
+Value getIdentityValue<ONNXMaxPoolSingleOutNoPadsOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return emitNegativeInfinityConstantOp(rewriter, loc, type);
 }
 
 template <>
@@ -205,18 +201,8 @@ struct ONNXMaxPoolSingleOutNoPadsOpLowering : public ConversionPattern {
         resultIndices.emplace_back(outerLoops.getInductionVar(i));
 
       // 2.1 Emit: R[n][c][r1][r2] = negative_infinity;
-      Value identity;
-      if (resultElementType.isa<FloatType>()) {
-        identity = rewriter.create<ConstantOp>(
-            loc, FloatAttr::get(resultElementType,
-                     getIdentityValue<float, ONNXMaxPoolSingleOutNoPadsOp>()));
-      } else if (resultElementType.isa<IntegerType>()) {
-        identity = rewriter.create<ConstantOp>(
-            loc, IntegerAttr::get(resultElementType,
-                     getIdentityValue<int, ONNXMaxPoolSingleOutNoPadsOp>()));
-      } else {
-        emitError(loc, "unsupported element type");
-      }
+      Value identity = getIdentityValue<ONNXMaxPoolSingleOutNoPadsOp>(
+          rewriter, loc, resultElementType);
       rewriter.create<StoreOp>(loc, identity, alloc, resultIndices);
 
       // 2.2 Define inner loops.
