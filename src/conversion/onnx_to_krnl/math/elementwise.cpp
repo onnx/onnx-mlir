@@ -103,8 +103,8 @@ Value mapToLowerScalarOp<ONNXSinhOp>(Operation *op, ArrayRef<Type> result_types,
   Value operand = operands[0];
   auto elementType = result_types[0];
 
-  auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
-  auto two = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 2));
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  auto two =  emitConstantOp(rewriter, loc, elementType, 2);
   auto neg = rewriter.create<SubFOp>(loc, zero, operand);
   auto exp = rewriter.create<ExpOp>(loc, operand);
   auto negExp = rewriter.create<ExpOp>(loc, neg);
@@ -127,8 +127,8 @@ Value mapToLowerScalarOp<ONNXCoshOp>(Operation *op, ArrayRef<Type> result_types,
   Value operand = operands[0];
   auto elementType = result_types[0];
 
-  auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
-  auto two = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 2));
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  auto two =  emitConstantOp(rewriter, loc, elementType, 2);
   auto neg = rewriter.create<SubFOp>(loc, zero, operand);
   auto exp = rewriter.create<ExpOp>(loc, operand);
   auto negExp = rewriter.create<ExpOp>(loc, neg);
@@ -152,8 +152,8 @@ Value mapToLowerScalarOp<ONNXSigmoidOp>(Operation *op,
   Value operand = operands[0];
   auto elementType = result_types[0];
 
-  auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
-  auto one = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 1));
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  auto one = emitConstantOp(rewriter, loc, elementType, 1);
   auto neg = rewriter.create<SubFOp>(loc, zero, operand);
   auto negExp = rewriter.create<ExpOp>(loc, neg);
   auto result = rewriter.create<DivFOp>(
@@ -184,8 +184,8 @@ Value mapToLowerScalarOp<ONNXHardSigmoidOp>(
       llvm::dyn_cast<ONNXHardSigmoidOp>(op).beta().convertToFloat());
   auto elementType = result_types[0];
 
-  auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
-  auto one = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 1));
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  auto one = emitConstantOp(rewriter, loc, elementType, 1);
   auto alpha = rewriter.create<ConstantOp>(loc, alphaAttribute);
   auto beta = rewriter.create<ConstantOp>(loc, betaAttribute);
 
@@ -217,8 +217,8 @@ Value mapToLowerScalarOp<ONNXEluOp>(Operation *op, ArrayRef<Type> result_types,
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXEluOp>(op).alpha().convertToFloat());
-  auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
-  auto one = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 1));
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  auto one = emitConstantOp(rewriter, loc, elementType, 1);
   auto alpha = rewriter.create<ConstantOp>(loc, alphaAttribute);
   auto exp = rewriter.create<ExpOp>(loc, operand);
   auto lessThanZero =
@@ -246,7 +246,7 @@ Value mapToLowerScalarOp<ONNXReluOp>(Operation *op, ArrayRef<Type> result_types,
   Value operand = operands[0];
   auto elementType = result_types[0];
 
-  auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto lessThanZero =
       rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, operand, zero);
   auto result = rewriter.create<SelectOp>(loc, lessThanZero, zero, operand);
@@ -271,7 +271,7 @@ Value mapToLowerScalarOp<ONNXLeakyReluOp>(Operation *op,
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXLeakyReluOp>(op).alpha().convertToFloat());
-  auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto alpha = rewriter.create<ConstantOp>(loc, alphaAttribute);
   auto lessThanZero =
       rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, operand, zero);
@@ -301,7 +301,7 @@ Value mapToLowerScalarOp<ONNXSeluOp>(Operation *op, ArrayRef<Type> result_types,
       llvm::dyn_cast<ONNXSeluOp>(op).gamma().convertToFloat());
   auto elementType = result_types[0];
 
-  auto zero = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 0));
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto alpha = rewriter.create<ConstantOp>(loc, alphaAttribute);
   auto gamma = rewriter.create<ConstantOp>(loc, gammaAttribute);
   auto exp = rewriter.create<ExpOp>(loc, operand);
@@ -328,7 +328,7 @@ Value mapToLowerScalarOp<ONNXReciprocalOp>(
   Value operand = operands[0];
   auto elementType = result_types[0];
 
-  auto one = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 1));
+  auto one = emitConstantOp(rewriter, loc, elementType, 1);
   auto result = rewriter.create<DivFOp>(loc, one, operand);
 
   return result;
@@ -347,7 +347,7 @@ Value mapToLowerScalarOp<ONNXSoftplusOp>(
   auto elementType = result_types[0];
 
   auto exp = rewriter.create<ExpOp>(loc, operand);
-  auto one = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 1));
+  auto one = emitConstantOp(rewriter, loc, elementType, 1);
   auto add = rewriter.create<AddFOp>(loc, exp, one);
   auto result = rewriter.create<LogOp>(loc, add);
 
@@ -367,7 +367,7 @@ Value mapToLowerScalarOp<ONNXSoftsignOp>(
   auto elementType = result_types[0];
 
   auto abs = rewriter.create<AbsFOp>(loc, operand);
-  auto one = rewriter.create<ConstantOp>(loc, FloatAttr::get(elementType, 1));
+  auto one = emitConstantOp(rewriter, loc, elementType, 1);
   auto add = rewriter.create<AddFOp>(loc, abs, one);
   auto result = rewriter.create<DivFOp>(loc, operand, add);
 
@@ -384,19 +384,18 @@ Value mapToLowerScalarOp<ONNXSignOp>(Operation *op, ArrayRef<Type> result_types,
 
   auto loc = op->getLoc();
   Value operand = operands[0];
-  Type element_type = operands.front().getType();
+  Type elementType = operands.front().getType();
   // TODO: unsigned int should be supported separately?
-  if (element_type.isa<IntegerType>()) {
+  if (elementType.isa<IntegerType>()) {
     // %Y = SelectOP(CmpIOp(GT, %X, ConstantOp 0),
     //               ConstantOp 1,
     //               COnstantOp -1)
     // ONNXSignOp(%X) = SelectOP(CmpIOp(EQ, %X, ConstantOp 0),
     //                           ConstantOp 0,
     //                           %Y)
-    auto zero = rewriter.create<ConstantOp>(loc, rewriter.getI32IntegerAttr(0));
-    auto one = rewriter.create<ConstantOp>(loc, rewriter.getI32IntegerAttr(1));
-    auto minusOne =
-        rewriter.create<ConstantOp>(loc, rewriter.getI32IntegerAttr(-1));
+    auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+    auto one = emitConstantOp(rewriter, loc, elementType, 1);
+    auto minusOne = emitConstantOp(rewriter, loc, elementType, -1);
     auto plusPredicate =
         rewriter.create<CmpIOp>(loc, CmpIPredicate::sgt, operand, zero);
     auto plusSelect =
@@ -406,18 +405,16 @@ Value mapToLowerScalarOp<ONNXSignOp>(Operation *op, ArrayRef<Type> result_types,
     auto result =
         rewriter.create<SelectOp>(loc, zeroPredicate, zero, plusSelect);
     return result;
-  } else if (element_type.isa<FloatType>()) {
+  } else if (elementType.isa<FloatType>()) {
     // %Y = SelectOP(CmpFOp(OGT, %X, ConstantOp 0),
     //               ConstantOp 1,
     //               ConstantOp -1)
     // ONNXSignOp(%X) = SelectOP(CmpFOp(OEQ, %X, ConstantOp 0),
     //                           ConstantOp 0,
     //                           %Y)
-    auto zero =
-        rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(0.0f));
-    auto one = rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(1.0f));
-    auto minusOne =
-        rewriter.create<ConstantOp>(loc, rewriter.getF32FloatAttr(-1.0f));
+    auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+    auto one = emitConstantOp(rewriter, loc, elementType, 1);
+    auto minusOne = emitConstantOp(rewriter, loc, elementType, -1);
     auto plusPredicate =
         rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, operand, zero);
     auto plusSelect =
