@@ -2421,6 +2421,35 @@ ONNX MaxPool operation
 1. `Y`: memref of any type values or tensor of any type values
 1. `Indices`: memref of any type values or tensor of any type values or none type
 
+### onnx.MaxPoolSingleOutNoPads (ONNXMaxPoolSingleOutNoPadsOp)
+ONNX MaxPool operation with a single output.
+
+#### Description:
+
+
+"ONNX MaxPool operation with a single output."
+"See ONNXMaxPoolOp for a full description of the MaxPool semantics."
+
+#### Operands:
+
+1. `X`: memref of any type values or tensor of any type values
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `auto_pad` | `StringAttr` | string attribute attribute |
+| `ceil_mode` | `IntegerAttr` | 64-bit integer attribute attribute |
+| `dilations` | `ArrayAttr` | 64-bit integer array attribute attribute |
+| `kernel_shape` | `ArrayAttr` | 64-bit integer array attribute attribute |
+| `pads` | `ArrayAttr` | 64-bit integer array attribute attribute |
+| `storage_order` | `IntegerAttr` | 64-bit integer attribute attribute |
+| `strides` | `ArrayAttr` | 64-bit integer array attribute attribute |
+
+#### Results:
+
+1. `o_Y`: memref of any type values or tensor of any type values
+
 ### onnx.MaxPoolSingleOut (ONNXMaxPoolSingleOutOp)
 ONNX MaxPool operation with a single output.
 
