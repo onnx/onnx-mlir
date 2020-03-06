@@ -110,6 +110,24 @@ def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
 }
 
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
+    [NoSideEffect]> {
+  let summary = "ONNX MaxPool operation with a single output.";
+  let description = [{
+    "ONNX MaxPool operation with a single output."
+    "See ONNXMaxPoolOp for a full description of the MaxPool semantics."
+  }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
+           DefaultValuedAttr<I64Attr, "0">:$ceil_mode,
+           OptionalAttr<I64ArrayAttr>:$dilations,
+           DefaultValuedAttr<I64ArrayAttr, "{}">:$kernel_shape,
+           OptionalAttr<I64ArrayAttr>:$pads,
+           DefaultValuedAttr<I64Attr, "0">:$storage_order,
+           OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
+}
+
+def ONNXMaxPoolSingleOutNoPadsOp: ONNX_Op<"MaxPoolSingleOutNoPads",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MaxPool operation with a single output.";
   let description = [{
@@ -195,6 +213,13 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
            DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  // A build method with the result deduction.
+  let builders = [
+    OpBuilder<"Builder *builder, OperationState &state, Value data, ArrayAttr pads, FloatAttr constant_value, StringAttr mode", [{
+      auto elementType = data.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), data, pads, constant_value, mode);
+    }]>,
+    ];
 }
 
 

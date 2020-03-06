@@ -902,7 +902,7 @@ void ONNXConvNoBiasOp::inferShapes() {
 //   -  dilations, strides: set to 1 if not defined by user;
 //   -  pads: set to proper value, 0 if not defined by user.
 
-void ONNXMaxPoolSingleOutOp::inferShapes() {
+void ONNXMaxPoolSingleOutNoPadsOp::inferShapes() {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>())
     return;

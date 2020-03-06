@@ -14,17 +14,17 @@ using namespace mlir;
 
 // Identity values
 template <>
-float getIdentityValue<float, ONNXMaxPoolSingleOutOp>() {
+float getIdentityValue<float, ONNXMaxPoolSingleOutNoPadsOp>() {
   return (float)-std::numeric_limits<float>::infinity();
 }
 
 template <>
-int getIdentityValue<int, ONNXMaxPoolSingleOutOp>() {
+int getIdentityValue<int, ONNXMaxPoolSingleOutNoPadsOp>() {
   return std::numeric_limits<int>::min();
 }
 
 template <>
-Value mapToLowerScalarOp<ONNXMaxPoolSingleOutOp>(Operation *op,
+Value mapToLowerScalarOp<ONNXMaxPoolSingleOutNoPadsOp>(Operation *op,
     ArrayRef<Type> result_types, ArrayRef<Value> operands,
     ConversionPatternRewriter &rewriter) {
   auto loc = op->getLoc();
@@ -35,17 +35,18 @@ Value mapToLowerScalarOp<ONNXMaxPoolSingleOutOp>(Operation *op,
   return result;
 }
 
-struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
-  ONNXMaxPoolSingleOutOpLowering(MLIRContext *ctx)
+struct ONNXMaxPoolSingleOutNoPadsOpLowering : public ConversionPattern {
+  ONNXMaxPoolSingleOutNoPadsOpLowering(MLIRContext *ctx)
       : ConversionPattern(
-            mlir::ONNXMaxPoolSingleOutOp::getOperationName(), 1, ctx) {}
+            mlir::ONNXMaxPoolSingleOutNoPadsOp::getOperationName(), 1, ctx) {}
 
   PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
 
     // Match
-    ONNXMaxPoolSingleOutOp poolOp = llvm::dyn_cast<ONNXMaxPoolSingleOutOp>(op);
+    ONNXMaxPoolSingleOutNoPadsOp poolOp =
+        llvm::dyn_cast<ONNXMaxPoolSingleOutNoPadsOp>(op);
 
     // Read kernel_shape attribute
     SmallVector<int, 4> kernelShape;
@@ -208,11 +209,11 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
       if (resultElementType.isa<FloatType>()) {
         identity = rewriter.create<ConstantOp>(
             loc, FloatAttr::get(resultElementType,
-                     getIdentityValue<float, ONNXMaxPoolSingleOutOp>()));
+                     getIdentityValue<float, ONNXMaxPoolSingleOutNoPadsOp>()));
       } else if (resultElementType.isa<IntegerType>()) {
         identity = rewriter.create<ConstantOp>(
             loc, IntegerAttr::get(resultElementType,
-                     getIdentityValue<int, ONNXMaxPoolSingleOutOp>()));
+                     getIdentityValue<int, ONNXMaxPoolSingleOutNoPadsOp>()));
       } else {
         emitError(loc, "unsupported element type");
       }
@@ -277,7 +278,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
         auto loadData = rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
         auto loadPartialResult =
             rewriter.create<LoadOp>(loc, alloc, resultIndices);
-        Value result = mapToLowerScalarOp<ONNXMaxPoolSingleOutOp>(
+        Value result = mapToLowerScalarOp<ONNXMaxPoolSingleOutNoPadsOp>(
             op, resultElementType, {loadPartialResult, loadData}, rewriter);
         rewriter.create<StoreOp>(loc, result, alloc, resultIndices);
       }
@@ -290,5 +291,5 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
 
 void populateLoweringONNXPoolingOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXMaxPoolSingleOutOpLowering>(ctx);
+  patterns.insert<ONNXMaxPoolSingleOutNoPadsOpLowering>(ctx);
 }
