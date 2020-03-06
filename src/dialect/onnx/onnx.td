@@ -197,14 +197,4 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
 }
 
-def ONNXConstantTensorOp:ONNX_Op<"ConstantTensor",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface> ]> {
-  let summary = "ONNX Constant value operation";
-  let description = [{
-  "Defines a constant tensor in its value attribute."
-  }];
-  let arguments = (ins ArrayAttr:$value);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
-}
-
 #endif // ONNX_OPS

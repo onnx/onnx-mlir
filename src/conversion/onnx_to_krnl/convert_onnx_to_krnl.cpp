@@ -35,19 +35,15 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-// ConstantTensor operations are simply removed.
-// The should be used to populate attributes and tensor dimensions of other
-// operations (such as Reshape) and that information should have already been
-// propagated in previous passes. This means that ConstantTensor operations
-// are no longer used and can be removed.
+// ConstantOp lowering.
 //===----------------------------------------------------------------------===//
 
-class ONNXConstantTensorLowering
-    : public OpRewritePattern<ONNXConstantTensorOp> {
+class ONNXConstantLowering
+    : public OpRewritePattern<ONNXConstantOp> {
 public:
-  using OpRewritePattern<ONNXConstantTensorOp>::OpRewritePattern;
+  using OpRewritePattern<ONNXConstantOp>::OpRewritePattern;
 
-  PatternMatchResult matchAndRewrite(ONNXConstantTensorOp op,
+  PatternMatchResult matchAndRewrite(ONNXConstantOp op,
                                      PatternRewriter &rewriter) const override {
     rewriter.eraseOp(op);
     return matchSuccess();
@@ -122,7 +118,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
   populateLoweringONNXPoolingOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
-  patterns.insert<ONNXConstantTensorLowering>(&getContext());
+  patterns.insert<ONNXConstantLowering>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

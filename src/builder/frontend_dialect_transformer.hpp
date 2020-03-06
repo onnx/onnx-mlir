@@ -216,13 +216,19 @@ struct InitializedTensorMapping {
       }
     }
 
+    // Create empty sparse_value attribute.
+    llvm::ArrayRef<int64_t> array;
+    auto sparseValueAttribute = builder.getI64ArrayAttr(array);
+
+    // Create value attribute.
     llvm::ArrayRef<int64_t> tensorDims(initializer.dims().data(),
         initializer.dims().size());
     mlir::Type tensorType =
         mlir::RankedTensorType::get(tensorDims, elementType);
 
-    return builder.create<mlir::ONNXConstantTensorOp>(
-        loc, tensorType, constantArrayAttribute);
+    return builder.create<mlir::ONNXConstantOp>(
+        loc, tensorType, sparseValueAttribute,
+        constantArrayAttribute);
   }
 
 private:
