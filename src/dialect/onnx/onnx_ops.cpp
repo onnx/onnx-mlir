@@ -1095,6 +1095,13 @@ void ONNXPadConstantValuePadOp::inferShapes(){
   return;
 }
 
+void ONNXPadConstantValuePadOp::build(Builder *builder, OperationState &state,
+    Value data, ArrayAttr pads, FloatAttr constant_value, StringAttr mode) {
+  auto elementType = data.getType().cast<TensorType>().getElementType();
+  build(builder, state, UnrankedTensorType::get(elementType), data, pads,
+      constant_value, mode);
+}
+
 //===----------------------------------------------------------------------===//
 
 // Unsqueeze

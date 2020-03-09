@@ -197,12 +197,9 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
   // A build method with the result type deduction.
-  let builders = [
-    OpBuilder<"Builder *builder, OperationState &state, Value data, ArrayAttr pads, FloatAttr constant_value, StringAttr mode", [{
-      auto elementType = data.getType().cast<TensorType>().getElementType();
-      build(builder, state, UnrankedTensorType::get(elementType), data, pads, constant_value, mode);
-    }]>,
-    ];
+  let builders = [OpBuilder<"Builder *builder, OperationState &state, "
+                            "Value data, ArrayAttr pads, "
+                            "FloatAttr constant_value, StringAttr mode">];
 }
 
 
