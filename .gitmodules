@@ -9,4 +9,4 @@
 	url = https://github.com/pybind/pybind11.git
 [submodule "third_party/variant"]
 	path = third_party/variant
-	url = git@github.com:mpark/variant.git
+	url = https://github.com/mpark/variant.git
