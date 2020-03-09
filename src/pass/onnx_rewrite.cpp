@@ -168,7 +168,7 @@ struct SplitConvOpPattern : public RewritePattern {
 };
 } // end anonymous namespace
 
-/// on the ONNXMaxPoolSingleOutSquareOp.
+/// on the ONNXMaxPoolSingleOutOp.
 void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<MaxPoolSingleOutOpPaddingPattern>(context);
