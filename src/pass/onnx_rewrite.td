@@ -57,9 +57,21 @@ def HasAllZeroInArrayAttr : Constraint<CPred<"!hasNonZeroInArrayAttr($_self)">, 
 //     tensor<OutShape>
 //===----------------------------------------------------------------------===//
 
-def MaxPoolSingleOutOpPaddingPattern: Pat<(ONNXMaxPoolSingleOutOp:$res $x, $auto_pad, $ceil_mode, $dilation, $kernel_shape, $pads, $storage_order, $strides),
-                                          (ONNXMaxPoolSingleOutOp (ONNXPadConstantValuePadOp $x, (PadArrayAttrWithZeroTrail<2> $pads), (FloatAttrOfValue<0> $res), (StringAttrOfValue<"constant">)), $auto_pad, $ceil_mode, $dilation, $kernel_shape, (ArrayAttrOfZeroWithTrail<2> $pads), $storage_order, $strides),
-                                          [(HasNonZeroInArrayAttr:$pads)]>;
-
+def MaxPoolSingleOutOpPaddingPattern: Pat<
+  (ONNXMaxPoolSingleOutOp:$res
+     $x,
+     $auto_pad, $ceil_mode, $dilation, $kernel_shape,
+     $pads,
+     $storage_order, $strides),
+  (ONNXMaxPoolSingleOutOp
+     (ONNXPadConstantValuePadOp $x,
+        (PadArrayAttrWithZeroTrail<2> $pads),
+        (FloatAttrOfValue<0> $res),
+        (StringAttrOfValue<"constant">)),
+     $auto_pad, $ceil_mode, $dilation, $kernel_shape,
+     (ArrayAttrOfZeroWithTrail<2> $pads),
+     $storage_order, $strides),
+  [(HasNonZeroInArrayAttr:$pads)]
+>;
 
 #endif // ONNX_REWRITE
