@@ -25,23 +25,37 @@ include "dialect/onnx/onnx.td"
 /// >;
 
 // Create a StringAttr from a string.
-class StringAttrOfValue<string val>: NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
+class StringAttrOfValue<string val>:
+  NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
 
 // Create a FloatAttr from an interger value.
 // It seems Table-gen does not support `float` type, so we can not pass a float value.
-class FloatAttrOfValue<int val> : NativeCodeCall<"FloatAttr::get($0.getType().cast<TensorType>().getElementType(), " # val # ")">;
+class FloatAttrOfValue<int val>:
+  NativeCodeCall<"FloatAttr::get($0.getType().cast<TensorType>().getElementType(), " # val # ")">;
 
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
 // This function is used for padding attribute in MaxPoolSingleOut.
-class ArrayAttrOfZeroWithTrail<int trailCount> : NativeCodeCall<"createArrayAttrOfZeroWithTrail($_builder, $0, " # trailCount # ")">;
+def createArrayAttrOfZerosFrom:
+  NativeCodeCall<"createArrayAttrOfZeros($_builder, $0)">;
 
-// Pad a ArrayAttr with trails of zeros.
+// Pad a ArrayAttr with zeros.
+//
+// pads = [B1, B2, ... Bk, E1, E2, ..., Ek]
+//
+// becomes:
+//
+// pads = [0,... 0, B1, B2, ... Bk, 0,... 0, E1, E2, ..., Ek]
+//         |_____|                  |_____|
+//                 nZeros                    nZeros
+//
 // This function is used for padding attribute in MaxPoolSingleOut.
-class PadArrayAttrWithZeroTrail<int trailCount> : NativeCodeCall<"padArrayAttrWithZeroTrail($_builder, $0," # trailCount # ")">;
+class insertZerosForNonPaddedDims<int extensionLength>:
+  NativeCodeCall<"insertZerosForNonPaddedDims($_builder, $0,"
+                                              # extensionLength # ")">;
 
 // Check whether an ArrayAttr contains non-zero values or not.
-def HasNonZeroInArrayAttr : Constraint<CPred<"hasNonZeroInArrayAttr($_self)">, "has non-zero elements">;
-def HasAllZeroInArrayAttr : Constraint<CPred<"!hasNonZeroInArrayAttr($_self)">, "has non-zero elements">;
+def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
+                                       "has non-zero elements">;
 
 //===----------------------------------------------------------------------===//
 // Rewrite:
@@ -65,11 +79,11 @@ def MaxPoolSingleOutOpPaddingPattern: Pat<
      $storage_order, $strides),
   (ONNXMaxPoolSingleOutOp
      (ONNXPadConstantValuePadOp $x,
-        (PadArrayAttrWithZeroTrail<2> $pads),
+        (insertZerosForNonPaddedDims<2> $pads),
         (FloatAttrOfValue<0> $res),
         (StringAttrOfValue<"constant">)),
      $auto_pad, $ceil_mode, $dilation, $kernel_shape,
-     (ArrayAttrOfZeroWithTrail<2> $pads),
+     (createArrayAttrOfZerosFrom $pads),
      $storage_order, $strides),
   [(HasNonZeroInArrayAttr:$pads)]
 >;

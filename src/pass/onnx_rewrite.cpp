@@ -34,29 +34,39 @@ bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
 
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
 // This function is used for padding attribute in MaxPoolSingleOut.
-ArrayAttr createArrayAttrOfZeroWithTrail(
-    PatternRewriter &rewriter, ArrayAttr origAttrs, int trailCount) {
-  int nElements = origAttrs.getValue().size() + trailCount * 2;
+ArrayAttr createArrayAttrOfZeros(
+    PatternRewriter &rewriter, ArrayAttr origAttrs) {
+  int nElements = origAttrs.getValue().size();
   SmallVector<int64_t, 4> vals(nElements, 0);
   return rewriter.getI64ArrayAttr(vals);
 }
 
-// Pad a ArrayAttr with trails of zeros.
+// Pad a ArrayAttr with zeros.
+//
+// pads = [B1, B2, ... Bk, E1, E2, ..., Ek]
+//
+// becomes:
+//
+// pads = [0,... 0, B1, B2, ... Bk, 0,... 0, E1, E2, ..., Ek]
+//         |_____|                  |_____|
+//                 nZeros                    nZeros
+//
 // This function is used for padding attribute in MaxPoolSingleOut.
-ArrayAttr padArrayAttrWithZeroTrail(
-    PatternRewriter &rewriter, ArrayAttr origAttrs, int trailCount) {
+ArrayAttr insertZerosForNonPaddedDims(
+    PatternRewriter &rewriter, ArrayAttr origAttrs, int extensionLength) {
   int nDims = (int) origAttrs.getValue().size() / 2;
-  int nElements = (nDims + trailCount) * 2;
+  int nElements = (nDims + extensionLength) * 2;
   SmallVector<int64_t, 4> pads(nElements, 0);
   for (int i = 0; i < nDims; ++i) {
     int64_t beginPad = origAttrs.getValue()[i].cast<IntegerAttr>().getInt();
     int64_t endPad =
         origAttrs.getValue()[nDims + i].cast<IntegerAttr>().getInt();
-    pads[i + trailCount] = beginPad;
-    pads[nDims + trailCount + i + trailCount] = endPad;
+    pads[i + extensionLength] = beginPad;
+    pads[nDims + extensionLength + i + extensionLength] = endPad;
   }
   return rewriter.getI64ArrayAttr(pads);
 }
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/onnx_rewrite.inc"
 
