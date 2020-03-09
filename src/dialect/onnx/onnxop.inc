@@ -340,7 +340,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect]> {
   let summary = "ONNX Constant operation";
   let description = [{
   "A constant tensor. Exactly one of the two attributes, either value or sparse_value,"
