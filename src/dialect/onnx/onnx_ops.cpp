@@ -1097,9 +1097,12 @@ void ONNXPadConstantValuePadOp::inferShapes(){
 
 void ONNXPadConstantValuePadOp::build(Builder *builder, OperationState &state,
     Value data, ArrayAttr pads, FloatAttr constant_value, StringAttr mode) {
-  auto elementType = data.getType().cast<TensorType>().getElementType();
-  build(builder, state, UnrankedTensorType::get(elementType), data, pads,
-      constant_value, mode);
+  Type outputType = padShapeInferenceHelper(data, pads);
+  if (!outputType) {
+    auto elementType = data.getType().cast<TensorType>().getElementType();
+    outputType = UnrankedTensorType::get(elementType);
+  }
+  build(builder, state, outputType, data, pads, constant_value, mode);
 }
 
 //===----------------------------------------------------------------------===//
