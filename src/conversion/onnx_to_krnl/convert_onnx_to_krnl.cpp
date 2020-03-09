@@ -36,6 +36,8 @@ public:
 
 //===----------------------------------------------------------------------===//
 // ConstantOp lowering.
+// TODO: Remove this code once the argument to constant trait is implemented.
+// Lowering constants will then need to be implemented for all cases.
 //===----------------------------------------------------------------------===//
 
 class ONNXConstantLowering
