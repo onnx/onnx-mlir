@@ -91,7 +91,7 @@ struct SplitConvOpPattern : public RewritePattern {
                        1, context) {}
 
   PatternMatchResult matchAndRewrite(Operation *op,
-                                     PatternRewriter &rewriter) const override {
+      PatternRewriter &rewriter) const override {
     auto loc = op->getLoc();
 
     // If convolution does not use padding then no rewrite is required.
@@ -173,7 +173,7 @@ void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<MaxPoolSingleOutOpPaddingPattern>(context);
 }
-/// on the ONNXReduceSumSquareOp.
+/// on the ONNXConvNoBiasOp.
 void ONNXConvNoBiasOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<SplitConvOpPattern>(context);

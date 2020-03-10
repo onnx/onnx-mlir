@@ -18,6 +18,8 @@
 
 #include "onnx/onnx_pb.h"
 
+#include "src/builder/frontend_dialect_helper.hpp"
+
 namespace mlir {
 class MLIRContext;
 class OwningModuleRef;
@@ -28,13 +30,6 @@ class OwningModuleRef;
 //===----------------------------------------------------------------------===//
 
 namespace onnf {
-/*!
- *  Import an ONNX model into ONNF's ONNX Dialect.
- *  @param model onnx model.
- *  @return MLIR::module generated for the ONNX model.
- */
-mlir::OwningModuleRef ImportFrontendModel(onnx::ModelProto model);
-
 /*!
  *  Import an ONNX model file into ONNF's ONNX Dialect.
  *  @param model_fname file name pointing to the onnx model protobuf.
