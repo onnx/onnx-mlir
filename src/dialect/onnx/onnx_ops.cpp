@@ -908,7 +908,7 @@ void ONNXConvNoBiasOp::inferShapes() {
 
       // Record the upper and lower axis padding.
       actualPads[i] = actualPads[i + nSpatialDims] = totalPadding / 2;
-      if (totalPadding % 2 == 1) {
+      if (totalPadding % 2 != 0) {
         if (autoPad == "SAME_LOWER") {
           actualPads[i]++;
         } else {
