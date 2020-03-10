@@ -35,24 +35,6 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-// ConstantOp lowering.
-// TODO: Remove this code once the argument to constant trait is implemented.
-// Lowering constants will then need to be implemented for all cases.
-//===----------------------------------------------------------------------===//
-
-class ONNXConstantLowering
-    : public OpRewritePattern<ONNXConstantOp> {
-public:
-  using OpRewritePattern<ONNXConstantOp>::OpRewritePattern;
-
-  PatternMatchResult matchAndRewrite(ONNXConstantOp op,
-                                     PatternRewriter &rewriter) const override {
-    rewriter.eraseOp(op);
-    return matchSuccess();
-  }
-};
-
-//===----------------------------------------------------------------------===//
 // Frontend to Krnl Dialect lowering pass
 //===----------------------------------------------------------------------===//
 
@@ -120,7 +102,6 @@ void FrontendToKrnlLoweringPass::runOnModule() {
   populateLoweringONNXPoolingOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
-  patterns.insert<ONNXConstantLowering>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
