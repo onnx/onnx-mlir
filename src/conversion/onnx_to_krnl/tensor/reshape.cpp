@@ -61,7 +61,8 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
           rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
       SmallVector<Value, 4> DimInfo;
       for (int i = 0; i < memRefShape.size(); ++i) {
-        Value index = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
+        Value index =
+            emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
         // Load index from array of indices.
         Value loadedVal = rewriter.create<LoadOp>(loc, operands[1], index);
         // If a dimension is zero, the actual dimension value is taken from the
