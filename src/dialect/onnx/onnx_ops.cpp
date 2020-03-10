@@ -782,15 +782,15 @@ void ONNXConvNoBiasOp::inferShapes() {
 
   auto dataTy = X().getType().cast<RankedTensorType>();
   auto weightTy = W().getType().cast<RankedTensorType>();
-  auto dataShape = dataTy.getShape();
+  auto inDataShape = dataTy.getShape();
   auto weightShape = weightTy.getShape();
 
   // Lowest supported convolution is a one dimensional convolution.
-  if (dataShape.size() < 3)
+  if (inDataShape.size() < 3)
     emitError("Data input shape must be at least (NxCxD1)");
 
   // Check that shape of weight and data have same length.
-  if (dataShape.size() != weightShape.size())
+  if (inDataShape.size() != weightShape.size())
     emitError("Weight size not compatible with data size");
 
   // Required attribute auto_pad defaults to NOTSET.
@@ -799,8 +799,8 @@ void ONNXConvNoBiasOp::inferShapes() {
   int64_t group =
       ONNXConvNoBiasOp::group().getSExtValue(); //.getLimitedValue();
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
-  if (dataShape[1] != -1 && weightShape[1] != -1 &&
-      dataShape[1] != (weightShape[1] * group))
+  if (inDataShape[1] != -1 && weightShape[1] != -1 &&
+      inDataShape[1] != (weightShape[1] * group))
     emitError("Channel dimension mismatch");
 
   // Note: the value of the group attribut only impacts the way the
@@ -811,7 +811,7 @@ void ONNXConvNoBiasOp::inferShapes() {
   //
   SmallVector<int64_t, 2> dims;
   // Insert batch size.
-  dims.emplace_back(dataShape[0]);
+  dims.emplace_back(inDataShape[0]);
   // Insert number of filters being applied (number of output channels).
   dims.emplace_back(weightShape[0]);
 
@@ -821,22 +821,22 @@ void ONNXConvNoBiasOp::inferShapes() {
   //
   SmallVector<int64_t, 2> outSpatialDims;
   // Number of spatial dimensions.
-  int32_t nDims = dataShape.size() - 2;
+  int32_t nSpatialDims = inDataShape.size() - 2;
 
   // Initialize dimenions based on the input spatial dimensions.
-  for (int i = 2; i < dataShape.size(); ++i)
-    outSpatialDims.emplace_back(dataShape[i]);
+  for (int i = 2; i < inDataShape.size(); ++i)
+    outSpatialDims.emplace_back(inDataShape[i]);
 
   // Use kernel_shape attribute if present otherwise use size from weight
   // argument.
   SmallVector<int64_t, 2> kernelDims;
   if (auto kernelShape = kernel_shapeAttr()) {
-    if (ArrayAttrSize(kernelShape) != nDims)
+    if (ArrayAttrSize(kernelShape) != nSpatialDims)
       emitError("kernel_shape length incompatible with spatial dimensions");
-    for (int i = 0; i < nDims; ++i)
+    for (int i = 0; i < nSpatialDims; ++i)
       kernelDims.emplace_back(ArrayAttrIntVal(kernelShape, i));
   } else {
-    for (int i = 0; i < nDims; ++i)
+    for (int i = 0; i < nSpatialDims; ++i)
       kernelDims.emplace_back(weightShape[i + 2]);
   }
 
@@ -852,16 +852,20 @@ void ONNXConvNoBiasOp::inferShapes() {
   // From a dimensionality perspective the kernel size becomes the dilated
   // kernel size.
   if (auto dilations = dilationsAttr()) {
-    if (ArrayAttrSize(dilations) != nDims)
+    if (ArrayAttrSize(dilations) != nSpatialDims)
       emitError("dilations length incompatible with spatial dimensions");
-    for (int i = 0; i < nDims; ++i)
+    for (int i = 0; i < nSpatialDims; ++i)
       kernelDims[i] =
-          (kernelDims[i] + 1) * ArrayAttrIntVal(dilations, i)  -        1;
+          (kernelDims[i] + 1) * ArrayAttrIntVal(dilations, i) - 1;
   }
 
   // Subtract kernel dimensions from input data dimensions.
-  for (int i = 0; i < nDims; ++i)
+  for (int i = 0; i < nSpatialDims; ++i)
     outSpatialDims[i] -= kernelDims[i];
+
+  // Array which holds the padding information.
+  SmallVector<int64_t, 2> actualPads(2 * nSpatialDims, 0);
+  auto stridesAttr = ONNXConvNoBiasOp::stridesAttr();
 
   // Add padding information.
   if (autoPad == "NOTSET") {
@@ -869,26 +873,49 @@ void ONNXConvNoBiasOp::inferShapes() {
     // present then pads is considered to be all zeros (no padding).
     if (auto pads = padsAttr()) {
       // pads consists of two entries for each spatial axis.
-      if (ArrayAttrSize(pads) != 2 * nDims)
+      if (ArrayAttrSize(pads) != 2 * nSpatialDims)
         emitError("pads size is not twice the spatial size");
 
-      for (int i = 0; i < nDims; ++i) {
+      for (int i = 0; i < nSpatialDims; ++i) {
         // Padding for beginning of axis.
         outSpatialDims[i] += ArrayAttrIntVal(pads, i);
         // Padding for end of axis.
-        outSpatialDims[i] += ArrayAttrIntVal(pads, i + nDims);
+        outSpatialDims[i] += ArrayAttrIntVal(pads, i + nSpatialDims);
       }
     }
   } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
     // Pad input so that output size matches input size.
     // Each spatial dimension needs to be padded by a total of:
     //
-    // K - 1
+    // stride * (InDim - 1) + KerDim - InDim
     //
     // where K is a kernel spatial dimension.
-    // Pad as if stride is 1.
-    for (int i = 0; i < nDims; ++i)
-      outSpatialDims[i] += kernelDims[i] - 1;
+    for (int i = 0; i < nSpatialDims; ++i) {
+      // If strides are given use them otherwise stride is 1.
+      int64_t stride = 1;
+      if (stridesAttr)
+        stride = ArrayAttrIntVal(stridesAttr, i);
+
+      // Compute necessary padding. The input dimensions are stored in
+      // inDataShape.
+      int64_t totalPadding = stride * (inDataShape[i + 2] - 1) +
+          kernelDims[i] - inDataShape[i + 2];
+
+      // Adjust current output value with the value of the padding.
+      // When dividing by stride later on, the output dimension should
+      // be equal to the input dimension.
+      outSpatialDims[i] += totalPadding;
+
+      // Record the upper and lower axis padding.
+      actualPads[i] = actualPads[i + nSpatialDims] = totalPadding / 2;
+      if (totalPadding % 2 != 0) {
+        if (autoPad == "SAME_LOWER") {
+          actualPads[i]++;
+        } else {
+          actualPads[i + nSpatialDims]++;
+        }
+      }
+    }
   } else if (autoPad == "VALID") {
     // No padding
   } else {
@@ -896,17 +923,33 @@ void ONNXConvNoBiasOp::inferShapes() {
   }
 
   // Strides
-  if (auto strides = ONNXConvNoBiasOp::stridesAttr()) {
-    if (ArrayAttrSize(strides) != nDims)
+  if (stridesAttr) {
+    if (ArrayAttrSize(stridesAttr) != nSpatialDims)
       emitError("strides length incompatible with spatial dimensions");
-    for (int i = 0; i < nDims; ++i) {
-      int64_t stride = ArrayAttrIntVal(strides, i);
+    for (int i = 0; i < nSpatialDims; ++i) {
+      int64_t stride = ArrayAttrIntVal(stridesAttr, i);
       outSpatialDims[i] = floor(outSpatialDims[i] / stride);
     }
   }
 
-  for (int i = 0; i < nDims; ++i)
+  for (int i = 0; i < nSpatialDims; ++i)
     outSpatialDims[i] += 1;
+
+  // Check input and output sizes match.
+  if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+    for (int i = 0; i < nSpatialDims; ++i)
+      if (outSpatialDims[i] != inDataShape[i + 2])
+        emitError("input and output spatial dimension mismatch");
+
+    // Set pads values in attributes.
+    auto builder = mlir::Builder(this->getContext());
+    ArrayRef<int64_t> defaultRefs(actualPads);
+    padsAttr(builder.getI64ArrayAttr(defaultRefs));
+
+    // Change auto padding attribute to NOTSET since padding values
+    // are now explicitly included in the operation.
+    auto_padAttr(builder.getStringAttr("NOTSET"));
+  }
 
   dims.append(outSpatialDims.begin(), outSpatialDims.end());
   getResult().setType(RankedTensorType::get(dims, dataTy.getElementType()));
