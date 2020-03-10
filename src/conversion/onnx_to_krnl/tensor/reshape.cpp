@@ -28,9 +28,8 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     Value alloc;
 
     // Compute size in bytes using the input tensor.
-    Value tensorSize = rewriter.create<ConstantOp>(
-        loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64),
-                                     getMemRefEltSizeInBytes(memRefType)));
+    Value tensorSize = emitConstantOp(rewriter, loc,
+        rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
     for (int i = 0; i < inputShape.size(); ++i) {
       Value dimVal;
       if (inputShape[i] < 0) {
@@ -38,9 +37,8 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
         dimVal =
             rewriter.create<IndexCastOp>(loc, dim, rewriter.getIntegerType(64));
       } else {
-        dimVal = rewriter.create<ConstantOp>(
-            loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64),
-                                         inputShape[i]));
+        dimVal = emitConstantOp(
+            rewriter, loc, rewriter.getIntegerType(64), inputShape[i]);
       }
       tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
     }
@@ -59,13 +57,12 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
       // If the reduction is negative, then the shape array contains a negative
       // dimension. Otherwise, the reduction is the same as the one computed
       // from the input tensor.
-      Value tensorSizeFromShape = rewriter.create<ConstantOp>(
-          loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64),
-                                       getMemRefEltSizeInBytes(memRefType)));
+      Value tensorSizeFromShape = emitConstantOp(rewriter, loc,
+          rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
       SmallVector<Value, 4> DimInfo;
       for (int i = 0; i < memRefShape.size(); ++i) {
-        Value index = rewriter.create<ConstantOp>(
-            loc, rewriter.getIntegerAttr(rewriter.getIndexType(), i));
+        Value index =
+            emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
         // Load index from array of indices.
         Value loadedVal = rewriter.create<LoadOp>(loc, operands[1], index);
         // If a dimension is zero, the actual dimension value is taken from the
@@ -81,11 +78,10 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
             Value dim = rewriter.create<DimOp>(loc, operands[0], i);
             dimVal = rewriter.create<IndexCastOp>(loc, dim, loadedValType);
           } else {
-            dimVal = rewriter.create<ConstantOp>(
-                loc, rewriter.getIntegerAttr(loadedValType, inputShape[i]));
+            dimVal =
+                emitConstantOp(rewriter, loc, loadedValType, inputShape[i]);
           }
-          auto zero = rewriter.create<ConstantOp>(
-              loc, rewriter.getIntegerAttr(loadedValType, 0));
+          auto zero = emitConstantOp(rewriter, loc, loadedValType, 0);
           auto isZero =
               rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, loadedVal, zero);
           loadedVal = rewriter.create<SelectOp>(loc, isZero, dimVal, loadedVal);
@@ -104,15 +100,14 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
       // Reverse tensorSizeFromShape since it is negative if the shape array has
       // a negative dimension. This is safe since we only use it to compute the
       // actual value for the negative dimension.
-      auto zero = rewriter.create<ConstantOp>(
-          loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
+      auto zero = emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), 0);
       tensorSizeFromShape =
           rewriter.create<SubIOp>(loc, zero, tensorSizeFromShape);
 
       // Obtain operands for AllocOp.
       SmallVector<Value, 4> allocOperands;
-      auto negOne = rewriter.create<ConstantOp>(
-          loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), -1));
+      auto negOne =
+          emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), -1);
 
       for (int i = 0; i < memRefShape.size(); ++i) {
         auto dimVal = DimInfo[i];

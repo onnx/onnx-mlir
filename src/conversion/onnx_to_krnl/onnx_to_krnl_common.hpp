@@ -98,6 +98,25 @@ getLoopIVsForBroadcasting(Location loc, ConversionPatternRewriter &rewriter,
                           ArrayRef<Value> loopIVs, Value operand,
                           std::map<int, Value> broadcastedDims);
 
+// Emit a constant of a specific type.
+// Use this function for small values only to avoid unexpected loss in type
+// casting.
+Value emitConstantOp(
+    ConversionPatternRewriter &rewriter, Location loc, Type type, double value);
+
+// Emit a positive infinity constant of a specific type.
+// Supported types: F16, F32, F64, Int8, Int16, Int32, Int64.
+// In case of Integer, emit the maximum value.
+Value emitPositiveInfinityConstantOp(
+    ConversionPatternRewriter &rewriter, Location loc, Type type);
+
+// Emit a negative infinity constant of a specific type.
+// Supported types: F16, F32, F64, Int8, Int16, Int32, Int64.
+// In case of Float, emit the negative of the positive infinity.
+// In case of Integer, emit the minimum value.
+Value emitNegativeInfinityConstantOp(
+    ConversionPatternRewriter &rewriter, Location loc, Type type);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
@@ -112,11 +131,13 @@ using ScalarFOp = typename ScalarOp<FOp>::FOp;
 template <typename IOp>
 using ScalarIOp = typename ScalarOp<IOp>::IOp;
 
-// Get the identity element of a operation.
+// Get the identity element of an operation.
 // Return NULL if the function does not have identity.
-template <typename DataType, typename Op>
-DataType getIdentityValue() {
-  return NULL;
+// Specialize this for a new Op.
+template <typename Op>
+Value getIdentityValue(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return nullptr;
 }
 
 //===----------------------------------------------------------------------===//

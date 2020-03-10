@@ -1,4 +1,6 @@
 add_library(builder
+        frontend_dialect_helper.cpp
+        frontend_dialect_helper.hpp
         frontend_dialect_transformer.cpp
         frontend_dialect_transformer.hpp
         op_build_table.inc
