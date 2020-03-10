@@ -111,6 +111,7 @@ def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
 
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX MaxPool operation with a single output.";
   let description = [{
     "ONNX MaxPool operation with a single output."
@@ -195,6 +196,10 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
            DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  // A build method with the result type deduction.
+  let builders = [OpBuilder<"Builder *builder, OperationState &state, "
+                            "Value data, ArrayAttr pads, "
+                            "FloatAttr constant_value, StringAttr mode">];
 }
 
 #endif // ONNX_OPS
