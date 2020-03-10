@@ -465,6 +465,30 @@ Value mapToLowerScalarOp<ONNXMinOp>(Operation *op, ArrayRef<Type> result_types,
   return result;
 }
 
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXAbsOp
+//===----------------------------------------------------------------------===//
+template <>
+Value mapToLowerScalarOp<ONNXAbsOp>(Operation *op, ArrayRef<Type> result_types,
+    ArrayRef<Value> operands, ConversionPatternRewriter &rewriter) {
+  auto loc = op->getLoc();
+  Value operand = operands[0];
+  auto elementType = result_types[0];
+
+  if (elementType.isa<FloatType>()) {
+    return rewriter.create<AbsFOp>(loc, operand);
+  } else if (elementType.isa<IntegerType>()) {
+    auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+    auto lessThanZero =
+        rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, operand, zero);
+    auto negativeOperand = rewriter.create<SubIOp>(loc, zero, operand);
+    return rewriter.create<SelectOp>(
+        loc, lessThanZero, negativeOperand, operand);
+  } else {
+    emitError(loc, "unsupported element type");
+  }
+}
+
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -615,7 +639,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
 void populateLoweringONNXElementwiseOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
+  patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
+                  ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
                   ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
                   ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
