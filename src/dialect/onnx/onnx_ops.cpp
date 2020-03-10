@@ -899,7 +899,7 @@ void ONNXConvNoBiasOp::inferShapes() {
       // Compute necessary padding. The input dimensions are stored in
       // inDataShape.
       int64_t totalPadding = stride * (inDataShape[i + 2] - 1) +
-          kernelDims[i] - dataShape[i + 2];
+          kernelDims[i] - inDataShape[i + 2];
 
       // Adjust current output value with the value of the padding.
       // When dividing by stride later on, the output dimension should
