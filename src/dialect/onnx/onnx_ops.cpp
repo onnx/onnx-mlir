@@ -664,18 +664,18 @@ void ONNXReshapeOp::inferShapes() {
   auto constantOp =
       dyn_cast_or_null<mlir::ONNXConstantOp>(secondArgDefiningOp);
 
-  SmallVector<int64_t, 2> dims;
-  if (!constantOp) {
-    for (int i = 0; i < outputRank; ++i)
-      dims.emplace_back(-1);
-  } else {
+  SmallVector<int64_t, 2> dims(outputRank, -1);
+  if (constantOp) {
     ArrayAttr valueAttribute = constantOp.valueAttr().dyn_cast<ArrayAttr>();
 
     if (!valueAttribute)
       emitError("ArrayAttr expected");
 
-    for (auto value : valueAttribute.getValue())
-      dims.emplace_back(value.cast<IntegerAttr>().getInt());
+    if (valueAttribute.getValue().size() != outputRank)
+      emitError("Constant value must have same rank as output");
+
+    for (int i=0; i<outputRank; ++i)
+      dims[i] = valueAttribute.getValue()[i].cast<IntegerAttr>().getInt();
   }
 
   getResult().setType(

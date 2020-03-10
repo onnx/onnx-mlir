@@ -24,6 +24,11 @@ namespace bstd = mpark;
 namespace onnf {
 namespace {
 
+/*!
+ *  The list of tensors initialized by the ONNX model.
+ */
+InitializedTensorMapping initializedTensors;
+
 class FrontendGenImpl {
 public:
   FrontendGenImpl(mlir::MLIRContext &context)
