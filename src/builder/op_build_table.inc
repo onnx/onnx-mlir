@@ -224,7 +224,7 @@ if (opName == "ReduceSumSquare")
 if (opName == "Relu")
   return buildOperation<mlir::ONNXReluOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
 if (opName == "Reshape")
-  return buildOperation<mlir::ONNXReshapeOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return ImportNodeReshape(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
 if (opName == "Resize")
   return buildOperation<mlir::ONNXResizeOp>(node, /* expected_num_operands = */ 4, /* expected_num_results = */ 1);
 if (opName == "ReverseSequence")

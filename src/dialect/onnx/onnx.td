@@ -202,5 +202,4 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
                             "FloatAttr constant_value, StringAttr mode">];
 }
 
-
 #endif // ONNX_OPS
