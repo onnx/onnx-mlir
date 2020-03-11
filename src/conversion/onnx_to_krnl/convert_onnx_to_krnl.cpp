@@ -93,6 +93,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
   populateLoweringONNXMatMulOpPattern(patterns, &getContext());
   // Tensor
   populateLoweringONNXReshapeOpPattern(patterns, &getContext());
+  populateLoweringONNXPadConstantValuePadOpPattern(patterns, &getContext());
   populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
   populateLoweringONNXTransposeOpPattern(patterns, &getContext());
   populateLoweringONNXIdentityOpPattern(patterns, &getContext());
