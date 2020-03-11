@@ -656,6 +656,11 @@ void ONNXReshapeOp::inferShapes() {
   if (outputRank < 0)
     emitError("Shape tensor must have constant shape");
 
+  // Compute total number of elements.
+  int64_t totalInputSize = 1;
+  for(auto inputDim : inputTensorTy.getShape())
+    totalInputSize *= inputDim;
+
   // Check if second argument of ReshapeOp is a constant.
   // Get operation that defines the second argument. If this operation is a
   // `ConstantTensor` operation, the shape of this `Reshape` operation
@@ -674,8 +679,23 @@ void ONNXReshapeOp::inferShapes() {
     if (valueAttribute.getValue().size() != outputRank)
       emitError("Constant value must have same rank as output");
 
-    for (int i=0; i<outputRank; ++i)
+    int64_t numberOfDynamicInputs = 0;
+    int64_t totalKnownDimsSize = 1;
+    int64_t dynamicValueIndex = -1;
+    for (int i=0; i<outputRank; ++i) {
       dims[i] = valueAttribute.getValue()[i].cast<IntegerAttr>().getInt();
+      if (dims[i] < 0) {
+        numberOfDynamicInputs++;
+        dynamicValueIndex = i;
+      } else {
+        totalKnownDimsSize *= dims[i];
+      }
+    }
+
+    // If the number of dynamic inputs is 1 then deduce the missing value
+    // based on the total input size.
+    if (numberOfDynamicInputs == 1)
+      dims[dynamicValueIndex] = totalInputSize / totalKnownDimsSize;
   }
 
   getResult().setType(
