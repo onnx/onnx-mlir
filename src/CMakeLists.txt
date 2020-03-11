@@ -88,6 +88,7 @@ add_library(onnf_lower_frontend
         conversion/onnx_to_krnl/nn/pooling.cpp
         conversion/onnx_to_krnl/tensor/identity.cpp
         conversion/onnx_to_krnl/tensor/reshape.cpp
+        conversion/onnx_to_krnl/tensor/padconstantvaluepad.cpp
         conversion/onnx_to_krnl/tensor/transpose.cpp
         conversion/onnx_to_krnl/tensor/unsqueeze.cpp
         conversion/onnx_to_krnl/convert_onnx_to_krnl.cpp)

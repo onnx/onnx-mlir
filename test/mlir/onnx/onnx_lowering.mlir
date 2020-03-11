@@ -1510,3 +1510,28 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK: }
   // CHECK: return [[RES]] : memref<?x3x?x16xf32>
 }
+
+func @test_constant_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
+  %0 = "onnx.PadConstantValuePad"(%arg0) {constant_value = 0.000000e+00 : f32, mode = "constant", pads = [0, 3, 2, 1]} : (tensor<16x16xf32>) -> tensor<18x20xf32>
+  return %0 : tensor<18x20xf32>
+  // CHECK-LABEL: test_constant_pad1
+  // CHECK: [[RES:%.+]] = alloc() : memref<18x20xf32>
+  // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS1:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS1]]#0, [[OPT_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 18, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 20) {
+  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: store [[CST]], [[RES]][%arg1, %arg2] : memref<18x20xf32>
+  // CHECK: }
+  // CHECK: [[DEF_LOOPS2:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS2:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS2]]#0, [[OPT_LOOPS2]]#1) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 16, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 16) {
+  // CHECK: [[CST1:%.+]] = constant 3 : index
+  // CHECK: [[ADD:%.+]] = addi [[CST1]], %arg2 : index
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<16x16xf32>
+  // CHECK: store [[LOAD]], [[RES]][%arg1, [[ADD]]] : memref<18x20xf32>
+  // CHECK: }
+}
