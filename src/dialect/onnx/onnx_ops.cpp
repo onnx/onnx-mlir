@@ -90,6 +90,137 @@ RankedTensorType getReductionOutputType(
 }
 
 //===----------------------------------------------------------------------===//
+// GetPoolingOutputType
+// Infer shape attributes output:
+//   -  auto_pad set to NOTSET;
+//   -  strides: set to 1 if not defined by user;
+//   -  pads: set to proper value, 0 if not defined by user.
+//===----------------------------------------------------------------------===//
+template <typename PoolOp>
+Type getPoolingOutputType(MLIRContext *ctx, Operation *op,
+    Optional<ArrayAttr> dilationsOpt = llvm::None) {
+  // Get operation adaptor.
+  PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
+
+  auto builder = mlir::Builder(ctx);
+  Value X = poolOp.X();
+
+  // 1) Get shape of input.
+  auto xTy = X.getType().cast<RankedTensorType>();
+  auto xShape = xTy.getShape();
+  auto xRank = xShape.size();
+
+  // 2) Analyse parameters. Get kernel sizes from kernel_shape attribute.
+  auto kernelShape = poolOp.kernel_shape();
+  if (!kernelShape)
+    poolOp.emitError(
+        "kernel_shape is a mandatory attribute for which there is no default");
+  auto kernelRank = ArrayAttrSize(kernelShape);
+  if (kernelRank > xRank)
+    poolOp.emitError("kernel_shape spatial dimension is too large");
+  auto kernelOffset = xRank - kernelRank;
+
+  // Ceil mode.
+  auto ceilMode = poolOp.ceil_mode().getSExtValue();
+
+  // Strides.
+  auto stridesOpt = poolOp.strides();
+  if (stridesOpt.hasValue()) {
+    if (ArrayAttrSize(stridesOpt) != kernelRank)
+      poolOp.emitError("strides rank is not the same as the spatial rank");
+    // Check values.
+    for (int i = 0; i < kernelRank; ++i) {
+      if (ArrayAttrIntVal(stridesOpt, i) < 1)
+        poolOp.emitError("strides value must be nonzero positive");
+    }
+  } else {
+    SmallVector<int64_t, 4> defaultVals(kernelRank, 1);
+    // Convert to ArrayRef, then build attribute, then store attribute.
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    auto defaultAttr = builder.getI64ArrayAttr(defaultRefs);
+    poolOp.stridesAttr(defaultAttr);
+    stridesOpt = poolOp.strides();
+  }
+
+  // Now try to find padding, getting auto_pad attribute first.
+  auto autoPad = poolOp.auto_pad();
+  // And then investigate the various different cases.
+  SmallVector<int64_t, 4> actualPads(2 * kernelRank, 0);
+  if (autoPad == "NOTSET") {
+    auto padsOpt = poolOp.pads();
+    if (padsOpt.hasValue()) {
+      // Pads consists of two entries for each spatial axis.
+      if (ArrayAttrSize(padsOpt) != 2 * kernelRank)
+        poolOp.emitError("pads rank is not twice the spatial rank");
+      // Check values
+      for (int i = 0; i < 2 * kernelRank; ++i) {
+        int64_t p = ArrayAttrIntVal(padsOpt, i);
+        if (p < 0)
+          poolOp.emitError("pads value must be nonnegative");
+        actualPads[i] = p;
+      }
+    }
+  } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
+    int64_t dilations = 1;
+    for (int i = 0; i < kernelRank; ++i) {
+      auto inputSpatialShape = xShape[kernelOffset + i];
+      auto kernelSpatialShape = ArrayAttrIntVal(kernelShape, i);
+      if (dilationsOpt.hasValue())
+        dilations = ArrayAttrIntVal(dilationsOpt, i);
+      auto strideSpatialShape = ArrayAttrIntVal(stridesOpt, i);
+      int64_t outputSpatialShape =
+          ceil((1.0 * inputSpatialShape) / (1.0 * strideSpatialShape));
+      auto sumOfPad = (outputSpatialShape - 1) * strideSpatialShape +
+                      ((kernelSpatialShape - 1) * dilations + 1) -
+                      inputSpatialShape;
+      actualPads[i] = actualPads[kernelRank + i] = sumOfPad / 2;
+      if (sumOfPad % 2 != 0) {
+        if (autoPad == "SAME_UPPER") {
+          actualPads[kernelRank + i] += 1;
+        } else {
+          actualPads[i] += 1;
+        }
+      }
+    }
+  } else if (autoPad != "VALID") {
+    poolOp.emitError("auto_pad of unknown / unsupported value");
+  }
+  // Set pads values in attributes.
+  {
+    ArrayRef<int64_t> defaultRefs(actualPads);
+    auto defaultAttr = builder.getI64ArrayAttr(defaultRefs);
+    poolOp.padsAttr(defaultAttr);
+    auto defaultAutoPadAttr = builder.getStringAttr("NOTSET");
+    poolOp.auto_padAttr(defaultAutoPadAttr);
+  }
+
+  // Initialize output shape.
+  SmallVector<int64_t, 4> yShape(xShape.begin(), xShape.end());
+  // Process for all kernel dimensions.
+  int64_t dilations = 1;
+  for (int i = 0; i < kernelRank; ++i) {
+    auto inputSpatialShape = xShape[kernelOffset + i];
+    auto padShape = actualPads[i] + actualPads[kernelRank + i];
+    auto kernelSpatialShape = ArrayAttrIntVal(kernelShape, i);
+    if (dilationsOpt.hasValue())
+      dilations = ArrayAttrIntVal(dilationsOpt, i);
+    auto strideSpatialShape = ArrayAttrIntVal(stridesOpt, i);
+    double numerator = inputSpatialShape + padShape -
+                       ((kernelSpatialShape - 1) * dilations + 1);
+    double denominator = strideSpatialShape;
+    int64_t res;
+    if (ceilMode) {
+      res = ceil(numerator / denominator) + 1;
+    } else {
+      res = floor(numerator / denominator) + 1;
+    }
+    yShape[kernelOffset + i] = res;
+  }
+  auto arrayTy = X.getType().cast<RankedTensorType>();
+  auto outputTy = RankedTensorType::get(yShape, arrayTy.getElementType());
+  return outputTy;
+}
+
 // ONNXOpsDialect
 //===----------------------------------------------------------------------===//
 
@@ -957,6 +1088,24 @@ void ONNXConvNoBiasOp::inferShapes() {
 
 //===----------------------------------------------------------------------===//
 
+// AveragePool
+// Infer shape attributes output:
+//   -  auto_pad set to NOTSET;
+//   -  strides: set to 1 if not defined by user;
+//   -  pads: set to proper value, 0 if not defined by user.
+
+void ONNXAveragePoolOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>())
+    return;
+
+  auto outputTy = getPoolingOutputType<ONNXAveragePoolOp>(
+      this->getContext(), this->getOperation());
+  getResult().setType(outputTy);
+}
+
+//===----------------------------------------------------------------------===//
+
 // MaxPoolSingleOut
 // Infer shape attributes output:
 //   -  auto_pad set to NOTSET;
@@ -967,27 +1116,17 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>())
     return;
+
   auto builder = mlir::Builder(this->getContext());
 
-  // 1) Get shape of input.
-  auto xTy = X().getType().cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
-  auto xRank = xShape.size();
-
-  // 2) Analyse parameters. Get kernel sizes from kernel_shape attribute.
+  // Kernel shape.
   auto kernelShape = kernel_shape();
   if (!kernelShape)
     emitError(
         "kernel_shape is a mandatory attribute for which there is no default");
   auto kernelRank = ArrayAttrSize(kernelShape);
-  if (kernelRank > xRank)
-    emitError("kernel_shape spatial dimension is too large");
-  auto kernelOffset = xRank - kernelRank;
 
-  // Ceil mode.
-  auto ceilMode = ceil_mode().getSExtValue();
-
-  // Dilatation.
+  // Dilations.
   auto dilationsOpt = dilations();
   if (dilationsOpt.hasValue()) {
     if (ArrayAttrSize(dilationsOpt) != kernelRank)
@@ -1012,97 +1151,9 @@ void ONNXMaxPoolSingleOutOp::inferShapes() {
   if (storageOrder != 0)
     emitError("column major storage order not supported at this time");
 
-  // Strides.
-  auto stridesOpt = strides();
-  if (stridesOpt.hasValue()) {
-    if (ArrayAttrSize(stridesOpt) != kernelRank)
-      emitError("strides rank is not the same as the spatial rank");
-    // Check values.
-    for (int i = 0; i < kernelRank; ++i) {
-      if (ArrayAttrIntVal(stridesOpt, i) < 1)
-        emitError("strides value must be nonzero positive");
-    }
-  } else {
-    SmallVector<int64_t, 4> defaultVals(kernelRank, 1);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto defaultAttr = builder.getI64ArrayAttr(defaultRefs);
-    stridesAttr(defaultAttr);
-    stridesOpt = strides();
-  }
-
-  // Now try to find padding, getting auto_pad attribute first.
-  auto autoPad = auto_pad();
-  // And then investigate the various different cases.
-  SmallVector<int64_t, 4> actualPads(2 * kernelRank, 0);
-  if (autoPad == "NOTSET") {
-    auto padsOpt = pads();
-    if (padsOpt.hasValue()) {
-      // Pads consists of two entries for each spatial axis.
-      if (ArrayAttrSize(padsOpt) != 2 * kernelRank)
-        emitError("pads rank is not twice the spatial rank");
-      // Check values
-      for (int i = 0; i < 2 * kernelRank; ++i) {
-        int64_t p = ArrayAttrIntVal(padsOpt, i);
-        if (p < 0)
-          emitError("pads value must be nonnegative");
-        actualPads[i] = p;
-      }
-    }
-  } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
-    for (int i = 0; i < kernelRank; ++i) {
-      auto inputSpatialShape = xShape[kernelOffset + i];
-      auto kernelSpatialShape = ArrayAttrIntVal(kernelShape, i);
-      auto dilations = ArrayAttrIntVal(dilationsOpt, i);
-      auto strideSpatialShape = ArrayAttrIntVal(stridesOpt, i);
-      int64_t outputSpatialShape =
-          ceil((1.0 * inputSpatialShape) / (1.0 * strideSpatialShape));
-      auto sumOfPad = (outputSpatialShape - 1) * strideSpatialShape +
-                      ((kernelSpatialShape - 1) * dilations + 1) -
-                      inputSpatialShape;
-      actualPads[i] = actualPads[kernelRank + i] = sumOfPad / 2;
-      if (sumOfPad % 2 != 0) {
-        if (autoPad == "SAME_UPPER") {
-          actualPads[kernelRank + i] += 1;
-        } else {
-          actualPads[i] += 1;
-        }
-      }
-    }
-  } else if (autoPad != "VALID") {
-    emitError("auto_pad of unknown / unsupported value");
-  }
-  // Set pads values in attributes.
-  {
-    ArrayRef<int64_t> defaultRefs(actualPads);
-    auto defaultAttr = builder.getI64ArrayAttr(defaultRefs);
-    padsAttr(defaultAttr);
-    auto defaultAutoPadAttr = builder.getStringAttr("NOTSET");
-    auto_padAttr(defaultAutoPadAttr);
-  }
-
-  // Initialize output shape.
-  SmallVector<int64_t, 4> yShape(xShape.begin(), xShape.end());
-  // Process for all kernel dimensions.
-  for (int i = 0; i < kernelRank; ++i) {
-    auto inputSpatialShape = xShape[kernelOffset + i];
-    auto padShape = actualPads[i] + actualPads[kernelRank + i];
-    auto kernelSpatialShape = ArrayAttrIntVal(kernelShape, i);
-    auto dilations = ArrayAttrIntVal(dilationsOpt, i);
-    auto strideSpatialShape = ArrayAttrIntVal(stridesOpt, i);
-    double numerator = inputSpatialShape + padShape -
-                       ((kernelSpatialShape - 1) * dilations + 1);
-    double denominator = strideSpatialShape;
-    int64_t res;
-    if (ceilMode) {
-      res = ceil(numerator / denominator) + 1;
-    } else {
-      res = floor(numerator / denominator) + 1;
-    }
-    yShape[kernelOffset + i] = res;
-  }
-  auto arrayTy = X().getType().cast<RankedTensorType>();
-  getResult().setType(RankedTensorType::get(yShape, arrayTy.getElementType()));
+  auto outputTy = getPoolingOutputType<ONNXMaxPoolSingleOutOp>(
+      this->getContext(), this->getOperation(), dilationsOpt);
+  getResult().setType(outputTy);
 }
 
 //===----------------------------------------------------------------------===//

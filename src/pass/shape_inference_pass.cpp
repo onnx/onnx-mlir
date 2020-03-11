@@ -103,6 +103,7 @@ public:
         op->getName().getStringRef() != "onnx.Xor" &&
         op->getName().getStringRef() != "onnx.Sum" &&
         op->getName().getStringRef() != "onnx.Max" &&
+        op->getName().getStringRef() != "onnx.AveragePool" &&
         op->getName().getStringRef() != "onnx.MaxPoolSingleOut" &&
         op->getName().getStringRef() != "onnx.Min" &&
         op->getName().getStringRef() != "onnx.Identity" &&

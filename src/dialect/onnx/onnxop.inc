@@ -148,7 +148,7 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
 }
 
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX AveragePool operation";
   let description = [{
   "AveragePool consumes an input tensor X and applies average pooling across"
