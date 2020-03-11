@@ -694,7 +694,7 @@ void ONNXReshapeOp::inferShapes() {
 
     // If the number of dynamic inputs is 1 then deduce the missing value
     // based on the total input size.
-    if (numberOfDynamicInputs == 1)
+    if (numberOfDynamicInputs == 1 && totalKnownDimsSize != 0)
       dims[dynamicValueIndex] = totalInputSize / totalKnownDimsSize;
   }
 
@@ -804,6 +804,7 @@ void ONNXConvNoBiasOp::inferShapes() {
   auto weightTy = W().getType().cast<RankedTensorType>();
   auto inDataShape = dataTy.getShape();
   auto weightShape = weightTy.getShape();
+  auto builder = mlir::Builder(this->getContext());
 
   // Lowest supported convolution is a one dimensional convolution.
   if (inDataShape.size() < 3)
@@ -815,9 +816,19 @@ void ONNXConvNoBiasOp::inferShapes() {
 
   // Required attribute auto_pad defaults to NOTSET.
   auto autoPad = auto_pad();
+
+  // Check is the attribute actually exists. If it does not then add it.
+  if (!auto_padAttr())
+    auto_padAttr(builder.getStringAttr(autoPad));
+
   // Group is a required attribute and should have default value of 1.
   int64_t group =
-      ONNXConvNoBiasOp::group().getSExtValue(); //.getLimitedValue();
+      ONNXConvNoBiasOp::group().getSExtValue();
+
+  // Check is the attribute actually exists. If it does not then add it.
+  if (!groupAttr())
+    groupAttr(builder.getI64IntegerAttr(group));
+
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (inDataShape[1] != -1 && weightShape[1] != -1 &&
       inDataShape[1] != (weightShape[1] * group))
@@ -962,7 +973,6 @@ void ONNXConvNoBiasOp::inferShapes() {
         emitError("input and output spatial dimension mismatch");
 
     // Set pads values in attributes.
-    auto builder = mlir::Builder(this->getContext());
     ArrayRef<int64_t> defaultRefs(actualPads);
     padsAttr(builder.getI64ArrayAttr(defaultRefs));
 
