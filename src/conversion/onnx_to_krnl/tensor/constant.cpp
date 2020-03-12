@@ -64,7 +64,7 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      emitError(loc, "unexpected output has non-Constant shape");
+      emitError(loc, "Unexpected output has non-Constant shape");
 
     DenseElementsAttr constantValue =
         constantOp.value().getValue().cast<DenseElementsAttr>();
@@ -83,6 +83,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     } else if (memRefType.getElementType().isa<FloatType>()) {
       emitConstantAndStoreOpForDenseElementsAttr<FloatAttr>(
           rewriter, loc, constantValue, valueShape, constantIndices, alloc);
+    } else {
+      emitError(loc, "Unsupported output type");
     }
 
     // Replace this operation with the generated alloc.
