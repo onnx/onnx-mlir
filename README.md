@@ -42,7 +42,7 @@ To build ONNF, use the following command:
 
 [same-as-file]: <> ({"ref": "utils/install-onnf.sh", "skip-doc": 2})
 ```
-git clone --recursive git@github.com:<<<your fork>>>/onnx-mlir.git
+git clone --recursive git@github.com:<<your user name where you forked ONNX>>/onnx-mlir.git
 
 # Export environment variables pointing to LLVM-Projects.
 export LLVM_PROJ_SRC=$(pwd)/llvm-project/
