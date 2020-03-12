@@ -42,13 +42,13 @@ To build ONNF, use the following command:
 
 [same-as-file]: <> ({"ref": "utils/install-onnf.sh", "skip-doc": 2})
 ```
-git clone --recursive git@github.com:clang-ykt/ONNF.git
+git clone --recursive git@github.com:<<<your fork>>>/onnx-mlir.git
 
 # Export environment variables pointing to LLVM-Projects.
 export LLVM_PROJ_SRC=$(pwd)/llvm-project/
 export LLVM_PROJ_BUILD=$(pwd)/llvm-project/build
 
-mkdir ONNF/build && cd ONNF/build
+mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..
 cmake --build . --target onnf
 
