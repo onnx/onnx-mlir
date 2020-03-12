@@ -1182,9 +1182,9 @@ void ONNXConstantOp::inferShapes() {
 
   ElementsAttr valAttr;
   if (sparse_value().hasValue())
-    valAttr = sparse_valueAttr().cast<ElementsAttr>();
+    valAttr = sparse_valueAttr().cast<SparseElementsAttr>();
   else
-    valAttr = valueAttr().cast<ElementsAttr>();
+    valAttr = valueAttr().cast<DenseElementsAttr>();
   getResult().setType(valAttr.getType());
 }
 
