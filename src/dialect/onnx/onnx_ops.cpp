@@ -683,7 +683,7 @@ void ONNXReshapeOp::inferShapes() {
     int64_t totalKnownDimsSize = 1;
     int64_t dynamicValueIndex = -1;
     for (int i=0; i<outputRank; ++i) {
-      dims[i] = valueAttribute.getValue()[i].cast<IntegerAttr>().getInt();
+      dims[i] = ArrayAttrIntVal(valueAttribute, i);
       if (dims[i] < 0) {
         numberOfDynamicInputs++;
         dynamicValueIndex = i;
