@@ -12,13 +12,43 @@
 
 using namespace mlir;
 
+template <typename ElementAttr>
+void emitConstantAndStoreOpForDenseElementsAttr(
+    ConversionPatternRewriter &rewriter, Location loc,
+    DenseElementsAttr constantValue, ArrayRef<int64_t> valueShape,
+    ArrayRef<Value> constantIndices, Value alloc) {
+  // The following functor recursively walks the dimensions of the constant
+  // shape, generating a store when the recursion hits the base case.
+  SmallVector<Value, 2> indices;
+  auto valueIt = constantValue.getValues<ElementAttr>().begin();
+  std::function<void(uint64_t)> storeElements = [&](uint64_t dimension) {
+    // The last dimension is the base case of the recursion, at this point
+    // we store the element at the given index.
+    if (dimension == valueShape.size()) {
+      rewriter.create<AffineStoreOp>(loc,
+          rewriter.create<ConstantOp>(loc, *valueIt++), alloc,
+          llvm::makeArrayRef(indices));
+      return;
+    }
+
+    // Otherwise, iterate over the current dimension and add the indices to
+    // the list.
+    for (uint64_t i = 0, e = valueShape[dimension]; i != e; ++i) {
+      indices.push_back(constantIndices[i]);
+      storeElements(dimension + 1);
+      indices.pop_back();
+    }
+  };
+  // Start the element storing recursion from the first dimension.
+  storeElements(/*dimension=*/0);
+}
+
 struct ONNXConstantOpLowering : public ConversionPattern {
   ONNXConstantOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
 
@@ -46,60 +76,13 @@ struct ONNXConstantOpLowering : public ConversionPattern {
       constantIndices.push_back(rewriter.create<ConstantIndexOp>(loc, i));
 
     // The constant operation represents a multi-dimensional constant, so we
-    // will need to generate a store for each of the elements. The following
-    // functor recursively walks the dimensions of the constant shape,
-    // generating a store when the recursion hits the base case.
-
-    // TODO (tungld): Refactor the code to use a common function to walk through
-    // the attribute.
+    // will need to generate a store for each of the elements.
     if (memRefType.getElementType().isa<IntegerType>()) {
-      SmallVector<Value, 2> indices;
-      auto valueIt = constantValue.getValues<IntegerAttr>().begin();
-      std::function<void(uint64_t)> storeElements = [&](uint64_t dimension) {
-        // The last dimension is the base case of the recursion, at this point
-        // we store the element at the given index.
-        if (dimension == valueShape.size()) {
-          rewriter.create<AffineStoreOp>(loc,
-              rewriter.create<ConstantOp>(loc, *valueIt++), alloc,
-              llvm::makeArrayRef(indices));
-          return;
-        }
-
-        // Otherwise, iterate over the current dimension and add the indices to
-        // the list.
-        for (uint64_t i = 0, e = valueShape[dimension]; i != e; ++i) {
-          indices.push_back(constantIndices[i]);
-          storeElements(dimension + 1);
-          indices.pop_back();
-        }
-      };
-
-      // Start the element storing recursion from the first dimension.
-      storeElements(/*dimension=*/0);
+      emitConstantAndStoreOpForDenseElementsAttr<IntegerAttr>(
+          rewriter, loc, constantValue, valueShape, constantIndices, alloc);
     } else if (memRefType.getElementType().isa<FloatType>()) {
-      SmallVector<Value, 2> indices;
-      auto valueIt = constantValue.getValues<FloatAttr>().begin();
-      std::function<void(uint64_t)> storeElements = [&](uint64_t dimension) {
-        // The last dimension is the base case of the recursion, at this point
-        // we store the element at the given index.
-        if (dimension == valueShape.size()) {
-          rewriter.create<AffineStoreOp>(loc,
-              rewriter.create<ConstantOp>(loc, *valueIt++), alloc,
-              llvm::makeArrayRef(indices));
-          return;
-        }
-
-        // Otherwise, iterate over the current dimension and add the indices to
-        // the list.
-        for (uint64_t i = 0, e = valueShape[dimension]; i != e; ++i) {
-          indices.push_back(constantIndices[i]);
-          storeElements(dimension + 1);
-          indices.pop_back();
-        }
-      };
-
-      // Start the element storing recursion from the first dimension.
-      storeElements(/*dimension=*/0);
+      emitConstantAndStoreOpForDenseElementsAttr<FloatAttr>(
+          rewriter, loc, constantValue, valueShape, constantIndices, alloc);
     }
 
     // Replace this operation with the generated alloc.

@@ -1175,18 +1175,16 @@ void ONNXUnsqueezeOp::inferShapes() {
 // Constant
 
 void ONNXConstantOp::inferShapes() {
-  if (sparse_value().hasValue() && value().hasValue())
+  if ((sparse_value().hasValue() && value().hasValue()) ||
+      (!sparse_value().hasValue() && !value().hasValue()))
     emitError("Require exactly one of the two attributes, either value or "
               "sparse_value");
 
   ElementsAttr valAttr;
-  if (sparse_value().hasValue()) {
+  if (sparse_value().hasValue())
     valAttr = sparse_valueAttr().cast<ElementsAttr>();
-  } else if (value().hasValue()) {
+  else
     valAttr = valueAttr().cast<ElementsAttr>();
-  } else {
-    emitError("Unsupported attributes");
-  }
   getResult().setType(valAttr.getType());
 }
 
