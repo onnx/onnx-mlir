@@ -957,7 +957,7 @@ void ONNXConvNoBiasOp::inferShapes() {
   // Group is a required attribute and should have default value of 1.
   int64_t group = ONNXConvNoBiasOp::group().getSExtValue();
 
-  // Check is the attribute actually exists. If it does not then add it.
+  // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
     groupAttr(builder.getI64IntegerAttr(group));
 
