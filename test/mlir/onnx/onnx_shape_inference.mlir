@@ -296,3 +296,38 @@ func @test_PadConstantPad_1(%arg0 : tensor<16x13xf32>, %arg1 : tensor<*xf32>) ->
 // CHECK: [[RES:%.+]] = "onnx.PadConstantPad"(%arg0, %arg1) {mode = "constant", pads = [0, 2, 3, 1]} : (tensor<16x13xf32>, tensor<*xf32>) -> tensor<18x17xf32>
 // CHECK: return [[RES]] : tensor<18x17xf32>
 
+/// Test ConstantOp shape inference for 1-D dense tensor.
+func @test_constant_dense_1d_value() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[0.0, 1.0, 2.0]> : tensor<3xf32>} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+}
+// CHECK-LABEL: test_constant_dense_1d_value
+// CHECK: [[RES:%.+]] = "onnx.Constant"() {value = dense<[0.000000e+00, 1.000000e+00, 2.000000e+00]> : tensor<3xf32>} : () -> tensor<3xf32>
+// CHECK: return [[RES]] : tensor<3xf32>
+
+/// Test ConstantOp shape inference for 2-D dense tensor.
+func @test_constant_dense_2d_value() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+}
+// CHECK-LABEL: test_constant_dense_2d_value
+// CHECK: [[RES:%.+]] = "onnx.Constant"() {value = dense<{{\[}}[0.000000e+00, 0.000000e+00], [1.000000e+00, 1.100000e+00], [2.000000e+00, 2.100000e+00{{\]}}]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
+// CHECK: return [[RES]] : tensor<3x2xf32>
+
+/// Test ConstantOp shape inference for 1-D sparse tensor.
+func @test_constant_sparse_1d_value() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {sparse_value = sparse<[[0]], [1.0]> : tensor<3xf32>} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+}
+// CHECK-LABEL: test_constant_sparse_1d_value
+// CHECK: [[RES:%.+]] = "onnx.Constant"() {sparse_value = sparse<0, 1.000000e+00> : tensor<3xf32>} : () -> tensor<3xf32>
+// CHECK: return [[RES]] : tensor<3xf32>
+
+/// Test ConstantOp shape inference for 2-D sparse tensor.
+func @test_constant_sparse_2d_value() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {sparse_value = sparse<[[0, 1]], [2.0]> : tensor<3x2xf32>} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+}
+// CHECK-LABEL: test_constant_sparse_2d_value
+// CHECK: [[RES:%.+]] = "onnx.Constant"() {sparse_value = sparse<{{\[}}[0, 1{{\]}}], 2.000000e+00> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
+// CHECK: return [[RES]] : tensor<3x2xf32>

@@ -1535,3 +1535,27 @@ func @test_constant_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
   // CHECK: store [[LOAD]], [[RES]][%arg1, [[ADD]]] : memref<18x20xf32>
   // CHECK: }
 }
+
+func @test_constant_dense_2d_value(%arg0: tensor<1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+  // CHECK-LABEL: test_constant_dense_2d_value
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x2xf32>
+  // CHECK: %[[INDEX_0:.+]] = constant 0 : index
+  // CHECK: %[[INDEX_1:.+]] = constant 1 : index
+  // CHECK: %[[INDEX_2:.+]] = constant 2 : index
+  // CHECK: [[CONSTANT_0:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: affine.store [[CONSTANT_0]], %0[%[[INDEX_0]], %[[INDEX_0]]] : memref<3x2xf32>
+  // CHECK: [[CONSTANT_1:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: affine.store [[CONSTANT_1]], %0[%[[INDEX_0]], %[[INDEX_1]]] : memref<3x2xf32>
+  // CHECK: [[CONSTANT_2:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: affine.store [[CONSTANT_2]], %0[%[[INDEX_1]], %[[INDEX_0]]] : memref<3x2xf32>
+  // CHECK: [[CONSTANT_3:%.+]] = constant 1.100000e+00 : f32
+  // CHECK: affine.store [[CONSTANT_3]], %0[%[[INDEX_1]], %[[INDEX_1]]] : memref<3x2xf32>
+  // CHECK: [[CONSTANT_4:%.+]] = constant 2.000000e+00 : f32
+  // CHECK: affine.store [[CONSTANT_4]], %0[%[[INDEX_2]], %[[INDEX_0]]] : memref<3x2xf32>
+  // CHECK: [[CONSTANT_5:%.+]] = constant 2.100000e+00 : f32
+  // CHECK: affine.store [[CONSTANT_5]], %0[%[[INDEX_2]], %[[INDEX_1]]] : memref<3x2xf32>
+  // CHECK: return [[RES]] : memref<3x2xf32>
+}
+

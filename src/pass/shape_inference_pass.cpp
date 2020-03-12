@@ -120,6 +120,7 @@ public:
         op->getName().getStringRef() != "onnx.PadConstantPad" &&
         op->getName().getStringRef() != "onnx.PadConstantValuePad" &&
         op->getName().getStringRef() != "onnx.BatchNormalizationTestMode" &&
+        op->getName().getStringRef() != "onnx.Constant" &&
         op->getName().getStringRef() != "onnx.Unsqueeze")
       return false;
     return llvm::any_of(op->getResultTypes(), [](Type result_type) {
