@@ -1084,12 +1084,13 @@ static Type padShapeInferenceHelper(Value data, ArrayAttr padsOpt) {
     // The two values specify the number of elements padded before and after
     // respectively.
     for (int i = 0; i < dataRank; ++i) {
-      int64_t p1 = (padsArray[2 * i]).cast<IntegerAttr>().getInt();
-      int64_t p2 = (padsArray[2 * i + 1]).cast<IntegerAttr>().getInt();
+      int64_t p1 = (padsArray[i]).cast<IntegerAttr>().getInt();
+      int64_t p2 = (padsArray[ i + dataRank ]).cast<IntegerAttr>().getInt();
       // Have to non-negative constant
       if (p1 < 0 || p2 < 0)
         return (Type)NULL;
-      outputShape[i] += p1 + p2;
+      if (outputShape[i] != -1) 
+        outputShape[i] += p1 + p2;
     }
 
     return (RankedTensorType::get(outputShape, dataTy.getElementType()));
