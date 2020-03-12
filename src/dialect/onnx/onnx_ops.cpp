@@ -1085,7 +1085,7 @@ static Type padShapeInferenceHelper(Value data, ArrayAttr padsOpt) {
     // respectively.
     for (int i = 0; i < dataRank; ++i) {
       int64_t p1 = (padsArray[i]).cast<IntegerAttr>().getInt();
-      int64_t p2 = (padsArray[ i + dataRank ]).cast<IntegerAttr>().getInt();
+      int64_t p2 = (padsArray[i + dataRank]).cast<IntegerAttr>().getInt();
       // Have to non-negative constant
       if (p1 < 0 || p2 < 0)
         return (Type)NULL;
