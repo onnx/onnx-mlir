@@ -1199,6 +1199,23 @@ void ONNXUnsqueezeOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Constant
+
+void ONNXConstantOp::inferShapes() {
+  if ((sparse_value().hasValue() && value().hasValue()) ||
+      (!sparse_value().hasValue() && !value().hasValue()))
+    emitError("Require exactly one of the two attributes, either value or "
+              "sparse_value");
+
+  ElementsAttr valAttr;
+  if (sparse_value().hasValue())
+    valAttr = sparse_valueAttr().cast<SparseElementsAttr>();
+  else
+    valAttr = valueAttr().cast<DenseElementsAttr>();
+  getResult().setType(valAttr.getType());
+}
+
+//===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 
