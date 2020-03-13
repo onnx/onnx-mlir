@@ -42,6 +42,11 @@ static int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
   return (a.getValue().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
+// Returns the ConstantOp which defines an MLIR Value or null.
+static mlir::ONNXConstantOp getONNXConstantOp(Value value) {
+  return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
+}
+
 //===----------------------------------------------------------------------===//
 // Get reduction type
 //===----------------------------------------------------------------------===//
@@ -867,12 +872,7 @@ void ONNXReshapeOp::inferShapes() {
     totalInputSize *= inputDim;
 
   // Check if second argument of ReshapeOp is a constant.
-  // Get operation that defines the second argument. If this operation is a
-  // `ConstantTensor` operation, the shape of this `Reshape` operation
-  // resides in the `value` attribute of the `ConstantTensor` operation.
-  auto *secondArgDefiningOp = shape().getDefiningOp();
-  auto constantOp =
-      dyn_cast_or_null<mlir::ONNXConstantOp>(secondArgDefiningOp);
+  auto constantOp = getONNXConstantOp(shape());
 
   SmallVector<int64_t, 2> dims(outputRank, -1);
   if (constantOp) {
