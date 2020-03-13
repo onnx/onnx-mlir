@@ -118,6 +118,7 @@ static void processConvDilationParam(T *op, Optional<ArrayAttr> kernelShape) {
 //===----------------------------------------------------------------------===//
 // Support function that computes default values for strides.
 //
+template <class T>
 static void processConvStrideParam(T *op, Optional<ArrayAttr> kernelShape) {
   auto builder = mlir::Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
