@@ -881,7 +881,7 @@ void ONNXReshapeOp::inferShapes() {
     if (!valueAttribute)
       emitError("ArrayAttr expected");
 
-    if (valueAttribute.getValue().size() != outputRank)
+    if (ArrayAttrSize(valueAttribute) != outputRank)
       emitError("Constant value must have same rank as output");
 
     int64_t numberOfDynamicInputs = 0;
