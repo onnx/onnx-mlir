@@ -150,7 +150,7 @@ func @test_conv_no_bias_0(%arg0 : tensor<1x2x32xf32>, %arg1 : tensor<5x2x6xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_0
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", group = 1 : i64} : (tensor<1x2x32xf32>, tensor<5x2x6xf32>) -> tensor<1x5x27xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [1], group = 1 : i64, kernel_shape = [6], pads = [0, 0], strides = [1]} : (tensor<1x2x32xf32>, tensor<5x2x6xf32>) -> tensor<1x5x27xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x27xf32>
 }
 
@@ -161,7 +161,7 @@ func @test_conv_no_bias_1(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7x
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_1
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", group = 1 : i64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x27x58xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : i64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x27x58xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x27x58xf32>
 }
 
@@ -172,7 +172,7 @@ func @test_conv_no_bias_2(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7x
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_2
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", group = 1 : i64, kernel_shape = [8, 9]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x25x56xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : i64, kernel_shape = [8, 9], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x25x56xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x25x56xf32>
 }
 
@@ -184,7 +184,7 @@ func @test_conv_no_bias_3(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x10
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_3
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", group = 1 : i64, pads = [2, 4, 3, 5]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>) -> tensor<1x5x32x64xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : i64, kernel_shape = [6, 10], pads = [2, 4, 3, 5], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>) -> tensor<1x5x32x64xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xf32>
 }
 
@@ -195,7 +195,7 @@ func @test_conv_no_bias_4(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x10
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_4
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", group = 1 : i64, pads = [2, 4, 3, 5]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>) -> tensor<1x5x32x64xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : i64, kernel_shape = [6, 10], pads = [2, 4, 3, 5], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>) -> tensor<1x5x32x64xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xf32>
 }
 
@@ -204,7 +204,7 @@ func @test_conv_no_bias_5(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x10
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_5
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", group = 1 : i64, pads = [3, 5, 2, 4]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>) -> tensor<1x5x32x64xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : i64, kernel_shape = [6, 10], pads = [3, 5, 2, 4], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>) -> tensor<1x5x32x64xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xf32>
 }
 
@@ -215,7 +215,7 @@ func @test_conv_no_bias_6(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x10
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_6
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "VALID", group = 1 : i64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>) -> tensor<1x5x27x55xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : i64, kernel_shape = [6, 10], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x10xf32>) -> tensor<1x5x27x55xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x27x55xf32>
 }
 
@@ -226,7 +226,7 @@ func @test_conv_no_bias_7(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7x
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_7
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", group = 1 : i64, strides = [2, 3]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x14x20xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : i64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [2, 3]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x14x20xf32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x14x20xf32>
 }
 
@@ -238,8 +238,8 @@ func @test_conv_no_bias_8(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7x
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_8
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", group = 1 : i64, pads = [18, 66, 18, 66], strides = [2, 3]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x32x64xf32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : i64, kernel_shape = [6, 7], pads = [2, 3, 2, 3], strides = [2, 3]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x16x22xf32>
+  // CHECK: return [[RES_ATTR]] : tensor<1x5x16x22xf32>
 }
 
 /// dilations attribute.
@@ -249,8 +249,8 @@ func @test_conv_no_bias_9(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7x
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_9
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : i64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x20x42xf32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x20x42xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : i64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x22x46xf32>
+  // CHECK: return [[RES_ATTR]] : tensor<1x5x22x46xf32>
 }
 
 /// dilations attribute with stride.
@@ -260,8 +260,8 @@ func @test_conv_no_bias_10(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_10
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : i64, strides = [2, 2]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x10x21xf32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x10x21xf32>
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : i64, kernel_shape = [6, 7], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x11x23xf32>
+  // CHECK: return [[RES_ATTR]] : tensor<1x5x11x23xf32>
 }
 
 /// dilations attribute with auto_pad set to SAME_UPPER.
@@ -269,33 +269,68 @@ func @test_conv_no_bias_10(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7
 func @test_conv_no_bias_11(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>) -> tensor<*xf32> {
   %0 = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "SAME_UPPER", group = 1 : i64, dilations = [2, 3]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_conv_no_bias_11
-  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : i64, pads = [6, 11, 6, 11]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x32x64xf32>
-  // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xf32>
 }
+  // CHECK-LABEL: test_conv_no_bias_11
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvNoBias"(%arg0, %arg1) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : i64, kernel_shape = [6, 7], pads = [5, 9, 5, 9], strides = [1, 1]} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>) -> tensor<1x5x32x64xf32>
+  // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xf32>
 
-/// Test PadConstantValuePad
+//===----------------------------------------------------------------------===//
+/// Test shape inference for PadConstantValuePad.
+//===----------------------------------------------------------------------===//
 
+/// Test PadConstantValuePad_1
 func @test_PadConstantValuePad_1(%arg0 : tensor<16x13xf32>) -> tensor<*xf32> {
   %0 = "onnx.PadConstantValuePad"(%arg0) {constant_value = 0.000000e+00 : f32, mode = "constant", pads = [0, 2, 0, 0]} : (tensor<16x13xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_PadConstantValuePad_1
-  // CHECK: [[RES:%.+]] = "onnx.PadConstantValuePad"(%arg0) {constant_value = 0.000000e+00 : f32, mode = "constant", pads = [0, 2, 0, 0]} : (tensor<16x13xf32>) -> tensor<18x13xf32>
-  // CHECK: return [[RES]] : tensor<18x13xf32>
 }
+// CHECK-LABEL: test_PadConstantValuePad_1
+// CHECK: [[RES:%.+]] = "onnx.PadConstantValuePad"(%arg0) {constant_value = 0.000000e+00 : f32, mode = "constant", pads = [0, 2, 0, 0]} : (tensor<16x13xf32>) -> tensor<18x13xf32>
+// CHECK: return [[RES]] : tensor<18x13xf32>
 
-/// Test PadConstantPad
-
+/// Test PadConstantPad_1
 func @test_PadConstantPad_1(%arg0 : tensor<16x13xf32>, %arg1 : tensor<*xf32>) -> tensor<*xf32> {
   %0 = "onnx.PadConstantPad"(%arg0, %arg1) {mode = "constant", pads = [0, 2, 3, 1]} : (tensor<16x13xf32>, tensor<*xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_PadConstantPad_1
-  // CHECK: [[RES:%.+]] = "onnx.PadConstantPad"(%arg0, %arg1) {mode = "constant", pads = [0, 2, 3, 1]} : (tensor<16x13xf32>, tensor<*xf32>) -> tensor<18x17xf32>
-  // CHECK: return [[RES]] : tensor<18x17xf32>
 }
+// CHECK-LABEL: test_PadConstantPad_1
+// CHECK: [[RES:%.+]] = "onnx.PadConstantPad"(%arg0, %arg1) {mode = "constant", pads = [0, 2, 3, 1]} : (tensor<16x13xf32>, tensor<*xf32>) -> tensor<18x17xf32>
+// CHECK: return [[RES]] : tensor<18x17xf32>
+
+/// Test ConstantOp shape inference for 1-D dense tensor.
+func @test_constant_dense_1d_value() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[0.0, 1.0, 2.0]> : tensor<3xf32>} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+}
+// CHECK-LABEL: test_constant_dense_1d_value
+// CHECK: [[RES:%.+]] = "onnx.Constant"() {value = dense<[0.000000e+00, 1.000000e+00, 2.000000e+00]> : tensor<3xf32>} : () -> tensor<3xf32>
+// CHECK: return [[RES]] : tensor<3xf32>
+
+/// Test ConstantOp shape inference for 2-D dense tensor.
+func @test_constant_dense_2d_value() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+}
+// CHECK-LABEL: test_constant_dense_2d_value
+// CHECK: [[RES:%.+]] = "onnx.Constant"() {value = dense<{{\[}}[0.000000e+00, 0.000000e+00], [1.000000e+00, 1.100000e+00], [2.000000e+00, 2.100000e+00{{\]}}]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
+// CHECK: return [[RES]] : tensor<3x2xf32>
+
+/// Test ConstantOp shape inference for 1-D sparse tensor.
+func @test_constant_sparse_1d_value() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {sparse_value = sparse<[[0]], [1.0]> : tensor<3xf32>} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+}
+// CHECK-LABEL: test_constant_sparse_1d_value
+// CHECK: [[RES:%.+]] = "onnx.Constant"() {sparse_value = sparse<0, 1.000000e+00> : tensor<3xf32>} : () -> tensor<3xf32>
+// CHECK: return [[RES]] : tensor<3xf32>
+
+/// Test ConstantOp shape inference for 2-D sparse tensor.
+func @test_constant_sparse_2d_value() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {sparse_value = sparse<[[0, 1]], [2.0]> : tensor<3x2xf32>} : () -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+}
+// CHECK-LABEL: test_constant_sparse_2d_value
+// CHECK: [[RES:%.+]] = "onnx.Constant"() {sparse_value = sparse<{{\[}}[0, 1{{\]}}], 2.000000e+00> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
+// CHECK: return [[RES]] : tensor<3x2xf32>
 
 /// Test the default behavior of Average Pool with no padding (pad are set but shoud be ignored)
 func @test_default_averagepool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
