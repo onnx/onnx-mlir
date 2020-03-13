@@ -332,4 +332,27 @@ for test_name in test_to_enable:
 globals().update(backend_test.test_cases)
 
 if __name__ == '__main__':
-    unittest.main()
+    #unittest.main()
+    import onnx
+    from onnx import numpy_helper
+    import numpy as np
+    test_data_dir = '/home/tungld/dl/dlc-misc/mnist/'
+    model = onnx.load(test_data_dir + 'model.onnx')
+
+    #inputs = []
+    #input_file = test_data_dir + 'test_data_set_0/input_0.pb'
+    #tensor = onnx.TensorProto()
+    #with open(input_file, 'rb') as f:
+    #    tensor.ParseFromString(f.read())
+    #inputs.append(numpy_helper.to_array(tensor))
+    #outputs = DummyBackend.run_model(model, inputs)
+    #print(outputs[0])
+
+    true_outputs = []
+    output_file = test_data_dir + 'test_data_set_0/output_0.pb'
+    output_tensor = onnx.TensorProto()
+    with open(output_file, 'rb') as f:
+        output_tensor.ParseFromString(f.read())
+    true_outputs.append(numpy_helper.to_array(output_tensor))
+    print("True output: \n")
+    print(true_outputs)
