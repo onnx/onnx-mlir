@@ -898,8 +898,11 @@ void ONNXReshapeOp::inferShapes() {
     }
 
     // If the number of dynamic inputs is 1 then deduce the missing value
-    // based on the total input size.
-    if (numberOfDynamicInputs == 1 && totalKnownDimsSize != 0)
+    // based on the total input size. The total input size must be greater
+    // than 0 i.e. all constant dimensions.
+    // TODO: Support dynamic input dimensons.
+    if (numberOfDynamicInputs == 1 && totalKnownDimsSize > 0 &&
+        totalInputSize > 0)
       dims[dynamicValueIndex] = totalInputSize / totalKnownDimsSize;
   }
 
