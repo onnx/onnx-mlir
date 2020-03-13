@@ -870,14 +870,14 @@ void ONNXReshapeOp::inferShapes() {
   // Get operation that defines the second argument. If this operation is a
   // `ConstantTensor` operation, the shape of this `Reshape` operation
   // resides in the `value` attribute of the `ConstantTensor` operation.
-  auto *secondArgDefiningOp = (*getODSOperands(1).begin()).getDefiningOp();
+  auto *secondArgDefiningOp = shape().getDefiningOp();
   auto constantOp =
       dyn_cast_or_null<mlir::ONNXConstantOp>(secondArgDefiningOp);
 
   SmallVector<int64_t, 2> dims(outputRank, -1);
   if (constantOp) {
+    // Cast attribute to ArrayAttr.
     ArrayAttr valueAttribute = constantOp.valueAttr().dyn_cast<ArrayAttr>();
-
     if (!valueAttribute)
       emitError("ArrayAttr expected");
 
@@ -888,7 +888,11 @@ void ONNXReshapeOp::inferShapes() {
     int64_t totalKnownDimsSize = 1;
     int64_t dynamicValueIndex = -1;
     for (int i=0; i<outputRank; ++i) {
+      // Set output dimension.
       dims[i] = ArrayAttrIntVal(valueAttribute, i);
+      if (dims[i] == 0)
+        dims[i] = inputTensorTy.getShape()[i];
+
       if (dims[i] < 0) {
         numberOfDynamicInputs++;
         dynamicValueIndex = i;
