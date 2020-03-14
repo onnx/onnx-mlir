@@ -33,6 +33,11 @@ class StringAttrOfValue<string val>:
 class FloatAttrOfValue<int val>:
   NativeCodeCall<"FloatAttr::get($0.getType().cast<TensorType>().getElementType(), " # val # ")">;
 
+// Create a FloatAttr for the negative infinity.
+def FloatAttrOfNegativeInfinity:
+  NativeCodeCall<"FloatAttr::get($0.getType().cast<TensorType>().getElementType(), "
+                                "-std::numeric_limits<double>::infinity())">;
+
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
 // This function is used for padding attribute in MaxPoolSingleOut.
 def createArrayAttrOfZerosFrom:
@@ -80,7 +85,7 @@ def MaxPoolSingleOutOpPaddingPattern: Pat<
   (ONNXMaxPoolSingleOutOp
      (ONNXPadConstantValuePadOp $x,
         (insertZerosForNonPaddedDims<2> $pads),
-        (FloatAttrOfValue<0> $res),
+        (FloatAttrOfNegativeInfinity $res),
         (StringAttrOfValue<"constant">)),
      $auto_pad, $ceil_mode, $dilation, $kernel_shape,
      (createArrayAttrOfZerosFrom $pads),
