@@ -42,6 +42,11 @@ static int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
   return (a.getValue().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
+// Returns the ConstantOp which defines an MLIR Value or null.
+static mlir::ONNXConstantOp getONNXConstantOp(Value value) {
+  return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
+}
+
 //===----------------------------------------------------------------------===//
 // Get reduction type
 //===----------------------------------------------------------------------===//
@@ -861,13 +866,13 @@ void ONNXReshapeOp::inferShapes() {
   if (outputRank < 0)
     emitError("Shape tensor must have constant shape");
 
+  // Compute total number of elements.
+  int64_t totalInputSize = 1;
+  for(auto inputDim : inputTensorTy.getShape())
+    totalInputSize *= inputDim;
+
   // Check if second argument of ReshapeOp is a constant.
-  // Get operation that defines the second argument. If this operation is a
-  // `ConstantTensor` operation, the shape of this `Reshape` operation
-  // resides in the `value` attribute of the `ConstantTensor` operation.
-  auto *secondArgDefiningOp = (*getODSOperands(1).begin()).getDefiningOp();
-  auto constantOp =
-      dyn_cast_or_null<mlir::ONNXConstantOp>(secondArgDefiningOp);
+  auto constantOp = getONNXConstantOp(shape());
 
   SmallVector<int64_t, 2> dims(outputRank, -1);
   mlir::ShapedType outputTy;
@@ -878,10 +883,34 @@ void ONNXReshapeOp::inferShapes() {
     if (!valueAttribute)
       emitError("DenseElementsAttr expected");
 
+    // Get dims from valueAttribute.
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
-
     for (int i=0; i<outputRank; ++i)
       dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+
+    int64_t numberOfDynamicInputs = 0;
+    int64_t totalKnownDimsSize = 1;
+    int64_t dynamicValueIndex = -1;
+    for (int i=0; i<outputRank; ++i) {
+      // Set output dimension.
+      if (dims[i] == 0)
+        dims[i] = inputTensorTy.getShape()[i];
+
+      if (dims[i] < 0) {
+        numberOfDynamicInputs++;
+        dynamicValueIndex = i;
+      } else {
+        totalKnownDimsSize *= dims[i];
+      }
+    }
+
+    // If the number of dynamic inputs is 1 then deduce the missing value
+    // based on the total input size. The total input size must be greater
+    // than 0 i.e. all constant dimensions.
+    // TODO: Support dynamic input dimensons.
+    if (numberOfDynamicInputs == 1 && totalKnownDimsSize > 0 &&
+        totalInputSize > 0)
+      dims[dynamicValueIndex] = totalInputSize / totalKnownDimsSize;
   }
 
   getResult().setType(
@@ -971,6 +1000,8 @@ void ONNXReduceSumOp::inferShapes() {
   getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
 }
 
+//===----------------------------------------------------------------------===//
+
 // Conv
 
 // For this operation, we define the attributes once in the original Conv
@@ -996,6 +1027,7 @@ void ONNXConvNoBiasOp::inferShapes() {
   auto xShape = xTy.getShape();
   auto weightTy = W().getType().cast<RankedTensorType>();
   auto weightShape = weightTy.getShape();
+  auto builder = mlir::Builder(this->getContext());
 
   // Lowest supported convolution is a one dimensional convolution.
   if (xShape.size() < 3)
@@ -1007,6 +1039,11 @@ void ONNXConvNoBiasOp::inferShapes() {
 
   // Group is a required attribute and should have default value of 1.
   int64_t group = ONNXConvNoBiasOp::group().getSExtValue();
+
+  // Check if the attribute actually exists. If it does not then add it.
+  if (!groupAttr())
+    groupAttr(builder.getI64IntegerAttr(group));
+
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (xShape[1] != -1 && weightShape[1] != -1 &&
       xShape[1] != (weightShape[1] * group))
@@ -1169,12 +1206,13 @@ static Type padShapeInferenceHelper(Value data, ArrayAttr padsOpt) {
     // The two values specify the number of elements padded before and after
     // respectively.
     for (int i = 0; i < dataRank; ++i) {
-      int64_t p1 = (padsArray[2 * i]).cast<IntegerAttr>().getInt();
-      int64_t p2 = (padsArray[2 * i + 1]).cast<IntegerAttr>().getInt();
+      int64_t p1 = (padsArray[i]).cast<IntegerAttr>().getInt();
+      int64_t p2 = (padsArray[i + dataRank]).cast<IntegerAttr>().getInt();
       // Have to non-negative constant
       if (p1 < 0 || p2 < 0)
         return (Type)NULL;
-      outputShape[i] += p1 + p2;
+      if (outputShape[i] != -1) 
+        outputShape[i] += p1 + p2;
     }
 
     return (RankedTensorType::get(outputShape, dataTy.getElementType()));
