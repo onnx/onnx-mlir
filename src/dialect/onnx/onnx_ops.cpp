@@ -888,6 +888,9 @@ void ONNXReshapeOp::inferShapes() {
     for (int i=0; i<outputRank; ++i)
       dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
 
+    if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
+      emitError("Constant value must have same rank as output");
+
     int64_t numberOfDynamicInputs = 0;
     int64_t totalKnownDimsSize = 1;
     int64_t dynamicValueIndex = -1;
