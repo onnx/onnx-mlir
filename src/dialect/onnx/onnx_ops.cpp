@@ -875,7 +875,6 @@ void ONNXReshapeOp::inferShapes() {
   auto constantOp = getONNXConstantOp(shape());
 
   SmallVector<int64_t, 2> dims(outputRank, -1);
-  mlir::ShapedType outputTy;
   if (constantOp) {
     DenseElementsAttr valueAttribute =
         constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
