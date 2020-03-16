@@ -231,7 +231,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
         Value outOfIndex = nullptr;
         for (int i = batchRank; i < nOuterLoops; ++i) {
           Value spatialIndex = outerLoops.getInductionVar(i);
-          // If strides are present (not defulat) then emit the correct access
+          // If strides are present (not default) then emit the correct access
           // index.
           // sX * rX
           if (strides[i - batchRank] > 1) {
@@ -278,8 +278,8 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
             // Dilate backward.
             auto spatialMinusDilationIndex =
                 rewriter.create<SubIOp>(loc, spatialIndex, dilationIndex);
-            // Switch between forward and backward mode depending relationship
-            // between the spatial index and the center index.
+            // Switch between forward and backward mode depending on
+            // relationship between the spatial index and the center index.
             spatialIndex = rewriter.create<SelectOp>(
                 loc, lessThanCenter, spatialMinusDilationIndex, spatialIndex);
             spatialIndex = rewriter.create<SelectOp>(
