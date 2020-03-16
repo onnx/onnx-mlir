@@ -108,7 +108,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
       for (int i = batchRank; i < resultShape.size(); ++i) {
         if (resultShape[i] < 0) {
           // dim =
-          //   let numerator = (input + pad - (kernel - 1) * dilation + 1)
+          //   let numerator = (input + pad - (kernel - 1) * dilation - 1)
           //   in let denomitor = stride
           //      in
           //        if (ceilMode)
@@ -117,13 +117,13 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
           //          floor(numerator / denominator) + 1
           int spatialIndex = i - batchRank;
 
-          // numerator = (input + pad - (kernel - 1) * dilation + 1)
+          // numerator = (input + pad - (kernel - 1) * dilation - 1)
           auto inputDim = rewriter.create<DimOp>(loc, inputOperand, i);
           auto inputVal = rewriter.create<IndexCastOp>(
               loc, inputDim, rewriter.getIntegerType(64));
           int64_t padKernelDilation =
               (pads[spatialIndex] + pads[spatialIndex + spatialRank]) -
-              (kernelShape[spatialIndex] - 1) * dilations[spatialIndex] + 1;
+              (kernelShape[spatialIndex] - 1) * dilations[spatialIndex] - 1;
           auto padKernelDilationVal = rewriter.create<ConstantOp>(
               loc, rewriter.getIntegerAttr(
                        rewriter.getIntegerType(64), padKernelDilation));

@@ -1467,7 +1467,7 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK: [[ONE:%.+]] = constant 1 : i64
   // CHECK: [[DIM_1:%.+]] = dim %arg0, 2 : memref<?x3x?x32xf32>
   // CHECK: [[DIM_1_i64:%.+]] = index_cast [[DIM_1]] : index to i64
-  // CHECK: [[KERNEL_PAD_DILATION:%.+]] = constant -1 : i64
+  // CHECK: [[KERNEL_PAD_DILATION:%.+]] = constant -3 : i64
   // CHECK: [[NUMERATOR:%.+]] = addi [[DIM_1_i64]], [[KERNEL_PAD_DILATION]] : i64
   // CHECK: [[DENOMINATOR:%.+]] = constant 2 : i64
   // CHECK: [[DIV:%.+]] = divi_signed [[NUMERATOR]], [[DENOMINATOR]] : i64
