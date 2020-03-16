@@ -274,8 +274,12 @@ private:
                       int expectedNumResults = -1) {
     std::vector<mlir::Value> inputs;
     for (const auto &item : node.input())
-      if (frontend_symbols_.ContainKey(legalize_name(item)))
+      if (initializedTensors.ContainKey(legalize_name(item))) {
+        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+                              UnknownLoc(), builder_, legalize_name(item)));
+      } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      }
 
     buildOutputAndOperation<T>(node, inputs, expectedNumOperands,
         expectedNumResults);
@@ -287,7 +291,7 @@ private:
     for (int i = 0; i < node.input().size(); ++i) {
       item = node.input()[i];
       // For the second argument, check if there exists an initializer.
-      if (i == 1 && initializedTensors.ContainKey(legalize_name(item))) {
+      if (initializedTensors.ContainKey(legalize_name(item))) {
           inputs.push_back(
                 initializedTensors.EmitInitializerForInputTensor(
                     UnknownLoc(), builder_, legalize_name(item)));
@@ -412,9 +416,10 @@ private:
     //  * maintain a list of the defined graph
     llvm::SmallVector<mlir::Type, 4> arg_types;
 
-    // Import the input tensor types that are not constant.
+    // Import the input tensor types that are not constant and not initialized.
     for (const auto &input : graph.input())
-      arg_types.emplace_back(ImportInputTensorType(input));
+      if (!initializedTensors.ContainKey(legalize_name(input.name())))
+        arg_types.emplace_back(ImportInputTensorType(input));
 
     // Create the main function.
     auto funcType = builder_.getFunctionType(arg_types, {});
@@ -438,8 +443,9 @@ private:
 
     // Map graph inputs to entry block arguments.
     for (int i = 0; i < graph.input().size(); ++i)
-      ImportInputTensorSymbol(
-          graph.input()[i], entryBlock.getArguments()[i]);
+      if (!initializedTensors.ContainKey(
+              legalize_name(graph.input()[i].name())))
+        ImportInputTensorSymbol(graph.input()[i], entryBlock.getArguments()[i]);
 
     // Create a NoneTyped constant to be used for optional operation inputs
     // which are not used.

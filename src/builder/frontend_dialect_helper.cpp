@@ -129,10 +129,16 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
   // Initializer for input.
   onnx::TensorProto initializer = GetInitializedTensor(name);
 
+  // Tensor dimensions.
+  llvm::ArrayRef<int64_t> tensorDims(initializer.dims().data(),
+      initializer.dims().size());
+
   // Emit ConstantOp and record the mapping between the input and
   // the constant value.
-  mlir::ArrayAttr constantArrayAttribute;
+  // Create value attribute.
+  mlir::DenseElementsAttr constantDenseAttribute;
   mlir::Type elementType;
+  mlir::ShapedType tensorType;
   int length;
   switch (initializer.data_type()) {
     case (onnx::TensorProto::FLOAT): {
@@ -141,8 +147,9 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
       std::vector<float> arrayAttrInitializer(
       	typeArray, typeArray + length);
       llvm::ArrayRef<float> array(typeArray, length);
-      constantArrayAttribute = builder.getF32ArrayAttr(array);
       elementType = builder.getF32Type();
+      tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
+      constantDenseAttribute = mlir::DenseElementsAttr::get(tensorType, array);
       break;
     }
     case (onnx::TensorProto::INT32): {
@@ -151,8 +158,9 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
       std::vector<int32_t> arrayAttrInitializer(
       	typeArray, typeArray + length);
       llvm::ArrayRef<int32_t> array(typeArray, length);
-      constantArrayAttribute = builder.getI32ArrayAttr(array);
       elementType = builder.getIntegerType(32);
+      tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
+      constantDenseAttribute = mlir::DenseElementsAttr::get(tensorType, array);
       break;
     }
     case (onnx::TensorProto::INT64): {
@@ -161,25 +169,16 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
       std::vector<int64_t> arrayAttrInitializer(
       	typeArray, typeArray + length);
       llvm::ArrayRef<int64_t> array(typeArray, length);
-      constantArrayAttribute = builder.getI64ArrayAttr(array);
       elementType = builder.getIntegerType(64);
+      tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
+      constantDenseAttribute = mlir::DenseElementsAttr::get(tensorType, array);
       break;
     }
   }
 
-  // Create empty sparse_value attribute.
-  llvm::ArrayRef<int64_t> array;
-  auto sparseValueAttribute = builder.getI64ArrayAttr(array);
-
-  // Create value attribute.
-  llvm::ArrayRef<int64_t> tensorDims(initializer.dims().data(),
-      initializer.dims().size());
-  mlir::Type tensorType =
-      mlir::RankedTensorType::get(tensorDims, elementType);
-
+  // Create ConstantOp for dense array.
   return builder.create<mlir::ONNXConstantOp>(
-      loc, tensorType, sparseValueAttribute,
-      constantArrayAttribute);
+      loc, tensorType, nullptr, constantDenseAttribute);
 }
 
 } // namespace onnf
