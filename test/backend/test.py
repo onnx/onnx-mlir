@@ -309,6 +309,13 @@ test_to_enable = [
     "test_maxpool_1d_default_cpu",
     "test_maxpool_2d_ceil_cpu",
     "test_maxpool_2d_default_cpu",
+    "test_maxpool_2d_dilations_cpu",
+    "test_maxpool_2d_pads_cpu",
+    "test_maxpool_2d_precomputed_pads_cpu",
+    "test_maxpool_2d_precomputed_same_upper_cpu",
+    "test_maxpool_2d_precomputed_strides_cpu",
+    "test_maxpool_2d_same_lower_cpu",
+    "test_maxpool_2d_same_upper_cpu",
     "test_maxpool_2d_strides_cpu",
     "test_maxpool_3d_default_cpu",
 

@@ -1429,19 +1429,27 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x
   // CHECK:     [[STRIDE_0:%.+]] = constant 2 : index
   // CHECK:     [[MUL_0:%.+]] = muli [[STRIDE_0]], %arg3 : index
   // CHECK:     [[SPATIAL_H:%.+]] = addi [[MUL_0]], %arg5 : index
-  // CHECK:     [[INPUT_INDEX_0:%.+]] = constant 31 : index
-  // CHECK:     [[CMP_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[INPUT_INDEX_0]] : index
-  // CHECK:     [[H:%.+]] = select [[CMP_0]], [[INPUT_INDEX_0]], [[SPATIAL_H]] : index
+  // CHECK:     [[LOWER_INDEX_0:%.+]] = constant 0 : index
+  // CHECK:     [[UPPER_INDEX_0:%.+]] = constant 31 : index
+  // CHECK:     [[LESS_THAN_LOWER_0:%.+]] = cmpi "slt", [[SPATIAL_H]], [[LOWER_INDEX_0]] : index
+  // CHECK:     [[GREATER_THAN_UPPER_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[UPPER_INDEX_0]] : index
+  // CHECK:     [[OUT_OF_INDEX_0:%.+]] = or [[LESS_THAN_LOWER_0]], [[GREATER_THAN_UPPER_0]] : i1
+
   // CHECK:     [[STRIDE_1:%.+]] = constant 2 : index
   // CHECK:     [[MUL_1:%.+]] = muli [[STRIDE_1]], %arg4 : index
   // CHECK:     [[SPATIAL_W:%.+]] = addi [[MUL_1]], %arg6 : index
-  // CHECK:     [[INPUT_INDEX_1:%.+]] = constant 31 : index
-  // CHECK:     [[CMP_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[INPUT_INDEX_1]] : index
-  // CHECK:     [[W:%.+]] = select [[CMP_1]], [[INPUT_INDEX_1]], [[SPATIAL_W]] : index
-  // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[H]], [[W]]] : memref<1x3x32x32xf32>
+  // CHECK:     [[LOWER_INDEX_1:%.+]] = constant 0 : index
+  // CHECK:     [[UPPER_INDEX_1:%.+]] = constant 31 : index
+  // CHECK:     [[LESS_THAN_LOWER_1:%.+]] = cmpi "slt", [[SPATIAL_W]], [[LOWER_INDEX_1]] : index
+  // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
+  // CHECK:     [[OUT_OF_INDEX_1:%.+]] = or [[LESS_THAN_LOWER_1]], [[GREATER_THAN_UPPER_1]] : i1
+  // CHECK:     [[OUT_OF_INDEX_2:%.+]] = or [[OUT_OF_INDEX_0]], [[OUT_OF_INDEX_1]] : i1
+
+  // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[SPATIAL_H]], [[SPATIAL_W]]] : memref<1x3x32x32xf32>
+  // CHECK:     [[SELECT_X:%.+]] = select [[OUT_OF_INDEX_2]], [[NEGATIVE_INFINITY]], [[LOAD_X]] : f32
   // CHECK:     [[LOAD_Y:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
-  // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[LOAD_X]] : f32
-  // CHECK:     [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[LOAD_X]] : f32
+  // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[SELECT_X]] : f32
+  // CHECK:     [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[SELECT_X]] : f32
   // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
   // CHECK:   }
   // CHECK: }
@@ -1488,23 +1496,29 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK:     [[STRIDE_0:%.+]] = constant 2 : index
   // CHECK:     [[MUL_0:%.+]] = muli [[STRIDE_0]], %arg3 : index
   // CHECK:     [[SPATIAL_H:%.+]] = addi [[MUL_0]], %arg5 : index
+  // CHECK:     [[LOWER_INDEX_0:%.+]] = constant 0 : index
   // CHECK:     [[DIM_0_0:%.+]] = dim %arg0, 2 : memref<?x3x?x32xf32>
   // CHECK:     [[ONE_INDEX:%.+]] = constant 1 : index
-  // CHECK:     [[INPUT_INDEX_0:%.+]] = subi [[DIM_0_0]], [[ONE_INDEX]] : index
-  // CHECK:     [[CMP_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[INPUT_INDEX_0]] : index
-  // CHECK:     [[H:%.+]] = select [[CMP_0]], [[INPUT_INDEX_0]], [[SPATIAL_H]] : index
+  // CHECK:     [[UPPER_INDEX_0:%.+]] = subi [[DIM_0_0]], [[ONE_INDEX]] : index
+  // CHECK:     [[LESS_THAN_LOWER_0:%.+]] = cmpi "slt", [[SPATIAL_H]], [[LOWER_INDEX_0]] : index
+  // CHECK:     [[GREATER_THAN_UPPER_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[UPPER_INDEX_0]] : index
+  // CHECK:     [[OUT_OF_INDEX_0:%.+]] = or [[LESS_THAN_LOWER_0]], [[GREATER_THAN_UPPER_0]] : i1
 
   // CHECK:     [[STRIDE_1:%.+]] = constant 2 : index
   // CHECK:     [[MUL_1:%.+]] = muli [[STRIDE_1]], %arg4 : index
   // CHECK:     [[SPATIAL_W:%.+]] = addi [[MUL_1]], %arg6 : index
-  // CHECK:     [[INPUT_INDEX_1:%.+]] = constant 31 : index
-  // CHECK:     [[CMP_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[INPUT_INDEX_1]] : index
-  // CHECK:     [[W:%.+]] = select [[CMP_1]], [[INPUT_INDEX_1]], [[SPATIAL_W]] : index
+  // CHECK:     [[LOWER_INDEX_1:%.+]] = constant 0 : index
+  // CHECK:     [[UPPER_INDEX_1:%.+]] = constant 31 : index
+  // CHECK:     [[LESS_THAN_LOWER_1:%.+]] = cmpi "slt", [[SPATIAL_W]], [[LOWER_INDEX_1]] : index
+  // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
+  // CHECK:     [[OUT_OF_INDEX_1:%.+]] = or [[LESS_THAN_LOWER_1]], [[GREATER_THAN_UPPER_1]] : i1
+  // CHECK:     [[OUT_OF_INDEX_2:%.+]] = or [[OUT_OF_INDEX_0]], [[OUT_OF_INDEX_1]] : i1
 
-  // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[H]], [[W]]] : memref<?x3x?x32xf32>
+  // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[SPATIAL_H]], [[SPATIAL_W]]] : memref<?x3x?x32xf32>
+  // CHECK:     [[SELECT_X:%.+]] = select [[OUT_OF_INDEX_2]], [[NEGATIVE_INFINITY]], [[LOAD_X]] : f32
   // CHECK:     [[LOAD_Y:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<?x3x?x16xf32>
-  // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[LOAD_X]] : f32
-  // CHECK:     [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[LOAD_X]] : f32
+  // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[SELECT_X]] : f32
+  // CHECK:     [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[SELECT_X]] : f32
   // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<?x3x?x16xf32>
   // CHECK:   }
   // CHECK: }
