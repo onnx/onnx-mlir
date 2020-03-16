@@ -28,8 +28,8 @@ export LD_LIBRARY_PATH=$INSTALL_PATH/lib:$INSTALL_PATH/lib64:$LD_LIBRARY_PATH
 export CPATH=$INSTALL_PATH/include:$CPATH
 
 # Create virtual environment specific to the current build instance:
-conda create -n onnf_conda_workspace_"${BUILD_NUMBER}" python=3.7 numpy
-source activate onnf_conda_workspace_"${BUILD_NUMBER}"
+conda create -n onnx_mlir_conda_workspace_"${BUILD_NUMBER}" python=3.7 numpy
+source activate onnx_mlir_conda_workspace_"${BUILD_NUMBER}"
 
 # Create build directory and generate make files:
 mkdir build && cd build
