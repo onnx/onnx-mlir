@@ -34,18 +34,18 @@
 #include "src/dialect/onnx/onnx_ops.hpp"
 #include "onnx/onnx_pb.h"
 
-namespace onnf {
+namespace onnx_mlir {
 
 void replaceAll(std::string &str, const std::string &from,
                 const std::string &to);
 
 std::string legalize_name(std::string name);
 
-struct OnnxOnnfSymbolMapping {
+struct OnnxMlirSymbolMapping {
   /*!
    *  Get MLIR tensor by onnx tensor name.
    *  @param name onnx tensor name.
-   *  @return onnf tensor corresponding to `name`.
+   *  @return onnx mlir tensor corresponding to `name`.
    */
   mlir::Value GetTensorByOnnxName(const std::string &name);
 
@@ -62,7 +62,7 @@ private:
   /*!
    *  mapping from onnx tensor names to MLIR tensor.
    */
-  std::map<std::string, mlir::Value> onnx_name2onnf_tensor;
+  std::map<std::string, mlir::Value> onnx_name2onnx_mlir_tensor;
 };
 
 struct InitializedTensorMapping {
@@ -98,4 +98,4 @@ private:
   std::map<std::string, onnx::TensorProto> nameToInitializedTensor;
 };
 
-} // namespace onnf
+} // namespace onnx_mlir

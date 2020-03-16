@@ -1,5 +1,5 @@
-// RUN: onnf-opt %s -mlir-print-op-generic | FileCheck -check-prefix=GENERIC %s
-// RUN: onnf-opt %s | FileCheck %s
+// RUN: onnx-mlir-opt %s -mlir-print-op-generic | FileCheck -check-prefix=GENERIC %s
+// RUN: onnx-mlir-opt %s | FileCheck %s
 
 // GENERIC-DAG: #{{.*}} = affine_map<() -> (0)>
 // GENERIC-DAG: #{{.*}} = affine_map<() -> (10)>

@@ -1,4 +1,4 @@
-// RUN: onnf-opt --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --canonicalize %s -split-input-file | FileCheck %s
 
 // CHECK-LABEL: func @test_matmul_add_fused(%{{.*}}: tensor<10x10xf32>, %{{.*}}: tensor<10x10xf32>, %{{.*}}: tensor<10x10xf32>) -> tensor<10x10xf32> {
 func @test_matmul_add_fused(%a0: tensor<10x10xf32>, %a1: tensor<10x10xf32>, %a2: tensor<10x10xf32>) -> tensor<10x10xf32> {

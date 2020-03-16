@@ -42,7 +42,7 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 //the tablegen code onnxop.in is generated with gen_doc.py
 //clone and install onnx
 //   git clone --recursive https://github.com/onnx/onnx.git
-// set up env for anaconda3 and for ONNF (BOOSTROOT, cmake, gcc ...)
+// set up env for anaconda3 and for ONNX MLIR (BOOSTROOT, cmake, gcc ...)
 //   cd onnx
 //install onnx
 //  CC=gcc CXX=g++ pip install -e .
