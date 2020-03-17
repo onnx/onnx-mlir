@@ -26,7 +26,7 @@ def ONNXAbsOp:ONNX_Op<"Abs",
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
       build(builder, state, outputTypes, operands, attributes);
     }]>
-    ];
+  ];
 }
 
 def ONNXAcosOp:ONNX_Op<"Acos",
@@ -2501,7 +2501,9 @@ def ONNXReluOp:ONNX_Op<"Relu",
 }
 
 def ONNXReshapeOp:ONNX_Op<"Reshape",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect,
+   DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+   OpInterface<"IdentifyConstOperandsOpInterface">]> {
   let summary = "ONNX Reshape operation";
   let description = [{
   "Reshape the input tensor similar to numpy.reshape."
@@ -2512,8 +2514,11 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
   "from the input tensor)."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$shape);
+    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$shape);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reshaped);
+  let extraClassDeclaration = [{
+    std::map<std::string, size_t> identifyPromotableConstOperands() { return {{"shape", 1}}; }
+  }];
 }
 
 def ONNXResizeOp:ONNX_Op<"Resize",

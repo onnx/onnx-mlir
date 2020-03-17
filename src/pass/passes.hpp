@@ -20,6 +20,8 @@ std::unique_ptr<Pass> createDecomposeONNXToONNXPass();
 
 std::unique_ptr<Pass> createShapeInferencePass();
 
+std::unique_ptr<Pass> createAttributePromotionPass();
+
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<Pass> createLowerToKrnlPass();
 
