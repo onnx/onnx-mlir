@@ -7,8 +7,8 @@ add_library(promotable_const_operands_interface
         promotable_const_operands.hpp
         promotable_const_operands.cpp)
 target_include_directories(promotable_const_operands_interface
-        PRIVATE ${ONNF_SRC_ROOT} ${ONNF_BIN_ROOT}
-        ${ONNF_SRC_ROOT})
+        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
 
 add_dependencies(promotable_const_operands_interface
         gen_promotable_const_operands_interface)

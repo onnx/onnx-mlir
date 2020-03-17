@@ -12,10 +12,7 @@ add_library(compiler
         pass/onnx_combine.cpp
         pass/onnx_rewrite.cpp
         pass/onnx_decompose.cpp
-        pass/passes.hpp
-        interface/promotable_const_operands.hpp
-        dialect/onnx/attribute_promotion.cpp
-        interface/promotable_const_operands.cpp)
+        pass/passes.hpp)
 
 # Include root src directory.
 target_include_directories(compiler PRIVATE ${ONNX_MLIR_SRC_ROOT})
@@ -115,7 +112,7 @@ add_subdirectory(runtime)
 
 add_executable(onnx-mlir main.cpp)
 
-target_link_libraries(onnx-mlir builder ${MLIRLibs} onnx_mlir_transform onnx_mlir_onnx_decompose onnx_mlir_shape_inference onnx_mlir_lower_frontend)
+target_link_libraries(onnx-mlir builder ${MLIRLibs} onnx_mlir_transform onnx_mlir_onnx_decompose onnx_mlir_shape_inference onnx_mlir_lower_frontend attribute_promotion)
 whole_archive_link_mlir(onnx-mlir ${MLIRWholeArchiveLibs})
 
 find_package(ZLIB REQUIRED)
