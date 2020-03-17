@@ -6,5 +6,5 @@ add_custom_target(run-onnx-backend-test
         COMMAND ${PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_BINARY_DIR}/test.py)
 
-add_dependencies(run-onnx-backend-test onnf)
+add_dependencies(run-onnx-backend-test onnx-mlir)
 add_dependencies(run-onnx-backend-test pyruntime)

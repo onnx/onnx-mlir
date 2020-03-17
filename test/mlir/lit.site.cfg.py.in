@@ -6,11 +6,11 @@ config.mlir_obj_root = "@LLVM_PROJ_BUILD@"
 config.mlir_tools_dir = "@MLIR_TOOLS_DIR@"
 config.suffixes = ['.mlir']
 
-config.onnf_mlir_tools_dir = "@ONNF_TOOLS_DIR@"
-config.onnf_mlir_test_src_dir = "@ONNF_LIT_TEST_SRC_DIR@"
-config.onnf_mlir_test_build_dir = "@ONNF_LIT_TEST_BUILD_DIR@"
+config.onnx_mlir_tools_dir = "@ONNX_MLIR_TOOLS_DIR@"
+config.onnx_mlir_test_src_dir = "@ONNX_MLIR_LIT_TEST_SRC_DIR@"
+config.onnx_mlir_test_build_dir = "@ONNX_MLIR_LIT_TEST_BUILD_DIR@"
 
 lit.llvm.initialize(lit_config, config)
 
 # Let the main config do the real work.
-lit_config.load_config(config, "@ONNF_LIT_TEST_SRC_DIR@/lit.cfg.py")
+lit_config.load_config(config, "@ONNX_MLIR_LIT_TEST_SRC_DIR@/lit.cfg.py")

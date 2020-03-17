@@ -36,4 +36,4 @@ class ONNXOpsDialect : public Dialect {
 
 }  // end namespace mlir
 
-namespace onnf {}
+namespace onnx_mlir {}
