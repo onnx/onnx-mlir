@@ -10,11 +10,11 @@ jobs:
           name: Installing GCC, CMake, Ninja, Protobuf
           command: sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler
       - checkout:
-          path: ONNF
+          path: onnx-mlir
       - run:
           name: Pull Submodules
           command: |
-            cd ONNF
+            cd onnx-mlir
             git submodule update --init --recursive
       # Use cached mlir installation if possible.
       - restore_cache:
@@ -26,29 +26,29 @@ jobs:
             # mlir-opt executable exists.
             if [ ! -f llvm-project/build/bin/mlir-opt ]; then
               export MAKEFLAGS=-j4
-              source ONNF/utils/install-mlir.sh
+              source onnx-mlir/utils/install-mlir.sh
             fi
       - save_cache:
           key: V9-LLVM-PROJECT-{{ arch }}
           paths:
             - llvm-project
       - run:
-          name: Install ONNF
-          command: source ONNF/utils/install-onnf.sh
+          name: Install ONNX MLIR
+          command: source onnx-mlir/utils/install-onnx-mlir.sh
       - run:
           name: Run End-To-End Tests
           command: |
-            sudo pip install -q -e ./ONNF/third_party/onnx
-            cd ONNF/build
+            sudo pip install -q -e ./onnx-mlir/third_party/onnx
+            cd onnx-mlir/build
             cmake --build . --target run-onnx-backend-test
       - run:
           name: Run DocCheck
-          command: cd ONNF/build && cmake --build . --target check-doc
+          command: cd onnx-mlir/build && cmake --build . --target check-doc
       - run:
           name: Ensure tablegen documentation is up-to-date
           command: |
-            cd ONNF/build
-            cmake --build . --target onnf-doc
+            cd onnx-mlir/build
+            cmake --build . --target onnx-mlir-doc
             # Check whether dialect documentation is up-to-date.
             diff doc/Dialects ../doc/Dialects
       - run:

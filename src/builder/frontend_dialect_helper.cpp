@@ -10,7 +10,7 @@
 
 #include "src/builder/frontend_dialect_helper.hpp"
 
-namespace onnf {
+namespace onnx_mlir {
 
 void replaceAll(std::string &str, const std::string &from,
                 const std::string &to) {
@@ -35,23 +35,23 @@ std::string legalize_name(std::string name) {
   return name;
 }
 
-mlir::Value OnnxOnnfSymbolMapping::GetTensorByOnnxName(
+mlir::Value OnnxMlirSymbolMapping::GetTensorByOnnxName(
     const std::string &name) {
-  assert(onnx_name2onnf_tensor.find(legalize_name(name)) !=
-             onnx_name2onnf_tensor.end() &&
+  assert(onnx_name2onnx_mlir_tensor.find(legalize_name(name)) !=
+             onnx_name2onnx_mlir_tensor.end() &&
          "Tensor not found");
-  return onnx_name2onnf_tensor.at(legalize_name(name));
+  return onnx_name2onnx_mlir_tensor.at(legalize_name(name));
 }
 
-void OnnxOnnfSymbolMapping::AddMapping(
+void OnnxMlirSymbolMapping::AddMapping(
     const std::string &name, mlir::Value tensor) {
-  assert(onnx_name2onnf_tensor.count(legalize_name(name)) == 0 &&
+  assert(onnx_name2onnx_mlir_tensor.count(legalize_name(name)) == 0 &&
          "Tensor already exists.");
-  onnx_name2onnf_tensor.emplace(legalize_name(name), tensor);
+  onnx_name2onnx_mlir_tensor.emplace(legalize_name(name), tensor);
 }
 
-bool OnnxOnnfSymbolMapping::ContainKey(std::string name) {
-  return onnx_name2onnf_tensor.count(name) != 0;
+bool OnnxMlirSymbolMapping::ContainKey(std::string name) {
+  return onnx_name2onnx_mlir_tensor.count(name) != 0;
 }
 
 template <typename T>
@@ -181,4 +181,4 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
       loc, tensorType, nullptr, constantDenseAttribute);
 }
 
-} // namespace onnf
+} // namespace onnx_mlir

@@ -1,10 +1,10 @@
-//===- passes.hpp - ONNF Passes Definition --------------------------------===//
+//===- passes.hpp - ONNX MLIR Passes Definition ---------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file exposes the entry points to create compiler passes for ONNF.
+// This file exposes the entry points to create compiler passes for ONNX MLIR.
 //
 //===----------------------------------------------------------------------===//
 

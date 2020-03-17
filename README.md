@@ -1,5 +1,5 @@
-# ONNF
-Open Neural Network Frontend : an ONNX frontend for MLIR.
+# ONNX MLIR
+The Open Neural Network Exchange implementation in MLIR.
 
 [![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)
 
@@ -18,7 +18,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 [same-as-file]: <> (utils/install-mlir.sh)
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
-# Check out a specific branch that is known to work with ONNF.
+# Check out a specific branch that is known to work with ONNX MLIR.
 cd llvm-project && git checkout 076475713c236081a3247a53e9dbab9043c3eac2 && cd ..
 mkdir llvm-project/build
 cd llvm-project/build
@@ -38,11 +38,11 @@ Two environment variables need to be set:
 - LLVM_PROJ_SRC should point to the llvm-project src directory (e.g., llvm-project/).
 - LLVM_PROJ_BUILD should point to the llvm-project build directory (e.g., llvm-project/build).
 
-To build ONNF, use the following command:
+To build ONNX-MLIR, use the following command:
 
-[same-as-file]: <> ({"ref": "utils/install-onnf.sh", "skip-doc": 2})
+[same-as-file]: <> ({"ref": "utils/install-onnx-mlir.sh", "skip-doc": 2})
 ```
-git clone --recursive git@github.com:<<<your fork>>>/onnx-mlir.git
+git clone --recursive git@github.com:onnx/onnx-mlir.git
 
 # Export environment variables pointing to LLVM-Projects.
 export LLVM_PROJ_SRC=$(pwd)/llvm-project/
@@ -50,22 +50,22 @@ export LLVM_PROJ_BUILD=$(pwd)/llvm-project/build
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..
-cmake --build . --target onnf
+cmake --build . --target onnx-mlir
 
 # Run FileCheck tests:
 export LIT_OPTS=-v
 cmake --build . --target check-mlir-lit
 ```
 
-After the above commands succeed, an `onnf` executable should appear in the `bin` directory. 
+After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory. 
 
-## Using ONNF
+## Using ONNX MLIR
 
-The usage of `onnf` is as such:
+The usage of `onnx-mlir` is as such:
 ```
-OVERVIEW: ONNF MLIR modular optimizer driver
+OVERVIEW: ONNX MLIR modular optimizer driver
 
-USAGE: onnf [options] <input file>
+USAGE: onnx-mlir [options] <input file>
 
 OPTIONS:
 
@@ -75,7 +75,7 @@ Generic Options:
   --help-list   - Display list of available options (--help-list-hidden for more)
   --version     - Display the version of this program
 
-ONNF Options:
+ONNX MLIR Options:
 These are frontend options.
 
   Choose target to emit:
@@ -89,7 +89,7 @@ These are frontend options.
 
 For example, to lower an ONNX model (e.g., add.onnx) to ONNX dialect, use the following command:
 ```
-./onnf --EmitONNXIR add.onnx
+./onnx-mlir --EmitONNXIR add.onnx
 ```
 The output should look like:
 ```
