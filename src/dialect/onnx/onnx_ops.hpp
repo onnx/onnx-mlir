@@ -10,9 +10,6 @@
 
 #pragma once
 
-#include <map>
-#include <string>
-
 #include "mlir/Dialect/StandardOps/Ops.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Dialect.h"
@@ -20,7 +17,6 @@
 #include "mlir/IR/StandardTypes.h"
 
 #include "src/pass/shape_inference_interface.hpp"
-#include "src/dialect/onnx/const_operands_interface.hpp"
 
 namespace mlir {
 

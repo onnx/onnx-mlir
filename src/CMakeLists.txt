@@ -12,10 +12,7 @@ add_library(compiler
         pass/onnx_combine.cpp
         pass/onnx_rewrite.cpp
         pass/onnx_decompose.cpp
-        pass/passes.hpp
-        dialect/onnx/const_operands_interface.hpp
-        dialect/onnx/attribute_promotion.cpp
-        )
+        pass/passes.hpp)
 
 # Include root src directory.
 target_include_directories(compiler PRIVATE ${ONNF_SRC_ROOT})
@@ -50,18 +47,12 @@ onnf_tablegen(onnx_rewrite.inc -gen-rewriters)
 add_public_tablegen_target(gen_onnx_rewrite)
 add_dependencies(compiler gen_onnx_rewrite)
 
-add_subdirectory(dialect/onnx)
-
 set(LLVM_TARGET_DEFINITIONS dialect/onnx/onnx.td)
 onnf_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 onnf_tablegen(onnx.cpp.inc -gen-op-defs "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
 add_public_tablegen_target(gen_onnx)
-
-add_dependencies(gen_onnx gen_shape_inference)
-add_dependencies(gen_onnx gen_const_operands_interface)
 add_dependencies(compiler gen_onnx)
-
 add_onnf_dialect_doc(onnx dialect/onnx/onnx.td)
 
 set(LLVM_TARGET_DEFINITIONS dialect/krnl/krnl_ops.td)
@@ -75,7 +66,7 @@ target_include_directories(onnf_onnx_decompose
         PRIVATE ${ONNF_SRC_ROOT} ${ONNF_BIN_ROOT}
         ${ONNF_SRC_ROOT})
 target_link_libraries(onnf_onnx_decompose ${MLIRLibs})
-add_dependencies(onnf_onnx_decompose gen_onnx)
+add_dependencies(onnf_onnx_decompose gen_krnl_ops)
 
 add_library(onnf_shape_inference pass/shape_inference_pass.cpp)
 target_include_directories(onnf_shape_inference
