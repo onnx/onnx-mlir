@@ -882,12 +882,18 @@ void ONNXReshapeOp::inferShapes() {
 
   SmallVector<int64_t, 2> dims(outputRank, -1);
   if (constantOp) {
-    // Cast attribute to ArrayAttr.
-    ArrayAttr valueAttribute = constantOp.valueAttr().dyn_cast<ArrayAttr>();
-    if (!valueAttribute)
-      emitError("ArrayAttr expected");
+    DenseElementsAttr valueAttribute =
+        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
 
-    if (ArrayAttrSize(valueAttribute) != outputRank)
+    if (!valueAttribute)
+      emitError("DenseElementsAttr expected");
+
+    // Get dims from valueAttribute.
+    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
+    for (int i=0; i<outputRank; ++i)
+      dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+
+    if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
       emitError("Constant value must have same rank as output");
 
     int64_t numberOfDynamicInputs = 0;
@@ -895,7 +901,6 @@ void ONNXReshapeOp::inferShapes() {
     int64_t dynamicValueIndex = -1;
     for (int i=0; i<outputRank; ++i) {
       // Set output dimension.
-      dims[i] = ArrayAttrIntVal(valueAttribute, i);
       if (dims[i] == 0)
         dims[i] = inputTensorTy.getShape()[i];
 
