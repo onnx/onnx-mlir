@@ -1511,6 +1511,47 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK: return [[RES]] : memref<?x3x?x16xf32>
 }
 
+func @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Abs"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_abs_float
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ABS:%.+]] = absf [[LOAD]] : f32
+  // CHECK: store [[ABS]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+func @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
+  %0 = "onnx.Abs"(%arg0) : (tensor<?x10xi32>) -> tensor<*xi32>
+  "std.return"(%0) : (tensor<*xi32>) -> ()
+
+  // CHECK-LABEL: test_abs_int
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xi32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xi32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xi32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xi32>
+  // CHECK: [[ZERO:%.+]] = constant 0 : i32
+  // CHECK: [[LESS_THAN_ZERO:%.+]] = cmpi "slt", [[LOAD]], [[ZERO]] : i32
+  // CHECK: [[NEGATIVE_LOAD:%.+]] = subi [[ZERO]], [[LOAD]] : i32
+  // CHECK: [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[NEGATIVE_LOAD]], [[LOAD]] : i32
+  // CHECK: store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xi32>
+  // CHECK: return [[RES]] : memref<?x10xi32>
+}
+
 func @test_constant_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
   %0 = "onnx.PadConstantValuePad"(%arg0) {constant_value = 0.000000e+00 : f32, mode = "constant", pads = [0, 3, 2, 1]} : (tensor<16x16xf32>) -> tensor<18x20xf32>
   return %0 : tensor<18x20xf32>

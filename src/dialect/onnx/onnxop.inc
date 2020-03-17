@@ -6,7 +6,7 @@
 //********************************************************
 
 def ONNXAbsOp:ONNX_Op<"Abs",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Abs operation";
   let description = [{
   "Absolute takes one input data (Tensor<T>) and produces one output data"

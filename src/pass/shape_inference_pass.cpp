@@ -121,6 +121,7 @@ public:
         op->getName().getStringRef() != "onnx.PadConstantPad" &&
         op->getName().getStringRef() != "onnx.PadConstantValuePad" &&
         op->getName().getStringRef() != "onnx.BatchNormalizationTestMode" &&
+        op->getName().getStringRef() != "onnx.Abs" &&
         op->getName().getStringRef() != "onnx.Constant" &&
         op->getName().getStringRef() != "onnx.Unsqueeze")
       return false;
