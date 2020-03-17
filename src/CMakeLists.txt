@@ -13,9 +13,9 @@ add_library(compiler
         pass/onnx_rewrite.cpp
         pass/onnx_decompose.cpp
         pass/passes.hpp
-        dialect/onnx/promotable_const_operand.hpp
+        interface/promotable_const_operands.hpp
         dialect/onnx/attribute_promotion.cpp
-        )
+        interface/promotable_const_operands.cpp)
 
 # Include root src directory.
 target_include_directories(compiler PRIVATE ${ONNF_SRC_ROOT})
@@ -50,7 +50,7 @@ onnf_tablegen(onnx_rewrite.inc -gen-rewriters)
 add_public_tablegen_target(gen_onnx_rewrite)
 add_dependencies(compiler gen_onnx_rewrite)
 
-add_subdirectory(dialect/onnx)
+add_subdirectory(interface)
 
 set(LLVM_TARGET_DEFINITIONS dialect/onnx/onnx.td)
 onnf_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
@@ -59,7 +59,7 @@ set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
 add_public_tablegen_target(gen_onnx)
 
 add_dependencies(gen_onnx gen_shape_inference)
-add_dependencies(gen_onnx gen_promotable_const_operand_interface)
+add_dependencies(gen_onnx gen_promotable_const_operands_interface)
 add_dependencies(compiler gen_onnx)
 
 add_onnf_dialect_doc(onnx dialect/onnx/onnx.td)
@@ -115,7 +115,7 @@ add_subdirectory(runtime)
 
 add_executable(onnf main.cpp)
 
-target_link_libraries(onnf builder ${MLIRLibs} onnf_transform onnf_onnx_decompose onnf_shape_inference onnf_lower_frontend)
+target_link_libraries(onnf builder ${MLIRLibs} onnf_transform onnf_onnx_decompose onnf_shape_inference onnf_lower_frontend promotable_const_operands_interface)
 whole_archive_link_mlir(onnf ${MLIRWholeArchiveLibs})
 find_package(ZLIB REQUIRED)
 target_link_libraries(onnf ${ZLIB_LIBRARIES})

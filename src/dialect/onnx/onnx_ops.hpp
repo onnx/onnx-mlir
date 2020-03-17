@@ -20,7 +20,7 @@
 #include "mlir/IR/StandardTypes.h"
 
 #include "src/pass/shape_inference_interface.hpp"
-#include "src/dialect/onnx/promotable_const_operand.hpp"
+#include "src/interface/promotable_const_operands.hpp"
 
 namespace mlir {
 
