@@ -12,9 +12,9 @@
 #include "mlir/Pass/Pass.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
+#include "mlir/IR/StandardTypes.h"
 
 #include "shape_inference_interface.hpp"
-#include "src/dialect/onnx/onnx_ops.hpp"
 
 #include "passes.hpp"
 
