@@ -1,4 +1,4 @@
-// RUN: onnf-opt --decompose-onnx %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --decompose-onnx %s -split-input-file | FileCheck %s
 
 // CHECK-LABEL: @test_reducel1(%{{.*}}: tensor<?x?x?xf32>) -> tensor<*xf32>
 func @test_reducel1(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {

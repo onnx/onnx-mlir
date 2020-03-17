@@ -16,12 +16,12 @@ import test_config
 VERBOSE = bool(os.environ.get("VERBOSE"))
 
 CXX = test_config.CXX_PATH
-ONNF = os.path.join(test_config.ONNF_BUILD_PATH, "bin/onnf")
+ONNX_MLIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "bin/onnx-mlir")
 LLC = os.path.join(test_config.LLVM_PROJ_BUILD_PATH, "bin/llc")
 
 # Make lib folder under build directory visible in PYTHONPATH
 doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
-RUNTIME_DIR = os.path.join(test_config.ONNF_BUILD_PATH, "lib")
+RUNTIME_DIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "lib")
 sys.path.append(RUNTIME_DIR)
 from pyruntime import ExecutionSession
 
@@ -39,7 +39,7 @@ class DummyBackend(onnx.backend.base.Backend):
         # Save model to disk as temp_model.onnx.
         onnx.save(model, "temp_model.onnx")
         # Call frontend to process temp_model.onnx, bit code will be generated.
-        execute_commands([ONNF, "temp_model.onnx"])
+        execute_commands([ONNX_MLIR, "temp_model.onnx"])
         # Call llc to generate object file from bitcode.
         execute_commands(
             [LLC, "-filetype=obj", "-relocation-model=pic", "model.bc"])

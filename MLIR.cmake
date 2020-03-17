@@ -34,9 +34,9 @@ set(MLIR_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/mlir/include)
 set(MLIR_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/tools/mlir/include)
 set(MLIR_TOOLS_DIR ${LLVM_PROJ_BUILD}/bin)
 
-set(ONNF_TOOLS_DIR ${ONNF_BIN_ROOT}/bin)
-set(ONNF_LIT_TEST_SRC_DIR ${CMAKE_SOURCE_DIR}/test/mlir)
-set(ONNF_LIT_TEST_BUILD_DIR ${CMAKE_BINARY_DIR}/test/mlir)
+set(ONNX_MLIR_TOOLS_DIR ${ONNX_MLIR_BIN_ROOT}/bin)
+set(ONNX_MLIR_LIT_TEST_SRC_DIR ${CMAKE_SOURCE_DIR}/test/mlir)
+set(ONNX_MLIR_LIT_TEST_BUILD_DIR ${CMAKE_BINARY_DIR}/test/mlir)
 
 set(
         MLIR_INCLUDE_PATHS
@@ -182,12 +182,12 @@ function(whole_archive_link_mlir target)
   whole_archive_link(${target} ${LLVM_PROJ_BUILD}/lib ${ARGN})
 endfunction(whole_archive_link_mlir)
 
-function(whole_archive_link_onnf target)
+function(whole_archive_link_onnx_mlir target)
   foreach(lib_target ${ARGN})
     add_dependencies(${target} ${lib_target})
   endforeach(lib_target)
   whole_archive_link(${target} ${CMAKE_BINARY_DIR}/lib ${ARGN})
-endfunction(whole_archive_link_onnf)
+endfunction(whole_archive_link_onnx_mlir)
 
 set(LLVM_CMAKE_DIR
         "${LLVM_PROJ_BUILD}/lib/cmake/llvm"
@@ -196,7 +196,7 @@ list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
 include(TableGen)
 
-function(onnf_tablegen ofn)
+function(onnx_mlir_tablegen ofn)
   tablegen(MLIR
           ${ARGV}
           "-I${MLIR_SRC_INCLUDE_PATH}"
@@ -214,14 +214,14 @@ set_property(TARGET mlir-tblgen
         PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BUILD}/bin/mlir-tblgen)
 set(MLIR_TABLEGEN_EXE mlir-tblgen)
 
-# Add a dialect used by ONNF and copy the generated operation
+# Add a dialect used by ONNX MLIR and copy the generated operation
 # documentation to the desired places.
 # c.f. https://github.com/llvm/llvm-project/blob/e298e216501abf38b44e690d2b28fc788ffc96cf/mlir/CMakeLists.txt#L11
-function(add_onnf_dialect_doc dialect dialect_tablegen_file)
+function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
   # Generate Dialect Documentation
   set(LLVM_TARGET_DEFINITIONS ${dialect_tablegen_file})
-  onnf_tablegen(${dialect}.md -gen-op-doc)
-  set(GEN_DOC_FILE ${ONNF_BIN_ROOT}/doc/Dialects/${dialect}.md)
+  onnx_mlir_tablegen(${dialect}.md -gen-op-doc)
+  set(GEN_DOC_FILE ${ONNX_MLIR_BIN_ROOT}/doc/Dialects/${dialect}.md)
   add_custom_command(
           OUTPUT ${GEN_DOC_FILE}
           COMMAND ${CMAKE_COMMAND} -E copy
@@ -229,7 +229,7 @@ function(add_onnf_dialect_doc dialect dialect_tablegen_file)
           ${GEN_DOC_FILE}
           DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${dialect}.md)
   add_custom_target(${dialect}DocGen DEPENDS ${GEN_DOC_FILE})
-  add_dependencies(onnf-doc ${dialect}DocGen)
+  add_dependencies(onnx-mlir-doc ${dialect}DocGen)
 endfunction()
 
-add_custom_target(onnf-doc)
+add_custom_target(onnx-mlir-doc)

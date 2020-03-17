@@ -1,4 +1,4 @@
-// RUN: onnf-opt --shape-inference %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference %s -split-input-file | FileCheck %s
 
 //===----------------------------------------------------------------------===//
 /// Test the default behavior of transpose when no information for the

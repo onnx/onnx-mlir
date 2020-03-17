@@ -10,7 +10,7 @@
 #include "mlir/IR/StandardTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-namespace onnf {
+namespace onnx_mlir {
 
 class KrnlDialectOperandParser {
 public:
@@ -59,7 +59,7 @@ void printDimAndSymbolList(mlir::Operation::operand_iterator &begin,
 void printBound(mlir::AffineMapAttr boundMap,
     mlir::Operation::operand_iterator &boundOperandsBeg, const char *prefix,
     mlir::OpAsmPrinter &p);
-} // namespace onnf
+} // namespace onnx_mlir
 
 namespace mlir {
 
