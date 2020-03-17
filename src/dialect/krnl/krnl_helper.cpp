@@ -6,7 +6,7 @@
 
 #include "krnl_helper.hpp"
 
-namespace onnf {
+namespace onnx_mlir {
 
 using namespace mlir;
 
@@ -120,7 +120,7 @@ void printBound(AffineMapAttr boundMap,
   printDimAndSymbolList(
       boundOperandsBeg, map.getNumDims(), map.getNumSymbols(), p);
 }
-} // namespace onnf
+} // namespace onnx_mlir
 
 namespace mlir {
 

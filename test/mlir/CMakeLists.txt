@@ -6,16 +6,16 @@ configure_lit_site_cfg(${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
                        MAIN_CONFIG
                        ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py)
 
-set(ONNF_MLIR_TEST_DEPENDS onnf-opt)
+set(ONNX_MLIR_TEST_DEPENDS onnx-mlir-opt)
 
 add_lit_testsuite(check-mlir-lit
-                  "Running the ONNF MLIR regression tests"
+                  "Running the ONNX MLIR regression tests"
                   ${CMAKE_CURRENT_BINARY_DIR}
                   DEPENDS
-                  ${ONNF_MLIR_TEST_DEPENDS})
+                  ${ONNX_MLIR_TEST_DEPENDS})
 set_target_properties(check-mlir-lit PROPERTIES FOLDER "Tests")
 
-add_lit_testsuites(ONNF_MLIR
+add_lit_testsuites(ONNX_MLIR
                    ${CMAKE_CURRENT_SOURCE_DIR}
                    DEPENDS
-                   ${ONNF_MLIR_TEST_DEPS})
+                   ${ONNX_MLIR_TEST_DEPS})
