@@ -177,12 +177,14 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
     //         R[n][c][r1][r2] = negative_infinity;
     //         for k1 = 0 .. KH:
     //           for k2 = 0 .. KW:
-    //             t = D[n][c][s1 * r1 + k1][s2 * r2 + k2];
+    //             t = D[n][c][s1 * r1 + k1 * d1][s2 * r2 + k2 * d2];
     //             R[n][c][r1][r2] = max(R[n][c][r1][r2], t);
     //
     // Naming:
     //   n, c, r1, r2: outer loop nest indices
     //   k1, k2: inner loop nest indices
+    //   s1, s2: strides
+    //   d1, d2: dilations
     //
     // TODO: handle padding.
     //
@@ -217,7 +219,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
       {
         // 3. Emit inner loop body
-        // t = D[n][c][s1 * r1 + k1][s2 * r2 + k2];
+        // t = D[n][c][s1 * r1 + k1 * d1][s2 * r2 + k2 * d2];
         // R[n][c][r1][r2] = max(R[n][c][r1][r2], t);
 
         // 3.1 Prepare indices for accesing the data tensor.
@@ -225,7 +227,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
         // 3.1.1 Batch indices: n, c
         for (int i = 0; i < batchRank; ++i)
           dataIndices.emplace_back(outerLoops.getInductionVar(i));
-        // 3.1.2 Insert spatial indices: sX * rX + kX + kX * dX - 1
+        // 3.1.2 Insert spatial indices: sX * rX + kX * dX
         for (int i = batchRank; i < nOuterLoops; ++i) {
           // Get index along the inner loop's induction variables.
           // It is used to obtain kernel/pad/stride/dilation index.
@@ -234,7 +236,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
           Value spatialIndex = outerLoops.getInductionVar(i);
           // If strides are present (not default) then emit the correct access
           // index.
-          // sX * rX
+          // sX *= rX
           if (strides[i - batchRank] > 1) {
             auto strideIndex = emitConstantOp(
                 rewriter, loc, rewriter.getIndexType(), strides[j]);
@@ -242,25 +244,21 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
                 loc, strideIndex, outerLoops.getInductionVar(i));
           }
 
-          // sX * rX + kX
-          spatialIndex = rewriter.create<AddIOp>(
-              loc, spatialIndex, innerLoops.getInductionVar(j));
-
           // Dilate the kernel index only if the dilation value is not one (not
-          // default).
-          // sX * rX + kX + kX * dX - 1
+          // default). Otherwise, just add kernelIndex.
+          auto kernelIndex = innerLoops.getInductionVar(j);
           if (dilations[j] > 1) {
-            // Dilation offset: kX * dX - 1
-            Value kernelIndex = innerLoops.getInductionVar(j);
+            // sX += dX * kW
             auto dilationIndex = emitConstantOp(
                 rewriter, loc, rewriter.getIndexType(), dilations[j]);
             auto dilationKernelIndex =
                 rewriter.create<MulIOp>(loc, dilationIndex, kernelIndex);
             spatialIndex =
                 rewriter.create<AddIOp>(loc, spatialIndex, dilationKernelIndex);
-            auto one =
-                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
-            spatialIndex = rewriter.create<SubIOp>(loc, spatialIndex, one);
+          } else {
+            // sX += kX
+            spatialIndex =
+                rewriter.create<AddIOp>(loc, spatialIndex, kernelIndex);
           }
 
           // If ceil mode or dilation is enabled, then the calculated access
@@ -268,6 +266,24 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
           // maximum index, which causes multiple visits to the element of the
           // maximum index.
           // TODO: Avoid multiple visits.
+          // Example of out-of-bound.
+          // - Given a 5x5 input X
+          //  X = [[0, 0, 0, 0, 0],
+          //       [1, 1, 1, 1, 1],
+          //       [2, 2, 2, 2, 2],
+          //       [3, 3, 3, 3, 3],
+          //       [4, 4, 4, 4, 4]]
+          // - Do MaxPool with strides=[2, 2], kernel=[2, 2], ceilMode=true,
+          // output is a 3x3 array:
+          // Y = [[1, 1, 1],
+          //      [3, 3, 3],
+          //      [4, 4, 4]]
+          // - When computing Y[2, 0]:
+          //    - In case of kernelIndex = 1, stride = 2
+          //      - No dilation: spatialIndex = 2 * 2 + 1 = 5
+          //        => out of bound
+          //      - dilation = 2: spatialIndex = 2 * 2 + 2 * 1 = 6
+          //        => out of bound
           if (dilations[j] > 1 or ceilMode) {
             Value upperIndex;
             if (inputShape[i] < 0) {
