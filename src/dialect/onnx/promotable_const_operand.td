@@ -8,16 +8,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef IDENTIFY_PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
+#ifdef PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 #else
-#define IDENTIFY_PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
+#define PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 
 #ifdef OP_BASE
 #else
 include "mlir/IR/OpBase.td"
 #endif // OP_BASE
 
-def IdentifyConstOperandsOpInterface : OpInterface<"IdentifyConstOperandsOpInterface"> {
+def PromotableConstOperandsOpInterface : OpInterface<"PromotableConstOperandsOpInterface"> {
   let description = [{
     Interface to access a registered method to infer the return types for an
     operation that can be used during type inference.
@@ -25,8 +25,8 @@ def IdentifyConstOperandsOpInterface : OpInterface<"IdentifyConstOperandsOpInter
 
   let methods = [
     InterfaceMethod<"Infer and set the output shape for the current operation.",
-                    "std::map<std::string, size_t>", "identifyPromotableConstOperands">
+                    "std::map<std::string, size_t>", "promotableConstOperands">
   ];
 }
 
-#endif // IDENTIFY_PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
+#endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE

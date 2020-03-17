@@ -12,13 +12,13 @@
 #include "mlir/Pass/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/dialect/onnx/const_operands_interface.hpp"
+#include "src/dialect/onnx/promotable_const_operand.hpp"
 #include "src/dialect/onnx/onnx_ops.hpp"
 #include "src/pass/passes.hpp"
 
 using namespace mlir;
 
-#include "src/dialect/onnx/const_operands_interface.cpp.inc"
+#include "src/dialect/onnx/promotable_const_operand.cpp.inc"
 
 namespace {
 /*!
@@ -48,9 +48,9 @@ public:
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape.
     f.walk([&](mlir::Operation *op) {
-      if (IdentifyConstOperandsOpInterface opWithConstOperand =
-              dyn_cast<IdentifyConstOperandsOpInterface>(op)) {
-        auto promotableOperands = opWithConstOperand.identifyPromotableConstOperands();
+      if (PromotableConstOperandsOpInterface opWithConstOperand =
+              dyn_cast<PromotableConstOperandsOpInterface>(op)) {
+        auto promotableOperands = opWithConstOperand.promotableConstOperands();
         for (const auto& operandNameToIdx : promotableOperands) {
           auto name = operandNameToIdx.first;
           auto idx = operandNameToIdx.second;

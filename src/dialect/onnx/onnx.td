@@ -22,10 +22,10 @@ include "mlir/IR/OpBase.td"
 include "pass/shape_inference_interface.td"
 #endif // SHAPE_INFERENCE_INTERFACE
 
-#ifdef IDENTIFY_PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
+#ifdef PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 #else
-include "dialect/onnx/const_operands_interface.td"
-#endif // IDENTIFY_PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
+include "dialect/onnx/promotable_const_operand.td"
+#endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";

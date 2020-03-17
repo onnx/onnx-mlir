@@ -2503,7 +2503,7 @@ def ONNXReluOp:ONNX_Op<"Relu",
 def ONNXReshapeOp:ONNX_Op<"Reshape",
   [NoSideEffect,
    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
-   OpInterface<"IdentifyConstOperandsOpInterface">]> {
+   OpInterface<"PromotableConstOperandsOpInterface">]> {
   let summary = "ONNX Reshape operation";
   let description = [{
   "Reshape the input tensor similar to numpy.reshape."
@@ -2517,7 +2517,9 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$shape);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reshaped);
   let extraClassDeclaration = [{
-    std::map<std::string, size_t> identifyPromotableConstOperands() { return {{"shape", 1}}; }
+    std::map<std::string, size_t> promotableConstOperands() {
+      return {{"shape", 1}};
+    }
   }];
 }
 

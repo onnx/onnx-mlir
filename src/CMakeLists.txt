@@ -13,7 +13,7 @@ add_library(compiler
         pass/onnx_rewrite.cpp
         pass/onnx_decompose.cpp
         pass/passes.hpp
-        dialect/onnx/const_operands_interface.hpp
+        dialect/onnx/promotable_const_operand.hpp
         dialect/onnx/attribute_promotion.cpp
         )
 
@@ -59,7 +59,7 @@ set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
 add_public_tablegen_target(gen_onnx)
 
 add_dependencies(gen_onnx gen_shape_inference)
-add_dependencies(gen_onnx gen_const_operands_interface)
+add_dependencies(gen_onnx gen_promotable_const_operand_interface)
 add_dependencies(compiler gen_onnx)
 
 add_onnf_dialect_doc(onnx dialect/onnx/onnx.td)

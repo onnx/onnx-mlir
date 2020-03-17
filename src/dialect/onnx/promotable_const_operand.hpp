@@ -19,6 +19,6 @@
 namespace mlir {
 
 /// Include the auto-generated declarations.
-#include "src/dialect/onnx/const_operands_interface.hpp.inc"
+#include "src/dialect/onnx/promotable_const_operand.hpp.inc"
 
 }  // end namespace mlir
