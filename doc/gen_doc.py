@@ -47,13 +47,14 @@ OpsWithShapeInference = [
     'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
     'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
     'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
-    'Sign', 'Constant', 'ONNXAveragePoolOp'
+    'Sign', 'Constant', 'AveragePool'
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = [
-    'Add', 'Identity', 'Gemm'
-]
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm']
+
+# Operations
+OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)]}
 
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
@@ -313,6 +314,25 @@ def get_attrs(schema):
     return name_to_type
 
 
+def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
+    cpp_name_to_idx_literal = "{" + ", ".join([
+        "{{\"{}\", {}}}".format(*name_to_idx)
+        for name_to_idx in const_operands_name_to_idx
+    ]) + "}"
+
+    s += indent + "let extraClassDeclaration = [{\n"
+    indent = inc_indent(indent)
+    s += indent + "std::map<std::string, size_t> promotableConstOperands() {\n"
+    indent = inc_indent(indent)
+    s += indent + "return {};\n".format(cpp_name_to_idx_literal)
+    indent = dec_indent(indent)
+    s += indent + "}\n"
+    indent = dec_indent(indent)
+    s += indent + "}];\n"
+
+    return s
+
+
 def gen_op_def(schema):
     indent = inc_indent()
     s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
@@ -321,6 +341,8 @@ def gen_op_def(schema):
     traits = ["NoSideEffect"]
     if schema.name in OpsWithShapeInference:
         traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
+    if schema.name in OpsWithPromotableConstOperands.keys():
+        traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
     # Generate decl for canonicalizer.
@@ -400,6 +422,9 @@ def gen_op_def(schema):
 
             s += '\n' + indent + '];\n'
 
+    if schema.name in OpsWithPromotableConstOperands:
+        s = get_promotable_const_operands_func(
+            s, indent, OpsWithPromotableConstOperands[schema.name])
     s += '}\n\n'
     return s
 
