@@ -26,12 +26,12 @@ class OwningModuleRef;
 } // namespace mlir
 
 //===----------------------------------------------------------------------===//
-// Import a model into one of ONNF's frontend models.
+// Import a model into the ONNX MLIR dialect.
 //===----------------------------------------------------------------------===//
 
-namespace onnf {
+namespace onnx_mlir {
 /*!
- *  Import an ONNX model file into ONNF's ONNX Dialect.
+ *  Import an ONNX model file into the ONNX Dialect.
  *  @param model_fname file name pointing to the onnx model protobuf.
  *  @return MLIR::module generated for the ONNX model.
  */
@@ -43,4 +43,4 @@ void ImportFrontendModelFile(std::string model_fname,
  *  TODO: Import models into other extension dialects that cover the
  *  operations specific to other frameworks such as Tensorflow or Pytorch.
  */
-}  // namespace onnf
+}  // namespace onnx_mlir

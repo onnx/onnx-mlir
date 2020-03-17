@@ -21,7 +21,7 @@ namespace bstd = mpark;
 
 #include "frontend_dialect_transformer.hpp"
 
-namespace onnf {
+namespace onnx_mlir {
 namespace {
 
 /*!
@@ -47,13 +47,13 @@ private:
   mlir::OpBuilder builder_;
   mlir::Value none_;
   // mapping between string name and symbol
-  OnnxOnnfSymbolMapping frontend_symbols_;
+  OnnxMlirSymbolMapping frontend_symbols_;
 
   mlir::Location UnknownLoc() { return mlir::UnknownLoc::get(&context_); }
 
   // Convert type to MLIR type.
   // A complete list of types can be found in:
-  // <onnf-build-folder>/third_party/onnx/onnx/onnx.pb.h
+  // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
   mlir::Type convertONNXTypeToMLIRType(onnx::TensorProto_DataType onnxType) {
     switch (onnxType) {
     case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
@@ -473,9 +473,9 @@ private:
   }
 }; // FrontendGenImpl class
 } // namespace
-} // namespace onnf
+} // namespace onnx_mlir
 
-namespace onnf {
+namespace onnx_mlir {
 
 void ImportFrontendModelFile(std::string model_fname,
                              mlir::MLIRContext &context,
@@ -489,4 +489,4 @@ void ImportFrontendModelFile(std::string model_fname,
   FrontendGenImpl myONNXGen(context);
   module = myONNXGen.ImportONNXModel(model);
 }
-} // namespace onnf
+} // namespace onnx_mlir

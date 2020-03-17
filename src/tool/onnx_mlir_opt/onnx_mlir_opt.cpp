@@ -1,4 +1,4 @@
-//===--------------------- onnf_opt.cpp - MLIR Operations -----------------===//
+//===---------------- onnx_mlir_opt.cpp - MLIR Operations -----------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -19,7 +19,7 @@
 #include "src/dialect/onnx/onnx_ops.hpp"
 #include "src/pass/passes.hpp"
 
-using namespace onnf;
+using namespace onnx_mlir;
 
 static llvm::cl::opt<std::string> input_filename(llvm::cl::Positional,
                                                  llvm::cl::desc("<input file>"),
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
   mlir::registerPassManagerCLOptions();
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
   llvm::cl::ParseCommandLineOptions(argc, argv,
-                                    "ONNF MLIR modular optimizer driver\n");
+                                    "ONNX MLIR modular optimizer driver\n");
 
   // Set up the input file.
   std::string error_message;

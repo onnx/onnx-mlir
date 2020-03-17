@@ -188,9 +188,9 @@ void print(OpAsmPrinter &p, KrnlIterateOp &op) {
     p << " -> ";
     p.printOperand(var);
     p << " = ";
-    onnf::printBound((*boundItr++).cast<AffineMapAttr>(), operandItr, "max", p);
+    onnx_mlir::printBound((*boundItr++).cast<AffineMapAttr>(), operandItr, "max", p);
     p << " to ";
-    onnf::printBound((*boundItr++).cast<AffineMapAttr>(), operandItr, "min", p);
+    onnx_mlir::printBound((*boundItr++).cast<AffineMapAttr>(), operandItr, "min", p);
     delimiter = ", ";
   }
 
@@ -202,7 +202,7 @@ void print(OpAsmPrinter &p, KrnlIterateOp &op) {
 ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
   auto builder = parser.getBuilder();
   auto context = builder.getContext();
-  onnf::KrnlDialectOperandParser operandParser(parser);
+  onnx_mlir::KrnlDialectOperandParser operandParser(parser);
 
   // Parse optimized loops:
   SmallVector<OpAsmParser::OperandType, 4> optimizedLoopRefs;

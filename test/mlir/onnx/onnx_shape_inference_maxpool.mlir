@@ -1,4 +1,4 @@
-// RUN: onnf-opt --shape-inference %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference %s -split-input-file | FileCheck %s
 
 /// Test the default behavior of Max Pool with no padding (pad are set but shoudl be ignored)
 func @test_default_maxpoolsingleout(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
