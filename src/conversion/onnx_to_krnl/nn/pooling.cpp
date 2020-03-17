@@ -225,72 +225,50 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
         // 3.1.1 Batch indices: n, c
         for (int i = 0; i < batchRank; ++i)
           dataIndices.emplace_back(outerLoops.getInductionVar(i));
-        // 3.1.2 Insert spatial indices: sX * rX + kX
-        // Spatial index may go out of the input index space due to dilation or
-        // ceilMode. Hence, we should keep trace of out-of-index.
-        Value outOfIndex = nullptr;
+        // 3.1.2 Insert spatial indices: sX * rX + kX + kX * dX - 1
         for (int i = batchRank; i < nOuterLoops; ++i) {
+          // Get index along the inner loop's induction variables.
+          // It is used to obtain kernel/pad/stride/dilation index.
+          int j = i - batchRank;
+
           Value spatialIndex = outerLoops.getInductionVar(i);
           // If strides are present (not default) then emit the correct access
           // index.
           // sX * rX
           if (strides[i - batchRank] > 1) {
             auto strideIndex = emitConstantOp(
-                rewriter, loc, rewriter.getIndexType(), strides[i - batchRank]);
+                rewriter, loc, rewriter.getIndexType(), strides[j]);
             spatialIndex = rewriter.create<MulIOp>(
                 loc, strideIndex, outerLoops.getInductionVar(i));
           }
 
           // sX * rX + kX
           spatialIndex = rewriter.create<AddIOp>(
-              loc, spatialIndex, innerLoops.getInductionVar(i - batchRank));
+              loc, spatialIndex, innerLoops.getInductionVar(j));
 
           // Dilate the kernel index only if the dilation value is not one (not
-          // default). If the kernel dimension has a real center, keep the index
-          // at the center unchanged/undilated.
-          if (dilations[i - batchRank] > 1) {
-            bool hasCenter = (kernelShape[i - batchRank] % 2) == 1;
-            int64_t centerIndex = (hasCenter)
-                                      ? ((kernelShape[i - batchRank] - 1) / 2)
-                                      : (kernelShape[i - batchRank] / 2);
-            auto centerKernelIndex = emitConstantOp(
-                rewriter, loc, rewriter.getIndexType(), centerIndex);
-            Value kernelIndex = innerLoops.getInductionVar(i - batchRank);
-
-            Value lessThanCenter, greaterThanCenter;
-            if (hasCenter) {
-              lessThanCenter = rewriter.create<CmpIOp>(
-                  loc, CmpIPredicate::slt, kernelIndex, centerKernelIndex);
-              greaterThanCenter = rewriter.create<CmpIOp>(
-                  loc, CmpIPredicate::sgt, kernelIndex, centerKernelIndex);
-            } else {
-              lessThanCenter = rewriter.create<CmpIOp>(
-                  loc, CmpIPredicate::slt, kernelIndex, centerKernelIndex);
-              greaterThanCenter = rewriter.create<CmpIOp>(
-                  loc, CmpIPredicate::sge, kernelIndex, centerKernelIndex);
-            }
-
-            auto dilationIndex = emitConstantOp(rewriter, loc,
-                rewriter.getIndexType(), dilations[i - batchRank] - 1);
-            // Dilate forward.
-            auto spatialAddDilationIndex =
-                rewriter.create<AddIOp>(loc, spatialIndex, dilationIndex);
-            // Dilate backward.
-            auto spatialMinusDilationIndex =
-                rewriter.create<SubIOp>(loc, spatialIndex, dilationIndex);
-            // Switch between forward and backward mode depending on
-            // relationship between the spatial index and the center index.
-            spatialIndex = rewriter.create<SelectOp>(
-                loc, lessThanCenter, spatialMinusDilationIndex, spatialIndex);
-            spatialIndex = rewriter.create<SelectOp>(
-                loc, greaterThanCenter, spatialAddDilationIndex, spatialIndex);
+          // default).
+          // sX * rX + kX + kX * dX - 1
+          if (dilations[j] > 1) {
+            // Dilation offset: kX * dX - 1
+            Value kernelIndex = innerLoops.getInductionVar(j);
+            auto dilationIndex = emitConstantOp(
+                rewriter, loc, rewriter.getIndexType(), dilations[j]);
+            auto dilationKernelIndex =
+                rewriter.create<MulIOp>(loc, dilationIndex, kernelIndex);
+            spatialIndex =
+                rewriter.create<AddIOp>(loc, spatialIndex, dilationKernelIndex);
+            auto one =
+                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
+            spatialIndex = rewriter.create<SubIOp>(loc, spatialIndex, one);
           }
 
-          // Check whether the spatial index goes out of the input index space
-          // or not.
-          if (dilations[i - batchRank] > 1 or ceilMode) {
-            Value lowerIndex =
-                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+          // If ceil mode or dilation is enabled, then the calculated access
+          // index may exceed its dimension. In such a case, we will use the
+          // maximum index, which causes multiple visits to the element of the
+          // maximum index.
+          // TODO: Avoid multiple visits.
+          if (dilations[j] > 1 or ceilMode) {
             Value upperIndex;
             if (inputShape[i] < 0) {
               Value inputDim = rewriter.create<DimOp>(loc, inputOperand, i);
@@ -300,29 +278,17 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
               upperIndex =
                   rewriter.create<ConstantIndexOp>(loc, inputShape[i] - 1);
             }
-            auto lessThanLowerBound = rewriter.create<CmpIOp>(
-                loc, CmpIPredicate::slt, spatialIndex, lowerIndex);
-            auto greaterThanUpperBound = rewriter.create<CmpIOp>(
+            auto greaterCondition = rewriter.create<CmpIOp>(
                 loc, CmpIPredicate::sgt, spatialIndex, upperIndex);
-            if (outOfIndex) {
-              auto next = rewriter.create<OrOp>(
-                  loc, lessThanLowerBound, greaterThanUpperBound);
-              outOfIndex = rewriter.create<OrOp>(loc, outOfIndex, next);
-            } else {
-              outOfIndex = rewriter.create<OrOp>(
-                  loc, lessThanLowerBound, greaterThanUpperBound);
-            }
+            spatialIndex = rewriter.create<SelectOp>(
+                loc, greaterCondition, upperIndex, spatialIndex);
           }
 
           dataIndices.emplace_back(spatialIndex);
         }
 
         // 3.2 Do pooling.
-        Value loadData =
-            rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
-        if (outOfIndex)
-          loadData =
-              rewriter.create<SelectOp>(loc, outOfIndex, identity, loadData);
+        auto loadData = rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
         auto loadPartialResult =
             rewriter.create<LoadOp>(loc, alloc, resultIndices);
         Value result = mapToLowerScalarOp<ONNXMaxPoolSingleOutOp>(
