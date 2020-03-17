@@ -56,7 +56,7 @@ public:
           auto i = operandNameToIdx.second;
 
           // If the i-th operand is defined by an constant operation, then
-          // move it to become an attribute.
+          // move it to an attribute.
           auto operandToPromote = op->getOperand(i);
           if (auto constantOp = dyn_cast_or_null<ConstantOp>(
                   operandToPromote.getDefiningOp())) {
