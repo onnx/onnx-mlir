@@ -225,7 +225,7 @@ def get_operands_or_results(schema, is_input):
             return "AnyTypeOf<[{}]>".format(", ".join(types))
 
     name_to_types = OrderedDict()
-    for value in value_list:
+    for i, value in enumerate(value_list):
         elem_types = get_allowed_elem_types(schema, value)
 
         if elem_types is None:
@@ -233,6 +233,11 @@ def get_operands_or_results(schema, is_input):
         else:
             types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
             types = list(map(lambda x: x.format(elem_types), types))
+
+        if schema.name in OpsWithPromotableConstOperands:
+            idxs = dict(OpsWithPromotableConstOperands[schema.name]).values()
+            if i in idxs:
+                types.append("NoneType")
 
         if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")
