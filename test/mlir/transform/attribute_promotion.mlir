@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --attribute-promotion --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --attribute-promotion %s -split-input-file | FileCheck %s
 
 func @test_should_promote_to_attribute(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %shape = constant dense<[6, 7, 42]> : tensor<3xi32>
