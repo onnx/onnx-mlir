@@ -53,7 +53,8 @@ OpsWithShapeInference = [
 # Operations supporting canonicalization.
 OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm']
 
-# Operations
+# Operations who have operands that, if constant, should be promoted to become
+# an attribute (via attribute promotion).
 OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)]}
 
 # Add an Op in this list if the Op needs result type deduction which is required
@@ -234,6 +235,8 @@ def get_operands_or_results(schema, is_input):
             types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
             types = list(map(lambda x: x.format(elem_types), types))
 
+        # If operand is promotable to an attribute, then it must be
+        # nullable in case it migrates to be an attribute.
         if schema.name in OpsWithPromotableConstOperands:
             idxs = dict(OpsWithPromotableConstOperands[schema.name]).values()
             if i in idxs:
