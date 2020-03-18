@@ -10,7 +10,7 @@ target_link_libraries(onnx-mlir-opt
         onnx_mlir_transform
         onnx_mlir_shape_inference
         onnx_mlir_lower_frontend
-        promotable_const_operands_interface
+        onnx_mlir_promotable_const_operands_op_interface
         curses)
 whole_archive_link_mlir(onnx-mlir-opt
         ${MLIRWholeArchiveLibs})
