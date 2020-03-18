@@ -76,23 +76,23 @@ target_link_libraries(onnx_mlir_shape_inference ${MLIRLibs})
 add_dependencies(onnx_mlir_shape_inference gen_krnl_ops)
 
 add_library(onnx_mlir_lower_frontend
-        conversion/onnx_to_krnl/onnx_to_krnl_common.cpp
-        conversion/onnx_to_krnl/onnx_to_krnl_common.hpp
-        conversion/onnx_to_krnl/math/elementwise.cpp
-        conversion/onnx_to_krnl/math/gemm.cpp
-        conversion/onnx_to_krnl/math/matmul.cpp
-        conversion/onnx_to_krnl/math/reduction.cpp
-        conversion/onnx_to_krnl/math/softmax.cpp
-        conversion/onnx_to_krnl/nn/conv.cpp
-        conversion/onnx_to_krnl/nn/normalization.cpp
-        conversion/onnx_to_krnl/nn/pooling.cpp
-        conversion/onnx_to_krnl/tensor/identity.cpp
-        conversion/onnx_to_krnl/tensor/reshape.cpp
-        conversion/onnx_to_krnl/tensor/padconstantvaluepad.cpp
-        conversion/onnx_to_krnl/tensor/transpose.cpp
-        conversion/onnx_to_krnl/tensor/unsqueeze.cpp
-        conversion/onnx_to_krnl/tensor/constant.cpp
-        conversion/onnx_to_krnl/convert_onnx_to_krnl.cpp)
+        Conversion/onnx_to_krnl/onnx_to_krnl_common.cpp
+        Conversion/onnx_to_krnl/onnx_to_krnl_common.hpp
+        Conversion/onnx_to_krnl/math/elementwise.cpp
+        Conversion/onnx_to_krnl/math/gemm.cpp
+        Conversion/onnx_to_krnl/math/matmul.cpp
+        Conversion/onnx_to_krnl/math/reduction.cpp
+        Conversion/onnx_to_krnl/math/softmax.cpp
+        Conversion/onnx_to_krnl/nn/conv.cpp
+        Conversion/onnx_to_krnl/nn/normalization.cpp
+        Conversion/onnx_to_krnl/nn/pooling.cpp
+        Conversion/onnx_to_krnl/tensor/identity.cpp
+        Conversion/onnx_to_krnl/tensor/reshape.cpp
+        Conversion/onnx_to_krnl/tensor/padconstantvaluepad.cpp
+        Conversion/onnx_to_krnl/tensor/transpose.cpp
+        Conversion/onnx_to_krnl/tensor/unsqueeze.cpp
+        Conversion/onnx_to_krnl/tensor/constant.cpp
+        Conversion/onnx_to_krnl/convert_onnx_to_krnl.cpp)
 target_include_directories(onnx_mlir_lower_frontend
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})

@@ -374,7 +374,7 @@ private:
     // the generic operator is used
     // one known reeason is the optional input
 
-#include "src/builder/op_build_table.inc"
+#include "src/Builder/OpBuildTable.inc"
   }
 
   /*!
