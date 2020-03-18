@@ -57,6 +57,11 @@ add_public_tablegen_target(gen_onnx)
 add_dependencies(gen_onnx gen_shape_inference)
 add_dependencies(compiler gen_onnx)
 
+# TODO: onnx_mlir_gen_promotable_const_operands_op_interface is really a
+# dependency of the onnx dialect library, which is currently part of `compiler`.
+add_dependencies(compiler onnx_mlir_gen_promotable_const_operands_op_interface)
+
+
 add_onnx_mlir_dialect_doc(onnx dialect/onnx/onnx.td)
 
 set(LLVM_TARGET_DEFINITIONS dialect/krnl/krnl_ops.td)
