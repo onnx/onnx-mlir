@@ -56,7 +56,7 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 // 4. type of string, complex64 and complex128 for input/output are ignored 
 // 5. unsigned int are treated as signed one
 
-include "dialect/onnx/onnxop.inc"
+include "Dialect/ONNX/ONNXOps.inc"
 
 // Indicate entry point functions of ONNX graph.
 def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {

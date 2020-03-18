@@ -21,9 +21,9 @@
 #include "llvm/ADT/Sequence.h"
 #include "mlir/IR/PatternMatch.h"
 
-#include "src/dialect/krnl/krnl_helper.hpp"
-#include "src/dialect/krnl/krnl_ops.hpp"
-#include "src/dialect/onnx/onnx_ops.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/pass/passes.hpp"
 
 using namespace mlir;

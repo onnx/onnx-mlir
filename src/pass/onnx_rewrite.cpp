@@ -12,7 +12,7 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 
-#include "src/dialect/onnx/onnx_ops.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
 

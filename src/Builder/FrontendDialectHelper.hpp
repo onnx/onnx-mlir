@@ -31,7 +31,7 @@
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/dialect/onnx/onnx_ops.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "onnx/onnx_pb.h"
 
 namespace onnx_mlir {

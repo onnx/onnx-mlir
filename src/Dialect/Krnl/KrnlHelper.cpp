@@ -2,9 +2,9 @@
 #include "mlir/Dialect/StandardOps/Ops.h"
 #include "mlir/IR/AffineExpr.h"
 
-#include "src/dialect/krnl/krnl_ops.hpp"
+#include "KrnlOps.hpp"
 
-#include "krnl_helper.hpp"
+#include "KrnlHelper.hpp"
 
 namespace onnx_mlir {
 

@@ -18,7 +18,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "src/dialect/onnx/onnx_ops.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/pass/passes.hpp"
 
 using namespace mlir;

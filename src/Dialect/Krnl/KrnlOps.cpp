@@ -24,9 +24,9 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
 
-#include "krnl_helper.hpp"
+#include "KrnlHelper.hpp"
 
-#include "krnl_ops.hpp"
+#include "KrnlOps.hpp"
 
 using namespace mlir;
 

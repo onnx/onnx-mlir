@@ -14,7 +14,7 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "shape_inference_interface.hpp"
-#include "src/dialect/onnx/onnx_ops.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 #include "passes.hpp"
 

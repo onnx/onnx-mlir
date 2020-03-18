@@ -19,7 +19,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
 
-#include "onnx_ops.hpp"
+#include "ONNXOps.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;

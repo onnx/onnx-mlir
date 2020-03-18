@@ -506,7 +506,7 @@ if __name__ == '__main__':
     curr_dir = os.path.dirname(os.path.realpath(__file__))
 
     class Args(object):
-        op_def_file = os.path.join(curr_dir, 'onnxop.inc')
+        op_def_file = os.path.join(curr_dir, 'ONNXOps.inc')
         op_importer_file = os.path.join(curr_dir, 'OpBuildTable.inc')
 
     main(Args)

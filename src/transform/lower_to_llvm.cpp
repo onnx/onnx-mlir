@@ -16,7 +16,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
 
-#include "src/dialect/krnl/krnl_ops.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/pass/passes.hpp"
 
 using namespace mlir;

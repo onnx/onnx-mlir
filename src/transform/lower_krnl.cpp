@@ -3,7 +3,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "src/dialect/krnl/krnl_ops.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/pass/passes.hpp"
 
 using namespace mlir;

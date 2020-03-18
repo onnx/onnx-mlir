@@ -1,14 +1,13 @@
 add_library(compiler
-        dialect/krnl/krnl_ops.cpp
-        dialect/krnl/krnl_ops.hpp
-        dialect/krnl/krnl_types.cpp
-        dialect/krnl/krnl_types.hpp
-        dialect/onnx/onnx_ops.cpp
-        dialect/onnx/onnx_ops.hpp
-        dialect/krnl/krnl_helper.cpp
-        dialect/krnl/krnl_helper.hpp
+        Dialect/Krnl/KrnlOps.cpp
+        Dialect/Krnl/KrnlOps.hpp
+        Dialect/Krnl/KrnlTypes.cpp
+        Dialect/Krnl/KrnlTypes.hpp
+        Dialect/ONNX/ONNXOps.cpp
+        Dialect/ONNX/ONNXOps.hpp
+        Dialect/Krnl/KrnlHelper.cpp
+        Dialect/Krnl/KrnlHelper.hpp
         pass/shape_inference_interface.hpp
-        dialect/onnx/onnxop.inc
         pass/onnx_combine.cpp
         pass/onnx_rewrite.cpp
         pass/onnx_decompose.cpp
@@ -47,15 +46,15 @@ onnx_mlir_tablegen(onnx_rewrite.inc -gen-rewriters)
 add_public_tablegen_target(gen_onnx_rewrite)
 add_dependencies(compiler gen_onnx_rewrite)
 
-set(LLVM_TARGET_DEFINITIONS dialect/onnx/onnx.td)
+set(LLVM_TARGET_DEFINITIONS Dialect/ONNX/ONNXOps.td)
 onnx_mlir_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 onnx_mlir_tablegen(onnx.cpp.inc -gen-op-defs "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
 add_public_tablegen_target(gen_onnx)
 add_dependencies(compiler gen_onnx)
-add_onnx_mlir_dialect_doc(onnx dialect/onnx/onnx.td)
+add_onnx_mlir_dialect_doc(onnx Dialect/ONNX/ONNXOps.td)
 
-set(LLVM_TARGET_DEFINITIONS dialect/krnl/krnl_ops.td)
+set(LLVM_TARGET_DEFINITIONS Dialect/Krnl/KrnlOps.td)
 onnx_mlir_tablegen(krnl.hpp.inc -gen-op-decls)
 onnx_mlir_tablegen(krnl.cpp.inc -gen-op-defs)
 add_public_tablegen_target(gen_krnl_ops)

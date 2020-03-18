@@ -15,8 +15,8 @@
 #include <mlir/Support/FileUtilities.h>
 #include <mlir/Support/MlirOptMain.h>
 
-#include "src/dialect/krnl/krnl_ops.hpp"
-#include "src/dialect/onnx/onnx_ops.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/pass/passes.hpp"
 
 using namespace onnx_mlir;
