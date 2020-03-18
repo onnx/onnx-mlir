@@ -19,7 +19,7 @@
 #include <mpark/variant.hpp>
 namespace bstd = mpark;
 
-#include "frontend_dialect_transformer.hpp"
+#include "FrontendDialectTransformer.hpp"
 
 namespace onnx_mlir {
 namespace {

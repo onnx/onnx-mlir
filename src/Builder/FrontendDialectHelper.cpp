@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/builder/frontend_dialect_helper.hpp"
+#include "src/Builder/FrontendDialectHelper.hpp"
 
 namespace onnx_mlir {
 

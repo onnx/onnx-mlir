@@ -16,7 +16,7 @@
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/SourceMgr.h"
 
-#include "src/builder/frontend_dialect_transformer.hpp"
+#include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/dialect/krnl/krnl_ops.hpp"
 #include "src/dialect/onnx/onnx_ops.hpp"
 #include "src/pass/passes.hpp"

@@ -507,6 +507,6 @@ if __name__ == '__main__':
 
     class Args(object):
         op_def_file = os.path.join(curr_dir, 'onnxop.inc')
-        op_importer_file = os.path.join(curr_dir, 'op_build_table.inc')
+        op_importer_file = os.path.join(curr_dir, 'OpBuildTable.inc')
 
     main(Args)

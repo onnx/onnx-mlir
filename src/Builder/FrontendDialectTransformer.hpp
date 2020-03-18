@@ -18,7 +18,7 @@
 
 #include "onnx/onnx_pb.h"
 
-#include "src/builder/frontend_dialect_helper.hpp"
+#include "src/Builder/FrontendDialectHelper.hpp"
 
 namespace mlir {
 class MLIRContext;
