@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "dyn_memref.h"
+#include "DynMemRef.h"
 
 DynMemRef::DynMemRef(int _rank) {
   rank = _rank;

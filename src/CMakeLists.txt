@@ -101,7 +101,7 @@ add_dependencies(onnx_mlir_lower_frontend gen_krnl_ops)
 add_subdirectory(transform)
 add_subdirectory(tool)
 add_subdirectory(Builder)
-add_subdirectory(runtime)
+add_subdirectory(Runtime)
 
 add_executable(onnx-mlir main.cpp)
 
