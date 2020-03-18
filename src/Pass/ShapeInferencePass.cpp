@@ -13,10 +13,10 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "shape_inference_interface.hpp"
+#include "ShapeInferenceInterface.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
-#include "passes.hpp"
+#include "Passes.hpp"
 
 using namespace mlir;
 

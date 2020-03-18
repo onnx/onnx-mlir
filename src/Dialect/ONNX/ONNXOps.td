@@ -19,7 +19,7 @@ include "mlir/IR/OpBase.td"
 
 #ifdef SHAPE_INFERENCE_INTERFACE
 #else
-include "pass/shape_inference_interface.td"
+include "Pass/ShapeInferenceInterface.td"
 #endif // SHAPE_INFERENCE_INTERFACE
 
 def ONNX_Dialect : Dialect {

@@ -17,7 +17,7 @@
 #include "llvm/ADT/Sequence.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/pass/passes.hpp"
+#include "src/Pass/Passes.hpp"
 
 using namespace mlir;
 

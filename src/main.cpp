@@ -19,7 +19,7 @@
 #include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/pass/passes.hpp"
+#include "src/Pass/Passes.hpp"
 
 #include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"

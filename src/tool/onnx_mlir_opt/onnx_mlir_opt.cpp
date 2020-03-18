@@ -17,7 +17,7 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/pass/passes.hpp"
+#include "src/Pass/Passes.hpp"
 
 using namespace onnx_mlir;
 

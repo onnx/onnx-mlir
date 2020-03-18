@@ -1,4 +1,4 @@
-//=- shape_inference_interface.td - Shape Inference Interface -*- tablegen -==//
+//=- ShapeInferenceInterface.td - Shape Inference Interface -*- tablegen -==//
 //
 // Copyright 2019 The IBM Research Authors.
 //

@@ -1,5 +1,5 @@
 //===----------------------------------------------------------------------===//
-//=- onnx_decompose.td - Rewriting for decomposing ONNX Ops -*- tablegen -*===//
+//=- ONNXDecompose.td - Rewriting for decomposing ONNX Ops -*- tablegen -*===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

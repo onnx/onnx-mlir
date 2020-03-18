@@ -1,5 +1,5 @@
 //===----------------------------------------------------------------------===//
-//=- onnx_rewrite.td - Pattern Match Rewriting for ONNX -*- tablegen -*----===//
+//=- ONNXRewrite.td - Pattern Match Rewriting for ONNX -*- tablegen -*----===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
