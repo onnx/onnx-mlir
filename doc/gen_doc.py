@@ -47,7 +47,7 @@ OpsWithShapeInference = [
     'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
     'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
     'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
-    'Sign', 'Constant', 'ONNXAveragePoolOp'
+    'Sign', 'Constant', 'ONNXAveragePoolOp', 'Abs'
 ]
 
 # Operations supporting canonicalization.

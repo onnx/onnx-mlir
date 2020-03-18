@@ -1429,15 +1429,17 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x
   // CHECK:     [[STRIDE_0:%.+]] = constant 2 : index
   // CHECK:     [[MUL_0:%.+]] = muli [[STRIDE_0]], %arg3 : index
   // CHECK:     [[SPATIAL_H:%.+]] = addi [[MUL_0]], %arg5 : index
-  // CHECK:     [[INPUT_INDEX_0:%.+]] = constant 31 : index
-  // CHECK:     [[CMP_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[INPUT_INDEX_0]] : index
-  // CHECK:     [[H:%.+]] = select [[CMP_0]], [[INPUT_INDEX_0]], [[SPATIAL_H]] : index
+  // CHECK:     [[UPPER_INDEX_0:%.+]] = constant 31 : index
+  // CHECK:     [[GREATER_THAN_UPPER_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[UPPER_INDEX_0]] : index
+  // CHECK:     [[H:%.+]] = select [[GREATER_THAN_UPPER_0]], [[UPPER_INDEX_0]], [[SPATIAL_H]] : index
+
   // CHECK:     [[STRIDE_1:%.+]] = constant 2 : index
   // CHECK:     [[MUL_1:%.+]] = muli [[STRIDE_1]], %arg4 : index
   // CHECK:     [[SPATIAL_W:%.+]] = addi [[MUL_1]], %arg6 : index
-  // CHECK:     [[INPUT_INDEX_1:%.+]] = constant 31 : index
-  // CHECK:     [[CMP_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[INPUT_INDEX_1]] : index
-  // CHECK:     [[W:%.+]] = select [[CMP_1]], [[INPUT_INDEX_1]], [[SPATIAL_W]] : index
+  // CHECK:     [[UPPER_INDEX_1:%.+]] = constant 31 : index
+  // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
+  // CHECK:     [[W:%.+]] = select [[GREATER_THAN_UPPER_1]], [[UPPER_INDEX_1]], [[SPATIAL_W]] : index
+
   // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[H]], [[W]]] : memref<1x3x32x32xf32>
   // CHECK:     [[LOAD_Y:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
   // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[LOAD_X]] : f32
@@ -1446,6 +1448,52 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x
   // CHECK:   }
   // CHECK: }
   // CHECK: return [[RES]] : memref<1x3x16x16xf32>
+}
+
+func @test_maxpooling_singleout_no_pad_w_strides_w_dilation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], strides = [2, 2], dilations = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_maxpooling_singleout_no_pad_w_strides_w_dilation
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x3x14x14xf32>
+  // CHECK: [[DEF_LOOPS_0:%.+]]:4 = krnl.define_loops 4
+  // CHECK: [[OPT_LOOPS_0:%.+]]:4 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS_0]]#0, [[DEF_LOOPS_0]]#1, [[DEF_LOOPS_0]]#2, [[DEF_LOOPS_0]]#3
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_LOOPS_0]]#0, [[OPT_LOOPS_0]]#1, [[OPT_LOOPS_0]]#2, [[OPT_LOOPS_0]]#3) with ([[DEF_LOOPS_0]]#0 -> %arg1 = 0 to 1, [[DEF_LOOPS_0]]#1 -> %arg2 = 0 to 3, [[DEF_LOOPS_0]]#2 -> %arg3 = 0 to 14, [[DEF_LOOPS_0]]#3 -> %arg4 = 0 to 14) {
+  // CHECK:   [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK:   store [[NEGATIVE_INFINITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x14x14xf32>
+  // CHECK:   [[DEF_LOOPS_1:%.+]]:2 = krnl.define_loops 2
+  // CHECK:   [[OPT_LOOPS_1:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:     krnl.return_loops [[DEF_LOOPS_1]]#0, [[DEF_LOOPS_1]]#1
+  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK:   krnl.iterate([[OPT_LOOPS_1]]#0, [[OPT_LOOPS_1]]#1) with ([[DEF_LOOPS_1]]#0 -> %arg5 = 0 to 3, [[DEF_LOOPS_1]]#1 -> %arg6 = 0 to 3) {
+  // CHECK:     [[STRIDE_0:%.+]] = constant 2 : index
+  // CHECK:     [[MUL_0:%.+]] = muli [[STRIDE_0]], %arg3 : index
+  // CHECK:     [[STRIDE_1:%.+]] = constant 2 : index
+  // CHECK:     [[MUL_1:%.+]] = muli [[STRIDE_1]], %arg5 : index
+  // CHECK:     [[SPATIAL_H:%.+]] = addi [[MUL_0]], [[MUL_1]] : index
+  // CHECK:     [[UPPER_INDEX_0:%.+]] = constant 31 : index
+  // CHECK:     [[GREATER_THAN_UPPER_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[UPPER_INDEX_0]] : index
+  // CHECK:     [[H:%.+]] = select [[GREATER_THAN_UPPER_0]], [[UPPER_INDEX_0]], [[SPATIAL_H]] : index
+
+  // CHECK:     [[STRIDE_0_1:%.+]] = constant 2 : index
+  // CHECK:     [[MUL_0_1:%.+]] = muli [[STRIDE_0_1]], %arg4 : index
+  // CHECK:     [[STRIDE_1_1:%.+]] = constant 2 : index
+  // CHECK:     [[MUL_1_1:%.+]] = muli [[STRIDE_1_1]], %arg6 : index
+  // CHECK:     [[SPATIAL_W:%.+]] = addi [[MUL_0_1]], [[MUL_1_1]] : index
+  // CHECK:     [[UPPER_INDEX_1:%.+]] = constant 31 : index
+  // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
+  // CHECK:     [[W:%.+]] = select [[GREATER_THAN_UPPER_1]], [[UPPER_INDEX_1]], [[SPATIAL_W]] : index
+
+  // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[H]], [[W]]] : memref<1x3x32x32xf32>
+  // CHECK:     [[LOAD_Y:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x14x14xf32>
+  // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[LOAD_X]] : f32
+  // CHECK:     [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[LOAD_X]] : f32
+  // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x14x14xf32>
+  // CHECK:   }
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<1x3x14x14xf32>
 }
 
 func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg0 : tensor<?x3x?x32xf32>) -> tensor<*xf32> {
@@ -1459,7 +1507,7 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK: [[ONE:%.+]] = constant 1 : i64
   // CHECK: [[DIM_1:%.+]] = dim %arg0, 2 : memref<?x3x?x32xf32>
   // CHECK: [[DIM_1_i64:%.+]] = index_cast [[DIM_1]] : index to i64
-  // CHECK: [[KERNEL_PAD_DILATION:%.+]] = constant -1 : i64
+  // CHECK: [[KERNEL_PAD_DILATION:%.+]] = constant -3 : i64
   // CHECK: [[NUMERATOR:%.+]] = addi [[DIM_1_i64]], [[KERNEL_PAD_DILATION]] : i64
   // CHECK: [[DENOMINATOR:%.+]] = constant 2 : i64
   // CHECK: [[DIV:%.+]] = divi_signed [[NUMERATOR]], [[DENOMINATOR]] : i64
@@ -1490,16 +1538,16 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK:     [[SPATIAL_H:%.+]] = addi [[MUL_0]], %arg5 : index
   // CHECK:     [[DIM_0_0:%.+]] = dim %arg0, 2 : memref<?x3x?x32xf32>
   // CHECK:     [[ONE_INDEX:%.+]] = constant 1 : index
-  // CHECK:     [[INPUT_INDEX_0:%.+]] = subi [[DIM_0_0]], [[ONE_INDEX]] : index
-  // CHECK:     [[CMP_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[INPUT_INDEX_0]] : index
-  // CHECK:     [[H:%.+]] = select [[CMP_0]], [[INPUT_INDEX_0]], [[SPATIAL_H]] : index
+  // CHECK:     [[UPPER_INDEX_0:%.+]] = subi [[DIM_0_0]], [[ONE_INDEX]] : index
+  // CHECK:     [[GREATER_THAN_UPPER_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[UPPER_INDEX_0]] : index
+  // CHECK:     [[H:%.+]] = select [[GREATER_THAN_UPPER_0]], [[UPPER_INDEX_0]], [[SPATIAL_H]] : index
 
   // CHECK:     [[STRIDE_1:%.+]] = constant 2 : index
   // CHECK:     [[MUL_1:%.+]] = muli [[STRIDE_1]], %arg4 : index
   // CHECK:     [[SPATIAL_W:%.+]] = addi [[MUL_1]], %arg6 : index
-  // CHECK:     [[INPUT_INDEX_1:%.+]] = constant 31 : index
-  // CHECK:     [[CMP_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[INPUT_INDEX_1]] : index
-  // CHECK:     [[W:%.+]] = select [[CMP_1]], [[INPUT_INDEX_1]], [[SPATIAL_W]] : index
+  // CHECK:     [[UPPER_INDEX_1:%.+]] = constant 31 : index
+  // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
+  // CHECK:     [[W:%.+]] = select [[GREATER_THAN_UPPER_1]], [[UPPER_INDEX_1]], [[SPATIAL_W]] : index
 
   // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[H]], [[W]]] : memref<?x3x?x32xf32>
   // CHECK:     [[LOAD_Y:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<?x3x?x16xf32>
@@ -1509,6 +1557,47 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK:   }
   // CHECK: }
   // CHECK: return [[RES]] : memref<?x3x?x16xf32>
+}
+
+func @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Abs"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_abs_float
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ABS:%.+]] = absf [[LOAD]] : f32
+  // CHECK: store [[ABS]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+func @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
+  %0 = "onnx.Abs"(%arg0) : (tensor<?x10xi32>) -> tensor<*xi32>
+  "std.return"(%0) : (tensor<*xi32>) -> ()
+
+  // CHECK-LABEL: test_abs_int
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xi32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xi32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xi32>
+  // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xi32>
+  // CHECK: [[ZERO:%.+]] = constant 0 : i32
+  // CHECK: [[LESS_THAN_ZERO:%.+]] = cmpi "slt", [[LOAD]], [[ZERO]] : i32
+  // CHECK: [[NEGATIVE_LOAD:%.+]] = subi [[ZERO]], [[LOAD]] : i32
+  // CHECK: [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[NEGATIVE_LOAD]], [[LOAD]] : i32
+  // CHECK: store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xi32>
+  // CHECK: return [[RES]] : memref<?x10xi32>
 }
 
 func @test_constant_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
