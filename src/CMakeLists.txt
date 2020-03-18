@@ -8,7 +8,6 @@ add_library(compiler
         dialect/krnl/krnl_helper.cpp
         dialect/krnl/krnl_helper.hpp
         pass/shape_inference_interface.hpp
-        dialect/onnx/onnxop.inc
         pass/onnx_combine.cpp
         pass/onnx_rewrite.cpp
         pass/onnx_decompose.cpp
