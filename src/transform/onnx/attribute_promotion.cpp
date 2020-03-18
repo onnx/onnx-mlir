@@ -1,4 +1,5 @@
-//===----- attribute_promotion.cpp - Attribute Promotion -------------------===//
+//===----- attribute_promotion.cpp - Attribute Promotion
+//-------------------===//
 //
 // Copyright 2020 The IBM Research Authors.
 //
@@ -11,6 +12,7 @@
 
 #include "mlir/Dialect/StandardOps/Ops.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 
 #include "src/interface/promotable_const_operands_op_interface.hpp"
@@ -68,6 +70,13 @@ public:
         }
       }
     });
+
+    // Dispatch canonicalization pattern rewriters to eliminate redundant
+    // constant operaions.
+    OwningRewritePatternList patterns;
+    auto *context = &getContext();
+    ConstantOp::getCanonicalizationPatterns(patterns, context);
+    applyPatternsGreedily(f, patterns);
   }
 };
 } // end anonymous namespace
