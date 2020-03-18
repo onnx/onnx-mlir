@@ -98,7 +98,7 @@ target_include_directories(onnx_mlir_lower_frontend
 target_link_libraries(onnx_mlir_lower_frontend ${MLIRLibs})
 add_dependencies(onnx_mlir_lower_frontend gen_krnl_ops)
 
-add_subdirectory(transform)
+add_subdirectory(Transform)
 add_subdirectory(Tool)
 add_subdirectory(Builder)
 add_subdirectory(Runtime)

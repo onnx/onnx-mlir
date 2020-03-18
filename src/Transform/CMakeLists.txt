@@ -1,6 +1,6 @@
 add_library(onnx_mlir_transform
-        lower_krnl.cpp
-        lower_to_llvm.cpp)
+        LowerKrnl.cpp
+        LowerToLLVM.cpp)
 
 target_include_directories(onnx_mlir_transform
                            PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
