@@ -117,6 +117,7 @@ public:
         op->getName().getStringRef() != "onnx.ReduceSum" &&
         op->getName().getStringRef() != "onnx.Softmax" &&
         op->getName().getStringRef() != "onnx.Sqrt" &&
+        op->getName().getStringRef() != "onnx.Conv" &&
         op->getName().getStringRef() != "onnx.ConvNoBias" &&
         op->getName().getStringRef() != "onnx.PadConstantPad" &&
         op->getName().getStringRef() != "onnx.PadConstantValuePad" &&

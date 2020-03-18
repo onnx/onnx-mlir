@@ -321,9 +321,10 @@ private:
     // TODO: fix this after type inference
     int nOps = node.input().size();
 
-    if (nOps == 2)
+    if (nOps == 2) {
+      // todo: has to add none to nOps and send it to ONNXConv
       buildOperation<mlir::ONNXConvNoBiasOp>(node, nOps, nOut);
-    else
+    } else
       buildOperation<mlir::ONNXConvOp>(node, nOps, nOut);
   }
 
