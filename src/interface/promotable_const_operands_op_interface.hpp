@@ -20,6 +20,6 @@
 namespace mlir {
 
 /// Include the auto-generated declarations.
-#include "src/interface/promotable_const_operands.hpp.inc"
+#include "src/interface/promotable_const_operands_op_interface.hpp.inc"
 
 }  // end namespace mlir
