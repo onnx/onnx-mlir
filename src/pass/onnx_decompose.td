@@ -13,7 +13,7 @@
 #define ONNX_DECOMPOSE
 
 #ifndef OP_BASE
-include "dialect/onnx/onnx.td"
+include "Dialect/ONNX/ONNXOps.td"
 #endif // OP_BASE
 
 /// Note: The DRR definition used for defining patterns is shown below:
