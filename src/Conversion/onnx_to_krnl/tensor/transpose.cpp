@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
+#include "src/Conversion/onnx_to_krnl/onnx_to_krnl_common.hpp"
 
 using namespace mlir;
 
