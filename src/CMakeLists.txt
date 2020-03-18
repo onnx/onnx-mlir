@@ -55,7 +55,6 @@ set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
 add_public_tablegen_target(gen_onnx)
 
 add_dependencies(gen_onnx gen_shape_inference)
-add_dependencies(gen_onnx gen_promotable_const_operands_interface)
 add_dependencies(compiler gen_onnx)
 
 add_onnx_mlir_dialect_doc(onnx dialect/onnx/onnx.td)
@@ -111,8 +110,16 @@ add_subdirectory(runtime)
 
 add_executable(onnx-mlir main.cpp)
 
-target_link_libraries(onnx-mlir builder ${MLIRLibs} onnx_mlir_transform onnx_mlir_onnx_decompose onnx_mlir_shape_inference onnx_mlir_lower_frontend attribute_promotion)
-whole_archive_link_mlir(onnx-mlir ${MLIRWholeArchiveLibs})
+target_link_libraries(onnx-mlir
+        builder
+        ${MLIRLibs}
+        onnx_mlir_transform
+        onnx_mlir_onnx_decompose
+        onnx_mlir_shape_inference
+        onnx_mlir_lower_frontend
+        attribute_promotion)
+whole_archive_link_mlir(onnx-mlir
+        ${MLIRWholeArchiveLibs})
 
 find_package(ZLIB REQUIRED)
 target_link_libraries(onnx-mlir ${ZLIB_LIBRARIES})
