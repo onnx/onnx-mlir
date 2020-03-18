@@ -1,4 +1,4 @@
-add_executable(onnx-mlir-opt onnx_mlir_opt.cpp)
+add_executable(onnx-mlir-opt ONNXMLIROpt.cpp)
 add_dependencies(onnx-mlir-opt gen_krnl_ops)
 
 target_include_directories(onnx-mlir-opt PRIVATE ${ONNX_MLIR_SRC_ROOT})
