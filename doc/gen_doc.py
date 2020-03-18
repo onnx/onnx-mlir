@@ -53,8 +53,13 @@ OpsWithShapeInference = [
 # Operations supporting canonicalization.
 OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm']
 
-# Operations who have operands that, if constant, should be promoted to become
-# an attribute (via attribute promotion).
+# Operations who have operands that, if produced by constant operations, should
+# be promoted to become an attribute (via attribute promotion).
+#
+# For each operation, a key/value pair is used to specify how attribute promotion
+# should proceed. The key is the operation's name and the value is a list of
+# tuples, whose first item is the attribute/operand name, and the second item is
+# the index at which such operand occurs in the list of the operation's inputs.
 OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)]}
 
 # Add an Op in this list if the Op needs result type deduction which is required
