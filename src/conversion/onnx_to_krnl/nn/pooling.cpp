@@ -108,7 +108,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
       for (int i = batchRank; i < resultShape.size(); ++i) {
         if (resultShape[i] < 0) {
           // dim =
-          //   let numerator = (input + pad - (kernel - 1) * dilation + 1)
+          //   let numerator = (input + pad - (kernel - 1) * dilation - 1)
           //   in let denomitor = stride
           //      in
           //        if (ceilMode)
@@ -117,13 +117,13 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
           //          floor(numerator / denominator) + 1
           int spatialIndex = i - batchRank;
 
-          // numerator = (input + pad - (kernel - 1) * dilation + 1)
+          // numerator = (input + pad - (kernel - 1) * dilation - 1)
           auto inputDim = rewriter.create<DimOp>(loc, inputOperand, i);
           auto inputVal = rewriter.create<IndexCastOp>(
               loc, inputDim, rewriter.getIntegerType(64));
           int64_t padKernelDilation =
               (pads[spatialIndex] + pads[spatialIndex + spatialRank]) -
-              (kernelShape[spatialIndex] - 1) * dilations[spatialIndex] + 1;
+              (kernelShape[spatialIndex] - 1) * dilations[spatialIndex] - 1;
           auto padKernelDilationVal = rewriter.create<ConstantOp>(
               loc, rewriter.getIntegerAttr(
                        rewriter.getIntegerType(64), padKernelDilation));
@@ -177,12 +177,14 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
     //         R[n][c][r1][r2] = negative_infinity;
     //         for k1 = 0 .. KH:
     //           for k2 = 0 .. KW:
-    //             t = D[n][c][s1 * r1 + k1][s2 * r2 + k2];
+    //             t = D[n][c][s1 * r1 + k1 * d1][s2 * r2 + k2 * d2];
     //             R[n][c][r1][r2] = max(R[n][c][r1][r2], t);
     //
     // Naming:
     //   n, c, r1, r2: outer loop nest indices
     //   k1, k2: inner loop nest indices
+    //   s1, s2: strides
+    //   d1, d2: dilations
     //
     // TODO: handle padding.
     //
@@ -217,45 +219,87 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
       {
         // 3. Emit inner loop body
-        // t = D[n][c][s1 * r1 + k1][s2 * r2 + k2];
+        // t = D[n][c][s1 * r1 + k1 * d1][s2 * r2 + k2 * d2];
         // R[n][c][r1][r2] = max(R[n][c][r1][r2], t);
 
         // 3.1 Prepare indices for accesing the data tensor.
         SmallVector<Value, 4> dataIndices;
-        // Batch indices: n, c
+        // 3.1.1 Batch indices: n, c
         for (int i = 0; i < batchRank; ++i)
           dataIndices.emplace_back(outerLoops.getInductionVar(i));
-        // Spatial indices: sX * rX + kX
+        // 3.1.2 Insert spatial indices: sX * rX + kX * dX
         for (int i = batchRank; i < nOuterLoops; ++i) {
+          // Get index along the inner loop's induction variables.
+          // It is used to obtain kernel/pad/stride/dilation index.
+          int j = i - batchRank;
+
           Value spatialIndex = outerLoops.getInductionVar(i);
-          // If strides are present then emit the correct access index.
-          if (stridesAttribute && strides[i - batchRank] > 1) {
-            spatialIndex = rewriter.create<MulIOp>(loc,
-                rewriter.create<ConstantIndexOp>(loc, strides[i - batchRank]),
-                outerLoops.getInductionVar(i));
+          // If strides are present (not default) then emit the correct access
+          // index.
+          // sX *= rX
+          if (strides[i - batchRank] > 1) {
+            auto strideIndex = emitConstantOp(
+                rewriter, loc, rewriter.getIndexType(), strides[j]);
+            spatialIndex = rewriter.create<MulIOp>(
+                loc, strideIndex, outerLoops.getInductionVar(i));
           }
-          spatialIndex = rewriter.create<AddIOp>(
-              loc, spatialIndex, innerLoops.getInductionVar(i - batchRank));
-          // If ceil mode is enabled, then the calculated access index may
-          // exceed its dimension. In such a case, we will use the maximum
-          // index, which causes multiple visits to the element of the
+
+          // Dilate the kernel index only if the dilation value is not one (not
+          // default). Otherwise, just add kernelIndex.
+          auto kernelIndex = innerLoops.getInductionVar(j);
+          if (dilations[j] > 1) {
+            // sX += dX * kW
+            auto dilationIndex = emitConstantOp(
+                rewriter, loc, rewriter.getIndexType(), dilations[j]);
+            auto dilationKernelIndex =
+                rewriter.create<MulIOp>(loc, dilationIndex, kernelIndex);
+            spatialIndex =
+                rewriter.create<AddIOp>(loc, spatialIndex, dilationKernelIndex);
+          } else {
+            // sX += kX
+            spatialIndex =
+                rewriter.create<AddIOp>(loc, spatialIndex, kernelIndex);
+          }
+
+          // If ceil mode or dilation is enabled, then the calculated access
+          // index may exceed its dimension. In such a case, we will use the
+          // maximum index, which causes multiple visits to the element of the
           // maximum index.
           // TODO: Avoid multiple visits.
-          if (ceilMode) {
-            Value inputIndex;
+          // Example of out-of-bound.
+          // - Given a 5x5 input X
+          //  X = [[0, 0, 0, 0, 0],
+          //       [1, 1, 1, 1, 1],
+          //       [2, 2, 2, 2, 2],
+          //       [3, 3, 3, 3, 3],
+          //       [4, 4, 4, 4, 4]]
+          // - Do MaxPool with strides=[2, 2], kernel=[2, 2], ceilMode=true,
+          // output is a 3x3 array:
+          // Y = [[1, 1, 1],
+          //      [3, 3, 3],
+          //      [4, 4, 4]]
+          // - When computing Y[2, 0]:
+          //    - In case of kernelIndex = 1, stride = 2
+          //      - No dilation: spatialIndex = 2 * 2 + 1 = 5
+          //        => out of bound
+          //      - dilation = 2: spatialIndex = 2 * 2 + 2 * 1 = 6
+          //        => out of bound
+          if (dilations[j] > 1 or ceilMode) {
+            Value upperIndex;
             if (inputShape[i] < 0) {
               Value inputDim = rewriter.create<DimOp>(loc, inputOperand, i);
               Value one = rewriter.create<ConstantIndexOp>(loc, 1);
-              inputIndex = rewriter.create<SubIOp>(loc, inputDim, one);
+              upperIndex = rewriter.create<SubIOp>(loc, inputDim, one);
             } else {
-              inputIndex =
+              upperIndex =
                   rewriter.create<ConstantIndexOp>(loc, inputShape[i] - 1);
             }
             auto greaterCondition = rewriter.create<CmpIOp>(
-                loc, CmpIPredicate::sgt, spatialIndex, inputIndex);
+                loc, CmpIPredicate::sgt, spatialIndex, upperIndex);
             spatialIndex = rewriter.create<SelectOp>(
-                loc, greaterCondition, inputIndex, spatialIndex);
+                loc, greaterCondition, upperIndex, spatialIndex);
           }
+
           dataIndices.emplace_back(spatialIndex);
         }
 
