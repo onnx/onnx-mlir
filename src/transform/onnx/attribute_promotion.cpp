@@ -23,7 +23,7 @@ namespace {
 /*!
  * Helper function to create a NoneTyped constant value if `none` is empty.
  */
-static void getOrCreateNoneValue(llvm::Optional<mlir::Value> &none, FuncOp f) {
+void getOrCreateNoneValue(llvm::Optional<mlir::Value> &none, FuncOp f) {
   if (none.hasValue())
     return;
 
@@ -56,7 +56,8 @@ public:
           auto i = operandNameToIdx.second;
 
           // If the i-th operand is defined by an constant operation, then
-          // move it to an attribute.
+          // move it to an attribute, and use None to indicate the absence
+          // of the original operand value.
           auto operandToPromote = op->getOperand(i);
           if (auto constantOp = dyn_cast_or_null<ConstantOp>(
                   operandToPromote.getDefiningOp())) {
@@ -79,4 +80,4 @@ std::unique_ptr<mlir::Pass> mlir::createAttributePromotionPass() {
 }
 
 static PassRegistration<AttributePromotionPass> pass(
-    "attribute-promotion", "Pass to promote constant operands to attributes.");
+    "attribute-promotion", "Promote constant operands to attributes.");
