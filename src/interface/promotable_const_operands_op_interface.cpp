@@ -19,5 +19,5 @@ using namespace mlir;
 // Promotable Const Operands Op Interface
 //===----------------------------------------------------------------------===//
 
-#include "src/interface/promotable_const_operands.cpp.inc"
+#include "src/interface/promotable_const_operands_op_interface.cpp.inc"
 
