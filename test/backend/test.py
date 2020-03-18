@@ -64,6 +64,9 @@ backend_test = onnx.backend.test.BackendTest(DummyBackend, __name__)
 # https://github.com/onnx/onnx/tree/master/onnx/backend/test/data/node
 
 test_to_enable = [
+    # Abs Op:
+    "test_abs_cpu",
+
     # Add Op:
     "test_add_cpu",
     "test_add_bcast_cpu",
@@ -174,15 +177,15 @@ test_to_enable = [
     "test_reduce_sum_negative_axes_keepdims_example_cpu",
     "test_reduce_sum_negative_axes_keepdims_random_cpu",
 
-    # ReduceL1: this op depends on ONNXAbsOp so we will turn these tests on once ONNXAbsOp is implemented.
-    #"test_reduce_l1_default_axes_keepdims_example_cpu",
-    #"test_reduce_l1_default_axes_keepdims_random_cpu",
-    #"test_reduce_l1_do_not_keepdims_example_cpu",
-    #"test_reduce_l1_do_not_keepdims_random_cpu",
-    #"test_reduce_l1_keep_dims_example_cpu",
-    #"test_reduce_l1_keep_dims_random_cpu",
-    #"test_reduce_l1_negative_axes_keep_dims_example_cpu",
-    #"test_reduce_l1_negative_axes_keep_dims_random_cpu",
+    # ReduceL1
+    "test_reduce_l1_default_axes_keepdims_example_cpu",
+    "test_reduce_l1_default_axes_keepdims_random_cpu",
+    "test_reduce_l1_do_not_keepdims_example_cpu",
+    "test_reduce_l1_do_not_keepdims_random_cpu",
+    "test_reduce_l1_keep_dims_example_cpu",
+    "test_reduce_l1_keep_dims_random_cpu",
+    "test_reduce_l1_negative_axes_keep_dims_example_cpu",
+    "test_reduce_l1_negative_axes_keep_dims_random_cpu",
 
     # ReduceL2
     "test_reduce_l2_default_axes_keepdims_example_cpu",
@@ -309,6 +312,13 @@ test_to_enable = [
     "test_maxpool_1d_default_cpu",
     "test_maxpool_2d_ceil_cpu",
     "test_maxpool_2d_default_cpu",
+    "test_maxpool_2d_dilations_cpu",
+    "test_maxpool_2d_pads_cpu",
+    "test_maxpool_2d_precomputed_pads_cpu",
+    "test_maxpool_2d_precomputed_same_upper_cpu",
+    "test_maxpool_2d_precomputed_strides_cpu",
+    "test_maxpool_2d_same_lower_cpu",
+    "test_maxpool_2d_same_upper_cpu",
     "test_maxpool_2d_strides_cpu",
     "test_maxpool_3d_default_cpu",
 

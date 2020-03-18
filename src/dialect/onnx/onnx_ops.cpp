@@ -459,6 +459,12 @@ void ONNXSqrtOp::inferShapes() { getResult().setType(getOperand().getType()); }
 void ONNXSignOp::inferShapes() { getResult().setType(getOperand().getType()); }
 
 //===----------------------------------------------------------------------===//
+// Abs
+/// Infer the output shape of the ONNXAbsOp. This method is required by the
+/// shape inference interface.
+void ONNXAbsOp::inferShapes() { getResult().setType(getOperand().getType()); }
+
+//===----------------------------------------------------------------------===//
 // Add
 /// Infer the output shape of the ONNXAddOp. This method is required by the
 /// shape inference interface.
