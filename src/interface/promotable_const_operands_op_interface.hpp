@@ -1,11 +1,12 @@
-//===- shape_inference_interface.hpp - Definition for ShapeInference --------=//
+//===------------ promotable_const_operands_op_interface.cpp --------------===//
+//===-------- Promotable Const Operands Op Interface Definition -----------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains the declarations of the shape inference interfaces defined
-// in ShapeInferenceInterface.td.
+// This file contains the declaration of the promotable const operands op
+// interface.
 //
 //===----------------------------------------------------------------------===//
 

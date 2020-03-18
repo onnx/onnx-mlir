@@ -1,10 +1,12 @@
-//=- shape_inference_interface.td - Shape Inference Interface -*- tablegen -==//
+//===------------- promotable_const_operands_op_interface.td --------------===//
+//===---- Promotable Const Operands Op Interface TableGen Definition ------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// Defines the operations of the Shape Inference Op Interface.
+// This file contains the TableGen definition of the promotable const operands
+// op interface.
 //
 //===----------------------------------------------------------------------===//
 

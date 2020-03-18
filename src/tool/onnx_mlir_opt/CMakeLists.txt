@@ -19,4 +19,4 @@ whole_archive_link_onnx_mlir(onnx-mlir-opt
         onnx_mlir_transform
         onnx_mlir_lower_frontend
         onnx_mlir_shape_inference
-        attribute_promotion)
+        onnx_mlir_attribute_promotion)

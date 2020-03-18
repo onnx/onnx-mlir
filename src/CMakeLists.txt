@@ -117,7 +117,7 @@ target_link_libraries(onnx-mlir
         onnx_mlir_onnx_decompose
         onnx_mlir_shape_inference
         onnx_mlir_lower_frontend
-        attribute_promotion)
+        onnx_mlir_attribute_promotion)
 whole_archive_link_mlir(onnx-mlir
         ${MLIRWholeArchiveLibs})
 
