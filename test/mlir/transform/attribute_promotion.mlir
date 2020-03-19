@@ -18,7 +18,7 @@ func @test_should_not_promote_to_attribute(%arg0 : tensor<?x10xf32>, %arg1 : ten
   // CHECK-NEXT: return [[RESHAPE]] : tensor<*xf32>
 }
 
-func @test_promote_to_attribute_without_removing_const_op(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
+func @test_promote_to_attribute_without_removing_const_op(%arg0 : tensor<?x10xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
   %shape = constant dense<[6, 7, 42]> : tensor<3xi32>
   %0 = "onnx.Reshape"(%arg0, %shape) : (tensor<?x10xf32>, tensor<3xi32>) -> tensor<*xf32>
   %1 = "onnx.Identity"(%shape) : (tensor<3xi32>) -> tensor<*xf32>
