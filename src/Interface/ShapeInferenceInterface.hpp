@@ -16,6 +16,6 @@
 namespace mlir {
 
 /// Include the auto-generated declarations.
-#include "src/shape_inference.hpp.inc"
+#include "src/Interface/shape_inference.hpp.inc"
 
 }  // end namespace mlir
