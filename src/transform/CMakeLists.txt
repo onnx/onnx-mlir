@@ -7,3 +7,5 @@ target_include_directories(onnx_mlir_transform
                                    ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(onnx_mlir_transform ${MLIRLibs})
 add_dependencies(onnx_mlir_transform gen_krnl_ops)
+
+add_subdirectory(onnx)

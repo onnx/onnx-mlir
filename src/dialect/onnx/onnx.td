@@ -22,6 +22,11 @@ include "mlir/IR/OpBase.td"
 include "pass/shape_inference_interface.td"
 #endif // SHAPE_INFERENCE_INTERFACE
 
+#ifdef PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
+#else
+include "interface/promotable_const_operands_op_interface.td"
+#endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
+
 def ONNX_Dialect : Dialect {
   let name = "onnx";
   let cppNamespace = "";
@@ -48,7 +53,7 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 //  CC=gcc CXX=g++ pip install -e .
 //run the script
 //  python onnx/defs/gen_doc.py
-//result is in docs/onnxop.inc
+//result is in docs/onnx_ops.td.inc
 //current limitations:
 // 1. Attributes are not processed
 // 2. output type inference not implemented except Add
@@ -56,7 +61,7 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 // 4. type of string, complex64 and complex128 for input/output are ignored 
 // 5. unsigned int are treated as signed one
 
-include "dialect/onnx/onnxop.inc"
+include "dialect/onnx/onnx_ops.td.inc"
 
 // Indicate entry point functions of ONNX graph.
 def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {

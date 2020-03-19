@@ -126,6 +126,7 @@ int main(int argc, char *argv[]) {
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createShapeInferencePass());
+  pm.addPass(mlir::createAttributePromotionPass());
 
   if (emissionTarget >= EmitMLIR) {
     pm.addPass(mlir::createLowerToKrnlPass());
