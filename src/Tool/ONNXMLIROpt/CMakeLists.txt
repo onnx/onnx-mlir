@@ -5,8 +5,8 @@ target_include_directories(onnx-mlir-opt PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(onnx-mlir-opt PRIVATE ${ONNX_MLIR_BIN_ROOT})
 
 target_link_libraries(onnx-mlir-opt
-        OMBuilder
         ${MLIRLibs}
+        OMBuilder
         OMKrnlOps
         OMKrnlToAffine
         OMKrnlToLLVM
