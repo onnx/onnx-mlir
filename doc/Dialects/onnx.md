@@ -3749,7 +3749,7 @@ ONNX Reshape operation
 #### Operands:
 
 1. `data`: memref of any type values or tensor of any type values
-1. `shape`: memref of any type values or tensor of any type values
+1. `shape`: memref of any type values or tensor of any type values or none type
 
 #### Attributes:
 

@@ -46,12 +46,21 @@ onnx_mlir_tablegen(onnx_rewrite.inc -gen-rewriters)
 add_public_tablegen_target(gen_onnx_rewrite)
 add_dependencies(compiler gen_onnx_rewrite)
 
+add_subdirectory(interface)
+
 set(LLVM_TARGET_DEFINITIONS Dialect/ONNX/ONNXOps.td)
 onnx_mlir_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 onnx_mlir_tablegen(onnx.cpp.inc -gen-op-defs "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
 add_public_tablegen_target(gen_onnx)
+
+add_dependencies(gen_onnx gen_shape_inference)
 add_dependencies(compiler gen_onnx)
+
+# TODO: onnx_mlir_gen_promotable_const_operands_op_interface is really a
+# dependency of the onnx dialect library, which is currently part of `compiler`.
+add_dependencies(compiler onnx_mlir_gen_promotable_const_operands_op_interface)
+
 add_onnx_mlir_dialect_doc(onnx Dialect/ONNX/ONNXOps.td)
 
 set(LLVM_TARGET_DEFINITIONS Dialect/Krnl/KrnlOps.td)
@@ -65,14 +74,14 @@ target_include_directories(onnx_mlir_onnx_decompose
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(onnx_mlir_onnx_decompose ${MLIRLibs})
-add_dependencies(onnx_mlir_onnx_decompose gen_krnl_ops)
+add_dependencies(onnx_mlir_onnx_decompose gen_onnx)
 
 add_library(onnx_mlir_shape_inference Pass/ShapeInferencePass.cpp)
 target_include_directories(onnx_mlir_shape_inference
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(onnx_mlir_shape_inference ${MLIRLibs})
-add_dependencies(onnx_mlir_shape_inference gen_krnl_ops)
+add_dependencies(onnx_mlir_shape_inference gen_onnx)
 
 add_library(onnx_mlir_lower_frontend
         Conversion/ONNXToKrnl/ONNXToKrnlCommon.cpp
@@ -111,8 +120,11 @@ target_link_libraries(onnx-mlir
         onnx_mlir_transform
         onnx_mlir_onnx_decompose
         onnx_mlir_shape_inference
-        onnx_mlir_lower_frontend)
-whole_archive_link_mlir(onnx-mlir ${MLIRWholeArchiveLibs})
+        onnx_mlir_lower_frontend
+        onnx_mlir_attribute_promotion)
+whole_archive_link_mlir(onnx-mlir
+        ${MLIRWholeArchiveLibs})
+
 find_package(ZLIB REQUIRED)
 target_link_libraries(onnx-mlir ${ZLIB_LIBRARIES})
 
