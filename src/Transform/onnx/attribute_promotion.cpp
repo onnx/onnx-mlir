@@ -16,7 +16,7 @@
 #include "mlir/Pass/Pass.h"
 
 #include "src/interface/promotable_const_operands_op_interface.hpp"
-#include "src/pass/passes.hpp"
+#include "src/Pass/Passes.hpp"
 
 using namespace mlir;
 
