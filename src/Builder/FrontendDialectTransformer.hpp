@@ -1,4 +1,4 @@
-//===- frontend_dialect_transformer.hpp - MLIR Operations -----------------===//
+//===--------- FrontendDialectTransformer.hpp - MLIR Operations -----------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

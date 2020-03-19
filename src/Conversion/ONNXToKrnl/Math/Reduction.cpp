@@ -1,4 +1,4 @@
-//===----- reduction.cpp - Lowering Reduction Ops -------------------------===//
+//===-------------- Reduction.cpp - Lowering Reduction Ops ----------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

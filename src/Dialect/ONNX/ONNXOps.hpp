@@ -1,4 +1,4 @@
-//===- onnx_ops.hpp - MLIR ONNX Operations --------------------------------===//
+//===-------------------- ONNXOps.hpp - ONNX Operations -------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

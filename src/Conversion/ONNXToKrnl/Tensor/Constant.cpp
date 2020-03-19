@@ -1,4 +1,4 @@
-//===---- constant.cpp - Lowering Constant Op -----------------------------===//
+//===---------------- Constant.cpp - Lowering Constant Op -----------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

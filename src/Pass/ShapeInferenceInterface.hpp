@@ -1,6 +1,6 @@
-//===- shape_inference_interface.hpp - Definition for ShapeInference --------=//
+//===---- ShapeInferenceInterface.hpp - Definition for ShapeInference -----===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //

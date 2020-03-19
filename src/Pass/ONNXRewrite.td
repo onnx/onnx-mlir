@@ -1,5 +1,4 @@
-//===----------------------------------------------------------------------===//
-//=- ONNXRewrite.td - Pattern Match Rewriting for ONNX -*- tablegen -*----===//
+//===---- ONNXRewrite.td - Pattern Match Rewriting for ONNX --*- tablegen -===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -8,6 +7,7 @@
 // Defines language-specific pattern match optimizations for ONNX using
 // Declarative Rewrite Rules (DRR) specified using TableGen records.
 //
+//===----------------------------------------------------------------------===//
 
 #ifndef ONNX_REWRITE
 #define ONNX_REWRITE

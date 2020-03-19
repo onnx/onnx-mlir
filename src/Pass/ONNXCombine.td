@@ -1,6 +1,6 @@
-//=- ONNXCombine.td - Pattern Match Optimizations for ONNX -*- tablegen -*-===//
+//===--- ONNXCombine.td - Pattern Match Opt for ONNX Dialect--*- tablegen -===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //

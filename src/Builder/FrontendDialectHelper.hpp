@@ -1,4 +1,4 @@
-//===------------------- frontend_dialect_helper.hpp ----------------------===//
+//===--------------------- FrontendDialectHelper.hpp ----------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

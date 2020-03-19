@@ -1,6 +1,6 @@
-//===- passes.hpp - ONNX MLIR Passes Definition ---------------------------===//
+//===---------- Passes.hpp - ONNX MLIR Passes Definition ------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //

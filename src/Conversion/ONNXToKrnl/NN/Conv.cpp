@@ -1,4 +1,4 @@
-//===----- conv.cpp - Lowering Convolution Op -----------------------------===//
+//===--------------- Conv.cpp - Lowering Convolution Op --------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

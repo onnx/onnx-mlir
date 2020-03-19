@@ -1,4 +1,4 @@
-//===----- pooling.cpp - Lowering Pooling Ops -----------------------------===//
+//===---------------- Pooling.cpp - Lowering Pooling Ops ------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

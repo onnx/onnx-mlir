@@ -1,3 +1,13 @@
+//====---------------- KrnlHelper.hpp - Krnl Dialect Helper----------------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file implements helper methods to build Krnl Dialect ops.
+//
+//===----------------------------------------------------------------------===//
+
 #pragma once
 
 #include <queue>

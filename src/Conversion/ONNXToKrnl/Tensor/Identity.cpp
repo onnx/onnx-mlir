@@ -1,4 +1,4 @@
-//===----- identity.cpp - Lowering Identity Op ----------------------------===//
+//===----------------- Identity.cpp - Lowering Identity Op ----------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

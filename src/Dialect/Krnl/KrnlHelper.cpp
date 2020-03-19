@@ -1,3 +1,13 @@
+//====---------------- KrnlHelper.cpp - Krnl Dialect Helper----------------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file declares helper methods to build Krnl Dialect Ops.
+//
+//===----------------------------------------------------------------------===//
+
 #include "mlir/Dialect/AffineOps/AffineOps.h"
 #include "mlir/Dialect/StandardOps/Ops.h"
 #include "mlir/IR/AffineExpr.h"

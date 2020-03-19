@@ -1,12 +1,13 @@
-//===- onnx_ops.cpp - MLIR ONNX Operations --------------------------------===//
+//===------------------ ONNXOps.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file defines ONNX operations in the MLIR operation set.
+// This file provides definition of ONNX dialect operations.
 //
 //===----------------------------------------------------------------------===//
+
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"

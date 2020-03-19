@@ -1,4 +1,4 @@
-//===----- normalization.cpp - Lowering Normalization Ops -----------------===//
+//===----------- Normalization.cpp - Lowering Normalization Ops ------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

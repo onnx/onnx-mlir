@@ -1,8 +1,10 @@
-//===--------------------- krnl_ops.cpp - MLIR Operations -----------------===//
+//===---------------------- KrnlOps.cpp - Krnl Operations -----------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
+//
+// This file contains implementations of krnl operations.
 //
 //===----------------------------------------------------------------------===//
 

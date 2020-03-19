@@ -1,3 +1,13 @@
+//===-------------- LowerKrnl.cpp - Krnl Dialect Lowering -----------------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+//
+//
+//===----------------------------------------------------------------------===//
+
 #include "mlir/Dialect/AffineOps/AffineOps.h"
 #include "mlir/Dialect/StandardOps/Ops.h"
 #include "mlir/Pass/Pass.h"

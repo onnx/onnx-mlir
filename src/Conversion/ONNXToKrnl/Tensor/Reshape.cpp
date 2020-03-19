@@ -1,4 +1,4 @@
-//===----- reshape.cpp - Lowering Reshape Op ------------------------------===//
+//===---------------- Reshape.cpp - Lowering Reshape Op -------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

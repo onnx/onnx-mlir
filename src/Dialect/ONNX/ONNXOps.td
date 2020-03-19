@@ -1,10 +1,10 @@
-//===- ONNXOps.td -- ONNX operation definitions ---------*- tablegen -*----===//
+//===--- ONNXOps.td -- ONNX Dialect Operation Definitions ----*- tablegen -===//
 //
-// Copyright 2019 The IBM Research Authors
+// Copyright 2019-2020 The IBM Research Authors
 //
 // =============================================================================
 //
-// Defines MLIR ONNX operations.
+// Defines ONNX Dialect operations.
 //
 //===----------------------------------------------------------------------===//
 

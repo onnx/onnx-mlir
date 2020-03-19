@@ -1,6 +1,6 @@
-//===- onnx_decompose.cpp - ONNX High Level Rewriting ---------------------===//
+//===----------- ONNXDecompose.cpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //

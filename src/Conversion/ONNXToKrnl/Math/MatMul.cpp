@@ -1,4 +1,4 @@
-//===----- matmul.cpp - Lowering Matmul Op --------------------------------===//
+//===----------------- Matmul.cpp - Lowering Matmul Op --------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

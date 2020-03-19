@@ -1,4 +1,4 @@
-//===- ONNXCombine.cpp - ONNX High Level Optimizer ------------------------===//
+//===--------- ONNXCombine.cpp - ONNX High Level Optimizer ----------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

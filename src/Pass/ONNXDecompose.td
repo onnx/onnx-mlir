@@ -1,13 +1,13 @@
-//===----------------------------------------------------------------------===//
-//=- ONNXDecompose.td - Rewriting for decomposing ONNX Ops -*- tablegen -*===//
+//===- ONNXDecompose.td - Rewriting for decomposing ONNX Ops -*- tablegen -===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
 // Defines language-specific pattern match rewritings for ONNX using
 // Declarative Rewrite Rules (DRR) specified using TableGen records.
 //
+//===----------------------------------------------------------------------===//
 
 #ifndef ONNX_DECOMPOSE
 #define ONNX_DECOMPOSE

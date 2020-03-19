@@ -1,8 +1,10 @@
-//===--------------------- krnl_ops.td - MLIR Operations ------------------===//
+//===------------------ KrnlOps.td - MLIR Operations ---------*- tablegen -===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
+//
+// This file contains TableGen definition of krnl operations.
 //
 //===----------------------------------------------------------------------===//
 
