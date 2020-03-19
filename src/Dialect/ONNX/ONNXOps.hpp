@@ -36,7 +36,7 @@ class ONNXOpsDialect : public Dialect {
 /// Include the auto-generated header file containing the declarations of the
 /// ONNX operations.
 #define GET_OP_CLASSES
-#include "src/onnx.hpp.inc"
+#include "src/Dialect/ONNX/onnx.hpp.inc"
 
 }  // end namespace mlir
 
