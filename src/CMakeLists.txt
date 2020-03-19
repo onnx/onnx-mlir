@@ -49,8 +49,8 @@ add_dependencies(compiler gen_onnx_rewrite)
 add_subdirectory(Interface)
 
 set(LLVM_TARGET_DEFINITIONS Dialect/ONNX/ONNXOps.td)
-onnx_mlir_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
-onnx_mlir_tablegen(onnx.cpp.inc -gen-op-defs "-I${CMAKE_SOURCE_DIR}/compiler/pass")
+onnx_mlir_tablegen(onnx.hpp.inc -gen-op-decls "-I${ONNX_MLIR_SRC_ROOT}/compiler/pass")
+onnx_mlir_tablegen(onnx.cpp.inc -gen-op-defs "-I${ONNX_MLIR_SRC_ROOT}/compiler/pass")
 set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
 add_public_tablegen_target(gen_onnx)
 
@@ -128,7 +128,7 @@ whole_archive_link_mlir(onnx-mlir
 find_package(ZLIB REQUIRED)
 target_link_libraries(onnx-mlir ${ZLIB_LIBRARIES})
 
-target_include_directories(onnx-mlir PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(onnx-mlir PRIVATE ${CMAKE_BINARY_DIR})
 
 install(TARGETS onnx-mlir DESTINATION bin)
