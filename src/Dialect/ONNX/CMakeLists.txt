@@ -17,4 +17,4 @@ target_link_libraries(OMONNXOps
         OMPromotableConstOperandsOpInterface
         OMShapeInferenceOpInterface)
 
-add_onnx_mlir_dialect_doc(onnx Dialect/ONNX/ONNXOps.td)
+add_onnx_mlir_dialect_doc(onnx ONNXOps.td)
