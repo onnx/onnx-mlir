@@ -308,7 +308,7 @@ test_to_enable = [
     "test_batchnorm_epsilon_cpu",
     "test_batchnorm_example_cpu",
 
-    # Pooling
+    # MaxPoolSingleOut 
     "test_maxpool_1d_default_cpu",
     "test_maxpool_2d_ceil_cpu",
     "test_maxpool_2d_default_cpu",
@@ -321,6 +321,21 @@ test_to_enable = [
     "test_maxpool_2d_same_upper_cpu",
     "test_maxpool_2d_strides_cpu",
     "test_maxpool_3d_default_cpu",
+
+    # AveragePool
+    "test_averagepool_1d_default_cpu",
+    "test_averagepool_2d_ceil_cpu",
+    "test_averagepool_2d_default_cpu",
+    #"test_averagepool_2d_pads_count_include_pad_cpu",
+    #"test_averagepool_2d_pads_cpu",
+    #"test_averagepool_2d_precomputed_pads_count_include_pad_cpu",
+    #"test_averagepool_2d_precomputed_pads_cpu",
+    #"test_averagepool_2d_precomputed_same_upper_cpu",
+    #"test_averagepool_2d_precomputed_strides_cpu",
+    #"test_averagepool_2d_same_lower_cpu",
+    #"test_averagepool_2d_same_upper_cpu",
+    "test_averagepool_2d_strides_cpu",
+    "test_averagepool_3d_default_cpu",
 
 ]
 
