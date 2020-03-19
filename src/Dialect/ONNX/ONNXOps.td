@@ -24,7 +24,7 @@ include "Pass/ShapeInferenceInterface.td"
 
 #ifdef PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 #else
-include "interface/promotable_const_operands_op_interface.td"
+include "Interface/PromotableConstOperandsOpInterface.td"
 #endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 
 def ONNX_Dialect : Dialect {

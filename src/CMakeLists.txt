@@ -46,7 +46,7 @@ onnx_mlir_tablegen(onnx_rewrite.inc -gen-rewriters)
 add_public_tablegen_target(gen_onnx_rewrite)
 add_dependencies(compiler gen_onnx_rewrite)
 
-add_subdirectory(interface)
+add_subdirectory(Interface)
 
 set(LLVM_TARGET_DEFINITIONS Dialect/ONNX/ONNXOps.td)
 onnx_mlir_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
