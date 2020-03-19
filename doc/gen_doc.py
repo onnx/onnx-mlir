@@ -47,13 +47,20 @@ OpsWithShapeInference = [
     'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
     'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
     'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
-    'Sign', 'Constant', 'ONNXAveragePoolOp', 'Abs'
+    'Sign', 'Constant', 'AveragePool', 'Abs'
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = [
-    'Add', 'Identity', 'Gemm'
-]
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm']
+
+# Operations who have operands that, if produced by constant operations, should
+# be promoted to become an attribute (via attribute promotion).
+#
+# For each operation, a key/value pair is used to specify how attribute promotion
+# should proceed. The key is the operation's name and the value is a list of
+# tuples, whose first item is the attribute/operand name, and the second item is
+# the index at which such operand occurs in the list of the operation's inputs.
+OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)]}
 
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
@@ -224,7 +231,7 @@ def get_operands_or_results(schema, is_input):
             return "AnyTypeOf<[{}]>".format(", ".join(types))
 
     name_to_types = OrderedDict()
-    for value in value_list:
+    for i, value in enumerate(value_list):
         elem_types = get_allowed_elem_types(schema, value)
 
         if elem_types is None:
@@ -232,6 +239,13 @@ def get_operands_or_results(schema, is_input):
         else:
             types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
             types = list(map(lambda x: x.format(elem_types), types))
+
+        # If operand is promotable to an attribute, then it must be
+        # nullable in case it migrates to be an attribute.
+        if schema.name in OpsWithPromotableConstOperands:
+            idxs = dict(OpsWithPromotableConstOperands[schema.name]).values()
+            if i in idxs:
+                types.append("NoneType")
 
         if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")
@@ -313,6 +327,25 @@ def get_attrs(schema):
     return name_to_type
 
 
+def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
+    cpp_name_to_idx_literal = "{" + ", ".join([
+        "{{\"{}\", {}}}".format(*name_to_idx)
+        for name_to_idx in const_operands_name_to_idx
+    ]) + "}"
+
+    s += indent + "let extraClassDeclaration = [{\n"
+    indent = inc_indent(indent)
+    s += indent + "std::map<std::string, size_t> promotableConstOperands() {\n"
+    indent = inc_indent(indent)
+    s += indent + "return {};\n".format(cpp_name_to_idx_literal)
+    indent = dec_indent(indent)
+    s += indent + "}\n"
+    indent = dec_indent(indent)
+    s += indent + "}];\n"
+
+    return s
+
+
 def gen_op_def(schema):
     indent = inc_indent()
     s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
@@ -321,6 +354,8 @@ def gen_op_def(schema):
     traits = ["NoSideEffect"]
     if schema.name in OpsWithShapeInference:
         traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
+    if schema.name in OpsWithPromotableConstOperands.keys():
+        traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
     # Generate decl for canonicalizer.
@@ -400,6 +435,9 @@ def gen_op_def(schema):
 
             s += '\n' + indent + '];\n'
 
+    if schema.name in OpsWithPromotableConstOperands:
+        s = get_promotable_const_operands_func(
+            s, indent, OpsWithPromotableConstOperands[schema.name])
     s += '}\n\n'
     return s
 
@@ -506,7 +544,7 @@ if __name__ == '__main__':
     curr_dir = os.path.dirname(os.path.realpath(__file__))
 
     class Args(object):
-        op_def_file = os.path.join(curr_dir, 'onnxop.inc')
-        op_importer_file = os.path.join(curr_dir, 'op_build_table.inc')
+        op_def_file = os.path.join(curr_dir, 'ONNXOps.td.inc')
+        op_importer_file = os.path.join(curr_dir, 'OpBuildTable.inc')
 
     main(Args)

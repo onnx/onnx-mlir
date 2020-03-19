@@ -16,10 +16,10 @@
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/SourceMgr.h"
 
-#include "src/builder/frontend_dialect_transformer.hpp"
-#include "src/dialect/krnl/krnl_ops.hpp"
-#include "src/dialect/onnx/onnx_ops.hpp"
-#include "src/pass/passes.hpp"
+#include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Pass/Passes.hpp"
 
 #include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
@@ -126,6 +126,7 @@ int main(int argc, char *argv[]) {
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createShapeInferencePass());
+  pm.addPass(mlir::createAttributePromotionPass());
 
   if (emissionTarget >= EmitMLIR) {
     pm.addPass(mlir::createLowerToKrnlPass());
