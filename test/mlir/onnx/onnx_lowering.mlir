@@ -1350,12 +1350,12 @@ func @test_maxpooling_singleout_no_pad(%arg0 : tensor<1x3x32x32xf32>) -> tensor<
 
   // CHECK-LABEL: test_maxpooling_singleout_no_pad
   // CHECK: [[RES:%.+]] = alloc() : memref<1x3x31x31xf32>
+  // CHECK: [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
   // CHECK: [[DEF_LOOPS_0:%.+]]:4 = krnl.define_loops 4
   // CHECK: [[OPT_LOOPS_0:%.+]]:4 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS_0]]#0, [[DEF_LOOPS_0]]#1, [[DEF_LOOPS_0]]#2, [[DEF_LOOPS_0]]#3
   // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS_0]]#0, [[OPT_LOOPS_0]]#1, [[OPT_LOOPS_0]]#2, [[OPT_LOOPS_0]]#3) with ([[DEF_LOOPS_0]]#0 -> %arg1 = 0 to 1, [[DEF_LOOPS_0]]#1 -> %arg2 = 0 to 3, [[DEF_LOOPS_0]]#2 -> %arg3 = 0 to 31, [[DEF_LOOPS_0]]#3 -> %arg4 = 0 to 31) {
-  // CHECK:   [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
   // CHECK:   store [[NEGATIVE_INFINITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
   // CHECK:   [[DEF_LOOPS_1:%.+]]:2 = krnl.define_loops 2
   // CHECK:   [[OPT_LOOPS_1:%.+]]:2 = krnl.optimize_loops  {
@@ -1380,12 +1380,12 @@ func @test_maxpooling_singleout_no_pad_w_strides(%arg0 : tensor<1x3x32x32xf32>) 
 
   // CHECK-LABEL: test_maxpooling_singleout_no_pad_w_strides
   // CHECK: [[RES:%.+]] = alloc() : memref<1x3x16x16xf32>
+  // CHECK: [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
   // CHECK: [[DEF_LOOPS_0:%.+]]:4 = krnl.define_loops 4
   // CHECK: [[OPT_LOOPS_0:%.+]]:4 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS_0]]#0, [[DEF_LOOPS_0]]#1, [[DEF_LOOPS_0]]#2, [[DEF_LOOPS_0]]#3
   // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS_0]]#0, [[OPT_LOOPS_0]]#1, [[OPT_LOOPS_0]]#2, [[OPT_LOOPS_0]]#3) with ([[DEF_LOOPS_0]]#0 -> %arg1 = 0 to 1, [[DEF_LOOPS_0]]#1 -> %arg2 = 0 to 3, [[DEF_LOOPS_0]]#2 -> %arg3 = 0 to 16, [[DEF_LOOPS_0]]#3 -> %arg4 = 0 to 16) {
-  // CHECK:   [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
   // CHECK:   store [[NEGATIVE_INFINITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
   // CHECK:   [[DEF_LOOPS_1:%.+]]:2 = krnl.define_loops 2
   // CHECK:   [[OPT_LOOPS_1:%.+]]:2 = krnl.optimize_loops  {
@@ -1414,13 +1414,16 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x
 
   // CHECK-LABEL: test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode
   // CHECK: [[RES:%.+]] = alloc() : memref<1x3x16x16xf32>
+  // CHECK: [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
   // CHECK: [[DEF_LOOPS_0:%.+]]:4 = krnl.define_loops 4
   // CHECK: [[OPT_LOOPS_0:%.+]]:4 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS_0]]#0, [[DEF_LOOPS_0]]#1, [[DEF_LOOPS_0]]#2, [[DEF_LOOPS_0]]#3
   // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS_0]]#0, [[OPT_LOOPS_0]]#1, [[OPT_LOOPS_0]]#2, [[OPT_LOOPS_0]]#3) with ([[DEF_LOOPS_0]]#0 -> %arg1 = 0 to 1, [[DEF_LOOPS_0]]#1 -> %arg2 = 0 to 3, [[DEF_LOOPS_0]]#2 -> %arg3 = 0 to 16, [[DEF_LOOPS_0]]#3 -> %arg4 = 0 to 16) {
-  // CHECK:   [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK:   [[OUT_OF_BOUND_COUNT:%.+]] = alloc() : memref<f32>
   // CHECK:   store [[NEGATIVE_INFINITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
+  // CHECK:   [[ZERO:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:   store [[ZERO]], [[OUT_OF_BOUND_COUNT]][] : memref<f32>
   // CHECK:   [[DEF_LOOPS_1:%.+]]:2 = krnl.define_loops 2
   // CHECK:   [[OPT_LOOPS_1:%.+]]:2 = krnl.optimize_loops  {
   // CHECK:     krnl.return_loops [[DEF_LOOPS_1]]#0, [[DEF_LOOPS_1]]#1
@@ -1429,21 +1432,27 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x
   // CHECK:     [[STRIDE_0:%.+]] = constant 2 : index
   // CHECK:     [[MUL_0:%.+]] = muli [[STRIDE_0]], %arg3 : index
   // CHECK:     [[SPATIAL_H:%.+]] = addi [[MUL_0]], %arg5 : index
-  // CHECK:     [[UPPER_INDEX_0:%.+]] = constant 31 : index
-  // CHECK:     [[GREATER_THAN_UPPER_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[UPPER_INDEX_0]] : index
-  // CHECK:     [[H:%.+]] = select [[GREATER_THAN_UPPER_0]], [[UPPER_INDEX_0]], [[SPATIAL_H]] : index
-
   // CHECK:     [[STRIDE_1:%.+]] = constant 2 : index
   // CHECK:     [[MUL_1:%.+]] = muli [[STRIDE_1]], %arg4 : index
   // CHECK:     [[SPATIAL_W:%.+]] = addi [[MUL_1]], %arg6 : index
-  // CHECK:     [[UPPER_INDEX_1:%.+]] = constant 31 : index
-  // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
-  // CHECK:     [[W:%.+]] = select [[GREATER_THAN_UPPER_1]], [[UPPER_INDEX_1]], [[SPATIAL_W]] : index
 
-  // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[H]], [[W]]] : memref<1x3x32x32xf32>
+  // CHECK:     [[UPPER_INDEX_0:%.+]] = constant 32 : index
+  // CHECK:     [[GREATER_THAN_UPPER_0:%.+]] = cmpi "sge", [[SPATIAL_H]], [[UPPER_INDEX_0]] : index
+  // CHECK:     [[UPPER_INDEX_1:%.+]] = constant 32 : index
+  // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sge", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
+  // CHECK:     [[OR:%.+]] = or [[GREATER_THAN_UPPER_0]], [[GREATER_THAN_UPPER_1]]
+
+  // CHECK:     [[LOAD_OUT_OF_BOUND_COUNT:%.+]] = load %3[] : memref<f32>
+  // CHECK:     [[ONE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK:     [[ADD_ONE:%.+]] = addf [[LOAD_OUT_OF_BOUND_COUNT]], [[ONE]] : f32
+  // CHECK:     [[NEW_OUT_OF_BOUND_COUNT:%.+]] = select [[OR]], [[ADD_ONE]], [[LOAD_OUT_OF_BOUND_COUNT]] : f32
+  // CHECK:     store [[NEW_OUT_OF_BOUND_COUNT]], [[OUT_OF_BOUND_COUNT]][] : memref<f32>
+
+  // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[SPATIAL_H]], [[SPATIAL_W]]] : memref<1x3x32x32xf32>
+  // CHECK:     [[SELECT_0:%.+]] = select [[OR]], [[NEGATIVE_INFINITY]], [[LOAD_X]] : f32
   // CHECK:     [[LOAD_Y:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
-  // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[LOAD_X]] : f32
-  // CHECK:     [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[LOAD_X]] : f32
+  // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[SELECT_0]] : f32
+  // CHECK:     [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[SELECT_0]] : f32
   // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
   // CHECK:   }
   // CHECK: }
@@ -1456,13 +1465,16 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_dilation(%arg0 : tensor<1x3x3
 
   // CHECK-LABEL: test_maxpooling_singleout_no_pad_w_strides_w_dilation
   // CHECK: [[RES:%.+]] = alloc() : memref<1x3x14x14xf32>
+  // CHECK: [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
   // CHECK: [[DEF_LOOPS_0:%.+]]:4 = krnl.define_loops 4
   // CHECK: [[OPT_LOOPS_0:%.+]]:4 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS_0]]#0, [[DEF_LOOPS_0]]#1, [[DEF_LOOPS_0]]#2, [[DEF_LOOPS_0]]#3
   // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS_0]]#0, [[OPT_LOOPS_0]]#1, [[OPT_LOOPS_0]]#2, [[OPT_LOOPS_0]]#3) with ([[DEF_LOOPS_0]]#0 -> %arg1 = 0 to 1, [[DEF_LOOPS_0]]#1 -> %arg2 = 0 to 3, [[DEF_LOOPS_0]]#2 -> %arg3 = 0 to 14, [[DEF_LOOPS_0]]#3 -> %arg4 = 0 to 14) {
-  // CHECK:   [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK:   [[OUT_OF_BOUND_COUNT:%.+]] = alloc() : memref<f32>
   // CHECK:   store [[NEGATIVE_INFINITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x14x14xf32>
+  // CHECK:   [[ZERO:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:   store [[ZERO]], [[OUT_OF_BOUND_COUNT]][] : memref<f32>
   // CHECK:   [[DEF_LOOPS_1:%.+]]:2 = krnl.define_loops 2
   // CHECK:   [[OPT_LOOPS_1:%.+]]:2 = krnl.optimize_loops  {
   // CHECK:     krnl.return_loops [[DEF_LOOPS_1]]#0, [[DEF_LOOPS_1]]#1
@@ -1473,23 +1485,30 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_dilation(%arg0 : tensor<1x3x3
   // CHECK:     [[STRIDE_1:%.+]] = constant 2 : index
   // CHECK:     [[MUL_1:%.+]] = muli [[STRIDE_1]], %arg5 : index
   // CHECK:     [[SPATIAL_H:%.+]] = addi [[MUL_0]], [[MUL_1]] : index
-  // CHECK:     [[UPPER_INDEX_0:%.+]] = constant 31 : index
-  // CHECK:     [[GREATER_THAN_UPPER_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[UPPER_INDEX_0]] : index
-  // CHECK:     [[H:%.+]] = select [[GREATER_THAN_UPPER_0]], [[UPPER_INDEX_0]], [[SPATIAL_H]] : index
 
   // CHECK:     [[STRIDE_0_1:%.+]] = constant 2 : index
   // CHECK:     [[MUL_0_1:%.+]] = muli [[STRIDE_0_1]], %arg4 : index
   // CHECK:     [[STRIDE_1_1:%.+]] = constant 2 : index
   // CHECK:     [[MUL_1_1:%.+]] = muli [[STRIDE_1_1]], %arg6 : index
   // CHECK:     [[SPATIAL_W:%.+]] = addi [[MUL_0_1]], [[MUL_1_1]] : index
-  // CHECK:     [[UPPER_INDEX_1:%.+]] = constant 31 : index
-  // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
-  // CHECK:     [[W:%.+]] = select [[GREATER_THAN_UPPER_1]], [[UPPER_INDEX_1]], [[SPATIAL_W]] : index
 
-  // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[H]], [[W]]] : memref<1x3x32x32xf32>
+  // CHECK:     [[UPPER_INDEX_0:%.+]] = constant 32 : index
+  // CHECK:     [[GREATER_THAN_UPPER_0:%.+]] = cmpi "sge", [[SPATIAL_H]], [[UPPER_INDEX_0]] : index
+  // CHECK:     [[UPPER_INDEX_1:%.+]] = constant 32 : index
+  // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sge", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
+  // CHECK:     [[OR:%.+]] = or [[GREATER_THAN_UPPER_0]], [[GREATER_THAN_UPPER_1]]
+
+  // CHECK:     [[LOAD_OUT_OF_BOUND_COUNT:%.+]] = load %3[] : memref<f32>
+  // CHECK:     [[ONE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK:     [[ADD_ONE:%.+]] = addf [[LOAD_OUT_OF_BOUND_COUNT]], [[ONE]] : f32
+  // CHECK:     [[NEW_OUT_OF_BOUND_COUNT:%.+]] = select [[OR]], [[ADD_ONE]], [[LOAD_OUT_OF_BOUND_COUNT]] : f32
+  // CHECK:     store [[NEW_OUT_OF_BOUND_COUNT]], [[OUT_OF_BOUND_COUNT]][] : memref<f32>
+
+  // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[SPATIAL_H]], [[SPATIAL_W]]] : memref<1x3x32x32xf32>
+  // CHECK:     [[SELECT_0:%.+]] = select [[OR]], [[NEGATIVE_INFINITY]], [[LOAD_X]] : f32
   // CHECK:     [[LOAD_Y:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x14x14xf32>
-  // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[LOAD_X]] : f32
-  // CHECK:     [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[LOAD_X]] : f32
+  // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[SELECT_0]] : f32
+  // CHECK:     [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[SELECT_0]] : f32
   // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x14x14xf32>
   // CHECK:   }
   // CHECK: }
@@ -1505,9 +1524,9 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x3x?x32xf32>
   // CHECK: [[ZERO:%.+]] = constant 0 : i64
   // CHECK: [[ONE:%.+]] = constant 1 : i64
+  // CHECK: [[KERNEL_PAD_DILATION:%.+]] = constant -3 : i64
   // CHECK: [[DIM_1:%.+]] = dim %arg0, 2 : memref<?x3x?x32xf32>
   // CHECK: [[DIM_1_i64:%.+]] = index_cast [[DIM_1]] : index to i64
-  // CHECK: [[KERNEL_PAD_DILATION:%.+]] = constant -3 : i64
   // CHECK: [[NUMERATOR:%.+]] = addi [[DIM_1_i64]], [[KERNEL_PAD_DILATION]] : i64
   // CHECK: [[DENOMINATOR:%.+]] = constant 2 : i64
   // CHECK: [[DIV:%.+]] = divi_signed [[NUMERATOR]], [[DENOMINATOR]] : i64
@@ -1518,6 +1537,7 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK: [[SELECT_PLUS_ONE:%.+]] = addi [[SELECT]], [[ONE]] : i64
   // CHECK: [[DIM_1_FINAL:%.+]] = index_cast [[SELECT_PLUS_ONE]] : i64 to index
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]], [[DIM_1_FINAL]]) : memref<?x3x?x16xf32>
+  // CHECK: [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
 
   // CHECK: [[DEF_LOOPS_0:%.+]]:4 = krnl.define_loops 4
   // CHECK: [[OPT_LOOPS_0:%.+]]:4 = krnl.optimize_loops  {
@@ -1526,8 +1546,10 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x3x?x16xf32>
   // CHECK: [[DIM_3:%.+]] = dim [[RES]], 2 : memref<?x3x?x16xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS_0]]#0, [[OPT_LOOPS_0]]#1, [[OPT_LOOPS_0]]#2, [[OPT_LOOPS_0]]#3) with ([[DEF_LOOPS_0]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS_0]]#1 -> %arg2 = 0 to 3, [[DEF_LOOPS_0]]#2 -> %arg3 = 0 to [[DIM_3]], [[DEF_LOOPS_0]]#3 -> %arg4 = 0 to 16) {
-  // CHECK:   [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK:   [[OUT_OF_BOUND_COUNT:%.+]] = alloc() : memref<f32>
   // CHECK:   store [[NEGATIVE_INFINITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<?x3x?x16xf32>
+  // CHECK:   [[ZERO:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:   store [[ZERO]], [[OUT_OF_BOUND_COUNT]][] : memref<f32>
   // CHECK:   [[DEF_LOOPS_1:%.+]]:2 = krnl.define_loops 2
   // CHECK:   [[OPT_LOOPS_1:%.+]]:2 = krnl.optimize_loops  {
   // CHECK:     krnl.return_loops [[DEF_LOOPS_1]]#0, [[DEF_LOOPS_1]]#1
@@ -1536,23 +1558,27 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK:     [[STRIDE_0:%.+]] = constant 2 : index
   // CHECK:     [[MUL_0:%.+]] = muli [[STRIDE_0]], %arg3 : index
   // CHECK:     [[SPATIAL_H:%.+]] = addi [[MUL_0]], %arg5 : index
-  // CHECK:     [[DIM_0_0:%.+]] = dim %arg0, 2 : memref<?x3x?x32xf32>
-  // CHECK:     [[ONE_INDEX:%.+]] = constant 1 : index
-  // CHECK:     [[UPPER_INDEX_0:%.+]] = subi [[DIM_0_0]], [[ONE_INDEX]] : index
-  // CHECK:     [[GREATER_THAN_UPPER_0:%.+]] = cmpi "sgt", [[SPATIAL_H]], [[UPPER_INDEX_0]] : index
-  // CHECK:     [[H:%.+]] = select [[GREATER_THAN_UPPER_0]], [[UPPER_INDEX_0]], [[SPATIAL_H]] : index
-
   // CHECK:     [[STRIDE_1:%.+]] = constant 2 : index
   // CHECK:     [[MUL_1:%.+]] = muli [[STRIDE_1]], %arg4 : index
   // CHECK:     [[SPATIAL_W:%.+]] = addi [[MUL_1]], %arg6 : index
-  // CHECK:     [[UPPER_INDEX_1:%.+]] = constant 31 : index
-  // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sgt", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
-  // CHECK:     [[W:%.+]] = select [[GREATER_THAN_UPPER_1]], [[UPPER_INDEX_1]], [[SPATIAL_W]] : index
 
-  // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[H]], [[W]]] : memref<?x3x?x32xf32>
+  // CHECK:     [[UPPER_INDEX_0:%.+]] = dim %arg0, 2 : memref<?x3x?x32xf32>
+  // CHECK:     [[GREATER_THAN_UPPER_0:%.+]] = cmpi "sge", [[SPATIAL_H]], [[UPPER_INDEX_0]] : index
+  // CHECK:     [[UPPER_INDEX_1:%.+]] = constant 32 : index
+  // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sge", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
+  // CHECK:     [[OR:%.+]] = or [[GREATER_THAN_UPPER_0]], [[GREATER_THAN_UPPER_1]]
+
+  // CHECK:     [[LOAD_OUT_OF_BOUND_COUNT:%.+]] = load [[OUT_OF_BOUND_COUNT]][] : memref<f32>
+  // CHECK:     [[ONE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK:     [[ADD_ONE:%.+]] = addf [[LOAD_OUT_OF_BOUND_COUNT]], [[ONE]] : f32
+  // CHECK:     [[NEW_OUT_OF_BOUND_COUNT:%.+]] = select [[OR]], [[ADD_ONE]], [[LOAD_OUT_OF_BOUND_COUNT]] : f32
+  // CHECK:     store [[NEW_OUT_OF_BOUND_COUNT]], [[OUT_OF_BOUND_COUNT]][] : memref<f32>
+
+  // CHECK:     [[LOAD_X:%.+]] = load %arg0[%arg1, %arg2, [[SPATIAL_H]], [[SPATIAL_W]]] : memref<?x3x?x32xf32>
+  // CHECK:     [[SELECT_0:%.+]] = select [[OR]], [[NEGATIVE_INFINITY]], [[LOAD_X]] : f32
   // CHECK:     [[LOAD_Y:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<?x3x?x16xf32>
-  // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[LOAD_X]] : f32
-  // CHECK:     [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[LOAD_X]] : f32
+  // CHECK:     [[CMP_2:%.+]] = cmpf "ogt", [[LOAD_Y]], [[SELECT_0]] : f32
+  // CHECK:     [[SELECT:%.+]] = select [[CMP_2]], [[LOAD_Y]], [[SELECT_0]] : f32
   // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<?x3x?x16xf32>
   // CHECK:   }
   // CHECK: }

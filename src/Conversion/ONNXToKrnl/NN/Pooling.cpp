@@ -390,13 +390,13 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // 2.1 Emit: R[n][c][r1][r2] = identity;
       rewriter.create<StoreOp>(loc, identity, alloc, resultIndices);
 
-      // Record the number of pixels that are out-of-bound.
+      // 2.2 Record the number of pixels that are out-of-bound.
       Value outOfBoundCount = insertAllocAndDealloc(
           MemRefType::get({}, resultElementType, {}, 0), loc, rewriter, false);
       Value zero = emitConstantOp(rewriter, loc, resultElementType, 0);
       rewriter.create<StoreOp>(loc, zero, outOfBoundCount);
 
-      // 2.2 Define inner loops.
+      // 2.3 Define inner loops.
       //   for k1 = 0 .. KH:
       //     for k2 = 0 .. KW:
       int nInnerLoops = kernelShape.size();
@@ -405,13 +405,14 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       for (int i = 0; i < nInnerLoops; ++i)
         innerLoops.pushBounds(0, kernelShape[i]);
 
-      // 2.3 Emit inner loop nest.
+      // 2.4 Emit inner loop nest.
       innerLoops.createIterateOp();
 
-      // 2.4 Post-processing, e.g. taking average.
+      // 2.5 Post-processing, e.g. taking average.
       doPostProcessingForPooling<PoolOp>(rewriter, loc, poolOp,
           outOfBoundCount, kernelShape, resultIndices, alloc);
 
+      // Emit the body of the inner loop.
       rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
       {
         std::vector<Value> dataIndices;
@@ -439,27 +440,36 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         //        => out of bound
         //      - dilation = 2: spatialIndex = 2 * 2 + 2 * 1 = 6
         //        => out of bound
+
+        // Here, we compute a boolean value, outOfBound, by taking OR of
+        // constraints about dataIndices.
+        // oufOfBound =
+        //   (dataIndex0 >= inputDim0) OR (dataIndex1 >= inputDim1) OR ...
+        //
+        // Another approach is using affine.if. However, dimensions and symbols
+        // for affine.if are limited to the result of a constant operation, a
+        // dim operation, or an affine.apply operation:
+        // https://github.com/llvm/llvm-project/blob/master/mlir/docs/Dialects/Affine.md#restrictions-on-dimensions-and-symbols.
+        // Meanwhile, dataIndices are computed from other indices, which can not
+        // be passed to affine.if. Hence, we do not use affine.if here.
+        //
         Value outOfBound;
         if (isDilated or ceilMode) {
           for (int i = 2; i < dataIndices.size(); ++i) {
             Value upperIndex;
             if (inputShape[i] < 0) {
-              auto inputDim = rewriter.create<DimOp>(loc, inputOperand, i);
-              auto oneIndex =
-                  emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
-              upperIndex = rewriter.create<SubIOp>(loc, inputDim, oneIndex);
+              upperIndex = rewriter.create<DimOp>(loc, inputOperand, i);
             } else {
-              upperIndex =
-                  rewriter.create<ConstantIndexOp>(loc, inputShape[i] - 1);
+              upperIndex = rewriter.create<ConstantIndexOp>(loc, inputShape[i]);
             }
             if (outOfBound) {
               auto next = rewriter.create<CmpIOp>(
-                  loc, CmpIPredicate::sgt, dataIndices[i], upperIndex);
+                  loc, CmpIPredicate::sge, dataIndices[i], upperIndex);
               outOfBound =
                   rewriter.create<OrOp>(loc, outOfBound, next);
             } else {
               outOfBound = rewriter.create<CmpIOp>(
-                  loc, CmpIPredicate::sgt, dataIndices[i], upperIndex);
+                  loc, CmpIPredicate::sge, dataIndices[i], upperIndex);
             }
           }
           // Count the number of out-of-bound indices.
@@ -474,7 +484,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
                   rewriter.create<AddIOp>(loc, loadCount, one), loadCount);
             rewriter.create<StoreOp>(loc, loadCount, outOfBoundCount);
           }
-          // TODO (tung): Count the number of pads.
+          // TODO (tung): Count the number of pad pixels when calculating values
+          // for the edges.
         }
 
         Value loadData =
