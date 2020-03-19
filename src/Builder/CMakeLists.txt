@@ -7,6 +7,7 @@ add_library(builder
 
 target_include_directories(builder PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(builder PRIVATE ${CMAKE_BINARY_DIR})
+target_include_directories(builder PRIVATE ${ONNX_MLIR_BIN_ROOT})
 
 target_link_libraries(builder compiler onnx ${MLIRLibs} curses mpark_variant)
 target_include_directories(builder

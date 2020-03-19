@@ -130,5 +130,6 @@ target_link_libraries(onnx-mlir ${ZLIB_LIBRARIES})
 
 target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(onnx-mlir PRIVATE ${CMAKE_BINARY_DIR})
+target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_BIN_ROOT})
 
 install(TARGETS onnx-mlir DESTINATION bin)
