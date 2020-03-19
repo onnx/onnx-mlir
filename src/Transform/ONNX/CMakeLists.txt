@@ -1,9 +1,9 @@
-add_library(onnx_mlir_attribute_promotion
+add_library(OMAttributePromotion
         AttributePromotion.cpp)
-target_include_directories(onnx_mlir_attribute_promotion
+target_include_directories(OMAttributePromotion
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNF_MLIR_SRC_ROOT})
-target_link_libraries(onnx_mlir_attribute_promotion
+target_link_libraries(OMAttributePromotion
         OMPromotableConstOperandsOpInterface)
 
 set(LLVM_TARGET_DEFINITIONS ONNXRewrite.td)

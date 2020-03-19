@@ -1,7 +1,7 @@
 set(LLVM_TARGET_DEFINITIONS PromotableConstOperandsOpInterface.td)
 onnx_mlir_tablegen(promotable_const_operands_op_interface.hpp.inc -gen-op-interface-decls)
 onnx_mlir_tablegen(promotable_const_operands_op_interface.cpp.inc -gen-op-interface-defs)
-add_public_tablegen_target(onnx_mlir_gen_promotable_const_operands_op_interface)
+add_public_tablegen_target(OMPromotableConstOperandsOpInterfaceIncGen)
 
 add_library(OMPromotableConstOperandsOpInterface
         PromotableConstOperandsOpInterface.hpp
@@ -10,7 +10,7 @@ target_include_directories(OMPromotableConstOperandsOpInterface
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 add_dependencies(OMPromotableConstOperandsOpInterface
-        onnx_mlir_gen_promotable_const_operands_op_interface)
+        OMPromotableConstOperandsOpInterfaceIncGen)
 
 
 set(LLVM_TARGET_DEFINITIONS ShapeInferenceInterface.td)
