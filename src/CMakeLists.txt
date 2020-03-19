@@ -1,17 +1,17 @@
 add_library(compiler
-        dialect/krnl/krnl_ops.cpp
-        dialect/krnl/krnl_ops.hpp
-        dialect/krnl/krnl_types.cpp
-        dialect/krnl/krnl_types.hpp
-        dialect/onnx/onnx_ops.cpp
-        dialect/onnx/onnx_ops.hpp
-        dialect/krnl/krnl_helper.cpp
-        dialect/krnl/krnl_helper.hpp
-        pass/shape_inference_interface.hpp
-        pass/onnx_combine.cpp
-        pass/onnx_rewrite.cpp
-        pass/onnx_decompose.cpp
-        pass/passes.hpp)
+        Dialect/Krnl/KrnlOps.cpp
+        Dialect/Krnl/KrnlOps.hpp
+        Dialect/Krnl/KrnlTypes.cpp
+        Dialect/Krnl/KrnlTypes.hpp
+        Dialect/ONNX/ONNXOps.cpp
+        Dialect/ONNX/ONNXOps.hpp
+        Dialect/Krnl/KrnlHelper.cpp
+        Dialect/Krnl/KrnlHelper.hpp
+        Pass/ShapeInferenceInterface.hpp
+        Pass/ONNXCombine.cpp
+        Pass/ONNXRewrite.cpp
+        Pass/ONNXDecompose.cpp
+        Pass/Passes.hpp)
 
 # Include root src directory.
 target_include_directories(compiler PRIVATE ${ONNX_MLIR_SRC_ROOT})
@@ -25,30 +25,30 @@ target_link_libraries(compiler
         ${MLIRLibs}
         curses)
 
-set(LLVM_TARGET_DEFINITIONS pass/onnx_decompose.td)
+set(LLVM_TARGET_DEFINITIONS Pass/ONNXDecompose.td)
 onnx_mlir_tablegen(onnx_decompose.inc -gen-rewriters)
 add_public_tablegen_target(gen_onnx_decompose)
 add_dependencies(compiler gen_onnx_decompose)
 
-set(LLVM_TARGET_DEFINITIONS pass/shape_inference_interface.td)
+set(LLVM_TARGET_DEFINITIONS Pass/ShapeInferenceInterface.td)
 onnx_mlir_tablegen(shape_inference.hpp.inc -gen-op-interface-decls)
 onnx_mlir_tablegen(shape_inference.cpp.inc -gen-op-interface-defs)
 add_public_tablegen_target(gen_shape_inference)
 add_dependencies(compiler gen_shape_inference)
 
-set(LLVM_TARGET_DEFINITIONS pass/onnx_combine.td)
+set(LLVM_TARGET_DEFINITIONS Pass/ONNXCombine.td)
 onnx_mlir_tablegen(onnx_combine.inc -gen-rewriters)
 add_public_tablegen_target(gen_onnx_combine)
 add_dependencies(compiler gen_onnx_combine)
 
-set(LLVM_TARGET_DEFINITIONS pass/onnx_rewrite.td)
+set(LLVM_TARGET_DEFINITIONS Pass/ONNXRewrite.td)
 onnx_mlir_tablegen(onnx_rewrite.inc -gen-rewriters)
 add_public_tablegen_target(gen_onnx_rewrite)
 add_dependencies(compiler gen_onnx_rewrite)
 
-add_subdirectory(interface)
+add_subdirectory(Interface)
 
-set(LLVM_TARGET_DEFINITIONS dialect/onnx/onnx.td)
+set(LLVM_TARGET_DEFINITIONS Dialect/ONNX/ONNXOps.td)
 onnx_mlir_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 onnx_mlir_tablegen(onnx.cpp.inc -gen-op-defs "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
@@ -61,23 +61,22 @@ add_dependencies(compiler gen_onnx)
 # dependency of the onnx dialect library, which is currently part of `compiler`.
 add_dependencies(compiler onnx_mlir_gen_promotable_const_operands_op_interface)
 
+add_onnx_mlir_dialect_doc(onnx Dialect/ONNX/ONNXOps.td)
 
-add_onnx_mlir_dialect_doc(onnx dialect/onnx/onnx.td)
-
-set(LLVM_TARGET_DEFINITIONS dialect/krnl/krnl_ops.td)
+set(LLVM_TARGET_DEFINITIONS Dialect/Krnl/KrnlOps.td)
 onnx_mlir_tablegen(krnl.hpp.inc -gen-op-decls)
 onnx_mlir_tablegen(krnl.cpp.inc -gen-op-defs)
 add_public_tablegen_target(gen_krnl_ops)
 add_dependencies(compiler gen_krnl_ops)
 
-add_library(onnx_mlir_onnx_decompose pass/onnx_decompose.cpp)
+add_library(onnx_mlir_onnx_decompose Pass/ONNXDecompose.cpp)
 target_include_directories(onnx_mlir_onnx_decompose
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(onnx_mlir_onnx_decompose ${MLIRLibs})
 add_dependencies(onnx_mlir_onnx_decompose gen_onnx)
 
-add_library(onnx_mlir_shape_inference pass/shape_inference_pass.cpp)
+add_library(onnx_mlir_shape_inference Pass/ShapeInferencePass.cpp)
 target_include_directories(onnx_mlir_shape_inference
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
@@ -85,33 +84,33 @@ target_link_libraries(onnx_mlir_shape_inference ${MLIRLibs})
 add_dependencies(onnx_mlir_shape_inference gen_onnx)
 
 add_library(onnx_mlir_lower_frontend
-        conversion/onnx_to_krnl/onnx_to_krnl_common.cpp
-        conversion/onnx_to_krnl/onnx_to_krnl_common.hpp
-        conversion/onnx_to_krnl/math/elementwise.cpp
-        conversion/onnx_to_krnl/math/gemm.cpp
-        conversion/onnx_to_krnl/math/matmul.cpp
-        conversion/onnx_to_krnl/math/reduction.cpp
-        conversion/onnx_to_krnl/math/softmax.cpp
-        conversion/onnx_to_krnl/nn/conv.cpp
-        conversion/onnx_to_krnl/nn/normalization.cpp
-        conversion/onnx_to_krnl/nn/pooling.cpp
-        conversion/onnx_to_krnl/tensor/identity.cpp
-        conversion/onnx_to_krnl/tensor/reshape.cpp
-        conversion/onnx_to_krnl/tensor/padconstantvaluepad.cpp
-        conversion/onnx_to_krnl/tensor/transpose.cpp
-        conversion/onnx_to_krnl/tensor/unsqueeze.cpp
-        conversion/onnx_to_krnl/tensor/constant.cpp
-        conversion/onnx_to_krnl/convert_onnx_to_krnl.cpp)
+        Conversion/ONNXToKrnl/ONNXToKrnlCommon.cpp
+        Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp
+        Conversion/ONNXToKrnl/Math/Elementwise.cpp
+        Conversion/ONNXToKrnl/Math/Gemm.cpp
+        Conversion/ONNXToKrnl/Math/MatMul.cpp
+        Conversion/ONNXToKrnl/Math/Reduction.cpp
+        Conversion/ONNXToKrnl/Math/Softmax.cpp
+        Conversion/ONNXToKrnl/NN/Conv.cpp
+        Conversion/ONNXToKrnl/NN/Normalization.cpp
+        Conversion/ONNXToKrnl/NN/Pooling.cpp
+        Conversion/ONNXToKrnl/Tensor/Identity.cpp
+        Conversion/ONNXToKrnl/Tensor/Reshape.cpp
+        Conversion/ONNXToKrnl/Tensor/PadConstantValuePad.cpp
+        Conversion/ONNXToKrnl/Tensor/Transpose.cpp
+        Conversion/ONNXToKrnl/Tensor/Unsqueeze.cpp
+        Conversion/ONNXToKrnl/Tensor/Constant.cpp
+        Conversion/ONNXToKrnl/ConvertONNXToKrnl.cpp)
 target_include_directories(onnx_mlir_lower_frontend
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(onnx_mlir_lower_frontend ${MLIRLibs})
 add_dependencies(onnx_mlir_lower_frontend gen_krnl_ops)
 
-add_subdirectory(transform)
-add_subdirectory(tool)
-add_subdirectory(builder)
-add_subdirectory(runtime)
+add_subdirectory(Transform)
+add_subdirectory(Tool)
+add_subdirectory(Builder)
+add_subdirectory(Runtime)
 
 add_executable(onnx-mlir main.cpp)
 
