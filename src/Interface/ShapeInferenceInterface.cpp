@@ -4,8 +4,8 @@
 //
 // =============================================================================
 //
-// This file contains the declarations of the shape inference interfaces defined
-// in ShapeInferenceInterface.td.
+// This file contains the implementations of the shape inference interfaces
+// defined in ShapeInferenceInterface.td.
 //
 //===----------------------------------------------------------------------===//
 
@@ -14,6 +14,6 @@
 namespace mlir {
 
 /// Include the auto-generated declarations.
-#include "src/Interface/shape_inference.cpp.inc"
+#include "src/Interface/ShapeInference.cpp.inc"
 
 }  // end namespace mlir

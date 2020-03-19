@@ -1,6 +1,6 @@
 set(LLVM_TARGET_DEFINITIONS ONNXOps.td)
-onnx_mlir_tablegen(onnx.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
-onnx_mlir_tablegen(onnx.cpp.inc -gen-op-defs "-I${CMAKE_SOURCE_DIR}/compiler/pass")
+onnx_mlir_tablegen(ONNXOps.hpp.inc -gen-op-decls "-I${CMAKE_SOURCE_DIR}/compiler/pass")
+onnx_mlir_tablegen(ONNXOps.cpp.inc -gen-op-defs "-I${CMAKE_SOURCE_DIR}/compiler/pass")
 set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
 add_public_tablegen_target(OMONNXOpsIncGen)
 

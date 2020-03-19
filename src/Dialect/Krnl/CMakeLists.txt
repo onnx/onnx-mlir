@@ -1,6 +1,6 @@
 set(LLVM_TARGET_DEFINITIONS KrnlOps.td)
-onnx_mlir_tablegen(krnl.hpp.inc -gen-op-decls)
-onnx_mlir_tablegen(krnl.cpp.inc -gen-op-defs)
+onnx_mlir_tablegen(KrnlOps.hpp.inc -gen-op-decls)
+onnx_mlir_tablegen(KrnlOps.cpp.inc -gen-op-defs)
 add_public_tablegen_target(OMKrnlOpsIncGen)
 
 add_library(OMKrnlOps

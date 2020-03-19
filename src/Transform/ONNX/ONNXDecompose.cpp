@@ -25,7 +25,7 @@ using namespace mlir;
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Transform/ONNX/onnx_decompose.inc"
+#include "src/Transform/ONNX/ONNXDecompose.inc"
 
 struct DecomposeONNXToONNXPass : public FunctionPass<DecomposeONNXToONNXPass> {
   void runOnFunction() final;

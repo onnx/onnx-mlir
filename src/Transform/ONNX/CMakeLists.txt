@@ -7,15 +7,15 @@ target_link_libraries(OMAttributePromotion
         OMPromotableConstOperandsOpInterface)
 
 set(LLVM_TARGET_DEFINITIONS ONNXRewrite.td)
-onnx_mlir_tablegen(onnx_rewrite.inc -gen-rewriters)
+onnx_mlir_tablegen(ONNXRewrite.inc -gen-rewriters)
 add_public_tablegen_target(OMONNXRewriteIncGen)
 
 set(LLVM_TARGET_DEFINITIONS ONNXCombine.td)
-onnx_mlir_tablegen(onnx_combine.inc -gen-rewriters)
+onnx_mlir_tablegen(ONNXCombine.inc -gen-rewriters)
 add_public_tablegen_target(OMONNXCombineIncGen)
 
 set(LLVM_TARGET_DEFINITIONS ONNXDecompose.td)
-onnx_mlir_tablegen(onnx_decompose.inc -gen-rewriters)
+onnx_mlir_tablegen(ONNXDecompose.inc -gen-rewriters)
 add_public_tablegen_target(OMONNXDecomposeIncGen)
 
 add_library(OMONNXRewrite
