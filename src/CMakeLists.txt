@@ -37,7 +37,8 @@ target_link_libraries(onnx-mlir
         ${MLIRLibs}
         OMKrnlOps
         OMONNXOps
-        onnx_mlir_transform
+        OMKrnlToAffine
+        OMKrnlToLLVM
         OMShapeInference
         OMONNXToKrnl
         OMONNXRewrite

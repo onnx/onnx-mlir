@@ -8,7 +8,8 @@ target_link_libraries(onnx-mlir-opt
         OMBuilder
         ${MLIRLibs}
         OMKrnlOps
-        onnx_mlir_transform
+        OMKrnlToAffine
+        OMKrnlToLLVM
         OMShapeInference
         OMONNXToKrnl
         OMPromotableConstOperandsOpInterface
@@ -16,7 +17,8 @@ target_link_libraries(onnx-mlir-opt
 whole_archive_link_mlir(onnx-mlir-opt
         ${MLIRWholeArchiveLibs})
 whole_archive_link_onnx_mlir(onnx-mlir-opt
-        onnx_mlir_transform
+        OMKrnlToAffine
+        OMKrnlToLLVM
         OMONNXToKrnl
         OMONNXRewrite
         OMShapeInference
