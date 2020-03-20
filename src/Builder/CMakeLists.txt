@@ -5,8 +5,9 @@ add_library(OMBuilder
         FrontendDialectTransformer.hpp
         OpBuildTable.inc)
 
-target_include_directories(OMBuilder PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(OMBuilder PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(OMBuilder PRIVATE ${CMAKE_BINARY_DIR})
+target_include_directories(OMBuilder PRIVATE ${ONNX_MLIR_BIN_ROOT})
 
 target_link_libraries(OMBuilder
         OMONNXOps
@@ -16,6 +17,6 @@ target_link_libraries(OMBuilder
         mpark_variant)
 target_include_directories(OMBuilder
                            PUBLIC
-                           ${CMAKE_SOURCE_DIR}/third_party/onnx
-                           ${CMAKE_SOURCE_DIR}/third_party/variant
-                           ${CMAKE_SOURCE_DIR})
+                           ${ONNX_MLIR_SRC_ROOT}/third_party/onnx
+                           ${ONNX_MLIR_SRC_ROOT}/third_party/variant
+                           ${ONNX_MLIR_SRC_ROOT})
