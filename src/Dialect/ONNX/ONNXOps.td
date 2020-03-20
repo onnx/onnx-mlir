@@ -19,12 +19,12 @@ include "mlir/IR/OpBase.td"
 
 #ifdef SHAPE_INFERENCE_INTERFACE
 #else
-include "Pass/ShapeInferenceInterface.td"
+include "src/Interface/ShapeInferenceInterface.td"
 #endif // SHAPE_INFERENCE_INTERFACE
 
 #ifdef PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 #else
-include "Interface/PromotableConstOperandsOpInterface.td"
+include "src/Interface/PromotableConstOperandsOpInterface.td"
 #endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 
 def ONNX_Dialect : Dialect {
@@ -61,7 +61,7 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 // 4. type of string, complex64 and complex128 for input/output are ignored 
 // 5. unsigned int are treated as signed one
 
-include "Dialect/ONNX/ONNXOps.td.inc"
+include "src/Dialect/ONNX/ONNXOps.td.inc"
 
 // Indicate entry point functions of ONNX graph.
 def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {

@@ -14,14 +14,10 @@
 #include "llvm/Support/raw_ostream.h"
 #include "mlir/IR/StandardTypes.h"
 
-#include "ShapeInferenceInterface.hpp"
-
-#include "Passes.hpp"
+#include "src/Interface/ShapeInferenceInterface.hpp"
+#include "src/Pass/Passes.hpp"
 
 using namespace mlir;
-
-// Include the auto-generated definitions for the shape inference interfaces.
-#include "src/shape_inference.cpp.inc"
 
 namespace {
 /*!
