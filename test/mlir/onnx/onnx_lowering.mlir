@@ -1351,6 +1351,7 @@ func @test_maxpooling_singleout_no_pad(%arg0 : tensor<1x3x32x32xf32>) -> tensor<
   // CHECK-LABEL: test_maxpooling_singleout_no_pad
   // CHECK: [[RES:%.+]] = alloc() : memref<1x3x31x31xf32>
   // CHECK: [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK: [[OUT_OF_BOUND_COUNT:%.+]] = alloc() : memref<f32>
   // CHECK: [[DEF_LOOPS_0:%.+]]:4 = krnl.define_loops 4
   // CHECK: [[OPT_LOOPS_0:%.+]]:4 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS_0]]#0, [[DEF_LOOPS_0]]#1, [[DEF_LOOPS_0]]#2, [[DEF_LOOPS_0]]#3
@@ -1371,6 +1372,7 @@ func @test_maxpooling_singleout_no_pad(%arg0 : tensor<1x3x32x32xf32>) -> tensor<
   // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
   // CHECK:   }
   // CHECK: }
+  // CHECK: dealloc [[OUT_OF_BOUND_COUNT]] : memref<f32>
   // CHECK: return [[RES]] : memref<1x3x31x31xf32>
 }
 
@@ -1381,6 +1383,7 @@ func @test_maxpooling_singleout_no_pad_w_strides(%arg0 : tensor<1x3x32x32xf32>) 
   // CHECK-LABEL: test_maxpooling_singleout_no_pad_w_strides
   // CHECK: [[RES:%.+]] = alloc() : memref<1x3x16x16xf32>
   // CHECK: [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK: [[OUT_OF_BOUND_COUNT:%.+]] = alloc() : memref<f32>
   // CHECK: [[DEF_LOOPS_0:%.+]]:4 = krnl.define_loops 4
   // CHECK: [[OPT_LOOPS_0:%.+]]:4 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS_0]]#0, [[DEF_LOOPS_0]]#1, [[DEF_LOOPS_0]]#2, [[DEF_LOOPS_0]]#3
@@ -1405,6 +1408,7 @@ func @test_maxpooling_singleout_no_pad_w_strides(%arg0 : tensor<1x3x32x32xf32>) 
   // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
   // CHECK:   }
   // CHECK: }
+  // CHECK: dealloc [[OUT_OF_BOUND_COUNT]] : memref<f32>
   // CHECK: return [[RES]] : memref<1x3x16x16xf32>
 }
 
@@ -1415,12 +1419,12 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x
   // CHECK-LABEL: test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode
   // CHECK: [[RES:%.+]] = alloc() : memref<1x3x16x16xf32>
   // CHECK: [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK: [[OUT_OF_BOUND_COUNT:%.+]] = alloc() : memref<f32>
   // CHECK: [[DEF_LOOPS_0:%.+]]:4 = krnl.define_loops 4
   // CHECK: [[OPT_LOOPS_0:%.+]]:4 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS_0]]#0, [[DEF_LOOPS_0]]#1, [[DEF_LOOPS_0]]#2, [[DEF_LOOPS_0]]#3
   // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS_0]]#0, [[OPT_LOOPS_0]]#1, [[OPT_LOOPS_0]]#2, [[OPT_LOOPS_0]]#3) with ([[DEF_LOOPS_0]]#0 -> %arg1 = 0 to 1, [[DEF_LOOPS_0]]#1 -> %arg2 = 0 to 3, [[DEF_LOOPS_0]]#2 -> %arg3 = 0 to 16, [[DEF_LOOPS_0]]#3 -> %arg4 = 0 to 16) {
-  // CHECK:   [[OUT_OF_BOUND_COUNT:%.+]] = alloc() : memref<f32>
   // CHECK:   store [[NEGATIVE_INFINITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
   // CHECK:   [[ZERO:%.+]] = constant 0.000000e+00 : f32
   // CHECK:   store [[ZERO]], [[OUT_OF_BOUND_COUNT]][] : memref<f32>
@@ -1442,7 +1446,7 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x
   // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sge", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
   // CHECK:     [[OR:%.+]] = or [[GREATER_THAN_UPPER_0]], [[GREATER_THAN_UPPER_1]]
 
-  // CHECK:     [[LOAD_OUT_OF_BOUND_COUNT:%.+]] = load %3[] : memref<f32>
+  // CHECK:     [[LOAD_OUT_OF_BOUND_COUNT:%.+]] = load [[OUT_OF_BOUND_COUNT]][] : memref<f32>
   // CHECK:     [[ONE:%.+]] = constant 1.000000e+00 : f32
   // CHECK:     [[ADD_ONE:%.+]] = addf [[LOAD_OUT_OF_BOUND_COUNT]], [[ONE]] : f32
   // CHECK:     [[NEW_OUT_OF_BOUND_COUNT:%.+]] = select [[OR]], [[ADD_ONE]], [[LOAD_OUT_OF_BOUND_COUNT]] : f32
@@ -1456,6 +1460,7 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x
   // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x16x16xf32>
   // CHECK:   }
   // CHECK: }
+  // CHECK: dealloc [[OUT_OF_BOUND_COUNT]] : memref<f32>
   // CHECK: return [[RES]] : memref<1x3x16x16xf32>
 }
 
@@ -1466,12 +1471,12 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_dilation(%arg0 : tensor<1x3x3
   // CHECK-LABEL: test_maxpooling_singleout_no_pad_w_strides_w_dilation
   // CHECK: [[RES:%.+]] = alloc() : memref<1x3x14x14xf32>
   // CHECK: [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK: [[OUT_OF_BOUND_COUNT:%.+]] = alloc() : memref<f32>
   // CHECK: [[DEF_LOOPS_0:%.+]]:4 = krnl.define_loops 4
   // CHECK: [[OPT_LOOPS_0:%.+]]:4 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS_0]]#0, [[DEF_LOOPS_0]]#1, [[DEF_LOOPS_0]]#2, [[DEF_LOOPS_0]]#3
   // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS_0]]#0, [[OPT_LOOPS_0]]#1, [[OPT_LOOPS_0]]#2, [[OPT_LOOPS_0]]#3) with ([[DEF_LOOPS_0]]#0 -> %arg1 = 0 to 1, [[DEF_LOOPS_0]]#1 -> %arg2 = 0 to 3, [[DEF_LOOPS_0]]#2 -> %arg3 = 0 to 14, [[DEF_LOOPS_0]]#3 -> %arg4 = 0 to 14) {
-  // CHECK:   [[OUT_OF_BOUND_COUNT:%.+]] = alloc() : memref<f32>
   // CHECK:   store [[NEGATIVE_INFINITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x14x14xf32>
   // CHECK:   [[ZERO:%.+]] = constant 0.000000e+00 : f32
   // CHECK:   store [[ZERO]], [[OUT_OF_BOUND_COUNT]][] : memref<f32>
@@ -1498,7 +1503,7 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_dilation(%arg0 : tensor<1x3x3
   // CHECK:     [[GREATER_THAN_UPPER_1:%.+]] = cmpi "sge", [[SPATIAL_W]], [[UPPER_INDEX_1]] : index
   // CHECK:     [[OR:%.+]] = or [[GREATER_THAN_UPPER_0]], [[GREATER_THAN_UPPER_1]]
 
-  // CHECK:     [[LOAD_OUT_OF_BOUND_COUNT:%.+]] = load %3[] : memref<f32>
+  // CHECK:     [[LOAD_OUT_OF_BOUND_COUNT:%.+]] = load [[OUT_OF_BOUND_COUNT]][] : memref<f32>
   // CHECK:     [[ONE:%.+]] = constant 1.000000e+00 : f32
   // CHECK:     [[ADD_ONE:%.+]] = addf [[LOAD_OUT_OF_BOUND_COUNT]], [[ONE]] : f32
   // CHECK:     [[NEW_OUT_OF_BOUND_COUNT:%.+]] = select [[OR]], [[ADD_ONE]], [[LOAD_OUT_OF_BOUND_COUNT]] : f32
@@ -1512,6 +1517,7 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_dilation(%arg0 : tensor<1x3x3
   // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x14x14xf32>
   // CHECK:   }
   // CHECK: }
+  // CHECK: dealloc [[OUT_OF_BOUND_COUNT]] : memref<f32>
   // CHECK: return [[RES]] : memref<1x3x14x14xf32>
 }
 
@@ -1538,6 +1544,7 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK: [[DIM_1_FINAL:%.+]] = index_cast [[SELECT_PLUS_ONE]] : i64 to index
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]], [[DIM_1_FINAL]]) : memref<?x3x?x16xf32>
   // CHECK: [[NEGATIVE_INFINITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK: [[OUT_OF_BOUND_COUNT:%.+]] = alloc() : memref<f32>
 
   // CHECK: [[DEF_LOOPS_0:%.+]]:4 = krnl.define_loops 4
   // CHECK: [[OPT_LOOPS_0:%.+]]:4 = krnl.optimize_loops  {
@@ -1546,7 +1553,6 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x3x?x16xf32>
   // CHECK: [[DIM_3:%.+]] = dim [[RES]], 2 : memref<?x3x?x16xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS_0]]#0, [[OPT_LOOPS_0]]#1, [[OPT_LOOPS_0]]#2, [[OPT_LOOPS_0]]#3) with ([[DEF_LOOPS_0]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS_0]]#1 -> %arg2 = 0 to 3, [[DEF_LOOPS_0]]#2 -> %arg3 = 0 to [[DIM_3]], [[DEF_LOOPS_0]]#3 -> %arg4 = 0 to 16) {
-  // CHECK:   [[OUT_OF_BOUND_COUNT:%.+]] = alloc() : memref<f32>
   // CHECK:   store [[NEGATIVE_INFINITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<?x3x?x16xf32>
   // CHECK:   [[ZERO:%.+]] = constant 0.000000e+00 : f32
   // CHECK:   store [[ZERO]], [[OUT_OF_BOUND_COUNT]][] : memref<f32>
@@ -1582,6 +1588,7 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<?x3x?x16xf32>
   // CHECK:   }
   // CHECK: }
+  // CHECK: dealloc [[OUT_OF_BOUND_COUNT]] : memref<f32>
   // CHECK: return [[RES]] : memref<?x3x?x16xf32>
 }
 

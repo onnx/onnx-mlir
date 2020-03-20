@@ -368,8 +368,13 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     // TODO: handle padding.
     //
 
+    // Identity value of the operation.
     auto identity =
       getIdentityValue<PoolOp>(rewriter, loc, resultElementType);
+
+    // Record the number of pixels that are out-of-bound.
+    Value outOfBoundCount = rewriter.create<AllocOp>(
+        loc, MemRefType::get({}, resultElementType, {}, 0));
 
     // 1. Define outer loops and emit empty optimization block.
     // for n = 0 .. N:
@@ -379,6 +384,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     auto nOuterLoops = resultShape.size();
     BuildKrnlLoop outerLoops(rewriter, loc, nOuterLoops);
     outerLoops.createDefineOptimizeAndIterateOp(alloc);
+
+    auto ipMainRegion = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(outerLoops.getIterateBlock());
     {
       // 2. Emit the body of the outer loop nest, which does one filter
@@ -390,9 +397,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // 2.1 Emit: R[n][c][r1][r2] = identity;
       rewriter.create<StoreOp>(loc, identity, alloc, resultIndices);
 
-      // 2.2 Record the number of pixels that are out-of-bound.
-      Value outOfBoundCount = insertAllocAndDealloc(
-          MemRefType::get({}, resultElementType, {}, 0), loc, rewriter, false);
+      // 2.2 Reset outOfBoundCount.
       Value zero = emitConstantOp(rewriter, loc, resultElementType, 0);
       rewriter.create<StoreOp>(loc, zero, outOfBoundCount);
 
@@ -408,11 +413,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // 2.4 Emit inner loop nest.
       innerLoops.createIterateOp();
 
-      // 2.5 Post-processing, e.g. taking average.
-      doPostProcessingForPooling<PoolOp>(rewriter, loc, poolOp,
-          outOfBoundCount, kernelShape, resultIndices, alloc);
-
-      // Emit the body of the inner loop.
+      auto ipOuterLoops = rewriter.saveInsertionPoint();
       rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
       {
         std::vector<Value> dataIndices;
@@ -498,7 +499,18 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             op, resultElementType, {loadResult, loadData}, rewriter);
         rewriter.create<StoreOp>(loc, nextResult, alloc, resultIndices);
       }
+
+      // 2.5 Post-processing in the outer loop nest, e.g. taking average.
+      rewriter.restoreInsertionPoint(ipOuterLoops);
+      doPostProcessingForPooling<PoolOp>(rewriter, loc, poolOp,
+          outOfBoundCount, kernelShape, resultIndices, alloc);
     }
+
+    // Go back to the main region.
+    rewriter.restoreInsertionPoint(ipMainRegion);
+
+    // Clean temporary variables.
+    rewriter.create<DeallocOp>(loc, outOfBoundCount);
 
     rewriter.replaceOp(op, alloc);
 
