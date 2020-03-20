@@ -81,7 +81,7 @@ FloatAttr getPadValueForAveragePool(
 }
 
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/onnx_rewrite.inc"
+#include "src/Transform/ONNX/ONNXRewrite.inc"
 
 //===----------------------------------------------------------------------===//
 // Rewrite:

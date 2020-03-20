@@ -19,13 +19,13 @@
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "Passes.hpp"
+#include "src/Pass/Passes.hpp"
 
 using namespace mlir;
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/onnx_decompose.inc"
+#include "src/Transform/ONNX/ONNXDecompose.inc"
 
 struct DecomposeONNXToONNXPass : public FunctionPass<DecomposeONNXToONNXPass> {
   void runOnFunction() final;

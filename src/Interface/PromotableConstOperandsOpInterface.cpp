@@ -1,4 +1,4 @@
-//===------------ promotable_const_operands_op_interface.cpp --------------===//
+//===------------ PromotableConstOperandsOpInterface.cpp --------------===//
 //===-------- Promotable Const Operands Op Interface Definition -----------===//
 //
 // Copyright 2020 The IBM Research Authors.
@@ -19,5 +19,5 @@ using namespace mlir;
 // Promotable Const Operands Op Interface
 //===----------------------------------------------------------------------===//
 
-#include "src/Interface/promotable_const_operands_op_interface.cpp.inc"
+#include "src/Interface/PromotableConstOperandsOpInterface.cpp.inc"
 
