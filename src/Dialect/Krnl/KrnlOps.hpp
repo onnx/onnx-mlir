@@ -45,5 +45,5 @@ public:
 };
 
 #define GET_OP_CLASSES
-#include "src/krnl.hpp.inc"
+#include "src/Dialect/Krnl/KrnlOps.hpp.inc"
 } // namespace mlir

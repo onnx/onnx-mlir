@@ -200,7 +200,8 @@ function(onnx_mlir_tablegen ofn)
   tablegen(MLIR
           ${ARGV}
           "-I${MLIR_SRC_INCLUDE_PATH}"
-          "-I${MLIR_BIN_INCLUDE_PATH}")
+          "-I${MLIR_BIN_INCLUDE_PATH}"
+          "-I${ONNX_MLIR_SRC_ROOT}")
   set(TABLEGEN_OUTPUT
           ${TABLEGEN_OUTPUT} ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
           PARENT_SCOPE)

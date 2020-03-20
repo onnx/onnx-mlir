@@ -1,22 +1,25 @@
 add_executable(onnx-mlir-opt ONNXMLIROpt.cpp)
-add_dependencies(onnx-mlir-opt gen_krnl_ops)
+add_dependencies(onnx-mlir-opt OMKrnlOpsIncGen)
 
 target_include_directories(onnx-mlir-opt PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(onnx-mlir-opt PRIVATE ${ONNX_MLIR_BIN_ROOT})
 
 target_link_libraries(onnx-mlir-opt
-        builder
         ${MLIRLibs}
-        onnx_mlir_transform
-        onnx_mlir_shape_inference
-        onnx_mlir_lower_frontend
-        onnx_mlir_promotable_const_operands_op_interface
+        OMBuilder
+        OMKrnlOps
+        OMKrnlToAffine
+        OMKrnlToLLVM
+        OMShapeInference
+        OMONNXToKrnl
+        OMPromotableConstOperandsOpInterface
         curses)
 whole_archive_link_mlir(onnx-mlir-opt
         ${MLIRWholeArchiveLibs})
 whole_archive_link_onnx_mlir(onnx-mlir-opt
-        compiler
-        onnx_mlir_transform
-        onnx_mlir_lower_frontend
-        onnx_mlir_shape_inference
-        onnx_mlir_attribute_promotion)
+        OMKrnlToAffine
+        OMKrnlToLLVM
+        OMONNXToKrnl
+        OMONNXRewrite
+        OMShapeInference
+        OMAttributePromotion)

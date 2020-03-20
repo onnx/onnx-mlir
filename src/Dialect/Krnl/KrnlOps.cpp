@@ -37,7 +37,7 @@ KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
     : Dialect(getDialectNamespace(), context) {
   addOperations<
 #define GET_OP_LIST
-#include "src/krnl.cpp.inc"
+#include "src/Dialect/Krnl/KrnlOps.cpp.inc"
       >();
   addTypes<LoopType>();
 }
@@ -375,5 +375,5 @@ void KrnlEntryPointOp::build(mlir::Builder *builder, OperationState &state,
 }
 
 #define GET_OP_CLASSES
-#include "src/krnl.cpp.inc"
+#include "src/Dialect/Krnl/KrnlOps.cpp.inc"
 } // namespace mlir
