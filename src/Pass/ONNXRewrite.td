@@ -38,6 +38,11 @@ def FloatAttrOfNegativeInfinity:
   NativeCodeCall<"FloatAttr::get($0.getType().cast<TensorType>().getElementType(), "
                                 "-std::numeric_limits<double>::infinity())">;
 
+// Create a FloatAttr for a NaN value
+def FloatAttrOfNaN:
+  NativeCodeCall<"FloatAttr::get($0.getType().cast<TensorType>().getElementType(), "
+                                "APFloat::getQNaN(APFloat::IEEEdouble()).convertToDouble())">;
+
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
 // This function is used for padding attribute in MaxPoolSingleOut.
 def createArrayAttrOfZerosFrom:
@@ -61,6 +66,10 @@ class insertZerosForNonPaddedDims<int extensionLength>:
 // Check whether an ArrayAttr contains non-zero values or not.
 def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
                                        "has non-zero elements">;
+
+// Create a FloatAttr whose value depends on count_include_pad.
+def getPadValueForAveragePool:
+  NativeCodeCall<"getPadValueForAveragePool($_builder, $0, $1)">;
 
 //===----------------------------------------------------------------------===//
 // Rewrite:
@@ -90,6 +99,41 @@ def MaxPoolSingleOutOpPaddingPattern: Pat<
      $auto_pad, $ceil_mode, $dilation, $kernel_shape,
      (createArrayAttrOfZerosFrom $pads),
      $storage_order, $strides),
+  [(HasNonZeroInArrayAttr:$pads)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Rewrite:
+// %0 = onnx.AveragePoolOp(%D : tensor<DShape>)
+//     {pads = [b0, b1, ... bK, e0, e1, ..., eK]} ->
+//         tensor<OutShape>
+//
+// as:
+// %0 = onnx.PadConstantValuePadOp(%D)
+//     {pads = [0, 0, b0, b1, ... bK, 0, 0, e0, e1, ..., eK]} ->
+//     tensor<DPaddedShape>
+// %1 = onnx.AveragePool(%0 : tensor<DPaddedShape>) {pads = [0, ..., 0]} ->
+//     tensor<OutShape>
+//===----------------------------------------------------------------------===//
+
+// Pad values are NaNs if count_include_pad is disabled (default).
+// The current implementation uses the negative infinity since it seems that
+// MLIR hasn't supported checking if a Value is NaN or not in MLIR?
+// TODO (tung): Find out how to check equality against NaNs.
+def AveragePoolOpPaddingPattern: Pat<
+  (ONNXAveragePoolOp:$res
+     $x,
+     $auto_pad, $ceil_mode, $count_include_pad, $kernel_shape,
+     $pads,
+     $strides),
+  (ONNXAveragePoolOp
+     (ONNXPadConstantValuePadOp $x,
+        (insertZerosForNonPaddedDims<2> $pads),
+        (getPadValueForAveragePool $res, $count_include_pad),
+        (StringAttrOfValue<"constant">)),
+     $auto_pad, $ceil_mode, $count_include_pad, $kernel_shape,
+     (createArrayAttrOfZerosFrom $pads),
+     $strides),
   [(HasNonZeroInArrayAttr:$pads)]
 >;
 

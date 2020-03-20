@@ -70,23 +70,11 @@ std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
     return dilations;
 }
 
-// AveragePool does not have dilations.
-template <>
-std::vector<int64_t> getDilations<ONNXAveragePoolOp>(ONNXAveragePoolOp poolOp) {
-  return {};
-}
-
 //===----------------------------------------------------------------------===//
 // Get count_include_pad values
 //
 template <typename PoolOp>
 bool getCountIncludePad(PoolOp poolOp) {
-  return false;
-}
-
-// MaxPool does not have dilations.
-template <>
-bool getCountIncludePad<ONNXMaxPoolSingleOutOp>(ONNXMaxPoolSingleOutOp poolOp) {
   return false;
 }
 
@@ -101,42 +89,24 @@ bool getCountIncludePad<ONNXAveragePoolOp>(ONNXAveragePoolOp poolOp) {
 //
 template <typename PoolOp>
 void doPostProcessingForPooling(ConversionPatternRewriter &rewriter,
-    Location loc, PoolOp poolOp, Value outOfBoundCount,
-    ArrayRef<int64_t> kernelShape, ArrayRef<Value> resultIndices, Value alloc) {
-}
-
-// MaxPool does not have post-processing.
-template <>
-void doPostProcessingForPooling<ONNXMaxPoolSingleOutOp>(
-    ConversionPatternRewriter &rewriter, Location loc,
-    ONNXMaxPoolSingleOutOp poolOp, Value outOfBoundCount,
-    ArrayRef<int64_t> kernelShape, ArrayRef<Value> resultIndices, Value alloc) {
-}
+    Location loc, PoolOp poolOp, Value alloc, ArrayRef<Value> resultIndices,
+    Value numOfOutOfBoundPixels, Value numOfNonPadPixels) {}
 
 // AveragePool
-// AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
 template <>
 void doPostProcessingForPooling<ONNXAveragePoolOp>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXAveragePoolOp poolOp,
-    Value outOfBoundCount, ArrayRef<int64_t> kernelShape,
-    ArrayRef<Value> resultIndices, Value alloc) {
-  bool countIncludePad = (poolOp.count_include_pad() != 0);
-
-  // Compute denomitor to take average.
-  int64_t kernelSize = 1;
-  for (int i = 0; i < kernelShape.size(); ++i) {
-    kernelSize *= kernelShape[i];
-  }
-  Value denomitor = emitConstantOp(rewriter, loc,
-      alloc.getType().cast<MemRefType>().getElementType(), kernelSize);
-  if (!countIncludePad) {
-    auto outOfBoundCountVal = rewriter.create<LoadOp>(loc, outOfBoundCount);
-    denomitor = rewriter.create<SubFOp>(loc, denomitor, outOfBoundCountVal);
-  }
-
-  Value loadResult = rewriter.create<LoadOp>(loc, alloc, resultIndices);
-  loadResult = rewriter.create<DivFOp>(loc, loadResult, denomitor);
-  rewriter.create<StoreOp>(loc, loadResult, alloc, resultIndices);
+    Value alloc, ArrayRef<Value> resultIndices, Value numOfOutOfBoundPixels,
+    Value numOfNonPadPixels) {
+  // AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
+  Value denominator = rewriter.create<LoadOp>(loc, numOfNonPadPixels);
+  Value numOfOutOfBoundPixelsVal =
+      rewriter.create<LoadOp>(loc, numOfOutOfBoundPixels);
+  denominator =
+      rewriter.create<SubFOp>(loc, denominator, numOfOutOfBoundPixelsVal);
+  auto loadResult = rewriter.create<LoadOp>(loc, alloc, resultIndices);
+  auto average = rewriter.create<DivFOp>(loc, loadResult, denominator);
+  rewriter.create<StoreOp>(loc, average, alloc, resultIndices);
 }
 
 //===----------------------------------------------------------------------===//
@@ -177,7 +147,7 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
     if (resultShape[i] < 0) {
       // dim =
       //   let numerator = (input + pad - (kernel - 1) * dilation - 1)
-      //   in let denomitor = stride
+      //   in let denominator = stride
       //      in
       //        if (ceilMode)
       //          ceil(numerator / denominator) + 1
@@ -282,7 +252,7 @@ void getDataIndicesForPooling(ConversionPatternRewriter &rewriter, Location loc,
 //===----------------------------------------------------------------------===//
 // Template function that does pooling.
 //
-template<typename PoolOp>
+template <typename PoolOp>
 struct ONNXPoolOpLowering : public ConversionPattern {
   ONNXPoolOpLowering(MLIRContext *ctx)
       : ConversionPattern(PoolOp::getOperationName(), 1, ctx) {}
@@ -320,7 +290,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
     // Read count_include_pad attribute if the op has.
     bool countIncludePad = getCountIncludePad<PoolOp>(poolOp);
-    
+
     // Type information about the input and result of this operation.
     auto &inputOperand = operands[0];
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
@@ -369,11 +339,22 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //
 
     // Identity value of the operation.
-    auto identity =
-      getIdentityValue<PoolOp>(rewriter, loc, resultElementType);
+    auto identity = getIdentityValue<PoolOp>(rewriter, loc, resultElementType);
+
+    // NaN value for pad pixels if count_include_pad = 0 (disabled).
+    // auto nan = emitConstantOp(rewriter, loc, resultElementType,
+    //     APFloat::getQNaN(APFloat::IEEEdouble()).convertToDouble());
+    // The current implementation uses the negative infinity since it seems that
+    // MLIR hasn't supported checking if a Value is NaN or not in MLIR?
+    // TODO (tung): Find out how to check equality against NaNs.
+    auto nan = emitNegativeInfinityConstantOp(rewriter, loc, resultElementType);
 
     // Record the number of pixels that are out-of-bound.
-    Value outOfBoundCount = rewriter.create<AllocOp>(
+    Value numOfOutOfBoundPixels = rewriter.create<AllocOp>(
+        loc, MemRefType::get({}, resultElementType, {}, 0));
+
+    // Record the number of non-pad pixels.
+    Value numOfNonPadPixels = rewriter.create<AllocOp>(
         loc, MemRefType::get({}, resultElementType, {}, 0));
 
     // 1. Define outer loops and emit empty optimization block.
@@ -397,9 +378,15 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // 2.1 Emit: R[n][c][r1][r2] = identity;
       rewriter.create<StoreOp>(loc, identity, alloc, resultIndices);
 
-      // 2.2 Reset outOfBoundCount.
+      // 2.2 Reset numOfOutOfBoundPixels, numOfNonPadPixels.
       Value zero = emitConstantOp(rewriter, loc, resultElementType, 0);
-      rewriter.create<StoreOp>(loc, zero, outOfBoundCount);
+      rewriter.create<StoreOp>(loc, zero, numOfOutOfBoundPixels);
+      int64_t kernelSize = 1;
+      for (int i = 0; i < kernelShape.size(); ++i)
+        kernelSize *= kernelShape[i];
+      auto kernelSizeVal =
+          emitConstantOp(rewriter, loc, resultElementType, kernelSize);
+      rewriter.create<StoreOp>(loc, kernelSizeVal, numOfNonPadPixels);
 
       // 2.3 Define inner loops.
       //   for k1 = 0 .. KH:
@@ -466,8 +453,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             if (outOfBound) {
               auto next = rewriter.create<CmpIOp>(
                   loc, CmpIPredicate::sge, dataIndices[i], upperIndex);
-              outOfBound =
-                  rewriter.create<OrOp>(loc, outOfBound, next);
+              outOfBound = rewriter.create<OrOp>(loc, outOfBound, next);
             } else {
               outOfBound = rewriter.create<CmpIOp>(
                   loc, CmpIPredicate::sge, dataIndices[i], upperIndex);
@@ -475,7 +461,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
           }
           // Count the number of out-of-bound indices.
           if (outOfBound) {
-            Value loadCount = rewriter.create<LoadOp>(loc, outOfBoundCount);
+            Value loadCount =
+                rewriter.create<LoadOp>(loc, numOfOutOfBoundPixels);
             auto one = emitConstantOp(rewriter, loc, resultElementType, 1);
             if (resultElementType.isa<FloatType>())
               loadCount = rewriter.create<SelectOp>(loc, outOfBound,
@@ -483,17 +470,37 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             else
               loadCount = rewriter.create<SelectOp>(loc, outOfBound,
                   rewriter.create<AddIOp>(loc, loadCount, one), loadCount);
-            rewriter.create<StoreOp>(loc, loadCount, outOfBoundCount);
+            rewriter.create<StoreOp>(loc, loadCount, numOfOutOfBoundPixels);
           }
-          // TODO (tung): Count the number of pad pixels when calculating values
-          // for the edges.
         }
 
         Value loadData =
             rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
+
+        // Use the identity value for out-of-bound pixels.
         if (outOfBound)
           loadData =
               rewriter.create<SelectOp>(loc, outOfBound, identity, loadData);
+
+        // In case of AveragePool, if count_include_pad is off, we need to count
+        // the number of non-pad pixels.
+        // We follow ONNX convention that non-pad pixels have NaN values when
+        // count_include_pad is off:
+        // https://github.com/onnx/onnx/blob/master/onnx/backend/test/case/node/pool_op_common.py#L73
+        if (llvm::dyn_cast<ONNXAveragePoolOp>(op) &&
+            resultElementType.isa<FloatType>() && !countIncludePad) {
+          auto isNonPad =
+              rewriter.create<CmpFOp>(loc, CmpFPredicate::ONE, loadData, nan);
+          Value loadCount = rewriter.create<LoadOp>(loc, numOfNonPadPixels);
+          auto one = emitConstantOp(rewriter, loc, resultElementType, 1);
+          loadCount = rewriter.create<SelectOp>(loc, isNonPad, loadCount,
+              rewriter.create<SubFOp>(loc, loadCount, one));
+          rewriter.create<StoreOp>(loc, loadCount, numOfNonPadPixels);
+          // Update the loaded data from NaN to the identity value.
+          loadData =
+              rewriter.create<SelectOp>(loc, isNonPad, loadData, identity);
+        }
+
         Value loadResult = rewriter.create<LoadOp>(loc, alloc, resultIndices);
         auto nextResult = mapToLowerScalarOp<PoolOp>(
             op, resultElementType, {loadResult, loadData}, rewriter);
@@ -502,15 +509,16 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
       // 2.5 Post-processing in the outer loop nest, e.g. taking average.
       rewriter.restoreInsertionPoint(ipOuterLoops);
-      doPostProcessingForPooling<PoolOp>(rewriter, loc, poolOp,
-          outOfBoundCount, kernelShape, resultIndices, alloc);
+      doPostProcessingForPooling<PoolOp>(rewriter, loc, poolOp, alloc,
+          resultIndices, numOfOutOfBoundPixels, numOfNonPadPixels);
     }
 
     // Go back to the main region.
     rewriter.restoreInsertionPoint(ipMainRegion);
 
     // Clean temporary variables.
-    rewriter.create<DeallocOp>(loc, outOfBoundCount);
+    rewriter.create<DeallocOp>(loc, numOfOutOfBoundPixels);
+    rewriter.create<DeallocOp>(loc, numOfNonPadPixels);
 
     rewriter.replaceOp(op, alloc);
 

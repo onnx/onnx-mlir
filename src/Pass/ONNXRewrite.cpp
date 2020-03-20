@@ -67,6 +67,19 @@ ArrayAttr insertZerosForNonPaddedDims(
   return rewriter.getI64ArrayAttr(pads);
 }
 
+// This function returns a FloatAttr whose value depends on count_include_pad.
+FloatAttr getPadValueForAveragePool(
+    PatternRewriter &rewriter, Value result, IntegerAttr countIncludePad) {
+  auto elementType = result.getType().cast<TensorType>().getElementType();
+  auto countIncludePadAttr = countIncludePad.dyn_cast_or_null<IntegerAttr>();
+  if (countIncludePadAttr && (countIncludePadAttr.getInt() == 1)) {
+    return FloatAttr::get(elementType, 0);
+  } else {
+    return FloatAttr::get(
+        elementType, -std::numeric_limits<double>::infinity());
+  }
+}
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/onnx_rewrite.inc"
 
@@ -173,6 +186,13 @@ void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<MaxPoolSingleOutOpPaddingPattern>(context);
 }
+
+/// on the ONNXAveragePoolOp.
+void ONNXAveragePoolOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<AveragePoolOpPaddingPattern>(context);
+}
+
 /// on the ONNXConvNoBiasOp.
 void ONNXConvNoBiasOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
