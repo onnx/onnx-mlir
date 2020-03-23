@@ -1344,6 +1344,161 @@ func @test_batchnorm_testmode_1d(%arg0: tensor<10xf32>, %arg1: tensor<1xf32>, %a
   // CHECK: return [[RES]] : memref<10xf32>
 }
 
+func @test_averagepool_no_pad(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_averagepool_no_pad
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x3x31x31xf32>
+  // CHECK: [[IDENTITY:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[NAN:%.+]] = constant 0xFF800000 : f32
+  // CHECK: [[NUM_OUT_OF_BOUND_PIXELS:%.+]] = alloc() : memref<f32>
+  // CHECK: [[NUM_NON_PAD_PIXELS:%.+]] = alloc() : memref<f32>
+  // CHECK: [[OUTER_LOOPS_DEF:%.+]]:4 = krnl.define_loops 4
+  // CHECK: [[OUTER_LOOPS_OPT:%.+]]:4 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[OUTER_LOOPS_DEF]]#0, [[OUTER_LOOPS_DEF]]#1, [[OUTER_LOOPS_DEF]]#2, [[OUTER_LOOPS_DEF]]#3
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OUTER_LOOPS_OPT]]#0, [[OUTER_LOOPS_OPT]]#1, [[OUTER_LOOPS_OPT]]#2, [[OUTER_LOOPS_OPT]]#3) with ([[OUTER_LOOPS_DEF]]#0 -> %arg1 = 0 to 1, [[OUTER_LOOPS_DEF]]#1 -> %arg2 = 0 to 3, [[OUTER_LOOPS_DEF]]#2 -> %arg3 = 0 to 31, [[OUTER_LOOPS_DEF]]#3 -> %arg4 = 0 to 31) {
+  // CHECK:   store [[IDENTITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:   [[ZERO:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:   store [[ZERO]], [[NUM_OUT_OF_BOUND_PIXELS]][] : memref<f32>
+  // CHECK:   [[KERNEL_SIZE:%.+]] = constant 4.000000e+00 : f32
+  // CHECK:   store [[KERNEL_SIZE]], [[NUM_NON_PAD_PIXELS]][] : memref<f32>
+  // CHECK:   [[INNER_LOOPS_DEF:%.+]]:2 = krnl.define_loops 2
+  // CHECK:   [[INNER_LOOPS_OPT:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:     krnl.return_loops [[INNER_LOOPS_DEF]]#0, [[INNER_LOOPS_DEF]]#1
+  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK:   krnl.iterate([[INNER_LOOPS_OPT]]#0, [[INNER_LOOPS_OPT]]#1) with ([[INNER_LOOPS_DEF]]#0 -> %arg5 = 0 to 2, [[INNER_LOOPS_DEF]]#1 -> %arg6 = 0 to 2) {
+  // CHECK:     [[INPUT_DIM2:%.+]] = addi %arg3, %arg5 : index
+  // CHECK:     [[INPUT_DIM3:%.+]] = addi %arg4, %arg6 : index
+  // CHECK:     [[LOAD_INPUT:%.+]] = load %arg0[%arg1, %arg2, [[INPUT_DIM2]], [[INPUT_DIM3]]] : memref<1x3x32x32xf32>
+  // CHECK:     [[INPUT_IS_NAN:%.+]] = cmpf "one", [[LOAD_INPUT]], [[NAN]] : f32
+  // CHECK:     [[LOAD_NUM_NON_PAD_PIXELS_0:%.+]] = load [[NUM_NON_PAD_PIXELS]][] : memref<f32>
+  // CHECK:     [[ONE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK:     [[UPDATE_NUM_NON_PAD_PIXELS:%.+]] = subf [[LOAD_NUM_NON_PAD_PIXELS_0]], [[ONE]] : f32
+  // CHECK:     [[SELECT_NUM_NON_PAD_PIXELS:%.+]] = select [[INPUT_IS_NAN]], [[LOAD_NUM_NON_PAD_PIXELS_0]], [[UPDATE_NUM_NON_PAD_PIXELS]] : f32
+  // CHECK:     store [[SELECT_NUM_NON_PAD_PIXELS]], [[NUM_NON_PAD_PIXELS]][] : memref<f32>
+  // CHECK:     [[SELECT_INPUT:%.+]] = select [[INPUT_IS_NAN]], [[LOAD_INPUT]], [[IDENTITY]] : f32
+  // CHECK:     [[LOAD_RES_0:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:     [[UPDATE_RES_0:%.+]] = addf [[LOAD_RES_0]], [[SELECT_INPUT]] : f32
+  // CHECK:     store [[UPDATE_RES_0]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:   }
+  // CHECK:   [[LOAD_NUM_NON_PAD_PIXELS_1:%.+]] = load [[NUM_NON_PAD_PIXELS]][] : memref<f32>
+  // CHECK:   [[LOAD_NUM_OUT_OF_BOUND_PIXELS:%.+]] = load [[NUM_OUT_OF_BOUND_PIXELS]][] : memref<f32>
+  // CHECK:   [[DENOMINATOR:%.+]] = subf [[LOAD_NUM_NON_PAD_PIXELS_1]], [[LOAD_NUM_OUT_OF_BOUND_PIXELS]] : f32
+  // CHECK:   [[LOAD_RES_1:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:   [[FINAL_RES:%.+]] = divf [[LOAD_RES_1]], [[DENOMINATOR]] : f32
+  // CHECK:   store [[FINAL_RES]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK: }
+  // CHECK: dealloc [[NUM_OUT_OF_BOUND_PIXELS]] : memref<f32>
+  // CHECK: dealloc [[NUM_NON_PAD_PIXELS]] : memref<f32>
+  // CHECK: return [[RES]] : memref<1x3x31x31xf32>
+  // CHECK:}
+}
+
+func @test_averagepool_no_pad_w_strides(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2], strides = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_averagepool_no_pad_w_strides
+  // CHECK: [[OUTER_LOOPS_DEF:%.+]]:4 = krnl.define_loops 4
+  // CHECK: [[OUTER_LOOPS_OPT:%.+]]:4 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[OUTER_LOOPS_DEF]]#0, [[OUTER_LOOPS_DEF]]#1, [[OUTER_LOOPS_DEF]]#2, [[OUTER_LOOPS_DEF]]#3
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OUTER_LOOPS_OPT]]#0, [[OUTER_LOOPS_OPT]]#1, [[OUTER_LOOPS_OPT]]#2, [[OUTER_LOOPS_OPT]]#3) with ([[OUTER_LOOPS_DEF]]#0 -> %arg1 = 0 to 1, [[OUTER_LOOPS_DEF]]#1 -> %arg2 = 0 to 3, [[OUTER_LOOPS_DEF]]#2 -> %arg3 = 0 to 16, [[OUTER_LOOPS_DEF]]#3 -> %arg4 = 0 to 16) {
+  // CHECK:   [[INNER_LOOPS_OPT:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:     krnl.return_loops [[INNER_LOOPS_DEF]]#0, [[INNER_LOOPS_DEF]]#1
+  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK:   krnl.iterate([[INNER_LOOPS_OPT]]#0, [[INNER_LOOPS_OPT]]#1) with ([[INNER_LOOPS_DEF]]#0 -> %arg5 = 0 to 2, [[INNER_LOOPS_DEF]]#1 -> %arg6 = 0 to 2) {
+  // CHECK:     [[STRIDES_0:%.+]] = constant 2 : index
+  // CHECK:     [[MUL_STRIDES_0:%.+]] = muli [[STRIDES_0]], %arg3 : index
+  // CHECK:     [[INPUT_DIM2:%.+]] = addi [[MUL_STRIDES_0]], %arg5 : index
+
+  // CHECK:     [[STRIDES_1:%.+]] = constant 2 : index
+  // CHECK:     [[MUL_STRIDES_1:%.+]] = muli [[STRIDES_1]], %arg4 : index
+  // CHECK:     [[INPUT_DIM3:%.+]] = addi [[MUL_STRIDES_1]], %arg6 : index
+
+  // CHECK:     [[LOAD_INPUT:%.+]] = load %arg0[%arg1, %arg2, [[INPUT_DIM2]], [[INPUT_DIM3]]] : memref<1x3x32x32xf32>
+  // CHECK:   }
+  // CHECK: }
+}
+
+func @test_averagepool_no_pad_w_ceil_mode(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], ceil_mode = 1} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_averagepool_no_pad_w_ceil_mode
+
+  // CHECK: [[NUM_OUT_OF_BOUND_PIXELS:%.+]] = alloc() : memref<f32>
+
+  // CHECK: [[OUTER_LOOPS_DEF:%.+]]:4 = krnl.define_loops 4
+  // CHECK: [[OUTER_LOOPS_OPT:%.+]]:4 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[OUTER_LOOPS_DEF]]#0, [[OUTER_LOOPS_DEF]]#1, [[OUTER_LOOPS_DEF]]#2, [[OUTER_LOOPS_DEF]]#3
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OUTER_LOOPS_OPT]]#0, [[OUTER_LOOPS_OPT]]#1, [[OUTER_LOOPS_OPT]]#2, [[OUTER_LOOPS_OPT]]#3) with ([[OUTER_LOOPS_DEF]]#0 -> %arg1 = 0 to 1, [[OUTER_LOOPS_DEF]]#1 -> %arg2 = 0 to 3, [[OUTER_LOOPS_DEF]]#2 -> %arg3 = 0 to 30, [[OUTER_LOOPS_DEF]]#3 -> %arg4 = 0 to 30) {
+
+  // CHECK:   [[ZERO:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:   store [[ZERO]], [[NUM_OUT_OF_BOUND_PIXELS]][] : memref<f32>
+
+  // CHECK:   [[INNER_LOOPS_OPT:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:     krnl.return_loops [[INNER_LOOPS_DEF]]#0, [[INNER_LOOPS_DEF]]#1
+  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK:   krnl.iterate([[INNER_LOOPS_OPT]]#0, [[INNER_LOOPS_OPT]]#1) with ([[INNER_LOOPS_DEF]]#0 -> %arg5 = 0 to 3, [[INNER_LOOPS_DEF]]#1 -> %arg6 = 0 to 3) {
+
+  // CHECK:     [[INPUT_DIM2:%.+]] = addi %arg3, %arg5 : index
+  // CHECK:     [[INPUT_DIM3:%.+]] = addi %arg4, %arg6 : index
+
+  // CHECK:     [[UPPER_INDEX_DIM_2:%.+]] = constant 32 : index
+  // CHECK:     [[DIM2_OUT_OF_BOUND:%.+]] = cmpi "sge", [[INPUT_DIM2]], [[UPPER_INDEX_DIM_2]] : index
+  // CHECK:     [[UPPER_INDEX_DIM_3:%.+]] = constant 32 : index
+  // CHECK:     [[DIM3_OUT_OF_BOUND:%.+]] = cmpi "sge", [[INPUT_DIM3]], [[UPPER_INDEX_DIM_3]] : index
+  // CHECK:     [[IS_OUT_OF_BOUND:%.+]] = or [[DIM2_OUT_OF_BOUND]], [[DIM3_OUT_OF_BOUND]] : i1
+
+  // CHECK:     [[LOAD_NUM_OUT_OF_BOUND_PIXELS:%.+]] = load [[NUM_OUT_OF_BOUND_PIXELS]][] : memref<f32>
+  // CHECK:     [[ONE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK:     [[UPDATED_NUM_OUT_OF_BOUND_PIXELS:%.+]] = addf [[LOAD_NUM_OUT_OF_BOUND_PIXELS]], [[ONE]] : f32
+  // CHECK:     [[SELECT:%.+]] = select [[IS_OUT_OF_BOUND]], [[UPDATED_NUM_OUT_OF_BOUND_PIXELS]], [[LOAD_NUM_OUT_OF_BOUND_PIXELS]] : f32
+  // CHECK:     store [[SELECT]], [[NUM_OUT_OF_BOUND_PIXELS]][] : memref<f32>
+
+  // CHECK:     [[LOAD_INPUT:%.+]] = load %arg0[%arg1, %arg2, [[INPUT_DIM2]], [[INPUT_DIM3]]] : memref<1x3x32x32xf32>
+  // CHECK:   }
+  // CHECK: }
+}
+
+func @test_averagepool_no_pad_w_count_include_pad(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], count_include_pad = 1} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_averagepool_no_pad_w_count_include_pad
+  // CHECK: [[OUTER_LOOPS_DEF:%.+]]:4 = krnl.define_loops 4
+  // CHECK: [[OUTER_LOOPS_OPT:%.+]]:4 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[OUTER_LOOPS_DEF]]#0, [[OUTER_LOOPS_DEF]]#1, [[OUTER_LOOPS_DEF]]#2, [[OUTER_LOOPS_DEF]]#3
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OUTER_LOOPS_OPT]]#0, [[OUTER_LOOPS_OPT]]#1, [[OUTER_LOOPS_OPT]]#2, [[OUTER_LOOPS_OPT]]#3) with ([[OUTER_LOOPS_DEF]]#0 -> %arg1 = 0 to 1, [[OUTER_LOOPS_DEF]]#1 -> %arg2 = 0 to 3, [[OUTER_LOOPS_DEF]]#2 -> %arg3 = 0 to 30, [[OUTER_LOOPS_DEF]]#3 -> %arg4 = 0 to 30) {
+
+  // CHECK:   [[INNER_LOOPS_DEF:%.+]]:2 = krnl.define_loops 2
+  // CHECK:   [[INNER_LOOPS_OPT:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:     krnl.return_loops [[INNER_LOOPS_DEF]]#0, [[INNER_LOOPS_DEF]]#1
+  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK:   krnl.iterate([[INNER_LOOPS_OPT]]#0, [[INNER_LOOPS_OPT]]#1) with ([[INNER_LOOPS_DEF]]#0 -> %arg5 = 0 to 3, [[INNER_LOOPS_DEF]]#1 -> %arg6 = 0 to 3) {
+
+  // CHECK:     [[INPUT_DIM2:%.+]] = addi %arg3, %arg5 : index
+  // CHECK:     [[INPUT_DIM3:%.+]] = addi %arg4, %arg6 : index
+  // CHECK:     [[LOAD_INPUT:%.+]] = load %arg0[%arg1, %arg2, [[INPUT_DIM2]], [[INPUT_DIM3]]] : memref<1x3x32x32xf32>
+
+  // CHECK-NOT: [[INPUT_IS_NAN:%.+]] = cmpf "one", [[LOAD_INPUT]], [[NAN]] : f32
+  // CHECK-NOT: [[LOAD_NUM_NON_PAD_PIXELS_0:%.+]] = load [[NUM_NON_PAD_PIXELS]][] : memref<f32>
+  // CHECK-NOT: [[ONE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK-NOT: [[UPDATE_NUM_NON_PAD_PIXELS:%.+]] = subf [[LOAD_NUM_NON_PAD_PIXELS_0]], [[ONE]] : f32
+  // CHECK-NOT: [[SELECT_NUM_NON_PAD_PIXELS:%.+]] = select [[INPUT_IS_NAN]], [[LOAD_NUM_NON_PAD_PIXELS_0]], [[UPDATE_NUM_NON_PAD_PIXELS]] : f32
+  // CHECK-NOT: store [[SELECT_NUM_NON_PAD_PIXELS]], [[NUM_NON_PAD_PIXELS]][] : memref<f32>
+  // CHECK-NOT: [[SELECT_INPUT:%.+]] = select [[INPUT_IS_NAN]], [[LOAD_INPUT]], [[IDENTITY]] : f32
+
+  // CHECK:     [[LOAD_RES_0:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x30x30xf32>
+  // CHECK:   }
+  // CHECK: }
+}
+
 func @test_maxpooling_singleout_no_pad(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
