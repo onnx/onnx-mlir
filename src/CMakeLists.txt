@@ -6,7 +6,10 @@ add_subdirectory(Tool)
 add_subdirectory(Builder)
 add_subdirectory(Runtime)
 
-add_executable(onnx-mlir main.cpp)
+add_executable(onnx-mlir
+        main_utils.hpp
+        main_utils.cpp
+        main.cpp)
 target_link_libraries(onnx-mlir
         ${MLIRLibs}
         OMBuilder
