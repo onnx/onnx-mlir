@@ -105,7 +105,7 @@ static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
         back_inserter(byteInitializer));
     size = initializer.raw_data().size() / sizeof(T);
     T *res = reinterpret_cast<T *>(&byteInitializer[0]);
-    return std::vector<T>(res, res+ size);
+    return std::vector<T>(res, res + size);
   }
 
   // copy, no need to take care of endianness
@@ -143,7 +143,7 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
   mlir::ShapedType tensorType;
   switch (initializer.data_type()) {
     case (onnx::TensorProto::FLOAT): {
-      std::vector<float> arrayAttrInitializer =
+      const auto& arrayAttrInitializer =
           CreateArrayAttribute<float>(initializer);
       elementType = builder.getF32Type();
       tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
@@ -152,7 +152,7 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
       break;
     }
     case (onnx::TensorProto::INT32): {
-      std::vector<int32_t> arrayAttrInitializer =
+      const auto& arrayAttrInitializer =
           CreateArrayAttribute<int32_t>(initializer);
       elementType = builder.getIntegerType(32);
       tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
@@ -161,7 +161,7 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
       break;
     }
     case (onnx::TensorProto::INT64): {
-      std::vector<int64_t> arrayAttrInitializer =
+      const auto& arrayAttrInitializer =
           CreateArrayAttribute<int64_t>(initializer);
       elementType = builder.getIntegerType(64);
       tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
