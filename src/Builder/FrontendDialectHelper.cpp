@@ -97,7 +97,7 @@ struct TransformValueToONNXData<int64_t> {
 // Helper method for constructing an array attribute from a model input.
 template <typename T>
 static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
-  int size;
+  size_t size;
   if (initializer.raw_data().size()) {
     // copy & take care of endianness
     std::vector<char> byteInitializer;
