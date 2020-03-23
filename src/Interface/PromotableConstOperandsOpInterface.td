@@ -1,4 +1,4 @@
-//===------------- promotable_const_operands_op_interface.td --------------===//
+//===------------- PromotableConstOperandsOpInterface.td --------------===//
 //===---- Promotable Const Operands Op Interface TableGen Definition ------===//
 //
 // Copyright 2020 The IBM Research Authors.

@@ -35,7 +35,7 @@ set(MLIR_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/tools/mlir/include)
 set(MLIR_TOOLS_DIR ${LLVM_PROJ_BUILD}/bin)
 
 set(ONNX_MLIR_TOOLS_DIR ${ONNX_MLIR_BIN_ROOT}/bin)
-set(ONNX_MLIR_LIT_TEST_SRC_DIR ${CMAKE_SOURCE_DIR}/test/mlir)
+set(ONNX_MLIR_LIT_TEST_SRC_DIR ${ONNX_MLIR_SRC_ROOT}/test/mlir)
 set(ONNX_MLIR_LIT_TEST_BUILD_DIR ${CMAKE_BINARY_DIR}/test/mlir)
 
 set(
@@ -200,7 +200,8 @@ function(onnx_mlir_tablegen ofn)
   tablegen(MLIR
           ${ARGV}
           "-I${MLIR_SRC_INCLUDE_PATH}"
-          "-I${MLIR_BIN_INCLUDE_PATH}")
+          "-I${MLIR_BIN_INCLUDE_PATH}"
+          "-I${ONNX_MLIR_SRC_ROOT}")
   set(TABLEGEN_OUTPUT
           ${TABLEGEN_OUTPUT} ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
           PARENT_SCOPE)
