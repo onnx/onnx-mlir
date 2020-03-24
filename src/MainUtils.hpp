@@ -37,9 +37,6 @@
 #include "mlir/Target/LLVMIR.h"
 #include "mlir/Transforms/Passes.h"
 
-using namespace std;
-using namespace onnx_mlir;
-
 enum EmissionTargetType {
   EmitONNXIR,
   EmitMLIR,
@@ -47,20 +44,21 @@ enum EmissionTargetType {
   EmitLLVMBC,
 };
 
-void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
+void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
               mlir::OwningModuleRef &module);
 
 void EmitLLVMBitCode(const mlir::OwningModuleRef &module);
 
-void registerDialectsForONNXMLIR();
+void registerDialects();
 
 void addONNXToMLIRPasses(mlir::PassManager &pm);
 
-void addONNXToKRNLPasses(mlir::PassManager &pm);
+void addONNXToKrnlPasses(mlir::PassManager &pm);
 
-void addKRNLToAffinePasses(mlir::PassManager &pm);
+void addKrnlToAffinePasses(mlir::PassManager &pm);
 
-void addKRNLToLLVMPasses(mlir::PassManager &pm);
+void addKrnlToLLVMPasses(mlir::PassManager &pm);
 
-void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
-	mlir::MLIRContext &context, mlir::OwningModuleRef &module);
+void processInputFile(std::string inputFilename,
+	EmissionTargetType emissionTarget, mlir::MLIRContext &context,
+	mlir::OwningModuleRef &module);

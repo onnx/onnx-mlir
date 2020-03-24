@@ -44,7 +44,7 @@ void EmitLLVMBitCode(const mlir::OwningModuleRef &module) {
   moduleBitcodeStream.flush();
 }
 
-void registerDialectsForONNXMLIR() {
+void registerDialects() {
   mlir::registerDialect<mlir::AffineOpsDialect>();
   mlir::registerDialect<mlir::LLVM::LLVMDialect>();
   mlir::registerDialect<mlir::loop::LoopOpsDialect>();
@@ -61,7 +61,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createAttributePromotionPass());
 }
 
-void addONNXToKRNLPasses(mlir::PassManager &pm) {
+void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerToKrnlPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
@@ -69,11 +69,11 @@ void addONNXToKRNLPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-void addKRNLToAffinePasses(mlir::PassManager &pm) {
+void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerKrnlPass());
 }
 
-void addKRNLToLLVMPasses(mlir::PassManager &pm) {
+void addKrnlToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
   pm.addPass(mlir::createKrnlLowerToLLVMPass());

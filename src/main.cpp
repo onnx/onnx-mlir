@@ -8,8 +8,11 @@
 
 #include "src/main_utils.hpp"
 
+using namespace std;
+using namespace onnx_mlir;
+
 int main(int argc, char *argv[]) {
-  registerDialectsForONNXMLIR();
+  registerDialects();
 
   llvm::cl::OptionCategory OnnxMlirOptions("ONNX MLIR Options",
                                        "These are frontend options.");
@@ -41,12 +44,12 @@ int main(int argc, char *argv[]) {
   addONNXToMLIRPasses(pm);
 
   if (emissionTarget >= EmitMLIR) {
-    addONNXToKRNLPasses(pm);
-    addKRNLToAffinePasses(pm);
+    addONNXToKrnlPasses(pm);
+    addKrnlToAffinePasses(pm);
   }
 
   if (emissionTarget >= EmitLLVMIR)
-    addKRNLToLLVMPasses(pm);
+    addKrnlToLLVMPasses(pm);
 
   if (mlir::failed(pm.run(*module)))
     return 4;
