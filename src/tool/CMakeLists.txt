@@ -1,1 +1,0 @@
-add_subdirectory(onnx_mlir_opt)
