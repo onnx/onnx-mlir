@@ -364,6 +364,7 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
 
 def ONNXConvOp:ONNX_Op<"Conv",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Conv operation";
   let description = [{
   "The convolution operator consumes an input tensor and a filter, and"

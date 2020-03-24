@@ -1022,97 +1022,11 @@ void ONNXReduceSumOp::inferShapes() {
 //   -  kernelShape: inferred from weight matrix if not defined by user;
 //   -  pads: set to proper value, 0 if not defined by user.
 
-void ONNXConvNoBiasOp::inferShapes() {
-  // Generic shape for data input X and weight tensor W:
-  // X: (N x C x D1 x D2 ... x Dn)
-  // W: (M x C/group x k1 x k2 x ... x kn)
-
-  // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>())
-    return;
-
-  auto xTy = X().getType().cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
-  auto weightTy = W().getType().cast<RankedTensorType>();
-  auto weightShape = weightTy.getShape();
-  auto builder = mlir::Builder(this->getContext());
-
-  // Lowest supported convolution is a one dimensional convolution.
-  if (xShape.size() < 3)
-    emitError("Data input shape must be at least (NxCxD1)");
-
-  // Check that shape of weight and data have same length.
-  if (xShape.size() != weightShape.size())
-    emitError("Weight size not compatible with data size");
-
-  // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvNoBiasOp::group().getSExtValue();
-
-  // Check if the attribute actually exists. If it does not then add it.
-  if (!groupAttr())
-    groupAttr(builder.getI64IntegerAttr(group));
-
-  // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
-  if (xShape[1] != -1 && weightShape[1] != -1 &&
-      xShape[1] != (weightShape[1] * group))
-    emitError("Channel dimension mismatch");
-
-  // Note: the value of the group attribut only impacts the way the
-  // computation is carried out and not the actual output size.
-
-  // Number of spatial dimensions.
-  auto spatialOffset = 2;
-  int32_t spatialRank = xShape.size() - spatialOffset;
-
-  // Use kernel_shape attribute if present otherwise use size from weight
-  // argument.
-  auto kernelShape = kernel_shape();
-  if (kernelShape.hasValue()) {
-    if (ArrayAttrSize(kernelShape) != spatialRank)
-      emitError("kernel_shape length incompatible with spatial dimensions");
-    // Have the right number of values, check them.
-    for (int i = 0; i < spatialRank; ++i)
-      if (ArrayAttrIntVal(kernelShape, i) < 1)
-        emitError("bad kernel_shape value");
-  } else {
-    // Deduce shape from weight input.
-    SmallVector<int64_t, 2> defaultVals;
-    for (int i = 0; i < spatialRank; ++i)
-      defaultVals.emplace_back(weightShape[spatialOffset + i]);
-    // Convert to ArrayRef, then build attribute, then store attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    auto builder = mlir::Builder(getContext());
-    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
-    kernelShape = kernel_shape();
-  }
-
-  // Process strides, dilations, and pads.
-  processConvTypeParams<>(this, X());
-  auto dilationsOpt = dilations();
-  auto stridesOpt = strides();
-  auto padsOpt = pads();
-
-  // First two output dimensions consist of the number of batches and the
-  // number of kernels being applied.
-  SmallVector<int64_t, 4> outputDims;
-  // Insert batch size.
-  outputDims.emplace_back(xShape[0]);
-  // Insert number of filters being applied (number of output channels).
-  outputDims.emplace_back(weightShape[0]);
-  // Compute and insert spatial dims.
-  insertConvSpatialDim(
-      &outputDims, xShape, kernelShape, padsOpt, stridesOpt, dilationsOpt);
-
-  getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
-}
-
-
 void ONNXConvOp::inferShapes() {
   // Generic shape for data input X, weight tensor W, and optional bias B
   // X: (N x C x D1 x D2 ... x Dn)
   // W: (M x C/group x k1 x k2 x ... x kn)
-  // B: (M)
+  // B: (M) Optional
 
   bool hasBias = !B().getType().isa<NoneType>();
 

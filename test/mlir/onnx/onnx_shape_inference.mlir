@@ -140,7 +140,7 @@ func @test_matmul_10(%arg0 : tensor<?x42x32xf32>, %arg1 : tensor<32xf32>) -> ten
 }
 
 //===----------------------------------------------------------------------===//
-/// Test shape inference for ConvNoBias operation and all its attributes.
+/// Test shape inference for Conv (first with no bias) operation and all its attributes.
 //===----------------------------------------------------------------------===//
 
 /// Default and required attributes for 1-D convolution.
