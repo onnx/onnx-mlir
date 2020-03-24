@@ -96,20 +96,22 @@ struct TransformValueToONNXData<int64_t> {
 
 // Helper method for constructing an array attribute from a model input.
 template <typename T>
-static T* CreateArrayAttribute(onnx::TensorProto initializer, int *size) {
+static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
+  size_t size;
   if (initializer.raw_data().size()) {
     // copy & take care of endianness
     std::vector<char> byteInitializer;
     std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
         back_inserter(byteInitializer));
-    *size = initializer.raw_data().size() / sizeof(T);
-    return reinterpret_cast<T*>(&byteInitializer[0]);
+    size = initializer.raw_data().size() / sizeof(T);
+    T *res = reinterpret_cast<T *>(&byteInitializer[0]);
+    return std::vector<T>(res, res + size);
   }
 
   // copy, no need to take care of endianness
   auto data = TransformValueToONNXData<T>::data(initializer);
-  *size = data.size();
-  return &data[0];
+  size = data.size();
+  return std::vector<T>(&data[0], &data[0] + size);
 }
 
 void InitializedTensorMapping::AddMapping(
@@ -139,39 +141,32 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
   mlir::DenseElementsAttr constantDenseAttribute;
   mlir::Type elementType;
   mlir::ShapedType tensorType;
-  int length;
   switch (initializer.data_type()) {
     case (onnx::TensorProto::FLOAT): {
-      float *typeArray =
-          CreateArrayAttribute<float>(initializer, &length);
-      std::vector<float> arrayAttrInitializer(
-      	typeArray, typeArray + length);
-      llvm::ArrayRef<float> array(typeArray, length);
+      const auto& arrayAttrInitializer =
+          CreateArrayAttribute<float>(initializer);
       elementType = builder.getF32Type();
       tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
-      constantDenseAttribute = mlir::DenseElementsAttr::get(tensorType, array);
+      constantDenseAttribute = mlir::DenseElementsAttr::get(
+          tensorType, llvm::makeArrayRef(arrayAttrInitializer));
       break;
     }
     case (onnx::TensorProto::INT32): {
-      int32_t *typeArray =
-          CreateArrayAttribute<int32_t>(initializer, &length);
-      std::vector<int32_t> arrayAttrInitializer(
-      	typeArray, typeArray + length);
-      llvm::ArrayRef<int32_t> array(typeArray, length);
+      const auto& arrayAttrInitializer =
+          CreateArrayAttribute<int32_t>(initializer);
       elementType = builder.getIntegerType(32);
       tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
-      constantDenseAttribute = mlir::DenseElementsAttr::get(tensorType, array);
+      constantDenseAttribute = mlir::DenseElementsAttr::get(
+          tensorType, llvm::makeArrayRef(arrayAttrInitializer));
       break;
     }
     case (onnx::TensorProto::INT64): {
-      int64_t *typeArray =
-          CreateArrayAttribute<int64_t>(initializer, &length);
-      std::vector<int64_t> arrayAttrInitializer(
-      	typeArray, typeArray + length);
-      llvm::ArrayRef<int64_t> array(typeArray, length);
+      const auto& arrayAttrInitializer =
+          CreateArrayAttribute<int64_t>(initializer);
       elementType = builder.getIntegerType(64);
       tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
-      constantDenseAttribute = mlir::DenseElementsAttr::get(tensorType, array);
+      constantDenseAttribute = mlir::DenseElementsAttr::get(
+          tensorType, llvm::makeArrayRef(arrayAttrInitializer));
       break;
     }
   }
