@@ -318,14 +318,11 @@ private:
     // attributes.push_back(dilations_attr)
     // similar situation for pads, strides in AveragePool
     // axes of ReduceSum,  pads, strides, dilations and kernel_shape of MaxPool
-    // TODO: fix this after type inference
-    int nOps = node.input().size();
 
-    if (nOps == 2) {
-      // todo: has to add none to nOps and send it to ONNXConv
-      buildOperation<mlir::ONNXConvNoBiasOp>(node, nOps, nOut);
-    } else
-      buildOperation<mlir::ONNXConvOp>(node, nOps, nOut);
+    // nIn is set to 3, and node may have only 2 input when bias not set. 
+    // buildOpertion will automatically add "null" typed input operands to
+    // match nIn value.
+    buildOperation<mlir::ONNXConvOp>(node, nIn, nOut);
   }
 
   /*!
