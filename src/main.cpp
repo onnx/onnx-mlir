@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/main_utils.hpp"
+#include "src/MainUtils.hpp"
 
 using namespace std;
 using namespace onnx_mlir;
