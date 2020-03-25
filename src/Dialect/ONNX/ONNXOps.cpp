@@ -1022,14 +1022,18 @@ void ONNXReduceSumOp::inferShapes() {
 //   -  kernelShape: inferred from weight matrix if not defined by user;
 //   -  pads: set to proper value, 0 if not defined by user.
 
-void ONNXConvNoBiasOp::inferShapes() {
-  // Generic shape for data input X and weight tensor W:
+void ONNXConvOp::inferShapes() {
+  // Generic shape for data input X, weight tensor W, and optional bias B
   // X: (N x C x D1 x D2 ... x Dn)
   // W: (M x C/group x k1 x k2 x ... x kn)
+  // B: (M) Optional
+
+  bool hasBias = !B().getType().isa<NoneType>();
 
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>() ||
-      !W().getType().isa<RankedTensorType>())
+      !W().getType().isa<RankedTensorType>() ||
+      (hasBias && !B().getType().isa<RankedTensorType>()))
     return;
 
   auto xTy = X().getType().cast<RankedTensorType>();
@@ -1047,7 +1051,7 @@ void ONNXConvNoBiasOp::inferShapes() {
     emitError("Weight size not compatible with data size");
 
   // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvNoBiasOp::group().getSExtValue();
+  int64_t group = ONNXConvOp::group().getSExtValue();
 
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
@@ -1058,6 +1062,16 @@ void ONNXConvNoBiasOp::inferShapes() {
       xShape[1] != (weightShape[1] * group))
     emitError("Channel dimension mismatch");
 
+  // Check the size of bias.
+  if (hasBias) {
+    auto bTx = B().getType().cast<RankedTensorType>();
+    auto bShape = bTx.getShape();
+    if (bShape.size() != 1)
+      emitError("bias should be one dimensional");
+    if (bShape[0] != weightShape[0])
+      emitError("bias should have same dimensions as weight's first dimension");
+  }
+  
   // Note: the value of the group attribut only impacts the way the
   // computation is carried out and not the actual output size.
 

@@ -636,35 +636,6 @@ ONNX ConvInteger operation
 
 1. `y`: memref of any type values or tensor of any type values
 
-### onnx.ConvNoBias (ONNXConvNoBiasOp)
-ONNX Conv operation with no Bias operand.
-
-#### Description:
-
-
-"The convolution operator consumes an input tensor and a filter, and"
-"computes the output."
-
-#### Operands:
-
-1. `X`: memref of any type values or tensor of any type values
-1. `W`: memref of any type values or tensor of any type values
-
-#### Attributes:
-
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `auto_pad` | `StringAttr` | string attribute attribute |
-| `dilations` | `ArrayAttr` | 64-bit integer array attribute attribute |
-| `group` | `IntegerAttr` | 64-bit integer attribute attribute |
-| `kernel_shape` | `ArrayAttr` | 64-bit integer array attribute attribute |
-| `pads` | `ArrayAttr` | 64-bit integer array attribute attribute |
-| `strides` | `ArrayAttr` | 64-bit integer array attribute attribute |
-
-#### Results:
-
-1. `o_Y`: memref of any type values or tensor of any type values
-
 ### onnx.Conv (ONNXConvOp)
 ONNX Conv operation
 
