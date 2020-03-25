@@ -19,6 +19,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
   PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
+    ONNXConvOpOperandAdaptor operandAdaptor(operands);
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc;
@@ -32,11 +33,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
           memRefType, loc, rewriter, insertDealloc, {operands[0]});
 
     auto resultShape = memRefType.getShape();
-    auto &inputOperand = operands[0];
+    auto inputOperand = operandAdaptor.X();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
-    auto &kernelOperand = operands[1];
+    auto kernelOperand = operandAdaptor.W();
     auto kernelShape = kernelOperand.getType().cast<MemRefType>().getShape();
-    auto &biasOperand = operands[2];
+    auto biasOperand = operandAdaptor.B();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
 
     // R = Conv(D, K)
