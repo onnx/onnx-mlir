@@ -427,6 +427,7 @@ Value mapToLowerScalarOp<ONNXSignOp>(Operation *op, ArrayRef<Type> result_types,
   } else {
     emitError(loc, "unsupported element type");
   }
+  // Tian: return value missing
 }
 
 //===----------------------------------------------------------------------===//
@@ -487,6 +488,7 @@ Value mapToLowerScalarOp<ONNXAbsOp>(Operation *op, ArrayRef<Type> result_types,
   } else {
     emitError(loc, "unsupported element type");
   }
+  // Tian: return value missing
 }
 
 // Element-wise unary ops lowering to Krnl dialect.

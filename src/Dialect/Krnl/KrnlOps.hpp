@@ -32,6 +32,7 @@ public:
       return LoopType::get(parser.getBuilder().getContext());
 
     parser.emitError(parser.getCurrentLocation(), "Unknown type");
+    // Tian: Must return a value, one may add a dummy type?
   }
 
   /// Print a type registered to this dialect.

@@ -76,6 +76,7 @@ ParseResult parseKrnlDefineLoopsOp(OpAsmParser &parser,
       numLoops.getValue().getSExtValue(), LoopType::get(builder.getContext()));
   if (parser.addTypesToList(loopTypes, result.types))
     return failure();
+  // Tian: must return a value
 }
 
 //===----------------------------------------------------------------------===//
@@ -291,6 +292,7 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
           builder.getConstantAffineMap(integerAttr.getValue().getSExtValue());
       boundMaps.emplace_back(AffineMapAttr::get(map));
     }
+    // Tian: no return
   };
 
   bool keepParsing; // Do we keep parsing loops/bounds?

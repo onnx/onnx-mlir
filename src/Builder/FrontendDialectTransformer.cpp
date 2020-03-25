@@ -76,6 +76,7 @@ private:
       return builder_.getIntegerType(64);
     case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
       return builder_.getI1Type();
+    case onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16:
     case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
     case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
     case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
