@@ -50,7 +50,7 @@ if (opName == "Constant")
 if (opName == "ConstantOfShape")
   return buildOperation<mlir::ONNXConstantOfShapeOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
 if (opName == "Conv")
-  return ImportNodeConv(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXConvOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
 if (opName == "ConvInteger")
   return buildOperation<mlir::ONNXConvIntegerOp>(node, /* expected_num_operands = */ 4, /* expected_num_results = */ 1);
 if (opName == "ConvTranspose")
