@@ -59,7 +59,8 @@ int main(int argc, char *argv[]) {
       EmitLLVMBitCode(module);
       printf("LLVM bitcode written to ./model.bc");
   } else
-    module->dump();
+    module->print(
+        llvm::errs(), mlir::OpPrintingFlags().elideLargeElementsAttrs(32));
 
   return 0;
 }
