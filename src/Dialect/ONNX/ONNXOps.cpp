@@ -1310,9 +1310,8 @@ bool ONNXPadConstantPadOp::inferShapes() {
   if (outputType) {
     getResult().setType(outputType);
     return true;
-  } else {
-    return false;
   }
+  return false;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1324,9 +1323,8 @@ bool ONNXPadConstantValuePadOp::inferShapes() {
   if (outputType) {
     getResult().setType(outputType);
     return true;
-  } else {
-    return false;
-  }
+  } 
+  return false;
 }
 
 void ONNXPadConstantValuePadOp::build(Builder *builder, OperationState &state,
