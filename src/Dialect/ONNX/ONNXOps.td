@@ -95,25 +95,6 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
 // or outputs. This decision affects only ONNX operations with optional
 // arguments not ONNX operations with variadic operands.
 
-def ONNXConvNoBiasOp:ONNX_Op<"ConvNoBias",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let hasCanonicalizer = 1;
-  let summary = "ONNX Conv operation with no Bias operand.";
-  let description = [{
-    "The convolution operator consumes an input tensor and a filter, and"
-    "computes the output."
-  }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-           AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
-           DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
-           OptionalAttr<I64ArrayAttr>:$dilations,
-           DefaultValuedAttr<I64Attr, "1">:$group,
-           OptionalAttr<I64ArrayAttr>:$kernel_shape,
-           OptionalAttr<I64ArrayAttr>:$pads,
-           OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
-}
-
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
