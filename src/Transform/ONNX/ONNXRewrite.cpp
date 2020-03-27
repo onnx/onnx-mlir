@@ -85,7 +85,7 @@ FloatAttr getPadValueForAveragePool(
 
 //===----------------------------------------------------------------------===//
 // Rewrite:
-// %0 = onnx.ConvNoBiasOp(%D : tensor<DShape>, %K)
+// %0 = onnx.Conv(%D : tensor<DShape>, %K)
 //     {pads = [b0, b1, ... bK, e0, e1, ..., eK]} ->
 //         tensor<OutShape>
 //
@@ -93,14 +93,14 @@ FloatAttr getPadValueForAveragePool(
 // %0 = onnx.PadConstantValuePasOp(%D)
 //     {pads = [0, 0, b0, b1, ... bK, 0, 0, e0, e1, ..., eK]} ->
 //     tensor<DPaddedShape>
-// %1 = onnx.ConvNoBias(%0 : tensor<DPaddedShape>, %K) {pads = [0, ..., 0]} ->
+// %1 = onnx.Conv(%0 : tensor<DPaddedShape>, %K) {pads = [0, ..., 0]} ->
 //     tensor<OutShape>
 //===----------------------------------------------------------------------===//
 struct SplitConvOpPattern : public RewritePattern {
   SplitConvOpPattern(MLIRContext *context)
-      : RewritePattern(ONNXConvNoBiasOp::getOperationName(),
+      : RewritePattern(ONNXConvOp::getOperationName(),
                        {ONNXPadConstantValuePadOp::getOperationName(),
-                        ONNXConvNoBiasOp::getOperationName()},
+                        ONNXConvOp::getOperationName()},
                        1, context) {}
 
   PatternMatchResult matchAndRewrite(Operation *op,
@@ -108,7 +108,7 @@ struct SplitConvOpPattern : public RewritePattern {
     auto loc = op->getLoc();
 
     // If convolution does not use padding then no rewrite is required.
-    ONNXConvNoBiasOp convOp = llvm::dyn_cast<ONNXConvNoBiasOp>(op);
+    ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
     auto padsAttribute = convOp.padsAttr();
     if (!padsAttribute)
       return matchFailure();
@@ -168,8 +168,9 @@ struct SplitConvOpPattern : public RewritePattern {
 
     SmallVector<int64_t, 4> newConvPads(2 * inputDims, 0);
     auto tensorType = (*op->result_type_begin()).cast<TensorType>();
-    ONNXConvNoBiasOp newConvOp = rewriter.create<ONNXConvNoBiasOp>(
+    ONNXConvOp newConvOp = rewriter.create<ONNXConvOp>(
             loc, tensorType, paddingOp.getResult(), convOp.getOperands()[1],
+            convOp.getOperands()[2],
             convOp.auto_padAttr(), convOp.dilationsAttr(),
             convOp.groupAttr(), convOp.kernel_shapeAttr(),
             rewriter.getI64ArrayAttr(newConvPads),
@@ -193,8 +194,8 @@ void ONNXAveragePoolOp::getCanonicalizationPatterns(
   results.insert<AveragePoolOpPaddingPattern>(context);
 }
 
-/// on the ONNXConvNoBiasOp.
-void ONNXConvNoBiasOp::getCanonicalizationPatterns(
+/// on the ONNXConvOp.
+void ONNXConvOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<SplitConvOpPattern>(context);
 }
