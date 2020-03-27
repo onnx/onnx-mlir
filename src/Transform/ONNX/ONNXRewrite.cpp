@@ -22,7 +22,7 @@ namespace {
 bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
   bool allZeros = true;
   if (attrs) {
-    for (auto attr: attrs.getValue()) {
+    for (auto attr : attrs.getValue()) {
       if (attr.cast<IntegerAttr>().getInt() > 0) {
         allZeros = false;
         break;
@@ -54,7 +54,7 @@ ArrayAttr createArrayAttrOfZeros(
 // This function is used for padding attribute in MaxPoolSingleOut.
 ArrayAttr insertZerosForNonPaddedDims(
     PatternRewriter &rewriter, ArrayAttr origAttrs, int extensionLength) {
-  int nDims = (int) origAttrs.getValue().size() / 2;
+  int nDims = (int)origAttrs.getValue().size() / 2;
   int nElements = (nDims + extensionLength) * 2;
   SmallVector<int64_t, 4> pads(nElements, 0);
   for (int i = 0; i < nDims; ++i) {
@@ -86,12 +86,12 @@ ArrayAttr insertZerosForNonPaddedDims(
 struct SplitConvOpPattern : public RewritePattern {
   SplitConvOpPattern(MLIRContext *context)
       : RewritePattern(ONNXConvOp::getOperationName(),
-                       {ONNXPadConstantValuePadOp::getOperationName(),
-                        ONNXConvOp::getOperationName()},
-                       1, context) {}
+            {ONNXPadConstantValuePadOp::getOperationName(),
+                ONNXConvOp::getOperationName()},
+            1, context) {}
 
-  PatternMatchResult matchAndRewrite(Operation *op,
-      PatternRewriter &rewriter) const override {
+  PatternMatchResult matchAndRewrite(
+      Operation *op, PatternRewriter &rewriter) const override {
     auto loc = op->getLoc();
 
     // If convolution does not use padding then no rewrite is required.
@@ -105,7 +105,7 @@ struct SplitConvOpPattern : public RewritePattern {
     if (autoPad == "VALID")
       return matchFailure();
 
-    auto data = op->getOperands()[0];
+    auto data = convOp.X();
     auto inputShape = data.getType().cast<TensorType>().getShape();
 
     // Dimensionality of the input:
@@ -148,20 +148,17 @@ struct SplitConvOpPattern : public RewritePattern {
     // Create padding operation.
     auto inputElemType = data.getType().cast<TensorType>().getElementType();
     ONNXPadConstantValuePadOp paddingOp =
-        rewriter.create<ONNXPadConstantValuePadOp>(
-            loc, RankedTensorType::get(outPaddedShape, inputElemType), data,
+        rewriter.create<ONNXPadConstantValuePadOp>(loc,
+            RankedTensorType::get(outPaddedShape, inputElemType), data,
             rewriter.getI64ArrayAttr(pads), FloatAttr::get(inputElemType, 0),
             StringAttr::get("constant", loc->getContext()));
 
     SmallVector<int64_t, 4> newConvPads(2 * inputDims, 0);
     auto tensorType = (*op->result_type_begin()).cast<TensorType>();
-    ONNXConvOp newConvOp = rewriter.create<ONNXConvOp>(
-            loc, tensorType, paddingOp.getResult(), convOp.getOperands()[1],
-            convOp.getOperands()[2],
-            convOp.auto_padAttr(), convOp.dilationsAttr(),
-            convOp.groupAttr(), convOp.kernel_shapeAttr(),
-            rewriter.getI64ArrayAttr(newConvPads),
-            convOp.stridesAttr());
+    ONNXConvOp newConvOp = rewriter.create<ONNXConvOp>(loc, tensorType,
+        paddingOp.getResult(), convOp.W(), convOp.B(), convOp.auto_padAttr(),
+        convOp.dilationsAttr(), convOp.groupAttr(), convOp.kernel_shapeAttr(),
+        rewriter.getI64ArrayAttr(newConvPads), convOp.stridesAttr());
 
     rewriter.replaceOp(op, newConvOp.getResult());
     return matchSuccess();

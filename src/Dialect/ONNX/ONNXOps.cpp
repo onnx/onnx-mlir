@@ -151,9 +151,8 @@ static void processConvStrideParam(T *op, Optional<ArrayAttr> kernelShape) {
 // Support function that computes default values for pads.
 //
 template <class T>
-static void processConvPadParam(T *op,
-    ArrayRef<int64_t> inputShape, Optional<ArrayAttr> kernelShape,
-    Optional<ArrayAttr> stridesOpt,
+static void processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
+    Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> stridesOpt,
     Optional<ArrayAttr> dilationsOpt = llvm::None) {
   auto builder = mlir::Builder(op->getContext());
 
@@ -256,7 +255,7 @@ static void processConvTypeParams(T *op, Value inputOperand) {
   processConvDilationParam<T>(op, kernelShape);
   auto dilationsOpt = op->dilations();
 
- // Strides.
+  // Strides.
   processConvStrideParam<T>(op, kernelShape);
   auto stridesOpt = op->strides();
 
@@ -875,7 +874,7 @@ void ONNXReshapeOp::inferShapes() {
 
   // Compute total number of elements.
   int64_t totalInputSize = 1;
-  for(auto inputDim : inputTensorTy.getShape())
+  for (auto inputDim : inputTensorTy.getShape())
     totalInputSize *= inputDim;
 
   // Check if second argument of ReshapeOp is a constant.
@@ -891,7 +890,7 @@ void ONNXReshapeOp::inferShapes() {
 
     // Get dims from valueAttribute.
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
-    for (int i=0; i<outputRank; ++i)
+    for (int i = 0; i < outputRank; ++i)
       dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
 
     if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
@@ -900,7 +899,7 @@ void ONNXReshapeOp::inferShapes() {
     int64_t numberOfDynamicInputs = 0;
     int64_t totalKnownDimsSize = 1;
     int64_t dynamicValueIndex = -1;
-    for (int i=0; i<outputRank; ++i) {
+    for (int i = 0; i < outputRank; ++i) {
       // Set output dimension.
       if (dims[i] == 0)
         dims[i] = inputTensorTy.getShape()[i];
@@ -1071,7 +1070,7 @@ void ONNXConvOp::inferShapes() {
     if (bShape[0] != weightShape[0])
       emitError("bias should have same dimensions as weight's first dimension");
   }
-  
+
   // Note: the value of the group attribut only impacts the way the
   // computation is carried out and not the actual output size.
 
@@ -1234,7 +1233,7 @@ static Type padShapeInferenceHelper(Value data, ArrayAttr padsOpt) {
       // Have to non-negative constant
       if (p1 < 0 || p2 < 0)
         return (Type)NULL;
-      if (outputShape[i] != -1) 
+      if (outputShape[i] != -1)
         outputShape[i] += p1 + p2;
     }
 
@@ -1262,7 +1261,7 @@ void ONNXPadConstantValuePadOp::inferShapes() {
   auto outputType = padShapeInferenceHelper(data(), pads());
   if (outputType) {
     getResult().setType(outputType);
-  } 
+  }
   return;
 }
 
