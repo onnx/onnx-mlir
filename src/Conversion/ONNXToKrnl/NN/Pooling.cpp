@@ -38,6 +38,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
 
   PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+    ONNXMaxPoolSingleOutOpOperandAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     // Match
@@ -71,7 +72,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
       dilations.emplace_back(dilation.cast<IntegerAttr>().getInt());
 
     // Type information about the input and result of this operation.
-    auto &inputOperand = operands[0];
+    auto inputOperand = operandAdaptor.X();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto resultShape = memRefType.getShape();
