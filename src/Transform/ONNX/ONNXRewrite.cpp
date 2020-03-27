@@ -77,8 +77,8 @@ void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<MaxPoolSingleOutOpPaddingPattern>(context);
 }
-/// on the ONNXConvNoBiasOp.
-void ONNXConvNoBiasOp::getCanonicalizationPatterns(
+/// on the ONNXConvOp.
+void ONNXConvOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<ConvNoBiasOpPaddingPattern>(context);
+  results.insert<ConvOpPaddingPattern>(context);
 }
