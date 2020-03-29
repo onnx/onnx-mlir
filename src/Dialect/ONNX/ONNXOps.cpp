@@ -51,9 +51,8 @@ static mlir::ONNXConstantOp getONNXConstantOp(Value value) {
 //===----------------------------------------------------------------------===//
 // Get reduction type
 //===----------------------------------------------------------------------===//
-RankedTensorType getReductionOutputType(RankedTensorType operandTy,
-                                        Optional<ArrayAttr> axesAttrs,
-                                        APInt keepdims) {
+RankedTensorType getReductionOutputType(
+    RankedTensorType operandTy, Optional<ArrayAttr> axesAttrs, APInt keepdims) {
   int64_t rank = operandTy.getRank();
 
   SmallVector<int64_t, 4> axes;
@@ -153,9 +152,8 @@ static void processConvStrideParam(T *op, Optional<ArrayAttr> kernelShape) {
 //
 template <class T>
 static void processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
-                                Optional<ArrayAttr> kernelShape,
-                                Optional<ArrayAttr> stridesOpt,
-                                Optional<ArrayAttr> dilationsOpt = llvm::None) {
+    Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> stridesOpt,
+    Optional<ArrayAttr> dilationsOpt = llvm::None) {
   auto builder = mlir::Builder(op->getContext());
 
   auto inputRank = inputShape.size();
@@ -269,12 +267,9 @@ static void processConvTypeParams(T *op, Value inputOperand) {
 // Compute spatial dimensions given dilations, strides, pads, and ceil mode.
 //
 static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
-                                 ArrayRef<int64_t> xShape,
-                                 Optional<ArrayAttr> kernelShape,
-                                 Optional<ArrayAttr> padsOpt,
-                                 Optional<ArrayAttr> stridesOpt,
-                                 Optional<ArrayAttr> dilationsOpt = llvm::None,
-                                 bool ceilMode = false) {
+    ArrayRef<int64_t> xShape, Optional<ArrayAttr> kernelShape,
+    Optional<ArrayAttr> padsOpt, Optional<ArrayAttr> stridesOpt,
+    Optional<ArrayAttr> dilationsOpt = llvm::None, bool ceilMode = false) {
   auto xRank = xShape.size();
   auto spatialRank = ArrayAttrSize(kernelShape);
   auto spatialOffset = xRank - spatialRank;
@@ -319,19 +314,18 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
 }
 
 void ONNXEntryPointOp::build(mlir::Builder *builder,
-                             mlir::OperationState &state, mlir::FuncOp function,
-                             int numInputs, int numOutputs) {
+    mlir::OperationState &state, mlir::FuncOp function, int numInputs,
+    int numOutputs) {
   state.addAttribute(ONNXEntryPointOp::getEntryPointFuncAttrName(),
-                     builder->getSymbolRefAttr(function));
+      builder->getSymbolRefAttr(function));
   state.addAttribute(ONNXEntryPointOp::getNumInputsAttrName(),
-                     builder->getI32IntegerAttr(numInputs));
+      builder->getI32IntegerAttr(numInputs));
   state.addAttribute(ONNXEntryPointOp::getNumOutputsAttrName(),
-                     builder->getI32IntegerAttr(numOutputs));
+      builder->getI32IntegerAttr(numOutputs));
 }
 
 ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
-                                          mlir::FuncOp &func, int numInputs,
-                                          int numOutputs) {
+    mlir::FuncOp &func, int numInputs, int numOutputs) {
   mlir::OperationState state(location, "onnx.EntryPoint");
   Builder builder(location->getContext());
   mlir::ONNXEntryPointOp::build(&builder, state, func, numInputs, numOutputs);
@@ -847,9 +841,9 @@ bool ONNXGemmOp::inferShapes() {
     int rank = shape.size();
     if ((rank > 2) ||
         (rank >= 1 && shape[rank - 1] != -1 && N != -1 &&
-         N != shape[rank - 1] && shape[rank - 1] != 1) ||
+            N != shape[rank - 1] && shape[rank - 1] != 1) ||
         (rank == 2 && shape[rank - 2] != -1 && M != -1 &&
-         M != shape[rank - 2] && shape[rank - 2] != 1)) {
+            M != shape[rank - 2] && shape[rank - 2] != 1)) {
       emitError("Bias shape mismatched");
     }
   }
@@ -1151,7 +1145,7 @@ bool ONNXConvOp::inferShapes() {
       return false;
     }
   }
-  
+
   // Note: the value of the group attribut only impacts the way the
   // computation is carried out and not the actual output size.
 
@@ -1199,8 +1193,8 @@ bool ONNXConvOp::inferShapes() {
   // Insert number of filters being applied (number of output channels).
   outputDims.emplace_back(weightShape[0]);
   // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, xShape, kernelShape, padsOpt, stridesOpt,
-                       dilationsOpt);
+  insertConvSpatialDim(
+      &outputDims, xShape, kernelShape, padsOpt, stridesOpt, dilationsOpt);
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return true;
@@ -1235,8 +1229,8 @@ bool ONNXAveragePoolOp::inferShapes() {
   // Process strides and pads.
   processConvStrideParam<ONNXAveragePoolOp>(this, kernelShape);
   auto stridesOpt = strides();
-  processConvPadParam<ONNXAveragePoolOp>(this, xShape, kernelShape, stridesOpt,
-                                         llvm::None);
+  processConvPadParam<ONNXAveragePoolOp>(
+      this, xShape, kernelShape, stridesOpt, llvm::None);
   auto padsOpt = pads();
 
   SmallVector<int64_t, 4> outputDims;
@@ -1245,7 +1239,7 @@ bool ONNXAveragePoolOp::inferShapes() {
   outputDims.emplace_back(xShape[1]);
   // Compute and insert spatial dims.
   insertConvSpatialDim(&outputDims, xShape, kernelShape, padsOpt, stridesOpt,
-                       llvm::None, ceilMode);
+      llvm::None, ceilMode);
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return true;
@@ -1294,7 +1288,7 @@ bool ONNXMaxPoolSingleOutOp::inferShapes() {
   outputDims.emplace_back(xShape[1]);
   // Compute and insert spatial dims.
   insertConvSpatialDim(&outputDims, xShape, kernelShape, padsOpt, stridesOpt,
-                       dilationsOpt, ceilMode);
+      dilationsOpt, ceilMode);
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return true;
@@ -1351,14 +1345,12 @@ bool ONNXPadConstantValuePadOp::inferShapes() {
   if (outputType) {
     getResult().setType(outputType);
     return true;
-  } 
+  }
   return false;
 }
 
 void ONNXPadConstantValuePadOp::build(Builder *builder, OperationState &state,
-                                      Value data, ArrayAttr pads,
-                                      FloatAttr constant_value,
-                                      StringAttr mode) {
+    Value data, ArrayAttr pads, FloatAttr constant_value, StringAttr mode) {
   Type outputType = padShapeInferenceHelper(data, pads);
   if (!outputType) {
     auto elementType = data.getType().cast<TensorType>().getElementType();
