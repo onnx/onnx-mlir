@@ -304,30 +304,6 @@ private:
   }
 
   /*!
-   * Special handle for Conv operations.
-   * c++ does not allow template specialization inside a class scope
-   * a specialized function is used
-   */
-  void ImportNodeConv(onnx::NodeProto node, int nIn, int nOut) {
-    // Conv has attribute dilations, kernel_shape, pads, the default value of
-    // which  is determined by the shape of first argument. However, since the
-    // shape is unknown now, these attributes can be not generated auto
-    // dilations_attr = get_attr_ints(node, "dilations",
-    //    std::vector<int>(inputs[0]->getType().cast<RankedTensorType>.getDims()-2,
-    //    1));
-    // attributes.push_back(dilations_attr)
-    // similar situation for pads, strides in AveragePool
-    // axes of ReduceSum,  pads, strides, dilations and kernel_shape of MaxPool
-    // TODO: fix this after type inference
-    int nOps = node.input().size();
-
-    if (nOps == 2)
-      buildOperation<mlir::ONNXConvNoBiasOp>(node, nOps, nOut);
-    else
-      buildOperation<mlir::ONNXConvOp>(node, nOps, nOut);
-  }
-
-  /*!
    * Special handle for MaxPool operations.
    */
   void ImportNodeMaxPool(onnx::NodeProto node, int nIn, int nOut) {

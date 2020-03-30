@@ -32,7 +32,6 @@ special_attr_defaults = dict([
 
 # Special operation importing handlers.
 special_op_handler = dict([
-    ("Conv", "ImportNodeConv"),
     ("MaxPool", "ImportNodeMaxPool"),
     ("BatchNormalization", "ImportNodeBatchNormalization"),
     ("Pad", "ImportNodePad"),
@@ -47,11 +46,11 @@ OpsWithShapeInference = [
     'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
     'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
     'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
-    'Sign', 'Constant', 'AveragePool', 'Abs'
+    'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv'
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm']
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
 
 # Operations who have operands that, if produced by constant operations, should
 # be promoted to become an attribute (via attribute promotion).
