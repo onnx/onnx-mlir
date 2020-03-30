@@ -30,8 +30,7 @@ public:
   Type parseType(DialectAsmParser &parser) const override {
     if (succeeded(parser.parseOptionalKeyword("loop")))
       return LoopType::get(parser.getBuilder().getContext());
-
-    parser.emitError(parser.getCurrentLocation(), "Unknown type");
+    llvm_unreachable("Unknown type encountered.");
   }
 
   /// Print a type registered to this dialect.

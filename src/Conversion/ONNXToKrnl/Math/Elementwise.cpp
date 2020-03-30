@@ -424,9 +424,8 @@ Value mapToLowerScalarOp<ONNXSignOp>(Operation *op, ArrayRef<Type> result_types,
     auto result =
         rewriter.create<SelectOp>(loc, zeroPredicate, zero, plusSelect);
     return result;
-  } else {
-    emitError(loc, "unsupported element type");
   }
+  llvm_unreachable("unsupported element type");
 }
 
 //===----------------------------------------------------------------------===//
@@ -484,9 +483,8 @@ Value mapToLowerScalarOp<ONNXAbsOp>(Operation *op, ArrayRef<Type> result_types,
     auto negativeOperand = rewriter.create<SubIOp>(loc, zero, operand);
     return rewriter.create<SelectOp>(
         loc, lessThanZero, negativeOperand, operand);
-  } else {
-    emitError(loc, "unsupported element type");
   }
+  llvm_unreachable("unsupported element type");
 }
 
 // Element-wise unary ops lowering to Krnl dialect.
