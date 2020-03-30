@@ -21,4 +21,4 @@ add_custom_command(OUTPUT ${ONNX_MLIR_SRC_ROOT}/src/builder/OpBuildTable.inc
 add_custom_target(OMONNXOpsTableGenIncGen
         DEPENDS ${ONNX_MLIR_SRC_ROOT}/src/Dialect/ONNX/ONNXOps.td.inc)
 add_custom_target(OMONNXOpsBuildTableIncGen
-        DEPENDS ${ONNX_MLIR_SRC_ROOT}/src/builder/OpBuildTable.inc)
+        DEPENDS ${ONNX_MLIR_SRC_ROOT}/src/Builder/OpBuildTable.inc)
