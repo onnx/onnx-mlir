@@ -16,10 +16,12 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LoopOps/LoopOps.h"
 #include "mlir/Dialect/StandardOps/Ops.h"
+#include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
 
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -61,6 +63,144 @@ static size_t getRankFromMemRefType(LLVM::LLVMType memRefTy) {
   else
     return memRefTy.getStructElementType(3).getArrayNumElements();
 }
+
+/// Return a symbol reference to the memcpy function, inserting it into the
+/// module if necessary.
+static FlatSymbolRefAttr getOrInsertMemcpy(PatternRewriter &rewriter,
+                                           ModuleOp module,
+                                           LLVM::LLVMDialect *llvmDialect) {
+  auto *context = module.getContext();
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>("llvm.memcpy.p0i8.p0i8.i64"))
+    return SymbolRefAttr::get("llvm.memcpy.p0i8.p0i8.i64", context);
+  // Create a function declaration for memcpy, the signature is:
+  //   * `void (i8*, i8* , i64, i1)`
+  auto llvmVoidTy = LLVM::LLVMType::getVoidTy(llvmDialect);
+  auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
+  auto llvmI64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
+  auto llvmI1Ty = LLVM::LLVMType::getInt1Ty(llvmDialect);
+  auto llvmFnType = LLVM::LLVMType::getFunctionTy(
+      llvmVoidTy,
+      ArrayRef<mlir::LLVM::LLVMType>(
+          {llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}),
+      false);
+
+  // Insert the memcpy function into the body of the parent module.
+  PatternRewriter::InsertionGuard insertGuard(rewriter);
+  rewriter.setInsertionPointToStart(module.getBody());
+  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(),
+                                    "llvm.memcpy.p0i8.p0i8.i64", llvmFnType);
+  return SymbolRefAttr::get("llvm.memcpy.p0i8.p0i8.i64", context);
+}
+
+//===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlGlobalOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlGlobalOpLowering : public ConvertToLLVMPattern {
+public:
+  explicit KrnlGlobalOpLowering(MLIRContext *context,
+                                LLVMTypeConverter &lowering_)
+      : ConvertToLLVMPattern(KrnlGlobalOp::getOperationName(), context,
+                             lowering_) {}
+
+  PatternMatchResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto *context = op->getContext();
+    auto loc = op->getLoc();
+    auto *llvmDialect =
+        op->getContext()->getRegisteredDialect<LLVM::LLVMDialect>();
+    assert(llvmDialect && "expected llvm dialect to be registered");
+
+    auto krnlGlobalOp = llvm::dyn_cast<KrnlGlobalOp>(op);
+
+    // Get module.
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+
+    // Compute total number of elements.
+    auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
+    int64_t numElements = 1;
+    for (int i=0; i<shape.size(); ++i)
+      numElements *= ArrayAttrIntVal(shape, i);
+
+    // Create the global at the entry of the module.
+    LLVM::GlobalOp global;
+    auto type = op->getResult(0).getType();
+    auto memRefTy = type.cast<mlir::MemRefType>();
+    auto llvmMemRefType =
+        typeConverter.convertType(type).cast<LLVM::LLVMType>();
+
+    // The element type of the array.
+    auto globalType = typeConverter.convertType(memRefTy.getElementType());
+    for (int i=shape.size() - 1; i >= 0; i--)
+      globalType = LLVM::LLVMType::getArrayTy(
+          globalType.cast<LLVM::LLVMType>(), ArrayAttrIntVal(shape, i));
+    auto llvmGlobalType = globalType.cast<LLVM::LLVMType>();
+
+    {
+      OpBuilder::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(module.getBody());
+
+      global = rewriter.create<LLVM::GlobalOp>(loc,
+          llvmGlobalType, /*isConstant=*/true,
+          LLVM::Linkage::Internal, "constant_000", krnlGlobalOp.value());
+    }
+
+    // Create the llvm.mlir.undef corresponding to the MemRef.
+    auto llvmMemRef = MemRefDescriptor::undef(rewriter, loc, llvmMemRefType);
+
+    // Copy over the global data:
+    //  - Bitcast MemRef entry 1 to i8*
+    auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
+    auto llvmI64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
+    Value alignedMemRefDescMemory = rewriter.create<LLVM::ExtractValueOp>(
+        loc, llvmMemRefType, llvmMemRef, rewriter.getI64ArrayAttr(1));
+    Value int8PtrMemRef = rewriter.create<LLVM::BitcastOp>(
+        loc, llvmI8PtrTy, alignedMemRefDescMemory);
+    //  - Bitcast global to i8*
+    Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
+    Value i8PtrGlobal = rewriter.create<LLVM::BitcastOp>(
+        loc, llvmI8PtrTy, globalValue);
+    //  - Set size.
+    Value memRefElementSize = rewriter.create<LLVM::ConstantOp>(loc,
+        llvmI64Ty, rewriter.getI64IntegerAttr(
+            getMemRefEltSizeInBytes(memRefTy)));
+    Value numElementsValue = rewriter.create<LLVM::ConstantOp>(
+        loc, llvmI64Ty, rewriter.getI64IntegerAttr(numElements));
+    Value totalElementsSize = rewriter.create<LLVM::MulOp>(
+        loc, memRefElementSize, numElementsValue);
+    Value int64Size = rewriter.create<LLVM::SExtOp>(
+        loc, llvmI64Ty, totalElementsSize);
+    //  - Set volatile.
+    Value isVolatile = rewriter.create<LLVM::ConstantOp>(
+        loc, LLVM::LLVMType::getInt1Ty(llvmDialect),
+        rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
+    //  - Copy constant data into the MemRef entry 1.
+    auto memcpyRef = getOrInsertMemcpy(rewriter, module, llvmDialect);
+    rewriter.create<CallOp>(
+        loc, memcpyRef, LLVM::LLVMType::getVoidTy(llvmDialect),
+        ArrayRef<Value>({int8PtrMemRef, i8PtrGlobal, int64Size, isVolatile}));
+
+    // Set MemRef offset to 0.
+    llvmMemRef.setConstantOffset(rewriter, loc, 0);
+
+    // Set MemRef sizes and strides. All strides are 1.
+    // Strides of other dimensions not supported yet.
+    for (int i = 0; i < shape.size(); ++i) {
+      llvmMemRef.setConstantSize(rewriter, loc, i, ArrayAttrIntVal(shape, i));
+      llvmMemRef.setConstantStride(rewriter, loc, i, 1);
+    }
+
+    rewriter.replaceOp(op, {llvmMemRef});
+    // rewriter.eraseOp(op);
+    return matchSuccess();
+  }
+
+private:
+  static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
+    return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlMemcpyOpLowering
@@ -117,35 +257,6 @@ public:
 
     rewriter.eraseOp(op);
     return matchSuccess();
-  }
-
-private:
-  /// Return a symbol reference to the memcpy function, inserting it into the
-  /// module if necessary.
-  static FlatSymbolRefAttr getOrInsertMemcpy(PatternRewriter &rewriter,
-                                             ModuleOp module,
-                                             LLVM::LLVMDialect *llvmDialect) {
-    auto *context = module.getContext();
-    if (module.lookupSymbol<LLVM::LLVMFuncOp>("llvm.memcpy.p0i8.p0i8.i64"))
-      return SymbolRefAttr::get("llvm.memcpy.p0i8.p0i8.i64", context);
-    // Create a function declaration for memcpy, the signature is:
-    //   * `void (i8*, i8* , i64, i1)`
-    auto llvmVoidTy = LLVM::LLVMType::getVoidTy(llvmDialect);
-    auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
-    auto llvmI64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
-    auto llvmI1Ty = LLVM::LLVMType::getInt1Ty(llvmDialect);
-    auto llvmFnType = LLVM::LLVMType::getFunctionTy(
-        llvmVoidTy,
-        ArrayRef<mlir::LLVM::LLVMType>(
-            {llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI1Ty}),
-        false);
-
-    // Insert the memcpy function into the body of the parent module.
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(module.getBody());
-    rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(),
-                                      "llvm.memcpy.p0i8.p0i8.i64", llvmFnType);
-    return SymbolRefAttr::get("llvm.memcpy.p0i8.p0i8.i64", context);
   }
 };
 
@@ -513,6 +624,8 @@ void KrnlToLLVMLoweringPass::runOnModule() {
   populateStdToLLVMConversionPatterns(typeConverter, patterns,
                                       /*useAlloca=*/false,
                                       /*emitCWrapper=*/true);
+
+  patterns.insert<KrnlGlobalOpLowering>(&getContext(), typeConverter);
 
   // Lower from the `krnl` dialect i.e. the Reshape operation.
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(
