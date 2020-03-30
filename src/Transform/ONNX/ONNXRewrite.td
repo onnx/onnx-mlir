@@ -71,6 +71,10 @@ def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
 def getPadValueForAveragePool:
   NativeCodeCall<"getPadValueForAveragePool($_builder, $0, $1)">;
 
+// Check that a StrAttr does not contain a specific value.
+class IsNotStringAttrOfValue<string val>:
+  Constraint<CPred<"$0.cast<StringAttr>().getValue() != \"" # val # "\"">>;
+
 //===----------------------------------------------------------------------===//
 // Rewrite:
 // %0 = onnx.MaxPoolSingleOutOp(%D : tensor<DShape>)
@@ -99,7 +103,38 @@ def MaxPoolSingleOutOpPaddingPattern: Pat<
      $auto_pad, $ceil_mode, $dilation, $kernel_shape,
      (createArrayAttrOfZerosFrom $pads),
      $storage_order, $strides),
-  [(HasNonZeroInArrayAttr:$pads)]
+  [(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Rewrite:
+// %0 = onnx.ConvOp(%D : tensor<DShape>, %K)
+//     {pads = [b0, b1, ... bK, e0, e1, ..., eK]} ->
+//         tensor<OutShape>
+//
+// as:
+// %0 = onnx.PadConstantValuePadOp(%D)
+//     {pads = [0, 0, b0, b1, ... bK, 0, 0, e0, e1, ..., eK]} ->
+//     tensor<DPaddedShape>
+// %1 = onnx.Conv(%0 : tensor<DPaddedShape>, %K) {pads = [0, ..., 0]} ->
+//     tensor<OutShape>
+//===----------------------------------------------------------------------===//
+
+def ConvOpPaddingPattern: Pat<
+  (ONNXConvOp:$res
+     $x,
+     $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
+     $pads,
+     $strides),
+  (ONNXConvOp
+     (ONNXPadConstantValuePadOp $x,
+        (insertZerosForNonPaddedDims<2> $pads),
+        (FloatAttrOfValue<0> $res),
+        (StringAttrOfValue<"constant">)),
+     $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
+     (createArrayAttrOfZerosFrom $pads),
+     $strides),
+  [(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
 >;
 
 //===----------------------------------------------------------------------===//
@@ -134,7 +169,7 @@ def AveragePoolOpPaddingPattern: Pat<
      $auto_pad, $ceil_mode, $count_include_pad, $kernel_shape,
      (createArrayAttrOfZerosFrom $pads),
      $strides),
-  [(HasNonZeroInArrayAttr:$pads)]
+  [(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
 >;
 
 #endif // ONNX_REWRITE
