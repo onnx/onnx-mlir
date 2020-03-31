@@ -1444,41 +1444,50 @@ bool ONNXLSTMOp::inferShapes() {
   auto sequenceLength = xShape[0];
   auto batchSize = xShape[1];
   auto inputSize = xShape[2];
-  auto hiddenSize = hidden_size().getValue().getSExtValue();
-  auto numDirection = wShape[0];
+
+  // Obtain and update hidden_size value.
+  int64_t hiddenSize = -1;
+  if (hidden_size().hasValue()) {
+    hiddenSize = hidden_size().getValue().getSExtValue();
+  } else {
+    // Infer hidden_size from wShape and rShape if possible.
+    if (rShape[2] != -1)
+      hiddenSize = rShape[2];
+    else
+      if (rShape[1] != -1)
+        hiddenSize = rShape[1] / 4;
+      else
+        if (wShape[1] != -1)
+          hiddenSize = wShape[1] / 4;
+    // Update hidden_size attribute.
+    if (hiddenSize != -1) {
+      auto builder = mlir::Builder(getContext());
+      hidden_sizeAttr(builder.getI64IntegerAttr(hiddenSize));
+    }
+  }
+
+  auto numDirection = (direction() == "bidirectional") ? 2 : 1;
 
   // Check the shapes of W and R.
-  if (wShape[0] != -1 && rShape[0] != -1 && wShape[0] != rShape[0])
-    emitError("Mismatch the number of directions in the shapes of the weight "
-              "tensor for gates and the recurrent weight tensor");
-  if (wShape[1] != -1 && wShape[1] % 4 != 0)
+  if (wShape[0] != -1 && wShape[0] != numDirection)
+    emitError("The first dimension in the shape of the weight tensor for "
+              "gates, W[0], must be consistent with the direction attribute");
+  if (wShape[1] != -1 && hiddenSize != -1 && wShape[1] != 4*hiddenSize)
     emitError("The second dimension in the shape of the weight tensor for "
-              "gates, W[1], must be multiple of 4");
+              "gates, W[1], must be 4*hidden_size");
   if (wShape[2] != -1 && inputSize != -1 && wShape[2] != inputSize)
     emitError("The third dimension in the shape of the weight tensor for "
               "gates, W[2], must equal to the input size");
-  if (rShape[1] != -1 && rShape[1] == 4*hiddenSize)
+
+  if (rShape[0] != -1 && rShape[0] != numDirection)
+    emitError("The first dimension in the shape of the recurrent weight "
+              "tensor, R[0], must be consistent with the direction attribute");
+  if (rShape[1] != -1 && hiddenSize != -1 && rShape[1] != 4*hiddenSize)
     emitError("The second dimension in the shape of the recurrent weight "
               "tensor, R[1], must be 4*hidden_size");
-  if (rShape[2] != -1 && rShape[2] != hiddenSize)
+  if (rShape[2] != -1 && hiddenSize != -1 && rShape[2] != hiddenSize)
     emitError("The third dimension in the shape of the recurrent weight "
               "tensor, R[2], must equal to hidden_size attribute");
-
-  // Check the shape of the bias tensor for input gate, if the bias is
-  // available.
-  if (!B().getType().isa<NoneType>()) {
-    // bShape :: [num_directions, 8*hidden_size]
-    auto bShape = B().getType().cast<RankedTensorType>().getShape();
-    if (bShape[0] != -1 && wShape[0] != -1 && bShape[0] != wShape[0])
-      emitError("Mismatch the number of directions in the shapes of the bias "
-                "tensor for input gate and the weight tensor");
-    if (bShape[0] != -1 && rShape[0] != -1 && bShape[0] != rShape[0])
-      emitError("Mismatch the number of directions in the shapes of the bias "
-                "tensor for input gate and the recurrent weight tensor");
-    if (bShape[1] != -1 && bShape[1] == 8*hiddenSize)
-    emitError("The second dimension in the shape of the bias tensor for input "
-              "gate, B[1], must be 8*hidden_size");
-  }
 
   // Set result types.
   Type yTy, yhTy, ycTy;
