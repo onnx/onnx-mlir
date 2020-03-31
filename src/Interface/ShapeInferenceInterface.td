@@ -25,7 +25,7 @@ def ShapeInferenceOpInterface : OpInterface<"ShapeInference"> {
 
   let methods = [
     InterfaceMethod<"Infer and set the output shape for the current operation.",
-                    "void", "inferShapes">
+                    "bool", "inferShapes">
   ];
 }
 
