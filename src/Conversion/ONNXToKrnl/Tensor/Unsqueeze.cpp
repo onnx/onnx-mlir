@@ -16,7 +16,7 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
   ONNXUnsqueezeOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXUnsqueezeOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult
+  LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
@@ -76,7 +76,7 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
     }
     rewriter.create<KrnlMemcpyOp>(loc, alloc, operands[0], tensorSize);
     rewriter.replaceOp(op, alloc);
-    return matchSuccess();
+    return success();
   }
 };
 

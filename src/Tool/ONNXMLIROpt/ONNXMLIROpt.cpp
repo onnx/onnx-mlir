@@ -49,7 +49,7 @@ static llvm::cl::opt<bool> verify_passes(
     llvm::cl::init(true));
 
 int main(int argc, char **argv) {
-  mlir::registerDialect<mlir::AffineOpsDialect>();
+  mlir::registerDialect<mlir::AffineDialect>();
   mlir::registerDialect<mlir::LLVM::LLVMDialect>();
   mlir::registerDialect<mlir::loop::LoopOpsDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();

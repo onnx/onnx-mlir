@@ -17,7 +17,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       : ConversionPattern(
             mlir::ONNXBatchNormalizationTestModeOp::getOperationName(), 1,
             ctx) {}
-  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter & rewriter) const final {
     // batchnorm{epsilon}(x, scale, bias, mean, variance) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
@@ -133,7 +133,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
 
     rewriter.replaceOp(op, alloc);
 
-    return matchSuccess();
+    return success();
   }
 };
 

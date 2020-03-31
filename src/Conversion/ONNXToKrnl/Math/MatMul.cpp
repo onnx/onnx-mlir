@@ -16,7 +16,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult
+  LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
@@ -329,7 +329,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     rewriter.replaceOp(op, alloc);
 
-    return matchSuccess();
+    return success();
   }
 };
 

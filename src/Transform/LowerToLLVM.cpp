@@ -12,10 +12,10 @@
 #include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
-#include "mlir/Dialect/AffineOps/AffineOps.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LoopOps/LoopOps.h"
-#include "mlir/Dialect/StandardOps/Ops.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
@@ -71,7 +71,7 @@ public:
   explicit KrnlMemcpyOpLowering(MLIRContext *context)
       : ConversionPattern(KrnlMemcpyOp::getOperationName(), 1, context) {}
 
-  PatternMatchResult
+  LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
     auto *context = op->getContext();
@@ -116,7 +116,7 @@ public:
                          int64Size, isVolatile}));
 
     rewriter.eraseOp(op);
-    return matchSuccess();
+    return success();
   }
 
 private:
@@ -186,7 +186,7 @@ public:
     }
   };
 
-  PatternMatchResult matchAndRewrite(KrnlEntryPointOp op,
+  LogicalResult matchAndRewrite(KrnlEntryPointOp op,
                                      PatternRewriter &rewriter) const override {
 
     auto *llvmDialect =
@@ -301,7 +301,7 @@ public:
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(loc,
                                     SmallVector<Value, 1>({wrappedOutput}));
-    return matchSuccess();
+    return success();
   }
 
 private:

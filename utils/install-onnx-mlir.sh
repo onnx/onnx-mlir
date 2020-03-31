@@ -2,7 +2,10 @@
 export LLVM_PROJ_SRC=$(pwd)/llvm-project/
 export LLVM_PROJ_BUILD=$(pwd)/llvm-project/build
 
-mkdir onnx-mlir/build && cd onnx-mlir/build
+if [ ! -d onnx-mlir/build ]; then
+    mkdir onnx-mlir/build
+fi
+cd onnx-mlir/build
 cmake ..
 cmake --build . --target onnx-mlir
 

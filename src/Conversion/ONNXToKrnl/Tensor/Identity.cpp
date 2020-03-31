@@ -16,11 +16,11 @@ struct ONNXIdentityOpLowering : public ConversionPattern {
   ONNXIdentityOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXIdentityOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult
+  LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     rewriter.replaceOp(op, operands[0]);
-    return matchSuccess();
+    return success();
   }
 };
 

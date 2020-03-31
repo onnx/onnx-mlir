@@ -17,7 +17,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   ONNXGemmOpLowering(MLIRContext *ctx)
       : ConversionPattern(GemmOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult
+  LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
@@ -209,7 +209,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     rewriter.replaceOp(op, alloc);
 
-    return matchSuccess();
+    return success();
   }
 };
 
