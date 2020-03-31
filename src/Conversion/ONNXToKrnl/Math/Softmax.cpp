@@ -15,9 +15,8 @@ using namespace mlir;
 struct ONNXSoftmaxOpLowering : public ConversionPattern {
   ONNXSoftmaxOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXSoftmaxOp::getOperationName(), 1, ctx) {}
-  PatternMatchResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     // softmax(x) = let max_x = max(x) in
     //                let exp_x = exp(x - max_x) in
     //                  let sum = sum(exp_x) in
@@ -39,8 +38,8 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc,
-                                    input);
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, input);
 
     // Shape of the result
     auto memRefShape = memRefType.getShape();
@@ -50,15 +49,14 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     Value sumOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
     Value maxOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-    Value negInfinity = rewriter.create<ConstantOp>(
-        loc,
+    Value negInfinity = rewriter.create<ConstantOp>(loc,
         FloatAttr::get(elementType, -std::numeric_limits<float>::infinity()));
 
     // Define loops.
     std::vector<Value> originalLoops;
     std::vector<Value> optimizedLoops;
-    Block *optimizationBlock = defineLoops(rewriter, loc, originalLoops,
-            optimizedLoops, rank);
+    Block *optimizationBlock =
+        defineLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
 
     // Coerce the input into a 2-D tensor. `axis` will be the coercing point.
     // This coercing follows the softmax definition in ONNX:
