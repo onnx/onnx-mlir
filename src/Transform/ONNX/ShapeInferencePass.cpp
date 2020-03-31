@@ -35,7 +35,11 @@ public:
     f.walk([&](mlir::Operation *op) {
       if (returnsDynamicShape(op)) {
         if (auto shape_op = dyn_cast<ShapeInference>(op)) {
-          shape_op.inferShapes();
+          if (!shape_op.inferShapes()) {
+            op->emitError("unable to infer shape of operation without shape "
+                          "inference interface");
+            return signalPassFailure();
+          }
         } else {
           op->emitError("unable to infer shape of operation without shape "
                         "inference interface");
