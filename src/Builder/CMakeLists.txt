@@ -4,7 +4,6 @@ add_library(OMBuilder
         FrontendDialectTransformer.cpp
         FrontendDialectTransformer.hpp
         )
-add_dependencies(OMBuilder OMONNXOpsBuildTableIncGen)
 
 target_include_directories(OMBuilder PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(OMBuilder PRIVATE ${CMAKE_BINARY_DIR})

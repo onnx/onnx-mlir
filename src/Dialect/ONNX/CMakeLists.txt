@@ -3,7 +3,6 @@ onnx_mlir_tablegen(ONNXOps.hpp.inc -gen-op-decls "-I${ONNX_MLIR_SRC_ROOT}/compil
 onnx_mlir_tablegen(ONNXOps.cpp.inc -gen-op-defs "-I${ONNX_MLIR_SRC_ROOT}/compiler/pass")
 set(GEN_DOC_FILE ${CMAKE_BINARY_DIR}/docs/Dialects/onnx.md)
 add_public_tablegen_target(OMONNXOpsIncGen)
-add_dependencies(OMONNXOpsIncGen OMONNXOpsTableGenIncGen)
 
 add_library(OMONNXOps
         ONNXOps.cpp
