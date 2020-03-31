@@ -24,10 +24,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     bool hasBias = !op->getOperand(2).getType().isa<NoneType>();
 
     Value A, B, C;
-    A = operands[0];
-    B = operands[1];
+    ONNXGemmOpOperandAdaptor operandAdaptor(operands);
+    A = operandAdaptor.A();
+    B = operandAdaptor.B();
     if (hasBias)
-      C = operands[2];
+      C = operandAdaptor.C();
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 

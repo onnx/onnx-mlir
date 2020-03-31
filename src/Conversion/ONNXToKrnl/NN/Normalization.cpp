@@ -1,4 +1,4 @@
-//===----------- Normalization.cpp - Lowering Normalization Ops ------------===//
+//===----------- Normalization.cpp - Lowering Normalization Ops -----------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -18,24 +18,24 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
             mlir::ONNXBatchNormalizationTestModeOp::getOperationName(), 1,
             ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter & rewriter) const final {
+      ConversionPatternRewriter &rewriter) const final {
     // batchnorm{epsilon}(x, scale, bias, mean, variance) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
+    ONNXBatchNormalizationTestModeOpOperandAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
-    auto epsilonAttr =
-        FloatAttr::get(memRefType.getElementType(),
-                       llvm::dyn_cast<ONNXBatchNormalizationTestModeOp>(op)
-                           .epsilon()
-                           .convertToFloat());
+    auto epsilonAttr = FloatAttr::get(memRefType.getElementType(),
+        llvm::dyn_cast<ONNXBatchNormalizationTestModeOp>(op)
+            .epsilon()
+            .convertToFloat());
     auto epsilon = rewriter.create<ConstantOp>(loc, epsilonAttr);
 
-    auto operand = operands[0];
-    auto scale = operands[1];
-    auto bias = operands[2];
-    auto mean = operands[3];
-    auto variance = operands[4];
+    auto operand = operandAdaptor.X();
+    auto scale = operandAdaptor.scale();
+    auto bias = operandAdaptor.B();
+    auto mean = operandAdaptor.mean();
+    auto variance = operandAdaptor.var();
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
@@ -44,8 +44,8 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc,
-                                    {operand});
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, {operand});
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
     // In case of N, C is assumed to be 1.
@@ -67,8 +67,8 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
 
     SmallVector<Value, 1> loopCIVs;
     if (rank > 1) {
-      KrnlIterateOperandPack cPack(rewriter, originalLoops[1],
-                                   optimizedLoops[1]);
+      KrnlIterateOperandPack cPack(
+          rewriter, originalLoops[1], optimizedLoops[1]);
       addDimensionToPack(rewriter, loc, cPack, operand, 1);
       auto cIterateOp = rewriter.create<KrnlIterateOp>(loc, cPack);
       Block &cIterationBlock = cIterateOp.bodyRegion().front();
@@ -76,7 +76,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       for (auto arg : cIterationBlock.getArguments())
         loopCIVs.emplace_back(arg);
     } else {
-       loopCIVs.emplace_back(rewriter.create<ConstantIndexOp>(loc, 0));
+      loopCIVs.emplace_back(rewriter.create<ConstantIndexOp>(loc, 0));
     }
 
     auto scaleVal = rewriter.create<LoadOp>(loc, scale, loopCIVs);

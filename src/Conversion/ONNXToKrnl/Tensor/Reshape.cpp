@@ -16,11 +16,12 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
   ONNXReshapeOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXReshapeOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
-    auto inputShape = operands[0].getType().cast<MemRefType>().getShape();
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    ONNXReshapeOpOperandAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
+    Value data = operandAdaptor.data();
+    auto inputShape = data.getType().cast<MemRefType>().getShape();
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -33,7 +34,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     for (int i = 0; i < inputShape.size(); ++i) {
       Value dimVal;
       if (inputShape[i] < 0) {
-        Value dim = rewriter.create<DimOp>(loc, operands[0], i);
+        Value dim = rewriter.create<DimOp>(loc, data, i);
         dimVal =
             rewriter.create<IndexCastOp>(loc, dim, rewriter.getIntegerType(64));
       } else {
@@ -61,8 +62,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
           rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
       SmallVector<Value, 4> DimInfo;
       for (int i = 0; i < memRefShape.size(); ++i) {
-        Value index =
-            emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
+        Value index = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
         // Load index from array of indices.
         Value loadedVal = rewriter.create<LoadOp>(loc, operands[1], index);
         // If a dimension is zero, the actual dimension value is taken from the
@@ -75,7 +75,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
           Value dimVal;
           auto loadedValType = loadedVal.getType().cast<IntegerType>();
           if (inputShape[i] < 0) {
-            Value dim = rewriter.create<DimOp>(loc, operands[0], i);
+            Value dim = rewriter.create<DimOp>(loc, data, i);
             dimVal = rewriter.create<IndexCastOp>(loc, dim, loadedValType);
           } else {
             dimVal =
@@ -136,7 +136,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
       alloc = allocateMemref;
     }
 
-    rewriter.create<KrnlMemcpyOp>(loc, alloc, operands[0], tensorSize);
+    rewriter.create<KrnlMemcpyOp>(loc, alloc, data, tensorSize);
     rewriter.replaceOp(op, alloc);
 
     return success();

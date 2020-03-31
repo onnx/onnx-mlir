@@ -14,13 +14,13 @@ using namespace mlir;
 
 struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
   ONNXPadConstantValuePadOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXPadConstantValuePadOp::getOperationName(),
-                          1, ctx) {}
+      : ConversionPattern(
+            mlir::ONNXPadConstantValuePadOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     auto tensorType = (*op->result_type_begin());
+    ONNXPadConstantValuePadOpOperandAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     // Only constant padding is supported now.
@@ -55,7 +55,7 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
     BuildKrnlLoop valueLoops(rewriter, loc, rank);
     valueLoops.createDefineAndOptimizeOp();
     for (int i = 0; i < rank; ++i)
-      valueLoops.pushBounds(0, operands[0], i);
+      valueLoops.pushBounds(0, operandAdaptor.data(), i);
     valueLoops.createIterateOp();
 
     // Copy the input data into the output.
@@ -67,7 +67,7 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
 
     auto pads = llvm::dyn_cast<ONNXPadConstantValuePadOp>(op).pads();
     SmallVector<int64_t, 4> pad_begin;
-    for (int i = 0; i < pads.size()/2; ++i) {
+    for (int i = 0; i < pads.size() / 2; ++i) {
       pad_begin.emplace_back(pads.getValue()[i].cast<IntegerAttr>().getInt());
     }
 
@@ -77,14 +77,14 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
       if (pad_begin[i] == 0) {
         outLoopIVs.emplace_back(valueLoops.getInductionVar(i));
       } else {
-        auto outIV = rewriter.create<AddIOp>(
-            loc, rewriter.create<ConstantIndexOp>(loc, pad_begin[i]),
+        auto outIV = rewriter.create<AddIOp>(loc,
+            rewriter.create<ConstantIndexOp>(loc, pad_begin[i]),
             valueLoops.getInductionVar(i));
         outLoopIVs.emplace_back(outIV);
       }
     }
 
-    auto inVal = rewriter.create<LoadOp>(loc, operands[0], inLoopIVs);
+    auto inVal = rewriter.create<LoadOp>(loc, operandAdaptor.data(), inLoopIVs);
     rewriter.create<StoreOp>(loc, inVal, alloc, outLoopIVs);
     rewriter.setInsertionPointToStart(padLoops.getIterateBlock());
 
