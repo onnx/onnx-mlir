@@ -475,7 +475,7 @@ def gen_op_importer(schema, file):
             "/* expected_num_operands = */ {}".format(expected_num_operands))
         args.append(
             '/* expected_num_results = */ {}'.format(expected_num_results))
-    s += inc_indent(indent) + "return {}({});\n".format(
+    s += inc_indent(indent) + " {}({});\n".format(
         handler_func, ", ".join(args))
 
     file.write(s)

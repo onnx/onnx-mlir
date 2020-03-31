@@ -242,7 +242,7 @@ private:
   }
 
   template <typename T>
-  void buildOutputAndOperation(const onnx::NodeProto &node,
+  T buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<mlir::Value> inputs, int expectedNumOperands,
       int expectedNumResults) {
     bool variadicIn = expectedNumOperands == -1;
@@ -266,10 +266,11 @@ private:
       frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
                                    *(op.getODSResults(i).begin()));
     }
+    return op;
   }
 
   template <typename T>
-  void buildOperation(const onnx::NodeProto &node,
+  T buildOperation(const onnx::NodeProto &node,
                       int expectedNumOperands = -1,
                       int expectedNumResults = -1) {
     std::vector<mlir::Value> inputs;
@@ -281,7 +282,7 @@ private:
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
 
-    buildOutputAndOperation<T>(node, inputs, expectedNumOperands,
+    return buildOutputAndOperation<T>(node, inputs, expectedNumOperands,
         expectedNumResults);
   }
 
@@ -333,11 +334,12 @@ private:
    * Special handle for Pad operations.
    */
   void ImportNodePad(onnx::NodeProto node, int nIn, int nOut) {
+    auto op = buildOperation<mlir::ONNXPadOp>(node, nIn, nOut);
+
     int nOps = node.input().size();
     if (nOps == 2) {
-      buildOperation<mlir::ONNXPadConstantValueOp>(node, 2, nOut);
-    } else {
-      buildOperation<mlir::ONNXPadOp>(node, nIn, nOut);
+      auto attr = builder_.getF32FloatAttr(0.);
+      op.setAttr("constant_value", attr);
     }
   }
 
