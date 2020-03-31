@@ -248,15 +248,31 @@ private:
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
+    // In ONNX, there are two ways to leave an optional input or output
+    // unspecified: the first, available only for trailing inputs and outputs,
+    // is to simply not provide that input; the second method is to use an empty
+    // string in place of an input or output name.
+    //
+    // Here, we import optional inputs and outputs as NoneType.
+
+    // Trailing optional inputs.
     if (!variadicIn)
       for (auto i = inputs.size(); i < expectedNumOperands; i++)
         inputs.emplace_back(none_);
 
     std::vector<mlir::Type> outputTypes;
     for (auto item : node.output()) {
-      outputTypes.push_back(
-          mlir::UnrankedTensorType::get(builder_.getF32Type()));
+      // Optional outputs using empty string.
+      if (item.empty())
+        outputTypes.emplace_back(builder_.getNoneType());
+      else
+        outputTypes.push_back(
+            mlir::UnrankedTensorType::get(builder_.getF32Type()));
     }
+    // Trailing optional outputs.
+    if (!variadicOut)
+      for (int i = node.output().size(); i < expectedNumResults; ++i)
+        outputTypes.emplace_back(builder_.getNoneType());
 
     auto attributes = ImportNodeAttributes(node);
 
@@ -301,30 +317,6 @@ private:
     }
 
     buildOutputAndOperation<mlir::ONNXReshapeOp>(node, inputs, nIn, nOut);
-  }
-
-  /*!
-   * Special handle for Conv operations.
-   * c++ does not allow template specialization inside a class scope
-   * a specialized function is used
-   */
-  void ImportNodeConv(onnx::NodeProto node, int nIn, int nOut) {
-    // Conv has attribute dilations, kernel_shape, pads, the default value of
-    // which  is determined by the shape of first argument. However, since the
-    // shape is unknown now, these attributes can be not generated auto
-    // dilations_attr = get_attr_ints(node, "dilations",
-    //    std::vector<int>(inputs[0]->getType().cast<RankedTensorType>.getDims()-2,
-    //    1));
-    // attributes.push_back(dilations_attr)
-    // similar situation for pads, strides in AveragePool
-    // axes of ReduceSum,  pads, strides, dilations and kernel_shape of MaxPool
-    // TODO: fix this after type inference
-    int nOps = node.input().size();
-
-    if (nOps == 2)
-      buildOperation<mlir::ONNXConvNoBiasOp>(node, nOps, nOut);
-    else
-      buildOperation<mlir::ONNXConvOp>(node, nOps, nOut);
   }
 
   /*!

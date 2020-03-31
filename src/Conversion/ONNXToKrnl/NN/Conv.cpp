@@ -12,32 +12,35 @@
 
 using namespace mlir;
 
-struct ONNXConvNoBiasOpLowering : public ConversionPattern {
-  ONNXConvNoBiasOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXConvNoBiasOp::getOperationName(), 1, ctx) {}
+struct ONNXConvOpLowering : public ConversionPattern {
+  ONNXConvOpLowering(MLIRContext *ctx)
+      : ConversionPattern(mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
 
   PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
+    ONNXConvOpOperandAdaptor operandAdaptor(operands);
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
-    ONNXConvNoBiasOp convOp = llvm::dyn_cast<ONNXConvNoBiasOp>(op);
+    ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
+
+    auto resultShape = memRefType.getShape();
+    auto inputOperand = operandAdaptor.X();
+    auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
+    auto kernelOperand = operandAdaptor.W();
+    auto kernelShape = kernelOperand.getType().cast<MemRefType>().getShape();
+    auto biasOperand = operandAdaptor.B();
+    bool hasBias = !biasOperand.getType().isa<NoneType>();
 
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
       alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {operands[0]});
+          memRefType, loc, rewriter, insertDealloc, {inputOperand});
 
-    auto resultShape = memRefType.getShape();
-    auto &inputOperand = operands[0];
-    auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
-    auto &kernelOperand = operands[1];
-    auto kernelShape = kernelOperand.getType().cast<MemRefType>().getShape();
-
-    // R = ConvNoBias(D, K)
+    // R = Conv(D, K)
     //
     // The input/output shapes will look like this:
     //
@@ -169,8 +172,23 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
 
         // 3.4 Emit inner loop nest.
         innerLoops.createIterateOp();
-        rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
 
+        // Emit the bias, if needed.
+        if (hasBias) {
+          auto loadResult =
+              rewriter.create<LoadOp>(loc, alloc, resultIndices);
+          SmallVector<Value, 4> biasIndices;
+          biasIndices.emplace_back(kernel);
+          auto loadBias =
+              rewriter.create<LoadOp>(loc, biasOperand, kernel);
+          auto resultWithBias = rewriter.create<MulFOp>(
+            loc, loadResult, loadBias);
+          // Store initializer value into output location.
+          rewriter.create<StoreOp>(loc, resultWithBias, alloc, resultIndices);
+        }
+
+        //
+        rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
         {
           // 4. Emit inner loop body
           // R[n][kernel][r1][r2] =
@@ -238,5 +256,5 @@ struct ONNXConvNoBiasOpLowering : public ConversionPattern {
 
 void populateLoweringONNXConvOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXConvNoBiasOpLowering>(ctx);
+  patterns.insert<ONNXConvOpLowering>(ctx);
 }
