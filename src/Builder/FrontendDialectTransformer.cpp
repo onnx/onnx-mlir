@@ -263,7 +263,7 @@ private:
     std::vector<mlir::Type> outputTypes;
     for (auto item : node.output()) {
       // Optional outputs using empty string.
-      if (item == "")
+      if (item.empty())
         outputTypes.emplace_back(builder_.getNoneType());
       else
         outputTypes.push_back(
