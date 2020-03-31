@@ -117,6 +117,9 @@ public:
     // Get module.
     ModuleOp module = op->getParentOfType<ModuleOp>();
 
+    // Global name.
+    auto name = krnlGlobalOp.name();
+
     // Compute total number of elements.
     auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
     int64_t numElements = 1;
@@ -143,7 +146,7 @@ public:
 
       global = rewriter.create<LLVM::GlobalOp>(loc,
           llvmGlobalType, /*isConstant=*/true,
-          LLVM::Linkage::Internal, "constant_000", krnlGlobalOp.value());
+          LLVM::Linkage::Internal, name, krnlGlobalOp.value());
     }
 
     // Create the llvm.mlir.undef corresponding to the MemRef.

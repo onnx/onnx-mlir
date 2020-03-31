@@ -13,8 +13,12 @@
 using namespace mlir;
 
 struct ONNXConstantOpLowering : public ConversionPattern {
+  static int constantID;
+
   ONNXConstantOpLowering(MLIRContext *ctx)
-      : ConversionPattern(mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
+      : ConversionPattern(mlir::ONNXConstantOp::getOperationName(), 1, ctx) {
+        constantID = 0;
+      }
 
   PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -37,7 +41,11 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     auto constantGlobal = rewriter.create<KrnlGlobalOp>(loc,
         memRefType,
         rewriter.getI64ArrayAttr(shape),
-        constantOp.value().getValue());
+        constantOp.value().getValue(),
+        rewriter.getStringAttr("constant_" + std::to_string(constantID)));
+
+    // Increment constant ID:
+    constantID++;
 
     // Replace this operation with the generated alloc.
     // rewriter.replaceOp(op, alloc);
@@ -46,6 +54,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     return matchSuccess();
   }
 };
+
+int ONNXConstantOpLowering::constantID;
 
 void populateLoweringONNXConstantOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
