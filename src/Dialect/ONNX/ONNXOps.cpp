@@ -1423,96 +1423,97 @@ bool ONNXConstantOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
-// Constant
+// LSTM
 
-void ONNXLSTMOp::inferShapes() {
+bool ONNXLSTMOp::inferShapes() {
   if (!X().getType().isa<RankedTensorType>() ||
       !W().getType().isa<RankedTensorType>() ||
       !R().getType().isa<RankedTensorType>())
-    return;
+    return false;
 
-  auto XTy = X().getType().cast<RankedTensorType>();
-  auto elementType = XTy.getElementType();
+  auto xTy = X().getType().cast<RankedTensorType>();
+  auto elementType = xTy.getElementType();
 
-  // XShape :: [seq_length, batch_size, input_size]
-  auto XShape = XTy.getShape();
-  // WShape :: [num_directions, 4*hidden_size, input_size]
-  auto WShape = W().getType().cast<RankedTensorType>().getShape();
-  // RShape :: [num_directions, 4*hidden_size, hidden_size]
-  auto RShape = R().getType().cast<RankedTensorType>().getShape();
+  // xShape :: [seq_length, batch_size, input_size]
+  auto xShape = xTy.getShape();
+  // wShape :: [num_directions, 4*hidden_size, input_size]
+  auto wShape = W().getType().cast<RankedTensorType>().getShape();
+  // rShape :: [num_directions, 4*hidden_size, hidden_size]
+  auto rShape = R().getType().cast<RankedTensorType>().getShape();
 
-  auto sequenceLength = XShape[0];
-  auto batchSize = XShape[1];
-  auto inputSize = XShape[2];
+  auto sequenceLength = xShape[0];
+  auto batchSize = xShape[1];
+  auto inputSize = xShape[2];
   auto hiddenSize = hidden_size().getValue().getSExtValue();
-  auto numDirection = WShape[0];
+  auto numDirection = wShape[0];
 
   // Check the shapes of W and R.
-  if (WShape[0] != -1 && RShape[0] != -1 && WShape[0] != RShape[0])
+  if (wShape[0] != -1 && rShape[0] != -1 && wShape[0] != rShape[0])
     emitError("Mismatch the number of directions in the shapes of the weight "
               "tensor for gates and the recurrent weight tensor");
-  if (WShape[1] != -1 && WShape[1] % 4 != 0)
+  if (wShape[1] != -1 && wShape[1] % 4 != 0)
     emitError("The second dimension in the shape of the weight tensor for "
               "gates, W[1], must be multiple of 4");
-  if (WShape[2] != -1 && inputSize != -1 && WShape[2] != inputSize)
+  if (wShape[2] != -1 && inputSize != -1 && wShape[2] != inputSize)
     emitError("The third dimension in the shape of the weight tensor for "
               "gates, W[2], must equal to the input size");
-  if (RShape[1] != -1 && RShape[1] % 4 != 0)
+  if (rShape[1] != -1 && rShape[1] == 4*hiddenSize)
     emitError("The second dimension in the shape of the recurrent weight "
-              "tensor, R[1], must be multiple of 4");
-  if (RShape[2] != -1 && RShape[2] != hiddenSize)
+              "tensor, R[1], must be 4*hidden_size");
+  if (rShape[2] != -1 && rShape[2] != hiddenSize)
     emitError("The third dimension in the shape of the recurrent weight "
               "tensor, R[2], must equal to hidden_size attribute");
 
   // Check the shape of the bias tensor for input gate, if the bias is
   // available.
   if (!B().getType().isa<NoneType>()) {
-    // BShape :: [num_directions, 8*hidden_size]
-    auto BShape = B().getType().cast<RankedTensorType>().getShape();
-    if (BShape[0] != -1 && WShape[0] != -1 && BShape[0] != WShape[0])
+    // bShape :: [num_directions, 8*hidden_size]
+    auto bShape = B().getType().cast<RankedTensorType>().getShape();
+    if (bShape[0] != -1 && wShape[0] != -1 && bShape[0] != wShape[0])
       emitError("Mismatch the number of directions in the shapes of the bias "
                 "tensor for input gate and the weight tensor");
-    if (BShape[0] != -1 && RShape[0] != -1 && BShape[0] != RShape[0])
+    if (bShape[0] != -1 && rShape[0] != -1 && bShape[0] != rShape[0])
       emitError("Mismatch the number of directions in the shapes of the bias "
                 "tensor for input gate and the recurrent weight tensor");
-    if (BShape[1] != -1 && BShape[1] % 8 != 0)
+    if (bShape[1] != -1 && bShape[1] == 8*hiddenSize)
     emitError("The second dimension in the shape of the bias tensor for input "
-              "gate, B[1], must be multiple of 8");
+              "gate, B[1], must be 8*hidden_size");
   }
 
-  Type YTy, YHTy, YCTy;
-  SmallVector<int64_t, 2> yDims, yhDims, ycDims;
+  // Set result types.
+  Type yTy, yhTy, ycTy;
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  if (Y().getType().isa<NoneType>()) {
-    YTy = Y().getType().cast<NoneType>();
-  } else {
+  yTy = Y().getType();
+  if (!Y().getType().isa<NoneType>()) {
+    SmallVector<int64_t, 4> yDims;
     yDims.emplace_back(sequenceLength);
     yDims.emplace_back(numDirection);
     yDims.emplace_back(batchSize);
     yDims.emplace_back(hiddenSize);
-    YTy = RankedTensorType::get(yDims, elementType);
+    yTy = RankedTensorType::get(yDims, elementType);
+    getResults()[0].setType(yTy);
   }
   // Y_h :: [num_directions, batch_size, hidden_size]
-  if (Y_h().getType().isa<NoneType>()) {
-    YHTy = Y_h().getType().cast<NoneType>();
-  } else {
+  yhTy = Y_h().getType();
+  if (!Y_h().getType().isa<NoneType>()) {
+    SmallVector<int64_t, 3> yhDims;
     yhDims.emplace_back(numDirection);
     yhDims.emplace_back(batchSize);
     yhDims.emplace_back(hiddenSize);
-    YHTy = RankedTensorType::get(yhDims, elementType);
+    yhTy = RankedTensorType::get(yhDims, elementType);
+    getResults()[1].setType(yhTy);
   }
   // Y_c :: [num_directions, batch_size, hidden_size]
-  if (Y_c().getType().isa<NoneType>()) {
-    YCTy = Y_c().getType().cast<NoneType>();
-  } else {
+  ycTy = Y_c().getType();
+  if (!Y_c().getType().isa<NoneType>()) {
+    SmallVector<int64_t, 3> ycDims;
     ycDims.emplace_back(numDirection);
     ycDims.emplace_back(batchSize);
     ycDims.emplace_back(hiddenSize);
-    YCTy = RankedTensorType::get(ycDims, elementType);
+    ycTy = RankedTensorType::get(ycDims, elementType);
+    getResults()[2].setType(ycTy);
   }
-  getResults()[0].setType(YTy);
-  getResults()[1].setType(YHTy);
-  getResults()[2].setType(YCTy);
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
