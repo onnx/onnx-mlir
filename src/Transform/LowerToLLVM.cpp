@@ -134,10 +134,13 @@ public:
         typeConverter.convertType(type).cast<LLVM::LLVMType>();
 
     // The element type of the array.
-    auto globalType = typeConverter.convertType(memRefTy.getElementType());
+    auto constantElementType =
+        typeConverter.convertType(memRefTy.getElementType());
+    auto globalType = constantElementType;
     for (int i=shape.size() - 1; i >= 0; i--)
       globalType = LLVM::LLVMType::getArrayTy(
           globalType.cast<LLVM::LLVMType>(), ArrayAttrIntVal(shape, i));
+    // The llvm type of the global (example: [2 x [8 x float]])
     auto llvmGlobalType = globalType.cast<LLVM::LLVMType>();
 
     {
@@ -149,17 +152,21 @@ public:
           LLVM::Linkage::Internal, name, krnlGlobalOp.value());
     }
 
-    // Create the llvm.mlir.undef corresponding to the MemRef.
-    auto llvmMemRef = MemRefDescriptor::undef(rewriter, loc, llvmMemRefType);
-
-    // Copy over the global data:
-    //  - Bitcast MemRef entry 1 to i8*
+    // Some frequently used types.
     auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
     auto llvmI64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
-    Value alignedMemRefDescMemory = rewriter.create<LLVM::ExtractValueOp>(
-        loc, llvmMemRefType, llvmMemRef, rewriter.getI64ArrayAttr(1));
-    Value int8PtrMemRef = rewriter.create<LLVM::BitcastOp>(
-        loc, llvmI8PtrTy, alignedMemRefDescMemory);
+
+    // Allocate the memory where the constants will be used from.
+    // This is a region of local memory and needs to be emitted as an alloca.
+    auto one = rewriter.create<LLVM::ConstantOp>(loc,
+        llvmI64Ty, rewriter.getI64IntegerAttr(1));
+    auto alloc = rewriter.create<LLVM::AllocaOp>(
+        loc, llvmGlobalType.getPointerTo(), one, /*alignment=*/0);
+
+    // Copy constant value into the local alloca:
+    //  - Bitcast alloc to i8*
+    Value int8PtrAlloc = rewriter.create<LLVM::BitcastOp>(
+        loc, llvmI8PtrTy, alloc);
     //  - Bitcast global to i8*
     Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
     Value i8PtrGlobal = rewriter.create<LLVM::BitcastOp>(
@@ -182,7 +189,20 @@ public:
     auto memcpyRef = getOrInsertMemcpy(rewriter, module, llvmDialect);
     rewriter.create<CallOp>(
         loc, memcpyRef, LLVM::LLVMType::getVoidTy(llvmDialect),
-        ArrayRef<Value>({int8PtrMemRef, i8PtrGlobal, int64Size, isVolatile}));
+        ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
+
+    // Create the llvm.mlir.undef corresponding to the MemRef.
+    auto llvmMemRef = MemRefDescriptor::undef(rewriter, loc, llvmMemRefType);
+
+    // Bitcast alloca holding constant to relevnt pointer type.
+    auto llvmConstantElementType = constantElementType.cast<LLVM::LLVMType>();
+    Value typedAlloc = rewriter.create<LLVM::BitcastOp>(
+        loc, llvmConstantElementType.getPointerTo(), alloc);
+
+    // Ensure the memory area corresponding to the data of the LLVM MemRef
+    // type are allocated.
+    llvmMemRef.setAllocatedPtr(rewriter, loc, typedAlloc);
+    llvmMemRef.setAlignedPtr(rewriter, loc, typedAlloc);
 
     // Set MemRef offset to 0.
     llvmMemRef.setConstantOffset(rewriter, loc, 0);
