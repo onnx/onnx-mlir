@@ -30,3 +30,14 @@ func @test_promote_to_attribute_without_removing_const_op(%arg0 : tensor<?x10xf3
   // CHECK-NEXT: [[IDENTITY:%.+]] = "onnx.Identity"([[SHAPE]]) : (tensor<3xi32>) -> tensor<*xf32>
   // CHECK-NEXT: return [[RESHAPE]], [[IDENTITY]] : tensor<*xf32>, tensor<*xf32>
 }
+
+func @test_should_promote_to_attribute1(%arg0 : tensor<?x?xf32>) -> tensor<*xf32> {
+  %shape = constant dense<[0, 2,  2, 4]> : tensor<4xi32>
+  %constant_value = constant dense<[0.]> : tensor<1xf32>
+  %0 = "onnx.Pad"(%arg0, %shape, %constant_value) {mode = "constant"} : (tensor<?x?xf32>, tensor<4xi32>, tensor<1xf32>)-> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  // CHECK-LABEL: test_should_promote_to_attribute1
+  // CHECK-NEXT: [[NONE:%.+]] = constant unit
+  // CHECK-NEXT: [[PAD:%.+]] = "onnx.Pad"(%{{.*}}, [[NONE]], [[NONE]]) {constant_value = dense<0.000000e+00> : tensor<1xf32>, mode = "constant", pads = dense<[0, 2, 2, 4]> : tensor<4xi32>} : (tensor<?x?xf32>, none, none) -> tensor<*xf32>
+  // CHECK-NEXT: return [[RESHAPE]] : tensor<*xf32>
+}

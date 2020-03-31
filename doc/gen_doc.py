@@ -59,7 +59,8 @@ OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
 # should proceed. The key is the operation's name and the value is a list of
 # tuples, whose first item is the attribute/operand name, and the second item is
 # the index at which such operand occurs in the list of the operation's inputs.
-OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)]}
+OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
+                                  "Pad": [("pads", 1), ("constant_value", 2)]}
 
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
@@ -243,7 +244,7 @@ def get_operands_or_results(schema, is_input):
         # nullable in case it migrates to be an attribute.
         if schema.name in OpsWithPromotableConstOperands:
             idxs = dict(OpsWithPromotableConstOperands[schema.name]).values()
-            if i in idxs:
+            if i in idxs and not OpSchema.FormalParameterOption.Optional == value.option:
                 types.append("NoneType")
 
         if OpSchema.FormalParameterOption.Optional == value.option:
