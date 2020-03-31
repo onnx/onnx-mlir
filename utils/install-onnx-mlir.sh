@@ -11,4 +11,4 @@ cmake --build . --target onnx-mlir
 
 # Run FileCheck tests:
 export LIT_OPTS=-v
-cmake --build . --target check-mlir-lit
+cmake --build . --target check-onnx-lit
