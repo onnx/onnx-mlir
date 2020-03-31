@@ -3,7 +3,7 @@ add_library(OMBuilder
         FrontendDialectHelper.hpp
         FrontendDialectTransformer.cpp
         FrontendDialectTransformer.hpp
-        OpBuildTable.inc)
+        )
 add_dependencies(OMBuilder OMONNXOpsBuildTableIncGen)
 
 target_include_directories(OMBuilder PRIVATE ${ONNX_MLIR_SRC_ROOT})
