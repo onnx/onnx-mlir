@@ -100,8 +100,7 @@ Value mapToLowerScalarOp<ONNXSinhOp>(Operation *op, ArrayRef<Type> result_types,
   // ONNXSinhOp(%X) = DivFOp(SubFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
   //                         ConstantOp 2)
   auto loc = op->getLoc();
-  ONNXAsinhOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.input();
+  Value operand = operands[0];
   auto elementType = result_types[0];
 
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
@@ -125,8 +124,7 @@ Value mapToLowerScalarOp<ONNXCoshOp>(Operation *op, ArrayRef<Type> result_types,
   // ONNXCoshOp(%X) = DivFOp(AddFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
   //                         ConstantOp 2)
   auto loc = op->getLoc();
-  ONNXCoshOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.input();
+  Value operand = operands[0];
   auto elementType = result_types[0];
 
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
@@ -151,8 +149,7 @@ Value mapToLowerScalarOp<ONNXSigmoidOp>(Operation *op,
   // ONNXSigmoidOp(%X) = DivFOp(ConstantOp 1,
   //                            AddFOp(ConstantOp 1, ExpOp(NegFOp(%X))))
   auto loc = op->getLoc();
-  ONNXSigmoidOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.X();
+  Value operand = operands[0];
   auto elementType = result_types[0];
 
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
@@ -180,8 +177,7 @@ Value mapToLowerScalarOp<ONNXHardSigmoidOp>(
   //                                  %Z,
   //                                  Constant 1)
   auto loc = op->getLoc();
-  ONNXHardSigmoidOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.X();
+  Value operand = operands[0];
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXHardSigmoidOp>(op).alpha().convertToFloat());
   auto betaAttribute = FloatAttr::get(rewriter.getF32Type(),
@@ -216,8 +212,7 @@ Value mapToLowerScalarOp<ONNXEluOp>(Operation *op, ArrayRef<Type> result_types,
   //                          MulFOp(alpha, SubFOp(ExpOp(%X), 1)),
   //                          %X)
   auto loc = op->getLoc();
-  ONNXEluOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.X();
+  Value operand = operands[0];
   auto elementType = result_types[0];
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
@@ -248,8 +243,7 @@ Value mapToLowerScalarOp<ONNXReluOp>(Operation *op, ArrayRef<Type> result_types,
   //                           ConstantOp 0,
   //                           %X)
   auto loc = op->getLoc();
-  ONNXReluOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.X();
+  Value operand = operands[0];
   auto elementType = result_types[0];
 
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
@@ -272,8 +266,7 @@ Value mapToLowerScalarOp<ONNXLeakyReluOp>(Operation *op,
   //                                MulFOp(alpha, %X),
   //                                %X)
   auto loc = op->getLoc();
-  ONNXLeakyReluOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.X();
+  Value operand = operands[0];
   auto elementType = result_types[0];
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
@@ -301,8 +294,7 @@ Value mapToLowerScalarOp<ONNXSeluOp>(Operation *op, ArrayRef<Type> result_types,
   //                                  SubFOp(MulFOp(alpha, ExpOp(%X)),
   //                                         alpha)))
   auto loc = op->getLoc();
-  ONNXSeluOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.X();
+  Value operand = operands[0];
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXSeluOp>(op).alpha().convertToFloat());
   auto gammaAttribute = FloatAttr::get(rewriter.getF32Type(),
@@ -333,8 +325,7 @@ Value mapToLowerScalarOp<ONNXReciprocalOp>(
     ConversionPatternRewriter &rewriter) {
   // ONNXReciprocalOp(%X) = DivFOp(ConstantOp 1, %X)
   auto loc = op->getLoc();
-  ONNXReciprocalOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.X();
+  Value operand = operands[0];
   auto elementType = result_types[0];
 
   auto one = emitConstantOp(rewriter, loc, elementType, 1);
@@ -352,8 +343,7 @@ Value mapToLowerScalarOp<ONNXSoftplusOp>(
     ConversionPatternRewriter &rewriter) {
   // ONNXSoftplusOp(%X) = LogOp(AddFOp(ExpOp(%X), ConstantOp 1))
   auto loc = op->getLoc();
-  ONNXSoftplusOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.X();
+  Value operand = operands[0];
   auto elementType = result_types[0];
 
   auto exp = rewriter.create<ExpOp>(loc, operand);
@@ -373,8 +363,7 @@ Value mapToLowerScalarOp<ONNXSoftsignOp>(
     ConversionPatternRewriter &rewriter) {
   // ONNXSoftsignOp(%X) = DivFOp(ConstantOp 1, %X)
   auto loc = op->getLoc();
-  ONNXSoftsignOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.input();
+  Value operand = operands[0];
   auto elementType = result_types[0];
 
   auto abs = rewriter.create<AbsFOp>(loc, operand);
@@ -394,8 +383,7 @@ Value mapToLowerScalarOp<ONNXSignOp>(Operation *op, ArrayRef<Type> result_types,
                                      ConversionPatternRewriter &rewriter) {
 
   auto loc = op->getLoc();
-  ONNXSignOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.input();
+  Value operand = operands[0];
   Type elementType = operands.front().getType();
   // TODO: unsigned int should be supported separately?
   if (elementType.isa<IntegerType>()) {
@@ -484,8 +472,7 @@ template <>
 Value mapToLowerScalarOp<ONNXAbsOp>(Operation *op, ArrayRef<Type> result_types,
     ArrayRef<Value> operands, ConversionPatternRewriter &rewriter) {
   auto loc = op->getLoc();
-  ONNXAbsOpOperandAdaptor operandAdaptor(operands);
-  Value operand = operandAdaptor.X();
+  Value operand = operands[0];
   auto elementType = result_types[0];
 
   if (elementType.isa<FloatType>()) {
