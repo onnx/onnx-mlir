@@ -51,7 +51,7 @@ std::vector<int64_t> getDilations(PoolOp poolOp) {
   return {};
 }
 
-// MaxPool
+// MaxPool has dilations attribute.
 template <>
 std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
     ONNXMaxPoolSingleOutOp poolOp) {
@@ -78,7 +78,7 @@ bool getCountIncludePad(PoolOp poolOp) {
   return false;
 }
 
-// AveragePool
+// AveragePool has count_include_pad attribute.
 template <>
 bool getCountIncludePad<ONNXAveragePoolOp>(ONNXAveragePoolOp poolOp) {
   return (poolOp.count_include_pad() == 1);
@@ -92,7 +92,7 @@ void doPostProcessingForPooling(ConversionPatternRewriter &rewriter,
     Location loc, PoolOp poolOp, Value alloc, ArrayRef<Value> resultIndices,
     Value numOfOutOfBoundPixels, Value numOfNonPadPixels) {}
 
-// AveragePool
+// Calculate the average value for AveragePool.
 template <>
 void doPostProcessingForPooling<ONNXAveragePoolOp>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXAveragePoolOp poolOp,
@@ -104,8 +104,8 @@ void doPostProcessingForPooling<ONNXAveragePoolOp>(
       rewriter.create<LoadOp>(loc, numOfOutOfBoundPixels);
   denominator =
       rewriter.create<SubFOp>(loc, denominator, numOfOutOfBoundPixelsVal);
-  auto loadResult = rewriter.create<LoadOp>(loc, alloc, resultIndices);
-  auto average = rewriter.create<DivFOp>(loc, loadResult, denominator);
+  auto numerator = rewriter.create<LoadOp>(loc, alloc, resultIndices);
+  auto average = rewriter.create<DivFOp>(loc, numerator, denominator);
   rewriter.create<StoreOp>(loc, average, alloc, resultIndices);
 }
 
@@ -141,7 +141,6 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
   one = rewriter.create<ConstantOp>(
       loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 1));
 
-  int spatialRank = resultRank - kernelOffset;
   int64_t dilation = 1;
   for (int i = kernelOffset; i < resultShape.size(); ++i) {
     if (resultShape[i] < 0) {
@@ -158,7 +157,7 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
       // numerator = (input + pad - (kernel - 1) * dilation - 1)
       dilation = dilations.empty() ? dilation : dilations[spatialIndex];
       int64_t padKernelDilation =
-          (pads[spatialIndex] + pads[spatialIndex + spatialRank]) -
+          (pads[spatialIndex] + pads[spatialIndex + kernelRank]) -
           (kernelShape[spatialIndex] - 1) * dilation - 1;
       auto padKernelDilationVal = emitConstantOp(
           rewriter, loc, rewriter.getIntegerType(64), padKernelDilation);
@@ -203,21 +202,20 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
 //
 void getDataIndicesForPooling(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &dataIndices, BuildKrnlLoop &outerLoops,
-    BuildKrnlLoop &innerLoops, Value inputOperand, ArrayRef<int64_t> pads,
+    BuildKrnlLoop &innerLoops, ArrayRef<int64_t> pads,
     ArrayRef<int64_t> strides, ArrayRef<int64_t> dilations, bool ceilMode) {
-  auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
+  int nOuterLoops = outerLoops.getOriginalLoops().size();
+  int nInnerLoops = innerLoops.getOriginalLoops().size();
 
   // Insert batch indices: n, c
-  int batchRank = 2;
-  for (int i = 0; i < batchRank; ++i)
+  for (int i = 0; i < nOuterLoops - nInnerLoops; ++i)
     dataIndices.emplace_back(outerLoops.getInductionVar(i));
 
-  int nOuterLoops = outerLoops.getOriginalLoops().size();
   // Insert spatial indices: sX * rX + kX * dX
-  for (int i = batchRank; i < nOuterLoops; ++i) {
+  for (int i = nOuterLoops - nInnerLoops; i < nOuterLoops; ++i) {
     // Get index along the inner loop's induction variables.
     // It is used to obtain kernel/pad/stride/dilation index.
-    int j = i - batchRank;
+    int j = i - (nOuterLoops - nInnerLoops);
 
     Value spatialIndex = outerLoops.getInductionVar(i);
     // If strides are present (not default) then emit the correct access
@@ -326,14 +324,26 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //   for c = 0 .. C:
     //     for r1 = 0 .. RH:
     //       for r2 = 0 .. RW:
-    //         R[n][c][r1][r2] = negative_infinity;
+    //         R[n][c][r1][r2] = getIdentityValue(...);
     //         for k1 = 0 .. KH:
     //           for k2 = 0 .. KW:
-    //             t = D[n][c][s1 * r1 + k1][s2 * r2 + k2];
-    //             R[n][c][r1][r2] = max(R[n][c][r1][r2], t);
+    //             t = D[n][c][s1 * r1 + k1 * d1][s2 * r2 + k2 * d2];
+    //             R[n][c][r1][r2] = mapToLowerScalarOp(R[n][c][r1][r2], t);
+    //         doPostProcessingForPooling(...)
     //
     // Naming:
     //   n, c, r1, r2: outer loop nest indices
+    //   k1, k2: inner loop nest indices
+    //   getIdentityValue(): to return the indentity value
+    //     - negative infinity for MaxPool
+    //     - 0 for AveragePool
+    //   mapToLowerScalarOp(): to do primitive computation for Pooling, e.g.
+    //     - compute max for MaxPool
+    //     - compute sum for AveragePool
+    //   doPostProcessingForPooling(): to do post processing over the whole
+    //   filter window, e.g.
+    //     - do nothing in case of MaxPool
+    //     - calculate the average in case of AveragePool
     //
     // TODO: handle padding.
     //
@@ -406,7 +416,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         std::vector<Value> dataIndices;
         // Compute data index for the result index.
         getDataIndicesForPooling(rewriter, loc, dataIndices, outerLoops,
-            innerLoops, inputOperand, pads, strides, dilations, ceilMode);
+            innerLoops, pads, strides, dilations, ceilMode);
 
         // Check whether the data index is out-of-bound or not? This happens
         // when ceil mode or dilation is enabled.

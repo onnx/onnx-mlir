@@ -154,7 +154,8 @@ def ConvOpPaddingPattern: Pat<
 // Pad values are NaNs if count_include_pad is disabled (default).
 // The current implementation uses the negative infinity since it seems that
 // MLIR hasn't supported checking if a Value is NaN or not in MLIR?
-// TODO (tung): Find out how to check equality against NaNs.
+// The use of NaNs might not be necessary once we implement padding directly
+// in the lowering code.
 def AveragePoolOpPaddingPattern: Pat<
   (ONNXAveragePoolOp:$res
      $x,
