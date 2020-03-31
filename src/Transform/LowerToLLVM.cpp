@@ -181,7 +181,7 @@ public:
     Value isVolatile = rewriter.create<LLVM::ConstantOp>(
         loc, LLVM::LLVMType::getInt1Ty(llvmDialect),
         rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
-    //  - Copy constant data into the MemRef entry 1.
+    //  - Copy constant data into the alloca.
     auto memcpyRef = getOrInsertMemcpy(rewriter, module, llvmDialect);
     rewriter.create<CallOp>(
         loc, memcpyRef, LLVM::LLVMType::getVoidTy(llvmDialect),
@@ -211,7 +211,6 @@ public:
     }
 
     rewriter.replaceOp(op, {llvmMemRef});
-    // rewriter.eraseOp(op);
     return matchSuccess();
   }
 
