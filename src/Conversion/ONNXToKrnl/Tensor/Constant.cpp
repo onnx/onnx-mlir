@@ -16,7 +16,7 @@ struct ONNXConstantOpLowering : public ConversionPattern {
   ONNXConstantOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConstantOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
@@ -43,7 +43,7 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     // rewriter.replaceOp(op, alloc);
     rewriter.replaceOp(op, constantGlobal.getResult());
 
-    return matchSuccess();
+    return success();
   }
 };
 
