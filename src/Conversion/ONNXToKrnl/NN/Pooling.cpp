@@ -257,6 +257,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
   PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+    ONNXMaxPoolSingleOutOpOperandAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);
@@ -290,7 +291,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     bool countIncludePad = getCountIncludePad<PoolOp>(poolOp);
 
     // Type information about the input and result of this operation.
-    auto &inputOperand = operands[0];
+    auto inputOperand = operandAdaptor.X();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto resultShape = memRefType.getShape();
