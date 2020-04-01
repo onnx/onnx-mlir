@@ -187,28 +187,14 @@ public:
         loc, memcpyRef, LLVM::LLVMType::getVoidTy(llvmDialect),
         ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
 
-    // Create the llvm.mlir.undef corresponding to the MemRef.
-    auto llvmMemRef = MemRefDescriptor::undef(rewriter, loc, llvmMemRefType);
-
-    // Bitcast alloca holding constant to relevnt pointer type.
+    // Prepare data to be inserted into MemRef.
     auto llvmConstantElementType = constantElementType.cast<LLVM::LLVMType>();
     Value typedAlloc = rewriter.create<LLVM::BitcastOp>(
-        loc, llvmConstantElementType.getPointerTo(), alloc);
+      loc, llvmConstantElementType.getPointerTo(), alloc);
 
-    // Ensure the memory area corresponding to the data of the LLVM MemRef
-    // type are allocated.
-    llvmMemRef.setAllocatedPtr(rewriter, loc, typedAlloc);
-    llvmMemRef.setAlignedPtr(rewriter, loc, typedAlloc);
-
-    // Set MemRef offset to 0.
-    llvmMemRef.setConstantOffset(rewriter, loc, 0);
-
-    // Set MemRef sizes and strides. All strides are 1.
-    // Strides of other dimensions not supported yet.
-    for (int i = 0; i < shape.size(); ++i) {
-      llvmMemRef.setConstantSize(rewriter, loc, i, ArrayAttrIntVal(shape, i));
-      llvmMemRef.setConstantStride(rewriter, loc, i, 1);
-    }
+    // Create llvm MemRef from original MemRef and fill the data pointers.
+    auto llvmMemRef = MemRefDescriptor::fromStaticShape(
+      rewriter, loc, typeConverter, memRefTy, typedAlloc);
 
     rewriter.replaceOp(op, {llvmMemRef});
     return matchSuccess();

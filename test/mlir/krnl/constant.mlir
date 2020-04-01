@@ -26,10 +26,11 @@ func @test_constant(%arg0 : tensor<1xf32>) -> tensor<*xf32> {
 
   // CHECK: llvm.call @llvm.memcpy.p0i8.p0i8.i64([[I8ALLOCA]], [[I8GLOBAL]], [[GLOBAL_SIZE_BYTES]], [[CONST0]]) : (!llvm<"i8*">, !llvm<"i8*">, !llvm.i64, !llvm.i1) -> !llvm.void
 
-  // CHECK: [[LOCAL_MEMREF:%.+]] = llvm.mlir.undef : !llvm<"{ float*, float*, i64, [2 x i64], [2 x i64] }">
+  /// Prepare data for MemRef insertion.
+  // CHECK: [[TYPED_ALLOCA:%.+]] = llvm.bitcast [[ALLOCA]] : !llvm<"[3 x [2 x float]]*"> to !llvm<"float*">
 
   /// Insert the constant value in the local MemRef.
-  // CHECK: [[TYPED_ALLOCA:%.+]] = llvm.bitcast [[ALLOCA]] : !llvm<"[3 x [2 x float]]*"> to !llvm<"float*">
+  // CHECK: [[LOCAL_MEMREF:%.+]] = llvm.mlir.undef : !llvm<"{ float*, float*, i64, [2 x i64], [2 x i64] }">
   // CHECK: [[LOCAL_MEMREF0:%.+]] = llvm.insertvalue [[TYPED_ALLOCA]], [[LOCAL_MEMREF]][0] : !llvm<"{ float*, float*, i64, [2 x i64], [2 x i64] }">
   // CHECK: [[LOCAL_MEMREF1:%.+]] = llvm.insertvalue [[TYPED_ALLOCA]], [[LOCAL_MEMREF0]][1] : !llvm<"{ float*, float*, i64, [2 x i64], [2 x i64] }">
 
@@ -40,7 +41,7 @@ func @test_constant(%arg0 : tensor<1xf32>) -> tensor<*xf32> {
   /// Insert sizes and strides.
   // CHECK: [[CONST3:%.+]] = llvm.mlir.constant(3 : index) : !llvm.i64
   // CHECK: [[MEMREF2:%.+]] = llvm.insertvalue [[CONST3]], [[MEMREF1]][3, 0] : !llvm<"{ float*, float*, i64, [2 x i64], [2 x i64] }">
-  // CHECK: [[CONST1:%.+]] = llvm.mlir.constant(1 : index) : !llvm.i64
+  // CHECK: [[CONST1:%.+]] = llvm.mlir.constant(2 : index) : !llvm.i64
   // CHECK: [[MEMREF3:%.+]] = llvm.insertvalue [[CONST1]], [[MEMREF2]][4, 0] : !llvm<"{ float*, float*, i64, [2 x i64], [2 x i64] }">
 
   // CHECK: [[CONST2:%.+]] = llvm.mlir.constant(2 : index) : !llvm.i64
