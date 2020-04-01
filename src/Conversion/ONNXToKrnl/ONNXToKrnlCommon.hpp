@@ -117,6 +117,8 @@ Value emitPositiveInfinityConstantOp(
 Value emitNegativeInfinityConstantOp(
     ConversionPatternRewriter &rewriter, Location loc, Type type);
 
+int64_t ArrayAttrIntVal(ArrayAttr a, int i);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//

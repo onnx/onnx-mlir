@@ -47,7 +47,7 @@ struct FrontendToKrnlLoweringPass
 } // end anonymous namespace.
 
 void FrontendToKrnlLoweringPass::runOnModule() {
-  auto module = getModule();
+  ModuleOp module = getModule();
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
