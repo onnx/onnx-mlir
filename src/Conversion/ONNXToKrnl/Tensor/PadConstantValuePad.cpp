@@ -17,7 +17,7 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
       : ConversionPattern(
             mlir::ONNXPadConstantValuePadOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto tensorType = (*op->result_type_begin());
     ONNXPadConstantValuePadOpOperandAdaptor operandAdaptor(operands);
@@ -98,7 +98,7 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
     // Replace the original op with the generated code.
     rewriter.replaceOp(op, alloc);
 
-    return matchSuccess();
+    return success();
   }
 };
 
