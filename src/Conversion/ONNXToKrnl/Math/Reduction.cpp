@@ -54,13 +54,11 @@ struct ScalarOp<ONNXReduceSumOp> {
 // Scalar unary ops for lowering ONNXReduceMaxOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXReduceMaxOp>(Operation *op,
-                                          ArrayRef<Type> result_types,
-                                          ArrayRef<Value> operands,
-                                          ConversionPatternRewriter &rewriter) {
-  auto loc = op->getLoc();
-  Value lhs = operands[0];
-  Value rhs = operands[1];
+Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
   Type element_type = lhs.getType();
   if (element_type.isa<IntegerType>()) {
     auto max = rewriter.create<CmpIOp>(loc, CmpIPredicate::sgt, lhs, rhs);
@@ -80,19 +78,16 @@ Value mapToLowerScalarOp<ONNXReduceMaxOp>(Operation *op,
 // Scalar unary ops for lowering ONNXReduceMinOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXReduceMinOp>(Operation *op,
-                                          ArrayRef<Type> result_types,
-                                          ArrayRef<Value> operands,
-                                          ConversionPatternRewriter &rewriter) {
-  auto loc = op->getLoc();
-  Value lhs = operands[0];
-  Value rhs = operands[1];
-  Type element_type = lhs.getType();
-  if (element_type.isa<IntegerType>()) {
+Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
+  if (elementType.isa<IntegerType>()) {
     auto min = rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
     auto result = rewriter.create<SelectOp>(loc, min, lhs, rhs);
     return result;
-  } else if (element_type.isa<FloatType>()) {
+  } else if (elementType.isa<FloatType>()) {
     auto min = rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
     auto result = rewriter.create<SelectOp>(loc, min, lhs, rhs);
     return result;
@@ -107,9 +102,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
   ONNXReductionOpLowering(MLIRContext *ctx)
       : ConversionPattern(ONNXReductionOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     /*
      * Condition: reduction function must be associative and commutative.
      *
@@ -129,7 +123,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
      *   Y(i1) += X(i0, i1, i2)
      * }
      *
-    */
+     */
     auto loc = op->getLoc();
     auto memRefInType = operands[0].getType().cast<MemRefType>();
     auto memRefInShape = memRefInType.getShape();
@@ -154,8 +148,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       }
     }
     // KeepDims
-    auto keepdims =
-        llvm::dyn_cast<ONNXReductionOp>(op).keepdims();
+    auto keepdims = llvm::dyn_cast<ONNXReductionOp>(op).keepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
 
     // Get type information
@@ -168,7 +161,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefOutType)) {
-      alloc = insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
+      alloc =
+          insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
     } else {
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
@@ -192,12 +186,12 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     // Define loops to initialize the result.
     std::vector<Value> originalLoopsInit;
     std::vector<Value> optimizedLoopsInit;
-    Block *optimizationBlockInit = defineLoops(rewriter, loc, originalLoopsInit,
-            optimizedLoopsInit, outRank);
+    Block *optimizationBlockInit = defineLoops(
+        rewriter, loc, originalLoopsInit, optimizedLoopsInit, outRank);
 
     // Iteration information
-    KrnlIterateOperandPack packInit(rewriter, originalLoopsInit,
-        optimizedLoopsInit);
+    KrnlIterateOperandPack packInit(
+        rewriter, originalLoopsInit, optimizedLoopsInit);
     for (decltype(outRank) i = 0; i < outRank; ++i) {
       addDimensionToPack(rewriter, loc, packInit, alloc, i);
     }
@@ -225,8 +219,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     // Define an Krnl loop to do reduction.
     rewriter.setInsertionPointAfter(iterateOpInit);
     std::vector<Value> originalLoops, optimizedLoops;
-    Block *optimizationBlock = defineLoops(rewriter, loc, originalLoops,
-            optimizedLoops, inRank);
+    Block *optimizationBlock =
+        defineLoops(rewriter, loc, originalLoops, optimizedLoops, inRank);
     // Iteration information
     KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i) {
@@ -266,8 +260,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     Value next, accumulated;
     next = rewriter.create<LoadOp>(loc, operands[0], inLoopIVs);
     accumulated = rewriter.create<LoadOp>(loc, alloc, outLoopIVs);
-    accumulated = mapToLowerScalarOp<ONNXReductionOp>(
-        op, memRefOutType.getElementType(), {accumulated, next}, rewriter);
+    accumulated = emitScalarOpFor<ONNXReductionOp>(
+        rewriter, loc, op, memRefOutType.getElementType(), {accumulated, next});
     rewriter.create<StoreOp>(loc, accumulated, alloc, outLoopIVs);
 
     rewriter.replaceOp(op, alloc);
@@ -278,7 +272,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 void populateLoweringONNXReductionOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMaxOp>,
-                  ONNXReductionOpLowering<mlir::ONNXReduceMinOp>,
-                  ONNXReductionOpLowering<mlir::ONNXReduceProdOp>,
-                  ONNXReductionOpLowering<mlir::ONNXReduceSumOp>>(ctx);
+      ONNXReductionOpLowering<mlir::ONNXReduceMinOp>,
+      ONNXReductionOpLowering<mlir::ONNXReduceProdOp>,
+      ONNXReductionOpLowering<mlir::ONNXReduceSumOp>>(ctx);
 }
