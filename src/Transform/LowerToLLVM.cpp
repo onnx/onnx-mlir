@@ -99,7 +99,7 @@ public:
       : ConvertToLLVMPattern(KrnlGlobalOp::getOperationName(), context,
                              lowering_) {}
 
-  PatternMatchResult
+  LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
     auto *context = op->getContext();
@@ -197,7 +197,7 @@ public:
       rewriter, loc, typeConverter, memRefTy, typedAlloc);
 
     rewriter.replaceOp(op, {llvmMemRef});
-    return matchSuccess();
+    return success();
   }
 
 private:
