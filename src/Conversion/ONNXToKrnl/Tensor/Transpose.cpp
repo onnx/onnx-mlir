@@ -16,7 +16,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
   ONNXTransposeOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXTransposeOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTransposeOpOperandAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
@@ -93,7 +93,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
     rewriter.replaceOp(op, alloc);
 
-    return matchSuccess();
+    return success();
   }
 };
 
