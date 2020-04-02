@@ -434,10 +434,17 @@ private:
     module_.push_back(entryPoint);
 
     // Map graph inputs to entry block arguments.
-    for (int i = 0; i < graph.input().size(); ++i)
+    // Counter of un-initialized tensors. This counter is used to index the
+    // entry block arguments.
+    int entryBlockIdx = 0;
+    for (int i = 0; i < graph.input().size(); ++i) {
       if (!initializedTensors.ContainKey(
-              legalize_name(graph.input()[i].name())))
-        ImportInputTensorSymbol(graph.input()[i], entryBlock.getArguments()[i]);
+              legalize_name(graph.input()[i].name()))) {
+        ImportInputTensorSymbol(
+            graph.input()[i], entryBlock.getArguments()[entryBlockIdx]);
+        entryBlockIdx++;
+      }
+    }
 
     // Create a NoneTyped constant to be used for optional operation inputs
     // which are not used.
