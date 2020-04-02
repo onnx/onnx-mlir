@@ -102,8 +102,9 @@ struct ONNXReductionOpLowering : public ConversionPattern {
   ONNXReductionOpLowering(MLIRContext *ctx)
       : ConversionPattern(ONNXReductionOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
+  LogicalResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const final {
     /*
      * Condition: reduction function must be associative and commutative.
      *
@@ -265,7 +266,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     rewriter.create<StoreOp>(loc, accumulated, alloc, outLoopIVs);
 
     rewriter.replaceOp(op, alloc);
-    return matchSuccess();
+    return success();
   }
 };
 

@@ -15,7 +15,7 @@ using namespace mlir;
 struct ONNXSoftmaxOpLowering : public ConversionPattern {
   ONNXSoftmaxOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXSoftmaxOp::getOperationName(), 1, ctx) {}
-  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     // softmax(x) = let max_x = max(x) in
     //                let exp_x = exp(x - max_x) in
@@ -196,7 +196,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
 
     rewriter.replaceOp(op, alloc);
 
-    return matchSuccess();
+    return success();
   }
 };
 
