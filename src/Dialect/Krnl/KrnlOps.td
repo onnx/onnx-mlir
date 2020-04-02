@@ -199,7 +199,7 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global"> {
     Operation for holding global data values.
   }];
 
-  let arguments = (ins AnyAttr:$shape, AnyAttr:$value);
+  let arguments = (ins AnyAttr:$shape, AnyAttr:$value, StrAttr:$name);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
   let parser = ?;
