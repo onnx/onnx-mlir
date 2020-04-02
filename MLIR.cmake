@@ -54,9 +54,11 @@ function(find_mlir_lib lib)
           NO_DEFAULT_PATH)
 endfunction(find_mlir_lib)
 
-find_mlir_lib(MLIRAffineOps)
+find_mlir_lib(MLIRAffine)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAnalysis)
+find_mlir_lib(MLIRCallInterfaces)
+find_mlir_lib(MLIRControlFlowInterfaces)
 find_mlir_lib(MLIRDialect)
 find_mlir_lib(MLIREDSC)
 find_mlir_lib(MLIRExecutionEngine)
@@ -65,21 +67,25 @@ find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
 find_mlir_lib(MLIRLoopToStandard)
 find_mlir_lib(MLIRLoopOps)
+find_mlir_lib(MLIRLoopLikeInterface)
+find_mlir_lib(MLIRLLVMIRTransforms)
+find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRParser)
 find_mlir_lib(MLIRPass)
 find_mlir_lib(MLIRStandardOps)
 find_mlir_lib(MLIRStandardToLLVM)
+find_mlir_lib(MLIRSideEffects)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransforms)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRSupport)
-find_mlir_lib(MLIRMlirOptMain)
+find_mlir_lib(MLIROpenMP)
 find_mlir_lib(MLIROptLib)
 find_mlir_lib(MLIRTargetLLVMIRModuleTranslation)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRTranslation)
-find_mlir_lib(MLIRVectorOps)
+find_mlir_lib(MLIRVector)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -87,6 +93,7 @@ find_mlir_lib(LLVMAsmParser)
 find_mlir_lib(LLVMBinaryFormat)
 find_mlir_lib(LLVMRemarks)
 find_mlir_lib(LLVMIRReader)
+find_mlir_lib(LLVMMLIRTableGen)
 find_mlir_lib(LLVMTransformUtils)
 find_mlir_lib(LLVMBitstreamReader)
 find_mlir_lib(LLVMAnalysis)
@@ -97,6 +104,7 @@ find_mlir_lib(LLVMMCParser)
 find_mlir_lib(LLVMObject)
 find_mlir_lib(LLVMProfileData)
 find_mlir_lib(LLVMDemangle)
+find_mlir_lib(LLVMFrontendOpenMP)
 
 
 set(MLIRLibsOnce
@@ -107,30 +115,38 @@ set(MLIRLibsOnce
         ${LLVMBitstreamReader}
         ${LLVMBitWriter}
         ${LLVMCore}
+        ${LLVMFrontendOpenMP}
         ${LLVMIRReader}
         ${LLVMMC}
         ${LLVMMCParser}
+        ${LLVMMLIRTableGen}        
         ${LLVMObject}
         ${LLVMRemarks}
         ${LLVMSupport}
         ${LLVMTransformUtils}
         ${LLVMProfileData}
         ${LLVMDemangle}
-        ${MLIRAffineOps}
+        ${MLIRAffine}
         ${MLIRAffineToStandard}
         ${MLIRAnalysis}
+        ${MLIRCallInterfaces}
+        ${MLIRControlFlowInterfaces}
         ${MLIRDialect}
         ${MLIREDSC}
         ${MLIRExecutionEngine}
         ${MLIRIR}
         ${MLIRLLVMIR}
+        ${MLIRLLVMIRTransforms}        
         ${MLIRLoopToStandard}
         ${MLIRLoopOps}
         ${MLIRLoopAnalysis}
+        ${MLIRLoopLikeInterface}
+        ${MLIROpenMP}
         ${MLIRMlirOptMain}
         ${MLIROptLib}
         ${MLIRParser}
         ${MLIRPass}
+        ${MLIRSideEffects}        
         ${MLIRStandardOps}
         ${MLIRStandardToLLVM}
         ${MLIRSupport}
@@ -147,13 +163,13 @@ set(MLIRLibs
 
 set(MLIRWholeArchiveLibs
         MLIRAffineToStandard
-        MLIRAffineOps
+        MLIRAffine
         MLIRLLVMIR
         MLIRStandardOps
         MLIRStandardToLLVM
         MLIRTransforms
         MLIRLoopToStandard
-        MLIRVectorOps
+        MLIRVector
         MLIRLoopOps)
 
 function(whole_archive_link target lib_dir)
