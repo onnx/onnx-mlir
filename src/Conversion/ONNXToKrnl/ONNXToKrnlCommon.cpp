@@ -485,3 +485,7 @@ Value emitNegativeInfinityConstantOp(
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
 }
+
+int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
+  return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+}
