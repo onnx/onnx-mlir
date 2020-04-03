@@ -1423,6 +1423,109 @@ bool ONNXConstantOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// LSTM
+
+bool ONNXLSTMOp::inferShapes() {
+  if (!X().getType().isa<RankedTensorType>() ||
+      !W().getType().isa<RankedTensorType>() ||
+      !R().getType().isa<RankedTensorType>())
+    return false;
+
+  auto xTy = X().getType().cast<RankedTensorType>();
+  auto elementType = xTy.getElementType();
+
+  // xShape :: [seq_length, batch_size, input_size]
+  auto xShape = xTy.getShape();
+  // wShape :: [num_directions, 4*hidden_size, input_size]
+  auto wShape = W().getType().cast<RankedTensorType>().getShape();
+  // rShape :: [num_directions, 4*hidden_size, hidden_size]
+  auto rShape = R().getType().cast<RankedTensorType>().getShape();
+
+  auto sequenceLength = xShape[0];
+  auto batchSize = xShape[1];
+  auto inputSize = xShape[2];
+
+  // Obtain and update hidden_size value.
+  int64_t hiddenSize = -1;
+  if (hidden_size().hasValue()) {
+    hiddenSize = hidden_size().getValue().getSExtValue();
+  } else {
+    // Infer hidden_size from wShape and rShape if possible.
+    if (rShape[2] != -1)
+      hiddenSize = rShape[2];
+    else
+      if (rShape[1] != -1)
+        hiddenSize = rShape[1] / 4;
+      else
+        if (wShape[1] != -1)
+          hiddenSize = wShape[1] / 4;
+    // Update hidden_size attribute.
+    if (hiddenSize != -1) {
+      auto builder = mlir::Builder(getContext());
+      hidden_sizeAttr(builder.getI64IntegerAttr(hiddenSize));
+    }
+  }
+
+  auto numDirection = (direction() == "bidirectional") ? 2 : 1;
+
+  // Check the shapes of W and R.
+  if (wShape[0] != -1 && wShape[0] != numDirection)
+    emitError("The first dimension in the shape of the weight tensor for "
+              "gates, W[0], must be consistent with the direction attribute");
+  if (wShape[1] != -1 && hiddenSize != -1 && wShape[1] != 4*hiddenSize)
+    emitError("The second dimension in the shape of the weight tensor for "
+              "gates, W[1], must be 4*hidden_size");
+  if (wShape[2] != -1 && inputSize != -1 && wShape[2] != inputSize)
+    emitError("The third dimension in the shape of the weight tensor for "
+              "gates, W[2], must equal to the input size");
+
+  if (rShape[0] != -1 && rShape[0] != numDirection)
+    emitError("The first dimension in the shape of the recurrent weight "
+              "tensor, R[0], must be consistent with the direction attribute");
+  if (rShape[1] != -1 && hiddenSize != -1 && rShape[1] != 4*hiddenSize)
+    emitError("The second dimension in the shape of the recurrent weight "
+              "tensor, R[1], must be 4*hidden_size");
+  if (rShape[2] != -1 && hiddenSize != -1 && rShape[2] != hiddenSize)
+    emitError("The third dimension in the shape of the recurrent weight "
+              "tensor, R[2], must equal to hidden_size attribute");
+
+  // Set result types.
+  Type yTy, yhTy, ycTy;
+  // Y :: [seq_length, num_directions, batch_size, hidden_size]
+  yTy = Y().getType();
+  if (!Y().getType().isa<NoneType>()) {
+    SmallVector<int64_t, 4> yDims;
+    yDims.emplace_back(sequenceLength);
+    yDims.emplace_back(numDirection);
+    yDims.emplace_back(batchSize);
+    yDims.emplace_back(hiddenSize);
+    yTy = RankedTensorType::get(yDims, elementType);
+    getResults()[0].setType(yTy);
+  }
+  // Y_h :: [num_directions, batch_size, hidden_size]
+  yhTy = Y_h().getType();
+  if (!Y_h().getType().isa<NoneType>()) {
+    SmallVector<int64_t, 3> yhDims;
+    yhDims.emplace_back(numDirection);
+    yhDims.emplace_back(batchSize);
+    yhDims.emplace_back(hiddenSize);
+    yhTy = RankedTensorType::get(yhDims, elementType);
+    getResults()[1].setType(yhTy);
+  }
+  // Y_c :: [num_directions, batch_size, hidden_size]
+  ycTy = Y_c().getType();
+  if (!Y_c().getType().isa<NoneType>()) {
+    SmallVector<int64_t, 3> ycDims;
+    ycDims.emplace_back(numDirection);
+    ycDims.emplace_back(batchSize);
+    ycDims.emplace_back(hiddenSize);
+    ycTy = RankedTensorType::get(ycDims, elementType);
+    getResults()[2].setType(ycTy);
+  }
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 
