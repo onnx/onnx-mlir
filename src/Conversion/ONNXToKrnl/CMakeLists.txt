@@ -9,6 +9,7 @@ add_library(OMONNXToKrnl
         NN/Conv.cpp
         NN/Normalization.cpp
         NN/Pooling.cpp
+        RNN/LSTM.cpp
         Tensor/Identity.cpp
         Tensor/Reshape.cpp
         Tensor/PadConstantValuePad.cpp

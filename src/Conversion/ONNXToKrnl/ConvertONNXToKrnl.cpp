@@ -102,6 +102,8 @@ void FrontendToKrnlLoweringPass::runOnModule() {
   populateLoweringONNXConvOpPattern(patterns, &getContext());
   populateLoweringONNXNormalizationOpPattern(patterns, &getContext());
   populateLoweringONNXPoolingOpPattern(patterns, &getContext());
+  // Recurrent neural network
+  populateLoweringONNXLSTMOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
 
