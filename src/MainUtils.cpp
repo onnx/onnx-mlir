@@ -45,7 +45,7 @@ void EmitLLVMBitCode(const mlir::OwningModuleRef &module) {
 }
 
 void registerDialects() {
-  mlir::registerDialect<mlir::AffineOpsDialect>();
+  mlir::registerDialect<mlir::AffineDialect>();
   mlir::registerDialect<mlir::LLVM::LLVMDialect>();
   mlir::registerDialect<mlir::loop::LoopOpsDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();

@@ -107,7 +107,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
   ONNXReductionOpLowering(MLIRContext *ctx)
       : ConversionPattern(ONNXReductionOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult
+  LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     /*
@@ -271,7 +271,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     rewriter.create<StoreOp>(loc, accumulated, alloc, outLoopIVs);
 
     rewriter.replaceOp(op, alloc);
-    return matchSuccess();
+    return success();
   }
 };
 
