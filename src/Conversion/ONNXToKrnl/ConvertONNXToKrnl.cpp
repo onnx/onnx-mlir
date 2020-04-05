@@ -21,7 +21,7 @@ class ONNXEntryPointLowering : public OpRewritePattern<ONNXEntryPointOp> {
 public:
   using OpRewritePattern<ONNXEntryPointOp>::OpRewritePattern;
 
-  PatternMatchResult matchAndRewrite(ONNXEntryPointOp op,
+  LogicalResult matchAndRewrite(ONNXEntryPointOp op,
                                      PatternRewriter &rewriter) const override {
     rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(
         op,
@@ -30,7 +30,7 @@ public:
         op.getAttrOfType<IntegerAttr>(ONNXEntryPointOp::getNumInputsAttrName()),
         op.getAttrOfType<IntegerAttr>(
             ONNXEntryPointOp::getNumOutputsAttrName()));
-    return matchSuccess();
+    return success();
   }
 };
 
@@ -47,7 +47,7 @@ struct FrontendToKrnlLoweringPass
 } // end anonymous namespace.
 
 void FrontendToKrnlLoweringPass::runOnModule() {
-  auto module = getModule();
+  ModuleOp module = getModule();
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -56,7 +56,7 @@ void FrontendToKrnlLoweringPass::runOnModule() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target
-      .addLegalDialect<KrnlOpsDialect, AffineOpsDialect, StandardOpsDialect>();
+      .addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail

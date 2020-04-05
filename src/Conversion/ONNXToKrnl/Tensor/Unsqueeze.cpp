@@ -16,12 +16,13 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
   ONNXUnsqueezeOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXUnsqueezeOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    ONNXUnsqueezeOpOperandAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     int outRank = memRefType.getRank();
+    Value data = operandAdaptor.data();
 
     // Assume that `axes` has been validated by shape inference.
     // So, here we just get it.
@@ -55,7 +56,7 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
       for (int outIdx = 0, inIdx = 0; outIdx < memRefShape.size(); ++outIdx) {
         Value dimVal = nullptr;
         if (memRefShape[outIdx] < 0) {
-          Value index = rewriter.create<DimOp>(loc, operands[0], inIdx);
+          Value index = rewriter.create<DimOp>(loc, data, inIdx);
           dimVal = rewriter.create<IndexCastOp>(
               loc, index, rewriter.getIntegerType(64));
           allocOperands.emplace_back(index);
@@ -74,9 +75,9 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }
-    rewriter.create<KrnlMemcpyOp>(loc, alloc, operands[0], tensorSize);
+    rewriter.create<KrnlMemcpyOp>(loc, alloc, data, tensorSize);
     rewriter.replaceOp(op, alloc);
-    return matchSuccess();
+    return success();
   }
 };
 
