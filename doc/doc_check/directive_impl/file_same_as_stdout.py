@@ -23,20 +23,25 @@ def handle(config, ctx):
     logger.debug(
         "Handling a file-same-as-stdout directive with config {}".format(
             config))
+
+    # Read in file content.
     file = config["file"]
     with open(os.path.join(ctx.root_dir, file)) as f:
         file_content = f.read()
 
+    # Execute command and retrieve output.
     cmd = config["cmd"]
     cmd_stdout = subprocess.run(cmd, stdout=subprocess.PIPE,
                                 cwd=ctx.root_dir).stdout.decode('utf-8')
 
+    # Compute diff.
     diff = difflib.unified_diff(file_content.splitlines(keepends=True),
                                 cmd_stdout.splitlines(keepends=True),
                                 fromfile=file,
                                 tofile="$({})".format(" ".join(cmd)))
     diff = list(diff)
 
+    # If diff is non-trivial, raise error and display diff.
     if len(diff):
         print("The folloing diff is detected:")
         sys.stdout.writelines(diff)
