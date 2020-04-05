@@ -12,6 +12,7 @@ add_library(OMONNXToKrnl
         Tensor/Identity.cpp
         Tensor/Reshape.cpp
         Tensor/PadConstantValuePad.cpp
+        Tensor/Pad.cpp
         Tensor/Transpose.cpp
         Tensor/Unsqueeze.cpp
         Tensor/Constant.cpp
