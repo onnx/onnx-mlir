@@ -23,6 +23,9 @@ int main(int argc, char *argv[]) {
   llvm::cl::opt<EmissionTargetType> emissionTarget(
       llvm::cl::desc("Choose target to emit:"),
       llvm::cl::values(
+          clEnumVal(EmitONNXBasic,
+                    "Ingest ONNX and emit the basic ONNX operations without"
+                    "inferred shapes."),
           clEnumVal(EmitONNXIR,
                     "Ingest ONNX and emit corresponding ONNX dialect."),
           clEnumVal(EmitMLIR,
@@ -41,7 +44,8 @@ int main(int argc, char *argv[]) {
   processInputFile(inputFilename, emissionTarget, context, module);
 
   mlir::PassManager pm(&context);
-  addONNXToMLIRPasses(pm);
+  if (emissionTarget >= EmitONNXIR)
+    addONNXToMLIRPasses(pm);
 
   if (emissionTarget >= EmitMLIR) {
     addONNXToKrnlPasses(pm);

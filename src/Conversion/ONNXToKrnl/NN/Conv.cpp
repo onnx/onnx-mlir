@@ -16,7 +16,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
   ONNXConvOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     ONNXConvOpOperandAdaptor operandAdaptor(operands);
@@ -26,12 +26,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     bool insertDealloc = checkInsertDealloc(op);
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {operands[0]});
-
     auto resultShape = memRefType.getShape();
     auto inputOperand = operandAdaptor.X();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
@@ -39,6 +33,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto kernelShape = kernelOperand.getType().cast<MemRefType>().getShape();
     auto biasOperand = operandAdaptor.B();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
+
+    if (hasAllConstantDimensions(memRefType))
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+    else
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, {inputOperand});
 
     // R = Conv(D, K)
     //
@@ -250,7 +250,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     }
     rewriter.replaceOp(op, alloc);
 
-    return matchSuccess();
+    return success();
   }
 };
 

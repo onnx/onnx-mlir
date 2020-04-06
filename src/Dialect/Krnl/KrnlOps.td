@@ -192,3 +192,16 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy"> {
   let parser = ?;
   let printer = ?;
 }
+
+def KrnlGlobalOp : Op<Krnl_Dialect, "global"> {
+  let summary = "Krnl global operation";
+  let description = [{
+    Operation for holding global data values.
+  }];
+
+  let arguments = (ins AnyAttr:$shape, AnyAttr:$value, StrAttr:$name);
+  let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
+
+  let parser = ?;
+  let printer = ?;
+}

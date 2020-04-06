@@ -16,13 +16,14 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
 
-  PatternMatchResult
+  LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
 
-    Value A = operands[0];
-    Value B = operands[1];
+    ONNXMatMulOpOperandAdaptor operandAdaptor(operands);
+    Value A = operandAdaptor.A();
+    Value B = operandAdaptor.B();
     auto AShape = A.getType().cast<MemRefType>().getShape();
     auto BShape = B.getType().cast<MemRefType>().getShape();
 
@@ -329,7 +330,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     rewriter.replaceOp(op, alloc);
 
-    return matchSuccess();
+    return success();
   }
 };
 

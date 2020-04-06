@@ -37,7 +37,7 @@ public:
         if (auto shape_op = dyn_cast<ShapeInference>(op)) {
           if (!shape_op.inferShapes()) {
             op->emitError("unable to infer shape of operation without shape "
-                          "inference interface");
+                          "inference method");
             return signalPassFailure();
           }
         } else {

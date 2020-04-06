@@ -8,8 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/AffineOps/AffineOps.h"
-#include "mlir/Dialect/StandardOps/Ops.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 
@@ -27,7 +27,7 @@ namespace {
 struct KrnlIterateOpLowering : public OpRewritePattern<KrnlIterateOp> {
   using OpRewritePattern<KrnlIterateOp>::OpRewritePattern;
 
-  PatternMatchResult matchAndRewrite(KrnlIterateOp iterateOp,
+  LogicalResult matchAndRewrite(KrnlIterateOp iterateOp,
                                      PatternRewriter &rewriter) const override {
     auto boundMapAttrs =
         iterateOp.getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
@@ -81,7 +81,7 @@ struct KrnlIterateOpLowering : public OpRewritePattern<KrnlIterateOp> {
                                 innermostForOp.region().end());
 
     rewriter.eraseOp(iterateOp);
-    return matchSuccess();
+    return success();
   }
 };
 
@@ -93,10 +93,10 @@ class KrnlTerminatorLowering : public OpRewritePattern<KrnlTerminatorOp> {
 public:
   using OpRewritePattern<KrnlTerminatorOp>::OpRewritePattern;
 
-  PatternMatchResult matchAndRewrite(KrnlTerminatorOp op,
+  LogicalResult matchAndRewrite(KrnlTerminatorOp op,
                                      PatternRewriter &rewriter) const override {
     rewriter.replaceOpWithNewOp<AffineTerminatorOp>(op);
-    return matchSuccess();
+    return success();
   }
 };
 
@@ -108,10 +108,10 @@ class KrnlDefineLoopsLowering : public OpRewritePattern<KrnlDefineLoopsOp> {
 public:
   using OpRewritePattern<KrnlDefineLoopsOp>::OpRewritePattern;
 
-  PatternMatchResult matchAndRewrite(KrnlDefineLoopsOp op,
+  LogicalResult matchAndRewrite(KrnlDefineLoopsOp op,
                                      PatternRewriter &rewriter) const override {
     rewriter.eraseOp(op);
-    return matchSuccess();
+    return success();
   }
 };
 
@@ -123,10 +123,10 @@ class KrnlOptimizeLoopsLowering : public OpRewritePattern<KrnlOptimizeLoopsOp> {
 public:
   using OpRewritePattern<KrnlOptimizeLoopsOp>::OpRewritePattern;
 
-  PatternMatchResult matchAndRewrite(KrnlOptimizeLoopsOp op,
+  LogicalResult matchAndRewrite(KrnlOptimizeLoopsOp op,
                                      PatternRewriter &rewriter) const override {
     rewriter.eraseOp(op);
-    return matchSuccess();
+    return success();
   }
 };
 
@@ -149,11 +149,12 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 
   ConversionTarget target(getContext());
 
-  target.addLegalDialect<AffineOpsDialect, StandardOpsDialect>();
+  target.addLegalDialect<AffineDialect, StandardOpsDialect>();
   // We expect IR to be free of Krnl Dialect Ops.
   target.addIllegalDialect<KrnlOpsDialect>();
   target.addLegalOp<KrnlMemcpyOp>();
   target.addLegalOp<KrnlEntryPointOp>();
+  target.addLegalOp<KrnlGlobalOp>();
 
   OwningRewritePatternList patterns;
   patterns.insert<KrnlIterateOpLowering, KrnlTerminatorLowering,

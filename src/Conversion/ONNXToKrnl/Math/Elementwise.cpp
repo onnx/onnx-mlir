@@ -495,7 +495,7 @@ template <typename ElementwiseUnaryOp>
 struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
   ONNXElementwiseUnaryOpLowering(MLIRContext *ctx)
       : ConversionPattern(ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
-  PatternMatchResult
+  LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     // TODO: Check that the types are valid.
@@ -553,7 +553,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
 
     rewriter.replaceOp(op, alloc);
 
-    return matchSuccess();
+    return success();
   }
 };
 
@@ -563,7 +563,7 @@ template <typename ElementwiseVariadicOp>
 struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
   ONNXElementwiseVariadicOpLowering(MLIRContext *ctx)
       : ConversionPattern(ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
-  PatternMatchResult
+  LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const final {
     // TODO: Check that the types are valid.
@@ -633,7 +633,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     rewriter.replaceOp(op, alloc);
 
-    return matchSuccess();
+    return success();
   }
 };
 
