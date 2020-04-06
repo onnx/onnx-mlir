@@ -42,7 +42,7 @@ To build ONNX-MLIR, use the following command:
 
 [same-as-file]: <> ({"ref": "utils/install-onnx-mlir.sh", "skip-doc": 2})
 ```
-git clone --recursive git@github.com:onnx/onnx-mlir.git
+git clone --recursive https://github.com/onnx/onnx-mlir.git
 
 # Export environment variables pointing to LLVM-Projects.
 export LLVM_PROJ_SRC=$(pwd)/llvm-project/
