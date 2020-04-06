@@ -30,7 +30,7 @@ Value activation_f(ConversionPatternRewriter &rewriter, Location loc,
 Value activation_g(ConversionPatternRewriter &rewriter, Location loc,
     Value input, Type elementType) {
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto two =  emitConstantOp(rewriter, loc, elementType, 2);
+  auto two = emitConstantOp(rewriter, loc, elementType, 2);
   auto neg = rewriter.create<SubFOp>(loc, zero, input);
   auto exp = rewriter.create<ExpOp>(loc, input);
   auto negExp = rewriter.create<ExpOp>(loc, neg);
@@ -46,7 +46,7 @@ Value activation_g(ConversionPatternRewriter &rewriter, Location loc,
 Value activation_h(ConversionPatternRewriter &rewriter, Location loc,
     Value input, Type elementType) {
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto two =  emitConstantOp(rewriter, loc, elementType, 2);
+  auto two = emitConstantOp(rewriter, loc, elementType, 2);
   auto neg = rewriter.create<SubFOp>(loc, zero, input);
   auto exp = rewriter.create<ExpOp>(loc, input);
   auto negExp = rewriter.create<ExpOp>(loc, neg);
@@ -185,8 +185,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
       ycDims.emplace_back(batchSizeDim);
       ycDims.emplace_back(hiddenSizeDim);
       ycMemRefType = MemRefType::get(ycDims, elementType);
-      lastCellState =
-          insertAllocAndDealloc(ycMemRefType, loc, rewriter, true);
+      lastCellState = insertAllocAndDealloc(ycMemRefType, loc, rewriter, true);
     }
 
     // Compute states
@@ -422,24 +421,6 @@ struct ONNXRNNOpLowering : public ConversionPattern {
           // TODO
           it = activation_f(rewriter, loc, it, elementType);
 
-          // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
-          Value loadXWO = rewriter.create<LoadOp>(loc, xwIOFC[1]);
-          Value loadHRO = rewriter.create<LoadOp>(loc, hrIOFC[1]);
-          Value ot = rewriter.create<AddFOp>(loc, loadXWO, loadHRO);
-          if (hasPeepholes) {
-            Value loadP = rewriter.create<LoadOp>(loc, P, pIOFIVs[1]);
-            Value PC = rewriter.create<MulFOp>(loc, loadP, loadC);
-            ot = rewriter.create<AddFOp>(loc, ot, PC);
-          }
-          if (hasBiasForInput) {
-            Value loadWB = rewriter.create<LoadOp>(loc, B, wbIOFCIVs[1]);
-            ot = rewriter.create<AddFOp>(loc, ot, loadWB);
-            Value loadRB = rewriter.create<LoadOp>(loc, B, rbIOFCIVs[1]);
-            ot = rewriter.create<AddFOp>(loc, ot, loadRB);
-          }
-          // TODO
-          ot = activation_f(rewriter, loc, ot, elementType);
-
           // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
           Value loadXWF = rewriter.create<LoadOp>(loc, xwIOFC[2]);
           Value loadHRF = rewriter.create<LoadOp>(loc, hrIOFC[2]);
@@ -476,6 +457,24 @@ struct ONNXRNNOpLowering : public ConversionPattern {
               rewriter.create<MulFOp>(loc, ft, loadC),
               rewriter.create<MulFOp>(loc, it, ct));
           rewriter.create<StoreOp>(loc, Ct, lastCellState, cIVs);
+
+          // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
+          Value loadXWO = rewriter.create<LoadOp>(loc, xwIOFC[1]);
+          Value loadHRO = rewriter.create<LoadOp>(loc, hrIOFC[1]);
+          Value ot = rewriter.create<AddFOp>(loc, loadXWO, loadHRO);
+          if (hasPeepholes) {
+            Value loadP = rewriter.create<LoadOp>(loc, P, pIOFIVs[1]);
+            Value PC = rewriter.create<MulFOp>(loc, loadP, Ct);
+            ot = rewriter.create<AddFOp>(loc, ot, PC);
+          }
+          if (hasBiasForInput) {
+            Value loadWB = rewriter.create<LoadOp>(loc, B, wbIOFCIVs[1]);
+            ot = rewriter.create<AddFOp>(loc, ot, loadWB);
+            Value loadRB = rewriter.create<LoadOp>(loc, B, rbIOFCIVs[1]);
+            ot = rewriter.create<AddFOp>(loc, ot, loadRB);
+          }
+          // TODO
+          ot = activation_f(rewriter, loc, ot, elementType);
 
           // Ht = ot (.) h(Ct)
           Value Ht = rewriter.create<MulFOp>(
