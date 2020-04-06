@@ -261,7 +261,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
             cIVs.emplace_back(batchSizeIV);
             cIVs.emplace_back(hiddenSizeIV);
 
-            // Bias
+            // Bias [Wb[iofc], Rb[iofc]] :: [num_directions, 8*hidden_size]
             if (hasBiasForInput) {
               Value hiddenSizeVal = emitConstantOp(
                   rewriter, loc, rewriter.getIndexType(), hiddenSizeDim);
@@ -274,7 +274,6 @@ struct ONNXRNNOpLowering : public ConversionPattern {
                     rewriter.create<MulIOp>(loc, hiddenSizeVal, index);
                 Value wHiddenIV =
                     rewriter.create<AddIOp>(loc, offsetIV, hiddenSizeIV);
-                // [Wb[iofc], Rb[iofc]] :: [num_directions, 8*hidden_size]
                 wbIVs.emplace_back(numDirectionIV);
                 wbIVs.emplace_back(wHiddenIV);
                 wbIOFCIVs.emplace_back(wbIVs);
@@ -489,7 +488,12 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         }
       }
 
-      rewriter.replaceOp(op, {allHiddenStates, lastHiddenState, lastCellState});
+      // clang-format off
+      rewriter.replaceOp(op,
+          {allHiddenStates,
+          (returnLastHiddenState) ? lastHiddenState : none_,
+          (returnLastCellState) ? lastCellState : none_});
+      // clang-format on
     }
 
     return success();
