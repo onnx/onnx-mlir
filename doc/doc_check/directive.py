@@ -40,7 +40,8 @@ class Directive(object):
             self, line: str, doc_file_ext: str,
             directive_config: DirectiveConfigList) -> Tuple[str, Any]:
         """
-        :param ctx: parser context.
+        :param line: next line to try parse a directive from.
+        :param doc_file_ext: file extention.
         :param directive_config: a list used to output parsed directive configuration.
         :return: parse result.
         """
