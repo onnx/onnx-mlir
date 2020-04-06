@@ -133,19 +133,39 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         emitError(loc, "Unsupported dynamic dimensions.");
     }
 
-    if (hasAllConstantDimensions(yhMemRefType))
-      lastHiddenState = insertAllocAndDealloc(
-          yhMemRefType, loc, rewriter, checkInsertDealloc(op, 1));
-    else
-      // TODO: add code.
-      emitError(loc, "Unsupported dynamic dimensions.");
+    if (returnLastHiddenState) {
+      if (hasAllConstantDimensions(yhMemRefType))
+        lastHiddenState = insertAllocAndDealloc(
+            yhMemRefType, loc, rewriter, checkInsertDealloc(op, 1));
+      else
+        // TODO: add code.
+        emitError(loc, "Unsupported dynamic dimensions.");
+    } else {
+      SmallVector<int64_t, 3> yhDims;
+      yhDims.emplace_back(numDirectionDim);
+      yhDims.emplace_back(batchSizeDim);
+      yhDims.emplace_back(hiddenSizeDim);
+      yhMemRefType = MemRefType::get(yhDims, elementType);
+      lastHiddenState =
+          insertAllocAndDealloc(yhMemRefType, loc, rewriter, true);
+    }
 
-    if (hasAllConstantDimensions(ycMemRefType))
-      lastCellState = insertAllocAndDealloc(
-          ycMemRefType, loc, rewriter, checkInsertDealloc(op, 2));
-    else
-      // TODO: add code.
-      emitError(loc, "Unsupported dynamic dimensions.");
+    if (returnLastCellState) {
+      if (hasAllConstantDimensions(ycMemRefType))
+        lastCellState = insertAllocAndDealloc(
+            ycMemRefType, loc, rewriter, checkInsertDealloc(op, 2));
+      else
+        // TODO: add code.
+        emitError(loc, "Unsupported dynamic dimensions.");
+    } else {
+      SmallVector<int64_t, 3> ycDims;
+      ycDims.emplace_back(numDirectionDim);
+      ycDims.emplace_back(batchSizeDim);
+      ycDims.emplace_back(hiddenSizeDim);
+      ycMemRefType = MemRefType::get(ycDims, elementType);
+      lastCellState =
+          insertAllocAndDealloc(ycMemRefType, loc, rewriter, true);
+    }
 
     // Compute states
     // for t in [0..sequenceLength]:
