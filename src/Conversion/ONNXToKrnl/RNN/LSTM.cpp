@@ -29,12 +29,34 @@ Value activation_f(ConversionPatternRewriter &rewriter, Location loc,
 
 Value activation_g(ConversionPatternRewriter &rewriter, Location loc,
     Value input, Type elementType) {
-  return rewriter.create<TanhOp>(loc, elementType, input);
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  auto two =  emitConstantOp(rewriter, loc, elementType, 2);
+  auto neg = rewriter.create<SubFOp>(loc, zero, input);
+  auto exp = rewriter.create<ExpOp>(loc, input);
+  auto negExp = rewriter.create<ExpOp>(loc, neg);
+
+  auto sinh = rewriter.create<DivFOp>(
+      loc, rewriter.create<SubFOp>(loc, exp, negExp), two);
+  auto cosh = rewriter.create<DivFOp>(
+      loc, rewriter.create<AddFOp>(loc, exp, negExp), two);
+
+  return rewriter.create<DivFOp>(loc, sinh, cosh);
 }
 
 Value activation_h(ConversionPatternRewriter &rewriter, Location loc,
     Value input, Type elementType) {
-  return rewriter.create<TanhOp>(loc, elementType, input);
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  auto two =  emitConstantOp(rewriter, loc, elementType, 2);
+  auto neg = rewriter.create<SubFOp>(loc, zero, input);
+  auto exp = rewriter.create<ExpOp>(loc, input);
+  auto negExp = rewriter.create<ExpOp>(loc, neg);
+
+  auto sinh = rewriter.create<DivFOp>(
+      loc, rewriter.create<SubFOp>(loc, exp, negExp), two);
+  auto cosh = rewriter.create<DivFOp>(
+      loc, rewriter.create<AddFOp>(loc, exp, negExp), two);
+
+  return rewriter.create<DivFOp>(loc, sinh, cosh);
 }
 
 template <typename RNNOp>
