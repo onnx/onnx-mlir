@@ -38,6 +38,7 @@
 #include "mlir/Transforms/Passes.h"
 
 enum EmissionTargetType {
+  EmitONNXBasic,
   EmitONNXIR,
   EmitMLIR,
   EmitLLVMIR,
