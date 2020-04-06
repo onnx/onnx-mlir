@@ -436,13 +436,13 @@ private:
     // Map graph inputs to entry block arguments.
     // Counter of un-initialized tensors. This counter is used to index the
     // entry block arguments.
-    int entryBlockIdx = 0;
+    int entryBlockArgIdx = 0;
     for (int i = 0; i < graph.input().size(); ++i) {
       if (!initializedTensors.ContainKey(
               legalize_name(graph.input()[i].name()))) {
         ImportInputTensorSymbol(
-            graph.input()[i], entryBlock.getArguments()[entryBlockIdx]);
-        entryBlockIdx++;
+            graph.input()[i], entryBlock.getArguments()[entryBlockArgIdx]);
+        entryBlockArgIdx++;
       }
     }
 
