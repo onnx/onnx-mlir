@@ -1303,8 +1303,10 @@ bool ONNXPadOp::inferShapes() {
     return false;
   }
 
-  //Cannot infer if the pads is not constant
-  DenseElementsAttr  padsAttributes = getAttr("pads").dyn_cast_or_null<mlir::DenseElementsAttr>();;
+  // Cannot infer if the pads is not constant
+  DenseElementsAttr padsAttributes =
+      getAttr("pads").dyn_cast_or_null<mlir::DenseElementsAttr>();
+  ;
   if (!padsAttributes) {
     emitError("Pad: unknown pads");
     return false;
@@ -1316,10 +1318,10 @@ bool ONNXPadOp::inferShapes() {
   SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
 
   // Get pads from valueAttribute.
-  SmallVector<int64_t, 2> pads(dataRank*2, -1);
+  SmallVector<int64_t, 2> pads(dataRank * 2, -1);
   auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
-  for (int i = 0; i < dataRank*2; ++i)
-      pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+  for (int i = 0; i < dataRank * 2; ++i)
+    pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
 
   // Pads consists of two values for each axis of data.
   // The two values specify the number of elements padded before and after
