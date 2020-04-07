@@ -299,11 +299,10 @@ static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
   }
 }
 
-
 //===----------------------------------------------------------------------===//
 // Support function that infers shape for RNN operations.
-template<typename T>
-static bool RNNShapeInference(T *op){
+template <typename T>
+static bool RNNShapeInference(T *op) {
   Value X = op->X();
   Value W = op->W();
   Value R = op->R();
@@ -323,15 +322,15 @@ static bool RNNShapeInference(T *op){
   // rShape :: [num_directions, 4*hidden_size, hidden_size]
   auto rShape = R.getType().cast<RankedTensorType>().getShape();
 
-  if (xShape.size () != 3) {
+  if (xShape.size() != 3) {
     op->emitError("The first input tensor must have rank 3");
     return false;
   }
-  if (wShape.size () != 3) {
+  if (wShape.size() != 3) {
     op->emitError("The second input tensor must have rank 3");
     return false;
   }
-  if (rShape.size () != 3) {
+  if (rShape.size() != 3) {
     op->emitError("The third input tensor must have rank 3");
     return false;
   }
@@ -349,12 +348,10 @@ static bool RNNShapeInference(T *op){
     // Infer hidden_size from wShape and rShape if possible.
     if (rShape[2] != -1)
       hiddenSize = rShape[2];
-    else
-      if (rShape[1] != -1)
-        hiddenSize = rShape[1] / 4;
-      else
-        if (wShape[1] != -1)
-          hiddenSize = wShape[1] / 4;
+    else if (rShape[1] != -1)
+      hiddenSize = rShape[1] / 4;
+    else if (wShape[1] != -1)
+      hiddenSize = wShape[1] / 4;
     // Update hidden_size attribute.
     if (hiddenSize != -1) {
       auto builder = mlir::Builder(op->getContext());
@@ -1585,23 +1582,17 @@ bool ONNXConstantOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 // RNN
 
-bool ONNXRNNOp::inferShapes() {
-  return RNNShapeInference<>(this);
-}
+bool ONNXRNNOp::inferShapes() { return RNNShapeInference<>(this); }
 
 //===----------------------------------------------------------------------===//
 // LSTM
 
-bool ONNXLSTMOp::inferShapes() {
-  return RNNShapeInference<>(this);
-}
+bool ONNXLSTMOp::inferShapes() { return RNNShapeInference<>(this); }
 
 //===----------------------------------------------------------------------===//
 // GRU
 
-bool ONNXGRUOp::inferShapes() {
-  return RNNShapeInference<>(this);
-}
+bool ONNXGRUOp::inferShapes() { return RNNShapeInference<>(this); }
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions

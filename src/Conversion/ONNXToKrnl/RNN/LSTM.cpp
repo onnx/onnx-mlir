@@ -133,7 +133,8 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmInputPack>(
 template <>
 void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
     ConversionPatternRewriter &rewriter, Location loc, Operation *op,
-    Value sequenceIV, LstmInputPack inputPack, LstmState state) {
+    Value numDirectionIV, Value sequenceIV, LstmInputPack inputPack,
+    LstmState state) {
   ONNXLSTMOp rnnOp = llvm::dyn_cast<ONNXLSTMOp>(op);
 
   bool hasBiasForInput =
@@ -155,17 +156,18 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
 
-  BuildKrnlLoop stateLoops(rewriter, loc, 3);
-  stateLoops.createDefineOptimizeAndIterateOp(state.ht);
+  BuildKrnlLoop stateLoops(rewriter, loc, 2);
+  stateLoops.createDefineAndOptimizeOp();
+  stateLoops.pushBounds(0, state.ht.getType().cast<ShapedType>().getShape()[1]);
+  stateLoops.pushBounds(0, state.ht.getType().cast<ShapedType>().getShape()[2]);
   stateLoops.createIterateOp();
 
   rewriter.setInsertionPointToStart(stateLoops.getIterateBlock());
   {
     auto inputSizeDim = inputPack.X.getType().cast<ShapedType>().getShape()[2];
     auto hiddenSizeDim = inputPack.R.getType().cast<ShapedType>().getShape()[2];
-    auto numDirectionIV = stateLoops.getInductionVar(0);
-    auto batchSizeIV = stateLoops.getInductionVar(1);
-    auto hiddenSizeIV = stateLoops.getInductionVar(2);
+    auto batchSizeIV = stateLoops.getInductionVar(0);
+    auto hiddenSizeIV = stateLoops.getInductionVar(1);
 
     // IVs to access tensors.
     // IVs for the hidden and cell state tensors.

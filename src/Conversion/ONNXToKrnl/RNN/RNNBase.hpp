@@ -37,7 +37,8 @@ S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
 
 template <typename RNNOp, typename I, typename S>
 void calculateState(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, Value sequenceIV, I inputPack, S state);
+    Operation *op, Value numDirectionIV, Value sequenceIV, I inputPack,
+    S state);
 
 template <typename RNNOp, typename S>
 void stateToOutput(Operation *op, S state, std::vector<Value> &outputs);
@@ -64,23 +65,51 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     S state =
         allocAndInitializeStates<RNNOp, I, S>(rewriter, loc, op, inputPack);
 
+    Value X = inputPack.X;
+    int sequenceLengthDim = X.getType().cast<ShapedType>().getShape()[0];
     auto direction = rnnOp.direction();
+
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
-      // Define loops over sequence length.
-      // for t in [0..sequenceLength]:
-      Value X = inputPack.X;
       BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
       sequenceLoops.createDefineAndOptimizeOp();
-      sequenceLoops.pushBounds(0, X.getType().cast<ShapedType>().getShape()[0]);
+      sequenceLoops.pushBounds(0, sequenceLengthDim);
       sequenceLoops.createIterateOp();
 
+      auto ipSequenceLoops = rewriter.saveInsertionPoint();
       rewriter.setInsertionPointToStart(sequenceLoops.getIterateBlock());
       {
-        auto sequenceIV = sequenceLoops.getInductionVar(0);
+        Value sequenceIV = sequenceLoops.getInductionVar(0);
+        Value numDirectionIV =
+            emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
         // Emit calculation for one RNN step.
         calculateState<RNNOp, I, S>(
-            rewriter, loc, op, sequenceIV, inputPack, state);
+            rewriter, loc, op, numDirectionIV, sequenceIV, inputPack, state);
       }
+      rewriter.restoreInsertionPoint(ipSequenceLoops);
+    }
+
+    if (direction == REVERSE || direction == BIDIRECTIONAL) {
+      BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
+      sequenceLoops.createDefineAndOptimizeOp();
+      sequenceLoops.pushBounds(0, sequenceLengthDim);
+      sequenceLoops.createIterateOp();
+
+      auto ipSequenceLoops = rewriter.saveInsertionPoint();
+      rewriter.setInsertionPointToStart(sequenceLoops.getIterateBlock());
+      {
+        Value sequenceIV = sequenceLoops.getInductionVar(0);
+        // Reverse sequenceIV
+        sequenceIV = rewriter.create<SubIOp>(loc,
+            emitConstantOp(
+                rewriter, loc, rewriter.getIndexType(), sequenceLengthDim - 1),
+            sequenceIV);
+        Value numDirectionIV = emitConstantOp(rewriter, loc,
+            rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
+        // Emit calculation for one RNN step.
+        calculateState<RNNOp, I, S>(
+            rewriter, loc, op, numDirectionIV, sequenceIV, inputPack, state);
+      }
+      rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
 
     std::vector<Value> outputs;
