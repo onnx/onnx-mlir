@@ -354,8 +354,16 @@ private:
 
     int nOps = node.input().size();
     if (nOps == 2) {
-      auto attr = builder_.getF32FloatAttr(0.);
-      op.setAttr("constant_value", attr);
+      std::vector<int64_t> dims;
+      dims.push_back(1);
+      std::vector<float> values;
+      values.push_back(0.);
+      auto elementType = builder_.getF32Type();
+      llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
+      auto tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
+      auto constantDenseAttribute = mlir::DenseElementsAttr::get(
+          tensorType, llvm::makeArrayRef(values));
+      op.setAttr("constant_value", constantDenseAttribute);
     }
   }
 
