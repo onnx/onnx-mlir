@@ -1467,7 +1467,6 @@ bool ONNXConstantOp::inferShapes() {
 // Concat
 
 bool ONNXConcatOp::inferShapes() {
-  printf("hi alex\n");
   int inputNum = getNumOperands();
   for (int i = 0; i < inputNum; ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>()) {
@@ -1475,7 +1474,7 @@ bool ONNXConcatOp::inferShapes() {
       return false;
     }
   }
-  // Checking value of axis parameter/
+  // Checking value of axis parameter.
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   auto commonShape = commonType.getShape();
   auto commonRank = commonShape.size();
@@ -1497,9 +1496,14 @@ bool ONNXConcatOp::inferShapes() {
       return false;
     }
     for (int j = 0; j < commonRank; ++j) {
-      if (j == axisIndex)
-        continue;
-      if (currShape[j] != commonShape[j]) {
+      if (j == axisIndex) {
+        // Check that the value is positive.
+        if (currShape[j] <= 0) {
+          emitError("Concat axis being concatenated is expected to be known at "
+                    "compile time for now");
+          return false;
+        }
+      } else if (currShape[j] != commonShape[j]) {
         emitError("Concat input dimensions must be all identical, except for "
                   "dimension on the axis of the concatenation");
         return false;
