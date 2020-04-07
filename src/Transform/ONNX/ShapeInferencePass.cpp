@@ -123,7 +123,10 @@ public:
         op->getName().getStringRef() != "onnx.BatchNormalizationTestMode" &&
         op->getName().getStringRef() != "onnx.Abs" &&
         op->getName().getStringRef() != "onnx.Constant" &&
-        op->getName().getStringRef() != "onnx.Unsqueeze")
+        op->getName().getStringRef() != "onnx.Unsqueeze" &&
+        op->getName().getStringRef() != "onnx.RNN" &&
+        op->getName().getStringRef() != "onnx.LSTM" &&
+        op->getName().getStringRef() != "onnx.GRU")
       return false;
     return llvm::any_of(op->getResultTypes(), [](Type result_type) {
       return !result_type.isa<NoneType>() &&
