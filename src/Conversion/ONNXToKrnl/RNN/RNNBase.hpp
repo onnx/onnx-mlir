@@ -51,17 +51,14 @@ struct ONNXRNNOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
-
     RNNOp rnnOp = llvm::dyn_cast<RNNOp>(op);
 
-    I inputPack = getInputPack<I>(operands);
-
-    // Delete this op if there is no output.
     if (hasNoOutput<RNNOp>(op)) {
       rewriter.eraseOp(op);
       return success();
     }
 
+    I inputPack = getInputPack<I>(operands);
     S state =
         allocAndInitializeStates<RNNOp, I, S>(rewriter, loc, op, inputPack);
 
@@ -78,9 +75,9 @@ struct ONNXRNNOpLowering : public ConversionPattern {
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
       rewriter.setInsertionPointToStart(sequenceLoops.getIterateBlock());
       {
-        Value sequenceIV = sequenceLoops.getInductionVar(0);
         Value numDirectionIV =
             emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+        Value sequenceIV = sequenceLoops.getInductionVar(0);
         // Emit calculation for one RNN step.
         calculateState<RNNOp, I, S>(
             rewriter, loc, op, numDirectionIV, sequenceIV, inputPack, state);
@@ -97,17 +94,15 @@ struct ONNXRNNOpLowering : public ConversionPattern {
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
       rewriter.setInsertionPointToStart(sequenceLoops.getIterateBlock());
       {
-        Value sequenceIV = sequenceLoops.getInductionVar(0);
-        // Reverse sequenceIV
-        sequenceIV = rewriter.create<SubIOp>(loc,
-            emitConstantOp(
-                rewriter, loc, rewriter.getIndexType(), sequenceLengthDim - 1),
-            sequenceIV);
         Value numDirectionIV = emitConstantOp(rewriter, loc,
             rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
+        Value reverseSequenceIV = rewriter.create<SubIOp>(loc,
+            emitConstantOp(
+                rewriter, loc, rewriter.getIndexType(), sequenceLengthDim - 1),
+            sequenceLoops.getInductionVar(0));
         // Emit calculation for one RNN step.
-        calculateState<RNNOp, I, S>(
-            rewriter, loc, op, numDirectionIV, sequenceIV, inputPack, state);
+        calculateState<RNNOp, I, S>(rewriter, loc, op, numDirectionIV,
+            reverseSequenceIV, inputPack, state);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
