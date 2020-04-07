@@ -322,10 +322,10 @@ test_to_enable = [
     "test_maxpool_2d_strides_cpu",
     "test_maxpool_3d_default_cpu",
 
-    # LSTM (Enable these tests once LSTM's shape inference is available)
-    #"test_lstm_defaults_cpu",
-    #"test_lstm_with_initial_bias_cpu",
-    #"test_lstm_with_peepholes_cpu",
+    # LSTM
+    "test_lstm_defaults_cpu",
+    "test_lstm_with_initial_bias_cpu",
+    "test_lstm_with_peepholes_cpu",
 
 ]
 

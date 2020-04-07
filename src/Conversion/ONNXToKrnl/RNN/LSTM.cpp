@@ -138,13 +138,9 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
 
   bool hasBiasForInput =
       (inputPack.Biofc.getType().isa<NoneType>()) ? false : true;
+  bool hasPeepholes = (inputPack.Piof.getType().isa<NoneType>()) ? false : true;
   bool hasSequenceLengths =
       (inputPack.sequenceLength.getType().isa<NoneType>()) ? false : true;
-  bool hasInitialHidden =
-      (inputPack.initialHidden.getType().isa<NoneType>()) ? false : true;
-  bool hasInitialCell =
-      (inputPack.initialCell.getType().isa<NoneType>()) ? false : true;
-  bool hasPeepholes = (inputPack.Piof.getType().isa<NoneType>()) ? false : true;
   if (hasSequenceLengths)
     emitError(loc, "Does not support sequence_lens at this time");
 
