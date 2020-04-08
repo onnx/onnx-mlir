@@ -16,6 +16,10 @@ static const std::string FORWARD = "forward";
 static const std::string REVERSE = "reverse";
 static const std::string BIDIRECTIONAL = "bidirectional";
 
+Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
+    std::string activation, Value input, Type elementType,
+    Optional<float> alpha, Optional<float> beta);
+
 Value activation_f(ConversionPatternRewriter &rewriter, Location loc,
     Operation *op, Value input, Type elementType);
 

@@ -361,7 +361,9 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
       it = rewriter.create<AddFOp>(loc, it, loadRB);
     }
     // TODO
-    it = activation_f(rewriter, loc, op, it, elementType);
+    // it = activation_f(rewriter, loc, op, it, elementType);
+    it = applyActivation(
+        rewriter, loc, "sigmoid", it, elementType, llvm::None, llvm::None);
 
     // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
     Value loadXWF = rewriter.create<LoadOp>(loc, xwIOFC[2]);
