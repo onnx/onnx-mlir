@@ -37,23 +37,19 @@ class Directive(object):
         self.handler = handler
 
     def try_parse_directive(
-            self, ctx: DocCheckerCtx,
+            self, line: str, doc_file_ext: str,
             directive_config: DirectiveConfigList) -> Tuple[str, Any]:
         """
-        :param ctx: parser context.
+        :param line: next line to try parse a directive from.
+        :param doc_file_ext: file extention.
         :param directive_config: a list used to output parsed directive configuration.
         :return: parse result.
         """
-        try:
-            line = ctx.doc_file.next_non_empty_line()
-        except RuntimeError as e:
-            # Do not raise exception when next non-empty line
-            # does not exist. Instead, return failure.
-            if str(e) != "Enf of file.":
-                raise
+
+        if doc_file_ext not in self.ext_to_patterns:
             return failure()
 
-        matches = self.ext_to_patterns[ctx.doc_file_ext()].findall(line)
+        matches = self.ext_to_patterns[doc_file_ext].findall(line)
         if len(matches) > 1:
             raise ValueError("more than one directives in a line")
 
