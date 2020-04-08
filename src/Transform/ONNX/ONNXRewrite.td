@@ -24,6 +24,12 @@ include "src/Dialect/ONNX/ONNXOps.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+def GetUnitAttr :
+  NativeCodeCall<"$_builder.getUnitAttr()">;
+
+def GetNullAttr :
+   NativeCodeCall<"(Attribute) NULL">;
+
 // Create a StringAttr from a string.
 class StringAttrOfValue<string val>:
   NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
@@ -87,10 +93,12 @@ def MaxPoolSingleOutOpPaddingPattern: Pat<
      $pads,
      $storage_order, $strides),
   (ONNXMaxPoolSingleOutOp
-     (ONNXPadConstantValuePadOp $x,
-        (insertZerosForNonPaddedDims<2> $pads),
-        (FloatAttrOfNegativeInfinity $res),
-        (StringAttrOfValue<"constant">)),
+       (ONNXPadOp $x,
+          (ONNXConstantOp (GetNullAttr), 
+             (insertZerosForNonPaddedDims<2> $pads)),
+          (ONNXConstantOp (GetNullAttr), 
+             (FloatAttrOfNegativeInfinity $res)),
+          (StringAttrOfValue<"constant">)),
      $auto_pad, $ceil_mode, $dilation, $kernel_shape,
      (createArrayAttrOfZerosFrom $pads),
      $storage_order, $strides),
@@ -118,10 +126,12 @@ def ConvOpPaddingPattern: Pat<
      $pads,
      $strides),
   (ONNXConvOp
-     (ONNXPadConstantValuePadOp $x,
-        (insertZerosForNonPaddedDims<2> $pads),
-        (FloatAttrOfValue<0> $res),
-        (StringAttrOfValue<"constant">)),
+    (ONNXPadOp $x,
+       (ONNXConstantOp (GetNullAttr), 
+          (insertZerosForNonPaddedDims<2> $pads)),
+       (ONNXConstantOp (GetNullAttr), 
+          (FloatAttrOfNegativeInfinity $res)),
+       (StringAttrOfValue<"constant">)),
      $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
      (createArrayAttrOfZerosFrom $pads),
      $strides),

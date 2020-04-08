@@ -70,7 +70,24 @@ OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
 # Currenlty, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
-custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare']
+custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare', 'Pad']
+
+
+#a dictionary to add any special definition for an operation
+custom_definition_misc = dict([ ('Constant', 
+  '''    let builders = [
+    OpBuilder<"Builder *builder, OperationState &state, Attribute sparse_value, Attribute value", [{
+      if (value) {
+        auto elementType = value.getType().cast<TensorType>().getElementType();
+        build(builder, state, UnrankedTensorType::get(elementType), sparse_value, value);
+      } else {
+        auto elementType = sparse_value.getType().cast<TensorType>().getElementType();
+        build(builder, state, UnrankedTensorType::get(elementType), sparse_value, value);
+      }
+    }]>
+    ];'''
+  )])
+
 
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
@@ -438,6 +455,10 @@ def gen_op_def(schema):
     if schema.name in OpsWithPromotableConstOperands:
         s = get_promotable_const_operands_func(
             s, indent, OpsWithPromotableConstOperands[schema.name])
+
+    if ( schema.name in custom_definition_misc) :
+        s += custom_definition_misc[schema.name]
+
     s += '}\n\n'
     return s
 
