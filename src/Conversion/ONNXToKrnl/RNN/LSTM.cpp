@@ -23,6 +23,12 @@ struct LstmInputPack {
   Value Piof;
 };
 
+struct LstmOutputPack {
+  Value Y;
+  Value Y_h;
+  Value Y_c;
+};
+
 struct LstmState {
   Value allH;
   Value ht;
@@ -30,7 +36,9 @@ struct LstmState {
 };
 
 template <>
-LstmInputPack getInputPack<LstmInputPack>(ArrayRef<Value> operands) {
+std::tuple<LstmInputPack, LstmOutputPack>
+getInputOutputPack<ONNXLSTMOp, LstmInputPack, LstmOutputPack>(
+    Operation *op, ArrayRef<Value> operands) {
   LstmInputPack inputPack;
   inputPack.X = operands[0];
   inputPack.W = operands[1];
@@ -40,37 +48,43 @@ LstmInputPack getInputPack<LstmInputPack>(ArrayRef<Value> operands) {
   inputPack.initialHidden = operands[5];
   inputPack.initialCell = operands[6];
   inputPack.Piof = operands[7];
-  return inputPack;
-}
 
-template <>
-bool hasNoOutput<ONNXLSTMOp>(Operation *op) {
   ONNXLSTMOp rnnOp = llvm::dyn_cast<ONNXLSTMOp>(op);
-  return (rnnOp.Y().getType().isa<NoneType>() &&
-          rnnOp.Y_h().getType().isa<NoneType>() &&
-          rnnOp.Y_c().getType().isa<NoneType>());
+  LstmOutputPack outputPack;
+  outputPack.Y = rnnOp.Y();
+  outputPack.Y_h = rnnOp.Y_h();
+  outputPack.Y_c = rnnOp.Y_c();
+
+  return std::make_tuple(inputPack, outputPack);
 }
 
 template <>
-LstmState allocAndInitializeStates<ONNXLSTMOp, LstmInputPack>(
+bool hasNoOutput<LstmOutputPack>(LstmOutputPack outputPack) {
+  return (outputPack.Y.getType().isa<NoneType>() &&
+          outputPack.Y_h.getType().isa<NoneType>() &&
+          outputPack.Y_c.getType().isa<NoneType>());
+}
+
+template <>
+LstmState allocAndInitializeStates<LstmInputPack, LstmOutputPack, LstmState>(
     ConversionPatternRewriter &rewriter, Location loc, Operation *op,
-    LstmInputPack inputPack) {
+    LstmInputPack inputPack, LstmOutputPack outputPack) {
   LstmState state;
 
-  ONNXLSTMOp rnnOp = llvm::dyn_cast<ONNXLSTMOp>(op);
-
   // Insert allocation and deallocation for the results of this operation.
-  if (!rnnOp.Y().getType().isa<NoneType>()) {
-    auto yMemRefType = convertToMemRefType(rnnOp.Y().getType());
+  if (!outputPack.Y.getType().isa<NoneType>()) {
+    auto yMemRefType = convertToMemRefType(outputPack.Y.getType());
     if (hasAllConstantDimensions(yMemRefType))
       state.allH = insertAllocAndDealloc(
           yMemRefType, loc, rewriter, checkInsertDealloc(op, 0));
     else
       emitError(loc, "Unsupported dynamic dimensions.");
+  } else {
+    state.allH = outputPack.Y;
   }
 
-  if (!rnnOp.Y_h().getType().isa<NoneType>()) {
-    auto yhMemRefType = convertToMemRefType(rnnOp.Y_h().getType());
+  if (!outputPack.Y_h.getType().isa<NoneType>()) {
+    auto yhMemRefType = convertToMemRefType(outputPack.Y_h.getType());
     if (hasAllConstantDimensions(yhMemRefType))
       state.ht = insertAllocAndDealloc(
           yhMemRefType, loc, rewriter, checkInsertDealloc(op, 1));
@@ -86,8 +100,8 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmInputPack>(
     state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter, true);
   }
 
-  if (!rnnOp.Y_c().getType().isa<NoneType>()) {
-    auto ycMemRefType = convertToMemRefType(rnnOp.Y_c().getType());
+  if (!outputPack.Y_c.getType().isa<NoneType>()) {
+    auto ycMemRefType = convertToMemRefType(outputPack.Y_c.getType());
     if (hasAllConstantDimensions(ycMemRefType))
       state.ct = insertAllocAndDealloc(
           ycMemRefType, loc, rewriter, checkInsertDealloc(op, 2));
@@ -133,7 +147,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmInputPack>(
 template <>
 void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
     ConversionPatternRewriter &rewriter, Location loc, Operation *op,
-    Value numDirectionIV, Value sequenceIV, LstmInputPack inputPack,
+    Value numDirectionIV, Value sequenceLengthIV, LstmInputPack inputPack,
     LstmState state) {
   ONNXLSTMOp rnnOp = llvm::dyn_cast<ONNXLSTMOp>(op);
 
@@ -145,8 +159,11 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
   if (hasSequenceLengths)
     emitError(loc, "Does not support sequence_lens at this time");
 
+  auto batchSizeDim = inputPack.X.getType().cast<ShapedType>().getShape()[1];
+  auto inputSizeDim = inputPack.X.getType().cast<ShapedType>().getShape()[2];
+  auto hiddenSizeDim = inputPack.R.getType().cast<ShapedType>().getShape()[2];
+
   auto elementType = inputPack.X.getType().cast<ShapedType>().getElementType();
-  MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
 
   // Equations for LSTM.
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
@@ -155,17 +172,24 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
   // Ct = ft (.) Ct-1 + it (.) ct
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
+  //
+  // The following code will emit loops as follows:
+  // for b in 0 .. BatchSizeDim
+  //   for h in 0 .. HiddenSizeDim
+  //     for i in 0 .. InputSizeDim {
+  //       compute Xt*(Wi^T), Xt*(Wo^T), Xt*(Wf^t), Xt*(Wc^T),
+  //               Ht-1*(Ri^T), Ht-1*(Ro^T), Ht-1*(Rf^t), Ht-1*(Rc^T)
+  //     }
+  //     compute it, ft, ct, Ct, ot, Ht
 
   BuildKrnlLoop stateLoops(rewriter, loc, 2);
   stateLoops.createDefineAndOptimizeOp();
-  stateLoops.pushBounds(0, state.ht.getType().cast<ShapedType>().getShape()[1]);
-  stateLoops.pushBounds(0, state.ht.getType().cast<ShapedType>().getShape()[2]);
+  stateLoops.pushBounds(0, batchSizeDim);
+  stateLoops.pushBounds(0, hiddenSizeDim);
   stateLoops.createIterateOp();
 
   rewriter.setInsertionPointToStart(stateLoops.getIterateBlock());
   {
-    auto inputSizeDim = inputPack.X.getType().cast<ShapedType>().getShape()[2];
-    auto hiddenSizeDim = inputPack.R.getType().cast<ShapedType>().getShape()[2];
     auto batchSizeIV = stateLoops.getInductionVar(0);
     auto hiddenSizeIV = stateLoops.getInductionVar(1);
 
@@ -240,13 +264,14 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
     Value loadH = rewriter.create<LoadOp>(loc, state.ht, hIVs);
     Value loadC = rewriter.create<LoadOp>(loc, state.ct, cIVs);
 
-    // Compute temporary results for matrix multiplications:
+    // Emit instructions for matrix multiplications:
     //   Xt*(Wi^T), Xt*(Wo^T), Xt*(Wf^t), Xt*(Wc^T)
     //   Ht-1*(Ri^T), Ht-1*(Ro^T), Ht-1*(Rf^t), Ht-1*(Rc^T)
-    SmallVector<Value, 4> xwIOFC, hrIOFC;
 
-    // Allocate memory for the temporary results and initialize them.
+    // Allocate memory for storing matrix multiplication results.
+    SmallVector<Value, 4> xwIOFC, hrIOFC;
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+    MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
     for (unsigned i = 0; i < 4; ++i) {
       Value xwAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
       rewriter.create<StoreOp>(loc, zero, xwAlloc);
@@ -256,7 +281,7 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
       hrIOFC.emplace_back(hrAlloc);
     }
 
-    { // Emit computation for matrix multiplications.
+    { // Emit instructions for matrix multiplications.
       // input_size is the reduction dimension.
       BuildKrnlLoop reductionLoops(rewriter, loc, 1);
       reductionLoops.createDefineAndOptimizeOp();
@@ -272,11 +297,12 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
         SmallVector<SmallVector<Value, 4>, 4> wIOFCIVs, rIOFCIVs;
 
         // X :: [seq_length, batch_size, input_size]
-        xIVs.emplace_back(sequenceIV);
+        xIVs.emplace_back(sequenceLengthIV);
         xIVs.emplace_back(batchSizeIV);
         xIVs.emplace_back(reductionIV);
 
-        // W and R are transposed.
+        // W[iofc] :: [num_directions, 4*hidden_size, input_size]
+        // R[iofc] :: [num_directions, 4*hidden_size, input_size]
         Value hiddenSizeVal = emitConstantOp(
             rewriter, loc, rewriter.getIndexType(), hiddenSizeDim);
         for (unsigned i = 0; i < 4; ++i) {
@@ -287,12 +313,11 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
           Value wHiddenIV =
               rewriter.create<AddIOp>(loc, offsetIV, hiddenSizeIV);
 
-          // W[iofc] :: [num_directions, 4*hidden_size, input_size]
           wIVs.emplace_back(numDirectionIV);
           wIVs.emplace_back(wHiddenIV);
           wIVs.emplace_back(reductionIV);
           wIOFCIVs.emplace_back(wIVs);
-          // R[iofc] :: [num_directions, 4*hidden_size, input_size]
+
           rIVs.emplace_back(numDirectionIV);
           rIVs.emplace_back(wHiddenIV);
           rIVs.emplace_back(reductionIV);
@@ -404,7 +429,17 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
         loc, ot, activation_h(rewriter, loc, op, Ct, elementType));
     rewriter.create<StoreOp>(loc, Ht, state.ht, hIVs);
 
-    // Deallocate the temporary results.
+    // Store the current Ht if required.
+    if (!state.allH.getType().isa<NoneType>()) {
+      SmallVector<Value, 4> allHIVs;
+      allHIVs.emplace_back(sequenceLengthIV);
+      allHIVs.emplace_back(numDirectionIV);
+      allHIVs.emplace_back(batchSizeIV);
+      allHIVs.emplace_back(hiddenSizeIV);
+      rewriter.create<StoreOp>(loc, Ht, state.allH, allHIVs);
+    }
+
+    // Deallocate the temporary results of matrix multiplications.
     for (Value v : xwIOFC)
       rewriter.create<DeallocOp>(loc, v);
     for (Value v : hrIOFC)
@@ -413,19 +448,20 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
 }
 
 template <>
-void stateToOutput<ONNXLSTMOp, LstmState>(
-    Operation *op, LstmState state, std::vector<Value> &outputs) {
-  ONNXLSTMOp rnnOp = llvm::dyn_cast<ONNXLSTMOp>(op);
+void stateToOutput<ONNXLSTMOp, LstmState, LstmOutputPack>(
+    LstmState state, LstmOutputPack outputPack, std::vector<Value> &outputs) {
   Value none_;
   outputs.emplace_back(
-      (rnnOp.Y().getType().isa<NoneType>() ? none_ : state.allH));
+      (outputPack.Y.getType().isa<NoneType>() ? none_ : state.allH));
   outputs.emplace_back(
-      (rnnOp.Y_h().getType().isa<NoneType>() ? none_ : state.ht));
+      (outputPack.Y_h.getType().isa<NoneType>() ? none_ : state.ht));
   outputs.emplace_back(
-      (rnnOp.Y_c().getType().isa<NoneType>() ? none_ : state.ct));
+      (outputPack.Y_c.getType().isa<NoneType>() ? none_ : state.ct));
 }
 
 void populateLoweringONNXLSTMOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmInputPack, LstmState>>(ctx);
+  patterns.insert<
+      ONNXRNNOpLowering<ONNXLSTMOp, LstmInputPack, LstmOutputPack, LstmState>>(
+      ctx);
 }
