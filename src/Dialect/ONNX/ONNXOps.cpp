@@ -514,7 +514,7 @@ bool ONNXAbsOp::inferShapes() {
 bool ONNXAddOp::inferShapes() {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>()) {
-    emitError("ONNXAddOp inferShapes failed");
+    emitError("Input tensor(s) not ranked");
     return false;
   }
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
@@ -529,8 +529,10 @@ bool ONNXAddOp::inferShapes() {
 /// shape inference interface.
 bool ONNXMulOp::inferShapes() {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
+      !getOperand(1).getType().isa<RankedTensorType>()) {
+    emitError("Input tensor(s) not ranked");
     return false;
+  }
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -543,8 +545,10 @@ bool ONNXMulOp::inferShapes() {
 /// shape inference interface.
 bool ONNXDivOp::inferShapes() {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
+      !getOperand(1).getType().isa<RankedTensorType>()) {
+    emitError("Input tensor(s) not ranked");
     return false;
+  }
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -557,8 +561,10 @@ bool ONNXDivOp::inferShapes() {
 /// shape inference interface.
 bool ONNXSubOp::inferShapes() {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
+      !getOperand(1).getType().isa<RankedTensorType>()) {
+    emitError("Input tensor(s) not ranked");
     return false;
+  }
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -571,8 +577,10 @@ bool ONNXSubOp::inferShapes() {
 /// shape inference interface.
 bool ONNXAndOp::inferShapes() {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
+      !getOperand(1).getType().isa<RankedTensorType>()) {
+    emitError("Input tensor(s) not ranked");
     return false;
+  }
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -585,8 +593,10 @@ bool ONNXAndOp::inferShapes() {
 /// shape inference interface.
 bool ONNXOrOp::inferShapes() {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
+      !getOperand(1).getType().isa<RankedTensorType>()) {
+    emitError("Input tensor(s) not ranked");
     return false;
+  }
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -599,8 +609,10 @@ bool ONNXOrOp::inferShapes() {
 /// shape inference interface.
 bool ONNXXorOp::inferShapes() {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
-      !getOperand(1).getType().isa<RankedTensorType>())
+      !getOperand(1).getType().isa<RankedTensorType>()) {
+    emitError("Input tensor(s) not ranked");
     return false;
+  }
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
@@ -615,8 +627,10 @@ bool ONNXXorOp::inferShapes() {
 /// shape inference interface.
 bool ONNXSumOp::inferShapes() {
   for (int i = 0; i < getNumOperands(); ++i) {
-    if (!getOperand(i).getType().cast<RankedTensorType>())
+    if (!getOperand(i).getType().cast<RankedTensorType>()) {
+      emitError("Input tensor(s) not ranked");
       return false;
+    }
   }
   Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
   for (int i = 1; i < getNumOperands(); ++i) {
@@ -633,8 +647,10 @@ bool ONNXSumOp::inferShapes() {
 /// shape inference interface.
 bool ONNXMaxOp::inferShapes() {
   for (int i = 0; i < getNumOperands(); ++i) {
-    if (!getOperand(i).getType().cast<RankedTensorType>())
+    if (!getOperand(i).getType().cast<RankedTensorType>()) {
+      emitError("Input tensor(s) not ranked");
       return false;
+    }
   }
   Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
   for (int i = 1; i < getNumOperands(); ++i) {
@@ -651,8 +667,10 @@ bool ONNXMaxOp::inferShapes() {
 /// shape inference interface.
 bool ONNXMinOp::inferShapes() {
   for (int i = 0; i < getNumOperands(); ++i) {
-    if (!getOperand(i).getType().cast<RankedTensorType>())
+    if (!getOperand(i).getType().cast<RankedTensorType>()) {
+      emitError("Input tensor(s) not ranked");
       return false;
+    }
   }
   Type resultTy = getOperand(0).getType().cast<RankedTensorType>();
   for (int i = 1; i < getNumOperands(); ++i) {
@@ -679,8 +697,10 @@ bool ONNXIdentityOp::inferShapes() {
 bool ONNXMatMulOp::inferShapes() {
   // Cannot infer shape if no shape exists.
   if (!A().getType().isa<RankedTensorType>() ||
-      !B().getType().isa<RankedTensorType>())
+      !B().getType().isa<RankedTensorType>()) {
+    emitError("Input tensor(s) not ranked");
     return false;
+  }
 
   auto lhsTy = A().getType().cast<RankedTensorType>();
   auto rhsTy = B().getType().cast<RankedTensorType>();
@@ -819,8 +839,10 @@ bool ONNXGemmOp::inferShapes() {
   // Cannot infer shape if no shape exists.
   if (!A().getType().isa<RankedTensorType>() ||
       !B().getType().isa<RankedTensorType>() ||
-      (hasBias && !C().getType().isa<RankedTensorType>()))
+      (hasBias && !C().getType().isa<RankedTensorType>())) {
+    emitError("Input tensor(s) not ranked");
     return false;
+  }
   auto lhsTy = A().getType().cast<RankedTensorType>();
   auto rhsTy = B().getType().cast<RankedTensorType>();
 
@@ -862,8 +884,10 @@ bool ONNXBatchNormalizationTestModeOp::inferShapes() {
       !scale().getType().isa<RankedTensorType>() ||
       !B().getType().isa<RankedTensorType>() ||
       !mean().getType().isa<RankedTensorType>() ||
-      !var().getType().isa<RankedTensorType>())
+      !var().getType().isa<RankedTensorType>()) {
+    emitError("Input tensor(s) not ranked");
     return false;
+  }
 
   auto inputTensorTy = X().getType().cast<RankedTensorType>();
   auto scaleTensorTy = scale().getType().cast<RankedTensorType>();
@@ -915,8 +939,15 @@ bool ONNXBatchNormalizationTestModeOp::inferShapes() {
 
 bool ONNXReshapeOp::inferShapes() {
   // Cannot infer shape if no shape tensor is specified.
-  if (!shape().getType().isa<RankedTensorType>())
+  if (!data().getType().isa<RankedTensorType>()) {
+    emitError("Input data tensor not ranked");
+    return false;
+  }
+
+  if (!shape().getType().isa<RankedTensorType>()) {
     emitError("Shape tensor not ranked");
+    return false;
+  }
 
   auto inputTensorTy = data().getType().cast<RankedTensorType>();
   auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
@@ -991,8 +1022,10 @@ bool ONNXReshapeOp::inferShapes() {
 
 bool ONNXTransposeOp::inferShapes() {
   // Cannot infer shape if no shape exists.
-  if (!data().getType().isa<RankedTensorType>())
+  if (!data().getType().isa<RankedTensorType>()) {
+    emitError("Input tensor not ranked");
     return false;
+  }
 
   // Naive transposition which handles the default case of
   // reversing the shape of the tensor (similar to numpy.transpose).
@@ -1019,7 +1052,7 @@ bool ONNXTransposeOp::inferShapes() {
 
 bool ONNXReduceMaxOp::inferShapes() {
   if (!getOperand().getType().isa<RankedTensorType>()) {
-    emitError("Shape tensor not ranked");
+    emitError("Input tensor not ranked");
     return false;
   }
 
@@ -1034,7 +1067,7 @@ bool ONNXReduceMaxOp::inferShapes() {
 
 bool ONNXReduceMinOp::inferShapes() {
   if (!getOperand().getType().isa<RankedTensorType>()) {
-    emitError("Shape tensor not ranked");
+    emitError("Input tensor not ranked");
     return false;
   }
 
@@ -1049,7 +1082,7 @@ bool ONNXReduceMinOp::inferShapes() {
 
 bool ONNXReduceProdOp::inferShapes() {
   if (!getOperand().getType().isa<RankedTensorType>()) {
-    emitError("Shape tensor not ranked");
+    emitError("Input tensor not ranked");
     return false;
   }
 
@@ -1064,7 +1097,7 @@ bool ONNXReduceProdOp::inferShapes() {
 
 bool ONNXReduceSumOp::inferShapes() {
   if (!getOperand().getType().isa<RankedTensorType>()) {
-    emitError("Shape tensor not ranked");
+    emitError("Input tensor not ranked");
     return false;
   }
 
@@ -1097,8 +1130,10 @@ bool ONNXConvOp::inferShapes() {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>() ||
       !W().getType().isa<RankedTensorType>() ||
-      (hasBias && !B().getType().isa<RankedTensorType>()))
+      (hasBias && !B().getType().isa<RankedTensorType>())) {
+    emitError("Input tensor not ranked");
     return false;
+  }
 
   auto xTy = X().getType().cast<RankedTensorType>();
   auto xShape = xTy.getShape();
@@ -1210,8 +1245,10 @@ bool ONNXConvOp::inferShapes() {
 
 bool ONNXAveragePoolOp::inferShapes() {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
+  if (!X().getType().isa<RankedTensorType>()) {
+    emitError("Input tensor not ranked");
     return false;
+  }
 
   // Get shape of input.
   auto xTy = X().getType().cast<RankedTensorType>();
@@ -1255,8 +1292,10 @@ bool ONNXAveragePoolOp::inferShapes() {
 
 bool ONNXMaxPoolSingleOutOp::inferShapes() {
   // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
+  if (!X().getType().isa<RankedTensorType>()) {
+    emitError("Input tensor not ranked");
     return false;
+  }
 
   // Get shape of input.
   auto xTy = X().getType().cast<RankedTensorType>();
@@ -1411,8 +1450,10 @@ void ONNXPadConstantValuePadOp::build(Builder *builder, OperationState &state,
 // Unsqueeze
 
 bool ONNXUnsqueezeOp::inferShapes() {
-  if (!data().getType().isa<RankedTensorType>())
+  if (!data().getType().isa<RankedTensorType>()) {
+    emitError("Input tensor not ranked");
     return false;
+  }
 
   auto operandTy = data().getType().cast<RankedTensorType>();
   int inRank = operandTy.getRank();
@@ -1466,6 +1507,65 @@ bool ONNXConstantOp::inferShapes() {
   else
     valAttr = valueAttr().cast<DenseElementsAttr>();
   getResult().setType(valAttr.getType());
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
+// Concat
+
+bool ONNXConcatOp::inferShapes() {
+  int inputNum = getNumOperands();
+  for (int i = 0; i < inputNum; ++i) {
+    if (!getOperand(i).getType().cast<RankedTensorType>()) {
+      emitError("Input tensor(s) not ranked");
+      return false;
+    }
+  }
+  // Checking value of axis parameter.
+  auto commonType = getOperand(0).getType().cast<RankedTensorType>();
+  auto commonShape = commonType.getShape();
+  auto commonRank = commonShape.size();
+  auto axisIndex = axis().getSExtValue();
+  if (!(axisIndex >= 0 && axisIndex < commonRank)) {
+    emitError("Concat axis value out of bound");
+    return false;
+  }
+  // Initial cummlative size is that of the first operand.
+  int cummulativeAxisSize = commonShape[axisIndex];
+
+  // Compute the cummlative size with all of the other ones, and make sure that
+  // the other sizes are all alike.
+  for (int i = 1; i < inputNum; ++i) {
+    auto currShape =
+        getOperand(i).getType().cast<RankedTensorType>().getShape();
+    if (currShape.size() != commonRank) {
+      emitError("Concat input must all have the same rank");
+      return false;
+    }
+    for (int j = 0; j < commonRank; ++j) {
+      if (j == axisIndex) {
+        // Check that the value is positive.
+        if (currShape[j] <= 0) {
+          emitError("Concat axis being concatenated is expected to be known at "
+                    "compile time for now");
+          return false;
+        }
+      } else if (currShape[j] != commonShape[j]) {
+        emitError("Concat input dimensions must be all identical, except for "
+                  "dimension on the axis of the concatenation");
+        return false;
+      }
+    }
+    cummulativeAxisSize += currShape[axisIndex];
+  }
+
+  // Set output size and type
+  SmallVector<int64_t, 4> outputDims;
+  for (int j = 0; j < commonRank; ++j)
+    outputDims.emplace_back(
+        j == axisIndex ? cummulativeAxisSize : commonShape[j]);
+  getResult().setType(
+      RankedTensorType::get(outputDims, commonType.getElementType()));
   return true;
 }
 
