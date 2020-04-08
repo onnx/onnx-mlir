@@ -59,11 +59,7 @@ OpsWithShapeInference = [
     'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
     'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
     'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
-<<<<<<< HEAD:doc/gen_doc.py
-    'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Pad'
-=======
-    'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat'
->>>>>>> upstream/master:utils/gen_doc.py
+    'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Pad'
 ]
 
 # Operations supporting canonicalization.
