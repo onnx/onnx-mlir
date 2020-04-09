@@ -115,13 +115,13 @@ This directive supports these parameters in it:
 
 For example, to ensure that the content of a file `test.in`:
 
-[same-as-file]: <> (doc/doc_check/test/file-same-as-stdout/success/test.in)
+[same-as-file]: <> (docs/doc_check/test/file-same-as-stdout/success/test.in)
 ```
 dog
 ```
 
 is exactly the same as the output of command execution `echo dog`, one can use the following directive:
-[same-as-file]: <> (doc/doc_check/test/file-same-as-stdout/success/test.in.dc)
+[same-as-file]: <> (docs/doc_check/test/file-same-as-stdout/success/test.in.dc)
 ```
 file-same-as-stdout({"file": "test.in", "cmd": ["echo", "dog"]})
 ```
