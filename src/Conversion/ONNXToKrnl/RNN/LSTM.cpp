@@ -67,12 +67,128 @@ getInputOutputPack<ONNXLSTMOp, LstmInputPack, LstmOutputPack>(
 template <>
 std::tuple<LstmActivationPack, LstmActivationPack>
 getActivationPack<ONNXLSTMOp, LstmActivationPack>(Operation *op) {
+  ONNXLSTMOp rnnOp = llvm::dyn_cast<ONNXLSTMOp>(op);
+
+  auto direction = rnnOp.direction();
+  auto activations = rnnOp.activations();
+  auto activationAlpha = rnnOp.activation_alpha();
+  auto activationBeta = rnnOp.activation_beta();
+
   LstmActivationPack activationForward, activationReverse;
-  RNNActivation activationForwardF;
-  activationForwardF.name = "sigmoid";
-  activationForwardF.alpha = llvm::None;
-  activationForwardF.beta = llvm::None;
-  activationForward.f = activationForwardF;
+
+  // Get activation function name.
+  if (activations.hasValue()) {
+    ArrayAttr activationArrAttr = activations.getValue();
+    if (direction == FORWARD || direction == BIDIRECTIONAL) {
+      // Forward activations.
+      if (activationArrAttr.size() > 0) {
+        activationForward.f.name =
+            activationArrAttr[0].cast<StringAttr>().getValue();
+      }
+      if (activationArrAttr.size() > 1) {
+        activationForward.g.name =
+            activationArrAttr[1].cast<StringAttr>().getValue();
+      }
+      if (activationArrAttr.size() > 2) {
+        activationForward.h.name =
+            activationArrAttr[2].cast<StringAttr>().getValue();
+      }
+    }
+
+    // Reverse activations.
+    if (direction == REVERSE || direction == BIDIRECTIONAL) {
+      int startIndex = (direction == REVERSE) ? 0 : 3;
+      if (activationArrAttr.size() > startIndex) {
+        activationReverse.f.name =
+            activationArrAttr[startIndex].cast<StringAttr>().getValue();
+      }
+      if (activationArrAttr.size() > startIndex + 1) {
+        activationReverse.g.name =
+            activationArrAttr[startIndex + 1].cast<StringAttr>().getValue();
+      }
+      if (activationArrAttr.size() > startIndex + 2) {
+        activationReverse.h.name =
+            activationArrAttr[startIndex + 2].cast<StringAttr>().getValue();
+      }
+    }
+  } else {
+    activationForward.f.name = "sigmoid";
+    activationForward.g.name = "tanh";
+    activationForward.h.name = "tanh";
+
+    activationReverse.f.name = "sigmoid";
+    activationReverse.g.name = "tanh";
+    activationReverse.h.name = "tanh";
+  }
+
+  // Get alpha attributes.
+  if (activationAlpha.hasValue()) {
+    ArrayAttr activationArrAttr = activationAlpha.getValue();
+    if (direction == FORWARD || direction == BIDIRECTIONAL) {
+      // Forward activations.
+      if (activationArrAttr.size() > 0) {
+        activationForward.f.alpha = activationArrAttr[0].cast<FloatAttr>();
+      }
+      if (activationArrAttr.size() > 1) {
+        activationForward.g.alpha = activationArrAttr[1].cast<FloatAttr>();
+      }
+      if (activationArrAttr.size() > 2) {
+        activationForward.h.alpha = activationArrAttr[2].cast<FloatAttr>();
+      }
+    }
+
+    // Reverse activations.
+    if (direction == REVERSE || direction == BIDIRECTIONAL) {
+      int startIndex = (direction == REVERSE) ? 0 : 3;
+      if (activationArrAttr.size() > startIndex) {
+        activationReverse.f.alpha =
+            activationArrAttr[startIndex].cast<FloatAttr>();
+      }
+      if (activationArrAttr.size() > startIndex + 1) {
+        activationReverse.g.alpha =
+            activationArrAttr[startIndex + 1].cast<FloatAttr>();
+      }
+      if (activationArrAttr.size() > startIndex + 2) {
+        activationReverse.h.alpha =
+            activationArrAttr[startIndex + 2].cast<FloatAttr>();
+      }
+    }
+  }
+
+  // Get beta attributes.
+  if (activationBeta.hasValue()) {
+    ArrayAttr activationArrAttr = activationBeta.getValue();
+    if (direction == FORWARD || direction == BIDIRECTIONAL) {
+      // Forward activations.
+      if (activationArrAttr.size() > 0) {
+        activationForward.f.beta = activationArrAttr[0].cast<FloatAttr>();
+      }
+      if (activationArrAttr.size() > 1) {
+        activationForward.g.beta = activationArrAttr[1].cast<FloatAttr>();
+      }
+      if (activationArrAttr.size() > 2) {
+        activationForward.h.beta = activationArrAttr[2].cast<FloatAttr>();
+      }
+    }
+
+    // Reverse activations.
+    if (direction == REVERSE || direction == BIDIRECTIONAL) {
+      int startIndex = (direction == REVERSE) ? 0 : 3;
+      if (activationArrAttr.size() > startIndex) {
+        activationReverse.f.beta =
+            activationArrAttr[startIndex].cast<FloatAttr>();
+      }
+      if (activationArrAttr.size() > startIndex + 1) {
+        activationReverse.g.beta =
+            activationArrAttr[startIndex + 1].cast<FloatAttr>();
+      }
+      if (activationArrAttr.size() > startIndex + 2) {
+        activationReverse.h.beta =
+            activationArrAttr[startIndex + 2].cast<FloatAttr>();
+      }
+    }
+  }
+
   return std::make_tuple(activationForward, activationReverse);
 }
 
@@ -412,7 +528,7 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
       ct = rewriter.create<AddFOp>(loc, ct, loadRB);
     }
     // TODO
-    ct = activation_g(rewriter, loc, op, ct, elementType);
+    ct = applyActivation(rewriter, loc, activationPack.g, ct, elementType);
 
     // Ct = ft (.) Ct-1 + it (.) ct
     Value Ct =
@@ -441,8 +557,9 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
     ot = applyActivation(rewriter, loc, activationPack.f, ot, elementType);
 
     // Ht = ot (.) h(Ct)
-    Value Ht = rewriter.create<MulFOp>(
-        loc, ot, activation_h(rewriter, loc, op, Ct, elementType));
+    Value hCt =
+        applyActivation(rewriter, loc, activationPack.h, Ct, elementType);
+    Value Ht = rewriter.create<MulFOp>(loc, ot, hCt);
     rewriter.create<StoreOp>(loc, Ht, state.ht, hIVs);
 
     // Store the current Ht if required.

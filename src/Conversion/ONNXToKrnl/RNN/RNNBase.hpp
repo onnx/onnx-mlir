@@ -12,27 +12,18 @@
 
 using namespace mlir;
 
-static const std::string FORWARD = "forward";
-static const std::string REVERSE = "reverse";
-static const std::string BIDIRECTIONAL = "bidirectional";
+static const StringRef FORWARD = "forward";
+static const StringRef REVERSE = "reverse";
+static const StringRef BIDIRECTIONAL = "bidirectional";
 
 struct RNNActivation {
-  std::string name;
-  Optional<Value> alpha;
-  Optional<Value> beta;
+  StringRef name;
+  Optional<FloatAttr> alpha;
+  Optional<FloatAttr> beta;
 };
 
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
-   RNNActivation activation, Value input, Type elementType);
-
-Value activation_f(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, Value input, Type elementType);
-
-Value activation_g(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, Value input, Type elementType);
-
-Value activation_h(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, Value input, Type elementType);
+    RNNActivation activation, Value input, Type elementType);
 
 template <typename RNNOp, typename I, typename O>
 std::tuple<I, O> getInputOutputPack(Operation *op, ArrayRef<Value> operands);

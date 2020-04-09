@@ -25,12 +25,12 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
 
   std::vector<mlir::NamedAttribute> attributes;
   if (activation.alpha) {
-    auto alphaAttr = rewriter.getF32FloatAttr(activation.alpha.getValue());
-    attributes.emplace_back(rewriter.getNamedAttr("alpha", alphaAttr));
+    attributes.emplace_back(
+        rewriter.getNamedAttr("alpha", activation.alpha.getValue()));
   }
   if (activation.beta) {
-    auto betaAttr = rewriter.getF32FloatAttr(activation.beta.getValue());
-    attributes.emplace_back(rewriter.getNamedAttr("beta", betaAttr));
+    attributes.emplace_back(
+        rewriter.getNamedAttr("beta", activation.beta.getValue()));
   }
 
   if (activation.name == "relu")
@@ -41,58 +41,26 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     res = rewriter.create<ONNXSigmoidOp>(loc, scalarMemRefType, alloc);
   else if (activation.name == "affine")
     emitError(loc, "Unsupported activation");
-  else if (activation.name == "LeakyRelu")
+  else if (activation.name == "leakyrelu")
     res = rewriter.create<ONNXLeakyReluOp>(
         loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name == "ThresholdedRelu")
+  else if (activation.name == "thresholdedrelu")
     res = rewriter.create<ONNXThresholdedReluOp>(
         loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name == "ScaledTanh")
+  else if (activation.name == "scaledtanh")
     emitError(loc, "Unsupported activation");
-  else if (activation.name == "HardSigmoid")
+  else if (activation.name == "hardsigmoid")
     res = rewriter.create<ONNXHardSigmoidOp>(
         loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name == "Elu")
+  else if (activation.name == "elu")
     res = rewriter.create<ONNXEluOp>(loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name == "Softsign")
+  else if (activation.name == "softsign")
     res = rewriter.create<ONNXSoftsignOp>(loc, scalarMemRefType, alloc);
-  else if (activation.name == "Softplus")
+  else if (activation.name == "softplus")
     res = rewriter.create<ONNXSoftplusOp>(loc, scalarMemRefType, alloc);
   else
     return res;
 
   Value result = rewriter.create<LoadOp>(loc, res, IVs);
   return result;
-}
-
-Value activation_g(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, Value input, Type elementType) {
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto two = emitConstantOp(rewriter, loc, elementType, 2);
-  auto neg = rewriter.create<SubFOp>(loc, zero, input);
-  auto exp = rewriter.create<ExpOp>(loc, input);
-  auto negExp = rewriter.create<ExpOp>(loc, neg);
-
-  auto sinh = rewriter.create<DivFOp>(
-      loc, rewriter.create<SubFOp>(loc, exp, negExp), two);
-  auto cosh = rewriter.create<DivFOp>(
-      loc, rewriter.create<AddFOp>(loc, exp, negExp), two);
-
-  return rewriter.create<DivFOp>(loc, sinh, cosh);
-}
-
-Value activation_h(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, Value input, Type elementType) {
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto two = emitConstantOp(rewriter, loc, elementType, 2);
-  auto neg = rewriter.create<SubFOp>(loc, zero, input);
-  auto exp = rewriter.create<ExpOp>(loc, input);
-  auto negExp = rewriter.create<ExpOp>(loc, neg);
-
-  auto sinh = rewriter.create<DivFOp>(
-      loc, rewriter.create<SubFOp>(loc, exp, negExp), two);
-  auto cosh = rewriter.create<DivFOp>(
-      loc, rewriter.create<AddFOp>(loc, exp, negExp), two);
-
-  return rewriter.create<DivFOp>(loc, sinh, cosh);
 }
