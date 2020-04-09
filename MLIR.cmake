@@ -238,7 +238,7 @@ function(add_onnx_mlir_dialect_doc dialect dialect_tablegen_file)
   # Generate Dialect Documentation
   set(LLVM_TARGET_DEFINITIONS ${dialect_tablegen_file})
   onnx_mlir_tablegen(${dialect}.md -gen-op-doc)
-  set(GEN_DOC_FILE ${ONNX_MLIR_BIN_ROOT}/doc/Dialects/${dialect}.md)
+  set(GEN_DOC_FILE ${ONNX_MLIR_BIN_ROOT}/docs/Dialects/${dialect}.md)
   add_custom_command(
           OUTPUT ${GEN_DOC_FILE}
           COMMAND ${CMAKE_COMMAND} -E copy
