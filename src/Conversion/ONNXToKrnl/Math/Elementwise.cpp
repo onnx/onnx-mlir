@@ -149,10 +149,9 @@ Value mapToLowerScalarOp<ONNXTanhOp>(Operation *op, ArrayRef<Type> result_types,
   auto neg = rewriter.create<SubFOp>(loc, zero, operand);
   auto exp = rewriter.create<ExpOp>(loc, operand);
   auto negExp = rewriter.create<ExpOp>(loc, neg);
-
-  auto result =
-      rewriter.create<DivFOp>(loc, rewriter.create<SubFOp>(loc, exp, negExp),
-          rewriter.create<AddFOp>(loc, exp, negExp));
+  auto dividend = rewriter.create<SubFOp>(loc, exp, negExp);
+  auto divisor = rewriter.create<AddFOp>(loc, exp, negExp);
+  auto result = rewriter.create<DivFOp>(loc, dividend, divisor);
 
   return result;
 }
