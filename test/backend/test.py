@@ -82,6 +82,10 @@ test_to_enable = [
     "test_cosh_cpu",
     "test_cosh_example_cpu",
 
+    # Tanh:
+    "test_tanh_cpu",
+    "test_tanh_example_cpu",
+
     # Div Op:
     "test_div_cpu",
     "test_div_bcast_cpu",
