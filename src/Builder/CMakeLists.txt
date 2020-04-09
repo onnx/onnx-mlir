@@ -2,8 +2,7 @@ add_library(OMBuilder
         FrontendDialectHelper.cpp
         FrontendDialectHelper.hpp
         FrontendDialectTransformer.cpp
-        FrontendDialectTransformer.hpp
-        OpBuildTable.inc)
+        FrontendDialectTransformer.hpp)
 
 target_include_directories(OMBuilder PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(OMBuilder PRIVATE ${CMAKE_BINARY_DIR})
