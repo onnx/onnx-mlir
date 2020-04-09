@@ -50,7 +50,7 @@ jobs:
             cd onnx-mlir/build
             cmake --build . --target onnx-mlir-doc
             # Check whether dialect documentation is up-to-date.
-            diff doc/Dialects ../doc/Dialects
+            diff docs/Dialects ../docs/Dialects
       - run:
           name: Print the Current Time
           command: date

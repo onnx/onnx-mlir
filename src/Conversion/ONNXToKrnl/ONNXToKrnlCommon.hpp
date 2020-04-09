@@ -117,6 +117,8 @@ Value emitPositiveInfinityConstantOp(
 Value emitNegativeInfinityConstantOp(
     ConversionPatternRewriter &rewriter, Location loc, Type type);
 
+int64_t ArrayAttrIntVal(ArrayAttr a, int i);
+
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
 //===----------------------------------------------------------------------===//
@@ -146,17 +148,14 @@ Value getIdentityValue(
 // Use template specialization for each of different ONNX operations.
 //===----------------------------------------------------------------------===//
 template <typename Op>
-Value mapToLowerScalarOp(Operation *op, ArrayRef<Type> result_types,
-                         ArrayRef<Value> operands,
-                         ConversionPatternRewriter &rewriter) {
-  auto loc = op->getLoc();
-  Type element_type = operands.front().getType();
-  if (element_type.isa<IntegerType>()) {
-    return rewriter.create<ScalarIOp<Op>>(loc, result_types, operands,
-                                          mlir::None);
-  } else if (element_type.isa<FloatType>()) {
-    return rewriter.create<ScalarFOp<Op>>(loc, result_types, operands,
-                                          mlir::None);
+Value emitScalarOpFor(ConversionPatternRewriter &rewriter, Location loc,
+    Operation *op, Type elementType, ArrayRef<Value> scalarOperands) {
+  if (elementType.isa<IntegerType>()) {
+    return rewriter.create<ScalarIOp<Op>>(
+        loc, elementType, scalarOperands, mlir::None);
+  } else if (elementType.isa<FloatType>()) {
+    return rewriter.create<ScalarFOp<Op>>(
+        loc, elementType, scalarOperands, mlir::None);
   } else {
     emitError(loc, "unsupported element type");
     return nullptr;
@@ -245,4 +244,3 @@ void populateLoweringONNXIdentityOpPattern(
 
 void populateLoweringONNXConstantOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
-
