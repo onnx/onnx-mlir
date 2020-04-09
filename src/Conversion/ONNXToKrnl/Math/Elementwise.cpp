@@ -132,14 +132,12 @@ Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
 // Scalar unary ops for lowering ONNXTanhOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXTanhOp>(Operation *op, ArrayRef<Type> result_types,
-                                     ArrayRef<Value> operands,
-                                     ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXTanhOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXTanhOp(%X) = DivFOp(SubFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
   //                         AddFOp(ExpOp(%X), ExpOp(NegFOp(%X))))
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
+  Value operand = scalarOperands[0];
 
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto neg = rewriter.create<SubFOp>(loc, zero, operand);
