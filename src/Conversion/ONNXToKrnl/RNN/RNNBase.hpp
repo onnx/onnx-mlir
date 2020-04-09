@@ -23,7 +23,7 @@ struct RNNActivation {
 };
 
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
-    RNNActivation activation, Value input, Type elementType);
+    RNNActivation activation, Value scalarOperand);
 
 template <typename RNNOp, typename I, typename O>
 std::tuple<I, O> getInputOutputPack(Operation *op, ArrayRef<Value> operands);

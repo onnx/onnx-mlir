@@ -13,15 +13,16 @@
 using namespace mlir;
 
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
-    RNNActivation activation, Value input, Type elementType) {
+    RNNActivation activation, Value scalarOperand) {
   Value res;
 
   auto zeroIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
   SmallVector<Value, 4> IVs{zeroIndex};
 
-  MemRefType scalarMemRefType = MemRefType::get({1}, elementType, {}, 0);
+  MemRefType scalarMemRefType =
+      MemRefType::get({1}, scalarOperand.getType(), {}, 0);
   Value alloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-  rewriter.create<StoreOp>(loc, input, alloc, IVs);
+  rewriter.create<StoreOp>(loc, scalarOperand, alloc, IVs);
 
   std::vector<mlir::NamedAttribute> attributes;
   if (activation.alpha) {

@@ -77,7 +77,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(Operation *op) {
   LstmActivationPack activationForward, activationReverse;
 
   // Get activation function name.
-  if (activations.hasValue()) {
+  if (activations) {
     ArrayAttr activationArrAttr = activations.getValue();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
@@ -122,7 +122,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(Operation *op) {
   }
 
   // Get alpha attributes.
-  if (activationAlpha.hasValue()) {
+  if (activationAlpha) {
     ArrayAttr activationArrAttr = activationAlpha.getValue();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
@@ -156,7 +156,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(Operation *op) {
   }
 
   // Get beta attributes.
-  if (activationBeta.hasValue()) {
+  if (activationBeta) {
     ArrayAttr activationArrAttr = activationBeta.getValue();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
@@ -494,7 +494,7 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
           rewriter.create<LoadOp>(loc, inputPack.Biofc, rbIOFCIVs[0]);
       it = rewriter.create<AddFOp>(loc, it, loadRB);
     }
-    it = applyActivation(rewriter, loc, activationPack.f, it, elementType);
+    it = applyActivation(rewriter, loc, activationPack.f, it);
 
     // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
     Value loadXWF = rewriter.create<LoadOp>(loc, xwIOFC[2]);
@@ -513,7 +513,7 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
           rewriter.create<LoadOp>(loc, inputPack.Biofc, rbIOFCIVs[2]);
       ft = rewriter.create<AddFOp>(loc, ft, loadRB);
     }
-    ft = applyActivation(rewriter, loc, activationPack.f, ft, elementType);
+    ft = applyActivation(rewriter, loc, activationPack.f, ft);
 
     // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
     Value loadXWC = rewriter.create<LoadOp>(loc, xwIOFC[3]);
@@ -528,7 +528,7 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
       ct = rewriter.create<AddFOp>(loc, ct, loadRB);
     }
     // TODO
-    ct = applyActivation(rewriter, loc, activationPack.g, ct, elementType);
+    ct = applyActivation(rewriter, loc, activationPack.g, ct);
 
     // Ct = ft (.) Ct-1 + it (.) ct
     Value Ct =
@@ -554,11 +554,10 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
       ot = rewriter.create<AddFOp>(loc, ot, loadRB);
     }
     // TODO
-    ot = applyActivation(rewriter, loc, activationPack.f, ot, elementType);
+    ot = applyActivation(rewriter, loc, activationPack.f, ot);
 
     // Ht = ot (.) h(Ct)
-    Value hCt =
-        applyActivation(rewriter, loc, activationPack.h, Ct, elementType);
+    Value hCt = applyActivation(rewriter, loc, activationPack.h, Ct);
     Value Ht = rewriter.create<MulFOp>(loc, ot, hCt);
     rewriter.create<StoreOp>(loc, Ht, state.ht, hIVs);
 
