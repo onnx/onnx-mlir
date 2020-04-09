@@ -67,12 +67,6 @@ struct ScalarOp<ONNXSumOp> {
 };
 
 template <>
-struct ScalarOp<ONNXTanhOp> {
-  using FOp = TanhOp;
-  using IOp = TanhOp; // not use
-};
-
-template <>
 struct ScalarOp<ONNXCosOp> {
   using FOp = CosOp;
   using IOp = CosOp; // not use
@@ -130,6 +124,30 @@ Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
   auto negExp = rewriter.create<ExpOp>(loc, neg);
   auto result = rewriter.create<DivFOp>(
       loc, rewriter.create<AddFOp>(loc, exp, negExp), two);
+
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXTanhOp
+//===----------------------------------------------------------------------===//
+template <>
+Value mapToLowerScalarOp<ONNXTanhOp>(Operation *op, ArrayRef<Type> result_types,
+                                     ArrayRef<Value> operands,
+                                     ConversionPatternRewriter &rewriter) {
+  // ONNXTanhOp(%X) = DivFOp(SubFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
+  //                         AddFOp(ExpOp(%X), ExpOp(NegFOp(%X))))
+  auto loc = op->getLoc();
+  Value operand = operands[0];
+  auto elementType = result_types[0];
+
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  auto neg = rewriter.create<SubFOp>(loc, zero, operand);
+  auto exp = rewriter.create<ExpOp>(loc, operand);
+  auto negExp = rewriter.create<ExpOp>(loc, neg);
+  auto dividend = rewriter.create<SubFOp>(loc, exp, negExp);
+  auto divisor = rewriter.create<AddFOp>(loc, exp, negExp);
+  auto result = rewriter.create<DivFOp>(loc, dividend, divisor);
 
   return result;
 }
