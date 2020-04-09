@@ -34,30 +34,30 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
         rewriter.getNamedAttr("beta", activation.beta.getValue()));
   }
 
-  if (activation.name == "relu")
+  if (activation.name.equals_lower("relu"))
     res = rewriter.create<ONNXReluOp>(loc, scalarMemRefType, alloc);
-  else if (activation.name == "tanh")
+  else if (activation.name.equals_lower("tanh"))
     res = rewriter.create<ONNXTanhOp>(loc, scalarMemRefType, alloc);
-  else if (activation.name == "sigmoid")
+  else if (activation.name.equals_lower("sigmoid"))
     res = rewriter.create<ONNXSigmoidOp>(loc, scalarMemRefType, alloc);
-  else if (activation.name == "affine")
+  else if (activation.name.equals_lower("affine"))
     emitError(loc, "Unsupported activation");
-  else if (activation.name == "leakyrelu")
+  else if (activation.name.equals_lower("leakyrelu"))
     res = rewriter.create<ONNXLeakyReluOp>(
         loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name == "thresholdedrelu")
+  else if (activation.name.equals_lower("thresholdedrelu"))
     res = rewriter.create<ONNXThresholdedReluOp>(
         loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name == "scaledtanh")
+  else if (activation.name.equals_lower("scaledtanh"))
     emitError(loc, "Unsupported activation");
-  else if (activation.name == "hardsigmoid")
+  else if (activation.name.equals_lower("hardsigmoid"))
     res = rewriter.create<ONNXHardSigmoidOp>(
         loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name == "elu")
+  else if (activation.name.equals_lower("elu"))
     res = rewriter.create<ONNXEluOp>(loc, scalarMemRefType, alloc, attributes);
-  else if (activation.name == "softsign")
+  else if (activation.name.equals_lower("softsign"))
     res = rewriter.create<ONNXSoftsignOp>(loc, scalarMemRefType, alloc);
-  else if (activation.name == "softplus")
+  else if (activation.name.equals_lower("softplus"))
     res = rewriter.create<ONNXSoftplusOp>(loc, scalarMemRefType, alloc);
   else
     return res;
