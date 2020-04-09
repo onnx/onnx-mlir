@@ -1,0 +1,1 @@
+file-same-as-stdout({"file": "src/Builder/OpBuildTable.inc", "cmd": ["python", "utils/gen_doc.py", "--dry-run-op-build-table"]})

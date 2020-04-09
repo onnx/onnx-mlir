@@ -1579,6 +1579,64 @@ bool ONNXConstantOp::inferShapes() {
   return true;
 }
 
+// Concat
+
+bool ONNXConcatOp::inferShapes() {
+  int inputNum = getNumOperands();
+  for (int i = 0; i < inputNum; ++i) {
+    if (!getOperand(i).getType().cast<RankedTensorType>()) {
+      emitError("Input tensor(s) not ranked");
+      return false;
+    }
+  }
+  // Checking value of axis parameter.
+  auto commonType = getOperand(0).getType().cast<RankedTensorType>();
+  auto commonShape = commonType.getShape();
+  auto commonRank = commonShape.size();
+  auto axisIndex = axis().getSExtValue();
+  if (!(axisIndex >= 0 && axisIndex < commonRank)) {
+    emitError("Concat axis value out of bound");
+    return false;
+  }
+  // Initial cummlative size is that of the first operand.
+  int cummulativeAxisSize = commonShape[axisIndex];
+
+  // Compute the cummlative size with all of the other ones, and make sure that
+  // the other sizes are all alike.
+  for (int i = 1; i < inputNum; ++i) {
+    auto currShape =
+        getOperand(i).getType().cast<RankedTensorType>().getShape();
+    if (currShape.size() != commonRank) {
+      emitError("Concat input must all have the same rank");
+      return false;
+    }
+    for (int j = 0; j < commonRank; ++j) {
+      if (j == axisIndex) {
+        // Check that the value is positive.
+        if (currShape[j] <= 0) {
+          emitError("Concat axis being concatenated is expected to be known at "
+                    "compile time for now");
+          return false;
+        }
+      } else if (currShape[j] != commonShape[j]) {
+        emitError("Concat input dimensions must be all identical, except for "
+                  "dimension on the axis of the concatenation");
+        return false;
+      }
+    }
+    cummulativeAxisSize += currShape[axisIndex];
+  }
+
+  // Set output size and type
+  SmallVector<int64_t, 4> outputDims;
+  for (int j = 0; j < commonRank; ++j)
+    outputDims.emplace_back(
+        j == axisIndex ? cummulativeAxisSize : commonShape[j]);
+  getResult().setType(
+      RankedTensorType::get(outputDims, commonType.getElementType()));
+  return true;
+}
+
 //===----------------------------------------------------------------------===//
 // RNN
 
