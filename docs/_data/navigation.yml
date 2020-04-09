@@ -1,0 +1,27 @@
+toc:
+  - title: First Steps
+    subfolderitems:
+      - page: Overview
+        url: /thing1.html
+      - page: Installation
+        url: /thing2.html
+  - title: Tutorials
+    subfolderitems:
+      - page: Placeholder
+        url: /piece1.html
+  - title: How-tos
+    subfolderitems:
+      - page: Placeholder
+        url: /piece1.html
+  - title: References
+    subfolderitems:
+      - page: ONNX Dialect
+        url: /piece1.html
+  - title: Discussions
+    subfolderitems:
+      - page: Placeholder
+        url: /piece1.html
+  - title: Tools
+    subfolderitems:
+      - page: DocCheck - Handling Necessary Code Duplication
+        url: /pages-test/DocCheck.html
