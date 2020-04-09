@@ -21,6 +21,3 @@ target_include_directories(OMONNXToKrnl
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
-target_link_libraries(OMONNXToKrnl
-        ${MLIRLibs}
-        OMKrnlOps)
