@@ -10,7 +10,7 @@ ONNX MLIR modified this script to import ONNX specifications into ONNX MLIR. The
 2. Perform the following steps (assume that we use onnx-mlir/third_party/onnx):
 ```bash
 $ cd onnx-mlir
-$ cp doc/gen_doc.py third_party/onnx/onnx/defs/
+$ cp docs/gen_doc.py third_party/onnx/onnx/defs/
 $ cd third_party/onnx
 $ python onnx/defs/gen_doc.py
 $ cd ../..

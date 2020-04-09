@@ -30,7 +30,7 @@ to ensure the code snippet is always the same as its copy used in some unit test
 `same-as-file` directive supports a convenient short-hand configuration format where the directive configuration can be fully specified using the name of the reference file to check against.
 For example, to ensure a code snippet is the same as a unit-tested file `reference.cpp`, use the following directive as shown in the documentation snippet:
 
-[same-as-file]: <> (doc/doc_check/test/same-as-file/simple/README.md)
+[same-as-file]: <> (docs/doc_check/test/same-as-file/simple/README.md)
 ````markdown
 Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 
@@ -57,7 +57,7 @@ In the canonical form of directive configuration (as a python dictionary literal
 
 For example, to ensure the following code snippet is the same as a unit-tested file `reference.cpp`, except for the first 2 lines of the code used in documentation, and the first 3 lines of code used in the reference file, the following directive configuration can be used:
 
-[same-as-file]: <> (doc/doc_check/test/same-as-file/skip-doc-ref/README.md)
+[same-as-file]: <> (docs/doc_check/test/same-as-file/skip-doc-ref/README.md)
 ````markdown
 Lorem ipsum dolor sit amet, consectetur adipiscing elit.
 
