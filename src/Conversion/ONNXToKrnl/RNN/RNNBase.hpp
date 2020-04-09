@@ -16,9 +16,14 @@ static const std::string FORWARD = "forward";
 static const std::string REVERSE = "reverse";
 static const std::string BIDIRECTIONAL = "bidirectional";
 
+struct RNNActivation {
+  std::string name;
+  Optional<Value> alpha;
+  Optional<Value> beta;
+};
+
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
-    std::string activation, Value input, Type elementType,
-    Optional<float> alpha, Optional<float> beta);
+   RNNActivation activation, Value input, Type elementType);
 
 Value activation_f(ConversionPatternRewriter &rewriter, Location loc,
     Operation *op, Value input, Type elementType);
@@ -32,6 +37,9 @@ Value activation_h(ConversionPatternRewriter &rewriter, Location loc,
 template <typename RNNOp, typename I, typename O>
 std::tuple<I, O> getInputOutputPack(Operation *op, ArrayRef<Value> operands);
 
+template <typename RNNOp, typename A>
+std::tuple<A, A> getActivationPack(Operation *op);
+
 template <typename O>
 bool hasNoOutput(O outputPack);
 
@@ -39,15 +47,15 @@ template <typename I, typename O, typename S>
 S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
     Operation *op, I inputPack, O outputPack);
 
-template <typename RNNOp, typename I, typename S>
+template <typename RNNOp, typename I, typename S, typename A>
 void calculateState(ConversionPatternRewriter &rewriter, Location loc,
     Operation *op, Value numDirectionIV, Value sequenceLengthIV, I inputPack,
-    S state);
+    S state, A activationSet);
 
 template <typename RNNOp, typename S, typename O>
 void stateToOutput(S state, O outputPack, std::vector<Value> &outputs);
 
-template <typename RNNOp, typename I, typename O, typename S>
+template <typename RNNOp, typename I, typename O, typename S, typename A>
 struct ONNXRNNOpLowering : public ConversionPattern {
   ONNXRNNOpLowering(MLIRContext *ctx)
       : ConversionPattern(RNNOp::getOperationName(), 1, ctx) {}
@@ -70,6 +78,9 @@ struct ONNXRNNOpLowering : public ConversionPattern {
 
     state = allocAndInitializeStates<I, O, S>(
         rewriter, loc, op, inputPack, outputPack);
+    A activationForward, activationReverse;
+    std::tie(activationForward, activationReverse) =
+        getActivationPack<RNNOp, A>(op);
 
     Value X = inputPack.X;
     int sequenceLengthDim = X.getType().cast<ShapedType>().getShape()[0];
@@ -89,7 +100,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         Value sequenceLengthIV = sequenceLoops.getInductionVar(0);
         // Emit calculation for one RNN step.
         calculateState<RNNOp, I, S>(rewriter, loc, op, numDirectionIV,
-            sequenceLengthIV, inputPack, state);
+            sequenceLengthIV, inputPack, state, activationForward);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
@@ -111,7 +122,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
             sequenceLoops.getInductionVar(0));
         // Emit calculation for one RNN step.
         calculateState<RNNOp, I, S>(rewriter, loc, op, numDirectionIV,
-            reverseSequenceLengthIV, inputPack, state);
+            reverseSequenceLengthIV, inputPack, state, activationReverse);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }

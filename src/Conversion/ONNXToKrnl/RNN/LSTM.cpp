@@ -35,6 +35,12 @@ struct LstmState {
   Value ct;
 };
 
+struct LstmActivationPack {
+  RNNActivation f;
+  RNNActivation g;
+  RNNActivation h;
+};
+
 template <>
 std::tuple<LstmInputPack, LstmOutputPack>
 getInputOutputPack<ONNXLSTMOp, LstmInputPack, LstmOutputPack>(
@@ -56,6 +62,18 @@ getInputOutputPack<ONNXLSTMOp, LstmInputPack, LstmOutputPack>(
   outputPack.Y_c = rnnOp.Y_c();
 
   return std::make_tuple(inputPack, outputPack);
+}
+
+template <>
+std::tuple<LstmActivationPack, LstmActivationPack>
+getActivationPack<ONNXLSTMOp, LstmActivationPack>(Operation *op) {
+  LstmActivationPack activationForward, activationReverse;
+  RNNActivation activationForwardF;
+  activationForwardF.name = "sigmoid";
+  activationForwardF.alpha = llvm::None;
+  activationForwardF.beta = llvm::None;
+  activationForward.f = activationForwardF;
+  return std::make_tuple(activationForward, activationReverse);
 }
 
 template <>
@@ -145,10 +163,10 @@ LstmState allocAndInitializeStates<LstmInputPack, LstmOutputPack, LstmState>(
 }
 
 template <>
-void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
+void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
     ConversionPatternRewriter &rewriter, Location loc, Operation *op,
     Value numDirectionIV, Value sequenceLengthIV, LstmInputPack inputPack,
-    LstmState state) {
+    LstmState state, LstmActivationPack activationPack) {
   ONNXLSTMOp rnnOp = llvm::dyn_cast<ONNXLSTMOp>(op);
 
   bool hasBiasForInput =
@@ -360,10 +378,7 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
           rewriter.create<LoadOp>(loc, inputPack.Biofc, rbIOFCIVs[0]);
       it = rewriter.create<AddFOp>(loc, it, loadRB);
     }
-    // TODO
-    // it = activation_f(rewriter, loc, op, it, elementType);
-    it = applyActivation(
-        rewriter, loc, "sigmoid", it, elementType, llvm::None, llvm::None);
+    it = applyActivation(rewriter, loc, activationPack.f, it, elementType);
 
     // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
     Value loadXWF = rewriter.create<LoadOp>(loc, xwIOFC[2]);
@@ -382,8 +397,7 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
           rewriter.create<LoadOp>(loc, inputPack.Biofc, rbIOFCIVs[2]);
       ft = rewriter.create<AddFOp>(loc, ft, loadRB);
     }
-    // TODO
-    ft = activation_f(rewriter, loc, op, ft, elementType);
+    ft = applyActivation(rewriter, loc, activationPack.f, ft, elementType);
 
     // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
     Value loadXWC = rewriter.create<LoadOp>(loc, xwIOFC[3]);
@@ -424,7 +438,7 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState>(
       ot = rewriter.create<AddFOp>(loc, ot, loadRB);
     }
     // TODO
-    ot = activation_f(rewriter, loc, op, ot, elementType);
+    ot = applyActivation(rewriter, loc, activationPack.f, ot, elementType);
 
     // Ht = ot (.) h(Ct)
     Value Ht = rewriter.create<MulFOp>(
@@ -463,7 +477,6 @@ void stateToOutput<ONNXLSTMOp, LstmState, LstmOutputPack>(
 
 void populateLoweringONNXLSTMOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<
-      ONNXRNNOpLowering<ONNXLSTMOp, LstmInputPack, LstmOutputPack, LstmState>>(
-      ctx);
+  patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmInputPack, LstmOutputPack,
+      LstmState, LstmActivationPack>>(ctx);
 }
