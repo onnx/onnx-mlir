@@ -67,12 +67,6 @@ struct ScalarOp<ONNXSumOp> {
 };
 
 template <>
-struct ScalarOp<ONNXTanhOp> {
-  using FOp = TanhOp;
-  using IOp = TanhOp; // not use
-};
-
-template <>
 struct ScalarOp<ONNXCosOp> {
   using FOp = CosOp;
   using IOp = CosOp; // not use
@@ -94,17 +88,15 @@ struct ScalarOp<ONNXSqrtOp> {
 // Scalar unary ops for lowering ONNXSinhOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXSinhOp>(Operation *op, ArrayRef<Type> result_types,
-                                     ArrayRef<Value> operands,
-                                     ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXSinhOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXSinhOp(%X) = DivFOp(SubFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
   //                         ConstantOp 2)
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
+  Value operand = scalarOperands[0];
 
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto two =  emitConstantOp(rewriter, loc, elementType, 2);
+  auto two = emitConstantOp(rewriter, loc, elementType, 2);
   auto neg = rewriter.create<SubFOp>(loc, zero, operand);
   auto exp = rewriter.create<ExpOp>(loc, operand);
   auto negExp = rewriter.create<ExpOp>(loc, neg);
@@ -118,17 +110,15 @@ Value mapToLowerScalarOp<ONNXSinhOp>(Operation *op, ArrayRef<Type> result_types,
 // Scalar unary ops for lowering ONNXCoshOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXCoshOp>(Operation *op, ArrayRef<Type> result_types,
-                                     ArrayRef<Value> operands,
-                                     ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXCoshOp(%X) = DivFOp(AddFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
   //                         ConstantOp 2)
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
+  Value operand = scalarOperands[0];
 
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto two =  emitConstantOp(rewriter, loc, elementType, 2);
+  auto two = emitConstantOp(rewriter, loc, elementType, 2);
   auto neg = rewriter.create<SubFOp>(loc, zero, operand);
   auto exp = rewriter.create<ExpOp>(loc, operand);
   auto negExp = rewriter.create<ExpOp>(loc, neg);
@@ -139,18 +129,37 @@ Value mapToLowerScalarOp<ONNXCoshOp>(Operation *op, ArrayRef<Type> result_types,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXTanhOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXTanhOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  // ONNXTanhOp(%X) = DivFOp(SubFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
+  //                         AddFOp(ExpOp(%X), ExpOp(NegFOp(%X))))
+  Value operand = scalarOperands[0];
+
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  auto neg = rewriter.create<SubFOp>(loc, zero, operand);
+  auto exp = rewriter.create<ExpOp>(loc, operand);
+  auto negExp = rewriter.create<ExpOp>(loc, neg);
+  auto dividend = rewriter.create<SubFOp>(loc, exp, negExp);
+  auto divisor = rewriter.create<AddFOp>(loc, exp, negExp);
+  auto result = rewriter.create<DivFOp>(loc, dividend, divisor);
+
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSigmoidOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXSigmoidOp>(Operation *op,
-                                        ArrayRef<Type> result_types,
-                                        ArrayRef<Value> operands,
-                                        ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXSigmoidOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXSigmoidOp(%X) = DivFOp(ConstantOp 1,
   //                            AddFOp(ConstantOp 1, ExpOp(NegFOp(%X))))
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
+  Value operand = scalarOperands[0];
 
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto one = emitConstantOp(rewriter, loc, elementType, 1);
@@ -166,9 +175,9 @@ Value mapToLowerScalarOp<ONNXSigmoidOp>(Operation *op,
 // Scalar unary ops for lowering ONNXHardSigmoidOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXHardSigmoidOp>(
-    Operation *op, ArrayRef<Type> result_types, ArrayRef<Value> operands,
-    ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXHardSigmoidOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // %Y = AddFOp(MulFOp(alpha, %X), beta)
   // %Z = SelectOp(CmpFOp(OGT, %Y, Constant 0),
   //               %Y,
@@ -176,13 +185,11 @@ Value mapToLowerScalarOp<ONNXHardSigmoidOp>(
   // ONNXHardSigmoidOp(%X) = SelectOp(CmpFOp(OLT, %Z, Constant 1),
   //                                  %Z,
   //                                  Constant 1)
-  auto loc = op->getLoc();
-  Value operand = operands[0];
+  Value operand = scalarOperands[0];
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXHardSigmoidOp>(op).alpha().convertToFloat());
   auto betaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXHardSigmoidOp>(op).beta().convertToFloat());
-  auto elementType = result_types[0];
 
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto one = emitConstantOp(rewriter, loc, elementType, 1);
@@ -205,15 +212,13 @@ Value mapToLowerScalarOp<ONNXHardSigmoidOp>(
 // Scalar unary ops for lowering ONNXEluOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXEluOp>(Operation *op, ArrayRef<Type> result_types,
-                                    ArrayRef<Value> operands,
-                                    ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXEluOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXEluOp(%X) = SelectOp(CmpFOp(OLT, %X, ConstantOp 0),
   //                          MulFOp(alpha, SubFOp(ExpOp(%X), 1)),
   //                          %X)
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
+  Value operand = scalarOperands[0];
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXEluOp>(op).alpha().convertToFloat());
@@ -223,10 +228,9 @@ Value mapToLowerScalarOp<ONNXEluOp>(Operation *op, ArrayRef<Type> result_types,
   auto exp = rewriter.create<ExpOp>(loc, operand);
   auto lessThanZero =
       rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, operand, zero);
-  auto result = rewriter.create<SelectOp>(
-      loc, lessThanZero,
-      rewriter.create<MulFOp>(loc, alpha,
-                              rewriter.create<SubFOp>(loc, exp, one)),
+  auto result = rewriter.create<SelectOp>(loc, lessThanZero,
+      rewriter.create<MulFOp>(
+          loc, alpha, rewriter.create<SubFOp>(loc, exp, one)),
       operand);
 
   return result;
@@ -236,15 +240,13 @@ Value mapToLowerScalarOp<ONNXEluOp>(Operation *op, ArrayRef<Type> result_types,
 // Scalar unary ops for lowering ONNXReluOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXReluOp>(Operation *op, ArrayRef<Type> result_types,
-                                     ArrayRef<Value> operands,
-                                     ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXReluOp(%X) = SelectOp(CmpFOp(OLT, %X, ConstantOp 0),
   //                           ConstantOp 0,
   //                           %X)
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
+  Value operand = scalarOperands[0];
 
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto lessThanZero =
@@ -258,16 +260,13 @@ Value mapToLowerScalarOp<ONNXReluOp>(Operation *op, ArrayRef<Type> result_types,
 // Scalar unary ops for lowering ONNXLeakyReluOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXLeakyReluOp>(Operation *op,
-                                          ArrayRef<Type> result_types,
-                                          ArrayRef<Value> operands,
-                                          ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXLeakyReluOp(%X) = SelectOp(CmpFOp(OLT, %X, ConstantOp 0),
   //                                MulFOp(alpha, %X),
   //                                %X)
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
+  Value operand = scalarOperands[0];
 
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXLeakyReluOp>(op).alpha().convertToFloat());
@@ -285,21 +284,19 @@ Value mapToLowerScalarOp<ONNXLeakyReluOp>(Operation *op,
 // Scalar unary ops for lowering ONNXSeluOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXSeluOp>(Operation *op, ArrayRef<Type> result_types,
-                                     ArrayRef<Value> operands,
-                                     ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXSeluOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXSeluOp(%X) = SelectOp(CmpFOp(OGT, %X, ConstantOp 0),
   //                           MulFOp(gamma, %X),
   //                           MulFOp(gamma,
   //                                  SubFOp(MulFOp(alpha, ExpOp(%X)),
   //                                         alpha)))
-  auto loc = op->getLoc();
-  Value operand = operands[0];
+  Value operand = scalarOperands[0];
   auto alphaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXSeluOp>(op).alpha().convertToFloat());
   auto gammaAttribute = FloatAttr::get(rewriter.getF32Type(),
       llvm::dyn_cast<ONNXSeluOp>(op).gamma().convertToFloat());
-  auto elementType = result_types[0];
 
   auto zero = emitConstantOp(rewriter, loc, elementType, 0);
   auto alpha = rewriter.create<ConstantOp>(loc, alphaAttribute);
@@ -307,10 +304,9 @@ Value mapToLowerScalarOp<ONNXSeluOp>(Operation *op, ArrayRef<Type> result_types,
   auto exp = rewriter.create<ExpOp>(loc, operand);
   auto greaterThanZero =
       rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, operand, zero);
-  auto select = rewriter.create<SelectOp>(
-      loc, greaterThanZero, operand,
-      rewriter.create<SubFOp>(loc, rewriter.create<MulFOp>(loc, alpha, exp),
-                              alpha));
+  auto select = rewriter.create<SelectOp>(loc, greaterThanZero, operand,
+      rewriter.create<SubFOp>(
+          loc, rewriter.create<MulFOp>(loc, alpha, exp), alpha));
   auto result = rewriter.create<MulFOp>(loc, gamma, select);
 
   return result;
@@ -320,14 +316,11 @@ Value mapToLowerScalarOp<ONNXSeluOp>(Operation *op, ArrayRef<Type> result_types,
 // Scalar unary ops for lowering ONNXReciprocalOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXReciprocalOp>(
-    Operation *op, ArrayRef<Type> result_types, ArrayRef<Value> operands,
-    ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXReciprocalOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXReciprocalOp(%X) = DivFOp(ConstantOp 1, %X)
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
-
+  Value operand = scalarOperands[0];
   auto one = emitConstantOp(rewriter, loc, elementType, 1);
   auto result = rewriter.create<DivFOp>(loc, one, operand);
 
@@ -338,13 +331,11 @@ Value mapToLowerScalarOp<ONNXReciprocalOp>(
 // Scalar unary ops for lowering ONNXSoftplusOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXSoftplusOp>(
-    Operation *op, ArrayRef<Type> result_types, ArrayRef<Value> operands,
-    ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXSoftplusOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXSoftplusOp(%X) = LogOp(AddFOp(ExpOp(%X), ConstantOp 1))
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
+  Value operand = scalarOperands[0];
 
   auto exp = rewriter.create<ExpOp>(loc, operand);
   auto one = emitConstantOp(rewriter, loc, elementType, 1);
@@ -358,13 +349,11 @@ Value mapToLowerScalarOp<ONNXSoftplusOp>(
 // Scalar unary ops for lowering ONNXSoftsignOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXSoftsignOp>(
-    Operation *op, ArrayRef<Type> result_types, ArrayRef<Value> operands,
-    ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXSoftsignOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXSoftsignOp(%X) = DivFOp(ConstantOp 1, %X)
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
+  Value operand = scalarOperands[0];
 
   auto abs = rewriter.create<AbsFOp>(loc, operand);
   auto one = emitConstantOp(rewriter, loc, elementType, 1);
@@ -378,13 +367,10 @@ Value mapToLowerScalarOp<ONNXSoftsignOp>(
 // Scalar unary ops for lowering ONNXSignOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXSignOp>(Operation *op, ArrayRef<Type> result_types,
-                                     ArrayRef<Value> operands,
-                                     ConversionPatternRewriter &rewriter) {
-
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  Type elementType = operands.front().getType();
+Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value operand = scalarOperands[0];
   // TODO: unsigned int should be supported separately?
   if (elementType.isa<IntegerType>()) {
     // %Y = SelectOP(CmpIOp(GT, %X, ConstantOp 0),
@@ -433,15 +419,14 @@ Value mapToLowerScalarOp<ONNXSignOp>(Operation *op, ArrayRef<Type> result_types,
 // Scalar unary ops for lowering ONNXMaxOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXMaxOp>(Operation *op, ArrayRef<Type> result_types,
-                                    ArrayRef<Value> operands,
-                                    ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXMaxOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXMaxOp(%X, %Y) = SelectOp(CmpFOp(OGT, %X, %Y),
   //                              %X,
   //                              %Y)
-  auto loc = op->getLoc();
-  Value lhs = operands[0];
-  Value rhs = operands[1];
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
   auto max = rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
   auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
   return result;
@@ -451,15 +436,14 @@ Value mapToLowerScalarOp<ONNXMaxOp>(Operation *op, ArrayRef<Type> result_types,
 // Scalar unary ops for lowering ONNXMinOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXMinOp>(Operation *op, ArrayRef<Type> result_types,
-                                    ArrayRef<Value> operands,
-                                    ConversionPatternRewriter &rewriter) {
+Value emitScalarOpFor<ONNXMinOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
   // ONNXMinOp(%X, %Y) = SelectOp(CmpFOp(OLT, %X, %Y),
   //                              %X,
   //                              %Y)
-  auto loc = op->getLoc();
-  Value lhs = operands[0];
-  Value rhs = operands[1];
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
   auto min = rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
   auto result = rewriter.create<SelectOp>(loc, min, lhs, rhs);
   return result;
@@ -469,11 +453,10 @@ Value mapToLowerScalarOp<ONNXMinOp>(Operation *op, ArrayRef<Type> result_types,
 // Scalar unary ops for lowering ONNXAbsOp
 //===----------------------------------------------------------------------===//
 template <>
-Value mapToLowerScalarOp<ONNXAbsOp>(Operation *op, ArrayRef<Type> result_types,
-    ArrayRef<Value> operands, ConversionPatternRewriter &rewriter) {
-  auto loc = op->getLoc();
-  Value operand = operands[0];
-  auto elementType = result_types[0];
+Value emitScalarOpFor<ONNXAbsOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value operand = scalarOperands[0];
 
   if (elementType.isa<FloatType>()) {
     return rewriter.create<AbsFOp>(loc, operand);
@@ -518,15 +501,14 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc,
-                                    {operands[0]});
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, {operands[0]});
 
     std::vector<Value> originalLoops;
     KrnlOptimizeLoopsOp optimizedLoopsOp;
     KrnlIterateOp iterateOp;
     emitKrnlLoopsAndIterationForOperand(
-        rewriter, loc, operands[0], originalLoops,
-        optimizedLoopsOp, iterateOp);
+        rewriter, loc, operands[0], originalLoops, optimizedLoopsOp, iterateOp);
     Block &optimizationBlock = optimizedLoopsOp.region().front();
     Block &iterationBlock = iterateOp.bodyRegion().front();
 
@@ -546,8 +528,8 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       loopIVs.push_back(arg);
 
     auto loadedVal = rewriter.create<LoadOp>(loc, operands[0], loopIVs);
-    auto loweredOpResult = mapToLowerScalarOp<ElementwiseUnaryOp>(
-        op, memRefType.getElementType(), {loadedVal}, rewriter);
+    auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
+        rewriter, loc, op, memRefType.getElementType(), {loadedVal});
     // Store result in the resulting array.
     rewriter.create<StoreOp>(loc, loweredOpResult, alloc, loopIVs);
 
@@ -585,8 +567,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc,
-                                    operands);
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, operands);
 
     // Get run-time dimension information for unknown dimensions used for
     // broadcasting.
@@ -597,8 +579,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     KrnlOptimizeLoopsOp optimizedLoopsOp;
     KrnlIterateOp iterateOp;
     emitKrnlLoopsAndIterationForOperand(
-        rewriter, loc, alloc, originalLoops,
-        optimizedLoopsOp, iterateOp);
+        rewriter, loc, alloc, originalLoops, optimizedLoopsOp, iterateOp);
     Block &optimizationBlock = optimizedLoopsOp.region().front();
     Block &iterationBlock = iterateOp.bodyRegion().front();
 
@@ -625,8 +606,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       auto nextLoopIVs = getLoopIVsForBroadcasting(
           loc, rewriter, loopIVs, operands[i], broadcastedDimInfo[i]);
       next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
-      accumulated = mapToLowerScalarOp<ElementwiseVariadicOp>(
-          op, memRefType.getElementType(), {accumulated, next}, rewriter);
+      accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
+          rewriter, loc, op, memRefType.getElementType(), {accumulated, next});
     }
     // Store result in the resulting array.
     rewriter.create<StoreOp>(loc, accumulated, alloc, loopIVs);
@@ -640,31 +621,31 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 void populateLoweringONNXElementwiseOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
-                  ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
-                  ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
-                  ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXLogOp>,
-                  ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
-                  ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
-                  ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
-                  ONNXElementwiseVariadicOpLowering<mlir::ONNXOrOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXSinhOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftplusOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftsignOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXSqrtOp>,
-                  ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
-                  ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
-                  ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
-                  ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXLogOp>,
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXOrOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSinhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftplusOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftsignOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSqrtOp>,
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
+      ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
 }
