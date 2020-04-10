@@ -311,9 +311,6 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
     // the entire "{operand bound}, {input_loop_operand}" sequence will
     // be parsed as an operand list.
     parser.parseOptionalComma();
-
-    //    // If we don't see a RParen token, we keep parsing.
-    //    keepParsing = failed(parser.parseOptionalRParen());
   }
 
   // At this point, there shouldn't be any operands left to parse.
