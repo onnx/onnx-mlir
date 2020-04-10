@@ -97,6 +97,10 @@ test_to_enable = [
     "test_concat_3d_axis_negative_2_cpu",
     "test_concat_3d_axis_negative_3_cpu",
 
+    # Tanh:
+    "test_tanh_cpu",
+    "test_tanh_example_cpu",
+
     # Div Op:
     "test_div_cpu",
     "test_div_bcast_cpu",

@@ -142,6 +142,7 @@ Value getIdentityValue(
 // Use template specialization for each of different ONNX operations.
 //===----------------------------------------------------------------------===//
 template <typename Op>
+<<<<<<< HEAD
 Value mapToLowerScalarOp(Operation *op, ArrayRef<Type> result_types,
     ArrayRef<Value> operands, ConversionPatternRewriter &rewriter) {
   auto loc = op->getLoc();
@@ -152,6 +153,16 @@ Value mapToLowerScalarOp(Operation *op, ArrayRef<Type> result_types,
   } else if (element_type.isa<FloatType>()) {
     return rewriter.create<ScalarFOp<Op>>(
         loc, result_types, operands, mlir::None);
+=======
+Value emitScalarOpFor(ConversionPatternRewriter &rewriter, Location loc,
+    Operation *op, Type elementType, ArrayRef<Value> scalarOperands) {
+  if (elementType.isa<IntegerType>()) {
+    return rewriter.create<ScalarIOp<Op>>(
+        loc, elementType, scalarOperands, mlir::None);
+  } else if (elementType.isa<FloatType>()) {
+    return rewriter.create<ScalarFOp<Op>>(
+        loc, elementType, scalarOperands, mlir::None);
+>>>>>>> concat
   } else {
     emitError(loc, "unsupported element type");
     return nullptr;
@@ -241,3 +252,4 @@ void populateLoweringONNXConstantOpPattern(
 
 void populateLoweringONNXConcatOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
+
