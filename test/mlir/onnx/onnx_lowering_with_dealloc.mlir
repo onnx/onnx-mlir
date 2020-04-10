@@ -315,7 +315,13 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[TANH:%.+]] = tanh [[LOAD]] : f32
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
+  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[TANH:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
   // CHECK: store [[TANH]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Tanh
@@ -328,7 +334,13 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[TANH_RES:%.+]] = tanh [[LOAD]] : f32
+  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
+  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
+  // CHECK: [[TANH_RES:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
   // CHECK: store [[TANH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.

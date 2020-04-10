@@ -1,0 +1,7 @@
+theme: jekyll-theme-minimal
+defaults:
+  -
+    scope:
+      path: "README.md"
+    values:
+      permalink: "README.html"
