@@ -46,13 +46,13 @@ KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
 // KrnlDefineLoopsOp
 //===----------------------------------------------------------------------===//
 
-void KrnlDefineLoopsOp::build(Builder *builder, OperationState &result,
-                              int64_t num_loops) {
+void KrnlDefineLoopsOp::build(
+    Builder *builder, OperationState &result, int64_t num_loops) {
   // Create the same number of dimension handlers as the number of
   // dimensions in the associated integer set.
   result.types.append(num_loops, LoopType::get(builder->getContext()));
-  result.addAttribute(getNumLoopsAttrName(),
-                      builder->getI32IntegerAttr(num_loops));
+  result.addAttribute(
+      getNumLoopsAttrName(), builder->getI32IntegerAttr(num_loops));
 }
 
 void print(OpAsmPrinter &p, KrnlDefineLoopsOp &op) {
@@ -61,15 +61,14 @@ void print(OpAsmPrinter &p, KrnlDefineLoopsOp &op) {
   p << "krnl.define_loops " << numLoopAttr.getValue().getSExtValue();
 }
 
-ParseResult parseKrnlDefineLoopsOp(OpAsmParser &parser,
-                                   OperationState &result) {
+ParseResult parseKrnlDefineLoopsOp(
+    OpAsmParser &parser, OperationState &result) {
   // Parse the attribute indicating number of loops defined.
   IntegerAttr numLoops;
   auto &builder = parser.getBuilder();
   auto intType = builder.getIntegerType(64);
   if (parser.parseAttribute(numLoops, intType,
-                            KrnlDefineLoopsOp::getNumLoopsAttrName(),
-                            result.attributes))
+          KrnlDefineLoopsOp::getNumLoopsAttrName(), result.attributes))
     return failure();
 
   auto loopTypes = llvm::SmallVector<Type, 4>(
@@ -82,10 +81,10 @@ ParseResult parseKrnlDefineLoopsOp(OpAsmParser &parser,
 // KrnlOptimizeLoopsOp
 //===----------------------------------------------------------------------===//
 
-void KrnlOptimizeLoopsOp::build(Builder *builder, OperationState &result,
-                                int num_optimized_loops) {
-  result.types.append(num_optimized_loops,
-                      LoopType::get(builder->getContext()));
+void KrnlOptimizeLoopsOp::build(
+    Builder *builder, OperationState &result, int num_optimized_loops) {
+  result.types.append(
+      num_optimized_loops, LoopType::get(builder->getContext()));
   // Create a region and a block for the body.
   // Schedule intrinsics will be placed into this region.
   Region *region = result.addRegion();
@@ -96,13 +95,13 @@ void KrnlOptimizeLoopsOp::build(Builder *builder, OperationState &result,
 void print(OpAsmPrinter &p, KrnlOptimizeLoopsOp &op) {
   p << "krnl.optimize_loops ";
   p.printRegion(op.region(), /*printEntryBlockArgs=*/false,
-                /*printBlockTerminators=*/true);
+      /*printBlockTerminators=*/true);
   p << " : ";
   p.printFunctionalType(op);
 }
 
-ParseResult parseKrnlOptimizeLoopsOp(OpAsmParser &parser,
-                                     OperationState &result) {
+ParseResult parseKrnlOptimizeLoopsOp(
+    OpAsmParser &parser, OperationState &result) {
   // Parse the schedule body region.
   Region *region = result.addRegion();
   if (parser.parseRegion(*region, llvm::None, llvm::None))
@@ -146,14 +145,13 @@ ParseResult parseKrnlOptimizeLoopsOp(OpAsmParser &parser,
  *   %i0 = 10 to N : %i1 = M to 20
  */
 void KrnlIterateOp::build(Builder *builder, OperationState &result,
-                          KrnlIterateOperandPack operandPack) {
+    KrnlIterateOperandPack operandPack) {
   // Record optimized loops and the number of such loops.
   result.addOperands(operandPack.getOperands());
-  result.addAttribute(KrnlIterateOp::getBoundsAttrName(),
-                      operandPack.getAttributes());
-
   result.addAttribute(
-      getNumOptimizedLoopsAttrName(),
+      KrnlIterateOp::getBoundsAttrName(), operandPack.getAttributes());
+
+  result.addAttribute(getNumOptimizedLoopsAttrName(),
       builder->getI64IntegerAttr(operandPack.getNumOptimizedLoops()));
 
   // Create a region and a block for the body. The arguments of the region are
@@ -190,15 +188,17 @@ void print(OpAsmPrinter &p, KrnlIterateOp &op) {
     p << " -> ";
     p.printOperand(var);
     p << " = ";
-    onnx_mlir::printBound((*boundItr++).cast<AffineMapAttr>(), operandItr, "max", p);
+    onnx_mlir::printBound(
+        (*boundItr++).cast<AffineMapAttr>(), operandItr, "max", p);
     p << " to ";
-    onnx_mlir::printBound((*boundItr++).cast<AffineMapAttr>(), operandItr, "min", p);
+    onnx_mlir::printBound(
+        (*boundItr++).cast<AffineMapAttr>(), operandItr, "min", p);
     delimiter = ", ";
   }
 
   p << ")";
   p.printRegion(op.bodyRegion(), /*printEntryBlockArgs=*/false,
-                /*printBlockTerminators=*/false);
+      /*printBlockTerminators=*/false);
 }
 
 ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
@@ -208,16 +208,15 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
 
   // Parse optimized loops:
   SmallVector<OpAsmParser::OperandType, 4> optimizedLoopRefs;
-  if (parser.parseOperandList(optimizedLoopRefs,
-                              OpAsmParser::Delimiter::Paren) ||
+  if (parser.parseOperandList(
+          optimizedLoopRefs, OpAsmParser::Delimiter::Paren) ||
       parser.resolveOperands(optimizedLoopRefs,
-                             LoopType::get(result.getContext()),
-                             result.operands))
+          LoopType::get(result.getContext()), result.operands))
     return failure();
 
   // Record how many optimized loops did we parse.
   result.addAttribute(KrnlIterateOp::getNumOptimizedLoopsAttrName(),
-                      builder.getI64IntegerAttr(optimizedLoopRefs.size()));
+      builder.getI64IntegerAttr(optimizedLoopRefs.size()));
 
   // Parse input loops and their lower and upper bounds.
   SmallVector<OpAsmParser::OperandType, 4> inductionVarRefs;
@@ -227,16 +226,16 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
     return failure();
 
   // A function to parse a lower or upper bound.
-  auto parseBound = [&result, &builder, &parser, &operandParser,
-                     &boundMaps](bool isUpper) -> ParseResult {
+  auto parseBound = [&result, &builder, &parser, &operandParser, &boundMaps](
+                        bool isUpper) -> ParseResult {
     // 'min' / 'max' prefixes are generally syntactic sugar, but are required if
     // the map has multiple results.
     bool failedToParsedMinMax =
         failed(parser.parseOptionalKeyword(isUpper ? "min" : "max"));
 
     // Try parse an SSA operand.
-    if (succeeded(operandParser.ParseOptionalOperand(builder.getIndexType(),
-                                                     result.operands))) {
+    if (succeeded(operandParser.ParseOptionalOperand(
+            builder.getIndexType(), result.operands))) {
       AffineMap map = builder.getSymbolIdentityMap();
       boundMaps.emplace_back(AffineMapAttr::get(map));
       return success();
@@ -248,8 +247,8 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
     llvm::SMLoc attrLoc = parser.getCurrentLocation();
     Attribute boundAttr;
     llvm::SmallVector<NamedAttribute, 1> tempBoundAttrContainer;
-    if (parser.parseAttribute(boundAttr, builder.getIndexType(), "temp",
-                              tempBoundAttrContainer))
+    if (parser.parseAttribute(
+            boundAttr, builder.getIndexType(), "temp", tempBoundAttrContainer))
       return failure();
 
     if (auto affineMapAttr = boundAttr.dyn_cast<AffineMapAttr>()) {
@@ -260,15 +259,13 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
 
       auto map = affineMapAttr.getValue();
       if (map.getNumDims() != numDims)
-        return parser.emitError(
-            parser.getNameLoc(),
+        return parser.emitError(parser.getNameLoc(),
             "dim operand count and integer set dim count must match");
 
       unsigned numDimAndSymbolOperands =
           result.operands.size() - currentNumOperands;
       if (numDims + map.getNumSymbols() != numDimAndSymbolOperands)
-        return parser.emitError(
-            parser.getNameLoc(),
+        return parser.emitError(parser.getNameLoc(),
             "symbol operand count and integer set symbol count must match");
 
       // If the map has multiple results, make sure that we parsed the min/max
@@ -276,11 +273,11 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
       if (map.getNumResults() > 1 && failedToParsedMinMax) {
         if (isUpper)
           return parser.emitError(attrLoc,
-                                  "upper loop bound affine map with multiple "
-                                  "results requires 'min' prefix");
+              "upper loop bound affine map with multiple "
+              "results requires 'min' prefix");
         return parser.emitError(attrLoc,
-                                "lower loop bound affine mapwith "
-                                "multiple results requires 'max' prefix");
+            "lower loop bound affine mapwith "
+            "multiple results requires 'max' prefix");
       }
       boundMaps.emplace_back(AffineMapAttr::get(map));
       return success();
@@ -293,8 +290,7 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
     }
   };
 
-  bool keepParsing; // Do we keep parsing loops/bounds?
-  do {
+  while (failed(parser.parseOptionalRParen())) {
     // Parse an input loop operand;
     operandParser.ParseOperand(LoopType::get(context), result.operands);
     parser.parseArrow();
@@ -316,25 +312,25 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
     // be parsed as an operand list.
     parser.parseOptionalComma();
 
-    // If we don't see a RParen token, we keep parsing.
-    keepParsing = failed(parser.parseOptionalRParen());
-  } while (keepParsing);
+    //    // If we don't see a RParen token, we keep parsing.
+    //    keepParsing = failed(parser.parseOptionalRParen());
+  }
 
   // At this point, there shouldn't be any operands left to parse.
   if (operandParser.hasOperandLeft())
     return parser.emitError(parser.getCurrentLocation());
-  result.addAttribute(KrnlIterateOp::getBoundsAttrName(),
-                      builder.getArrayAttr(boundMaps));
+  result.addAttribute(
+      KrnlIterateOp::getBoundsAttrName(), builder.getArrayAttr(boundMaps));
 
   Region *region = result.addRegion();
-  SmallVector<Type, 4> inductionVarTypes(inductionVarRefs.size(),
-                                         builder.getIndexType());
+  SmallVector<Type, 4> inductionVarTypes(
+      inductionVarRefs.size(), builder.getIndexType());
   if (parser.parseRegion(*region, inductionVarRefs, inductionVarTypes))
     return failure();
 
   // Ensure iterate region is closed off with krnl.terminate.
-  KrnlIterateOp::ensureTerminator(*region, parser.getBuilder(),
-                                  result.location);
+  KrnlIterateOp::ensureTerminator(
+      *region, parser.getBuilder(), result.location);
 
   return success();
 }
@@ -353,22 +349,20 @@ void print(OpAsmPrinter &p, KrnlReturnLoopsOp &op) {
   p.printOperands(op.operand_begin(), op.operand_end());
 }
 
-ParseResult parseKrnlReturnLoopsOp(OpAsmParser &parser,
-                                   OperationState &result) {
+ParseResult parseKrnlReturnLoopsOp(
+    OpAsmParser &parser, OperationState &result) {
   // Parse the loops to return.
   SmallVector<OpAsmParser::OperandType, 4> timestamp_dim_handlers;
   if (parser.parseOperandList(timestamp_dim_handlers) ||
       parser.resolveOperands(timestamp_dim_handlers,
-                             LoopType::get(result.getContext()),
-                             result.operands))
+          LoopType::get(result.getContext()), result.operands))
     return failure();
 
   return success();
 }
 
 void KrnlEntryPointOp::build(mlir::Builder *builder, OperationState &state,
-                             SymbolRefAttr funcAttr, IntegerAttr numInputs,
-                             IntegerAttr numOutputs) {
+    SymbolRefAttr funcAttr, IntegerAttr numInputs, IntegerAttr numOutputs) {
   state.addAttribute(KrnlEntryPointOp::getEntryPointFuncAttrName(), funcAttr);
   state.addAttribute(KrnlEntryPointOp::getNumInputsAttrName(), numInputs);
   state.addAttribute(KrnlEntryPointOp::getNumOutputsAttrName(), numOutputs);
