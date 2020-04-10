@@ -98,7 +98,6 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
 
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let hasCanonicalizer = 1;
   let summary = "ONNX MaxPool operation with a single output.";
   let description = [{
     "ONNX MaxPool operation with a single output."

@@ -156,21 +156,21 @@ def ConvOpPaddingPattern: Pat<
 // MLIR hasn't supported checking if a Value is NaN or not in MLIR?
 // The use of NaNs might not be necessary once we implement padding directly
 // in the lowering code.
-def AveragePoolOpPaddingPattern: Pat<
-  (ONNXAveragePoolOp:$res
-     $x,
-     $auto_pad, $ceil_mode, $count_include_pad, $kernel_shape,
-     $pads,
-     $strides),
-  (ONNXAveragePoolOp
-     (ONNXPadConstantValuePadOp $x,
-        (insertZerosForNonPaddedDims<2> $pads),
-        (getPadValueForAveragePool $res, $count_include_pad),
-        (StringAttrOfValue<"constant">)),
-     $auto_pad, $ceil_mode, $count_include_pad, $kernel_shape,
-     (createArrayAttrOfZerosFrom $pads),
-     $strides),
-  [(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
->;
+//def AveragePoolOpPaddingPattern: Pat<
+//  (ONNXAveragePoolOp:$res
+//     $x,
+//     $auto_pad, $ceil_mode, $count_include_pad, $kernel_shape,
+//     $pads,
+//     $strides),
+//  (ONNXAveragePoolOp
+//     (ONNXPadConstantValuePadOp $x,
+//        (insertZerosForNonPaddedDims<2> $pads),
+//        (getPadValueForAveragePool $res, $count_include_pad),
+//        (StringAttrOfValue<"constant">)),
+//     $auto_pad, $ceil_mode, $count_include_pad, $kernel_shape,
+//     (createArrayAttrOfZerosFrom $pads),
+//     $strides),
+//  [(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
+//>;
 
 #endif // ONNX_REWRITE

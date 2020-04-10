@@ -8,6 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/AffineExpr.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
@@ -63,10 +64,11 @@ std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
       isDefaultDilations = false;
     dilations.emplace_back(dilationValue);
   }
-  if (isDefaultDilations)
-    return {};
-  else
-    return dilations;
+  return dilations;
+  // if (isDefaultDilations)
+  //  return {};
+  // else
+  //  return dilations;
 }
 
 //===----------------------------------------------------------------------===//
@@ -89,22 +91,28 @@ bool getCountIncludePad<ONNXAveragePoolOp>(ONNXAveragePoolOp poolOp) {
 template <typename PoolOp>
 void doPostProcessingForPooling(ConversionPatternRewriter &rewriter,
     Location loc, PoolOp poolOp, Value alloc, ArrayRef<Value> resultIndices,
-    Value numOfOutOfBoundPixels, Value numOfNonPadPixels) {}
+    std::vector<Value> fwDim, std::vector<Value> fwStart,
+    std::vector<Value> fwEnd) {}
 
 // Calculate the average value for AveragePool.
 template <>
 void doPostProcessingForPooling<ONNXAveragePoolOp>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXAveragePoolOp poolOp,
-    Value alloc, ArrayRef<Value> resultIndices, Value numOfOutOfBoundPixels,
-    Value numOfNonPadPixels) {
+    Value alloc, ArrayRef<Value> resultIndices, std::vector<Value> fwDim,
+    std::vector<Value> fwStart, std::vector<Value> fwEnd) {
   // AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
-  Value denominator = rewriter.create<LoadOp>(loc, numOfNonPadPixels);
-  Value numOfOutOfBoundPixelsVal =
-      rewriter.create<LoadOp>(loc, numOfOutOfBoundPixels);
-  denominator =
-      rewriter.create<SubFOp>(loc, denominator, numOfOutOfBoundPixelsVal);
-  auto numerator = rewriter.create<LoadOp>(loc, alloc, resultIndices);
-  auto average = rewriter.create<DivFOp>(loc, numerator, denominator);
+  Value numerator = rewriter.create<LoadOp>(loc, alloc, resultIndices);
+  Value denominator = fwDim[0];
+  for (int i = 1; i < fwDim.size(); ++i)
+    denominator = rewriter.create<MulIOp>(loc, denominator, fwDim[i]);
+
+  Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+  Value isGreaterThanZero =
+      rewriter.create<CmpIOp>(loc, CmpIPredicate::sgt, denominator, zero);
+
+  Value average = rewriter.create<SelectOp>(loc, isGreaterThanZero,
+      rewriter.create<DivFOp>(loc, numerator, denominator), numerator);
+
   rewriter.create<StoreOp>(loc, average, alloc, resultIndices);
 }
 
@@ -194,6 +202,86 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return alloc;
+}
+
+// Helper function to prepare the information about the filter window.
+static void getFilterWindowInfo(ConversionPatternRewriter &rewriter,
+    Location loc, ArrayRef<Value> spatialIndices, ArrayRef<Value> spatialDims,
+    ArrayRef<int64_t> kernelShape, ArrayRef<int64_t> pads,
+    ArrayRef<int64_t> strides, ArrayRef<int64_t> dilations, bool ceilMode,
+    std::vector<Value> &fwDim, std::vector<Value> &fwStart,
+    std::vector<Value> &fwEnd) {
+  // Thanks to Tian (@tjingrant) for the following derivation.
+  // When dilation is non-unit, the first valid pixel to
+  // apply pooling on will not be the 0-th pixel, but rather
+  // the smallest integer n to make -pH + n * dH greater than
+  // or equal to 0.
+  //
+  // We derive what is this smallest n:
+  // -pH + n * dH >= 0
+  //       dH * n >= pH
+  //            n >= pH/dH
+  // thus n = ceil(pH/dH)
+  // thus the first valid pixel location is
+  // ceil(pH / dilation) * dilation - pH
+  //
+  // first_valid_h = ceil(float(pH / dH)) * dH - pH
+  // start_h = max(first_valid_h, ho * sH - pH)
+  // end_h = min(H, ho * sH + kH * dH - pH)
+  // h_count = round(float(end_h - start_h) / float(dH))
+
+  for (int i = 0; i < spatialIndices.size(); ++i) {
+    // Compute startIndex and endIndex for the current dimension.
+    Value firstValid = emitConstantOp(rewriter, loc, rewriter.getIndexType(),
+        (dilations.empty())
+            ? -pads[i]
+            : (int)ceil((float)pads[i] - dilations[i]) * dilations[i]);
+    Value minusPad =
+        emitConstantOp(rewriter, loc, rewriter.getIndexType(), -pads[i]);
+    Value stride =
+        emitConstantOp(rewriter, loc, rewriter.getIndexType(), strides[i]);
+
+    Value startIndex = rewriter.create<AddIOp>(
+        loc, rewriter.create<MulIOp>(loc, spatialIndices[i], stride), minusPad);
+    Value endIndex = startIndex;
+    if (!dilations.empty())
+      endIndex = rewriter.create<AddIOp>(loc, startIndex,
+          emitConstantOp(rewriter, loc, rewriter.getIndexType(),
+              kernelShape[i] * dilations[i]));
+
+    Value maxCondition = rewriter.create<CmpIOp>(
+        loc, CmpIPredicate::sgt, firstValid, startIndex);
+    startIndex =
+        rewriter.create<SelectOp>(loc, maxCondition, firstValid, startIndex);
+    fwStart.emplace_back(startIndex);
+
+    Value minCondition = rewriter.create<CmpIOp>(
+        loc, CmpIPredicate::slt, spatialDims[i], endIndex);
+    endIndex =
+        rewriter.create<SelectOp>(loc, minCondition, spatialDims[i], endIndex);
+    fwEnd.emplace_back(endIndex);
+
+    // Compute dimension value.
+    Value dim = rewriter.create<SubIOp>(loc, endIndex, startIndex);
+    if (!dilations.empty()) {
+      Value numerator = dim;
+      Value denominator =
+          emitConstantOp(rewriter, loc, rewriter.getIndexType(), dilations[i]);
+      dim = rewriter.create<SignedDivIOp>(loc, numerator, denominator);
+
+      if (ceilMode) {
+        auto remainder =
+            rewriter.create<SignedRemIOp>(loc, numerator, denominator);
+        auto zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+        auto one = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
+        auto isZero =
+            rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, remainder, zero);
+        auto dimPlusOne = rewriter.create<AddIOp>(loc, dim, one);
+        dim = rewriter.create<SelectOp>(loc, isZero, dim, dimPlusOne);
+      }
+    }
+    fwDim.emplace_back(dim);
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -288,7 +376,6 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
     // Read count_include_pad attribute if the op has.
     bool countIncludePad = getCountIncludePad<PoolOp>(poolOp);
-
     // Type information about the input and result of this operation.
     auto inputOperand = operandAdaptor.X();
     auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
@@ -345,27 +432,54 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //     - do nothing in case of MaxPool
     //     - calculate the average in case of AveragePool
     //
-    // TODO: handle padding.
+    // for n in range(N):
+    //   for c in range(C):
+    //     for ho in range(H_out):
+    //       for wo in range(W_out):
+    //         # When dilation is non-unit, the first valid pixel to
+    //         # apply pooling on will not be the 0-th pixel, but rather
+    //         # the smallest integer n to make -pH + n * 3 greater than
+    //         # or equal to 0.
     //
+    //         # We derive what is this smallest n:
+    //         # -pH + n * 3 >= 0
+    //         #          3n >= pH
+    //         #           n >= pH/3
+    //         # thus n = ceil(pH/3)
+    //         # thus the first valid pixel location is
+    //         # ceil(pH / dilation) * dilation - pH
+    //
+    //         first_valid_h = ceil(float(pH / dH)) * dH - pH
+    //         start_h = max(first_valid_h, ho * sH - pH)
+    //         end_h = min(H, ho * sH + kH * dH - pH)
+    //
+    //         first_valid_w = ceil(float(pW / dW)) * dW - pW
+    //         start_w = max(first_valid_h, wo * sW - pW)
+    //         end_w = min(W, wo * sW + kW * dW - pW)
+    //
+    //         h_count = round(float(end_h - start_h) / float(dH))
+    //         w_count = round(float(end_w - start_w) / float(dW))
+    //
+    //         for hi in range(start_h, end_h, dH):
+    //           for wi in range(start_w, end_w, dW):
+    //             pooled[n, c, ho, wo] += imgs[n, c, hi, wi]
+    //
+    //         # The above for loops are implemented as follows
+    //         # since KrnlIterateOp has not supported `step` yet.
+    //         for khi in range(h_count):
+    //           for kwi in range(w_count):
+    //             hi = khi * dH + start_h
+    //             wi = kwi * dW + start_w
+    //             pooled[n, c, ho, wo] += imgs[n, c, hi, wi]
+    //
+    //         # Compute the divisor for average pooling:
+    //
+    //         if h_count * w_count > 0:
+    //           pooled[n, c, ho, wo] = pooled[n, c, ho, wo] / (h_count *
+    //           w_count)
 
     // Identity value of the operation.
     auto identity = getIdentityValue<PoolOp>(rewriter, loc, resultElementType);
-
-    // NaN value for pad pixels if count_include_pad = 0 (disabled).
-    // auto nan = emitConstantOp(rewriter, loc, resultElementType,
-    //     APFloat::getQNaN(APFloat::IEEEdouble()).convertToDouble());
-    // The current implementation uses the negative infinity since it seems that
-    // MLIR hasn't supported checking if a Value is NaN or not in MLIR?
-    // TODO (tung): Find out how to check equality against NaNs.
-    auto nan = emitNegativeInfinityConstantOp(rewriter, loc, resultElementType);
-
-    // Record the number of pixels that are out-of-bound.
-    Value numOfOutOfBoundPixels = rewriter.create<AllocOp>(
-        loc, MemRefType::get({}, resultElementType, {}, 0));
-
-    // Record the number of non-pad pixels.
-    Value numOfNonPadPixels = rewriter.create<AllocOp>(
-        loc, MemRefType::get({}, resultElementType, {}, 0));
 
     // 1. Define outer loops and emit empty optimization block.
     // for n = 0 .. N:
@@ -388,24 +502,83 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // 2.1 Emit: R[n][c][r1][r2] = identity;
       rewriter.create<StoreOp>(loc, identity, alloc, resultIndices);
 
-      // 2.2 Reset numOfOutOfBoundPixels, numOfNonPadPixels.
-      Value zero = emitConstantOp(rewriter, loc, resultElementType, 0);
-      rewriter.create<StoreOp>(loc, zero, numOfOutOfBoundPixels);
-      int64_t kernelSize = 1;
-      for (int i = 0; i < kernelShape.size(); ++i)
-        kernelSize *= kernelShape[i];
-      auto kernelSizeVal =
-          emitConstantOp(rewriter, loc, resultElementType, kernelSize);
-      rewriter.create<StoreOp>(loc, kernelSizeVal, numOfNonPadPixels);
+      // 2.2 Compute the filter window.
+      SmallVector<Value, 4> spatialIndices;
+      for (int i = 2; i < nOuterLoops; ++i)
+        spatialIndices.emplace_back(outerLoops.getInductionVar(i));
+      SmallVector<Value, 4> spatialDims;
+      for (int i = 2; i < nOuterLoops; ++i) {
+        Value dim;
+        if (resultShape[i] < 0) {
+          dim = rewriter.create<DimOp>(loc, alloc, i);
+        } else {
+          dim = emitConstantOp(
+              rewriter, loc, rewriter.getIndexType(), resultShape[i]);
+        }
+        spatialDims.emplace_back(dim);
+      }
+      std::vector<Value> fwDim, fwStart, fwEnd;
+      getFilterWindowInfo(rewriter, loc, spatialIndices, spatialDims,
+          kernelShape, pads, strides, dilations, ceilMode, fwDim, fwStart,
+          fwEnd);
+
+      // Compute AffineMap which expresses the upper bounds for the filter
+      // window's dimensions.
+      AffineExpr hoExpr = rewriter.getAffineDimExpr(0);
+      AffineExpr H = rewriter.getAffineSymbolExpr(0);
+      AffineExpr K = rewriter.getAffineSymbolExpr(1);
+      AffineExpr P = rewriter.getAffineSymbolExpr(2);
+      AffineExpr S = rewriter.getAffineSymbolExpr(3);
+      AffineExpr D = rewriter.getAffineSymbolExpr(4);
+
+      AffineExpr start1 = P.ceilDiv(D) - P;
+      AffineExpr start2 = hoExpr * S - P;
+      AffineExpr end1 = H;
+      AffineExpr end2 = hoExpr * S + K * D - P;
+
+      SmallVector<AffineExpr, 4> dimExpr;
+      dimExpr.emplace_back((ceilMode) ? (end1 - start1).ceilDiv(D)
+                                      : (end1 - start1).floorDiv(D));
+      dimExpr.emplace_back((ceilMode) ? (end1 - start2).ceilDiv(D)
+                                      : (end1 - start2).floorDiv(D));
+      dimExpr.emplace_back((ceilMode) ? (end2 - start1).ceilDiv(D)
+                                      : (end2 - start1).floorDiv(D));
+      dimExpr.emplace_back((ceilMode) ? (end2 - start2).ceilDiv(D)
+                                      : (end2 - start2).floorDiv(D));
+      AffineMap dimMap = AffineMap::get(1, 5, dimExpr);
+
+      // Dimensions and symbols for the affine map.
+      SmallVector<SmallVector<Value, 4>, 4> dimAndSyms;
+      for (int i = 0; i < spatialIndices.size(); ++i) {
+        SmallVector<Value, 4> dimAndSym;
+        // d0
+        dimAndSym.emplace_back(spatialIndices[i]);
+        // s0
+        dimAndSym.emplace_back(spatialDims[i]);
+        // s1
+        dimAndSym.emplace_back(emitConstantOp(
+            rewriter, loc, rewriter.getIndexType(), kernelShape[i]));
+        // s2
+        dimAndSym.emplace_back(
+            emitConstantOp(rewriter, loc, rewriter.getIndexType(), pads[i]));
+        // s3
+        dimAndSym.emplace_back(
+            emitConstantOp(rewriter, loc, rewriter.getIndexType(), strides[i]));
+        // s4
+        dimAndSym.emplace_back(emitConstantOp(
+            rewriter, loc, rewriter.getIndexType(), dilations[i]));
+        dimAndSyms.emplace_back(dimAndSym);
+      }
 
       // 2.3 Define inner loops.
-      //   for k1 = 0 .. KH:
-      //     for k2 = 0 .. KW:
-      int nInnerLoops = kernelShape.size();
+      //   for k1 = 0 .. FH:
+      //     for k2 = 0 .. FW:
+      int nInnerLoops = spatialIndices.size();
       BuildKrnlLoop innerLoops(rewriter, loc, nInnerLoops);
       innerLoops.createDefineAndOptimizeOp();
       for (int i = 0; i < nInnerLoops; ++i)
-        innerLoops.pushBounds(0, kernelShape[i]);
+        innerLoops.pushAffineMapBounds(
+            0, dimMap, llvm::makeArrayRef(dimAndSyms[i]));
 
       // 2.4 Emit inner loop nest.
       innerLoops.createIterateOp();
@@ -414,104 +587,27 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
       {
         std::vector<Value> dataIndices;
-        // Compute data index for the result index.
-        getDataIndicesForPooling(rewriter, loc, dataIndices, outerLoops,
-            innerLoops, pads, strides, dilations, ceilMode);
-
-        // Check whether the data index is out-of-bound or not? This happens
-        // when ceil mode or dilation is enabled.
-        // // Example of out-of-bound.
-        // - Given a 5x5 input X
-        //  X = [[0, 0, 0, 0, 0],
-        //       [1, 1, 1, 1, 1],
-        //       [2, 2, 2, 2, 2],
-        //       [3, 3, 3, 3, 3],
-        //       [4, 4, 4, 4, 4]]
-        // - Do MaxPool with strides=[2, 2], kernel=[2, 2], ceilMode=true,
-        // output is a 3x3 array:
-        // Y = [[1, 1, 1],
-        //      [3, 3, 3],
-        //      [4, 4, 4]]
-        // - When computing Y[2, 0]:
-        //    - In case of kernelIndex = 1, stride = 2
-        //      - No dilation: spatialIndex = 2 * 2 + 1 = 5
-        //        => out of bound
-        //      - dilation = 2: spatialIndex = 2 * 2 + 2 * 1 = 6
-        //        => out of bound
-
-        // Here, we compute a boolean value, outOfBound, by taking OR of
-        // constraints about dataIndices.
-        // oufOfBound =
-        //   (dataIndex0 >= inputDim0) OR (dataIndex1 >= inputDim1) OR ...
-        //
-        // Another approach is using affine.if. However, dimensions and symbols
-        // for affine.if are limited to the result of a constant operation, a
-        // dim operation, or an affine.apply operation:
-        // https://github.com/llvm/llvm-project/blob/master/mlir/docs/Dialects/Affine.md#restrictions-on-dimensions-and-symbols.
-        // Meanwhile, dataIndices are computed from other indices, which can not
-        // be passed to affine.if. Hence, we do not use affine.if here.
-        //
-        Value outOfBound;
-        if (isDilated or ceilMode) {
-          for (int i = 2; i < dataIndices.size(); ++i) {
-            Value upperIndex;
-            if (inputShape[i] < 0) {
-              upperIndex = rewriter.create<DimOp>(loc, inputOperand, i);
-            } else {
-              upperIndex = rewriter.create<ConstantIndexOp>(loc, inputShape[i]);
-            }
-            if (outOfBound) {
-              auto next = rewriter.create<CmpIOp>(
-                  loc, CmpIPredicate::sge, dataIndices[i], upperIndex);
-              outOfBound = rewriter.create<OrOp>(loc, outOfBound, next);
-            } else {
-              outOfBound = rewriter.create<CmpIOp>(
-                  loc, CmpIPredicate::sge, dataIndices[i], upperIndex);
-            }
-          }
-          // Count the number of out-of-bound indices.
-          if (outOfBound) {
-            Value loadCount =
-                rewriter.create<LoadOp>(loc, numOfOutOfBoundPixels);
-            auto one = emitConstantOp(rewriter, loc, resultElementType, 1);
-            if (resultElementType.isa<FloatType>())
-              loadCount = rewriter.create<SelectOp>(loc, outOfBound,
-                  rewriter.create<AddFOp>(loc, loadCount, one), loadCount);
-            else
-              loadCount = rewriter.create<SelectOp>(loc, outOfBound,
-                  rewriter.create<AddIOp>(loc, loadCount, one), loadCount);
-            rewriter.create<StoreOp>(loc, loadCount, numOfOutOfBoundPixels);
+        // Compute data indices.
+        for (int i = 0; i < 2; ++i)
+          dataIndices.emplace_back(resultIndices[i]);
+        for (int i = 0; i < nInnerLoops; ++i) {
+          if (!dilations.empty()) {
+            // hi = khi * dH + start_h
+            Value dilation = emitConstantOp(
+                rewriter, loc, rewriter.getIndexType(), dilations[i]);
+            Value index = rewriter.create<MulIOp>(
+                loc, innerLoops.getInductionVar(i), dilation);
+            index = rewriter.create<AddIOp>(loc, index, fwStart[i]);
+            dataIndices.emplace_back(index);
+          } else {
+            // hi = khi + start_h
+            dataIndices.emplace_back(rewriter.create<AddIOp>(
+                loc, innerLoops.getInductionVar(i), fwStart[i]));
           }
         }
 
         Value loadData =
             rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
-
-        // Use the identity value for out-of-bound pixels.
-        if (outOfBound)
-          loadData =
-              rewriter.create<SelectOp>(loc, outOfBound, identity, loadData);
-
-        // In case of AveragePool, if count_include_pad is off, we need to count
-        // the number of non-pad pixels.
-        // We follow ONNX convention that non-pad pixels have NaN values when
-        // count_include_pad is off:
-        // https://github.com/onnx/onnx/blob/master/onnx/backend/test/case/node/pool_op_common.py#L73
-        if (llvm::dyn_cast<ONNXAveragePoolOp>(op) &&
-            resultElementType.isa<FloatType>() && !countIncludePad) {
-          auto isNonPad =
-              rewriter.create<CmpFOp>(loc, CmpFPredicate::ONE, loadData, nan);
-          Value loadCount = rewriter.create<LoadOp>(loc, numOfNonPadPixels);
-          auto one = emitConstantOp(rewriter, loc, resultElementType, 1);
-          loadCount = rewriter.create<SelectOp>(loc, isNonPad, loadCount,
-              rewriter.create<SubFOp>(loc, loadCount, one));
-          rewriter.create<StoreOp>(loc, loadCount, numOfNonPadPixels);
-          // Update the loaded data from NaN to the identity value.
-          loadData =
-              rewriter.create<SelectOp>(loc, isNonPad, loadData, identity);
-        }
-
-        // Do pooling.
         Value loadPartialResult =
             rewriter.create<LoadOp>(loc, alloc, resultIndices);
         Value result = emitScalarOpFor<ONNXMaxPoolSingleOutOp>(rewriter, loc,
@@ -521,16 +617,12 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
       // 2.5 Post-processing in the outer loop nest, e.g. taking average.
       rewriter.restoreInsertionPoint(ipOuterLoops);
-      doPostProcessingForPooling<PoolOp>(rewriter, loc, poolOp, alloc,
-          resultIndices, numOfOutOfBoundPixels, numOfNonPadPixels);
+      doPostProcessingForPooling<PoolOp>(
+          rewriter, loc, poolOp, alloc, resultIndices, fwDim, fwStart, fwEnd);
     }
 
     // Go back to the main region.
     rewriter.restoreInsertionPoint(ipMainRegion);
-
-    // Clean temporary variables.
-    rewriter.create<DeallocOp>(loc, numOfOutOfBoundPixels);
-    rewriter.create<DeallocOp>(loc, numOfNonPadPixels);
 
     rewriter.replaceOp(op, alloc);
 

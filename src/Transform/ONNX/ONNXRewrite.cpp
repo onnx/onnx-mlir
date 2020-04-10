@@ -86,16 +86,16 @@ FloatAttr getPadValueForAveragePool(
 } // end anonymous namespace
 
 /// on the ONNXMaxPoolSingleOutOp.
-void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<MaxPoolSingleOutOpPaddingPattern>(context);
-}
+//void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
+//    OwningRewritePatternList &results, MLIRContext *context) {
+//  results.insert<MaxPoolSingleOutOpPaddingPattern>(context);
+//}
 
 /// on the ONNXAveragePoolOp.
-void ONNXAveragePoolOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<AveragePoolOpPaddingPattern>(context);
-}
+//void ONNXAveragePoolOp::getCanonicalizationPatterns(
+//    OwningRewritePatternList &results, MLIRContext *context) {
+//  results.insert<AveragePoolOpPaddingPattern>(context);
+//}
 
 /// on the ONNXConvOp.
 void ONNXConvOp::getCanonicalizationPatterns(
