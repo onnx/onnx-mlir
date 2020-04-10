@@ -61,6 +61,7 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 // 4. type of string, complex64 and complex128 for input/output are ignored 
 // 5. unsigned int are treated as signed one
 
+include "mlir/Interfaces/SideEffects.td"
 include "src/Dialect/ONNX/ONNXOps.td.inc"
 
 // Indicate entry point functions of ONNX graph.

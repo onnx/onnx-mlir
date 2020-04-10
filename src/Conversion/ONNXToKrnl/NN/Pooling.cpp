@@ -32,12 +32,11 @@ struct ScalarOp<ONNXAveragePoolOp> {
 };
 
 template <>
-Value mapToLowerScalarOp<ONNXMaxPoolSingleOutOp>(Operation *op,
-    ArrayRef<Type> result_types, ArrayRef<Value> operands,
-    ConversionPatternRewriter &rewriter) {
-  auto loc = op->getLoc();
-  Value lhs = operands[0];
-  Value rhs = operands[1];
+Value emitScalarOpFor<ONNXMaxPoolSingleOutOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Operation *op,
+    Type elementType, ArrayRef<Value> scalarOperands) {
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
   auto max = rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
   auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
   return result;
@@ -512,10 +511,12 @@ struct ONNXPoolOpLowering : public ConversionPattern {
               rewriter.create<SelectOp>(loc, isNonPad, loadData, identity);
         }
 
-        Value loadResult = rewriter.create<LoadOp>(loc, alloc, resultIndices);
-        auto nextResult = mapToLowerScalarOp<PoolOp>(
-            op, resultElementType, {loadResult, loadData}, rewriter);
-        rewriter.create<StoreOp>(loc, nextResult, alloc, resultIndices);
+        // Do pooling.
+        Value loadPartialResult =
+            rewriter.create<LoadOp>(loc, alloc, resultIndices);
+        Value result = emitScalarOpFor<ONNXMaxPoolSingleOutOp>(rewriter, loc,
+            op, resultElementType, {loadPartialResult, loadData});
+        rewriter.create<StoreOp>(loc, result, alloc, resultIndices);
       }
 
       // 2.5 Post-processing in the outer loop nest, e.g. taking average.
