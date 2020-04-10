@@ -149,6 +149,15 @@ void KrnlIterateOperandPack::pushOperandBound(Value operand) {
   _operands.emplace_back(operand);
 }
 
+void KrnlIterateOperandPack::pushAffineMapBound(
+    AffineMap map, ArrayRef<Value> operands) {
+  if (boundMaps.size() % 2 == 0)
+    _operands.emplace_back(inputLoops[boundMaps.size() / 2]);
+  boundMaps.emplace_back(AffineMapAttr::get(map));
+  for (auto operand : operands)
+    _operands.emplace_back(operand);
+}
+
 BuildKrnlLoop::BuildKrnlLoop(
     ConversionPatternRewriter &rewriter, Location loc, int loopNum)
     : rewriter(rewriter), loc(loc), originalLoopNum(loopNum), pack(NULL),
@@ -206,6 +215,13 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, int64_t upperBound) {
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
   pack->pushConstantBound(lowerBound);
   pack->pushOperandBound(upperBound);
+  return pushCount++;
+}
+
+int BuildKrnlLoop::pushAffineMapBounds(
+    int64_t lowerBound, AffineMap upperBound, ArrayRef<Value> operands) {
+  pack->pushConstantBound(lowerBound);
+  pack->pushAffineMapBound(upperBound, operands);
   return pushCount++;
 }
 
