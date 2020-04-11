@@ -1,3 +1,21 @@
+if(MSVC)
+  if(DEFINED ENV{CURSES_LIB_PATH})
+    find_library(curses_lib
+            NAMES pdcurses
+            PATHS $ENV{CURSES_LIB_PATH}
+            NO_DEFAULT_PATH)
+    if(curses_lib)
+      message(STATUS "CURSES_LIB_PATH: ${curses_lib}")
+    else()
+      message(FATAL_ERROR "Could not find pdcurses.lib at $ENV{CURSES_LIB_PATH}")
+    endif()
+  else()
+      message(FATAL_ERROR "Expected CURSES_LIB_PATH environment variable to be set to location of pdcurses.lib")
+  endif()
+else()
+  set(curses_lib curses)
+endif()
+
 # Path to LLVM source folder.
 if(DEFINED ENV{LLVM_PROJ_SRC})
   set(LLVM_PROJ_SRC $ENV{LLVM_PROJ_SRC})
@@ -25,16 +43,55 @@ else()
 endif()
 
 # LLVM project lib folder
-set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/lib)
+if (ENV{LLVM_PROJECT_LIB})
+  set(LLVM_PROJECT_LIB $ENV{LLVM_PROJECT_LIB})
+else()
+  if(MSVC)
+    if (CMAKE_BUILD_TYPE)
+      set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/${CMAKE_BUILD_TYPE}/lib)
+    else()
+      set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/release/lib)
+    endif()  
+  else()
+    set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/lib)
+  endif()
+endif()
+message(STATUS "LLVM_PROJECT_LIB:" ${LLVM_PROJECT_LIB})
+
+# LLVM project bin folder
+if (ENV{LLVM_PROJ_BIN})
+  set(LLVM_PROJ_BIN $ENV{LLVM_PROJ_BIN})
+else()
+  if(MSVC)
+    if (CMAKE_BUILD_TYPE)
+      set(LLVM_PROJ_BIN ${LLVM_PROJ_BUILD}/${CMAKE_BUILD_TYPE}/bin)
+    else()
+      set(LLVM_PROJ_BIN ${LLVM_PROJ_BUILD}/Release/bin)
+    endif()
+  else()
+    set(LLVM_PROJ_BIN ${LLVM_PROJ_BUILD}/bin)
+  endif()
+endif()
+message(STATUS "LLVM_PROJ_BIN:" ${LLVM_PROJ_BIN})
 
 # Include paths for MLIR
 set(LLVM_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/llvm/include)
 set(LLVM_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/include)
 set(MLIR_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/mlir/include)
 set(MLIR_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/tools/mlir/include)
-set(MLIR_TOOLS_DIR ${LLVM_PROJ_BUILD}/bin)
+set(MLIR_TOOLS_DIR ${LLVM_PROJ_BIN})
 
-set(ONNX_MLIR_TOOLS_DIR ${ONNX_MLIR_BIN_ROOT}/bin)
+# ONNX-MLIR tools folder
+if(MSVC)
+  if (CMAKE_BUILD_TYPE)
+    set(ONNX_MLIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE})
+  else()
+    set(ONNX_MLIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin/Release)
+  endif()
+else()
+  set(ONNX_MLIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin)
+endif()
+message(STATUS "ONNX_MLIR_TOOLS_DIR:" ${ONNX_MLIR_TOOLS_DIR})
 set(ONNX_MLIR_LIT_TEST_SRC_DIR ${ONNX_MLIR_SRC_ROOT}/test/mlir)
 set(ONNX_MLIR_LIT_TEST_BUILD_DIR ${CMAKE_BINARY_DIR}/test/mlir)
 
@@ -46,6 +103,17 @@ include_directories(${MLIR_INCLUDE_PATHS})
 
 # Threading libraries required due to parallel pass execution.
 find_package(Threads REQUIRED)
+
+# Set output library path
+if(MSVC)
+  if (CMAKE_BUILD_TYPE)
+    set(ONNX_MLIR_LIB_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${CMAKE_BUILD_TYPE})
+  else()
+    set(ONNX_MLIR_LIB_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Release)
+  endif()
+else()
+    set(ONNX_MLIR_LIB_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+endif()
 
 function(find_mlir_lib lib)
   find_library(${lib}
@@ -182,7 +250,7 @@ function(whole_archive_link target lib_dir)
     endforeach(LIB)
   elseif(MSVC)
     foreach(LIB ${ARGN})
-      string(CONCAT link_flags ${link_flags} "/WHOLEARCHIVE:${LIB} ")
+      string(CONCAT link_flags ${link_flags} "/WHOLEARCHIVE:${lib_dir}/${LIB} ")
     endforeach(LIB)
   else()
     set(link_flags "${link_flags} -L${lib_dir} -Wl,--whole-archive,")
@@ -195,14 +263,14 @@ function(whole_archive_link target lib_dir)
 endfunction(whole_archive_link)
 
 function(whole_archive_link_mlir target)
-  whole_archive_link(${target} ${LLVM_PROJ_BUILD}/lib ${ARGN})
+  whole_archive_link(${target} ${LLVM_PROJECT_LIB} ${ARGN})
 endfunction(whole_archive_link_mlir)
 
 function(whole_archive_link_onnx_mlir target)
   foreach(lib_target ${ARGN})
     add_dependencies(${target} ${lib_target})
   endforeach(lib_target)
-  whole_archive_link(${target} ${CMAKE_BINARY_DIR}/lib ${ARGN})
+  whole_archive_link(${target} ${ONNX_MLIR_LIB_DIR} ${ARGN})
 endfunction(whole_archive_link_onnx_mlir)
 
 set(LLVM_CMAKE_DIR
@@ -228,7 +296,7 @@ endfunction()
 # table gen utility itself can be detected and cause re-compilation of .td file.
 add_executable(mlir-tblgen IMPORTED)
 set_property(TARGET mlir-tblgen
-        PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BUILD}/bin/mlir-tblgen)
+        PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BIN}/mlir-tblgen)
 set(MLIR_TABLEGEN_EXE mlir-tblgen)
 
 # Add a dialect used by ONNX MLIR and copy the generated operation

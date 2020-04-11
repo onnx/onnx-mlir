@@ -11,8 +11,7 @@ libprotoc >= 3.11.0
 cmake >= 3.15.4
 ```
 
-## Installation
-
+## Installation on UNIX
 Firstly, install MLIR (as a part of LLVM-Project):
 
 [same-as-file]: <> (utils/install-mlir.sh)
@@ -47,6 +46,90 @@ git clone --recursive https://github.com/onnx/onnx-mlir.git
 # Export environment variables pointing to LLVM-Projects.
 export LLVM_PROJ_SRC=$(pwd)/llvm-project/
 export LLVM_PROJ_BUILD=$(pwd)/llvm-project/build
+
+mkdir onnx-mlir/build && cd onnx-mlir/build
+cmake ..
+cmake --build . --target onnx-mlir
+
+# Run FileCheck tests:
+export LIT_OPTS=-v
+cmake --build . --target check-onnx-lit
+```
+
+After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory. 
+
+## Installation on Windows
+Building onnx-mlir on Windows requires building some additional rerequisites that are not available by default.
+Note that the instructions in this file assume you are using [Visual Studio  2019 Community Edition](https://visualstudio.microsoft.com/downloads/).
+
+### Protobuf
+Build protobuf as a static library.
+
+```shell
+git clone https://github.com/protocolbuffers/protobuf.git
+cd protobuf
+cd cmake
+# Explicitly set -Dprotobuf_MSVC_STATIC_RUNTIME=OFF to make sure protobuf does not statically link to runtime library
+cmake -G "Visual Studio 19 2019" -A x64 -T host=x64 -Dprotobuf_MSVC_STATIC_RUNTIME=OFF -Dprotobuf_BUILD_TESTS=OFF -Dprotobuf_BUILD_EXAMPLES=OFF -DCMAKE_INSTALL_PREFIX=<protobuf_install_dir>
+msbuild protobuf.sln /m /p:Configuration=Release
+msbuild INSTALL.vcxproj /p:Configuration=Release
+```
+
+Before running CMake for onnx-mlir, ensure that the bin directory to this protobuf is before any others in your PATH:
+```shell
+set PATH=<protobuf_install_dir>/bin;%PATH%
+```
+
+### PDCurses
+Build a local version of the curses library, used by various commandline tools in onnx-mlir. These instructions assume you use [Public Domain Curses](https://pdcurses.org/).
+
+Run this from a Visual Studio developer command prompt since you will need access to the appropriate version of Visual Studio's nmake tool.
+
+```shell
+git clone https://github.com/wmcbrine/PDCurses.git
+set PDCURSES_SRCDIR= %cd%\\PDCurses
+cd PDCurses
+nmake -f wincon\\Makefile.vc
+```
+
+### MLIR
+Install MLIR (as a part of LLVM-Project):
+
+```shell
+git clone https://github.com/llvm/llvm-project.git
+# Check out a specific branch that is known to work with ONNX MLIR.
+cd llvm-project && git checkout 07e462526d0cbae40b320e1a4307ce11e197fb0a && cd ..
+mkdir llvm-project/build
+cd llvm-project/build
+cmake -G "Visual Studio 19 2019" -A x64 -T host=x64 ../llvm \
+   -DLLVM_ENABLE_PROJECTS=mlir \
+   -DLLVM_BUILD_EXAMPLES=ON \
+   -DLLVM_TARGETS_TO_BUILD="host" \
+   -DCMAKE_BUILD_TYPE=Release \
+   -DLLVM_ENABLE_ASSERTIONS=ON \
+   -DLLVM_ENABLE_RTTI=ON \
+   -DLLVM_ENABLE_ZLIB=OFF
+
+cmake --build . -config Release --target -- ${MAKEFLAGS}
+cmake --build . --target check-mlir
+```
+
+### ONNX-MLIR
+The following environment variables need to be set before building onnx-mlir:
+- CURSES_LIB_PATH: Full path to curses library (e.g. c:/repos/PDCurses/pdcurses.lib)
+- LLVM_PROJ_BUILD: Path to the build directory for LLVM (e.g. c:/repos/llvm-project/build)
+- LLVM_PROJ_SRC: Path to the source directory for LLVM (e.g. c:/repos/llvm-project)
+- LLVM_PROJECT_LIB: Path to the lib output directory for LLVM for the required config e.g. (c:/repos/llvm-project/Release/lib). If not set, then path %LLVM_PROJ_BUILD%/Release/lib is assumed.
+- LLVM_PROJECT_BIN: Path to the bin output directory for LLVM for the required config e.g. (c:/repos/llvm-project/Release/bin).  If not set, then path %LLVM_PROJ_BUILD%/Release/bin is assumed.
+
+To build ONNX-MLIR, use the following command:
+```shell
+git clone --recursive https://github.com/onnx/onnx-mlir.git
+
+# Export environment variables pointing to LLVM-Projects.
+set CURSES_LIB_PATH=C:/repos/PDCurses/pdcurses.lib
+set LLVM_PROJ_BUILD=c:/repos/llvm-project/build
+set LLVM_PROJ_SRC=c:/repos/llvm-project
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..

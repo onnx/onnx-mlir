@@ -5,6 +5,7 @@ config.llvm_tools_dir = "@MLIR_TOOLS_DIR@"
 config.mlir_obj_root = "@LLVM_PROJ_BUILD@"
 config.mlir_tools_dir = "@MLIR_TOOLS_DIR@"
 config.suffixes = ['.mlir']
+config.lit_tools_dir = config.llvm_tools_dir
 
 config.onnx_mlir_tools_dir = "@ONNX_MLIR_TOOLS_DIR@"
 config.onnx_mlir_test_src_dir = "@ONNX_MLIR_LIT_TEST_SRC_DIR@"

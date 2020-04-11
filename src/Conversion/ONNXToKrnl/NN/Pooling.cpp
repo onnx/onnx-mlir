@@ -284,7 +284,7 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
           //        => out of bound
           //      - dilation = 2: spatialIndex = 2 * 2 + 2 * 1 = 6
           //        => out of bound
-          if (dilations[j] > 1 or ceilMode) {
+          if (dilations[j] > 1 || ceilMode) {
             Value upperIndex;
             if (inputShape[i] < 0) {
               Value inputDim = rewriter.create<DimOp>(loc, inputOperand, i);

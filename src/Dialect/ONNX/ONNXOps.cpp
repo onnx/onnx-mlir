@@ -852,7 +852,7 @@ bool ONNXGemmOp::inferShapes() {
   N = (transB() == 0) ? rhsTy.getShape()[1] : rhsTy.getShape()[0];
   K_B = (transB() == 0) ? rhsTy.getShape()[0] : rhsTy.getShape()[1];
 
-  if ((K_A != -1) and (K_B != -1) and (K_A != K_B)) {
+  if ((K_A != -1) && (K_B != -1) && (K_A != K_B)) {
     emitError("Tensor shapes mismatched");
   }
 

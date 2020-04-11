@@ -13,7 +13,7 @@ target_link_libraries(onnx-mlir-opt
         OMShapeInference
         OMONNXToKrnl
         OMPromotableConstOperandsOpInterface
-        curses)
+        ${curses_lib})
 whole_archive_link_mlir(onnx-mlir-opt
         ${MLIRWholeArchiveLibs})
 whole_archive_link_onnx_mlir(onnx-mlir-opt

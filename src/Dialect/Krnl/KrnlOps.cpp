@@ -76,6 +76,7 @@ ParseResult parseKrnlDefineLoopsOp(OpAsmParser &parser,
       numLoops.getValue().getSExtValue(), LoopType::get(builder.getContext()));
   if (parser.addTypesToList(loopTypes, result.types))
     return failure();
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -291,6 +292,7 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
           builder.getConstantAffineMap(integerAttr.getValue().getSExtValue());
       boundMaps.emplace_back(AffineMapAttr::get(map));
     }
+    return success();
   };
 
   bool keepParsing; // Do we keep parsing loops/bounds?
@@ -342,6 +344,7 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
 static LogicalResult verify(KrnlIterateOp op) {
   // TODO: Verify number of induction variable bounds matches the number of
   // input loops.
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
