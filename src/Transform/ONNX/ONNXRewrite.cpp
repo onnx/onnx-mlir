@@ -33,7 +33,7 @@ bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
 }
 
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
-// This function is used for padding attribute in MaxPoolSingleOut.
+// This function is used for padding attribute in Conv.
 ArrayAttr createArrayAttrOfZeros(
     PatternRewriter &rewriter, ArrayAttr origAttrs) {
   int nElements = origAttrs.getValue().size();
@@ -51,7 +51,7 @@ ArrayAttr createArrayAttrOfZeros(
 //         |_____|                  |_____|
 //                 nZeros                    nZeros
 //
-// This function is used for padding attribute in MaxPoolSingleOut.
+// This function is used for padding attribute in Conv.
 ArrayAttr insertZerosForNonPaddedDims(
     PatternRewriter &rewriter, ArrayAttr origAttrs, int extensionLength) {
   int nDims = (int)origAttrs.getValue().size() / 2;
@@ -67,35 +67,10 @@ ArrayAttr insertZerosForNonPaddedDims(
   return rewriter.getI64ArrayAttr(pads);
 }
 
-// This function returns a FloatAttr whose value depends on count_include_pad.
-FloatAttr getPadValueForAveragePool(
-    PatternRewriter &rewriter, Value result, IntegerAttr countIncludePad) {
-  auto elementType = result.getType().cast<TensorType>().getElementType();
-  auto countIncludePadAttr = countIncludePad.dyn_cast_or_null<IntegerAttr>();
-  if (countIncludePadAttr && (countIncludePadAttr.getInt() == 1)) {
-    return FloatAttr::get(elementType, 0);
-  } else {
-    return FloatAttr::get(
-        elementType, -std::numeric_limits<double>::infinity());
-  }
-}
-
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXRewrite.inc"
 
 } // end anonymous namespace
-
-/// on the ONNXMaxPoolSingleOutOp.
-//void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
-//    OwningRewritePatternList &results, MLIRContext *context) {
-//  results.insert<MaxPoolSingleOutOpPaddingPattern>(context);
-//}
-
-/// on the ONNXAveragePoolOp.
-//void ONNXAveragePoolOp::getCanonicalizationPatterns(
-//    OwningRewritePatternList &results, MLIRContext *context) {
-//  results.insert<AveragePoolOpPaddingPattern>(context);
-//}
 
 /// on the ONNXConvOp.
 void ONNXConvOp::getCanonicalizationPatterns(

@@ -312,7 +312,7 @@ test_to_enable = [
     "test_batchnorm_epsilon_cpu",
     "test_batchnorm_example_cpu",
 
-    # MaxPoolSingleOut 
+    # MaxPoolSingleOut
     "test_maxpool_1d_default_cpu",
     "test_maxpool_2d_ceil_cpu",
     "test_maxpool_2d_default_cpu",
