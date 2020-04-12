@@ -307,11 +307,11 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //
     //         firstValidH = ceil(float(ptH / dH)) * dH - ptH
     //         startH = max(firstValidH, ho * sH - ptH)
-    //         endH = min(H, ho * sH + (kH -1) * dH  + 1 - pbH)
+    //         endH = min(H, ho * sH + (kH -1) * dH  + 1 - ptH)
     //
     //         firstValidW= ceil(float(pW / dW)) * dW - ptW
     //         startW = max(firstValidW, wo * sW - ptW)
-    //         endW = min(W, wo * sW + (kW - 1) * dW + 1 - pbW)
+    //         endW = min(W, wo * sW + (kW - 1) * dW + 1 - ptW)
     //
     //         hDim= round(float(endH - startH) / float(dH))
     //         wDim= round(float(endW - startW) / float(dW))
@@ -399,15 +399,14 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       AffineExpr inputDim = rewriter.getAffineSymbolExpr(0);
       AffineExpr kernelDim = rewriter.getAffineSymbolExpr(1);
       AffineExpr padTopDim = rewriter.getAffineSymbolExpr(2);
-      AffineExpr padBottomDim = rewriter.getAffineSymbolExpr(3);
-      AffineExpr strideDim = rewriter.getAffineSymbolExpr(4);
-      AffineExpr dilationDim = rewriter.getAffineSymbolExpr(5);
+      AffineExpr strideDim = rewriter.getAffineSymbolExpr(3);
+      AffineExpr dilationDim = rewriter.getAffineSymbolExpr(4);
       AffineExpr start1 =
-          padTopDim.ceilDiv(dilationDim) * dilationDim - padTopDim;
+          (padTopDim).ceilDiv(dilationDim) * dilationDim - padTopDim;
       AffineExpr start2 = outputIndex * strideDim - padTopDim;
       AffineExpr end1 = inputDim;
       AffineExpr end2 = outputIndex * strideDim +
-                        (kernelDim - 1) * dilationDim + 1 - padBottomDim;
+                        (kernelDim - 1) * dilationDim + 1 - padTopDim;
 
       SmallVector<AffineExpr, 4> dimExpr;
       // Upperbound for an affine.for is `min AffineMap`, where `min` is
@@ -427,7 +426,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         }
         dimExpr.emplace_back(de);
       }
-      AffineMap dimMap = AffineMap::get(1, 6, dimExpr);
+      AffineMap dimMap = AffineMap::get(1, 5, dimExpr);
 
       // Dimensions and symbols for the affine map.
       SmallVector<SmallVector<Value, 4>, 4> dimAndSyms;
@@ -444,12 +443,9 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         dimAndSym.emplace_back(
             emitConstantOp(rewriter, loc, rewriter.getIndexType(), pads[i]));
         // s3
-        dimAndSym.emplace_back(emitConstantOp(rewriter, loc,
-            rewriter.getIndexType(), pads[kernelShape.size() + i]));
-        // s4
         dimAndSym.emplace_back(
             emitConstantOp(rewriter, loc, rewriter.getIndexType(), strides[i]));
-        // s5
+        // s4
         dimAndSym.emplace_back(emitConstantOp(rewriter, loc,
             rewriter.getIndexType(), (isDilated) ? dilations[i] : 1));
         dimAndSyms.emplace_back(dimAndSym);
@@ -457,8 +453,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
       // Compute values for the filter window's dimensions.
       SmallVector<Value, 4> fwStart, fwDim;
-      auto startMap = AffineMap::get(1, 6, {start1, start2});
-      auto endMap = AffineMap::get(1, 6, {end1, end2});
+      auto startMap = AffineMap::get(1, 5, {start1, start2});
+      auto endMap = AffineMap::get(1, 5, {end1, end2});
       for (int i = 0; i < spatialIndices.size(); ++i) {
         Value startIndex = rewriter.create<AffineMaxOp>(
             loc, startMap, ValueRange(dimAndSyms[i]));
@@ -471,7 +467,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         if (isDilated && dilations[i] != 1) {
           Value one = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
           Value numerator = rewriter.create<AddIOp>(loc, dim, one);
-          Value denominator = dimAndSyms[i][6]; // dilations[i]
+          Value denominator = dimAndSyms[i][5]; // dilations[i]
           dim = rewriter.create<SignedDivIOp>(loc, numerator, denominator);
           if (ceilMode) {
             auto remainder =
@@ -515,7 +511,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
           if (isDilated && dilations[i] > 1) {
             // hi = hf * dH + startH
             Value index = rewriter.create<MulIOp>(
-                loc, innerLoops.getInductionVar(i), dimAndSyms[i][6]);
+                loc, innerLoops.getInductionVar(i), dimAndSyms[i][5]);
             index = rewriter.create<AddIOp>(loc, index, fwStart[i]);
             dataIndices.emplace_back(index);
           } else {
