@@ -27,8 +27,8 @@ namespace {
 struct KrnlIterateOpLowering : public OpRewritePattern<KrnlIterateOp> {
   using OpRewritePattern<KrnlIterateOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(KrnlIterateOp iterateOp,
-                                     PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      KrnlIterateOp iterateOp, PatternRewriter &rewriter) const override {
     auto boundMapAttrs =
         iterateOp.getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
             .getValue();
@@ -48,21 +48,21 @@ struct KrnlIterateOpLowering : public OpRewritePattern<KrnlIterateOp> {
         map = boundMapAttrs[boundIdx + boundType]
                   .cast<AffineMapAttr>()
                   .getValue();
-        operands.insert(operands.end(), operandItr,
-                        operandItr + map.getNumInputs());
+        operands.insert(
+            operands.end(), operandItr, operandItr + map.getNumInputs());
         std::advance(operandItr, map.getNumInputs());
       }
 
       nestedForOps.emplace_back(rewriter.create<AffineForOp>(
           iterateOp.getLoc(), lbOperands, lbMap, ubOperands, ubMap));
       rewriter.setInsertionPoint(nestedForOps.back().getBody(),
-                                 nestedForOps.back().getBody()->begin());
+          nestedForOps.back().getBody()->begin());
     }
 
     // Replace induction variable references from those introduced by a
     // single krnl.iterate to those introduced by multiple affine.for
     // operations.
-    for (size_t i = 0; i < nestedForOps.size() - 1; i++) {
+    for (int64_t i = 0; i < (int64_t)nestedForOps.size() - 1; i++) {
       auto iterateIV = iterateOp.bodyRegion().front().getArgument(0);
       auto forIV = nestedForOps[i].getBody()->getArgument(0);
       iterateIV.replaceAllUsesWith(forIV);
@@ -74,11 +74,21 @@ struct KrnlIterateOpLowering : public OpRewritePattern<KrnlIterateOp> {
     while (iterateOp.bodyRegion().front().getNumArguments() > 1)
       iterateOp.bodyRegion().front().eraseArgument(0);
 
-    // Transfer krnl.iterate region to innermost for op.
-    auto innermostForOp = nestedForOps.back();
-    innermostForOp.region().getBlocks().clear();
-    rewriter.inlineRegionBefore(iterateOp.bodyRegion(), innermostForOp.region(),
-                                innermostForOp.region().end());
+    if (nestedForOps.empty()) {
+      // If no loops are involved, simply move operations from within iterateOp
+      // body region to the parent region of iterateOp.
+      rewriter.setInsertionPoint(iterateOp);
+      iterateOp.bodyRegion().walk([&](Operation *op) {
+        if (!op->isKnownTerminator())
+          op->replaceAllUsesWith(rewriter.clone(*op));
+      });
+    } else {
+      // Transfer krnl.iterate region to innermost for op.
+      auto innermostForOp = nestedForOps.back();
+      innermostForOp.region().getBlocks().clear();
+      rewriter.inlineRegionBefore(iterateOp.bodyRegion(),
+          innermostForOp.region(), innermostForOp.region().end());
+    }
 
     rewriter.eraseOp(iterateOp);
     return success();
@@ -93,8 +103,8 @@ class KrnlTerminatorLowering : public OpRewritePattern<KrnlTerminatorOp> {
 public:
   using OpRewritePattern<KrnlTerminatorOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(KrnlTerminatorOp op,
-                                     PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      KrnlTerminatorOp op, PatternRewriter &rewriter) const override {
     rewriter.replaceOpWithNewOp<AffineTerminatorOp>(op);
     return success();
   }
@@ -108,8 +118,8 @@ class KrnlDefineLoopsLowering : public OpRewritePattern<KrnlDefineLoopsOp> {
 public:
   using OpRewritePattern<KrnlDefineLoopsOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(KrnlDefineLoopsOp op,
-                                     PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      KrnlDefineLoopsOp op, PatternRewriter &rewriter) const override {
     rewriter.eraseOp(op);
     return success();
   }
@@ -123,8 +133,8 @@ class KrnlOptimizeLoopsLowering : public OpRewritePattern<KrnlOptimizeLoopsOp> {
 public:
   using OpRewritePattern<KrnlOptimizeLoopsOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(KrnlOptimizeLoopsOp op,
-                                     PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      KrnlOptimizeLoopsOp op, PatternRewriter &rewriter) const override {
     rewriter.eraseOp(op);
     return success();
   }
@@ -158,8 +168,7 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 
   OwningRewritePatternList patterns;
   patterns.insert<KrnlIterateOpLowering, KrnlTerminatorLowering,
-                  KrnlDefineLoopsLowering, KrnlOptimizeLoopsLowering>(
-      &getContext());
+      KrnlDefineLoopsLowering, KrnlOptimizeLoopsLowering>(&getContext());
 
   if (failed(applyPartialConversion(getFunction(), target, patterns))) {
     signalPassFailure();
@@ -172,5 +181,5 @@ std::unique_ptr<Pass> mlir::createLowerKrnlPass() {
   return std::make_unique<KrnlToAffineLoweringPass>();
 }
 
-static PassRegistration<KrnlToAffineLoweringPass> pass("lower-krnl",
-                                                       "Lower Krnl dialect.");
+static PassRegistration<KrnlToAffineLoweringPass> pass(
+    "lower-krnl", "Lower Krnl dialect.");
