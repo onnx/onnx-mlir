@@ -63,7 +63,7 @@ OpsWithShapeInference = [
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'AveragePool']
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
 
 # Operations who have operands that, if produced by constant operations, should
 # be promoted to become an attribute (via attribute promotion).
