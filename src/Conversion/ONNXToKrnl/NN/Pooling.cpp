@@ -291,7 +291,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //         # Initialize values for the output.
     //         output[n][c][ho][wo] = getIdentityValue(...);
     //
-    //         # Thanks to Tian (@tjingrant) for the following derivation.
+    //         # Thanks to Tian (@tjingrant) for the following derivation about
+    //         # firstValid.
     //         # When dilation is non-unit, the first valid pixel to
     //         # apply pooling on will not be the 0-th pixel, but rather
     //         # the smallest integer n to make -pH + n * 3 greater than
@@ -306,11 +307,11 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //
     //         firstValidH = ceil(float(ptH / dH)) * dH - ptH
     //         startH = max(firstValidH, ho * sH - ptH)
-    //         endH = min(H, ho * sH + kH * dH - pbH)
+    //         endH = min(H, ho * sH + (kH -1) * dH  + 1 - pbH)
     //
     //         firstValidW= ceil(float(pW / dW)) * dW - ptW
     //         startW = max(firstValidW, wo * sW - ptW)
-    //         endW = min(W, wo * sW + kW * dW - pbW)
+    //         endW = min(W, wo * sW + (kW - 1) * dW + 1 - pbW)
     //
     //         hDim= round(float(endH - startH) / float(dH))
     //         wDim= round(float(endW - startW) / float(dW))
@@ -391,30 +392,41 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // window's dimensions.
       //   firstValidH = ceil(float(ptH / dH)) * dH - ptH
       //   startH = max(firstValidH, ho * sH - ptH)
-      //   endH = min(H, ho * sH + kH * dH - pbH)
-      //   hDim= round(float(endH - startH) / float(dH))
+      //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
+      //   hDim = round(float(endH - startH) / float(dH))
 
-      AffineExpr ho = rewriter.getAffineDimExpr(0);
-      AffineExpr H = rewriter.getAffineSymbolExpr(0);
-      AffineExpr kH = rewriter.getAffineSymbolExpr(1);
-      AffineExpr ptH = rewriter.getAffineSymbolExpr(2);
-      AffineExpr pbH = rewriter.getAffineSymbolExpr(3);
-      AffineExpr sH = rewriter.getAffineSymbolExpr(4);
-      AffineExpr dH = rewriter.getAffineSymbolExpr(5);
-      AffineExpr start1 = ptH.ceilDiv(dH) * dH - ptH;
-      AffineExpr start2 = ho * sH - ptH;
-      AffineExpr end1 = H;
-      AffineExpr end2 = ho * sH + kH * dH - ptH;
+      AffineExpr outputIndex = rewriter.getAffineDimExpr(0);
+      AffineExpr inputDim = rewriter.getAffineSymbolExpr(0);
+      AffineExpr kernelDim = rewriter.getAffineSymbolExpr(1);
+      AffineExpr padTopDim = rewriter.getAffineSymbolExpr(2);
+      AffineExpr padBottomDim = rewriter.getAffineSymbolExpr(3);
+      AffineExpr strideDim = rewriter.getAffineSymbolExpr(4);
+      AffineExpr dilationDim = rewriter.getAffineSymbolExpr(5);
+      AffineExpr start1 =
+          padTopDim.ceilDiv(dilationDim) * dilationDim - padTopDim;
+      AffineExpr start2 = outputIndex * strideDim - padTopDim;
+      AffineExpr end1 = inputDim;
+      AffineExpr end2 = outputIndex * strideDim +
+                        (kernelDim - 1) * dilationDim + 1 - padBottomDim;
 
       SmallVector<AffineExpr, 4> dimExpr;
-      dimExpr.emplace_back((ceilMode) ? (end1 - start1).ceilDiv(dH)
-                                      : (end1 - start1).floorDiv(dH));
-      dimExpr.emplace_back((ceilMode) ? (end1 - start2).ceilDiv(dH)
-                                      : (end1 - start2).floorDiv(dH));
-      dimExpr.emplace_back((ceilMode) ? (end2 - start1).ceilDiv(dH)
-                                      : (end2 - start1).floorDiv(dH));
-      dimExpr.emplace_back((ceilMode) ? (end2 - start2).ceilDiv(dH)
-                                      : (end2 - start2).floorDiv(dH));
+      // Upperbound for an affine.for is `min AffineMap`, where `min` is
+      // automatically inserted when an affine.for is constructed from
+      // an AffineMap, thus we rewrite `endH - startH` as follows:
+      //   endH - start H
+      //     = min(end1, end2) - max(start1, start2)
+      //     = min(end1 - start1, end1 - start2, end2 - start1, end2 - start2)
+      AffineExpr dimExpr1 = end1 - start1;
+      AffineExpr dimExpr2 = end1 - start2;
+      AffineExpr dimExpr3 = end2 - start1;
+      AffineExpr dimExpr4 = end2 - start2;
+      for (AffineExpr de : {dimExpr1, dimExpr2, dimExpr3, dimExpr4}) {
+        if (isDilated) {
+          de = de + 1;
+          de = (ceilMode) ? de.ceilDiv(dilationDim) : de.floorDiv(dilationDim);
+        }
+        dimExpr.emplace_back(de);
+      }
       AffineMap dimMap = AffineMap::get(1, 6, dimExpr);
 
       // Dimensions and symbols for the affine map.
@@ -457,13 +469,15 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
         Value dim = rewriter.create<SubIOp>(loc, endIndex, startIndex);
         if (isDilated && dilations[i] != 1) {
+          Value one = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
+          Value numerator = rewriter.create<AddIOp>(loc, dim, one);
+          Value denominator = dimAndSyms[i][6]; // dilations[i]
+          dim = rewriter.create<SignedDivIOp>(loc, numerator, denominator);
           if (ceilMode) {
             auto remainder =
-                rewriter.create<SignedRemIOp>(loc, dim, dimAndSyms[i][6]);
+                rewriter.create<SignedRemIOp>(loc, numerator, denominator);
             Value zero =
                 emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-            Value one =
-                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
             auto isZero = rewriter.create<CmpIOp>(
                 loc, CmpIPredicate::eq, remainder, zero);
             auto dimPlusOne = rewriter.create<AddIOp>(loc, dim, one);
@@ -495,15 +509,13 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       {
         std::vector<Value> dataIndices;
         // Compute data indices.
-        for (int i = 0; i < 2; ++i)
+        for (int i = 0; i < spatialStartIndex; ++i)
           dataIndices.emplace_back(resultIndices[i]);
         for (int i = 0; i < nInnerLoops; ++i) {
           if (isDilated && dilations[i] > 1) {
             // hi = hf * dH + startH
-            Value dilation = emitConstantOp(
-                rewriter, loc, rewriter.getIndexType(), dilations[i]);
             Value index = rewriter.create<MulIOp>(
-                loc, innerLoops.getInductionVar(i), dilation);
+                loc, innerLoops.getInductionVar(i), dimAndSyms[i][6]);
             index = rewriter.create<AddIOp>(loc, index, fwStart[i]);
             dataIndices.emplace_back(index);
           } else {
