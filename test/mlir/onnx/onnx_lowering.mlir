@@ -1473,48 +1473,132 @@ func @test_constant_dense_2d_value(%arg0: tensor<1xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<3x2xf32>
 }
 
-func @test_averagepool_no_pad(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
+// -----
+
+func @test_pool_general_computation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-DAG: #{{.*}} = affine_map<(d0)[s0, s1, s2, s3, s4] -> ((s2 ceildiv s4) * s4 - s2, d0 * s3 - s2)>
+  // CHECK-DAG: #{{.*}} = affine_map<(d0)[s0, s1, s2, s3, s4] -> (s0, d0 * s3 + (s1 - 1) * s4 - s2 + 1)>
+  // CHECK-DAG: #{{.*}} = affine_map<() -> (0)>
+  // CHECK-DAG: #{{.*}} = affine_map<(d0)[s0, s1, s2, s3, s4] -> (s0 - ((s2 ceildiv s4) * s4 - s2), -(d0 * s3 - s2) + s0, d0 * s3 + (s1 - 1) * s4 - s2 - ((s2 ceildiv s4) * s4 - s2) + 1, d0 * s3 + (s1 - 1) * s4 - s2 - (d0 * s3 - s2) + 1)>
+
+  // CHECK-LABEL: @test_pool_general_computation
+
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x3x31x31xf32>
+  // CHECK: [[IDENTITY:%.+]] = constant 0.000000e+00 : f32
+
+  // CHECK: [[OUTPUT_LOOPS:%.+]]:4 = krnl.define_loops 4
+  // CHECK: [[OPT_OUTPUT_LOOPS:%.+]]:4 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_OUTPUT_LOOPS]]#0, [[OPT_OUTPUT_LOOPS]]#1, [[OPT_OUTPUT_LOOPS]]#2, [[OPT_OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31) {
+
+  // CHECK:   store [[IDENTITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+
+  // CHECK:   [[POOL_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK:   [[OPT_POOL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:     krnl.return_loops [[POOL_LOOPS]]#0, [[POOL_LOOPS]]#1
+  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK:   krnl.iterate([[OPT_POOL_LOOPS]]#0, [[OPT_POOL_LOOPS]]#1) with ([[POOL_LOOPS]]#0 -> %arg5 = 0 to min #map3(%arg3)[%c32, %c2, %c0, %c1, %c1_0], [[POOL_LOOPS]]#1 -> %arg6 = 0 to min #map3(%arg4)[%c32_1, %c2_2, %c0_3, %c1_4, %c1_5]) {
+  // CHECK:     {{.*}} = load %arg0[%arg1, %arg2, {{.*}}, {{.*}}] : memref<1x3x32x32xf32>
+  // CHECK:     {{.*}} = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:     store {{.*}}, [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:   }
+
+  // CHECK:   {{.*}} = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:   store {{.*}}, [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK: }
 }
 
-func @test_averagepool_no_pad_w_strides(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
-  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2], strides = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
+// -----
+
+func @test_averagepool_identity_value(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_averagepool_identity_value
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x3x31x31xf32>
+  // CHECK: [[IDENTITY:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: store [[IDENTITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
 }
 
-func @test_averagepool_no_pad_w_ceil_mode(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
-  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], ceil_mode = 1} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-}
+// -----
 
-func @test_averagepool_no_pad_w_count_include_pad(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
-  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], count_include_pad = 1} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-}
-
-func @test_maxpooling_singleout_no_pad(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
+func @test_maxpool_identity_value(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_maxpool_identity_value
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x3x31x31xf32>
+  // CHECK: [[IDENTITY:%.+]] = constant 0xFF800000 : f32
+  // CHECK: store [[IDENTITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
 }
 
-func @test_maxpooling_singleout_no_pad_w_strides(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
-  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2], strides = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
+// -----
+
+func @test_averagepool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_averagepool_pooling_operation
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x3x31x31xf32>
+
+  // CHECK: [[OUTPUT_LOOPS:%.+]]:4 = krnl.define_loops 4
+  // CHECK: [[OPT_OUTPUT_LOOPS:%.+]]:4 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_OUTPUT_LOOPS]]#0, [[OPT_OUTPUT_LOOPS]]#1, [[OPT_OUTPUT_LOOPS]]#2, [[OPT_OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31) {
+
+  // CHECK:   [[POOL_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK:   [[OPT_POOL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:     krnl.return_loops [[POOL_LOOPS]]#0, [[POOL_LOOPS]]#1
+  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK:   krnl.iterate([[OPT_POOL_LOOPS]]#0, [[OPT_POOL_LOOPS]]#1) with ([[POOL_LOOPS]]#0 -> %arg5 = 0 to min #map3(%arg3)[%c32, %c2, %c0, %c1, %c1_0], [[POOL_LOOPS]]#1 -> %arg6 = 0 to min #map3(%arg4)[%c32_1, %c2_2, %c0_3, %c1_4, %c1_5]) {
+
+  // CHECK:     [[INPUT_LOAD:%.+]] = load %arg0[%arg1, %arg2, {{.*}}, {{.*}}] : memref<1x3x32x32xf32>
+  // CHECK:     [[OUTPUT_LOAD:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:     [[SUM:%.+]] = addf [[OUTPUT_LOAD]], [[INPUT_LOAD]] : f32
+  // CHECK:     store [[SUM]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:   }
+
+  // CHECK:   [[NUMERATOR:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:   [[AVERAGE:%.+]] = divf [[NUMERATOR]], {{.*}} : f32
+  // CHECK:   store [[AVERAGE]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK: }
 }
 
-func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
-  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], strides = [2, 2], ceil_mode = 1} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-}
+// -----
 
-func @test_maxpooling_singleout_no_pad_w_strides_w_dilation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
-  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], strides = [2, 2], dilations = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
+func @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
-}
 
-func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg0 : tensor<?x3x?x32xf32>) -> tensor<*xf32> {
-  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], strides = [2, 2], ceil_mode = 1} : (tensor<?x3x?x32xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
+  // CHECK-LABEL: @test_maxpool_pooling_operation
+  // CHECK: [[RES:%.+]] = alloc() : memref<1x3x31x31xf32>
+
+  // CHECK: [[OUTPUT_LOOPS:%.+]]:4 = krnl.define_loops 4
+  // CHECK: [[OPT_OUTPUT_LOOPS:%.+]]:4 = krnl.optimize_loops  {
+  // CHECK:   krnl.return_loops [[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3
+  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
+  // CHECK: krnl.iterate([[OPT_OUTPUT_LOOPS]]#0, [[OPT_OUTPUT_LOOPS]]#1, [[OPT_OUTPUT_LOOPS]]#2, [[OPT_OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31) {
+
+  // CHECK:   [[POOL_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK:   [[OPT_POOL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
+  // CHECK:     krnl.return_loops [[POOL_LOOPS]]#0, [[POOL_LOOPS]]#1
+  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
+  // CHECK:   krnl.iterate([[OPT_POOL_LOOPS]]#0, [[OPT_POOL_LOOPS]]#1) with ([[POOL_LOOPS]]#0 -> %arg5 = 0 to min #map3(%arg3)[%c32, %c2, %c0, %c1, %c1_0], [[POOL_LOOPS]]#1 -> %arg6 = 0 to min #map3(%arg4)[%c32_1, %c2_2, %c0_3, %c1_4, %c1_5]) {
+
+  // CHECK:     [[INPUT_LOAD:%.+]] = load %arg0[%arg1, %arg2, {{.*}}, {{.*}}] : memref<1x3x32x32xf32>
+  // CHECK:     [[OUTPUT_LOAD:%.+]] = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:     [[GREATER:%.+]] = cmpf "ogt", [[OUTPUT_LOAD]], [[INPUT_LOAD]] : f32
+  // CHECK:     [[SELECT:%.+]] = select [[GREATER]], [[OUTPUT_LOAD]], [[INPUT_LOAD]] : f32
+  // CHECK:     store [[SELECT]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK:   }
+
+  // CHECK-NOT:   {{.*}} = load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK-NOT:   store {{.*}}, [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
+  // CHECK: }
 }
 
