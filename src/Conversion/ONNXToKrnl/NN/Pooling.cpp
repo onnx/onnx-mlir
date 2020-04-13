@@ -20,12 +20,11 @@ Value getIdentityValue<ONNXMaxPoolSingleOutOp>(
 }
 
 template <>
-Value mapToLowerScalarOp<ONNXMaxPoolSingleOutOp>(Operation *op,
-    ArrayRef<Type> result_types, ArrayRef<Value> operands,
-    ConversionPatternRewriter &rewriter) {
-  auto loc = op->getLoc();
-  Value lhs = operands[0];
-  Value rhs = operands[1];
+Value emitScalarOpFor<ONNXMaxPoolSingleOutOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Operation *op,
+    Type elementType, ArrayRef<Value> scalarOperands) {
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
   auto max = rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, lhs, rhs);
   auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
   return result;
@@ -308,8 +307,8 @@ struct ONNXMaxPoolSingleOutOpLowering : public ConversionPattern {
         auto loadData = rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
         auto loadPartialResult =
             rewriter.create<LoadOp>(loc, alloc, resultIndices);
-        Value result = mapToLowerScalarOp<ONNXMaxPoolSingleOutOp>(
-            op, resultElementType, {loadPartialResult, loadData}, rewriter);
+        Value result = emitScalarOpFor<ONNXMaxPoolSingleOutOp>(rewriter, loc,
+            op, resultElementType, {loadPartialResult, loadData});
         rewriter.create<StoreOp>(loc, result, alloc, resultIndices);
       }
     }
