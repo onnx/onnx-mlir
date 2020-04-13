@@ -22,4 +22,5 @@ whole_archive_link_onnx_mlir(onnx-mlir-opt
         OMONNXToKrnl
         OMONNXRewrite
         OMShapeInference
-        OMAttributePromotion)
+        OMAttributePromotion
+        OMElideConstants)

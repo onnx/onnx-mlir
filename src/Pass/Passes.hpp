@@ -23,6 +23,9 @@ std::unique_ptr<Pass> createShapeInferencePass();
 /// Pass for promoting constant operands to attributes.
 std::unique_ptr<Pass> createAttributePromotionPass();
 
+/// Pass for eliding the values of constant operations.
+std::unique_ptr<Pass> createElideConstantValuePass();
+
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<Pass> createLowerToKrnlPass();
 

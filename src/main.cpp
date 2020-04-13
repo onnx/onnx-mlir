@@ -43,9 +43,27 @@ int main(int argc, char *argv[]) {
   mlir::OwningModuleRef module;
   processInputFile(inputFilename, emissionTarget, context, module);
 
+  // Input file base name.
+  string outputBaseName =
+      inputFilename.substr(0, inputFilename.find_last_of("."));
+
   mlir::PassManager pm(&context);
-  if (emissionTarget >= EmitONNXIR)
+  if (emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm);
+    // If this is the final target of the onnx-mlir invocation, the
+    // output has all the embedded constant values elided. This is performed
+    // by running a pass which eliminates the values of the constant and
+    // replaces them with an empty list.
+    if (emissionTarget == EmitONNXIR) {
+      // Save full version of the source code with all constant values
+      // included to file. If the model is fed back into onnx-mlir, it will
+      // be this file that will be ingested by the onnx-mlir infrastructure.
+      // The file will have the base name of the input file and a custom
+      // extension.
+      outputCodeWithConstants(module, outputBaseName, "onnx.mlir");
+      pm.addPass(mlir::createElideConstantValuePass());
+    }
+  }
 
   if (emissionTarget >= EmitMLIR) {
     addONNXToKrnlPasses(pm);
@@ -58,12 +76,21 @@ int main(int argc, char *argv[]) {
   if (mlir::failed(pm.run(*module)))
     return 4;
 
+  // // Output to temporary files which contain inlined constants.
+  // if (emissionTarget == EmitONNXIR)
+    
+  // if (emissionTarget == EmitMLIR)
+  //   outputCodeWithConstants(module, outputBaseName, "krnl.mlir");
+
   if (emissionTarget == EmitLLVMBC) {
-      // Write LLVM bitcode to disk.
-      EmitLLVMBitCode(module);
-      printf("LLVM bitcode written to ./model.bc");
-  } else
+    // Write LLVM bitcode to disk.
+    string outputFilename =  outputBaseName + ".bc";
+    EmitLLVMBitCode(module, outputFilename);
+    printf("LLVM bitcode written to %s\n", outputFilename.c_str());
+  } else {
+    // Output to normal output.
     module->dump();
+  }
 
   return 0;
 }

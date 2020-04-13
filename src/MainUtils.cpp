@@ -9,6 +9,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/MainUtils.hpp"
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
 
 using namespace std;
 using namespace onnx_mlir;
@@ -35,9 +38,10 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   }
 }
 
-void EmitLLVMBitCode(const mlir::OwningModuleRef &module) {
+void EmitLLVMBitCode(
+    const mlir::OwningModuleRef &module, string outputFilename) {
   error_code error;
-  llvm::raw_fd_ostream moduleBitcodeStream("model.bc", error,
+  llvm::raw_fd_ostream moduleBitcodeStream(outputFilename, error,
                                            llvm::sys::fs::F_None);
   llvm::WriteBitcodeToFile(*mlir::translateModuleToLLVMIR(*module),
                            moduleBitcodeStream);
@@ -96,4 +100,26 @@ void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
   } else {
     LoadMLIR(inputFilename, context, module);
   }
+}
+
+void outputCodeWithConstants(
+    mlir::OwningModuleRef &module, string filename, string extension) {
+  // Start a separate process to redirect the model output. I/O redirection
+  // changes will not be visible to the parent process.
+  if (fork() == 0) {
+    const char * tempFilename = (filename + "." + extension).c_str();
+    freopen(tempFilename,"w", stderr);
+    module->dump();
+    fclose(stderr);
+  }
+}
+
+void readCodeWithConstants(
+    mlir::OwningModuleRef &module, string filename, string extension) {
+  // Read to a temporary file.
+  // std::ofstream out("./model.");
+  // std::streambuf *coutbuf = std::cout.rdbuf(); // save old buf
+  // std::cout.rdbuf(out.rdbuf()); // redirect std::cout to model.temp
+  // module->dump();
+  // std::cout.rdbuf(coutbuf);
 }

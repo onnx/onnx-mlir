@@ -48,7 +48,8 @@ enum EmissionTargetType {
 void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
               mlir::OwningModuleRef &module);
 
-void EmitLLVMBitCode(const mlir::OwningModuleRef &module);
+void EmitLLVMBitCode(
+	const mlir::OwningModuleRef &module, std::string outputFilename);
 
 void registerDialects();
 
@@ -63,3 +64,11 @@ void addKrnlToLLVMPasses(mlir::PassManager &pm);
 void processInputFile(std::string inputFilename,
 	EmissionTargetType emissionTarget, mlir::MLIRContext &context,
 	mlir::OwningModuleRef &module);
+
+void outputCodeWithConstants(
+	mlir::OwningModuleRef &module, std::string filename,
+	std::string extension);
+
+void readCodeWithConstants(
+	mlir::OwningModuleRef &module, std::string filename,
+	std::string extension);

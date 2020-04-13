@@ -21,6 +21,7 @@ target_link_libraries(onnx-mlir
         OMONNXToKrnl
         OMONNXRewrite
         OMAttributePromotion
+        OMElideConstants
         ${CMAKE_THREAD_LIBS_INIT}
         ${CMAKE_DL_LIBS})
 whole_archive_link_mlir(onnx-mlir
