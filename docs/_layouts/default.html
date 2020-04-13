@@ -41,7 +41,7 @@
         {% for item in site.data.navigation.toc %}
         <h3 style="margin: 20px 0 0;">{{ item.title }}</h3>
         {% for entry in item.subfolderitems %}
-          <div><a href="{{ entry.url }}">{{ entry.page }}</a></div>
+          <div><a href="{{ "/" | absolute_url }}{{ entry.url }}">{{ entry.page }}</a></div>
         {% endfor %}
       {% endfor %}
       <br>
