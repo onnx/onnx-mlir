@@ -16,13 +16,10 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value scalarOperand) {
   Value res;
 
-  auto zeroIndex = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-  SmallVector<Value, 4> IVs{zeroIndex};
-
   MemRefType scalarMemRefType =
-      MemRefType::get({1}, scalarOperand.getType(), {}, 0);
+      MemRefType::get({}, scalarOperand.getType(), {}, 0);
   Value alloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-  rewriter.create<StoreOp>(loc, scalarOperand, alloc, IVs);
+  rewriter.create<StoreOp>(loc, scalarOperand, alloc);
 
   std::vector<mlir::NamedAttribute> attributes;
   if (activation.alpha) {
@@ -62,6 +59,6 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   else
     return res;
 
-  Value result = rewriter.create<LoadOp>(loc, res, IVs);
+  Value result = rewriter.create<LoadOp>(loc, res);
   return result;
 }
