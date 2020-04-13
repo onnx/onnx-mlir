@@ -77,6 +77,14 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(Operation *op) {
   LstmActivationPack activationForward, activationReverse;
 
   // Get activation function name.
+  // Default forward functions
+  activationForward.f.name = "sigmoid";
+  activationForward.g.name = "tanh";
+  activationForward.h.name = "tanh";
+  // Default backward functions
+  activationReverse.f.name = "sigmoid";
+  activationReverse.g.name = "tanh";
+  activationReverse.h.name = "tanh";
   if (activations) {
     ArrayAttr activationArrAttr = activations.getValue();
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
@@ -111,14 +119,6 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(Operation *op) {
             activationArrAttr[startIndex + 2].cast<StringAttr>().getValue();
       }
     }
-  } else {
-    activationForward.f.name = "sigmoid";
-    activationForward.g.name = "tanh";
-    activationForward.h.name = "tanh";
-
-    activationReverse.f.name = "sigmoid";
-    activationReverse.g.name = "tanh";
-    activationReverse.h.name = "tanh";
   }
 
   // Get alpha attributes.
