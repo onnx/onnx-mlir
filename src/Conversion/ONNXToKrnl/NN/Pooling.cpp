@@ -387,7 +387,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
       //   hDim = round(float(endH - startH) / float(dH))
 
-      // Induction variables and constants as arguments for the affine maps.
+      // Prepare induction variables and constants as arguments for the affine
+      // maps.
       SmallVector<SmallVector<Value, 4>, 4> IVsAndConstants;
       { // Construct IVsAndConstants.
         for (int i = 0; i < kernelShape.size(); ++i) {
@@ -514,7 +515,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(poolingLoops.getIterateBlock());
       {
         // 2.4 Emit the body of the pooling loop nest.
-        // Compute indices to access a pixel in the input.
+        // Prepare indices to access a pixel in the input.
         std::vector<Value> inputIndices;
         { // Construct inputIndices
           for (int i = 0; i < kernelOffset; ++i)
