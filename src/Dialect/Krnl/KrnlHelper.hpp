@@ -161,8 +161,8 @@ public:
   // must be of MemRef type.
   int pushBounds(int64_t lowerBound, int64_t upperBound);
   int pushBounds(int64_t lowerBound, Value upperBound);
-  int pushAffineMapBounds(
-      int64_t lowerBound, AffineMap upperBound, ArrayRef<Value> operands);
+  int pushBounds(int64_t lowerBound, AffineMap upperBound,
+      ArrayRef<Value> operandsForUpperBoundMap);
   int pushBounds(Value lowerBound, Value upperBound);
   int pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
       int upperBoundMemRefIndex, bool upperBoundMustBeConstant = false);

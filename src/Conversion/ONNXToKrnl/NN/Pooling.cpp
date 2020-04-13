@@ -506,7 +506,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       BuildKrnlLoop poolingLoops(rewriter, loc, kernelShape.size());
       poolingLoops.createDefineAndOptimizeOp();
       for (int i = 0; i < kernelShape.size(); ++i)
-        poolingLoops.pushAffineMapBounds(
+        poolingLoops.pushBounds(
             0, poolDimMap, llvm::makeArrayRef(IVsAndConstants[i]));
       poolingLoops.createIterateOp();
 

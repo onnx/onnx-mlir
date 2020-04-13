@@ -218,10 +218,10 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
   return pushCount++;
 }
 
-int BuildKrnlLoop::pushAffineMapBounds(
-    int64_t lowerBound, AffineMap upperBound, ArrayRef<Value> operands) {
+int BuildKrnlLoop::pushBounds(int64_t lowerBound, AffineMap upperBound,
+    ArrayRef<Value> operandsForUpperBoundMap) {
   pack->pushConstantBound(lowerBound);
-  pack->pushAffineMapBound(upperBound, operands);
+  pack->pushAffineMapBound(upperBound, operandsForUpperBoundMap);
   return pushCount++;
 }
 
