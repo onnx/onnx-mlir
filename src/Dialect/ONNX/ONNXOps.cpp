@@ -1479,7 +1479,13 @@ bool ONNXConcatOp::inferShapes() {
   auto commonShape = commonType.getShape();
   auto commonRank = commonShape.size();
   auto axisIndex = axis().getSExtValue();
-  if (!(axisIndex >= 0 && axisIndex < commonRank)) {
+  // Negative axis means values are counted from the opposite side.
+  if (axisIndex < 0) {
+    axisIndex = commonRank + axisIndex;
+    auto builder = mlir::Builder(getContext());
+    axisAttr(builder.getI64IntegerAttr(axisIndex));
+  }
+  if (axisIndex >= commonRank) {
     emitError("Concat axis value out of bound");
     return false;
   }
