@@ -144,7 +144,7 @@ set LLVM_PROJ_SRC=c:/repos/llvm-project
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 -DLLVM_EXTERNAL_LIT=C:/repos/llvm-project/build/Release/bin/llvm-lit.py -DCMAKE_BUILD_TYPE=Release ..
-cmake --build . --target onnx-mlir
+cmake --build . --config Release --target onnx-mlir
 
 # Run FileCheck tests:
 export LIT_OPTS=-v
