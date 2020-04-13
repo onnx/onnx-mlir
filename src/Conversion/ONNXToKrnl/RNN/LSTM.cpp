@@ -8,6 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/AffineExpr.h"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 
 using namespace mlir;
@@ -293,11 +294,30 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
   if (hasSequenceLengths)
     emitError(loc, "Does not support sequence_lens at this time");
 
+  // Preapre dimensions.
   auto batchSizeDim = inputPack.X.getType().cast<ShapedType>().getShape()[1];
   auto inputSizeDim = inputPack.X.getType().cast<ShapedType>().getShape()[2];
   auto hiddenSizeDim = inputPack.R.getType().cast<ShapedType>().getShape()[2];
+  Value hiddenSizeVal =
+      emitConstantOp(rewriter, loc, rewriter.getIndexType(), hiddenSizeDim);
 
   auto elementType = inputPack.X.getType().cast<ShapedType>().getElementType();
+
+  // Prepare AffineMap to access bias, peepholes tensors.
+  AffineMap accessByOffsetMap;
+  {
+    AffineExpr iv = rewriter.getAffineDimExpr(0);
+    AffineExpr index = rewriter.getAffineSymbolExpr(0);
+    AffineExpr size = rewriter.getAffineSymbolExpr(1);
+    AffineExpr accessByOffsetExpr = index * size + iv;
+    accessByOffsetMap = AffineMap::get(1, 2, accessByOffsetExpr);
+  }
+
+  // Prepare constant indices.
+  SmallVector<Value, 4> constantIndices;
+  for (int i = 0; i < 8; i++)
+    constantIndices.emplace_back(
+        emitConstantOp(rewriter, loc, rewriter.getIndexType(), i));
 
   // Equations for LSTM.
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
@@ -347,16 +367,13 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
 
       // Bias [Wb[iofc], Rb[iofc]] :: [num_directions, 8*hidden_size]
       if (hasBiasForInput) {
-        Value hiddenSizeVal = emitConstantOp(
-            rewriter, loc, rewriter.getIndexType(), hiddenSizeDim);
         // Wb[iofc]
         for (unsigned i = 0; i < 4; ++i) {
           SmallVector<Value, 4> wbIVs;
-          Value index =
-              emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-          Value offsetIV = rewriter.create<MulIOp>(loc, hiddenSizeVal, index);
           Value wHiddenIV =
-              rewriter.create<AddIOp>(loc, offsetIV, hiddenSizeIV);
+              rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
+                  ValueRange(std::vector<Value>{
+                      hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
           wbIVs.emplace_back(numDirectionIV);
           wbIVs.emplace_back(wHiddenIV);
           wbIOFCIVs.emplace_back(wbIVs);
@@ -364,11 +381,10 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
         // Rb[iofc]
         for (unsigned i = 4; i < 8; ++i) {
           SmallVector<Value, 4> rbIVs;
-          Value index =
-              emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-          Value offsetIV = rewriter.create<MulIOp>(loc, hiddenSizeVal, index);
           Value rHiddenIV =
-              rewriter.create<AddIOp>(loc, offsetIV, hiddenSizeIV);
+              rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
+                  ValueRange(std::vector<Value>{
+                      hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
           // [Wb[iofc], Rb[iofc]] :: [num_directions, 8*hidden_size]
           rbIVs.emplace_back(numDirectionIV);
           rbIVs.emplace_back(rHiddenIV);
@@ -378,15 +394,12 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
 
       // Peepholes.
       if (hasPeepholes) {
-        Value hiddenSizeVal = emitConstantOp(
-            rewriter, loc, rewriter.getIndexType(), hiddenSizeDim);
         for (unsigned i = 0; i < 3; ++i) {
           SmallVector<Value, 4> pIVs;
-          Value index =
-              emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-          Value offsetIV = rewriter.create<MulIOp>(loc, hiddenSizeVal, index);
           Value pHiddenIV =
-              rewriter.create<AddIOp>(loc, offsetIV, hiddenSizeIV);
+              rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
+                  ValueRange(std::vector<Value>{
+                      hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
           // P[iof] :: [num_directions, 3*hidden_size]
           pIVs.emplace_back(numDirectionIV);
           pIVs.emplace_back(pHiddenIV);
@@ -437,15 +450,12 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
 
         // W[iofc] :: [num_directions, 4*hidden_size, input_size]
         // R[iofc] :: [num_directions, 4*hidden_size, input_size]
-        Value hiddenSizeVal = emitConstantOp(
-            rewriter, loc, rewriter.getIndexType(), hiddenSizeDim);
         for (unsigned i = 0; i < 4; ++i) {
           SmallVector<Value, 4> wIVs, rIVs;
-          Value index =
-              emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-          Value offsetIV = rewriter.create<MulIOp>(loc, hiddenSizeVal, index);
           Value wHiddenIV =
-              rewriter.create<AddIOp>(loc, offsetIV, hiddenSizeIV);
+              rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
+                  ValueRange(std::vector<Value>{
+                      hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
 
           wIVs.emplace_back(numDirectionIV);
           wIVs.emplace_back(wHiddenIV);
@@ -527,7 +537,6 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
           rewriter.create<LoadOp>(loc, inputPack.Biofc, rbIOFCIVs[3]);
       ct = rewriter.create<AddFOp>(loc, ct, loadRB);
     }
-    // TODO
     ct = applyActivation(rewriter, loc, activationPack.g, ct);
 
     // Ct = ft (.) Ct-1 + it (.) ct
@@ -553,7 +562,6 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
           rewriter.create<LoadOp>(loc, inputPack.Biofc, rbIOFCIVs[1]);
       ot = rewriter.create<AddFOp>(loc, ot, loadRB);
     }
-    // TODO
     ot = applyActivation(rewriter, loc, activationPack.f, ot);
 
     // Ht = ot (.) h(Ct)
