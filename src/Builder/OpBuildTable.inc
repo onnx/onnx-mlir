@@ -316,3 +316,39 @@ if (opName == "Where")
   return buildOperation<mlir::ONNXWhereOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
 if (opName == "Xor")
   return buildOperation<mlir::ONNXXorOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+if (opName == "ArrayFeatureExtractor")
+  return buildOperation<mlir::ONNXArrayFeatureExtractorOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+if (opName == "Binarizer")
+  return buildOperation<mlir::ONNXBinarizerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "CastMap")
+  return buildOperation<mlir::ONNXCastMapOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "CategoryMapper")
+  return buildOperation<mlir::ONNXCategoryMapperOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "DictVectorizer")
+  return buildOperation<mlir::ONNXDictVectorizerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "FeatureVectorizer")
+  return buildOperation<mlir::ONNXFeatureVectorizerOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+if (opName == "Imputer")
+  return buildOperation<mlir::ONNXImputerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "LabelEncoder")
+  return buildOperation<mlir::ONNXLabelEncoderOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "LinearClassifier")
+  return buildOperation<mlir::ONNXLinearClassifierOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 2);
+if (opName == "LinearRegressor")
+  return buildOperation<mlir::ONNXLinearRegressorOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "Normalizer")
+  return buildOperation<mlir::ONNXNormalizerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "OneHotEncoder")
+  return buildOperation<mlir::ONNXOneHotEncoderOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "SVMClassifier")
+  return buildOperation<mlir::ONNXSVMClassifierOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 2);
+if (opName == "SVMRegressor")
+  return buildOperation<mlir::ONNXSVMRegressorOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "Scaler")
+  return buildOperation<mlir::ONNXScalerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "TreeEnsembleClassifier")
+  return buildOperation<mlir::ONNXTreeEnsembleClassifierOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 2);
+if (opName == "TreeEnsembleRegressor")
+  return buildOperation<mlir::ONNXTreeEnsembleRegressorOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+if (opName == "ZipMap")
+  return buildOperation<mlir::ONNXZipMapOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);

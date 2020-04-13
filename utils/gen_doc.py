@@ -86,22 +86,8 @@ custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare']
 
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
-ONNX_ML = not bool(os.getenv('ONNX_ML') == '0')
-
-ONNX_ML = False
-sys.stderr.write("ONNX_ML {}\n".format(ONNX_ML))
-
-if ONNX_ML:
-    ext = '-ml.md'
-else:
-    ext = '.md'
-
 
 def should_render_domain(domain):  # type: (Text) -> bool
-    if domain == ONNX_ML_DOMAIN and not ONNX_ML:
-        return False
-    elif ONNX_ML and domain != ONNX_ML_DOMAIN:
-        return False
     return True
 
 
