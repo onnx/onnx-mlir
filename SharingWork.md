@@ -17,6 +17,7 @@ Update as you push code to the master branch.
 | BatchNorm      |                 | v  | v | v |    |       |
 | Constant       |                 | v  | v | v |    |       |
 | Conv           |                 | v  | v | v |    | nP    |
+| Concat         |                 | v  | v | v |    | V     |
 | Cos            |                 | v  | v | v |    |       |
 | Cosh           |                 | v  | v | v |    |       |
 | Div            |                 | v  | v | v |    | M     |
@@ -93,7 +94,6 @@ And add literal tests at each step, and end to end tests once completed.
 | Celu           |                 |    |   |   |    |       |
 | Clip           |                 |    |   |   |    |       |
 | Compress       |                 |    |   |   |    |       |
-| Concat         |                 |    |   |   |    | V     |
 | ConcatFromSeq  |                 |    |   |   |    |       |
 | ConstOfShape   |                 |    |   |   |    |       |
 | ConvInt        |                 |    |   |   |    | P     |
