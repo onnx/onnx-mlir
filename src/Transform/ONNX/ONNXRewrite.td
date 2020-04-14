@@ -24,9 +24,6 @@ include "src/Dialect/ONNX/ONNXOps.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
-def GetUnitAttr :
-  NativeCodeCall<"$_builder.getUnitAttr()">;
-
 def GetNullAttr :
    NativeCodeCall<"(Attribute) NULL">;
 
@@ -34,15 +31,16 @@ def GetNullAttr :
 class StringAttrOfValue<string val>:
   NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
 
-// Create a FloatAttr from an interger value.
+// Create a DenseElementsAttr from an interger value.
 // It seems Table-gen does not support `float` type, so we can not pass a float value.
 class FloatAttrOfValue<int val>:
-  NativeCodeCall<"FloatAttr::get($0.getType().cast<TensorType>().getElementType(), " # val # ")">;
+  NativeCodeCall<"createDenseFloatAttrOfValue($_builder, $0, " # val # ")">;
 
 // Create a FloatAttr for the negative infinity.
 def FloatAttrOfNegativeInfinity:
-  NativeCodeCall<"FloatAttr::get($0.getType().cast<TensorType>().getElementType(), "
+  NativeCodeCall<"createDenseFloatAttrOfValue($_builder, $0, "
                                 "-std::numeric_limits<double>::infinity())">;
+
 
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
 // This function is used for padding attribute in MaxPoolSingleOut.
@@ -126,12 +124,15 @@ def ConvOpPaddingPattern: Pat<
      $pads,
      $strides),
   (ONNXConvOp
+
     (ONNXPadOp $x,
        (ONNXConstantOp (GetNullAttr), 
           (insertZerosForNonPaddedDims<2> $pads)),
        (ONNXConstantOp (GetNullAttr), 
-          (FloatAttrOfNegativeInfinity $res)),
+          (FloatAttrOfValue<0> $res)),
        (StringAttrOfValue<"constant">)),
+
+        
      $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
      (createArrayAttrOfZerosFrom $pads),
      $strides),

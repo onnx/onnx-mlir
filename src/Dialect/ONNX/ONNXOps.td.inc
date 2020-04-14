@@ -351,11 +351,11 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     let builders = [
     OpBuilder<"Builder *builder, OperationState &state, Attribute sparse_value, Attribute value", [{
       if (value) {
-        auto elementType = value.getType().cast<TensorType>().getElementType();
-        build(builder, state, UnrankedTensorType::get(elementType), sparse_value, value);
+        auto tensorType = value.getType();
+        build(builder, state, tensorType, sparse_value, value);
       } else {
-        auto elementType = sparse_value.getType().cast<TensorType>().getElementType();
-        build(builder, state, UnrankedTensorType::get(elementType), sparse_value, value);
+        auto tensorType = sparse_value.getType();
+        build(builder, state, tensorType, sparse_value, value);
       }
     }]>
     ];}

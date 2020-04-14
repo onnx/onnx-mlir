@@ -1345,7 +1345,7 @@ bool ONNXPadOp::inferShapes() {
   // Cannot infer if the pads is not constant
   DenseElementsAttr padsAttributes =
       getAttr("pads").dyn_cast_or_null<mlir::DenseElementsAttr>();
-  ;
+
   if (!padsAttributes) {
     emitError("Pad: unknown pads");
     return false;

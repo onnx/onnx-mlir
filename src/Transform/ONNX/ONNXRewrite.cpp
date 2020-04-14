@@ -41,6 +41,16 @@ ArrayAttr createArrayAttrOfZeros(
   return rewriter.getI64ArrayAttr(vals);
 }
 
+DenseElementsAttr createDenseFloatAttrOfValue(
+    PatternRewriter &rewriter, Value origValue, float constantValue) {
+  Type elementType = origValue.getType().cast<TensorType>().getElementType();
+  SmallVector<float, 1> wrapper(1, 0);
+  wrapper[0] = constantValue;
+  return DenseElementsAttr::get(
+      RankedTensorType::get(wrapper.size(), elementType),
+      llvm::makeArrayRef(wrapper));
+}
+
 // Pad a ArrayAttr with zeros.
 //
 // pads = [B1, B2, ... Bk, E1, E2, ..., Ek]
@@ -52,7 +62,7 @@ ArrayAttr createArrayAttrOfZeros(
 //                 nZeros                    nZeros
 //
 // This function is used for padding attribute in MaxPoolSingleOut.
-ArrayAttr insertZerosForNonPaddedDims(
+DenseElementsAttr insertZerosForNonPaddedDims(
     PatternRewriter &rewriter, ArrayAttr origAttrs, int extensionLength) {
   int nDims = (int)origAttrs.getValue().size() / 2;
   int nElements = (nDims + extensionLength) * 2;
@@ -64,7 +74,12 @@ ArrayAttr insertZerosForNonPaddedDims(
     pads[i + extensionLength] = beginPad;
     pads[nDims + extensionLength + i + extensionLength] = endPad;
   }
-  return rewriter.getI64ArrayAttr(pads);
+
+  mlir::Type elementType = rewriter.getIntegerType(64);
+  llvm::ArrayRef<int64_t> tensorDims(pads.data(), pads.size());
+  mlir::ShapedType tensorType =
+      mlir::RankedTensorType::get(tensorDims, elementType);
+  return rewriter.getI64TensorAttr(llvm::makeArrayRef(pads));
 }
 
 /// Include the patterns defined in the Declarative Rewrite framework.
