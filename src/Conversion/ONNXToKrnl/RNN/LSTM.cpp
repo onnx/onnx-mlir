@@ -539,9 +539,9 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
     ct = applyActivation(rewriter, loc, activationPack.g, ct);
 
     // Ct = ft (.) Ct-1 + it (.) ct
-    Value Ct =
-        rewriter.create<AddFOp>(loc, rewriter.create<MulFOp>(loc, ft, loadC),
-            rewriter.create<MulFOp>(loc, it, ct));
+    Value FtCt1 = rewriter.create<MulFOp>(loc, ft, loadC);
+    Value itct = rewriter.create<MulFOp>(loc, it, ct);
+    Value Ct = rewriter.create<AddFOp>(loc, FtCt1, itct);
     rewriter.create<StoreOp>(loc, Ct, state.ct, cIVs);
 
     // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
