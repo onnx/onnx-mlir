@@ -63,8 +63,6 @@ function(find_mlir_lib lib)
           NO_DEFAULT_PATH)
   if(${${lib}} STREQUAL ${lib}-NOTFOUND)
     message(FATAL_ERROR "${lib} not found")
-    #else()
-    #set(${lib} "-l${lib}" PARENT_SCOPE)
   endif()
 endfunction(find_mlir_lib)
 
