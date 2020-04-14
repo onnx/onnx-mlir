@@ -1,7 +1,9 @@
 
 import lit.llvm
 
-config.environment['LD_PRELOAD'] = "@ONNX_MLIR_LD_PRELOAD_onnx-mlir-opt@"
+if '@BUILD_SHARED_LIBS@' == 'ON':
+    config.environment['LD_PRELOAD'] = "@ONNX_MLIR_LD_PRELOAD_onnx-mlir-opt@"
+
 config.llvm_tools_dir = "@MLIR_TOOLS_DIR@"
 config.mlir_obj_root = "@LLVM_PROJ_BUILD@"
 config.mlir_tools_dir = "@MLIR_TOOLS_DIR@"
