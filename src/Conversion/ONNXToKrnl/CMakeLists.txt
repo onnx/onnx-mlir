@@ -15,6 +15,7 @@ add_library(OMONNXToKrnl
         Tensor/Transpose.cpp
         Tensor/Unsqueeze.cpp
         Tensor/Constant.cpp
+        Tensor/Concat.cpp
         ConvertONNXToKrnl.cpp)
 target_include_directories(OMONNXToKrnl
         PRIVATE
