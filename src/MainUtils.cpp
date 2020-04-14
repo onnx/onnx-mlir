@@ -102,7 +102,7 @@ void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
   }
 }
 
-void outputCodeWithConstants(
+void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
   // Start a separate process to redirect the model output. I/O redirection
   // changes will not be visible to the parent process.

@@ -63,38 +63,46 @@ int main(int argc, char *argv[]) {
   if (mlir::failed(pm.run(*module)))
     return 4;
 
+  // For EmitONNXIR and EmitMLIR the constant value are embedded in the code
+  // thus making the code hard to read. These values can be elided by emitting
+  // two versions of the same source code:
+  // (1) a version with all the constant values included meant for being passed
+  //     back to onnx-mlir for further processing and stored in:
+  //
+  //     <name>.onnx.mlir
+  //
+  // (2) a version without constants meant for being inspected by users and
+  //     stored in:
+  //
+  //      <name>.mlir
+  //
+  // In the case of the LLVM Dialect IR the constant values are grouped
+  // outside the function code at the beginning of the file in which case the
+  // elision of these constants is not strictly required. Elision is also not
+  // necessary when emitting the .bc file.
   if (emissionTarget == EmitLLVMBC) {
     // Write LLVM bitcode to disk.
     string outputFilename =  outputBaseName + ".bc";
     EmitLLVMBitCode(module, outputFilename);
     printf("LLVM bitcode written to %s\n", outputFilename.c_str());
   } else {
-    // If EmitONNXIR is the final target of the onnx-mlir invocation, the
-    // output has all the embedded constant values elided. This is performed
-    // by running a pass which eliminates the values of the constants.
-    if (emissionTarget == EmitONNXIR) {
-      // Save full version of the source code with all constant values
-      // included to a file called:
-      //
-      // <name>.onnx.mlir
-      //
-      // The model without constants will be stored in a separate file:
-      //
-      // <name>.mlir
-      //
-      // If one of the two files is fed back into onnx-mlir, the .tmp file
-      // the one that will be ingested by the onnx-mlir infrastructure since
-      // it contains all the inlined constants.
-      outputCodeWithConstants(module, outputBaseName, ".onnx.mlir");
-      printf("Full ONNX IR Code written to %s\n",
-          (outputBaseName + ".onnx.mlir").c_str());
+    // Emit the version with all constants included.
+    outputCode(module, outputBaseName, ".onnx.mlir");
+    printf("Full MLIR code written to %s\n",
+        (outputBaseName + ".onnx.mlir").c_str());
 
-      mlir::PassManager cleanSourcePM(&context);
+    // Apply specific passes to clean up the code where necessary.
+    mlir::PassManager cleanSourcePM(&context);
+    if (emissionTarget == EmitONNXIR)
       cleanSourcePM.addPass(mlir::createElideConstantValuePass());
+      // if (emissionTarget == EmitMLIR)
+      //   cleanSourcePM.addPass(mlir::createElideConstGlobalValuePass());
+
+    if (emissionTarget == EmitONNXIR || emissionTarget == EmitMLIR) {
       if (mlir::failed(cleanSourcePM.run(*module)))
         return 4;
-      outputCodeWithConstants(module, outputBaseName, ".mlir");
-      printf("Constant-free ONNX IR Code written to %s\n",
+      outputCode(module, outputBaseName, ".mlir");
+      printf("Constant-free MLIR Code written to %s\n",
           (outputBaseName + ".mlir").c_str());
     }
   }

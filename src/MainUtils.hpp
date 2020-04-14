@@ -65,7 +65,7 @@ void processInputFile(std::string inputFilename,
 	EmissionTargetType emissionTarget, mlir::MLIRContext &context,
 	mlir::OwningModuleRef &module);
 
-void outputCodeWithConstants(
+void outputCode(
 	mlir::OwningModuleRef &module, std::string filename,
 	std::string extension);
 
