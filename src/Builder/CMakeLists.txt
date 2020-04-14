@@ -23,4 +23,4 @@ target_include_directories(OMBuilder
 # variable definitions when building onnx such as -DONNX_ML=1 -DONNX_NAMESPACE=onnx
 # will NOT be carried over when compiling FrontendDialectHelper.cpp, etc. so
 # the compilation will fail.
-add_dependencies(OMBuilder OMONNXOps OMShapeInferenceOpInterface)
+add_dependencies(OMBuilder OMONNXOps)
