@@ -2,12 +2,12 @@
 
 The text below describe the list of actions needed to successfully process a new ONNX operation. We are adding here support for an existing operation, thus when parsing the ONNX list of operation form the ONNX repository, this operation is already present. The step below explain how to add the necessary support to process that operation and lower it to code that can be executed using the LLVM compiler backend.
 
-In the example below, we assume that we add support for the Concat ONNX operation. All paths are relatives to the root directory of onnx-mlir distribution.
+In the example below, we assume that we add support for the Concat ONNX operation. All paths are relatives to the root directory of onnx-mlir repository.
 
 
 ## Generate the proper ONNX.td.inc
 
-The first step is to add support so that MLIR can determine the output type and shape from its input variables and parameters. This step is called “Shape Inference.” The first step is to indicate in the automatically generated `ONNXOps.td.inc` that the new operation needs to invoke shape inference.
+The first step is to add support so that MLIR can determine the output type and shape from its input variables and parameters. This step is called “Shape Inference.” The first step is to indicate in the automatically generated `ONNXOps.td.inc` that the new operation needs to implement the shape inference interface method.
 
 In the `utils/gen_doc.py` file, locate the `OpsWithShapeInference` python list and add your operation to it. For concat, we added the following:
 
@@ -46,7 +46,7 @@ Files related to the lowering of the new operations resides in the `src/Conversi
 
 In that file, the `populateLoweringONNXConcatOpPattern` operation (where `Concat` would be replaced with the actual new operation) will need to be defined in ` src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp` and invoked in the ` runOnModule` function in the ` src/Conversion/ONNXToKrnl/ConvertONNXToKrnl.cpp` file.
 
-To compile properly, you will also need to add the new `.cpp` file in the ` src/Conversion/ONNXToKrnl/cMakeLists.txt` file.
+To compile properly, you will also need to add the new `.cpp` file in the ` src/Conversion/ONNXToKrnl/CMakeLists.txt` file.
 
 ## Testing using ONNX backend tests
 
