@@ -82,6 +82,21 @@ test_to_enable = [
     "test_cosh_cpu",
     "test_cosh_example_cpu",
 
+    # Concat
+    "test_concat_1d_axis_0_cpu",
+    "test_concat_2d_axis_0_cpu",
+    "test_concat_2d_axis_1_cpu",
+    "test_concat_3d_axis_0_cpu",
+    "test_concat_3d_axis_1_cpu",
+    "test_concat_3d_axis_2_cpu",
+    
+    "test_concat_1d_axis_negative_1_cpu",
+    "test_concat_2d_axis_negative_1_cpu",
+    "test_concat_2d_axis_negative_2_cpu",
+    "test_concat_3d_axis_negative_1_cpu",
+    "test_concat_3d_axis_negative_2_cpu",
+    "test_concat_3d_axis_negative_3_cpu",
+
     # Tanh:
     "test_tanh_cpu",
     "test_tanh_example_cpu",
