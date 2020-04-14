@@ -68,9 +68,7 @@ After the above commands succeed, an `onnx-mlir` executable should appear in the
 ## Installation on Windows
 Building onnx-mlir on Windows requires building some additional prerequisites that are not available by default.
 
-Note that the instructions in this file assume you are using [Visual Studio  2019 Community Edition](https://visualstudio.microsoft.com/downloads/).
-
-The example commandlines assume your git repos are located in _c:\repos_.
+Note that the instructions in this file assume you are using [Visual Studio  2019 Community Edition](https://visualstudio.microsoft.com/downloads/). It is recommended that you have the **Desktop development with C++** and **Linux development with C++** workloads installed. This ensures you have all toolchains and libraries needed to compile this project and its dependencies on Windows.
 
 #### Protobuf
 Build protobuf as a static library.
