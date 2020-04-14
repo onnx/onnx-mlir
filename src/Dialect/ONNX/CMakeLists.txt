@@ -13,7 +13,8 @@ target_include_directories(OMONNXOps
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 add_dependencies(OMONNXOps OMONNXOpsIncGen)
-target_link_libraries(OMONNXOps
+# Linking dependencies:
+add_dependencies(OMONNXOps
         OMPromotableConstOperandsOpInterface
         OMShapeInferenceOpInterface)
 

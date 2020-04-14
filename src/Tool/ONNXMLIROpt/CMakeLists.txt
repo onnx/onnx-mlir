@@ -4,24 +4,17 @@ add_dependencies(onnx-mlir-opt OMKrnlOpsIncGen)
 target_include_directories(onnx-mlir-opt PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(onnx-mlir-opt PRIVATE ${ONNX_MLIR_BIN_ROOT})
 
+set(ONNX_MLIR_LD_PRELOAD_onnx-mlir-opt "" CACHE STRING "" FORCE)
+whole_archive_link_onnx_mlir(onnx-mlir-opt ${ONNXMLIRWholeArchiveLibs})
+whole_archive_link_mlir(onnx-mlir-opt ${MLIRWholeArchiveLibs})
+if(BUILD_SHARED_LIBS)
+  message(STATUS "To run dynamically linked onnx-mlir-opt, you must specify:")
+  message(STATUS "LD_PRELOAD=${ONNX_MLIR_LD_PRELOAD_onnx-mlir-opt}")
+endif()
+
 target_link_libraries(onnx-mlir-opt
-        ${MLIRLibs}
         OMBuilder
         OMKrnlOps
-        OMKrnlToAffine
-        OMKrnlToLLVM
-        OMShapeInference
-        OMONNXToKrnl
-        OMPromotableConstOperandsOpInterface
-        curses)
-whole_archive_link_mlir(onnx-mlir-opt
-        ${MLIRWholeArchiveLibs})
-whole_archive_link_onnx_mlir(onnx-mlir-opt
-        OMKrnlToAffine
-        OMKrnlToLLVM
-        OMONNXToKrnl
+        OMONNXOps
         OMONNXRewrite
-        OMShapeInference
-        OMAttributePromotion
-        OMElideConstants
-        OMElideKrnlGlobalConstants)
+        ${MLIRLibs})
