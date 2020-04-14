@@ -130,7 +130,7 @@ cmake --build . --config Release --target check-mlir
 
 #### ONNX-MLIR (this project)
 The following environment variables need to be set before building onnx-mlir:
-- CURSES_LIB_PATH: Full path to curses library (e.g. c:/repos/PDCurses/pdcurses.lib)
+- CURSES_LIB_PATH: Path to curses library (e.g. c:/repos/PDCurses)
 - LLVM_PROJ_BUILD: Path to the build directory for LLVM (e.g. c:/repos/llvm-project/build)
 - LLVM_PROJ_SRC: Path to the source directory for LLVM (e.g. c:/repos/llvm-project)
 
@@ -143,7 +143,7 @@ git clone --recursive https://github.com/onnx/onnx-mlir.git
 
 REM Export environment variables pointing to LLVM-Projects.
 set root_dir=%cd%
-set CURSES_LIB_PATH=%cd%/PDCurses/pdcurses.lib
+set CURSES_LIB_PATH=%cd%/PDCurses
 set LLVM_PROJ_BUILD=%cd%/llvm-project/build
 set LLVM_PROJ_SRC=%cd%/llvm-project
 

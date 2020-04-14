@@ -2,7 +2,7 @@ git clone --recursive https://github.com/onnx/onnx-mlir.git
 
 REM Export environment variables pointing to LLVM-Projects.
 set root_dir=%cd%
-set CURSES_LIB_PATH=%cd%/PDCurses/pdcurses.lib
+set CURSES_LIB_PATH=%cd%/PDCurses
 set LLVM_PROJ_BUILD=%cd%/llvm-project/build
 set LLVM_PROJ_SRC=%cd%/llvm-project
 
