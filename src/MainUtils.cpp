@@ -107,10 +107,11 @@ void outputCodeWithConstants(
   // Start a separate process to redirect the model output. I/O redirection
   // changes will not be visible to the parent process.
   if (fork() == 0) {
-    const char * tempFilename = (filename + "." + extension).c_str();
-    freopen(tempFilename,"w", stderr);
+    const char * tempFilename = (filename + extension).c_str();
+    freopen(tempFilename, "w", stderr);
     module->dump();
     fclose(stderr);
+    exit(0);
   }
 }
 
