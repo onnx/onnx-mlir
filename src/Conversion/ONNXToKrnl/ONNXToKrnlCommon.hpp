@@ -15,11 +15,11 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
-#include "mlir/IR/PatternMatch.h"
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -40,9 +40,8 @@ MemRefType convertToMemRefType(Type type);
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
-                                   PatternRewriter &rewriter,
-                                   bool insertDealloc,
-                                   ArrayRef<Value> operands = {});
+    PatternRewriter &rewriter, bool insertDealloc,
+    ArrayRef<Value> operands = {});
 
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
@@ -52,51 +51,46 @@ bool checkInsertDealloc(Operation *currentOp, int resultIndex=0);
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
 // type.
-std::map<int64_t, int64_t>
-getReductionMapping(MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims);
+std::map<int64_t, int64_t> getReductionMapping(
+    MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims);
 
 // Add bounds associated with the op operand to the KRNL iteration pack.
 // Dynamic dimenions are supported.
-void addDimensionToPack(ConversionPatternRewriter &rewriter,
-                               Location loc, KrnlIterateOperandPack &pack,
-                               Value operand, int index);
+void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
+    KrnlIterateOperandPack &pack, Value operand, int index);
 
 // Function that defines the KRNL dialect loops and their respective
 // optimized version.
-KrnlOptimizeLoopsOp
-emitOptimizedLoops(ConversionPatternRewriter &rewriter, Location loc,
-                   std::vector<Value> &loops,
-                   std::vector<Value> &optimizedLoops, int64_t numLoops);
+KrnlOptimizeLoopsOp emitOptimizedLoops(ConversionPatternRewriter &rewriter,
+    Location loc, std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
+    int64_t numLoops);
 
 // Function that emits the loops and their optimized version.
 // The function returns a reference to the inner optimization block.
 Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
-                          std::vector<Value> &loops,
-                          std::vector<Value> &optimizedLoops,
-                          int64_t numLoops);
+    std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
+    int64_t numLoops);
 
 // Function which emits a basic set of loops and optimized loops
 // for a given operation argument. A reference to the loop optimization
 // block is returned in the last argument of the function.
-void emitKrnlLoopsAndIterationForOperand(
-    ConversionPatternRewriter &rewriter, Location loc, Value operand,
-    std::vector<Value> &originalLoops, KrnlOptimizeLoopsOp &optimizedLoopsOp,
-    KrnlIterateOp &iterateOp);
+void emitKrnlLoopsAndIterationForOperand(ConversionPatternRewriter &rewriter,
+    Location loc, Value operand, std::vector<Value> &originalLoops,
+    KrnlOptimizeLoopsOp &optimizedLoopsOp, KrnlIterateOp &iterateOp);
 
 unsigned getMemRefEltSizeInBytes(MemRefType memRefType);
 
 // Get run-time dimension information for unknown dimensions used for
 // broadcasting.
-std::map<int, std::map<int, Value>>
-getBroadcastedDimInfo(Location loc, ConversionPatternRewriter &rewriter,
-                      MemRefType memRefType, ArrayRef<Value> operands);
+std::map<int, std::map<int, Value>> getBroadcastedDimInfo(Location loc,
+    ConversionPatternRewriter &rewriter, MemRefType memRefType,
+    ArrayRef<Value> operands);
 
 // Extract induction variables that are used for broadcasting values of a
 // given operand.
-std::vector<Value>
-getLoopIVsForBroadcasting(Location loc, ConversionPatternRewriter &rewriter,
-                          ArrayRef<Value> loopIVs, Value operand,
-                          std::map<int, Value> broadcastedDims);
+std::vector<Value> getLoopIVsForBroadcasting(Location loc,
+    ConversionPatternRewriter &rewriter, ArrayRef<Value> loopIVs, Value operand,
+    std::map<int, Value> broadcastedDims);
 
 // Emit a constant of a specific type.
 // Use this function for small values only to avoid unexpected loss in type
@@ -169,9 +163,7 @@ Value emitScalarOpFor(ConversionPatternRewriter &rewriter, Location loc,
 struct TensorTypeConverter : public TypeConverter {
   using TypeConverter::TypeConverter;
 
-  TensorTypeConverter() {
-    addConversion(convertType);
-  }
+  TensorTypeConverter() { addConversion(convertType); }
 
   static LogicalResult convertType(Type t, SmallVectorImpl<Type> &results) {
     if (auto type = convertToMemRefType(t)) {
@@ -188,8 +180,8 @@ struct TensorTypeConverter : public TypeConverter {
   /// inputs. Once unranked results can be handled gracefully this
   /// override needs to be removed in favour of the original MLIR one.]
   bool isSignatureLegal(FunctionType funcType) {
-    return llvm::all_of(funcType.getInputs(),
-                        [this](Type type) { return isLegal(type); });
+    return llvm::all_of(
+        funcType.getInputs(), [this](Type type) { return isLegal(type); });
   }
 };
 
@@ -202,8 +194,8 @@ struct TensorTypeConverter : public TypeConverter {
 void populateLoweringONNXElementwiseOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
-void populateLoweringONNXGemmOpPattern(OwningRewritePatternList &patterns,
-                                       MLIRContext *ctx);
+void populateLoweringONNXGemmOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXMatMulOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
@@ -223,6 +215,10 @@ void populateLoweringONNXNormalizationOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXPoolingOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+// `RNN` directory methods:
+void populateLoweringONNXLSTMOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 // `Tensor` directory methods:
@@ -245,5 +241,5 @@ void populateLoweringONNXIdentityOpPattern(
 void populateLoweringONNXConstantOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
-void populateLoweringONNXLSTMOpPattern(
+void populateLoweringONNXConcatOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
