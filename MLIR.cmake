@@ -1,21 +1,3 @@
-if(MSVC)
-  if(DEFINED ENV{CURSES_LIB_PATH})
-    find_library(curses_lib
-            NAMES pdcurses
-            PATHS $ENV{CURSES_LIB_PATH}
-            NO_DEFAULT_PATH)
-    if(curses_lib)
-      message(STATUS "CURSES_LIB_PATH: ${curses_lib}")
-    else()
-      message(FATAL_ERROR "Could not find pdcurses.lib at $ENV{CURSES_LIB_PATH}")
-    endif()
-  else()
-      message(FATAL_ERROR "Expected CURSES_LIB_PATH environment variable to be set to location of pdcurses.lib")
-  endif()
-else()
-  set(curses_lib curses)
-endif()
-
 # Path to LLVM source folder.
 if(DEFINED ENV{LLVM_PROJ_SRC})
   set(LLVM_PROJ_SRC $ENV{LLVM_PROJ_SRC})
@@ -101,8 +83,33 @@ set(
 )
 include_directories(${MLIR_INCLUDE_PATHS})
 
+# Force BUILD_SHARED_LIBS to be the same as LLVM build
+file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt shared REGEX BUILD_SHARED_LIBS)
+string(REGEX REPLACE "BUILD_SHARED_LIBS:BOOL=" "" shared ${shared})
+set(BUILD_SHARED_LIBS ${shared} CACHE BOOL "" FORCE)
+message(STATUS "BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS}")
+
 # Threading libraries required due to parallel pass execution.
 find_package(Threads REQUIRED)
+# libcurses and libz required by libLLVMSupport
+if(MSVC)
+  if(DEFINED ENV{CURSES_LIB_PATH})
+    find_library(CURSES_LIBRARIES
+            NAMES pdcurses
+            PATHS $ENV{CURSES_LIB_PATH}
+            NO_DEFAULT_PATH)
+    if(CURSES_LIBRARIES)
+      message(STATUS "CURSES_LIBRARIES: ${CURSES_LIBRARIES}")
+    else()
+      message(FATAL_ERROR "Could not find curses library at $ENV{CURSES_LIB_PATH}")
+    endif()
+  else()
+      message(FATAL_ERROR "Expected CURSES_LIB_PATH environment variable to be set to location of pdcurses.lib")
+  endif()
+else()
+  find_package(Curses REQUIRED)
+  find_package(ZLIB REQUIRED)
+endif()
 
 # Set output library path
 if(MSVC)
@@ -120,6 +127,9 @@ function(find_mlir_lib lib)
           NAMES ${lib}
           PATHS ${LLVM_PROJECT_LIB}
           NO_DEFAULT_PATH)
+  if(${${lib}} STREQUAL ${lib}-NOTFOUND)
+    message(FATAL_ERROR "${lib} not found")
+  endif()
 endfunction(find_mlir_lib)
 
 find_mlir_lib(MLIRAffine)
@@ -174,26 +184,15 @@ find_mlir_lib(LLVMProfileData)
 find_mlir_lib(LLVMDemangle)
 find_mlir_lib(LLVMFrontendOpenMP)
 
-
-set(MLIRLibsOnce
-        ${LLVMAnalysis}
-        ${LLVMAsmParser}
-        ${LLVMBinaryFormat}
-        ${LLVMBitReader}
-        ${LLVMBitstreamReader}
-        ${LLVMBitWriter}
-        ${LLVMCore}
-        ${LLVMFrontendOpenMP}
-        ${LLVMIRReader}
-        ${LLVMMC}
-        ${LLVMMCParser}
-        ${LLVMMLIRTableGen}        
-        ${LLVMObject}
-        ${LLVMRemarks}
-        ${LLVMSupport}
-        ${LLVMTransformUtils}
-        ${LLVMProfileData}
-        ${LLVMDemangle}
+set(MLIRLibs
+        ${MLIRLLVMIR}
+        ${MLIROptLib}
+        ${MLIRParser}
+        ${MLIRPass}
+        ${MLIRTargetLLVMIR}
+        ${MLIRTargetLLVMIRModuleTranslation}
+        ${MLIRTransforms}
+        ${MLIRTransformUtils}
         ${MLIRAffine}
         ${MLIRAffineToStandard}
         ${MLIRAnalysis}
@@ -203,7 +202,6 @@ set(MLIRLibsOnce
         ${MLIREDSC}
         ${MLIRExecutionEngine}
         ${MLIRIR}
-        ${MLIRLLVMIR}
         ${MLIRLLVMIRTransforms}        
         ${MLIRLoopToStandard}
         ${MLIRLoopOps}
@@ -211,24 +209,39 @@ set(MLIRLibsOnce
         ${MLIRLoopLikeInterface}
         ${MLIROpenMP}
         ${MLIRMlirOptMain}
-        ${MLIROptLib}
-        ${MLIRParser}
-        ${MLIRPass}
         ${MLIRSideEffects}        
         ${MLIRStandardOps}
         ${MLIRStandardToLLVM}
         ${MLIRSupport}
-        ${MLIRTargetLLVMIR}
-        ${MLIRTargetLLVMIRModuleTranslation}
-        ${MLIRTransforms}
-        ${MLIRTransformUtils}
-        ${MLIRTranslation})
+        ${MLIRTranslation}
+        # strict order verified
+        ${LLVMBitWriter}
+        ${LLVMObject}
+        ${LLVMBitReader}
+        # strict order verified
+        ${LLVMFrontendOpenMP}
+        ${LLVMTransformUtils}
+        ${LLVMAnalysis}
+        # strict order verified
+        ${LLVMAsmParser}
+        ${LLVMCore}
+        # strict order not yet verified
+        ${LLVMRemarks}
+        ${LLVMMCParser}
+        ${LLVMMC}
+        ${LLVMProfileData}
+        ${LLVMBinaryFormat}
+        ${LLVMBitstreamReader}
+        ${LLVMIRReader}
+        ${LLVMMLIRTableGen}
+        ${LLVMSupport}
+        ${LLVMDemangle}
+        ${CMAKE_THREAD_LIBS_INIT}
+	      ${CURSES_LIBRARIES}
+	      ${ZLIB_LIBRARIES})
 
-set(MLIRLibs
-        ${MLIRLibsOnce}
-        ${MLIRLibsOnce}
-        Threads::Threads)
-
+# MLIR libraries that must be linked with --whole-archive for static build or
+# must be specified on LD_PRELOAD for shared build.
 set(MLIRWholeArchiveLibs
         MLIRAffineToStandard
         MLIRAffine
@@ -240,6 +253,20 @@ set(MLIRWholeArchiveLibs
         MLIRVector
         MLIRLoopOps)
 
+# ONNX MLIR libraries that must be linked with --whole-archive for static build or
+# must be specified on LD_PRELOAD for shared build.
+set(ONNXMLIRWholeArchiveLibs
+        OMKrnlToAffine
+        OMKrnlToLLVM
+        OMONNXToKrnl
+        OMONNXRewrite
+        OMShapeInference
+        OMShapeInferenceOpInterface
+        OMAttributePromotion
+        OMPromotableConstOperandsOpInterface)
+
+# Function to construct linkage option for the static libraries that must be
+# linked with --whole-archive (or equivalent).
 function(whole_archive_link target lib_dir)
   get_property(link_flags TARGET ${target} PROPERTY LINK_FLAGS)
   if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
@@ -262,15 +289,39 @@ function(whole_archive_link target lib_dir)
   set_target_properties(${target} PROPERTIES LINK_FLAGS ${link_flags})
 endfunction(whole_archive_link)
 
+# Function to construct LD_PRELOAD value for the shared libraries whose
+# static counterpart need --whole-archive linkage option.
+function(ld_preload_libs target lib_dir)
+  foreach(lib ${ARGN})
+    if("${${lib}}" STREQUAL "")
+      set(ONNX_MLIR_LD_PRELOAD_${target}
+	"${ONNX_MLIR_LD_PRELOAD_${target}}:${lib_dir}/lib${lib}.so"
+	CACHE STRING "" FORCE)
+    else()
+      set(ONNX_MLIR_LD_PRELOAD_${target}
+	"${ONNX_MLIR_LD_PRELOAD_${target}}:${${lib}}"
+	CACHE STRING "" FORCE)
+    endif()
+  endforeach(lib)
+endfunction(ld_preload_libs)
+
 function(whole_archive_link_mlir target)
-  whole_archive_link(${target} ${LLVM_PROJECT_LIB} ${ARGN})
+  if(BUILD_SHARED_LIBS)
+    ld_preload_libs(${target} ${LLVM_PROJECT_LIB} ${ARGN})
+  else()
+    whole_archive_link(${target} ${LLVM_PROJECT_LIB} ${ARGN})
+  endif()
 endfunction(whole_archive_link_mlir)
 
 function(whole_archive_link_onnx_mlir target)
   foreach(lib_target ${ARGN})
     add_dependencies(${target} ${lib_target})
   endforeach(lib_target)
-  whole_archive_link(${target} ${ONNX_MLIR_LIB_DIR} ${ARGN})
+  if(BUILD_SHARED_LIBS)
+    ld_preload_libs(${target} ${ONNX_MLIR_LIB_DIR} ${ARGN})
+  else()
+    whole_archive_link(${target} ${ONNX_MLIR_LIB_DIR} ${ARGN})
+  endif()
 endfunction(whole_archive_link_onnx_mlir)
 
 set(LLVM_CMAKE_DIR

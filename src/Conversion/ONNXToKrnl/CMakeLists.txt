@@ -15,12 +15,14 @@ add_library(OMONNXToKrnl
         Tensor/Transpose.cpp
         Tensor/Unsqueeze.cpp
         Tensor/Constant.cpp
+        Tensor/Concat.cpp
         ConvertONNXToKrnl.cpp)
 target_include_directories(OMONNXToKrnl
         PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
-target_link_libraries(OMONNXToKrnl
-        ${MLIRLibs}
+
+# Linking dependencies:
+add_dependencies(OMONNXToKrnl
         OMKrnlOps)

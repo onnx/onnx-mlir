@@ -96,7 +96,7 @@ Run this from a Visual Studio developer command prompt since you will need acces
 
 ```shell
 git clone https://github.com/wmcbrine/PDCurses.git
-set PDCURSES_SRCDIR= %cd%\\PDCurses
+set PDCURSES_SRCDIR=%cd%\\PDCurses
 cd PDCurses
 nmake -f wincon\\Makefile.vc
 ```
