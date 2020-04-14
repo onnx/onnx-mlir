@@ -72,3 +72,7 @@ void outputCode(
 void readCodeWithConstants(
 	mlir::OwningModuleRef &module, std::string filename,
 	std::string extension);
+
+void emitOutputFiles(std::string outputBaseName,
+	EmissionTargetType emissionTarget, mlir::MLIRContext &context,
+	mlir::OwningModuleRef &module);
