@@ -27,6 +27,12 @@ using namespace mlir;
 
 namespace {
 
+/*!
+ *  RewritePattern that replaces existing Constant operations
+ *  with Constant operations with the same shape information but
+ *  no values.
+ */
+
 class ConstantValueElision : public OpRewritePattern<ONNXConstantOp> {
 public:
   using OpRewritePattern<ONNXConstantOp>::OpRewritePattern;
@@ -34,12 +40,10 @@ public:
   LogicalResult matchAndRewrite(ONNXConstantOp op,
                                 PatternRewriter &rewriter) const override {
     auto loc = op.getLoc();
-
     auto constOp = llvm::dyn_cast<ONNXConstantOp>(&op);
 
-    if (constOp->sparse_value().hasValue()) {
+    if (constOp->sparse_value().hasValue())
       emitError(loc, "Only support dense values at this time");
-    }
 
     if (constOp->value().hasValue()) {
       auto newConstOp = rewriter.create<ONNXConstantOp>(

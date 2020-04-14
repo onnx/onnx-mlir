@@ -42,13 +42,13 @@ class DummyBackend(onnx.backend.base.Backend):
         execute_commands([ONNX_MLIR, "temp_model.onnx"])
         # Call llc to generate object file from bitcode.
         execute_commands(
-            [LLC, "-filetype=obj", "-relocation-model=pic", "model.bc"])
+            [LLC, "-filetype=obj", "-relocation-model=pic", "temp_model.bc"])
         # Generate shared library from object file, linking with c runtime.
         execute_commands([
-            CXX, "-shared", "-fPIC", "model.o", "-o", "model.so",
+            CXX, "-shared", "-fPIC", "temp_model.o", "-o", "temp_model.so",
             "-L" + RUNTIME_DIR, "-lcruntime"
         ])
-        return ExecutionSession("./model.so", "_dyn_entry_point_main_graph")
+        return ExecutionSession("./temp_model.so", "_dyn_entry_point_main_graph")
 
     @classmethod
     def supports_device(cls, device):
