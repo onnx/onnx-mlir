@@ -1,11 +1,11 @@
-//===----- ElideConstant.cpp - Elide Constant Values ----------------------===//
+//===----- ElideConstants.cpp - Elide Constant Values ---------------------===//
 //
 // Copyright 2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// In practice, the constant values of Constant operation may be large enough
-// to hinder the readability of the intermediate representations.
+// In practice, the constant values of Constant operations may be large enough
+// to hinder the readability of the MLIR intermediate representation.
 //
 // This file creates a pass which elides the explicit values of Constant
 // operations. This pass has purely cosmetic purposes and should only be run to
@@ -55,7 +55,7 @@ public:
 };
 
 /*!
- *  FunctionPass that performs constant value elision.
+ *  Function pass that performs constant value elision.
  */
 class ElideConstantValuePass
     : public mlir::FunctionPass<ElideConstantValuePass> {

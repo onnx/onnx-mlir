@@ -159,8 +159,8 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     mlir::PassManager cleanSourcePM(&context);
     if (emissionTarget == EmitONNXIR)
       cleanSourcePM.addPass(mlir::createElideConstantValuePass());
-    // if (emissionTarget == EmitMLIR)
-    //   cleanSourcePM.addPass(mlir::createElideConstGlobalValuePass());
+    if (emissionTarget == EmitMLIR)
+      cleanSourcePM.addPass(mlir::createElideConstGlobalValuePass());
 
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitMLIR) {
       if (mlir::failed(cleanSourcePM.run(*module)))

@@ -23,4 +23,5 @@ whole_archive_link_onnx_mlir(onnx-mlir-opt
         OMONNXRewrite
         OMShapeInference
         OMAttributePromotion
-        OMElideConstants)
+        OMElideConstants
+        OMElideKrnlGlobalConstants)
