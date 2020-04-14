@@ -62,17 +62,13 @@ void addKrnlToAffinePasses(mlir::PassManager &pm);
 void addKrnlToLLVMPasses(mlir::PassManager &pm);
 
 void processInputFile(std::string inputFilename,
-	EmissionTargetType emissionTarget, mlir::MLIRContext &context,
-	mlir::OwningModuleRef &module);
+    EmissionTargetType emissionTarget, mlir::MLIRContext &context,
+    mlir::OwningModuleRef &module);
 
 void outputCode(
-	mlir::OwningModuleRef &module, std::string filename,
-	std::string extension);
-
-void readCodeWithConstants(
-	mlir::OwningModuleRef &module, std::string filename,
-	std::string extension);
+    mlir::OwningModuleRef &module, std::string filename,
+    std::string extension);
 
 void emitOutputFiles(std::string outputBaseName,
-	EmissionTargetType emissionTarget, mlir::MLIRContext &context,
-	mlir::OwningModuleRef &module);
+    EmissionTargetType emissionTarget, mlir::MLIRContext &context,
+    mlir::OwningModuleRef &module);

@@ -115,16 +115,6 @@ void outputCode(
   }
 }
 
-void readCodeWithConstants(
-    mlir::OwningModuleRef &module, string filename, string extension) {
-  // Read to a temporary file.
-  // std::ofstream out("./model.");
-  // std::streambuf *coutbuf = std::cout.rdbuf(); // save old buf
-  // std::cout.rdbuf(out.rdbuf()); // redirect std::cout to model.temp
-  // module->dump();
-  // std::cout.rdbuf(coutbuf);
-}
-
 void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
   // For EmitONNXIR and EmitMLIR the constant value are embedded in the code
@@ -157,12 +147,13 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
 
     // Apply specific passes to clean up the code where necessary.
     mlir::PassManager cleanSourcePM(&context);
-    if (emissionTarget == EmitONNXIR)
+    if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
       cleanSourcePM.addPass(mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
       cleanSourcePM.addPass(mlir::createElideConstGlobalValuePass());
 
-    if (emissionTarget == EmitONNXIR || emissionTarget == EmitMLIR) {
+    if (emissionTarget == EmitONNXBasic || emissionTarget == EmitONNXIR ||
+        emissionTarget == EmitMLIR) {
       if (mlir::failed(cleanSourcePM.run(*module)))
         llvm::errs() << "Could not apply simplification passes.\n";
       outputCode(module, outputBaseName, ".mlir");
