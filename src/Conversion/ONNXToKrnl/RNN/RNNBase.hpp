@@ -8,6 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/AffineExpr.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
@@ -105,12 +106,16 @@ struct ONNXRNNOpLowering : public ConversionPattern {
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
       rewriter.setInsertionPointToStart(sequenceLoops.getIterateBlock());
       {
+        AffineMap reverseIVMap = AffineMap::get(1, 1,
+            rewriter.getAffineSymbolExpr(0) - rewriter.getAffineDimExpr(0) - 1);
+
         Value numDirectionIV = emitConstantOp(rewriter, loc,
             rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
-        Value reverseSequenceLengthIV = rewriter.create<SubIOp>(loc,
-            emitConstantOp(
-                rewriter, loc, rewriter.getIndexType(), sequenceLengthDim - 1),
-            sequenceLoops.getInductionVar(0));
+        Value reverseSequenceLengthIV =
+            rewriter.create<AffineApplyOp>(loc, reverseIVMap,
+                ValueRange(std::vector<Value>{sequenceLoops.getInductionVar(0),
+                    emitConstantOp(rewriter, loc, rewriter.getIndexType(),
+                        sequenceLengthDim)}));
         // Emit calculation for one RNN step.
         calculateState<RNNOp, I, S>(rewriter, loc, op, numDirectionIV,
             reverseSequenceLengthIV, inputPack, state, activationReverse);

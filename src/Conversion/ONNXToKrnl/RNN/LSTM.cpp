@@ -8,7 +8,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/IR/AffineExpr.h"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 
 using namespace mlir;

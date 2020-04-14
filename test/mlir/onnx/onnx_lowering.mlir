@@ -1733,7 +1733,7 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : i64} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
   return %Y_h : tensor<*xf32>
 
-  // CHECK-DAG: #{{.*}} = affine_map<(d0)[s0, s1] -> (d0 + s0 * s1)>
+  // CHECK-DAG: [[ACCESS_BY_OFFSET_MAP:#.+]] = affine_map<(d0)[s0, s1] -> (d0 + s0 * s1)>
   // CHECK-LABEL: @test_lstm_general_computation
 
   // CHECK:  [[CELL_STATE:%.+]] = alloc() : memref<1x3x3xf32>
@@ -1989,4 +1989,51 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
   // CHECK:  }
   // CHECK:  dealloc [[CELL_STATE]] : memref<1x3x3xf32>
   // CHECK:  return [[HIDDEN_STATE]] : memref<1x3x3xf32>
+}
+
+// -----
+
+func @test_lstm_reverse_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : i64, direction = "reverse"} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
+  return %Y_h : tensor<*xf32>
+
+  // CHECK-DAG: [[REVERSE_IV_MAP:#.+]] = affine_map<(d0)[s0] -> (-d0 + s0 - 1)>
+  // CHECK-LABEL: @test_lstm_reverse_mode
+
+  // CHECK:  [[REVERSE_SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
+  // CHECK:  [[REVERSE_SEQUENCE_OPT_LOOPS:%.+]] = krnl.optimize_loops  {
+  // CHECK:    krnl.return_loops [[REVERSE_SEQUENCE_LOOPS]]
+  // CHECK:  } : () -> !krnl.loop
+  // CHECK:  krnl.iterate([[REVERSE_SEQUENCE_OPT_LOOPS]]) with ([[REVERSE_SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
+  // CHECK:  %[[SEQUENCE_LEN:.+]] = constant 4 : index
+  // CHECK:  %[[REVERSE_SEQUENCE_IV:.+]] = affine.apply [[REVERSE_IV_MAP]](%arg3)[%[[SEQUENCE_LEN]]]
+  // CHECK:  [[Xt_LOAD:%.+]] = load %arg0[%[[REVERSE_SEQUENCE_IV]], {{.*}}, {{.*}}] : memref<4x3x2xf32>
+}
+
+// -----
+
+func @test_lstm_bidirectional_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : i64, direction = "bidirectional"} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
+  return %Y_h : tensor<*xf32>
+
+  // CHECK-DAG: [[REVERSE_IV_MAP:#.+]] = affine_map<(d0)[s0] -> (-d0 + s0 - 1)>
+  // CHECK-LABEL: @test_lstm_bidirectional_mode
+
+  // CHECK:  [[SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
+  // CHECK:  [[SEQUENCE_OPT_LOOPS:%.+]] = krnl.optimize_loops  {
+  // CHECK:    krnl.return_loops [[SEQUENCE_LOOPS]]
+  // CHECK:  } : () -> !krnl.loop
+  // CHECK:  krnl.iterate([[SEQUENCE_OPT_LOOPS]]) with ([[SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
+  // CHECK:  [[Xt_LOAD:%.+]] = load %arg0[%arg3, {{.*}}, {{.*}}] : memref<4x3x2xf32>
+
+  // CHECK:  [[REVERSE_SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
+  // CHECK:  [[REVERSE_SEQUENCE_OPT_LOOPS:%.+]] = krnl.optimize_loops  {
+  // CHECK:    krnl.return_loops [[REVERSE_SEQUENCE_LOOPS]]
+  // CHECK:  } : () -> !krnl.loop
+  // CHECK:  krnl.iterate([[REVERSE_SEQUENCE_OPT_LOOPS]]) with ([[REVERSE_SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
+  // CHECK:  %[[SEQUENCE_LEN:.+]] = constant 4 : index
+  // CHECK:  %[[REVERSE_SEQUENCE_IV:.+]] = affine.apply [[REVERSE_IV_MAP]](%arg3)[%[[SEQUENCE_LEN]]]
+  // CHECK:  [[Xt_LOAD:%.+]] = load %arg0[%[[REVERSE_SEQUENCE_IV]], {{.*}}, {{.*}}] : memref<4x3x2xf32>
 }
