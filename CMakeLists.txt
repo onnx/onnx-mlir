@@ -20,6 +20,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 include(MLIR.cmake)
 
+if (MSVC)
+  # Disable warnings that prevent building of dependencies
+  # like onnx
+  set(CMAKE_CXX_FLAGS "-wd4244 -wd4267 -wd4530 -wd4624")
+endif()
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/benchmark)
 add_subdirectory(third_party/pybind11)
