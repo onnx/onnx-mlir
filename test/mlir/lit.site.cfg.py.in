@@ -2,19 +2,19 @@
 import lit.llvm
 
 if '@BUILD_SHARED_LIBS@' == 'ON':
-    config.environment['LD_PRELOAD'] = "@ONNX_MLIR_LD_PRELOAD_onnx-mlir-opt@"
+    config.environment['LD_PRELOAD'] = r"@ONNX_MLIR_LD_PRELOAD_onnx-mlir-opt@"
 
-config.llvm_tools_dir = "@MLIR_TOOLS_DIR@"
-config.mlir_obj_root = "@LLVM_PROJ_BUILD@"
-config.mlir_tools_dir = "@MLIR_TOOLS_DIR@"
+config.llvm_tools_dir = r"@MLIR_TOOLS_DIR@"
+config.mlir_obj_root = r"@LLVM_PROJ_BUILD@"
+config.mlir_tools_dir = r"@MLIR_TOOLS_DIR@"
 config.suffixes = ['.mlir']
 config.lit_tools_dir = config.llvm_tools_dir
 
-config.onnx_mlir_tools_dir = "@ONNX_MLIR_TOOLS_DIR@"
-config.onnx_mlir_test_src_dir = "@ONNX_MLIR_LIT_TEST_SRC_DIR@"
-config.onnx_mlir_test_build_dir = "@ONNX_MLIR_LIT_TEST_BUILD_DIR@"
+config.onnx_mlir_tools_dir = r"@ONNX_MLIR_TOOLS_DIR@"
+config.onnx_mlir_test_src_dir = r"@ONNX_MLIR_LIT_TEST_SRC_DIR@"
+config.onnx_mlir_test_build_dir = r"@ONNX_MLIR_LIT_TEST_BUILD_DIR@"
 
 lit.llvm.initialize(lit_config, config)
 
 # Let the main config do the real work.
-lit_config.load_config(config, "@ONNX_MLIR_LIT_TEST_SRC_DIR@/lit.cfg.py")
+lit_config.load_config(config, r"@ONNX_MLIR_LIT_TEST_SRC_DIR@/lit.cfg.py")
