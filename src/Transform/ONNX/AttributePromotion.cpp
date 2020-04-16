@@ -18,6 +18,8 @@
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+
 using namespace mlir;
 
 namespace {
@@ -61,6 +63,15 @@ public:
           // move it to an attribute, and use None to indicate the absence
           // of the original operand value.
           auto operandToPromote = op->getOperand(i);
+          if (auto constantOp = dyn_cast_or_null<mlir::ONNXConstantOp>(
+                  operandToPromote.getDefiningOp())) {
+            if (constantOp.valueAttr())
+              op->setAttr(name, constantOp.valueAttr());
+            if (constantOp.sparse_valueAttr())
+              op->setAttr(name, constantOp.sparse_valueAttr());
+            getOrCreateNoneValue(none, f);
+            op->setOperand(i, *none);
+          }
           if (auto constantOp = dyn_cast_or_null<ConstantOp>(
                   operandToPromote.getDefiningOp())) {
             op->setAttr(name, constantOp.value());

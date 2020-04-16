@@ -57,6 +57,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createDecomposeONNXToONNXPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::createAttributePromotionPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createAttributePromotionPass());
 }
