@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --lower-frontend %s -split-input-file | FileCheck %s
 
+// -----
+
 func @test_add(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -17,6 +19,8 @@ func @test_add(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*
   // CHECK: store [[ADDF]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
   // CHECK: return [[RES]] : memref<10x10xf32>
 }
+
+// -----
 
 func @test_mul(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Mul"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
@@ -36,6 +40,8 @@ func @test_mul(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*
   // CHECK: return [[RES]] : memref<10x10xf32>
 }
 
+// -----
+
 func @test_div(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Div"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -53,6 +59,8 @@ func @test_div(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*
   // CHECK: store [[DIVF]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
   // CHECK: return [[RES]] : memref<10x10xf32>
 }
+
+// -----
 
 func @test_sub(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sub"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
@@ -72,6 +80,8 @@ func @test_sub(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*
   // CHECK: return [[RES]] : memref<10x10xf32>
 }
 
+// -----
+
 func @test_and(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*xi32> {
   %0 = "onnx.And"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<*xi32>
   "std.return"(%0) : (tensor<*xi32>) -> ()
@@ -89,6 +99,8 @@ func @test_and(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*
   // CHECK: store [[AND]], [[RES]][%arg2, %arg3] : memref<10x10xi32>
   // CHECK: return [[RES]] : memref<10x10xi32>
 }
+
+// -----
 
 func @test_or(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*xi32> {
   %0 = "onnx.Or"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<*xi32>
@@ -108,6 +120,8 @@ func @test_or(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*x
   // CHECK: return [[RES]] : memref<10x10xi32>
 }
 
+// -----
+
 func @test_xor(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*xi32> {
   %0 = "onnx.Xor"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<*xi32>
   "std.return"(%0) : (tensor<*xi32>) -> ()
@@ -125,6 +139,8 @@ func @test_xor(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*
   // CHECK: store [[XOR]], [[RES]][%arg2, %arg3] : memref<10x10xi32>
   // CHECK: return [[RES]] : memref<10x10xi32>
 }
+
+// -----
 
 func @test_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Exp"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -144,6 +160,8 @@ func @test_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: store [[EXP]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 func @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Tanh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -170,6 +188,8 @@ func @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+// -----
+
 func @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sinh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -194,6 +214,8 @@ func @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: store [[SINH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 func @test_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Cosh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -220,6 +242,8 @@ func @test_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+// -----
+
 func @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Cos"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -239,6 +263,8 @@ func @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+// -----
+
 func @test_log(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Log"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -257,6 +283,8 @@ func @test_log(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: store [[LOG]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 func @test_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -282,6 +310,8 @@ func @test_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+// -----
+
 func @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -302,6 +332,8 @@ func @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: store [[RELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 func @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi32>) -> tensor<*xf32> {
   %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<4xi32>) -> tensor<*xf32>
@@ -374,6 +406,8 @@ func @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi32>) -> tensor<*x
   // CHECK: return [[ALLOC]] : memref<?x?x?x?xf32>
 }
 
+// -----
+
 func @test_sum(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sum"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -391,6 +425,8 @@ func @test_sum(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*
   // CHECK: store [[ADD]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
   // CHECK: return [[RES]] : memref<10x10xf32>
 }
+
+// -----
 
 func @test_max(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Max"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
@@ -411,6 +447,8 @@ func @test_max(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*
   // CHECK: return [[RES]] : memref<10x10xf32>
 }
 
+// -----
+
 func @test_min(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Min"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -429,6 +467,8 @@ func @test_min(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*
   // CHECK: store [[RELU_RES]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
   // CHECK: return [[RES]] : memref<10x10xf32>
 }
+
+// -----
 
 func @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Elu"(%arg0) {alpha=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -456,6 +496,8 @@ func @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+// -----
+
 func @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.LeakyRelu"(%arg0) {alpha=1.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -478,6 +520,8 @@ func @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 func @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Selu"(%arg0) {alpha=1.0:f32, gamma=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -505,6 +549,8 @@ func @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: store [[SELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 func @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.HardSigmoid"(%arg0) {alpha=1.0:f32, beta=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -534,6 +580,8 @@ func @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+// -----
+
 func @test_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Reciprocal"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -553,6 +601,8 @@ func @test_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: store [[RECIPROCAL_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 func @test_softplus(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softplus"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -576,6 +626,8 @@ func @test_softplus(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+// -----
+
 func @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softsign"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -597,6 +649,8 @@ func @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: store [[SOFTSIGN_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 func @test_add_with_broadcasting(%arg0 : tensor<?xf32>, %arg1 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<?xf32>, tensor<?x10xf32>) -> tensor<*xf32>
@@ -623,6 +677,8 @@ func @test_add_with_broadcasting(%arg0 : tensor<?xf32>, %arg1 : tensor<?x10xf32>
   // CHECK: }
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 func @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMax"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
@@ -652,6 +708,8 @@ func @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<3x2xf32>
 }
 
+// -----
+
 func @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMin"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -680,6 +738,8 @@ func @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<3x2xf32>
 }
 
+// -----
+
 func @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceProd"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -706,6 +766,8 @@ func @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: }
   // CHECK: return [[RES]] : memref<3x2xf32>
 }
+
+// -----
 
 func @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceSum"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
@@ -734,6 +796,8 @@ func @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<3x2xf32>
 }
   
+// -----
+
 func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softmax"(%arg0) {axis=1:i64} : (tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -780,6 +844,8 @@ func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<10x10xf32>
 }
 
+// -----
+
 func @test_gemm(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
   %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 5.0 : f32, transA = 1, transB = 0} : (tensor<5x10xf32>, tensor<5x10xf32>, tensor<10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -812,6 +878,8 @@ func @test_gemm(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tenso
   // CHECK: }
 }
 
+// -----
+
 func @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sqrt"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -831,6 +899,8 @@ func @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+// -----
+
 func @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Unsqueeze"(%arg0) {axes=[0,3]} : (tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -849,6 +919,8 @@ func @test_unsqueeze(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   // CHECK: "krnl.memcpy"([[RES]], %arg0, [[SIZE4]]) : (memref<1x10x10x1xf32>, memref<10x10xf32>, i64) -> ()
   // CHECK: return [[RES]] : memref<1x10x10x1xf32>
 }
+
+// -----
 
 func @test_transpose(%arg0 : tensor<10x20x30x40xf32>) -> tensor<*xf32> {
   %0 = "onnx.Transpose"(%arg0) : (tensor<10x20x30x40xf32>) -> tensor<*xf32>
@@ -879,6 +951,8 @@ func @test_transpose(%arg0 : tensor<10x20x30x40xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES0]] : memref<40x10x30x20xf32>
 }
 
+// -----
+
 func @test_identity(%arg0 : tensor<10x20x30x40xf32>) -> tensor<*xf32> {
   %0 = "onnx.Identity"(%arg0) : (tensor<10x20x30x40xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -886,6 +960,8 @@ func @test_identity(%arg0 : tensor<10x20x30x40xf32>) -> tensor<*xf32> {
   // CHECK-LABEL: test_identity
   // CHECK: return %arg0 : memref<10x20x30x40xf32>
 }
+
+// -----
 
 func @test_sign_f(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sign"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -912,6 +988,8 @@ func @test_sign_f(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+// -----
+
 func @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   %0 = "onnx.Sign"(%arg0) : (tensor<?x10xi32>) -> tensor<*xi32>
   "std.return"(%0) : (tensor<*xi32>) -> ()
@@ -936,6 +1014,8 @@ func @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   // CHECK: store [[SIGN_RES]], [[RES]][%arg1, %arg2] : memref<?x10xi32>
   // CHECK: return [[RES]] : memref<?x10xi32>
 }
+
+// -----
 
 // 2-D x 2-D
 func @test_matmul1(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>) -> tensor<*xf32> {
@@ -966,6 +1046,8 @@ func @test_matmul1(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>) -> tensor
   // CHECK: }
   // CHECK: return [[RES]] : memref<10x10xf32>
 }
+
+// -----
 
 // 2-D x N-D
 func @test_matmul2(%arg0 : tensor<10x5xf32>, %arg1 : tensor<2x3x5x10xf32>) -> tensor<*xf32> {
@@ -999,6 +1081,8 @@ func @test_matmul2(%arg0 : tensor<10x5xf32>, %arg1 : tensor<2x3x5x10xf32>) -> te
   // CHECK: return [[RES]] : memref<2x3x10x10xf32>
 }
 
+// -----
+
 // N-D x N-D
 func @test_matmul3(%arg0 : tensor<2x3x10x5xf32>, %arg1 : tensor<2x3x5x10xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<2x3x10x5xf32>, tensor<2x3x5x10xf32>) -> tensor<*xf32>
@@ -1031,6 +1115,8 @@ func @test_matmul3(%arg0 : tensor<2x3x10x5xf32>, %arg1 : tensor<2x3x5x10xf32>) -
   // CHECK: return [[RES]] : memref<2x3x10x10xf32>
 }
 
+// -----
+
 // 1-D x 2-D
 func @test_matmul4(%arg0 : tensor<5xf32>, %arg1 : tensor<5x10xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<5xf32>, tensor<5x10xf32>) -> tensor<*xf32>
@@ -1060,6 +1146,8 @@ func @test_matmul4(%arg0 : tensor<5xf32>, %arg1 : tensor<5x10xf32>) -> tensor<*x
   // CHECK: }
   // CHECK: return [[RES]] : memref<10xf32>
 }
+
+// -----
 
 // 1-D x N-D
 func @test_matmul5(%arg0 : tensor<5xf32>, %arg1 : tensor<?x5x10xf32>) -> tensor<*xf32> {
@@ -1095,6 +1183,8 @@ func @test_matmul5(%arg0 : tensor<5xf32>, %arg1 : tensor<?x5x10xf32>) -> tensor<
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+// -----
+
 // N-D x 1-D
 func @test_matmul6(%arg0 : tensor<?x10x5xf32>, %arg1 : tensor<5xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<?x10x5xf32>, tensor<5xf32>) -> tensor<*xf32>
@@ -1129,6 +1219,8 @@ func @test_matmul6(%arg0 : tensor<?x10x5xf32>, %arg1 : tensor<5xf32>) -> tensor<
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
 
+// -----
+
 // 1-D x 1-D
 func @test_matmul7(%arg0 : tensor<5xf32>, %arg1 : tensor<5xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<5xf32>, tensor<5xf32>) -> tensor<*xf32>
@@ -1153,6 +1245,8 @@ func @test_matmul7(%arg0 : tensor<5xf32>, %arg1 : tensor<5xf32>) -> tensor<*xf32
   // CHECK: }
   // CHECK: return [[RES]] : memref<1xf32>
 }
+
+// -----
 
 func @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>) -> tensor<*xf32> {
   %cst = constant unit
@@ -1197,6 +1291,8 @@ func @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2
 
   // CHECK: return [[RES]] : memref<1x5x27x58xf32>
 }
+
+// -----
 
 func @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>, %arg2 : tensor<5xf32>) -> tensor<*xf32> {
   %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 1 : i64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, tensor<5xf32>) -> tensor<*xf32>
@@ -1243,6 +1339,8 @@ func @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x
   // CHECK: }
   // CHECK: return [[RES]] : memref<1x5x27x58xf32>
 }
+
+// -----
 
 func @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %arg1 : tensor<5x3x6x7xf32>) -> tensor<*xf32> {
   %cst = constant unit
@@ -1292,6 +1390,8 @@ func @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %arg1 : te
   // CHECK: return [[RES]] : memref<1x5x27x58xf32>
 }
 
+// -----
+
 func @test_conv_no_bias_no_pad_w_strides(%arg0 : tensor<1x9x32x64xf32>, %arg1 : tensor<5x9x6x7xf32>) -> tensor<*xf32> {
   %cst = constant unit
   %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : i64, strides = [2, 2]} : (tensor<1x9x32x64xf32>, tensor<5x9x6x7xf32>, none) -> tensor<*xf32>
@@ -1340,6 +1440,8 @@ func @test_conv_no_bias_no_pad_w_strides(%arg0 : tensor<1x9x32x64xf32>, %arg1 : 
   // CHECK: return [[RES]] : memref<1x5x14x29xf32>
 }
 
+// -----
+
 func @test_batchnorm_testmode_Nd(%arg0: tensor<1x2x1x3xf32>, %arg1: tensor<2xf32>, %arg2: tensor<2xf32>, %arg3: tensor<2xf32>, %arg4: tensor<2xf32>) -> tensor<1x2x1x3xf32> {
   %0 = "onnx.BatchNormalizationTestMode"(%arg0, %arg1, %arg2, %arg3, %arg4) : (tensor<1x2x1x3xf32>, tensor<2xf32>, tensor<2xf32>, tensor<2xf32>, tensor<2xf32>) -> tensor<1x2x1x3xf32>
   return %0 : tensor<1x2x1x3xf32>
@@ -1370,6 +1472,8 @@ func @test_batchnorm_testmode_Nd(%arg0: tensor<1x2x1x3xf32>, %arg1: tensor<2xf32
   // CHECK: return [[RES]] : memref<1x2x1x3xf32>
 }
 
+// -----
+
 func @test_batchnorm_testmode_1d(%arg0: tensor<10xf32>, %arg1: tensor<1xf32>, %arg2: tensor<1xf32>, %arg3: tensor<1xf32>, %arg4: tensor<1xf32>) -> tensor<10xf32> {
   %0 = "onnx.BatchNormalizationTestMode"(%arg0, %arg1, %arg2, %arg3, %arg4) : (tensor<10xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<10xf32>
   return %0 : tensor<10xf32>
@@ -1398,6 +1502,8 @@ func @test_batchnorm_testmode_1d(%arg0: tensor<10xf32>, %arg1: tensor<1xf32>, %a
   // CHECK: }
   // CHECK: return [[RES]] : memref<10xf32>
 }
+
+// -----
 
 func @test_maxpooling_singleout_no_pad(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
@@ -1428,6 +1534,8 @@ func @test_maxpooling_singleout_no_pad(%arg0 : tensor<1x3x32x32xf32>) -> tensor<
   // CHECK: }
   // CHECK: return [[RES]] : memref<1x3x31x31xf32>
 }
+
+// -----
 
 func @test_maxpooling_singleout_no_pad_w_strides(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2], strides = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
@@ -1462,6 +1570,8 @@ func @test_maxpooling_singleout_no_pad_w_strides(%arg0 : tensor<1x3x32x32xf32>) 
   // CHECK: }
   // CHECK: return [[RES]] : memref<1x3x16x16xf32>
 }
+
+// -----
 
 func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], strides = [2, 2], ceil_mode = 1} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
@@ -1504,6 +1614,8 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode(%arg0 : tensor<1x3x
   // CHECK: }
   // CHECK: return [[RES]] : memref<1x3x16x16xf32>
 }
+
+// -----
 
 func @test_maxpooling_singleout_no_pad_w_strides_w_dilation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], strides = [2, 2], dilations = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
@@ -1550,6 +1662,8 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_dilation(%arg0 : tensor<1x3x3
   // CHECK: }
   // CHECK: return [[RES]] : memref<1x3x14x14xf32>
 }
+
+// -----
 
 func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg0 : tensor<?x3x?x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [3, 3], strides = [2, 2], ceil_mode = 1} : (tensor<?x3x?x32xf32>) -> tensor<*xf32>
@@ -1614,6 +1728,8 @@ func @test_maxpooling_singleout_no_pad_w_strides_w_ceil_mode_w_unknown_dims(%arg
   // CHECK: return [[RES]] : memref<?x3x?x16xf32>
 }
 
+// -----
+
 func @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Abs"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -1632,6 +1748,8 @@ func @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: store [[ABS]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 func @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   %0 = "onnx.Abs"(%arg0) : (tensor<?x10xi32>) -> tensor<*xi32>
@@ -1654,6 +1772,8 @@ func @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   // CHECK: store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xi32>
   // CHECK: return [[RES]] : memref<?x10xi32>
 }
+
+// -----
 
 func @test_constant_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
   %0 = "onnx.PadConstantValuePad"(%arg0) {constant_value = 0.000000e+00 : f32, mode = "constant", pads = [0, 3, 2, 1]} : (tensor<16x16xf32>) -> tensor<18x20xf32>
@@ -1706,6 +1826,8 @@ func @test_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
   // CHECK: }
 }
 
+// -----
+
 func @test_constant_dense_2d_value(%arg0: tensor<1xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : () -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -1714,6 +1836,8 @@ func @test_constant_dense_2d_value(%arg0: tensor<1xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<3x2xf32>
 }
 
+
+// -----
 
 func @test_concat_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<5x5x9x32xf32> {
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 2 } : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<5x5x9x32xf32>
