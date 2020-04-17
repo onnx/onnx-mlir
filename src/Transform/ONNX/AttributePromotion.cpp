@@ -65,18 +65,22 @@ public:
           auto operandToPromote = op->getOperand(i);
           if (auto constantOp = dyn_cast_or_null<mlir::ONNXConstantOp>(
                   operandToPromote.getDefiningOp())) {
-            if (constantOp.valueAttr())
+            if (constantOp.valueAttr() &&
+                !constantOp.valueAttr().dyn_cast_or_null<UnitAttr>())
               op->setAttr(name, constantOp.valueAttr());
-            if (constantOp.sparse_valueAttr())
+            if (constantOp.sparse_valueAttr() &&
+                !constantOp.sparse_valueAttr().dyn_cast_or_null<UnitAttr>())
               op->setAttr(name, constantOp.sparse_valueAttr());
             getOrCreateNoneValue(none, f);
             op->setOperand(i, *none);
           }
           if (auto constantOp = dyn_cast_or_null<ConstantOp>(
                   operandToPromote.getDefiningOp())) {
-            op->setAttr(name, constantOp.value());
-            getOrCreateNoneValue(none, f);
-            op->setOperand(i, *none);
+            if (!constantOp.valueAttr().dyn_cast_or_null<UnitAttr>()) {
+              op->setAttr(name, constantOp.value());
+              getOrCreateNoneValue(none, f);
+              op->setOperand(i, *none);
+            }
           }
         }
       }
