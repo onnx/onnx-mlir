@@ -128,7 +128,7 @@ function(find_mlir_lib lib)
           PATHS ${LLVM_PROJECT_LIB}
           NO_DEFAULT_PATH)
   if(${${lib}} STREQUAL ${lib}-NOTFOUND)
-    message(FATAL_ERROR "${lib} not found")
+    message(FATAL_ERROR "${lib} not found, did you forget to build llvm-project?")
   endif()
 endfunction(find_mlir_lib)
 
