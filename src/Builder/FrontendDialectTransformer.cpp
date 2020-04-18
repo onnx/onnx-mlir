@@ -210,7 +210,7 @@ private:
       assert(false && "datatype for attribute is not implemented");
       break;
     }
-    return std::make_pair(attr.name(), AttrValueType(nullptr));
+    llvm_unreachable("Failed to convert attribute proto to name/value pair");
   }
 
   std::vector<mlir::NamedAttribute>
