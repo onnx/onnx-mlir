@@ -33,7 +33,7 @@ bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
 }
 
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
-// This function is used for padding attribute in MaxPoolSingleOut.
+// This function is used for padding attribute in Conv.
 ArrayAttr createArrayAttrOfZeros(
     PatternRewriter &rewriter, ArrayAttr origAttrs) {
   int nElements = origAttrs.getValue().size();
@@ -51,7 +51,7 @@ ArrayAttr createArrayAttrOfZeros(
 //         |_____|                  |_____|
 //                 nZeros                    nZeros
 //
-// This function is used for padding attribute in MaxPoolSingleOut.
+// This function is used for padding attribute in Conv.
 ArrayAttr insertZerosForNonPaddedDims(
     PatternRewriter &rewriter, ArrayAttr origAttrs, int extensionLength) {
   int nDims = (int)origAttrs.getValue().size() / 2;
@@ -72,11 +72,6 @@ ArrayAttr insertZerosForNonPaddedDims(
 
 } // end anonymous namespace
 
-/// on the ONNXMaxPoolSingleOutOp.
-void ONNXMaxPoolSingleOutOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<MaxPoolSingleOutOpPaddingPattern>(context);
-}
 /// on the ONNXConvOp.
 void ONNXConvOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
