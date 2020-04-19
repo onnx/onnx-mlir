@@ -412,6 +412,7 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
     return result;
   } else {
     emitError(loc, "unsupported element type");
+    return {};
   }
 }
 
@@ -469,6 +470,7 @@ Value emitScalarOpFor<ONNXAbsOp>(ConversionPatternRewriter &rewriter,
         loc, lessThanZero, negativeOperand, operand);
   } else {
     emitError(loc, "unsupported element type");
+    return {};
   }
 }
 
