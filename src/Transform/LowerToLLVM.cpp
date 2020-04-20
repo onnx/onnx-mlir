@@ -602,12 +602,12 @@ private:
 //===----------------------------------------------------------------------===//
 
 namespace {
-struct KrnlToLLVMLoweringPass : public ModulePass<KrnlToLLVMLoweringPass> {
-  void runOnModule() final;
+struct KrnlToLLVMLoweringPass : public PassWrapper<KrnlToLLVMLoweringPass, OperationPass<ModuleOp>> {
+  void runOnOperation() final;
 };
 } // end anonymous namespace
 
-void KrnlToLLVMLoweringPass::runOnModule() {
+void KrnlToLLVMLoweringPass::runOnOperation() {
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
@@ -634,7 +634,7 @@ void KrnlToLLVMLoweringPass::runOnModule() {
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
   if (failed(
-          applyFullConversion(getModule(), target, patterns, &typeConverter)))
+          applyFullConversion(getOperation(), target, patterns, &typeConverter)))
     signalPassFailure();
 }
 
