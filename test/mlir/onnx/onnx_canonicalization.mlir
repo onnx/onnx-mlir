@@ -96,32 +96,3 @@ func @test_gemm_add_fusion_rank3(%arg0: tensor<128x128x256xf32>, %arg1: tensor<1
   // CHECK-NEXT: [[GEMM:%.+]] = "onnx.Gemm"(%{{.*}}, %{{.*}}, %{{.*}}) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : i64, transB = 0 : i64} : (tensor<128x128x256xf32>, tensor<128x128x256xf32>, tensor<256xf32>) -> tensor<*xf32>
   // return [[GEMM]] : tensor<*xf32>
 }
-
-// -----
-
-//CHECK-LABEL: @test_maxpoolsingleout_split(%{{.*}}: tensor<5x5x32x32xf32>) -> tensor<5x5x36x38xf32> {
-func @test_maxpoolsingleout_split(%arg0: tensor<5x5x32x32xf32>) -> tensor<5x5x36x38xf32> {
-  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", ceil_mode = 0, kernel_shape = [5,3], pads = [1, 2, 3, 4] } : (tensor<5x5x32x32xf32>) -> tensor<5x5x36x38xf32>
-  "std.return"(%0) : (tensor<5x5x36x38xf32>) -> ()
-
-  // CHECK-NEXT: %0 = "onnx.Constant"() {value = dense<[0, 0, 1, 2, 0, 0, 3, 4]> : tensor<8xi64>} : () -> tensor<8xi64>
-  // CHECK-NEXT: %1 = "onnx.Constant"() {value = dense<0xFF800000> : tensor<1xf32>} : () -> tensor<1xf32>
-  // CHECK-NEXT: %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<5x5x32x32xf32>, tensor<8xi64>, tensor<1xf32>) -> tensor<*xf32>
-  // CHECK-NEXT: %3 = "onnx.MaxPoolSingleOut"(%2) {auto_pad = "NOTSET", ceil_mode = 0 : i64, kernel_shape = [5, 3], pads = [0, 0, 0, 0], storage_order = 0 : i64} : (tensor<*xf32>) -> tensor<5x5x36x38xf32>
-  // CHECK-NEXT: return %3 : tensor<5x5x36x38xf32>
-}
-
-// -----
-
-//CHECK-LABEL: @test_maxpoolsingleout_split_unknown_dims(%{{.*}}: tensor<*xf32>) -> tensor<*xf32> {
-func @test_maxpoolsingleout_split_unknown_dims(%arg0: tensor<*xf32>) -> tensor<*xf32> {
-  %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", ceil_mode = 0, kernel_shape = [5,3], pads = [1, 2, 3, 4] } : (tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-NEXT: %0 = "onnx.Constant"() {value = dense<[0, 0, 1, 2, 0, 0, 3, 4]> : tensor<8xi64>} : () -> tensor<8xi64>
-  // CHECK-NEXT: %1 = "onnx.Constant"() {value = dense<0xFF800000> : tensor<1xf32>} : () -> tensor<1xf32>
-  // CHECK-NEXT: %2 = "onnx.Pad"(%arg0, %0, %1) {mode = "constant"} : (tensor<*xf32>, tensor<8xi64>, tensor<1xf32>) -> tensor<*xf32>
-  // CHECK-NEXT: %3 = "onnx.MaxPoolSingleOut"(%2) {auto_pad = "NOTSET", ceil_mode = 0 : i64, kernel_shape = [5, 3], pads = [0, 0, 0, 0], storage_order = 0 : i64} : (tensor<*xf32>) -> tensor<*xf32>
-  // CHECK-NEXT: return %3 : tensor<*xf32>
-}
-

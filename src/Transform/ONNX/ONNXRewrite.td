@@ -36,14 +36,8 @@ class StringAttrOfValue<string val>:
 class FloatAttrOfValue<int val>:
   NativeCodeCall<"createDenseFloatAttrOfValue($_builder, $0, " # val # ")">;
 
-// Create a FloatAttr for the negative infinity.
-def FloatAttrOfNegativeInfinity:
-  NativeCodeCall<"createDenseFloatAttrOfValue($_builder, $0, "
-                                "-std::numeric_limits<double>::infinity())">;
-
-
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
-// This function is used for padding attribute in MaxPoolSingleOut.
+// This function is used for padding attribute in Conv.
 def createArrayAttrOfZerosFrom:
   NativeCodeCall<"createArrayAttrOfZeros($_builder, $0)">;
 
@@ -57,7 +51,7 @@ def createArrayAttrOfZerosFrom:
 //         |_____|                  |_____|
 //                 nZeros                    nZeros
 //
-// This function is used for padding attribute in MaxPoolSingleOut.
+// This function is used for padding attribute in Conv.
 class insertZerosForNonPaddedDims<int extensionLength>:
   NativeCodeCall<"insertZerosForNonPaddedDims($_builder, $0,"
                                               # extensionLength # ")">;
@@ -69,39 +63,6 @@ def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
 // Check that a StrAttr does not contain a specific value.
 class IsNotStringAttrOfValue<string val>:
   Constraint<CPred<"$0.cast<StringAttr>().getValue() != \"" # val # "\"">>;
-
-//===----------------------------------------------------------------------===//
-// Rewrite:
-// %0 = onnx.MaxPoolSingleOutOp(%D : tensor<DShape>)
-//     {pads = [b0, b1, ... bK, e0, e1, ..., eK]} ->
-//         tensor<OutShape>
-//
-// as:
-// %0 = onnx.PadConstantValuePadOp(%D)
-//     {pads = [0, 0, b0, b1, ... bK, 0, 0, e0, e1, ..., eK]} ->
-//     tensor<DPaddedShape>
-// %1 = onnx.MaxPoolSingleOut(%0 : tensor<DPaddedShape>) {pads = [0, ..., 0]} ->
-//     tensor<OutShape>
-//===----------------------------------------------------------------------===//
-
-def MaxPoolSingleOutOpPaddingPattern: Pat<
-  (ONNXMaxPoolSingleOutOp:$res
-     $x,
-     $auto_pad, $ceil_mode, $dilation, $kernel_shape,
-     $pads,
-     $storage_order, $strides),
-  (ONNXMaxPoolSingleOutOp
-       (ONNXPadOp $x,
-          (ONNXConstantOp (GetNullAttr), 
-             (insertZerosForNonPaddedDims<2> $pads)),
-          (ONNXConstantOp (GetNullAttr), 
-             (FloatAttrOfNegativeInfinity $res)),
-          (StringAttrOfValue<"constant">)),
-     $auto_pad, $ceil_mode, $dilation, $kernel_shape,
-     (createArrayAttrOfZerosFrom $pads),
-     $storage_order, $strides),
-  [(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
->;
 
 //===----------------------------------------------------------------------===//
 // Rewrite:
