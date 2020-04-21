@@ -3241,7 +3241,7 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
 }
 
 def ONNXSplitOp:ONNX_Op<"Split",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Split operation";
   let description = [{
   "Split a tensor into a list of tensors, along the specified"
