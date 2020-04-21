@@ -349,7 +349,6 @@ public:
         "_mlir_ciface_" + staticEntryPointFuncName.lower();
     auto *staticEntryPointFunc =
         module.lookupSymbol(wrappedStaticEntryPointFuncName);
-    printf("func name is %s\n", wrappedStaticEntryPointFuncName.c_str());
     assert(staticEntryPointFunc &&
            isa<LLVM::LLVMFuncOp>(staticEntryPointFunc) &&
            "entry point func must exist and be an llvm func op");
