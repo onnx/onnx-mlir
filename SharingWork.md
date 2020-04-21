@@ -13,7 +13,7 @@ Update as you push code to the master branch.
 | Abs            |                 | v  | v | v |    |       |
 | Add            |                 | v  | v | v |    | M     |
 | And            |                 | v  | v | v |    | M     |
-| AveragePool    | Tung            | v  | v | v |    | nP    |
+| AveragePool    |                 | v  | v | v |    | P     |
 | BatchNorm      |                 | v  | v | v |    |       |
 | Constant       |                 | v  | v | v |    |       |
 | Conv           |                 | v  | v | v |    | nP    |
@@ -28,21 +28,23 @@ Update as you push code to the master branch.
 | Identity       |                 | v  | v | v |    |       |
 | LeakyRelu      |                 | v  | v | v |    |       |
 | Log            |                 | v  | v | v |    |       |
-| MatMul         |                 | v  | v | v |    | noM   |
+| MatMul         |                 | v  | v | v |    | M     |
 | Max            |                 | v  | v | v |    | M V   |
-| MaxPool        |                 | v  | v | v |    | M noIdx |
+| MaxPool        |                 | v  | v | v |    | P     |
 | Min            |                 | v  | v | v |    | M V   |
-| Mul            |                 | v  | v | v |    | noM   |
+| Mul            |                 | v  | v | v |    | M     |
 | Or             |                 | v  | v | v |    | M     |
 | Pad            |                 | v  | V | v |    | const only |
 | Reciprocal     |                 | v  | v | v |    |       |
 | ReduceMax      |                 | v  | v | v |    |       |
-| ReduceL1       |                 | v  | v | v |    |       |
-| ReduceL2       |                 | v  | v | v |    |       |
-| ReduceLogSum   |                 | v  | v | v |    |       |
+| ReduceL1       |                 | v  |   |   |    | be decomposed into ReduceSum and Abs |
+| ReduceL2       |                 | v  |   |   |    | be decomposed into ReduceSumSquare and Sqrt |
+| ReduceLogSum   |                 | v  |   |   |    | be decomposed into ReduceSum and Log |
+| ReduceLogSumExp|                 | v  |   |   |    | be decomposed into ReduceLogSum and Exp |
 | ReduceMin      |                 | v  | v | v |    |       |
 | ReduceProd     |                 | v  | v | v |    |       |
 | ReduceSum      |                 | v  | v | v |    |       |
+| ReduceSumSquare|                 | v  |   |   |    | be decomposed into ReduceSum and Mul |
 | Relu           |                 | v  | v | v |    |       |
 | Reshape        |                 | v  | v | v |    | const only |
 | Selu           |                 | v  | v | v |    |       |
@@ -159,9 +161,7 @@ And add literal tests at each step, and end to end tests once completed.
 | RandUniform    |                 |    |   |   |    |       |
 | RandUniformLike|                 |    |   |   |    |       |
 | Range          |                 |    |   |   |    |       |
-| ReduceLogSumExp|                 |    |   |   |    |       |
 | ReduceMean     |                 |    |   |   |    |       |
-| ReduceSumSquare|                 |    |   |   |    |       |
 | Resize         |                 |    |   |   |    |       |
 | ReverseSequence|                 |    |   |   |    |       |
 | RoiAlign       |                 |    |   |   |    |       |
