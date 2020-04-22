@@ -41,7 +41,7 @@ target_link_libraries(onnx-mlir
         ${MLIRLibs}
         ${CMAKE_DL_LIBS})
 
-if (include_onnx_ml)
+if (INCLUDE_ONNX_ML)
   target_link_libraries(onnx-mlir OMMLONNXOps)
 endif()
 

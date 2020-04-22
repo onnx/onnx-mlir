@@ -34,11 +34,11 @@ set(CMAKE_CXX_STANDARD 14)
 
 if ($ENV{EXCLUDE_ONNX_ML})
   set(INCLUDE_ONNX_ML FALSE)
-  message(STATUS "ONNX ML is excluded")
 else()
   set(INCLUDE_ONNX_ML TRUE)
-  message(STATUS "ONNX ML is included")
 endif()
+
+message(STATUS "INCLUDE_ONNX_ML Dialect " ${INCLUDE_ONNX_ML})
 
 add_subdirectory(utils)
 add_subdirectory(src)
