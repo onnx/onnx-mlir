@@ -37,6 +37,9 @@ using namespace mlir;
 // Identity affine
 AffineMap getIdentityDimMap(Builder &builder);
 
+// Pool/conv affine
+AffineMap getConvDimMap(Builder &builder, bool ceilMode);
+
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType type);
 

@@ -1313,9 +1313,12 @@ bool ONNXMaxPoolSingleOutOp::inferShapes() {
     return false;
   }
 
+  auto builder = mlir::Builder(getContext());
+
   // Get shape of input.
   auto xTy = X().getType().cast<RankedTensorType>();
   auto xShape = xTy.getShape();
+  auto xRank = xShape.size();
 
   // Kernel shape.
   auto kernelShape = kernel_shape();
@@ -1342,8 +1345,33 @@ bool ONNXMaxPoolSingleOutOp::inferShapes() {
   outputDims.emplace_back(xShape[0]);
   outputDims.emplace_back(xShape[1]);
   // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, xShape, kernelShape, padsOpt, stridesOpt,
-      dilationsOpt, ceilMode);
+  auto spatialRank = ArrayAttrSize(kernelShape);
+  auto spatialOffset = xRank - spatialRank;
+  // Get an affine map to compute the output dimension.
+  AffineMap dimMap = getConvDimMap(builder, ceilMode);
+  for (int i = 0; i < spatialRank; ++i) {
+    if (xShape[spatialOffset + i] == -1) {
+      outputDims.emplace_back(-1);
+      continue;
+    }
+    AffineExpr input = builder.getAffineConstantExpr(xShape[spatialOffset + i]);
+    AffineExpr kernel =
+        builder.getAffineConstantExpr(ArrayAttrIntVal(kernelShape, i));
+    AffineExpr pad = builder.getAffineConstantExpr(
+        ArrayAttrIntVal(padsOpt, i) +
+        ArrayAttrIntVal(padsOpt, spatialRank + i));
+    AffineExpr stride =
+        builder.getAffineConstantExpr(ArrayAttrIntVal(stridesOpt, i));
+    AffineExpr dilation = builder.getAffineConstantExpr(
+        (dilationsOpt.hasValue()) ? ArrayAttrIntVal(dilationsOpt, i) : 1);
+
+    // Replace the affine map's arguments with real values and evaluate the map.
+    AffineMap replacedDimMap = dimMap.replaceDimsAndSymbols(
+        {input}, {kernel, pad, stride, dilation}, 1, 4);
+    AffineMap map = simplifyAffineMap(replacedDimMap);
+
+    outputDims.emplace_back(map.getSingleConstantResult());
+  }
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return true;

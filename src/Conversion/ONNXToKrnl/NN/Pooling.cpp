@@ -148,58 +148,30 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
     }
   }
 
-  Value zero, one;
-  if (ceilMode) {
-    zero = rewriter.create<ConstantOp>(
-        loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
-  }
-  one = rewriter.create<ConstantOp>(
-      loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 1));
-
+  // Obtain an affine map to compute the output dimension.
+  AffineMap dimMap = getConvDimMap(rewriter, ceilMode);
   for (int i = kernelOffset; i < resultShape.size(); ++i) {
     if (resultShape[i] < 0) {
-      // dim =
-      //   let numerator = (input + pad - (kernel - 1) * dilation - 1)
-      //   in let denominator = stride
-      //      in
-      //        if (ceilMode)
-      //          ceil(numerator / denominator) + 1
-      //        else
-      //          floor(numerator / denominator) + 1
       int spatialIndex = i - kernelOffset;
+      // Prepare arguments for the affine map.
+      SmallVector<Value, 4> dimArgs;
+      dimArgs.emplace_back(rewriter.create<DimOp>(loc, inputOperand, i));
+      dimArgs.emplace_back(emitConstantOp(
+          rewriter, loc, rewriter.getIndexType(), kernelShape[spatialIndex]));
+      dimArgs.emplace_back(
+          emitConstantOp(rewriter, loc, rewriter.getIndexType(),
+              (pads[spatialIndex] + pads[spatialIndex + kernelRank])));
+      dimArgs.emplace_back(emitConstantOp(
+          rewriter, loc, rewriter.getIndexType(), strides[spatialIndex]));
+      dimArgs.emplace_back(
+          emitConstantOp(rewriter, loc, rewriter.getIndexType(),
+              dilations.empty() ? 1 : dilations[spatialIndex]));
 
-      // numerator = (input + pad - (kernel - 1) * dilation - 1)
-      int64_t dilation = dilations.empty() ? 1 : dilations[spatialIndex];
-      int64_t padKernelDilation =
-          (pads[spatialIndex] + pads[spatialIndex + kernelRank]) -
-          (kernelShape[spatialIndex] - 1) * dilation - 1;
-      auto padKernelDilationVal = emitConstantOp(
-          rewriter, loc, rewriter.getIntegerType(64), padKernelDilation);
-      auto inputDim = rewriter.create<DimOp>(loc, inputOperand, i);
-      auto inputDimVal = rewriter.create<IndexCastOp>(
-          loc, inputDim, rewriter.getIntegerType(64));
-      auto numeratorVal =
-          rewriter.create<AddIOp>(loc, inputDimVal, padKernelDilationVal);
-      // denominator
-      auto denominatorVal = emitConstantOp(
-          rewriter, loc, rewriter.getIntegerType(64), strides[spatialIndex]);
-
-      // numerator / denominator
+      // Apply the affine map.
       Value dimVal =
-          rewriter.create<SignedDivIOp>(loc, numeratorVal, denominatorVal);
+          rewriter.create<AffineApplyOp>(loc, dimMap, ValueRange(dimArgs));
 
-      if (ceilMode) {
-        auto remainder =
-            rewriter.create<SignedRemIOp>(loc, numeratorVal, denominatorVal);
-        auto isZero =
-            rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, remainder, zero);
-        auto dimPlusOne = rewriter.create<AddIOp>(loc, dimVal, one);
-        dimVal = rewriter.create<SelectOp>(loc, isZero, dimVal, dimPlusOne);
-      }
-
-      dimVal = rewriter.create<AddIOp>(loc, dimVal, one);
-      allocOperands.emplace_back(
-          rewriter.create<IndexCastOp>(loc, dimVal, rewriter.getIndexType()));
+      allocOperands.emplace_back(dimVal);
     }
   }
   alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
