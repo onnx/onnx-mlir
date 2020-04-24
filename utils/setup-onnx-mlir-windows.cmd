@@ -53,9 +53,10 @@ cd /d %root_dir%
 
 REM git clone --recursive https://github.com/onnx/onnx-mlir.git
 git clone https://github.com/byronChanguion/onnx-mlir.git 
+cd onnx-mlir
 git checkout 504da8d15a5d48b2bd25b510ff02851b478d5cc7
-
 git submodule update --init --recursive
+cd ..
 
 set CURSES_LIB_PATH=%root_dir%/PDCurses
 set LLVM_PROJ_BUILD=%root_dir%/llvm-project/build
