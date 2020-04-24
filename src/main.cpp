@@ -43,9 +43,14 @@ int main(int argc, char *argv[]) {
   mlir::OwningModuleRef module;
   processInputFile(inputFilename, emissionTarget, context, module);
 
+  // Input file base name.
+  string outputBaseName =
+      inputFilename.substr(0, inputFilename.find_last_of("."));
+
   mlir::PassManager pm(&context);
-  if (emissionTarget >= EmitONNXIR)
+  if (emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm);
+  }
 
   if (emissionTarget >= EmitMLIR) {
     addONNXToKrnlPasses(pm);
@@ -58,12 +63,7 @@ int main(int argc, char *argv[]) {
   if (mlir::failed(pm.run(*module)))
     return 4;
 
-  if (emissionTarget == EmitLLVMBC) {
-      // Write LLVM bitcode to disk.
-      EmitLLVMBitCode(module);
-      printf("LLVM bitcode written to ./model.bc");
-  } else
-    module->dump();
+  emitOutputFiles(outputBaseName, emissionTarget, context, module);
 
   return 0;
 }
