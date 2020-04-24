@@ -82,6 +82,21 @@ test_to_enable = [
     "test_cosh_cpu",
     "test_cosh_example_cpu",
 
+    # Concat
+    "test_concat_1d_axis_0_cpu",
+    "test_concat_2d_axis_0_cpu",
+    "test_concat_2d_axis_1_cpu",
+    "test_concat_3d_axis_0_cpu",
+    "test_concat_3d_axis_1_cpu",
+    "test_concat_3d_axis_2_cpu",
+    
+    "test_concat_1d_axis_negative_1_cpu",
+    "test_concat_2d_axis_negative_1_cpu",
+    "test_concat_2d_axis_negative_2_cpu",
+    "test_concat_3d_axis_negative_1_cpu",
+    "test_concat_3d_axis_negative_2_cpu",
+    "test_concat_3d_axis_negative_3_cpu",
+
     # Tanh:
     "test_tanh_cpu",
     "test_tanh_example_cpu",
@@ -312,7 +327,7 @@ test_to_enable = [
     "test_batchnorm_epsilon_cpu",
     "test_batchnorm_example_cpu",
 
-    # Pooling
+    # MaxPoolSingleOut
     "test_maxpool_1d_default_cpu",
     "test_maxpool_2d_ceil_cpu",
     "test_maxpool_2d_default_cpu",
@@ -325,6 +340,21 @@ test_to_enable = [
     "test_maxpool_2d_same_upper_cpu",
     "test_maxpool_2d_strides_cpu",
     "test_maxpool_3d_default_cpu",
+
+    # AveragePool
+    "test_averagepool_1d_default_cpu",
+    "test_averagepool_2d_ceil_cpu",
+    "test_averagepool_2d_default_cpu",
+    "test_averagepool_2d_pads_count_include_pad_cpu",
+    "test_averagepool_2d_pads_cpu",
+    "test_averagepool_2d_precomputed_pads_count_include_pad_cpu",
+    "test_averagepool_2d_precomputed_pads_cpu",
+    "test_averagepool_2d_precomputed_same_upper_cpu",
+    "test_averagepool_2d_precomputed_strides_cpu",
+    "test_averagepool_2d_same_lower_cpu",
+    "test_averagepool_2d_same_upper_cpu",
+    "test_averagepool_2d_strides_cpu",
+    "test_averagepool_3d_default_cpu",
 
 ]
 

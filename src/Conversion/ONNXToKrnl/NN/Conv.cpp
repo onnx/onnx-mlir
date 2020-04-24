@@ -115,7 +115,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       gIndex = outerLoops.pushBounds(0, group);
     //   for m = 0 .. kernelsPerGroup:
     int mIndex = outerLoops.pushBounds(0, kernelsPerGroup);
-    // Outer loop iteration
+    // Outer loop iterations.
     outerLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outerLoops.getIterateBlock());
     {

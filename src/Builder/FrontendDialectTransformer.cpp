@@ -80,6 +80,7 @@ private:
     case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
     case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
     case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
+    default:
       assert(false && "Unsupported data type encountered.");
       return nullptr;
     }
@@ -209,6 +210,7 @@ private:
       assert(false && "datatype for attribute is not implemented");
       break;
     }
+    llvm_unreachable("Failed to convert attribute proto to name/value pair");
   }
 
   std::vector<mlir::NamedAttribute>

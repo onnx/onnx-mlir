@@ -273,7 +273,7 @@ getBroadcastedDimInfo(Location loc, ConversionPatternRewriter &rewriter,
     auto shape = operands[i].getType().cast<MemRefType>().getShape();
     int size = shape.size();
     for (int j = 0; j < shape.size(); ++j) {
-      if (shape[j] < 0 and sharedDimCount[rank - size + j] > 1) {
+      if (shape[j] < 0 && sharedDimCount[rank - size + j] > 1) {
         auto dim = rewriter.create<DimOp>(loc, operands[i], j).getResult();
         auto one = rewriter.create<ConstantIndexOp>(loc, 1);
         auto isBroadcasted =
