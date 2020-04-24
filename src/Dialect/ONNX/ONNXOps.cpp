@@ -9,6 +9,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Traits.h"
+#include "mlir/IR/AffineExpr.h"
+#include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Function.h"
@@ -422,7 +424,21 @@ bool ONNXEluOp::inferShapes() {
 /// Infer the output shape of the ONNXReluOp. This method is required by the
 /// shape inference interface.
 bool ONNXReluOp::inferShapes() {
-  getResult().setType(getOperand().getType());
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  auto operandShape = operandTy.getShape();
+
+  auto builder = mlir::Builder(this->getContext());
+  AffineExpr dimExpr = builder.getAffineDimExpr(0);
+  AffineMap dimMap = AffineMap::get(1, 0, {dimExpr});
+  SmallVector<int64_t, 4> dims;
+  for (int i = 0; i < operandShape.size(); ++i) {
+    dimMap = dimMap.replaceDimsAndSymbols(
+        {builder.getAffineConstantExpr(operandShape[i])}, {}, 1, 0);
+    AffineMap map = simplifyAffineMap(dimMap);
+    dims.emplace_back(map.getSingleConstantResult());
+  }
+
+  getResult().setType(RankedTensorType::get(dims, operandTy.getElementType()));
   return true;
 }
 
