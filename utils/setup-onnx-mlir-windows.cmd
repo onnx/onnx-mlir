@@ -2,8 +2,11 @@ call curl -o miniconda.exe --location https://repo.continuum.io/miniconda/Minico
 call MiniConda.exe /S /D=%UserProfile%\Miniconda3
 set PATH=%PATH%;%UserProfile%\Miniconda3\Scripts
 setx PATH "%UserProfile%\Miniconda3\Scripts;%PATH%" /M
-call conda.bat create -n om_py37 pip python=3.6 libprotobuf=3.11.3 -y
-call activate.bat om_py37
+
+call conda.bat create --yes --quiet --name onnx-mlir -c conda-forge python=3.7 numpy libprotobuf=3.11.3 protobuf
+
+
+call activate.bat onnx-mlir
 
 call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 
