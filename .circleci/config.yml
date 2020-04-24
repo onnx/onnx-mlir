@@ -14,4 +14,4 @@ jobs:
       - run:
           name: "Build Script"
           shell: powershell.exe
-          command: onnx-mlir\utils\install-onnx-mlir
+          command: utils\install-onnx-mlir
