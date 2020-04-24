@@ -9,5 +9,8 @@ jobs:
       name: win/default
       size: "medium" # can be "medium", "large", "xlarge", "2xlarge"
     steps:
-      - run: Write-Host 'Hello, Windows'
-      - run: onnx-mlir\utils\install-onnx-mlir
+      - run: systeminfo
+      - run:
+          name: "Build Script"
+          shell: powershell.exe
+          command: onnx-mlir\utils\install-onnx-mlir
