@@ -23,6 +23,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 
 #include "ONNXOps.hpp"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -37,9 +38,9 @@ static size_t ArrayAttrSize(Optional<ArrayAttr> a) {
   return a.getValue().size();
 }
 
-static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
-  return (a.getValue()[i]).cast<IntegerAttr>().getInt();
-}
+//static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
+//  return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+//}
 
 static int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
   return (a.getValue().getValue()[i]).cast<IntegerAttr>().getInt();
@@ -428,13 +429,12 @@ bool ONNXReluOp::inferShapes() {
   auto operandShape = operandTy.getShape();
 
   auto builder = mlir::Builder(this->getContext());
-  AffineExpr dimExpr = builder.getAffineDimExpr(0);
-  AffineMap dimMap = AffineMap::get(1, 0, {dimExpr});
+  AffineMap dimMap = getIdentityDimMap(builder);
   SmallVector<int64_t, 4> dims;
   for (int i = 0; i < operandShape.size(); ++i) {
-    dimMap = dimMap.replaceDimsAndSymbols(
+    AffineMap replacedDimMap = dimMap.replaceDimsAndSymbols(
         {builder.getAffineConstantExpr(operandShape[i])}, {}, 1, 0);
-    AffineMap map = simplifyAffineMap(dimMap);
+    AffineMap map = simplifyAffineMap(replacedDimMap);
     dims.emplace_back(map.getSingleConstantResult());
   }
 

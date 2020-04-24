@@ -15,6 +15,8 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/IR/AffineExpr.h"
+#include "mlir/IR/AffineMap.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -31,6 +33,9 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
 //===----------------------------------------------------------------------===//
+
+// Identity affine
+AffineMap getIdentityDimMap(Builder &builder);
 
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType type);

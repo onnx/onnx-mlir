@@ -11,6 +11,11 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
+// Identity affine
+AffineMap getIdentityDimMap(Builder &builder) {
+  return AffineMap::get(1, 0, {builder.getAffineDimExpr(0)});
+}
+
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType type) {
   auto memRefShape = type.getShape();

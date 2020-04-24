@@ -504,8 +504,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
       auto shape = memRefType.cast<MemRefType>().getShape();
-      AffineExpr dimExpr = rewriter.getAffineDimExpr(0);
-      AffineMap dimMap = AffineMap::get(1, 0, {dimExpr});
+      AffineMap dimMap = getIdentityDimMap(rewriter);
       SmallVector<Value, 4> allocOperands;
       for (int i = 0; i < shape.size(); ++i) {
         if (shape[i] < 0) {
