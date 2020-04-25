@@ -10,8 +10,28 @@ jobs:
       size: "medium" # can be "medium", "large", "xlarge", "2xlarge"
     steps:
       - checkout
-      - run: systeminfo
       - run:
           name: "Build Script"
           shell: powershell.exe
           command: utils\setup-onnx-mlir-windows.cmd
+  test:
+    executor:
+      name: win/default
+      size: "medium" # can be "medium", "large", "xlarge", "2xlarge"
+    steps:
+      - checkout
+      - run: systeminfo
+      - run:
+          name: "Testing"
+          shell: powershell.exe
+          command: utils\test-onnx-mlir-windows.cmd
+
+
+workflows:
+  version: 2.1
+  build-test-and-deploy:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build        
