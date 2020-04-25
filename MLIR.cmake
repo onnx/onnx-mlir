@@ -263,7 +263,9 @@ set(ONNXMLIRWholeArchiveLibs
         OMShapeInference
         OMShapeInferenceOpInterface
         OMAttributePromotion
-        OMPromotableConstOperandsOpInterface)
+        OMPromotableConstOperandsOpInterface
+        OMElideConstants
+        OMElideKrnlGlobalConstants)
 
 # Function to construct linkage option for the static libraries that must be
 # linked with --whole-archive (or equivalent).
