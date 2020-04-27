@@ -3,7 +3,7 @@ call MiniConda.exe /S /D=%UserProfile%\Miniconda3
 setx PATH=%PATH%;%UserProfile%\Miniconda3\Scripts
 setx PATH "%UserProfile%\Miniconda3\Scripts;%PATH%" /M
 
-call conda.bat create --yes --quiet --name onnx-mlir -c conda-forge python=3.7 numpy libprotobuf=3.11.3 protobuf
+call conda.bat create --yes --quiet --name onnx-mlir -c conda-forge python=3.6 numpy libprotobuf=3.11.3 protobuf
 
 
 call activate.bat onnx-mlir
