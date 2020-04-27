@@ -37,8 +37,8 @@ class ConstantValueElision : public OpRewritePattern<ONNXConstantOp> {
 public:
   using OpRewritePattern<ONNXConstantOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXConstantOp op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      ONNXConstantOp op, PatternRewriter &rewriter) const override {
     auto loc = op.getLoc();
     auto constOp = llvm::dyn_cast<ONNXConstantOp>(&op);
 
@@ -58,7 +58,7 @@ public:
  *  Function pass that performs constant value elision.
  */
 class ElideConstantValuePass
-    : public mlir::FunctionPass<ElideConstantValuePass> {
+    : public PassWrapper<ElideConstantValuePass, FunctionPass> {
 public:
   void runOnFunction() override {
     auto function = getFunction();
@@ -67,7 +67,7 @@ public:
     OwningRewritePatternList patterns;
     patterns.insert<ConstantValueElision>(&getContext());
 
-    applyPatternsGreedily(function, patterns);
+    applyPatternsAndFoldGreedily(function, patterns);
   }
 };
 } // end anonymous namespace

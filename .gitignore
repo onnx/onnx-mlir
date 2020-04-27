@@ -1,3 +1,6 @@
+.idea/
+cmake-*/
+
 # Prerequisites
 *.d
 

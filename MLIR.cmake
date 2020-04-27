@@ -132,8 +132,9 @@ function(find_mlir_lib lib)
   endif()
 endfunction(find_mlir_lib)
 
-find_mlir_lib(MLIRAffine)
+find_mlir_lib(MLIRAffineOps)
 find_mlir_lib(MLIRAffineToStandard)
+find_mlir_lib(MLIRAffineTransforms)
 find_mlir_lib(MLIRAnalysis)
 find_mlir_lib(MLIRCallInterfaces)
 find_mlir_lib(MLIRControlFlowInterfaces)
@@ -193,8 +194,9 @@ set(MLIRLibs
         ${MLIRTargetLLVMIRModuleTranslation}
         ${MLIRTransforms}
         ${MLIRTransformUtils}
-        ${MLIRAffine}
+        ${MLIRAffineOps}
         ${MLIRAffineToStandard}
+        ${MLIRAffineTransforms}
         ${MLIRAnalysis}
         ${MLIRCallInterfaces}
         ${MLIRControlFlowInterfaces}
@@ -244,14 +246,15 @@ set(MLIRLibs
 # must be specified on LD_PRELOAD for shared build.
 set(MLIRWholeArchiveLibs
         MLIRAffineToStandard
-        MLIRAffine
+        MLIRAffineOps
         MLIRLLVMIR
         MLIRStandardOps
         MLIRStandardToLLVM
         MLIRTransforms
         MLIRLoopToStandard
         MLIRVector
-        MLIRLoopOps)
+        MLIRLoopOps
+        MLIRIR)
 
 # ONNX MLIR libraries that must be linked with --whole-archive for static build or
 # must be specified on LD_PRELOAD for shared build.
