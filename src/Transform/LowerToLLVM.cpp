@@ -142,9 +142,11 @@ public:
       OpBuilder::InsertionGuard insertGuard(rewriter);
       rewriter.setInsertionPointToStart(module.getBody());
 
-      global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
-          /*isConstant=*/true, LLVM::Linkage::Internal, name,
-          krnlGlobalOp.value());
+      assert(krnlGlobalOp.value().hasValue() &&
+             "Krnl Global must always have a value");
+      global = rewriter.create<LLVM::GlobalOp>(loc,
+          llvmGlobalType, /*isConstant=*/true,
+          LLVM::Linkage::Internal, name, krnlGlobalOp.value().getValue());
     }
 
     // Some frequently used types.
