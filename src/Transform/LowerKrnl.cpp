@@ -149,7 +149,7 @@ public:
 /// add and multiply, this pass will leave these operations intact.
 namespace {
 struct KrnlToAffineLoweringPass
-    : public FunctionPass<KrnlToAffineLoweringPass> {
+    : public PassWrapper<KrnlToAffineLoweringPass, FunctionPass> {
   void runOnFunction() final;
 };
 } // end anonymous namespace.
