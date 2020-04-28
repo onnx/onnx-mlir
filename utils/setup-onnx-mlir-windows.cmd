@@ -1,7 +1,7 @@
 call curl -o miniconda.exe --location https://repo.continuum.io/miniconda/Miniconda3-latest-Windows-x86_64.exe
 call MiniConda.exe /S /D=%UserProfile%\Miniconda3
-set PATH=%PATH%;%UserProfile%\Miniconda3\Scripts
-set PATH "%UserProfile%\Miniconda3\Scripts;%PATH%" /M
+setx PATH=%PATH%;%UserProfile%\Miniconda3\Scripts
+setx PATH "%UserProfile%\Miniconda3\Scripts;%PATH%" /M
 
 call conda create --yes --quiet --name onnx-mlir -c conda-forge python=3.6 libprotobuf=3.11.4
 
@@ -10,12 +10,12 @@ call activate.bat onnx-mlir
 call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 
 
-set root_dir=%cd%
+setx root_dir=%cd%
 
 REM Build PDcurses
 cd /d %root_dir%
 git clone https://github.com/wmcbrine/PDCurses.git
-set PDCURSES_SRCDIR=%root_dir%/PDCurses
+setx PDCURSES_SRCDIR=%root_dir%/PDCurses
 cd PDCurses
 call nmake -f wincon/Makefile.vc
 
@@ -51,9 +51,9 @@ git checkout 504da8d15a5d48b2bd25b510ff02851b478d5cc7
 git submodule update --init --recursive
 cd ..
 
-set CURSES_LIB_PATH=%root_dir%/PDCurses
-set LLVM_PROJ_BUILD=%root_dir%/llvm-project/build
-set LLVM_PROJ_SRC=%root_dir%/llvm-project
+setx CURSES_LIB_PATH=%root_dir%/PDCurses
+setx LLVM_PROJ_BUILD=%root_dir%/llvm-project/build
+setx LLVM_PROJ_SRC=%root_dir%/llvm-project
 
 md onnx-mlir\build
 cd onnx-mlir\build
