@@ -9,8 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Traits.h"
-#include "mlir/IR/AffineExpr.h"
-#include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Function.h"
