@@ -4,20 +4,20 @@ orbs:
   win: circleci/windows@2.3.0
 
 jobs:
-  build:
+  build-windows:
     executor:
       name: win/default
-      size: "medium" # can be "medium", "large", "xlarge", "2xlarge"
+      size: "medium"
     steps:
       - checkout
       - run:
           name: "Build Script"
           shell: powershell.exe
           command: utils\setup-onnx-mlir-windows.cmd
-  test:
+  test-windows:
     executor:
       name: win/default
-      size: "medium" # can be "medium", "large", "xlarge", "2xlarge"
+      size: "medium" 
     steps:
       - checkout
       - run: systeminfo
@@ -29,9 +29,9 @@ jobs:
 
 workflows:
   version: 2.1
-  build-test-and-deploy:
+  build-test:
     jobs:
-      - build
-      - test:
+      - build-windows
+      - test-windows:
           requires:
-            - build        
+            - build-windows      
