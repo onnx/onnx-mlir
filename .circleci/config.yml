@@ -32,7 +32,7 @@ workflows:
   build-test-and-deploy:
     jobs:
       - build
-        context: org-global
+          context: org-global
       - test:
           requires:
             - build        
