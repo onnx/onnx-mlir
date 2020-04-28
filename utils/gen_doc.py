@@ -518,11 +518,13 @@ def gen_op_importer(schema, file):
     # Special handlers currently require expected num operands/results to be specified.
     # TODO: remove special handlers.
     args = ["node"]
+    """
     if expected_num_operands != -1 or expected_num_results != -1 or "buildOperation" not in handler_func:
         args.append(
             "/* expected_num_operands = */ {}".format(expected_num_operands))
         args.append(
             '/* expected_num_results = */ {}'.format(expected_num_results))
+    """
     s += inc_indent(indent) + "return {}({});\n".format(
         handler_func, ", ".join(args))
 

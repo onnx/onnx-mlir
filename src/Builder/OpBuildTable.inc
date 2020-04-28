@@ -5,314 +5,314 @@
 //********************************************************
 
 if (opName == "Abs")
-  return buildOperation<mlir::ONNXAbsOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXAbsOp>(node);
 if (opName == "Acos")
-  return buildOperation<mlir::ONNXAcosOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXAcosOp>(node);
 if (opName == "Acosh")
-  return buildOperation<mlir::ONNXAcoshOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXAcoshOp>(node);
 if (opName == "Add")
-  return buildOperation<mlir::ONNXAddOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXAddOp>(node);
 if (opName == "And")
-  return buildOperation<mlir::ONNXAndOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXAndOp>(node);
 if (opName == "ArgMax")
-  return buildOperation<mlir::ONNXArgMaxOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXArgMaxOp>(node);
 if (opName == "ArgMin")
-  return buildOperation<mlir::ONNXArgMinOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXArgMinOp>(node);
 if (opName == "Asin")
-  return buildOperation<mlir::ONNXAsinOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXAsinOp>(node);
 if (opName == "Asinh")
-  return buildOperation<mlir::ONNXAsinhOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXAsinhOp>(node);
 if (opName == "Atan")
-  return buildOperation<mlir::ONNXAtanOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXAtanOp>(node);
 if (opName == "Atanh")
-  return buildOperation<mlir::ONNXAtanhOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXAtanhOp>(node);
 if (opName == "AveragePool")
-  return buildOperation<mlir::ONNXAveragePoolOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXAveragePoolOp>(node);
 if (opName == "BatchNormalization")
-  return ImportNodeBatchNormalization(node, /* expected_num_operands = */ 5, /* expected_num_results = */ 5);
+  return ImportNodeBatchNormalization(node);
 if (opName == "BitShift")
-  return buildOperation<mlir::ONNXBitShiftOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXBitShiftOp>(node);
 if (opName == "Cast")
-  return buildOperation<mlir::ONNXCastOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXCastOp>(node);
 if (opName == "Ceil")
-  return buildOperation<mlir::ONNXCeilOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXCeilOp>(node);
 if (opName == "Clip")
-  return buildOperation<mlir::ONNXClipOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXClipOp>(node);
 if (opName == "Compress")
-  return buildOperation<mlir::ONNXCompressOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXCompressOp>(node);
 if (opName == "Concat")
-  return buildOperation<mlir::ONNXConcatOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXConcatOp>(node);
 if (opName == "ConcatFromSequence")
-  return buildOperation<mlir::ONNXConcatFromSequenceOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXConcatFromSequenceOp>(node);
 if (opName == "Constant")
-  return buildOperation<mlir::ONNXConstantOp>(node, /* expected_num_operands = */ 0, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXConstantOp>(node);
 if (opName == "ConstantOfShape")
-  return buildOperation<mlir::ONNXConstantOfShapeOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXConstantOfShapeOp>(node);
 if (opName == "Conv")
-  return buildOperation<mlir::ONNXConvOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXConvOp>(node);
 if (opName == "ConvInteger")
-  return buildOperation<mlir::ONNXConvIntegerOp>(node, /* expected_num_operands = */ 4, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXConvIntegerOp>(node);
 if (opName == "ConvTranspose")
-  return buildOperation<mlir::ONNXConvTransposeOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXConvTransposeOp>(node);
 if (opName == "Cos")
-  return buildOperation<mlir::ONNXCosOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXCosOp>(node);
 if (opName == "Cosh")
-  return buildOperation<mlir::ONNXCoshOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXCoshOp>(node);
 if (opName == "CumSum")
-  return buildOperation<mlir::ONNXCumSumOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXCumSumOp>(node);
 if (opName == "DepthToSpace")
-  return buildOperation<mlir::ONNXDepthToSpaceOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXDepthToSpaceOp>(node);
 if (opName == "DequantizeLinear")
-  return buildOperation<mlir::ONNXDequantizeLinearOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXDequantizeLinearOp>(node);
 if (opName == "Det")
-  return buildOperation<mlir::ONNXDetOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXDetOp>(node);
 if (opName == "Div")
-  return buildOperation<mlir::ONNXDivOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXDivOp>(node);
 if (opName == "Dropout")
-  return buildOperation<mlir::ONNXDropoutOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 2);
+  return buildOperation<mlir::ONNXDropoutOp>(node);
 if (opName == "DynamicQuantizeLinear")
-  return buildOperation<mlir::ONNXDynamicQuantizeLinearOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 3);
+  return buildOperation<mlir::ONNXDynamicQuantizeLinearOp>(node);
 if (opName == "Elu")
-  return buildOperation<mlir::ONNXEluOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXEluOp>(node);
 if (opName == "Equal")
-  return buildOperation<mlir::ONNXEqualOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXEqualOp>(node);
 if (opName == "Erf")
-  return buildOperation<mlir::ONNXErfOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXErfOp>(node);
 if (opName == "Exp")
-  return buildOperation<mlir::ONNXExpOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXExpOp>(node);
 if (opName == "Expand")
-  return buildOperation<mlir::ONNXExpandOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXExpandOp>(node);
 if (opName == "EyeLike")
-  return buildOperation<mlir::ONNXEyeLikeOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXEyeLikeOp>(node);
 if (opName == "Flatten")
-  return buildOperation<mlir::ONNXFlattenOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXFlattenOp>(node);
 if (opName == "Floor")
-  return buildOperation<mlir::ONNXFloorOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXFloorOp>(node);
 if (opName == "GRU")
-  return buildOperation<mlir::ONNXGRUOp>(node, /* expected_num_operands = */ 6, /* expected_num_results = */ 2);
+  return buildOperation<mlir::ONNXGRUOp>(node);
 if (opName == "Gather")
-  return buildOperation<mlir::ONNXGatherOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXGatherOp>(node);
 if (opName == "GatherElements")
-  return buildOperation<mlir::ONNXGatherElementsOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXGatherElementsOp>(node);
 if (opName == "GatherND")
-  return buildOperation<mlir::ONNXGatherNDOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXGatherNDOp>(node);
 if (opName == "Gemm")
-  return buildOperation<mlir::ONNXGemmOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXGemmOp>(node);
 if (opName == "GlobalAveragePool")
-  return buildOperation<mlir::ONNXGlobalAveragePoolOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXGlobalAveragePoolOp>(node);
 if (opName == "GlobalLpPool")
-  return buildOperation<mlir::ONNXGlobalLpPoolOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXGlobalLpPoolOp>(node);
 if (opName == "GlobalMaxPool")
-  return buildOperation<mlir::ONNXGlobalMaxPoolOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXGlobalMaxPoolOp>(node);
 if (opName == "Greater")
-  return buildOperation<mlir::ONNXGreaterOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXGreaterOp>(node);
 if (opName == "HardSigmoid")
-  return buildOperation<mlir::ONNXHardSigmoidOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXHardSigmoidOp>(node);
 if (opName == "Hardmax")
-  return buildOperation<mlir::ONNXHardmaxOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXHardmaxOp>(node);
 if (opName == "Identity")
-  return buildOperation<mlir::ONNXIdentityOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXIdentityOp>(node);
 if (opName == "If")
-  return buildOperation<mlir::ONNXIfOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ -1);
+  return buildOperation<mlir::ONNXIfOp>(node);
 if (opName == "InstanceNormalization")
-  return buildOperation<mlir::ONNXInstanceNormalizationOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXInstanceNormalizationOp>(node);
 if (opName == "IsInf")
-  return buildOperation<mlir::ONNXIsInfOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXIsInfOp>(node);
 if (opName == "IsNaN")
-  return buildOperation<mlir::ONNXIsNaNOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXIsNaNOp>(node);
 if (opName == "LRN")
-  return buildOperation<mlir::ONNXLRNOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXLRNOp>(node);
 if (opName == "LSTM")
-  return buildOperation<mlir::ONNXLSTMOp>(node, /* expected_num_operands = */ 8, /* expected_num_results = */ 3);
+  return buildOperation<mlir::ONNXLSTMOp>(node);
 if (opName == "LeakyRelu")
-  return buildOperation<mlir::ONNXLeakyReluOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXLeakyReluOp>(node);
 if (opName == "Less")
-  return buildOperation<mlir::ONNXLessOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXLessOp>(node);
 if (opName == "Log")
-  return buildOperation<mlir::ONNXLogOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXLogOp>(node);
 if (opName == "LogSoftmax")
-  return buildOperation<mlir::ONNXLogSoftmaxOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXLogSoftmaxOp>(node);
 if (opName == "Loop")
   return buildOperation<mlir::ONNXLoopOp>(node);
 if (opName == "LpNormalization")
-  return buildOperation<mlir::ONNXLpNormalizationOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXLpNormalizationOp>(node);
 if (opName == "LpPool")
-  return buildOperation<mlir::ONNXLpPoolOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXLpPoolOp>(node);
 if (opName == "MatMul")
-  return buildOperation<mlir::ONNXMatMulOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXMatMulOp>(node);
 if (opName == "MatMulInteger")
-  return buildOperation<mlir::ONNXMatMulIntegerOp>(node, /* expected_num_operands = */ 4, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXMatMulIntegerOp>(node);
 if (opName == "Max")
-  return buildOperation<mlir::ONNXMaxOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXMaxOp>(node);
 if (opName == "MaxPool")
-  return ImportNodeMaxPool(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 2);
+  return ImportNodeMaxPool(node);
 if (opName == "MaxRoiPool")
-  return buildOperation<mlir::ONNXMaxRoiPoolOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXMaxRoiPoolOp>(node);
 if (opName == "MaxUnpool")
-  return buildOperation<mlir::ONNXMaxUnpoolOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXMaxUnpoolOp>(node);
 if (opName == "Mean")
-  return buildOperation<mlir::ONNXMeanOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXMeanOp>(node);
 if (opName == "MeanVarianceNormalization")
-  return buildOperation<mlir::ONNXMeanVarianceNormalizationOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXMeanVarianceNormalizationOp>(node);
 if (opName == "Min")
-  return buildOperation<mlir::ONNXMinOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXMinOp>(node);
 if (opName == "Mod")
-  return buildOperation<mlir::ONNXModOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXModOp>(node);
 if (opName == "Mul")
-  return buildOperation<mlir::ONNXMulOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXMulOp>(node);
 if (opName == "Multinomial")
-  return buildOperation<mlir::ONNXMultinomialOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXMultinomialOp>(node);
 if (opName == "Neg")
-  return buildOperation<mlir::ONNXNegOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXNegOp>(node);
 if (opName == "NonMaxSuppression")
-  return buildOperation<mlir::ONNXNonMaxSuppressionOp>(node, /* expected_num_operands = */ 5, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXNonMaxSuppressionOp>(node);
 if (opName == "NonZero")
-  return buildOperation<mlir::ONNXNonZeroOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXNonZeroOp>(node);
 if (opName == "Not")
-  return buildOperation<mlir::ONNXNotOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXNotOp>(node);
 if (opName == "OneHot")
-  return buildOperation<mlir::ONNXOneHotOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXOneHotOp>(node);
 if (opName == "Or")
-  return buildOperation<mlir::ONNXOrOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXOrOp>(node);
 if (opName == "PRelu")
-  return buildOperation<mlir::ONNXPReluOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXPReluOp>(node);
 if (opName == "Pad")
-  return ImportNodePad(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return ImportNodePad(node);
 if (opName == "Pow")
-  return buildOperation<mlir::ONNXPowOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXPowOp>(node);
 if (opName == "QLinearConv")
-  return buildOperation<mlir::ONNXQLinearConvOp>(node, /* expected_num_operands = */ 9, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXQLinearConvOp>(node);
 if (opName == "QLinearMatMul")
-  return buildOperation<mlir::ONNXQLinearMatMulOp>(node, /* expected_num_operands = */ 8, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXQLinearMatMulOp>(node);
 if (opName == "QuantizeLinear")
-  return buildOperation<mlir::ONNXQuantizeLinearOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXQuantizeLinearOp>(node);
 if (opName == "RNN")
-  return buildOperation<mlir::ONNXRNNOp>(node, /* expected_num_operands = */ 6, /* expected_num_results = */ 2);
+  return buildOperation<mlir::ONNXRNNOp>(node);
 if (opName == "RandomNormal")
-  return buildOperation<mlir::ONNXRandomNormalOp>(node, /* expected_num_operands = */ 0, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXRandomNormalOp>(node);
 if (opName == "RandomNormalLike")
-  return buildOperation<mlir::ONNXRandomNormalLikeOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXRandomNormalLikeOp>(node);
 if (opName == "RandomUniform")
-  return buildOperation<mlir::ONNXRandomUniformOp>(node, /* expected_num_operands = */ 0, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXRandomUniformOp>(node);
 if (opName == "RandomUniformLike")
-  return buildOperation<mlir::ONNXRandomUniformLikeOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXRandomUniformLikeOp>(node);
 if (opName == "Range")
-  return buildOperation<mlir::ONNXRangeOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXRangeOp>(node);
 if (opName == "Reciprocal")
-  return buildOperation<mlir::ONNXReciprocalOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReciprocalOp>(node);
 if (opName == "ReduceL1")
-  return buildOperation<mlir::ONNXReduceL1Op>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReduceL1Op>(node);
 if (opName == "ReduceL2")
-  return buildOperation<mlir::ONNXReduceL2Op>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReduceL2Op>(node);
 if (opName == "ReduceLogSum")
-  return buildOperation<mlir::ONNXReduceLogSumOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReduceLogSumOp>(node);
 if (opName == "ReduceLogSumExp")
-  return buildOperation<mlir::ONNXReduceLogSumExpOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReduceLogSumExpOp>(node);
 if (opName == "ReduceMax")
-  return buildOperation<mlir::ONNXReduceMaxOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReduceMaxOp>(node);
 if (opName == "ReduceMean")
-  return buildOperation<mlir::ONNXReduceMeanOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReduceMeanOp>(node);
 if (opName == "ReduceMin")
-  return buildOperation<mlir::ONNXReduceMinOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReduceMinOp>(node);
 if (opName == "ReduceProd")
-  return buildOperation<mlir::ONNXReduceProdOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReduceProdOp>(node);
 if (opName == "ReduceSum")
-  return buildOperation<mlir::ONNXReduceSumOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReduceSumOp>(node);
 if (opName == "ReduceSumSquare")
-  return buildOperation<mlir::ONNXReduceSumSquareOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReduceSumSquareOp>(node);
 if (opName == "Relu")
-  return buildOperation<mlir::ONNXReluOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReluOp>(node);
 if (opName == "Reshape")
-  return ImportNodeReshape(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return ImportNodeReshape(node);
 if (opName == "Resize")
-  return buildOperation<mlir::ONNXResizeOp>(node, /* expected_num_operands = */ 4, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXResizeOp>(node);
 if (opName == "ReverseSequence")
-  return buildOperation<mlir::ONNXReverseSequenceOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXReverseSequenceOp>(node);
 if (opName == "RoiAlign")
-  return buildOperation<mlir::ONNXRoiAlignOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXRoiAlignOp>(node);
 if (opName == "Round")
-  return buildOperation<mlir::ONNXRoundOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXRoundOp>(node);
 if (opName == "Scan")
   return buildOperation<mlir::ONNXScanOp>(node);
 if (opName == "Scatter")
-  return buildOperation<mlir::ONNXScatterOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXScatterOp>(node);
 if (opName == "ScatterElements")
-  return buildOperation<mlir::ONNXScatterElementsOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXScatterElementsOp>(node);
 if (opName == "ScatterND")
-  return buildOperation<mlir::ONNXScatterNDOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXScatterNDOp>(node);
 if (opName == "Selu")
-  return buildOperation<mlir::ONNXSeluOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSeluOp>(node);
 if (opName == "SequenceAt")
-  return buildOperation<mlir::ONNXSequenceAtOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSequenceAtOp>(node);
 if (opName == "SequenceConstruct")
-  return buildOperation<mlir::ONNXSequenceConstructOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSequenceConstructOp>(node);
 if (opName == "SequenceEmpty")
-  return buildOperation<mlir::ONNXSequenceEmptyOp>(node, /* expected_num_operands = */ 0, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSequenceEmptyOp>(node);
 if (opName == "SequenceErase")
-  return buildOperation<mlir::ONNXSequenceEraseOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSequenceEraseOp>(node);
 if (opName == "SequenceInsert")
-  return buildOperation<mlir::ONNXSequenceInsertOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSequenceInsertOp>(node);
 if (opName == "SequenceLength")
-  return buildOperation<mlir::ONNXSequenceLengthOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSequenceLengthOp>(node);
 if (opName == "Shape")
-  return buildOperation<mlir::ONNXShapeOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXShapeOp>(node);
 if (opName == "Shrink")
-  return buildOperation<mlir::ONNXShrinkOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXShrinkOp>(node);
 if (opName == "Sigmoid")
-  return buildOperation<mlir::ONNXSigmoidOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSigmoidOp>(node);
 if (opName == "Sign")
-  return buildOperation<mlir::ONNXSignOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSignOp>(node);
 if (opName == "Sin")
-  return buildOperation<mlir::ONNXSinOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSinOp>(node);
 if (opName == "Sinh")
-  return buildOperation<mlir::ONNXSinhOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSinhOp>(node);
 if (opName == "Size")
-  return buildOperation<mlir::ONNXSizeOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSizeOp>(node);
 if (opName == "Slice")
-  return buildOperation<mlir::ONNXSliceOp>(node, /* expected_num_operands = */ 5, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSliceOp>(node);
 if (opName == "Softmax")
-  return buildOperation<mlir::ONNXSoftmaxOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSoftmaxOp>(node);
 if (opName == "Softplus")
-  return buildOperation<mlir::ONNXSoftplusOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSoftplusOp>(node);
 if (opName == "Softsign")
-  return buildOperation<mlir::ONNXSoftsignOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSoftsignOp>(node);
 if (opName == "SpaceToDepth")
-  return buildOperation<mlir::ONNXSpaceToDepthOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSpaceToDepthOp>(node);
 if (opName == "Split")
-  return buildOperation<mlir::ONNXSplitOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ -1);
+  return buildOperation<mlir::ONNXSplitOp>(node);
 if (opName == "SplitToSequence")
-  return buildOperation<mlir::ONNXSplitToSequenceOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSplitToSequenceOp>(node);
 if (opName == "Sqrt")
-  return buildOperation<mlir::ONNXSqrtOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSqrtOp>(node);
 if (opName == "Squeeze")
-  return buildOperation<mlir::ONNXSqueezeOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSqueezeOp>(node);
 if (opName == "StringNormalizer")
-  return buildOperation<mlir::ONNXStringNormalizerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXStringNormalizerOp>(node);
 if (opName == "Sub")
-  return buildOperation<mlir::ONNXSubOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSubOp>(node);
 if (opName == "Sum")
-  return buildOperation<mlir::ONNXSumOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXSumOp>(node);
 if (opName == "Tan")
-  return buildOperation<mlir::ONNXTanOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXTanOp>(node);
 if (opName == "Tanh")
-  return buildOperation<mlir::ONNXTanhOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXTanhOp>(node);
 if (opName == "TfIdfVectorizer")
-  return buildOperation<mlir::ONNXTfIdfVectorizerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXTfIdfVectorizerOp>(node);
 if (opName == "ThresholdedRelu")
-  return buildOperation<mlir::ONNXThresholdedReluOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXThresholdedReluOp>(node);
 if (opName == "Tile")
-  return buildOperation<mlir::ONNXTileOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXTileOp>(node);
 if (opName == "TopK")
-  return buildOperation<mlir::ONNXTopKOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 2);
+  return buildOperation<mlir::ONNXTopKOp>(node);
 if (opName == "Transpose")
-  return buildOperation<mlir::ONNXTransposeOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXTransposeOp>(node);
 if (opName == "Unique")
-  return buildOperation<mlir::ONNXUniqueOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 4);
+  return buildOperation<mlir::ONNXUniqueOp>(node);
 if (opName == "Unsqueeze")
-  return buildOperation<mlir::ONNXUnsqueezeOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXUnsqueezeOp>(node);
 if (opName == "Upsample")
-  return buildOperation<mlir::ONNXUpsampleOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXUpsampleOp>(node);
 if (opName == "Where")
-  return buildOperation<mlir::ONNXWhereOp>(node, /* expected_num_operands = */ 3, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXWhereOp>(node);
 if (opName == "Xor")
-  return buildOperation<mlir::ONNXXorOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+  return buildOperation<mlir::ONNXXorOp>(node);

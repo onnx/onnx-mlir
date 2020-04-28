@@ -287,14 +287,10 @@ private:
   }
 
   template <typename T>
-  void buildOperation(const onnx::NodeProto &node,
-                      int expectedNumOperands = -1,
-                      int expectedNumResults = -1) {
+  void buildOperation(const onnx::NodeProto &node) {
     std::vector<mlir::Value> inputs;
-    int t1 = T::getNumberOfOperands();
-    int t2 = T::getNumberOfResults();
-    assert(t1 == expectedNumOperands && t2 == expectedNumResults &&
-           "Output tensor not found");
+    int expectedNumOperands  = T::getNumberOfOperands();
+    int expectedNumResults =  T::getNumberOfResults();
     for (const auto &item : node.input())
       if (initializedTensors.ContainKey(legalize_name(item))) {
         inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
@@ -307,7 +303,9 @@ private:
         expectedNumResults);
   }
 
-  void ImportNodeReshape(onnx::NodeProto node, int nIn, int nOut) {
+  void ImportNodeReshape(onnx::NodeProto node) {
+    int expectedNumOperands  = mlir::ONNXReshapeOp::getNumberOfOperands();
+    int expectedNumResults =  mlir::ONNXReshapeOp::getNumberOfResults();
     std::vector<mlir::Value> inputs;
     std::string item;
     for (int i = 0; i < node.input().size(); ++i) {
@@ -322,44 +320,44 @@ private:
       }
     }
 
-    buildOutputAndOperation<mlir::ONNXReshapeOp>(node, inputs, nIn, nOut);
+    buildOutputAndOperation<mlir::ONNXReshapeOp>(node, inputs, expectedNumOperands, expectedNumResults);
   }
 
   /*!
    * Special handle for MaxPool operations.
    */
-  void ImportNodeMaxPool(onnx::NodeProto node, int nIn, int nOut) {
+  void ImportNodeMaxPool(onnx::NodeProto node) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
-      buildOperation<mlir::ONNXMaxPoolSingleOutOp>(node, nIn, nOuts);
+      buildOperation<mlir::ONNXMaxPoolSingleOutOp>(node);
     } else {
-      buildOperation<mlir::ONNXMaxPoolOp>(node, nIn, nOuts);
+      buildOperation<mlir::ONNXMaxPoolOp>(node);
     }
   }
 
   /*!
    * Special handle for BatchNormalization operations.
    */
-  void ImportNodeBatchNormalization(onnx::NodeProto node, int nIn, int nOut) {
+  void ImportNodeBatchNormalization(onnx::NodeProto node) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
       // Test mode with one output.
-      buildOperation<mlir::ONNXBatchNormalizationTestModeOp>(node, nIn, nOuts);
+      buildOperation<mlir::ONNXBatchNormalizationTestModeOp>(node);
     } else {
       // Training mode with four trailing optional outputs. Not handled yet.
-      buildOperation<mlir::ONNXBatchNormalizationOp>(node, nIn, nOuts);
+      buildOperation<mlir::ONNXBatchNormalizationOp>(node);
     }
   }
 
   /*!
    * Special handle for Pad operations.
    */
-  void ImportNodePad(onnx::NodeProto node, int nIn, int nOut) {
+  void ImportNodePad(onnx::NodeProto node) {
     int nOps = node.input().size();
     if (nOps == 2) {
-      buildOperation<mlir::ONNXPadConstantValueOp>(node, 2, nOut);
+      buildOperation<mlir::ONNXPadConstantValueOp>(node);
     } else {
-      buildOperation<mlir::ONNXPadOp>(node, nIn, nOut);
+      buildOperation<mlir::ONNXPadOp>(node);
     }
   }
 
