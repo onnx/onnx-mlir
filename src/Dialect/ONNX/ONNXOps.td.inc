@@ -26,6 +26,14 @@ def ONNXAbsOp:ONNX_Op<"Abs",
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+    }];
 }
 
 def ONNXAcosOp:ONNX_Op<"Acos",
@@ -36,6 +44,14 @@ def ONNXAcosOp:ONNX_Op<"Acos",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXAcoshOp:ONNX_Op<"Acosh",
@@ -46,6 +62,14 @@ def ONNXAcoshOp:ONNX_Op<"Acosh",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXAddOp:ONNX_Op<"Add",
@@ -60,6 +84,14 @@ def ONNXAddOp:ONNX_Op<"Add",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXAndOp:ONNX_Op<"And",
@@ -74,6 +106,14 @@ def ONNXAndOp:ONNX_Op<"And",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXArgMaxOp:ONNX_Op<"ArgMax",
@@ -89,6 +129,14 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
     DefaultValuedAttr<I64Attr, "0">:$axis,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXArgMinOp:ONNX_Op<"ArgMin",
@@ -104,6 +152,14 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
     DefaultValuedAttr<I64Attr, "0">:$axis,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXAsinOp:ONNX_Op<"Asin",
@@ -114,6 +170,14 @@ def ONNXAsinOp:ONNX_Op<"Asin",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXAsinhOp:ONNX_Op<"Asinh",
@@ -124,6 +188,14 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXAtanOp:ONNX_Op<"Atan",
@@ -134,6 +206,14 @@ def ONNXAtanOp:ONNX_Op<"Atan",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXAtanhOp:ONNX_Op<"Atanh",
@@ -144,6 +224,14 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
@@ -188,6 +276,14 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
@@ -217,6 +313,14 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$out_var,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$saved_mean,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$saved_var);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 5;
+    }
+    static int getNumberOfResults() {
+      return 5;
+    }
+  }];
 }
 
 def ONNXBitShiftOp:ONNX_Op<"BitShift",
@@ -240,6 +344,14 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y,
     StrAttr:$direction);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Z);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXCastOp:ONNX_Op<"Cast",
@@ -269,6 +381,14 @@ def ONNXCastOp:ONNX_Op<"Cast",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     I64Attr:$to);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXCeilOp:ONNX_Op<"Ceil",
@@ -281,6 +401,14 @@ def ONNXCeilOp:ONNX_Op<"Ceil",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXClipOp:ONNX_Op<"Clip",
@@ -295,6 +423,14 @@ def ONNXClipOp:ONNX_Op<"Clip",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$min,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$max);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXCompressOp:ONNX_Op<"Compress",
@@ -310,6 +446,14 @@ def ONNXCompressOp:ONNX_Op<"Compress",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$condition,
     OptionalAttr<I64Attr>:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXConcatOp:ONNX_Op<"Concat",
@@ -321,6 +465,14 @@ def ONNXConcatOp:ONNX_Op<"Concat",
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$inputs,
     I64Attr:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$concat_result);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
@@ -336,6 +488,14 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
     I64Attr:$axis,
     DefaultValuedAttr<I64Attr, "0">:$new_axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$concat_result);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
@@ -348,6 +508,14 @@ def ONNXConstantOp:ONNX_Op<"Constant",
   let arguments = (ins OptionalAttr<AnyAttr>:$sparse_value,
     OptionalAttr<AnyAttr>:$value);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 0;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
@@ -359,6 +527,14 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     OptionalAttr<AnyAttr>:$value);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXConvOp:ONNX_Op<"Conv",
@@ -379,6 +555,14 @@ def ONNXConvOp:ONNX_Op<"Conv",
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
@@ -399,6 +583,14 @@ def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
@@ -432,6 +624,14 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXCosOp:ONNX_Op<"Cos",
@@ -442,6 +642,14 @@ def ONNXCosOp:ONNX_Op<"Cos",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXCoshOp:ONNX_Op<"Cosh",
@@ -452,6 +660,14 @@ def ONNXCoshOp:ONNX_Op<"Cosh",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXCumSumOp:ONNX_Op<"CumSum",
@@ -484,6 +700,14 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
     DefaultValuedAttr<I64Attr, "0">:$exclusive,
     DefaultValuedAttr<I64Attr, "0">:$reverse);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
@@ -522,6 +746,14 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
     I64Attr:$blocksize,
     DefaultValuedAttr<StrAttr, "DCR">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
@@ -537,6 +769,14 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_scale,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$x_zero_point);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXDetOp:ONNX_Op<"Det",
@@ -551,6 +791,14 @@ def ONNXDetOp:ONNX_Op<"Det",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXDivOp:ONNX_Op<"Div",
@@ -564,6 +812,14 @@ def ONNXDivOp:ONNX_Op<"Div",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
@@ -581,6 +837,14 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
     DefaultValuedAttr<F32Attr, "0.5">:$ratio);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$mask);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+  }];
 }
 
 def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
@@ -614,6 +878,14 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 3;
+    }
+  }];
 }
 
 def ONNXEluOp:ONNX_Op<"Elu",
@@ -628,6 +900,14 @@ def ONNXEluOp:ONNX_Op<"Elu",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXEqualOp:ONNX_Op<"Equal",
@@ -642,6 +922,14 @@ def ONNXEqualOp:ONNX_Op<"Equal",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXErfOp:ONNX_Op<"Erf",
@@ -652,6 +940,14 @@ def ONNXErfOp:ONNX_Op<"Erf",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXExpOp:ONNX_Op<"Exp",
@@ -674,6 +970,14 @@ def ONNXExpOp:ONNX_Op<"Exp",
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+    }];
 }
 
 def ONNXExpandOp:ONNX_Op<"Expand",
@@ -692,6 +996,14 @@ def ONNXExpandOp:ONNX_Op<"Expand",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$shape);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
@@ -710,6 +1022,14 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
     OptionalAttr<I64Attr>:$dtype,
     DefaultValuedAttr<I64Attr, "0">:$k);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXFlattenOp:ONNX_Op<"Flatten",
@@ -723,6 +1043,14 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     DefaultValuedAttr<I64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXFloorOp:ONNX_Op<"Floor",
@@ -735,6 +1063,14 @@ def ONNXFloorOp:ONNX_Op<"Floor",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXGRUOp:ONNX_Op<"GRU",
@@ -830,6 +1166,14 @@ def ONNXGRUOp:ONNX_Op<"GRU",
     DefaultValuedAttr<I64Attr, "0">:$linear_before_reset);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y_h);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 6;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+  }];
 }
 
 def ONNXGatherOp:ONNX_Op<"Gather",
@@ -898,6 +1242,14 @@ def ONNXGatherOp:ONNX_Op<"Gather",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
     DefaultValuedAttr<I64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
@@ -964,6 +1316,14 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
     DefaultValuedAttr<I64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXGatherNDOp:ONNX_Op<"GatherND",
@@ -1039,6 +1399,14 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
@@ -1068,6 +1436,14 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
     DefaultValuedAttr<I64Attr, "0">:$transA,
     DefaultValuedAttr<I64Attr, "0">:$transB);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
@@ -1080,6 +1456,14 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
@@ -1093,6 +1477,14 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
     DefaultValuedAttr<I64Attr, "2">:$p);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
@@ -1105,6 +1497,14 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXGreaterOp:ONNX_Op<"Greater",
@@ -1119,6 +1519,14 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
@@ -1133,6 +1541,14 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
     DefaultValuedAttr<F32Attr, "0.2">:$alpha,
     DefaultValuedAttr<F32Attr, "0.5">:$beta);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXHardmaxOp:ONNX_Op<"Hardmax",
@@ -1157,6 +1573,14 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     DefaultValuedAttr<I64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXIdentityOp:ONNX_Op<"Identity",
@@ -1168,6 +1592,14 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXIfOp:ONNX_Op<"If",
@@ -1180,6 +1612,14 @@ def ONNXIfOp:ONNX_Op<"If",
     AnyAttr:$else_branch,
     AnyAttr:$then_branch);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$outputs);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+  }];
 }
 
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
@@ -1198,6 +1638,14 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
     DefaultValuedAttr<F32Attr, "1e-05">:$epsilon);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXIsInfOp:ONNX_Op<"IsInf",
@@ -1210,6 +1658,14 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
     DefaultValuedAttr<I64Attr, "1">:$detect_negative,
     DefaultValuedAttr<I64Attr, "1">:$detect_positive);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXIsNaNOp:ONNX_Op<"IsNaN",
@@ -1220,6 +1676,14 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXLRNOp:ONNX_Op<"LRN",
@@ -1243,6 +1707,14 @@ def ONNXLRNOp:ONNX_Op<"LRN",
     DefaultValuedAttr<F32Attr, "1.0">:$bias,
     I64Attr:$size);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXLSTMOp:ONNX_Op<"LSTM",
@@ -1349,6 +1821,14 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y_h,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y_c);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 8;
+    }
+    static int getNumberOfResults() {
+      return 3;
+    }
+  }];
 }
 
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
@@ -1362,6 +1842,14 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
     DefaultValuedAttr<F32Attr, "0.01">:$alpha);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXLessOp:ONNX_Op<"Less",
@@ -1376,6 +1864,14 @@ def ONNXLessOp:ONNX_Op<"Less",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXLogOp:ONNX_Op<"Log",
@@ -1386,6 +1882,14 @@ def ONNXLogOp:ONNX_Op<"Log",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
@@ -1410,6 +1914,14 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     DefaultValuedAttr<I64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop",
@@ -1535,6 +2047,14 @@ def ONNXLoopOp:ONNX_Op<"Loop",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$v_initial,
     AnyAttr:$body);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$v_final_and_scan_outputs);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+  }];
 }
 
 def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
@@ -1547,6 +2067,14 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
     DefaultValuedAttr<I64Attr, "-1">:$axis,
     DefaultValuedAttr<I64Attr, "2">:$p);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXLpPoolOp:ONNX_Op<"LpPool",
@@ -1566,6 +2094,14 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXMatMulOp:ONNX_Op<"MatMul",
@@ -1577,6 +2113,14 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
@@ -1591,6 +2135,14 @@ def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$a_zero_point,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$b_zero_point);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXMaxOp:ONNX_Op<"Max",
@@ -1603,6 +2155,14 @@ def ONNXMaxOp:ONNX_Op<"Max",
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$max);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
@@ -1649,6 +2209,14 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Indices);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+  }];
 }
 
 def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
@@ -1664,6 +2232,14 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
     I64ArrayAttr:$pooled_shape,
     DefaultValuedAttr<F32Attr, "1.0">:$spatial_scale);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
@@ -1696,6 +2272,14 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXMeanOp:ONNX_Op<"Mean",
@@ -1708,6 +2292,14 @@ def ONNXMeanOp:ONNX_Op<"Mean",
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$mean);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
@@ -1720,6 +2312,14 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
     DefaultValuedAttr<I64ArrayAttr, "{0, 2, 3}">:$axes);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXMinOp:ONNX_Op<"Min",
@@ -1732,6 +2332,14 @@ def ONNXMinOp:ONNX_Op<"Min",
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$min);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXModOp:ONNX_Op<"Mod",
@@ -1756,6 +2364,14 @@ def ONNXModOp:ONNX_Op<"Mod",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
     DefaultValuedAttr<I64Attr, "0">:$fmod);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXMulOp:ONNX_Op<"Mul",
@@ -1781,6 +2397,14 @@ def ONNXMulOp:ONNX_Op<"Mul",
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+    }];
 }
 
 def ONNXMultinomialOp:ONNX_Op<"Multinomial",
@@ -1795,6 +2419,14 @@ def ONNXMultinomialOp:ONNX_Op<"Multinomial",
     DefaultValuedAttr<I64Attr, "1">:$sample_size,
     OptionalAttr<F32Attr>:$seed);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXNegOp:ONNX_Op<"Neg",
@@ -1807,6 +2439,14 @@ def ONNXNegOp:ONNX_Op<"Neg",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
@@ -1828,6 +2468,14 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$score_threshold,
     DefaultValuedAttr<I64Attr, "0">:$center_point_box);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$selected_indices);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 5;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXNonZeroOp:ONNX_Op<"NonZero",
@@ -1841,6 +2489,14 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXNotOp:ONNX_Op<"Not",
@@ -1851,6 +2507,14 @@ def ONNXNotOp:ONNX_Op<"Not",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXOneHotOp:ONNX_Op<"OneHot",
@@ -1882,6 +2546,14 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$values,
     DefaultValuedAttr<I64Attr, "-1">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXOrOp:ONNX_Op<"Or",
@@ -1896,6 +2568,14 @@ def ONNXOrOp:ONNX_Op<"Or",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXPReluOp:ONNX_Op<"PRelu",
@@ -1910,6 +2590,14 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$slope);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXPadOp:ONNX_Op<"Pad",
@@ -2003,6 +2691,14 @@ def ONNXPadOp:ONNX_Op<"Pad",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$constant_value,
     DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXPowOp:ONNX_Op<"Pow",
@@ -2017,6 +2713,14 @@ def ONNXPowOp:ONNX_Op<"Pow",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Z);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
@@ -2045,6 +2749,14 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 9;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
@@ -2069,6 +2781,14 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 8;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
@@ -2083,6 +2803,14 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$y_zero_point);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXRNNOp:ONNX_Op<"RNN",
@@ -2165,6 +2893,14 @@ def ONNXRNNOp:ONNX_Op<"RNN",
     OptionalAttr<I64Attr>:$hidden_size);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y_h);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 6;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+  }];
 }
 
 def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
@@ -2185,6 +2921,14 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
     OptionalAttr<F32Attr>:$seed,
     I64ArrayAttr:$shape);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 0;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
@@ -2205,6 +2949,14 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
     DefaultValuedAttr<F32Attr, "1.0">:$scale,
     OptionalAttr<F32Attr>:$seed);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
@@ -2224,6 +2976,14 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
     OptionalAttr<F32Attr>:$seed,
     I64ArrayAttr:$shape);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 0;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
@@ -2244,6 +3004,14 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
     DefaultValuedAttr<F32Attr, "0.0">:$low,
     OptionalAttr<F32Attr>:$seed);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXRangeOp:ONNX_Op<"Range",
@@ -2280,6 +3048,14 @@ def ONNXRangeOp:ONNX_Op<"Range",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$limit,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$delta);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
@@ -2292,6 +3068,14 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
@@ -2309,6 +3093,14 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
@@ -2326,6 +3118,14 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
@@ -2343,6 +3143,14 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
@@ -2360,6 +3168,14 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
@@ -2377,6 +3193,14 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
@@ -2394,6 +3218,14 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
@@ -2411,6 +3243,14 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
@@ -2428,6 +3268,14 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
@@ -2457,6 +3305,14 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+    }];
 }
 
 def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
@@ -2486,6 +3342,14 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+    }];
 }
 
 def ONNXReluOp:ONNX_Op<"Relu",
@@ -2498,6 +3362,14 @@ def ONNXReluOp:ONNX_Op<"Relu",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReshapeOp:ONNX_Op<"Reshape",
@@ -2515,6 +3387,12 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$shape);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reshaped);
   let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
     std::map<std::string, size_t> promotableConstOperands() {
       return {{"shape", 1}};
     }
@@ -2540,6 +3418,14 @@ def ONNXResizeOp:ONNX_Op<"Resize",
     DefaultValuedAttr<StrAttr, "nearest">:$mode,
     DefaultValuedAttr<StrAttr, "round_prefer_floor">:$nearest_mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
@@ -2585,6 +3471,14 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
     DefaultValuedAttr<I64Attr, "1">:$batch_axis,
     DefaultValuedAttr<I64Attr, "0">:$time_axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
@@ -2612,6 +3506,14 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
     DefaultValuedAttr<I64Attr, "0">:$sampling_ratio,
     DefaultValuedAttr<F32Attr, "1.0">:$spatial_scale);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
@@ -2634,6 +3536,14 @@ def ONNXRoundOp:ONNX_Op<"Round",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXScanOp:ONNX_Op<"Scan",
@@ -2770,6 +3680,14 @@ def ONNXScanOp:ONNX_Op<"Scan",
     OptionalAttr<I64ArrayAttr>:$scan_output_axes,
     OptionalAttr<I64ArrayAttr>:$scan_output_directions);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$final_state_and_scan_outputs);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+  }];
 }
 
 def ONNXScatterOp:ONNX_Op<"Scatter",
@@ -2835,6 +3753,14 @@ def ONNXScatterOp:ONNX_Op<"Scatter",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates,
     DefaultValuedAttr<I64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
@@ -2898,6 +3824,14 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates,
     DefaultValuedAttr<I64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXScatterNDOp:ONNX_Op<"ScatterND",
@@ -2965,6 +3899,14 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSeluOp:ONNX_Op<"Selu",
@@ -2980,6 +3922,14 @@ def ONNXSeluOp:ONNX_Op<"Selu",
     DefaultValuedAttr<F32Attr, "1.67326">:$alpha,
     DefaultValuedAttr<F32Attr, "1.0507">:$gamma);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
@@ -2993,6 +3943,14 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$position);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$tensor);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
@@ -3004,6 +3962,14 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$inputs);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
@@ -3014,6 +3980,14 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
   }];
   let arguments = (ins OptionalAttr<I64Attr>:$dtype);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 0;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
@@ -3028,6 +4002,14 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$position);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
@@ -3044,6 +4026,14 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$tensor,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$position);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
@@ -3054,6 +4044,14 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$length);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXShapeOp:ONNX_Op<"Shape",
@@ -3064,6 +4062,14 @@ def ONNXShapeOp:ONNX_Op<"Shape",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$shape);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXShrinkOp:ONNX_Op<"Shrink",
@@ -3079,6 +4085,14 @@ def ONNXShrinkOp:ONNX_Op<"Shrink",
     DefaultValuedAttr<F32Attr, "0.0">:$bias,
     DefaultValuedAttr<F32Attr, "0.5">:$lambd);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
@@ -3091,6 +4105,14 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSignOp:ONNX_Op<"Sign",
@@ -3102,6 +4124,14 @@ def ONNXSignOp:ONNX_Op<"Sign",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSinOp:ONNX_Op<"Sin",
@@ -3112,6 +4142,14 @@ def ONNXSinOp:ONNX_Op<"Sin",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSinhOp:ONNX_Op<"Sinh",
@@ -3122,6 +4160,14 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSizeOp:ONNX_Op<"Size",
@@ -3132,6 +4178,14 @@ def ONNXSizeOp:ONNX_Op<"Size",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$size);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSliceOp:ONNX_Op<"Slice",
@@ -3179,6 +4233,14 @@ def ONNXSliceOp:ONNX_Op<"Slice",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$axes,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$steps);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 5;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSoftmaxOp:ONNX_Op<"Softmax",
@@ -3203,6 +4265,14 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     DefaultValuedAttr<I64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus",
@@ -3215,6 +4285,14 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSoftsignOp:ONNX_Op<"Softsign",
@@ -3225,6 +4303,14 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
@@ -3238,6 +4324,14 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     I64Attr:$blocksize);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSplitOp:ONNX_Op<"Split",
@@ -3252,6 +4346,14 @@ def ONNXSplitOp:ONNX_Op<"Split",
     DefaultValuedAttr<I64Attr, "0">:$axis,
     OptionalAttr<I64ArrayAttr>:$split);
   let results = (outs Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$outputs);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+  }];
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
@@ -3274,6 +4376,14 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
     DefaultValuedAttr<I64Attr, "0">:$axis,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSqrtOp:ONNX_Op<"Sqrt",
@@ -3286,6 +4396,14 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze",
@@ -3300,6 +4418,14 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$squeezed);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
@@ -3322,6 +4448,14 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
     OptionalAttr<StrAttr>:$locale,
     OptionalAttr<StrArrayAttr>:$stopwords);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSubOp:ONNX_Op<"Sub",
@@ -3335,6 +4469,14 @@ def ONNXSubOp:ONNX_Op<"Sub",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXSumOp:ONNX_Op<"Sum",
@@ -3347,6 +4489,14 @@ def ONNXSumOp:ONNX_Op<"Sum",
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$sum);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXTanOp:ONNX_Op<"Tan",
@@ -3357,6 +4507,14 @@ def ONNXTanOp:ONNX_Op<"Tan",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXTanhOp:ONNX_Op<"Tanh",
@@ -3367,6 +4525,14 @@ def ONNXTanhOp:ONNX_Op<"Tanh",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
@@ -3412,6 +4578,14 @@ def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
     OptionalAttr<StrArrayAttr>:$pool_strings,
     OptionalAttr<F32ArrayAttr>:$weights);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
@@ -3425,6 +4599,14 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXTileOp:ONNX_Op<"Tile",
@@ -3438,6 +4620,14 @@ def ONNXTileOp:ONNX_Op<"Tile",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$repeats);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXTopKOp:ONNX_Op<"TopK",
@@ -3466,6 +4656,14 @@ def ONNXTopKOp:ONNX_Op<"TopK",
     DefaultValuedAttr<I64Attr, "1">:$sorted);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Values,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$Indices);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+  }];
 }
 
 def ONNXTransposeOp:ONNX_Op<"Transpose",
@@ -3479,6 +4677,14 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
     OptionalAttr<I64ArrayAttr>:$perm);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$transposed);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXUniqueOp:ONNX_Op<"Unique",
@@ -3568,6 +4774,14 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$indices,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$inverse_indices,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$counts);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 4;
+    }
+  }];
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
@@ -3590,6 +4804,14 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
     I64ArrayAttr:$axes);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$expanded);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXUpsampleOp:ONNX_Op<"Upsample",
@@ -3604,6 +4826,14 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$scales,
     DefaultValuedAttr<StrAttr, "nearest">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXWhereOp:ONNX_Op<"Where",
@@ -3619,6 +4849,14 @@ def ONNXWhereOp:ONNX_Op<"Where",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 
 def ONNXXorOp:ONNX_Op<"Xor",
@@ -3633,5 +4871,13 @@ def ONNXXorOp:ONNX_Op<"Xor",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+  }];
 }
 

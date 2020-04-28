@@ -291,6 +291,10 @@ private:
                       int expectedNumOperands = -1,
                       int expectedNumResults = -1) {
     std::vector<mlir::Value> inputs;
+    int t1 = T::getNumberOfOperands();
+    int t2 = T::getNumberOfResults();
+    assert(t1 == expectedNumOperands && t2 == expectedNumResults &&
+           "Output tensor not found");
     for (const auto &item : node.input())
       if (initializedTensors.ContainKey(legalize_name(item))) {
         inputs.push_back(initializedTensors.EmitInitializerForInputTensor(

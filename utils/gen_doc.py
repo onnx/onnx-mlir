@@ -229,7 +229,6 @@ def dec_indent(indent):
 def join_args(args):
     return ", ".join(args)
 
-
 def get_operands_or_results(schema, is_input):
     value_list = schema.inputs if is_input else schema.outputs
     if not value_list:
@@ -338,6 +337,31 @@ def get_attrs(schema):
             name_to_type[attr.name] = get_attr_type_optional(attr.type)
     return name_to_type
 
+def get_numberof_list(mylist) :
+    expected_num = len(mylist)
+    for element in mylist :
+        if OpSchema.FormalParameterOption.Variadic == element.option:
+            expected_num = -1
+    return expected_num
+
+def get_numberof_inout(s, indent, schema):
+    expected_num_operands = get_numberof_list(schema.inputs)
+    indent = inc_indent(indent)
+    s += indent + "static int getNumberOfOperands() {\n"
+    indent = inc_indent(indent)
+    s += indent + "return {};\n".format(expected_num_operands)
+    indent = dec_indent(indent)
+    s += indent + "}\n"
+
+    expected_num_results = get_numberof_list(schema.outputs)
+    s += indent + "static int getNumberOfResults() {\n"
+    indent = inc_indent(indent)
+    s += indent + "return {};\n".format(expected_num_results)
+    indent = dec_indent(indent)
+    s += indent + "}\n"
+
+    return s
+
 
 def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
     cpp_name_to_idx_literal = "{" + ", ".join([
@@ -345,15 +369,15 @@ def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
         for name_to_idx in const_operands_name_to_idx
     ]) + "}"
 
-    s += indent + "let extraClassDeclaration = [{\n"
+    #s += indent + "let extraClassDeclaration = [{\n"
     indent = inc_indent(indent)
     s += indent + "std::map<std::string, size_t> promotableConstOperands() {\n"
     indent = inc_indent(indent)
     s += indent + "return {};\n".format(cpp_name_to_idx_literal)
     indent = dec_indent(indent)
     s += indent + "}\n"
-    indent = dec_indent(indent)
-    s += indent + "}];\n"
+    #indent = dec_indent(indent)
+    #s += indent + "}];\n"
 
     return s
 
@@ -447,9 +471,21 @@ def gen_op_def(schema):
 
             s += '\n' + indent + '];\n'
 
+    # generate extracClassDeclaration
+    s += indent + "let extraClassDeclaration = [{\n"
+    #indent = inc_indent(indent)
+
+    # generate input/output number
+    s = get_numberof_inout(s, indent, schema)
+
+    # generate ProtableConst 
     if schema.name in OpsWithPromotableConstOperands:
         s = get_promotable_const_operands_func(
             s, indent, OpsWithPromotableConstOperands[schema.name])
+
+    s += indent + "}];\n"
+
+
     s += '}\n\n'
     return s
 
