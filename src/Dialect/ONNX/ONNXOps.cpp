@@ -23,7 +23,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 
 #include "ONNXOps.hpp"
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "ONNXOpsHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -38,9 +38,9 @@ static size_t ArrayAttrSize(Optional<ArrayAttr> a) {
   return a.getValue().size();
 }
 
-//static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
-//  return (a.getValue()[i]).cast<IntegerAttr>().getInt();
-//}
+static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
+  return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+}
 
 static int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
   return (a.getValue().getValue()[i]).cast<IntegerAttr>().getInt();
