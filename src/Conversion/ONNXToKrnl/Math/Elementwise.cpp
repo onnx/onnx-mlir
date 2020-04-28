@@ -502,25 +502,9 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
 
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else {
-      auto shape = memRefType.cast<MemRefType>().getShape();
-      AffineMap dimMap = getIdentityDimMap(rewriter);
-      SmallVector<Value, 4> allocOperands;
-      for (int i = 0; i < shape.size(); ++i) {
-        if (shape[i] < 0) {
-          Value dim = rewriter.create<AffineApplyOp>(loc, dimMap,
-              ValueRange(std::vector<Value>{
-                  rewriter.create<DimOp>(loc, operands[0], i)}));
-          allocOperands.emplace_back(dim);
-        }
-      }
-      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
-      if (insertDealloc) {
-        auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
-    }
+    else
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, {operands[0]});
 
     std::vector<Value> originalLoops;
     KrnlOptimizeLoopsOp optimizedLoopsOp;

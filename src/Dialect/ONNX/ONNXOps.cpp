@@ -425,20 +425,7 @@ bool ONNXEluOp::inferShapes() {
 /// Infer the output shape of the ONNXReluOp. This method is required by the
 /// shape inference interface.
 bool ONNXReluOp::inferShapes() {
-  auto operandTy = getOperand().getType().cast<RankedTensorType>();
-  auto operandShape = operandTy.getShape();
-
-  auto builder = mlir::Builder(this->getContext());
-  AffineMap dimMap = getIdentityDimMap(builder);
-  SmallVector<int64_t, 4> dims;
-  for (int i = 0; i < operandShape.size(); ++i) {
-    AffineMap replacedDimMap = dimMap.replaceDimsAndSymbols(
-        {builder.getAffineConstantExpr(operandShape[i])}, {}, 1, 0);
-    AffineMap map = simplifyAffineMap(replacedDimMap);
-    dims.emplace_back(map.getSingleConstantResult());
-  }
-
-  getResult().setType(RankedTensorType::get(dims, operandTy.getElementType()));
+  getResult().setType(getOperand().getType());
   return true;
 }
 
