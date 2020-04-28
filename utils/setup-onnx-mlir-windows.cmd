@@ -1,34 +1,21 @@
 call curl -o miniconda.exe --location https://repo.continuum.io/miniconda/Miniconda3-latest-Windows-x86_64.exe
 call MiniConda.exe /S /D=%UserProfile%\Miniconda3
-setx PATH=%PATH%;%UserProfile%\Miniconda3\Scripts
-setx PATH "%UserProfile%\Miniconda3\Scripts;%PATH%" /M
+set PATH=%PATH%;%UserProfile%\Miniconda3\Scripts
+set PATH "%UserProfile%\Miniconda3\Scripts;%PATH%" /M
 
-call conda.bat create --yes --quiet --name onnx-mlir -c conda-forge python=3.6 numpy libprotobuf=3.11.3 protobuf
-
+call conda create --yes --quiet --name onnx-mlir -c conda-forge python=3.6 libprotobuf=3.11.4
 
 call activate.bat onnx-mlir
 
 call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 
-setx USE_MSVC_STATIC_RUNTIME=0
-setx CMAKE_ARGS=-DONNX_USE_PROTOBUF_SHARED_LIBS=ON -DProtobuf_USE_STATIC_LIBS=OFF -DONNX_USE_LITE_PROTO=ON
 
-setx root_dir=%cd%
-
-REM Build protobuf
-git clone --recurse-submodules https://github.com/protocolbuffers/protobuf.git
-cd protobuf
-cd cmake
-call cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 -DCMAKE_BUILD_TYPE=Release -Dprotobuf_MSVC_STATIC_RUNTIME=OFF -Dprotobuf_BUILD_TESTS=OFF -Dprotobuf_BUILD_EXAMPLES=OFF -Dprotobuf_WITH_ZLIB=OFF -DCMAKE_INSTALL_PREFIX="%root_dir%\protobuf\install"
-call msbuild protobuf.sln /m /p:Configuration=Release
-call msbuild INSTALL.vcxproj /p:Configuration=Release
-
-setx PATH=%root_dir%\protobuf\install\bin;%PATH%
+set root_dir=%cd%
 
 REM Build PDcurses
 cd /d %root_dir%
 git clone https://github.com/wmcbrine/PDCurses.git
-setx PDCURSES_SRCDIR=%root_dir%/PDCurses
+set PDCURSES_SRCDIR=%root_dir%/PDCurses
 cd PDCurses
 call nmake -f wincon/Makefile.vc
 
@@ -64,9 +51,9 @@ git checkout 504da8d15a5d48b2bd25b510ff02851b478d5cc7
 git submodule update --init --recursive
 cd ..
 
-setx CURSES_LIB_PATH=%root_dir%/PDCurses
-setx LLVM_PROJ_BUILD=%root_dir%/llvm-project/build
-setx LLVM_PROJ_SRC=%root_dir%/llvm-project
+set CURSES_LIB_PATH=%root_dir%/PDCurses
+set LLVM_PROJ_BUILD=%root_dir%/llvm-project/build
+set LLVM_PROJ_SRC=%root_dir%/llvm-project
 
 md onnx-mlir\build
 cd onnx-mlir\build
