@@ -1,6 +1,8 @@
 // RUN: onnx-mlir-opt %s -mlir-print-op-generic | FileCheck -check-prefix=GENERIC %s
 // RUN: onnx-mlir-opt %s | FileCheck %s
 
+// -----
+
 // GENERIC-DAG: #{{.*}} = affine_map<() -> (0)>
 // GENERIC-DAG: #{{.*}} = affine_map<() -> (10)>
 // GENERIC-DAG: #{{.*}} = affine_map<() -> (1)>
@@ -45,6 +47,8 @@ func @simple_iterate(%N : index) {
 
   return
 }
+
+// -----
 
 func @affine_map_bound(%N : index) {
   %ii, %ij, %ik = krnl.define_loops 3
