@@ -4,7 +4,7 @@ configure_file(test_config.py.in test_config.py)
 find_package(PythonInterp 3 REQUIRED)
 
 get_filename_component(CXX_BIN_DIR ${CMAKE_CXX_COMPILER} PATH)
-set(LIBSTDCXX_FILE "${CXX_BIN_DIR}/../lib64/libstdc++.so.6")
+set(LIBSTDCXX_FILE "${CXX_BIN_DIR}/../lib64/libstdc++.so")
 
 add_custom_target(check-onnx-backend
         COMMAND LD_PRELOAD=${LIBSTDCXX_FILE}:$<TARGET_FILE:cruntime> ${PYTHON_EXECUTABLE}
