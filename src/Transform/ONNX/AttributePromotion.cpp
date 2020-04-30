@@ -41,7 +41,7 @@ void getOrCreateNoneValue(llvm::Optional<mlir::Value> &none, FuncOp f) {
  *  desirable (as instructed by the PromotableConstOperandsOpInterface).
  */
 class AttributePromotionPass
-    : public mlir::FunctionPass<AttributePromotionPass> {
+    : public mlir::PassWrapper<AttributePromotionPass, mlir::FunctionPass> {
 public:
   void runOnFunction() override {
     auto f = getFunction();
@@ -90,7 +90,7 @@ public:
     OwningRewritePatternList patterns;
     auto *context = &getContext();
     ConstantOp::getCanonicalizationPatterns(patterns, context);
-    applyPatternsGreedily(f, patterns);
+      applyPatternsAndFoldGreedily(f, patterns);
   }
 };
 } // end anonymous namespace

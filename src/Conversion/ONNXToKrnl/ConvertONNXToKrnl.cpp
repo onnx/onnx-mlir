@@ -41,13 +41,13 @@ public:
 /// This is a partial lowering to Krnl loops of the ONNX operations.
 namespace {
 struct FrontendToKrnlLoweringPass
-    : public ModulePass<FrontendToKrnlLoweringPass> {
-  void runOnModule() final;
+    : public PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>> {
+  void runOnOperation() final;
 };
 } // end anonymous namespace.
 
-void FrontendToKrnlLoweringPass::runOnModule() {
-  ModuleOp module = getModule();
+void FrontendToKrnlLoweringPass::runOnOperation() {
+  ModuleOp module = getOperation();
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
