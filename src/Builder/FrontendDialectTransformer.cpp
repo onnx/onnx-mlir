@@ -269,11 +269,12 @@ private:
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
       } else {
-        if (i < outputMap.size() && outputMap[i] != -1 ) {
+        if (i < outputMap.size() && outputMap[i] != -1) {
           mlir::Type inputType = inputs[0].getType();
           if (inputType.isa<mlir::TensorType>()) {
-            auto elementType = inputType.cast<mlir::TensorType>().getElementType();
-            auto outType =  mlir::UnrankedTensorType::get(elementType);
+            auto elementType =
+                inputType.cast<mlir::TensorType>().getElementType();
+            auto outType = mlir::UnrankedTensorType::get(elementType);
             outputTypes.emplace_back(outType);
           } else {
             outputTypes.push_back(inputType);
