@@ -34,6 +34,8 @@ target_link_libraries(onnx-mlir
         OMShapeInferenceOpInterface
         OMAttributePromotion
         OMPromotableConstOperandsOpInterface
+        OMElideConstants
+        OMElideKrnlGlobalConstants
         OMKrnlToAffine
         OMKrnlToLLVM
         OMONNXToKrnl
