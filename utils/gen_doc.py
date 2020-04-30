@@ -360,6 +360,13 @@ def get_numberof_inout(s, indent, schema):
     indent = dec_indent(indent)
     s += indent + "}\n"
 
+    s += indent + "static std::vector<int> getTypeMap() {\n"
+    mapping = {0}
+    indent = inc_indent(indent)
+    s += indent + "return {};\n".format(mapping)
+    indent = dec_indent(indent)
+    s += indent + "}\n"
+
     return s
 
 

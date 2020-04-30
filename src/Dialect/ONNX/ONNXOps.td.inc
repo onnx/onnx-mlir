@@ -33,6 +33,9 @@ def ONNXAbsOp:ONNX_Op<"Abs",
       static int getNumberOfResults() {
         return 1;
       }
+      static std::vector<int> getTypeMap() {
+        return {0};
+      }
     }];
 }
 
@@ -51,6 +54,9 @@ def ONNXAcosOp:ONNX_Op<"Acos",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -68,6 +74,9 @@ def ONNXAcoshOp:ONNX_Op<"Acosh",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -91,6 +100,9 @@ def ONNXAddOp:ONNX_Op<"Add",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -112,6 +124,9 @@ def ONNXAndOp:ONNX_Op<"And",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -136,6 +151,9 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -159,6 +177,9 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -176,6 +197,9 @@ def ONNXAsinOp:ONNX_Op<"Asin",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -195,6 +219,9 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -213,6 +240,9 @@ def ONNXAtanOp:ONNX_Op<"Atan",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -230,6 +260,9 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -283,6 +316,9 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -320,6 +356,9 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
     static int getNumberOfResults() {
       return 5;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -350,6 +389,9 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -388,6 +430,9 @@ def ONNXCastOp:ONNX_Op<"Cast",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -407,6 +452,9 @@ def ONNXCeilOp:ONNX_Op<"Ceil",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -429,6 +477,9 @@ def ONNXClipOp:ONNX_Op<"Clip",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -453,6 +504,9 @@ def ONNXCompressOp:ONNX_Op<"Compress",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -471,6 +525,9 @@ def ONNXConcatOp:ONNX_Op<"Concat",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -495,6 +552,9 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -515,6 +575,9 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -533,6 +596,9 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -562,6 +628,9 @@ def ONNXConvOp:ONNX_Op<"Conv",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -589,6 +658,9 @@ def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -631,6 +703,9 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -649,6 +724,9 @@ def ONNXCosOp:ONNX_Op<"Cos",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -666,6 +744,9 @@ def ONNXCoshOp:ONNX_Op<"Cosh",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -706,6 +787,9 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -753,6 +837,9 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -776,6 +863,9 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -798,6 +888,9 @@ def ONNXDetOp:ONNX_Op<"Det",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -818,6 +911,9 @@ def ONNXDivOp:ONNX_Op<"Div",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -843,6 +939,9 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
     }
     static int getNumberOfResults() {
       return 2;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -885,6 +984,9 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
     static int getNumberOfResults() {
       return 3;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -906,6 +1008,9 @@ def ONNXEluOp:ONNX_Op<"Elu",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -929,6 +1034,9 @@ def ONNXEqualOp:ONNX_Op<"Equal",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -946,6 +1054,9 @@ def ONNXErfOp:ONNX_Op<"Erf",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -977,6 +1088,9 @@ def ONNXExpOp:ONNX_Op<"Exp",
       static int getNumberOfResults() {
         return 1;
       }
+      static std::vector<int> getTypeMap() {
+        return {0};
+      }
     }];
 }
 
@@ -1002,6 +1116,9 @@ def ONNXExpandOp:ONNX_Op<"Expand",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1029,6 +1146,9 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1050,6 +1170,9 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1069,6 +1192,9 @@ def ONNXFloorOp:ONNX_Op<"Floor",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1173,6 +1299,9 @@ def ONNXGRUOp:ONNX_Op<"GRU",
     static int getNumberOfResults() {
       return 2;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1249,6 +1378,9 @@ def ONNXGatherOp:ONNX_Op<"Gather",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1322,6 +1454,9 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1406,6 +1541,9 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1443,6 +1581,9 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1462,6 +1603,9 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1484,6 +1628,9 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1503,6 +1650,9 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1526,6 +1676,9 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1547,6 +1700,9 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1580,6 +1736,9 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1598,6 +1757,9 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1618,6 +1780,9 @@ def ONNXIfOp:ONNX_Op<"If",
     }
     static int getNumberOfResults() {
       return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1645,6 +1810,9 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1665,6 +1833,9 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1682,6 +1853,9 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1713,6 +1887,9 @@ def ONNXLRNOp:ONNX_Op<"LRN",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1828,6 +2005,9 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
     static int getNumberOfResults() {
       return 3;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1848,6 +2028,9 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1871,6 +2054,9 @@ def ONNXLessOp:ONNX_Op<"Less",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -1888,6 +2074,9 @@ def ONNXLogOp:ONNX_Op<"Log",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -1920,6 +2109,9 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2054,6 +2246,9 @@ def ONNXLoopOp:ONNX_Op<"Loop",
     static int getNumberOfResults() {
       return -1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2073,6 +2268,9 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2101,6 +2299,9 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2119,6 +2320,9 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2142,6 +2346,9 @@ def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2161,6 +2368,9 @@ def ONNXMaxOp:ONNX_Op<"Max",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2216,6 +2426,9 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
     static int getNumberOfResults() {
       return 2;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2238,6 +2451,9 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2279,6 +2495,9 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2298,6 +2517,9 @@ def ONNXMeanOp:ONNX_Op<"Mean",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2319,6 +2541,9 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2338,6 +2563,9 @@ def ONNXMinOp:ONNX_Op<"Min",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2370,6 +2598,9 @@ def ONNXModOp:ONNX_Op<"Mod",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2404,6 +2635,9 @@ def ONNXMulOp:ONNX_Op<"Mul",
       static int getNumberOfResults() {
         return 1;
       }
+      static std::vector<int> getTypeMap() {
+        return {0};
+      }
     }];
 }
 
@@ -2426,6 +2660,9 @@ def ONNXMultinomialOp:ONNX_Op<"Multinomial",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2445,6 +2682,9 @@ def ONNXNegOp:ONNX_Op<"Neg",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2475,6 +2715,9 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2496,6 +2739,9 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2513,6 +2759,9 @@ def ONNXNotOp:ONNX_Op<"Not",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2553,6 +2802,9 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2575,6 +2827,9 @@ def ONNXOrOp:ONNX_Op<"Or",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2596,6 +2851,9 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2698,6 +2956,9 @@ def ONNXPadOp:ONNX_Op<"Pad",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2719,6 +2980,9 @@ def ONNXPowOp:ONNX_Op<"Pow",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2756,6 +3020,9 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2788,6 +3055,9 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2809,6 +3079,9 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2900,6 +3173,9 @@ def ONNXRNNOp:ONNX_Op<"RNN",
     static int getNumberOfResults() {
       return 2;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2927,6 +3203,9 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -2956,6 +3235,9 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -2982,6 +3264,9 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -3010,6 +3295,9 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -3055,6 +3343,9 @@ def ONNXRangeOp:ONNX_Op<"Range",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3074,6 +3365,9 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -3100,6 +3394,9 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3124,6 +3421,9 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -3150,6 +3450,9 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3174,6 +3477,9 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -3200,6 +3506,9 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3224,6 +3533,9 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -3250,6 +3562,9 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3274,6 +3589,9 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -3312,6 +3630,9 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
       static int getNumberOfResults() {
         return 1;
       }
+      static std::vector<int> getTypeMap() {
+        return {0};
+      }
     }];
 }
 
@@ -3349,6 +3670,9 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
       static int getNumberOfResults() {
         return 1;
       }
+      static std::vector<int> getTypeMap() {
+        return {0};
+      }
     }];
 }
 
@@ -3368,6 +3692,9 @@ def ONNXReluOp:ONNX_Op<"Relu",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -3392,6 +3719,9 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
     std::map<std::string, size_t> promotableConstOperands() {
       return {{"shape", 1}};
@@ -3424,6 +3754,9 @@ def ONNXResizeOp:ONNX_Op<"Resize",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -3478,6 +3811,9 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3513,6 +3849,9 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3542,6 +3881,9 @@ def ONNXRoundOp:ONNX_Op<"Round",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -3687,6 +4029,9 @@ def ONNXScanOp:ONNX_Op<"Scan",
     static int getNumberOfResults() {
       return -1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3760,6 +4105,9 @@ def ONNXScatterOp:ONNX_Op<"Scatter",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3830,6 +4178,9 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -3906,6 +4257,9 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3929,6 +4283,9 @@ def ONNXSeluOp:ONNX_Op<"Selu",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3950,6 +4307,9 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3969,6 +4329,9 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -3986,6 +4349,9 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4008,6 +4374,9 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4033,6 +4402,9 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4051,6 +4423,9 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4068,6 +4443,9 @@ def ONNXShapeOp:ONNX_Op<"Shape",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4092,6 +4470,9 @@ def ONNXShrinkOp:ONNX_Op<"Shrink",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4112,6 +4493,9 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4131,6 +4515,9 @@ def ONNXSignOp:ONNX_Op<"Sign",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4148,6 +4535,9 @@ def ONNXSinOp:ONNX_Op<"Sin",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4167,6 +4557,9 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4184,6 +4577,9 @@ def ONNXSizeOp:ONNX_Op<"Size",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4240,6 +4636,9 @@ def ONNXSliceOp:ONNX_Op<"Slice",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4272,6 +4671,9 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4292,6 +4694,9 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4309,6 +4714,9 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4331,6 +4739,9 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4352,6 +4763,9 @@ def ONNXSplitOp:ONNX_Op<"Split",
     }
     static int getNumberOfResults() {
       return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4383,6 +4797,9 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4402,6 +4819,9 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4424,6 +4844,9 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4455,6 +4878,9 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4476,6 +4902,9 @@ def ONNXSubOp:ONNX_Op<"Sub",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4496,6 +4925,9 @@ def ONNXSumOp:ONNX_Op<"Sum",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4514,6 +4946,9 @@ def ONNXTanOp:ONNX_Op<"Tan",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4531,6 +4966,9 @@ def ONNXTanhOp:ONNX_Op<"Tanh",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4585,6 +5023,9 @@ def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4606,6 +5047,9 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4626,6 +5070,9 @@ def ONNXTileOp:ONNX_Op<"Tile",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4663,6 +5110,9 @@ def ONNXTopKOp:ONNX_Op<"TopK",
     static int getNumberOfResults() {
       return 2;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4683,6 +5133,9 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4781,6 +5234,9 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
     static int getNumberOfResults() {
       return 4;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4811,6 +5267,9 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4832,6 +5291,9 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -4856,6 +5318,9 @@ def ONNXWhereOp:ONNX_Op<"Where",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -4877,6 +5342,9 @@ def ONNXXorOp:ONNX_Op<"Xor",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }

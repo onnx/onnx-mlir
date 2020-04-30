@@ -263,13 +263,25 @@ private:
         inputs.emplace_back(none_);
 
     std::vector<mlir::Type> outputTypes;
-    for (auto item : node.output()) {
+    std::vector<int> outputMap(3, -1); // = T::getTypeMap();
+    for (auto i = 0; i < node.output().size(); i++) {
       // Optional outputs using empty string.
-      if (item.empty())
+      if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
-      else
-        outputTypes.push_back(
-            mlir::UnrankedTensorType::get(builder_.getF32Type()));
+      } else {
+        if (i < outputMap.size() && outputMap[i] != -1 ) {
+          mlir::Type inputType = inputs[0].getType();
+          if (inputType.isa<mlir::TensorType>()) {
+            auto elementType = inputType.cast<mlir::TensorType>().getElementType();
+            auto outType =  mlir::UnrankedTensorType::get(elementType);
+            outputTypes.emplace_back(outType);
+          } else {
+            outputTypes.push_back(inputType);
+          }
+        } else {
+          outputTypes.emplace_back(builder_.getNoneType());
+        }
+      }
     }
     // Trailing optional outputs.
     if (!variadicOut)
@@ -473,6 +485,7 @@ private:
     // output tensors.
     funcType = builder_.getFunctionType(arg_types, ret_types);
     mainFunc.setType(funcType);
+    mainFunc.dump();
   }
 }; // FrontendGenImpl class
 } // namespace

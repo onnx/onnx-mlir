@@ -119,6 +119,9 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -152,6 +155,9 @@ def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -177,6 +183,9 @@ def ONNXPadConstantValueOp : ONNX_Op<"PadConstantValue",
     static int getNumberOfResults() {
       return 1;
     }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
   }];
 }
 
@@ -198,6 +207,9 @@ def ONNXPadConstantPadOp : ONNX_Op<"PadConstantPad",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
@@ -224,6 +236,9 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
     }
     static int getNumberOfResults() {
       return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
     }
   }];
 }
