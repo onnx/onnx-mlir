@@ -1,10 +1,10 @@
-//===------------------ ONNXOps.cpp - ONNX Operations ---------------------===//
+//===------------------ MLONNXOps.cpp - ONNX ML Operations ----------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file provides definition of ONNX dialect operations.
+// This file provides definition of ONNX ML dialect operations.
 //
 //===----------------------------------------------------------------------===//
 
@@ -20,7 +20,6 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
 
-//#include "ONNXOps.hpp"
 #include "MLONNXOps.hpp"
 
 using namespace mlir;

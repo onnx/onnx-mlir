@@ -1,10 +1,10 @@
-//===-------------------- ONNXOps.hpp - ONNX Operations -------------------===//
+//===----------------- MLONNXOps.hpp - ONNX ML Operations ----_------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file defines ONNX operations in the MLIR operation set.
+// This file defines ONNX ML operations in the MLIR operation set.
 //
 //===----------------------------------------------------------------------===//
 

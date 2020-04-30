@@ -1,10 +1,10 @@
-//===--- MLONNXOps.td -- ONNX ML Dialect Operation Definitions ----*- tablegen -===//
+//===-- MLONNXOps.td -- ONNX ML Dialect Operation Definitions -*- tablegen -==//
 //
 // Copyright 2019-2020 The IBM Research Authors
 //
 // =============================================================================
 //
-// Defines ONNX Dialect operations.
+// Defines ONNX ML Dialect operations.
 //
 //===----------------------------------------------------------------------===//
 
