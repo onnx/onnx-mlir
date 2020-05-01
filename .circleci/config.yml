@@ -22,16 +22,50 @@ jobs:
       - checkout
       - run: systeminfo
       - run:
-          name: "Testing"
-          shell: powershell.exe
-          command: utils\test-onnx-mlir-windows.cmd
-
-
-workflows:
-  version: 2.1
-  build-test:
-    jobs:
-      - build-windows
-      - test-windows:
-          requires:
-            - build-windows      
+          name: Installing GCC, CMake, Ninja, Protobuf
+          command: sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler
+      - checkout:
+          path: onnx-mlir
+      - run:
+          name: Pull Submodules
+          command: |
+            cd onnx-mlir
+            git submodule update --init --recursive
+      # Use cached mlir installation if possible.
+      - restore_cache:
+          key: V11-LLVM-PROJECT-{{ arch }}
+      - run:
+          name: Install MLIR
+          command: |
+            # Check whether cache restoration succeeds by checking whether
+            # mlir-opt executable exists.
+            if [ ! -f llvm-project/build/bin/mlir-opt ]; then
+              export MAKEFLAGS=-j4
+              source onnx-mlir/utils/install-mlir.sh
+            fi
+      - save_cache:
+          key: V11-LLVM-PROJECT-{{ arch }}
+          paths:
+            - llvm-project
+      - run:
+          name: Install ONNX MLIR
+          command: source onnx-mlir/utils/install-onnx-mlir.sh
+      - run:
+          name: Run End-To-End Tests
+          command: |
+            sudo pip install -q -e ./onnx-mlir/third_party/onnx
+            cd onnx-mlir/build
+            cmake --build . --target check-onnx-backend
+      - run:
+          name: Run DocCheck
+          command: cd onnx-mlir/build && cmake --build . --target check-doc
+      - run:
+          name: Ensure tablegen documentation is up-to-date
+          command: |
+            cd onnx-mlir/build
+            cmake --build . --target onnx-mlir-doc
+            # Check whether dialect documentation is up-to-date.
+            diff docs/Dialects ../docs/Dialects
+      - run:
+          name: Print the Current Time
+          command: date
