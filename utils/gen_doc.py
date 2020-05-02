@@ -171,10 +171,10 @@ def tblgen_operand_type_to_cpp_type(op_type):
 def np_type_to_tblgen_attr_type(tstr):
     tfrom = np.array([
         'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
-        'float', 'double'
+        'float', 'double', 'complex64', 'complex128'
     ])
     tto = np.array(
-        ['I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64'])
+        ['I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64', 'Complex<F32>', 'Complex<F64>'])
     index = -1
     for i in range(len(tfrom)):
         if tfrom[i] in tstr:
@@ -182,40 +182,47 @@ def np_type_to_tblgen_attr_type(tstr):
             break
     if index == -1:
         print("error", tstr)
-        return ''
+        return None
     else:
         return tto[i]
 
+#the possible data structures are tensor, map and seq(tensor())
+#TOFIX: currently, only tensor structure is supported
+def get_data_structure_element(allowed_type_str): 
+    if allowed_type_str.startswith('tensor') :
+        element = allowed_type_str.replace('tensor(', '', 1).replace(')', '', 1)
+        return ('tensor', element)
+    else :
+        return (None, None)
 
 def get_allowed_elem_types(schema, input):
-    allowed_types_str = None
-    return allowed_types_str
+    #allowed_types_str = None
+    # return allowed_types_str
     # TODO: enable type constraints.
-    # if input.typeStr :
-    #     tstr = input.typeStr
-    # else :
-    #     return allwedTypeStr
-    # if schema.type_constraints:
-    #     for type_constraint in schema.type_constraints:
-    #         if type_constraint.type_param_str != tstr :
-    #             continue
-    #         allowedTypes = type_constraint.allowed_type_strs
-    #         allowedTypeStr=''
-    #         if (len(allowedTypes) > 0):
-    #             t = convert_type(allowedTypes[0])
-    #             if t == '' :
-    #                 return ''
-    #             allowedTypeStr += t
-    #         for allowedType in allowedTypes[1:]:
-    #             t = convert_type(allowedType)
-    #             if t == '' :
-    #                 return ''
-    #             if  not t in allowedTypeStr :
-    #                 allowedTypeStr += ', '+t
-    #
-    #         return allowedTypeStr
-    #
-    # return allowedTypeStr
+    if input.typeStr :
+         tstr = input.typeStr
+    else :
+        return None
+    if schema.type_constraints:
+        for type_constraint in schema.type_constraints:
+            if type_constraint.type_param_str != tstr :
+                continue
+            allowed_type_list=[]
+            allowedTypes = type_constraint.allowed_type_strs
+            for allowedType in allowedTypes:
+                structure, element = get_data_structure_element(allowedType);
+                if structure == None or element == None:
+                    return None
+                t = np_type_to_tblgen_attr_type(element)
+                if t == None :
+                    print("for input schema: ", schema.name)
+                    return None
+                if  not t in allowed_type_list :
+                    allowed_tyoe_list = allowed_type_list.append(t)
+    
+            return ','.join(allowed_type_list)
+    
+    return None
 
 
 def inc_indent(indent=None):
