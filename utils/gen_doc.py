@@ -185,7 +185,6 @@ def np_type_to_tblgen_attr_type(tstr):
             index = i
             break
     if index == -1:
-        print("error", tstr)
         return None
     else:
         return tblgen_types[i]
@@ -222,7 +221,6 @@ def get_allowed_elem_types(schema, input):
                     return None
                 t = np_type_to_tblgen_attr_type(element)
                 if t == None :
-                    print("for input schema: ", schema.name)
                     return None
                 if  not t in allowed_type_list :
                     allowed_tyoe_list = allowed_type_list.append(t)
