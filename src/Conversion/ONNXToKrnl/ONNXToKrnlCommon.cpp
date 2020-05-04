@@ -25,6 +25,8 @@ MemRefType convertToMemRefType(Type type) {
   MemRefType memRefType;
   auto tensorType = type.dyn_cast<TensorType>();
   if (tensorType) {
+    type.print(llvm::outs());
+    printf("\n");
     assert(tensorType.hasRank() && "expected only ranked shapes");
     memRefType =
         MemRefType::get(tensorType.getShape(), tensorType.getElementType());

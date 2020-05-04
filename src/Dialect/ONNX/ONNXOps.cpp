@@ -422,9 +422,11 @@ bool ONNXEluOp::inferShapes() {
 /// Infer the output shape of the ONNXReluOp. This method is required by the
 /// shape inference interface.
 bool ONNXReluOp::inferShapes() {
+  printf("relu inferShapes was called!!!!\n");
   getResult().setType(getOperand().getType());
   return true;
 }
+
 
 //===----------------------------------------------------------------------===//
 // LeakyRelu
@@ -678,6 +680,16 @@ bool ONNXMinOp::inferShapes() {
     resultTy = getBroadcastedType(resultTy, nextTy);
   }
   getResult().setType(resultTy);
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
+// Neg
+/// Infer the output shape of the ONNXNegOp. This method is required by the
+/// shape inference interface.
+bool ONNXNegOp::inferShapes() {
+  printf("neg inferShapes was called!!!!\n");
+  getResult().setType(getOperand().getType());
   return true;
 }
 
