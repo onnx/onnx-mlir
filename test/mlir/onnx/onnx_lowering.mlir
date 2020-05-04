@@ -98,62 +98,62 @@ func @test_sub(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*
 
 // -----
 
-func @test_and(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*xi32> {
-  %0 = "onnx.And"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<*xi32>
-  "std.return"(%0) : (tensor<*xi32>) -> ()
+func @test_and(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor<*xi1> {
+  %0 = "onnx.And"(%arg0, %arg1) : (tensor<10x10xi1>, tensor<10x10xi1>) -> tensor<*xi1>
+  "std.return"(%0) : (tensor<*xi1>) -> ()
 
   // CHECK-LABEL: test_and
-  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi32>
+  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi1>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[AND:%.+]] = and [[LOAD1]], [[LOAD2]] : i32
-  // CHECK: store [[AND]], [[RES]][%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: return [[RES]] : memref<10x10xi32>
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[AND:%.+]] = and [[LOAD1]], [[LOAD2]] : i1
+  // CHECK: store [[AND]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: return [[RES]] : memref<10x10xi1>
 }
 
 // -----
 
-func @test_or(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*xi32> {
-  %0 = "onnx.Or"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<*xi32>
-  "std.return"(%0) : (tensor<*xi32>) -> ()
+func @test_or(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor<*xi1> {
+  %0 = "onnx.Or"(%arg0, %arg1) : (tensor<10x10xi1>, tensor<10x10xi1>) -> tensor<*xi1>
+  "std.return"(%0) : (tensor<*xi1>) -> ()
 
   // CHECK-LABEL: test_or
-  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi32>
+  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi1>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[OR:%.+]] = or [[LOAD1]], [[LOAD2]] : i32
-  // CHECK: store [[OR]], [[RES]][%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: return [[RES]] : memref<10x10xi32>
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[OR:%.+]] = or [[LOAD1]], [[LOAD2]] : i1
+  // CHECK: store [[OR]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: return [[RES]] : memref<10x10xi1>
 }
 
 // -----
 
-func @test_xor(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*xi32> {
-  %0 = "onnx.Xor"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<*xi32>
-  "std.return"(%0) : (tensor<*xi32>) -> ()
+func @test_xor(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor<*xi1> {
+  %0 = "onnx.Xor"(%arg0, %arg1) : (tensor<10x10xi1>, tensor<10x10xi1>) -> tensor<*xi1>
+  "std.return"(%0) : (tensor<*xi1>) -> ()
 
   // CHECK-LABEL: test_xor
-  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi32>
+  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi1>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[XOR:%.+]] = xor [[LOAD1]], [[LOAD2]] : i32
-  // CHECK: store [[XOR]], [[RES]][%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: return [[RES]] : memref<10x10xi32>
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[XOR:%.+]] = xor [[LOAD1]], [[LOAD2]] : i1
+  // CHECK: store [[XOR]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: return [[RES]] : memref<10x10xi1>
 }
 
 // -----

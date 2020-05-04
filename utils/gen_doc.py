@@ -84,6 +84,16 @@ OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)]}
 #  - one with operands and attributes having aggregated parameters.
 custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare']
 
+onnx_types = (
+    'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
+    'float', 'double', 'complex64', 'complex128'
+)
+tblgen_types = ('I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64', 
+    'Complex<F32>', 'Complex<F64>'
+)
+
+MAX_NUM_TYPES=20
+
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
 ONNX_ML = not bool(os.getenv('ONNX_ML') == '0')
@@ -169,22 +179,19 @@ def tblgen_operand_type_to_cpp_type(op_type):
 
 
 def np_type_to_tblgen_attr_type(tstr):
-    tfrom = np.array([
-        'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
-        'float', 'double', 'complex64', 'complex128'
-    ])
-    tto = np.array(
-        ['I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64', 'Complex<F32>', 'Complex<F64>'])
     index = -1
-    for i in range(len(tfrom)):
-        if tfrom[i] in tstr:
+    for i in range(len(onnx_types)):
+        if onnx_types[i] in tstr:
             index = i
             break
     if index == -1:
         print("error", tstr)
         return None
     else:
-        return tto[i]
+        return tblgen_types[i]
+
+def get_tblgen_type_index(type_str):
+    return tblgen_types.index(type_str)
 
 #the possible data structures are tensor, map and seq(tensor())
 #TOFIX: currently, only tensor structure is supported
@@ -220,7 +227,7 @@ def get_allowed_elem_types(schema, input):
                 if  not t in allowed_type_list :
                     allowed_tyoe_list = allowed_type_list.append(t)
     
-            return ','.join(allowed_type_list)
+            return allowed_type_list
     
     return None
 
@@ -255,8 +262,9 @@ def get_operands_or_results(schema, is_input):
         if elem_types is None:
             types = ["AnyMemRef", "AnyTensor"]
         else:
+            elem_types_str = ','.join(elem_types)
             types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
-            types = list(map(lambda x: x.format(elem_types), types))
+            types = list(map(lambda x: x.format(elem_types_str), types))
 
         # If operand is promotable to an attribute, then it must be
         # nullable in case it migrates to be an attribute.
@@ -344,13 +352,39 @@ def get_attrs(schema):
             name_to_type[attr.name] = get_attr_type_optional(attr.type)
     return name_to_type
 
-def get_numberof_list(mylist) :
+def get_numberof_list(mylist):
     expected_num = len(mylist)
     for element in mylist :
         if OpSchema.FormalParameterOption.Variadic == element.option:
             expected_num = -1
     return expected_num
 
+def get_output_type_mapping(schema):
+    mapping=[]
+    for output in schema.outputs :
+        #if only one type is allowed, just set that
+        allowed_elem_types = get_allowed_elem_types(schema, output)
+        if allowed_elem_types != None and len(allowed_elem_types) == 1 :
+            mapping.append(str(get_tblgen_type_index(allowed_elem_types[0])))
+            continue
+
+        #map the type string
+        if output.typeStr :
+            tstr = output.typeStr
+            found = False
+            for i, input in enumerate(schema.inputs):
+                if input.typeStr and input.typeStr == tstr:
+                    mapping.append(str(i+MAX_NUM_TYPES))
+                    found = True
+                    break
+            if found:
+                continue
+
+        #unknown output type
+        mapping.append(str(-1))
+        
+    return mapping
+    
 def get_numberof_inout(s, indent, schema):
     expected_num_operands = get_numberof_list(schema.inputs)
     indent = inc_indent(indent)
@@ -368,9 +402,9 @@ def get_numberof_inout(s, indent, schema):
     s += indent + "}\n"
 
     s += indent + "static std::vector<int> getTypeMap() {\n"
-    mapping = {0}
+    mapping = get_output_type_mapping(schema)
     indent = inc_indent(indent)
-    s += indent + "return {};\n".format(mapping)
+    s += indent + "return {" + ",".join(mapping) + "};\n"
     indent = dec_indent(indent)
     s += indent + "}\n"
 

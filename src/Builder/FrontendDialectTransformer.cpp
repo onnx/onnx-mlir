@@ -243,6 +243,37 @@ private:
     }
   }
 
+#define MAX_TYPE 20
+  // itblgen_types = ('I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32',
+  // 'F64', 'Complex<F32>', 'Complex<F64>' )
+  mlir::Type buildTypeFromIndex(int index) {
+    switch (index) {
+    case 0:
+      return builder_.getI1Type();
+    case 1:
+      return builder_.getIntegerType(8);
+    case 2:
+      return builder_.getIntegerType(16);
+    case 3:
+      return builder_.getIntegerType(32);
+    case 4:
+      return builder_.getIntegerType(64);
+    case 5:
+      return builder_.getBF16Type();
+    case 6:
+      return builder_.getF16Type();
+    case 7:
+      return builder_.getF32Type();
+    case 8:
+      return builder_.getF64Type();
+    case 9: // TOFIX Complex64 type
+    case 10: // TOFIX Complex128 type
+    default:
+      assert(false && "Unsupported type index encountered.");
+      return nullptr;
+    }
+  }
+
   template <typename T>
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<mlir::Value> inputs, int expectedNumOperands,
@@ -263,14 +294,17 @@ private:
         inputs.emplace_back(none_);
 
     std::vector<mlir::Type> outputTypes;
-    std::vector<int> outputMap(3, -1); // = T::getTypeMap();
+
+    // Use the type map to determine the data type of output.
+    std::vector<int> outputMap = T::getTypeMap();
     for (auto i = 0; i < node.output().size(); i++) {
       // Optional outputs using empty string.
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
       } else {
-        if (i < outputMap.size() && outputMap[i] != -1) {
-          mlir::Type inputType = inputs[0].getType();
+        if (i < outputMap.size() && outputMap[i] >= MAX_TYPE) {
+          // Mapping gives a connection with an input.
+          mlir::Type inputType = inputs[outputMap[i]-MAX_TYPE].getType();
           if (inputType.isa<mlir::TensorType>()) {
             auto elementType =
                 inputType.cast<mlir::TensorType>().getElementType();
@@ -279,6 +313,11 @@ private:
           } else {
             outputTypes.push_back(inputType);
           }
+        } else if (i < outputMap.size() && outputMap[i] != -1) {
+          //mapping gives a direct type
+          auto elementType = buildTypeFromIndex(outputMap[i]);
+          auto outType = mlir::UnrankedTensorType::get(elementType);
+          outputTypes.emplace_back(outType);
         } else {
           outputTypes.emplace_back(builder_.getNoneType());
         }
@@ -302,8 +341,8 @@ private:
   template <typename T>
   void buildOperation(const onnx::NodeProto &node) {
     std::vector<mlir::Value> inputs;
-    int expectedNumOperands  = T::getNumberOfOperands();
-    int expectedNumResults =  T::getNumberOfResults();
+    int expectedNumOperands = T::getNumberOfOperands();
+    int expectedNumResults = T::getNumberOfResults();
     for (const auto &item : node.input())
       if (initializedTensors.ContainKey(legalize_name(item))) {
         inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
@@ -486,7 +525,6 @@ private:
     // output tensors.
     funcType = builder_.getFunctionType(arg_types, ret_types);
     mainFunc.setType(funcType);
-    mainFunc.dump();
   }
 }; // FrontendGenImpl class
 } // namespace
