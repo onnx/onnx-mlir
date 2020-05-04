@@ -266,8 +266,18 @@ private:
       return builder_.getF32Type();
     case 8:
       return builder_.getF64Type();
-    case 9: // TOFIX Complex64 type
-    case 10: // TOFIX Complex128 type
+    case 9: {
+      std::vector<mlir::Type> typeTuple(2);
+      typeTuple.push_back(builder_.getF32Type());
+      typeTuple.push_back(builder_.getF32Type());
+      return builder_.getTupleType(llvm::ArrayRef<mlir::Type>(typeTuple));
+    }
+    case 10: {
+      std::vector<mlir::Type> typeTuple(2);
+      typeTuple.push_back(builder_.getF64Type());
+      typeTuple.push_back(builder_.getF64Type());
+      return builder_.getTupleType(llvm::ArrayRef<mlir::Type>(typeTuple));
+    }
     default:
       assert(false && "Unsupported type index encountered.");
       return nullptr;
