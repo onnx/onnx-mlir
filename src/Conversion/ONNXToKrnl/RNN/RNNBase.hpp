@@ -23,31 +23,37 @@ struct RNNActivation {
   Optional<FloatAttr> beta;
 };
 
+// Apply an activation function on a given scalar operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value scalarOperand);
 
-template <typename RNNOp, typename I, typename O>
-std::tuple<I, O> getInputOutputPack(Operation *op, ArrayRef<Value> operands);
+// Override the following methods when lowering an RNN operation:
+// - hasAllNoneOutput
+// - getActivationPack
+// - allocAndInitializeStates
+// - calculateState
+// - stateToOutput
+
+template <typename RNNOp>
+bool hasAllNoneOutput(RNNOp *op);
 
 template <typename RNNOp, typename A>
-std::tuple<A, A> getActivationPack(Operation *op);
+std::tuple<A, A> getActivationPack(RNNOp *op);
 
-template <typename O>
-bool hasNoOutput(O outputPack);
-
-template <typename I, typename O, typename S>
+template <typename RNNOp, typename S>
 S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, I inputPack, O outputPack);
+    RNNOp *op, OperandAdaptor<RNNOp> operandAdaptor);
 
-template <typename RNNOp, typename I, typename S, typename A>
+template <typename RNNOp, typename S, typename A>
 void calculateState(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, Value numDirectionIV, Value sequenceLengthIV, I inputPack,
-    S state, A activationSet);
+    OperandAdaptor<RNNOp> operandAdaptor, S state, A activationSet,
+    Value numDirectionIV, Value sequenceLengthIV);
 
-template <typename RNNOp, typename S, typename O>
-void stateToOutput(S state, O outputPack, std::vector<Value> &outputs);
+template <typename RNNOp, typename S>
+void stateToOutput(RNNOp *op, S state, std::vector<Value> &outputs);
 
-template <typename RNNOp, typename I, typename O, typename S, typename A>
+// A common template for lowering an RNN operation.
+template <typename RNNOp, typename S, typename A>
 struct ONNXRNNOpLowering : public ConversionPattern {
   ONNXRNNOpLowering(MLIRContext *ctx)
       : ConversionPattern(RNNOp::getOperationName(), 1, ctx) {}
@@ -56,27 +62,24 @@ struct ONNXRNNOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
 
-    I inputPack;
-    O outputPack;
-    S state;
+    RNNOp rnnOp = llvm::dyn_cast<RNNOp>(op);
+    OperandAdaptor<RNNOp> operandAdaptor(operands);
 
-    std::tie(inputPack, outputPack) =
-        getInputOutputPack<RNNOp, I, O>(op, operands);
-
-    if (hasNoOutput<O>(outputPack)) {
+    if (hasAllNoneOutput<RNNOp>(&rnnOp)) {
       rewriter.eraseOp(op);
       return success();
     }
 
-    state = allocAndInitializeStates<I, O, S>(
-        rewriter, loc, op, inputPack, outputPack);
+    S state = allocAndInitializeStates<RNNOp, S>(
+        rewriter, loc, &rnnOp, operandAdaptor);
+
     A activationForward, activationReverse;
     std::tie(activationForward, activationReverse) =
-        getActivationPack<RNNOp, A>(op);
+        getActivationPack<RNNOp, A>(&rnnOp);
 
-    Value X = inputPack.X;
+    Value X = rnnOp.X();
     int sequenceLengthDim = X.getType().cast<ShapedType>().getShape()[0];
-    auto direction = llvm::dyn_cast<RNNOp>(op).direction();
+    auto direction = rnnOp.direction();
 
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
@@ -91,8 +94,8 @@ struct ONNXRNNOpLowering : public ConversionPattern {
             emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
         Value sequenceLengthIV = sequenceLoops.getInductionVar(0);
         // Emit calculation for one RNN step.
-        calculateState<RNNOp, I, S>(rewriter, loc, op, numDirectionIV,
-            sequenceLengthIV, inputPack, state, activationForward);
+        calculateState<RNNOp, S, A>(rewriter, loc, operandAdaptor, state,
+            activationForward, numDirectionIV, sequenceLengthIV);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
@@ -117,15 +120,15 @@ struct ONNXRNNOpLowering : public ConversionPattern {
                     emitConstantOp(rewriter, loc, rewriter.getIndexType(),
                         sequenceLengthDim)}));
         // Emit calculation for one RNN step.
-        calculateState<RNNOp, I, S>(rewriter, loc, op, numDirectionIV,
-            reverseSequenceLengthIV, inputPack, state, activationReverse);
+        calculateState<RNNOp, S, A>(rewriter, loc, operandAdaptor, state,
+            activationReverse, numDirectionIV, reverseSequenceLengthIV);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
 
     std::vector<Value> outputs;
-    stateToOutput<RNNOp, S, O>(state, outputPack, outputs);
-    rewriter.replaceOp(op, llvm::makeArrayRef(outputs));
+    stateToOutput<RNNOp, S>(&rnnOp, state, outputs);
+    rewriter.replaceOp(op, outputs);
     return success();
   }
 };

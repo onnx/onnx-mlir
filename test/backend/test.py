@@ -362,6 +362,11 @@ test_to_enable = [
     "test_lstm_with_peepholes_cpu",
 
 ]
+test_to_enable = [
+    "test_lstm_defaults_cpu",
+    "test_lstm_with_initial_bias_cpu",
+    "test_lstm_with_peepholes_cpu",
+]
 
 # Extract name of all test cases.
 import inspect

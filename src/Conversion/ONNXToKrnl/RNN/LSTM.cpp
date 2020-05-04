@@ -12,23 +12,6 @@
 
 using namespace mlir;
 
-struct LstmInputPack {
-  Value X;
-  Value W;
-  Value R;
-  Value Biofc;
-  Value sequenceLength;
-  Value initialHidden;
-  Value initialCell;
-  Value Piof;
-};
-
-struct LstmOutputPack {
-  Value Y;
-  Value Y_h;
-  Value Y_c;
-};
-
 struct LstmState {
   Value allH;
   Value ht;
@@ -42,37 +25,19 @@ struct LstmActivationPack {
 };
 
 template <>
-std::tuple<LstmInputPack, LstmOutputPack>
-getInputOutputPack<ONNXLSTMOp, LstmInputPack, LstmOutputPack>(
-    Operation *op, ArrayRef<Value> operands) {
-  LstmInputPack inputPack;
-  inputPack.X = operands[0];
-  inputPack.W = operands[1];
-  inputPack.R = operands[2];
-  inputPack.Biofc = operands[3];
-  inputPack.sequenceLength = operands[4];
-  inputPack.initialHidden = operands[5];
-  inputPack.initialCell = operands[6];
-  inputPack.Piof = operands[7];
-
-  ONNXLSTMOp rnnOp = llvm::dyn_cast<ONNXLSTMOp>(op);
-  LstmOutputPack outputPack;
-  outputPack.Y = rnnOp.Y();
-  outputPack.Y_h = rnnOp.Y_h();
-  outputPack.Y_c = rnnOp.Y_c();
-
-  return std::make_tuple(inputPack, outputPack);
+bool hasAllNoneOutput<ONNXLSTMOp>(ONNXLSTMOp *op) {
+  return (op->Y().getType().isa<NoneType>() &&
+          op->Y_h().getType().isa<NoneType>() &&
+          op->Y_c().getType().isa<NoneType>());
 }
 
 template <>
 std::tuple<LstmActivationPack, LstmActivationPack>
-getActivationPack<ONNXLSTMOp, LstmActivationPack>(Operation *op) {
-  ONNXLSTMOp rnnOp = llvm::dyn_cast<ONNXLSTMOp>(op);
-
-  auto direction = rnnOp.direction();
-  auto activations = rnnOp.activations();
-  auto activationAlpha = rnnOp.activation_alpha();
-  auto activationBeta = rnnOp.activation_beta();
+getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
+  auto direction = op->direction();
+  auto activations = op->activations();
+  auto activationAlpha = op->activation_alpha();
+  auto activationBeta = op->activation_beta();
 
   LstmActivationPack activationForward, activationReverse;
 
@@ -193,67 +158,66 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(Operation *op) {
 }
 
 template <>
-bool hasNoOutput<LstmOutputPack>(LstmOutputPack outputPack) {
-  return (outputPack.Y.getType().isa<NoneType>() &&
-          outputPack.Y_h.getType().isa<NoneType>() &&
-          outputPack.Y_c.getType().isa<NoneType>());
-}
-
-template <>
-LstmState allocAndInitializeStates<LstmInputPack, LstmOutputPack, LstmState>(
-    ConversionPatternRewriter &rewriter, Location loc, Operation *op,
-    LstmInputPack inputPack, LstmOutputPack outputPack) {
+LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
+    ConversionPatternRewriter &rewriter, Location loc, ONNXLSTMOp *op,
+    OperandAdaptor<ONNXLSTMOp> operandAdaptor) {
   LstmState state;
 
   // Insert allocation and deallocation for the results of this operation.
-  if (!outputPack.Y.getType().isa<NoneType>()) {
-    auto yMemRefType = convertToMemRefType(outputPack.Y.getType());
+  if (!op->Y().getType().isa<NoneType>()) {
+    auto yMemRefType = convertToMemRefType(op->Y().getType());
     if (hasAllConstantDimensions(yMemRefType))
-      state.allH = insertAllocAndDealloc(
-          yMemRefType, loc, rewriter, checkInsertDealloc(op, 0));
+      state.allH = insertAllocAndDealloc(yMemRefType, loc, rewriter,
+          checkInsertDealloc(op->getOperation(), 0));
     else
       emitError(loc, "Unsupported dynamic dimensions.");
   } else {
-    state.allH = outputPack.Y;
+    state.allH = op->Y();
   }
 
-  if (!outputPack.Y_h.getType().isa<NoneType>()) {
-    auto yhMemRefType = convertToMemRefType(outputPack.Y_h.getType());
+  if (!op->Y_h().getType().isa<NoneType>()) {
+    auto yhMemRefType = convertToMemRefType(op->Y_h().getType());
     if (hasAllConstantDimensions(yhMemRefType))
-      state.ht = insertAllocAndDealloc(
-          yhMemRefType, loc, rewriter, checkInsertDealloc(op, 1));
+      state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter,
+          checkInsertDealloc(op->getOperation(), 1));
     else
       emitError(loc, "Unsupported dynamic dimensions.");
   } else {
     SmallVector<int64_t, 3> yhDims;
-    yhDims.emplace_back(inputPack.W.getType().cast<ShapedType>().getShape()[0]);
-    yhDims.emplace_back(inputPack.X.getType().cast<ShapedType>().getShape()[1]);
-    yhDims.emplace_back(inputPack.R.getType().cast<ShapedType>().getShape()[2]);
-    auto yhMemRefType = MemRefType::get(
-        yhDims, inputPack.X.getType().cast<ShapedType>().getElementType());
+    yhDims.emplace_back(
+        operandAdaptor.W().getType().cast<ShapedType>().getShape()[0]);
+    yhDims.emplace_back(
+        operandAdaptor.X().getType().cast<ShapedType>().getShape()[1]);
+    yhDims.emplace_back(
+        operandAdaptor.R().getType().cast<ShapedType>().getShape()[2]);
+    auto yhMemRefType = MemRefType::get(yhDims,
+        operandAdaptor.X().getType().cast<ShapedType>().getElementType());
     state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter, true);
   }
 
-  if (!outputPack.Y_c.getType().isa<NoneType>()) {
-    auto ycMemRefType = convertToMemRefType(outputPack.Y_c.getType());
+  if (!op->Y_c().getType().isa<NoneType>()) {
+    auto ycMemRefType = convertToMemRefType(op->Y_c().getType());
     if (hasAllConstantDimensions(ycMemRefType))
-      state.ct = insertAllocAndDealloc(
-          ycMemRefType, loc, rewriter, checkInsertDealloc(op, 2));
+      state.ct = insertAllocAndDealloc(ycMemRefType, loc, rewriter,
+          checkInsertDealloc(op->getOperation(), 2));
     else
       emitError(loc, "Unsupported dynamic dimensions.");
   } else {
     SmallVector<int64_t, 3> ycDims;
-    ycDims.emplace_back(inputPack.W.getType().cast<ShapedType>().getShape()[0]);
-    ycDims.emplace_back(inputPack.X.getType().cast<ShapedType>().getShape()[1]);
-    ycDims.emplace_back(inputPack.R.getType().cast<ShapedType>().getShape()[2]);
-    auto ycMemRefType = MemRefType::get(
-        ycDims, inputPack.X.getType().cast<ShapedType>().getElementType());
+    ycDims.emplace_back(
+        operandAdaptor.W().getType().cast<ShapedType>().getShape()[0]);
+    ycDims.emplace_back(
+        operandAdaptor.X().getType().cast<ShapedType>().getShape()[1]);
+    ycDims.emplace_back(
+        operandAdaptor.R().getType().cast<ShapedType>().getShape()[2]);
+    auto ycMemRefType = MemRefType::get(ycDims,
+        operandAdaptor.X().getType().cast<ShapedType>().getElementType());
     state.ct = insertAllocAndDealloc(ycMemRefType, loc, rewriter, true);
   }
 
   // Initialize ht and ct.
   Value zero = emitConstantOp(rewriter, loc,
-      inputPack.X.getType().cast<ShapedType>().getElementType(), 0);
+      operandAdaptor.X().getType().cast<ShapedType>().getElementType(), 0);
   int nLoops = 3;
   BuildKrnlLoop initializationLoops(rewriter, loc, nLoops);
   initializationLoops.createDefineOptimizeAndIterateOp(state.ht);
@@ -264,13 +228,13 @@ LstmState allocAndInitializeStates<LstmInputPack, LstmOutputPack, LstmState>(
     for (int i = 0; i < nLoops; ++i)
       IVs.emplace_back(initializationLoops.getInductionVar(i));
     Value hiddenVal =
-        (!inputPack.initialHidden.getType().isa<NoneType>())
-            ? rewriter.create<LoadOp>(loc, inputPack.initialHidden, IVs)
+        (!operandAdaptor.initial_h().getType().isa<NoneType>())
+            ? rewriter.create<LoadOp>(loc, operandAdaptor.initial_h(), IVs)
             : zero;
     rewriter.create<StoreOp>(loc, hiddenVal, state.ht, IVs);
     Value cellVal =
-        (!inputPack.initialCell.getType().isa<NoneType>())
-            ? rewriter.create<LoadOp>(loc, inputPack.initialCell, IVs)
+        (!operandAdaptor.initial_c().getType().isa<NoneType>())
+            ? rewriter.create<LoadOp>(loc, operandAdaptor.initial_c(), IVs)
             : zero;
     rewriter.create<StoreOp>(loc, cellVal, state.ct, IVs);
   }
@@ -279,28 +243,33 @@ LstmState allocAndInitializeStates<LstmInputPack, LstmOutputPack, LstmState>(
 }
 
 template <>
-void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
-    ConversionPatternRewriter &rewriter, Location loc, Operation *op,
-    Value numDirectionIV, Value sequenceLengthIV, LstmInputPack inputPack,
-    LstmState state, LstmActivationPack activationPack) {
-  ONNXLSTMOp rnnOp = llvm::dyn_cast<ONNXLSTMOp>(op);
+void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
+    ConversionPatternRewriter &rewriter, Location loc,
+    OperandAdaptor<ONNXLSTMOp> operandAdaptor, LstmState state,
+    LstmActivationPack activationPack, Value numDirectionIV,
+    Value sequenceLengthIV) {
 
   bool hasBiasForInput =
-      (inputPack.Biofc.getType().isa<NoneType>()) ? false : true;
-  bool hasPeepholes = (inputPack.Piof.getType().isa<NoneType>()) ? false : true;
+      (operandAdaptor.B().getType().isa<NoneType>()) ? false : true;
+  bool hasPeepholes =
+      (operandAdaptor.P().getType().isa<NoneType>()) ? false : true;
   bool hasSequenceLengths =
-      (inputPack.sequenceLength.getType().isa<NoneType>()) ? false : true;
+      (operandAdaptor.sequence_lens().getType().isa<NoneType>()) ? false : true;
   if (hasSequenceLengths)
     emitError(loc, "Does not support sequence_lens at this time");
 
   // Preapre dimensions.
-  auto batchSizeDim = inputPack.X.getType().cast<ShapedType>().getShape()[1];
-  auto inputSizeDim = inputPack.X.getType().cast<ShapedType>().getShape()[2];
-  auto hiddenSizeDim = inputPack.R.getType().cast<ShapedType>().getShape()[2];
+  auto batchSizeDim =
+      operandAdaptor.X().getType().cast<ShapedType>().getShape()[1];
+  auto inputSizeDim =
+      operandAdaptor.X().getType().cast<ShapedType>().getShape()[2];
+  auto hiddenSizeDim =
+      operandAdaptor.R().getType().cast<ShapedType>().getShape()[2];
   Value hiddenSizeVal =
       emitConstantOp(rewriter, loc, rewriter.getIndexType(), hiddenSizeDim);
 
-  auto elementType = inputPack.X.getType().cast<ShapedType>().getElementType();
+  auto elementType =
+      operandAdaptor.X().getType().cast<ShapedType>().getElementType();
 
   // Prepare AffineMap to access bias, peepholes tensors.
   AffineMap accessByOffsetMap;
@@ -467,16 +436,18 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
           rIOFCIVs.emplace_back(rIVs);
         }
 
-        Value loadX = rewriter.create<LoadOp>(loc, inputPack.X, xIVs);
+        Value loadX = rewriter.create<LoadOp>(loc, operandAdaptor.X(), xIVs);
         for (unsigned i = 0; i < 4; ++i) {
           // Xt * Wiofc
-          Value loadW = rewriter.create<LoadOp>(loc, inputPack.W, wIOFCIVs[i]);
+          Value loadW =
+              rewriter.create<LoadOp>(loc, operandAdaptor.W(), wIOFCIVs[i]);
           Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
           Value loadXW = rewriter.create<LoadOp>(loc, xwIOFC[i]);
           Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
           rewriter.create<StoreOp>(loc, nextXW, xwIOFC[i]);
           // Ht-1 * Riofc
-          Value loadR = rewriter.create<LoadOp>(loc, inputPack.R, rIOFCIVs[i]);
+          Value loadR =
+              rewriter.create<LoadOp>(loc, operandAdaptor.R(), rIOFCIVs[i]);
           Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
           Value loadHR = rewriter.create<LoadOp>(loc, hrIOFC[i]);
           Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
@@ -491,16 +462,17 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
     Value loadHRI = rewriter.create<LoadOp>(loc, hrIOFC[0]);
     Value it = rewriter.create<AddFOp>(loc, loadXWI, loadHRI);
     if (hasPeepholes) {
-      Value loadP = rewriter.create<LoadOp>(loc, inputPack.Piof, pIOFIVs[0]);
+      Value loadP =
+          rewriter.create<LoadOp>(loc, operandAdaptor.P(), pIOFIVs[0]);
       Value PC = rewriter.create<MulFOp>(loc, loadP, loadC);
       it = rewriter.create<AddFOp>(loc, it, PC);
     }
     if (hasBiasForInput) {
       Value loadWB =
-          rewriter.create<LoadOp>(loc, inputPack.Biofc, wbIOFCIVs[0]);
+          rewriter.create<LoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[0]);
       it = rewriter.create<AddFOp>(loc, it, loadWB);
       Value loadRB =
-          rewriter.create<LoadOp>(loc, inputPack.Biofc, rbIOFCIVs[0]);
+          rewriter.create<LoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[0]);
       it = rewriter.create<AddFOp>(loc, it, loadRB);
     }
     it = applyActivation(rewriter, loc, activationPack.f, it);
@@ -510,16 +482,17 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
     Value loadHRF = rewriter.create<LoadOp>(loc, hrIOFC[2]);
     Value ft = rewriter.create<AddFOp>(loc, loadXWF, loadHRF);
     if (hasPeepholes) {
-      Value loadP = rewriter.create<LoadOp>(loc, inputPack.Piof, pIOFIVs[2]);
+      Value loadP =
+          rewriter.create<LoadOp>(loc, operandAdaptor.P(), pIOFIVs[2]);
       Value PC = rewriter.create<MulFOp>(loc, loadP, loadC);
       ft = rewriter.create<AddFOp>(loc, ft, PC);
     }
     if (hasBiasForInput) {
       Value loadWB =
-          rewriter.create<LoadOp>(loc, inputPack.Biofc, wbIOFCIVs[2]);
+          rewriter.create<LoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[2]);
       ft = rewriter.create<AddFOp>(loc, ft, loadWB);
       Value loadRB =
-          rewriter.create<LoadOp>(loc, inputPack.Biofc, rbIOFCIVs[2]);
+          rewriter.create<LoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[2]);
       ft = rewriter.create<AddFOp>(loc, ft, loadRB);
     }
     ft = applyActivation(rewriter, loc, activationPack.f, ft);
@@ -530,10 +503,10 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
     Value ct = rewriter.create<AddFOp>(loc, loadXWC, loadHRC);
     if (hasBiasForInput) {
       Value loadWB =
-          rewriter.create<LoadOp>(loc, inputPack.Biofc, wbIOFCIVs[3]);
+          rewriter.create<LoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[3]);
       ct = rewriter.create<AddFOp>(loc, ct, loadWB);
       Value loadRB =
-          rewriter.create<LoadOp>(loc, inputPack.Biofc, rbIOFCIVs[3]);
+          rewriter.create<LoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[3]);
       ct = rewriter.create<AddFOp>(loc, ct, loadRB);
     }
     ct = applyActivation(rewriter, loc, activationPack.g, ct);
@@ -549,16 +522,17 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
     Value loadHRO = rewriter.create<LoadOp>(loc, hrIOFC[1]);
     Value ot = rewriter.create<AddFOp>(loc, loadXWO, loadHRO);
     if (hasPeepholes) {
-      Value loadP = rewriter.create<LoadOp>(loc, inputPack.Piof, pIOFIVs[1]);
+      Value loadP =
+          rewriter.create<LoadOp>(loc, operandAdaptor.P(), pIOFIVs[1]);
       Value PC = rewriter.create<MulFOp>(loc, loadP, Ct);
       ot = rewriter.create<AddFOp>(loc, ot, PC);
     }
     if (hasBiasForInput) {
       Value loadWB =
-          rewriter.create<LoadOp>(loc, inputPack.Biofc, wbIOFCIVs[1]);
+          rewriter.create<LoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[1]);
       ot = rewriter.create<AddFOp>(loc, ot, loadWB);
       Value loadRB =
-          rewriter.create<LoadOp>(loc, inputPack.Biofc, rbIOFCIVs[1]);
+          rewriter.create<LoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[1]);
       ot = rewriter.create<AddFOp>(loc, ot, loadRB);
     }
     ot = applyActivation(rewriter, loc, activationPack.f, ot);
@@ -587,19 +561,19 @@ void calculateState<ONNXLSTMOp, LstmInputPack, LstmState, LstmActivationPack>(
 }
 
 template <>
-void stateToOutput<ONNXLSTMOp, LstmState, LstmOutputPack>(
-    LstmState state, LstmOutputPack outputPack, std::vector<Value> &outputs) {
-  Value none_;
+void stateToOutput<ONNXLSTMOp, LstmState>(
+    ONNXLSTMOp *op, LstmState state, std::vector<Value> &outputs) {
+  Value noneValue;
   outputs.emplace_back(
-      (outputPack.Y.getType().isa<NoneType>() ? none_ : state.allH));
+      (op->Y().getType().isa<NoneType>() ? noneValue : state.allH));
   outputs.emplace_back(
-      (outputPack.Y_h.getType().isa<NoneType>() ? none_ : state.ht));
+      (op->Y_h().getType().isa<NoneType>() ? noneValue : state.ht));
   outputs.emplace_back(
-      (outputPack.Y_c.getType().isa<NoneType>() ? none_ : state.ct));
+      (op->Y_c().getType().isa<NoneType>() ? noneValue : state.ct));
 }
 
 void populateLoweringONNXLSTMOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmInputPack, LstmOutputPack,
-      LstmState, LstmActivationPack>>(ctx);
+  patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmState, LstmActivationPack>>(
+      ctx);
 }

@@ -12,6 +12,10 @@
 
 using namespace mlir;
 
+// Check a Value's type is none or not.
+bool isNoneType(Value val) { return val.getType().isa<NoneType>(); }
+
+// Apply an activation function on a given scalar operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value scalarOperand) {
   Value res;
