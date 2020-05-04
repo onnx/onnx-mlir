@@ -174,6 +174,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     state.allH = op->Y();
   }
 
+  // Y_h :: [num_directions, batch_size, hidden_size]
   if (!isNoneType(op->Y_h())) {
     auto yhMemRefType = convertToMemRefType(op->Y_h().getType());
     if (hasAllConstantDimensions(yhMemRefType))
@@ -182,15 +183,14 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     else
       emitError(loc, "Unsupported dynamic dimensions.");
   } else {
-    SmallVector<int64_t, 3> yhDims;
-    yhDims.emplace_back(dimAt(operandAdaptor.W(), 0));
-    yhDims.emplace_back(dimAt(operandAdaptor.X(), 1));
-    yhDims.emplace_back(dimAt(operandAdaptor.R(), 2));
-    auto yhMemRefType = MemRefType::get(yhDims,
+    auto yhMemRefType = MemRefType::get(
+        {dimAt(operandAdaptor.W(), 0), dimAt(operandAdaptor.X(), 1),
+            dimAt(operandAdaptor.R(), 2)},
         operandAdaptor.X().getType().cast<ShapedType>().getElementType());
     state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter, true);
   }
 
+  // Y_c :: [num_directions, batch_size, hidden_size]
   if (!isNoneType(op->Y_c())) {
     auto ycMemRefType = convertToMemRefType(op->Y_c().getType());
     if (hasAllConstantDimensions(ycMemRefType))
@@ -199,11 +199,9 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     else
       emitError(loc, "Unsupported dynamic dimensions.");
   } else {
-    SmallVector<int64_t, 3> ycDims;
-    ycDims.emplace_back(dimAt(operandAdaptor.W(), 0));
-    ycDims.emplace_back(dimAt(operandAdaptor.X(), 1));
-    ycDims.emplace_back(dimAt(operandAdaptor.R(), 2));
-    auto ycMemRefType = MemRefType::get(ycDims,
+    auto ycMemRefType = MemRefType::get(
+        {dimAt(operandAdaptor.W(), 0), dimAt(operandAdaptor.X(), 1),
+            dimAt(operandAdaptor.R(), 2)},
         operandAdaptor.X().getType().cast<ShapedType>().getElementType());
     state.ct = insertAllocAndDealloc(ycMemRefType, loc, rewriter, true);
   }
