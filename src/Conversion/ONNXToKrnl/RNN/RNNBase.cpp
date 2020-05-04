@@ -15,6 +15,11 @@ using namespace mlir;
 // Check a Value's type is none or not.
 bool isNoneType(Value val) { return val.getType().isa<NoneType>(); }
 
+// Get a dimension of the tensor's shape.
+int64_t dimAt(Value val, int index) {
+  return val.getType().cast<ShapedType>().getShape()[index];
+}
+
 // Apply an activation function on a given scalar operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value scalarOperand) {
@@ -61,7 +66,7 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   else if (activation.name.equals_lower("softplus"))
     res = rewriter.create<ONNXSoftplusOp>(loc, scalarMemRefType, alloc);
   else
-    return res;
+    llvm_unreachable("Unsupported activation");
 
   Value result = rewriter.create<LoadOp>(loc, res);
   return result;

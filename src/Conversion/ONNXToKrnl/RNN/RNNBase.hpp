@@ -23,6 +23,12 @@ struct RNNActivation {
   Optional<FloatAttr> beta;
 };
 
+// Check a Value's type is none or not.
+bool isNoneType(Value val);
+
+// Get a dimension of the tensor's shape.
+int64_t dimAt(Value val, int index);
+
 // Apply an activation function on a given scalar operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value scalarOperand);
@@ -34,21 +40,26 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
 // - calculateState
 // - stateToOutput
 
+// Check whether all outputs have NoneType or not.
 template <typename RNNOp>
 bool hasAllNoneOutput(RNNOp *op);
 
+// Obtain activations functions for a specific operation.
 template <typename RNNOp, typename A>
 std::tuple<A, A> getActivationPack(RNNOp *op);
 
+// Allocate memory for RNN states and initialize them.
 template <typename RNNOp, typename S>
 S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
     RNNOp *op, OperandAdaptor<RNNOp> operandAdaptor);
 
+// Calculate new states from the current input and states.
 template <typename RNNOp, typename S, typename A>
 void calculateState(ConversionPatternRewriter &rewriter, Location loc,
     OperandAdaptor<RNNOp> operandAdaptor, S state, A activationSet,
-    Value numDirectionIV, Value sequenceLengthIV);
+    Value directionIV, Value sequenceIV);
 
+// Write states to the RNN's outputs.
 template <typename RNNOp, typename S>
 void stateToOutput(RNNOp *op, S state, std::vector<Value> &outputs);
 
@@ -77,25 +88,24 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     std::tie(activationForward, activationReverse) =
         getActivationPack<RNNOp, A>(&rnnOp);
 
-    Value X = rnnOp.X();
-    int sequenceLengthDim = X.getType().cast<ShapedType>().getShape()[0];
+    int64_t sequenceDimSize = dimAt(rnnOp.X(), 0);
     auto direction = rnnOp.direction();
 
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
       sequenceLoops.createDefineAndOptimizeOp();
-      sequenceLoops.pushBounds(0, sequenceLengthDim);
+      sequenceLoops.pushBounds(0, sequenceDimSize);
       sequenceLoops.createIterateOp();
 
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
       rewriter.setInsertionPointToStart(sequenceLoops.getIterateBlock());
       {
-        Value numDirectionIV =
+        Value directionIV =
             emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-        Value sequenceLengthIV = sequenceLoops.getInductionVar(0);
+        Value sequenceIV = sequenceLoops.getInductionVar(0);
         // Emit calculation for one RNN step.
         calculateState<RNNOp, S, A>(rewriter, loc, operandAdaptor, state,
-            activationForward, numDirectionIV, sequenceLengthIV);
+            activationForward, directionIV, sequenceIV);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }
@@ -103,7 +113,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
       BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
       sequenceLoops.createDefineAndOptimizeOp();
-      sequenceLoops.pushBounds(0, sequenceLengthDim);
+      sequenceLoops.pushBounds(0, sequenceDimSize);
       sequenceLoops.createIterateOp();
 
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
@@ -112,16 +122,16 @@ struct ONNXRNNOpLowering : public ConversionPattern {
         AffineMap reverseIVMap = AffineMap::get(1, 1,
             rewriter.getAffineSymbolExpr(0) - rewriter.getAffineDimExpr(0) - 1);
 
-        Value numDirectionIV = emitConstantOp(rewriter, loc,
+        Value directionIV = emitConstantOp(rewriter, loc,
             rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
-        Value reverseSequenceLengthIV =
+        Value reverseSequenceIV =
             rewriter.create<AffineApplyOp>(loc, reverseIVMap,
                 ValueRange(std::vector<Value>{sequenceLoops.getInductionVar(0),
                     emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-                        sequenceLengthDim)}));
+                        sequenceDimSize)}));
         // Emit calculation for one RNN step.
         calculateState<RNNOp, S, A>(rewriter, loc, operandAdaptor, state,
-            activationReverse, numDirectionIV, reverseSequenceLengthIV);
+            activationReverse, directionIV, reverseSequenceIV);
       }
       rewriter.restoreInsertionPoint(ipSequenceLoops);
     }

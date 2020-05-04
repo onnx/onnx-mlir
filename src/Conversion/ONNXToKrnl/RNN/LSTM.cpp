@@ -26,9 +26,8 @@ struct LstmActivationPack {
 
 template <>
 bool hasAllNoneOutput<ONNXLSTMOp>(ONNXLSTMOp *op) {
-  return (op->Y().getType().isa<NoneType>() &&
-          op->Y_h().getType().isa<NoneType>() &&
-          op->Y_c().getType().isa<NoneType>());
+  return (
+      isNoneType(op->Y()) && isNoneType(op->Y_h()) && isNoneType(op->Y_c()));
 }
 
 template <>
@@ -164,7 +163,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
   LstmState state;
 
   // Insert allocation and deallocation for the results of this operation.
-  if (!op->Y().getType().isa<NoneType>()) {
+  if (!isNoneType(op->Y())) {
     auto yMemRefType = convertToMemRefType(op->Y().getType());
     if (hasAllConstantDimensions(yMemRefType))
       state.allH = insertAllocAndDealloc(yMemRefType, loc, rewriter,
@@ -175,7 +174,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     state.allH = op->Y();
   }
 
-  if (!op->Y_h().getType().isa<NoneType>()) {
+  if (!isNoneType(op->Y_h())) {
     auto yhMemRefType = convertToMemRefType(op->Y_h().getType());
     if (hasAllConstantDimensions(yhMemRefType))
       state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter,
@@ -184,18 +183,15 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
       emitError(loc, "Unsupported dynamic dimensions.");
   } else {
     SmallVector<int64_t, 3> yhDims;
-    yhDims.emplace_back(
-        operandAdaptor.W().getType().cast<ShapedType>().getShape()[0]);
-    yhDims.emplace_back(
-        operandAdaptor.X().getType().cast<ShapedType>().getShape()[1]);
-    yhDims.emplace_back(
-        operandAdaptor.R().getType().cast<ShapedType>().getShape()[2]);
+    yhDims.emplace_back(dimAt(operandAdaptor.W(), 0));
+    yhDims.emplace_back(dimAt(operandAdaptor.X(), 1));
+    yhDims.emplace_back(dimAt(operandAdaptor.R(), 2));
     auto yhMemRefType = MemRefType::get(yhDims,
         operandAdaptor.X().getType().cast<ShapedType>().getElementType());
     state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter, true);
   }
 
-  if (!op->Y_c().getType().isa<NoneType>()) {
+  if (!isNoneType(op->Y_c())) {
     auto ycMemRefType = convertToMemRefType(op->Y_c().getType());
     if (hasAllConstantDimensions(ycMemRefType))
       state.ct = insertAllocAndDealloc(ycMemRefType, loc, rewriter,
@@ -204,12 +200,9 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
       emitError(loc, "Unsupported dynamic dimensions.");
   } else {
     SmallVector<int64_t, 3> ycDims;
-    ycDims.emplace_back(
-        operandAdaptor.W().getType().cast<ShapedType>().getShape()[0]);
-    ycDims.emplace_back(
-        operandAdaptor.X().getType().cast<ShapedType>().getShape()[1]);
-    ycDims.emplace_back(
-        operandAdaptor.R().getType().cast<ShapedType>().getShape()[2]);
+    ycDims.emplace_back(dimAt(operandAdaptor.W(), 0));
+    ycDims.emplace_back(dimAt(operandAdaptor.X(), 1));
+    ycDims.emplace_back(dimAt(operandAdaptor.R(), 2));
     auto ycMemRefType = MemRefType::get(ycDims,
         operandAdaptor.X().getType().cast<ShapedType>().getElementType());
     state.ct = insertAllocAndDealloc(ycMemRefType, loc, rewriter, true);
@@ -227,15 +220,15 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     SmallVector<Value, 4> IVs;
     for (int i = 0; i < nLoops; ++i)
       IVs.emplace_back(initializationLoops.getInductionVar(i));
-    Value hiddenVal =
-        (!operandAdaptor.initial_h().getType().isa<NoneType>())
-            ? rewriter.create<LoadOp>(loc, operandAdaptor.initial_h(), IVs)
-            : zero;
+
+    Value hiddenVal = zero;
+    if (!isNoneType(operandAdaptor.initial_h()))
+      hiddenVal = rewriter.create<LoadOp>(loc, operandAdaptor.initial_h(), IVs);
     rewriter.create<StoreOp>(loc, hiddenVal, state.ht, IVs);
-    Value cellVal =
-        (!operandAdaptor.initial_c().getType().isa<NoneType>())
-            ? rewriter.create<LoadOp>(loc, operandAdaptor.initial_c(), IVs)
-            : zero;
+
+    Value cellVal = zero;
+    if (!isNoneType(operandAdaptor.initial_c()))
+      cellVal = rewriter.create<LoadOp>(loc, operandAdaptor.initial_c(), IVs);
     rewriter.create<StoreOp>(loc, cellVal, state.ct, IVs);
   }
   rewriter.restoreInsertionPoint(ipInitializationLoops);
@@ -246,27 +239,20 @@ template <>
 void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     ConversionPatternRewriter &rewriter, Location loc,
     OperandAdaptor<ONNXLSTMOp> operandAdaptor, LstmState state,
-    LstmActivationPack activationPack, Value numDirectionIV,
-    Value sequenceLengthIV) {
+    LstmActivationPack activationPack, Value directionIV, Value sequenceIV) {
 
-  bool hasBiasForInput =
-      (operandAdaptor.B().getType().isa<NoneType>()) ? false : true;
-  bool hasPeepholes =
-      (operandAdaptor.P().getType().isa<NoneType>()) ? false : true;
-  bool hasSequenceLengths =
-      (operandAdaptor.sequence_lens().getType().isa<NoneType>()) ? false : true;
-  if (hasSequenceLengths)
-    emitError(loc, "Does not support sequence_lens at this time");
+  bool hasBiasForInput = false, hasPeepholes = false;
+  if (!isNoneType(operandAdaptor.B()))
+    hasBiasForInput = true;
+  if (!isNoneType(operandAdaptor.P()))
+    hasPeepholes = true;
 
-  // Preapre dimensions.
-  auto batchSizeDim =
-      operandAdaptor.X().getType().cast<ShapedType>().getShape()[1];
-  auto inputSizeDim =
-      operandAdaptor.X().getType().cast<ShapedType>().getShape()[2];
-  auto hiddenSizeDim =
-      operandAdaptor.R().getType().cast<ShapedType>().getShape()[2];
-  Value hiddenSizeVal =
-      emitConstantOp(rewriter, loc, rewriter.getIndexType(), hiddenSizeDim);
+  // Prepare dimensions.
+  auto batchDimSize = dimAt(operandAdaptor.X(), 1);
+  auto inputDimSize = dimAt(operandAdaptor.X(), 2);
+  auto hiddenDimSize = dimAt(operandAdaptor.R(), 2);
+  Value hiddenDimVal =
+      emitConstantOp(rewriter, loc, rewriter.getIndexType(), hiddenDimSize);
 
   auto elementType =
       operandAdaptor.X().getType().cast<ShapedType>().getElementType();
@@ -296,9 +282,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
   // Ht = ot (.) h(Ct)
   //
   // The following code will emit loops as follows:
-  // for b in 0 .. BatchSizeDim
-  //   for h in 0 .. HiddenSizeDim
-  //     for i in 0 .. InputSizeDim {
+  // for b in 0 .. BatchDimSize
+  //   for h in 0 .. HiddenDimSize
+  //     for i in 0 .. InputDimSize {
   //       compute Xt*(Wi^T), Xt*(Wo^T), Xt*(Wf^t), Xt*(Wc^T),
   //               Ht-1*(Ri^T), Ht-1*(Ro^T), Ht-1*(Rf^t), Ht-1*(Rc^T)
   //     }
@@ -306,14 +292,14 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
 
   BuildKrnlLoop stateLoops(rewriter, loc, 2);
   stateLoops.createDefineAndOptimizeOp();
-  stateLoops.pushBounds(0, batchSizeDim);
-  stateLoops.pushBounds(0, hiddenSizeDim);
+  stateLoops.pushBounds(0, batchDimSize);
+  stateLoops.pushBounds(0, hiddenDimSize);
   stateLoops.createIterateOp();
 
   rewriter.setInsertionPointToStart(stateLoops.getIterateBlock());
   {
-    auto batchSizeIV = stateLoops.getInductionVar(0);
-    auto hiddenSizeIV = stateLoops.getInductionVar(1);
+    auto batchIV = stateLoops.getInductionVar(0);
+    auto hiddenIV = stateLoops.getInductionVar(1);
 
     // IVs to access tensors.
     // IVs for the hidden and cell state tensors.
@@ -325,9 +311,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
 
     { // Compute IVs.
       // H :: [num_directions, batch_size, hidden_size]
-      hIVs = {numDirectionIV, batchSizeIV, hiddenSizeIV};
+      hIVs = {directionIV, batchIV, hiddenIV};
       // C :: [num_directions, batch_size, hidden_size]
-      cIVs = {numDirectionIV, batchSizeIV, hiddenSizeIV};
+      cIVs = {directionIV, batchIV, hiddenIV};
 
       // Bias [Wb[iofc], Rb[iofc]] :: [num_directions, 8*hidden_size]
       if (hasBiasForInput) {
@@ -336,9 +322,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
           Value wHiddenIV =
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
                   ValueRange(std::vector<Value>{
-                      hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
-          wbIOFCIVs.emplace_back(
-              SmallVector<Value, 2>{numDirectionIV, wHiddenIV});
+                      hiddenIV, constantIndices[i], hiddenDimVal}));
+          wbIOFCIVs.emplace_back(SmallVector<Value, 2>{directionIV, wHiddenIV});
         }
         // Rb[iofc]
         for (unsigned i = 4; i < 8; ++i) {
@@ -346,9 +331,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
           Value rHiddenIV =
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
                   ValueRange(std::vector<Value>{
-                      hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
-          rbIOFCIVs.emplace_back(
-              SmallVector<Value, 2>{numDirectionIV, rHiddenIV});
+                      hiddenIV, constantIndices[i], hiddenDimVal}));
+          rbIOFCIVs.emplace_back(SmallVector<Value, 2>{directionIV, rHiddenIV});
         }
       }
 
@@ -359,9 +343,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
           Value pHiddenIV =
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
                   ValueRange(std::vector<Value>{
-                      hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
-          pIOFIVs.emplace_back(
-              SmallVector<Value, 2>{numDirectionIV, pHiddenIV});
+                      hiddenIV, constantIndices[i], hiddenDimVal}));
+          pIOFIVs.emplace_back(SmallVector<Value, 2>{directionIV, pHiddenIV});
         }
       }
     }
@@ -390,7 +373,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
       // input_size is the reduction dimension.
       BuildKrnlLoop reductionLoops(rewriter, loc, 1);
       reductionLoops.createDefineAndOptimizeOp();
-      reductionLoops.pushBounds(0, inputSizeDim);
+      reductionLoops.pushBounds(0, inputDimSize);
       reductionLoops.createIterateOp();
 
       auto ipReductionLoops = rewriter.saveInsertionPoint();
@@ -402,7 +385,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
         SmallVector<SmallVector<Value, 4>, 4> wIOFCIVs, rIOFCIVs;
 
         // X :: [seq_length, batch_size, input_size]
-        xIVs = {sequenceLengthIV, batchSizeIV, reductionIV};
+        xIVs = {sequenceIV, batchIV, reductionIV};
 
         // W[iofc] :: [num_directions, 4*hidden_size, input_size]
         // R[iofc] :: [num_directions, 4*hidden_size, input_size]
@@ -411,12 +394,12 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
           Value wHiddenIV =
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
                   ValueRange(std::vector<Value>{
-                      hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
+                      hiddenIV, constantIndices[i], hiddenDimVal}));
 
-          wIVs = {numDirectionIV, wHiddenIV, reductionIV};
+          wIVs = {directionIV, wHiddenIV, reductionIV};
           wIOFCIVs.emplace_back(wIVs);
 
-          rIVs = {numDirectionIV, wHiddenIV, reductionIV};
+          rIVs = {directionIV, wHiddenIV, reductionIV};
           rIOFCIVs.emplace_back(rIVs);
         }
 
@@ -527,12 +510,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     rewriter.create<StoreOp>(loc, Ht, state.ht, hIVs);
 
     // Store the current Ht if required.
-    if (!state.allH.getType().isa<NoneType>()) {
-      SmallVector<Value, 4> allHIVs;
-      allHIVs.emplace_back(sequenceLengthIV);
-      allHIVs.emplace_back(numDirectionIV);
-      allHIVs.emplace_back(batchSizeIV);
-      allHIVs.emplace_back(hiddenSizeIV);
+    if (!isNoneType(state.allH)) {
+      SmallVector<Value, 4> allHIVs{sequenceIV, directionIV, batchIV, hiddenIV};
       rewriter.create<StoreOp>(loc, Ht, state.allH, allHIVs);
     }
 
@@ -548,12 +527,9 @@ template <>
 void stateToOutput<ONNXLSTMOp, LstmState>(
     ONNXLSTMOp *op, LstmState state, std::vector<Value> &outputs) {
   Value noneValue;
-  outputs.emplace_back(
-      (op->Y().getType().isa<NoneType>() ? noneValue : state.allH));
-  outputs.emplace_back(
-      (op->Y_h().getType().isa<NoneType>() ? noneValue : state.ht));
-  outputs.emplace_back(
-      (op->Y_c().getType().isa<NoneType>() ? noneValue : state.ct));
+  outputs.emplace_back((isNoneType(op->Y()) ? noneValue : state.allH));
+  outputs.emplace_back((isNoneType(op->Y_h()) ? noneValue : state.ht));
+  outputs.emplace_back((isNoneType(op->Y_c()) ? noneValue : state.ct));
 }
 
 void populateLoweringONNXLSTMOpPattern(
