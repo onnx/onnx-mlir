@@ -379,12 +379,8 @@ static bool RNNShapeInference(T *op) {
     // Y :: [seq_length, num_directions, batch_size, hidden_size]
     Type yTy = op->getResults()[0].getType();
     if (!yTy.isa<NoneType>()) {
-      SmallVector<int64_t, 4> yDims;
-      yDims.emplace_back(sequenceLength);
-      yDims.emplace_back(numDirection);
-      yDims.emplace_back(batchSize);
-      yDims.emplace_back(hiddenSize);
-      yTy = RankedTensorType::get(yDims, elementType);
+      yTy = RankedTensorType::get(
+          {sequenceLength, numDirection, batchSize, hiddenSize}, elementType);
       op->getResults()[0].setType(yTy);
     }
   }
@@ -392,11 +388,8 @@ static bool RNNShapeInference(T *op) {
     // Y_h :: [num_directions, batch_size, hidden_size]
     Type yhTy = op->getResults()[1].getType();
     if (!yhTy.isa<NoneType>()) {
-      SmallVector<int64_t, 3> yhDims;
-      yhDims.emplace_back(numDirection);
-      yhDims.emplace_back(batchSize);
-      yhDims.emplace_back(hiddenSize);
-      yhTy = RankedTensorType::get(yhDims, elementType);
+      yhTy = RankedTensorType::get(
+          {numDirection, batchSize, hiddenSize}, elementType);
       op->getResults()[1].setType(yhTy);
     }
   }
@@ -404,11 +397,8 @@ static bool RNNShapeInference(T *op) {
     // Y_c :: [num_directions, batch_size, hidden_size]
     Type ycTy = op->getResults()[2].getType();
     if (!ycTy.isa<NoneType>()) {
-      SmallVector<int64_t, 3> ycDims;
-      ycDims.emplace_back(numDirection);
-      ycDims.emplace_back(batchSize);
-      ycDims.emplace_back(hiddenSize);
-      ycTy = RankedTensorType::get(ycDims, elementType);
+      ycTy = RankedTensorType::get(
+          {numDirection, batchSize, hiddenSize}, elementType);
       op->getResults()[2].setType(ycTy);
     }
   }
