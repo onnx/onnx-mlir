@@ -325,26 +325,20 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
 
     { // Compute IVs.
       // H :: [num_directions, batch_size, hidden_size]
-      hIVs.emplace_back(numDirectionIV);
-      hIVs.emplace_back(batchSizeIV);
-      hIVs.emplace_back(hiddenSizeIV);
+      hIVs = {numDirectionIV, batchSizeIV, hiddenSizeIV};
       // C :: [num_directions, batch_size, hidden_size]
-      cIVs.emplace_back(numDirectionIV);
-      cIVs.emplace_back(batchSizeIV);
-      cIVs.emplace_back(hiddenSizeIV);
+      cIVs = {numDirectionIV, batchSizeIV, hiddenSizeIV};
 
       // Bias [Wb[iofc], Rb[iofc]] :: [num_directions, 8*hidden_size]
       if (hasBiasForInput) {
         // Wb[iofc]
         for (unsigned i = 0; i < 4; ++i) {
-          SmallVector<Value, 4> wbIVs;
           Value wHiddenIV =
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
                   ValueRange(std::vector<Value>{
                       hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
-          wbIVs.emplace_back(numDirectionIV);
-          wbIVs.emplace_back(wHiddenIV);
-          wbIOFCIVs.emplace_back(wbIVs);
+          wbIOFCIVs.emplace_back(
+              SmallVector<Value, 2>{numDirectionIV, wHiddenIV});
         }
         // Rb[iofc]
         for (unsigned i = 4; i < 8; ++i) {
@@ -353,14 +347,12 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
                   ValueRange(std::vector<Value>{
                       hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
-          // [Wb[iofc], Rb[iofc]] :: [num_directions, 8*hidden_size]
-          rbIVs.emplace_back(numDirectionIV);
-          rbIVs.emplace_back(rHiddenIV);
-          rbIOFCIVs.emplace_back(rbIVs);
+          rbIOFCIVs.emplace_back(
+              SmallVector<Value, 2>{numDirectionIV, rHiddenIV});
         }
       }
 
-      // Peepholes.
+      // Peepholes P[iof] :: [num_directions, 3*hidden_size]
       if (hasPeepholes) {
         for (unsigned i = 0; i < 3; ++i) {
           SmallVector<Value, 4> pIVs;
@@ -368,10 +360,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
                   ValueRange(std::vector<Value>{
                       hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
-          // P[iof] :: [num_directions, 3*hidden_size]
-          pIVs.emplace_back(numDirectionIV);
-          pIVs.emplace_back(pHiddenIV);
-          pIOFIVs.emplace_back(pIVs);
+          pIOFIVs.emplace_back(
+              SmallVector<Value, 2>{numDirectionIV, pHiddenIV});
         }
       }
     }
@@ -412,9 +402,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
         SmallVector<SmallVector<Value, 4>, 4> wIOFCIVs, rIOFCIVs;
 
         // X :: [seq_length, batch_size, input_size]
-        xIVs.emplace_back(sequenceLengthIV);
-        xIVs.emplace_back(batchSizeIV);
-        xIVs.emplace_back(reductionIV);
+        xIVs = {sequenceLengthIV, batchSizeIV, reductionIV};
 
         // W[iofc] :: [num_directions, 4*hidden_size, input_size]
         // R[iofc] :: [num_directions, 4*hidden_size, input_size]
@@ -425,14 +413,10 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
                   ValueRange(std::vector<Value>{
                       hiddenSizeIV, constantIndices[i], hiddenSizeVal}));
 
-          wIVs.emplace_back(numDirectionIV);
-          wIVs.emplace_back(wHiddenIV);
-          wIVs.emplace_back(reductionIV);
+          wIVs = {numDirectionIV, wHiddenIV, reductionIV};
           wIOFCIVs.emplace_back(wIVs);
 
-          rIVs.emplace_back(numDirectionIV);
-          rIVs.emplace_back(wHiddenIV);
-          rIVs.emplace_back(reductionIV);
+          rIVs = {numDirectionIV, wHiddenIV, reductionIV};
           rIOFCIVs.emplace_back(rIVs);
         }
 
