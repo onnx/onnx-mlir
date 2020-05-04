@@ -412,6 +412,7 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
     return result;
   } else {
     emitError(loc, "unsupported element type");
+    return {};
   }
 }
 
@@ -469,6 +470,7 @@ Value emitScalarOpFor<ONNXAbsOp>(ConversionPatternRewriter &rewriter,
         loc, lessThanZero, negativeOperand, operand);
   } else {
     emitError(loc, "unsupported element type");
+    return {};
   }
 }
 
@@ -483,7 +485,6 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
 
   if (elementType.isa<FloatType>()) {
     return rewriter.create<mlir::NegFOp>(loc, operand);
-    // TODO (dbyrd) implement non fp operation
   } else if (elementType.isa<IntegerType>()) {
     auto zero = emitConstantOp(rewriter, loc, elementType, 0);
     return rewriter.create<mlir::SubIOp>(loc, zero, operand); // 0 - X = -X
@@ -506,7 +507,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     // the same type. This should have been verified by the verifier.
     auto loc = op->getLoc();
 
-    loc.print(llvm::outs());
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 

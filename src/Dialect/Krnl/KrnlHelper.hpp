@@ -87,6 +87,8 @@ struct KrnlIterateOperandPack {
 
   void pushOperandBound(mlir::Value operand);
 
+  void pushAffineMapBound(mlir::AffineMap map, ArrayRef<Value> operands);
+
   llvm::SmallVector<mlir::Value, 8> getOperands() const { return _operands; }
 
   mlir::ArrayAttr getAttributes() const {
@@ -159,6 +161,8 @@ public:
   // must be of MemRef type.
   int pushBounds(int64_t lowerBound, int64_t upperBound);
   int pushBounds(int64_t lowerBound, Value upperBound);
+  int pushBounds(int64_t lowerBound, AffineMap upperBound,
+      ArrayRef<Value> operandsForUpperBoundMap);
   int pushBounds(Value lowerBound, Value upperBound);
   int pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
       int upperBoundMemRefIndex, bool upperBoundMustBeConstant = false);

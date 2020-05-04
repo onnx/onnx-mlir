@@ -25,7 +25,7 @@ namespace {
  *  candidate operations and propagating the shape information until the list
  *  of operations is empty [credit MLIR authors].
  */
-class ShapeInferencePass : public mlir::FunctionPass<ShapeInferencePass> {
+class ShapeInferencePass : public mlir::PassWrapper<ShapeInferencePass, mlir::FunctionPass> {
 public:
   void runOnFunction() override {
     auto f = getFunction();
@@ -41,13 +41,10 @@ public:
             return signalPassFailure();
           }
         } else {
-          printf("Oh Noes! %s\n", op->getName().getStringRef());
           op->emitError("unable to infer shape of operation without shape "
                         "inference interface");
           return signalPassFailure();
         }
-      } else {
-        printf("All Good: %s\n", op->getName().getStringRef());
       }
     });
 

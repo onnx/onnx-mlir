@@ -13,12 +13,18 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 
 set(ONNX_MLIR_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 set(ONNX_MLIR_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}")
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 include(MLIR.cmake)
 
+if (MSVC)
+  # Disable warnings that prevent building of dependencies
+  # like onnx
+  set(CMAKE_CXX_FLAGS "-wd4244 -wd4267 -wd4530 -wd4624")
+endif()
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/benchmark)
 add_subdirectory(third_party/pybind11)

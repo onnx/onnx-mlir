@@ -422,11 +422,9 @@ bool ONNXEluOp::inferShapes() {
 /// Infer the output shape of the ONNXReluOp. This method is required by the
 /// shape inference interface.
 bool ONNXReluOp::inferShapes() {
-  printf("relu inferShapes was called!!!!\n");
   getResult().setType(getOperand().getType());
   return true;
 }
-
 
 //===----------------------------------------------------------------------===//
 // LeakyRelu
@@ -688,7 +686,6 @@ bool ONNXMinOp::inferShapes() {
 /// Infer the output shape of the ONNXNegOp. This method is required by the
 /// shape inference interface.
 bool ONNXNegOp::inferShapes() {
-  printf("neg inferShapes was called!!!!\n");
   getResult().setType(getOperand().getType());
   return true;
 }
@@ -864,7 +861,7 @@ bool ONNXGemmOp::inferShapes() {
   N = (transB() == 0) ? rhsTy.getShape()[1] : rhsTy.getShape()[0];
   K_B = (transB() == 0) ? rhsTy.getShape()[0] : rhsTy.getShape()[1];
 
-  if ((K_A != -1) and (K_B != -1) and (K_A != K_B)) {
+  if ((K_A != -1) && (K_B != -1) && (K_A != K_B)) {
     emitError("Tensor shapes mismatched");
   }
 

@@ -25,8 +25,6 @@ MemRefType convertToMemRefType(Type type) {
   MemRefType memRefType;
   auto tensorType = type.dyn_cast<TensorType>();
   if (tensorType) {
-    type.print(llvm::outs());
-    printf("\n");
     assert(tensorType.hasRank() && "expected only ranked shapes");
     memRefType =
         MemRefType::get(tensorType.getShape(), tensorType.getElementType());
@@ -275,7 +273,7 @@ getBroadcastedDimInfo(Location loc, ConversionPatternRewriter &rewriter,
     auto shape = operands[i].getType().cast<MemRefType>().getShape();
     int size = shape.size();
     for (int j = 0; j < shape.size(); ++j) {
-      if (shape[j] < 0 and sharedDimCount[rank - size + j] > 1) {
+      if (shape[j] < 0 && sharedDimCount[rank - size + j] > 1) {
         auto dim = rewriter.create<DimOp>(loc, operands[i], j).getResult();
         auto one = rewriter.create<ConstantIndexOp>(loc, 1);
         auto isBroadcasted =

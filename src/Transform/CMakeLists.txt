@@ -5,8 +5,9 @@ target_include_directories(OMKrnlToAffine
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
-target_link_libraries(OMKrnlToAffine
-        ${MLIRLibs}
+
+# Linking dependencies:
+add_dependencies(OMKrnlToAffine
         OMKrnlOps
         OMONNXOps)
 
@@ -17,7 +18,20 @@ target_include_directories(OMKrnlToLLVM
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
-target_link_libraries(OMKrnlToLLVM
+
+#Linking dependencies:
+add_dependencies(OMKrnlToLLVM
+        OMKrnlOps
+        OMONNXOps)
+
+add_library(OMElideKrnlGlobalConstants
+        ElideKrnlGlobalConstants.cpp)
+target_include_directories(OMElideKrnlGlobalConstants
+        PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+target_link_libraries(OMElideKrnlGlobalConstants
         ${MLIRLibs}
         OMKrnlOps
         OMONNXOps)

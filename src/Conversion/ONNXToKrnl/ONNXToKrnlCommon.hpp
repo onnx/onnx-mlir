@@ -181,7 +181,8 @@ struct TensorTypeConverter : public TypeConverter {
   /// override needs to be removed in favour of the original MLIR one.]
   bool isSignatureLegal(FunctionType funcType) {
     return llvm::all_of(
-        funcType.getInputs(), [this](Type type) { return isLegal(type); });
+        llvm::concat<const Type>(funcType.getInputs(), funcType.getResults()),
+        [this](Type type) { return isLegal(type); });
   }
 };
 

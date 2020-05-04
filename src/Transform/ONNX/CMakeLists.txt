@@ -3,8 +3,16 @@ add_library(OMAttributePromotion
 target_include_directories(OMAttributePromotion
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNF_MLIR_SRC_ROOT})
-target_link_libraries(OMAttributePromotion
+
+# Linking dependencies:
+add_dependencies(OMAttributePromotion
         OMPromotableConstOperandsOpInterface)
+
+add_library(OMElideConstants
+        ElideConstants.cpp)
+target_include_directories(OMElideConstants
+        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
+        ${ONNF_MLIR_SRC_ROOT})
 
 set(LLVM_TARGET_DEFINITIONS ONNXRewrite.td)
 onnx_mlir_tablegen(ONNXRewrite.inc -gen-rewriters)
@@ -25,18 +33,19 @@ add_library(OMONNXRewrite
 target_include_directories(OMONNXRewrite
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNF_MLIR_SRC_ROOT})
-target_link_libraries(OMONNXRewrite
-        OMONNXOps)
 add_dependencies(OMONNXRewrite
         OMONNXRewriteIncGen
         OMONNXDecomposeIncGen
         OMONNXCombineIncGen)
+# Linking dependencies:
+add_dependencies(OMONNXRewrite
+        OMONNXOps)
 
 add_library(OMShapeInference ShapeInferencePass.cpp)
 target_include_directories(OMShapeInference
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
-target_link_libraries(OMShapeInference
-        ${MLIRLibs}
-        OMShapeInferenceOpInterface)
 add_dependencies(OMShapeInference ShapeInferenceOpInterfaceIncGen)
+# Linking dependencies:
+add_dependencies(OMShapeInference
+        OMShapeInferenceOpInterface)
