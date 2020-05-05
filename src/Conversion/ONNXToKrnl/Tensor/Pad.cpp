@@ -18,28 +18,25 @@ struct ONNXPadOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto tensorType = (*op->result_type_begin());
-    ONNXPadOpOperandAdaptor operandAdaptor(operands);
+    ONNXPadOp myOp = llvm::dyn_cast<ONNXPadOp>(op);
+    auto tensorType = myOp.output().getType();
+
     auto loc = op->getLoc();
 
     // Only constant padding is supported now.
-    auto padMode = llvm::dyn_cast<ONNXPadOp>(op).mode();
+    auto padMode = myOp.mode();
     if (padMode != "constant")
       emitError(loc, "unsupported mode for Pad");
     DenseElementsAttr constantValAttr =
-        llvm::dyn_cast<ONNXPadOp>(op)
-            .getAttr("constant_value")
+        myOp.getAttr("constant_value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>();
     if (!constantValAttr)
       emitError(loc, "unsupported value");
 
     DenseElementsAttr padsAttributes =
-        llvm::dyn_cast<ONNXPadOp>(op)
-            .getAttr("pads")
-            .dyn_cast_or_null<mlir::DenseElementsAttr>();
-    if (!padsAttributes) {
+        myOp.getAttr("pads").dyn_cast_or_null<mlir::DenseElementsAttr>();
+    if (!padsAttributes)
       emitError(loc, "Pad: unknown pads");
-    }
 
     auto memRefType = convertToMemRefType(tensorType);
     Value alloc;
@@ -74,7 +71,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
     BuildKrnlLoop valueLoops(rewriter, loc, rank);
     valueLoops.createDefineAndOptimizeOp();
     for (int i = 0; i < rank; ++i)
-      valueLoops.pushBounds(0, operandAdaptor.data(), i);
+      valueLoops.pushBounds(0, myOp.data(), i);
     valueLoops.createIterateOp();
 
     // Copy the input data into the output.
@@ -97,16 +94,16 @@ struct ONNXPadOpLowering : public ConversionPattern {
       }
     }
 
-    auto inVal = rewriter.create<LoadOp>(loc, operandAdaptor.data(), inLoopIVs);
-    rewriter.create<StoreOp>(loc, inVal, alloc, outLoopIVs);
+    auto originValue = rewriter.create<LoadOp>(loc, myOp.data(), inLoopIVs);
+    rewriter.create<StoreOp>(loc, originValue, alloc, outLoopIVs);
     rewriter.setInsertionPointToStart(padLoops.getIterateBlock());
 
     SmallVector<Value, 4> outLoopIVs1;
     for (int i = 0; i < rank; ++i)
       outLoopIVs1.emplace_back(padLoops.getInductionVar(i));
 
-    auto inVal1 = rewriter.create<ConstantOp>(loc, valueAttr);
-    rewriter.create<StoreOp>(loc, inVal1, alloc, outLoopIVs1);
+    auto paddingValue = rewriter.create<ConstantOp>(loc, valueAttr);
+    rewriter.create<StoreOp>(loc, paddingValue, alloc, outLoopIVs1);
 
     // Replace the original op with the generated code.
     rewriter.replaceOp(op, alloc);
