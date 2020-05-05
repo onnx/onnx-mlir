@@ -25,7 +25,8 @@ include "src/Dialect/ONNX/ONNXOps.td"
 /// >;
 
 def GetNullAttr :
-   NativeCodeCall<"(Attribute) NULL">;
+   NativeCodeCall<"Attribute()">;
+   //NativeCodeCall<"(Attribute) NULL">;
 
 // Create a StringAttr from a string.
 class StringAttrOfValue<string val>:

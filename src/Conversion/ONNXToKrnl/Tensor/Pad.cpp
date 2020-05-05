@@ -19,6 +19,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXPadOp myOp = llvm::dyn_cast<ONNXPadOp>(op);
+    ONNXPadOpOperandAdaptor operandAdaptor(operands);
     auto tensorType = myOp.output().getType();
 
     auto loc = op->getLoc();
@@ -71,7 +72,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
     BuildKrnlLoop valueLoops(rewriter, loc, rank);
     valueLoops.createDefineAndOptimizeOp();
     for (int i = 0; i < rank; ++i)
-      valueLoops.pushBounds(0, myOp.data(), i);
+      valueLoops.pushBounds(0, operandAdaptor.data(), i);
     valueLoops.createIterateOp();
 
     // Copy the input data into the output.
@@ -94,7 +95,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
       }
     }
 
-    auto originValue = rewriter.create<LoadOp>(loc, myOp.data(), inLoopIVs);
+    auto originValue = rewriter.create<LoadOp>(loc, operandAdaptor.data(), inLoopIVs);
     rewriter.create<StoreOp>(loc, originValue, alloc, outLoopIVs);
     rewriter.setInsertionPointToStart(padLoops.getIterateBlock());
 
