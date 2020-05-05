@@ -22,6 +22,3 @@ jobs:
   - script: |
       call utils\setup-onnx-mlir-windows.cmd
     displayName: Build onnx-mlir
-  - script: |
-      call utils\test-onnx-mlir-windows.cmd
-    displayName: Test onnx-mlir    
