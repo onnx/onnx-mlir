@@ -8,6 +8,12 @@ target_include_directories(OMAttributePromotion
 add_dependencies(OMAttributePromotion
         OMPromotableConstOperandsOpInterface)
 
+add_library(OMElideConstants
+        ElideConstants.cpp)
+target_include_directories(OMElideConstants
+        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
+        ${ONNF_MLIR_SRC_ROOT})
+
 set(LLVM_TARGET_DEFINITIONS ONNXRewrite.td)
 onnx_mlir_tablegen(ONNXRewrite.inc -gen-rewriters)
 add_public_tablegen_target(OMONNXRewriteIncGen)

@@ -16,8 +16,8 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LoopOps/LoopOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
 
@@ -94,14 +94,13 @@ static FlatSymbolRefAttr getOrInsertMemcpy(PatternRewriter &rewriter,
 
 class KrnlGlobalOpLowering : public ConvertToLLVMPattern {
 public:
-  explicit KrnlGlobalOpLowering(MLIRContext *context,
-                                LLVMTypeConverter &lowering_)
-      : ConvertToLLVMPattern(KrnlGlobalOp::getOperationName(), context,
-                             lowering_) {}
+  explicit KrnlGlobalOpLowering(
+      MLIRContext *context, LLVMTypeConverter &lowering_)
+      : ConvertToLLVMPattern(
+            KrnlGlobalOp::getOperationName(), context, lowering_) {}
 
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
     auto *context = op->getContext();
     auto loc = op->getLoc();
     auto *llvmDialect =
@@ -119,7 +118,7 @@ public:
     // Compute total number of elements.
     auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
     int64_t numElements = 1;
-    for (int i=0; i<shape.size(); ++i)
+    for (int i = 0; i < shape.size(); ++i)
       numElements *= ArrayAttrIntVal(shape, i);
 
     // Create the global at the entry of the module.
@@ -133,7 +132,7 @@ public:
     auto constantElementType =
         typeConverter.convertType(memRefTy.getElementType());
     auto globalType = constantElementType;
-    for (int i=shape.size() - 1; i >= 0; i--)
+    for (int i = shape.size() - 1; i >= 0; i--)
       globalType = LLVM::LLVMType::getArrayTy(
           globalType.cast<LLVM::LLVMType>(), ArrayAttrIntVal(shape, i));
     // The llvm type of the global (example: [2 x [8 x float]])
@@ -143,9 +142,11 @@ public:
       OpBuilder::InsertionGuard insertGuard(rewriter);
       rewriter.setInsertionPointToStart(module.getBody());
 
+      assert(krnlGlobalOp.value().hasValue() &&
+             "Krnl Global must always have a value");
       global = rewriter.create<LLVM::GlobalOp>(loc,
           llvmGlobalType, /*isConstant=*/true,
-          LLVM::Linkage::Internal, name, krnlGlobalOp.value());
+          LLVM::Linkage::Internal, name, krnlGlobalOp.value().getValue());
     }
 
     // Some frequently used types.
@@ -154,47 +155,46 @@ public:
 
     // Allocate the memory where the constants will be used from.
     // This is a region of local memory and needs to be emitted as an alloca.
-    auto one = rewriter.create<LLVM::ConstantOp>(loc,
-        llvmI64Ty, rewriter.getI64IntegerAttr(1));
+    auto one = rewriter.create<LLVM::ConstantOp>(
+        loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
     auto alloc = rewriter.create<LLVM::AllocaOp>(
         loc, llvmGlobalType.getPointerTo(), one, /*alignment=*/0);
 
     // Copy constant value into the local alloca:
     //  - Bitcast alloc to i8*
-    Value int8PtrAlloc = rewriter.create<LLVM::BitcastOp>(
-        loc, llvmI8PtrTy, alloc);
+    Value int8PtrAlloc =
+        rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, alloc);
     //  - Bitcast global to i8*
     Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
-    Value i8PtrGlobal = rewriter.create<LLVM::BitcastOp>(
-        loc, llvmI8PtrTy, globalValue);
+    Value i8PtrGlobal =
+        rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, globalValue);
     //  - Set size.
-    Value memRefElementSize = rewriter.create<LLVM::ConstantOp>(loc,
-        llvmI64Ty, rewriter.getI64IntegerAttr(
-            getMemRefEltSizeInBytes(memRefTy)));
+    Value memRefElementSize = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
+        rewriter.getI64IntegerAttr(getMemRefEltSizeInBytes(memRefTy)));
     Value numElementsValue = rewriter.create<LLVM::ConstantOp>(
         loc, llvmI64Ty, rewriter.getI64IntegerAttr(numElements));
-    Value totalElementsSize = rewriter.create<LLVM::MulOp>(
-        loc, memRefElementSize, numElementsValue);
-    Value int64Size = rewriter.create<LLVM::SExtOp>(
-        loc, llvmI64Ty, totalElementsSize);
+    Value totalElementsSize =
+        rewriter.create<LLVM::MulOp>(loc, memRefElementSize, numElementsValue);
+    Value int64Size =
+        rewriter.create<LLVM::SExtOp>(loc, llvmI64Ty, totalElementsSize);
     //  - Set volatile.
-    Value isVolatile = rewriter.create<LLVM::ConstantOp>(
-        loc, LLVM::LLVMType::getInt1Ty(llvmDialect),
+    Value isVolatile = rewriter.create<LLVM::ConstantOp>(loc,
+        LLVM::LLVMType::getInt1Ty(llvmDialect),
         rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
     //  - Copy constant data into the alloca.
     auto memcpyRef = getOrInsertMemcpy(rewriter, module, llvmDialect);
-    rewriter.create<CallOp>(
-        loc, memcpyRef, LLVM::LLVMType::getVoidTy(llvmDialect),
+    rewriter.create<CallOp>(loc, memcpyRef,
+        LLVM::LLVMType::getVoidTy(llvmDialect),
         ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
 
     // Prepare data to be inserted into MemRef.
     auto llvmConstantElementType = constantElementType.cast<LLVM::LLVMType>();
     Value typedAlloc = rewriter.create<LLVM::BitcastOp>(
-      loc, llvmConstantElementType.getPointerTo(), alloc);
+        loc, llvmConstantElementType.getPointerTo(), alloc);
 
     // Create llvm MemRef from original MemRef and fill the data pointers.
     auto llvmMemRef = MemRefDescriptor::fromStaticShape(
-      rewriter, loc, typeConverter, memRefTy, typedAlloc);
+        rewriter, loc, typeConverter, memRefTy, typedAlloc);
 
     rewriter.replaceOp(op, {llvmMemRef});
     return success();
@@ -216,7 +216,7 @@ public:
       : ConversionPattern(KrnlMemcpyOp::getOperationName(), 1, context) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-        ConversionPatternRewriter &rewriter) const override {
+      ConversionPatternRewriter &rewriter) const override {
     auto *context = op->getContext();
     KrnlMemcpyOpOperandAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
@@ -602,16 +602,18 @@ private:
 //===----------------------------------------------------------------------===//
 
 namespace {
-struct KrnlToLLVMLoweringPass : public ModulePass<KrnlToLLVMLoweringPass> {
-  void runOnModule() final;
+struct KrnlToLLVMLoweringPass
+    : public PassWrapper<KrnlToLLVMLoweringPass, OperationPass<ModuleOp>> {
+  void runOnOperation() final;
 };
 } // end anonymous namespace
 
-void KrnlToLLVMLoweringPass::runOnModule() {
+void KrnlToLLVMLoweringPass::runOnOperation() {
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  //  target.addLegalOp<KrnlEntryPointOp>();
 
   // Lower the MemRef types to a representation in LLVM.
   LLVMTypeConverter typeConverter(&getContext());
@@ -622,8 +624,8 @@ void KrnlToLLVMLoweringPass::runOnModule() {
   populateAffineToStdConversionPatterns(patterns, &getContext());
   populateLoopToStdConversionPatterns(patterns, &getContext());
   populateStdToLLVMConversionPatterns(typeConverter, patterns,
-      /*useAlloca=*/false,
-      /*emitCWrapper=*/true);
+      /*emitCWrapperS=*/true,
+      /*useAlignedAlloc=*/false);
 
   patterns.insert<KrnlGlobalOpLowering>(&getContext(), typeConverter);
 
@@ -633,8 +635,8 @@ void KrnlToLLVMLoweringPass::runOnModule() {
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
-  if (failed(
-          applyFullConversion(getModule(), target, patterns, &typeConverter)))
+  if (failed(applyFullConversion(
+          getOperation(), target, patterns, &typeConverter)))
     signalPassFailure();
 }
 
