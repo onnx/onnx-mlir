@@ -21,6 +21,6 @@ pyenv global 3.7.0
 pyenv rehash
 mkdir build
 cd build
-git clone https://git@github.ibm.com/$REPO/onnx-mlir
+git clone https://git@github.com/$REPO/onnx-mlir
 cd onnx-mlir
 git submodule update --init --recursive
