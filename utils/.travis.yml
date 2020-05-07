@@ -4,14 +4,14 @@ services:
 language: cpp
 dist: bionic
 before_install:
-  - chmod a+x ./utilities/*
+  - chmod a+x ./utils/*
   - docker pull ubuntu:focal
   - docker run -itd --name build ubuntu:focal
-  - docker cp ./utilities/before_install.sh build:/usr/bin/before_install.sh
-  - docker cp ./utilities/install_deps.sh build:/usr/bin/install_deps.sh
-  - docker cp ./utilities/build_dlc.sh build:/usr/bin/build_dlc.sh
+  - docker cp ./utils/before_install.sh build:/usr/bin/before_install.sh
+  - docker cp ./utils/install_deps.sh build:/usr/bin/install_deps.sh
+  - docker cp ./utils/build_onnx__mlir.sh build:/usr/bin/build_onnx_mlir.sh
   - docker exec build before_install.sh $(pwd)
 install:
   - docker exec build install_deps.sh
 script:
-  - docker exec build build_dlc.sh
+  - docker exec build build_onnx_mlir.sh
