@@ -15,15 +15,12 @@ HOME=/
 PYENV_ROOT=$HOME/.pyenv
 PATH=$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH
 
-pyenv install 2.7.15
 pyenv install 3.7.0
-pyenv install pypy2.7-6.0.0
-pyenv install pypy3.5-6.0.0
 
-pyenv global 2.7.15 3.7.0 pypy3.5-6.0.0 pypy2.7-6.0.0
+pyenv global 3.7.0
 pyenv rehash
 mkdir build
 cd build
-git clone https://caomhin:429818b2b1e7471cbc99b8d11681eaf305974d91@github.ibm.com/$REPO/DLCpp
-cd DLCpp
+git clone https://git@github.ibm.com/$REPO/onnx-mlir
+cd onnx-mlir
 git submodule update --init --recursive
