@@ -24,6 +24,7 @@
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -35,18 +36,24 @@ using namespace mlir;
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType type);
 
+/// Check is all operands are scalar values at compile time.
+bool hasAllScalarValues(ArrayRef<Value> values);
+
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type);
+
+/// Retrieve function which contains the current operation.
+FuncOp getContainingFunction(Operation *op);
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc,
-    ArrayRef<Value> operands = {});
+    ArrayRef<Value> operands = {}, int64_t alignment = -1);
 
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
 // inserted.
-bool checkInsertDealloc(Operation *currentOp);
+bool checkInsertDealloc(Operation *currentOp, int resultIndex = 0);
 
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
@@ -59,24 +66,10 @@ std::map<int64_t, int64_t> getReductionMapping(
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     KrnlIterateOperandPack &pack, Value operand, int index);
 
-// Function that defines the KRNL dialect loops and their respective
-// optimized version.
-KrnlOptimizeLoopsOp emitOptimizedLoops(ConversionPatternRewriter &rewriter,
-    Location loc, std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
-    int64_t numLoops);
-
-// Function that emits the loops and their optimized version.
-// The function returns a reference to the inner optimization block.
-Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
-    std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
-    int64_t numLoops);
-
-// Function which emits a basic set of loops and optimized loops
-// for a given operation argument. A reference to the loop optimization
-// block is returned in the last argument of the function.
-void emitKrnlLoopsAndIterationForOperand(ConversionPatternRewriter &rewriter,
-    Location loc, Value operand, std::vector<Value> &originalLoops,
-    KrnlOptimizeLoopsOp &optimizedLoopsOp, KrnlIterateOp &iterateOp);
+// Function that emits the define_loop operation to define `numLoops`
+// number of krnl loops, and fill `loop` with the newly defined loops.
+void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
+    std::vector<Value> &loops, int64_t numLoops);
 
 unsigned getMemRefEltSizeInBytes(MemRefType memRefType);
 
@@ -96,7 +89,7 @@ std::vector<Value> getLoopIVsForBroadcasting(Location loc,
 // Use this function for small values only to avoid unexpected loss in type
 // casting.
 Value emitConstantOp(
-    ConversionPatternRewriter &rewriter, Location loc, Type type, double value);
+    PatternRewriter &rewriter, Location loc, Type type, double value);
 
 // Emit a positive infinity constant of a specific type.
 // Supported types: F16, F32, F64, Int8, Int16, Int32, Int64.
@@ -151,8 +144,7 @@ Value emitScalarOpFor(ConversionPatternRewriter &rewriter, Location loc,
     return rewriter.create<ScalarFOp<Op>>(
         loc, elementType, scalarOperands, mlir::None);
   } else {
-    emitError(loc, "unsupported element type");
-    return nullptr;
+    llvm_unreachable("unsupported element type");
   }
 }
 
@@ -218,6 +210,10 @@ void populateLoweringONNXNormalizationOpPattern(
 void populateLoweringONNXPoolingOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+// `RNN` directory methods:
+void populateLoweringONNXLSTMOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 // `Tensor` directory methods:
 
 void populateLoweringONNXUnsqueezeOpPattern(
@@ -227,6 +223,9 @@ void populateLoweringONNXTransposeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXPadConstantValuePadOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXPadOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXReshapeOpPattern(
@@ -240,3 +239,27 @@ void populateLoweringONNXConstantOpPattern(
 
 void populateLoweringONNXConcatOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXSqueezeOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXSplitOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
+
+int64_t getMemRefSizeInBytes(Value val);
+
+Value getDynamicMemRefSizeInBytes(
+    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp);
+
+/// This function returns the index in the list of alloc arguments of the
+/// dynamic dimension corresponding to `index` in the MemRef shape.
+/// As an example:
+///
+/// alloc(%d0, %d1, %d2) : memref<10x?x?x20x?x30xf32>
+///
+/// In the above alloc the list of alloc arguments is being represented by
+/// %d0, %d1 and %d2. Their indices 0, 1, 2 correspond to `index` values
+/// 1, 2 and 4 in the MemRef shape respectively
+int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);

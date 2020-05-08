@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 include "mlir/IR/OpBase.td"
+include "mlir/Dialect/Shape/IR/ShapeBase.td"
 
 def Krnl_Dialect : Dialect {
   let name = "krnl";
@@ -29,7 +30,7 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   let arguments = (ins);
   let results = (outs Variadic<AnyType>);
   let skipDefaultBuilders = 1;
-  let builders = [ OpBuilder<"Builder *builder, OperationState &result,"
+  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result,"
                              "int64_t num_loops"> ];
 
   let printer = [{ return ::print(p, *this); }];
@@ -48,33 +49,7 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
 }];
 }
 
-def KrnlOptimizeLoopsOp : Op<Krnl_Dialect, "optimize_loops"> {
-  let summary = "optimize_loops operation";
-  let description = [{
-    The "krnl.optimize_loops" operation is essentially a cosmetic operation
-    which exists to encapsulate a region where loops are being scheduled /
-    optimized.
-
-    The optimized loops are returned at the end of the region associated with
-    the krnl.optimize_loops operation.
-
-    For example : TBD once we have actual schedule intrinsics.
-  }];
-
-  let arguments = (ins Variadic<AnyType>);
-  let results = (outs Variadic<AnyType>);
-  let regions = (region SizedRegion<1>:$region);
-
-  let skipDefaultBuilders = 1;
-
-  let builders = [ OpBuilder<"Builder *builder, OperationState &result, "
-                             "int timestamp_space_rank"> ];
-
-  let printer = [{ return ::print(p, *this); }];
-  let parser = [{ return ::parse$cppClass(parser, result); }];
-}
-
-def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator]> {
+def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator, AffineScope]> {
   let summary = "iterate operation";
   let description = [{
     The "krnl.iterate" operation is conceptually equivalent to a nested for loops.
@@ -100,7 +75,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator]> {
   let arguments = (ins Variadic<AnyType>);
   let regions = (region SizedRegion<1>:$bodyRegion);
   let skipDefaultBuilders = 1;
-  let builders = [ OpBuilder<"Builder *builder, OperationState &result, "
+  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result, "
                              "KrnlIterateOperandPack operandPack"> ];
 
   let extraClassDeclaration = [{
@@ -129,19 +104,6 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator]> {
     let verifier = [{ return ::verify(*this); }];
 }
 
-def KrnlReturnLoopsOp : Op<Krnl_Dialect, "return_loops", [Terminator]> {
-  let summary = "Krnl return handler operation";
-  let description = [{
-    Krnl return_loops operation is a terminator operation for returning
-    scheduled dimension handlers in the krnl.optimize_loops region.
-  }];
-
-  let arguments = (ins Variadic<AnyType>);
-
-  let printer = [{ return ::print(p, *this); }];
-  let parser = [{ return ::parse$cppClass(parser, result); }];
-}
-
 def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
   let summary = "Krnl terminator operation";
   let description = [{
@@ -165,7 +127,7 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   let summary = "Indicate ONNX entry point";
   let description = [{The "krnl.entry_point" function indicates the main entry
                            point of ONNX model.}];
-  let builders = [ OpBuilder<"Builder *builder, OperationState &result, "
+  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result, "
                              "SymbolRefAttr funcAttr, IntegerAttr numInputs, "
                              "IntegerAttr numOutputs"> ];
 
@@ -196,12 +158,219 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy"> {
 def KrnlGlobalOp : Op<Krnl_Dialect, "global"> {
   let summary = "Krnl global operation";
   let description = [{
-    Operation for holding global data values.
+    Operation for holding global data values. A global constant can have a
+    meaningful name recorded as its `name` attribute. Its content is stored
+    in the `value` dense element attribute. Alternatively, if the constants
+    are packed together, `offset` records the byte offset in the global
+    constant pool from which the current constant is to be read.
   }];
 
-  let arguments = (ins AnyAttr:$shape, StrAttr:$name, OptionalAttr<AnyAttr>:$value);
+  let arguments = (ins AnyAttr:$shape,
+    StrAttr:$name, OptionalAttr<AnyAttr>:$value, OptionalAttr<I64Attr>:$offset);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
   let parser = ?;
   let printer = ?;
 }
+
+def KrnlPackedConstantOp : Op<Krnl_Dialect, "packed_const"> {
+  let summary = "Krnl packed constant operation";
+  let description = [{
+    Operation for holding packed constants.
+  }];
+
+  let arguments = (ins I64Attr:$size_in_bytes,
+                       BoolAttr:$is_le,
+                       OptionalAttr<AnyIntElementsAttr<8>>:$value,
+                       OptionalAttr<StrAttr>:$file_name);
+  let results = (outs I64:$output);
+
+  let extraClassDeclaration = [{
+    // The *path* to the file storing the constant pack on disk is encoded
+    // as a global variable in the LLVM module of the lowered model.
+    // getConstPackFilePathSymbolName returns the name of this symbol;
+    // getConstPackFilePathStrLenSymbolName returns the name of the symbol holding
+    // a constant value equal to the length of the file path.
+    static StringRef getConstPackFilePathSymbolName() { return "constPackFilePath"; }
+    static StringRef getConstPackFilePathStrLenSymbolName() { return "constPackFilePathStrLen"; }
+
+    // The *name* of the file storing the constant pack is also recorded for
+    // convenience. Similarly, getConstPackFileNameSymbolName and
+    // getConstPackFileNameStrLenSymbolName returns records the symbol holding
+    // the string constant representing the filename and the length of this
+    // string constant.
+    static StringRef getConstPackFileNameSymbolName() { return "constPackFileName"; }
+    static StringRef getConstPackFileNameStrLenSymbolName() { return "constPackFileNameStrLen"; }
+
+    // We record whether the constant pack is stored in LE byte order as a
+    // int8 symbol; it is to be interpreted as a boolean switch - with 0
+    // meaning that the constant pack is not stored in LE byte order and
+    // non-0 values meaning that it is stored in LE byte order.
+    static StringRef getConstPackIsLESymbolName() { return "constPackIsLE"; }
+    // The name of a function we call to read packed constants embedded within
+    // the current binary executable/library, or in the case of unsupported platform,
+    // from a binary constant pack file.
+    static StringRef getEmbeddedDataLoaderMethodName() {
+      return "getEmbeddedConstPool";
+    }
+  }];
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
+  let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
+  let description = [{
+    Retreieves a MemRef from within another MemRef:
+
+    "krnl.getref"(%memref, %offset)
+
+    The offset is an integer which is used as an index into the input MemRef. It works
+    just like an array index.
+  }];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset);
+  let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
+  let summary = "Krnl block operation";
+  let description = [{
+    Block a single for loop by a constant tile size. For instance,
+    $ib, $il = krnl.block %i, 4
+    means to block the for loop referred to by %i using a tile size of 4.
+  }];
+
+  let arguments = (ins
+    AnyType:$loop, I64Attr:$tile_size);
+  let results = (outs AnyType:$loop_block, AnyType:$loop_local);
+
+  let assemblyFormat = [{
+      $loop $tile_size attr-dict `:` functional-type($loop, results)
+  }];
+}
+
+def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
+  let summary = "Krnl permute operation";
+  let description = [{
+    Permute a set of affine for loops using a specified permutation map.
+    The permutation map `map` should be constructed in such way that the
+    for loop referred to by the i-th operand to permute operation is sent
+    to the `map[i]`-th position.
+
+    For example, the following krnl dialect IR:
+    ```
+    %ii, %jj, %kk = krnl.define_loops 3
+    krnl.permute(%ii, %jj, %kk) [1, 2, 0] : !krnl.loop, !krnl.loop, !krnl.loop
+    krnl.iterate (%ii, %jj, %kk) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20, %kk -> %k = 0 to 30) {}
+    ```
+    will be lowered to:
+    ```
+    // Referenced by %kk
+    affine.for %arg0 = 0 to 30 {
+      // Referenced by %ii
+      affine.for %arg1 = 0 to 10 {
+        // Referenced by %jj
+        affine.for %arg2 = 0 to 20 {
+        }
+      }
+    }
+    ```
+
+    For a more complicated example, we demonstrate 3-D tiling using krnl.block in
+    conjunction with krnl.permute:
+    ```
+    %ii, %jj, %kk = krnl.define_loops 3
+    // Blocking each loop by a factor of 4.
+    %ib, %il = krnl.block %ii 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %jb, %jl = krnl.block %jj 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %kb, %kl = krnl.block %kk 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    // Move iteration over tile coordinates to be the outer loops and iterateion over
+    // the inter-tile elements to be the inner loops.
+    krnl.permute(%ib, %il, %jb, %jl, %kb, %kl) [0, 3, 1, 4, 2, 5] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
+    krnl.iterate(%ib, %il, %jb, %jl, %kb, %kl) with (%ii -> %i = 0 to 1024, %jj -> %j = 0 to 2048, %kk -> %k = 0 to 4096)  {
+    }
+    ```
+
+    The above IR gets lowered to:
+    ```
+    affine.for %arg0 = 0 to 1024 step 4 {
+      affine.for %arg1 = 0 to 2048 step 4 {
+        affine.for %arg2 = 0 to 4096 step 4 {
+          affine.for %arg3 = #map0(%arg0) to #map1(%arg0) {
+            affine.for %arg4 = #map0(%arg1) to #map1(%arg1) {
+              affine.for %arg5 = #map0(%arg2) to #map1(%arg2) {
+              }
+            }
+          }
+        }
+      }
+    }
+    ```
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
+  let results = (outs);
+  let assemblyFormat = [{
+      `(` $loops `)` $map attr-dict `:` type($loops)
+  }];
+}
+
+def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
+  let summary = "Krnl unroll operation";
+  let description = [{
+    Fully unroll the specified loops.
+    ```
+    krnl.unroll %i
+    ```
+    unrolls the loop referred to by %i fully.
+  }];
+
+  let arguments = (ins AnyType:$loop);
+  let results = (outs);
+  let assemblyFormat = [{
+      $loop attr-dict `:` type($loop)
+  }];
+}
+
+def KrnlDimOp : Op<Krnl_Dialect, "dim"> {
+  let summary = "Krnl dimensions operation.";
+  let description = [{
+    Emits the dimension of a MemRef independent of the MemRef alloc:
+
+    "krnl.dim"(%memref, %index)
+
+    The index identifies the dimension within the shape which is going to be emitted.
+    Initially the krnl.dim operation depends on the alloc of the MemRef.
+    Unlike the std.dim operation which maintains a dependency on the alloc of the MemRef, the dimension emitted by krnl.dim will not depend on the alloc operation of the MemRef once the krnl.dim operation is lowered.
+
+    Any changes to the original MemRef size after the krnl.dim has been lowered will not be picked up by the emitted dimension. This allows the original MemRef to be safely modified via code transformations or affine map normalization without the risk of changing the value already emitted via krnl.dim.
+  }];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc, Index:$index);
+  let results = (outs Index:$dimension);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlShapeOp : Op<Krnl_Dialect, "shape"> {
+  let summary = "Krnl operation to retreieve the shape of a MemRef.";
+  let description = [{
+    Extracts the shape of a MemRef:
+    ```
+      "krnl.shape"(%memref)
+    ```
+    The return result is of `shape.type`.
+  }];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc);
+  let results = (outs Shape_ShapeType:$shape);
+
+  let parser = ?;
+  let printer = ?;
+}
+

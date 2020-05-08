@@ -17,32 +17,32 @@ struct ONNXConstantOpLowering : public ConversionPattern {
 
   ONNXConstantOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConstantOp::getOperationName(), 1, ctx) {
-        constantID = 0;
-      }
+    constantID = 0;
+  }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
 
-    if (constantOp.sparse_value().hasValue()) {
-      emitError(loc, "Only support dense values at this time");
-    }
+    if (constantOp.sparse_value().hasValue())
+      return emitError(loc, "Only support dense values at this time");
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
     // Shape based computations.
     auto shape = memRefType.getShape();
     int64_t numElements = 1;
-    for (int i=0; i<shape.size(); ++i)
+    for (int i = 0; i < shape.size(); ++i)
       numElements *= shape[i];
 
     // Emit the constant global in Krnl dialect.
-    auto constantGlobal = rewriter.create<KrnlGlobalOp>(loc,
-        memRefType,
-        rewriter.getI64ArrayAttr(shape),
+    auto constantGlobal = rewriter.create<KrnlGlobalOp>(loc, memRefType,
+        /*shape=*/rewriter.getI64ArrayAttr(shape),
+        /*name=*/
         rewriter.getStringAttr("constant_" + std::to_string(constantID)),
-        constantOp.value().getValue());
+        /*value=*/constantOp.value().getValue(),
+        /*offset=*/nullptr);
 
     // Increment constant ID:
     constantID++;

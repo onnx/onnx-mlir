@@ -85,6 +85,50 @@ struct ScalarOp<ONNXSqrtOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXCastOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  ONNXCastOp castOp = llvm::dyn_cast<ONNXCastOp>(op);
+  auto mlirtype = convertONNXTypeToMLIRType(rewriter,
+      static_cast<onnx::TensorProto_DataType>(castOp.toAttr().getInt()));
+  Value operand = scalarOperands[0];
+  auto origtype = operand.getType();
+
+  // check output type is the same as expected output type
+  if (elementType != mlirtype)
+    llvm_unreachable("output type different from expected output type");
+
+  // if same input and output type, return input
+  if (origtype == elementType)
+    return operand;
+
+  if (origtype.isa<FloatType>()) {
+    // cast from floating-point type to integer type
+    if (elementType.isa<IntegerType>())
+      return rewriter.create<FPToSIOp>(loc, elementType, operand);
+    // cast from floating-point type to other floating-point type
+    else if (elementType.isa<FloatType>()) {
+      // cast from floating-point to wider floating-point
+      if (origtype.getIntOrFloatBitWidth() <
+          elementType.getIntOrFloatBitWidth())
+        return rewriter.create<FPExtOp>(loc, elementType, operand);
+      // cast from floating-point to narrower floating-point
+      else
+        return rewriter.create<FPTruncOp>(loc, elementType, operand);
+    }
+  }
+  // int to float
+  else if (origtype.isa<IntegerType>()) {
+    if (elementType.isa<FloatType>())
+      return rewriter.create<SIToFPOp>(loc, elementType, operand);
+  }
+  llvm_unreachable("unsupported element type");
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSinhOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -411,8 +455,7 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
         rewriter.create<SelectOp>(loc, zeroPredicate, zero, plusSelect);
     return result;
   } else {
-    emitError(loc, "unsupported element type");
-    return {};
+    llvm_unreachable("unsupported element type");
   }
 }
 
@@ -469,8 +512,7 @@ Value emitScalarOpFor<ONNXAbsOp>(ConversionPatternRewriter &rewriter,
     return rewriter.create<SelectOp>(
         loc, lessThanZero, negativeOperand, operand);
   } else {
-    emitError(loc, "unsupported element type");
-    return {};
+    llvm_unreachable("unsupported element type");
   }
 }
 
@@ -489,7 +531,7 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
     auto zero = emitConstantOp(rewriter, loc, elementType, 0);
     return rewriter.create<mlir::SubIOp>(loc, zero, operand); // 0 - X = -X
   } else {
-    emitError(loc, "unsupported element type");
+    llvm_unreachable("unsupported element type");
   }
 }
 
@@ -499,13 +541,13 @@ template <typename ElementwiseUnaryOp>
 struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
   ONNXElementwiseUnaryOpLowering(MLIRContext *ctx)
       : ConversionPattern(ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     // TODO: Check that the types are valid.
     // An element-wise unary operation must have all operands and the result of
     // the same type. This should have been verified by the verifier.
     auto loc = op->getLoc();
+    auto X = operands[0];
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -522,40 +564,31 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {operands[0]});
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, {X});
 
-    std::vector<Value> originalLoops;
-    KrnlOptimizeLoopsOp optimizedLoopsOp;
-    KrnlIterateOp iterateOp;
-    emitKrnlLoopsAndIterationForOperand(
-        rewriter, loc, operands[0], originalLoops, optimizedLoopsOp, iterateOp);
-    Block &optimizationBlock = optimizedLoopsOp.region().front();
-    Block &iterationBlock = iterateOp.bodyRegion().front();
-
-    // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-    rewriter.setInsertionPointToEnd(&optimizationBlock);
-    // Return from KrnlOptimizeLoopsOp body.
-    // When no optimizations are present we just return the loops
-    // unchaged.
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
-    // 2. Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation:
     SmallVector<Value, 4> loopIVs;
-    for (auto arg : iterationBlock.getArguments())
-      loopIVs.push_back(arg);
+    if (!hasAllScalarValues(operands)) {
+      // Create iterateOp & get block within iterate op.
+      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
+      loops.createDefineAndIterateOp(X);
+      Block *iterationBlock = loops.getIterateBlock();
 
-    auto loadedVal = rewriter.create<LoadOp>(loc, operands[0], loopIVs);
+      // Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(iterationBlock);
+
+      // Handle the operation:
+      for (auto arg : iterationBlock->getArguments())
+        loopIVs.push_back(arg);
+    }
+
+    auto loadedVal = rewriter.create<AffineLoadOp>(loc, X, loopIVs);
     auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
         rewriter, loc, op, memRefType.getElementType(), {loadedVal});
     // Store result in the resulting array.
-    rewriter.create<StoreOp>(loc, loweredOpResult, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, loweredOpResult, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
-
     return success();
   }
 };
@@ -566,9 +599,8 @@ template <typename ElementwiseVariadicOp>
 struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
   ONNXElementwiseVariadicOpLowering(MLIRContext *ctx)
       : ConversionPattern(ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     // TODO: Check that the types are valid.
     // An element-wise variadic operation must have all operands and the result
     // of the same type. This should have been verified by the verifier.
@@ -591,47 +623,55 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(
           memRefType, loc, rewriter, insertDealloc, operands);
 
-    // Get run-time dimension information for unknown dimensions used for
-    // broadcasting.
-    std::map<int, std::map<int, Value>> broadcastedDimInfo =
-        getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
-
-    std::vector<Value> originalLoops;
-    KrnlOptimizeLoopsOp optimizedLoopsOp;
-    KrnlIterateOp iterateOp;
-    emitKrnlLoopsAndIterationForOperand(
-        rewriter, loc, alloc, originalLoops, optimizedLoopsOp, iterateOp);
-    Block &optimizationBlock = optimizedLoopsOp.region().front();
-    Block &iterationBlock = iterateOp.bodyRegion().front();
-
-    // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-    rewriter.setInsertionPointToEnd(&optimizationBlock);
-    // Return from KrnlOptimizeLoopsOp body.
-    // When no optimizations are present we just return the loops unchaged.
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
-    // 2. Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation:
     SmallVector<Value, 4> loopIVs;
-    for (auto arg : iterationBlock.getArguments())
-      loopIVs.push_back(arg);
+    std::map<int, std::map<int, Value>> broadcastedDimInfo;
+    if (!hasAllScalarValues(operands)) {
+      // Get run-time dimension information for unknown dimensions used for
+      // broadcasting.
+      broadcastedDimInfo =
+          getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
 
-    // Fold over operands for each of their scalar values
+      // Create iterateOp & get block within iterate op.
+      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
+      loops.createDefineAndIterateOp(alloc);
+      Block *iterationBlock = loops.getIterateBlock();
+
+      // Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(iterationBlock);
+
+      // Handle the operation:
+      for (auto arg : iterationBlock->getArguments())
+        loopIVs.push_back(arg);
+    }
+    // Fold over operands for each of their scalar values.
     Value accumulated, next;
-    auto accumulatedLoopIVs = getLoopIVsForBroadcasting(
+    // Obtain the first operand.
+    std::vector<Value> accumulatedLoopIVs = getLoopIVsForBroadcasting(
         loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
-    accumulated = rewriter.create<LoadOp>(loc, operands[0], accumulatedLoopIVs);
+    if (!hasAllConstantDimensions(memRefType))
+      // In case of unknown dimensions, use std.load since
+      // 'getLoopIVsForBroadcasting' has not supported affine map so far.
+      accumulated =
+          rewriter.create<LoadOp>(loc, operands[0], accumulatedLoopIVs);
+    else
+      accumulated =
+          rewriter.create<AffineLoadOp>(loc, operands[0], accumulatedLoopIVs);
+    // Iterate over the remaining operands.
     for (unsigned i = 1; i < numArgs; i++) {
-      auto nextLoopIVs = getLoopIVsForBroadcasting(
+      std::vector<Value> nextLoopIVs = getLoopIVsForBroadcasting(
           loc, rewriter, loopIVs, operands[i], broadcastedDimInfo[i]);
-      next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
+      if (!hasAllConstantDimensions(memRefType))
+        // In case of unknown dimensions, use std.load since
+        // 'getLoopIVsForBroadcasting' has not supported affine map so far.
+        next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
+      else
+        next = rewriter.create<AffineLoadOp>(loc, operands[i], nextLoopIVs);
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
           rewriter, loc, op, memRefType.getElementType(), {accumulated, next});
     }
+
     // Store result in the resulting array.
-    rewriter.create<StoreOp>(loc, accumulated, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -669,5 +709,6 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
 }

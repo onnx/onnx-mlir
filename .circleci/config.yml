@@ -18,7 +18,7 @@ jobs:
             git submodule update --init --recursive
       # Use cached mlir installation if possible.
       - restore_cache:
-          key: V11-LLVM-PROJECT-{{ arch }}
+          key: V17-LLVM-PROJECT-{{ arch }}
       - run:
           name: Install MLIR
           command: |
@@ -29,7 +29,7 @@ jobs:
               source onnx-mlir/utils/install-mlir.sh
             fi
       - save_cache:
-          key: V11-LLVM-PROJECT-{{ arch }}
+          key: V17-LLVM-PROJECT-{{ arch }}
           paths:
             - llvm-project
       - run:
@@ -40,7 +40,14 @@ jobs:
           command: |
             sudo pip install -q -e ./onnx-mlir/third_party/onnx
             cd onnx-mlir/build
-            cmake --build . --target check-onnx-backend
+            RUNTIME_DIR=$(pwd)/lib cmake --build . --target check-onnx-backend
+      - run:
+          name: Run Unit Tests
+          command: |
+            cd onnx-mlir/build
+            # Need to include the bin directory in $PATH,
+            # otherwise CTest fails to find the test executables.
+            RUNTIME_DIR=$(pwd)/lib make test -j$(nproc)
       - run:
           name: Run DocCheck
           command: cd onnx-mlir/build && cmake --build . --target check-doc

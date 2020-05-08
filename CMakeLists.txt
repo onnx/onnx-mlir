@@ -18,6 +18,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+include(CTest)
 include(MLIR.cmake)
 
 if (MSVC)
@@ -26,11 +27,14 @@ if (MSVC)
   set(CMAKE_CXX_FLAGS "-wd4244 -wd4267 -wd4530 -wd4624")
 endif()
 add_subdirectory(third_party/onnx)
+add_subdirectory(third_party/googletest)
 add_subdirectory(third_party/benchmark)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/variant)
+add_subdirectory(third_party/rapidcheck)
 
 set(CMAKE_CXX_STANDARD 14)
+
 add_subdirectory(utils)
 add_subdirectory(src)
 add_subdirectory(docs)

@@ -12,8 +12,11 @@
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/ToolOutputFile.h>
 #include <mlir/IR/AsmState.h>
+#include <mlir/IR/Dialect.h>
+#include <mlir/IR/MLIRContext.h>
 #include <mlir/InitAllDialects.h>
 #include <mlir/InitAllPasses.h>
+#include <mlir/Interfaces/ViewLikeInterface.h>
 #include <mlir/Pass/Pass.h>
 #include <mlir/Pass/PassManager.h>
 #include <mlir/Support/FileUtilities.h>
@@ -21,6 +24,8 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/InitMLIRPasses.hpp"
+#include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace onnx_mlir;
@@ -55,19 +60,26 @@ static llvm::cl::opt<bool> allowUnregisteredDialects(
     llvm::cl::init(false));
 
 int main(int argc, char **argv) {
+  mlir::registerDialect<mlir::linalg::LinalgDialect>();
   mlir::registerDialect<mlir::AffineDialect>();
   mlir::registerDialect<mlir::LLVM::LLVMDialect>();
-  mlir::registerDialect<mlir::loop::LoopOpsDialect>();
+  mlir::registerDialect<mlir::scf::SCFDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();
+  mlir::registerDialect<mlir::vector::VectorDialect>();
+  mlir::registerDialect<mlir::shape::ShapeDialect>();
 
-  // Register transformation passes.
-#define GEN_PASS_REGISTRATION
-#include "mlir/Transforms/Passes.h.inc"
+  registerTransformsPasses();
+  registerAffinePasses();
+  registerLinalgPasses();
+  registerSCFPasses();
+  registerStandardPasses();
 
   llvm::InitLLVM y(argc, argv);
 
   mlir::registerDialect<mlir::ONNXOpsDialect>();
   mlir::registerDialect<mlir::KrnlOpsDialect>();
+  initOMPasses();
+  initMLIRPasses();
 
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();

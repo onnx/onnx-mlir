@@ -1,4 +1,5 @@
-//===----------------- Gemm.cpp - Lowering Gemm Op -------------------------===//
+//===----------------- Gemm.cpp - Lowering Gemm Op
+//-------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -17,14 +18,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   ONNXGemmOpLowering(MLIRContext *ctx)
       : ConversionPattern(GemmOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     bool hasBias = !op->getOperand(2).getType().isa<NoneType>();
 
     Value A, B, C;
-    ONNXGemmOpOperandAdaptor operandAdaptor(operands);
+    ONNXGemmOpAdaptor operandAdaptor(operands);
     A = operandAdaptor.A();
     B = operandAdaptor.B();
     if (hasBias)
@@ -32,12 +32,10 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
-    auto alphaAttr =
-        FloatAttr::get(memRefType.getElementType(),
-                       llvm::dyn_cast<GemmOp>(op).alpha().convertToFloat());
-    auto betaAttr =
-        FloatAttr::get(memRefType.getElementType(),
-                       llvm::dyn_cast<GemmOp>(op).beta().convertToFloat());
+    auto alphaAttr = FloatAttr::get(memRefType.getElementType(),
+        llvm::dyn_cast<GemmOp>(op).alpha().convertToFloat());
+    auto betaAttr = FloatAttr::get(memRefType.getElementType(),
+        llvm::dyn_cast<GemmOp>(op).beta().convertToFloat());
     auto alpha = rewriter.create<ConstantOp>(loc, alphaAttr);
     auto beta = rewriter.create<ConstantOp>(loc, betaAttr);
 
@@ -74,9 +72,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Define loops.
     std::vector<Value> originalLoops;
-    std::vector<Value> optimizedLoops;
-    Block *optimizationBlock =
-        defineLoops(rewriter, loc, originalLoops, optimizedLoops, numLoops);
+    defineLoops(rewriter, loc, originalLoops, numLoops);
 
     // We have two Krnl loops:
     // - Outer loop iterates over the output matrix dimensions, and
@@ -86,23 +82,18 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     std::vector<Value> outerLoops, optimizedOuterLoops;
     outerLoops.reserve(2);
     optimizedOuterLoops.reserve(2);
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 2; ++i)
       outerLoops.push_back(originalLoops[i]);
-      optimizedOuterLoops.push_back(optimizedLoops[i]);
-    }
-    KrnlIterateOperandPack outerPack(rewriter, outerLoops, optimizedOuterLoops);
+    KrnlIterateOperandPack outerPack(rewriter, outerLoops);
     // Induction variables for the outer loops
     for (int i = 0; i < 2; ++i)
       addDimensionToPack(rewriter, loc, outerPack, alloc, i);
 
     // Reduction loop
-    std::vector<Value> reductionLoops, optimizedReductionLoops;
+    std::vector<Value> reductionLoops;
     reductionLoops.reserve(1);
-    optimizedReductionLoops.reserve(1);
     reductionLoops.push_back(originalLoops[2]);
-    optimizedReductionLoops.push_back(optimizedLoops[2]);
-    KrnlIterateOperandPack reductionPack(rewriter, reductionLoops,
-                                         optimizedReductionLoops);
+    KrnlIterateOperandPack reductionPack(rewriter, reductionLoops);
     // Induction variable for the reduction dimension
     // Try to find and use a static value from A or B first.
     // If it failed then use a dynamic value.
@@ -142,10 +133,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Now perform the insertions into the body of the
     // just generated instructions:
 
-    // No optimization
-    rewriter.setInsertionPointToEnd(optimizationBlock);
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
     // Insert instructions inside the outer loop.
     Block &outerIterationBlock = outerIterateOp.bodyRegion().front();
     rewriter.setInsertionPointToStart(&outerIterationBlock);
@@ -156,28 +143,29 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       loopMNIVs.emplace_back(arg);
     }
 
-    // Initialize the output of A*B
+    // Initialize the output of A * B
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
-    rewriter.create<StoreOp>(loc, zero, alloc, loopMNIVs);
+    rewriter.create<AffineStoreOp>(loc, zero, alloc, loopMNIVs);
 
-    // Compute A*B
+    // Compute A * B
     auto matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, reductionPack);
 
-    // Compute beta*C, and add up to alpha*A*B (unidirectional broadcasting)
-    auto loadedAB = rewriter.create<LoadOp>(loc, alloc, loopMNIVs);
+    // Compute beta * C, and add up to alpha * A * B (unidirectional
+    // broadcasting)
+    auto loadedAB = rewriter.create<AffineLoadOp>(loc, alloc, loopMNIVs);
     auto alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
     if (hasBias) {
-      auto loopCIVs = getLoopIVsForBroadcasting(loc, rewriter, loopMNIVs, C,
-                                                broadcastedDimInfo);
-      auto loadedC = rewriter.create<LoadOp>(loc, C, loopCIVs);
+      auto loopCIVs = getLoopIVsForBroadcasting(
+          loc, rewriter, loopMNIVs, C, broadcastedDimInfo);
+      auto loadedC = rewriter.create<AffineLoadOp>(loc, C, loopCIVs);
       auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
       auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-      rewriter.create<StoreOp>(loc, Y, alloc, loopMNIVs);
+      rewriter.create<AffineStoreOp>(loc, Y, alloc, loopMNIVs);
     } else {
-      rewriter.create<StoreOp>(loc, alphaAB, alloc, loopMNIVs);
+      rewriter.create<AffineStoreOp>(loc, alphaAB, alloc, loopMNIVs);
     }
 
-    // Insert instructions to do matrix multiplication: A*B
+    // Insert instructions to do matrix multiplication: A * B
     Block &matmulIterationBlock = matmulIterateOp.bodyRegion().front();
     rewriter.setInsertionPointToStart(&matmulIterationBlock);
 
@@ -201,12 +189,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     }
 
     // Matmul computation
-    auto loadedA = rewriter.create<LoadOp>(loc, A, loopAIVs);
-    auto loadedB = rewriter.create<LoadOp>(loc, B, loopBIVs);
-    auto loadedY = rewriter.create<LoadOp>(loc, alloc, loopMNIVs);
+    auto loadedA = rewriter.create<AffineLoadOp>(loc, A, loopAIVs);
+    auto loadedB = rewriter.create<AffineLoadOp>(loc, B, loopBIVs);
+    auto loadedY = rewriter.create<AffineLoadOp>(loc, alloc, loopMNIVs);
     auto AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
     auto accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-    rewriter.create<StoreOp>(loc, accumulated, alloc, loopMNIVs);
+    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopMNIVs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -214,7 +202,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXGemmOpPattern(OwningRewritePatternList &patterns,
-                                       MLIRContext *ctx) {
+void populateLoweringONNXGemmOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
 }

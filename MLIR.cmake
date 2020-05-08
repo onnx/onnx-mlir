@@ -133,38 +133,61 @@ function(find_mlir_lib lib)
 endfunction(find_mlir_lib)
 
 find_mlir_lib(MLIRAffineOps)
+find_mlir_lib(MLIRAffineUtils)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAffineTransforms)
 find_mlir_lib(MLIRAnalysis)
 find_mlir_lib(MLIRCallInterfaces)
 find_mlir_lib(MLIRControlFlowInterfaces)
+find_mlir_lib(MLIRCopyOpInterface)
 find_mlir_lib(MLIRDialect)
 find_mlir_lib(MLIREDSC)
 find_mlir_lib(MLIRExecutionEngine)
+find_mlir_lib(MLIRInferTypeOpInterface)
 find_mlir_lib(MLIRIR)
 find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
-find_mlir_lib(MLIRLoopToStandard)
-find_mlir_lib(MLIRLoopOps)
+find_mlir_lib(MLIRSCFToStandard)
 find_mlir_lib(MLIRLoopLikeInterface)
+find_mlir_lib(MLIRLinalgOps)
+find_mlir_lib(MLIRLinalgEDSC)
+find_mlir_lib(MLIRLinalgAnalysis)
+find_mlir_lib(MLIRLinalgTransforms)
+find_mlir_lib(MLIRLinalgUtils)
+find_mlir_lib(MLIRSCF)
+find_mlir_lib(MLIRSCFTransforms)
 find_mlir_lib(MLIRLLVMIRTransforms)
 find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRParser)
 find_mlir_lib(MLIRPass)
 find_mlir_lib(MLIRStandardOps)
+find_mlir_lib(MLIRStandardOpsTransforms)
 find_mlir_lib(MLIRStandardToLLVM)
-find_mlir_lib(MLIRSideEffects)
+find_mlir_lib(MLIRSideEffectInterfaces)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransforms)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRSupport)
+find_mlir_lib(MLIRShape)
+find_mlir_lib(MLIRShapeToStandard)
+find_mlir_lib(MLIRShapeToSCF)
+find_mlir_lib(MLIRSideEffectInterfaces)
 find_mlir_lib(MLIROpenMP)
 find_mlir_lib(MLIROptLib)
+find_mlir_lib(MLIRTableGen)
 find_mlir_lib(MLIRTargetLLVMIRModuleTranslation)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRTranslation)
 find_mlir_lib(MLIRVector)
+find_mlir_lib(MLIRVectorInterfaces)
+find_mlir_lib(MLIRVectorToLLVM)
+find_mlir_lib(MLIRVectorToSCF)
+find_mlir_lib(MLIRMlirOptMain)
+find_mlir_lib(MLIRAffineEDSC)
+find_mlir_lib(MLIRLinalgEDSC)
+find_mlir_lib(MLIRViewLikeInterface)
+find_mlir_lib(MLIRPresburger)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -172,7 +195,6 @@ find_mlir_lib(LLVMAsmParser)
 find_mlir_lib(LLVMBinaryFormat)
 find_mlir_lib(LLVMRemarks)
 find_mlir_lib(LLVMIRReader)
-find_mlir_lib(LLVMMLIRTableGen)
 find_mlir_lib(LLVMTransformUtils)
 find_mlir_lib(LLVMBitstreamReader)
 find_mlir_lib(LLVMAnalysis)
@@ -186,6 +208,22 @@ find_mlir_lib(LLVMDemangle)
 find_mlir_lib(LLVMFrontendOpenMP)
 
 set(MLIRLibs
+        ${MLIRAffineToStandard}
+        ${MLIRAffineOps}
+        ${MLIRAffineUtils}
+        ${MLIRCopyOpInterface}
+        ${MLIRLLVMIR}
+        ${MLIRStandardOps}
+        ${MLIRStandardOpsTransforms}
+        ${MLIRStandardToLLVM}
+        ${MLIRTransforms}
+        ${MLIRSCFToStandard}
+        ${MLIRVector}
+        ${MLIRVectorInterfaces}
+        ${MLIRVectorToLLVM}
+        ${MLIRVectorToSCF}
+        ${MLIRSCF}
+        ${MLIRIR}
         ${MLIRLLVMIR}
         ${MLIROptLib}
         ${MLIRParser}
@@ -205,17 +243,31 @@ set(MLIRLibs
         ${MLIRExecutionEngine}
         ${MLIRIR}
         ${MLIRLLVMIRTransforms}        
-        ${MLIRLoopToStandard}
-        ${MLIRLoopOps}
+        ${MLIRSCFToStandard}
+        ${MLIRSCF}
+        ${MLIRSCFTransforms}
         ${MLIRLoopAnalysis}
         ${MLIRLoopLikeInterface}
         ${MLIROpenMP}
         ${MLIRMlirOptMain}
-        ${MLIRSideEffects}        
+        ${MLIRSideEffectInterfaces}
         ${MLIRStandardOps}
         ${MLIRStandardToLLVM}
         ${MLIRSupport}
         ${MLIRTranslation}
+        ${MLIRLinalgOps}
+        ${MLIRLinalgEDSC}
+        ${MLIRLinalgAnalysis}
+        ${MLIRLinalgTransforms}
+        ${MLIRLinalgUtils}
+        ${MLIRAffineEDSC}
+        ${MLIRLinalgEDSC}
+        ${MLIRViewLikeInterface}
+        ${MLIRPresburger}
+        ${MLIRShape}
+        ${MLIRShapeToStandard}
+        ${MLIRShapeToSCF}
+        ${MLIRInferTypeOpInterface}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}
@@ -241,93 +293,6 @@ set(MLIRLibs
         ${CMAKE_THREAD_LIBS_INIT}
 	      ${CURSES_LIBRARIES}
 	      ${ZLIB_LIBRARIES})
-
-# MLIR libraries that must be linked with --whole-archive for static build or
-# must be specified on LD_PRELOAD for shared build.
-set(MLIRWholeArchiveLibs
-        MLIRAffineToStandard
-        MLIRAffineOps
-        MLIRLLVMIR
-        MLIRStandardOps
-        MLIRStandardToLLVM
-        MLIRTransforms
-        MLIRLoopToStandard
-        MLIRVector
-        MLIRLoopOps
-        MLIRIR)
-
-# ONNX MLIR libraries that must be linked with --whole-archive for static build or
-# must be specified on LD_PRELOAD for shared build.
-set(ONNXMLIRWholeArchiveLibs
-        OMKrnlToAffine
-        OMKrnlToLLVM
-        OMONNXToKrnl
-        OMONNXRewrite
-        OMShapeInference
-        OMShapeInferenceOpInterface
-        OMAttributePromotion
-        OMPromotableConstOperandsOpInterface
-        OMElideConstants
-        OMElideKrnlGlobalConstants)
-
-# Function to construct linkage option for the static libraries that must be
-# linked with --whole-archive (or equivalent).
-function(whole_archive_link target lib_dir)
-  get_property(link_flags TARGET ${target} PROPERTY LINK_FLAGS)
-  if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
-    set(link_flags "${link_flags} -L${lib_dir}  ")
-    foreach(LIB ${ARGN})
-      string(CONCAT link_flags ${link_flags}
-              "-Wl,-force_load, ${lib_dir}/lib${LIB}.a ")
-    endforeach(LIB)
-  elseif(MSVC)
-    foreach(LIB ${ARGN})
-      string(CONCAT link_flags ${link_flags} "/WHOLEARCHIVE:${lib_dir}/${LIB} ")
-    endforeach(LIB)
-  else()
-    set(link_flags "${link_flags} -L${lib_dir} -Wl,--whole-archive,")
-    foreach(LIB ${ARGN})
-      string(CONCAT link_flags ${link_flags} "-l${LIB},")
-    endforeach(LIB)
-    string(CONCAT link_flags ${link_flags} "--no-whole-archive")
-  endif()
-  set_target_properties(${target} PROPERTIES LINK_FLAGS ${link_flags})
-endfunction(whole_archive_link)
-
-# Function to construct LD_PRELOAD value for the shared libraries whose
-# static counterpart need --whole-archive linkage option.
-function(ld_preload_libs target lib_dir)
-  foreach(lib ${ARGN})
-    if("${${lib}}" STREQUAL "")
-      set(ONNX_MLIR_LD_PRELOAD_${target}
-	"${ONNX_MLIR_LD_PRELOAD_${target}}:${lib_dir}/lib${lib}.so"
-	CACHE STRING "" FORCE)
-    else()
-      set(ONNX_MLIR_LD_PRELOAD_${target}
-	"${ONNX_MLIR_LD_PRELOAD_${target}}:${${lib}}"
-	CACHE STRING "" FORCE)
-    endif()
-  endforeach(lib)
-endfunction(ld_preload_libs)
-
-function(whole_archive_link_mlir target)
-  if(BUILD_SHARED_LIBS)
-    ld_preload_libs(${target} ${LLVM_PROJECT_LIB} ${ARGN})
-  else()
-    whole_archive_link(${target} ${LLVM_PROJECT_LIB} ${ARGN})
-  endif()
-endfunction(whole_archive_link_mlir)
-
-function(whole_archive_link_onnx_mlir target)
-  foreach(lib_target ${ARGN})
-    add_dependencies(${target} ${lib_target})
-  endforeach(lib_target)
-  if(BUILD_SHARED_LIBS)
-    ld_preload_libs(${target} ${ONNX_MLIR_LIB_DIR} ${ARGN})
-  else()
-    whole_archive_link(${target} ${ONNX_MLIR_LIB_DIR} ${ARGN})
-  endif()
-endfunction(whole_archive_link_onnx_mlir)
 
 set(LLVM_CMAKE_DIR
         "${LLVM_PROJ_BUILD}/lib/cmake/llvm"

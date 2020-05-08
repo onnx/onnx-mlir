@@ -20,6 +20,15 @@ bool hasAllConstantDimensions(MemRefType type) {
   return true;
 }
 
+/// Check is all operands are scalar values at compile time.
+bool hasAllScalarValues(ArrayRef<Value> values) {
+  for (Value value : values) {
+    if (value.getType().cast<ShapedType>().getRank() != 0)
+      return false;
+  }
+  return true;
+}
+
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type) {
   MemRefType memRefType;
@@ -34,11 +43,21 @@ MemRefType convertToMemRefType(Type type) {
   return memRefType;
 }
 
+/// Retrieve function which contains the current operation.
+FuncOp getContainingFunction(Operation *op) {
+  Operation *parentFuncOp = op->getParentOp();
+
+  // While parent is not a FuncOp and its cast to a FuncOp is null.
+  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
+    parentFuncOp = parentFuncOp->getParentOp();
+
+  return cast<FuncOp>(parentFuncOp);
+}
+
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
-                                   PatternRewriter &rewriter,
-                                   bool insertDealloc,
-                                   ArrayRef<Value> operands) {
+    PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands,
+    int64_t alignment) {
   // Put together alloc operands for any dynamic dimensions of the memref.
   AllocOp alloc;
   if (!operands.empty()) {
@@ -64,10 +83,10 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
           auto operandDim =
               rewriter.create<DimOp>(loc, operands[i], operandDimIdx);
           if (maxDim) {
-            auto maxCondition = rewriter.create<CmpIOp>(loc, CmpIPredicate::sgt,
-                                                        operandDim, maxDim);
-            maxDim = rewriter.create<SelectOp>(loc, maxCondition, operandDim,
-                                               maxDim);
+            auto maxCondition = rewriter.create<CmpIOp>(
+                loc, CmpIPredicate::sgt, operandDim, maxDim);
+            maxDim = rewriter.create<SelectOp>(
+                loc, maxCondition, operandDim, maxDim);
           } else {
             maxDim = operandDim;
           }
@@ -80,9 +99,26 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     for (int i = 0; i < rank; ++i)
       if (memRefShape[i] < 0)
         allocOperands.push_back(fromOperands[i]);
-    alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
+    // Set alignment attribute. Default value is `-1`, which does not set
+    // alignment.
+    if (alignment >= 0) {
+      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
+      alloc =
+          rewriter.create<AllocOp>(loc, type, allocOperands, constAlignAttr);
+    } else {
+      alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
+    }
   } else {
-    alloc = rewriter.create<AllocOp>(loc, type);
+    // Set alignment attribute. Default value is `-1`, which does not set
+    // alignment.
+    if (alignment >= 0) {
+      SmallVector<Value, 4> allocOperandsEmpty;
+      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
+      alloc = rewriter.create<AllocOp>(
+          loc, type, allocOperandsEmpty, constAlignAttr);
+    } else {
+      alloc = rewriter.create<AllocOp>(loc, type);
+    }
   }
 
   // Make sure to allocate at the beginning of the block if
@@ -102,16 +138,14 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
 // inserted.
-bool checkInsertDealloc(Operation *currentOp) {
+bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   auto parentBlock = currentOp->getBlock();
 
   bool insertDealloc = true;
-  parentBlock->walk([&insertDealloc, currentOp](ReturnOp op) {
-    assert(currentOp->getNumResults() < 2 &&
-           "No more than one result supported (for now).");
+  parentBlock->walk([&insertDealloc, currentOp, resultIndex](ReturnOp op) {
     // If there is at least one result to investigate.
     if (currentOp->getNumResults() > 0) {
-      auto result = currentOp->getResult(0);
+      auto result = currentOp->getResult(resultIndex);
       for (const auto &operand : op.getOperands())
         if (operand == result)
           insertDealloc = false;
@@ -124,8 +158,8 @@ bool checkInsertDealloc(Operation *currentOp) {
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
 // type.
-std::map<int64_t, int64_t>
-getReductionMapping(MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims) {
+std::map<int64_t, int64_t> getReductionMapping(
+    MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims) {
   std::map<int64_t, int64_t> OutInDimMap;
   int64_t rank = inputTy.getRank();
 
@@ -154,9 +188,8 @@ getReductionMapping(MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims) {
 
 // Add bounds associated with the op operand to the KRNL iteration pack.
 // Dynamic dimenions are supported.
-void addDimensionToPack(ConversionPatternRewriter &rewriter,
-                               Location loc, KrnlIterateOperandPack &pack,
-                               Value operand, int index) {
+void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
+    KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
   if (shape[index] < 0) {
     pack.pushConstantBound(0);
@@ -168,62 +201,13 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter,
   }
 }
 
-// Function that defines the KRNL dialect loops and their respective
-// optimized version.
-KrnlOptimizeLoopsOp
-emitOptimizedLoops(ConversionPatternRewriter &rewriter, Location loc,
-                   std::vector<Value> &loops,
-                   std::vector<Value> &optimizedLoops, int64_t numLoops) {
-  // Define loops.
+// Function that emits the definition of loops references.
+void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
+    std::vector<Value> &loops, int64_t numLoops) {
   auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
   loops.reserve(numLoops);
   for (auto result : loopsOp.getResults())
     loops.push_back(result);
-
-  // Define optimized version of the loops.
-  auto optimizedLoopsOp = rewriter.create<KrnlOptimizeLoopsOp>(loc, numLoops);
-  optimizedLoops.reserve(numLoops);
-  for (auto result : optimizedLoopsOp.getResults())
-    optimizedLoops.push_back(result);
-
-  return optimizedLoopsOp;
-}
-
-// Function that emits the loops and their optimized version.
-// The function returns a reference to the inner optimization block.
-Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
-                          std::vector<Value> &loops,
-                          std::vector<Value> &optimizedLoops,
-                          int64_t numLoops) {
-  KrnlOptimizeLoopsOp optimizedLoopsOp =
-      emitOptimizedLoops(rewriter, loc, loops, optimizedLoops, numLoops);
-  return &optimizedLoopsOp.region().front();
-}
-
-// Function which emits a basic set of loops and optimized loops
-// for a given operation argument. A reference to the loop optimization
-// block is returned in the last argument of the function.
-void emitKrnlLoopsAndIterationForOperand(
-    ConversionPatternRewriter &rewriter, Location loc, Value operand,
-    std::vector<Value> &originalLoops, KrnlOptimizeLoopsOp &optimizedLoopsOp,
-    KrnlIterateOp &iterateOp) {
-  // Operand shape.
-  auto shape = operand.getType().cast<MemRefType>().getShape();
-
-  // Number of loops.
-  int64_t rank = shape.size();
-
-  // Define loops and optimized loops.
-  std::vector<Value> optimizedLoops;
-  optimizedLoopsOp =
-      emitOptimizedLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
-
-  KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
-  // Iterate over the loop nest.
-  for (int i = 0; i < rank; ++i)
-    addDimensionToPack(rewriter, loc, pack, operand, i);
-
-  iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
 }
 
 unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
@@ -242,9 +226,9 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
 
 // Get run-time dimension information for unknown dimensions used for
 // broadcasting.
-std::map<int, std::map<int, Value>>
-getBroadcastedDimInfo(Location loc, ConversionPatternRewriter &rewriter,
-                      MemRefType memRefType, ArrayRef<Value> operands) {
+std::map<int, std::map<int, Value>> getBroadcastedDimInfo(Location loc,
+    ConversionPatternRewriter &rewriter, MemRefType memRefType,
+    ArrayRef<Value> operands) {
   auto memRefShape = memRefType.getShape();
   int64_t rank = memRefShape.size();
   // For unknown dimensions, we need to get dimension values at runtime in
@@ -288,10 +272,9 @@ getBroadcastedDimInfo(Location loc, ConversionPatternRewriter &rewriter,
 
 // Extract induction variables that are used for broadcasting values of a
 // given operand.
-std::vector<Value>
-getLoopIVsForBroadcasting(Location loc, ConversionPatternRewriter &rewriter,
-                          ArrayRef<Value> loopIVs, Value operand,
-                          std::map<int, Value> broadcastedDims) {
+std::vector<Value> getLoopIVsForBroadcasting(Location loc,
+    ConversionPatternRewriter &rewriter, ArrayRef<Value> loopIVs, Value operand,
+    std::map<int, Value> broadcastedDims) {
   // `operand` must has a ranked type. This should have been checked by the
   // shape inference pass.
   auto operandShape = operand.getType().cast<MemRefType>().getShape();
@@ -312,8 +295,8 @@ getLoopIVsForBroadcasting(Location loc, ConversionPatternRewriter &rewriter,
       // If its value is 1, it is broadcasted dimension.
       // Otherwise, non-broadcasted dimension.
       auto zero = rewriter.create<ConstantIndexOp>(loc, 0);
-      auto idx = rewriter.create<SelectOp>(loc, broadcastedDims[dimIdx], zero,
-                                           loopIVs[loopIdx]);
+      auto idx = rewriter.create<SelectOp>(
+          loc, broadcastedDims[dimIdx], zero, loopIVs[loopIdx]);
       newLoopIVs.insert(newLoopIVs.begin(), idx);
     } else {
       // Non-broadcasted dimension
@@ -323,8 +306,8 @@ getLoopIVsForBroadcasting(Location loc, ConversionPatternRewriter &rewriter,
   return newLoopIVs;
 }
 
-Value emitConstantOp(ConversionPatternRewriter &rewriter, Location loc,
-    Type type, double value) {
+Value emitConstantOp(
+    PatternRewriter &rewriter, Location loc, Type type, double value) {
   Attribute constantAttr;
   auto typeKind = type.getKind();
   if (typeKind == StandardTypes::F16) {
@@ -344,7 +327,7 @@ Value emitConstantOp(ConversionPatternRewriter &rewriter, Location loc,
   } else if (typeKind == StandardTypes::Index) {
     constantAttr = rewriter.getIntegerAttr(type, (int64_t)value);
   } else {
-    emitError(loc, "unsupported element type");
+    llvm_unreachable("unsupported element type");
   }
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
@@ -409,10 +392,10 @@ Value emitPositiveInfinityConstantOp(
         constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
       }
     } else {
-      emitError(loc, "unsupported element type");
+      llvm_unreachable("unsupported element type");
     }
   } else {
-    emitError(loc, "unsupported element type");
+    llvm_unreachable("unsupported element type");
   }
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
@@ -477,10 +460,10 @@ Value emitNegativeInfinityConstantOp(
         constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
       }
     } else {
-      emitError(loc, "unsupported element type");
+      llvm_unreachable("unsupported element type");
     }
   } else {
-    emitError(loc, "unsupported element type");
+    llvm_unreachable("unsupported element type");
   }
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
@@ -488,4 +471,74 @@ Value emitNegativeInfinityConstantOp(
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
   return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+}
+
+bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
+  FuncOp function = getContainingFunction(allocOp->getOperation());
+
+  bool opIsUsedInGetRef = false;
+  function.walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
+    auto result = allocOp->getResult();
+    for (const auto &operand : op.getOperands())
+      if (operand == result)
+        opIsUsedInGetRef = true;
+  });
+
+  return opIsUsedInGetRef;
+}
+
+// TODO: support dynamic sizes.
+int64_t getMemRefSizeInBytes(Value val) {
+  auto memRefType = convertToMemRefType(val.getType());
+  auto memRefShape = memRefType.getShape();
+  int64_t size = 1;
+  for (int i = 0; i < memRefShape.size(); i++)
+    size *= memRefShape[i];
+  size *= getMemRefEltSizeInBytes(memRefType);
+  return size;
+}
+
+Value getDynamicMemRefSizeInBytes(
+    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp) {
+  // Initialize the size variable with the size in bytes of the type.
+  int64_t typeSize = getMemRefEltSizeInBytes(type);
+  Value result =
+      emitConstantOp(rewriter, loc, rewriter.getIndexType(), typeSize);
+
+  // Multiply all dimensions (constant and dynamic).
+  auto memRefShape = type.getShape();
+  auto rank = memRefShape.size();
+  int dynDimIdx = 0;
+  for (int idx = 0; idx < rank; ++idx) {
+    if (memRefShape[idx] < 0) {
+      // Dyanmic size.
+      auto dynamicDim = allocOp.getOperands()[dynDimIdx];
+      dynDimIdx++;
+      result = rewriter.create<MulIOp>(loc, result, dynamicDim);
+    } else {
+      // Static size.
+      auto staticDim = emitConstantOp(
+          rewriter, loc, rewriter.getIndexType(), memRefShape[idx]);
+      result = rewriter.create<MulIOp>(loc, result, staticDim);
+    }
+  }
+
+  return result;
+}
+
+int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
+  auto memRefShape =
+      convertToMemRefType(allocOp.getResult().getType()).getShape();
+  auto rank = memRefShape.size();
+
+  int dynDimIdx = 0;
+  for (int idx = 0; idx < rank; ++idx) {
+    if (memRefShape[idx] < 0) {
+      if (idx == index)
+        return dynDimIdx;
+      dynDimIdx++;
+    }
+  }
+
+  return -1;
 }

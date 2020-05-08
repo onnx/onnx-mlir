@@ -12,8 +12,8 @@ if(EXISTS ${LIBSTDCXX_LIB})
 endif()
 
 add_custom_target(check-onnx-backend
-        COMMAND LD_PRELOAD=${LD_PRELOADS} ${PYTHON_EXECUTABLE}
+        COMMAND ${PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_BINARY_DIR}/test.py)
 
 add_dependencies(check-onnx-backend onnx-mlir)
-add_dependencies(check-onnx-backend pyruntime)
+add_dependencies(check-onnx-backend PyRuntime)

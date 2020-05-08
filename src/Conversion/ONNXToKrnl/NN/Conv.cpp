@@ -1,4 +1,5 @@
-//===--------------- Conv.cpp - Lowering Convolution Op --------------------===//
+//===--------------- Conv.cpp - Lowering Convolution Op
+//--------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -19,7 +20,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
-    ONNXConvOpOperandAdaptor operandAdaptor(operands);
+    ONNXConvOpAdaptor operandAdaptor(operands);
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc;
@@ -106,7 +107,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // 1. Define outer loops and emit empty optimization block:
     int64_t nOuterLoops = (group > 1) ? 3 : 2;
     BuildKrnlLoop outerLoops(rewriter, loc, nOuterLoops);
-    outerLoops.createDefineAndOptimizeOp();
+    outerLoops.createDefineOp();
     //   for n = 0 .. N:
     int nIndex = outerLoops.pushBounds(0, inputOperand, 0);
     //   for g = 0 .. N:
@@ -128,16 +129,20 @@ struct ONNXConvOpLowering : public ConversionPattern {
       if (group > 1) {
         // Middle loop is over groups and third loop is over the
         // kernel identifiers in the current group.
-        auto kernelsOffset = rewriter.create<MulIOp>(
-            loc, outerLoops.getInductionVar(gIndex), kernelsPerGroupValue);
-        kernel = rewriter.create<AddIOp>(
-            loc, kernelsOffset, outerLoops.getInductionVar(mIndex));
+        AffineMap kernelMap = AffineMap::get(2, 1,
+            /*gIndex=*/rewriter.getAffineDimExpr(0) *
+                    /*kernelsPerGroup=*/rewriter.getAffineSymbolExpr(0) +
+                /*mIndex=*/rewriter.getAffineDimExpr(1));
+        kernel = rewriter.create<AffineApplyOp>(loc, kernelMap,
+            ArrayRef<Value>{/*gIndex=*/outerLoops.getInductionVar(gIndex),
+                /*kernelsPerGroupValue=*/kernelsPerGroupValue,
+                /*mIndex=*/outerLoops.getInductionVar(mIndex)});
       }
 
       // 2.2 Define spatial loops
       int64_t nSpatialLoops = resultShape.size() - 2;
       BuildKrnlLoop spatialLoops(rewriter, loc, nSpatialLoops);
-      spatialLoops.createDefineAndOptimizeOp();
+      spatialLoops.createDefineOp();
       for (int i = 2; i < resultShape.size(); ++i)
         spatialLoops.pushBounds(0, alloc, i);
 
@@ -158,12 +163,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
         for (auto arg : spatialLoops.getIterateBlock()->getArguments())
           resultIndices.emplace_back(arg);
         // Store initializer value into output location.
-        rewriter.create<StoreOp>(loc, zero, alloc, resultIndices);
+        rewriter.create<AffineStoreOp>(loc, zero, alloc, resultIndices);
 
         // 3.2 Define inner loops.
         int64_t nInnerLoops = 1 + (kernelShape.size() - 2);
         BuildKrnlLoop innerLoops(rewriter, loc, nInnerLoops);
-        innerLoops.createDefineAndOptimizeOp();
+        innerLoops.createDefineOp();
         //   for c = 0 .. C/group
         int cIndex = innerLoops.pushBounds(0, kernelShape[1]);
         //   for Kx = 0 .. KX
@@ -176,15 +181,16 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // Emit the bias, if needed.
         if (hasBias) {
           auto loadResult =
-              rewriter.create<LoadOp>(loc, alloc, resultIndices);
+              rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
           SmallVector<Value, 4> biasIndices;
           biasIndices.emplace_back(kernel);
           auto loadBias =
-              rewriter.create<LoadOp>(loc, biasOperand, kernel);
-          auto resultWithBias = rewriter.create<MulFOp>(
-            loc, loadResult, loadBias);
+              rewriter.create<AffineLoadOp>(loc, biasOperand, kernel);
+          auto resultWithBias =
+              rewriter.create<AddFOp>(loc, loadResult, loadBias);
           // Store initializer value into output location.
-          rewriter.create<StoreOp>(loc, resultWithBias, alloc, resultIndices);
+          rewriter.create<AffineStoreOp>(
+              loc, resultWithBias, alloc, resultIndices);
         }
 
         //
@@ -201,10 +207,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
           dataIndices.emplace_back(outerLoops.getInductionVar(nIndex));
           // g * (C / group) + c
           Value channelDepth = innerLoops.getInductionVar(cIndex);
-          if (group > 1)
-            channelDepth = rewriter.create<AddIOp>(loc, channelDepth,
-                rewriter.create<MulIOp>(
-                    loc, subchannels, outerLoops.getInductionVar(gIndex)));
+          if (group > 1) {
+            AffineMap indexMap = AffineMap::get(2, 1,
+                /*g=*/rewriter.getAffineDimExpr(0) *
+                        /*subchannel=*/rewriter.getAffineSymbolExpr(0) +
+                    /*c=*/rewriter.getAffineDimExpr(1));
+            channelDepth = rewriter.create<AffineApplyOp>(loc, indexMap,
+                ArrayRef<Value>{/*g=*/outerLoops.getInductionVar(gIndex),
+                    /*c=*/channelDepth, /*subchannel=*/subchannels});
+          }
           dataIndices.emplace_back(channelDepth);
           // sX * rX + kX
           auto stridesAttribute = convOp.stridesAttr();
@@ -216,12 +227,16 @@ struct ONNXConvOpLowering : public ConversionPattern {
           for (int i = 0; i < kernelShape.size() - 2; ++i) {
             Value spatialIndex = spatialLoops.getInductionVar(i);
             // If strides are present then emit the correct access index.
+            int stride = 1;
             if (stridesAttribute && strides[i] > 1)
-              spatialIndex = rewriter.create<MulIOp>(loc,
-                  rewriter.create<ConstantIndexOp>(loc, strides[i]),
-                  spatialLoops.getInductionVar(i));
-            dataIndices.emplace_back(rewriter.create<AddIOp>(
-                loc, spatialIndex, innerLoops.getInductionVar(i + 1)));
+              stride = strides[i];
+            AffineMap indexMap = AffineMap::get(2, 0,
+                /*sX=*/rewriter.getAffineDimExpr(0) * /*rX=*/stride +
+                    /*kX=*/rewriter.getAffineDimExpr(1));
+            Value outIV = rewriter.create<AffineApplyOp>(loc, indexMap,
+                ArrayRef<Value>{spatialLoops.getInductionVar(i),
+                    innerLoops.getInductionVar(i + 1)});
+            dataIndices.emplace_back(outIV);
           }
 
           // 4.2 Prepare indices for accessing the kernel tensor.
@@ -236,15 +251,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
           // 4.3 Compute convolution.
           auto loadData =
-              rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
+              rewriter.create<AffineLoadOp>(loc, inputOperand, dataIndices);
           auto loadKernel =
-              rewriter.create<LoadOp>(loc, kernelOperand, kernelIndices);
+              rewriter.create<AffineLoadOp>(loc, kernelOperand, kernelIndices);
           auto loadPartialSum =
-              rewriter.create<LoadOp>(loc, alloc, resultIndices);
+              rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
               rewriter.create<MulFOp>(loc, loadData, loadKernel));
           // 4.4 Store computed value into output location.
-          rewriter.create<StoreOp>(loc, result, alloc, resultIndices);
+          rewriter.create<AffineStoreOp>(loc, result, alloc, resultIndices);
         }
       }
     }
