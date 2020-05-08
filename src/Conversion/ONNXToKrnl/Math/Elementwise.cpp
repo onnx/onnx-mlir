@@ -474,6 +474,25 @@ Value emitScalarOpFor<ONNXAbsOp>(ConversionPatternRewriter &rewriter,
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXNegOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value operand = scalarOperands[0];
+
+  if (elementType.isa<FloatType>()) {
+    return rewriter.create<mlir::NegFOp>(loc, operand);
+  } else if (elementType.isa<IntegerType>()) {
+    auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+    return rewriter.create<mlir::SubIOp>(loc, zero, operand); // 0 - X = -X
+  } else {
+    emitError(loc, "unsupported element type");
+  }
+}
+
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -636,6 +655,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXNegOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXOrOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
