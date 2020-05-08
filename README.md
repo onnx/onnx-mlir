@@ -2,7 +2,7 @@
 The Open Neural Network Exchange implementation in MLIR.
 
 [![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)
-[![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/jacky82226.onnx-mlir?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=8&branchName=master)
+[![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)
 
 ## Prerequisites
 
