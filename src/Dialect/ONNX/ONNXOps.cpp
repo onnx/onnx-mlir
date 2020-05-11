@@ -701,6 +701,15 @@ bool ONNXMinOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Neg
+/// Infer the output shape of the ONNXNegOp. This method is required by the
+/// shape inference interface.
+bool ONNXNegOp::inferShapes() {
+  getResult().setType(getOperand().getType());
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
 // Identity
 /// Infer the output shape of the ONNXIdentityOp. This method is required by the
 /// shape inference interface.
