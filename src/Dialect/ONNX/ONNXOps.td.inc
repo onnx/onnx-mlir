@@ -1798,7 +1798,7 @@ def ONNXMultinomialOp:ONNX_Op<"Multinomial",
 }
 
 def ONNXNegOp:ONNX_Op<"Neg",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Neg operation";
   let description = [{
   "Neg takes one input data (Tensor<T>) and produces one output data"
