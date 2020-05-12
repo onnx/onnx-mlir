@@ -143,7 +143,7 @@ This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGu
 
 To build ONNX MLIR, use the following command:
 
-[same-as-file]: <> (utils/install-onnx-mlir.cmd)
+[same-as-file]: <> ({"ref": "utils/install-onnx-mlir.cmd", "skip-doc": 2})
 ```shell
 git clone --recursive https://github.com/onnx/onnx-mlir.git
 
