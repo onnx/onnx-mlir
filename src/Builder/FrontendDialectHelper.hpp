@@ -32,6 +32,10 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#if INCLUDE_ONNX_ML == 1
+#include "src/Dialect/MLONNX/MLONNXOps.hpp"
+#endif
+
 #include "onnx/onnx_pb.h"
 
 namespace onnx_mlir {
