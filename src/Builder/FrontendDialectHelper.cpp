@@ -12,8 +12,8 @@
 
 namespace onnx_mlir {
 
-void replaceAll(std::string &str, const std::string &from,
-                const std::string &to) {
+void replaceAll(
+    std::string &str, const std::string &from, const std::string &to) {
   if (from.empty())
     return;
   size_t start_pos = 0;
@@ -121,7 +121,6 @@ void InitializedTensorMapping::AddMapping(
   nameToInitializedTensor.emplace(name, tensor);
 }
 
-
 bool InitializedTensorMapping::ContainKey(std::string name) {
   return nameToInitializedTensor.count(name) != 0;
 }
@@ -131,49 +130,52 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
   // Initializer for input.
   onnx::TensorProto initializer = GetInitializedTensor(name);
 
-  // Tensor dimensions.
-  llvm::ArrayRef<int64_t> tensorDims(initializer.dims().data(),
-      initializer.dims().size());
-
   // Emit ConstantOp and record the mapping between the input and
   // the constant value.
   // Create value attribute.
-  mlir::DenseElementsAttr constantDenseAttribute;
-  mlir::Type elementType;
-  mlir::ShapedType tensorType;
-  switch (initializer.data_type()) {
-    case (onnx::TensorProto::FLOAT): {
-      const auto& arrayAttrInitializer =
-          CreateArrayAttribute<float>(initializer);
-      elementType = builder.getF32Type();
-      tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
-      constantDenseAttribute = mlir::DenseElementsAttr::get(
-          tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-      break;
-    }
-    case (onnx::TensorProto::INT32): {
-      const auto& arrayAttrInitializer =
-          CreateArrayAttribute<int32_t>(initializer);
-      elementType = builder.getIntegerType(32);
-      tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
-      constantDenseAttribute = mlir::DenseElementsAttr::get(
-          tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-      break;
-    }
-    case (onnx::TensorProto::INT64): {
-      const auto& arrayAttrInitializer =
-          CreateArrayAttribute<int64_t>(initializer);
-      elementType = builder.getIntegerType(64);
-      tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
-      constantDenseAttribute = mlir::DenseElementsAttr::get(
-          tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-      break;
-    }
-  }
+  mlir::DenseElementsAttr constantDenseAttribute =
+      onnxTensorProtoToDenseElmAttr(builder, initializer);
 
   // Create ConstantOp for dense array.
   return builder.create<mlir::ONNXConstantOp>(
-      loc, tensorType, nullptr, constantDenseAttribute);
+      loc, constantDenseAttribute.getType(), nullptr, constantDenseAttribute);
+}
+
+mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
+    mlir::OpBuilder &builder, const onnx::TensorProto &initializer) {
+  // Tensor dimensions.
+  llvm::ArrayRef<int64_t> tensorDims(
+      initializer.dims().data(), initializer.dims().size());
+  mlir::DenseElementsAttr denseElmAttr;
+  switch (initializer.data_type()) {
+  case (onnx::TensorProto::FLOAT): {
+    const auto &arrayAttrInitializer = CreateArrayAttribute<float>(initializer);
+    auto elmType = builder.getF32Type();
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
+    break;
+  }
+  case (onnx::TensorProto::INT32): {
+    const auto &arrayAttrInitializer =
+        CreateArrayAttribute<int32_t>(initializer);
+    auto elmType = builder.getIntegerType(32);
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
+    break;
+  }
+  case (onnx::TensorProto::INT64): {
+    const auto &arrayAttrInitializer =
+        CreateArrayAttribute<int64_t>(initializer);
+    auto elmType = builder.getIntegerType(64);
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
+    break;
+  }
+  }
+  return denseElmAttr;
 }
 
 } // namespace onnx_mlir

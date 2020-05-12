@@ -137,105 +137,6 @@ private:
     frontend_symbols_.AddMapping(input_tensor_legalized_name, symbol);
   }
 
-  template <typename T>
-  struct OnnxTensorProto {
-    std::vector<T> data;
-    std::vector<int64_t> shape;
-  };
-
-  template <typename T>
-  struct OnnxAttrTypeTrait {
-    typedef T scalarTy;
-    typedef std::vector<T> arrayTy;
-    typedef OnnxTensorProto<T> tensorTy;
-  };
-
-  template <typename T>
-  struct OnnxAttr {
-    std::string name;
-    T value;
-  };
-
-  typedef bstd::variant<OnnxAttrTypeTrait<int64_t>::scalarTy,
-      OnnxAttrTypeTrait<int64_t>::arrayTy, OnnxAttrTypeTrait<int64_t>::tensorTy,
-      OnnxAttrTypeTrait<float>::scalarTy, OnnxAttrTypeTrait<float>::arrayTy,
-      OnnxAttrTypeTrait<float>::tensorTy,
-      OnnxAttrTypeTrait<std::string>::scalarTy,
-      OnnxAttrTypeTrait<std::string>::arrayTy>
-      AttrValueType;
-
-  struct ONNXAttrVisitor {
-    ONNXAttrVisitor(std::string name, mlir::OpBuilder &builder)
-        : _builder(builder), _name(std::move(name)) {}
-
-    // Op builder.
-    mlir::OpBuilder &_builder;
-
-    // Name of the attribute being inspected.
-    std::string _name;
-
-    //        template <typename T>
-    //        mlir::NamedAttribute operator()(T const &r) {
-    //            mlir::Attribute val;
-    //            if (std::is_integral<T>::value)
-    //                val = _builder.getI64IntegerAttr(r);
-    //            if (std::is_floating_point<T>::value)
-    //                val = _builder.getF32Attr(r);
-    //            return _builder.getNamedAttr(_name, val);
-    //        }
-
-    mlir::NamedAttribute operator()(int64_t const &r) {
-      auto val = _builder.getI64IntegerAttr(r);
-      return _builder.getNamedAttr(_name, val);
-    }
-
-    mlir::NamedAttribute operator()(std::vector<int64_t> const &ints) {
-      auto val = _builder.getI64ArrayAttr(ints);
-      return _builder.getNamedAttr(_name, val);
-    }
-
-    mlir::NamedAttribute operator()(float const &r) {
-      auto val = _builder.getF32FloatAttr(r);
-      return _builder.getNamedAttr(_name, val);
-    }
-
-    mlir::NamedAttribute operator()(std::vector<float> const &floats) {
-      auto val = _builder.getF32ArrayAttr(floats);
-      return _builder.getNamedAttr(_name, val);
-    }
-
-    mlir::NamedAttribute operator()(std::string const &s) {
-      auto val = _builder.getStringAttr(s);
-      return _builder.getNamedAttr(_name, val);
-    }
-
-    mlir::NamedAttribute operator()(std::vector<std::string> const &r) {
-      llvm_unreachable("Array of string attribute is not implemented.");
-    };
-
-    mlir::NamedAttribute operator()(OnnxTensorProto<float> const &tensor) {
-      auto attr = mlir::DenseElementsAttr::get(
-          mlir::RankedTensorType::get(tensor.shape, _builder.getF32Type()),
-          llvm::makeArrayRef(tensor.data));
-      return _builder.getNamedAttr(_name, attr);
-    };
-
-    mlir::NamedAttribute operator()(OnnxTensorProto<int64_t> const &tensor) {
-
-      auto attr =
-          mlir::DenseElementsAttr::get(mlir::RankedTensorType::get(tensor.shape,
-                                           _builder.getIntegerType(64)),
-              llvm::makeArrayRef(tensor.data));
-      return _builder.getNamedAttr(_name, attr);
-    }
-  };
-
-  mlir::NamedAttribute convertNameValuePairToNamedAttribute(
-      std::pair<std::string, AttrValueType> nameAndVal) {
-    auto visitor = ONNXAttrVisitor(nameAndVal.first, builder_);
-    return mpark::visit(visitor, nameAndVal.second);
-  }
-
   mlir::NamedAttribute convertAttributeProtoToNameValuePair(
       onnx::AttributeProto &attr) {
     mlir::Attribute mlirAttr;
@@ -257,38 +158,13 @@ private:
       mlirAttr = builder_.getI64ArrayAttr(
           llvm::makeArrayRef(attr.ints().begin(), attr.ints().end()));
       break;
-      //
-      //      // Tensor attribute types:
-      //    case onnx::AttributeProto::TENSOR: {
-      //      assert(attr.t().data_type() == onnx::TensorProto::FLOAT ||
-      //             attr.t().data_type() == onnx::TensorProto::INT64);
-      //      assert(attr.t().has_raw_data());
-      //      auto rawDataStr = attr.t().raw_data();
-      //      auto rawDataVec = std::vector<char>(rawDataStr.begin(),
-      //      rawDataStr.end());
-      //
-      //      if (attr.t().data_type() == onnx::TensorProto::FLOAT) {
-      //        auto rawDataPtrStart = reinterpret_cast<float
-      //        *>(&rawDataVec[0]); auto data =
-      //        std::vector<float>(rawDataPtrStart,
-      //            rawDataPtrStart + rawDataVec.size() / sizeof(float));
-      //        auto dims = attr.t().dims();
-      //        val = AttrValueType(OnnxTensorProto<float>{.data = data,
-      //            .shape = std::vector<int64_t>(dims.begin(), dims.end())});
-      //        return std::make_pair(attr.name(), val);
-      //      } else {
-      //        auto rawDataPtrStart = reinterpret_cast<int64_t
-      //        *>(&rawDataVec[0]); auto data =
-      //        std::vector<int64_t>(rawDataPtrStart,
-      //            rawDataPtrStart + rawDataVec.size() / sizeof(int64_t));
-      //        auto dims = attr.t().dims();
-      //        val = AttrValueType(OnnxTensorProto<int64_t>{.data = data,
-      //            .shape = std::vector<int64_t>(dims.begin(), dims.end())});
-      //        return std::make_pair(attr.name(), val);
-      //      }
-      //    }
+      // Tensor attribute types:
+    case onnx::AttributeProto::TENSOR: {
+      mlirAttr = onnxTensorProtoToDenseElmAttr(builder_, attr.t());
+      break;
+    }
     default:
-      assert(false && "datatype for attribute is not implemented");
+      llvm_unreachable("datatype for attribute is not implemented");
       break;
     }
     return builder_.getNamedAttr(attr.name(), mlirAttr);
