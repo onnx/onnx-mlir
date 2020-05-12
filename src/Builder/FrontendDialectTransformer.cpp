@@ -63,17 +63,21 @@ private:
     case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
       return builder_.getF64Type();
     case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
+      return builder_.getIntegerType(/*width=*/8, /*isSigned=*/true);
     case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
-      return builder_.getIntegerType(8);
+      return builder_.getIntegerType(/*width=*/8, /*isSigned=*/false);
     case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
+      return builder_.getIntegerType(/*width=*/16, /*isSigned=*/true);
     case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
-      return builder_.getIntegerType(16);
+      return builder_.getIntegerType(/*width=*/16, /*isSigned=*/false);
     case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
+      return builder_.getIntegerType(/*width=*/32, /*isSigned=*/true);
     case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
-      return builder_.getIntegerType(32);
+      return builder_.getIntegerType(/*width=*/32, /*isSigned=*/false);
     case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
+      return builder_.getIntegerType(/*width=*/64, /*isSigned=*/true);
     case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
-      return builder_.getIntegerType(64);
+      return builder_.getIntegerType(/*width=*/64, /*isSigned=*/false);
     case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
       return builder_.getI1Type();
 
@@ -137,6 +141,13 @@ private:
   }
 
   template <typename T>
+  struct OnnxAttrProto {
+    std::string name;
+    T value;
+  };
+
+  typedef std::vector<float> Vector;
+  template <typename T>
   struct OnnxTensorProto {
     std::vector<T> data;
     std::vector<int64_t> shape;
@@ -157,10 +168,16 @@ private:
     // Name of the attribute being inspected.
     std::string _name;
 
-    mlir::NamedAttribute operator()(int64_t const &r) {
-      auto val = _builder.getI64IntegerAttr(r);
-      return _builder.getNamedAttr(_name, val);
+    template <typename T>
+    mlir::NamedAttribute operator()(T const &r) {
+        auto val = _builder.getI64IntegerAttr(r);
+        return _builder.getNamedAttr(_name, val);
     }
+//
+//    mlir::NamedAttribute operator()(int64_t const &r) {
+//      auto val = _builder.getI64IntegerAttr(r);
+//      return _builder.getNamedAttr(_name, val);
+//    }
 
     mlir::NamedAttribute operator()(std::vector<int64_t> const &ints) {
       auto val = _builder.getI64ArrayAttr(ints);
@@ -183,9 +200,7 @@ private:
     }
 
     mlir::NamedAttribute operator()(std::vector<std::string> const &r) {
-      assert(false && "type of attribute value is not implemented");
-      auto val = _builder.getI32IntegerAttr(1);
-      return _builder.getNamedAttr(_name, val);
+      llvm_unreachable("Array of string attribute is not implemented.");
     };
 
     mlir::NamedAttribute operator()(OnnxTensorProto<float> const &tensor) {
@@ -215,12 +230,15 @@ private:
   convertAttributeProtoToNameValuePair(onnx::AttributeProto &attr) {
     AttrValueType val;
     switch (attr.type()) {
+      // Scalar attribute types:
     case onnx::AttributeProto::FLOAT:
       return std::make_pair(attr.name(), AttrValueType(attr.f()));
     case onnx::AttributeProto::INT:
       return std::make_pair(attr.name(), AttrValueType(attr.i()));
     case onnx::AttributeProto::STRING:
       return std::make_pair(attr.name(), AttrValueType(attr.s()));
+
+      // Vector attribute types:
     case onnx::AttributeProto::FLOATS:
       val = AttrValueType(
           std::vector<float>(attr.floats().begin(), attr.floats().end()));
@@ -229,6 +247,8 @@ private:
       val = AttrValueType(
           std::vector<int64_t>(attr.ints().begin(), attr.ints().end()));
       return std::make_pair(attr.name(), val);
+
+      // Tensor attribute types:
     case onnx::AttributeProto::TENSOR: {
       assert(attr.t().data_type() == onnx::TensorProto::FLOAT ||
              attr.t().data_type() == onnx::TensorProto::INT64);
@@ -240,8 +260,6 @@ private:
         auto rawDataPtrStart = reinterpret_cast<float *>(&rawDataVec[0]);
         auto data = std::vector<float>(rawDataPtrStart,
             rawDataPtrStart + rawDataVec.size() / sizeof(float));
-        for (int i = 0; i < data.size(); i++)
-          std::cout << data[i] << std::endl;
         auto dims = attr.t().dims();
         val = AttrValueType(OnnxTensorProto<float>{.data = data,
             .shape = std::vector<int64_t>(dims.begin(), dims.end())});
@@ -250,8 +268,6 @@ private:
         auto rawDataPtrStart = reinterpret_cast<int64_t *>(&rawDataVec[0]);
         auto data = std::vector<int64_t>(rawDataPtrStart,
             rawDataPtrStart + rawDataVec.size() / sizeof(int64_t));
-        for (int i = 0; i < data.size(); i++)
-          std::cout << data[i] << std::endl;
         auto dims = attr.t().dims();
         val = AttrValueType(OnnxTensorProto<int64_t>{.data = data,
             .shape = std::vector<int64_t>(dims.begin(), dims.end())});
