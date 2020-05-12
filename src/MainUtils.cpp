@@ -11,7 +11,12 @@
 #include "src/MainUtils.hpp"
 #include <fcntl.h>
 #include <stdio.h>
+
+#ifdef _WIN32
+#include <io.h>
+#else 
 #include <unistd.h>
+#endif
 
 using namespace std;
 using namespace onnx_mlir;
@@ -106,13 +111,23 @@ void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
   // Start a separate process to redirect the model output. I/O redirection
   // changes will not be visible to the parent process.
+  string tempFilename = filename + extension;
+#ifdef _WIN32
+  // copy original stderr file number
+  int stderrOrigin = _dup(_fileno(stderr));
+  freopen(tempFilename.c_str(), "w", stderr);
+  module->dump();
+  fflush(stderr);
+  // set modified stderr as original stderr
+  _dup2(stderrOrigin, _fileno( stderr ));
+#else 
   if (fork() == 0) {
-    const char * tempFilename = (filename + extension).c_str();
-    freopen(tempFilename, "w", stderr);
+    freopen(tempFilename.c_str(), "w", stderr);
     module->dump();
     fclose(stderr);
     exit(0);
   }
+#endif
 }
 
 void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
