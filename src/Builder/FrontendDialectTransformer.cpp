@@ -63,21 +63,17 @@ private:
     case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
       return builder_.getF64Type();
     case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
-      return builder_.getIntegerType(/*width=*/8, /*isSigned=*/true);
     case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
-      return builder_.getIntegerType(/*width=*/8, /*isSigned=*/false);
+      return builder_.getIntegerType(/*width=*/8);
     case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
-      return builder_.getIntegerType(/*width=*/16, /*isSigned=*/true);
     case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
-      return builder_.getIntegerType(/*width=*/16, /*isSigned=*/false);
+      return builder_.getIntegerType(/*width=*/16);
     case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
-      return builder_.getIntegerType(/*width=*/32, /*isSigned=*/true);
     case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
-      return builder_.getIntegerType(/*width=*/32, /*isSigned=*/false);
+      return builder_.getIntegerType(/*width=*/32);
     case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
-      return builder_.getIntegerType(/*width=*/64, /*isSigned=*/true);
     case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
-      return builder_.getIntegerType(/*width=*/64, /*isSigned=*/false);
+      return builder_.getIntegerType(/*width=*/64);
     case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
       return builder_.getI1Type();
 
@@ -141,21 +137,30 @@ private:
   }
 
   template <typename T>
-  struct OnnxAttrProto {
-    std::string name;
-    T value;
-  };
-
-  typedef std::vector<float> Vector;
-  template <typename T>
   struct OnnxTensorProto {
     std::vector<T> data;
     std::vector<int64_t> shape;
   };
 
-  typedef bstd::variant<int64_t, std::vector<int64_t>, float,
-      std::vector<float>, std::string, std::vector<std::string>,
-      OnnxTensorProto<float>, OnnxTensorProto<int64_t>>
+  template <typename T>
+  struct OnnxAttrTyTriplet {
+    typedef T scalarTy;
+    typedef std::vector<T> arrayTy;
+    typedef OnnxTensorProto<T> tensorTy;
+  };
+
+  template <typename T>
+  struct OnnxAttr {
+    std::string name;
+    T value;
+  };
+
+  typedef bstd::variant<OnnxAttrTyTriplet<int64_t>::scalarTy,
+      OnnxAttrTyTriplet<int64_t>::arrayTy, OnnxAttrTyTriplet<int64_t>::tensorTy,
+      OnnxAttrTyTriplet<float>::scalarTy, OnnxAttrTyTriplet<float>::arrayTy,
+      OnnxAttrTyTriplet<float>::tensorTy,
+      OnnxAttrTyTriplet<std::string>::scalarTy,
+      OnnxAttrTyTriplet<std::string>::arrayTy>
       AttrValueType;
 
   struct ONNXAttrVisitor {
@@ -168,16 +173,16 @@ private:
     // Name of the attribute being inspected.
     std::string _name;
 
-    template <typename T>
-    mlir::NamedAttribute operator()(T const &r) {
-        auto val = _builder.getI64IntegerAttr(r);
-        return _builder.getNamedAttr(_name, val);
+    //    template <typename T>
+    //    mlir::NamedAttribute operator()(T const &r) {
+    //        auto val = _builder.getI64IntegerAttr(r);
+    //        return _builder.getNamedAttr(_name, val);
+    //    }
+
+    mlir::NamedAttribute operator()(int64_t const &r) {
+      auto val = _builder.getI64IntegerAttr(r);
+      return _builder.getNamedAttr(_name, val);
     }
-//
-//    mlir::NamedAttribute operator()(int64_t const &r) {
-//      auto val = _builder.getI64IntegerAttr(r);
-//      return _builder.getNamedAttr(_name, val);
-//    }
 
     mlir::NamedAttribute operator()(std::vector<int64_t> const &ints) {
       auto val = _builder.getI64ArrayAttr(ints);
