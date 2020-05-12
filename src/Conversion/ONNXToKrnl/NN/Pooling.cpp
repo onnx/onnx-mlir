@@ -60,7 +60,7 @@ std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
   bool isDefaultDilations = true;
   for (auto dilation : dilationsAttribute.getValue()) {
     int64_t dilationValue = dilation.cast<IntegerAttr>().getInt();
-    if (dilationValue > 1 and isDefaultDilations)
+    if (dilationValue > 1 && isDefaultDilations)
       isDefaultDilations = false;
     dilations.emplace_back(dilationValue);
   }
