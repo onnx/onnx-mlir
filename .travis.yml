@@ -1,12 +1,14 @@
 sudo: required
 services:
   - docker
+  
 stages:
   - setupVM
   - installLLVM
   - compileLLVM
   - compileONNX-MLIR
   - test
+  
 language: cpp
 dist: bionic
 jobs:
