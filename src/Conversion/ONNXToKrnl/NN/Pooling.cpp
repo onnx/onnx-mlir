@@ -459,7 +459,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         poolDimMap = AffineMap::get(1, 5, dimExpr, rewriter.getContext());
 
         // poolStartMap and poolEndMap
-        poolStartMap = AffineMap::get(1, 5, {start1, start2}, rewriter.getContext());
+        poolStartMap =
+            AffineMap::get(1, 5, {start1, start2}, rewriter.getContext());
         poolEndMap = AffineMap::get(1, 5, {end1, end2}, rewriter.getContext());
       }
 

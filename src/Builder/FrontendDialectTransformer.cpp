@@ -127,8 +127,8 @@ private:
    * @param input onnx input tensor ValueInfoProto.
    * @param symbol mlir input argument.
    */
-  void ImportInputTensorSymbol(const onnx::ValueInfoProto &input,
-                               mlir::Value symbol) {
+  void ImportInputTensorSymbol(
+      const onnx::ValueInfoProto &input, mlir::Value symbol) {
     auto input_tensor_legalized_name = legalize_name(input.name());
     assert(!frontend_symbols_.ContainKey(input_tensor_legalized_name) &&
            "Found duplicate legalized input tensor names.");
@@ -136,8 +136,7 @@ private:
   }
 
   typedef bstd::variant<int64_t, std::vector<int64_t>, float,
-                        std::vector<float>, std::string,
-                        std::vector<std::string>>
+      std::vector<float>, std::string, std::vector<std::string>>
       AttrValueType;
 
   struct ONNXAttrVisitor {
@@ -213,8 +212,8 @@ private:
     llvm_unreachable("Failed to convert attribute proto to name/value pair");
   }
 
-  std::vector<mlir::NamedAttribute>
-  ImportNodeAttributes(const onnx::NodeProto &node) {
+  std::vector<mlir::NamedAttribute> ImportNodeAttributes(
+      const onnx::NodeProto &node) {
     std::vector<mlir::NamedAttribute> attributes;
     for (int i = 0; i < node.attribute_size(); ++i) {
       auto attr = node.attribute(i);
@@ -281,26 +280,25 @@ private:
     // TODO: Handle optional inputs.
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
     for (int i = 0; i < node.output().size(); i++) {
-      frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
-                                   *(op.getODSResults(i).begin()));
+      frontend_symbols_.AddMapping(
+          legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));
     }
   }
 
   template <typename T>
-  void buildOperation(const onnx::NodeProto &node,
-                      int expectedNumOperands = -1,
-                      int expectedNumResults = -1) {
+  void buildOperation(const onnx::NodeProto &node, int expectedNumOperands = -1,
+      int expectedNumResults = -1) {
     std::vector<mlir::Value> inputs;
     for (const auto &item : node.input())
       if (initializedTensors.ContainKey(legalize_name(item))) {
         inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-                              UnknownLoc(), builder_, legalize_name(item)));
+            UnknownLoc(), builder_, legalize_name(item)));
       } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
 
-    buildOutputAndOperation<T>(node, inputs, expectedNumOperands,
-        expectedNumResults);
+    buildOutputAndOperation<T>(
+        node, inputs, expectedNumOperands, expectedNumResults);
   }
 
   void ImportNodeReshape(onnx::NodeProto node, int nIn, int nOut) {
@@ -310,9 +308,8 @@ private:
       item = node.input()[i];
       // For the second argument, check if there exists an initializer.
       if (initializedTensors.ContainKey(legalize_name(item))) {
-          inputs.push_back(
-                initializedTensors.EmitInitializerForInputTensor(
-                    UnknownLoc(), builder_, legalize_name(item)));
+        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+            UnknownLoc(), builder_, legalize_name(item)));
       } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
@@ -384,8 +381,8 @@ private:
    *   output tensor.
    */
   void ImportOutputTensor(const onnx::ValueInfoProto &output,
-                          llvm::SmallVectorImpl<mlir::Type> &ret_types,
-                          llvm::SmallVectorImpl<mlir::Value> &ret_vals) {
+      llvm::SmallVectorImpl<mlir::Type> &ret_types,
+      llvm::SmallVectorImpl<mlir::Value> &ret_vals) {
     auto output_tensor_legalized_name = legalize_name(output.name());
     assert(frontend_symbols_.ContainKey(output_tensor_legalized_name) &&
            "Output tensor not found");
@@ -396,8 +393,8 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
-  void ImportGraph(const onnx::GraphProto &graph,
-                   const std::string &name = "main_graph") {
+  void ImportGraph(
+      const onnx::GraphProto &graph, const std::string &name = "main_graph") {
     // Maintain a mapping between the parameter and its initializer.
     for (auto initializer : graph.initializer()) {
       auto name = initializer.name();
@@ -422,8 +419,7 @@ private:
 
     // Emit the entry point operation which specifies the number of user
     // inputs and outputs.
-    auto entryPoint = mlir::ONNXEntryPointOp::create(
-        UnknownLoc(), mainFunc,
+    auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
         /*numInputs=*/graph.input().size() - graph.initializer().size(),
         /*numOutputs=*/graph.output().size());
 
@@ -450,8 +446,8 @@ private:
 
     // Create a NoneTyped constant to be used for optional operation inputs
     // which are not used.
-    none_ = builder_.create<mlir::ConstantOp>(UnknownLoc(),
-        builder_.getUnitAttr());
+    none_ =
+        builder_.create<mlir::ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
 
     // Import nodes in the graph.
     for (const auto &item : graph.node()) {
@@ -479,8 +475,7 @@ private:
 namespace onnx_mlir {
 
 void ImportFrontendModelFile(std::string model_fname,
-                             mlir::MLIRContext &context,
-                             mlir::OwningModuleRef &module) {
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
 

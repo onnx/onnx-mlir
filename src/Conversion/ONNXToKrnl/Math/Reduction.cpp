@@ -102,9 +102,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
   ONNXReductionOpLowering(MLIRContext *ctx)
       : ConversionPattern(ONNXReductionOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     /*
      * Condition: reduction function must be associative and commutative.
      *
