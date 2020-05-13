@@ -356,6 +356,11 @@ test_to_enable = [
     "test_averagepool_2d_strides_cpu",
     "test_averagepool_3d_default_cpu",
 
+    # LSTM
+    "test_lstm_defaults_cpu",
+    "test_lstm_with_initial_bias_cpu",
+    "test_lstm_with_peepholes_cpu",
+
 ]
 
 # Extract name of all test cases.
