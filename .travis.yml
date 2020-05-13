@@ -24,7 +24,14 @@ jobs:
         - docker exec build before_install.sh $(pwd)
         - docker export build > buildimage.tar
         - ls -al
+              workspaces:
+        create:
+          name: ws1
+          paths:
+            - buildimage.tar
     - stage: installLLVM
+      workspaces: 
+        use: ws1
       script: 
         - pwd
         - ls -al
