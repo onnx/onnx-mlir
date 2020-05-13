@@ -1,21 +1,37 @@
 #include "Runtime.hpp"
 
-ExecutionSession::ExecutionSession(std::string sharedLibPath,
-                                   std::string entryPointName) {
+ExecutionSession::ExecutionSession(
+    std::string sharedLibPath, std::string entryPointName) {
   _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY);
+  if (!_sharedLibraryHandle) {
+    std::stringstream errStr;
+    errStr << "Cannot open library: " << dlerror() << std::endl;
+    throw std::runtime_error(errStr.str());
+  }
+
+  // reset errors
+  dlerror();
   _entryPointFunc =
       (entryPointFuncType)dlsym(_sharedLibraryHandle, entryPointName.c_str());
+  auto *dlsymError = dlerror();
+  if (dlsymError) {
+    std::stringstream errStr;
+    errStr << "Cannot load symbol '" << entryPointName << "': " << dlsymError
+           << std::endl;
+    dlclose(_sharedLibraryHandle);
+    throw std::runtime_error(errStr.str());
+  }
 }
 
-std::vector<py::array>
-ExecutionSession::run(std::vector<py::array> inputsPyArray) {
-  assert(_entryPointFunc && "entry point not loaded");
+std::vector<py::array> ExecutionSession::run(
+    std::vector<py::array> inputsPyArray) {
+  assert(_entryPointFunc && "Entry point not loaded.");
   auto *wrappedInput = createOrderedDynMemRefDict();
   int inputIdx = 0;
   for (auto inputPyArray : inputsPyArray) {
     auto *inputDynMemRef = createDynMemRef(inputPyArray.ndim());
     assert(inputPyArray.flags() && py::array::c_style &&
-           "expect contiguous python array");
+           "Expect contiguous python array.");
 
     if (inputPyArray.writeable()) {
       inputDynMemRef->data = inputPyArray.mutable_data();
@@ -40,8 +56,8 @@ ExecutionSession::run(std::vector<py::array> inputsPyArray) {
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
   for (int i = 0; i < numDynMemRefs(wrappedOutput); i++) {
     auto *dynMemRef = getDynMemRef(wrappedOutput, i);
-    auto shape = std::vector<int64_t>(dynMemRef->sizes,
-                                      dynMemRef->sizes + dynMemRef->rank);
+    auto shape = std::vector<int64_t>(
+        dynMemRef->sizes, dynMemRef->sizes + dynMemRef->rank);
     outputPyArrays.emplace_back(
         py::array(py::dtype("float32"), shape, dynMemRef->data));
   }
