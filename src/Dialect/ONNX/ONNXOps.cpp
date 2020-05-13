@@ -1658,6 +1658,79 @@ bool ONNXLSTMOp::inferShapes() { return RNNShapeInference<>(this); }
 bool ONNXGRUOp::inferShapes() { return RNNShapeInference<>(this); }
 
 //===----------------------------------------------------------------------===//
+// Split
+
+bool ONNXSplitOp::inferShapes() {
+  if (!getOperand().getType().cast<RankedTensorType>()) {
+    emitError("Input tensor not ranked");
+    return false;
+  }
+
+  int numOfResults = getNumResults();
+  auto inputType = getOperand().getType().cast<RankedTensorType>();
+  auto inputShape = inputType.getShape();
+  int64_t inputRank = inputShape.size();
+
+  // Checking value of axis parameter.
+  auto axisIndex = axis().getSExtValue();
+  if (axisIndex < -inputRank || axisIndex >= inputRank) {
+    emitError("Split axis value out of bound");
+    return false;
+  }
+  // Negative axis means values are counted from the opposite side.
+  if (axisIndex < 0) {
+    axisIndex = inputRank + axisIndex;
+    auto builder = mlir::Builder(getContext());
+    axisAttr(builder.getI64IntegerAttr(axisIndex));
+  }
+
+  // Checking value of split parameter.
+  auto splitAttribute = split();
+  SmallVector<int64_t, 4> splitLengths;
+  if (splitAttribute.hasValue()) {
+    if (ArrayAttrSize(splitAttribute) != numOfResults) {
+      emitError("Split size not equal to the number of results");
+    }
+    for (int i = 0; i < numOfResults; ++i)
+      splitLengths.emplace_back(ArrayAttrIntVal(splitAttribute, i));
+
+  } else {
+    if (inputShape[axisIndex] <= 0) {
+      emitError("The dimension at the split axis is expected to be known at "
+                "compile time");
+      return false;
+    }
+    if (inputShape[axisIndex] % numOfResults != 0) {
+      emitError("The dimension at the split axis is expected to be divisible "
+                "by the number of results");
+      return false;
+    }
+    // If split parameter is not specified, the dimension is split to
+    // equal-sized parts.
+    for (int i = 0; i < numOfResults; ++i)
+      splitLengths.emplace_back(inputShape[axisIndex] / numOfResults);
+    // Build attribute and store attribute.
+    auto builder = mlir::Builder(getContext());
+    splitAttr(builder.getI64ArrayAttr(llvm::makeArrayRef(splitLengths)));
+  }
+
+  // Build result types.
+  for (int i = 0; i < numOfResults; ++i) {
+    SmallVector<int64_t, 3> resultShape;
+    for (int j = 0; j < inputRank; ++j) {
+      if (j == axisIndex) {
+        resultShape.emplace_back(splitLengths[i]);
+      } else {
+        resultShape.emplace_back(inputShape[j]);
+      }
+    }
+    getResults()[i].setType(
+        RankedTensorType::get(resultShape, inputType.getElementType()));
+  }
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 

@@ -64,7 +64,7 @@ OpsWithShapeInference = [
     'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
     'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
     'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
-    'LSTM', 'GRU'
+    'LSTM', 'GRU', 'Split'
 ]
 
 # Operations supporting canonicalization.
