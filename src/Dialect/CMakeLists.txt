@@ -1,2 +1,5 @@
 add_subdirectory(Krnl)
 add_subdirectory(ONNX)
+if (INCLUDE_ONNX_ML)
+  add_subdirectory(MLONNX)
+endif()

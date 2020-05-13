@@ -36,11 +36,10 @@ namespace onnx_mlir {
  *  @return MLIR::module generated for the ONNX model.
  */
 void ImportFrontendModelFile(std::string model_fname,
-                             mlir::MLIRContext &context,
-                             mlir::OwningModuleRef &module);
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module);
 
 /*!
  *  TODO: Import models into other extension dialects that cover the
  *  operations specific to other frameworks such as Tensorflow or Pytorch.
  */
-}  // namespace onnx_mlir
+} // namespace onnx_mlir

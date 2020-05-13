@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp"
 
 using namespace mlir;
@@ -20,4 +19,3 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 #include "src/Interface/PromotableConstOperandsOpInterface.cpp.inc"
-

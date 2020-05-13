@@ -1,10 +1,10 @@
-//===-------------------- ONNXOps.hpp - ONNX Operations -------------------===//
+//===----------------- MLONNXOps.hpp - ONNX ML Operations ----_------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file defines ONNX operations in the MLIR operation set.
+// This file defines ONNX ML operations in the MLIR operation set.
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,9 +24,9 @@
 
 namespace mlir {
 
-class ONNXOpsDialect : public Dialect {
+class MLONNXOpsDialect : public Dialect {
 public:
-  ONNXOpsDialect(MLIRContext *context);
+  MLONNXOpsDialect(MLIRContext *context);
 
   /// Provide a utility accessor to the dialect namespace. This is used by
   /// several utilities for casting between dialects.
@@ -36,7 +36,7 @@ public:
 /// Include the auto-generated header file containing the declarations of the
 /// ONNX operations.
 #define GET_OP_CLASSES
-#include "src/Dialect/ONNX/ONNXOps.hpp.inc"
+#include "src/Dialect/MLONNX/MLONNXOps.hpp.inc"
 
 } // end namespace mlir
 

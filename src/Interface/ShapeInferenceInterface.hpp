@@ -18,4 +18,4 @@ namespace mlir {
 /// Include the auto-generated declarations.
 #include "src/Interface/ShapeInference.hpp.inc"
 
-}  // end namespace mlir
+} // end namespace mlir

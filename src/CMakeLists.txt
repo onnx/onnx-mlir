@@ -43,6 +43,11 @@ target_link_libraries(onnx-mlir
         ${MLIRLibs}
         ${CMAKE_DL_LIBS})
 
+if (INCLUDE_ONNX_ML)
+  target_link_libraries(onnx-mlir OMMLONNXOps)
+endif()
+
+
 target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(onnx-mlir PRIVATE ${CMAKE_BINARY_DIR})
 target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_BIN_ROOT})
