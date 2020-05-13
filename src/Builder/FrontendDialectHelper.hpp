@@ -83,7 +83,7 @@ struct InitializedTensorMapping {
   // argument to operations such as Reshape and will enable other
   // optimizations such as constant folding.
   mlir::Value EmitInitializerForInputTensor(
-      mlir::Location loc, mlir::OpBuilder &builder, std::string name);
+      mlir::Location loc, mlir::OpBuilder &builder, const std::string &name);
 
   // Get initialized tensor.
   onnx::TensorProto &GetInitializedTensor(std::string name) {

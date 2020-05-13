@@ -137,7 +137,7 @@ private:
     frontend_symbols_.AddMapping(input_tensor_legalized_name, symbol);
   }
 
-  mlir::NamedAttribute convertAttributeProtoToNameValuePair(
+  mlir::NamedAttribute convertOnnxAttributeProtoToMlirNamedAttribute(
       onnx::AttributeProto &attr) {
     mlir::Attribute mlirAttr;
     switch (attr.type()) {
@@ -158,11 +158,9 @@ private:
       mlirAttr = builder_.getI64ArrayAttr(
           llvm::makeArrayRef(attr.ints().begin(), attr.ints().end()));
       break;
-      // Tensor attribute types:
-    case onnx::AttributeProto::TENSOR: {
+    case onnx::AttributeProto::TENSOR:
       mlirAttr = onnxTensorProtoToDenseElmAttr(builder_, attr.t());
       break;
-    }
     default:
       llvm_unreachable("datatype for attribute is not implemented");
       break;
@@ -175,7 +173,7 @@ private:
     std::vector<mlir::NamedAttribute> attributes;
     for (int i = 0; i < node.attribute_size(); ++i) {
       auto attr = node.attribute(i);
-      attributes.push_back(convertAttributeProtoToNameValuePair(attr));
+      attributes.push_back(convertOnnxAttributeProtoToMlirNamedAttribute(attr));
     }
     return attributes;
   }

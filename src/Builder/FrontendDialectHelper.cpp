@@ -126,19 +126,19 @@ bool InitializedTensorMapping::ContainKey(std::string name) {
 }
 
 mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
-    mlir::Location loc, mlir::OpBuilder &builder, std::string name) {
+    mlir::Location loc, mlir::OpBuilder &builder, const std::string &name) {
   // Initializer for input.
   onnx::TensorProto initializer = GetInitializedTensor(name);
 
   // Emit ConstantOp and record the mapping between the input and
   // the constant value.
   // Create value attribute.
-  mlir::DenseElementsAttr constantDenseAttribute =
+  mlir::DenseElementsAttr denseElmAttr =
       onnxTensorProtoToDenseElmAttr(builder, initializer);
 
   // Create ConstantOp for dense array.
   return builder.create<mlir::ONNXConstantOp>(
-      loc, constantDenseAttribute.getType(), nullptr, constantDenseAttribute);
+      loc, denseElmAttr.getType(), nullptr, denseElmAttr);
 }
 
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
@@ -174,6 +174,9 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
         tensorType, llvm::makeArrayRef(arrayAttrInitializer));
     break;
   }
+  default:
+    llvm_unreachable(
+        "Failed to import ONNX TensorProto due to unsupported data types.");
   }
   return denseElmAttr;
 }
