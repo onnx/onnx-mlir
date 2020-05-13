@@ -124,7 +124,11 @@ public:
         op->getName().getStringRef() != "onnx.Abs" &&
         op->getName().getStringRef() != "onnx.Constant" &&
         op->getName().getStringRef() != "onnx.Concat" &&
+        op->getName().getStringRef() != "onnx.Split" &&
         op->getName().getStringRef() != "onnx.Neg" &&
+        op->getName().getStringRef() != "onnx.RNN" &&
+        op->getName().getStringRef() != "onnx.LSTM" &&
+        op->getName().getStringRef() != "onnx.GRU" &&
         op->getName().getStringRef() != "onnx.Unsqueeze")
       return false;
     return llvm::any_of(op->getResultTypes(), [](Type result_type) {

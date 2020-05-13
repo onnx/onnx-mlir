@@ -100,16 +100,14 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
 // inserted.
-bool checkInsertDealloc(Operation *currentOp) {
+bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   auto parentBlock = currentOp->getBlock();
 
   bool insertDealloc = true;
-  parentBlock->walk([&insertDealloc, currentOp](ReturnOp op) {
-    assert(currentOp->getNumResults() < 2 &&
-           "No more than one result supported (for now).");
+  parentBlock->walk([&insertDealloc, currentOp, resultIndex](ReturnOp op) {
     // If there is at least one result to investigate.
     if (currentOp->getNumResults() > 0) {
-      auto result = currentOp->getResult(0);
+      auto result = currentOp->getResult(resultIndex);
       for (const auto &operand : op.getOperands())
         if (operand == result)
           insertDealloc = false;

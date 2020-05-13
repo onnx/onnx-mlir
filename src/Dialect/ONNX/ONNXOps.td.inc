@@ -738,7 +738,7 @@ def ONNXFloorOp:ONNX_Op<"Floor",
 }
 
 def ONNXGRUOp:ONNX_Op<"GRU",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GRU operation";
   let description = [{
   "Computes an one-layer GRU. This operator is usually supported via some custom"
@@ -1246,7 +1246,7 @@ def ONNXLRNOp:ONNX_Op<"LRN",
 }
 
 def ONNXLSTMOp:ONNX_Op<"LSTM",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LSTM operation";
   let description = [{
   "Computes an one-layer LSTM. This operator is usually supported via some"
@@ -2086,7 +2086,7 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
 }
 
 def ONNXRNNOp:ONNX_Op<"RNN",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX RNN operation";
   let description = [{
   "Computes an one-layer simple RNN. This operator is usually supported"
@@ -3241,7 +3241,7 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
 }
 
 def ONNXSplitOp:ONNX_Op<"Split",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Split operation";
   let description = [{
   "Split a tensor into a list of tensors, along the specified"
