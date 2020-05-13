@@ -29,6 +29,10 @@ parser.add_argument("--dry-run-op-build-table",
                     help="Output OpBuildTable.inc content to stdout.",
                     action="store_true",
                     default=False)
+parser.add_argument("--domain", 
+                    help="specify domain, ONNX or ONNX_ML",
+                    default = "ONNX")
+
 args = parser.parse_args()
 
 # Manual specification of attribute defaults.
@@ -59,7 +63,8 @@ OpsWithShapeInference = [
     'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
     'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
     'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
-    'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg'
+    'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
+    'LSTM', 'GRU', 'Split'
 ]
 
 # Operations supporting canonicalization.
@@ -86,16 +91,9 @@ custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare']
 
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
-ONNX_ML = not bool(os.getenv('ONNX_ML') == '0')
+ONNX_ML = bool(args.domain == "ONNX_ML")
 
-ONNX_ML = False
 sys.stderr.write("ONNX_ML {}\n".format(ONNX_ML))
-
-if ONNX_ML:
-    ext = '-ml.md'
-else:
-    ext = '.md'
-
 
 def should_render_domain(domain):  # type: (Text) -> bool
     if domain == ONNX_ML_DOMAIN and not ONNX_ML:
@@ -360,7 +358,10 @@ def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
 
 def gen_op_def(schema):
     indent = inc_indent()
-    s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
+    if (ONNX_ML) :
+        s = 'def MLONNX{0}Op:MLONNX_Op<"{0}",\n'.format(schema.name)
+    else :
+        s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
 
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
@@ -476,8 +477,12 @@ def gen_op_importer(schema, file):
         if OpSchema.FormalParameterOption.Variadic == output.option:
             expected_num_results = -1
 
-    handler_func = special_op_handler.get(
-        schema.name, "buildOperation<mlir::ONNX{}Op>".format(schema.name))
+    if ONNX_ML:
+        handler_func = special_op_handler.get(
+            schema.name, "buildOperation<mlir::MLONNX{}Op>".format(schema.name))
+    else:
+        handler_func = special_op_handler.get(
+            schema.name, "buildOperation<mlir::ONNX{}Op>".format(schema.name))
 
     # Special handlers currently require expected num operands/results to be specified.
     # TODO: remove special handlers.
@@ -557,13 +562,19 @@ if __name__ == '__main__':
         if args.dry_run_onnx_ops:
             op_def = StringIO()
         else:
-            op_def_file_path = os.path.join(curr_dir, 'ONNXOps.td.inc')
+            if args.domain == 'ONNX_ML':
+                op_def_file_path = os.path.join(curr_dir, 'MLONNXOps.td.inc')
+            else:
+                op_def_file_path = os.path.join(curr_dir, 'ONNXOps.td.inc')
             op_def = io.open(op_def_file_path, 'w', newline='')
 
         if args.dry_run_op_build_table:
             op_importer = StringIO()
         else:
-            op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
+            if args.domain == 'ONNX_ML':
+                op_importer_file_path = os.path.join(curr_dir, 'MLOpBuildTable.inc')
+            else :
+                op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
             op_importer = io.open(op_importer_file_path, 'w', newline='')
     main(Args)
 

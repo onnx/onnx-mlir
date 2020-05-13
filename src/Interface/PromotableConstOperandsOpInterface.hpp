@@ -22,4 +22,4 @@ namespace mlir {
 /// Include the auto-generated declarations.
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp.inc"
 
-}  // end namespace mlir
+} // end namespace mlir

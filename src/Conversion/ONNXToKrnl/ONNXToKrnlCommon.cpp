@@ -36,9 +36,7 @@ MemRefType convertToMemRefType(Type type) {
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
-                                   PatternRewriter &rewriter,
-                                   bool insertDealloc,
-                                   ArrayRef<Value> operands) {
+    PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands) {
   // Put together alloc operands for any dynamic dimensions of the memref.
   AllocOp alloc;
   if (!operands.empty()) {
@@ -64,10 +62,10 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
           auto operandDim =
               rewriter.create<DimOp>(loc, operands[i], operandDimIdx);
           if (maxDim) {
-            auto maxCondition = rewriter.create<CmpIOp>(loc, CmpIPredicate::sgt,
-                                                        operandDim, maxDim);
-            maxDim = rewriter.create<SelectOp>(loc, maxCondition, operandDim,
-                                               maxDim);
+            auto maxCondition = rewriter.create<CmpIOp>(
+                loc, CmpIPredicate::sgt, operandDim, maxDim);
+            maxDim = rewriter.create<SelectOp>(
+                loc, maxCondition, operandDim, maxDim);
           } else {
             maxDim = operandDim;
           }
@@ -102,16 +100,14 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
 // inserted.
-bool checkInsertDealloc(Operation *currentOp) {
+bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
   auto parentBlock = currentOp->getBlock();
 
   bool insertDealloc = true;
-  parentBlock->walk([&insertDealloc, currentOp](ReturnOp op) {
-    assert(currentOp->getNumResults() < 2 &&
-           "No more than one result supported (for now).");
+  parentBlock->walk([&insertDealloc, currentOp, resultIndex](ReturnOp op) {
     // If there is at least one result to investigate.
     if (currentOp->getNumResults() > 0) {
-      auto result = currentOp->getResult(0);
+      auto result = currentOp->getResult(resultIndex);
       for (const auto &operand : op.getOperands())
         if (operand == result)
           insertDealloc = false;
@@ -124,8 +120,8 @@ bool checkInsertDealloc(Operation *currentOp) {
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
 // type.
-std::map<int64_t, int64_t>
-getReductionMapping(MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims) {
+std::map<int64_t, int64_t> getReductionMapping(
+    MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims) {
   std::map<int64_t, int64_t> OutInDimMap;
   int64_t rank = inputTy.getRank();
 
@@ -154,9 +150,8 @@ getReductionMapping(MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims) {
 
 // Add bounds associated with the op operand to the KRNL iteration pack.
 // Dynamic dimenions are supported.
-void addDimensionToPack(ConversionPatternRewriter &rewriter,
-                               Location loc, KrnlIterateOperandPack &pack,
-                               Value operand, int index) {
+void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
+    KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
   if (shape[index] < 0) {
     pack.pushConstantBound(0);
@@ -170,10 +165,9 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter,
 
 // Function that defines the KRNL dialect loops and their respective
 // optimized version.
-KrnlOptimizeLoopsOp
-emitOptimizedLoops(ConversionPatternRewriter &rewriter, Location loc,
-                   std::vector<Value> &loops,
-                   std::vector<Value> &optimizedLoops, int64_t numLoops) {
+KrnlOptimizeLoopsOp emitOptimizedLoops(ConversionPatternRewriter &rewriter,
+    Location loc, std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
+    int64_t numLoops) {
   // Define loops.
   auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
   loops.reserve(numLoops);
@@ -192,9 +186,8 @@ emitOptimizedLoops(ConversionPatternRewriter &rewriter, Location loc,
 // Function that emits the loops and their optimized version.
 // The function returns a reference to the inner optimization block.
 Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
-                          std::vector<Value> &loops,
-                          std::vector<Value> &optimizedLoops,
-                          int64_t numLoops) {
+    std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
+    int64_t numLoops) {
   KrnlOptimizeLoopsOp optimizedLoopsOp =
       emitOptimizedLoops(rewriter, loc, loops, optimizedLoops, numLoops);
   return &optimizedLoopsOp.region().front();
@@ -203,10 +196,9 @@ Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
 // Function which emits a basic set of loops and optimized loops
 // for a given operation argument. A reference to the loop optimization
 // block is returned in the last argument of the function.
-void emitKrnlLoopsAndIterationForOperand(
-    ConversionPatternRewriter &rewriter, Location loc, Value operand,
-    std::vector<Value> &originalLoops, KrnlOptimizeLoopsOp &optimizedLoopsOp,
-    KrnlIterateOp &iterateOp) {
+void emitKrnlLoopsAndIterationForOperand(ConversionPatternRewriter &rewriter,
+    Location loc, Value operand, std::vector<Value> &originalLoops,
+    KrnlOptimizeLoopsOp &optimizedLoopsOp, KrnlIterateOp &iterateOp) {
   // Operand shape.
   auto shape = operand.getType().cast<MemRefType>().getShape();
 
@@ -242,9 +234,9 @@ unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
 
 // Get run-time dimension information for unknown dimensions used for
 // broadcasting.
-std::map<int, std::map<int, Value>>
-getBroadcastedDimInfo(Location loc, ConversionPatternRewriter &rewriter,
-                      MemRefType memRefType, ArrayRef<Value> operands) {
+std::map<int, std::map<int, Value>> getBroadcastedDimInfo(Location loc,
+    ConversionPatternRewriter &rewriter, MemRefType memRefType,
+    ArrayRef<Value> operands) {
   auto memRefShape = memRefType.getShape();
   int64_t rank = memRefShape.size();
   // For unknown dimensions, we need to get dimension values at runtime in
@@ -288,10 +280,9 @@ getBroadcastedDimInfo(Location loc, ConversionPatternRewriter &rewriter,
 
 // Extract induction variables that are used for broadcasting values of a
 // given operand.
-std::vector<Value>
-getLoopIVsForBroadcasting(Location loc, ConversionPatternRewriter &rewriter,
-                          ArrayRef<Value> loopIVs, Value operand,
-                          std::map<int, Value> broadcastedDims) {
+std::vector<Value> getLoopIVsForBroadcasting(Location loc,
+    ConversionPatternRewriter &rewriter, ArrayRef<Value> loopIVs, Value operand,
+    std::map<int, Value> broadcastedDims) {
   // `operand` must has a ranked type. This should have been checked by the
   // shape inference pass.
   auto operandShape = operand.getType().cast<MemRefType>().getShape();
@@ -312,8 +303,8 @@ getLoopIVsForBroadcasting(Location loc, ConversionPatternRewriter &rewriter,
       // If its value is 1, it is broadcasted dimension.
       // Otherwise, non-broadcasted dimension.
       auto zero = rewriter.create<ConstantIndexOp>(loc, 0);
-      auto idx = rewriter.create<SelectOp>(loc, broadcastedDims[dimIdx], zero,
-                                           loopIVs[loopIdx]);
+      auto idx = rewriter.create<SelectOp>(
+          loc, broadcastedDims[dimIdx], zero, loopIVs[loopIdx]);
       newLoopIVs.insert(newLoopIVs.begin(), idx);
     } else {
       // Non-broadcasted dimension

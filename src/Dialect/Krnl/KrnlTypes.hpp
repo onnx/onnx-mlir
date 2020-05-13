@@ -24,15 +24,15 @@ enum Kinds {
 }
 
 class LoopType : public mlir::Type::TypeBase<LoopType, mlir::Type> {
- public:
+public:
   using Base::Base;
 
   // Support type inquiry through isa, cast and dyn_cast.
   static bool kindof(unsigned kind) { return kind == KrnlTypes::Loop; }
 
   // Get a unique instance of Loop type.
-  static LoopType get(mlir::MLIRContext* context) {
+  static LoopType get(mlir::MLIRContext *context) {
     return Base::get(context, KrnlTypes::Loop);
   }
 };
-}  // namespace mlir
+} // namespace mlir

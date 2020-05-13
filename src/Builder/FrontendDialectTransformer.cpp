@@ -321,6 +321,9 @@ private:
     // one known reeason is the optional input
 
 #include "src/Builder/OpBuildTable.inc"
+#if INCLUDE_ONNX_ML == 1
+#include "src/Builder/MLOpBuildTable.inc"
+#endif
   }
 
   /*!

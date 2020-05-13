@@ -14,7 +14,7 @@
 
 #ifdef _WIN32
 #include <io.h>
-#else 
+#else
 #include <unistd.h>
 #endif
 
@@ -22,7 +22,7 @@ using namespace std;
 using namespace onnx_mlir;
 
 void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
-              mlir::OwningModuleRef &module) {
+    mlir::OwningModuleRef &module) {
   // Handle '.mlir' input to the ONNX MLIR frontend.
   // The mlir format indicates that one or more of the supported
   // representations are used in the file.
@@ -46,10 +46,10 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
 void EmitLLVMBitCode(
     const mlir::OwningModuleRef &module, string outputFilename) {
   error_code error;
-  llvm::raw_fd_ostream moduleBitcodeStream(outputFilename, error,
-                                           llvm::sys::fs::F_None);
-  llvm::WriteBitcodeToFile(*mlir::translateModuleToLLVMIR(*module),
-                           moduleBitcodeStream);
+  llvm::raw_fd_ostream moduleBitcodeStream(
+      outputFilename, error, llvm::sys::fs::F_None);
+  llvm::WriteBitcodeToFile(
+      *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
 }
 
@@ -90,7 +90,7 @@ void addKrnlToLLVMPasses(mlir::PassManager &pm) {
 }
 
 void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
-	mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
   // Decide if the input file is an ONNX model or a model specified
   // in MLIR. The extension of the file is the decider.
   string extension = inputFilename.substr(inputFilename.find_last_of(".") + 1);
@@ -99,7 +99,6 @@ void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
   assert(inputIsONNX != inputIsMLIR &&
          "Either ONNX model or MLIR file needs to be provided.");
 
-  
   if (inputIsONNX) {
     ImportFrontendModelFile(inputFilename, context, module);
   } else {
@@ -119,8 +118,8 @@ void outputCode(
   module->dump();
   fflush(stderr);
   // set modified stderr as original stderr
-  _dup2(stderrOrigin, _fileno( stderr ));
-#else 
+  _dup2(stderrOrigin, _fileno(stderr));
+#else
   if (fork() == 0) {
     freopen(tempFilename.c_str(), "w", stderr);
     module->dump();
@@ -151,7 +150,7 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   // necessary when emitting the .bc file.
   if (emissionTarget == EmitLLVMBC) {
     // Write LLVM bitcode to disk.
-    string outputFilename =  outputBaseName + ".bc";
+    string outputFilename = outputBaseName + ".bc";
     EmitLLVMBitCode(module, outputFilename);
     printf("LLVM bitcode written to %s\n", outputFilename.c_str());
   } else {

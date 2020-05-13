@@ -17,8 +17,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
 
   ONNXConstantOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConstantOp::getOperationName(), 1, ctx) {
-        constantID = 0;
-      }
+    constantID = 0;
+  }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -34,12 +34,11 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     // Shape based computations.
     auto shape = memRefType.getShape();
     int64_t numElements = 1;
-    for (int i=0; i<shape.size(); ++i)
+    for (int i = 0; i < shape.size(); ++i)
       numElements *= shape[i];
 
     // Emit the constant global in Krnl dialect.
-    auto constantGlobal = rewriter.create<KrnlGlobalOp>(loc,
-        memRefType,
+    auto constantGlobal = rewriter.create<KrnlGlobalOp>(loc, memRefType,
         rewriter.getI64ArrayAttr(shape),
         rewriter.getStringAttr("constant_" + std::to_string(constantID)),
         constantOp.value().getValue());
