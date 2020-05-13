@@ -16,4 +16,4 @@ namespace mlir {
 /// Include the auto-generated declarations.
 #include "src/Interface/ShapeInference.cpp.inc"
 
-}  // end namespace mlir
+} // end namespace mlir
