@@ -1549,30 +1549,30 @@ bool ONNXSplitOp::inferShapes() {
   int numOfResults = getNumResults();
   auto inputType = getOperand().getType().cast<RankedTensorType>();
   auto inputShape = inputType.getShape();
-  auto inputRank = inputShape.size();
+  int64_t inputRank = inputShape.size();
 
   // Checking value of axis parameter.
   auto axisIndex = axis().getSExtValue();
+  if (axisIndex < -inputRank || axisIndex >= inputRank) {
+    emitError("Split axis value out of bound");
+    return false;
+  }
   // Negative axis means values are counted from the opposite side.
   if (axisIndex < 0) {
     axisIndex = inputRank + axisIndex;
     auto builder = mlir::Builder(getContext());
     axisAttr(builder.getI64IntegerAttr(axisIndex));
   }
-  if (axisIndex >= inputRank) {
-    emitError("Split axis value out of bound");
-    return false;
-  }
 
   // Checking value of split parameter.
-  auto splitOpt = split();
+  auto splitAttribute = split();
   SmallVector<int64_t, 4> splitLengths;
-  if (splitOpt.hasValue()) {
-    if (ArrayAttrSize(splitOpt) != numOfResults) {
+  if (splitAttribute.hasValue()) {
+    if (ArrayAttrSize(splitAttribute) != numOfResults) {
       emitError("Split size not equal to the number of results");
     }
     for (int i = 0; i < numOfResults; ++i)
-      splitLengths.emplace_back(ArrayAttrIntVal(splitOpt, i));
+      splitLengths.emplace_back(ArrayAttrIntVal(splitAttribute, i));
 
   } else {
     if (inputShape[axisIndex] <= 0) {
