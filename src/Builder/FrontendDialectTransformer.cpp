@@ -369,7 +369,6 @@ private:
 #if INCLUDE_ONNX_ML == 1
 #include "src/Builder/MLOpBuildTable.inc"
 #endif
-
   }
 
   /*!

@@ -31,7 +31,6 @@
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
 
-
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #if INCLUDE_ONNX_ML == 1
 #include "src/Dialect/MLONNX/MLONNXOps.hpp"

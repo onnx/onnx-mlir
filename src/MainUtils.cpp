@@ -14,7 +14,7 @@
 
 #ifdef _WIN32
 #include <io.h>
-#else 
+#else
 #include <unistd.h>
 #endif
 
@@ -118,8 +118,8 @@ void outputCode(
   module->dump();
   fflush(stderr);
   // set modified stderr as original stderr
-  _dup2(stderrOrigin, _fileno( stderr ));
-#else 
+  _dup2(stderrOrigin, _fileno(stderr));
+#else
   if (fork() == 0) {
     freopen(tempFilename.c_str(), "w", stderr);
     module->dump();
