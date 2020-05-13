@@ -18,6 +18,52 @@ func @test_no_argument_2() -> tensor<*xf32> {
 
 // -----
 
+func @test_elementwise_op_with_scalar_values_1(%arg0 : tensor<f32>) -> tensor<*xf32> {
+  %0 = "onnx.Exp"(%arg0) : (tensor<f32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_elementwise_op_with_scalar_values_1
+  // CHECK: [[RES:%.+]] = alloc() : memref<f32>
+  // CHECK: [[LOAD:%.+]] = load %arg0[] : memref<f32>
+  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: store [[EXP]], [[RES]][] : memref<f32>
+  // CHECK: return [[RES]] : memref<f32>
+}
+
+// -----
+
+func @test_elementwise_op_with_scalar_values_2(%arg0 : tensor<f32>, %arg1 : tensor<f32>) -> tensor<*xf32> {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<f32>, tensor<f32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_elementwise_op_with_scalar_values_2
+  // CHECK: [[RES:%.+]] = alloc() : memref<f32>
+  // CHECK: [[LOAD1:%.+]] = load %arg0[] : memref<f32>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[] : memref<f32>
+  // CHECK: [[ADD:%.+]] = addf [[LOAD1]], [[LOAD2]] : f32
+  // CHECK: store [[ADD]], [[RES]][] : memref<f32>
+  // CHECK: return [[RES]] : memref<f32>
+}
+
+// -----
+
+func @test_elementwise_op_with_scalar_values_3(%arg0 : tensor<f32>, %arg1 : tensor<f32>, %arg2 : tensor<f32>) -> tensor<*xf32> {
+  %0 = "onnx.Sum"(%arg0, %arg1, %arg2) : (tensor<f32>, tensor<f32>, tensor<f32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_elementwise_op_with_scalar_values_3
+  // CHECK: [[RES:%.+]] = alloc() : memref<f32>
+  // CHECK: [[LOAD1:%.+]] = load %arg0[] : memref<f32>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[] : memref<f32>
+  // CHECK: [[ADD1:%.+]] = addf [[LOAD1]], [[LOAD2]] : f32
+  // CHECK: [[LOAD3:%.+]] = load %arg2[] : memref<f32>
+  // CHECK: [[ADD2:%.+]] = addf [[ADD1]], [[LOAD3]] : f32
+  // CHECK: store [[ADD2]], [[RES]][] : memref<f32>
+  // CHECK: return [[RES]] : memref<f32>
+}
+
+// -----
+
 func @test_add(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
