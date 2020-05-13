@@ -319,8 +319,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
         for (unsigned i = 0; i < 4; ++i) {
           Value wHiddenIV =
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
-                  ValueRange(std::vector<Value>{
-                      hiddenIV, constantIndices[i], hiddenDimVal}));
+                  ValueRange(std::vector<Value>{/*iv=*/hiddenIV,
+                      /*index=*/constantIndices[i], /*size=*/hiddenDimVal}));
           wbIOFCIVs.emplace_back(SmallVector<Value, 2>{directionIV, wHiddenIV});
         }
         // Rb[iofc]
@@ -328,8 +328,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
           SmallVector<Value, 4> rbIVs;
           Value rHiddenIV =
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
-                  ValueRange(std::vector<Value>{
-                      hiddenIV, constantIndices[i], hiddenDimVal}));
+                  ValueRange(std::vector<Value>{/*iv=*/hiddenIV,
+                      /*index=*/constantIndices[i], /*size=*/hiddenDimVal}));
           rbIOFCIVs.emplace_back(SmallVector<Value, 2>{directionIV, rHiddenIV});
         }
       }

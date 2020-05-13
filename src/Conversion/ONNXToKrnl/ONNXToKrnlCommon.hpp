@@ -46,7 +46,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
 // inserted.
-bool checkInsertDealloc(Operation *currentOp, int resultIndex=0);
+bool checkInsertDealloc(Operation *currentOp, int resultIndex = 0);
 
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
