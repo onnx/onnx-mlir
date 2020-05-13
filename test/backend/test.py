@@ -46,7 +46,7 @@ class DummyBackend(onnx.backend.base.Backend):
         # Generate shared library from object file, linking with c runtime.
         execute_commands([
             CXX, "-shared", "-fPIC", "temp_model.o", "-o", "temp_model.so",
-            "-L" + RUNTIME_DIR, "-lcruntime", "-Wl,-rpath=", RUNTIME_DIR,
+            "-L" + RUNTIME_DIR, "-lcruntime", "-Wl,-rpath=" + RUNTIME_DIR,
         ])
         return ExecutionSession("./temp_model.so", "_dyn_entry_point_main_graph")
 
