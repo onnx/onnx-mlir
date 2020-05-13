@@ -7,6 +7,11 @@ call conda create --yes --quiet --name onnx-mlir -c conda-forge python=3.7 libpr
 call activate.bat onnx-mlir
 call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
 
+REM Copy original repo directory to onnx-mlir
+git submodule update --init --recursive
+set onnx-mlir_dir=%cd%
+cd ..
+cp -r %onnx-mlir_dir% onnx-mlir 
 set root_dir=%cd%
 
 REM Build PDcurses
@@ -18,8 +23,8 @@ call nmake -f wincon/Makefile.vc
 
 REM Build LLVM
 cd /d %root_dir%
-call utils/install-mlir.cmd
+call onnx-mlir/utils/install-mlir.cmd
 
 REM Build onnx-mlir
 cd /d %root_dir%
-call utils/install-onnx-mlir.cmd
+call onnx-mlir/utils/install-onnx-mlir.cmd
