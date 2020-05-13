@@ -36,7 +36,7 @@ jobs:
       script: 
         - pwd
         - ls -al
-        - docker load buildimage.tar buildimage:latest 
+        - docker load < buildimage.tar 
         - docker run -itd --name build buildimage
         - docker images
         - docker exec build install_LLVM.sh $(pwd)
