@@ -22,10 +22,13 @@ jobs:
         - docker cp ./utils/compile_ONNX-MLIR.sh build:/usr/bin/compile_ONNX-MLIR.sh
         - docker cp ./utils/test_ONNX-MLIR.sh build:/usr/bin/test_ONNX-MLIR.sh
         - docker exec build before_install.sh $(pwd)
+        - docker commit build buildimage
+        - ls -al
     - stage: installLLVM
       script: 
         - pwd
         - ls -al
+        - docker run -itd --name build buildimage
         - docker exec build install_LLVM.sh $(pwd)
     - stage: compileLLVM
       script: 
