@@ -22,7 +22,8 @@ jobs:
         - docker cp ./utils/compile_ONNX-MLIR.sh build:/usr/bin/compile_ONNX-MLIR.sh
         - docker cp ./utils/test_ONNX-MLIR.sh build:/usr/bin/test_ONNX-MLIR.sh
         - docker exec build before_install.sh $(pwd)
-        - docker save build > buildimage.tar
+        - docker commit build buildimage:latest
+        - docker save buildimage:latest > buildimage.tar
         - ls -al
       workspaces:
         create:
