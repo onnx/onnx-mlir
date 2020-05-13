@@ -24,6 +24,8 @@ jobs:
         - docker exec build before_install.sh $(pwd)
     - stage: installLLVM
       script: 
+        - pwd
+        - ls -al
         - docker exec build install_LLVM.sh $(pwd)
     - stage: compileLLVM
       script: 
