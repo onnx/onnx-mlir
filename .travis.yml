@@ -1,50 +1,15 @@
-sudo: required
-services:
-  - docker
-stages:
-  - setupVM
-  - installLLVM
-  - compileLLVM
-  - compileONNX-MLIR
-  - test
-language: cpp
-dist: bionic
 jobs:
   include:
-    - stage: setupVM
-      script: 
-        - chmod a+x ./utils/*
-        - docker pull ubuntu:focal
-        - docker run -itd --name build ubuntu:focal
-        - docker cp ./utils/before_install.sh build:/usr/bin/before_install.sh
-        - docker cp ./utils/install_LLVM.sh build:/usr/bin/install_LLVM.sh
-        - docker cp ./utils/compile_LLVM.sh build:/usr/bin/compile_LLVM.sh
-        - docker cp ./utils/compile_ONNX-MLIR.sh build:/usr/bin/compile_ONNX-MLIR.sh
-        - docker cp ./utils/test_ONNX-MLIR.sh build:/usr/bin/test_ONNX-MLIR.sh
-        - docker exec build before_install.sh $(pwd)
-        - docker export build > buildimage.tar
-        - ls -al
-              workspaces:
+    - stage: warm_cache
+      script:
+        - echo "foo" > foo.txt
+      workspaces:
         create:
           name: ws1
           paths:
-            - buildimage.tar
-    - stage: installLLVM
-      workspaces: 
+            - foo.txt
+    - stage: use_cache
+      workspaces:
         use: ws1
-      script: 
-        - pwd
-        - ls -al
-        - docker import buildimage.tar buildimage:latest 
-        - docker run -itd --name build buildimage
-        - docker container ls --all
-        - docker exec build install_LLVM.sh $(pwd)
-    - stage: compileLLVM
-      script: 
-        - docker exec build compile_LLVM.sh $(pwd)
-    - stage: compileONNX-MLIR
-      script: 
-        - docker exec build compile_ONNX-MLIR.sh $(pwd)
-    - stage: test
-      script: 
-        - docker exec build testONNX-MLIR.sh $(pwd)
+      script:
+        - cat foo.txt || true
