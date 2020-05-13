@@ -2,6 +2,7 @@
 
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, std::string entryPointName) {
+  // Adapted from https://www.tldp.org/HOWTO/html_single/C++-dlopen/.
   _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY);
   if (!_sharedLibraryHandle) {
     std::stringstream errStr;
@@ -9,7 +10,7 @@ ExecutionSession::ExecutionSession(
     throw std::runtime_error(errStr.str());
   }
 
-  // reset errors
+  // Reset errors.
   dlerror();
   _entryPointFunc =
       (entryPointFuncType)dlsym(_sharedLibraryHandle, entryPointName.c_str());
