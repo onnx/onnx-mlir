@@ -21,6 +21,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 
 #include "ONNXOps.hpp"
+#include "ONNXOpsHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -46,6 +47,30 @@ static int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
 // Returns the ConstantOp which defines an MLIR Value or null.
 static mlir::ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
+}
+
+// This method substitutes any uses of dimensions and symbols (e.g.
+// dim#0 with dimReplacements[0]) in an affine map, simplifies the modified
+// affine map, and returns an integer constant.
+int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
+    ArrayRef<int64_t> dimReplacements, ArrayRef<int64_t> symReplacements,
+    unsigned numResultDims, unsigned numResultSyms) {
+  // Prepare affine expressions.
+  SmallVector<AffineExpr, 4> dimExprs, symExprs;
+  for (int64_t dim : dimReplacements) {
+    AffineExpr exp = builder.getAffineConstantExpr(dim);
+    dimExprs.emplace_back(exp);
+  }
+  for (int64_t sym : symReplacements) {
+    AffineExpr exp = builder.getAffineConstantExpr(sym);
+    symExprs.emplace_back(exp);
+  }
+  // Replace all the affine map's arguments with real values and evaluate the
+  // map.
+  AffineMap replacedDimMap = map.replaceDimsAndSymbols(
+      dimExprs, symExprs, numResultDims, numResultSyms);
+  AffineMap simplifiedMap = simplifyAffineMap(replacedDimMap);
+  return simplifiedMap.getSingleConstantResult();
 }
 
 //===----------------------------------------------------------------------===//
@@ -267,33 +292,27 @@ static void processConvTypeParams(T *op, Value inputOperand) {
 // Compute spatial dimensions given dilations, strides, pads, and ceil mode.
 //
 static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
-    ArrayRef<int64_t> xShape, Optional<ArrayAttr> kernelShape,
+    Builder &builder, ArrayRef<int64_t> xShape, Optional<ArrayAttr> kernelShape,
     Optional<ArrayAttr> padsOpt, Optional<ArrayAttr> stridesOpt,
     Optional<ArrayAttr> dilationsOpt = llvm::None, bool ceilMode = false) {
-  auto xRank = xShape.size();
   auto spatialRank = ArrayAttrSize(kernelShape);
-  auto spatialOffset = xRank - spatialRank;
+  auto spatialOffset = xShape.size() - spatialRank;
 
-  int64_t dilationVal = 1;
+  // Get an affine map to compute the output dimension.
+  AffineMap dimMap = getConvDimMap(builder, ceilMode);
   for (int i = 0; i < spatialRank; ++i) {
-    auto inputSize = xShape[spatialOffset + i];
-    auto sumOfPads =
-        ArrayAttrIntVal(padsOpt, i) + ArrayAttrIntVal(padsOpt, spatialRank + i);
-    auto kernelSize = ArrayAttrIntVal(kernelShape, i);
-    if (dilationsOpt.hasValue())
-      dilationVal = ArrayAttrIntVal(dilationsOpt, i);
-    auto strideVal = ArrayAttrIntVal(stridesOpt, i);
-    // Number of useful values: input plus pad - effective size of kernel (see
-    // processConvTypeParams comments to see how this value is derived).
-    double numerator =
-        inputSize + sumOfPads - ((kernelSize - 1) * dilationVal + 1);
-    // Useful number is divided by the strides.
-    double denominator = strideVal;
-    int64_t res;
-    if (ceilMode) {
-      res = ceil(numerator / denominator) + 1;
-    } else {
-      res = floor(numerator / denominator) + 1;
+    int64_t res = -1;
+    if (xShape[spatialOffset + i] != -1) {
+      auto inputSize = xShape[spatialOffset + i];
+      auto kernelSize = ArrayAttrIntVal(kernelShape, i);
+      auto sumOfPads = ArrayAttrIntVal(padsOpt, i) +
+                       ArrayAttrIntVal(padsOpt, spatialRank + i);
+      auto strideVal = ArrayAttrIntVal(stridesOpt, i);
+      int64_t dilationVal = 1;
+      if (dilationsOpt.hasValue())
+        dilationVal = ArrayAttrIntVal(dilationsOpt, i);
+      res = AffineMapIntConstant(builder, dimMap, {inputSize},
+          {kernelSize, sumOfPads, strideVal, dilationVal}, 1, 4);
     }
     outputDims->emplace_back(res);
   }
@@ -1343,8 +1362,8 @@ bool ONNXConvOp::inferShapes() {
   // Insert number of filters being applied (number of output channels).
   outputDims.emplace_back(weightShape[0]);
   // Compute and insert spatial dims.
-  insertConvSpatialDim(
-      &outputDims, xShape, kernelShape, padsOpt, stridesOpt, dilationsOpt);
+  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
+      stridesOpt, dilationsOpt);
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return true;
@@ -1364,6 +1383,8 @@ bool ONNXAveragePoolOp::inferShapes() {
     emitError("Input tensor not ranked");
     return false;
   }
+
+  auto builder = mlir::Builder(getContext());
 
   // Get shape of input.
   auto xTy = X().getType().cast<RankedTensorType>();
@@ -1390,8 +1411,8 @@ bool ONNXAveragePoolOp::inferShapes() {
   outputDims.emplace_back(xShape[0]);
   outputDims.emplace_back(xShape[1]);
   // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, xShape, kernelShape, padsOpt, stridesOpt,
-      llvm::None, ceilMode);
+  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
+      stridesOpt, llvm::None, ceilMode);
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return true;
@@ -1411,6 +1432,8 @@ bool ONNXMaxPoolSingleOutOp::inferShapes() {
     emitError("Input tensor not ranked");
     return false;
   }
+
+  auto builder = mlir::Builder(getContext());
 
   // Get shape of input.
   auto xTy = X().getType().cast<RankedTensorType>();
@@ -1441,8 +1464,8 @@ bool ONNXMaxPoolSingleOutOp::inferShapes() {
   outputDims.emplace_back(xShape[0]);
   outputDims.emplace_back(xShape[1]);
   // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, xShape, kernelShape, padsOpt, stridesOpt,
-      dilationsOpt, ceilMode);
+  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
+      stridesOpt, dilationsOpt, ceilMode);
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return true;

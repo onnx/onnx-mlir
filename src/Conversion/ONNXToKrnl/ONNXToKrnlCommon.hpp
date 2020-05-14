@@ -24,6 +24,7 @@
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -34,6 +35,9 @@ using namespace mlir;
 
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType type);
+
+/// Check is all operands are scalar values at compile time.
+bool hasAllScalarValues(ArrayRef<Value> values);
 
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type);
