@@ -35,6 +35,9 @@ using namespace mlir;
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType type);
 
+/// Check is all operands are scalar values at compile time.
+bool hasAllScalarValues(ArrayRef<Value> values);
+
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type);
 

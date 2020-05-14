@@ -20,6 +20,15 @@ bool hasAllConstantDimensions(MemRefType type) {
   return true;
 }
 
+/// Check is all operands are scalar values at compile time.
+bool hasAllScalarValues(ArrayRef<Value> values) {
+  for (Value value : values) {
+    if (value.getType().cast<ShapedType>().getRank() != 0)
+      return false;
+  }
+  return true;
+}
+
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type) {
   MemRefType memRefType;
