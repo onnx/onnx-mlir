@@ -31,13 +31,11 @@
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "onnx/onnx_pb.h"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #if INCLUDE_ONNX_ML == 1
 #include "src/Dialect/MLONNX/MLONNXOps.hpp"
 #endif
-
-#include "onnx/onnx_pb.h"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 namespace onnx_mlir {
 
@@ -88,7 +86,7 @@ struct InitializedTensorMapping {
   // argument to operations such as Reshape and will enable other
   // optimizations such as constant folding.
   mlir::Value EmitInitializerForInputTensor(
-      mlir::Location loc, mlir::OpBuilder &builder, std::string name);
+      mlir::Location loc, mlir::OpBuilder &builder, const std::string &name);
 
   // Get initialized tensor.
   onnx::TensorProto &GetInitializedTensor(std::string name) {
@@ -102,5 +100,8 @@ private:
   // Mapping from ONNX tensor name to InitializedTensor.
   std::map<std::string, onnx::TensorProto> nameToInitializedTensor;
 };
+
+mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
+    mlir::OpBuilder &builder, const onnx::TensorProto &initializer);
 
 } // namespace onnx_mlir
