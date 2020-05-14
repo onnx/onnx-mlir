@@ -1,5 +1,5 @@
 # ONNX MLIR
-The Open Neural Network Exchange implementation in MLIR.
+The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
 
 [![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)
 [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)
