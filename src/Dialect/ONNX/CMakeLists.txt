@@ -6,7 +6,9 @@ add_public_tablegen_target(OMONNXOpsIncGen)
 
 add_library(OMONNXOps
         ONNXOps.cpp
-        ONNXOps.hpp)
+        ONNXOps.hpp
+        ONNXOpsHelper.cpp
+        ONNXOpsHelper.hpp)
 target_include_directories(OMONNXOps
         PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
