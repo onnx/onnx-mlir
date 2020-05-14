@@ -15,7 +15,7 @@ target_include_directories(OMElideConstants
         ${ONNF_MLIR_SRC_ROOT})
 
 add_dependencies(OMElideConstants
-        OMONNXOpsIncGen ShapeInferenceOpInterfaceIncGen)
+        OMONNXOps)
 
 set(LLVM_TARGET_DEFINITIONS ONNXRewrite.td)
 onnx_mlir_tablegen(ONNXRewrite.inc -gen-rewriters)
