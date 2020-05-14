@@ -1,4 +1,6 @@
 #!/bin/bash
+mkdir llvm-project/build
+cd llvm-project/build
 cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_PROJECTS=mlir \
    -DLLVM_BUILD_EXAMPLES=ON \
