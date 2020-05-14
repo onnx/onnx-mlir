@@ -24,6 +24,7 @@
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;

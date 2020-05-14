@@ -1727,6 +1727,23 @@ func @test_pool_general_computation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf
 
 // -----
 
+func @test_pool_unknown_dimensions(%arg0 : tensor<1x3x?x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x?x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-DAG: #[[AFFINE_MAP:.+]] = affine_map<(d0)[s0, s1, s2, s3] -> ((d0 + s1 - (s0 - 1) * s3 - 1) floordiv s2 + 1)>
+  // CHECK-LABEL: test_pool_unknown_dimensions
+  // CHECK: [[DIM:%.+]] = dim %arg0, 2 : memref<1x3x?x32xf32>
+  // CHECK: [[KERNEL:%.+]] = constant 2 : index
+  // CHECK: [[PAD:%.+]] = constant 0 : index
+  // CHECK: [[STRIDE:%.+]] = constant 1 : index
+  // CHECK: [[DILATION:%.+]] = constant 1 : index
+  // CHECK: [[AFFINE_APPLY:%.+]] = affine.apply #[[AFFINE_MAP]]([[DIM]]){{.*}}[[KERNEL]], [[PAD]], [[STRIDE]], [[DILATION]]{{.*}}
+  // CHECK: [[RES:%.+]] = alloc([[AFFINE_APPLY]]) : memref<1x3x?x31xf32>
+}
+
+// -----
+
 func @test_averagepool_identity_value(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
