@@ -1900,49 +1900,49 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
   // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wi_LOAD]] : f32
   // CHECK:        {{.*}} = load [[XtWi_GEMM]][] : memref<f32>
   // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        store %59, [[XtWi_GEMM]][] : memref<f32>
+  // CHECK:        store {{.*}}, [[XtWi_GEMM]][] : memref<f32>
 
   // CHECK:        [[Ri_LOAD:%.+]] = load %arg2[%c0, [[INPUT_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
   // CHECK:        {{.*}} = mulf [[Ht1_LOAD]], [[Ri_LOAD]] : f32
   // CHECK:        {{.*}} = load [[Ht1Ri_GEMM]][] : memref<f32>
   // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        store %63, [[Ht1Ri_GEMM]][] : memref<f32>
+  // CHECK:        store {{.*}}, [[Ht1Ri_GEMM]][] : memref<f32>
 
   // CHECK:        [[Wo_LOAD:%.+]] = load %arg1[%c0, [[OUTPUT_HIDDEN_INDEX]], %arg6] : memref<1x12x2xf32>
   // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wo_LOAD]] : f32
   // CHECK:        {{.*}} = load [[XtWo_GEMM]][] : memref<f32>
   // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        store %67, [[XtWo_GEMM]][] : memref<f32>
+  // CHECK:        store {{.*}}, [[XtWo_GEMM]][] : memref<f32>
 
   // CHECK:        [[Ro_LOAD:%.+]] = load %arg2[%c0, [[OUTPUT_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
   // CHECK:        {{.*}} = mulf [[Ht1_LOAD]], [[Ro_LOAD]] : f32
   // CHECK:        {{.*}} = load [[Ht1Ro_GEMM]][] : memref<f32>
   // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        store %71, [[Ht1Ro_GEMM]][] : memref<f32>
+  // CHECK:        store {{.*}}, [[Ht1Ro_GEMM]][] : memref<f32>
 
   // CHECK:        [[Wf_LOAD:%.+]] = load %arg1[%c0, [[FORGET_HIDDEN_INDEX]], %arg6] : memref<1x12x2xf32>
   // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wf_LOAD]] : f32
   // CHECK:        {{.*}} = load [[XtWf_GEMM]][] : memref<f32>
   // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        store %75, [[XtWf_GEMM]][] : memref<f32>
+  // CHECK:        store {{.*}}, [[XtWf_GEMM]][] : memref<f32>
 
   // CHECK:        [[Rf_LOAD:%.+]] = load %arg2[%c0, [[FORGET_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
   // CHECK:        {{.*}} = mulf [[Ht1_LOAD]], [[Rf_LOAD]] : f32
   // CHECK:        {{.*}} = load [[Ht1Rf_GEMM]][] : memref<f32>
   // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        store %79, [[Ht1Rf_GEMM]][] : memref<f32>
+  // CHECK:        store {{.*}}, [[Ht1Rf_GEMM]][] : memref<f32>
 
   // CHECK:        [[Wc_LOAD:%.+]] = load %arg1[%c0, [[CELL_HIDDEN_INDEX]], %arg6] : memref<1x12x2xf32>
   // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wc_LOAD]] : f32
   // CHECK:        {{.*}} = load [[XtWc_GEMM]][] : memref<f32>
   // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        store %83, [[XtWc_GEMM]][] : memref<f32>
+  // CHECK:        store {{.*}}, [[XtWc_GEMM]][] : memref<f32>
 
   // CHECK:        [[Rc_LOAD:%.+]] = load %arg2[%c0, [[CELL_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
   // CHECK:        {{.*}} = mulf [[Ht1_LOAD]], [[Rc_LOAD]] : f32
   // CHECK:        {{.*}} = load [[Ht1Rc_GEMM]][] : memref<f32>
   // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        store %87, [[Ht1Rc_GEMM]][] : memref<f32>
+  // CHECK:        store {{.*}}, [[Ht1Rc_GEMM]][] : memref<f32>
   // CHECK:      }
 
   // CHECK:      [[XtWi_LOAD:%.+]] = load [[XtWi_GEMM]][] : memref<f32>
@@ -1951,20 +1951,14 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
 
   // CHECK:      [[SIGMOID_INPUT:%.+]] = alloc() : memref<f32>
   // CHECK:      store [[It_OUTPUT]], [[SIGMOID_INPUT]][] : memref<f32>
-  // CHECK:      krnl.define_loops 0
-  // CHECK:      krnl.optimize_loops  {
-  // CHECK:        krnl.return_loops
-  // CHECK:      } : () -> ()
-  // CHECK:      krnl.iterate() with () {
-  // CHECK:        {{.*}} = load [[SIGMOID_INPUT]][] : memref<f32>
-  // CHECK:        {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:        {{.*}} = constant 1.000000e+00 : f32
-  // CHECK:        {{.*}} = subf {{.*}}, {{.*}}: f32
-  // CHECK:        {{.*}} = exp {{.*}} : f32
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        {{.*}} = divf {{.*}}, {{.*}} : f32
-  // CHECK:        store {{.*}}, [[It]][] : memref<f32>
-  // CHECK:      }
+  // CHECK:      {{.*}} = load [[SIGMOID_INPUT]][] : memref<f32>
+  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:      {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:      {{.*}} = subf {{.*}}, {{.*}}: f32
+  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      store {{.*}}, [[It]][] : memref<f32>
   // CHECK:      [[It_LOAD:%.+]] = load [[It]][] : memref<f32>
 
   // CHECK:      [[XtWf_LOAD:%.+]] = load [[XtWf_GEMM]][] : memref<f32>
@@ -1973,20 +1967,14 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
 
   // CHECK:      [[SIGMOID_FORGET:%.+]] = alloc() : memref<f32>
   // CHECK:      store [[Ft_OUTPUT]], [[SIGMOID_FORGET]][] : memref<f32>
-  // CHECK:      krnl.define_loops 0
-  // CHECK:      krnl.optimize_loops  {
-  // CHECK:        krnl.return_loops
-  // CHECK:      } : () -> ()
-  // CHECK:      krnl.iterate() with () {
-  // CHECK:        {{.*}} = load [[SIGMOID_FORGET]][] : memref<f32>
-  // CHECK:        {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:        {{.*}} = constant 1.000000e+00 : f32
-  // CHECK:        {{.*}} = subf {{.*}}, {{.*}}: f32
-  // CHECK:        {{.*}} = exp {{.*}} : f32
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        {{.*}} = divf {{.*}}, {{.*}} : f32
-  // CHECK:        store {{.*}}, [[Ft]][] : memref<f32>
-  // CHECK:      }
+  // CHECK:      {{.*}} = load [[SIGMOID_FORGET]][] : memref<f32>
+  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:      {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:      {{.*}} = subf {{.*}}, {{.*}}: f32
+  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      store {{.*}}, [[Ft]][] : memref<f32>
   // CHECK:      [[Ft_LOAD:%.+]] = load [[Ft]][] : memref<f32>
 
   // CHECK:      [[XtWc_LOAD:%.+]] = load [[XtWc_GEMM]][] : memref<f32>
@@ -1995,21 +1983,15 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
 
   // CHECK:      [[TANH_CELL:%.+]] = alloc() : memref<f32>
   // CHECK:      store [[ct_OUTPUT]], [[TANH_CELL]][] : memref<f32>
-  // CHECK:      krnl.define_loops 0
-  // CHECK:      krnl.optimize_loops  {
-  // CHECK:        krnl.return_loops
-  // CHECK:      } : () -> ()
-  // CHECK:      krnl.iterate() with () {
-  // CHECK:        {{.*}} = load [[TANH_CELL]][] : memref<f32>
-  // CHECK:        {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:        {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:        {{.*}} = exp {{.*}} : f32
-  // CHECK:        {{.*}} = exp {{.*}} : f32
-  // CHECK:        {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        {{.*}} = divf {{.*}}, {{.*}} : f32
-  // CHECK:        store {{.*}}, [[ct]][] : memref<f32>
-  // CHECK:      }
+  // CHECK:      {{.*}} = load [[TANH_CELL]][] : memref<f32>
+  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      store {{.*}}, [[ct]][] : memref<f32>
   // CHECK:      [[ct_LOAD:%.+]] = load [[ct]][] : memref<f32>
 
   // CHECK:      [[FtCt1:%.+]] = mulf [[Ft_LOAD]], [[Ct1_LOAD]] : f32
@@ -2023,39 +2005,27 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
 
   // CHECK:      [[SIGMOID_OUTPUT:%.+]] = alloc() : memref<f32>
   // CHECK:      store [[Ot_OUTPUT]], [[SIGMOID_OUTPUT]][] : memref<f32>
-  // CHECK:      krnl.define_loops 0
-  // CHECK:      krnl.optimize_loops  {
-  // CHECK:        krnl.return_loops
-  // CHECK:      } : () -> ()
-  // CHECK:      krnl.iterate() with () {
-  // CHECK:        {{.*}} = load [[SIGMOID_OUTPUT]][] : memref<f32>
-  // CHECK:        {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:        {{.*}} = constant 1.000000e+00 : f32
-  // CHECK:        {{.*}} = subf {{.*}}, {{.*}}: f32
-  // CHECK:        {{.*}} = exp {{.*}} : f32
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        {{.*}} = divf {{.*}}, {{.*}} : f32
-  // CHECK:        store {{.*}}, [[Ot]][] : memref<f32>
-  // CHECK:      }
+  // CHECK:      {{.*}} = load [[SIGMOID_OUTPUT]][] : memref<f32>
+  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:      {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:      {{.*}} = subf {{.*}}, {{.*}}: f32
+  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      store {{.*}}, [[Ot]][] : memref<f32>
   // CHECK:      [[Ot_LOAD:%.+]] = load [[Ot]][] : memref<f32>
 
   // CHECK:      [[TANH_HIDDEN:%.+]] = alloc() : memref<f32>
   // CHECK:      store [[Ct]], [[TANH_HIDDEN]][] : memref<f32>
-  // CHECK:      krnl.define_loops 0
-  // CHECK:      krnl.optimize_loops  {
-  // CHECK:        krnl.return_loops
-  // CHECK:      } : () -> ()
-  // CHECK:      krnl.iterate() with () {
-  // CHECK:        {{.*}} = load [[TANH_HIDDEN]][] : memref<f32>
-  // CHECK:        {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:        {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:        {{.*}} = exp {{.*}} : f32
-  // CHECK:        {{.*}} = exp {{.*}} : f32
-  // CHECK:        {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        {{.*}} = divf {{.*}}, {{.*}} : f32
-  // CHECK:        store {{.*}}, [[hCt]][] : memref<f32>
-  // CHECK:      }
+  // CHECK:      {{.*}} = load [[TANH_HIDDEN]][] : memref<f32>
+  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      store {{.*}}, [[hCt]][] : memref<f32>
   // CHECK:      [[hCt_LOAD:%.+]] = load [[hCt]][] : memref<f32>
 
   // CHECK:      [[Ht:%.+]] = mulf [[Ot_LOAD]], [[hCt_LOAD]] : f32
