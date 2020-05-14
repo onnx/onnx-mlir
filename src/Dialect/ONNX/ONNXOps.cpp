@@ -21,6 +21,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 
 #include "ONNXOps.hpp"
+#include "ONNXOpsHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -46,6 +47,30 @@ static int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
 // Returns the ConstantOp which defines an MLIR Value or null.
 static mlir::ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
+}
+
+// This method substitutes any uses of dimensions and symbols (e.g.
+// dim#0 with dimReplacements[0]) in an affine map, simplifies the modified
+// affine map, and returns an integer constant.
+int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
+    ArrayRef<int64_t> dimReplacements, ArrayRef<int64_t> symReplacements,
+    unsigned numResultDims, unsigned numResultSyms) {
+  // Prepare affine expressions.
+  SmallVector<AffineExpr, 4> dimExprs, symExprs;
+  for (int64_t dim : dimReplacements) {
+    AffineExpr exp = builder.getAffineConstantExpr(dim);
+    dimExprs.emplace_back(exp);
+  }
+  for (int64_t sym : symReplacements) {
+    AffineExpr exp = builder.getAffineConstantExpr(sym);
+    symExprs.emplace_back(exp);
+  }
+  // Replace all the affine map's arguments with real values and evaluate the
+  // map.
+  AffineMap replacedDimMap = map.replaceDimsAndSymbols(
+      dimExprs, symExprs, numResultDims, numResultSyms);
+  AffineMap simplifiedMap = simplifyAffineMap(replacedDimMap);
+  return simplifiedMap.getSingleConstantResult();
 }
 
 //===----------------------------------------------------------------------===//
@@ -267,36 +292,136 @@ static void processConvTypeParams(T *op, Value inputOperand) {
 // Compute spatial dimensions given dilations, strides, pads, and ceil mode.
 //
 static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
-    ArrayRef<int64_t> xShape, Optional<ArrayAttr> kernelShape,
+    Builder &builder, ArrayRef<int64_t> xShape, Optional<ArrayAttr> kernelShape,
     Optional<ArrayAttr> padsOpt, Optional<ArrayAttr> stridesOpt,
     Optional<ArrayAttr> dilationsOpt = llvm::None, bool ceilMode = false) {
-  auto xRank = xShape.size();
   auto spatialRank = ArrayAttrSize(kernelShape);
-  auto spatialOffset = xRank - spatialRank;
+  auto spatialOffset = xShape.size() - spatialRank;
 
-  int64_t dilationVal = 1;
+  // Get an affine map to compute the output dimension.
+  AffineMap dimMap = getConvDimMap(builder, ceilMode);
   for (int i = 0; i < spatialRank; ++i) {
-    auto inputSize = xShape[spatialOffset + i];
-    auto sumOfPads =
-        ArrayAttrIntVal(padsOpt, i) + ArrayAttrIntVal(padsOpt, spatialRank + i);
-    auto kernelSize = ArrayAttrIntVal(kernelShape, i);
-    if (dilationsOpt.hasValue())
-      dilationVal = ArrayAttrIntVal(dilationsOpt, i);
-    auto strideVal = ArrayAttrIntVal(stridesOpt, i);
-    // Number of useful values: input plus pad - effective size of kernel (see
-    // processConvTypeParams comments to see how this value is derived).
-    double numerator =
-        inputSize + sumOfPads - ((kernelSize - 1) * dilationVal + 1);
-    // Useful number is divided by the strides.
-    double denominator = strideVal;
-    int64_t res;
-    if (ceilMode) {
-      res = ceil(numerator / denominator) + 1;
-    } else {
-      res = floor(numerator / denominator) + 1;
+    int64_t res = -1;
+    if (xShape[spatialOffset + i] != -1) {
+      auto inputSize = xShape[spatialOffset + i];
+      auto kernelSize = ArrayAttrIntVal(kernelShape, i);
+      auto sumOfPads = ArrayAttrIntVal(padsOpt, i) +
+                       ArrayAttrIntVal(padsOpt, spatialRank + i);
+      auto strideVal = ArrayAttrIntVal(stridesOpt, i);
+      int64_t dilationVal = 1;
+      if (dilationsOpt.hasValue())
+        dilationVal = ArrayAttrIntVal(dilationsOpt, i);
+      res = AffineMapIntConstant(builder, dimMap, {inputSize},
+          {kernelSize, sumOfPads, strideVal, dilationVal}, 1, 4);
     }
     outputDims->emplace_back(res);
   }
+}
+
+//===----------------------------------------------------------------------===//
+// Support function that infers shape for RNN operations.
+template <typename T>
+static bool RNNShapeInference(T *op) {
+  Value X = op->X();
+  Value W = op->W();
+  Value R = op->R();
+
+  if (!X.getType().isa<RankedTensorType>() ||
+      !W.getType().isa<RankedTensorType>() ||
+      !R.getType().isa<RankedTensorType>())
+    return false;
+
+  auto xTy = X.getType().cast<RankedTensorType>();
+  auto elementType = xTy.getElementType();
+
+  // xShape :: [seq_length, batch_size, input_size]
+  auto xShape = xTy.getShape();
+  // wShape :: [num_directions, 4*hidden_size, input_size]
+  auto wShape = W.getType().cast<RankedTensorType>().getShape();
+  // rShape :: [num_directions, 4*hidden_size, hidden_size]
+  auto rShape = R.getType().cast<RankedTensorType>().getShape();
+
+  if (xShape.size() != 3) {
+    op->emitError("The first input tensor must have rank 3");
+    return false;
+  }
+  if (wShape.size() != 3) {
+    op->emitError("The second input tensor must have rank 3");
+    return false;
+  }
+  if (rShape.size() != 3) {
+    op->emitError("The third input tensor must have rank 3");
+    return false;
+  }
+
+  // Get sequence length, batch size and input size.
+  auto sequenceLength = xShape[0];
+  auto batchSize = xShape[1];
+  auto inputSize = xShape[2];
+
+  // Get hidden size from hidden_size attribute.
+  int64_t hiddenSize = -1;
+  if (op->hidden_size().hasValue()) {
+    hiddenSize = op->hidden_size().getValue().getSExtValue();
+  } else {
+    // Infer hidden_size from wShape and rShape if possible.
+    if (rShape[2] != -1)
+      hiddenSize = rShape[2];
+    else if (rShape[1] != -1)
+      hiddenSize = rShape[1] / 4;
+    else if (wShape[1] != -1)
+      hiddenSize = wShape[1] / 4;
+    // Update hidden_size attribute.
+    if (hiddenSize != -1) {
+      auto builder = mlir::Builder(op->getContext());
+      op->hidden_sizeAttr(builder.getI64IntegerAttr(hiddenSize));
+    }
+  }
+
+  // Get direction.
+  int numDirection;
+  if ((op->direction() == "forward") || (op->direction() == "reverse"))
+    numDirection = 1;
+  else if (op->direction() == "bidirectional")
+    numDirection = 2;
+  else
+    numDirection = -1;
+  if (numDirection == -1) {
+    op->emitError("direction attribute muse be one of the strings: forward, "
+                  "reverse, and bidirectional");
+    return false;
+  }
+
+  // Set result types.
+  unsigned numOfResults = op->getNumResults();
+  if (numOfResults > 0) {
+    // Y :: [seq_length, num_directions, batch_size, hidden_size]
+    Type yTy = op->getResults()[0].getType();
+    if (!yTy.isa<NoneType>()) {
+      yTy = RankedTensorType::get(
+          {sequenceLength, numDirection, batchSize, hiddenSize}, elementType);
+      op->getResults()[0].setType(yTy);
+    }
+  }
+  if (numOfResults > 1) {
+    // Y_h :: [num_directions, batch_size, hidden_size]
+    Type yhTy = op->getResults()[1].getType();
+    if (!yhTy.isa<NoneType>()) {
+      yhTy = RankedTensorType::get(
+          {numDirection, batchSize, hiddenSize}, elementType);
+      op->getResults()[1].setType(yhTy);
+    }
+  }
+  if (numOfResults > 2) {
+    // Y_c :: [num_directions, batch_size, hidden_size]
+    Type ycTy = op->getResults()[2].getType();
+    if (!ycTy.isa<NoneType>()) {
+      ycTy = RankedTensorType::get(
+          {numDirection, batchSize, hiddenSize}, elementType);
+      op->getResults()[2].setType(ycTy);
+    }
+  }
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1237,8 +1362,8 @@ bool ONNXConvOp::inferShapes() {
   // Insert number of filters being applied (number of output channels).
   outputDims.emplace_back(weightShape[0]);
   // Compute and insert spatial dims.
-  insertConvSpatialDim(
-      &outputDims, xShape, kernelShape, padsOpt, stridesOpt, dilationsOpt);
+  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
+      stridesOpt, dilationsOpt);
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return true;
@@ -1258,6 +1383,8 @@ bool ONNXAveragePoolOp::inferShapes() {
     emitError("Input tensor not ranked");
     return false;
   }
+
+  auto builder = mlir::Builder(getContext());
 
   // Get shape of input.
   auto xTy = X().getType().cast<RankedTensorType>();
@@ -1284,8 +1411,8 @@ bool ONNXAveragePoolOp::inferShapes() {
   outputDims.emplace_back(xShape[0]);
   outputDims.emplace_back(xShape[1]);
   // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, xShape, kernelShape, padsOpt, stridesOpt,
-      llvm::None, ceilMode);
+  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
+      stridesOpt, llvm::None, ceilMode);
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return true;
@@ -1305,6 +1432,8 @@ bool ONNXMaxPoolSingleOutOp::inferShapes() {
     emitError("Input tensor not ranked");
     return false;
   }
+
+  auto builder = mlir::Builder(getContext());
 
   // Get shape of input.
   auto xTy = X().getType().cast<RankedTensorType>();
@@ -1335,8 +1464,8 @@ bool ONNXMaxPoolSingleOutOp::inferShapes() {
   outputDims.emplace_back(xShape[0]);
   outputDims.emplace_back(xShape[1]);
   // Compute and insert spatial dims.
-  insertConvSpatialDim(&outputDims, xShape, kernelShape, padsOpt, stridesOpt,
-      dilationsOpt, ceilMode);
+  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
+      stridesOpt, dilationsOpt, ceilMode);
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return true;
@@ -1520,7 +1649,6 @@ bool ONNXConstantOp::inferShapes() {
   return true;
 }
 
-//===----------------------------------------------------------------------===//
 // Concat
 
 bool ONNXConcatOp::inferShapes() {
@@ -1582,6 +1710,94 @@ bool ONNXConcatOp::inferShapes() {
         j == axisIndex ? cummulativeAxisSize : commonShape[j]);
   getResult().setType(
       RankedTensorType::get(outputDims, commonType.getElementType()));
+  return true;
+}
+
+//===----------------------------------------------------------------------===//
+// RNN
+
+bool ONNXRNNOp::inferShapes() { return RNNShapeInference<>(this); }
+
+//===----------------------------------------------------------------------===//
+// LSTM
+
+bool ONNXLSTMOp::inferShapes() { return RNNShapeInference<>(this); }
+
+//===----------------------------------------------------------------------===//
+// GRU
+
+bool ONNXGRUOp::inferShapes() { return RNNShapeInference<>(this); }
+
+//===----------------------------------------------------------------------===//
+// Split
+
+bool ONNXSplitOp::inferShapes() {
+  if (!getOperand().getType().cast<RankedTensorType>()) {
+    emitError("Input tensor not ranked");
+    return false;
+  }
+
+  int numOfResults = getNumResults();
+  auto inputType = getOperand().getType().cast<RankedTensorType>();
+  auto inputShape = inputType.getShape();
+  int64_t inputRank = inputShape.size();
+
+  // Checking value of axis parameter.
+  auto axisIndex = axis().getSExtValue();
+  if (axisIndex < -inputRank || axisIndex >= inputRank) {
+    emitError("Split axis value out of bound");
+    return false;
+  }
+  // Negative axis means values are counted from the opposite side.
+  if (axisIndex < 0) {
+    axisIndex = inputRank + axisIndex;
+    auto builder = mlir::Builder(getContext());
+    axisAttr(builder.getI64IntegerAttr(axisIndex));
+  }
+
+  // Checking value of split parameter.
+  auto splitAttribute = split();
+  SmallVector<int64_t, 4> splitLengths;
+  if (splitAttribute.hasValue()) {
+    if (ArrayAttrSize(splitAttribute) != numOfResults) {
+      emitError("Split size not equal to the number of results");
+    }
+    for (int i = 0; i < numOfResults; ++i)
+      splitLengths.emplace_back(ArrayAttrIntVal(splitAttribute, i));
+
+  } else {
+    if (inputShape[axisIndex] <= 0) {
+      emitError("The dimension at the split axis is expected to be known at "
+                "compile time");
+      return false;
+    }
+    if (inputShape[axisIndex] % numOfResults != 0) {
+      emitError("The dimension at the split axis is expected to be divisible "
+                "by the number of results");
+      return false;
+    }
+    // If split parameter is not specified, the dimension is split to
+    // equal-sized parts.
+    for (int i = 0; i < numOfResults; ++i)
+      splitLengths.emplace_back(inputShape[axisIndex] / numOfResults);
+    // Build attribute and store attribute.
+    auto builder = mlir::Builder(getContext());
+    splitAttr(builder.getI64ArrayAttr(llvm::makeArrayRef(splitLengths)));
+  }
+
+  // Build result types.
+  for (int i = 0; i < numOfResults; ++i) {
+    SmallVector<int64_t, 3> resultShape;
+    for (int j = 0; j < inputRank; ++j) {
+      if (j == axisIndex) {
+        resultShape.emplace_back(splitLengths[i]);
+      } else {
+        resultShape.emplace_back(inputShape[j]);
+      }
+    }
+    getResults()[i].setType(
+        RankedTensorType::get(resultShape, inputType.getElementType()));
+  }
   return true;
 }
 
