@@ -19,14 +19,14 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/StandardTypes.h"
 
-#include "src/Interface/ShapeInferenceInterface.hpp"
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp"
+#include "src/Interface/ShapeInferenceInterface.hpp"
 
 namespace mlir {
 
 class ONNXOpsDialect : public Dialect {
- public:
-  ONNXOpsDialect(MLIRContext* context);
+public:
+  ONNXOpsDialect(MLIRContext *context);
 
   /// Provide a utility accessor to the dialect namespace. This is used by
   /// several utilities for casting between dialects.
@@ -38,6 +38,6 @@ class ONNXOpsDialect : public Dialect {
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.hpp.inc"
 
-}  // end namespace mlir
+} // end namespace mlir
 
 namespace onnx_mlir {}
