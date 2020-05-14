@@ -20,6 +20,8 @@ from onnx.backend.test.case import collect_snippets
 from onnx.backend.sample.ops import collect_sample_implementations
 from typing import Any, Text, Sequence, Dict, List, Type, Set, Tuple
 
+import pprint
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--dry-run-onnx-ops",
                     help="Output ONNXOps.td.inc content to stdout.",
@@ -29,11 +31,179 @@ parser.add_argument("--dry-run-op-build-table",
                     help="Output OpBuildTable.inc content to stdout.",
                     action="store_true",
                     default=False)
+parser.add_argument("--generate-for-latest-version",
+                    help="generate operation for the latest version,"+
+                         " not according to version_dicts",
+                    action="store_true",
+                    default=False)
 parser.add_argument("--domain", 
                     help="specify domain, ONNX or ONNX_ML",
                     default = "ONNX")
 
 args = parser.parse_args()
+
+generate_for_latest_version = args.generate_for_latest_version
+
+
+#Record the version of each operation that is treated as the current version
+#To include the newer version, run this script with --generate-for-latest-version flag.
+#Update this dictionary with the output of the script.
+version_dict = {'Abs': 6,
+ 'Acos': 7,
+ 'Acosh': 9,
+ 'Add': 7,
+ 'And': 7,
+ 'ArgMax': 11,
+ 'ArgMin': 11,
+ 'Asin': 7,
+ 'Asinh': 9,
+ 'Atan': 7,
+ 'Atanh': 9,
+ 'AveragePool': 11,
+ 'BatchNormalization': 9,
+ 'BitShift': 11,
+ 'Cast': 9,
+ 'Ceil': 6,
+ 'Clip': 11,
+ 'Compress': 11,
+ 'Concat': 11,
+ 'ConcatFromSequence': 11,
+ 'Constant': 11,
+ 'ConstantOfShape': 9,
+ 'Conv': 11,
+ 'ConvInteger': 10,
+ 'ConvTranspose': 11,
+ 'Cos': 7,
+ 'Cosh': 9,
+ 'CumSum': 11,
+ 'DepthToSpace': 11,
+ 'DequantizeLinear': 10,
+ 'Det': 11,
+ 'Div': 7,
+ 'Dropout': 10,
+ 'DynamicQuantizeLinear': 11,
+ 'Elu': 6,
+ 'Equal': 11,
+ 'Erf': 9,
+ 'Exp': 6,
+ 'Expand': 8,
+ 'EyeLike': 9,
+ 'Flatten': 11,
+ 'Floor': 6,
+ 'GRU': 7,
+ 'Gather': 11,
+ 'GatherElements': 11,
+ 'GatherND': 11,
+ 'Gemm': 11,
+ 'GlobalAveragePool': 1,
+ 'GlobalLpPool': 2,
+ 'GlobalMaxPool': 1,
+ 'Greater': 9,
+ 'HardSigmoid': 6,
+ 'Hardmax': 11,
+ 'Identity': 1,
+ 'If': 11,
+ 'InstanceNormalization': 6,
+ 'IsInf': 10,
+ 'IsNaN': 9,
+ 'LRN': 1,
+ 'LSTM': 7,
+ 'LeakyRelu': 6,
+ 'Less': 9,
+ 'Log': 6,
+ 'LogSoftmax': 11,
+ 'Loop': 11,
+ 'LpNormalization': 1,
+ 'LpPool': 11,
+ 'MatMul': 9,
+ 'MatMulInteger': 10,
+ 'Max': 8,
+ 'MaxPool': 11,
+ 'MaxRoiPool': 1,
+ 'MaxUnpool': 11,
+ 'Mean': 8,
+ 'MeanVarianceNormalization': 9,
+ 'Min': 8,
+ 'Mod': 10,
+ 'Mul': 7,
+ 'Multinomial': 7,
+ 'Neg': 6,
+ 'NonMaxSuppression': 11,
+ 'NonZero': 9,
+ 'Not': 1,
+ 'OneHot': 11,
+ 'Or': 7,
+ 'PRelu': 9,
+ 'Pad': 11,
+ 'Pow': 7,
+ 'QLinearConv': 10,
+ 'QLinearMatMul': 10,
+ 'QuantizeLinear': 10,
+ 'RNN': 7,
+ 'RandomNormal': 1,
+ 'RandomNormalLike': 1,
+ 'RandomUniform': 1,
+ 'RandomUniformLike': 1,
+ 'Range': 11,
+ 'Reciprocal': 6,
+ 'ReduceL1': 11,
+ 'ReduceL2': 11,
+ 'ReduceLogSum': 11,
+ 'ReduceLogSumExp': 11,
+ 'ReduceMax': 11,
+ 'ReduceMean': 11,
+ 'ReduceMin': 11,
+ 'ReduceProd': 11,
+ 'ReduceSum': 11,
+ 'ReduceSumSquare': 11,
+ 'Relu': 6,
+ 'Reshape': 5,
+ 'Resize': 11,
+ 'ReverseSequence': 10,
+ 'RoiAlign': 10,
+ 'Round': 11,
+ 'Scan': 11,
+ 'Scatter': 11,
+ 'ScatterElements': 11,
+ 'ScatterND': 11,
+ 'Selu': 6,
+ 'SequenceAt': 11,
+ 'SequenceConstruct': 11,
+ 'SequenceEmpty': 11,
+ 'SequenceErase': 11,
+ 'SequenceInsert': 11,
+ 'SequenceLength': 11,
+ 'Shape': 1,
+ 'Shrink': 9,
+ 'Sigmoid': 6,
+ 'Sign': 9,
+ 'Sin': 7,
+ 'Sinh': 9,
+ 'Size': 1,
+ 'Slice': 11,
+ 'Softmax': 11,
+ 'Softplus': 1,
+ 'Softsign': 1,
+ 'SpaceToDepth': 1,
+ 'Split': 11,
+ 'SplitToSequence': 11,
+ 'Sqrt': 6,
+ 'Squeeze': 11,
+ 'StringNormalizer': 10,
+ 'Sub': 7,
+ 'Sum': 8,
+ 'Tan': 7,
+ 'Tanh': 6,
+ 'TfIdfVectorizer': 9,
+ 'ThresholdedRelu': 10,
+ 'Tile': 6,
+ 'TopK': 11,
+ 'Transpose': 1,
+ 'Unique': 11,
+ 'Unsqueeze': 11,
+ 'Upsample': 10,
+ 'Where': 9,
+ 'Xor': 7}
 
 # Manual specification of attribute defaults.
 special_attr_defaults = dict([
@@ -524,8 +694,34 @@ def build_operator_schemas():
                 schema = versions[-1]
                 if schema.name in exsting_ops:
                     continue
-                exsting_ops.add(schema.name)
-                processed_namemap.append((n, schema, versions))
+
+                if generate_for_latest_version :
+                    #As did preciously, generate operation for the latest version.
+                    exsting_ops.add(schema.name)
+                    processed_namemap.append((n, schema, versions))
+
+                    #Add checks against version_dict
+                    if schema.name not in version_dict :
+                        print("Warning: a new schema {}".format(schema.name))
+                    if schema.since_version <  version_dict[schema.name]:
+                        print("Warning: a newer version for schema {}".format(
+                            schema.name))
+                else:
+                    #Generate operation according to the version in version_dict.
+                    if schema.name not in version_dict :
+                        continue
+                    found = False
+                    for schema in reversed(versions):
+                        # check the version number
+                        if schema.since_version == version_dict[schema.name]:
+                            exsting_ops.add(schema.name)
+                            processed_namemap.append((n, schema, versions))
+                            found = True
+                            break
+                    if not found:
+                        print("Your onnx may be too old."
+                           "right version for opertion {} not found".format(
+                            schema.name))
             processed_supportmap.append((_support, processed_namemap))
         operator_schemas.append((domain, processed_supportmap))
     return operator_schemas
@@ -548,12 +744,16 @@ def main(args):  # type: (Type[Args]) -> None
     op_importer = args.op_importer
     op_importer.write(autogen_warning)
 
+    version_dict = dict()
     for domain, supportmap in build_operator_schemas():
         for _, namemap in supportmap:
             for op_type, schema, versions in namemap:
                 gen_op_importer(schema, op_importer)
                 r = gen_op_def(schema)
                 op_def.write(r)
+                version_dict[schema.name] = schema.since_version
+    if generate_for_latest_version :
+        pprint.pprint(version_dict)
 
 if __name__ == '__main__':
     curr_dir = os.path.dirname(os.path.realpath(__file__))
