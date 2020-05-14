@@ -1,4 +1,4 @@
-//====------ ONNXOpsHelper.hpp - Helper functions for ONNX dialects -------===//
+//===------- ONNXOpsHelper.hpp - Helper functions for ONNX dialects -------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

@@ -1,4 +1,4 @@
-//====------ ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
+//===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -8,7 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "ONNXOpsHelper.hpp"
 
 // Identity affine
 using namespace mlir;
