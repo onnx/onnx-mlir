@@ -2,20 +2,37 @@
 
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, std::string entryPointName) {
+  // Adapted from https://www.tldp.org/HOWTO/html_single/C++-dlopen/.
   _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY);
+  if (!_sharedLibraryHandle) {
+    std::stringstream errStr;
+    errStr << "Cannot open library: " << dlerror() << std::endl;
+    throw std::runtime_error(errStr.str());
+  }
+
+  // Reset errors.
+  dlerror();
   _entryPointFunc =
       (entryPointFuncType)dlsym(_sharedLibraryHandle, entryPointName.c_str());
+  auto *dlsymError = dlerror();
+  if (dlsymError) {
+    std::stringstream errStr;
+    errStr << "Cannot load symbol '" << entryPointName << "': " << dlsymError
+           << std::endl;
+    dlclose(_sharedLibraryHandle);
+    throw std::runtime_error(errStr.str());
+  }
 }
 
 std::vector<py::array> ExecutionSession::run(
     std::vector<py::array> inputsPyArray) {
-  assert(_entryPointFunc && "entry point not loaded");
+  assert(_entryPointFunc && "Entry point not loaded.");
   auto *wrappedInput = createOrderedDynMemRefDict();
   int inputIdx = 0;
   for (auto inputPyArray : inputsPyArray) {
     auto *inputDynMemRef = createDynMemRef(inputPyArray.ndim());
     assert(inputPyArray.flags() && py::array::c_style &&
-           "expect contiguous python array");
+           "Expect contiguous python array.");
 
     if (inputPyArray.writeable()) {
       inputDynMemRef->data = inputPyArray.mutable_data();
