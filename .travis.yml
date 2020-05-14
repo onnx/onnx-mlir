@@ -33,6 +33,10 @@ jobs:
     - stage: installLLVM
       workspaces: 
         use: ws1
+        create:
+          name: ws2
+          paths:
+            - buildimage2.tar
       script: 
         - pwd
         - ls -al
@@ -40,12 +44,28 @@ jobs:
         - docker run -itd --name build buildimage
         - docker images
         - docker exec build install_LLVM.sh $(pwd)
+        - docker commit build buildimage:latest
+        - docker save buildimage:latest > buildimage2.tar
     - stage: compileLLVM
+      workspaces: 
+        use: ws2
+        create:
+          name: ws3
+          paths:
+            - buildimage3.tar
       script: 
+        - docker load < buildimage2.tar 
+        - docker run -itd --name build buildimage
+        - docker images
         - docker exec build compile_LLVM.sh $(pwd)
     - stage: compileONNX-MLIR
       script: 
         - docker exec build compile_ONNX-MLIR.sh $(pwd)
+        - docker commit build buildimage:latest
+        - docker save buildimage:latest > buildimage3.tar
     - stage: test
       script: 
+        - docker load < buildimage3.tar 
+        - docker run -itd --name build buildimage
+        - docker images
         - docker exec build testONNX-MLIR.sh $(pwd)
