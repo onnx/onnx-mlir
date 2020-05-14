@@ -505,6 +505,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     // An element-wise unary operation must have all operands and the result of
     // the same type. This should have been verified by the verifier.
     auto loc = op->getLoc();
+    auto X = operands[0];
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -521,33 +522,35 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {operands[0]});
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, {X});
 
-    std::vector<Value> originalLoops;
-    KrnlOptimizeLoopsOp optimizedLoopsOp;
-    KrnlIterateOp iterateOp;
-    emitKrnlLoopsAndIterationForOperand(
-        rewriter, loc, operands[0], originalLoops, optimizedLoopsOp, iterateOp);
-    Block &optimizationBlock = optimizedLoopsOp.region().front();
-    Block &iterationBlock = iterateOp.bodyRegion().front();
-
-    // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-    rewriter.setInsertionPointToEnd(&optimizationBlock);
-    // Return from KrnlOptimizeLoopsOp body.
-    // When no optimizations are present we just return the loops
-    // unchaged.
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
-    // 2. Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation:
     SmallVector<Value, 4> loopIVs;
-    for (auto arg : iterationBlock.getArguments())
-      loopIVs.push_back(arg);
+    if (!hasAllScalarValues(operands)) {
+      std::vector<Value> originalLoops;
+      KrnlOptimizeLoopsOp optimizedLoopsOp;
+      KrnlIterateOp iterateOp;
+      emitKrnlLoopsAndIterationForOperand(
+          rewriter, loc, X, originalLoops, optimizedLoopsOp, iterateOp);
+      Block &optimizationBlock = optimizedLoopsOp.region().front();
+      Block &iterationBlock = iterateOp.bodyRegion().front();
 
-    auto loadedVal = rewriter.create<LoadOp>(loc, operands[0], loopIVs);
+      // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
+      rewriter.setInsertionPointToEnd(&optimizationBlock);
+      // Return from KrnlOptimizeLoopsOp body.
+      // When no optimizations are present we just return the loops
+      // unchaged.
+      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
+
+      // 2. Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(&iterationBlock);
+
+      // Handle the operation:
+      for (auto arg : iterationBlock.getArguments())
+        loopIVs.push_back(arg);
+    }
+
+    auto loadedVal = rewriter.create<LoadOp>(loc, X, loopIVs);
     auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
         rewriter, loc, op, memRefType.getElementType(), {loadedVal});
     // Store result in the resulting array.
@@ -589,33 +592,35 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(
           memRefType, loc, rewriter, insertDealloc, operands);
 
-    // Get run-time dimension information for unknown dimensions used for
-    // broadcasting.
-    std::map<int, std::map<int, Value>> broadcastedDimInfo =
-        getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
-
-    std::vector<Value> originalLoops;
-    KrnlOptimizeLoopsOp optimizedLoopsOp;
-    KrnlIterateOp iterateOp;
-    emitKrnlLoopsAndIterationForOperand(
-        rewriter, loc, alloc, originalLoops, optimizedLoopsOp, iterateOp);
-    Block &optimizationBlock = optimizedLoopsOp.region().front();
-    Block &iterationBlock = iterateOp.bodyRegion().front();
-
-    // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-    rewriter.setInsertionPointToEnd(&optimizationBlock);
-    // Return from KrnlOptimizeLoopsOp body.
-    // When no optimizations are present we just return the loops unchaged.
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
-    // 2. Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation:
     SmallVector<Value, 4> loopIVs;
-    for (auto arg : iterationBlock.getArguments())
-      loopIVs.push_back(arg);
+    std::map<int, std::map<int, Value>> broadcastedDimInfo;
+    if (!hasAllScalarValues(operands)) {
+      // Get run-time dimension information for unknown dimensions used for
+      // broadcasting.
+      broadcastedDimInfo =
+          getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
 
+      std::vector<Value> originalLoops;
+      KrnlOptimizeLoopsOp optimizedLoopsOp;
+      KrnlIterateOp iterateOp;
+      emitKrnlLoopsAndIterationForOperand(
+          rewriter, loc, alloc, originalLoops, optimizedLoopsOp, iterateOp);
+      Block &optimizationBlock = optimizedLoopsOp.region().front();
+      Block &iterationBlock = iterateOp.bodyRegion().front();
+
+      // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
+      rewriter.setInsertionPointToEnd(&optimizationBlock);
+      // Return from KrnlOptimizeLoopsOp body.
+      // When no optimizations are present we just return the loops unchaged.
+      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
+
+      // 2. Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(&iterationBlock);
+
+      // Handle the operation:
+      for (auto arg : iterationBlock.getArguments())
+        loopIVs.push_back(arg);
+    }
     // Fold over operands for each of their scalar values
     Value accumulated, next;
     auto accumulatedLoopIVs = getLoopIVsForBroadcasting(
