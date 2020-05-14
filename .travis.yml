@@ -57,6 +57,8 @@ jobs:
         - docker load < buildimage2.tar 
         - docker run -itd --name build buildimage
         - docker images
+        - docker exec build pwd
+        - docker exec build ls -al
         - docker exec build compile_LLVM.sh $(pwd)
     - stage: compileONNX-MLIR
       script: 
