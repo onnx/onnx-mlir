@@ -9,10 +9,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/StandardTypes.h"
 #include "mlir/Pass/Pass.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
-#include "mlir/IR/StandardTypes.h"
 
 #include "src/Interface/ShapeInferenceInterface.hpp"
 #include "src/Pass/Passes.hpp"
@@ -25,7 +25,8 @@ namespace {
  *  candidate operations and propagating the shape information until the list
  *  of operations is empty [credit MLIR authors].
  */
-class ShapeInferencePass : public mlir::PassWrapper<ShapeInferencePass, mlir::FunctionPass> {
+class ShapeInferencePass
+    : public mlir::PassWrapper<ShapeInferencePass, mlir::FunctionPass> {
 public:
   void runOnFunction() override {
     auto f = getFunction();
@@ -63,8 +64,7 @@ public:
 
     if (auto terminator_op = f.getBody().back().getTerminator()) {
       auto results = terminator_op->getOperandTypes();
-      f.setType(FunctionType::get(
-          f.getType().getInputs(),
+      f.setType(FunctionType::get(f.getType().getInputs(),
           std::vector<Type>(results.begin(), results.end()), f.getContext()));
     }
   }
@@ -124,7 +124,11 @@ public:
         op->getName().getStringRef() != "onnx.Abs" &&
         op->getName().getStringRef() != "onnx.Constant" &&
         op->getName().getStringRef() != "onnx.Concat" &&
+        op->getName().getStringRef() != "onnx.Split" &&
         op->getName().getStringRef() != "onnx.Neg" &&
+        op->getName().getStringRef() != "onnx.RNN" &&
+        op->getName().getStringRef() != "onnx.LSTM" &&
+        op->getName().getStringRef() != "onnx.GRU" &&
         op->getName().getStringRef() != "onnx.Unsqueeze")
       return false;
     return llvm::any_of(op->getResultTypes(), [](Type result_type) {
@@ -142,5 +146,5 @@ std::unique_ptr<mlir::Pass> mlir::createShapeInferencePass() {
   return std::make_unique<ShapeInferencePass>();
 }
 
-static PassRegistration<ShapeInferencePass>
-    pass("shape-inference", "Shape inference for frontend dialects.");
+static PassRegistration<ShapeInferencePass> pass(
+    "shape-inference", "Shape inference for frontend dialects.");

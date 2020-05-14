@@ -12,35 +12,35 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 
-#include <numeric>
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include <numeric>
 
 using namespace mlir;
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXCombine.inc"
-}  // end anonymous namespace
+} // end anonymous namespace
 
 /// Register optimization patterns as "canonicalization" patterns
 /// on the ONNXMatMultOp.
 void ONNXAddOp::getCanonicalizationPatterns(
-    OwningRewritePatternList& results, MLIRContext* context) {
+    OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<MulAddToGemmOptPattern>(context);
 }
 
 void ONNXGemmOp::getCanonicalizationPatterns(
-        OwningRewritePatternList& results, MLIRContext* context) {
-    results.insert<FuseGemmFollowedByAddition>(context);
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<FuseGemmFollowedByAddition>(context);
 }
 /// on the ONNXIdentityOp.
 void ONNXIdentityOp::getCanonicalizationPatterns(
-    OwningRewritePatternList& results, MLIRContext* context) {
+    OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<IdentityEliminationPattern>(context);
 }
 
-///on the ONNXPadConstantValueOp.
+/// on the ONNXPadConstantValueOp.
 void ONNXPadConstantValueOp::getCanonicalizationPatterns(
-    OwningRewritePatternList& result, MLIRContext* context) {
+    OwningRewritePatternList &result, MLIRContext *context) {
   result.insert<ConstantPadPattern>(context);
 }
