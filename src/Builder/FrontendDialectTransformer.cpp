@@ -313,10 +313,10 @@ private:
       auto elementType = builder_.getF32Type();
       llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
       auto tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
-      auto constantDenseAttribute = mlir::DenseElementsAttr::get(
-          tensorType, llvm::makeArrayRef(values));
+      auto constantDenseAttribute =
+          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 
-      //use the special builder defined in ONNXOp.td.inc
+      // Use the special builder defined in ONNXOp.td.inc.
       auto constantOp = builder_.create<mlir::ONNXConstantOp>(
           UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
       mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
@@ -324,7 +324,7 @@ private:
       for (const auto &item : node.input())
         if (initializedTensors.ContainKey(legalize_name(item))) {
           inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-                                UnknownLoc(), builder_, legalize_name(item)));
+              UnknownLoc(), builder_, legalize_name(item)));
         } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
           inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
         }

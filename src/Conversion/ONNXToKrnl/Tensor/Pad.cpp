@@ -95,7 +95,8 @@ struct ONNXPadOpLowering : public ConversionPattern {
       }
     }
 
-    auto originValue = rewriter.create<LoadOp>(loc, operandAdaptor.data(), inLoopIVs);
+    auto originValue =
+        rewriter.create<LoadOp>(loc, operandAdaptor.data(), inLoopIVs);
     rewriter.create<StoreOp>(loc, originValue, alloc, outLoopIVs);
     rewriter.setInsertionPointToStart(padLoops.getIterateBlock());
 

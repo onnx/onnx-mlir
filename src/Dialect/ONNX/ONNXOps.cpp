@@ -1491,7 +1491,6 @@ bool ONNXPadOp::inferShapes() {
 
   auto dataTy = data().getType().cast<RankedTensorType>();
   auto dataShape = dataTy.getShape();
-  //auto dataRank = dataShape.size();
   auto dataRank = dataTy.getRank();
   SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
 
