@@ -48,8 +48,8 @@ enum EmissionTargetType {
 void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
 
-void EmitLLVMBitCode(
-    const mlir::OwningModuleRef &module, std::string outputFilename);
+void compileModuleToSharedLibrary(
+    const mlir::OwningModuleRef &module, std::string outputBaseName);
 
 void registerDialects();
 

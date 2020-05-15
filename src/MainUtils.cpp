@@ -8,9 +8,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/MainUtils.hpp"
+#include <cstdio>
 #include <fcntl.h>
-#include <stdio.h>
+
+#include "src/ExternalUtil.hpp"
+#include "src/MainUtils.hpp"
+#include "llvm/Support/Program.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -43,14 +46,33 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   }
 }
 
-void EmitLLVMBitCode(
-    const mlir::OwningModuleRef &module, string outputFilename) {
+void compileModuleToSharedLibrary(
+    const mlir::OwningModuleRef &module, string outputBaseName) {
+  // Write LLVM bitcode.
+  string outputFilename = outputBaseName + ".bc";
   error_code error;
   llvm::raw_fd_ostream moduleBitcodeStream(
       outputFilename, error, llvm::sys::fs::F_None);
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
+
+  // Compile bitcode to object file.
+  std::vector<std::string> llcArgs = {
+      "llc", "-filetype=obj", "-relocation-model=pic", outputFilename};
+  auto llcArgStrRefs =
+      std::vector<llvm::StringRef>(llcArgs.begin(), llcArgs.end());
+  llvm::sys::ExecuteAndWait(kLlcPath, llvm::makeArrayRef(llcArgStrRefs));
+
+  // Link with runtime.
+  // TODO(tjingrant): link with runtime library in LLVM, and make the shared
+  // library more self-contained.
+  std::vector<std::string> cxxArgs = {kCxxFileName, "-shared", "-fPIC",
+      outputBaseName + ".o", "-o", outputBaseName + ".so",
+      "-L" + kRuntimeDirPath, "-lcruntime", "-Wl,-rpath," + kRuntimeDirPath};
+  auto argsArrayRefVector =
+      std::vector<llvm::StringRef>(cxxArgs.begin(), cxxArgs.end());
+  llvm::sys::ExecuteAndWait(kCxxPath, llvm::makeArrayRef(argsArrayRefVector));
 }
 
 void registerDialects() {
@@ -150,10 +172,9 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   // elision of these constants is not strictly required. Elision is also not
   // necessary when emitting the .bc file.
   if (emissionTarget == EmitLLVMBC) {
-    // Write LLVM bitcode to disk.
-    string outputFilename = outputBaseName + ".bc";
-    EmitLLVMBitCode(module, outputFilename);
-    printf("LLVM bitcode written to %s\n", outputFilename.c_str());
+    // Write LLVM bitcode to disk, compile & link.
+    compileModuleToSharedLibrary(module, outputBaseName);
+    printf("Shared %s.so library has been compiled.", outputBaseName.c_str());
   } else {
     // Emit the version with all constants included.
     outputCode(module, outputBaseName, ".onnx.mlir");
