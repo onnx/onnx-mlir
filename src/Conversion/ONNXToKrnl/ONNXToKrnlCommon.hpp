@@ -24,6 +24,7 @@
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
@@ -34,6 +35,9 @@ using namespace mlir;
 
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType type);
+
+/// Check is all operands are scalar values at compile time.
+bool hasAllScalarValues(ArrayRef<Value> values);
 
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type);
@@ -46,7 +50,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
 // inserted.
-bool checkInsertDealloc(Operation *currentOp);
+bool checkInsertDealloc(Operation *currentOp, int resultIndex = 0);
 
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
@@ -218,6 +222,10 @@ void populateLoweringONNXNormalizationOpPattern(
 void populateLoweringONNXPoolingOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+// `RNN` directory methods:
+void populateLoweringONNXLSTMOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 // `Tensor` directory methods:
 
 void populateLoweringONNXUnsqueezeOpPattern(
@@ -227,6 +235,9 @@ void populateLoweringONNXTransposeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXPadConstantValuePadOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXPadOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXReshapeOpPattern(

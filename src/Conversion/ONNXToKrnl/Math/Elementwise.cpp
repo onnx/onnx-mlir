@@ -474,19 +474,38 @@ Value emitScalarOpFor<ONNXAbsOp>(ConversionPatternRewriter &rewriter,
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXNegOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value operand = scalarOperands[0];
+
+  if (elementType.isa<FloatType>()) {
+    return rewriter.create<mlir::NegFOp>(loc, operand);
+  } else if (elementType.isa<IntegerType>()) {
+    auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+    return rewriter.create<mlir::SubIOp>(loc, zero, operand); // 0 - X = -X
+  } else {
+    emitError(loc, "unsupported element type");
+  }
+}
+
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
 struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
   ONNXElementwiseUnaryOpLowering(MLIRContext *ctx)
       : ConversionPattern(ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     // TODO: Check that the types are valid.
     // An element-wise unary operation must have all operands and the result of
     // the same type. This should have been verified by the verifier.
     auto loc = op->getLoc();
+    auto X = operands[0];
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -503,33 +522,35 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {operands[0]});
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, {X});
 
-    std::vector<Value> originalLoops;
-    KrnlOptimizeLoopsOp optimizedLoopsOp;
-    KrnlIterateOp iterateOp;
-    emitKrnlLoopsAndIterationForOperand(
-        rewriter, loc, operands[0], originalLoops, optimizedLoopsOp, iterateOp);
-    Block &optimizationBlock = optimizedLoopsOp.region().front();
-    Block &iterationBlock = iterateOp.bodyRegion().front();
-
-    // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-    rewriter.setInsertionPointToEnd(&optimizationBlock);
-    // Return from KrnlOptimizeLoopsOp body.
-    // When no optimizations are present we just return the loops
-    // unchaged.
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
-    // 2. Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation:
     SmallVector<Value, 4> loopIVs;
-    for (auto arg : iterationBlock.getArguments())
-      loopIVs.push_back(arg);
+    if (!hasAllScalarValues(operands)) {
+      std::vector<Value> originalLoops;
+      KrnlOptimizeLoopsOp optimizedLoopsOp;
+      KrnlIterateOp iterateOp;
+      emitKrnlLoopsAndIterationForOperand(
+          rewriter, loc, X, originalLoops, optimizedLoopsOp, iterateOp);
+      Block &optimizationBlock = optimizedLoopsOp.region().front();
+      Block &iterationBlock = iterateOp.bodyRegion().front();
 
-    auto loadedVal = rewriter.create<LoadOp>(loc, operands[0], loopIVs);
+      // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
+      rewriter.setInsertionPointToEnd(&optimizationBlock);
+      // Return from KrnlOptimizeLoopsOp body.
+      // When no optimizations are present we just return the loops
+      // unchaged.
+      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
+
+      // 2. Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(&iterationBlock);
+
+      // Handle the operation:
+      for (auto arg : iterationBlock.getArguments())
+        loopIVs.push_back(arg);
+    }
+
+    auto loadedVal = rewriter.create<LoadOp>(loc, X, loopIVs);
     auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
         rewriter, loc, op, memRefType.getElementType(), {loadedVal});
     // Store result in the resulting array.
@@ -547,9 +568,8 @@ template <typename ElementwiseVariadicOp>
 struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
   ONNXElementwiseVariadicOpLowering(MLIRContext *ctx)
       : ConversionPattern(ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     // TODO: Check that the types are valid.
     // An element-wise variadic operation must have all operands and the result
     // of the same type. This should have been verified by the verifier.
@@ -572,33 +592,35 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(
           memRefType, loc, rewriter, insertDealloc, operands);
 
-    // Get run-time dimension information for unknown dimensions used for
-    // broadcasting.
-    std::map<int, std::map<int, Value>> broadcastedDimInfo =
-        getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
-
-    std::vector<Value> originalLoops;
-    KrnlOptimizeLoopsOp optimizedLoopsOp;
-    KrnlIterateOp iterateOp;
-    emitKrnlLoopsAndIterationForOperand(
-        rewriter, loc, alloc, originalLoops, optimizedLoopsOp, iterateOp);
-    Block &optimizationBlock = optimizedLoopsOp.region().front();
-    Block &iterationBlock = iterateOp.bodyRegion().front();
-
-    // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-    rewriter.setInsertionPointToEnd(&optimizationBlock);
-    // Return from KrnlOptimizeLoopsOp body.
-    // When no optimizations are present we just return the loops unchaged.
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
-    // 2. Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation:
     SmallVector<Value, 4> loopIVs;
-    for (auto arg : iterationBlock.getArguments())
-      loopIVs.push_back(arg);
+    std::map<int, std::map<int, Value>> broadcastedDimInfo;
+    if (!hasAllScalarValues(operands)) {
+      // Get run-time dimension information for unknown dimensions used for
+      // broadcasting.
+      broadcastedDimInfo =
+          getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
 
+      std::vector<Value> originalLoops;
+      KrnlOptimizeLoopsOp optimizedLoopsOp;
+      KrnlIterateOp iterateOp;
+      emitKrnlLoopsAndIterationForOperand(
+          rewriter, loc, alloc, originalLoops, optimizedLoopsOp, iterateOp);
+      Block &optimizationBlock = optimizedLoopsOp.region().front();
+      Block &iterationBlock = iterateOp.bodyRegion().front();
+
+      // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
+      rewriter.setInsertionPointToEnd(&optimizationBlock);
+      // Return from KrnlOptimizeLoopsOp body.
+      // When no optimizations are present we just return the loops unchaged.
+      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
+
+      // 2. Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(&iterationBlock);
+
+      // Handle the operation:
+      for (auto arg : iterationBlock.getArguments())
+        loopIVs.push_back(arg);
+    }
     // Fold over operands for each of their scalar values
     Value accumulated, next;
     auto accumulatedLoopIVs = getLoopIVsForBroadcasting(
@@ -636,6 +658,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXNegOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXOrOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,

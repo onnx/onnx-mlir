@@ -30,7 +30,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto resultShape = memRefType.getShape();
     auto rank = resultShape.size();
-    assert((axis >=0 && axis < rank) && "Concat axis out of bounds");
+    assert((axis >= 0 && axis < rank) && "Concat axis out of bounds");
 
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);

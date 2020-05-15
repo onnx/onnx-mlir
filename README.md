@@ -1,7 +1,11 @@
 # ONNX MLIR
 The Open Neural Network Exchange implementation in MLIR.
 
-[![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)
+| System      | Build Status |
+|-------------|--------------|
+| x86-Linux   | [![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)             |
+| s390-Linux  | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Linux-s390x-Build)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Linux-s390x-Build/)             |
+| x86-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
 
 ## Prerequisites
 
@@ -143,7 +147,7 @@ This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGu
 
 To build ONNX MLIR, use the following command:
 
-[same-as-file]: <> (utils/install-onnx-mlir.cmd)
+[same-as-file]: <> ({"ref": "utils/install-onnx-mlir.cmd", "skip-doc": 2})
 ```shell
 git clone --recursive https://github.com/onnx/onnx-mlir.git
 

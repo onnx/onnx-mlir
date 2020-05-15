@@ -20,8 +20,8 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Function.h"
 #include "mlir/IR/Location.h"
-#include "mlir/IR/Matchers.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/IR/Module.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/StandardTypes.h"
@@ -31,13 +31,16 @@
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "onnx/onnx_pb.h"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+#if INCLUDE_ONNX_ML == 1
+#include "src/Dialect/MLONNX/MLONNXOps.hpp"
+#endif
 
 namespace onnx_mlir {
 
-void replaceAll(std::string &str, const std::string &from,
-                const std::string &to);
+void replaceAll(
+    std::string &str, const std::string &from, const std::string &to);
 
 std::string legalize_name(std::string name);
 
@@ -82,14 +85,14 @@ struct InitializedTensorMapping {
   // This will allow the propagation of shape information passed in as an
   // argument to operations such as Reshape and will enable other
   // optimizations such as constant folding.
-  mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
-  	  mlir::OpBuilder &builder, std::string name);
+  mlir::Value EmitInitializerForInputTensor(
+      mlir::Location loc, mlir::OpBuilder &builder, const std::string &name);
 
   // Get initialized tensor.
-  onnx::TensorProto& GetInitializedTensor(std::string name) {
-    assert(nameToInitializedTensor.find(name) !=
-               nameToInitializedTensor.end() &&
-           "Tensor initializer not found");
+  onnx::TensorProto &GetInitializedTensor(std::string name) {
+    assert(
+        nameToInitializedTensor.find(name) != nameToInitializedTensor.end() &&
+        "Tensor initializer not found");
     return nameToInitializedTensor.at(name);
   }
 
@@ -97,5 +100,8 @@ private:
   // Mapping from ONNX tensor name to InitializedTensor.
   std::map<std::string, onnx::TensorProto> nameToInitializedTensor;
 };
+
+mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
+    mlir::OpBuilder &builder, const onnx::TensorProto &initializer);
 
 } // namespace onnx_mlir

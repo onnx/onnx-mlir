@@ -29,6 +29,10 @@ parser.add_argument("--dry-run-op-build-table",
                     help="Output OpBuildTable.inc content to stdout.",
                     action="store_true",
                     default=False)
+parser.add_argument("--domain", 
+                    help="specify domain, ONNX or ONNX_ML",
+                    default = "ONNX")
+
 args = parser.parse_args()
 
 # Manual specification of attribute defaults.
@@ -59,7 +63,8 @@ OpsWithShapeInference = [
     'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
     'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
     'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
-    'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat'
+    'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
+    'LSTM', 'GRU', 'Split', 'Pad'
 ]
 
 # Operations supporting canonicalization.
@@ -72,7 +77,8 @@ OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
 # should proceed. The key is the operation's name and the value is a list of
 # tuples, whose first item is the attribute/operand name, and the second item is
 # the index at which such operand occurs in the list of the operation's inputs.
-OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)]}
+OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
+                                  "Pad": [("pads", 1), ("constant_value", 2)]}
 
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
@@ -82,20 +88,30 @@ OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)]}
 # Currenlty, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
-custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare']
+custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare', 'Pad']
+
+
+#a dictionary to add any special definition for an operation
+custom_definition_misc = dict([ ('Constant', 
+  '''    let builders = [
+    OpBuilder<"Builder *builder, OperationState &state, Attribute sparse_value, Attribute value", [{
+      if (value) {
+        auto tensorType = value.getType();
+        build(builder, state, tensorType, sparse_value, value);
+      } else {
+        auto tensorType = sparse_value.getType();
+        build(builder, state, tensorType, sparse_value, value);
+      }
+    }]>
+    ];'''
+  )])
+
 
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
-ONNX_ML = not bool(os.getenv('ONNX_ML') == '0')
+ONNX_ML = bool(args.domain == "ONNX_ML")
 
-ONNX_ML = False
 sys.stderr.write("ONNX_ML {}\n".format(ONNX_ML))
-
-if ONNX_ML:
-    ext = '-ml.md'
-else:
-    ext = '.md'
-
 
 def should_render_domain(domain):  # type: (Text) -> bool
     if domain == ONNX_ML_DOMAIN and not ONNX_ML:
@@ -256,7 +272,7 @@ def get_operands_or_results(schema, is_input):
         # nullable in case it migrates to be an attribute.
         if schema.name in OpsWithPromotableConstOperands:
             idxs = dict(OpsWithPromotableConstOperands[schema.name]).values()
-            if i in idxs:
+            if i in idxs and not OpSchema.FormalParameterOption.Optional == value.option:
                 types.append("NoneType")
 
         if OpSchema.FormalParameterOption.Optional == value.option:
@@ -360,7 +376,10 @@ def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
 
 def gen_op_def(schema):
     indent = inc_indent()
-    s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
+    if (ONNX_ML) :
+        s = 'def MLONNX{0}Op:MLONNX_Op<"{0}",\n'.format(schema.name)
+    else :
+        s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
 
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
@@ -450,6 +469,10 @@ def gen_op_def(schema):
     if schema.name in OpsWithPromotableConstOperands:
         s = get_promotable_const_operands_func(
             s, indent, OpsWithPromotableConstOperands[schema.name])
+
+    if ( schema.name in custom_definition_misc) :
+        s += custom_definition_misc[schema.name]
+
     s += '}\n\n'
     return s
 
@@ -476,8 +499,12 @@ def gen_op_importer(schema, file):
         if OpSchema.FormalParameterOption.Variadic == output.option:
             expected_num_results = -1
 
-    handler_func = special_op_handler.get(
-        schema.name, "buildOperation<mlir::ONNX{}Op>".format(schema.name))
+    if ONNX_ML:
+        handler_func = special_op_handler.get(
+            schema.name, "buildOperation<mlir::MLONNX{}Op>".format(schema.name))
+    else:
+        handler_func = special_op_handler.get(
+            schema.name, "buildOperation<mlir::ONNX{}Op>".format(schema.name))
 
     # Special handlers currently require expected num operands/results to be specified.
     # TODO: remove special handlers.
@@ -487,7 +514,7 @@ def gen_op_importer(schema, file):
             "/* expected_num_operands = */ {}".format(expected_num_operands))
         args.append(
             '/* expected_num_results = */ {}'.format(expected_num_results))
-    s += inc_indent(indent) + "return {}({});\n".format(
+    s += inc_indent(indent) + " {}({});\n".format(
         handler_func, ", ".join(args))
 
     file.write(s)
@@ -557,13 +584,19 @@ if __name__ == '__main__':
         if args.dry_run_onnx_ops:
             op_def = StringIO()
         else:
-            op_def_file_path = os.path.join(curr_dir, 'ONNXOps.td.inc')
+            if args.domain == 'ONNX_ML':
+                op_def_file_path = os.path.join(curr_dir, 'MLONNXOps.td.inc')
+            else:
+                op_def_file_path = os.path.join(curr_dir, 'ONNXOps.td.inc')
             op_def = io.open(op_def_file_path, 'w', newline='')
 
         if args.dry_run_op_build_table:
             op_importer = StringIO()
         else:
-            op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
+            if args.domain == 'ONNX_ML':
+                op_importer_file_path = os.path.join(curr_dir, 'MLOpBuildTable.inc')
+            else :
+                op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
             op_importer = io.open(op_importer_file_path, 'w', newline='')
     main(Args)
 

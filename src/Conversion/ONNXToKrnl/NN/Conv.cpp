@@ -1,4 +1,5 @@
-//===--------------- Conv.cpp - Lowering Convolution Op --------------------===//
+//===--------------- Conv.cpp - Lowering Convolution Op
+//--------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -175,14 +176,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
         // Emit the bias, if needed.
         if (hasBias) {
-          auto loadResult =
-              rewriter.create<LoadOp>(loc, alloc, resultIndices);
+          auto loadResult = rewriter.create<LoadOp>(loc, alloc, resultIndices);
           SmallVector<Value, 4> biasIndices;
           biasIndices.emplace_back(kernel);
-          auto loadBias =
-              rewriter.create<LoadOp>(loc, biasOperand, kernel);
-          auto resultWithBias = rewriter.create<MulFOp>(
-            loc, loadResult, loadBias);
+          auto loadBias = rewriter.create<LoadOp>(loc, biasOperand, kernel);
+          auto resultWithBias =
+              rewriter.create<MulFOp>(loc, loadResult, loadBias);
           // Store initializer value into output location.
           rewriter.create<StoreOp>(loc, resultWithBias, alloc, resultIndices);
         }

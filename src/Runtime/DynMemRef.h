@@ -38,7 +38,6 @@ typedef struct _OrderedDynMemRefDict OrderedDynMemRefDict;
 #ifdef __cplusplus
 extern "C" {
 #endif
-  
 
 // Get number of dynamic memrefs in OrderedDynMemRefDict dict.
 int numDynMemRefs(OrderedDynMemRefDict *dict);
@@ -53,8 +52,8 @@ DynMemRef *createDynMemRef(int rank);
 DynMemRef *getDynMemRef(OrderedDynMemRefDict *orderedDict, int i);
 
 // Set the i-th dynmemref in orderedDict to be dynMemRef.
-void setDynMemRef(OrderedDynMemRefDict *tensorDict, int idx,
-                  DynMemRef *dynMemRef);
+void setDynMemRef(
+    OrderedDynMemRefDict *tensorDict, int idx, DynMemRef *dynMemRef);
 
 // Get data pointer from dynMemRef.
 void *getData(DynMemRef *dynMemRef);
