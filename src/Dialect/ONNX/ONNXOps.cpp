@@ -1473,6 +1473,53 @@ bool ONNXMaxPoolSingleOutOp::inferShapes() {
 
 //===----------------------------------------------------------------------===//
 
+bool ONNXPadOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!data().getType().isa<RankedTensorType>()) {
+    emitError("Pad: unknown input shape");
+    return false;
+  }
+
+  // Cannot infer if the pads is not constant
+  DenseElementsAttr padsAttributes =
+      getAttr("pads").dyn_cast_or_null<mlir::DenseElementsAttr>();
+
+  if (!padsAttributes) {
+    emitError("Pad: unknown pads");
+    return false;
+  }
+
+  auto dataTy = data().getType().cast<RankedTensorType>();
+  auto dataShape = dataTy.getShape();
+  auto dataRank = dataTy.getRank();
+  SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
+
+  // Get pads from valueAttribute.
+  SmallVector<int64_t, 2> pads(dataRank * 2, -1);
+  auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
+  for (int64_t i = 0; i < dataRank * 2; ++i)
+    pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+
+  // Pads consists of two values for each axis of data.
+  // The two values specify the number of elements padded before and after
+  // respectively.
+  for (int64_t i = 0; i < dataRank; ++i) {
+    int64_t p1 = pads[i];
+    int64_t p2 = pads[i + dataRank];
+    // Have to non-negative constant
+    if (p1 < 0 || p2 < 0) {
+      emitError("padding value can not be negative");
+      return false;
+    }
+    if (outputShape[i] != -1)
+      outputShape[i] += p1 + p2;
+  }
+
+  auto outputType = RankedTensorType::get(outputShape, dataTy.getElementType());
+  getResult().setType(outputType);
+  return true;
+}
+
 static Type padShapeInferenceHelper(Value data, ArrayAttr padsOpt) {
   // Cannot infer shape if no shape exists.
   if (!data.getType().isa<RankedTensorType>())

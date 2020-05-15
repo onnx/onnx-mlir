@@ -303,9 +303,34 @@ private:
    * Special handle for Pad operations.
    */
   void ImportNodePad(onnx::NodeProto node, int nIn, int nOut) {
+
     int nOps = node.input().size();
     if (nOps == 2) {
-      buildOperation<mlir::ONNXPadConstantValueOp>(node, 2, nOut);
+      llvm::SmallVector<int64_t, 2> dims;
+      dims.push_back(1);
+      llvm::SmallVector<float, 2> values;
+      values.push_back(0.);
+      auto elementType = builder_.getF32Type();
+      llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
+      auto tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
+      auto constantDenseAttribute =
+          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+
+      // Use the special builder defined in ONNXOp.td.inc.
+      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+      mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
+      std::vector<mlir::Value> inputs;
+      for (const auto &item : node.input())
+        if (initializedTensors.ContainKey(legalize_name(item))) {
+          inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+              UnknownLoc(), builder_, legalize_name(item)));
+        } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
+          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+        }
+      inputs.push_back(constantResult);
+
+      buildOutputAndOperation<mlir::ONNXPadOp>(node, inputs, nIn, nOut);
     } else {
       buildOperation<mlir::ONNXPadOp>(node, nIn, nOut);
     }
