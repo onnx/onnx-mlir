@@ -1,4 +1,5 @@
-//===----------------- Gemm.cpp - Lowering Gemm Op -------------------------===//
+//===----------------- Gemm.cpp - Lowering Gemm Op
+//-------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -17,9 +18,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   ONNXGemmOpLowering(MLIRContext *ctx)
       : ConversionPattern(GemmOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     bool hasBias = !op->getOperand(2).getType().isa<NoneType>();
 
@@ -32,12 +32,10 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
-    auto alphaAttr =
-        FloatAttr::get(memRefType.getElementType(),
-                       llvm::dyn_cast<GemmOp>(op).alpha().convertToFloat());
-    auto betaAttr =
-        FloatAttr::get(memRefType.getElementType(),
-                       llvm::dyn_cast<GemmOp>(op).beta().convertToFloat());
+    auto alphaAttr = FloatAttr::get(memRefType.getElementType(),
+        llvm::dyn_cast<GemmOp>(op).alpha().convertToFloat());
+    auto betaAttr = FloatAttr::get(memRefType.getElementType(),
+        llvm::dyn_cast<GemmOp>(op).beta().convertToFloat());
     auto alpha = rewriter.create<ConstantOp>(loc, alphaAttr);
     auto beta = rewriter.create<ConstantOp>(loc, betaAttr);
 
@@ -101,8 +99,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     optimizedReductionLoops.reserve(1);
     reductionLoops.push_back(originalLoops[2]);
     optimizedReductionLoops.push_back(optimizedLoops[2]);
-    KrnlIterateOperandPack reductionPack(rewriter, reductionLoops,
-                                         optimizedReductionLoops);
+    KrnlIterateOperandPack reductionPack(
+        rewriter, reductionLoops, optimizedReductionLoops);
     // Induction variable for the reduction dimension
     // Try to find and use a static value from A or B first.
     // If it failed then use a dynamic value.
@@ -167,8 +165,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     auto loadedAB = rewriter.create<LoadOp>(loc, alloc, loopMNIVs);
     auto alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
     if (hasBias) {
-      auto loopCIVs = getLoopIVsForBroadcasting(loc, rewriter, loopMNIVs, C,
-                                                broadcastedDimInfo);
+      auto loopCIVs = getLoopIVsForBroadcasting(
+          loc, rewriter, loopMNIVs, C, broadcastedDimInfo);
       auto loadedC = rewriter.create<LoadOp>(loc, C, loopCIVs);
       auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
       auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
@@ -214,7 +212,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   }
 };
 
-void populateLoweringONNXGemmOpPattern(OwningRewritePatternList &patterns,
-                                       MLIRContext *ctx) {
+void populateLoweringONNXGemmOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(ctx);
 }

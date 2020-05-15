@@ -46,7 +46,7 @@ class DummyBackend(onnx.backend.base.Backend):
         # Generate shared library from object file, linking with c runtime.
         execute_commands([
             CXX, "-shared", "-fPIC", "temp_model.o", "-o", "temp_model.so",
-            "-L" + RUNTIME_DIR, "-lcruntime"
+            "-L" + RUNTIME_DIR, "-lcruntime", "-Wl,-rpath=" + RUNTIME_DIR,
         ])
         return ExecutionSession("./temp_model.so", "_dyn_entry_point_main_graph")
 
@@ -89,7 +89,7 @@ test_to_enable = [
     "test_concat_3d_axis_0_cpu",
     "test_concat_3d_axis_1_cpu",
     "test_concat_3d_axis_2_cpu",
-    
+
     "test_concat_1d_axis_negative_1_cpu",
     "test_concat_2d_axis_negative_1_cpu",
     "test_concat_2d_axis_negative_2_cpu",
@@ -355,6 +355,11 @@ test_to_enable = [
     "test_averagepool_2d_same_upper_cpu",
     "test_averagepool_2d_strides_cpu",
     "test_averagepool_3d_default_cpu",
+
+    # LSTM
+    "test_lstm_defaults_cpu",
+    "test_lstm_with_initial_bias_cpu",
+    "test_lstm_with_peepholes_cpu",
 
 ]
 
