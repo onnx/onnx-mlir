@@ -42,7 +42,7 @@ enum EmissionTargetType {
   EmitONNXIR,
   EmitMLIR,
   EmitLLVMIR,
-  EmitLLVMBC,
+  EmitLib,
 };
 
 void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
