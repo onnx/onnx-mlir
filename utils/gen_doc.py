@@ -32,7 +32,7 @@ parser.add_argument("--dry-run-op-build-table",
                     action="store_true",
                     default=False)
 parser.add_argument("--generate-for-latest-version",
-                    help="generate operation for the latest version,"+
+                    help="generate operation for the latest versionin your installation,"+
                          " not according to version_dicts",
                     action="store_true",
                     default=False)
@@ -45,9 +45,9 @@ args = parser.parse_args()
 generate_for_latest_version = args.generate_for_latest_version
 
 
-#Record the version of each operation that is treated as the current version
-#To include the newer version, run this script with --generate-for-latest-version flag.
-#Update this dictionary with the output of the script.
+# Record the version of each operation that is treated as the current version.
+# To include the newer version, run this script with --generate-for-latest-version flag.
+# Update this dictionary with the output of the script.
 version_dict = {'Abs': 6,
  'Acos': 7,
  'Acosh': 9,
@@ -718,23 +718,23 @@ def build_operator_schemas():
                     continue
 
                 if generate_for_latest_version :
-                    #As did preciously, generate operation for the latest version.
+                    # Generate operation of the latest version of your onnx.
                     exsting_ops.add(schema.name)
                     processed_namemap.append((n, schema, versions))
 
-                    #Add checks against version_dict
+                    # Add checks against version_dict
                     if schema.name not in version_dict :
                         print("Warning: a new schema {}".format(schema.name))
                     if schema.since_version <  version_dict[schema.name]:
                         print("Warning: a newer version for schema {}".format(
                             schema.name))
                 else:
-                    #Generate operation according to the version in version_dict.
+                    # Generate operation according to the version in version_dict.
                     if schema.name not in version_dict :
                         continue
                     found = False
                     for schema in reversed(versions):
-                        # check the version number
+                        # Check the version number against the version_dict
                         if schema.since_version == version_dict[schema.name]:
                             exsting_ops.add(schema.name)
                             processed_namemap.append((n, schema, versions))
