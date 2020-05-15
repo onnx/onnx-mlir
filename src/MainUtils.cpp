@@ -12,9 +12,10 @@
 #include <fcntl.h>
 #include "llvm/Support/Program.h"
 
+#include "llvm/Support/Program.h"
+
 #include "src/ExternalUtil.hpp"
 #include "src/MainUtils.hpp"
-#include "src/ExternalUtil.hpp"
 
 #include "MainUtils.hpp"
 
@@ -175,6 +176,7 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   // elision of these constants is not strictly required. Elision is also not
   // necessary when emitting the .bc file.
 <<<<<<< HEAD
+<<<<<<< HEAD
   if (emissionTarget == EmitLib) {
     // Write LLVM bitcode to disk, compile & link.
     compileModuleToSharedLibrary(module, outputBaseName);
@@ -185,6 +187,12 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     compileModuleToSharedLibrary(module, outputBaseName);
     printf("Shared %s.so library has been compiled.", outputBaseName.c_str());
 >>>>>>> Call llc, ld from within onnx-mlir.
+=======
+  if (emissionTarget == EmitLib) {
+    // Write LLVM bitcode to disk, compile & link.
+    compileModuleToSharedLibrary(module, outputBaseName);
+    printf("Shared library %s.so has been compiled.", outputBaseName.c_str());
+>>>>>>> Rename EmitLLVMBC -> EmitLib., reorder header files
   } else {
     // Emit the version with all constants included.
     outputCode(module, outputBaseName, ".onnx.mlir");
