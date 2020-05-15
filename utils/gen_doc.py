@@ -64,7 +64,7 @@ OpsWithShapeInference = [
     'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
     'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
     'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
-    'LSTM', 'GRU', 'Split'
+    'LSTM', 'GRU', 'Split', 'Pad'
 ]
 
 # Operations supporting canonicalization.
@@ -77,7 +77,8 @@ OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
 # should proceed. The key is the operation's name and the value is a list of
 # tuples, whose first item is the attribute/operand name, and the second item is
 # the index at which such operand occurs in the list of the operation's inputs.
-OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)]}
+OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
+                                  "Pad": [("pads", 1), ("constant_value", 2)]}
 
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
@@ -87,7 +88,24 @@ OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)]}
 # Currenlty, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
-custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare']
+custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare', 'Pad']
+
+
+#a dictionary to add any special definition for an operation
+custom_definition_misc = dict([ ('Constant', 
+  '''    let builders = [
+    OpBuilder<"Builder *builder, OperationState &state, Attribute sparse_value, Attribute value", [{
+      if (value) {
+        auto tensorType = value.getType();
+        build(builder, state, tensorType, sparse_value, value);
+      } else {
+        auto tensorType = sparse_value.getType();
+        build(builder, state, tensorType, sparse_value, value);
+      }
+    }]>
+    ];'''
+  )])
+
 
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
@@ -254,7 +272,7 @@ def get_operands_or_results(schema, is_input):
         # nullable in case it migrates to be an attribute.
         if schema.name in OpsWithPromotableConstOperands:
             idxs = dict(OpsWithPromotableConstOperands[schema.name]).values()
-            if i in idxs:
+            if i in idxs and not OpSchema.FormalParameterOption.Optional == value.option:
                 types.append("NoneType")
 
         if OpSchema.FormalParameterOption.Optional == value.option:
@@ -451,6 +469,10 @@ def gen_op_def(schema):
     if schema.name in OpsWithPromotableConstOperands:
         s = get_promotable_const_operands_func(
             s, indent, OpsWithPromotableConstOperands[schema.name])
+
+    if ( schema.name in custom_definition_misc) :
+        s += custom_definition_misc[schema.name]
+
     s += '}\n\n'
     return s
 
@@ -492,7 +514,7 @@ def gen_op_importer(schema, file):
             "/* expected_num_operands = */ {}".format(expected_num_operands))
         args.append(
             '/* expected_num_results = */ {}'.format(expected_num_results))
-    s += inc_indent(indent) + "return {}({});\n".format(
+    s += inc_indent(indent) + " {}({});\n".format(
         handler_func, ", ".join(args))
 
     file.write(s)

@@ -3033,7 +3033,7 @@ ONNX Pad operation
 | Operand | Description |
 | :-----: | ----------- |
 `data` | memref of any type values or tensor of any type values
-`pads` | memref of any type values or tensor of any type values
+`pads` | memref of any type values or tensor of any type values or none type
 `constant_value` | memref of any type values or tensor of any type values or none type
 
 #### Results:
