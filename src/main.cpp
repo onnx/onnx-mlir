@@ -31,8 +31,9 @@ int main(int argc, char *argv[]) {
           clEnumVal(
               EmitMLIR, "Lower model to MLIR built-in transformation dialect."),
           clEnumVal(EmitLLVMIR, "Lower model to LLVM IR (LLVM dialect)."),
-          clEnumVal(EmitLib, "Lower model to LLVM IR and emit (to file) "
-                                "LLVM bitcode for model,.")),
+          clEnumVal(EmitLib, "Lower model to LLVM IR, emit (to file) "
+                             "LLVM bitcode for model, compile and link it to a "
+                             "shared library.")),
       llvm::cl::init(EmitLib), llvm::cl::cat(OnnxMlirOptions));
 
   llvm::cl::HideUnrelatedOptions(OnnxMlirOptions);
