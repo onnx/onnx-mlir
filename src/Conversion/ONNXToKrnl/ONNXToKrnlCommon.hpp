@@ -237,6 +237,9 @@ void populateLoweringONNXTransposeOpPattern(
 void populateLoweringONNXPadConstantValuePadOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXPadOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXReshapeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
