@@ -24,14 +24,17 @@ include "src/Dialect/ONNX/ONNXOps.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+def GetNullAttr :
+   NativeCodeCall<"Attribute()">;
+
 // Create a StringAttr from a string.
 class StringAttrOfValue<string val>:
   NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
 
-// Create a FloatAttr from an interger value.
+// Create a DenseElementsAttr from an interger value.
 // It seems Table-gen does not support `float` type, so we can not pass a float value.
 class FloatAttrOfValue<int val>:
-  NativeCodeCall<"FloatAttr::get($0.getType().cast<TensorType>().getElementType(), " # val # ")">;
+  NativeCodeCall<"createDenseFloatAttrOfValue($_builder, $0, " # val # ")">;
 
 // Create an ArrayAttr of IntergerAttr(s) of zero values.
 // This function is used for padding attribute in Conv.
@@ -82,10 +85,15 @@ def ConvOpPaddingPattern: Pat<
      $pads,
      $strides),
   (ONNXConvOp
-     (ONNXPadConstantValuePadOp $x,
-        (insertZerosForNonPaddedDims<2> $pads),
-        (FloatAttrOfValue<0> $res),
-        (StringAttrOfValue<"constant">)),
+
+    (ONNXPadOp $x,
+       (ONNXConstantOp (GetNullAttr), 
+          (insertZerosForNonPaddedDims<2> $pads)),
+       (ONNXConstantOp (GetNullAttr), 
+          (FloatAttrOfValue<0> $res)),
+       (StringAttrOfValue<"constant">)),
+
+        
      $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
      (createArrayAttrOfZerosFrom $pads),
      $strides),
