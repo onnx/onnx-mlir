@@ -1,73 +1,10 @@
 sudo: required
 services:
   - docker
-stages:
-  - setupVM
-  - installLLVM
-  - compileLLVM
-  - compileONNX-MLIR
-  - test
 language: cpp
 dist: bionic
-jobs:
-  include:
-    - stage: setupVM
-      script: 
-        - chmod a+x ./utils/*
-        - docker pull ubuntu:focal
-        - docker run -itd --name build ubuntu:focal
-        - docker cp ./utils/before_install.sh build:/usr/bin/before_install.sh
-        - docker cp ./utils/install_LLVM.sh build:/usr/bin/install_LLVM.sh
-        - docker cp ./utils/compile_LLVM.sh build:/usr/bin/compile_LLVM.sh
-        - docker cp ./utils/compile_ONNX-MLIR.sh build:/usr/bin/compile_ONNX-MLIR.sh
-        - docker cp ./utils/test_ONNX-MLIR.sh build:/usr/bin/test_ONNX-MLIR.sh
-        - docker exec build before_install.sh $(pwd)
-        - docker commit build buildimage:latest
-        - docker save buildimage:latest > buildimage.tar
-        - ls -al
-      workspaces:
-        create:
-          name: ws1
-          paths:
-            - buildimage.tar
-    - stage: installLLVM
-      workspaces: 
-        use: ws1
-        create:
-          name: ws2
-          paths:
-            - buildimage2.tar
-      script: 
-        - pwd
-        - ls -al
-        - docker load < buildimage.tar 
-        - docker run -itd --name build buildimage
-        - docker images
-        - docker exec build install_LLVM.sh $(pwd)
-        - docker commit build buildimage:latest
-        - docker save buildimage:latest > buildimage2.tar
-    - stage: compileLLVM
-      workspaces: 
-        use: ws2
-        create:
-          name: ws3
-          paths:
-            - buildimage3.tar
-      script: 
-        - docker load < buildimage2.tar 
-        - docker run -itd --name build buildimage
-        - docker images
-        - docker exec build pwd
-        - docker exec build ls -al
-        - docker exec build compile_LLVM.sh $(pwd)
-    - stage: compileONNX-MLIR
-      script: 
-        - docker exec build compile_ONNX-MLIR.sh $(pwd)
-        - docker commit build buildimage:latest
-        - docker save buildimage:latest > buildimage3.tar
-    - stage: test
-      script: 
-        - docker load < buildimage3.tar 
-        - docker run -itd --name build buildimage
-        - docker images
-        - docker exec build testONNX-MLIR.sh $(pwd)
+script:
+  - cd docker
+  - chmod a+x compile-onnx-mlir.sh
+  - docker build --tag onnx-mlir-build:initial .
+
