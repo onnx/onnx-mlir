@@ -145,8 +145,8 @@ find_mlir_lib(MLIRIR)
 find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
 find_mlir_lib(MLIRLoopToStandard)
-find_mlir_lib(MLIRLoopOps)
 find_mlir_lib(MLIRLoopLikeInterface)
+find_mlir_lib(MLIRSCF)
 find_mlir_lib(MLIRLLVMIRTransforms)
 find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRParser)
@@ -206,7 +206,7 @@ set(MLIRLibs
         ${MLIRIR}
         ${MLIRLLVMIRTransforms}        
         ${MLIRLoopToStandard}
-        ${MLIRLoopOps}
+        ${MLIRSCF}
         ${MLIRLoopAnalysis}
         ${MLIRLoopLikeInterface}
         ${MLIROpenMP}
@@ -253,7 +253,7 @@ set(MLIRWholeArchiveLibs
         MLIRTransforms
         MLIRLoopToStandard
         MLIRVector
-        MLIRLoopOps
+        MLIRSCF
         MLIRIR)
 
 # ONNX MLIR libraries that must be linked with --whole-archive for static build or

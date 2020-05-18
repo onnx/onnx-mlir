@@ -29,7 +29,7 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   let arguments = (ins);
   let results = (outs Variadic<AnyType>);
   let skipDefaultBuilders = 1;
-  let builders = [ OpBuilder<"Builder *builder, OperationState &result,"
+  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result,"
                              "int64_t num_loops"> ];
 
   let printer = [{ return ::print(p, *this); }];
@@ -67,7 +67,7 @@ def KrnlOptimizeLoopsOp : Op<Krnl_Dialect, "optimize_loops"> {
 
   let skipDefaultBuilders = 1;
 
-  let builders = [ OpBuilder<"Builder *builder, OperationState &result, "
+  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result, "
                              "int timestamp_space_rank"> ];
 
   let printer = [{ return ::print(p, *this); }];
@@ -100,7 +100,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator]> {
   let arguments = (ins Variadic<AnyType>);
   let regions = (region SizedRegion<1>:$bodyRegion);
   let skipDefaultBuilders = 1;
-  let builders = [ OpBuilder<"Builder *builder, OperationState &result, "
+  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result, "
                              "KrnlIterateOperandPack operandPack"> ];
 
   let extraClassDeclaration = [{
@@ -165,7 +165,7 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   let summary = "Indicate ONNX entry point";
   let description = [{The "krnl.entry_point" function indicates the main entry
                            point of ONNX model.}];
-  let builders = [ OpBuilder<"Builder *builder, OperationState &result, "
+  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result, "
                              "SymbolRefAttr funcAttr, IntegerAttr numInputs, "
                              "IntegerAttr numOutputs"> ];
 
