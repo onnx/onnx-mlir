@@ -1,0 +1,27 @@
+# This workflow will run whenever there is a change to the version of LLVM the project is based on
+# It will create a new Docker image for the TravisCI build and push it to Docker Hub
+# This image contains the prereqs for building onnx-mlir including a precompiled copy of the appropriate
+# LLVM and MLIR code.
+
+name: Build Docker Prereq Image
+
+# Run this workflow when there is a change to clone-mlir.sh (that implies a new version of LLVM is being used)
+on:
+  push:
+    paths:
+    - 'utils/clone-mlir.sh'
+
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - uses: actions/checkout@v2
+    - name: build image
+      run: | 
+        docker build --tag caoimhinuibrian/onnx-mlir-llvmimage:initial . 
+        docker push caoimhinuibrian/onnx-mlir-llvmimage:initial 
