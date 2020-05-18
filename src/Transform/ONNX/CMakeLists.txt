@@ -14,6 +14,9 @@ target_include_directories(OMElideConstants
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNF_MLIR_SRC_ROOT})
 
+add_dependencies(OMElideConstants
+        OMONNXOps)
+
 set(LLVM_TARGET_DEFINITIONS ONNXRewrite.td)
 onnx_mlir_tablegen(ONNXRewrite.inc -gen-rewriters)
 add_public_tablegen_target(OMONNXRewriteIncGen)

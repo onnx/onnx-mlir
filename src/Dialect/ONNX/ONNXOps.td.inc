@@ -348,7 +348,17 @@ def ONNXConstantOp:ONNX_Op<"Constant",
   let arguments = (ins OptionalAttr<AnyAttr>:$sparse_value,
     OptionalAttr<AnyAttr>:$value);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
-}
+    let builders = [
+    OpBuilder<"Builder *builder, OperationState &state, Attribute sparse_value, Attribute value", [{
+      if (value) {
+        auto tensorType = value.getType();
+        build(builder, state, tensorType, sparse_value, value);
+      } else {
+        auto tensorType = sparse_value.getType();
+        build(builder, state, tensorType, sparse_value, value);
+      }
+    }]>
+    ];}
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
   [NoSideEffect]> {
@@ -1913,7 +1923,7 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
 }
 
 def ONNXPadOp:ONNX_Op<"Pad",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"PromotableConstOperandsOpInterface">]> {
   let summary = "ONNX Pad operation";
   let description = [{
   "Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`, "
@@ -1999,10 +2009,27 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$pads,
+    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$pads,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$constant_value,
     DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let builders = [
+    OpBuilder<"Builder *builder, OperationState &state, Value data, Value pads, Value constant_value, StringAttr mode", [{
+      auto elementType = data.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), data, pads, constant_value, mode);
+    }]>,
+    OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      std::map<std::string, size_t> promotableConstOperands() {
+        return {{"pads", 1}, {"constant_value", 2}};
+      }
+    }];
 }
 
 def ONNXPowOp:ONNX_Op<"Pow",
