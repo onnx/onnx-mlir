@@ -387,36 +387,55 @@ public:
       staticInputs.emplace_back(ptrToMemRef);
     }
 
-    // If more than one output exists, the struct becomes a nested struct,
-    // the unpacking logic can be more involved, so no support for now.
-    assert(numOutputs == 1 && "only support 1 output tensor now.");
+//    // If more than one output exists, the struct becomes a nested struct,
+//    // the unpacking logic can be more involved, so no support for now.
+//    assert(numOutputs == 1 && "only support 1 output tensor now.");
 
     // Call static entry point with the memref ptrs created, and get output.
-    auto outputMemRefs = rewriter.create<LLVM::CallOp>(loc,
-        staticEntryPointTy.getFunctionResultType(),
-        rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
-        staticInputs);
+    auto outMemRefs =
+        rewriter
+            .create<LLVM::CallOp>(loc,
+                staticEntryPointTy.getFunctionResultType(),
+                rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
+                staticInputs)
+            .getResult(0);
+    auto outMemRefsType = outMemRefs.getType().dyn_cast<LLVMType>();
+
+    std::vector<mlir::Value> outMemRefList;
+    if (numOutputs == 1) {
+      outMemRefList.emplace_back(outMemRefs);
+    } else {
+      for (int i = 0; i < numOutputs; i++) {
+        auto position = rewriter.getArrayAttr({rewriter.getI64IntegerAttr(i)});
+        auto type = outMemRefsType.getStructElementType(i);
+        auto extractOp = rewriter.create<LLVM::ExtractValueOp>(loc,
+            /*res=*/type,
+            /*type=*/outMemRefs,
+            /*position=*/position);
+        outMemRefList.emplace_back(extractOp.getResult());
+      }
+    }
 
     // Create wrapped output.
     auto wrappedOutput = callApi(
         rewriter, loc, apiRegistry, API::CREATE_ORDERED_DYN_MEM_REF_DICT, {});
 
-    // Get the first memref returned, convert to a dynamic memref and store
-    // it in the wrapped Output.
-    auto outMemRef = outputMemRefs.getResult(0);
-    auto outMemRefTy = outMemRef.getType().dyn_cast<LLVMType>();
-    auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
-    auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(outMemRefRank));
-    auto outDynMemRef = callApi(rewriter, loc, apiRegistry,
-        API::CREATE_DYN_MEM_REF, {outMemRefRankVal});
-    fillDynMemRefWithMemRef(
-        outMemRef, outDynMemRef, rewriter, loc, apiRegistry, llvmDialect);
-    auto zero = rewriter.create<LLVM::ConstantOp>(
-        loc, int32Ty, rewriter.getI32IntegerAttr(0));
-    callApi(rewriter, loc, apiRegistry, API::SET_DYN_MEM_REF,
-        {wrappedOutput, zero, outDynMemRef});
-
+    for (decltype(numOutputs) i = 0; i < outMemRefList.size(); i++) {
+      // Get the first memref returned, convert to a dynamic memref and store
+      auto memRef = outMemRefList.at(i);
+      auto outMemRefTy = memRef.getType().dyn_cast<LLVMType>();
+      auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
+      auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(
+          loc, int32Ty, rewriter.getI32IntegerAttr(outMemRefRank));
+      auto outDynMemRef = callApi(rewriter, loc, apiRegistry,
+          API::CREATE_DYN_MEM_REF, {outMemRefRankVal});
+      fillDynMemRefWithMemRef(
+          memRef, outDynMemRef, rewriter, loc, apiRegistry, llvmDialect);
+      auto idx = rewriter.create<LLVM::ConstantOp>(
+          loc, int32Ty, rewriter.getI32IntegerAttr(i));
+      callApi(rewriter, loc, apiRegistry, API::SET_DYN_MEM_REF,
+          {wrappedOutput, idx, outDynMemRef});
+    }
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(
         loc, SmallVector<Value, 1>({wrappedOutput}));
@@ -613,7 +632,7 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
-  //  target.addLegalOp<KrnlEntryPointOp>();
+//  target.addLegalOp<KrnlEntryPointOp>();
 
   // Lower the MemRef types to a representation in LLVM.
   LLVMTypeConverter typeConverter(&getContext());
@@ -626,12 +645,11 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   populateStdToLLVMConversionPatterns(typeConverter, patterns,
       /*emitCWrapperS=*/true,
       /*useAlignedAlloc=*/false);
-
+  patterns.insert<KrnlEntryPointOpLowering>(&getContext());
   patterns.insert<KrnlGlobalOpLowering>(&getContext(), typeConverter);
 
   // Lower from the `krnl` dialect i.e. the Reshape operation.
-  patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(
-      &getContext());
+  patterns.insert<KrnlMemcpyOpLowering>(&getContext());
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
