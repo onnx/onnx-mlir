@@ -81,7 +81,7 @@ def main(model_path):
                 assert dim.dim_value, "Can only debug models with inputs that have explicit shapes."
                 explicit_shape.append(dim.dim_value)
             inputs.append(
-                np.random.uniform(-1, 1, explicit_shape).astype(np.float32))
+                np.random.uniform(-1.0, 1.0, explicit_shape).astype(np.float32))
         outs = sess.run(inputs)
 
         ref_session = ref_backend.InferenceSession(temp_model_path)
