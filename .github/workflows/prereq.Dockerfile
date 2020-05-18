@@ -31,7 +31,7 @@ RUN pyenv rehash
 RUN mkdir bin
 ENV PATH=$PATH:/build/bin
 COPY clone-mlir.sh bin/clone-mlir.sh
-RUN chmod a+x clone-mlir.sh
+RUN chmod a+x bin/clone-mlir.sh
 RUN clone-mlir.sh
 
 
