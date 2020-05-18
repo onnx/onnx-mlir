@@ -84,8 +84,7 @@ ParseResult parseKrnlDefineLoopsOp(
 
 void KrnlOptimizeLoopsOp::build(
     OpBuilder &builder, OperationState &result, int num_optimized_loops) {
-  result.types.append(
-      num_optimized_loops, LoopType::get(builder.getContext()));
+  result.types.append(num_optimized_loops, LoopType::get(builder.getContext()));
   // Create a region and a block for the body.
   // Schedule intrinsics will be placed into this region.
   Region *region = result.addRegion();
