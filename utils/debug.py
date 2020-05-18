@@ -45,7 +45,7 @@ def extend_model_output(model, intermediate_outputs):
     DUMMY_TENSOR_TYPE = onnx.TensorProto.FLOAT
     DUMMY_TENSOR_SHAPE = []
 
-    while(len(model.graph.output)):
+    while (len(model.graph.output)):
         model.graph.output.pop()
 
     for output_name in intermediate_outputs:
@@ -69,19 +69,31 @@ def main(model_path):
         execute_commands([ONNX_MLIR, temp_model_path])
 
         temp_shared_lib_path = os.path.join(temp_dir, "model.so")
-        sess = ExecutionSession(temp_shared_lib_path, "_dyn_entry_point_main_graph")
-        img = np.ones([1, 1, 28, 28], dtype=np.float32)
-        outs = sess.run([img])
+        sess = ExecutionSession(temp_shared_lib_path,
+                                "_dyn_entry_point_main_graph")
+
+        inputs = []
+        np.random.seed(42)
+        for input_proto in model.graph.input:
+            shape_proto = input_proto.type.tensor_type.shape
+            explicit_shape = []
+            for dim in shape_proto.dim:
+                assert dim.dim_value, "Can only debug models with inputs that have explicit shapes."
+                explicit_shape.append(dim.dim_value)
+            inputs.append(
+                np.random.uniform(-1, 1, explicit_shape).astype(np.float32))
+        outs = sess.run(inputs)
 
         ref_session = ref_backend.InferenceSession(temp_model_path)
         output_names = list(map(lambda x: x.name, model.graph.output))
         input_names = list(map(lambda x: x.name, model.graph.input))
-        input_feed = dict(zip(input_names, [img]))
+        input_feed = dict(zip(input_names, inputs))
         ref_outs = ref_session.run(output_names, input_feed)
 
         for i, name in enumerate(intermediate_outputs):
             print("Verifying value of {}".format(name))
             np.testing.assert_array_almost_equal(ref_outs[i], outs[i])
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
