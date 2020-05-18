@@ -22,6 +22,7 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
     - name: build image
-      run: | 
-        docker build --tag caoimhinuibrian/onnx-mlir-llvmimage:initial -f $GITHUB_WORKSPACE/.github/workflows/prereq.Dockerfile $GITHUB_WORKSPACE/utils
-        docker push caoimhinuibrian/onnx-mlir-llvmimage:initial 
+      run: |
+        docker login docker.pkg.github.com -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} 
+        docker build --tag docker.pkg.github.com/onnx/onnx-mlir/llvmimage:initial -f $GITHUB_WORKSPACE/.github/workflows/prereq.Dockerfile $GITHUB_WORKSPACE/utils
+        docker push docker.pkg.github.com/onnx/onnx-mlir/llvmimage:initial 
