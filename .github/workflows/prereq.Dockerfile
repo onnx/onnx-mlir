@@ -24,22 +24,11 @@ RUN pyenv global 3.7.0
 RUN pyenv rehash
 
 # first install MLIR in llvm-project
-#RUN git clone https://DLCadmin:af52950e231dac7157c3d78d263d7468375fb102@github.com/llvm/llvm-project.git
-# Check out a specific branch that is known to work with ONNX MLIR.
-#WORKDIR /build/llvm-project
-#RUN git checkout 3ce0ad1b336e67a76d78ae7ff7d66fe127586620
 RUN mkdir bin
 ENV PATH=$PATH:/build/bin
 COPY clone-mlir.sh bin/clone-mlir.sh
 RUN chmod a+x bin/clone-mlir.sh
 RUN clone-mlir.sh
-
-
-RUN pwd
-RUN ls -al
-WORKDIR /build
-RUN pwd
-RUN ls -al
 
 WORKDIR /build/llvm-project/build
 RUN cmake -G Ninja ../llvm \
@@ -50,5 +39,5 @@ RUN cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_ASSERTIONS=ON \
    -DLLVM_ENABLE_RTTI=ON
 
-RUN cmake --build . --target -- ${MAKEFLAGS}
+RUN cmake --build . -j 8 --target -- ${MAKEFLAGS}
 RUN cmake --build . --target check-mlir
