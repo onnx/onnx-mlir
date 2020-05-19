@@ -166,7 +166,7 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   // (2) a version without constants meant for being inspected by users and
   //     stored in:
   //
-  //     <name>.mlir
+  //     <name>.tmp
   //
   // In the case of the LLVM Dialect IR the constant values are grouped
   // outside the function code at the beginning of the file in which case the
