@@ -40,14 +40,6 @@ class DummyBackend(onnx.backend.base.Backend):
         onnx.save(model, "temp_model.onnx")
         # Call frontend to process temp_model.onnx, bit code will be generated.
         execute_commands([ONNX_MLIR, "temp_model.onnx"])
-        # Call llc to generate object file from bitcode.
-        execute_commands(
-            [LLC, "-filetype=obj", "-relocation-model=pic", "temp_model.bc"])
-        # Generate shared library from object file, linking with c runtime.
-        execute_commands([
-            CXX, "-shared", "-fPIC", "temp_model.o", "-o", "temp_model.so",
-            "-L" + RUNTIME_DIR, "-lcruntime", "-Wl,-rpath=" + RUNTIME_DIR,
-        ])
         return ExecutionSession("./temp_model.so", "_dyn_entry_point_main_graph")
 
     @classmethod
@@ -62,7 +54,6 @@ backend_test = onnx.backend.test.BackendTest(DummyBackend, __name__)
 
 # Test directories:
 # https://github.com/onnx/onnx/tree/master/onnx/backend/test/data/node
-
 test_to_enable = [
     # Abs Op:
     "test_abs_cpu",
