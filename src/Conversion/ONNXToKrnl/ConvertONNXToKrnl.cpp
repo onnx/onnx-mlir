@@ -57,6 +57,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // this lowering.
   target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect>();
 
+  // Allow unregistered dialects.
+  getContext().allowUnregisteredDialects();
+
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
   // if any of these operations are *not* converted.
