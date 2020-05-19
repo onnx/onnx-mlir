@@ -1,3 +1,4 @@
+# Grab pre-built LLVM from github packages
 FROM docker.pkg.github.com/caoimhinuibrian/onnx-mlir/llvmimage:initial
 
 WORKDIR /build
