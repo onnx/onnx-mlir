@@ -2,6 +2,8 @@
 #pragma once
 
 #include <cstdint>
+#include <numeric>
+#include <vector>
 #else
 #include <stdint.h>
 #endif
@@ -22,6 +24,40 @@ struct DynMemRef {
 
 #ifdef __cplusplus
   DynMemRef(int _rank);
+
+  template <typename T>
+  T elem(std::vector<int64_t> idxs) const {
+    // Ignore the extent of the leading dimension, strides calculation never
+    // uses the extent of the leading dimension.
+    std::vector<int64_t> sizesVec(sizes + 1, sizes + rank);
+    sizesVec.push_back(1);
+
+    std::vector<int64_t> dimStrides;
+    std::partial_sum(sizesVec.rbegin(), sizesVec.rend(), dimStrides.rbegin(),
+        std::multiplies<int64_t>());
+    int64_t elemOffset = std::inner_product(
+        idxs.begin(), idxs.end(), dimStrides.begin(), (int64_t)0);
+
+    T *typedPtr = (T *)data;
+    return typedPtr[elemOffset];
+  }
+
+  template <typename T>
+  T &elem(std::vector<int64_t> idxs) {
+    // Ignore the extent of the leading dimension, strides calculation never
+    // uses the extent of the leading dimension.
+    std::vector<int64_t> sizesVec(sizes + 1, sizes + rank);
+    sizesVec.push_back(1);
+
+    std::vector<int64_t> dimStrides(sizesVec.size());
+    std::partial_sum(sizesVec.rbegin(), sizesVec.rend(), dimStrides.rbegin(),
+        std::multiplies<int64_t>());
+    int64_t elemOffset = std::inner_product(
+        idxs.begin(), idxs.end(), dimStrides.begin(), (int64_t)0);
+
+    T *typedPtr = (T *)data;
+    return typedPtr[elemOffset];
+  }
 #endif
 };
 
@@ -42,8 +78,11 @@ extern "C" {
 // Get number of dynamic memrefs in OrderedDynMemRefDict dict.
 int numDynMemRefs(OrderedDynMemRefDict *dict);
 
-// Create an ordered dynmemref dictionary.
+// Create an ordered dynamic memref dictionary.
 OrderedDynMemRefDict *createOrderedDynMemRefDict();
+
+// Get how many dynamic memrefs are in dict.
+int64_t getSize(OrderedDynMemRefDict *dict);
 
 // Create a dynmemref with a certain rank.
 DynMemRef *createDynMemRef(int rank);

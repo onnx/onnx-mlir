@@ -71,3 +71,6 @@ void outputCode(
 void emitOutputFiles(std::string outputBaseName,
     EmissionTargetType emissionTarget, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
+
+int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, EmissionTargetType targetType);

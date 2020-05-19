@@ -350,7 +350,7 @@ endfunction()
 # Import the pre-built mlir TableGen as an imported exetuable. It is required by
 # the LLVM TableGen command to have the TableGen target so that changes to the
 # table gen utility itself can be detected and cause re-compilation of .td file.
-add_executable(mlir-tblgen IMPORTED)
+add_executable(mlir-tblgen IMPORTED test/numerical/test_conv.cpp)
 set_property(TARGET mlir-tblgen
         PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BIN}/mlir-tblgen)
 set(MLIR_TABLEGEN_EXE mlir-tblgen)

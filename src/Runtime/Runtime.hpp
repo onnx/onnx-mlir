@@ -4,13 +4,15 @@
 #include <string>
 
 #include <dlfcn.h>
+
+#ifndef NO_PYTHON
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+namespace py = pybind11;
+#endif
 
 #include "DynMemRef.h"
-
-namespace py = pybind11;
 
 typedef OrderedDynMemRefDict *(*entryPointFuncType)(OrderedDynMemRefDict *);
 
@@ -18,7 +20,12 @@ class ExecutionSession {
 public:
   ExecutionSession(std::string sharedLibPath, std::string entryPointName);
 
-  std::vector<py::array> run(std::vector<py::array> inputsPyArray);
+#ifndef NO_PYTHON
+  std::vector<py::array> pyRun(std::vector<py::array> inputsPyArray);
+#endif
+
+  std::vector<std::unique_ptr<DynMemRef>> run(
+      std::vector<std::unique_ptr<DynMemRef>>);
 
   ~ExecutionSession();
 
@@ -30,8 +37,10 @@ private:
   entryPointFuncType _entryPointFunc = nullptr;
 };
 
+#ifndef NO_PYTHON
 PYBIND11_MODULE(pyruntime, m) {
   py::class_<ExecutionSession>(m, "ExecutionSession")
       .def(py::init<const std::string &, const std::string &>())
-      .def("run", &ExecutionSession::run);
+      .def("run", &ExecutionSession::pyRun);
 }
+#endif

@@ -68,6 +68,10 @@ void setSizes(DynMemRef *dynMemRef, INDEX_TYPE *sizes) {
 
 int64_t *getStrides(DynMemRef *dynMemRef) { return dynMemRef->strides; }
 
+int64_t getSize(OrderedDynMemRefDict *dict) {
+  return dict->orderedNames.size();
+}
+
 void setStrides(DynMemRef *dynMemRef, int64_t *strides) {
   for (int i = 0; i < dynMemRef->rank; i++)
     dynMemRef->sizes[i] = strides[i];

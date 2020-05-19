@@ -1,5 +1,10 @@
 #include "Runtime.hpp"
 
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <vector>
+
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, std::string entryPointName) {
   // Adapted from https://www.tldp.org/HOWTO/html_single/C++-dlopen/.
@@ -24,7 +29,8 @@ ExecutionSession::ExecutionSession(
   }
 }
 
-std::vector<py::array> ExecutionSession::run(
+#ifndef NO_PYTHON
+std::vector<py::array> ExecutionSession::pyRun(
     std::vector<py::array> inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");
   auto *wrappedInput = createOrderedDynMemRefDict();
@@ -64,6 +70,34 @@ std::vector<py::array> ExecutionSession::run(
   }
 
   return outputPyArrays;
+}
+#endif
+
+std::vector<std::unique_ptr<DynMemRef>> ExecutionSession::run(
+    std::vector<std::unique_ptr<DynMemRef>> ins) {
+  auto *wrappedInput = createOrderedDynMemRefDict();
+  for (size_t i = 0; i < ins.size(); i++)
+    setDynMemRef(wrappedInput, i, ins.at(i).get());
+
+//  auto ptr = (float*)getDynMemRef(wrappedInput, 0)->data;
+//  auto ptr2 = (float*)getDynMemRef(wrappedInput, 1)->data;
+//  for (size_t i=0; i<5; i++)
+//    printf("sanity check in %f, %f\n", ptr[i], ptr2[i]);
+
+  auto *wrappedOutput = _entryPointFunc(wrappedInput);
+
+  std::vector<std::unique_ptr<DynMemRef>> outs;
+  auto outputSize = getSize(wrappedOutput);
+//  printf("Output size is %d\n", getSize(wrappedOutput));
+//  ptr = (float*) getDynMemRef(wrappedOutput, 0)->data;
+//  for (int i=0; i<25; i++)
+//      printf("sanity check out %f\n", ptr[i]);
+
+  for (size_t i = 0; i < getSize(wrappedOutput); i++) {
+      outs.emplace_back(
+              std::unique_ptr<DynMemRef>(getDynMemRef(wrappedOutput, i)));
+  }
+  return std::move(outs);
 }
 
 ExecutionSession::~ExecutionSession() { dlclose(_sharedLibraryHandle); }

@@ -202,3 +202,25 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     }
   }
 }
+
+int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, EmissionTargetType emissionTarget) {
+  mlir::PassManager pm(&context);
+  if (emissionTarget >= EmitONNXIR) {
+    addONNXToMLIRPasses(pm);
+  }
+
+  if (emissionTarget >= EmitMLIR) {
+    addONNXToKrnlPasses(pm);
+    addKrnlToAffinePasses(pm);
+  }
+
+  if (emissionTarget >= EmitLLVMIR)
+    addKrnlToLLVMPasses(pm);
+
+  if (mlir::failed(pm.run(*module)))
+    return 4;
+
+  emitOutputFiles(outputBaseName, emissionTarget, context, module);
+  return 0;
+}

@@ -18,3 +18,13 @@ target_include_directories(pyruntime
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 add_dependencies(pyruntime cruntime)
+
+add_library(ExecutionSession
+        DynMemRef.cpp
+        DynMemRef.h
+        Runtime.cpp
+        Runtime.hpp)
+target_include_directories(ExecutionSession
+        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+target_compile_definitions(ExecutionSession PRIVATE NO_PYTHON)
