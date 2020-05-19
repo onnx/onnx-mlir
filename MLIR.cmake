@@ -144,7 +144,7 @@ find_mlir_lib(MLIRExecutionEngine)
 find_mlir_lib(MLIRIR)
 find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
-find_mlir_lib(MLIRLoopToStandard)
+find_mlir_lib(MLIRSCFToStandard)
 find_mlir_lib(MLIRLoopLikeInterface)
 find_mlir_lib(MLIRSCF)
 find_mlir_lib(MLIRLLVMIRTransforms)
@@ -205,7 +205,7 @@ set(MLIRLibs
         ${MLIRExecutionEngine}
         ${MLIRIR}
         ${MLIRLLVMIRTransforms}        
-        ${MLIRLoopToStandard}
+        ${MLIRSCFToStandard}
         ${MLIRSCF}
         ${MLIRLoopAnalysis}
         ${MLIRLoopLikeInterface}
@@ -251,7 +251,7 @@ set(MLIRWholeArchiveLibs
         MLIRStandardOps
         MLIRStandardToLLVM
         MLIRTransforms
-        MLIRLoopToStandard
+        MLIRSCFToStandard
         MLIRVector
         MLIRSCF
         MLIRIR)
