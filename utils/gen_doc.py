@@ -31,9 +31,9 @@ parser.add_argument("--dry-run-op-build-table",
                     help="Output OpBuildTable.inc content to stdout.",
                     action="store_true",
                     default=False)
-parser.add_argument("--generate-for-latest-version",
-                    help="generate operation for the latest versionin your installation,"+
-                         " not according to version_dicts",
+parser.add_argument("--check-operation-version",
+                    help="check whether the imported onnx package has new operation or " 
+                         " newer version of operation compared with version stored in  version_dicts",
                     action="store_true",
                     default=False)
 parser.add_argument("--domain", 
@@ -42,13 +42,15 @@ parser.add_argument("--domain",
 
 args = parser.parse_args()
 
-generate_for_latest_version = args.generate_for_latest_version
+check_operation_version = args.check_operation_version
 
 
 # Record the version of each operation that is treated as the current version.
-# To include the newer version, run this script with --generate-for-latest-version flag.
-# Update this dictionary with the output of the script.
-version_dict = {'Abs': 6,
+# To check whether the onnx package being used has newer version operation,
+# run this script with --check-operation-version flag.
+# Update this dictionary when a newer version is implemented
+# TODO: how to keep the old version
+onnx_version_dict = {'Abs': 6,
  'Acos': 7,
  'Acosh': 9,
  'Add': 7,
@@ -204,6 +206,25 @@ version_dict = {'Abs': 6,
  'Upsample': 10,
  'Where': 9,
  'Xor': 7}
+
+onnx_ml_version_dict = {'ArrayFeatureExtractor': 1,
+ 'Binarizer': 1,
+ 'CastMap': 1,
+ 'CategoryMapper': 1,
+ 'DictVectorizer': 1,
+ 'FeatureVectorizer': 1,
+ 'Imputer': 1,
+ 'LabelEncoder': 2,
+ 'LinearClassifier': 1,
+ 'LinearRegressor': 1,
+ 'Normalizer': 1,
+ 'OneHotEncoder': 1,
+ 'SVMClassifier': 1,
+ 'SVMRegressor': 1,
+ 'Scaler': 1,
+ 'TreeEnsembleClassifier': 1,
+ 'TreeEnsembleRegressor': 1,
+ 'ZipMap': 1}
 
 # Manual specification of attribute defaults.
 special_attr_defaults = dict([
@@ -706,7 +727,10 @@ def build_operator_schemas():
     for domain, _supportmap in sorted(index.items()):
         if not should_render_domain(domain):
             continue
-
+        if domain == ONNX_ML_DOMAIN:
+            version_dict = onnx_ml_version_dict
+        else:
+            version_dict = onnx_version_dict
         processed_supportmap = list()
         for _support, _namemap in sorted(_supportmap.items()):
             processed_namemap = list()
@@ -717,17 +741,18 @@ def build_operator_schemas():
                 if schema.name in exsting_ops:
                     continue
 
-                if generate_for_latest_version :
+                if check_operation_version :
                     # Generate operation of the latest version of your onnx.
                     exsting_ops.add(schema.name)
                     processed_namemap.append((n, schema, versions))
 
                     # Add checks against version_dict
                     if schema.name not in version_dict :
-                        print("Warning: a new schema {}".format(schema.name))
-                    if schema.since_version <  version_dict[schema.name]:
-                        print("Warning: a newer version for schema {}".format(
-                            schema.name))
+                        print("Warning: Operation {} with version is new".format(
+                            schema.since_version, schema.name))
+                    elif schema.since_version >  version_dict[schema.name]:
+                        print("Warning: Operation {} has a newer version {} (old version {})".format(
+                            schema.name, schema.since_version, version_dict[schema.name]))
                 else:
                     # Generate operation according to the version in version_dict.
                     if schema.name not in version_dict :
@@ -770,11 +795,13 @@ def main(args):  # type: (Type[Args]) -> None
     for domain, supportmap in build_operator_schemas():
         for _, namemap in supportmap:
             for op_type, schema, versions in namemap:
-                gen_op_importer(schema, op_importer)
-                r = gen_op_def(schema)
-                op_def.write(r)
-                version_dict[schema.name] = schema.since_version
-    if generate_for_latest_version :
+                if check_operation_version:
+                    version_dict[schema.name] = schema.since_version
+                else:
+                    gen_op_importer(schema, op_importer)
+                    r = gen_op_def(schema)
+                    op_def.write(r)
+    if check_operation_version :
         pprint.pprint(version_dict)
 
 if __name__ == '__main__':
