@@ -153,7 +153,7 @@ find_mlir_lib(MLIRParser)
 find_mlir_lib(MLIRPass)
 find_mlir_lib(MLIRStandardOps)
 find_mlir_lib(MLIRStandardToLLVM)
-find_mlir_lib(MLIRSideEffects)
+find_mlir_lib(MLIRSideEffectInterfaces)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransforms)
 find_mlir_lib(MLIRTransformUtils)
@@ -211,7 +211,7 @@ set(MLIRLibs
         ${MLIRLoopLikeInterface}
         ${MLIROpenMP}
         ${MLIRMlirOptMain}
-        ${MLIRSideEffects}        
+        ${MLIRSideEffectInterfaces}
         ${MLIRStandardOps}
         ${MLIRStandardToLLVM}
         ${MLIRSupport}
