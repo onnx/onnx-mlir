@@ -550,11 +550,11 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         loopIVs.push_back(arg);
     }
 
-    auto loadedVal = rewriter.create<LoadOp>(loc, X, loopIVs);
+    auto loadedVal = rewriter.create<AffineLoadOp>(loc, X, loopIVs);
     auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
         rewriter, loc, op, memRefType.getElementType(), {loadedVal});
     // Store result in the resulting array.
-    rewriter.create<StoreOp>(loc, loweredOpResult, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, loweredOpResult, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -625,16 +625,17 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     Value accumulated, next;
     auto accumulatedLoopIVs = getLoopIVsForBroadcasting(
         loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
-    accumulated = rewriter.create<LoadOp>(loc, operands[0], accumulatedLoopIVs);
+    accumulated =
+        rewriter.create<AffineLoadOp>(loc, operands[0], accumulatedLoopIVs);
     for (unsigned i = 1; i < numArgs; i++) {
       auto nextLoopIVs = getLoopIVsForBroadcasting(
           loc, rewriter, loopIVs, operands[i], broadcastedDimInfo[i]);
-      next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
+      next = rewriter.create<AffineLoadOp>(loc, operands[i], nextLoopIVs);
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
           rewriter, loc, op, memRefType.getElementType(), {accumulated, next});
     }
     // Store result in the resulting array.
-    rewriter.create<StoreOp>(loc, accumulated, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 
