@@ -1,4 +1,4 @@
-FROM caoimhinuibrian/onnx-mlir-llvmimage:initial
+FROM docker.pkg.github.com/caoimhinuibrian/onnx-mlir/llvmimage:initial
 
 WORKDIR /build
 ENV HOME=/build
