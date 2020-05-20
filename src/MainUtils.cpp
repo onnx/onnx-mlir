@@ -94,8 +94,9 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createAttributePromotionPass());
 }
 
-void addONNXToKrnlPasses(mlir::PassManager &pm) {
-  pm.addPass(mlir::createLowerToKrnlPass());
+void addONNXToKrnlPasses(
+    mlir::PassManager &pm, bool allowUnregisteredDialects) {
+  pm.addPass(mlir::createLowerToKrnlPass(allowUnregisteredDialects));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.

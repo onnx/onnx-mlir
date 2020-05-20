@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (emissionTarget >= EmitMLIR) {
-    addONNXToKrnlPasses(pm);
+    addONNXToKrnlPasses(pm, false);
     addKrnlToAffinePasses(pm);
   }
 

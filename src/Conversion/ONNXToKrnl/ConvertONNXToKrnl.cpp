@@ -42,7 +42,13 @@ public:
 namespace {
 struct FrontendToKrnlLoweringPass
     : public PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>> {
+  FrontendToKrnlLoweringPass(bool allowUnregisteredDialect = true)
+      : allowUnregisteredDialect(allowUnregisteredDialect) {}
+  bool allowUnregisteredDialect;
   void runOnOperation() final;
+  bool getUnregisteredDialectFlag() {
+    return allowUnregisteredDialect;
+  }
 };
 } // end anonymous namespace.
 
@@ -58,7 +64,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect>();
 
   // Allow unregistered dialects.
-  getContext().allowUnregisteredDialects();
+  if (getUnregisteredDialectFlag())
+    getContext().allowUnregisteredDialects();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
@@ -118,8 +125,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     signalPassFailure();
 }
 
-std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {
-  return std::make_unique<FrontendToKrnlLoweringPass>();
+std::unique_ptr<Pass> mlir::createLowerToKrnlPass(
+    bool allowUnregisteredDialect) {
+  return std::make_unique<FrontendToKrnlLoweringPass>(allowUnregisteredDialect);
 }
 
 static PassRegistration<FrontendToKrnlLoweringPass> pass(

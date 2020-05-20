@@ -55,7 +55,7 @@ void registerDialects();
 
 void addONNXToMLIRPasses(mlir::PassManager &pm);
 
-void addONNXToKrnlPasses(mlir::PassManager &pm);
+void addONNXToKrnlPasses(mlir::PassManager &pm, bool allowUnregisteredDialects);
 
 void addKrnlToAffinePasses(mlir::PassManager &pm);
 

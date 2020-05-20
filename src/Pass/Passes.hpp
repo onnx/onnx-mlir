@@ -27,7 +27,7 @@ std::unique_ptr<Pass> createAttributePromotionPass();
 std::unique_ptr<Pass> createElideConstantValuePass();
 
 /// Add pass for lowering to Krnl IR.
-std::unique_ptr<Pass> createLowerToKrnlPass();
+std::unique_ptr<Pass> createLowerToKrnlPass(bool allowUnregisteredDialect = true);
 
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<Pass> createLowerKrnlPass();
