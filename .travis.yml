@@ -8,10 +8,10 @@ script:
   - chmod a+x compile-onnx-mlir.sh
   - docker build --tag onnx-mlir-build:initial .
   - docker run -itd -v $(pwd):/onnx-mlir --name build onnx-mlir-build:initial
-  - docker run build mkdir /build/bin
+  - docker exec build mkdir /build/bin
   - docker copy build compile-onnx-mlir.sh /usr/bin/compile-onnx-mlir.sh
-  - docker run build compile-onnx-mlir.sh
-  - docker run build export LIT_OPT=v
-  - docker run build cd /onnx-mlir/build
-  - docker run build cmake --build . --target check-onnx-lit
+  - docker exec build compile-onnx-mlir.sh
+  - docker exec build export LIT_OPT=v
+  - docker exec build cd /onnx-mlir/build
+  - docker exec build cmake --build . --target check-onnx-lit
   
