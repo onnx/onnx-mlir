@@ -4,7 +4,7 @@ services:
 language: cpp
 dist: bionic
 script: 
-  - docker build --tag onnx-mlir-build:initial .
+  - docker build --tag onnx-mlir-build:initial ./docker
   - docker run -itd --name build onnx-mlir-build:initial
   - docker cp $(pwd) build:/onnx-mlir
   - cd docker
