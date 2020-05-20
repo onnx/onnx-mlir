@@ -61,9 +61,9 @@ struct ONNXConcatOpLowering : public ConversionPattern {
         } else {
           AffineMap indexWithOffsetMap =
               AffineMap::get(1, 0, rewriter.getAffineDimExpr(0) + writeOffset);
-          Value indexWithOffset = rewriter.create<AffineApplyOp>(loc,
-              indexWithOffsetMap,
-              ValueRange(SmallVector<Value, 4>{inputLoops.getInductionVar(r)}));
+          Value indexWithOffset =
+              rewriter.create<AffineApplyOp>(loc, indexWithOffsetMap,
+                  ValueRange(ArrayRef<Value>{inputLoops.getInductionVar(r)}));
           writeIndices.emplace_back(indexWithOffset);
         }
       }
