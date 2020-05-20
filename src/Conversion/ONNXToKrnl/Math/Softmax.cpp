@@ -104,9 +104,9 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
         outerLoopIVs.push_back(arg);
 
       // Reset accumulators.
-      rewriter.create<AffineStoreOp>(loc, zero, sumOp, SmallVector<Value, 4>{});
+      rewriter.create<AffineStoreOp>(loc, zero, sumOp, ArrayRef<Value>{});
       rewriter.create<AffineStoreOp>(
-          loc, negInfinity, maxOp, SmallVector<Value, 4>{});
+          loc, negInfinity, maxOp, ArrayRef<Value>{});
 
       // Create an inner loop to compute max.
       maxIterateOp = rewriter.create<KrnlIterateOp>(loc, innerPack);
@@ -116,9 +116,9 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
       softmaxIterateOp = rewriter.create<KrnlIterateOp>(loc, innerPack);
     } else {
       // Reset accumulators.
-      rewriter.create<AffineStoreOp>(loc, zero, sumOp, SmallVector<Value, 4>{});
+      rewriter.create<AffineStoreOp>(loc, zero, sumOp, ArrayRef<Value>{});
       rewriter.create<AffineStoreOp>(
-          loc, negInfinity, maxOp, SmallVector<Value, 4>{});
+          loc, negInfinity, maxOp, ArrayRef<Value>{});
 
       // Create an inner loop to compute max.
       maxIterateOp = rewriter.create<KrnlIterateOp>(loc, innerPack);
@@ -149,7 +149,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     auto maxCond =
         rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, max, nextMax);
     max = rewriter.create<SelectOp>(loc, maxCond, max, nextMax);
-    rewriter.create<AffineStoreOp>(loc, max, maxOp, SmallVector<Value, 4>{});
+    rewriter.create<AffineStoreOp>(loc, max, maxOp, ArrayRef<Value>{});
 
     // Get the max.
     rewriter.setInsertionPoint(sumIterateOp);
@@ -172,7 +172,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     Value sub = rewriter.create<SubFOp>(loc, next, max);
     Value exp = rewriter.create<ExpOp>(loc, sub);
     sum = rewriter.create<AddFOp>(loc, sum, exp);
-    rewriter.create<AffineStoreOp>(loc, sum, sumOp, SmallVector<Value, 4>{});
+    rewriter.create<AffineStoreOp>(loc, sum, sumOp, ArrayRef<Value>{});
     // Store intermediate values in the result to avoid recomputation.
     rewriter.create<AffineStoreOp>(loc, exp, alloc, sumLoopIVs);
 
