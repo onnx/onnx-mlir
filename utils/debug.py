@@ -76,15 +76,19 @@ def main(model_path):
 
         # Generate random data as input.
         inputs = []
+        input_names = []
+        initializers = list(map(lambda x: x.name, model.graph.initializer))
         np.random.seed(42)
         for input_proto in model.graph.input:
-            shape_proto = input_proto.type.tensor_type.shape
-            explicit_shape = []
-            for dim in shape_proto.dim:
-                assert dim.dim_value, "Can only debug models with inputs that have explicit shapes."
-                explicit_shape.append(dim.dim_value)
-            inputs.append(
-                np.random.uniform(-1.0, 1.0, explicit_shape).astype(np.float32))
+            if input_proto.name not in initializers:
+                input_names.append(input_proto.name)
+                shape_proto = input_proto.type.tensor_type.shape
+                explicit_shape = []
+                for dim in shape_proto.dim:
+                    assert dim.dim_value, "Can only debug models with inputs that have explicit shapes."
+                    explicit_shape.append(dim.dim_value)
+                inputs.append(
+                    np.random.uniform(-1.0, 1.0, explicit_shape).astype(np.float32))
 
         # Run the compiled inference function on the randomly generated data.
         outs = sess.run(inputs)
@@ -92,14 +96,13 @@ def main(model_path):
         # Run the model with reference backend and get results.
         ref_session = prepare(temp_model_path)
         output_names = list(map(lambda x: x.name, model.graph.output))
-        input_names = list(map(lambda x: x.name, model.graph.input))
         input_feed = dict(zip(input_names, inputs))
         ref_outs = ref_session.run(output_names, input_feed)
 
         # For each intermediate output tensor, compare results.
         for i, name in enumerate(intermediate_outputs):
             print("Verifying value of {}".format(name))
-            np.testing.assert_array_almost_equal(ref_outs[i], outs[i])
+            np.testing.assert_array_almost_equal(ref_outs[i], outs[i], decimal=5)
 
 
 if __name__ == '__main__':
