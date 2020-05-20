@@ -61,7 +61,7 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 // 4. type of string, complex64 and complex128 for input/output are ignored 
 // 5. unsigned int are treated as signed one
 
-include "mlir/Interfaces/SideEffects.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Dialect/ONNX/ONNXOps.td.inc"
 
 // Indicate entry point functions of ONNX graph.
@@ -71,7 +71,7 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
 
-  let builders = [OpBuilder<[{Builder *builder, OperationState &state,
+  let builders = [OpBuilder<[{OpBuilder &builder, OperationState &state,
                              FuncOp function, int numInputs, int numOutputs}]>];
 
   let extraClassDeclaration = [{
@@ -183,7 +183,7 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
   // A build method with the result type deduction.
-  let builders = [OpBuilder<"Builder *builder, OperationState &state, "
+  let builders = [OpBuilder<"OpBuilder &builder, OperationState &state, "
                             "Value data, ArrayAttr pads, "
                             "FloatAttr constant_value, StringAttr mode">];
 }

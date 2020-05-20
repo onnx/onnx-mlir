@@ -57,7 +57,7 @@ static llvm::cl::opt<bool> allowUnregisteredDialects(
 int main(int argc, char **argv) {
   mlir::registerDialect<mlir::AffineDialect>();
   mlir::registerDialect<mlir::LLVM::LLVMDialect>();
-  mlir::registerDialect<mlir::loop::LoopOpsDialect>();
+  mlir::registerDialect<mlir::scf::SCFDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();
 
   // Register transformation passes.

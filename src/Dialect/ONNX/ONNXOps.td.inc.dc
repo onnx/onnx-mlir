@@ -1,1 +1,1 @@
-file-same-as-stdout({"file": "src/Dialect/ONNX/ONNXOps.td.inc", "cmd": ["python", "utils/gen_doc.py", "--dry-run-onnx-ops"]})
+file-same-as-stdout({"file": "src/Dialect/ONNX/ONNXOps.td.inc", "cmd": ["python", "utils/gen_onnx_mlir.py", "--dry-run-onnx-ops"]})
