@@ -166,7 +166,7 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   // (2) a version without constants meant for being inspected by users and
   //     stored in:
   //
-  //     <name>.mlir
+  //     <name>.tmp
   //
   // In the case of the LLVM Dialect IR the constant values are grouped
   // outside the function code at the beginning of the file in which case the
@@ -193,9 +193,9 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
         emissionTarget == EmitMLIR) {
       if (mlir::failed(cleanSourcePM.run(*module)))
         llvm::errs() << "Could not apply simplification passes.\n";
-      outputCode(module, outputBaseName, ".mlir");
+      outputCode(module, outputBaseName, ".tmp");
       printf("Constant-free MLIR Code written to: \n\t%s\n\n",
-          (outputBaseName + ".mlir").c_str());
+          (outputBaseName + ".tmp").c_str());
 
       printf("Use:\n\t%s\nto continue lowering the code to other dialects.\n",
           (outputBaseName + ".onnx.mlir").c_str());
