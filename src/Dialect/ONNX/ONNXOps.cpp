@@ -438,22 +438,22 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
       >();
 }
 
-void ONNXEntryPointOp::build(mlir::Builder *builder,
+void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
     mlir::OperationState &state, mlir::FuncOp function, int numInputs,
     int numOutputs) {
   state.addAttribute(ONNXEntryPointOp::getEntryPointFuncAttrName(),
-      builder->getSymbolRefAttr(function));
+      builder.getSymbolRefAttr(function));
   state.addAttribute(ONNXEntryPointOp::getNumInputsAttrName(),
-      builder->getI32IntegerAttr(numInputs));
+      builder.getI32IntegerAttr(numInputs));
   state.addAttribute(ONNXEntryPointOp::getNumOutputsAttrName(),
-      builder->getI32IntegerAttr(numOutputs));
+      builder.getI32IntegerAttr(numOutputs));
 }
 
 ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
     mlir::FuncOp &func, int numInputs, int numOutputs) {
   mlir::OperationState state(location, "onnx.EntryPoint");
-  Builder builder(location->getContext());
-  mlir::ONNXEntryPointOp::build(&builder, state, func, numInputs, numOutputs);
+  OpBuilder builder(location->getContext());
+  mlir::ONNXEntryPointOp::build(builder, state, func, numInputs, numOutputs);
   Operation *op = mlir::Operation::create(state);
   auto onnxEntryOp = llvm::cast<mlir::ONNXEntryPointOp>(op);
   return onnxEntryOp;
@@ -1573,7 +1573,7 @@ bool ONNXPadConstantValuePadOp::inferShapes() {
   return false;
 }
 
-void ONNXPadConstantValuePadOp::build(Builder *builder, OperationState &state,
+void ONNXPadConstantValuePadOp::build(OpBuilder &builder, OperationState &state,
     Value data, ArrayAttr pads, FloatAttr constant_value, StringAttr mode) {
   Type outputType = padShapeInferenceHelper(data, pads);
   if (!outputType) {
