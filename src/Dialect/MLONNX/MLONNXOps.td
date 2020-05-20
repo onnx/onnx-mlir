@@ -61,7 +61,7 @@ class MLONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 // 4. type of string, complex64 and complex128 for input/output are ignored 
 // 5. unsigned int are treated as signed one
 
-include "mlir/Interfaces/SideEffects.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Dialect/MLONNX/MLONNXOps.td.inc"
 
 #endif // MLONNX_OPS
