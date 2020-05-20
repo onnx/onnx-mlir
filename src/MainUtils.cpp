@@ -79,7 +79,7 @@ void compileModuleToSharedLibrary(
 void registerDialects() {
   mlir::registerDialect<mlir::AffineDialect>();
   mlir::registerDialect<mlir::LLVM::LLVMDialect>();
-  mlir::registerDialect<mlir::loop::LoopOpsDialect>();
+  mlir::registerDialect<mlir::scf::SCFDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();
   mlir::registerDialect<mlir::ONNXOpsDialect>();
   mlir::registerDialect<mlir::KrnlOpsDialect>();
@@ -166,7 +166,7 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   // (2) a version without constants meant for being inspected by users and
   //     stored in:
   //
-  //     <name>.mlir
+  //     <name>.tmp
   //
   // In the case of the LLVM Dialect IR the constant values are grouped
   // outside the function code at the beginning of the file in which case the
