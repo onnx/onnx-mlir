@@ -387,9 +387,9 @@ public:
       staticInputs.emplace_back(ptrToMemRef);
     }
 
-//    // If more than one output exists, the struct becomes a nested struct,
-//    // the unpacking logic can be more involved, so no support for now.
-//    assert(numOutputs == 1 && "only support 1 output tensor now.");
+    //    // If more than one output exists, the struct becomes a nested struct,
+    //    // the unpacking logic can be more involved, so no support for now.
+    //    assert(numOutputs == 1 && "only support 1 output tensor now.");
 
     // Call static entry point with the memref ptrs created, and get output.
     auto outMemRefs =
@@ -632,7 +632,6 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
-//  target.addLegalOp<KrnlEntryPointOp>();
 
   // Lower the MemRef types to a representation in LLVM.
   LLVMTypeConverter typeConverter(&getContext());
@@ -645,11 +644,11 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   populateStdToLLVMConversionPatterns(typeConverter, patterns,
       /*emitCWrapperS=*/true,
       /*useAlignedAlloc=*/false);
-  patterns.insert<KrnlEntryPointOpLowering>(&getContext());
   patterns.insert<KrnlGlobalOpLowering>(&getContext(), typeConverter);
 
   // Lower from the `krnl` dialect i.e. the Reshape operation.
-  patterns.insert<KrnlMemcpyOpLowering>(&getContext());
+  patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(
+      &getContext());
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
