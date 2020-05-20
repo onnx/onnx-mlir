@@ -6,5 +6,13 @@ dist: bionic
 script:
   - cd docker
   - chmod a+x compile-onnx-mlir.sh
-  - docker build --tag onnx-mlir-build:initial .
-
+  - docker pull onnxmlirczar/onnx-mlir-build:initial
+  - docker run -itd -v $(pwd):/build --name build onnxmlirczar/onnx-mlir-build:initial
+  - docker run build mkdir /build/bin
+  - docker copy build compile-onnx-mlir.sh bin/compile-onnx-mlir.sh
+  - docker run build export PATH=$PATH:/build/bin 
+  - docker run build compile-onnx-mlir.sh
+  - docker run build export LIT_OPT=v
+  - docker run build cd /build/onnx-mlir/build
+  - docker run build cmake --build . --target check-onnx-lit
+  
