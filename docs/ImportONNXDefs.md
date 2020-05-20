@@ -33,4 +33,5 @@ Several tables are defined at the beginning of the script:
 
 ## Version of Operations
 As stated previous, we try to support the latest version of ONNX operations. The version of each operation currently supported is recorded in gen_onnx_mlir.py. This mechanism provides some stability in version. To check the changes in version, run gen_onnx_mlir.py with flag "--check-version" and the changes will be reported. To move to a newer version, manually update the version dictionary in the script.
+Supporting mulitple versions of one operation is not available yet.
 

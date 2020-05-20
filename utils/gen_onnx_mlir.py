@@ -748,10 +748,10 @@ def build_operator_schemas():
 
                     # Add checks against version_dict
                     if schema.name not in version_dict :
-                        print("Warning: Operation {} with version is new".format(
+                        print("Check-operation-version: Operation {} with version is new".format(
                             schema.since_version, schema.name))
                     elif schema.since_version >  version_dict[schema.name]:
-                        print("Warning: Operation {} has a newer version {}"+
+                        print("Check-operation-version: Operation {} has a newer version {}"+
                             "(old version {})".format( schema.name, 
                             schema.since_version, version_dict[schema.name]))
                 else:
