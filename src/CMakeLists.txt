@@ -11,6 +11,18 @@ add_executable(onnx-mlir
         MainUtils.cpp
         main.cpp)
 
+# Locate llc, which is needed for translating LLVM bitcode
+# to object file.
+if(NOT EXISTS "${LLVM_PROJ_BUILD}/bin/llc")
+  message(ERROR "Cannot find llc.")
+endif()
+
+# Get the compiler command name, the C++ compiler is needed to to translate
+# object files to shared libraries.
+get_filename_component(CXX_COMPILER_FILENAME ${CMAKE_CXX_COMPILER} NAME)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
+        ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp)
+
 set(ONNX_MLIR_LD_PRELOAD_onnx-mlir "" CACHE STRING "" FORCE)
 whole_archive_link_mlir(onnx-mlir ${MLIRWholeArchiveLibs})
 if(BUILD_SHARED_LIBS)
