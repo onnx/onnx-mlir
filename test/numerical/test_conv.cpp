@@ -3,6 +3,7 @@
 #include <rapidcheck.h>
 
 #include <algorithm>
+#include <cmath>
 #include <random>
 #include <string>
 #include <vector>
@@ -18,20 +19,28 @@
 
 using namespace std;
 
-std::vector<float> getRandomTensor(
-    int64_t size, float lb = -1.0, float ub = 1.0) {
-  std::random_device
-      rd; // Will be used to obtain a seed for the random number engine
-  std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+DynMemRef *getRandomTensor(
+    std::vector<int64_t> sizes, float lb = -1.0, float ub = 1.0) {
+  // Will be used to obtain a seed for the random number engine
+  std::random_device rd;
+  // Standard mersenne_twister_engine seeded with rd()
+  std::mt19937 gen(rd());
   std::uniform_real_distribution<> dis(lb, ub);
-  std::vector<float> tensor(size);
-  std::generate(tensor.begin(), tensor.end(), [&]() { return dis(gen); });
-  return tensor;
+  auto dmr = DynMemRef::create<float>(sizes);
+  auto ptr = (float *)dmr->data;
+  std::generate(ptr, ptr + dmr->size(), [&]() { return dis(gen); });
+  return dmr;
 }
 
-inline bool assertClose(float a, float b) {
-  return ((a - b) / a < 0.0001f);
+inline bool assertClose(
+    float a, float b, float rtol = 1e-5, float atol = 1e-5) {
+  auto absoluteDiff = std::abs(a - b);
+  auto withinRtol = (absoluteDiff / a < rtol);
+  auto withinAtol = (absoluteDiff < atol);
+  return withinRtol && withinAtol;
 }
+
+inline bool assertClose(DynMemRef *a, DynMemRef *b) {}
 
 int main() {
   rc::check("double reversal yields the original value", []() {
@@ -43,11 +52,18 @@ int main() {
     const auto kH = *rc::gen::inRange(3, 10);
     const auto kW = *rc::gen::inRange(3, 10);
 
+    // We don't want an entire window of padding.
+    const auto pHBegin = *rc::gen::inRange(0, kH - 1);
+    const auto pHEnd = *rc::gen::inRange(0, kH - 1);
+    const auto pWBegin = *rc::gen::inRange(0, kW - 1);
+    const auto pWEnd = *rc::gen::inRange(0, kW - 1);
+
     // Make sure we have at least 1 output per dimension.
     RC_PRE((H >= kH) && (W > kW));
 
     registerDialects();
     mlir::MLIRContext ctx;
+
     auto module = mlir::ModuleOp::create(mlir::UnknownLoc::get(&ctx));
     mlir::OpBuilder builder(&ctx);
     llvm::SmallVector<int64_t, 4> xShape = {N, C, H, W};
@@ -74,14 +90,14 @@ int main() {
     auto bVal = builder
                     .create<mlir::ConstantOp>(
                         mlir::UnknownLoc::get(&ctx), builder.getUnitAttr())
-                    .getResult(); // entryBlock->getArgument(2);
+                    .getResult();
 
     auto dilations = builder.getI64ArrayAttr({1, 1});
     auto kernel_shape = builder.getI64ArrayAttr({kH, kW});
-    auto pads = builder.getI64ArrayAttr({0, 0, 0, 0});
+    auto pads = builder.getI64ArrayAttr({pHBegin, pWBegin, pHEnd, pWEnd});
     auto strides = builder.getI64ArrayAttr({1, 1});
 
-    auto conv = builder.create<mlir::ONNXConvOp>(mlir::UnknownLoc::get(&ctx),
+    auto convOp = builder.create<mlir::ONNXConvOp>(mlir::UnknownLoc::get(&ctx),
         /*Y=*/yType,
         /*X=*/xVal, /*W=*/wVal, /*B=*/bVal,
         /*auto_pad=*/builder.getStringAttr("NOTSET"),
@@ -89,18 +105,18 @@ int main() {
         /*kernel_shape=*/kernel_shape, /*pads=*/pads,
         /*strides=*/strides);
 
-    // Use the conv shape inference method to compute output shape, and unset
+    // Use the convOp shape inference method to compute output shape, and unset
     // the shape so that we don't leave IR in a inconsistent state.
-    conv.inferShapes();
+    convOp.inferShapes();
     auto outputShape =
-        conv.getResult().getType().cast<mlir::ShapedType>().getShape();
+        convOp.getResult().getType().cast<mlir::ShapedType>().getShape();
     auto NOut = outputShape[0];
     auto COut = outputShape[1];
     auto HOut = outputShape[2];
     auto WOut = outputShape[3];
-    conv.getResult().setType(yType);
+    convOp.getResult().setType(yType);
 
-    llvm::SmallVector<mlir::Value, 1> results = {conv.getResult()};
+    llvm::SmallVector<mlir::Value, 1> results = {convOp.getResult()};
     builder.create<mlir::ReturnOp>(mlir::UnknownLoc::get(&ctx), results);
     module.push_back(funcOp);
 
@@ -111,7 +127,6 @@ int main() {
             /*numInputs=*/2,
             /*numOutputs=*/1);
     module.push_back(entryPoint);
-
     mlir::OwningModuleRef moduleRef(module);
 
     llvm::SmallVector<char, 10> path;
@@ -123,49 +138,38 @@ int main() {
     ExecutionSession sess(pathStr + ".so", "_dyn_entry_point_test_conv");
 
     std::vector<std::unique_ptr<DynMemRef>> inputs;
-    auto xDMR = std::unique_ptr<DynMemRef>(createDynMemRef(4));
-    const auto xData = getRandomTensor(N * C * H * W);
-    xDMR->data = (void *)&xData[0];
-    std::vector<int64_t> xShapeVec = {N, C, H, W};
-    xDMR->sizes = &xShapeVec[0];
-    inputs.emplace_back(std::move(xDMR));
+    auto xDmr = std::unique_ptr<DynMemRef>(getRandomTensor({N, C, H, W}));
+    inputs.emplace_back(std::move(xDmr));
+    auto wDmr = std::unique_ptr<DynMemRef>(getRandomTensor({C, C, kH, kW}));
+    inputs.emplace_back(std::move(wDmr));
 
-    auto wDMR = std::unique_ptr<DynMemRef>(createDynMemRef(4));
-    auto wData = std::vector<float>(C * C * kH * kW, 1.0f);
-    wDMR->data = (void *)&wData[0];
-    std::vector<int64_t> wShapeVec = {C, C, kH, kW};
-    wDMR->sizes = &wShapeVec[0];
-    inputs.emplace_back(std::move(wDMR));
+    auto ref = DynMemRef::create<float>({NOut, COut, HOut, WOut});
 
-    std::vector<float> convOutputRefData(NOut * COut * HOut * WOut, 0.0f);
-    std::vector<int64_t> sizes = {NOut, COut, HOut, WOut};
-    auto refConv = *createDynMemRef(4);
-    refConv.data = &convOutputRefData[0];
-    refConv.sizes = &sizes[0];
-
+    auto &img = inputs.at(0);
+    auto &filter = inputs.at(1);
     for (int64_t n = 0; n < NOut; n++)
       for (int64_t c = 0; c < COut; c++)
         for (int64_t h = 0; h < HOut; h++)
           for (int64_t w = 0; w < WOut; w++) {
-            refConv.elem<float>({n, c, h, w}) = 0;
+            ref->elem<float>({n, c, h, w}) = 0;
             for (int64_t ci = 0; ci < C; ci++)
               for (int64_t kh = 0; kh < kH; kh++)
                 for (int64_t kw = 0; kw < kW; kw++)
-                  refConv.elem<float>({n, c, h, w}) +=
-                      inputs.at(0)->elem<float>({n, ci, h + kh, w + kw}) *
-                      inputs.at(1)->elem<float>({c, ci, kh, kw});
+                  if ((h + kh - pHBegin >= 0 && h + kh - pHBegin < H) &&
+                      (w + kw - pWBegin >= 0 && w + kw - pWBegin < W))
+                    ref->elem<float>({n, c, h, w}) +=
+                        img->elem<float>(
+                            {n, ci, h + kh - pHBegin, w + kw - pWBegin}) *
+                        filter->elem<float>({c, ci, kh, kw});
           }
 
     auto outputs = sess.run(std::move(inputs));
-    printf("%s runs okay!\n", pathStr.c_str());
-    llvm::sys::fs::remove(pathStr);
-
-    auto &convOutput = outputs.at(0);
-    float *convOutputData = (float *)convOutput->data;
-
-    auto refConvData = (float *)refConv.data;
+    auto &conv = outputs.at(0);
     for (int64_t i = 0; i < NOut * COut * HOut * WOut; i++) {
-      RC_ASSERT(assertClose(refConvData[i], convOutputData[i]));
+      if (!assertClose(ref->elem<float>(i), conv->elem<float>(i)))
+        printf("ref[%d]=%f, conv[%d]=%f\n", i, ref->elem<float>(i), i,
+            conv->elem<float>(i));
+      RC_ASSERT(assertClose(ref->elem<float>(i), conv->elem<float>(i)));
     }
   });
 

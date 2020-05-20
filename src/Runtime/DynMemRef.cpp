@@ -11,6 +11,10 @@ DynMemRef::DynMemRef(int _rank) {
   strides = (int64_t *)malloc(rank * sizeof(int64_t));
 }
 
+int64_t DynMemRef::size() const {
+    return std::accumulate(sizes, sizes + rank, 1, std::multiplies<>());
+}
+
 // An ordered dynamic MemRef dictionary.
 // The goal is to support accessing dynamic memory ref by name and by index.
 // Currently, only accessing by index is supported.
