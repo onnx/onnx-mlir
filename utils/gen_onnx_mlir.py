@@ -285,7 +285,7 @@ custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare', 
 #a dictionary to add any special definition for an operation
 custom_definition_misc = dict([ ('Constant', 
   '''    let builders = [
-    OpBuilder<"Builder *builder, OperationState &state, Attribute sparse_value, Attribute value", [{
+    OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
       if (value) {
         auto tensorType = value.getType();
         build(builder, state, tensorType, sparse_value, value);
@@ -621,9 +621,9 @@ def gen_op_def(schema):
         else:
             s += indent + 'let builders = [\n'
             # Custom builders with operands and attributes having a seperate parameter.
-            # E.g. OpBuilder<"Builder *builder, OperationState &state, Value X, Value, Y, Attribute A", [{}]>
+            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, Value X, Value, Y, Attribute A", [{}]>
             indent = inc_indent(indent)
-            s += indent + 'OpBuilder<"Builder *builder, OperationState &state'
+            s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state'
             operands_dict = get_operands_or_results(schema, is_input=True)
             for name, ty in operands_dict.items():
                 s += ', {} {}'.format(tblgen_operand_type_to_cpp_type(ty),
@@ -645,8 +645,8 @@ def gen_op_def(schema):
             s += indent + '}]>,\n'
 
             # Custom builders with all operands and attributes having aggregate parameters.
-            # E.g. OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilder<"Builder *builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
+            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{}]>'
+            s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
             indent = inc_indent(indent)
             s += indent + 'auto elementType = operands[0].getType().cast<TensorType>().getElementType();\n'
             s += indent + 'std::vector<mlir::Type> outputTypes;\n'
