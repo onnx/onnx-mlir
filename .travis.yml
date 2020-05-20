@@ -3,12 +3,12 @@ services:
   - docker
 language: cpp
 dist: bionic
-script:
-  - cd docker
-  - chmod a+x compile-onnx-mlir.sh
+script: 
   - docker build --tag onnx-mlir-build:initial .
   - docker run -itd --name build onnx-mlir-build:initial
   - docker cp $(pwd) build:/onnx-mlir
+  - cd docker
+  - chmod a+x compile-onnx-mlir.sh
   - docker cp compile-onnx-mlir.sh build:/usr/bin/compile-onnx-mlir.sh
   - docker exec -itd build compile-onnx-mlir.sh
   - docker commit build onnxmlirczar/onnx-mlir-build:latest
