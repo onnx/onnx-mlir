@@ -8,23 +8,30 @@ target_include_directories(cruntime
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 
-pybind11_add_module(pyruntime
-        DynMemRef.cpp
+add_library(DynMemRefUtils
         DynMemRef.h
-        Runtime.cpp
-        Runtime.hpp)
-target_link_libraries(pyruntime PRIVATE ${CMAKE_DL_LIBS})
-target_include_directories(pyruntime
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNX_MLIR_SRC_ROOT})
-add_dependencies(pyruntime cruntime)
+        DynMemRef.cpp
+        DataType.h)
 
 add_library(ExecutionSession
-        DynMemRef.cpp
-        DynMemRef.h
-        Runtime.cpp
-        Runtime.hpp)
+        ExecusionSession.hpp
+        ExecusionSession.cpp)
+target_link_libraries(ExecutionSession
+        ${CMAKE_DL_LIBS})
 target_include_directories(ExecutionSession
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
-target_compile_definitions(ExecutionSession PRIVATE NO_PYTHON)
+
+pybind11_add_module(pyruntime
+        PyExecutionSession.cpp
+        PyExecutionSession.hpp)
+target_link_libraries(pyruntime PRIVATE
+        ${CMAKE_DL_LIBS}
+        ExecutionSession
+        DynMemRefUtils)
+
+target_include_directories(pyruntime PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+add_dependencies(pyruntime cruntime)

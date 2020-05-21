@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <numeric>
 #include <vector>
+#include <iostream>
+#include <random>
 #else
 #include <stdint.h>
 #endif

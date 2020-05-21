@@ -15,8 +15,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/MainUtils.hpp"
 
-#define NO_PYTHON
-#include "src/Runtime/Runtime.hpp"
+#include "src/Runtime/ExecusionSession.hpp"
 
 using namespace std;
 
@@ -41,14 +40,6 @@ DynMemRef *getRandomTensor(
   auto ptr = (float *)dmr->data;
   std::generate(ptr, ptr + dmr->size(), [&]() { return dis(gen); });
   return dmr;
-}
-
-inline bool assertClose(
-    float a, float b, float rtol = 1e-5, float atol = 1e-5) {
-  auto absoluteDiff = std::abs(a - b);
-  auto withinRtol = (absoluteDiff / a < rtol);
-  auto withinAtol = (absoluteDiff < atol);
-  return withinRtol && withinAtol;
 }
 
 template <typename T>
@@ -156,8 +147,7 @@ int main() {
 
     auto dilations = builder.getI64ArrayAttr({1, 1});
     auto kernel_shape = builder.getI64ArrayAttr({kH, kW});
-    auto pads = builder.getI64ArrayAttr({pHBegin, pHBegin, pHBegin, pHBegin});
-    //    auto pads = builder.getI64ArrayAttr({pHBegin, pWBegin, pHEnd, pWEnd});
+    auto pads = builder.getI64ArrayAttr({pHBegin, pWBegin, pHEnd, pWEnd});
     auto strides = builder.getI64ArrayAttr({1, 1});
 
     auto convOp = builder.create<mlir::ONNXConvOp>(mlir::UnknownLoc::get(&ctx),
@@ -199,7 +189,7 @@ int main() {
     llvm::FileRemover remover(path);
 
     compileModule(moduleRef, ctx, pathStr, EmitLib);
-    ExecutionSession sess(pathStr + ".so", "_dyn_entry_point_test_conv");
+    onnx_mlir::ExecutionSession sess(pathStr + ".so", "_dyn_entry_point_test_conv");
 
     std::vector<std::unique_ptr<DynMemRef>> inputs;
     auto xDmr = std::unique_ptr<DynMemRef>(getRandomTensor({N, C, H, W}));

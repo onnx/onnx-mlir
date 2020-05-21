@@ -1,18 +1,12 @@
 #pragma once
 
 #include <cassert>
+#include <dlfcn.h>
 #include <string>
 
-#include <dlfcn.h>
+#include "src/Runtime/DynMemRef.h"
 
-#ifndef NO_PYTHON
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
-#endif
-
-#include "DynMemRef.h"
+namespace onnx_mlir {
 
 typedef OrderedDynMemRefDict *(*entryPointFuncType)(OrderedDynMemRefDict *);
 
@@ -25,18 +19,11 @@ public:
 
   ~ExecutionSession();
 
-private:
+protected:
   // Handler to the shared library file being loaded.
   void *_sharedLibraryHandle = nullptr;
 
   // Entry point function.
   entryPointFuncType _entryPointFunc = nullptr;
 };
-
-#ifndef NO_PYTHON
-PYBIND11_MODULE(pyruntime, m) {
-  py::class_<ExecutionSession>(m, "ExecutionSession")
-      .def(py::init<const std::string &, const std::string &>())
-      .def("run", &ExecutionSession::pyRun);
-}
-#endif
+} // namespace onnx_mlir

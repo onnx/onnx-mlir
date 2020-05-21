@@ -1,4 +1,4 @@
-add_executable(TestConv test_conv.cpp)
+add_executable(TestConv TestConv.cpp)
 target_link_libraries(TestConv
         OMBuilder
         OMKrnlOps
@@ -17,11 +17,12 @@ target_link_libraries(TestConv
         ${CMAKE_DL_LIBS}
         rapidcheck
         MainUtils
-        ExecutionSession)
+        ExecutionSession
+        DynMemRefUtils)
 whole_archive_link_mlir(TestConv ${MLIRWholeArchiveLibs})
-
 target_include_directories(TestConv
         PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
+add_test(NAME OMTestConv COMMAND TestConv)
