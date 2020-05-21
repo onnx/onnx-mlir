@@ -76,7 +76,36 @@ struct DynMemRef {
     return typedPtr[idx];
   }
 
-  std::vector<std::vector<int64_t>> indexSet() {}
+  template <typename T>
+  T *typedPtr() {
+    return (T *)data;
+  }
+
+  std::vector<std::vector<int64_t>> cart_product(
+      const std::vector<std::vector<int64_t>> &v) {
+    std::vector<std::vector<int64_t>> s = {{}};
+    for (const auto &u : v) {
+      std::vector<std::vector<int64_t>> r;
+      for (const auto &x : s) {
+        for (const auto y : u) {
+          r.push_back(x);
+          r.back().push_back(y);
+        }
+      }
+      s = move(r);
+    }
+    return s;
+  }
+
+  std::vector<std::vector<int64_t>> indexSet() {
+    std::vector<std::vector<int64_t>> dimWiseIdxSet;
+    for (auto dimSize : std::vector<int64_t>(sizes, sizes + rank)) {
+      std::vector<int64_t> dimIdxSet(dimSize);
+      std::iota(std::begin(dimIdxSet), std::end(dimIdxSet), 0);
+      dimWiseIdxSet.emplace_back(dimIdxSet);
+    }
+    return cart_product(dimWiseIdxSet);
+  }
 #endif
 };
 
