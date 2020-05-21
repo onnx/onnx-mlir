@@ -8,16 +8,26 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/MainUtils.hpp"
+#include <cstdio>
 #include <fcntl.h>
-#include <stdio.h>
+#include <llvm/Support/Program.h>
+
+#include "src/ExternalUtil.hpp"
+#include "src/MainUtils.hpp"
+
+#include "MainUtils.hpp"
+
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 
 using namespace std;
 using namespace onnx_mlir;
 
 void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
-              mlir::OwningModuleRef &module) {
+    mlir::OwningModuleRef &module) {
   // Handle '.mlir' input to the ONNX MLIR frontend.
   // The mlir format indicates that one or more of the supported
   // representations are used in the file.
@@ -38,20 +48,39 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   }
 }
 
-void EmitLLVMBitCode(
-    const mlir::OwningModuleRef &module, string outputFilename) {
+void compileModuleToSharedLibrary(
+    const mlir::OwningModuleRef &module, string outputBaseName) {
+  // Write LLVM bitcode.
+  string outputFilename = outputBaseName + ".bc";
   error_code error;
-  llvm::raw_fd_ostream moduleBitcodeStream(outputFilename, error,
-                                           llvm::sys::fs::F_None);
-  llvm::WriteBitcodeToFile(*mlir::translateModuleToLLVMIR(*module),
-                           moduleBitcodeStream);
+  llvm::raw_fd_ostream moduleBitcodeStream(
+      outputFilename, error, llvm::sys::fs::F_None);
+  llvm::WriteBitcodeToFile(
+      *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
+
+  // Compile bitcode to object file.
+  std::vector<std::string> llcArgs = {
+      "llc", "-filetype=obj", "-relocation-model=pic", outputFilename};
+  auto llcArgStrRefs =
+      std::vector<llvm::StringRef>(llcArgs.begin(), llcArgs.end());
+  llvm::sys::ExecuteAndWait(kLlcPath, llvm::makeArrayRef(llcArgStrRefs));
+
+  // Link with runtime.
+  // TODO(tjingrant): link with runtime library in LLVM, and make the shared
+  // library more self-contained.
+  std::vector<std::string> cxxArgs = {kCxxFileName, "-shared", "-fPIC",
+      outputBaseName + ".o", "-o", outputBaseName + ".so",
+      "-L" + kRuntimeDirPath, "-lcruntime", "-Wl,-rpath," + kRuntimeDirPath};
+  auto argsArrayRefVector =
+      std::vector<llvm::StringRef>(cxxArgs.begin(), cxxArgs.end());
+  llvm::sys::ExecuteAndWait(kCxxPath, llvm::makeArrayRef(argsArrayRefVector));
 }
 
 void registerDialects() {
   mlir::registerDialect<mlir::AffineDialect>();
   mlir::registerDialect<mlir::LLVM::LLVMDialect>();
-  mlir::registerDialect<mlir::loop::LoopOpsDialect>();
+  mlir::registerDialect<mlir::scf::SCFDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();
   mlir::registerDialect<mlir::ONNXOpsDialect>();
   mlir::registerDialect<mlir::KrnlOpsDialect>();
@@ -61,6 +90,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createDecomposeONNXToONNXPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::createAttributePromotionPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createAttributePromotionPass());
 }
@@ -85,7 +115,7 @@ void addKrnlToLLVMPasses(mlir::PassManager &pm) {
 }
 
 void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
-	mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
   // Decide if the input file is an ONNX model or a model specified
   // in MLIR. The extension of the file is the decider.
   string extension = inputFilename.substr(inputFilename.find_last_of(".") + 1);
@@ -94,7 +124,6 @@ void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
   assert(inputIsONNX != inputIsMLIR &&
          "Either ONNX model or MLIR file needs to be provided.");
 
-  
   if (inputIsONNX) {
     ImportFrontendModelFile(inputFilename, context, module);
   } else {
@@ -106,13 +135,23 @@ void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
   // Start a separate process to redirect the model output. I/O redirection
   // changes will not be visible to the parent process.
+  string tempFilename = filename + extension;
+#ifdef _WIN32
+  // copy original stderr file number
+  int stderrOrigin = _dup(_fileno(stderr));
+  freopen(tempFilename.c_str(), "w", stderr);
+  module->dump();
+  fflush(stderr);
+  // set modified stderr as original stderr
+  _dup2(stderrOrigin, _fileno(stderr));
+#else
   if (fork() == 0) {
-    const char * tempFilename = (filename + extension).c_str();
-    freopen(tempFilename, "w", stderr);
+    freopen(tempFilename.c_str(), "w", stderr);
     module->dump();
     fclose(stderr);
     exit(0);
   }
+#endif
 }
 
 void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
@@ -128,17 +167,16 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   // (2) a version without constants meant for being inspected by users and
   //     stored in:
   //
-  //     <name>.mlir
+  //     <name>.tmp
   //
   // In the case of the LLVM Dialect IR the constant values are grouped
   // outside the function code at the beginning of the file in which case the
   // elision of these constants is not strictly required. Elision is also not
   // necessary when emitting the .bc file.
-  if (emissionTarget == EmitLLVMBC) {
-    // Write LLVM bitcode to disk.
-    string outputFilename =  outputBaseName + ".bc";
-    EmitLLVMBitCode(module, outputFilename);
-    printf("LLVM bitcode written to %s\n", outputFilename.c_str());
+  if (emissionTarget == EmitLib) {
+    // Write LLVM bitcode to disk, compile & link.
+    compileModuleToSharedLibrary(module, outputBaseName);
+    printf("Shared library %s.so has been compiled.", outputBaseName.c_str());
   } else {
     // Emit the version with all constants included.
     outputCode(module, outputBaseName, ".onnx.mlir");
@@ -156,9 +194,9 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
         emissionTarget == EmitMLIR) {
       if (mlir::failed(cleanSourcePM.run(*module)))
         llvm::errs() << "Could not apply simplification passes.\n";
-      outputCode(module, outputBaseName, ".mlir");
+      outputCode(module, outputBaseName, ".tmp");
       printf("Constant-free MLIR Code written to: \n\t%s\n\n",
-          (outputBaseName + ".mlir").c_str());
+          (outputBaseName + ".tmp").c_str());
 
       printf("Use:\n\t%s\nto continue lowering the code to other dialects.\n",
           (outputBaseName + ".onnx.mlir").c_str());

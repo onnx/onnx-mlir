@@ -1,4 +1,5 @@
-//====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering --------===//
+//====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering
+//--------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -21,10 +22,9 @@ class ONNXEntryPointLowering : public OpRewritePattern<ONNXEntryPointOp> {
 public:
   using OpRewritePattern<ONNXEntryPointOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXEntryPointOp op,
-                                     PatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(
-        op,
+  LogicalResult matchAndRewrite(
+      ONNXEntryPointOp op, PatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(op,
         op.getAttrOfType<SymbolRefAttr>(
             ONNXEntryPointOp::getEntryPointFuncAttrName()),
         op.getAttrOfType<IntegerAttr>(ONNXEntryPointOp::getNumInputsAttrName()),
@@ -55,8 +55,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target
-      .addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect>();
+  target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
@@ -81,8 +80,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
-  populateFuncOpTypeConversionPattern(patterns, &getContext(),
-                                      tensor_to_memref_converter);
+  populateFuncOpTypeConversionPattern(
+      patterns, &getContext(), tensor_to_memref_converter);
 
   // Frontend operation lowering.
   // Math
@@ -94,6 +93,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Tensor
   populateLoweringONNXReshapeOpPattern(patterns, &getContext());
   populateLoweringONNXPadConstantValuePadOpPattern(patterns, &getContext());
+  populateLoweringONNXPadOpPattern(patterns, &getContext());
   populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
   populateLoweringONNXTransposeOpPattern(patterns, &getContext());
   populateLoweringONNXIdentityOpPattern(patterns, &getContext());
@@ -103,6 +103,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXConvOpPattern(patterns, &getContext());
   populateLoweringONNXNormalizationOpPattern(patterns, &getContext());
   populateLoweringONNXPoolingOpPattern(patterns, &getContext());
+  // Recurrent neural network
+  populateLoweringONNXLSTMOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
 
@@ -117,5 +119,5 @@ std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
 
-static PassRegistration<FrontendToKrnlLoweringPass>
-    pass("lower-frontend", "Lower frontend ops to Krnl dialect.");
+static PassRegistration<FrontendToKrnlLoweringPass> pass(
+    "lower-frontend", "Lower frontend ops to Krnl dialect.");

@@ -1,7 +1,11 @@
 # ONNX MLIR
 The Open Neural Network Exchange implementation in MLIR.
 
-[![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)
+| System      | Build Status |
+|-------------|--------------|
+| x86-Linux   | [![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)             |
+| s390-Linux  | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Linux-s390x-Build)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Linux-s390x-Build/)             |
+| x86-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
 
 ## Prerequisites
 
@@ -20,7 +24,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 3ce0ad1b336e67a76d78ae7ff7d66fe127586620 && cd ..
+cd llvm-project && git checkout 0dc91bfd11e6cced0c46c1a25cc96edea0d8fc22 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -110,7 +114,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 3ce0ad1b336e67a76d78ae7ff7d66fe127586620 && cd ..
+cd llvm-project && git checkout 0dc91bfd11e6cced0c46c1a25cc96edea0d8fc22 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -143,7 +147,7 @@ This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGu
 
 To build ONNX MLIR, use the following command:
 
-[same-as-file]: <> (utils/install-onnx-mlir.cmd)
+[same-as-file]: <> ({"ref": "utils/install-onnx-mlir.cmd", "skip-doc": 2})
 ```shell
 git clone --recursive https://github.com/onnx/onnx-mlir.git
 

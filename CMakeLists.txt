@@ -31,6 +31,15 @@ add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/variant)
 
 set(CMAKE_CXX_STANDARD 14)
+
+if ($ENV{EXCLUDE_ONNX_ML})
+  set(INCLUDE_ONNX_ML FALSE)
+else()
+  set(INCLUDE_ONNX_ML TRUE)
+endif()
+
+message(STATUS "INCLUDE_ONNX_ML Dialect " ${INCLUDE_ONNX_ML})
+
 add_subdirectory(utils)
 add_subdirectory(src)
 add_subdirectory(docs)

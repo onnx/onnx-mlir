@@ -17,6 +17,8 @@
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+
 using namespace mlir;
 
 namespace {
@@ -60,11 +62,24 @@ public:
           // move it to an attribute, and use None to indicate the absence
           // of the original operand value.
           auto operandToPromote = op->getOperand(i);
-          if (auto constantOp = dyn_cast_or_null<ConstantOp>(
+          if (auto constantOp = dyn_cast_or_null<mlir::ONNXConstantOp>(
                   operandToPromote.getDefiningOp())) {
-            op->setAttr(name, constantOp.value());
+            if (constantOp.valueAttr() &&
+                !constantOp.valueAttr().dyn_cast_or_null<UnitAttr>())
+              op->setAttr(name, constantOp.valueAttr());
+            if (constantOp.sparse_valueAttr() &&
+                !constantOp.sparse_valueAttr().dyn_cast_or_null<UnitAttr>())
+              op->setAttr(name, constantOp.sparse_valueAttr());
             getOrCreateNoneValue(none, f);
             op->setOperand(i, *none);
+          }
+          if (auto constantOp = dyn_cast_or_null<ConstantOp>(
+                  operandToPromote.getDefiningOp())) {
+            if (!constantOp.valueAttr().dyn_cast_or_null<UnitAttr>()) {
+              op->setAttr(name, constantOp.value());
+              getOrCreateNoneValue(none, f);
+              op->setOperand(i, *none);
+            }
           }
         }
       }
@@ -75,7 +90,7 @@ public:
     OwningRewritePatternList patterns;
     auto *context = &getContext();
     ConstantOp::getCanonicalizationPatterns(patterns, context);
-      applyPatternsAndFoldGreedily(f, patterns);
+    applyPatternsAndFoldGreedily(f, patterns);
   }
 };
 } // end anonymous namespace

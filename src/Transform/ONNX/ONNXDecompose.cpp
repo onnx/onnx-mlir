@@ -27,7 +27,8 @@ namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXDecompose.inc"
 
-struct DecomposeONNXToONNXPass : public PassWrapper<DecomposeONNXToONNXPass, FunctionPass> {
+struct DecomposeONNXToONNXPass
+    : public PassWrapper<DecomposeONNXToONNXPass, FunctionPass> {
   void runOnFunction() final;
 };
 } // end anonymous namespace.

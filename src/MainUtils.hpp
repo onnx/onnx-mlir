@@ -25,12 +25,12 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
-#include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
+#include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
-#include "mlir/InitAllDialects.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Module.h"
+#include "mlir/InitAllDialects.h"
 #include "mlir/Parser.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
@@ -42,14 +42,14 @@ enum EmissionTargetType {
   EmitONNXIR,
   EmitMLIR,
   EmitLLVMIR,
-  EmitLLVMBC,
+  EmitLib,
 };
 
 void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
-              mlir::OwningModuleRef &module);
+    mlir::OwningModuleRef &module);
 
-void EmitLLVMBitCode(
-	const mlir::OwningModuleRef &module, std::string outputFilename);
+void compileModuleToSharedLibrary(
+    const mlir::OwningModuleRef &module, std::string outputBaseName);
 
 void registerDialects();
 
@@ -66,8 +66,7 @@ void processInputFile(std::string inputFilename,
     mlir::OwningModuleRef &module);
 
 void outputCode(
-    mlir::OwningModuleRef &module, std::string filename,
-    std::string extension);
+    mlir::OwningModuleRef &module, std::string filename, std::string extension);
 
 void emitOutputFiles(std::string outputBaseName,
     EmissionTargetType emissionTarget, mlir::MLIRContext &context,

@@ -11,6 +11,18 @@ add_executable(onnx-mlir
         MainUtils.cpp
         main.cpp)
 
+# Locate llc, which is needed for translating LLVM bitcode
+# to object file.
+if(NOT EXISTS "${LLVM_PROJ_BUILD}/bin/llc")
+  message(ERROR "Cannot find llc.")
+endif()
+
+# Get the compiler command name, the C++ compiler is needed to to translate
+# object files to shared libraries.
+get_filename_component(CXX_COMPILER_FILENAME ${CMAKE_CXX_COMPILER} NAME)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
+        ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp)
+
 set(ONNX_MLIR_LD_PRELOAD_onnx-mlir "" CACHE STRING "" FORCE)
 whole_archive_link_mlir(onnx-mlir ${MLIRWholeArchiveLibs})
 if(BUILD_SHARED_LIBS)
@@ -43,8 +55,15 @@ target_link_libraries(onnx-mlir
         ${MLIRLibs}
         ${CMAKE_DL_LIBS})
 
+if (INCLUDE_ONNX_ML)
+  target_link_libraries(onnx-mlir OMMLONNXOps)
+endif()
+
+
 target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(onnx-mlir PRIVATE ${CMAKE_BINARY_DIR})
 target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_BIN_ROOT})
 
 install(TARGETS onnx-mlir DESTINATION bin)
+install(FILES Runtime/DynMemRef.h DESTINATION include)
+install(TARGETS cruntime DESTINATION lib)
