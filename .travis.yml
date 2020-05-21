@@ -20,6 +20,3 @@ after_success:
         else 
             echo "Skip pushing build"; 
         fi
-    
-  - docker login -u onnxmlirczar -p 143f1da2-332f-45a1-8587-d6cb07c13230 
-  - docker push onnxmlirczar/onnx-mlir-build:latest 
