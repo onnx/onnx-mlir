@@ -18,6 +18,7 @@ target_link_libraries(TestConv
         rapidcheck
         MainUtils
         ExecutionSession)
+whole_archive_link_mlir(TestConv ${MLIRWholeArchiveLibs})
 
 target_include_directories(TestConv
         PRIVATE
