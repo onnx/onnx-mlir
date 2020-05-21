@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <random>
 #include <string>
 #include <vector>
@@ -18,6 +19,16 @@
 #include "src/Runtime/Runtime.hpp"
 
 using namespace std;
+
+template <typename T>
+void printVector(std::vector<T> vec, std::string _delimiter = ",",
+    std::ostream &stream = std::cout) {
+  std::string delimiter;
+  for (const auto &elem : vec) {
+    stream << delimiter << elem;
+    delimiter = _delimiter;
+  }
+}
 
 DynMemRef *getRandomTensor(
     std::vector<int64_t> sizes, float lb = -1.0, float ub = 1.0) {
@@ -40,7 +51,58 @@ inline bool assertClose(
   return withinRtol && withinAtol;
 }
 
-inline bool assertClose(DynMemRef *a, DynMemRef *b) {}
+template <typename T>
+inline bool assertDmrClose(
+    DynMemRef *a, DynMemRef *b, float rtol = 1e-5, float atol = 1e-5) {
+
+  // Compare shape.
+  auto aShape = std::vector<int64_t>(a->sizes, a->sizes + a->rank);
+  auto bShape = std::vector<int64_t>(b->sizes, b->sizes + b->rank);
+  if (aShape != bShape) {
+    std::cerr << "Shape mismatch ";
+    printVector(aShape, ",", std::cerr);
+    std::cerr << " != ";
+    printVector(bShape, ",", std::cerr);
+    return false;
+  }
+
+  // Compute absolute difference, verify it's within tolerable range.
+  std::vector<T> absoluteDiff(a->size());
+  std::transform(a->typedPtr<T>(), a->typedPtr<T>() + a->size(),
+      b->typedPtr<T>(), absoluteDiff.begin(), std::minus<>());
+  std::transform(absoluteDiff.begin(), absoluteDiff.end(), absoluteDiff.begin(),
+      static_cast<T (*)(T)>(&std::abs));
+  bool atolSatisfied = std::all_of(
+      absoluteDiff.begin(), absoluteDiff.end(), [&](T a) { return a < atol; });
+
+  // Compute relative difference, verify it's within tolerable range.
+  std::vector<T> relativeDiff(a->size());
+  std::transform(absoluteDiff.begin(), absoluteDiff.end(), a->typedPtr<T>(),
+      relativeDiff.begin(), std::divides<>());
+  bool rtolSatisfied = std::all_of(
+      relativeDiff.begin(), relativeDiff.end(), [&](T a) { return a < rtol; });
+
+  if (atolSatisfied && rtolSatisfied) {
+    return true;
+  } else {
+    for (const auto &idx : a->indexSet()) {
+      T aElem = a->elem<T>(idx);
+      T bElem = b->elem<T>(idx);
+      auto elmAbsDiff = std::abs(aElem - bElem);
+      auto withinRtol = (elmAbsDiff / aElem < rtol);
+      auto withinAtol = (elmAbsDiff < atol);
+      if (!withinRtol || !withinAtol) {
+        std::cerr << "a[";
+        printVector(idx, ",", std::cerr);
+        std::cerr << "] = " << aElem << " != ";
+        std::cerr << "b[";
+        printVector(idx, ",", std::cerr);
+        std::cerr << "] = " << bElem << std::endl;
+      }
+    }
+    return false;
+  }
+}
 
 int main() {
   rc::check("double reversal yields the original value", []() {
@@ -94,7 +156,8 @@ int main() {
 
     auto dilations = builder.getI64ArrayAttr({1, 1});
     auto kernel_shape = builder.getI64ArrayAttr({kH, kW});
-    auto pads = builder.getI64ArrayAttr({pHBegin, pWBegin, pHEnd, pWEnd});
+    auto pads = builder.getI64ArrayAttr({pHBegin, pHBegin, pHBegin, pHBegin});
+    //    auto pads = builder.getI64ArrayAttr({pHBegin, pWBegin, pHEnd, pWEnd});
     auto strides = builder.getI64ArrayAttr({1, 1});
 
     auto convOp = builder.create<mlir::ONNXConvOp>(mlir::UnknownLoc::get(&ctx),
@@ -127,6 +190,7 @@ int main() {
             /*numInputs=*/2,
             /*numOutputs=*/1);
     module.push_back(entryPoint);
+
     mlir::OwningModuleRef moduleRef(module);
 
     llvm::SmallVector<char, 10> path;
@@ -165,12 +229,8 @@ int main() {
 
     auto outputs = sess.run(std::move(inputs));
     auto &conv = outputs.at(0);
-    for (int64_t i = 0; i < NOut * COut * HOut * WOut; i++) {
-      if (!assertClose(ref->elem<float>(i), conv->elem<float>(i)))
-        printf("ref[%d]=%f, conv[%d]=%f\n", i, ref->elem<float>(i), i,
-            conv->elem<float>(i));
-      RC_ASSERT(assertClose(ref->elem<float>(i), conv->elem<float>(i)));
-    }
+
+    RC_ASSERT(assertDmrClose<float>(conv.get(), ref));
   });
 
   return 0;
