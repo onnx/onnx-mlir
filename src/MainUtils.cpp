@@ -104,6 +104,8 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerKrnlPass());
+  // Fusion loops in Affine dialect.
+  pm.addPass(mlir::createLoopFusionPass());
 }
 
 void addKrnlToLLVMPasses(mlir::PassManager &pm) {
