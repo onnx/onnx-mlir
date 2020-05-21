@@ -2,10 +2,10 @@
 #pragma once
 
 #include <cstdint>
-#include <numeric>
-#include <vector>
 #include <iostream>
+#include <numeric>
 #include <random>
+#include <vector>
 #else
 #include <stdint.h>
 #endif
