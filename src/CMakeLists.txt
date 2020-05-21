@@ -46,7 +46,7 @@ endif()
 # So it's better not to use target_link_libraries for the add_subdirectory
 # targets, or only use it for libraries that have no further dependencies
 # (except system libraries such as libc).
-target_link_libraries(onnx-mlir
+target_link_libraries(MainUtils
         OMBuilder
         OMKrnlOps
         OMONNXOps
@@ -64,7 +64,7 @@ target_link_libraries(onnx-mlir
         ${CMAKE_DL_LIBS})
 
 if (INCLUDE_ONNX_ML)
-  target_link_libraries(onnx-mlir OMMLONNXOps)
+  target_link_libraries(MainUtils OMMLONNXOps)
 endif()
 
 target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_SRC_ROOT})
