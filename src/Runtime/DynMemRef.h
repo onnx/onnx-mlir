@@ -25,21 +25,21 @@ struct DynMemRef {
 #ifdef __cplusplus
   DynMemRef(int _rank);
 
-  template<typename T>
-  static DynMemRef* create(std::vector<int64_t> _sizes) {
-      auto dmr = new DynMemRef(_sizes.size());
-      dmr->rank = _sizes.size();
-      dmr->sizes = (INDEX_TYPE *)malloc(dmr->rank * sizeof(INDEX_TYPE));
-      std::copy(_sizes.begin(), _sizes.end(), dmr->sizes);
+  template <typename T>
+  static DynMemRef *create(std::vector<int64_t> _sizes) {
+    auto dmr = new DynMemRef(_sizes.size());
+    dmr->rank = _sizes.size();
+    dmr->sizes = (INDEX_TYPE *)malloc(dmr->rank * sizeof(INDEX_TYPE));
+    std::copy(_sizes.begin(), _sizes.end(), dmr->sizes);
 
-      dmr->strides = (int64_t *)malloc(dmr->rank * sizeof(int64_t));
-      auto computedStrides = dmr->computeStrides();
-      std::copy(computedStrides.begin(), computedStrides.end(), dmr->strides);
+    dmr->strides = (int64_t *)malloc(dmr->rank * sizeof(int64_t));
+    auto computedStrides = dmr->computeStrides();
+    std::copy(computedStrides.begin(), computedStrides.end(), dmr->strides);
 
-      dmr->data = malloc(dmr->size() * sizeof(T));
-      dmr->alignedData = dmr->data;
+    dmr->data = malloc(dmr->size() * sizeof(T));
+    dmr->alignedData = dmr->data;
 
-      return dmr;
+    return dmr;
   }
 
   int64_t size() const;
@@ -76,9 +76,7 @@ struct DynMemRef {
     return typedPtr[idx];
   }
 
-  std::vector<std::vector<int64_t>> indexSet() {
-
-  }
+  std::vector<std::vector<int64_t>> indexSet() {}
 #endif
 };
 

@@ -12,7 +12,7 @@ DynMemRef::DynMemRef(int _rank) {
 }
 
 int64_t DynMemRef::size() const {
-    return std::accumulate(sizes, sizes + rank, 1, std::multiplies<>());
+  return std::accumulate(sizes, sizes + rank, 1, std::multiplies<>());
 }
 
 // An ordered dynamic MemRef dictionary.

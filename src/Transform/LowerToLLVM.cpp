@@ -646,7 +646,7 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   populateStdToLLVMConversionPatterns(typeConverter, patterns,
       /*emitCWrapperS=*/true,
       /*useAlignedAlloc=*/false);
-  
+
   patterns.insert<KrnlEntryPointOpLowering>(&getContext());
   patterns.insert<KrnlGlobalOpLowering>(&getContext(), typeConverter);
 
