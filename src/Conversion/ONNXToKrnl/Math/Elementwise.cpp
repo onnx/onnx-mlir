@@ -550,11 +550,11 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         loopIVs.push_back(arg);
     }
 
-    auto loadedVal = rewriter.create<LoadOp>(loc, X, loopIVs);
+    auto loadedVal = rewriter.create<AffineLoadOp>(loc, X, loopIVs);
     auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
         rewriter, loc, op, memRefType.getElementType(), {loadedVal});
     // Store result in the resulting array.
-    rewriter.create<StoreOp>(loc, loweredOpResult, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, loweredOpResult, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 

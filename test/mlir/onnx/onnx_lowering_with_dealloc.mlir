@@ -290,9 +290,9 @@ func @test_exp_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: store [[EXP]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[EXP]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Exp
   // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
@@ -303,9 +303,9 @@ func @test_exp_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: store [[EXP]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[EXP]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<?x10xf32>
@@ -331,7 +331,7 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
   // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
@@ -339,7 +339,7 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
   // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
   // CHECK: [[TANH:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
-  // CHECK: store [[TANH]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[TANH]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Tanh
   // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
@@ -350,7 +350,7 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
   // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
@@ -358,7 +358,7 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
   // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
   // CHECK: [[TANH_RES:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
-  // CHECK: store [[TANH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[TANH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<?x10xf32>
@@ -384,7 +384,7 @@ func @test_sinh_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
@@ -392,7 +392,7 @@ func @test_sinh_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
   // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
   // CHECK: [[SINH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
-  // CHECK: store [[SINH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SINH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Sinh
   // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
@@ -403,7 +403,7 @@ func @test_sinh_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
@@ -411,7 +411,7 @@ func @test_sinh_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
   // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
   // CHECK: [[SINH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
-  // CHECK: store [[SINH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SINH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<?x10xf32>
@@ -437,7 +437,7 @@ func @test_cosh_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
@@ -445,7 +445,7 @@ func @test_cosh_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
   // CHECK: [[DIVIDEND:%.+]] = addf [[EXP]], [[NEXP]] : f32
   // CHECK: [[COSH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
-  // CHECK: store [[COSH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[COSH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Cosh
   // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
@@ -456,7 +456,7 @@ func @test_cosh_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
@@ -464,7 +464,7 @@ func @test_cosh_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
   // CHECK: [[DIVIDEND:%.+]] = addf [[EXP]], [[NEXP]] : f32
   // CHECK: [[COSH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
-  // CHECK: store [[COSH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[COSH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<?x10xf32>
@@ -490,14 +490,14 @@ func @test_sigmoid_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
   // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
   // CHECK: [[DIVISOR:%.+]] = addf [[ONE]], [[NEXP]] : f32
   // CHECK: [[SIGMOID_RES:%.+]] = divf [[ONE]], [[DIVISOR]] : f32
-  // CHECK: store [[SIGMOID_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SIGMOID_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Sigmoid
   // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
@@ -508,14 +508,14 @@ func @test_sigmoid_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
   // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
   // CHECK: [[DIVISOR:%.+]] = addf [[ONE]], [[NEXP]] : f32
   // CHECK: [[SIGMOID_RES:%.+]] = divf [[ONE]], [[DIVISOR]] : f32
-  // CHECK: store [[SIGMOID_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SIGMOID_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<?x10xf32>
@@ -541,11 +541,11 @@ func @test_relu_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[LTZERO:%.+]] = cmpf "olt", [[LOAD]], [[ZERO]] : f32
   // CHECK: [[RELU_RES:%.+]] = select [[LTZERO]], [[ZERO]], [[LOAD]] : f32
-  // CHECK: store [[RELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[RELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Second Relu
   // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
@@ -556,11 +556,11 @@ func @test_relu_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[LTZERO:%.+]] = cmpf "olt", [[LOAD]], [[ZERO]] : f32
   // CHECK: [[RELU_RES:%.+]] = select [[LTZERO]], [[ZERO]], [[LOAD]] : f32
-  // CHECK: store [[RELU_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[RELU_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<?x10xf32>
@@ -707,7 +707,7 @@ func @test_elu_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{2.+}} : f32 
@@ -716,7 +716,7 @@ func @test_elu_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[SUB:%.+]] = subf [[EXP]], [[ONE]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[SUB]] : f32
   // CHECK: [[SELECT:%.+]] = select [[CMP]], [[MUL]], [[LOAD]] : f32
-  // CHECK: store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Second Elu
   // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
@@ -727,7 +727,7 @@ func @test_elu_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{2.+}} : f32 
@@ -736,7 +736,7 @@ func @test_elu_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[SUB:%.+]] = subf [[EXP]], [[ONE]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[SUB]] : f32
   // CHECK: [[SELECT:%.+]] = select [[CMP]], [[MUL]], [[LOAD]] : f32
-  // CHECK: store [[SELECT]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SELECT]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<?x10xf32>
@@ -762,13 +762,13 @@ func @test_leakyrelu_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[CMP:%.+]] = cmpf "olt", [[LOAD]], [[ZERO]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[LOAD]] : f32
   // CHECK: [[SELECT:%.+]] = select [[CMP]], [[MUL]], [[LOAD]] : f32
-  // CHECK: store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Second LeakyRelu
   // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
@@ -779,13 +779,13 @@ func @test_leakyrelu_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[CMP:%.+]] = cmpf "olt", [[LOAD]], [[ZERO]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[LOAD]] : f32
   // CHECK: [[SELECT:%.+]] = select [[CMP]], [[MUL]], [[LOAD]] : f32
-  // CHECK: store [[SELECT]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SELECT]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<?x10xf32>
@@ -811,7 +811,7 @@ func @test_selu_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[GAMMA:%.+]] = constant {{2.+}} : f32 
@@ -821,7 +821,7 @@ func @test_selu_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[SUB:%.+]] = subf [[MUL]], [[ALPHA]] : f32
   // CHECK: [[SELECT:%.+]] = select [[CMP]], [[LOAD]], [[SUB]] : f32
   // CHECK: [[SELU_RES:%.+]] = mulf [[GAMMA]], [[SELECT]] : f32
-  // CHECK: store [[SELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Second Selu
   // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
@@ -832,7 +832,7 @@ func @test_selu_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[GAMMA:%.+]] = constant {{2.+}} : f32 
@@ -842,7 +842,7 @@ func @test_selu_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[SUB:%.+]] = subf [[MUL]], [[ALPHA]] : f32
   // CHECK: [[SELECT:%.+]] = select [[CMP]], [[LOAD]], [[SUB]] : f32
   // CHECK: [[SELU_RES:%.+]] = mulf [[GAMMA]], [[SELECT]] : f32
-  // CHECK: store [[SELU_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SELU_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<?x10xf32>
@@ -868,7 +868,7 @@ func @test_hardsigmoid_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32 
@@ -879,7 +879,7 @@ func @test_hardsigmoid_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[SELECT1:%.+]] = select [[CMP1]], [[ADD]], [[ZERO]] : f32
   // CHECK: [[CMP2:%.+]] = cmpf "olt", [[SELECT1]], [[ONE]] : f32
   // CHECK: [[SELECT2:%.+]] = select [[CMP2]], [[SELECT1]], [[ONE]] : f32
-  // CHECK: store [[SELECT2]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SELECT2]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second HardSigmoid
   // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
@@ -890,7 +890,7 @@ func @test_hardsigmoid_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32 
@@ -901,7 +901,7 @@ func @test_hardsigmoid_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[SELECT1:%.+]] = select [[CMP1]], [[ADD]], [[ZERO]] : f32
   // CHECK: [[CMP2:%.+]] = cmpf "olt", [[SELECT1]], [[ONE]] : f32
   // CHECK: [[SELECT2:%.+]] = select [[CMP2]], [[SELECT1]], [[ONE]] : f32
-  // CHECK: store [[SELECT2]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[SELECT2]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<?x10xf32>
@@ -927,10 +927,10 @@ func @test_reciprocal_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
   // CHECK: [[RECIPROCAL_RES:%.+]] = divf [[ONE]], [[LOAD]] : f32
-  // CHECK: store [[RECIPROCAL_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[RECIPROCAL_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Second Reciprocal
   // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
@@ -941,10 +941,10 @@ func @test_reciprocal_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
   // CHECK: [[RECIPROCAL_RES:%.+]] = divf [[ONE]], [[LOAD]] : f32
-  // CHECK: store [[RECIPROCAL_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: affine.store [[RECIPROCAL_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<?x10xf32>
