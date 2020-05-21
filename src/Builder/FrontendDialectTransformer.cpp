@@ -268,7 +268,7 @@ private:
       } else {
         if (i < outputMap.size() && outputMap[i] >= MAX_TYPE) {
           // Mapping gives a connection with an input.
-          mlir::Type inputType = inputs[outputMap[i]-MAX_TYPE].getType();
+          mlir::Type inputType = inputs[outputMap[i] - MAX_TYPE].getType();
           if (inputType.isa<mlir::TensorType>()) {
             auto elementType =
                 inputType.cast<mlir::TensorType>().getElementType();
@@ -278,7 +278,7 @@ private:
             outputTypes.push_back(inputType);
           }
         } else if (i < outputMap.size() && outputMap[i] != -1) {
-          //mapping gives a direct type
+          // Mapping gives a direct type.
           auto elementType = buildTypeFromIndex(outputMap[i]);
           auto outType = mlir::UnrankedTensorType::get(elementType);
           outputTypes.emplace_back(outType);
@@ -320,8 +320,8 @@ private:
   }
 
   void ImportNodeReshape(onnx::NodeProto node) {
-    int expectedNumOperands  = mlir::ONNXReshapeOp::getNumberOfOperands();
-    int expectedNumResults =  mlir::ONNXReshapeOp::getNumberOfResults();
+    int expectedNumOperands = mlir::ONNXReshapeOp::getNumberOfOperands();
+    int expectedNumResults = mlir::ONNXReshapeOp::getNumberOfResults();
     std::vector<mlir::Value> inputs;
     std::string item;
     for (int i = 0; i < node.input().size(); ++i) {
@@ -335,7 +335,8 @@ private:
       }
     }
 
-    buildOutputAndOperation<mlir::ONNXReshapeOp>(node, inputs, expectedNumOperands, expectedNumResults);
+    buildOutputAndOperation<mlir::ONNXReshapeOp>(
+        node, inputs, expectedNumOperands, expectedNumResults);
   }
 
   /*!
