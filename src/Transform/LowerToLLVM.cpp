@@ -387,10 +387,6 @@ public:
       staticInputs.emplace_back(ptrToMemRef);
     }
 
-//    // If more than one output exists, the struct becomes a nested struct,
-//    // the unpacking logic can be more involved, so no support for now.
-//    assert(numOutputs == 1 && "only support 1 output tensor now.");
-
     // Call static entry point with the memref ptrs created, and get output.
     auto outMemRefs =
         rewriter
@@ -403,8 +399,13 @@ public:
 
     std::vector<mlir::Value> outMemRefList;
     if (numOutputs == 1) {
+      // If only one output tensor exists, the tensor's corresponding memref
+      // descriptor will be returned as is.
       outMemRefList.emplace_back(outMemRefs);
     } else {
+      // Otherwise, if multiple tensors are to be returned, the returned value
+      // is a struct. Multiple tensors' memref descriptors are packed into the
+      // same struct. So we unpack them iteratively to outMemRefList.
       for (int i = 0; i < numOutputs; i++) {
         auto position = rewriter.getArrayAttr({rewriter.getI64IntegerAttr(i)});
         auto type = outMemRefsType.getStructElementType(i);
@@ -421,7 +422,8 @@ public:
         rewriter, loc, apiRegistry, API::CREATE_ORDERED_DYN_MEM_REF_DICT, {});
 
     for (decltype(numOutputs) i = 0; i < outMemRefList.size(); i++) {
-      // Get the first memref returned, convert to a dynamic memref and store
+      // Get the i-th memref returned, convert to a dynamic memref and store it
+      // in the wrappedOutput.
       auto memRef = outMemRefList.at(i);
       auto outMemRefTy = memRef.getType().dyn_cast<LLVMType>();
       auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
@@ -632,7 +634,6 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
-//  target.addLegalOp<KrnlEntryPointOp>();
 
   // Lower the MemRef types to a representation in LLVM.
   LLVMTypeConverter typeConverter(&getContext());
@@ -645,6 +646,7 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   populateStdToLLVMConversionPatterns(typeConverter, patterns,
       /*emitCWrapperS=*/true,
       /*useAlignedAlloc=*/false);
+  
   patterns.insert<KrnlEntryPointOpLowering>(&getContext());
   patterns.insert<KrnlGlobalOpLowering>(&getContext(), typeConverter);
 

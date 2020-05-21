@@ -6,16 +6,16 @@ import subprocess
 import numpy as np
 import tempfile
 
-from functools import reduce
 from collections import OrderedDict
 
-# Reference backend.
-import onnxruntime as ref_backend
+# Reference backend, use onnxruntime by default
+import onnxruntime
+prepare = onnxruntime.InferenceSession
 
 if (not os.environ.get('ONNX_MLIR_HOME', None)):
     raise RuntimeError(
         "Environment variable ONNX_MLIR_HOME is not set, please set it to the path to "
-        "the HOME directory for onnx-mlir. The Home directory for onnx-mlir refers to "
+        "the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to "
         "the parent folder containing the bin, lib, etc sub-folders in which ONNX-MLIR "
         "executables and libraries can be found.")
 
@@ -37,13 +37,12 @@ except ImportError:
 def execute_commands(cmds):
     if (VERBOSE):
         print(" ".join(cmds))
-    subprocess.run(cmds, stdout=subprocess.PIPE)
+    subprocess.run(cmds, stdout=subprocess.PIPE, check=True)
 
 
 def extend_model_output(model, intermediate_outputs):
     # onnx-mlir doesn't care about manually specified output types & shapes.
     DUMMY_TENSOR_TYPE = onnx.TensorProto.FLOAT
-    DUMMY_TENSOR_SHAPE = []
 
     while (len(model.graph.output)):
         model.graph.output.pop()
@@ -64,39 +63,50 @@ def main(model_path):
 
     with tempfile.TemporaryDirectory() as temp_dir:
         print("Temporary directory has been created at {}".format(temp_dir))
+        
+        # Save modified model & invoke onnx-mlir to compile it.
         temp_model_path = os.path.join(temp_dir, "model.onnx")
         onnx.save(model, temp_model_path)
         execute_commands([ONNX_MLIR, temp_model_path])
 
+        # Use the generated shared library to create an execution session.
         temp_shared_lib_path = os.path.join(temp_dir, "model.so")
         sess = ExecutionSession(temp_shared_lib_path,
                                 "_dyn_entry_point_main_graph")
 
+        # Generate random data as input.
         inputs = []
+        input_names = []
+        initializers = list(map(lambda x: x.name, model.graph.initializer))
         np.random.seed(42)
         for input_proto in model.graph.input:
-            shape_proto = input_proto.type.tensor_type.shape
-            explicit_shape = []
-            for dim in shape_proto.dim:
-                assert dim.dim_value, "Can only debug models with inputs that have explicit shapes."
-                explicit_shape.append(dim.dim_value)
-            inputs.append(
-                np.random.uniform(-1.0, 1.0, explicit_shape).astype(np.float32))
+            if input_proto.name not in initializers:
+                input_names.append(input_proto.name)
+                shape_proto = input_proto.type.tensor_type.shape
+                explicit_shape = []
+                for dim in shape_proto.dim:
+                    assert dim.dim_value, "Can only debug models with inputs that have explicit shapes."
+                    explicit_shape.append(dim.dim_value)
+                inputs.append(
+                    np.random.uniform(-1.0, 1.0, explicit_shape).astype(np.float32))
+
+        # Run the compiled inference function on the randomly generated data.
         outs = sess.run(inputs)
 
-        ref_session = ref_backend.InferenceSession(temp_model_path)
+        # Run the model with reference backend and get results.
+        ref_session = prepare(temp_model_path)
         output_names = list(map(lambda x: x.name, model.graph.output))
-        input_names = list(map(lambda x: x.name, model.graph.input))
         input_feed = dict(zip(input_names, inputs))
         ref_outs = ref_session.run(output_names, input_feed)
 
+        # For each intermediate output tensor, compare results.
         for i, name in enumerate(intermediate_outputs):
             print("Verifying value of {}".format(name))
-            np.testing.assert_array_almost_equal(ref_outs[i], outs[i])
+            np.testing.assert_array_almost_equal(ref_outs[i], outs[i], decimal=5)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('model_path', type=str)
+    parser.add_argument('model_path', type=str, help="Path to the model to debug.")
     args = parser.parse_args()
     main(**vars(args))
