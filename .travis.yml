@@ -1,0 +1,10 @@
+sudo: required
+services:
+  - docker
+language: cpp
+dist: bionic
+script:
+  - cd docker
+  - chmod a+x compile-onnx-mlir.sh
+  - docker build --tag onnx-mlir-build:initial .
+

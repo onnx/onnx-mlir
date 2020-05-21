@@ -144,16 +144,16 @@ find_mlir_lib(MLIRExecutionEngine)
 find_mlir_lib(MLIRIR)
 find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
-find_mlir_lib(MLIRLoopToStandard)
-find_mlir_lib(MLIRLoopOps)
+find_mlir_lib(MLIRSCFToStandard)
 find_mlir_lib(MLIRLoopLikeInterface)
+find_mlir_lib(MLIRSCF)
 find_mlir_lib(MLIRLLVMIRTransforms)
 find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRParser)
 find_mlir_lib(MLIRPass)
 find_mlir_lib(MLIRStandardOps)
 find_mlir_lib(MLIRStandardToLLVM)
-find_mlir_lib(MLIRSideEffects)
+find_mlir_lib(MLIRSideEffectInterfaces)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransforms)
 find_mlir_lib(MLIRTransformUtils)
@@ -205,13 +205,13 @@ set(MLIRLibs
         ${MLIRExecutionEngine}
         ${MLIRIR}
         ${MLIRLLVMIRTransforms}        
-        ${MLIRLoopToStandard}
-        ${MLIRLoopOps}
+        ${MLIRSCFToStandard}
+        ${MLIRSCF}
         ${MLIRLoopAnalysis}
         ${MLIRLoopLikeInterface}
         ${MLIROpenMP}
         ${MLIRMlirOptMain}
-        ${MLIRSideEffects}        
+        ${MLIRSideEffectInterfaces}
         ${MLIRStandardOps}
         ${MLIRStandardToLLVM}
         ${MLIRSupport}
@@ -251,9 +251,9 @@ set(MLIRWholeArchiveLibs
         MLIRStandardOps
         MLIRStandardToLLVM
         MLIRTransforms
-        MLIRLoopToStandard
+        MLIRSCFToStandard
         MLIRVector
-        MLIRLoopOps
+        MLIRSCF
         MLIRIR)
 
 # ONNX MLIR libraries that must be linked with --whole-archive for static build or
