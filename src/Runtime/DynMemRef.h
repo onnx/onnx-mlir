@@ -1,12 +1,12 @@
 #ifdef __cplusplus
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <numeric>
 #include <random>
 #include <vector>
-#include <algorithm>
 #else
 #include <stdint.h>
 #endif
