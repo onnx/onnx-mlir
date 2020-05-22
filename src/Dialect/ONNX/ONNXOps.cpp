@@ -124,18 +124,22 @@ RankedTensorType getReductionOutputType(
 // Support function that computes default values for dilations.
 //
 template <class T>
-static void processConvDilationParam(T *op, Optional<ArrayAttr> kernelShape) {
+static bool processConvDilationParam(T *op, Optional<ArrayAttr> kernelShape) {
   auto builder = mlir::Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
   auto dilationsOpt = op->dilations();
   if (dilationsOpt.hasValue()) {
-    if (ArrayAttrSize(dilationsOpt) != kernelRank)
+    if (ArrayAttrSize(dilationsOpt) != kernelRank) {
       op->emitError("dialation rank is not the same as the spatial rank");
+      return false;
+    }
     // Test values to be greater than 0.
     for (int i = 0; i < kernelRank; ++i) {
-      if (ArrayAttrIntVal(dilationsOpt, i) < 1)
+      if (ArrayAttrIntVal(dilationsOpt, i) < 1) {
         op->emitError("dialation value must be nonzero positive");
+        return false;
+      }
     }
   } else {
     // Default dilatation is needed, all dimensions init with 1.
@@ -144,24 +148,29 @@ static void processConvDilationParam(T *op, Optional<ArrayAttr> kernelShape) {
     ArrayRef<int64_t> defaultRefs(defaultVals);
     op->dilationsAttr(builder.getI64ArrayAttr(defaultRefs));
   }
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
 // Support function that computes default values for strides.
 //
 template <class T>
-static void processConvStrideParam(T *op, Optional<ArrayAttr> kernelShape) {
+static bool processConvStrideParam(T *op, Optional<ArrayAttr> kernelShape) {
   auto builder = mlir::Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
   auto stridesOpt = op->strides();
   if (stridesOpt.hasValue()) {
-    if (ArrayAttrSize(stridesOpt) != kernelRank)
+    if (ArrayAttrSize(stridesOpt) != kernelRank) {
       op->emitError("strides rank is not the same as the spatial rank");
+      return false;
+    }
     // Check values to be greater than 0.
     for (int i = 0; i < kernelRank; ++i) {
-      if (ArrayAttrIntVal(stridesOpt, i) < 1)
+      if (ArrayAttrIntVal(stridesOpt, i) < 1) {
         op->emitError("strides value must be nonzero positive");
+        return false;
+      }
     }
   } else {
     // Default stride is needed, all dimensions init with 1.
@@ -170,13 +179,14 @@ static void processConvStrideParam(T *op, Optional<ArrayAttr> kernelShape) {
     ArrayRef<int64_t> defaultRefs(defaultVals);
     op->stridesAttr(builder.getI64ArrayAttr(defaultRefs));
   }
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
 // Support function that computes default values for pads.
 //
 template <class T>
-static void processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
+static bool processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
     Optional<ArrayAttr> kernelShape, Optional<ArrayAttr> stridesOpt,
     Optional<ArrayAttr> dilationsOpt = llvm::None) {
   auto builder = mlir::Builder(op->getContext());
@@ -196,12 +206,16 @@ static void processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
     if (padsOpt.hasValue()) {
       // Only option where pads are not updated. Pads consists of two entries
       // for each spatial axis.
-      if (ArrayAttrSize(padsOpt) != 2 * kernelRank)
+      if (ArrayAttrSize(padsOpt) != 2 * kernelRank) {
         op->emitError("pads rank is not twice the spatial rank");
+        return false;
+      }
       // Check values, pads cannot be negative.
       for (int i = 0; i < 2 * kernelRank; ++i) {
-        if (ArrayAttrIntVal(padsOpt, i) < 0)
+        if (ArrayAttrIntVal(padsOpt, i) < 0) {
           op->emitError("pads value must be nonnegative");
+          return false;
+        }
       }
     } else {
       // We have notset with no pads, they are assumed to be all zero.
@@ -252,6 +266,7 @@ static void processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
     updatedPad = true;
   } else {
     op->emitError("auto_pad of unknown / unsupported value");
+    return false;
   }
   // Set pads values in attributes, if it is needed.
   if (updatedPad) {
@@ -260,13 +275,14 @@ static void processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
   }
   // In all cases now, the acutal pad values are found in the pads attribute.
   op->auto_padAttr(builder.getStringAttr("NOTSET"));
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
 // Support function that computes default values for dilations, strides, and
 // pads.
 template <class T>
-static void processConvTypeParams(T *op, Value inputOperand) {
+static bool processConvTypeParams(T *op, Value inputOperand) {
   auto builder = mlir::Builder(op->getContext());
 
   // 1) Get shape of input.
@@ -277,15 +293,19 @@ static void processConvTypeParams(T *op, Value inputOperand) {
   auto kernelShape = op->kernel_shape();
 
   // Dilation.
-  processConvDilationParam<T>(op, kernelShape);
+  if (!processConvDilationParam<T>(op, kernelShape))
+    return false;
   auto dilationsOpt = op->dilations();
 
   // Strides.
-  processConvStrideParam<T>(op, kernelShape);
+  if (!processConvStrideParam<T>(op, kernelShape))
+    return false;
   auto stridesOpt = op->strides();
 
   // Pads.
-  processConvPadParam<T>(op, inputShape, kernelShape, stridesOpt, dilationsOpt);
+  bool ok = processConvPadParam<T>(
+      op, inputShape, kernelShape, stridesOpt, dilationsOpt);
+  return ok;
 }
 
 //===----------------------------------------------------------------------===//
@@ -328,8 +348,10 @@ static bool RNNShapeInference(T *op) {
 
   if (!X.getType().isa<RankedTensorType>() ||
       !W.getType().isa<RankedTensorType>() ||
-      !R.getType().isa<RankedTensorType>())
+      !R.getType().isa<RankedTensorType>()) {
+    op->emitError("Input tensor not ranked");
     return false;
+  }
 
   auto xTy = X.getType().cast<RankedTensorType>();
   auto elementType = xTy.getElementType();
@@ -846,13 +868,16 @@ bool ONNXMatMulOp::inferShapes() {
   if (lhsShape.size() < 1 && rhsShape.size() < 1) {
     // Multiplication by scalars is not allowed.
     emitError("Multiplication by scalar arguments not allowed");
+    return false;
   } else if (lhsShape.size() == 1 && rhsShape.size() == 1) {
     // Special case when both arrays are 1-dimensional and according to
     // numpy rules the types need to be extended to 1xN and Nx1. Helper sizes
     // need to be removed after the multiplication but cannot be removed if all
     // sizes are 1.
-    if (lhsShape[0] != -1 && rhsShape[0] != -1 && lhsShape[0] != rhsShape[0])
+    if (lhsShape[0] != -1 && rhsShape[0] != -1 && lhsShape[0] != rhsShape[0]) {
       emitError("Attempt to multiply incompatible matrices");
+      return false;
+    }
     dims.emplace_back(1);
   } else if (lhsShape.size() == 1 && rhsShape.size() >= 2) {
     // If the first argument is 1-D, it is promoted to a matrix by prepending a
@@ -866,9 +891,10 @@ bool ONNXMatMulOp::inferShapes() {
     // Check legality of matrix multiplication.
     unsigned rhsRank = rhsShape.size();
     if (lhsShape[0] != -1 && rhsShape[rhsRank - 2] != -1 &&
-        lhsShape[0] != rhsShape[rhsRank - 2])
+        lhsShape[0] != rhsShape[rhsRank - 2]) {
       emitError("Attempt to multiply incompatible matrices");
-
+      return false;
+    }
     for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       dims.emplace_back(rhsShape[i]);
     dims.emplace_back(rhsShape[rhsRank - 1]);
@@ -884,9 +910,10 @@ bool ONNXMatMulOp::inferShapes() {
     // Check legality of matrix multiplication.
     unsigned lhsRank = lhsShape.size();
     if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
-        lhsShape[lhsRank - 1] != rhsShape[0])
+        lhsShape[lhsRank - 1] != rhsShape[0]) {
       emitError("Attempt to multiply incompatible matrices");
-
+      return false;
+    }
     for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
       dims.emplace_back(lhsShape[i]);
     dims.emplace_back(lhsShape[lhsRank - 2]);
@@ -898,9 +925,10 @@ bool ONNXMatMulOp::inferShapes() {
     // Check legality of matrix multiplication.
     unsigned lhsRank = lhsShape.size();
     if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
-        lhsShape[lhsRank - 1] != rhsShape[0])
+        lhsShape[lhsRank - 1] != rhsShape[0]) {
       emitError("Attempt to multiply incompatible matrices");
-
+      return false;
+    }
     for (decltype(lhsRank) i = 0; i < lhsRank - 1; ++i)
       dims.emplace_back(lhsShape[i]);
     dims.emplace_back(rhsShape[1]);
@@ -912,9 +940,10 @@ bool ONNXMatMulOp::inferShapes() {
     // Check legality of matrix multiplication.
     unsigned rhsRank = rhsShape.size();
     if (lhsShape[1] != -1 && rhsShape[rhsRank - 2] != -1 &&
-        lhsShape[1] != rhsShape[rhsRank - 2])
+        lhsShape[1] != rhsShape[rhsRank - 2]) {
       emitError("Attempt to multiply incompatible matrices");
-
+      return false;
+    }
     for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       dims.emplace_back(rhsShape[i]);
     dims.emplace_back(lhsShape[0]);
@@ -928,9 +957,10 @@ bool ONNXMatMulOp::inferShapes() {
     unsigned lhsRank = lhsShape.size();
     unsigned rhsRank = rhsShape.size();
     if (lhsShape[lhsRank - 1] != -1 && rhsShape[rhsRank - 2] != -1 &&
-        lhsShape[lhsRank - 1] != rhsShape[rhsRank - 2])
+        lhsShape[lhsRank - 1] != rhsShape[rhsRank - 2]) {
       emitError("Attempt to multiply incompatible matrices");
-
+      return false;
+    }
     // Check and perform broadcasting for the shapes.
     SmallVector<int64_t, 2> lhsBcastShape;
     for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
@@ -938,9 +968,10 @@ bool ONNXMatMulOp::inferShapes() {
     SmallVector<int64_t, 2> rhsBcastShape;
     for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
       rhsBcastShape.emplace_back(rhsShape[i]);
-    if (!getBroadcastedShape(lhsBcastShape, rhsBcastShape, dims))
+    if (!getBroadcastedShape(lhsBcastShape, rhsBcastShape, dims)) {
       emitError("Broadcasted dimensions are incompatible");
-
+      return false;
+    }
     dims.emplace_back(lhsShape[lhsRank - 2]);
     dims.emplace_back(rhsShape[rhsRank - 1]);
   } else {
@@ -953,9 +984,10 @@ bool ONNXMatMulOp::inferShapes() {
     }
 
     // Check legality of matrix multiplication.
-    if (lhsDim != -1 && rhsDim != -1 && lhsDim != rhsDim)
+    if (lhsDim != -1 && rhsDim != -1 && lhsDim != rhsDim) {
       emitError("Attempt to multiply incompatible matrices");
-
+      return false;
+    }
     if (rhsShape.size() > 1)
       dims.emplace_back(rhsShape[1]);
   }
@@ -988,6 +1020,7 @@ bool ONNXGemmOp::inferShapes() {
 
   if ((K_A != -1) && (K_B != -1) && (K_A != K_B)) {
     emitError("Tensor shapes mismatched");
+    return false;
   }
 
   if (hasBias) {
@@ -1001,6 +1034,7 @@ bool ONNXGemmOp::inferShapes() {
         (rank == 2 && shape[rank - 2] != -1 && M != -1 &&
             M != shape[rank - 2] && shape[rank - 2] != 1)) {
       emitError("Bias shape mismatched");
+      return false;
     }
   }
 
@@ -1040,6 +1074,7 @@ bool ONNXBatchNormalizationTestModeOp::inferShapes() {
     c = (inputTensorTy.getShape()[1] != -1) ? inputTensorTy.getShape()[1] : -1;
   } else {
     emitError("Wrong rank for the input");
+    return false;
   }
 
   if (c != -1) {
@@ -1048,14 +1083,22 @@ bool ONNXBatchNormalizationTestModeOp::inferShapes() {
     auto m = meanTensorTy.getShape();
     auto v = varianceTensorTy.getShape();
 
-    if ((s.size() != 1) || (s[0] != -1 && s[0] != c))
+    if ((s.size() != 1) || (s[0] != -1 && s[0] != c)) {
       emitError("Wrong rank for the scale");
-    if ((b.size() != 1) || (b[0] != -1 && b[0] != c))
+      return false;
+    }
+    if ((b.size() != 1) || (b[0] != -1 && b[0] != c)) {
       emitError("Wrong rank for the bias");
-    if ((m.size() != 1) || (m[0] != -1 && m[0] != c))
+      return false;
+    }
+    if ((m.size() != 1) || (m[0] != -1 && m[0] != c)) {
       emitError("Wrong rank for the mean");
-    if ((v.size() != 1) || (v[0] != -1 && v[0] != c))
+      return false;
+    }
+    if ((v.size() != 1) || (v[0] != -1 && v[0] != c)) {
       emitError("Wrong rank for the variance");
+      return false;
+    }
   }
 
   // The output tensor of the same shape as the input.
@@ -1087,15 +1130,17 @@ bool ONNXReshapeOp::inferShapes() {
   auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
 
   // Only rank 1 shape tensors are supported.
-  if (shapeTensorTy.getShape().size() != 1)
+  if (shapeTensorTy.getShape().size() != 1) {
     emitError("Shape tensor must have rank one");
-
+    return false;
+  }
   int64_t outputRank = shapeTensorTy.getShape()[0];
 
   // Shape tensor must have constant shape.
-  if (outputRank < 0)
+  if (outputRank < 0) {
     emitError("Shape tensor must have constant shape");
-
+    return false;
+  }
   // Compute total number of elements.
   int64_t totalInputSize = 1;
   for (auto inputDim : inputTensorTy.getShape())
@@ -1109,17 +1154,19 @@ bool ONNXReshapeOp::inferShapes() {
     DenseElementsAttr valueAttribute =
         constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
 
-    if (!valueAttribute)
+    if (!valueAttribute) {
       emitError("DenseElementsAttr expected");
-
+      return false;
+    }
     // Get dims from valueAttribute.
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
     for (int i = 0; i < outputRank; ++i)
       dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
 
-    if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
+    if (valueIt != valueAttribute.getValues<IntegerAttr>().end()) {
       emitError("Constant value must have same rank as output");
-
+      return false;
+    }
     int64_t numberOfDynamicInputs = 0;
     int64_t totalKnownDimsSize = 1;
     int64_t dynamicValueIndex = -1;
@@ -1392,18 +1439,22 @@ bool ONNXAveragePoolOp::inferShapes() {
 
   // Kernel shape.
   auto kernelShape = kernel_shape();
-  if (!kernelShape)
+  if (!kernelShape) {
     emitError(
         "kernel_shape is a mandatory attribute for which there is no default");
+    return false;
+  }
 
   // Ceil mode.
   auto ceilMode = ceil_mode().getSExtValue();
 
   // Process strides and pads.
-  processConvStrideParam<ONNXAveragePoolOp>(this, kernelShape);
+  if (!processConvStrideParam<ONNXAveragePoolOp>(this, kernelShape))
+    return false;
   auto stridesOpt = strides();
-  processConvPadParam<ONNXAveragePoolOp>(
-      this, xShape, kernelShape, stridesOpt, llvm::None);
+  if (!processConvPadParam<ONNXAveragePoolOp>(
+          this, xShape, kernelShape, stridesOpt, llvm::None))
+    return false;
   auto padsOpt = pads();
 
   SmallVector<int64_t, 4> outputDims;
@@ -1441,14 +1492,18 @@ bool ONNXMaxPoolSingleOutOp::inferShapes() {
 
   // Kernel shape.
   auto kernelShape = kernel_shape();
-  if (!kernelShape)
+  if (!kernelShape) {
     emitError(
         "kernel_shape is a mandatory attribute for which there is no default");
+    return false;
+  }
 
   // Storage order.
   auto storageOrder = storage_order().getSExtValue();
-  if (storageOrder != 0)
+  if (storageOrder != 0) {
     emitError("column major storage order not supported at this time");
+    return false;
+  }
 
   // Process strides, dilations, and pads.
   processConvTypeParams<>(this, X());
@@ -1557,6 +1612,7 @@ bool ONNXPadConstantPadOp::inferShapes() {
     getResult().setType(outputType);
     return true;
   }
+  emitError("missing output");
   return false;
 }
 
@@ -1570,6 +1626,7 @@ bool ONNXPadConstantValuePadOp::inferShapes() {
     getResult().setType(outputType);
     return true;
   }
+  emitError("missing output");
   return false;
 }
 
@@ -1635,10 +1692,11 @@ bool ONNXUnsqueezeOp::inferShapes() {
 
 bool ONNXConstantOp::inferShapes() {
   if ((sparse_value().hasValue() && value().hasValue()) ||
-      (!sparse_value().hasValue() && !value().hasValue()))
+      (!sparse_value().hasValue() && !value().hasValue())) {
     emitError("Require exactly one of the two attributes, either value or "
               "sparse_value");
-
+    return false;
+  }
   ElementsAttr valAttr;
   if (sparse_value().hasValue())
     valAttr = sparse_valueAttr().cast<SparseElementsAttr>();
@@ -1760,6 +1818,7 @@ bool ONNXSplitOp::inferShapes() {
   if (splitAttribute.hasValue()) {
     if (ArrayAttrSize(splitAttribute) != numOfResults) {
       emitError("Split size not equal to the number of results");
+      return false;
     }
     for (int i = 0; i < numOfResults; ++i)
       splitLengths.emplace_back(ArrayAttrIntVal(splitAttribute, i));
