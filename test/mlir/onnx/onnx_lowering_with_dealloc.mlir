@@ -158,24 +158,24 @@ func @test_sub_sub(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tens
 
 // -----
 
-func @test_and_and(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*xi32> {
-  %0 = "onnx.And"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<*xi32>
-  %1 = "onnx.And"(%0, %arg1) : (tensor<*xi32>, tensor<10x10xi32>) -> tensor<*xi32>
-  "std.return"(%1) : (tensor<*xi32>) -> ()
+func @test_and_and(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor<*xi1> {
+  %0 = "onnx.And"(%arg0, %arg1) : (tensor<10x10xi1>, tensor<10x10xi1>) -> tensor<*xi1>
+  %1 = "onnx.And"(%0, %arg1) : (tensor<*xi1>, tensor<10x10xi1>) -> tensor<*xi1>
+  "std.return"(%1) : (tensor<*xi1>) -> ()
 
   // CHECK-LABEL: test_and_and
   /// First And
-  // CHECK: [[RET_RES:%.+]] = alloc() : memref<10x10xi32>
-  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi32>
+  // CHECK: [[RET_RES:%.+]] = alloc() : memref<10x10xi1>
+  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi1>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[AND:%.+]] = and [[LOAD1]], [[LOAD2]] : i32
-  // CHECK: store [[AND]], [[RES]][%arg2, %arg3] : memref<10x10xi32>
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[AND:%.+]] = and [[LOAD1]], [[LOAD2]] : i1
+  // CHECK: store [[AND]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Second And
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
@@ -183,38 +183,38 @@ func @test_and_and(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tens
   // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[AND:%.+]] = and [[LOAD1]], [[LOAD2]] : i32
-  // CHECK: store [[AND]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi32>
+  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[AND:%.+]] = and [[LOAD1]], [[LOAD2]] : i1
+  // CHECK: store [[AND]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Dealloc of first result.
-  // CHECK: dealloc [[RES]] : memref<10x10xi32>
-  // CHECK-NOT: dealloc [[RET_RES]] : memref<10x10xi32>
+  // CHECK: dealloc [[RES]] : memref<10x10xi1>
+  // CHECK-NOT: dealloc [[RET_RES]] : memref<10x10xi1>
 
-  // CHECK: return [[RET_RES]] : memref<10x10xi32>
+  // CHECK: return [[RET_RES]] : memref<10x10xi1>
 }
 
 // -----
 
-func @test_or_or(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*xi32> {
-  %0 = "onnx.Or"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<*xi32>
-  %1 = "onnx.Or"(%0, %arg1) : (tensor<*xi32>, tensor<10x10xi32>) -> tensor<*xi32>
-  "std.return"(%1) : (tensor<*xi32>) -> ()
+func @test_or_or(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor<*xi1> {
+  %0 = "onnx.Or"(%arg0, %arg1) : (tensor<10x10xi1>, tensor<10x10xi1>) -> tensor<*xi1>
+  %1 = "onnx.Or"(%0, %arg1) : (tensor<*xi1>, tensor<10x10xi1>) -> tensor<*xi1>
+  "std.return"(%1) : (tensor<*xi1>) -> ()
 
   // CHECK-LABEL: test_or_or
   /// First Or
-  // CHECK: [[RET_RES:%.+]] = alloc() : memref<10x10xi32>
-  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi32>
+  // CHECK: [[RET_RES:%.+]] = alloc() : memref<10x10xi1>
+  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi1>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[OR:%.+]] = or [[LOAD1]], [[LOAD2]] : i32
-  // CHECK: store [[OR]], [[RES]][%arg2, %arg3] : memref<10x10xi32>
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[OR:%.+]] = or [[LOAD1]], [[LOAD2]] : i1
+  // CHECK: store [[OR]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Second Or
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
@@ -222,38 +222,38 @@ func @test_or_or(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor
   // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[OR:%.+]] = or [[LOAD1]], [[LOAD2]] : i32
-  // CHECK: store [[OR]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi32>
+  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[OR:%.+]] = or [[LOAD1]], [[LOAD2]] : i1
+  // CHECK: store [[OR]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Dealloc of first result.
-  // CHECK: dealloc [[RES]] : memref<10x10xi32>
-  // CHECK-NOT: dealloc [[RET_RES]] : memref<10x10xi32>
+  // CHECK: dealloc [[RES]] : memref<10x10xi1>
+  // CHECK-NOT: dealloc [[RET_RES]] : memref<10x10xi1>
 
-  // CHECK: return [[RET_RES]] : memref<10x10xi32>
+  // CHECK: return [[RET_RES]] : memref<10x10xi1>
 }
 
 // -----
 
-func @test_xor_xor(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tensor<*xi32> {
-  %0 = "onnx.Xor"(%arg0, %arg1) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<*xi32>
-  %1 = "onnx.Xor"(%0, %arg1) : (tensor<*xi32>, tensor<10x10xi32>) -> tensor<*xi32>
-  "std.return"(%1) : (tensor<*xi32>) -> ()
+func @test_xor_xor(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor<*xi1> {
+  %0 = "onnx.Xor"(%arg0, %arg1) : (tensor<10x10xi1>, tensor<10x10xi1>) -> tensor<*xi1>
+  %1 = "onnx.Xor"(%0, %arg1) : (tensor<*xi1>, tensor<10x10xi1>) -> tensor<*xi1>
+  "std.return"(%1) : (tensor<*xi1>) -> ()
 
   // CHECK-LABEL: test_xor_xor
   /// First Xor
-  // CHECK: [[RET_RES:%.+]] = alloc() : memref<10x10xi32>
-  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi32>
+  // CHECK: [[RET_RES:%.+]] = alloc() : memref<10x10xi1>
+  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi1>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: [[OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
   // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[XOR:%.+]] = xor [[LOAD1]], [[LOAD2]] : i32
-  // CHECK: store [[XOR]], [[RES]][%arg2, %arg3] : memref<10x10xi32>
+  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[XOR:%.+]] = xor [[LOAD1]], [[LOAD2]] : i1
+  // CHECK: store [[XOR]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Second Xor
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
@@ -261,16 +261,16 @@ func @test_xor_xor(%arg0 : tensor<10x10xi32>, %arg1 : tensor<10x10xi32>) -> tens
   // CHECK:   krnl.return_loops [[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1
   // CHECK: } : () -> (!krnl.loop, !krnl.loop)
   // CHECK: krnl.iterate([[OPT_LOOPS]]#0, [[OPT_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi32>
-  // CHECK: [[XOR:%.+]] = xor [[LOAD1]], [[LOAD2]] : i32
-  // CHECK: store [[XOR]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi32>
+  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[XOR:%.+]] = xor [[LOAD1]], [[LOAD2]] : i1
+  // CHECK: store [[XOR]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Dealloc of first result.
-  // CHECK: dealloc [[RES]] : memref<10x10xi32>
-  // CHECK-NOT: dealloc [[RET_RES]] : memref<10x10xi32>
+  // CHECK: dealloc [[RES]] : memref<10x10xi1>
+  // CHECK-NOT: dealloc [[RET_RES]] : memref<10x10xi1>
 
-  // CHECK: return [[RET_RES]] : memref<10x10xi32>
+  // CHECK: return [[RET_RES]] : memref<10x10xi1>
 }
 
 // -----
