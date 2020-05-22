@@ -1,11 +1,8 @@
-#include <rapidcheck.h>
-
-#include <rapidcheck.h>
-
 #include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <random>
+#include <rapidcheck.h>
 #include <string>
 #include <vector>
 
@@ -14,86 +11,9 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/MainUtils.hpp"
-
 #include "src/Runtime/ExecusionSession.hpp"
 
 using namespace std;
-
-template <typename T>
-void printVector(std::vector<T> vec, std::string _delimiter = ",",
-    std::ostream &stream = std::cout) {
-  std::string delimiter;
-  for (const auto &elem : vec) {
-    stream << delimiter << elem;
-    delimiter = _delimiter;
-  }
-}
-
-DynMemRef *getRandomTensor(
-    std::vector<int64_t> sizes, float lb = -1.0, float ub = 1.0) {
-  // Will be used to obtain a seed for the random number engine
-  std::random_device rd;
-  // Standard mersenne_twister_engine seeded with rd()
-  std::mt19937 gen(rd());
-  std::uniform_real_distribution<> dis(lb, ub);
-  auto dmr = DynMemRef::create<float>(sizes);
-  auto ptr = (float *)dmr->data;
-  std::generate(ptr, ptr + dmr->size(), [&]() { return dis(gen); });
-  return dmr;
-}
-
-template <typename T>
-inline bool assertDmrClose(
-    DynMemRef *a, DynMemRef *b, float rtol = 1e-5, float atol = 1e-5) {
-
-  // Compare shape.
-  auto aShape = std::vector<int64_t>(a->sizes, a->sizes + a->rank);
-  auto bShape = std::vector<int64_t>(b->sizes, b->sizes + b->rank);
-  if (aShape != bShape) {
-    std::cerr << "Shape mismatch ";
-    printVector(aShape, ",", std::cerr);
-    std::cerr << " != ";
-    printVector(bShape, ",", std::cerr);
-    return false;
-  }
-
-  // Compute absolute difference, verify it's within tolerable range.
-  std::vector<T> absoluteDiff(a->size());
-  std::transform(a->typedPtr<T>(), a->typedPtr<T>() + a->size(),
-      b->typedPtr<T>(), absoluteDiff.begin(), std::minus<>());
-  std::transform(absoluteDiff.begin(), absoluteDiff.end(), absoluteDiff.begin(),
-      static_cast<T (*)(T)>(&std::abs));
-  bool atolSatisfied = std::all_of(
-      absoluteDiff.begin(), absoluteDiff.end(), [&](T a) { return a < atol; });
-
-  // Compute relative difference, verify it's within tolerable range.
-  std::vector<T> relativeDiff(a->size());
-  std::transform(absoluteDiff.begin(), absoluteDiff.end(), a->typedPtr<T>(),
-      relativeDiff.begin(), std::divides<>());
-  bool rtolSatisfied = std::all_of(
-      relativeDiff.begin(), relativeDiff.end(), [&](T a) { return a < rtol; });
-
-  if (atolSatisfied && rtolSatisfied) {
-    return true;
-  } else {
-    for (const auto &idx : a->indexSet()) {
-      T aElem = a->elem<T>(idx);
-      T bElem = b->elem<T>(idx);
-      auto elmAbsDiff = std::abs(aElem - bElem);
-      auto withinRtol = (elmAbsDiff / aElem < rtol);
-      auto withinAtol = (elmAbsDiff < atol);
-      if (!withinRtol || !withinAtol) {
-        std::cerr << "a[";
-        printVector(idx, ",", std::cerr);
-        std::cerr << "] = " << aElem << " != ";
-        std::cerr << "b[";
-        printVector(idx, ",", std::cerr);
-        std::cerr << "] = " << bElem << std::endl;
-      }
-    }
-    return false;
-  }
-}
 
 int main() {
   rc::check("convolution implementation correctness", []() {
@@ -130,7 +50,7 @@ int main() {
     llvm::SmallVector<mlir::Type, 1> outputsType{yType};
 
     auto funcType = builder.getFunctionType(inputsType, outputsType);
-    std::string funcName = "test_conv";
+    string funcName = "test_conv";
     llvm::SmallVector<mlir::NamedAttribute, 1> attrs;
     auto funcOp = builder.create<mlir::FuncOp>(
         mlir::UnknownLoc::get(&ctx), funcName, funcType, attrs);
@@ -185,20 +105,20 @@ int main() {
 
     llvm::SmallVector<char, 10> path;
     llvm::sys::fs::createTemporaryFile("_test_conv", "", path);
-    std::string pathStr(path.begin(), path.end());
+    string pathStr(path.begin(), path.end());
     llvm::FileRemover remover(path);
 
     compileModule(moduleRef, ctx, pathStr, EmitLib);
-    onnx_mlir::ExecutionSession sess(pathStr + ".so", "_dyn_entry_point_test_conv");
+    onnx_mlir::ExecutionSession sess(
+        pathStr + ".so", "_dyn_entry_point_test_conv");
 
-    std::vector<std::unique_ptr<DynMemRef>> inputs;
-    auto xDmr = std::unique_ptr<DynMemRef>(getRandomTensor({N, C, H, W}));
-    inputs.emplace_back(std::move(xDmr));
-    auto wDmr = std::unique_ptr<DynMemRef>(getRandomTensor({C, C, kH, kW}));
-    inputs.emplace_back(std::move(wDmr));
+    vector<unique_ptr<DynMemRef>> inputs;
+    auto xDmr = unique_ptr<DynMemRef>(getRndRealDmr<float>({N, C, H, W}));
+    inputs.emplace_back(move(xDmr));
+    auto wDmr = unique_ptr<DynMemRef>(getRndRealDmr<float>({C, C, kH, kW}));
+    inputs.emplace_back(move(wDmr));
 
     auto ref = DynMemRef::create<float>({NOut, COut, HOut, WOut});
-
     auto &img = inputs.at(0);
     auto &filter = inputs.at(1);
     for (int64_t n = 0; n < NOut; n++)
@@ -217,7 +137,7 @@ int main() {
                         filter->elem<float>({c, ci, kh, kw});
           }
 
-    auto outputs = sess.run(std::move(inputs));
+    auto outputs = sess.run(move(inputs));
     auto &conv = outputs.at(0);
 
     RC_ASSERT(assertDmrClose<float>(conv.get(), ref));
