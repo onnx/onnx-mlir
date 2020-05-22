@@ -21,11 +21,13 @@ target_link_libraries(ExecutionSession
 target_include_directories(ExecutionSession
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
+set_target_properties(ExecutionSession PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+
 
 pybind11_add_module(pyruntime
         PyExecutionSession.cpp
         PyExecutionSession.hpp)
-target_link_libraries(pyruntime PRIVATE
+target_link_libraries(pyruntime
         ${CMAKE_DL_LIBS}
         ExecutionSession
         DynMemRefUtils)
