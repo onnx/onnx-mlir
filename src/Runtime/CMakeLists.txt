@@ -27,7 +27,7 @@ set_target_properties(ExecutionSession PROPERTIES POSITION_INDEPENDENT_CODE TRUE
 pybind11_add_module(pyruntime
         PyExecutionSession.cpp
         PyExecutionSession.hpp)
-target_link_libraries(pyruntime
+target_link_libraries(pyruntime PRIVATE
         ${CMAKE_DL_LIBS}
         ExecutionSession
         DynMemRefUtils)
