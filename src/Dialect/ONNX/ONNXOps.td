@@ -38,7 +38,7 @@ def ONNX_Dialect : Dialect {
 //   * The mnemonic for the operation, or the name without the dialect prefix.
 //   * A list of traits for the operation.
 class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
-    Op<ONNX_Dialect, mnemonic, traits>;
+    Op<ONNX_Dialect, mnemonic, traits> ;
 
 //===----------------------------------------------------------------------===//
 // ONNX Operations
@@ -112,6 +112,17 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
            DefaultValuedAttr<I64Attr, "0">:$storage_order,
            OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
 }
 
 def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
@@ -137,6 +148,17 @@ def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
            DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
            DefaultValuedAttr<F32Attr, "0.9">:$momentum);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 5;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
 }
 
 def ONNXPadConstantValueOp : ONNX_Op<"PadConstantValue",
@@ -154,6 +176,17 @@ def ONNXPadConstantValueOp : ONNX_Op<"PadConstantValue",
            DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
 }
 
 def ONNXPadConstantPadOp : ONNX_Op<"PadConstantPad",
@@ -168,6 +201,17 @@ def ONNXPadConstantPadOp : ONNX_Op<"PadConstantPad",
            I64ArrayAttr:$pads,
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
 }
 
 def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
@@ -186,6 +230,17 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
   let builders = [OpBuilder<"OpBuilder &builder, OperationState &state, "
                             "Value data, ArrayAttr pads, "
                             "FloatAttr constant_value, StringAttr mode">];
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
 }
 
 #endif // ONNX_OPS
