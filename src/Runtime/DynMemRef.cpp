@@ -7,7 +7,7 @@
 
 namespace {
 // Helper function to compute cartisian product.
-inline static std::vector<std::vector<INDEX_TYPE>> CartProduct(
+inline std::vector<std::vector<INDEX_TYPE>> CartProduct(
     const std::vector<std::vector<INDEX_TYPE>> &v) {
   std::vector<std::vector<INDEX_TYPE>> s = {{}};
   for (const auto &u : v) {
@@ -35,25 +35,33 @@ INDEX_TYPE DynMemRef::size() const {
 }
 
 std::vector<std::vector<INDEX_TYPE>> DynMemRef::indexSet() const {
+  // First, we create index set of each dimension separately.
+  // i.e., for a tensor/DMR of shape (2, 3), its dimWiseIdxSet will be:
+  // {{0,1}, {0,1,2}};
   std::vector<std::vector<INDEX_TYPE>> dimWiseIdxSet;
   for (auto dimSize : std::vector<INDEX_TYPE>(sizes, sizes + rank)) {
     std::vector<INDEX_TYPE> dimIdxSet(dimSize);
     std::iota(std::begin(dimIdxSet), std::end(dimIdxSet), 0);
     dimWiseIdxSet.emplace_back(dimIdxSet);
   }
+  // Then, the cartesian product of vectors within dimWiseIdxSet will be the
+  // index set for the whole DMR.
   return CartProduct(dimWiseIdxSet);
 }
 
 INDEX_TYPE DynMemRef::computeOffset(std::vector<INDEX_TYPE> &idxs) const {
-  auto dimStrides = computeStrides();
+  auto dimStrides = std::vector<INDEX_TYPE>(strides, strides + rank);
   INDEX_TYPE elemOffset = std::inner_product(
       idxs.begin(), idxs.end(), dimStrides.begin(), (INDEX_TYPE)0);
   return elemOffset;
 }
 
-std::vector<int64_t> DynMemRef::computeStrides() const {
-  // Ignore the extent of the leading dimension, strides calculation
-  // never uses the extent of the leading dimension.
+std::vector<int64_t> DynMemRef::computeStridesFromSizes() const {
+  // Shift dimension sizes one to the left, fill in the vacated rightmost
+  // element with 1; this gets us a vector that'll be more useful for computing
+  // strides of memory access along each dimension using prefix product (aka
+  // partial_sum with a multiply operator below). The intuition is that the size
+  // of the leading dimension does not matter when computing strides.
   std::vector<int64_t> sizesVec(sizes + 1, sizes + rank);
   sizesVec.push_back(1);
 
@@ -64,9 +72,9 @@ std::vector<int64_t> DynMemRef::computeStrides() const {
 }
 
 DynMemRef::~DynMemRef() {
-    free(data);
-    free(sizes);
-    free(strides);
+  free(data);
+  free(sizes);
+  free(strides);
 }
 
 // An ordered dynamic MemRef dictionary.

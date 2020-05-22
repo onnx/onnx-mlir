@@ -16,6 +16,7 @@ typedef int64_t INDEX_TYPE;
 // This is a dynamic version of memref.
 // The same struct can be used to represent memrefs of
 // all ranks and type combinations.
+// We will refer to it as a DMR (Dynamic MemRef).
 struct DynMemRef {
   void *data;
   void *alignedData;
@@ -28,7 +29,7 @@ struct DynMemRef {
 #ifdef __cplusplus
   explicit DynMemRef(int _rank);
 
-  // Create a full Dmr of type T and shape _sizes.
+  // Create a full DMR of type T and shape _sizes.
   template <typename T>
   static DynMemRef *create(std::vector<INDEX_TYPE> _sizes) {
     auto dmr = new DynMemRef(_sizes.size());
@@ -38,7 +39,7 @@ struct DynMemRef {
     std::copy(_sizes.begin(), _sizes.end(), dmr->sizes);
 
     dmr->strides = (int64_t *)malloc(dmr->rank * sizeof(int64_t));
-    auto computedStrides = dmr->computeStrides();
+    auto computedStrides = dmr->computeStridesFromSizes();
     std::copy(computedStrides.begin(), computedStrides.end(), dmr->strides);
 
     dmr->data = malloc(dmr->size() * sizeof(T));
@@ -47,6 +48,7 @@ struct DynMemRef {
     return dmr;
   }
 
+  // Access an element (by reference) at index position idxs.
   template <typename T>
   T &elem(std::vector<INDEX_TYPE> idxs) {
     INDEX_TYPE elemOffset = computeOffset(idxs);
@@ -54,23 +56,31 @@ struct DynMemRef {
     return typedPtr[elemOffset];
   }
 
+  // Access an element (by reference) at *flattened* index position idx.
   template <typename T>
   T &elem(INDEX_TYPE idx) {
     T *typedPtr = (T *)data;
     return typedPtr[idx];
   }
 
+  // Get a typed ptr to the data content of the DMR.
   template <typename T>
   T *typedPtr() {
     return (T *)data;
   }
 
+  // Get how many elements are stored in DMR, as implied by its shape.
   INDEX_TYPE size() const;
 
-  std::vector<int64_t> computeStrides() const;
+  // Helper function to compute strides of access along each dimensions from its
+  // shape.
+  std::vector<int64_t> computeStridesFromSizes() const;
 
+  // Compute flattened array idx from a multi-dimensional array idx.
   INDEX_TYPE computeOffset(std::vector<INDEX_TYPE> &idxs) const;
 
+  // Get the index set (i.e., all valid multi-dimensional array indexes that can
+  // be used to access this DMR's constituent elements).
   std::vector<std::vector<INDEX_TYPE>> indexSet() const;
 
   ~DynMemRef();
