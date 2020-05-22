@@ -63,6 +63,12 @@ std::vector<int64_t> DynMemRef::computeStrides() const {
   return dimStrides;
 }
 
+DynMemRef::~DynMemRef() {
+    free(data);
+    free(sizes);
+    free(strides);
+}
+
 // An ordered dynamic MemRef dictionary.
 // The goal is to support accessing dynamic memory ref by name and by index.
 // Currently, only accessing by index is supported.

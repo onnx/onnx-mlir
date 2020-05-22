@@ -28,9 +28,11 @@ struct DynMemRef {
 #ifdef __cplusplus
   explicit DynMemRef(int _rank);
 
+  // Create a full Dmr of type T and shape _sizes.
   template <typename T>
   static DynMemRef *create(std::vector<INDEX_TYPE> _sizes) {
     auto dmr = new DynMemRef(_sizes.size());
+    dmr->offset = 0;
     dmr->rank = _sizes.size();
     dmr->sizes = (INDEX_TYPE *)malloc(dmr->rank * sizeof(INDEX_TYPE));
     std::copy(_sizes.begin(), _sizes.end(), dmr->sizes);
@@ -70,6 +72,8 @@ struct DynMemRef {
   INDEX_TYPE computeOffset(std::vector<INDEX_TYPE> &idxs) const;
 
   std::vector<std::vector<INDEX_TYPE>> indexSet() const;
+
+  ~DynMemRef();
 #endif
 };
 
