@@ -6,6 +6,7 @@
 #include <numeric>
 #include <random>
 #include <vector>
+#include <algorithm>
 #else
 #include <stdint.h>
 #endif
