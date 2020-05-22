@@ -17,7 +17,7 @@ public:
 };
 } // namespace onnx_mlir
 
-PYBIND11_MODULE(pyruntime, m) {
+PYBIND11_MODULE(PyRuntime, m) {
   py::class_<onnx_mlir::PyExecutionSession>(m, "ExecutionSession")
       .def(py::init<const std::string &, const std::string &>())
       .def("run", &onnx_mlir::PyExecutionSession::pyRun);
