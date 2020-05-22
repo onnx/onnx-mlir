@@ -45,6 +45,8 @@ jobs:
           name: Run Unit Tests
           command: |
             cd onnx-mlir/build
+            # Need to include the bin directory in $PATH,
+            # otherwise CTest fails to find the test executables.
             PATH=$(pwd)/bin:$PATH make test -j$(nproc)
       - run:
           name: Run DocCheck
