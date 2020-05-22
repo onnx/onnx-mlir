@@ -96,7 +96,7 @@ inline bool assertDmrClose(
 }
 
 int main() {
-  rc::check("double reversal yields the original value", []() {
+  rc::check("convolution implementation correctness", []() {
     const auto N = *rc::gen::inRange(1, 10);
     const auto C = *rc::gen::inRange(1, 10);
     const auto H = *rc::gen::inRange(5, 10);
