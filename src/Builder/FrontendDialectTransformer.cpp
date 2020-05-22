@@ -296,6 +296,14 @@ private:
 
     // TODO: Handle optional inputs.
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
+
+    // Special type inference for ConstantOp.
+    auto t = op.getOperationName().str();
+    if (t == "onnx.Constant") {
+      auto outType = mlir::ONNXConstantOp::typeInferenceFunc(attributes);
+      (*op.getODSResults(0).begin()).setType(outType);
+    }
+
     for (int i = 0; i < node.output().size(); i++) {
       frontend_symbols_.AddMapping(
           legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));

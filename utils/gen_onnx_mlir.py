@@ -271,6 +271,26 @@ OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
 OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
                                   "Pad": [("pads", 1), ("constant_value", 2)]}
 
+OpsWithTypeInference = {"Constant":
+  '''static mlir::Type typeInferenceFunc(std::vector<NamedAttribute> attributes) {
+      mlir::Attribute value;
+      mlir::Attribute sparse_value;
+      for (auto pair : attributes) {
+        if (pair.first == "value")
+          value = pair.second;
+        if (pair.first == "sparse_value")
+          sparse_value = pair.second;
+      }
+      if (value ) {
+        auto tensorType = value.getType();
+        return tensorType;
+      } else {
+        auto tensorType = sparse_value.getType();
+        return tensorType;
+      } 
+   }'''
+  }
+
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
 # an UnrankedTensorType whose element type is the same as the first operand's
@@ -634,6 +654,14 @@ def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
 
     return s
 
+def get_type_inference_func(s, indent, type_inference_code):
+    indent = inc_indent(indent)
+    s += indent+ type_inference_code + '\n'
+    indent = dec_indent(indent)
+
+    return s
+  
+  
 
 def gen_op_def(schema):
     indent = inc_indent()
@@ -738,6 +766,10 @@ def gen_op_def(schema):
     if schema.name in OpsWithPromotableConstOperands:
         s = get_promotable_const_operands_func(
             s, indent, OpsWithPromotableConstOperands[schema.name])
+
+    if schema.name in OpsWithTypeInference:
+        s = get_type_inference_func(
+            s, indent, OpsWithTypeInference[schema.name])
 
     s += indent + '}];\n'
 

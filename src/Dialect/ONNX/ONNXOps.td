@@ -120,7 +120,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {0};
+      return {20};
     }
   }];
 }
@@ -156,7 +156,7 @@ def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {0};
+      return {20};
     }
   }];
 }
