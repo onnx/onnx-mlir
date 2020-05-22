@@ -1,3 +1,14 @@
+//===------- ExecusionSession.cpp - ExecutionSession Implementation -------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains implementations of ExecusionSession class, which helps C++
+// programs interact with compiled binary model libraries.
+//
+//===----------------------------------------------------------------------===//
+
 #include <iostream>
 #include <memory>
 #include <sstream>

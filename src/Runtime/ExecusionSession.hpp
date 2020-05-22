@@ -1,3 +1,14 @@
+//===--------- ExecusionSession.hpp - ExecutionSession Declaration --------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains declarations of ExecusionSession class, which helps C++
+// programs interact with compiled binary model libraries.
+//
+//===----------------------------------------------------------------------===//
+
 #pragma once
 
 #include <cassert>

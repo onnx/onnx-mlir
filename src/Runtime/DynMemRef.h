@@ -1,3 +1,14 @@
+//===------------ DynMemRef.h - Dynamic MemRef Implementation -------------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains declaration of Dynamic MemRef data structures and helper
+// functions.
+//
+//===----------------------------------------------------------------------===//
+
 #ifdef __cplusplus
 #pragma once
 

@@ -1,6 +1,13 @@
+//===----- PyExecusionSession.hpp - PyExecutionSession Implementation -----===//
 //
-// Created by Tian Jin on 5/21/20.
+// Copyright 2019-2020 The IBM Research Authors.
 //
+// =============================================================================
+//
+// This file contains implementations of PyExecusionSession class, which helps
+// python programs interact with compiled binary model libraries.
+//
+//===----------------------------------------------------------------------===//
 
 #include "PyExecutionSession.hpp"
 
