@@ -12,6 +12,7 @@
 #include "PyExecutionSession.hpp"
 
 namespace onnx_mlir {
+
 std::vector<py::array> PyExecutionSession::pyRun(
     std::vector<py::array> inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");

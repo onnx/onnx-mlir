@@ -17,6 +17,7 @@
 #include "ExecusionSession.hpp"
 
 namespace onnx_mlir {
+
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, std::string entryPointName) {
   // Adapted from https://www.tldp.org/HOWTO/html_single/C++-dlopen/.
@@ -60,5 +61,4 @@ std::vector<std::unique_ptr<DynMemRef>> ExecutionSession::run(
 }
 
 ExecutionSession::~ExecutionSession() { dlclose(_sharedLibraryHandle); }
-
 } // namespace onnx_mlir

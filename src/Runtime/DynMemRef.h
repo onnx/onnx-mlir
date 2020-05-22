@@ -40,7 +40,8 @@ struct DynMemRef {
 #ifdef __cplusplus
   explicit DynMemRef(int _rank);
 
-  // Create a full DMR of type T and shape _sizes.
+  // Create a full DMR of type T and shape _sizes, with all data fields
+  // initialized to proper values and data pointers malloc'ed.
   template <typename T>
   static DynMemRef *create(std::vector<INDEX_TYPE> _sizes) {
     auto dmr = new DynMemRef(_sizes.size());
@@ -171,7 +172,7 @@ DynMemRef *getRndRealDmr(
   std::mt19937 gen(rd());
   std::uniform_real_distribution<> dis(lb, ub);
   auto dmr = DynMemRef::create<T>(sizes);
-  auto ptr = (float *)dmr->data;
+  auto ptr = (T *)dmr->data;
   std::generate(ptr, ptr + dmr->size(), [&]() { return dis(gen); });
   return dmr;
 }
@@ -210,6 +211,8 @@ inline bool assertDmrClose(
   if (atolSatisfied && rtolSatisfied) {
     return true;
   } else {
+    // Figure out where and what went wrong, this can be slow; but hopefully we
+    // don't need this often.
     for (const auto &idx : a->indexSet()) {
       T aElem = a->elem<T>(idx);
       T bElem = b->elem<T>(idx);
