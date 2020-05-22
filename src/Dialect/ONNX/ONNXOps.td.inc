@@ -578,22 +578,18 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     static std::vector<int> getTypeMap() {
       return {-1};
     }
-    static mlir::Type typeInferenceFunc(std::vector<NamedAttribute> attributes) {
-      mlir::Attribute value;
-      mlir::Attribute sparse_value;
+    static std::vector<mlir::Type> typeInferenceFunc(
+        std::vector<mlir::Value> inputs,  
+        std::vector<NamedAttribute> attributes) {
+      std::vector<mlir::Type> resultTypes;
       for (auto pair : attributes) {
-        if (pair.first == "value")
-          value = pair.second;
-        if (pair.first == "sparse_value")
-          sparse_value = pair.second;
-      }
-      if (value ) {
-        auto tensorType = value.getType();
-        return tensorType;
-      } else {
-        auto tensorType = sparse_value.getType();
-        return tensorType;
+        auto attr = pair.second;
+        if (attr) {
+          auto tensorType = attr.getType();
+          resultTypes.push_back(tensorType);
+        }
       } 
+      return resultTypes;
    }
   }];
     let builders = [

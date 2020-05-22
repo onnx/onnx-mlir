@@ -300,8 +300,9 @@ private:
     // Special type inference for ConstantOp.
     auto t = op.getOperationName().str();
     if (t == "onnx.Constant") {
-      auto outType = mlir::ONNXConstantOp::typeInferenceFunc(attributes);
-      (*op.getODSResults(0).begin()).setType(outType);
+      auto outTypes =
+          mlir::ONNXConstantOp::typeInferenceFunc(inputs, attributes);
+      (*op.getODSResults(0).begin()).setType(outTypes[0]);
     }
 
     for (int i = 0; i < node.output().size(); i++) {
