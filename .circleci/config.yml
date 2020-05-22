@@ -40,7 +40,7 @@ jobs:
           command: |
             sudo pip install -q -e ./onnx-mlir/third_party/onnx
             cd onnx-mlir/build
-            cmake --build . --target check-onnx-backend
+            VERBOSE=1 cmake --build . --target check-onnx-backend
       - run:
           name: Run Unit Tests
           command: |
