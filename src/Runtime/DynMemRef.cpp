@@ -11,7 +11,7 @@ DynMemRef::DynMemRef(int _rank) {
   strides = (int64_t *)malloc(rank * sizeof(int64_t));
 }
 
-int64_t DynMemRef::size() const {
+INDEX_TYPE DynMemRef::size() const {
   return std::accumulate(sizes, sizes + rank, 1, std::multiplies<>());
 }
 

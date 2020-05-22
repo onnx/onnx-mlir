@@ -28,7 +28,7 @@ struct DynMemRef {
   DynMemRef(int _rank);
 
   template <typename T>
-  static DynMemRef *create(std::vector<int64_t> _sizes) {
+  static DynMemRef *create(std::vector<INDEX_TYPE> _sizes) {
     auto dmr = new DynMemRef(_sizes.size());
     dmr->rank = _sizes.size();
     dmr->sizes = (INDEX_TYPE *)malloc(dmr->rank * sizeof(INDEX_TYPE));
@@ -44,7 +44,7 @@ struct DynMemRef {
     return dmr;
   }
 
-  int64_t size() const;
+  INDEX_TYPE size() const;
 
   std::vector<int64_t> computeStrides() const {
     // Ignore the extent of the leading dimension, strides calculation
@@ -58,22 +58,22 @@ struct DynMemRef {
     return dimStrides;
   }
 
-  int64_t computeOffset(std::vector<int64_t> &idxs) const {
+  INDEX_TYPE computeOffset(std::vector<INDEX_TYPE> &idxs) const {
     auto dimStrides = computeStrides();
-    int64_t elemOffset = std::inner_product(
-        idxs.begin(), idxs.end(), dimStrides.begin(), (int64_t)0);
+    INDEX_TYPE elemOffset = std::inner_product(
+        idxs.begin(), idxs.end(), dimStrides.begin(), (INDEX_TYPE)0);
     return elemOffset;
   }
 
   template <typename T>
-  T &elem(std::vector<int64_t> idxs) {
-    int64_t elemOffset = computeOffset(idxs);
+  T &elem(std::vector<INDEX_TYPE> idxs) {
+    INDEX_TYPE elemOffset = computeOffset(idxs);
     T *typedPtr = (T *)data;
     return typedPtr[elemOffset];
   }
 
   template <typename T>
-  T &elem(int64_t idx) {
+  T &elem(INDEX_TYPE idx) {
     T *typedPtr = (T *)data;
     return typedPtr[idx];
   }
@@ -83,11 +83,11 @@ struct DynMemRef {
     return (T *)data;
   }
 
-  std::vector<std::vector<int64_t>> cart_product(
-      const std::vector<std::vector<int64_t>> &v) {
-    std::vector<std::vector<int64_t>> s = {{}};
+  std::vector<std::vector<INDEX_TYPE>> cart_product(
+      const std::vector<std::vector<INDEX_TYPE>> &v) {
+    std::vector<std::vector<INDEX_TYPE>> s = {{}};
     for (const auto &u : v) {
-      std::vector<std::vector<int64_t>> r;
+      std::vector<std::vector<INDEX_TYPE>> r;
       for (const auto &x : s) {
         for (const auto y : u) {
           r.push_back(x);
@@ -99,10 +99,10 @@ struct DynMemRef {
     return s;
   }
 
-  std::vector<std::vector<int64_t>> indexSet() {
-    std::vector<std::vector<int64_t>> dimWiseIdxSet;
-    for (auto dimSize : std::vector<int64_t>(sizes, sizes + rank)) {
-      std::vector<int64_t> dimIdxSet(dimSize);
+  std::vector<std::vector<INDEX_TYPE>> indexSet() {
+    std::vector<std::vector<INDEX_TYPE>> dimWiseIdxSet;
+    for (auto dimSize : std::vector<INDEX_TYPE>(sizes, sizes + rank)) {
+      std::vector<INDEX_TYPE> dimIdxSet(dimSize);
       std::iota(std::begin(dimIdxSet), std::end(dimIdxSet), 0);
       dimWiseIdxSet.emplace_back(dimIdxSet);
     }
@@ -176,7 +176,8 @@ void printVector(std::vector<T> vec, std::string _delimiter = ",",
 }
 
 template <typename T>
-DynMemRef *getRndRealDmr(std::vector<int64_t> sizes, T lb = -1.0, T ub = 1.0) {
+DynMemRef *getRndRealDmr(
+    std::vector<INDEX_TYPE> sizes, T lb = -1.0, T ub = 1.0) {
   // Will be used to obtain a seed for the random number engine
   std::random_device rd;
   // Standard mersenne_twister_engine seeded with rd()
@@ -193,8 +194,8 @@ inline bool assertDmrClose(
     DynMemRef *a, DynMemRef *b, float rtol = 1e-5, float atol = 1e-5) {
 
   // Compare shape.
-  auto aShape = std::vector<int64_t>(a->sizes, a->sizes + a->rank);
-  auto bShape = std::vector<int64_t>(b->sizes, b->sizes + b->rank);
+  auto aShape = std::vector<INDEX_TYPE>(a->sizes, a->sizes + a->rank);
+  auto bShape = std::vector<INDEX_TYPE>(b->sizes, b->sizes + b->rank);
   if (aShape != bShape) {
     std::cerr << "Shape mismatch ";
     printVector(aShape, ",", std::cerr);
