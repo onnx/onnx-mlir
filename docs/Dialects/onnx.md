@@ -3033,7 +3033,7 @@ ONNX Pad operation
 | Operand | Description |
 | :-----: | ----------- |
 `data` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`pads` | memref of any type values or tensor of any type values
+`pads` | memref of any type values or tensor of any type values or none type
 `constant_value` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or none type
 
 #### Results:
