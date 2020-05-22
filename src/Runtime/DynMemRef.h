@@ -25,7 +25,7 @@ struct DynMemRef {
   int64_t *strides;
 
 #ifdef __cplusplus
-  DynMemRef(int _rank);
+  explicit DynMemRef(int _rank);
 
   template <typename T>
   static DynMemRef *create(std::vector<INDEX_TYPE> _sizes) {
@@ -42,27 +42,6 @@ struct DynMemRef {
     dmr->alignedData = dmr->data;
 
     return dmr;
-  }
-
-  INDEX_TYPE size() const;
-
-  std::vector<int64_t> computeStrides() const {
-    // Ignore the extent of the leading dimension, strides calculation
-    // never uses the extent of the leading dimension.
-    std::vector<int64_t> sizesVec(sizes + 1, sizes + rank);
-    sizesVec.push_back(1);
-
-    std::vector<int64_t> dimStrides(rank);
-    std::partial_sum(sizesVec.rbegin(), sizesVec.rend(), dimStrides.rbegin(),
-        std::multiplies<>());
-    return dimStrides;
-  }
-
-  INDEX_TYPE computeOffset(std::vector<INDEX_TYPE> &idxs) const {
-    auto dimStrides = computeStrides();
-    INDEX_TYPE elemOffset = std::inner_product(
-        idxs.begin(), idxs.end(), dimStrides.begin(), (INDEX_TYPE)0);
-    return elemOffset;
   }
 
   template <typename T>
@@ -83,31 +62,13 @@ struct DynMemRef {
     return (T *)data;
   }
 
-  std::vector<std::vector<INDEX_TYPE>> cart_product(
-      const std::vector<std::vector<INDEX_TYPE>> &v) {
-    std::vector<std::vector<INDEX_TYPE>> s = {{}};
-    for (const auto &u : v) {
-      std::vector<std::vector<INDEX_TYPE>> r;
-      for (const auto &x : s) {
-        for (const auto y : u) {
-          r.push_back(x);
-          r.back().push_back(y);
-        }
-      }
-      s = move(r);
-    }
-    return s;
-  }
+  INDEX_TYPE size() const;
 
-  std::vector<std::vector<INDEX_TYPE>> indexSet() {
-    std::vector<std::vector<INDEX_TYPE>> dimWiseIdxSet;
-    for (auto dimSize : std::vector<INDEX_TYPE>(sizes, sizes + rank)) {
-      std::vector<INDEX_TYPE> dimIdxSet(dimSize);
-      std::iota(std::begin(dimIdxSet), std::end(dimIdxSet), 0);
-      dimWiseIdxSet.emplace_back(dimIdxSet);
-    }
-    return cart_product(dimWiseIdxSet);
-  }
+  std::vector<int64_t> computeStrides() const;
+
+  INDEX_TYPE computeOffset(std::vector<INDEX_TYPE> &idxs) const;
+
+  std::vector<std::vector<INDEX_TYPE>> indexSet() const;
 #endif
 };
 
