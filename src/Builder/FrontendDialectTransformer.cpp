@@ -22,6 +22,8 @@ namespace bstd = mpark;
 
 #include "FrontendDialectTransformer.hpp"
 
+#include "src/Interface/ResultTypeInferenceInterface.hpp"
+
 namespace onnx_mlir {
 namespace {
 
@@ -297,12 +299,14 @@ private:
     // TODO: Handle optional inputs.
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
 
-    // Special type inference for ConstantOp.
-    auto t = op.getOperationName().str();
-    if (t == "onnx.Constant") {
-      auto outTypes =
-          mlir::ONNXConstantOp::typeInferenceFunc(inputs, attributes);
-      (*op.getODSResults(0).begin()).setType(outTypes[0]);
+    // Type inference for results.
+    if (mlir::ResultTypeInferenceInterface opWithTypeInference =
+            mlir::dyn_cast<mlir::ResultTypeInferenceInterface>(
+                op.getOperation())) {
+      auto outTypes = opWithTypeInference.resultTypeInference();
+      for (int i = 0; i < node.output().size(); i++) {
+        (*op.getODSResults(i).begin()).setType(outTypes[i]);
+      }
     }
 
     for (int i = 0; i < node.output().size(); i++) {

@@ -271,22 +271,17 @@ OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
 OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
                                   "Pad": [("pads", 1), ("constant_value", 2)]}
 
-OpsWithTypeInference = {"Constant":
-  '''static std::vector<mlir::Type> typeInferenceFunc(
-        std::vector<mlir::Value> inputs,  
-        std::vector<NamedAttribute> attributes) {
-      std::vector<mlir::Type> resultTypes;
-      for (auto pair : attributes) {
-        auto attr = pair.second;
-        if (attr) {
-          auto tensorType = attr.getType();
-          resultTypes.push_back(tensorType);
-        }
-      } 
-      return resultTypes;
-   }'''
-  }
-
+# Interface for special handling of type inference
+# The common code are put into get_type_inference_func
+OpsWithResultTypeInference = {
+  "Constant":
+  '''if (auto attr = valueAttr()) {
+        resultTypes.push_back(attr.getType());
+      } else if (auto attr = sparse_valueAttr()) {
+        resultTypes.push_back(attr.getType());
+      }'''
+}
+       
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
 # an UnrankedTensorType whose element type is the same as the first operand's
@@ -652,9 +647,18 @@ def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
 
 def get_type_inference_func(s, indent, type_inference_code):
     indent = inc_indent(indent)
-    s += indent+ type_inference_code + '\n'
-    indent = dec_indent(indent)
 
+    s += indent + "std::vector<mlir::Type> resultTypeInference() {" + "\n"
+    indent = inc_indent(indent)
+    s += indent + "std::vector<mlir::Type> resultTypes;" + "\n"
+
+    s += indent + type_inference_code + '\n'
+
+    s += indent + "return resultTypes;" + "\n"
+    indent = dec_indent(indent)
+    s += indent + "}" + "\n"
+
+    indent = dec_indent(indent)
     return s
   
   
@@ -672,6 +676,8 @@ def gen_op_def(schema):
         traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
     if schema.name in OpsWithPromotableConstOperands.keys():
         traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
+    if schema.name in OpsWithResultTypeInference.keys():
+        traits.append("OpInterface<\"ResultTypeInferenceInterface\">")
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
     # Generate decl for canonicalizer.
@@ -763,14 +769,14 @@ def gen_op_def(schema):
         s = get_promotable_const_operands_func(
             s, indent, OpsWithPromotableConstOperands[schema.name])
 
-    if schema.name in OpsWithTypeInference:
+    if schema.name in OpsWithResultTypeInference:
         s = get_type_inference_func(
-            s, indent, OpsWithTypeInference[schema.name])
+            s, indent, OpsWithResultTypeInference[schema.name])
 
     s += indent + '}];\n'
 
     if ( schema.name in custom_definition_misc) :
-        s += custom_definition_misc[schema.name]
+        s += custom_definition_misc[schema.name] + '\n'
 
     s += '}\n\n'
     return s
