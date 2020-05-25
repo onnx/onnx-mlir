@@ -677,7 +677,7 @@ def gen_op_def(schema):
     if schema.name in OpsWithPromotableConstOperands.keys():
         traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
     if schema.name in OpsWithResultTypeInference.keys():
-        traits.append("OpInterface<\"ResultTypeInferenceInterface\">")
+        traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
     # Generate decl for canonicalizer.
@@ -886,6 +886,7 @@ def build_operator_schemas():
                         print("Your onnx may be too old."
                            "right version for opertion {} not found".format(
                             schema.name))
+                        sys.exit()
             processed_supportmap.append((_support, processed_namemap))
         operator_schemas.append((domain, processed_supportmap))
     return operator_schemas

@@ -1,15 +1,15 @@
-//===------------ ResultTypeInferenceInterface.cpp --------------===//
+//===------------ ResultTypeInferenceOpInterface.cpp --------------===//
 //===--------- Infer Data Type for Results Interface Definition --------===//
 //
 // Copyright 2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains the declaration of the data type reference  interface.
+// This file contains the implementation of the data type inference interface.
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Interface/ResultTypeInferenceInterface.hpp"
+#include "ResultTypeInferenceOpInterface.hpp"
 
 using namespace mlir;
 
@@ -17,4 +17,4 @@ using namespace mlir;
 // Infer Data Type for Results Interface
 //===----------------------------------------------------------------------===//
 
-#include "src/Interface/ResultTypeInferenceInterface.cpp.inc"
+#include "src/Interface/ResultTypeInferenceOpInterface.cpp.inc"

@@ -1,4 +1,4 @@
-//===------------ ResultTypeInferenceInterface.hpp --------------===//
+//===------------ ResultTypeInferenceOpInterface.hpp --------------===//
 //===------- Infer Data Type for Result of Op Interface Definition -------===//
 //
 // Copyright 2020 The IBM Research Authors.
@@ -20,6 +20,6 @@
 namespace mlir {
 
 /// Include the auto-generated declarations.
-#include "src/Interface/ResultTypeInferenceInterface.hpp.inc"
+#include "src/Interface/ResultTypeInferenceOpInterface.hpp.inc"
 
 } // end namespace mlir

@@ -20,9 +20,9 @@
 #include <mpark/variant.hpp>
 namespace bstd = mpark;
 
-#include "FrontendDialectTransformer.hpp"
+#include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 
-#include "src/Interface/ResultTypeInferenceInterface.hpp"
+#include "FrontendDialectTransformer.hpp"
 
 namespace onnx_mlir {
 namespace {
@@ -300,8 +300,8 @@ private:
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
 
     // Type inference for results.
-    if (mlir::ResultTypeInferenceInterface opWithTypeInference =
-            mlir::dyn_cast<mlir::ResultTypeInferenceInterface>(
+    if (auto opWithTypeInference =
+            mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
                 op.getOperation())) {
       auto outTypes = opWithTypeInference.resultTypeInference();
       for (int i = 0; i < node.output().size(); i++) {

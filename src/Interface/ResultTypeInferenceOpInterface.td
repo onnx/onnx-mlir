@@ -1,24 +1,24 @@
-//===------------ ResultTypeInferenceInterface.td --------------===//
+//===------------ ResultTypeInferenceOpInterface.td --------------===//
 //===--------- Infer Data Type for Results Interface Definition --------===//
 //
 // Copyright 2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains the declaration of the data type reference  interface.
+// This file contains the tablegen of the data type inference interface.
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef RESULT_TYPE_INFERENCE_INTERFACE
+#ifdef RESULT_TYPE_INFERENCE_OP_INTERFACE
 #else
-#define RESULT_TYPE_INFERENCE_INTERFACE
+#define RESULT_TYPE_INFERENCE_OP_INTERFACE
 
 #ifdef OP_BASE
 #else
 include "mlir/IR/OpBase.td"
 #endif // OP_BASE
 
-def ResultTypeInferenceInterface : OpInterface<"ResultTypeInferenceInterface"> {
+def ResultTypeInferenceOpInterface : OpInterface<"ResultTypeInferenceOpInterface"> {
   let description = [{
     Interface to access a registered method to infer the data types for 
     the result of an operation
@@ -31,4 +31,4 @@ def ResultTypeInferenceInterface : OpInterface<"ResultTypeInferenceInterface"> {
   ];
 }
 
-#endif // RESULT_TYPE_INFERENCE_INTERFACE
+#endif // RESULT_TYPE_INFERENCE_OP_INTERFACE
