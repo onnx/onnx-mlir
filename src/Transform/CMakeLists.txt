@@ -25,7 +25,8 @@ add_dependencies(OMKrnlToLLVM
         OMONNXOps)
 
 add_library(OMElideKrnlGlobalConstants
-        ElideKrnlGlobalConstants.cpp)
+        ElideKrnlGlobalConstants.cpp
+        ElideKrnlGlobalConstants.hpp)
 target_include_directories(OMElideKrnlGlobalConstants
         PRIVATE
         ${ONNX_MLIR_SRC_ROOT}

@@ -48,6 +48,7 @@ target_link_libraries(onnx-mlir
         OMPromotableConstOperandsOpInterface
         OMElideConstants
         OMElideKrnlGlobalConstants
+        OMPackKrnlGlobalConstants
         OMKrnlToAffine
         OMKrnlToLLVM
         OMONNXToKrnl

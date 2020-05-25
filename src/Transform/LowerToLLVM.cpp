@@ -41,7 +41,6 @@ static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
   PatternRewriter::InsertionGuard insertGuard(rewriter);
   rewriter.setInsertionPointToStart(module.getBody());
   rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, funcType);
-  funcType.dump();
   return SymbolRefAttr::get(funcName, context);
 }
 
@@ -138,16 +137,16 @@ public:
     // The llvm type of the global (example: [2 x [8 x float]])
     auto llvmGlobalType = globalType.cast<LLVM::LLVMType>();
 
-    {
-      OpBuilder::InsertionGuard insertGuard(rewriter);
-      rewriter.setInsertionPointToStart(module.getBody());
-
-      assert(krnlGlobalOp.value().hasValue() &&
-             "Krnl Global must always have a value");
-      global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
-          /*isConstant=*/true, LLVM::Linkage::Internal, name,
-          krnlGlobalOp.value().getValue());
-    }
+    //    {
+    //      OpBuilder::InsertionGuard insertGuard(rewriter);
+    //      rewriter.setInsertionPointToStart(module.getBody());
+    //
+    //      assert(krnlGlobalOp.value().hasValue() &&
+    //             "Krnl Global must always have a value");
+    //      global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
+    //          /*isConstant=*/true, LLVM::Linkage::Internal, name,
+    //          krnlGlobalOp.value().getValue());
+    //    }
 
     // Some frequently used types.
     auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
@@ -164,13 +163,31 @@ public:
     //    //  - Bitcast alloc to i8*
     //    Value int8PtrAlloc =
     //        rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, alloc);
-    auto getSegmentDataRef = getOrInsertExternFunc("getSegmentData", module,
-        LLVM::LLVMType::getFunctionTy(llvmI8PtrTy, {}, /*isVarArg=*/false),
-        rewriter);
-    Value alloc = rewriter
-                      .create<CallOp>(loc, getSegmentDataRef, llvmI8PtrTy,
-                          ArrayRef<Value>({}))
-                      .getResult(0);
+    //    auto getSegmentDataRef = getOrInsertExternFunc("getSegmentData",
+    //    module,
+    //        LLVM::LLVMType::getFunctionTy(llvmI8PtrTy, {},
+    //        /*isVarArg=*/false), rewriter);
+    //    Value alloc = rewriter
+    //                      .create<CallOp>(loc, getSegmentDataRef, llvmI8PtrTy,
+    //                          ArrayRef<Value>({}))
+    //                      .getResult(0);
+
+    auto base = module.lookupSymbol<LLVM::GlobalOp>("packedConst");
+    assert(base);
+
+    Value constPackBasePtrAddr = rewriter.create<LLVM::AddressOfOp>(loc, base);
+    Value constPackBasePtr = rewriter.create<LLVM::LoadOp>(loc, base.getType(), constPackBasePtrAddr);
+    auto offset = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
+        rewriter.getI64IntegerAttr(
+            krnlGlobalOp.offsetAttr().getValue().getSExtValue()));
+    Value alloc = rewriter.create<LLVM::GEPOp>(
+        loc, llvmI8PtrTy, constPackBasePtr, ValueRange({offset}));
+
+    //
+    //    auto offset = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
+    //    rewriter.getI64IntegerAttr(krnlGlobalOp.offsetAttr().getValue().getSExtValue()));
+    //    Value alloc = rewriter.create<LLVM::GEPOp>(loc, llvmI8PtrTy, base,
+    //    offset);
 
     //    //  - Bitcast global to i8*
     //    Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
@@ -627,6 +644,83 @@ private:
     }
   }
 };
+
+//===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlPackedConstOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlPackedConstOpLowering : public ConvertToLLVMPattern {
+public:
+  explicit KrnlPackedConstOpLowering(
+      MLIRContext *context, LLVMTypeConverter &lowering_)
+      : ConvertToLLVMPattern(
+            KrnlPackedConstantOp::getOperationName(), context, lowering_) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto *context = op->getContext();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    auto loc = op->getLoc();
+
+    auto *llvmDialect =
+        op->getContext()->getRegisteredDialect<LLVM::LLVMDialect>();
+    assert(llvmDialect && "expected llvm dialect to be registered");
+
+    auto packedConstOp = llvm::dyn_cast<KrnlPackedConstantOp>(op);
+    LLVM::GlobalOp globalBase;
+    // Some frequently used types.
+    auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
+    auto llvmI64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
+    {
+      OpBuilder::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(module.getBody());
+
+      globalBase = rewriter.create<LLVM::GlobalOp>(loc, llvmI8PtrTy,
+          /*isConstant=*/false, LLVM::Linkage::Internal, "packedConst",
+          nullptr);
+    }
+
+    auto mainFunc = module.lookupSymbol<FuncOp>("main_graph");
+    assert(mainFunc);
+
+    rewriter.setInsertionPoint(
+        &mainFunc.getBody().front(), mainFunc.getBody().front().begin());
+
+    //  - Initialize the global constant base.
+    Value basePtrAddr = rewriter.create<LLVM::AddressOfOp>(loc, globalBase);
+    auto getSegmentDataRef = getOrInsertExternFunc("getSegmentData", module,
+        LLVM::LLVMType::getFunctionTy(
+            llvmI8PtrTy, {llvmI64Ty}, /*isVarArg=*/false),
+        rewriter);
+    auto constPackSize = rewriter.create<LLVM::ConstantOp>(loc,
+        LLVM::LLVMType::getInt64Ty(llvmDialect),
+        packedConstOp.sizeInBytesAttr());
+    Value alloc = rewriter
+                      .create<CallOp>(loc, getSegmentDataRef, llvmI8PtrTy,
+                          ArrayRef<Value>({constPackSize}))
+                      .getResult(0);
+    rewriter.create<LLVM::StoreOp>(loc, alloc, basePtrAddr);
+    {
+      OpBuilder::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(module.getBody());
+
+      const auto &fileNameAttr = packedConstOp.file_nameAttr();
+      auto type =
+          LLVM::LLVMType::getArrayTy(LLVM::LLVMType::getInt8Ty(llvmDialect),
+              fileNameAttr.getValue().size());
+      rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+          LLVM::Linkage::Internal, "constPackFileName", fileNameAttr);
+    }
+
+    rewriter.eraseOp(op);
+    return success();
+  }
+
+private:
+  static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
+    return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+  }
+};
 } // end namespace
 
 //===----------------------------------------------------------------------===//
@@ -657,17 +751,21 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   populateStdToLLVMConversionPatterns(typeConverter, patterns,
       /*emitCWrapperS=*/true,
       /*useAlignedAlloc=*/false);
-  patterns.insert<KrnlGlobalOpLowering>(&getContext(), typeConverter);
+  patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
+      &getContext(), typeConverter);
 
   // Lower from the `krnl` dialect i.e. the Reshape operation.
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(
       &getContext());
 
+  ConstantOp::getCanonicalizationPatterns(patterns, &getContext());
+
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
   if (failed(applyFullConversion(
-          getOperation(), target, patterns, &typeConverter)))
+          getOperation(), target, patterns, &typeConverter))) {
     signalPassFailure();
+  }
 }
 
 /// Create the pass for lowering `Krnl`, `Affine` and `Std` dialects to LLVM.

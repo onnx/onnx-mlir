@@ -11,6 +11,8 @@
 #include <cstdio>
 #include <fcntl.h>
 #include <llvm/Support/Program.h>
+#include <mlir/Dialect/LLVMIR/LLVMDialect.h>
+#include <mlir/IR/SymbolTable.h>
 
 #include "src/ExternalUtil.hpp"
 #include "src/MainUtils.hpp"
@@ -55,6 +57,11 @@ void compileModuleToSharedLibrary(
   error_code error;
   llvm::raw_fd_ostream moduleBitcodeStream(
       outputFilename, error, llvm::sys::fs::F_None);
+
+  auto globalOp =
+      (*module).lookupSymbol<mlir::LLVM::GlobalOp>("constPackFileName");
+  auto fileName = globalOp.valueAttr().dyn_cast_or_null<mlir::StringAttr>();
+
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
@@ -68,12 +75,14 @@ void compileModuleToSharedLibrary(
   llvm::sys::ExecuteAndWait(kLlcPath, llvm::makeArrayRef(llcArgStrRefs));
 
   // Code to build object file with data and data loader.
-    auto EmbeddedDataLoaderObj =   "/Users/tjin/Documents/onnx-mlir/cmake-build-debug/src/Runtime/CMakeFiles/EmbeddedDataLoader.dir/EmbeddedDataLoader.cpp.o";
-  std::vector<std::string> ldArgs = {
-          "ld", "-r", "-o", "param.o", "-sectcreate", "binary", "param", "test.bin", EmbeddedDataLoaderObj
-  };
-  auto ldArgStrRefs = std::vector<llvm::StringRef>(ldArgs.begin(), ldArgs.end());
-    std::cout << llvm::join(ldArgStrRefs, " ") << "\n";
+  auto EmbeddedDataLoaderObj =
+      "/Users/tjin/Documents/onnx-mlir/cmake-build-debug/src/Runtime/"
+      "CMakeFiles/EmbeddedDataLoader.dir/EmbeddedDataLoader.cpp.o";
+  std::vector<std::string> ldArgs = {"ld", "-r", "-o", "param.o", "-sectcreate",
+      "binary", "param", fileName.getValue().str(), EmbeddedDataLoaderObj};
+  auto ldArgStrRefs =
+      std::vector<llvm::StringRef>(ldArgs.begin(), ldArgs.end());
+  std::cout << llvm::join(ldArgStrRefs, " ") << "\n";
   llvm::sys::ExecuteAndWait(kCxxPath, llvm::makeArrayRef(ldArgStrRefs));
 
   // Link with runtime.
@@ -84,7 +93,7 @@ void compileModuleToSharedLibrary(
       "-L" + kRuntimeDirPath, "-lcruntime", "-Wl,-rpath," + kRuntimeDirPath};
   auto argsArrayRefVector =
       std::vector<llvm::StringRef>(cxxArgs.begin(), cxxArgs.end());
-    std::cout << llvm::join(argsArrayRefVector, " ") << "\n";
+  std::cout << llvm::join(argsArrayRefVector, " ") << "\n";
   llvm::sys::ExecuteAndWait(kCxxPath, llvm::makeArrayRef(argsArrayRefVector));
 }
 
@@ -108,6 +117,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerToKrnlPass());
+  pm.addPass(mlir::createPackKrnlGlobalConstantsPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.

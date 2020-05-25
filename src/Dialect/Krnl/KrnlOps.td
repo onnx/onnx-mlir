@@ -199,9 +199,26 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global"> {
     Operation for holding global data values.
   }];
 
-  let arguments = (ins AnyAttr:$shape, StrAttr:$name, OptionalAttr<AnyAttr>:$value);
+  let arguments = (ins AnyAttr:$shape,
+    StrAttr:$name, OptionalAttr<AnyAttr>:$value, OptionalAttr<I64Attr>:$offset);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
   let parser = ?;
   let printer = ?;
 }
+
+def KrnlPackedConstantOp : Op<Krnl_Dialect, "packed_const"> {
+  let summary = "Krnl packed constant operation";
+  let description = [{
+    Operation for holding packed constants.
+  }];
+
+  let arguments = (ins I64Attr:$sizeInBytes,
+                       OptionalAttr<AnyIntElementsAttr<8>>:$value,
+                       OptionalAttr<StrAttr>:$file_name);
+  let results = (outs I64:$output);
+
+  let parser = ?;
+  let printer = ?;
+}
+
