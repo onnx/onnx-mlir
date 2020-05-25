@@ -73,6 +73,7 @@ INDEX_TYPE *getSizes(DynMemRef *);
 // Get ptr to strides array.
 int64_t *getStrides(DynMemRef *);
 
+
 #ifdef __cplusplus
 }
 #endif

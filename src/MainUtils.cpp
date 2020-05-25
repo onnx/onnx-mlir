@@ -64,16 +64,27 @@ void compileModuleToSharedLibrary(
       "llc", "-filetype=obj", "-relocation-model=pic", outputFilename};
   auto llcArgStrRefs =
       std::vector<llvm::StringRef>(llcArgs.begin(), llcArgs.end());
+  std::cout << llvm::join(llcArgStrRefs, " ") << "\n";
   llvm::sys::ExecuteAndWait(kLlcPath, llvm::makeArrayRef(llcArgStrRefs));
+
+  // Code to build object file with data and data loader.
+    auto EmbeddedDataLoaderObj =   "/Users/tjin/Documents/onnx-mlir/cmake-build-debug/src/Runtime/CMakeFiles/EmbeddedDataLoader.dir/EmbeddedDataLoader.cpp.o";
+  std::vector<std::string> ldArgs = {
+          "ld", "-r", "-o", "param.o", "-sectcreate", "binary", "param", "test.bin", EmbeddedDataLoaderObj
+  };
+  auto ldArgStrRefs = std::vector<llvm::StringRef>(ldArgs.begin(), ldArgs.end());
+    std::cout << llvm::join(ldArgStrRefs, " ") << "\n";
+  llvm::sys::ExecuteAndWait(kCxxPath, llvm::makeArrayRef(ldArgStrRefs));
 
   // Link with runtime.
   // TODO(tjingrant): link with runtime library in LLVM, and make the shared
   // library more self-contained.
   std::vector<std::string> cxxArgs = {kCxxFileName, "-shared", "-fPIC",
-      outputBaseName + ".o", "-o", outputBaseName + ".so",
+      outputBaseName + ".o", "param.o", "-o", outputBaseName + ".so",
       "-L" + kRuntimeDirPath, "-lcruntime", "-Wl,-rpath," + kRuntimeDirPath};
   auto argsArrayRefVector =
       std::vector<llvm::StringRef>(cxxArgs.begin(), cxxArgs.end());
+    std::cout << llvm::join(argsArrayRefVector, " ") << "\n";
   llvm::sys::ExecuteAndWait(kCxxPath, llvm::makeArrayRef(argsArrayRefVector));
 }
 

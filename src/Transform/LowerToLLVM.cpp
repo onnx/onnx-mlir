@@ -32,16 +32,16 @@ namespace {
 static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
     ModuleOp module, mlir::LLVM::LLVMType funcType, PatternRewriter &rewriter) {
   auto *context = module.getContext();
-  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
-    auto symbolRef = SymbolRefAttr::get(funcName, context);
-    assert(symbolRef.getType() == funcType && "wrong symbol type");
-    return symbolRef;
+  if (auto sym = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
+    assert(sym.getType() == funcType && "wrong symbol type");
+    return SymbolRefAttr::get(funcName, context);
   }
 
   // Insert the function into the body of the parent module.
   PatternRewriter::InsertionGuard insertGuard(rewriter);
   rewriter.setInsertionPointToStart(module.getBody());
   rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, funcType);
+  funcType.dump();
   return SymbolRefAttr::get(funcName, context);
 }
 
@@ -157,35 +157,46 @@ public:
     // This is a region of local memory and needs to be emitted as an alloca.
     auto one = rewriter.create<LLVM::ConstantOp>(
         loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
-    auto alloc = rewriter.create<LLVM::AllocaOp>(
-        loc, llvmGlobalType.getPointerTo(), one, /*alignment=*/0);
+    //    auto alloc = rewriter.create<LLVM::AllocaOp>(
+    //        loc, llvmGlobalType.getPointerTo(), one, /*alignment=*/0);
+    //
+    //    // Copy constant value into the local alloca:
+    //    //  - Bitcast alloc to i8*
+    //    Value int8PtrAlloc =
+    //        rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, alloc);
+    auto getSegmentDataRef = getOrInsertExternFunc("getSegmentData", module,
+        LLVM::LLVMType::getFunctionTy(llvmI8PtrTy, {}, /*isVarArg=*/false),
+        rewriter);
+    Value alloc = rewriter
+                      .create<CallOp>(loc, getSegmentDataRef, llvmI8PtrTy,
+                          ArrayRef<Value>({}))
+                      .getResult(0);
 
-    // Copy constant value into the local alloca:
-    //  - Bitcast alloc to i8*
-    Value int8PtrAlloc =
-        rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, alloc);
-    //  - Bitcast global to i8*
-    Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
-    Value i8PtrGlobal =
-        rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, globalValue);
-    //  - Set size.
-    Value memRefElementSize = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-        rewriter.getI64IntegerAttr(getMemRefEltSizeInBytes(memRefTy)));
-    Value numElementsValue = rewriter.create<LLVM::ConstantOp>(
-        loc, llvmI64Ty, rewriter.getI64IntegerAttr(numElements));
-    Value totalElementsSize =
-        rewriter.create<LLVM::MulOp>(loc, memRefElementSize, numElementsValue);
-    Value int64Size =
-        rewriter.create<LLVM::SExtOp>(loc, llvmI64Ty, totalElementsSize);
-    //  - Set volatile.
-    Value isVolatile = rewriter.create<LLVM::ConstantOp>(loc,
-        LLVM::LLVMType::getInt1Ty(llvmDialect),
-        rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
-    //  - Copy constant data into the alloca.
-    auto memcpyRef = getOrInsertMemcpy(rewriter, module, llvmDialect);
-    rewriter.create<CallOp>(loc, memcpyRef,
-        LLVM::LLVMType::getVoidTy(llvmDialect),
-        ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
+    //    //  - Bitcast global to i8*
+    //    Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
+    //    Value i8PtrGlobal =
+    //        rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, globalValue);
+    //    //  - Set size.
+    //    Value memRefElementSize = rewriter.create<LLVM::ConstantOp>(loc,
+    //    llvmI64Ty,
+    //        rewriter.getI64IntegerAttr(getMemRefEltSizeInBytes(memRefTy)));
+    //    Value numElementsValue = rewriter.create<LLVM::ConstantOp>(
+    //        loc, llvmI64Ty, rewriter.getI64IntegerAttr(numElements));
+    //    Value totalElementsSize =
+    //        rewriter.create<LLVM::MulOp>(loc, memRefElementSize,
+    //        numElementsValue);
+    //    Value int64Size =
+    //        rewriter.create<LLVM::SExtOp>(loc, llvmI64Ty, totalElementsSize);
+    //    //  - Set volatile.
+    //    Value isVolatile = rewriter.create<LLVM::ConstantOp>(loc,
+    //        LLVM::LLVMType::getInt1Ty(llvmDialect),
+    //        rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
+    //    //  - Copy constant data into the alloca.
+    //    auto memcpyRef = getOrInsertMemcpy(rewriter, module, llvmDialect);
+    //    rewriter.create<CallOp>(loc, memcpyRef,
+    //        LLVM::LLVMType::getVoidTy(llvmDialect),
+    //        ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size,
+    //        isVolatile}));
 
     // Prepare data to be inserted into MemRef.
     auto llvmConstantElementType = constantElementType.cast<LLVM::LLVMType>();
