@@ -9,7 +9,9 @@
 //===----------------------------------------------------------------------===//
 
 #include <cstdio>
+#include <cstdlib>
 #include <fcntl.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/Program.h>
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <mlir/IR/SymbolTable.h>
@@ -27,6 +29,22 @@
 
 using namespace std;
 using namespace onnx_mlir;
+
+namespace {
+int executeCommandAndWait(
+    const std::string &exe, const std::vector<std::string> &cmds) {
+  auto argsRef = std::vector<llvm::StringRef>(cmds.begin(), cmds.end());
+  bool verbose = false;
+  if (const char *envVerbose = std::getenv("VERBOSE"))
+    std::istringstream(envVerbose) >> verbose;
+  // If in verbose mode, print out command before execution.
+  if (verbose)
+    std::cout << llvm::join(argsRef, " ") << "\n";
+  int rc = llvm::sys::ExecuteAndWait(exe, llvm::makeArrayRef(argsRef));
+  assert(rc == 0 && "Failed to execute:" && llvm::join(argsRef, " ").c_str());
+  return rc;
+}
+} // namespace
 
 void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
@@ -58,43 +76,34 @@ void compileModuleToSharedLibrary(
   llvm::raw_fd_ostream moduleBitcodeStream(
       outputFilename, error, llvm::sys::fs::F_None);
 
-  auto globalOp =
+  auto linkWithConstPack =
       (*module).lookupSymbol<mlir::LLVM::GlobalOp>("constPackFileName");
-  auto fileName = globalOp.valueAttr().dyn_cast_or_null<mlir::StringAttr>();
+  auto fileName =
+      linkWithConstPack.valueAttr().dyn_cast_or_null<mlir::StringAttr>();
 
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
-
-  // Compile bitcode to object file.
-  std::vector<std::string> llcArgs = {
-      "llc", "-filetype=obj", "-relocation-model=pic", outputFilename};
-  auto llcArgStrRefs =
-      std::vector<llvm::StringRef>(llcArgs.begin(), llcArgs.end());
-  std::cout << llvm::join(llcArgStrRefs, " ") << "\n";
-  llvm::sys::ExecuteAndWait(kLlcPath, llvm::makeArrayRef(llcArgStrRefs));
+  executeCommandAndWait(kLlcPath,
+      {"llc", "-filetype=obj", "-relocation-model=pic", outputFilename});
 
   // Code to build object file with data and data loader.
-  auto EmbeddedDataLoaderObj =
-      "/Users/tjin/Documents/onnx-mlir/cmake-build-debug/src/Runtime/"
-      "CMakeFiles/EmbeddedDataLoader.dir/EmbeddedDataLoader.cpp.o";
-  std::vector<std::string> ldArgs = {"ld", "-r", "-o", "param.o", "-sectcreate",
-      "binary", "param", fileName.getValue().str(), EmbeddedDataLoaderObj};
-  auto ldArgStrRefs =
-      std::vector<llvm::StringRef>(ldArgs.begin(), ldArgs.end());
-  std::cout << llvm::join(ldArgStrRefs, " ") << "\n";
-  llvm::sys::ExecuteAndWait(kCxxPath, llvm::makeArrayRef(ldArgStrRefs));
+  llvm::SmallVector<char, 10> cStub;
+  llvm::sys::fs::createTemporaryFile("stub", "c", cStub);
+  string cStubPath(cStub.begin(), cStub.end());
+  llvm::FileRemover remover(cStub);
+  executeCommandAndWait(
+      kCxxPath, {kCxxFileName, "-o", "stub.o", "-c", cStubPath});
 
-  // Link with runtime.
-  // TODO(tjingrant): link with runtime library in LLVM, and make the shared
-  // library more self-contained.
-  std::vector<std::string> cxxArgs = {kCxxFileName, "-shared", "-fPIC",
-      outputBaseName + ".o", "param.o", "-o", outputBaseName + ".so",
-      "-L" + kRuntimeDirPath, "-lcruntime", "-Wl,-rpath," + kRuntimeDirPath};
-  auto argsArrayRefVector =
-      std::vector<llvm::StringRef>(cxxArgs.begin(), cxxArgs.end());
-  std::cout << llvm::join(argsArrayRefVector, " ") << "\n";
-  llvm::sys::ExecuteAndWait(kCxxPath, llvm::makeArrayRef(argsArrayRefVector));
+  // Create param.o holding packed parameter values.
+  executeCommandAndWait(
+      kLinkerPath, {kLinkerFileName, "-r", "-o", "param.o", "-sectcreate",
+                       "binary", "param", fileName.getValue().str(), "stub.o"});
+
+  // Link with runtime, dataloader.
+  executeCommandAndWait(kCxxPath,
+      {kCxxFileName, "-shared", "-fPIC", outputBaseName + ".o", "param.o", "-o",
+          outputBaseName + ".so", "-lEmbeddedDataLoader", "-lcruntime"});
 }
 
 void registerDialects() {

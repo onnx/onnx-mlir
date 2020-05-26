@@ -50,25 +50,8 @@ public:
       assert(op.value()->isa<DenseElementsAttr>());
       const auto &denseVal = op.valueAttr().cast<DenseElementsAttr>();
 
-      std::vector<char> rawData;
-      if (denseVal.getType().getElementType().isF32()) {
-        std::vector<float> data;
-        for (const auto &elem : denseVal.getFloatValues())
-          data.emplace_back(elem.convertToFloat());
-        auto dataPtr = (char *)data.data();
-        rawData =
-            std::vector<char>(dataPtr, dataPtr + data.size() * sizeof(float));
-      } else if (denseVal.getType().getElementType().isInteger(64)) {
-        std::vector<int64_t> data;
-
-        for (const auto &elem : denseVal.getIntValues())
-          data.emplace_back(elem.getSExtValue());
-        auto dataPtr = (char *)data.data();
-        rawData =
-            std::vector<char>(dataPtr, dataPtr + data.size() * sizeof(int64_t));
-      } else {
-        llvm_unreachable("not implemented yet.");
-      }
+      // TODO(tjingrant) verify we can actually use the raw data.
+      std::vector<char> rawData = denseVal.getRawData();
       packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
     });
 

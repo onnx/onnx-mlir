@@ -20,6 +20,8 @@ endif()
 # Get the compiler command name, the C++ compiler is needed to to translate
 # object files to shared libraries.
 get_filename_component(CXX_COMPILER_FILENAME ${CMAKE_CXX_COMPILER} NAME)
+get_filename_component(CXX_LINKER_FILENAME ${CMAKE_LINKER} NAME)
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
         ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp)
 
@@ -68,3 +70,4 @@ target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_BIN_ROOT})
 install(TARGETS onnx-mlir DESTINATION bin)
 install(FILES Runtime/DynMemRef.h DESTINATION include)
 install(TARGETS cruntime DESTINATION lib)
+install(TARGETS EmbeddedDataLoader DESTINATION lib)
