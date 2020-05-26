@@ -18,8 +18,8 @@ void *getSegmentData(int64_t size_in_byte) {
   return data;
 }
 #elif __linux__
-extern char _binary_param_bin_start[];
-extern char _binary_param_bin_end[];
+extern char _binary_param_bin_start;
+extern char _binary_param_bin_end;
 
 void *getSegmentData(int64_t _) {
   auto size = (unsigned int)(&_binary_param_bin_end - &_binary_param_bin_start);
