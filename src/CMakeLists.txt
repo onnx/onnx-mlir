@@ -46,6 +46,7 @@ target_link_libraries(onnx-mlir
         OMShapeInferenceOpInterface
         OMAttributePromotion
         OMPromotableConstOperandsOpInterface
+        OMResultTypeInferenceOpInterface
         OMElideConstants
         OMElideKrnlGlobalConstants
         OMKrnlToAffine
@@ -65,5 +66,3 @@ target_include_directories(onnx-mlir PRIVATE ${CMAKE_BINARY_DIR})
 target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_BIN_ROOT})
 
 install(TARGETS onnx-mlir DESTINATION bin)
-install(FILES Runtime/DynMemRef.h DESTINATION include)
-install(TARGETS cruntime DESTINATION lib)

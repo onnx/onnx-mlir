@@ -17,6 +17,7 @@ add_dependencies(OMMLONNXOps OMMLONNXOpsIncGen)
 # Linking dependencies:
 add_dependencies(OMMLONNXOps
         OMPromotableConstOperandsOpInterface
+        OMResultTypeInferenceOpInterface
         OMShapeInferenceOpInterface)
 
 add_onnx_mlir_dialect_doc(mlonnx MLONNXOps.td)
