@@ -25,7 +25,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
-#include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
+#include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/IR/MLIRContext.h"
@@ -42,14 +42,14 @@ enum EmissionTargetType {
   EmitONNXIR,
   EmitMLIR,
   EmitLLVMIR,
-  EmitLLVMBC,
+  EmitLib,
 };
 
 void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
 
-void EmitLLVMBitCode(
-    const mlir::OwningModuleRef &module, std::string outputFilename);
+void compileModuleToSharedLibrary(
+    const mlir::OwningModuleRef &module, std::string outputBaseName);
 
 void registerDialects();
 

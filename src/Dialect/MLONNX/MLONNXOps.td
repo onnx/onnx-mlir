@@ -27,6 +27,11 @@ include "src/Interface/ShapeInferenceInterface.td"
 include "src/Interface/PromotableConstOperandsOpInterface.td"
 #endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 
+#ifdef RESULT_TYPE_INFERENCE_OP_INTERFACE
+#else
+include "src/Interface/ResultTypeInferenceOpInterface.td"
+#endif // RESULT_TYPE_INFERENCE_OP_INTERFACE
+
 def MLONNX_Dialect : Dialect {
   let name = "mlonnx";
   let cppNamespace = "";
@@ -61,7 +66,7 @@ class MLONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 // 4. type of string, complex64 and complex128 for input/output are ignored 
 // 5. unsigned int are treated as signed one
 
-include "mlir/Interfaces/SideEffects.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Dialect/MLONNX/MLONNXOps.td.inc"
 
 #endif // MLONNX_OPS

@@ -14,6 +14,17 @@ def MLONNXArrayFeatureExtractorOp:MLONNX_Op<"ArrayFeatureExtractor",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Z);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def MLONNXBinarizerOp:MLONNX_Op<"Binarizer",
@@ -22,9 +33,20 @@ def MLONNXBinarizerOp:MLONNX_Op<"Binarizer",
   let description = [{
   "Maps the values of the input tensor to either 0 or 1, element-wise, based on the outcome of a comparison against a threshold value."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$X,
     DefaultValuedAttr<F32Attr, "0.0">:$threshold);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def MLONNXCastMapOp:MLONNX_Op<"CastMap",
@@ -40,6 +62,17 @@ def MLONNXCastMapOp:MLONNX_Op<"CastMap",
     DefaultValuedAttr<StrAttr, "DENSE">:$map_form,
     DefaultValuedAttr<I64Attr, "1">:$max_map);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def MLONNXCategoryMapperOp:MLONNX_Op<"CategoryMapper",
@@ -61,6 +94,17 @@ def MLONNXCategoryMapperOp:MLONNX_Op<"CategoryMapper",
     DefaultValuedAttr<I64Attr, "-1">:$default_int64,
     DefaultValuedAttr<StrAttr, "_Unused">:$default_string);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def MLONNXDictVectorizerOp:MLONNX_Op<"DictVectorizer",
@@ -84,6 +128,17 @@ def MLONNXDictVectorizerOp:MLONNX_Op<"DictVectorizer",
     OptionalAttr<I64ArrayAttr>:$int64_vocabulary,
     OptionalAttr<StrArrayAttr>:$string_vocabulary);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def MLONNXFeatureVectorizerOp:MLONNX_Op<"FeatureVectorizer",
@@ -95,9 +150,20 @@ def MLONNXFeatureVectorizerOp:MLONNX_Op<"FeatureVectorizer",
   "    Inputs are copied to the output maintaining the order of the input arguments.<br>"
   "    All inputs must be integers or floats, while the output will be all floating point values."
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$X,
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[I32,I64,F32,F64]>, MemRefOf<[I32,I64,F32,F64]>]>>:$X,
     OptionalAttr<I64ArrayAttr>:$inputdimensions);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def MLONNXImputerOp:MLONNX_Op<"Imputer",
@@ -113,12 +179,23 @@ def MLONNXImputerOp:MLONNX_Op<"Imputer",
   "    which one depends on whether floats or integers are being processed.<br>"
   "    The imputed_value attribute length can be 1 element, or it can have one element per input feature.<br>In other words, if the input tensor has the shape [*,F], then the length of the attribute array may be 1 or F. If it is 1, then it is broadcast along the last dimension and applied to each feature."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$X,
     OptionalAttr<F32ArrayAttr>:$imputed_value_floats,
     OptionalAttr<I64ArrayAttr>:$imputed_value_int64s,
     DefaultValuedAttr<F32Attr, "0.0">:$replaced_value_float,
     DefaultValuedAttr<I64Attr, "0">:$replaced_value_int64);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def MLONNXLabelEncoderOp:MLONNX_Op<"LabelEncoder",
@@ -154,6 +231,17 @@ def MLONNXLabelEncoderOp:MLONNX_Op<"LabelEncoder",
     OptionalAttr<I64ArrayAttr>:$values_int64s,
     OptionalAttr<StrArrayAttr>:$values_strings);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def MLONNXLinearClassifierOp:MLONNX_Op<"LinearClassifier",
@@ -162,7 +250,7 @@ def MLONNXLinearClassifierOp:MLONNX_Op<"LinearClassifier",
   let description = [{
   "Linear classifier"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$X,
     OptionalAttr<I64ArrayAttr>:$classlabels_ints,
     OptionalAttr<StrArrayAttr>:$classlabels_strings,
     F32ArrayAttr:$coefficients,
@@ -171,6 +259,17 @@ def MLONNXLinearClassifierOp:MLONNX_Op<"LinearClassifier",
     DefaultValuedAttr<StrAttr, "NONE">:$post_transform);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$Z);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1,-1};
+    }
+  }];
 }
 
 def MLONNXLinearRegressorOp:MLONNX_Op<"LinearRegressor",
@@ -184,12 +283,23 @@ def MLONNXLinearRegressorOp:MLONNX_Op<"LinearRegressor",
   "    The coefficients array is of length n, and the coefficients for each target are contiguous."
   "    Intercepts are optional but if provided must match the number of targets."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$X,
     OptionalAttr<F32ArrayAttr>:$coefficients,
     OptionalAttr<F32ArrayAttr>:$intercepts,
     DefaultValuedAttr<StrAttr, "NONE">:$post_transform,
     DefaultValuedAttr<I64Attr, "1">:$targets);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def MLONNXNormalizerOp:MLONNX_Op<"Normalizer",
@@ -207,9 +317,20 @@ def MLONNXNormalizerOp:MLONNX_Op<"Normalizer",
   "    For batches, that is, [N,C] tensors, normalization is done along the C axis. In other words, each row"
   "    of the batch is normalized independently."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$X,
     DefaultValuedAttr<StrAttr, "MAX">:$norm);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def MLONNXOneHotEncoderOp:MLONNX_Op<"OneHotEncoder",
@@ -230,6 +351,17 @@ def MLONNXOneHotEncoderOp:MLONNX_Op<"OneHotEncoder",
     OptionalAttr<StrArrayAttr>:$cats_strings,
     DefaultValuedAttr<I64Attr, "1">:$zeros);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def MLONNXSVMClassifierOp:MLONNX_Op<"SVMClassifier",
@@ -238,7 +370,7 @@ def MLONNXSVMClassifierOp:MLONNX_Op<"SVMClassifier",
   let description = [{
   "Support Vector Machine classifier"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$X,
     OptionalAttr<I64ArrayAttr>:$classlabels_ints,
     OptionalAttr<StrArrayAttr>:$classlabels_strings,
     OptionalAttr<F32ArrayAttr>:$coefficients,
@@ -252,6 +384,17 @@ def MLONNXSVMClassifierOp:MLONNX_Op<"SVMClassifier",
     OptionalAttr<I64ArrayAttr>:$vectors_per_class);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$Z);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1,-1};
+    }
+  }];
 }
 
 def MLONNXSVMRegressorOp:MLONNX_Op<"SVMRegressor",
@@ -260,7 +403,7 @@ def MLONNXSVMRegressorOp:MLONNX_Op<"SVMRegressor",
   let description = [{
   "Support Vector Machine regression prediction and one-class SVM anomaly detection."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$X,
     OptionalAttr<F32ArrayAttr>:$coefficients,
     OptionalAttr<F32ArrayAttr>:$kernel_params,
     DefaultValuedAttr<StrAttr, "LINEAR">:$kernel_type,
@@ -270,6 +413,17 @@ def MLONNXSVMRegressorOp:MLONNX_Op<"SVMRegressor",
     OptionalAttr<F32ArrayAttr>:$rho,
     OptionalAttr<F32ArrayAttr>:$support_vectors);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def MLONNXScalerOp:MLONNX_Op<"Scaler",
@@ -278,10 +432,21 @@ def MLONNXScalerOp:MLONNX_Op<"Scaler",
   let description = [{
   "Rescale input data, for example to standardize features by removing the mean and scaling to unit variance."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$X,
     OptionalAttr<F32ArrayAttr>:$offset,
     OptionalAttr<F32ArrayAttr>:$scale);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def MLONNXTreeEnsembleClassifierOp:MLONNX_Op<"TreeEnsembleClassifier",
@@ -298,7 +463,7 @@ def MLONNXTreeEnsembleClassifierOp:MLONNX_Op<"TreeEnsembleClassifier",
   "    One and only one of classlabels_strings or classlabels_int64s"
   "    will be defined. The class_ids are indices into this list."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$X,
     OptionalAttr<F32ArrayAttr>:$base_values,
     OptionalAttr<I64ArrayAttr>:$class_ids,
     OptionalAttr<I64ArrayAttr>:$class_nodeids,
@@ -318,6 +483,17 @@ def MLONNXTreeEnsembleClassifierOp:MLONNX_Op<"TreeEnsembleClassifier",
     DefaultValuedAttr<StrAttr, "NONE">:$post_transform);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$Z);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1,-1};
+    }
+  }];
 }
 
 def MLONNXTreeEnsembleRegressorOp:MLONNX_Op<"TreeEnsembleRegressor",
@@ -335,7 +511,7 @@ def MLONNXTreeEnsembleRegressorOp:MLONNX_Op<"TreeEnsembleRegressor",
   "    All trees must have their node ids start at 0 and increment by 1.<br>"
   "    Mode enum is BRANCH_LEQ, BRANCH_LT, BRANCH_GTE, BRANCH_GT, BRANCH_EQ, BRANCH_NEQ, LEAF"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64,I64,I32]>, MemRefOf<[F32,F64,I64,I32]>]>:$X,
     DefaultValuedAttr<StrAttr, "SUM">:$aggregate_function,
     OptionalAttr<F32ArrayAttr>:$base_values,
     OptionalAttr<I64Attr>:$n_targets,
@@ -354,6 +530,17 @@ def MLONNXTreeEnsembleRegressorOp:MLONNX_Op<"TreeEnsembleRegressor",
     OptionalAttr<I64ArrayAttr>:$target_treeids,
     OptionalAttr<F32ArrayAttr>:$target_weights);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def MLONNXZipMapOp:MLONNX_Op<"ZipMap",
@@ -369,5 +556,16 @@ def MLONNXZipMapOp:MLONNX_Op<"ZipMap",
     OptionalAttr<I64ArrayAttr>:$classlabels_int64s,
     OptionalAttr<StrArrayAttr>:$classlabels_strings);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Z);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 

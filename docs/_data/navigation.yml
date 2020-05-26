@@ -29,5 +29,7 @@ toc:
 #        url: /piece1.html
   - title: Tools
     subfolderitems:
+      - page: debug.py - Debug Numerical Errors
+        url: /DebuggingNumericalError.html
       - page: DocCheck - Handling Necessary Code Duplication
         url: /doc_check/
