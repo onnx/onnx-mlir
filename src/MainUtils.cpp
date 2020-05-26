@@ -78,8 +78,9 @@ void compileModuleToSharedLibrary(
 
   auto linkWithConstPack =
       (*module).lookupSymbol<mlir::LLVM::GlobalOp>("constPackFileName");
-  auto fileName =
+  auto constPackFileName =
       linkWithConstPack.valueAttr().dyn_cast_or_null<mlir::StringAttr>();
+  llvm::sys::fs::rename(constPackFileName.getValue(), "param.bin");
 
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
@@ -87,6 +88,7 @@ void compileModuleToSharedLibrary(
   executeCommandAndWait(kLlcPath,
       {"llc", "-filetype=obj", "-relocation-model=pic", outputFilename});
 
+#if __APPLE__
   // Code to build object file with data and data loader.
   llvm::SmallVector<char, 10> cStub;
   llvm::sys::fs::createTemporaryFile("stub", "c", cStub);
@@ -98,8 +100,12 @@ void compileModuleToSharedLibrary(
   // Create param.o holding packed parameter values.
   executeCommandAndWait(
       kLinkerPath, {kLinkerFileName, "-r", "-o", "param.o", "-sectcreate",
-                       "binary", "param", fileName.getValue().str(), "stub.o"});
-
+                    "binary", "param", "param.bin", "stub.o"});
+#elif #elif __linux__
+  // Create param.o holding packed parameter values.
+  executeCommandAndWait(
+      kLinkerPath, {kLinkerFileName, "-r", "-b", "binary", "-o", "param.o", "param.bin"});
+#endif
   // Link with runtime, dataloader.
   executeCommandAndWait(kCxxPath,
       {kCxxFileName, "-shared", "-fPIC", outputBaseName + ".o", "param.o", "-o",
