@@ -24,7 +24,7 @@ extern char _binary_param_bin_end[];
 void *getSegmentData(int64_t _) {
   auto size = (unsigned int)(&_binary_param_bin_end - &_binary_param_bin_start);
   void *buffer = malloc(size);
-  memcpy(buffer, &_binary_foo_bar_end, size);
+  memcpy(buffer, &_binary_param_bin_start, size);
   return buffer;
 }
 void *
