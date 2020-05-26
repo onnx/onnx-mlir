@@ -5,38 +5,38 @@
 //********************************************************
 
 if (opName == "ArrayFeatureExtractor")
-  return buildOperation<mlir::MLONNXArrayFeatureExtractorOp>(node, /* expected_num_operands = */ 2, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXArrayFeatureExtractorOp>(node);
 if (opName == "Binarizer")
-  return buildOperation<mlir::MLONNXBinarizerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXBinarizerOp>(node);
 if (opName == "CastMap")
-  return buildOperation<mlir::MLONNXCastMapOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXCastMapOp>(node);
 if (opName == "CategoryMapper")
-  return buildOperation<mlir::MLONNXCategoryMapperOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXCategoryMapperOp>(node);
 if (opName == "DictVectorizer")
-  return buildOperation<mlir::MLONNXDictVectorizerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXDictVectorizerOp>(node);
 if (opName == "FeatureVectorizer")
-  return buildOperation<mlir::MLONNXFeatureVectorizerOp>(node, /* expected_num_operands = */ -1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXFeatureVectorizerOp>(node);
 if (opName == "Imputer")
-  return buildOperation<mlir::MLONNXImputerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXImputerOp>(node);
 if (opName == "LabelEncoder")
-  return buildOperation<mlir::MLONNXLabelEncoderOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXLabelEncoderOp>(node);
 if (opName == "LinearClassifier")
-  return buildOperation<mlir::MLONNXLinearClassifierOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 2);
+   buildOperation<mlir::MLONNXLinearClassifierOp>(node);
 if (opName == "LinearRegressor")
-  return buildOperation<mlir::MLONNXLinearRegressorOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXLinearRegressorOp>(node);
 if (opName == "Normalizer")
-  return buildOperation<mlir::MLONNXNormalizerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXNormalizerOp>(node);
 if (opName == "OneHotEncoder")
-  return buildOperation<mlir::MLONNXOneHotEncoderOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXOneHotEncoderOp>(node);
 if (opName == "SVMClassifier")
-  return buildOperation<mlir::MLONNXSVMClassifierOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 2);
+   buildOperation<mlir::MLONNXSVMClassifierOp>(node);
 if (opName == "SVMRegressor")
-  return buildOperation<mlir::MLONNXSVMRegressorOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXSVMRegressorOp>(node);
 if (opName == "Scaler")
-  return buildOperation<mlir::MLONNXScalerOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXScalerOp>(node);
 if (opName == "TreeEnsembleClassifier")
-  return buildOperation<mlir::MLONNXTreeEnsembleClassifierOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 2);
+   buildOperation<mlir::MLONNXTreeEnsembleClassifierOp>(node);
 if (opName == "TreeEnsembleRegressor")
-  return buildOperation<mlir::MLONNXTreeEnsembleRegressorOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXTreeEnsembleRegressorOp>(node);
 if (opName == "ZipMap")
-  return buildOperation<mlir::MLONNXZipMapOp>(node, /* expected_num_operands = */ 1, /* expected_num_results = */ 1);
+   buildOperation<mlir::MLONNXZipMapOp>(node);

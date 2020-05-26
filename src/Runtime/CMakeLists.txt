@@ -24,3 +24,6 @@ add_library(EmbeddedDataLoader STATIC
         EmbeddedDataLoader.cpp)
 set_target_properties(EmbeddedDataLoader PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
+install(FILES DynMemRef.h DESTINATION include)
+install(TARGETS cruntime DESTINATION lib)
+install(TARGETS EmbeddedDataLoader DESTINATION lib)
