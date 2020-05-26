@@ -22,3 +22,5 @@ add_dependencies(pyruntime cruntime)
 add_library(EmbeddedDataLoader STATIC
         EmbeddedDataLoader.h
         EmbeddedDataLoader.cpp)
+set_target_properties(EmbeddedDataLoader PROPERTIES
+        POSITION_INDEPENDENT_CODE TRUE)
