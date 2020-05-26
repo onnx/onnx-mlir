@@ -28,6 +28,6 @@ target_include_directories(OMONNXToKrnl
         ${ONNX_MLIR_SRC_ROOT})
 
 # Header dependencies
-add_dependencies(OMONNXToKrnl OMKrnlOpsInc OMMLONNXOpsInc)
+add_dependencies(OMONNXToKrnl OMKrnlOpsInc OMONNXOpsInc)
 # Linking dependencies
 add_dependencies(OMONNXToKrnl OMKrnlOps)
