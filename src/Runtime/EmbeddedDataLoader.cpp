@@ -27,6 +27,4 @@ void *getSegmentData(int64_t _) {
   memcpy(buffer, &_binary_param_bin_start, size);
   return buffer;
 }
-void *
-
 #endif
