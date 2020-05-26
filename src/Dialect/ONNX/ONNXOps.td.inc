@@ -559,7 +559,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX Constant operation";
   let description = [{
   "A constant tensor. Exactly one of the two attributes, either value or sparse_value,"
@@ -578,6 +578,15 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     static std::vector<int> getTypeMap() {
       return {-1};
     }
+    std::vector<mlir::Type> resultTypeInference() {
+      std::vector<mlir::Type> resultTypes;
+      if (auto attr = valueAttr()) {
+        resultTypes.push_back(attr.getType());
+      } else if (auto attr = sparse_valueAttr()) {
+        resultTypes.push_back(attr.getType());
+      }
+      return resultTypes;
+    }
   }];
     let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
@@ -589,7 +598,8 @@ def ONNXConstantOp:ONNX_Op<"Constant",
         build(builder, state, tensorType, sparse_value, value);
       }
     }]>
-    ];}
+    ];
+}
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
   [NoSideEffect]> {
