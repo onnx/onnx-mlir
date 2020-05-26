@@ -100,11 +100,11 @@ void compileModuleToSharedLibrary(
   // Create param.o holding packed parameter values.
   executeCommandAndWait(
       kLinkerPath, {kLinkerFileName, "-r", "-o", "param.o", "-sectcreate",
-                    "binary", "param", "param.bin", "stub.o"});
+                       "binary", "param", "param.bin", "stub.o"});
 #elif __linux__
   // Create param.o holding packed parameter values.
-  executeCommandAndWait(
-      kLinkerPath, {kLinkerFileName, "-r", "-b", "binary", "-o", "param.o", "param.bin"});
+  executeCommandAndWait(kLinkerPath,
+      {kLinkerFileName, "-r", "-b", "binary", "-o", "param.o", "param.bin"});
 #endif
   // Link with runtime, dataloader.
   executeCommandAndWait(kCxxPath,
