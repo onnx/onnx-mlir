@@ -38,6 +38,7 @@ jobs:
       - run:
           name: Run End-To-End Tests
           command: |
+            cmake --build . --target install
             sudo pip install -q -e ./onnx-mlir/third_party/onnx
             cd onnx-mlir/build
             cmake --build . --target check-onnx-backend
