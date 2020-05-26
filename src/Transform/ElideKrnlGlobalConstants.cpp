@@ -31,11 +31,14 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
   auto loc = op.getLoc();
 
   if (op.value().hasValue()) {
-    IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
-    auto newGlobalOp = rewriter.create<KrnlGlobalOp>(loc,
-        op.getResult().getType(), /*shape=*/op.shape(),
-        /*name=*/op.name(), /*value=*/nullptr, /*offset=*/offsetAttr);
-    rewriter.replaceOp(op, newGlobalOp.getResult());
+    const auto &valAttr = op.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
+    if (valAttr.getNumElements() > 32) {
+      IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
+      auto newGlobalOp = rewriter.create<KrnlGlobalOp>(loc,
+          op.getResult().getType(), /*shape=*/op.shape(),
+          /*name=*/op.name(), /*value=*/nullptr, /*offset=*/offsetAttr);
+      rewriter.replaceOp(op, newGlobalOp.getResult());
+    }
   }
 
   return success();

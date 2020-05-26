@@ -48,10 +48,12 @@ public:
       assert(op.value());
       op.offsetAttr(builder.getI64IntegerAttr(packedConst.size()));
       assert(op.value()->isa<DenseElementsAttr>());
-      const auto &denseVal = op.valueAttr().cast<DenseElementsAttr>();
-
+      const auto &denseAttr = op.valueAttr().cast<DenseElementsAttr>();
+      if (denseAttr.dyn_cast_or_null<DenseElementsAttr>().getNumElements() <=
+          32)
+        return;
       // TODO(tjingrant) verify we can actually use the raw data.
-      std::vector<char> rawData = denseVal.getRawData();
+      std::vector<char> rawData = denseAttr.getRawData();
       packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
     });
 

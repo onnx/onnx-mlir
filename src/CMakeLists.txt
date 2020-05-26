@@ -62,6 +62,8 @@ if (INCLUDE_ONNX_ML)
   target_link_libraries(onnx-mlir OMMLONNXOps)
 endif()
 
+add_dependencies(onnx-mlir cruntime)
+add_dependencies(onnx-mlir EmbeddedDataLoader)
 
 target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(onnx-mlir PRIVATE ${CMAKE_BINARY_DIR})
