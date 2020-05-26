@@ -55,9 +55,11 @@ target_link_libraries(onnx-mlir
         OMONNXRewrite
         ${MLIRLibs}
         ${CMAKE_DL_LIBS})
+add_dependencies(onnx-mlir OMKrnlOpsInc OMONNXOpsInc)
 
 if (INCLUDE_ONNX_ML)
   target_link_libraries(onnx-mlir OMMLONNXOps)
+  add_dependencies(onnx-mlir OMMLONNXOpsInc)
 endif()
 
 
