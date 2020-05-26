@@ -101,7 +101,7 @@ void compileModuleToSharedLibrary(
   executeCommandAndWait(
       kLinkerPath, {kLinkerFileName, "-r", "-o", "param.o", "-sectcreate",
                     "binary", "param", "param.bin", "stub.o"});
-#elif #elif __linux__
+#elif __linux__
   // Create param.o holding packed parameter values.
   executeCommandAndWait(
       kLinkerPath, {kLinkerFileName, "-r", "-b", "binary", "-o", "param.o", "param.bin"});
