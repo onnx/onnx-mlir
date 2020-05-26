@@ -352,11 +352,16 @@ test_to_enable = [
     "test_lstm_with_initial_bias_cpu",
     "test_lstm_with_peepholes_cpu",
 
+    # ResNet
+    "test_resnet50_cpu",
 ]
 
 # Extract name of all test cases.
 import inspect
-all_tests = inspect.getmembers(
+all_tests = []
+all_tests += inspect.getmembers(
+    backend_test.test_cases["OnnxBackendRealModelTest"])
+all_tests += inspect.getmembers(
     backend_test.test_cases["OnnxBackendNodeModelTest"])
 all_test_names = list(map(lambda x: x[0], all_tests))
 
