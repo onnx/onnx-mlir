@@ -54,7 +54,8 @@ public:
       if (returnsDynamicShape(op)) {
         dynamicOperations++;
         op->dump();
-        op->getResult(0).getDefiningOp()->dump();
+        op->getOperand(0).getDefiningOp()->dump();
+//        op->getResult(0).getDefiningOp()->dump();
       }
 
     });
