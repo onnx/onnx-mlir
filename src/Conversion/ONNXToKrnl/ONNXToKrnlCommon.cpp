@@ -345,6 +345,7 @@ Value emitConstantOp(ConversionPatternRewriter &rewriter, Location loc,
     constantAttr = rewriter.getIntegerAttr(type, (int64_t)value);
   } else {
     emitError(loc, "unsupported element type");
+    return nullptr;
   }
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
@@ -410,9 +411,11 @@ Value emitPositiveInfinityConstantOp(
       }
     } else {
       emitError(loc, "unsupported element type");
+      return nullptr;
     }
   } else {
     emitError(loc, "unsupported element type");
+    return nullptr;
   }
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
@@ -478,9 +481,11 @@ Value emitNegativeInfinityConstantOp(
       }
     } else {
       emitError(loc, "unsupported element type");
+      return nullptr;
     }
   } else {
     emitError(loc, "unsupported element type");
+    return nullptr;
   }
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
