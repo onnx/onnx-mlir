@@ -108,14 +108,14 @@ static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
     auto rvec = std::vector<T>(res, res + size);
     if (std::is_same<T, int64_t>::value) {
       for (const auto &item : rvec)
-        print("debug case 1 = %d\n", item);
+        printf("debug case 1 = %d\n", item);
     }
     return rvec;
   }
 
   if (std::is_same<T, int64_t>::value) {
     for (const auto &item : initializer.int64_data())
-      print("debug case 2 = %d\n", item);
+      printf("debug case 2 = %d\n", item);
   }
 
   // copy, no need to take care of endianness
