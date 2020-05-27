@@ -13,6 +13,8 @@
 #include <fcntl.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/Program.h>
+#include <string>
+
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <mlir/IR/SymbolTable.h>
 
@@ -31,12 +33,20 @@ using namespace std;
 using namespace onnx_mlir;
 
 namespace {
+
+llvm::Optional<std::string> getEnvVar(std::string name) {
+  if (const char *envVerbose = std::getenv(name.c_str()))
+    return std::string(envVerbose);
+  return llvm::None;
+}
+
 int executeCommandAndWait(
     const std::string &exe, const std::vector<std::string> &cmds) {
   auto argsRef = std::vector<llvm::StringRef>(cmds.begin(), cmds.end());
   bool verbose = false;
-  if (const char *envVerbose = std::getenv("VERBOSE"))
-    std::istringstream(envVerbose) >> verbose;
+  if (const auto &verboseStr = getEnvVar("VERBOSE"))
+    std::istringstream(verboseStr.getValue()) >> verbose;
+
   // If in verbose mode, print out command before execution.
   if (verbose)
     std::cout << llvm::join(argsRef, " ") << "\n";
@@ -91,7 +101,7 @@ void compileModuleToSharedLibrary(
 #if __APPLE__
   // Code to build object file with data and data loader.
   llvm::SmallVector<char, 10> cStub;
-  llvm::sys::fs::createTemporaryFile("stub", "c", cStub);
+  llvm::sys::fs::createTemporaryFile("stub", "cpp", cStub);
   string cStubPath(cStub.begin(), cStub.end());
   llvm::FileRemover remover(cStub);
   executeCommandAndWait(
@@ -106,10 +116,14 @@ void compileModuleToSharedLibrary(
   executeCommandAndWait(kLinkerPath,
       {kLinkerFileName, "-r", "-b", "binary", "-o", "param.o", "param.bin"});
 #endif
+  std::string runtimeDir = getEnvVar("RUNTIME_DIR").hasValue()
+                               ? "-L" + getEnvVar("RUNTIME_DIR").getValue()
+                               : "";
   // Link with runtime, dataloader.
-  executeCommandAndWait(kCxxPath,
-      {kCxxFileName, "-shared", "-fPIC", outputBaseName + ".o", "param.o", "-o",
-          outputBaseName + ".so", "-lEmbeddedDataLoader", "-lcruntime"});
+  executeCommandAndWait(
+      kCxxPath, {kCxxFileName, "-shared", "-fPIC", outputBaseName + ".o",
+                    "param.o", "-o", outputBaseName + ".so", runtimeDir,
+                    "-lEmbeddedDataLoader", "-lcruntime"});
 }
 
 void registerDialects() {
