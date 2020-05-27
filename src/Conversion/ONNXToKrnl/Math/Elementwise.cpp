@@ -490,6 +490,7 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
     return rewriter.create<mlir::SubIOp>(loc, zero, operand); // 0 - X = -X
   } else {
     emitError(loc, "unsupported element type");
+    return nullptr;
   }
 }
 
