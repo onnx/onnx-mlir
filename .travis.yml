@@ -4,9 +4,9 @@ services:
 language: cpp
 dist: bionic
 arch:
-  - amd64
-  - ppc64le
   - s390x
+  - ppc64le
+  - amd64
 script: 
   - docker build --tag onnx-mlir-build:initial ./docker
   - docker run -itd --name build onnx-mlir-build:initial
