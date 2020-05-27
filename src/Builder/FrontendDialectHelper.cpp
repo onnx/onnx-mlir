@@ -105,7 +105,17 @@ static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
         back_inserter(byteInitializer));
     size = initializer.raw_data().size() / sizeof(T);
     T *res = reinterpret_cast<T *>(&byteInitializer[0]);
-    return std::vector<T>(res, res + size);
+    auto rvec = std::vector<T>(res, res + size);
+    if (std::is_same<T, int64_t>::value) {
+      for (const auto &item : rvec)
+        print("debug case 1 = %d\n", item);
+    }
+    return rvec;
+  }
+
+  if (std::is_same<T, int64_t>::value) {
+    for (const auto &item : initializer.int64_data())
+      print("debug case 2 = %d\n", item);
   }
 
   // copy, no need to take care of endianness
