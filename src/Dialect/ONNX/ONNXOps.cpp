@@ -1080,7 +1080,8 @@ LogicalResult ONNXReshapeOp::inferShapes() {
   if (constantOp) {
     DenseElementsAttr valueAttribute =
         constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-
+    printf("ConstOp found for Reshape!\n");
+    constantOp.dump();
     if (!valueAttribute)
       return emitError("DenseElementsAttr expected");
     // Get dims from valueAttribute.
