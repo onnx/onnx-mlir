@@ -705,7 +705,9 @@ public:
           LLVM::LLVMType::getArrayTy(LLVM::LLVMType::getInt8Ty(llvmDialect),
               fileNameAttr.getValue().size());
       rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
-          LLVM::Linkage::Internal, "constPackFileName", fileNameAttr);
+          LLVM::Linkage::Internal,
+          mlir::KrnlPackedConstantOp::getConstPackFilePathSymbolName(),
+          fileNameAttr);
     }
 
     rewriter.eraseOp(op);

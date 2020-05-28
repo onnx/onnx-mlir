@@ -86,11 +86,12 @@ void compileModuleToSharedLibrary(
   llvm::raw_fd_ostream moduleBitcodeStream(
       outputFilename, error, llvm::sys::fs::F_None);
 
-  auto linkWithConstPack =
-      (*module).lookupSymbol<mlir::LLVM::GlobalOp>("constPackFileName");
-  auto constPackFileName =
+  auto linkWithConstPack = (*module).lookupSymbol<mlir::LLVM::GlobalOp>(
+      mlir::KrnlPackedConstantOp::getConstPackFilePathSymbolName());
+  auto constPackTempFileName =
       linkWithConstPack.valueAttr().dyn_cast_or_null<mlir::StringAttr>();
-  llvm::sys::fs::rename(constPackFileName.getValue(), "param.bin");
+  auto constPackFileName = mlir::KrnlPackedConstantOp::getConstPackFileName();
+  llvm::sys::fs::rename(constPackTempFileName.getValue(), constPackFileName);
 
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
@@ -110,11 +111,12 @@ void compileModuleToSharedLibrary(
   // Create param.o holding packed parameter values.
   executeCommandAndWait(
       kLinkerPath, {kLinkerFileName, "-r", "-o", "param.o", "-sectcreate",
-                       "binary", "param", "param.bin", "stub.o"});
+                       "binary", "param", constPackFileName.str(), "stub.o"});
 #elif __linux__
   // Create param.o holding packed parameter values.
-  executeCommandAndWait(kLinkerPath,
-      {kLinkerFileName, "-r", "-b", "binary", "-o", "param.o", "param.bin"});
+  executeCommandAndWait(
+      kLinkerPath, {kLinkerFileName, "-r", "-b", "binary", "-o", "param.o",
+                       constPackFileName.str()});
 #endif
   std::string runtimeDir = getEnvVar("RUNTIME_DIR").hasValue()
                                ? "-L" + getEnvVar("RUNTIME_DIR").getValue()

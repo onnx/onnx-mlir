@@ -218,6 +218,17 @@ def KrnlPackedConstantOp : Op<Krnl_Dialect, "packed_const"> {
                        OptionalAttr<StrAttr>:$file_name);
   let results = (outs I64:$output);
 
+  let extraClassDeclaration = [{
+    // The path to the file storing the constant pack on disk is encoded
+    // as a global variable in the LLVM module of the lowered model.
+    // The symbol name is recorded below.
+    static StringRef getConstPackFilePathSymbolName() { return "constPackFilePath"; }
+
+    // The file name of the constant pack. This file name has to be consistent
+    // with the external symbol name indicating the starting memory address of this
+    // embedded binary data.
+    static StringRef getConstPackFileName() { return "param.bin"; }
+  }];
   let parser = ?;
   let printer = ?;
 }
