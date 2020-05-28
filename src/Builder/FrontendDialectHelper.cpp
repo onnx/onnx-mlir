@@ -7,6 +7,8 @@
 // Helper methods for handling input ONNX models.
 //
 //===----------------------------------------------------------------------===//
+#include <llvm/Support/Endian.h>
+#include <llvm/Support/SwapByteOrder.h>
 
 #include "src/Builder/FrontendDialectHelper.hpp"
 
@@ -105,7 +107,12 @@ static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
         back_inserter(byteInitializer));
     size = initializer.raw_data().size() / sizeof(T);
     T *res = reinterpret_cast<T *>(&byteInitializer[0]);
+
     auto rvec = std::vector<T>(res, res + size);
+    if (llvm::support::endian::system_endianness() != llvm::support::endianness::little)
+      for (int i=0; i<rvec.size(); i++)
+        llvm::sys::swapByteOrder<T>(rvec[i]);
+
     if (std::is_same<T, int64_t>::value) {
       fprintf(stderr, "debug-hit!\n");
       for (const auto &item : rvec)
