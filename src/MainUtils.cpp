@@ -91,7 +91,6 @@ void compileModuleToSharedLibrary(
   auto constPackTempFileName =
       linkWithConstPack.valueAttr().dyn_cast_or_null<mlir::StringAttr>();
   auto constPackFileName = mlir::KrnlPackedConstantOp::getConstPackFileName();
-  llvm::sys::fs::rename(constPackTempFileName.getValue(), constPackFileName);
 
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
@@ -99,24 +98,48 @@ void compileModuleToSharedLibrary(
   executeCommandAndWait(kLlcPath,
       {"llc", "-filetype=obj", "-relocation-model=pic", outputFilename});
 
+  llvm::SmallVector<char, 10> wdPath;
+  llvm::sys::fs::createUniqueDirectory("onnx-mlir", wdPath);
+
+  // Move constant pack to working directory.
+  llvm::SmallVector<char, 10> constPackPath = wdPath;
+  llvm::sys::path::append(constPackPath, constPackFileName);
+  llvm::sys::fs::rename(constPackTempFileName.getValue(), constPackPath);
+  std::string constPackPathStr(constPackPath.begin(), constPackPath.end());
+
+  llvm::SmallVector<char, 10> paramObjPath = wdPath;
+  llvm::sys::path::append(paramObjPath, "param.o");
+  std::string paramObjPathStr(paramObjPath.begin(), paramObjPath.end());
 #if __APPLE__
   // Code to build object file with data and data loader.
-  llvm::SmallVector<char, 10> cStub;
-  llvm::sys::fs::createTemporaryFile("stub", "cpp", cStub);
-  string cStubPath(cStub.begin(), cStub.end());
-  llvm::FileRemover remover(cStub);
+  llvm::SmallVector<char, 10> cStubPath = wdPath;
+  llvm::sys::path::append(cStubPath, "stub.cpp");
+
+  // Create empty stub file.
+  int descriptor;
+  llvm::sys::fs::openFileForWrite(cStubPath, descriptor);
+  llvm::FileRemover remover(cStubPath);
+  close(descriptor);
+  std::string stubPathStr(cStubPath.begin(), cStubPath.end());
+
+  // Construct paths to the stub object file.
+  llvm::SmallVector<char, 10> cStubObjPath = wdPath;
+  llvm::sys::path::append(cStubObjPath, "stub.o");
+  std::string cStubObjPathStr(cStubObjPath.begin(), cStubObjPath.end());
+
+  // Compile empty stub src file to an empty sub object file.
   executeCommandAndWait(
-      kCxxPath, {kCxxFileName, "-o", "stub.o", "-c", cStubPath});
+      kCxxPath, {kCxxFileName, "-o", cStubObjPathStr, "-c", stubPathStr});
 
   // Create param.o holding packed parameter values.
   executeCommandAndWait(
-      kLinkerPath, {kLinkerFileName, "-r", "-o", "param.o", "-sectcreate",
-                       "binary", "param", constPackFileName.str(), "stub.o"});
+      kLinkerPath, {kLinkerFileName, "-r", "-o", paramObjPathStr, "-sectcreate",
+                       "binary", "param", constPackPathStr, cStubObjPathStr});
 #elif __linux__
   // Create param.o holding packed parameter values.
   executeCommandAndWait(
-      kLinkerPath, {kLinkerFileName, "-r", "-b", "binary", "-o", "param.o",
-                       constPackFileName.str()});
+      kLinkerPath, {kLinkerFileName, "-r", "-b", "binary", "-o",
+                       paramObjPathStr, constPackPathStr});
 #endif
   std::string runtimeDir = getEnvVar("RUNTIME_DIR").hasValue()
                                ? "-L" + getEnvVar("RUNTIME_DIR").getValue()
