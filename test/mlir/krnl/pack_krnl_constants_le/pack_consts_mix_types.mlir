@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --pack-krnl-constants='elision-threshold=3 move-to-file=true filename=test1.bin' %s -split-input-file && binary-decoder test1.bin -s 0 -n 16 -FLOAT | FileCheck %s -check-prefix=BINARY_DECODER_1
+// RUN: onnx-mlir-opt --pack-krnl-constants='elision-threshold=3 move-to-file=true filename=test1.bin' %s -split-input-file && binary-decoder test1.bin -s 0 -n 16 -FLOAT -rm | FileCheck %s -check-prefix=BINARY_DECODER_1
 // RUN: onnx-mlir-opt --pack-krnl-constants='elision-threshold=3 move-to-file=true filename=test2.bin' %s -split-input-file && binary-decoder test2.bin -s 16 -n 32 -INT32 -rm | FileCheck %s -check-prefix=BINARY_DECODER_2
 
 // BINARY_DECODER_1: 0.1 0.2 0.3 0.4
