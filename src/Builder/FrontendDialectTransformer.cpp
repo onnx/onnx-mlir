@@ -317,12 +317,12 @@ private:
     }
 
     for (int i = 0; i < node.output().size(); i++) {
-        if (variadicOut)
-          frontend_symbols_.AddMapping(
-              legalize_name(node.output()[i]), *(op.getODSResults(0).begin() + i));
-        else
-          frontend_symbols_.AddMapping(
-              legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));
+      if (variadicOut)
+        frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
+            *(op.getODSResults(0).begin() + i));
+      else
+        frontend_symbols_.AddMapping(
+            legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));
     }
   }
 
