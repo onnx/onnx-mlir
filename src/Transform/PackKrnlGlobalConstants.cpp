@@ -49,9 +49,10 @@ public:
       op.offsetAttr(builder.getI64IntegerAttr(packedConst.size()));
       assert(op.value()->isa<DenseElementsAttr>());
       const auto &denseAttr = op.valueAttr().cast<DenseElementsAttr>();
-      if (denseAttr.dyn_cast_or_null<DenseElementsAttr>().getNumElements() <=
-          32)
+      auto numElements = denseAttr.getNumElements();
+      if (numElements <= elisionThreshold)
         return;
+
       // TODO(tjingrant) verify we can actually use the raw data.
       std::vector<char> rawData = denseAttr.getRawData();
       packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
@@ -60,7 +61,8 @@ public:
     // Remove value attributes from krnl constant op.
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
-    patterns.insert<KrnlConstGlobalValueElision>(&getContext());
+    patterns.insert<KrnlConstGlobalValueElision>(
+        &getContext(), elisionThreshold);
     // Apply constant value elision.
     module.walk(
         [&](FuncOp func) { applyPatternsAndFoldGreedily(func, patterns); });
@@ -68,31 +70,50 @@ public:
     mlir::OperationState state(module.getLoc(), "krnl.packed_const");
     KrnlPackedConstantOp::build(builder, state,
         builder.getIntegerType(/*width=*/64),
-        /*size=*/builder.getI64IntegerAttr(packedConst.size()),
+        /*sizeInBytes=*/builder.getI64IntegerAttr(packedConst.size()),
         /*value=*/nullptr,
         /*file_name=*/nullptr);
     auto packedConstOp =
         llvm::cast<mlir::KrnlPackedConstantOp>(mlir::Operation::create(state));
     module.insert(module.begin(), packedConstOp);
     if (moveToFile) {
-      llvm::SmallVector<char, 10> path;
-      llvm::sys::fs::createTemporaryFile("_packed_const", "tmp", path);
-      std::string pathStr(path.begin(), path.end());
+      std::string pathStr;
+      if (filename.hasValue()) {
+        pathStr = filename.getValue();
+      } else {
+        llvm::SmallVector<char, 10> path;
+        llvm::sys::fs::createTemporaryFile("_packed_const", "tmp", path);
+        pathStr = std::string(path.begin(), path.end());
+      }
       packedConstOp.file_nameAttr(builder.getStringAttr(pathStr));
-
       std::ofstream outfile(pathStr, std::ofstream::binary);
       outfile.write(packedConst.data(), packedConst.size());
     } else {
-      auto shapeTy = MemRefType::get({static_cast<int64_t>(packedConst.size())},
-          builder.getIntegerType(8));
-      packedConstOp.valueAttr(
-          DenseIntElementsAttr::get(shapeTy, llvm::makeArrayRef(packedConst)));
+      auto shapeTy =
+          RankedTensorType::get({static_cast<int64_t>(packedConst.size())},
+              builder.getIntegerType(8));
+      shapeTy.dump();
+      auto denseAttr =
+          DenseIntElementsAttr::get(shapeTy, llvm::makeArrayRef(packedConst));
+      packedConstOp.valueAttr(denseAttr);
     }
   }
 
   Option<bool> moveToFile{*this, "move-to-file",
       llvm::cl::desc("Whether to move the packed constant to a file."),
       llvm::cl::init(true)};
+  Option<int64_t> elisionThreshold{*this, "elision-threshold",
+      llvm::cl::desc(
+          "A threshold value specifying the maximum number of elements a "
+          "constant operation can hold as an attribute. If the number exceeds "
+          "this threshold, constants will be packed together and, in the case "
+          "where `move-to-file` option is enabled, stored as a  binary file on "
+          "disk. This can help preserve readability of IR dump and improve "
+          "compilation speed."),
+      llvm::cl::init(KrnlConstGlobalValueElision::kDefaultElisionThreshold)};
+  Option<std::string> filename{*this, "filename",
+      llvm::cl::desc(
+          "Specify a file in which the packed constant is to be stored.")};
 };
 } // namespace
 

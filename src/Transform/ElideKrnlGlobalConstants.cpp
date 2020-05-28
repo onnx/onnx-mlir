@@ -26,13 +26,15 @@
 
 using namespace mlir;
 
+const int64_t KrnlConstGlobalValueElision::kDefaultElisionThreshold = 32;
+
 mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
     mlir::KrnlGlobalOp op, mlir::PatternRewriter &rewriter) const {
   auto loc = op.getLoc();
 
   if (op.value().hasValue()) {
     const auto &valAttr = op.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
-    if (valAttr.getNumElements() > 32) {
+    if (valAttr.getNumElements() > elisionThreshold) {
       IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
       auto newGlobalOp = rewriter.create<KrnlGlobalOp>(loc,
           op.getResult().getType(), /*shape=*/op.shape(),
