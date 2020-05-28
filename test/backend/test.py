@@ -32,6 +32,33 @@ def execute_commands(cmds):
     subprocess.run(cmds, stdout=subprocess.PIPE)
 
 
+class EndiannessAwareExecutionSession(ExecutionSession):
+    def __init__(self, path, entry_point):
+        super().__init__(path, entry_point)
+
+    def is_input_le(self, inputs):
+        inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
+        endianness_is_consistent = len(set(iterator)) <= 1
+        assert(endianness_is_consistent, "Input arrays contain a mixture of endianness configuration.")
+
+        sys_is_le = sys.byteorder == 'little'
+        inp_is_le = inputs_endianness[0] == "<" or (inputs_endianness[0] == "=" and sys_is_le)
+        return inp_is_le
+
+    def run(self, inputs, **kwargs):
+        if len(inputs):
+            sys_is_le = sys.byteorder == 'little'
+            inp_is_le = self.is_input_le(inputs)
+            if (sys_is_le != inp_is_le):
+                inputs = list(map(lambda x: x.byteswap().newbyteorder(), inputs))
+            outputs = super().run(inputs)
+            if (sys_is_le != inp_is_le):
+                outputs = list(map(lambda x: x.byteswap().newbyteorder(), outputs))
+            return outputs
+        else:
+            return super().run(inputs)
+
+
 class DummyBackend(onnx.backend.base.Backend):
     @classmethod
     def prepare(cls, model, device='CPU', **kwargs):
@@ -40,7 +67,7 @@ class DummyBackend(onnx.backend.base.Backend):
         onnx.save(model, "temp_model.onnx")
         # Call frontend to process temp_model.onnx, bit code will be generated.
         execute_commands([ONNX_MLIR, "temp_model.onnx"])
-        return ExecutionSession("./temp_model.so", "_dyn_entry_point_main_graph")
+        return EndiannessAwareExecutionSession("./temp_model.so", "_dyn_entry_point_main_graph")
 
     @classmethod
     def supports_device(cls, device):
@@ -48,7 +75,6 @@ class DummyBackend(onnx.backend.base.Backend):
         if d.type == DeviceType.CPU:
             return True
         return False
-
 
 backend_test = onnx.backend.test.BackendTest(DummyBackend, __name__)
 
