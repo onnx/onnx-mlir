@@ -753,7 +753,7 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   // Lower from the `krnl` dialect i.e. the Reshape operation.
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(
       &getContext());
-  
+
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
   if (failed(applyFullConversion(
