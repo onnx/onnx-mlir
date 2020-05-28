@@ -106,26 +106,16 @@ static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
     std::copy(initializer.raw_data().begin(), initializer.raw_data().end(),
         back_inserter(byteInitializer));
     size = initializer.raw_data().size() / sizeof(T);
-    T *res = reinterpret_cast<T *>(&byteInitializer[0]);
+    T *arrayPtr = reinterpret_cast<T *>(&byteInitializer[0]);
+    auto array = std::vector<T>(arrayPtr, arrayPtr + size);
+    // Perform byte swap if system endianness is BE.
+    // ONNX tensor content raw data is always in LE.
+    if (llvm::support::endian::system_endianness() !=
+        llvm::support::endianness::little)
+      for (int i = 0; i < array.size(); i++)
+        llvm::sys::swapByteOrder<T>(array[i]);
 
-    auto rvec = std::vector<T>(res, res + size);
-    if (llvm::support::endian::system_endianness() != llvm::support::endianness::little)
-      for (int i=0; i<rvec.size(); i++)
-        llvm::sys::swapByteOrder<T>(rvec[i]);
-
-    if (std::is_same<T, int64_t>::value) {
-      fprintf(stderr, "debug-hit!\n");
-      for (const auto &item : rvec)
-        fprintf(stderr, "debug case 1 = %d\n", item);
-    }
-    return rvec;
-  }
-
-  if (std::is_same<T, int64_t>::value) {
-    fprintf(stderr, "debug-hit!\n");
-    for (const auto &item : initializer.int64_data()) {
-      fprintf(stderr, "debug case 2 = %d\n", item);
-    }
+    return array;
   }
 
   // copy, no need to take care of endianness
