@@ -92,7 +92,6 @@ public:
       auto shapeTy =
           RankedTensorType::get({static_cast<int64_t>(packedConst.size())},
               builder.getIntegerType(8));
-      shapeTy.dump();
       auto denseAttr =
           DenseIntElementsAttr::get(shapeTy, llvm::makeArrayRef(packedConst));
       packedConstOp.valueAttr(denseAttr);
