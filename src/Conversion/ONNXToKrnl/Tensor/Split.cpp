@@ -22,11 +22,12 @@ struct ONNXSplitOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     ONNXSplitOp splitOp = llvm::dyn_cast<ONNXSplitOp>(op);
     auto axis = splitOp.axis().getSExtValue();
+    auto split = splitOp.split().getValue();
     SmallVector<int64_t, 4> splitOffset;
     int64_t offset = 0;
-    for (int i = 0; i < splitOp.split().getValue().size(); ++i) {
+    for (int i = 0; i < split.size(); ++i) {
       splitOffset.emplace_back(offset);
-      offset += ArrayAttrIntVal(splitOp.split().getValue(), i);
+      offset += ArrayAttrIntVal(split, i);
     }
     auto rank = splitOp.input().getType().cast<ShapedType>().getRank();
     auto outputNum = splitOp.getNumResults();
@@ -40,11 +41,27 @@ struct ONNXSplitOpLowering : public ConversionPattern {
 
       if (hasAllConstantDimensions(memRefType))
         alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-      else
-        // TODO: unknown dimensions.
-        return failure();
-      // alloc = insertAllocAndDealloc(
-      //    memRefType, loc, rewriter, insertDealloc, {splitOp.outputs()[i]});
+      else {
+        SmallVector<Value, 4> allocOperands;
+        auto shape = memRefType.getShape();
+        for (decltype(rank) r = 0; r < rank; ++r) {
+          if (shape[r] < 0) {
+            Value dim;
+            if (r != axis)
+              dim = rewriter.create<DimOp>(loc, operands[0], r);
+            else
+              dim = emitConstantOp(rewriter, loc, rewriter.getIndexType(),
+                  ArrayAttrIntVal(split, i));
+            allocOperands.push_back(dim);
+          }
+        }
+        alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+        if (insertDealloc) {
+          auto *parentBlock = alloc.getDefiningOp()->getBlock();
+          auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+          dealloc.getOperation()->moveBefore(&parentBlock->back());
+        }
+      }
       allocs.emplace_back(alloc);
     }
 
@@ -53,23 +70,23 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
       BuildKrnlLoop outputLoops(rewriter, loc, rank);
-      outputLoops.createDefineAndOptimizeOp();
-      for (int r = 0; r < rank; ++r)
-        outputLoops.pushBounds(0, allocs[i], r);
+      outputLoops.createDefineOptimizeAndIterateOp(allocs[i]);
       outputLoops.createIterateOp();
       rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
       // Indices for the read and write.
       SmallVector<Value, 4> readIndices;
       SmallVector<Value, 4> writeIndices;
       for (int r = 0; r < rank; ++r) {
-        if (r != axis || i == 0) {
+        // Same index for read and write if the dimension is:
+        //  - the first dimension, or
+        //  - not the split axis.
+        if (i == 0 || r != axis) {
           readIndices.emplace_back(outputLoops.getInductionVar(r));
         } else {
-          AffineMap indexWithOffsetMap = AffineMap::get(
-              1, 0, rewriter.getAffineDimExpr(0) + splitOffset[i]);
-          auto indexWithOffset =
-              rewriter.create<AffineApplyOp>(loc, indexWithOffsetMap,
-                  ValueRange(ArrayRef<Value>{outputLoops.getInductionVar(r)}));
+          auto index = rewriter.getAffineDimExpr(0);
+          auto indexMap = AffineMap::get(1, 0, index + splitOffset[i]);
+          auto indexWithOffset = rewriter.create<AffineApplyOp>(loc, indexMap,
+              ArrayRef<Value>{/*index=*/outputLoops.getInductionVar(r)});
           readIndices.emplace_back(indexWithOffset);
         }
         writeIndices.emplace_back(outputLoops.getInductionVar(r));
