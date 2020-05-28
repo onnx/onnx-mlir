@@ -31,14 +31,23 @@ def execute_commands(cmds):
         print(" ".join(cmds))
     subprocess.run(cmds, stdout=subprocess.PIPE)
 
-
+# There are two issues, which necessitates the adoption of this endianness aware
+# wrapper around Execution Session:
+# 1. Input arrays are given sometimes in native byte order, sometime in LE byte order, and
+#    as soon as the python array enters into py::array C++ objects through pybind, we
+#    will no longer be able to query their endianness. So we must intercept the inputs
+#    and convert them into native endianness.
+# 2. Output arrays are compared with reference outputs, the comparison unfortunately
+#    includes checking that our outputs and reference outputs share the same endianness.
+#    So we try to figure out what is the desired reference output endianness, and convert
+#    our outputs to this desired endianness.
 class EndiannessAwareExecutionSession(ExecutionSession):
     def __init__(self, path, entry_point):
         super().__init__(path, entry_point)
 
     def is_input_le(self, inputs):
         inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
-        endianness_is_consistent = len(set(iterator)) <= 1
+        endianness_is_consistent = len(set(inputs_endianness)) <= 1
         assert(endianness_is_consistent, "Input arrays contain a mixture of endianness configuration.")
 
         sys_is_le = sys.byteorder == 'little'
