@@ -12,6 +12,9 @@ llvm::cl::opt<int64_t> Start("s",
 llvm::cl::opt<int64_t> Size("n",
     llvm::cl::desc("Specify the number of bytes of data to decode"),
     llvm::cl::value_desc("size"), llvm::cl::Required);
+llvm::cl::opt<bool> Remove(
+    "rm", llvm::cl::desc(
+              "Whether to remove the file being decoded after inspection."));
 
 enum OnnxDataType {
   UNDEFINED = 0,
@@ -67,8 +70,14 @@ int main(int argc, char **argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv);
   std::vector<char> buffer(Size);
   std::ifstream file(Filename, std::ios::in | std::ios::binary);
+  if (!file)
+    return -1;
   file.seekg(Start, file.beg);
   file.read(&buffer[0], Size);
+  file.close();
+
+  if (Remove)
+    llvm::sys::fs::remove(Filename);
 
 #define PRINT_BUFFER_FOR_TYPE(ONNX_TYPE, CPP_TYPE)                             \
   if (DataType == ONNX_TYPE)                                                   \
