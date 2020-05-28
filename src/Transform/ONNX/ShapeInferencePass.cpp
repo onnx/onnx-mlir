@@ -53,16 +53,11 @@ public:
     f.walk([&](mlir::Operation *op) {
       if (returnsDynamicShape(op)) {
         dynamicOperations++;
-        op->dump();
-        op->getOperand(0).getDefiningOp()->dump();
-//        op->getResult(0).getDefiningOp()->dump();
       }
-
     });
 
     // If any dynamic operations remain, this indicates a failure.
     if (dynamicOperations != 0) {
-//      f.dump();
       f.emitError("Shape inference failed, ")
           << dynamicOperations << " operations couldn't be inferred\n";
       signalPassFailure();
