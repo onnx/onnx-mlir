@@ -279,6 +279,38 @@ OpsWithResultTypeInference = {
         resultTypes.push_back(attr.getType());
       } else if (auto attr = sparse_valueAttr()) {
         resultTypes.push_back(attr.getType());
+      }''',
+  "Cast":
+    '''auto toAttr = to().getSExtValue();
+      auto builder = mlir::Builder(getContext());
+      switch (toAttr) {
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16*/10:
+          resultTypes.push_back(mlir::UnrankedTensorType::get(builder.getF16Type()));
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_FLOAT*/1:
+          resultTypes.push_back(mlir::UnrankedTensorType::get(builder.getF32Type()));
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE*/11:
+          resultTypes.push_back(mlir::UnrankedTensorType::get(builder.getF64Type()));
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_INT8*/3:
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_UINT8*/2:
+          resultTypes.push_back(mlir::UnrankedTensorType::get(builder.getIntegerType(/*width=*/8)));
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_INT16*/5:
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_UINT16*/4:
+          resultTypes.push_back(mlir::UnrankedTensorType::get(builder.getIntegerType(/*width=*/16)));
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_INT32*/6:
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_UINT32*/12:
+          resultTypes.push_back(mlir::UnrankedTensorType::get(builder.getIntegerType(/*width=*/32)));
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_INT64*/7:
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_UINT64*/13:
+          resultTypes.push_back(mlir::UnrankedTensorType::get(builder.getIntegerType(/*width=*/64)));
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_BOOL*/9:
+          resultTypes.push_back(mlir::UnrankedTensorType::get(builder.getI1Type()));
+
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_STRING*/8:
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64*/14:
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128*/15:
+        case /*onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED*/0:
+        default:
+          resultTypes.push_back(builder.getNoneType());
       }'''
 }
        
