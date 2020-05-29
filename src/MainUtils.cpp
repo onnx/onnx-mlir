@@ -51,7 +51,12 @@ int executeCommandAndWait(
   if (verbose)
     std::cout << llvm::join(argsRef, " ") << "\n";
   int rc = llvm::sys::ExecuteAndWait(exe, llvm::makeArrayRef(argsRef));
-  assert(rc == 0 && "Failed to execute:" && llvm::join(argsRef, " ").c_str());
+
+  if (rc != 0) {
+      fprintf(stderr, "%s", llvm::join(argsRef, " ").c_str());
+      llvm_unreachable("Command execution failed.");
+  }
+
   return rc;
 }
 } // namespace
@@ -147,7 +152,7 @@ void compileModuleToSharedLibrary(
   // Link with runtime, dataloader.
   executeCommandAndWait(
       kCxxPath, {kCxxFileName, "-shared", "-fPIC", outputBaseName + ".o",
-                    "param.o", "-o", outputBaseName + ".so", runtimeDir,
+                    paramObjPathStr, "-o", outputBaseName + ".so", runtimeDir,
                     "-lEmbeddedDataLoader", "-lcruntime"});
 }
 
