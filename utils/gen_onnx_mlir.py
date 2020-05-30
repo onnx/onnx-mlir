@@ -294,7 +294,9 @@ custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSum', 'ReduceSumSquare'
 # Custom builder op list for operations with broadcast; we can deduce the right
 # output type, no need to leave it undef as in the above list.
 # Ops must have two operands, not one, not three... And there shall be two.
-custom_builder_broadcast_ops_list = ['Add', 'Mul']
+# TODO: handle variadic ops omitted here: Max, Min, Min, Sum.
+custom_builder_broadcast_ops_list = ['Add', 'And', 'Div', 'Equal', 'Greater',
+                                     'Less', 'Mul', 'Or', 'Pow', 'Sub', 'Xor']
 # union of both
 custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broadcast_ops_list
 
@@ -728,7 +730,8 @@ def gen_op_def(schema):
         else:
             s += indent + 'let builders = [\n'
             # Custom builders with operands and attributes having a seperate parameter.
-            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, Value X, Value, Y, Attribute A", [{}]>
+            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, Value X,
+            #   Value, Y, Attribute A", [{}]>
             indent = inc_indent(indent)
             s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state'
             operands_dict = get_operands_or_results(schema, is_input=True)
@@ -745,12 +748,15 @@ def gen_op_def(schema):
             build_type_name = ''
             if schema.name in custom_builder_broadcast_ops_list:
                 second_operand_name = list(ins.items())[1][0]
-                s += indent + 'auto lhsTy = {}.getType().cast<RankedTensorType>();\n'.format(first_operand_name)
-                s += indent + 'auto rhsTy = {}.getType().cast<RankedTensorType>();\n'.format(second_operand_name)
+                s += indent + 'auto lhsTy = {}.getType().cast<RankedTensorType>();\n'. \
+                    format(first_operand_name)
+                s += indent + 'auto rhsTy = {}.getType().cast<RankedTensorType>();\n'. \
+                    format(second_operand_name)
                 s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
                 build_type_name = 'elementType'
             else:
-                s += indent + 'auto elementType = {}.getType().cast<TensorType>().getElementType();\n'.format(first_operand_name)
+                s += indent + 'auto elementType = {}'.format(first_operand_name) + \
+                    '.getType().cast<TensorType>().getElementType();\n'
                 build_type_name = 'UnrankedTensorType::get(elementType)'
             s += indent + 'build(builder, state, {}'.format(build_type_name)
             for name, _ in ins.items():
@@ -760,15 +766,18 @@ def gen_op_def(schema):
             s += indent + '}]>,\n'
 
             # Custom builders with all operands and attributes having aggregate parameters.
-            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
+            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands,
+            #    ArrayRef<NamedAttribute> attributes", [{}]>'
+            s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state, ' + \
+                'ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
             indent = inc_indent(indent)
             if schema.name in custom_builder_broadcast_ops_list:
                 s += indent + 'auto lhsTy = operands[0].getType().cast<RankedTensorType>();\n'
                 s += indent + 'auto rhsTy = operands[1].getType().cast<RankedTensorType>();\n'
                 s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
             else:    
-                s += indent + 'auto elementType = operands[0].getType().cast<TensorType>().getElementType();\n'
+                s += indent + 'auto elementType = operands[0].getType().' + \
+                    'cast<TensorType>().getElementType();\n'
             s += indent + 'std::vector<mlir::Type> outputTypes;\n'
             s += indent + 'outputTypes.emplace_back({});\n'.format(build_type_name)
             s += indent + 'build(builder, state, outputTypes, operands, attributes);\n'
