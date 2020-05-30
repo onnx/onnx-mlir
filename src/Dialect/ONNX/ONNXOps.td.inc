@@ -95,13 +95,17 @@ def ONNXAddOp:ONNX_Op<"Add",
   let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto elementType = A.getType().cast<TensorType>().getElementType();
-      build(builder, state, UnrankedTensorType::get(elementType), A, B);
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
       std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      outputTypes.emplace_back(elementType);
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
@@ -2650,13 +2654,17 @@ def ONNXMulOp:ONNX_Op<"Mul",
   let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto elementType = A.getType().cast<TensorType>().getElementType();
-      build(builder, state, UnrankedTensorType::get(elementType), A, B);
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
       std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      outputTypes.emplace_back(elementType);
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
