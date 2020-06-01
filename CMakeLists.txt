@@ -39,6 +39,7 @@ else()
 endif()
 
 message(STATUS "INCLUDE_ONNX_ML Dialect " ${INCLUDE_ONNX_ML})
+message(STATUS "CMake objcopy" ${CMAKE_OBJCOPY})
 
 add_subdirectory(utils)
 add_subdirectory(src)
