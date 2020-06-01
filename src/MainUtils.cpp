@@ -13,10 +13,10 @@
 #include <fcntl.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/Program.h>
-#include <string>
-
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <mlir/IR/SymbolTable.h>
+#include <regex>
+#include <string>
 
 #include "src/ExternalUtil.hpp"
 #include "src/MainUtils.hpp"
@@ -35,6 +35,7 @@ using namespace onnx_mlir;
 namespace {
 
 llvm::Optional<std::string> getEnvVar(std::string name) {
+  printf("%s = %s\n", name.c_str(), std::getenv(name.c_str()));
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
   return llvm::None;
@@ -53,8 +54,8 @@ int executeCommandAndWait(
   int rc = llvm::sys::ExecuteAndWait(exe, llvm::makeArrayRef(argsRef));
 
   if (rc != 0) {
-      fprintf(stderr, "%s", llvm::join(argsRef, " ").c_str());
-      llvm_unreachable("Command execution failed.");
+    fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
+    llvm_unreachable("Command execution failed.");
   }
 
   return rc;
@@ -140,11 +141,22 @@ void compileModuleToSharedLibrary(
   executeCommandAndWait(
       kLinkerPath, {kLinkerFileName, "-r", "-o", paramObjPathStr, "-sectcreate",
                        "binary", "param", constPackPathStr, cStubObjPathStr});
+
+  std::regex e("[^0-9A-Za-z]");
+  auto sanitizedName = std::regex_replace(constPackPathStr, e, "_");
+  printf("Sanitized name is %s.\n", sanitizedName.c_str());
 #elif __linux__
   // Create param.o holding packed parameter values.
   executeCommandAndWait(
       kLinkerPath, {kLinkerFileName, "-r", "-b", "binary", "-o",
                        paramObjPathStr, constPackPathStr});
+
+  executeCommandAndWait(kObjCopyPath,
+      {kObjCopyFileName, "--redefine-sym",
+          sanitizedName + "_start=_binary_param_bin_start", paramObjPathStr});
+  executeCommandAndWait(kObjCopyPath,
+      {kObjCopyFileName, "--redefine-sym",
+          sanitizedName + "_end=_binary_param_bin_end", paramObjPathStr});
 #endif
   std::string runtimeDir = getEnvVar("RUNTIME_DIR").hasValue()
                                ? "-L" + getEnvVar("RUNTIME_DIR").getValue()

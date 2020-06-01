@@ -21,6 +21,7 @@ endif()
 # object files to shared libraries.
 get_filename_component(CXX_COMPILER_FILENAME ${CMAKE_CXX_COMPILER} NAME)
 get_filename_component(CXX_LINKER_FILENAME ${CMAKE_LINKER} NAME)
+get_filename_component(OBJ_COPY_FILENAME ${CMAKE_OBJCOPY} NAME)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
         ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp)
