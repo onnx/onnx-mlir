@@ -541,7 +541,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
   "By default 'new_axis' is 0, the behavior is similar to numpy.concatenate."
   "When 'new_axis' is 1, the behavior is similar to numpy.stack."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
+  let arguments = (ins AnyTypeOf<[AnyMemRef, TensorOf<[AnyTensor]>]>:$input_sequence,
     I64Attr:$axis,
     DefaultValuedAttr<I64Attr, "0">:$new_axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$concat_result);
@@ -4332,7 +4332,7 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
   "Accepted range for 'position' is in `[-n, n - 1]`, where `n` is the number of tensors in 'input_sequence'."
   "Negative value means counting positions from the back."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
+  let arguments = (ins AnyTypeOf<[AnyMemRef, TensorOf<[AnyTensor]>]>:$input_sequence,
     AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>]>:$position);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$tensor);
   let extraClassDeclaration = [{
@@ -4356,7 +4356,7 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
   "All tensors in 'inputs' must have the same data type."
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$inputs);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let results = (outs AnyTypeOf<[AnyMemRef, TensorOf<[AnyTensor]>]>:$output_sequence);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return -1;
@@ -4377,7 +4377,7 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
   "Construct an empty tensor sequence, with given data type."
   }];
   let arguments = (ins OptionalAttr<I64Attr>:$dtype);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[AnyMemRef, TensorOf<[AnyTensor]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 0;
@@ -4400,9 +4400,9 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
   "Negative value means counting positions from the back."
   "'position' is optional, by default it erases the last tensor from 'input_sequence'."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
+  let arguments = (ins AnyTypeOf<[AnyMemRef, TensorOf<[AnyTensor]>]>:$input_sequence,
     AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>, NoneType]>:$position);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let results = (outs AnyTypeOf<[AnyMemRef, TensorOf<[AnyTensor]>]>:$output_sequence);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 2;
@@ -4426,10 +4426,10 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
   "Negative value means counting positions from the back."
   "'position' is optional, by default it inserts 'tensor' to the back of 'input_sequence'."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
+  let arguments = (ins AnyTypeOf<[AnyMemRef, TensorOf<[AnyTensor]>]>:$input_sequence,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$tensor,
     AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>, NoneType]>:$position);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let results = (outs AnyTypeOf<[AnyMemRef, TensorOf<[AnyTensor]>]>:$output_sequence);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -4449,7 +4449,7 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
   let description = [{
   "Produces a scalar(tensor of empty shape) containing the number of tensors in 'input_sequence'."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence);
+  let arguments = (ins AnyTypeOf<[AnyMemRef, TensorOf<[AnyTensor]>]>:$input_sequence);
   let results = (outs AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>]>:$length);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -4824,7 +4824,7 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
     AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>, NoneType]>:$split,
     DefaultValuedAttr<I64Attr, "0">:$axis,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let results = (outs AnyTypeOf<[AnyMemRef, TensorOf<[AnyTensor]>]>:$output_sequence);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 2;

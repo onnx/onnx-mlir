@@ -531,7 +531,7 @@ ONNX ConcatFromSequence operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of any type values
+`input_sequence` | memref of any type values or tensor of tensor of any type values values
 
 #### Results:
 
@@ -4363,7 +4363,7 @@ ONNX SequenceAt operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of any type values
+`input_sequence` | memref of any type values or tensor of tensor of any type values values
 `position` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values
 
 #### Results:
@@ -4389,7 +4389,7 @@ ONNX SequenceConstruct operation
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of any type values
+`output_sequence` | memref of any type values or tensor of tensor of any type values values
 
 ### `onnx.SequenceEmpty` (ONNXSequenceEmptyOp)
 
@@ -4407,7 +4407,7 @@ ONNX SequenceEmpty operation
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | memref of any type values or tensor of tensor of any type values values
 
 ### `onnx.SequenceErase` (ONNXSequenceEraseOp)
 
@@ -4422,14 +4422,14 @@ ONNX SequenceErase operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of any type values
+`input_sequence` | memref of any type values or tensor of tensor of any type values values
 `position` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of any type values
+`output_sequence` | memref of any type values or tensor of tensor of any type values values
 
 ### `onnx.SequenceInsert` (ONNXSequenceInsertOp)
 
@@ -4445,7 +4445,7 @@ ONNX SequenceInsert operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of any type values
+`input_sequence` | memref of any type values or tensor of tensor of any type values values
 `tensor` | memref of any type values or tensor of any type values
 `position` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values or none type
 
@@ -4453,7 +4453,7 @@ ONNX SequenceInsert operation
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of any type values
+`output_sequence` | memref of any type values or tensor of tensor of any type values values
 
 ### `onnx.SequenceLength` (ONNXSequenceLengthOp)
 
@@ -4465,7 +4465,7 @@ ONNX SequenceLength operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of any type values
+`input_sequence` | memref of any type values or tensor of tensor of any type values values
 
 #### Results:
 
@@ -4828,7 +4828,7 @@ ONNX SplitToSequence operation
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of any type values
+`output_sequence` | memref of any type values or tensor of tensor of any type values values
 
 ### `onnx.Sqrt` (ONNXSqrtOp)
 

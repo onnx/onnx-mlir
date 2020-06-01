@@ -63,7 +63,7 @@ ONNX CastMap operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tuple with any combination of tensor of 64-bit signless integer values values or memref of 64-bit signless integer values
 
 #### Results:
 
@@ -133,7 +133,7 @@ ONNX DictVectorizer operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tuple with any combination of tensor of 64-bit signless integer or 32-bit float or 64-bit float values values or memref of 64-bit signless integer or 32-bit float or 64-bit float values
 
 #### Results:
 
@@ -593,5 +593,5 @@ ONNX ZipMap operation
 
 | Result | Description |
 | :----: | ----------- |
-`Z` | memref of any type values or tensor of any type values
+`Z` | tensor of tensor of 32-bit float or 64-bit signless integer values values or memref of 32-bit float or 64-bit signless integer values
 
