@@ -271,6 +271,17 @@ OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
 OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
                                   "Pad": [("pads", 1), ("constant_value", 2)]}
 
+# Interface for special handling of type inference
+# The common code are put into get_type_inference_func
+OpsWithResultTypeInference = {
+  "Constant":
+  '''if (auto attr = valueAttr()) {
+        resultTypes.push_back(attr.getType());
+      } else if (auto attr = sparse_valueAttr()) {
+        resultTypes.push_back(attr.getType());
+      }'''
+}
+       
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
 # an UnrankedTensorType whose element type is the same as the first operand's
@@ -297,6 +308,16 @@ custom_definition_misc = dict([ ('Constant',
     ];'''
   )])
 
+
+onnx_types = (
+    'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
+    'float', 'double', 'complex64', 'complex128'
+)
+tblgen_types = ('I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64', 
+    'Complex<F32>', 'Complex<F64>'
+)
+
+MAX_NUM_TYPES=20
 
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
@@ -376,53 +397,55 @@ def tblgen_operand_type_to_cpp_type(op_type):
 
 
 def np_type_to_tblgen_attr_type(tstr):
-    tfrom = np.array([
-        'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
-        'float', 'double'
-    ])
-    tto = np.array(
-        ['I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64'])
     index = -1
-    for i in range(len(tfrom)):
-        if tfrom[i] in tstr:
+    for i in range(len(onnx_types)):
+        if onnx_types[i] in tstr:
             index = i
             break
     if index == -1:
-        print("error", tstr)
-        return ''
+        return None
     else:
-        return tto[i]
+        return tblgen_types[i]
 
+def get_tblgen_type_index(type_str):
+    return tblgen_types.index(type_str)
+
+#the possible data structures are tensor, map and seq(tensor())
+#TOFIX: currently, only tensor structure is supported
+def get_data_structure_element(allowed_type_str): 
+    if allowed_type_str.startswith('tensor') :
+        element = allowed_type_str.replace('tensor(', '', 1).replace(')', '', 1)
+        return ('tensor', element)
+    else :
+        return (None, None)
 
 def get_allowed_elem_types(schema, input):
-    allowed_types_str = None
-    return allowed_types_str
+    #allowed_types_str = None
+    # return allowed_types_str
     # TODO: enable type constraints.
-    # if input.typeStr :
-    #     tstr = input.typeStr
-    # else :
-    #     return allwedTypeStr
-    # if schema.type_constraints:
-    #     for type_constraint in schema.type_constraints:
-    #         if type_constraint.type_param_str != tstr :
-    #             continue
-    #         allowedTypes = type_constraint.allowed_type_strs
-    #         allowedTypeStr=''
-    #         if (len(allowedTypes) > 0):
-    #             t = convert_type(allowedTypes[0])
-    #             if t == '' :
-    #                 return ''
-    #             allowedTypeStr += t
-    #         for allowedType in allowedTypes[1:]:
-    #             t = convert_type(allowedType)
-    #             if t == '' :
-    #                 return ''
-    #             if  not t in allowedTypeStr :
-    #                 allowedTypeStr += ', '+t
-    #
-    #         return allowedTypeStr
-    #
-    # return allowedTypeStr
+    if input.typeStr :
+         tstr = input.typeStr
+    else :
+        return None
+    if schema.type_constraints:
+        for type_constraint in schema.type_constraints:
+            if type_constraint.type_param_str != tstr :
+                continue
+            allowed_type_list=[]
+            allowedTypes = type_constraint.allowed_type_strs
+            for allowedType in allowedTypes:
+                structure, element = get_data_structure_element(allowedType);
+                if structure == None or element == None:
+                    return None
+                t = np_type_to_tblgen_attr_type(element)
+                if t == None :
+                    return None
+                if  not t in allowed_type_list :
+                    allowed_tyoe_list = allowed_type_list.append(t)
+    
+            return allowed_type_list
+    
+    return None
 
 
 def inc_indent(indent=None):
@@ -435,7 +458,6 @@ def dec_indent(indent):
 
 def join_args(args):
     return ", ".join(args)
-
 
 def get_operands_or_results(schema, is_input):
     value_list = schema.inputs if is_input else schema.outputs
@@ -456,8 +478,9 @@ def get_operands_or_results(schema, is_input):
         if elem_types is None:
             types = ["AnyMemRef", "AnyTensor"]
         else:
+            elem_types_str = ','.join(elem_types)
             types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
-            types = list(map(lambda x: x.format(elem_types), types))
+            types = list(map(lambda x: x.format(elem_types_str), types))
 
         # If operand is promotable to an attribute, then it must be
         # nullable in case it migrates to be an attribute.
@@ -545,6 +568,64 @@ def get_attrs(schema):
             name_to_type[attr.name] = get_attr_type_optional(attr.type)
     return name_to_type
 
+def get_numberof_list(mylist):
+    expected_num = len(mylist)
+    for element in mylist :
+        if OpSchema.FormalParameterOption.Variadic == element.option:
+            expected_num = -1
+    return expected_num
+
+def get_output_type_mapping(schema):
+    mapping=[]
+    for output in schema.outputs :
+        #if only one type is allowed, just set that
+        allowed_elem_types = get_allowed_elem_types(schema, output)
+        if allowed_elem_types != None and len(allowed_elem_types) == 1 :
+            mapping.append(str(get_tblgen_type_index(allowed_elem_types[0])))
+            continue
+
+        #map the type string
+        if output.typeStr :
+            tstr = output.typeStr
+            found = False
+            for i, input in enumerate(schema.inputs):
+                if input.typeStr and input.typeStr == tstr:
+                    mapping.append(str(i+MAX_NUM_TYPES))
+                    found = True
+                    break
+            if found:
+                continue
+
+        #unknown output type
+        mapping.append(str(-1))
+        
+    return mapping
+    
+def get_numberof_inout(s, indent, schema):
+    expected_num_operands = get_numberof_list(schema.inputs)
+    indent = inc_indent(indent)
+    s += indent + "static int getNumberOfOperands() {\n"
+    indent = inc_indent(indent)
+    s += indent + "return {};\n".format(expected_num_operands)
+    indent = dec_indent(indent)
+    s += indent + "}\n"
+
+    expected_num_results = get_numberof_list(schema.outputs)
+    s += indent + "static int getNumberOfResults() {\n"
+    indent = inc_indent(indent)
+    s += indent + "return {};\n".format(expected_num_results)
+    indent = dec_indent(indent)
+    s += indent + "}\n"
+
+    s += indent + "static std::vector<int> getTypeMap() {\n"
+    mapping = get_output_type_mapping(schema)
+    indent = inc_indent(indent)
+    s += indent + "return {" + ",".join(mapping) + "};\n"
+    indent = dec_indent(indent)
+    s += indent + "}\n"
+
+    return s
+
 
 def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
     cpp_name_to_idx_literal = "{" + ", ".join([
@@ -552,18 +633,35 @@ def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
         for name_to_idx in const_operands_name_to_idx
     ]) + "}"
 
-    s += indent + "let extraClassDeclaration = [{\n"
+    #s += indent + "let extraClassDeclaration = [{\n"
     indent = inc_indent(indent)
     s += indent + "std::map<std::string, size_t> promotableConstOperands() {\n"
     indent = inc_indent(indent)
     s += indent + "return {};\n".format(cpp_name_to_idx_literal)
     indent = dec_indent(indent)
     s += indent + "}\n"
-    indent = dec_indent(indent)
-    s += indent + "}];\n"
+    #indent = dec_indent(indent)
+    #s += indent + "}];\n"
 
     return s
 
+def get_type_inference_func(s, indent, type_inference_code):
+    indent = inc_indent(indent)
+
+    s += indent + "std::vector<mlir::Type> resultTypeInference() {" + "\n"
+    indent = inc_indent(indent)
+    s += indent + "std::vector<mlir::Type> resultTypes;" + "\n"
+
+    s += indent + type_inference_code + '\n'
+
+    s += indent + "return resultTypes;" + "\n"
+    indent = dec_indent(indent)
+    s += indent + "}" + "\n"
+
+    indent = dec_indent(indent)
+    return s
+  
+  
 
 def gen_op_def(schema):
     indent = inc_indent()
@@ -578,6 +676,8 @@ def gen_op_def(schema):
         traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
     if schema.name in OpsWithPromotableConstOperands.keys():
         traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
+    if schema.name in OpsWithResultTypeInference.keys():
+        traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
     # Generate decl for canonicalizer.
@@ -657,12 +757,26 @@ def gen_op_def(schema):
 
             s += '\n' + indent + '];\n'
 
+    # generate extracClassDeclaration
+    s += indent + "let extraClassDeclaration = [{\n"
+    #indent = inc_indent(indent)
+
+    # generate input/output number
+    s = get_numberof_inout(s, indent, schema)
+
+    # generate ProtableConst 
     if schema.name in OpsWithPromotableConstOperands:
         s = get_promotable_const_operands_func(
             s, indent, OpsWithPromotableConstOperands[schema.name])
 
+    if schema.name in OpsWithResultTypeInference:
+        s = get_type_inference_func(
+            s, indent, OpsWithResultTypeInference[schema.name])
+
+    s += indent + '}];\n'
+
     if ( schema.name in custom_definition_misc) :
-        s += custom_definition_misc[schema.name]
+        s += custom_definition_misc[schema.name] + '\n'
 
     s += '}\n\n'
     return s
@@ -700,11 +814,13 @@ def gen_op_importer(schema, file):
     # Special handlers currently require expected num operands/results to be specified.
     # TODO: remove special handlers.
     args = ["node"]
+    """
     if expected_num_operands != -1 or expected_num_results != -1 or "buildOperation" not in handler_func:
         args.append(
             "/* expected_num_operands = */ {}".format(expected_num_operands))
         args.append(
             '/* expected_num_results = */ {}'.format(expected_num_results))
+    """
     s += inc_indent(indent) + " {}({});\n".format(
         handler_func, ", ".join(args))
 
@@ -770,6 +886,7 @@ def build_operator_schemas():
                         print("Your onnx may be too old."
                            "right version for opertion {} not found".format(
                             schema.name))
+                        sys.exit()
             processed_supportmap.append((_support, processed_namemap))
         operator_schemas.append((domain, processed_supportmap))
     return operator_schemas

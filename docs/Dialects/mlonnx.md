@@ -35,13 +35,13 @@ ONNX Binarizer operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 ### `mlonnx.CastMap` (MLONNXCastMapOp)
 
@@ -160,7 +160,7 @@ ONNX FeatureVectorizer operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit signless integer or 64-bit signless integer or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 32-bit float or 64-bit float values
 
 #### Results:
 
@@ -194,13 +194,13 @@ ONNX Imputer operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 ### `mlonnx.LabelEncoder` (MLONNXLabelEncoderOp)
 
@@ -271,7 +271,7 @@ ONNX LinearClassifier operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 #### Results:
 
@@ -304,7 +304,7 @@ ONNX LinearRegressor operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 #### Results:
 
@@ -337,7 +337,7 @@ ONNX Normalizer operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 #### Results:
 
@@ -404,7 +404,7 @@ ONNX SVMClassifier operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 #### Results:
 
@@ -436,7 +436,7 @@ ONNX SVMRegressor operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 #### Results:
 
@@ -461,7 +461,7 @@ ONNX Scaler operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 #### Results:
 
@@ -509,7 +509,7 @@ ONNX TreeEnsembleClassifier operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 #### Results:
 
@@ -559,7 +559,7 @@ ONNX TreeEnsembleRegressor operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
 
 #### Results:
 

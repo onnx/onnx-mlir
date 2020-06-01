@@ -258,12 +258,12 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         for (auto arg : loopBatchIVs)
           loopBatchKNIVs.emplace_back(arg);
       loopBatchKNIVs.emplace_back(loopKIVs[0]);
-      if (BShape.size() >= 2)
+      if (BShape.size() >= 2) {
         if (AShape.size() >= 2)
           loopBatchKNIVs.emplace_back(loopMNIVs[1]);
         else
           loopBatchKNIVs.emplace_back(loopMNIVs[0]);
-
+      }
       // Matmul computation
       auto loadedA = rewriter.create<LoadOp>(loc, A, loopBatchMKIVs);
       auto loadedB = rewriter.create<LoadOp>(loc, B, loopBatchKNIVs);

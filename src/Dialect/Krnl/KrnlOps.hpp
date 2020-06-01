@@ -32,6 +32,7 @@ public:
       return LoopType::get(parser.getBuilder().getContext());
 
     parser.emitError(parser.getCurrentLocation(), "Unknown type");
+    return nullptr;
   }
 
   /// Print a type registered to this dialect.
