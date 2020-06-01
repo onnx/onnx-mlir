@@ -1,5 +1,5 @@
-# Grab pre-built LLVM from github packages
-FROM onnxmlirczar/onnx-mlir-llvmimage:initial
+# Grab pre-built LLVM from docker hub
+FROM onnxmlirczar/onnx-mlir-llvmimage:s390x
 
 WORKDIR /build/bin
 WORKDIR /build
