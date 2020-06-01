@@ -30,7 +30,7 @@ from pyruntime import ExecutionSession
 def execute_commands(cmds):
     if (VERBOSE):
         print(" ".join(cmds))
-    subprocess.run(cmds, stdout=subprocess.PIPE)
+    subprocess.run(cmds)
 
 
 # There are two issues, which necessitates the adoption of this endianness
