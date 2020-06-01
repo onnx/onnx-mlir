@@ -141,11 +141,11 @@ void compileModuleToSharedLibrary(
   executeCommandAndWait(
       kLinkerPath, {kLinkerFileName, "-r", "-o", paramObjPathStr, "-sectcreate",
                        "binary", "param", constPackPathStr, cStubObjPathStr});
-
+#elif __linux__
   std::regex e("[^0-9A-Za-z]");
   auto sanitizedName = std::regex_replace(constPackPathStr, e, "_");
   printf("Sanitized name is %s.\n", sanitizedName.c_str());
-#elif __linux__
+
   // Create param.o holding packed parameter values.
   executeCommandAndWait(
       kLinkerPath, {kLinkerFileName, "-r", "-b", "binary", "-o",
