@@ -181,7 +181,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
           biasIndices.emplace_back(kernel);
           auto loadBias = rewriter.create<LoadOp>(loc, biasOperand, kernel);
           auto resultWithBias =
-              rewriter.create<MulFOp>(loc, loadResult, loadBias);
+              rewriter.create<AddFOp>(loc, loadResult, loadBias);
           // Store initializer value into output location.
           rewriter.create<StoreOp>(loc, resultWithBias, alloc, resultIndices);
         }
