@@ -2,7 +2,7 @@
 
 Three are two different kinds of errors: errors that comes from user inputs, and compiler errors. We should provide meaningful user feedback for user input errors and we should use the `emitError` functions. Compiler errors should be reported using `asserts` or `llvm_unreachable` calls. In practice, if there are functions where errors are checked, and there is the ability to return "failure," the preferred way is to use `emitError` and return failure.  If, on the other hand, the function does not allow to return failure, then an assert or unreachable call should be used. Returning error is important for passes that check user inputs, e.g. such as during the ingestion of the ONNX model.
 
-## User errors
+## User errors 
 
 MLIR provides for 3 distinct calls depending on the severity: `emitError`, `emitWarning`, and 'emitRemark`. Errors should typically be reported to calling functions for proper handling. Typical use is as depicted below.
 
