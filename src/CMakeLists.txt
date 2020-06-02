@@ -49,6 +49,7 @@ target_link_libraries(onnx-mlir
         OMResultTypeInferenceOpInterface
         OMElideConstants
         OMElideKrnlGlobalConstants
+        OMEnableMemoryPool
         OMKrnlToAffine
         OMKrnlToLLVM
         OMONNXToKrnl
