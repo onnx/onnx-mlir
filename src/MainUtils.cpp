@@ -143,7 +143,7 @@ void compileModuleToSharedLibrary(
                        "binary", "param", constPackPathStr, cStubObjPathStr});
 #elif __linux__
   std::regex e("[^0-9A-Za-z]");
-  auto sanitizedName = std::regex_replace(constPackPathStr, e, "_");
+  auto sanitizedName = "_binary_" + std::regex_replace(constPackPathStr, e, "_");
   printf("Sanitized name is %s.\n", sanitizedName.c_str());
 
   // Create param.o holding packed parameter values.
