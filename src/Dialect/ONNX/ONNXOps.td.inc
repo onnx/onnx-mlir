@@ -438,8 +438,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
       auto toAttr = to().getSExtValue();
       auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(
-        convertONNXTypeToMLIRType(builder,
-      static_cast<onnx::TensorProto_DataType>(toAttr))));
+        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));
       return resultTypes;
     }
   }];
