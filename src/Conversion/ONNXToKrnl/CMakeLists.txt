@@ -31,5 +31,4 @@ target_include_directories(OMONNXToKrnl
 
 # Linking dependencies:
 add_dependencies(OMONNXToKrnl
-        onnx
         OMKrnlOps)

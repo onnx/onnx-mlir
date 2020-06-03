@@ -12,7 +12,6 @@
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/StandardTypes.h"
-#include "mlir/IR/Types.h"
 
 #include "onnx/onnx_pb.h"
 

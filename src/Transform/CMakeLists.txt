@@ -20,7 +20,6 @@ target_include_directories(OMKrnlToLLVM
         ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(OMKrnlToLLVM
         onnx)
-add_dependencies(OMONNXOps OMONNXOpsIncGen)
 
 #Linking dependencies:
 add_dependencies(OMKrnlToLLVM

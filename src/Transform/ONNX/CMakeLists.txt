@@ -21,7 +21,6 @@ add_dependencies(OMElideConstants
 target_link_libraries(OMElideConstants
         onnx)
 
-
 set(LLVM_TARGET_DEFINITIONS ONNXRewrite.td)
 onnx_mlir_tablegen(ONNXRewrite.inc -gen-rewriters)
 add_public_tablegen_target(OMONNXRewriteIncGen)
