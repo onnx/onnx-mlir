@@ -11,6 +11,10 @@
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/Types.h"
+#include "mlir/IR/StandardTypes.h"
+
+#include "onnx/onnx_pb.h"
 
 using namespace mlir;
 
@@ -31,3 +35,6 @@ AffineMap getIdentityDimMap(Builder &builder);
 // - s2: stride
 // - s3: dilation
 AffineMap getConvDimMap(Builder &builder, bool ceilMode);
+
+mlir::Type convertONNXTypeToMLIRType(
+    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
