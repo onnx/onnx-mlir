@@ -48,7 +48,7 @@ Attribute ComputeConstProppElementwiseBinary<ONNXAddOp>(
     double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
     double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
     double res = lhsVal + rhsVal;
-    //printf("  %f + %f -> %f\n", lhsVal, rhsVal, res);
+    // printf("  %f + %f -> %f\n", lhsVal, rhsVal, res);
     // Could use the APFloat interface to emulate the results, are ok to simply
     // perform them in the highest possible precision.
     return rewriter.getFloatAttr(elementType, res);
@@ -57,7 +57,8 @@ Attribute ComputeConstProppElementwiseBinary<ONNXAddOp>(
     uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
     uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
     uint64_t res = lhsVal + rhsVal;
-    //printf("  %llu + %llu -> %llu\n", (unsigned long long) lhsVal, (unsigned long long) rhsVal, (unsigned long long) res);
+    // printf("  %llu + %llu -> %llu\n", (unsigned long long) lhsVal, (unsigned
+    // long long) rhsVal, (unsigned long long) res);
     return rewriter.getIntegerAttr(elementType, lhsVal + rhsVal);
   }
   llvm_unreachable("constant propagation for AddOp: unkonwn data type");
@@ -78,7 +79,7 @@ void RecurseConstProppElementwiseBinary(PatternRewriter &rewriter,
     std::vector<Attribute> &resVector, DenseElementsAttr &lhsAttr,
     DenseElementsAttr &rhsAttr, SmallVector<uint64_t, 4> &lhsIndices,
     SmallVector<uint64_t, 4> &rhsIndices, int lhsFreeRank, int rhsFreeRank) {
-  //printf("recurse with free %d/%d\n", lhsFreeRank, rhsFreeRank);
+  // printf("recurse with free %d/%d\n", lhsFreeRank, rhsFreeRank);
   if (lhsFreeRank == 0) {
     // Fully defined ranks.
     assert(
@@ -164,25 +165,23 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
   return DenseElementsAttr::get(resType, resRef);
 }
 
-  // Function called by the rules to generate the proper added constants
-DenseElementsAttr ConstPropForAddOfTwoConst(PatternRewriter &rewriter,
-    Value resOperand, Attribute &v1, Attribute &v2) {
+// Function called by the rules to generate the proper added constants
+DenseElementsAttr ConstPropForAddOfTwoConst(
+    PatternRewriter &rewriter, Value resOperand, Attribute &v1, Attribute &v2) {
   return ConstPropElementwiseBinary<mlir::ONNXAddOp>(
       rewriter, resOperand, v1, v2);
 }
 
-  
 ////////////////////////////////////////////////////////////////////////////////
 // Pattern definition.
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "src/Transform/ONNX/ONNXConstProp.inc"
 
-  
 ////////////////////////////////////////////////////////////////////////////////
 // Code to manage the pass.
 ////////////////////////////////////////////////////////////////////////////////
-  
+
 struct ConstPropONNXToONNXPass
     : public PassWrapper<ConstPropONNXToONNXPass, FunctionPass> {
   void runOnFunction() final;
@@ -211,4 +210,3 @@ std::unique_ptr<mlir::Pass> mlir::createConstPropONNXToONNXPass() {
 
 static PassRegistration<ConstPropONNXToONNXPass> pass("constprop-onnx",
     "ConstProp ONNX operations into composition of other ONNX operations.");
-
