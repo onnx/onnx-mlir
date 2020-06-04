@@ -35,7 +35,6 @@ using namespace onnx_mlir;
 namespace {
 
 llvm::Optional<std::string> getEnvVar(std::string name) {
-  printf("%s = %s\n", name.c_str(), std::getenv(name.c_str()));
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
   return llvm::None;
@@ -60,6 +59,22 @@ int executeCommandAndWait(
 
   return rc;
 }
+
+struct Command {
+  std::string _path;
+  std::vector<std::string> _args;
+
+  Command(std::string exe, const std::string &exeFileName)
+      : _path(std::move(exe)), _args({exeFileName}) {}
+
+  void appendStr(const std::string &arg) { _args.emplace_back(arg); }
+
+  void appendList(const std::vector<std::string> &args) {
+    _args.insert(_args.end(), args.begin(), args.end());
+  }
+
+  int exec() { return executeCommandAndWait(_path, _args); }
+};
 } // namespace
 
 void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
@@ -86,64 +101,54 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
 
 void compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, string outputBaseName) {
+  // Extract constant pack file name, which is embedded as a symbol in the
+  // module being compiled.
+  auto constPackFilePathSym = (*module).lookupSymbol<mlir::LLVM::GlobalOp>(
+      mlir::KrnlPackedConstantOp::getConstPackFilePathSymbolName());
+  auto constPackFilePath = constPackFilePathSym.valueAttr()
+                               .dyn_cast_or_null<mlir::StringAttr>()
+                               .getValue()
+                               .str();
+
   // Write LLVM bitcode.
   string outputFilename = outputBaseName + ".bc";
   error_code error;
   llvm::raw_fd_ostream moduleBitcodeStream(
       outputFilename, error, llvm::sys::fs::F_None);
-
-  auto linkWithConstPack = (*module).lookupSymbol<mlir::LLVM::GlobalOp>(
-      mlir::KrnlPackedConstantOp::getConstPackFilePathSymbolName());
-  auto constPackTempFileName =
-      linkWithConstPack.valueAttr().dyn_cast_or_null<mlir::StringAttr>();
-  auto constPackFileName = mlir::KrnlPackedConstantOp::getConstPackFileName();
-
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
-  executeCommandAndWait(kLlcPath,
-      {"llc", "-filetype=obj", "-relocation-model=pic", outputFilename});
 
-  llvm::SmallVector<char, 10> wdPath;
-  llvm::sys::fs::createUniqueDirectory("onnx-mlir", wdPath);
+  Command llvmToObj(/*exe=*/kLlcPath, /*exeFileName=*/"llc");
+  llvmToObj.appendStr("-filetype=obj");
+  llvmToObj.appendStr("-relocation-model=pic");
+  llvmToObj.appendStr(outputFilename);
+  llvmToObj.exec();
 
-  // Move constant pack to working directory.
-  llvm::SmallVector<char, 10> constPackPath = wdPath;
-  llvm::sys::path::append(constPackPath, constPackFileName);
-  llvm::sys::fs::rename(constPackTempFileName.getValue(), constPackPath);
-  std::string constPackPathStr(constPackPath.begin(), constPackPath.end());
-
-  llvm::SmallVector<char, 10> paramObjPath = wdPath;
-  llvm::sys::path::append(paramObjPath, "param.o");
-  std::string paramObjPathStr(paramObjPath.begin(), paramObjPath.end());
 #if __APPLE__
-  // Code to build object file with data and data loader.
-  llvm::SmallVector<char, 10> cStubPath = wdPath;
-  llvm::sys::path::append(cStubPath, "stub.cpp");
+  llvm::SmallVector<char, 20> stubSrcPath;
+  llvm::sys::fs::createTemporaryFile("stub", "cpp", stubSrcPath);
+  std::string stubSrcPathStr(stubSrcPath.begin(), stubSrcPath.end());
+  llvm::FileRemover subSrcRemover(stubSrcPath);
 
-  // Create empty stub file.
-  int descriptor;
-  llvm::sys::fs::openFileForWrite(cStubPath, descriptor);
-  llvm::FileRemover remover(cStubPath);
-  close(descriptor);
-  std::string stubPathStr(cStubPath.begin(), cStubPath.end());
+  Command createStubObj(/*exe=*/kCxxPath, /*exeFileName=*/kCxxFileName);
+  std::string stubObjPathStr = stubSrcPathStr + ".o";
+  createStubObj.appendList({"-o", stubObjPathStr});
+  createStubObj.appendList({"-c", stubSrcPathStr});
+  createStubObj.exec();
 
-  // Construct paths to the stub object file.
-  llvm::SmallVector<char, 10> cStubObjPath = wdPath;
-  llvm::sys::path::append(cStubObjPath, "stub.o");
-  std::string cStubObjPathStr(cStubObjPath.begin(), cStubObjPath.end());
+  Command genParamObj(/*exe=*/kLinkerPath, /*exeFileName=*/kLinkerFileName);
+  genParamObj.appendStr("-r");
+  std::string constPackObjPath = constPackFilePath + ".o";
+  genParamObj.appendList({"-o", constPackObjPath});
+  genParamObj.appendList({"-sectcreate", "binary", "param", constPackFilePath});
+  genParamObj.appendStr(stubObjPathStr);
+  genParamObj.exec();
 
-  // Compile empty stub src file to an empty sub object file.
-  executeCommandAndWait(
-      kCxxPath, {kCxxFileName, "-o", cStubObjPathStr, "-c", stubPathStr});
-
-  // Create param.o holding packed parameter values.
-  executeCommandAndWait(
-      kLinkerPath, {kLinkerFileName, "-r", "-o", paramObjPathStr, "-sectcreate",
-                       "binary", "param", constPackPathStr, cStubObjPathStr});
 #elif __linux__
   std::regex e("[^0-9A-Za-z]");
-  auto sanitizedName = "_binary_" + std::regex_replace(constPackPathStr, e, "_");
+  auto sanitizedName =
+      "_binary_" + std::regex_replace(constPackPathStr, e, "_");
   printf("Sanitized name is %s.\n", sanitizedName.c_str());
 
   // Create param.o holding packed parameter values.
@@ -158,14 +163,18 @@ void compileModuleToSharedLibrary(
       {kObjCopyFileName, "--redefine-sym",
           sanitizedName + "_end=_binary_param_bin_end", paramObjPathStr});
 #endif
-  std::string runtimeDir = getEnvVar("RUNTIME_DIR").hasValue()
-                               ? "-L" + getEnvVar("RUNTIME_DIR").getValue()
-                               : "";
-  // Link with runtime, dataloader.
-  executeCommandAndWait(
-      kCxxPath, {kCxxFileName, "-shared", "-fPIC", outputBaseName + ".o",
-                    paramObjPathStr, "-o", outputBaseName + ".so", runtimeDir,
-                    "-lEmbeddedDataLoader", "-lcruntime"});
+  std::string runtimeDirInclFlag = "";
+  if (getEnvVar("RUNTIME_DIR").hasValue())
+      runtimeDirInclFlag = "-L" + getEnvVar("RUNTIME_DIR").getValue();
+
+  Command link(kCxxPath, kCxxFileName);
+  link.appendList({"-shared", "-fPIC"});
+  link.appendStr(outputBaseName + ".o");
+  link.appendStr(constPackObjPath);
+  link.appendList({"-o", outputBaseName + ".so"});
+  link.appendStr(runtimeDirInclFlag);
+  link.appendList({"-lEmbeddedDataLoader", "-lcruntime"});
+  link.exec();
 }
 
 void registerDialects() {
