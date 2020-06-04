@@ -11,12 +11,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fcntl.h>
+#include <regex>
+#include <string>
+
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/Program.h>
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <mlir/IR/SymbolTable.h>
-#include <regex>
-#include <string>
 
 #include "src/ExternalUtil.hpp"
 #include "src/MainUtils.hpp"
@@ -72,6 +73,8 @@ struct Command {
   void appendList(const std::vector<std::string> &args) {
     _args.insert(_args.end(), args.begin(), args.end());
   }
+
+  void resetArgs() { _args.clear(); }
 
   int exec() { return executeCommandAndWait(_path, _args); }
 };
@@ -148,24 +151,31 @@ void compileModuleToSharedLibrary(
 #elif __linux__
   std::regex e("[^0-9A-Za-z]");
   auto sanitizedName =
-      "_binary_" + std::regex_replace(constPackPathStr, e, "_");
-  printf("Sanitized name is %s.\n", sanitizedName.c_str());
+      "_binary_" + std::regex_replace(constPackFilePath, e, "_");
 
   // Create param.o holding packed parameter values.
-  executeCommandAndWait(
-      kLinkerPath, {kLinkerFileName, "-r", "-b", "binary", "-o",
-                       paramObjPathStr, constPackPathStr});
+  Command genParamObj(/*exe=*/kLinkerPath, /*exeFileName=*/kLinkerFileName);
+  genParamObj.appendStr("-r");
+  genParamObj.appendList({"-b", "binary"});
+  std::string constPackObjPath = constPackFilePath + ".o";
+  genParamObj.appendList({"-o", constPackObjPath});
+  genParamObj.appendStr(constPackFilePath);
+  genParamObj.exec();
 
-  executeCommandAndWait(kObjCopyPath,
-      {kObjCopyFileName, "--redefine-sym",
-          sanitizedName + "_start=_binary_param_bin_start", paramObjPathStr});
-  executeCommandAndWait(kObjCopyPath,
-      {kObjCopyFileName, "--redefine-sym",
-          sanitizedName + "_end=_binary_param_bin_end", paramObjPathStr});
+  Command redefineSym(/*exe=*/kObjCopyPath, /*exeFileName=*/kObjCopyFileName);
+  redefineSym.appendStr("--redefine-sym");
+  redefineSym.appendStr(sanitizedName + "_start=_binary_param_bin_start");
+  redefineSym.appendStr(constPackObjPath);
+
+  redefineSym.resetArgs();
+  redefineSym.appendStr("--redefine-sym");
+  redefineSym.appendStr(sanitizedName + "_end=_binary_param_bin_end");
+  redefineSym.appendStr(constPackObjPath);
+
 #endif
   std::string runtimeDirInclFlag = "";
   if (getEnvVar("RUNTIME_DIR").hasValue())
-      runtimeDirInclFlag = "-L" + getEnvVar("RUNTIME_DIR").getValue();
+    runtimeDirInclFlag = "-L" + getEnvVar("RUNTIME_DIR").getValue();
 
   Command link(kCxxPath, kCxxFileName);
   link.appendList({"-shared", "-fPIC"});
