@@ -1455,7 +1455,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
   auto kernelShape = kernel_shape();
   if (kernelShape.hasValue()) {
     if (ArrayAttrSize(kernelShape) != spatialRank) {
-      return emitError("kernel_shape length incompatible with spatial dimensions");
+      return emitError(
+          "kernel_shape length incompatible with spatial dimensions");
     }
     // Have the right number of values, check them.
     for (int i = 0; i < spatialRank; ++i)
@@ -1987,8 +1988,7 @@ LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes() {
   auto yScaleTy = y_scale().getType().cast<ShapedType>();
   auto yZPTy = y_zero_point().getType().cast<ShapedType>();
 
-  IntegerType i8Type =
-      IntegerType::get(8, getContext());
+  IntegerType i8Type = IntegerType::get(8, getContext());
   RankedTensorType scalarType = RankedTensorType::get({}, i8Type);
 
   // Set the types for the scalars
@@ -2110,7 +2110,8 @@ LogicalResult ONNXConvIntegerOp::inferShapes() {
   auto kernelShape = kernel_shape();
   if (kernelShape.hasValue()) {
     if (ArrayAttrSize(kernelShape) != spatialRank) {
-      return emitOpError("kernel_shape length incompatible with spatial dimensions");
+      return emitOpError(
+          "kernel_shape length incompatible with spatial dimensions");
     }
     // Have the right number of values, check them.
     for (int i = 0; i < spatialRank; ++i)
@@ -2143,8 +2144,8 @@ LogicalResult ONNXConvIntegerOp::inferShapes() {
   // Insert number of filters being applied (number of output channels).
   outputDims.emplace_back(weightShape[0]);
   // Compute and insert spatial dims.
-  insertConvSpatialDim(
-      &outputDims, builder, xShape, kernelShape, padsOpt, stridesOpt, dilationsOpt);
+  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
+      stridesOpt, dilationsOpt);
 
   // ONNX spec specifies the output type as an int32
   Type outputType = IntegerType::get(32, getContext());
