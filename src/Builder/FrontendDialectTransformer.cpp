@@ -54,42 +54,6 @@ private:
 
   mlir::Location UnknownLoc() { return mlir::UnknownLoc::get(&context_); }
 
-  // Convert type to MLIR type.
-  // A complete list of types can be found in:
-  // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
-  mlir::Type convertONNXTypeToMLIRType(onnx::TensorProto_DataType onnxType) {
-    switch (onnxType) {
-    case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
-      return builder_.getF16Type();
-    case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:
-      return builder_.getF32Type();
-    case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
-      return builder_.getF64Type();
-    case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
-    case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
-      return builder_.getIntegerType(/*width=*/8);
-    case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
-    case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
-      return builder_.getIntegerType(/*width=*/16);
-    case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
-    case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
-      return builder_.getIntegerType(/*width=*/32);
-    case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
-    case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
-      return builder_.getIntegerType(/*width=*/64);
-    case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
-      return builder_.getI1Type();
-
-    case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
-    case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
-    case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
-    case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
-    default:
-      assert(false && "Unsupported data type encountered.");
-      return nullptr;
-    }
-  }
-
   /*!
    * Import an onnx input tensor type by determining and recording its type
    * in a list of input tensor mlir types.
@@ -119,7 +83,8 @@ private:
 
     auto elementOnnxType =
         (onnx::TensorProto_DataType)input.type().tensor_type().elem_type();
-    mlir::Type elementType = convertONNXTypeToMLIRType(elementOnnxType);
+    mlir::Type elementType =
+        convertONNXTypeToMLIRType(builder_, elementOnnxType);
     llvm::ArrayRef<int64_t> tensor_dims(dims.data(), dims.size());
     return mlir::RankedTensorType::get(tensor_dims, elementType);
   }
