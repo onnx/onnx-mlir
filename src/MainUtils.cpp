@@ -74,7 +74,11 @@ struct Command {
     _args.insert(_args.end(), args.begin(), args.end());
   }
 
-  void resetArgs() { _args.clear(); }
+  void resetArgs() {
+      auto exeFileName = _args.front();
+      _args.clear();
+      _args.emplace_back(exeFileName);
+  }
 
   int exec() { return executeCommandAndWait(_path, _args); }
 };
