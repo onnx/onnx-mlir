@@ -429,7 +429,7 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
 }
 
 def ONNXCastOp:ONNX_Op<"Cast",
-  [NoSideEffect]> {
+  [NoSideEffect, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX Cast operation";
   let description = [{
   "The operator casts the elements of a given input tensor to a data type"
@@ -464,6 +464,14 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+    std::vector<mlir::Type> resultTypeInference() {
+      std::vector<mlir::Type> resultTypes;
+      auto toAttr = to().getSExtValue();
+      auto builder = mlir::OpBuilder(getContext());
+      resultTypes.push_back(mlir::UnrankedTensorType::get(
+        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));
+      return resultTypes;
     }
   }];
 }
