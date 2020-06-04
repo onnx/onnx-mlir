@@ -1563,6 +1563,53 @@ LogicalResult ONNXUnsqueezeOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+
+// Squeeze
+
+LogicalResult ONNXSqueezeOp::inferShapes() {
+  if (!data().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = data().getType().cast<RankedTensorType>();
+  int64_t inRank = operandTy.getRank();
+
+  ArrayAttr axisAttrs = axesAttr();
+  SmallVector<int64_t, 4> axes;
+  if (axisAttrs) {
+    bool hasNegativeAxis = false;
+    for (auto axisAttr : axisAttrs.getValue()) {
+      int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+      if (axis < -inRank || axis >= inRank)
+        return emitError("Invalid axis value");
+      if (axis < 0) {
+        axis = inRank + axis;
+        hasNegativeAxis = true;
+      }
+      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
+        axes.emplace_back(axis);
+      else
+        return emitError("Duplicated axes");
+    }
+    if (hasNegativeAxis) {
+      // Update axes attribute so that it contains only positive values.
+      auto builder = mlir::Builder(getContext());
+      ArrayRef<int64_t> defaultRefs(axes);
+      axesAttr(builder.getI64ArrayAttr(defaultRefs));
+    }
+  } else
+    return emitError("Axes attribute is required");
+
+  SmallVector<int64_t, 4> dims;
+  for (int i = 0; i < inRank; ++i) {
+    if (std::find(axes.begin(), axes.end(), i) == axes.end()) {
+      dims.emplace_back(operandTy.getShape()[i]);
+    }
+  }
+  getResult().setType(RankedTensorType::get(dims, operandTy.getElementType()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Constant
 
 LogicalResult ONNXConstantOp::inferShapes() {

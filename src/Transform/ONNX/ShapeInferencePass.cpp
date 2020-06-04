@@ -130,6 +130,7 @@ public:
         op->getName().getStringRef() != "onnx.RNN" &&
         op->getName().getStringRef() != "onnx.LSTM" &&
         op->getName().getStringRef() != "onnx.GRU" &&
+        op->getName().getStringRef() != "onnx.Squeeze" &&
         op->getName().getStringRef() != "onnx.Unsqueeze")
       return false;
     return llvm::any_of(op->getResultTypes(), [](Type result_type) {

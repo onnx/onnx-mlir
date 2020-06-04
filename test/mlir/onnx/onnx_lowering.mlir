@@ -2139,3 +2139,23 @@ func @test_lstm_bidirectional_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x
   // CHECK:  %[[REVERSE_SEQUENCE_IV:.+]] = affine.apply [[REVERSE_IV_MAP]](%arg3)[%[[SEQUENCE_LEN]]{{]}}
   // CHECK:  [[Xt_LOAD:%.+]] = load %arg0[%[[REVERSE_SEQUENCE_IV]], {{.*}}, {{.*}}] : memref<4x3x2xf32>
 }
+
+// -----
+
+func @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Squeeze"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: @test_squeeze
+  // CHECK: [[RES:%.+]] = alloc() : memref<16x32x64xf32>
+  // CHECK: [[CONSTANT_4:%.+]] = constant 4 : i64
+  // CHECK: [[CONSTANT_16:%.+]] = constant 16 : i64
+  // CHECK: [[MUL_1:%.+]] = muli [[CONSTANT_4]], [[CONSTANT_16]] : i64
+  // CHECK: [[CONSTANT_32:%.+]] = constant 32 : i64
+  // CHECK: [[MUL_2:%.+]] = muli [[MUL_1]], [[CONSTANT_32]] : i64
+  // CHECK: [[CONSTANT_64:%.+]] = constant 64 : i64
+  // CHECK: [[MUL_3:%.+]] = muli [[MUL_2]], [[CONSTANT_64]] : i64
+  // CHECK: "krnl.memcpy"([[RES]], %arg0, [[MUL_3]]) : (memref<16x32x64xf32>, memref<16x1x32x1x64xf32>, i64) -> ()
+  // CHECK: return [[RES]] : memref<16x32x64xf32>
+}
+
