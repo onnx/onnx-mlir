@@ -1395,7 +1395,7 @@ func @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x
   // CHECK: }
   // CHECK: [[BIAS1:%.+]] = affine.load [[RES]][%arg3, %arg4, %arg5, %arg6] : memref<1x5x27x58xf32>
   // CHECK: [[BIAS2:%.+]] = affine.load %arg2[%arg4] : memref<5xf32>
-  // CHECK: [[BIAS3:%.+]] = mulf [[BIAS1]], [[BIAS2]] : f32
+  // CHECK: [[BIAS3:%.+]] = addf [[BIAS1]], [[BIAS2]] : f32
   // CHECK: affine.store [[BIAS3]], [[RES]][%arg3, %arg4, %arg5, %arg6] : memref<1x5x27x58xf32>
   // CHECK: }
   // CHECK: }
