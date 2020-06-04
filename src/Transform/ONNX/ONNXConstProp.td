@@ -24,13 +24,22 @@ include "src/Dialect/ONNX/ONNXOps.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
-// Useful definitions
-
-def GetNullAttr1 : NativeCodeCall<"Attribute()">;
+// Useful test definitions.
 
 def IsNotAConstant :
   Constraint<CPred<"! dyn_cast_or_null<ONNXConstantOp>(($_self).getDefiningOp())">,
   "operation is not a constant">;
+
+def AttributeIsNull :
+    Constraint<CPred<"! ($_self)">,
+  "Attribute is null">;
+
+// Usefult code generation invokation.
+def GetNullAttr : NativeCodeCall<"Attribute()">;
+  
+def CreateAddOfTwoConst :
+  NativeCodeCall<"ConstPropForAddOfTwoConst($_builder, $0, $1, $2)">;
+
 
 // Patterns to enable opportunities with ADD operations.
   
@@ -55,6 +64,14 @@ def AddConstAssociative1 : Pat<
     $x,
     (ONNXAddOp $c1, $c2))>;
 
+// Constant Propagation for Add
+def AddConstProp : Pat<
+    // From add(c1, c2).
+    (ONNXAddOp:$addOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
+    // To c1+c2
+    (ONNXConstantOp (GetNullAttr), (CreateAddOfTwoConst $addOp, $v1, $v2)),
+    // Additional constraints (no sparse)
+    [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
 
 
