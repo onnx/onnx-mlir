@@ -411,8 +411,7 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
         rewriter.create<SelectOp>(loc, zeroPredicate, zero, plusSelect);
     return result;
   } else {
-    emitError(loc, "unsupported element type");
-    return {};
+    llvm_unreachable("unsupported element type");
   }
 }
 
@@ -469,8 +468,7 @@ Value emitScalarOpFor<ONNXAbsOp>(ConversionPatternRewriter &rewriter,
     return rewriter.create<SelectOp>(
         loc, lessThanZero, negativeOperand, operand);
   } else {
-    emitError(loc, "unsupported element type");
-    return {};
+    llvm_unreachable("unsupported element type");
   }
 }
 
@@ -489,8 +487,7 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
     auto zero = emitConstantOp(rewriter, loc, elementType, 0);
     return rewriter.create<mlir::SubIOp>(loc, zero, operand); // 0 - X = -X
   } else {
-    emitError(loc, "unsupported element type");
-    return nullptr;
+    llvm_unreachable("unsupported element type");
   }
 }
 
