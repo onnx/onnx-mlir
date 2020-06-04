@@ -27,6 +27,11 @@ include "src/Interface/ShapeInferenceInterface.td"
 include "src/Interface/PromotableConstOperandsOpInterface.td"
 #endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 
+#ifdef RESULT_TYPE_INFERENCE_OP_INTERFACE
+#else
+include "src/Interface/ResultTypeInferenceOpInterface.td"
+#endif // RESULT_TYPE_INFERENCE_OP_INTERFACE
+
 def ONNX_Dialect : Dialect {
   let name = "onnx";
   let cppNamespace = "";
@@ -120,7 +125,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {0};
+      return {20};
     }
   }];
 }
@@ -156,7 +161,7 @@ def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {0};
+      return {20};
     }
   }];
 }

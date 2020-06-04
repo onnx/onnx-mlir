@@ -183,7 +183,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
           auto loadBias =
               rewriter.create<AffineLoadOp>(loc, biasOperand, kernel);
           auto resultWithBias =
-              rewriter.create<MulFOp>(loc, loadResult, loadBias);
+              rewriter.create<AddFOp>(loc, loadResult, loadBias);
           // Store initializer value into output location.
           rewriter.create<AffineStoreOp>(
               loc, resultWithBias, alloc, resultIndices);

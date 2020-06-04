@@ -20,6 +20,8 @@
 #include <mpark/variant.hpp>
 namespace bstd = mpark;
 
+#include "src/Interface/ResultTypeInferenceOpInterface.hpp"
+
 #include "FrontendDialectTransformer.hpp"
 
 namespace onnx_mlir {
@@ -266,9 +268,13 @@ private:
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
       } else {
-        if (i < outputMap.size() && outputMap[i] >= MAX_TYPE) {
+        auto j = i;
+        // Variadic output is a single ODS result.
+        if (variadicOut)
+          j = 0;
+        if (j < outputMap.size() && outputMap[j] >= MAX_TYPE) {
           // Mapping gives a connection with an input.
-          mlir::Type inputType = inputs[outputMap[i] - MAX_TYPE].getType();
+          mlir::Type inputType = inputs[outputMap[j] - MAX_TYPE].getType();
           if (inputType.isa<mlir::TensorType>()) {
             auto elementType =
                 inputType.cast<mlir::TensorType>().getElementType();
@@ -277,9 +283,9 @@ private:
           } else {
             outputTypes.push_back(inputType);
           }
-        } else if (i < outputMap.size() && outputMap[i] != -1) {
+        } else if (j < outputMap.size() && outputMap[j] != -1) {
           // Mapping gives a direct type.
-          auto elementType = buildTypeFromIndex(outputMap[i]);
+          auto elementType = buildTypeFromIndex(outputMap[j]);
           auto outType = mlir::UnrankedTensorType::get(elementType);
           outputTypes.emplace_back(outType);
         } else {
@@ -296,9 +302,27 @@ private:
 
     // TODO: Handle optional inputs.
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
+
+    // Type inference for results.
+    if (auto opWithTypeInference =
+            mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
+                op.getOperation())) {
+      auto outTypes = opWithTypeInference.resultTypeInference();
+      for (int i = 0; i < node.output().size(); i++) {
+        if (variadicOut)
+          (*(op.getODSResults(0).begin() + i)).setType(outTypes[i]);
+        else
+          (*op.getODSResults(i).begin()).setType(outTypes[i]);
+      }
+    }
+
     for (int i = 0; i < node.output().size(); i++) {
-      frontend_symbols_.AddMapping(
-          legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));
+      if (variadicOut)
+        frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
+            *(op.getODSResults(0).begin() + i));
+      else
+        frontend_symbols_.AddMapping(
+            legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));
     }
   }
 

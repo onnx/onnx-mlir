@@ -27,6 +27,11 @@ include "src/Interface/ShapeInferenceInterface.td"
 include "src/Interface/PromotableConstOperandsOpInterface.td"
 #endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 
+#ifdef RESULT_TYPE_INFERENCE_OP_INTERFACE
+#else
+include "src/Interface/ResultTypeInferenceOpInterface.td"
+#endif // RESULT_TYPE_INFERENCE_OP_INTERFACE
+
 def MLONNX_Dialect : Dialect {
   let name = "mlonnx";
   let cppNamespace = "";
