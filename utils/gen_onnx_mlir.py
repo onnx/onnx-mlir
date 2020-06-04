@@ -36,7 +36,7 @@ parser.add_argument("--check-operation-version",
                          " newer version of operation compared with version stored in  version_dicts",
                     action="store_true",
                     default=False)
-parser.add_argument("--domain", 
+parser.add_argument("--domain",
                     help="specify domain, ONNX or ONNX_ML",
                     default = "ONNX")
 
@@ -249,13 +249,14 @@ special_op_handler = dict([
 
 # Operations supporting shape inference.
 OpsWithShapeInference = [
-    'Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid', 'Relu', 'Add', 'Mul', 'Div',
-    'Sub', 'And', 'Or', 'Xor', 'Sum', 'Max', 'Min', 'MatMul', 'Gemm',
-    'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
+    'Exp', 'Atan', 'Tan', 'Tanh', 'Sin', 'Sinh', 'Cosh', 'Sigmoid', 'Relu',
+    'Add', 'Mul', 'Div', 'Sub', 'And', 'Or', 'Xor', 'Sum', 'Max', 'Min', 'MatMul',
+    'Gemm', 'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
     'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
     'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
     'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
-    'LSTM', 'GRU', 'Split', 'Pad'
+    'LSTM', 'GRU', 'Split', 'Pad', 'Cast', 'ConvTranspose', 'Flatten',
+    'DynamicQuantizeLinear', 'QuantizeLinear', 'DequantizeLinear', 'ConvInteger',
 ]
 
 # Operations supporting canonicalization.
@@ -286,7 +287,7 @@ OpsWithResultTypeInference = {
       resultTypes.push_back(mlir::UnrankedTensorType::get(
         convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));'''
 }
-       
+
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
 # an UnrankedTensorType whose element type is the same as the first operand's
@@ -299,7 +300,7 @@ custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare', 
 
 
 #a dictionary to add any special definition for an operation
-custom_definition_misc = dict([ ('Constant', 
+custom_definition_misc = dict([ ('Constant',
   '''    let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
       if (value) {
@@ -318,7 +319,7 @@ onnx_types = (
     'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
     'float', 'double', 'complex64', 'complex128'
 )
-tblgen_types = ('I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64', 
+tblgen_types = ('I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64',
     'Complex<F32>', 'Complex<F64>'
 )
 
@@ -417,7 +418,7 @@ def get_tblgen_type_index(type_str):
 
 #the possible data structures are tensor, map and seq(tensor())
 #TOFIX: currently, only tensor structure is supported
-def get_data_structure_element(allowed_type_str): 
+def get_data_structure_element(allowed_type_str):
     if allowed_type_str.startswith('tensor') :
         element = allowed_type_str.replace('tensor(', '', 1).replace(')', '', 1)
         return ('tensor', element)
@@ -447,9 +448,9 @@ def get_allowed_elem_types(schema, input):
                     return None
                 if  not t in allowed_type_list :
                     allowed_tyoe_list = allowed_type_list.append(t)
-    
+
             return allowed_type_list
-    
+
     return None
 
 
@@ -603,9 +604,9 @@ def get_output_type_mapping(schema):
 
         #unknown output type
         mapping.append(str(-1))
-        
+
     return mapping
-    
+
 def get_numberof_inout(s, indent, schema):
     expected_num_operands = get_numberof_list(schema.inputs)
     indent = inc_indent(indent)
@@ -665,8 +666,8 @@ def get_type_inference_func(s, indent, type_inference_code):
 
     indent = dec_indent(indent)
     return s
-  
-  
+
+
 
 def gen_op_def(schema):
     indent = inc_indent()
@@ -769,7 +770,7 @@ def gen_op_def(schema):
     # generate input/output number
     s = get_numberof_inout(s, indent, schema)
 
-    # generate ProtableConst 
+    # generate ProtableConst
     if schema.name in OpsWithPromotableConstOperands:
         s = get_promotable_const_operands_func(
             s, indent, OpsWithPromotableConstOperands[schema.name])
@@ -873,7 +874,7 @@ def build_operator_schemas():
                             schema.since_version, schema.name))
                     elif schema.since_version >  version_dict[schema.name]:
                         print("Check-operation-version: Operation {} has a newer version {}"+
-                            "(old version {})".format( schema.name, 
+                            "(old version {})".format( schema.name,
                             schema.since_version, version_dict[schema.name]))
                 else:
                     # Generate operation according to the version in version_dict.
