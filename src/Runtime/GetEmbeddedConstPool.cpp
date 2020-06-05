@@ -1,4 +1,4 @@
-#include "EmbeddedDataLoader.h"
+#include "GetEmbeddedConstPool.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,7 +8,7 @@
 #include <mach-o/getsect.h>
 extern const struct mach_header_64 _mh_dylib_header;
 
-void *getSegmentData(int64_t size_in_byte) {
+void *getEmbeddedConstPool(int64_t size_in_byte) {
   size_t size = size_in_byte;
   unsigned char *data =
       getsectiondata(&_mh_dylib_header, "binary", "param", &size);
@@ -21,7 +21,7 @@ void *getSegmentData(int64_t size_in_byte) {
 extern char _binary_param_bin_start;
 extern char _binary_param_bin_end;
 
-void *getSegmentData(int64_t _) {
+void *getEmbeddedConstPool(int64_t _) {
   auto size = (unsigned int)(&_binary_param_bin_end - &_binary_param_bin_start);
   void *buffer = malloc(size);
   memcpy(buffer, &_binary_param_bin_start, size);

@@ -224,10 +224,11 @@ def KrnlPackedConstantOp : Op<Krnl_Dialect, "packed_const"> {
     // The symbol name is recorded below.
     static StringRef getConstPackFilePathSymbolName() { return "constPackFilePath"; }
 
-    // The file name of the constant pack. This file name has to be consistent
-    // with the external symbol name indicating the starting memory address of this
-    // embedded binary data.
-    static StringRef getConstPackFileName() { return "param.bin"; }
+    // The name of a function which we call to read packed constants embedded within
+    // the current binary executable/library.
+    static StringRef getEmbeddedDataLoaderMethodName() {
+      return "getEmbeddedConstPool";
+    }
   }];
   let parser = ?;
   let printer = ?;

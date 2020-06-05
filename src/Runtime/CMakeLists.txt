@@ -20,8 +20,8 @@ target_include_directories(pyruntime
 add_dependencies(pyruntime cruntime)
 
 add_library(EmbeddedDataLoader STATIC
-        EmbeddedDataLoader.h
-        EmbeddedDataLoader.cpp)
+        GetEmbeddedConstPool.h
+        GetEmbeddedConstPool.cpp)
 set_target_properties(EmbeddedDataLoader PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 install(FILES DynMemRef.h DESTINATION include)

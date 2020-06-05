@@ -684,7 +684,8 @@ public:
 
     //  - Initialize the global constant base.
     Value basePtrAddr = rewriter.create<LLVM::AddressOfOp>(loc, globalBase);
-    auto getSegmentDataRef = getOrInsertExternFunc("getSegmentData", module,
+    auto getEmbeddedConstPoolRef = getOrInsertExternFunc(
+        KrnlPackedConstantOp::getEmbeddedDataLoaderMethodName(), module,
         LLVM::LLVMType::getFunctionTy(
             llvmI8PtrTy, {llvmI64Ty}, /*isVarArg=*/false),
         rewriter);
@@ -692,7 +693,7 @@ public:
         LLVM::LLVMType::getInt64Ty(llvmDialect),
         packedConstOp.sizeInBytesAttr());
     Value alloc = rewriter
-                      .create<CallOp>(loc, getSegmentDataRef, llvmI8PtrTy,
+                      .create<CallOp>(loc, getEmbeddedConstPoolRef, llvmI8PtrTy,
                           ArrayRef<Value>({constPackSize}))
                       .getResult(0);
     rewriter.create<LLVM::StoreOp>(loc, alloc, basePtrAddr);
