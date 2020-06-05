@@ -170,11 +170,13 @@ void compileModuleToSharedLibrary(
   redefineSym.appendStr("--redefine-sym");
   redefineSym.appendStr(sanitizedName + "_start=_binary_param_bin_start");
   redefineSym.appendStr(constPackObjPath);
+  redefineSym.exec();
 
   redefineSym.resetArgs();
   redefineSym.appendStr("--redefine-sym");
   redefineSym.appendStr(sanitizedName + "_end=_binary_param_bin_end");
   redefineSym.appendStr(constPackObjPath);
+  redefineSym.exec();
 
 #endif
   std::string runtimeDirInclFlag = "";
