@@ -22,6 +22,8 @@ add_library(OMONNXToKrnl
         Tensor/Concat.cpp
         Tensor/Split.cpp
         ConvertONNXToKrnl.cpp)
+target_link_libraries(OMONNXToKrnl
+        onnx)
 target_include_directories(OMONNXToKrnl
         PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
