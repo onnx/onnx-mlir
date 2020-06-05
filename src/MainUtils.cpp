@@ -71,7 +71,7 @@ struct Command {
 
   // Execute command.
   void exec() {
-    auto argsRef = vector<llvm::StringRef>(_args.begin(), _args.end());
+    auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
     bool verbose = false;
     if (const auto &verboseStr = getEnvVar("VERBOSE"))
       istringstream(verboseStr.getValue()) >> verbose;
