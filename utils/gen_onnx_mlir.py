@@ -758,6 +758,12 @@ def gen_op_def(schema):
                 s += indent + 'auto rhsTy = {}.getType().cast<RankedTensorType>();\n'. \
                     format(second_operand_name)
                 s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
+                s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
+                s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
+                s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
+                    '.getType().cast<TensorType>().getElementType();\n';
+                s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
+                s += indent + '}\n';
                 build_type_name = 'elementType'
             else:
                 s += indent + 'auto elementType = {}'.format(first_operand_name) + \
@@ -780,6 +786,12 @@ def gen_op_def(schema):
                 s += indent + 'auto lhsTy = operands[0].getType().cast<RankedTensorType>();\n'
                 s += indent + 'auto rhsTy = operands[1].getType().cast<RankedTensorType>();\n'
                 s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
+                s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
+                s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
+                s += indent + indent + 'elementType = operands[0]' + \
+                    '.getType().cast<TensorType>().getElementType();\n';
+                s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
+                s += indent + '}\n';
             else:    
                 s += indent + 'auto elementType = operands[0].getType().' + \
                     'cast<TensorType>().getElementType();\n'

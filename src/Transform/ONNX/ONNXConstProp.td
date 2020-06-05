@@ -38,7 +38,10 @@ def AttributeIsNull :
 def GetNullAttr : NativeCodeCall<"Attribute()">;
   
 def CreateAddOfTwoConst :
-  NativeCodeCall<"ConstPropForAddOfTwoConst($_builder, $0, $1, $2)">;
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
+
+def CreateSubOfTwoConst :
+  NativeCodeCall<"ConstPropForSubOfTwoConst($_builder, $0, $1, $2)">;
 
 
 // Patterns to enable opportunities with ADD operations.
@@ -71,6 +74,12 @@ def AddConstProp : Pat<
     // To c1+c2
     (ONNXConstantOp (GetNullAttr), (CreateAddOfTwoConst $addOp, $v1, $v2)),
     // Additional constraints (no sparse)
+    [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
+
+// Constant Propagation for Sub
+def SubConstProp : Pat<
+    (ONNXSubOp:$subOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
+    (ONNXConstantOp (GetNullAttr), (CreateSubOfTwoConst $subOp, $v1, $v2)),
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
 

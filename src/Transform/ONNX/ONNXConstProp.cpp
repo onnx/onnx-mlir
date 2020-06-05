@@ -26,7 +26,7 @@ using namespace mlir;
 namespace {
 
 ////////////////////////////////////////////////////////////////////////////////
-// Code to perform constant propagation in presence of broadcast.
+// Code to perform constant propagation for binary in presence of broadcast.
 ////////////////////////////////////////////////////////////////////////////////
 
 // Template to generate binary operation results. It takes as inupt
@@ -57,11 +57,29 @@ Attribute ComputeConstProppElementwiseBinary<ONNXAddOp>(
     uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
     uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
     uint64_t res = lhsVal + rhsVal;
-    // printf("  %llu + %llu -> %llu\n", (unsigned long long) lhsVal, (unsigned
-    // long long) rhsVal, (unsigned long long) res);
-    return rewriter.getIntegerAttr(elementType, lhsVal + rhsVal);
+    // printf("  %llu + %llu -> %llu\n", lhsVal, rhsVal, res);
+    return rewriter.getIntegerAttr(elementType, res);
   }
   llvm_unreachable("constant propagation for AddOp: unkonwn data type");
+}
+
+template <>
+Attribute ComputeConstProppElementwiseBinary<ONNXSubOp>(
+    PatternRewriter &rewriter, Type elementType, Attribute &lhsAttr,
+    Attribute &secondAttr) {
+  if (elementType.isa<FloatType>()) {
+    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
+    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
+    double res = lhsVal - rhsVal;
+    return rewriter.getFloatAttr(elementType, res);
+  }
+  if (elementType.isa<IntegerType>()) {
+    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
+    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
+    uint64_t res = lhsVal - rhsVal;
+    return rewriter.getIntegerAttr(elementType, res);
+  }
+  llvm_unreachable("constant propagation for SubOp: unkonwn data type");
 }
 
 // Recursively process one dimension in the rank of the two references. There
@@ -145,7 +163,7 @@ void RecurseConstProppElementwiseBinary(PatternRewriter &rewriter,
 // generate the new constant operation.
 template <typename ElementwiseBinaryOp>
 DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
-    Value &resOperand, Attribute &lhsAttr, Attribute &rhsAttr) {
+    Value resOperand, Attribute &lhsAttr, Attribute &rhsAttr) {
   DenseElementsAttr lhsDenseAttr =
       lhsAttr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   DenseElementsAttr rhsDenseAttr =
@@ -170,6 +188,85 @@ DenseElementsAttr ConstPropForAddOfTwoConst(
     PatternRewriter &rewriter, Value resOperand, Attribute &v1, Attribute &v2) {
   return ConstPropElementwiseBinary<mlir::ONNXAddOp>(
       rewriter, resOperand, v1, v2);
+}
+
+DenseElementsAttr ConstPropForSubOfTwoConst(
+    PatternRewriter &rewriter, Value resOperand, Attribute &v1, Attribute &v2) {
+  return ConstPropElementwiseBinary<mlir::ONNXSubOp>(
+      rewriter, resOperand, v1, v2);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Code to perform constant propagation for unary operation.
+////////////////////////////////////////////////////////////////////////////////
+
+template <typename OP>
+Attribute ComputeConstProppElementwiseUnary(
+    PatternRewriter &rewriter, Type elementType, Attribute &attr) {
+  llvm_unreachable("unkonwn operation");
+}
+
+template <>
+Attribute ComputeConstProppElementwiseUnary<ONNXNegOp>(
+    PatternRewriter &rewriter, Type elementType, Attribute &attr) {
+  if (elementType.isa<FloatType>()) {
+    double val = attr.cast<FloatAttr>().getValueAsDouble();
+    double res = - val ;
+    return rewriter.getFloatAttr(elementType, res);
+  }
+  if (elementType.isa<IntegerType>()) {
+    uint64_t val = attr.cast<IntegerAttr>().getInt();
+    uint64_t res = - val ;
+    return rewriter.getIntegerAttr(elementType, res);
+  }
+  llvm_unreachable("constant propagation for NegOp: unkonwn data type");
+}
+
+template <typename ElementwiseUnaryOp>
+void RecurseConstProppElementwiseUnary(PatternRewriter &rewriter,
+    std::vector<Attribute> &resVector, DenseElementsAttr &attr,
+    SmallVector<uint64_t, 4> &indices,
+    int freeRank) {
+  // printf("recurse with free %d\n", freeRank);
+  if (freeRank == 0) {
+    // Fully defined ranks.
+    auto elementAttr = attr.getValue(ArrayRef<uint64_t>(indices));
+    auto elementaryType = attr.getType().getElementType();
+    auto res = ComputeConstProppElementwiseUnary<ElementwiseUnaryOp>(
+        rewriter, elementaryType, elementAttr);
+    resVector.emplace_back(res);
+  } else {
+    // Recurse.
+    auto shape = attr.getType().getShape();
+    int rank = shape.size();
+    int index = rank - freeRank;
+    int size = attr.getType().getShape()[index];
+    for (int i = 0; i < size; ++i) {
+      indices[index] = i;
+      RecurseConstProppElementwiseUnary<ElementwiseUnaryOp>(rewriter,
+          resVector, attr, indices, freeRank - 1);
+    }
+  } 
+}
+
+// Process the constant operands, perform the operation with broadcast, and
+// generate the new constant operation.
+template <typename ElementwiseUnaryOp>
+DenseElementsAttr ConstPropElementwiseUnary(
+    PatternRewriter &rewriter, Value &resOperand, Attribute &attr) {
+  DenseElementsAttr denseAttr =
+      attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
+  assert(denseAttr && "expected dense attribute");
+  assert(
+      resOperand.getType().isa<RankedTensorType>() && "expected ranked tensor");
+  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+  auto rank = denseAttr.getType().getShape().size();
+  SmallVector<uint64_t, 4> indices(rank, 0);
+  std::vector<Attribute> resVector;
+  RecurseConstProppElementwiseUnary<ElementwiseUnaryOp>(
+      rewriter, resVector, denseAttr, indices, rank);
+  ArrayRef<Attribute> resRef(resVector);
+  return DenseElementsAttr::get(resType, resRef);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
