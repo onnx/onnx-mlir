@@ -279,7 +279,12 @@ OpsWithResultTypeInference = {
         resultTypes.push_back(attr.getType());
       } else if (auto attr = sparse_valueAttr()) {
         resultTypes.push_back(attr.getType());
-      }'''
+      }''',
+  "Cast":
+    '''auto toAttr = to().getSExtValue();
+      auto builder = mlir::OpBuilder(getContext());
+      resultTypes.push_back(mlir::UnrankedTensorType::get(
+        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));'''
 }
        
 # Add an Op in this list if the Op needs result type deduction which is required
