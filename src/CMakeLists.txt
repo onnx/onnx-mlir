@@ -42,6 +42,7 @@ endif()
 # targets, or only use it for libraries that have no further dependencies
 # (except system libraries such as libc).
 target_link_libraries(onnx-mlir
+        onnx
         OMBuilder
         OMKrnlOps
         OMONNXOps

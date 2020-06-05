@@ -21,7 +21,6 @@
 #include "llvm/ADT/SmallBitVector.h"
 
 #include "ONNXOps.hpp"
-#include "ONNXOpsHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;

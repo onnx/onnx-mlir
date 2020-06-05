@@ -155,8 +155,7 @@ Value emitScalarOpFor(ConversionPatternRewriter &rewriter, Location loc,
     return rewriter.create<ScalarFOp<Op>>(
         loc, elementType, scalarOperands, mlir::None);
   } else {
-    emitError(loc, "unsupported element type");
-    return nullptr;
+    llvm_unreachable("unsupported element type");
   }
 }
 

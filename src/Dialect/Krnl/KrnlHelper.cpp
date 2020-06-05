@@ -233,8 +233,7 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
   // are supported.
   auto shape = upperBoundMemRefOperand.getType().cast<MemRefType>().getShape();
   if (shape[upperBoundMemRefIndex] < 0) {
-    if (upperBoundMustBeConstant)
-      emitError(loc, "Bound expected to be constant.");
+    assert(!upperBoundMustBeConstant && "Bound expected to be constant.");
     pack->pushOperandBound(
         rewriter
             .create<DimOp>(loc, upperBoundMemRefOperand, upperBoundMemRefIndex)
@@ -253,16 +252,14 @@ int BuildKrnlLoop::pushBounds(Value lowerBound, Value upperBound) {
 
 void BuildKrnlLoop::createIterateOp() {
   // Loop definition operation is mandatory.
-  if (!createdDefineOp)
-    emitError(loc, "Must create define op before iterate op.");
+  assert(createdDefineOp && "Must create define op before iterate op.");
 
   // Loop optimization operation is mandatory (for now).
-  if (!createdOptimizeOp)
-    emitError(loc, "Must create optimize op before iterate op.");
+  assert(createdOptimizeOp && "Must create optimize op before iterate op.");
 
   // Check if all bounds have been defined.
-  if (pushCount != originalLoopNum)
-    emitError(loc, "Must push bounds for all original loops.");
+  assert(pushCount == originalLoopNum &&
+         "Must push bounds for all original loops.");
 
   // Emit iteration operation.
   auto iterateOp = rewriter.create<KrnlIterateOp>(loc, *pack);
@@ -274,8 +271,8 @@ void BuildKrnlLoop::createDefineOptimizeAndIterateOp(
     Value memRefOperand, bool withEmptyOptimization) {
   // Rank of the MemRef operand. We will emit a loop for each dimension.
   int loopNum = memRefOperand.getType().cast<MemRefType>().getShape().size();
-  if (originalLoopNum != loopNum)
-    emitError(loc, "Mismatch in loop numbers from constructor and define.");
+  assert(originalLoopNum == loopNum &&
+         "Mismatch in loop numbers from constructor and define.");
 
   // Emit the definition and the optimization operations for the loop nest.
   createDefineAndOptimizeOp(withEmptyOptimization);
@@ -291,8 +288,8 @@ void BuildKrnlLoop::createDefineOptimizeAndIterateOp(
 
 BlockArgument &BuildKrnlLoop::getInductionVar(int originalLoopIndex) {
   // Check if loop iteration variable is within bounds.
-  if (originalLoopIndex < 0 || originalLoopIndex >= originalLoopNum)
-    emitError(loc, "Original loop index is out of bounds.");
+  assert(originalLoopIndex >= 0 && originalLoopIndex < originalLoopNum &&
+         "Original loop index is out of bounds.");
   return iterBlock->getArguments()[originalLoopIndex];
 }
 

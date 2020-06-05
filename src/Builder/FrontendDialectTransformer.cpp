@@ -54,42 +54,6 @@ private:
 
   mlir::Location UnknownLoc() { return mlir::UnknownLoc::get(&context_); }
 
-  // Convert type to MLIR type.
-  // A complete list of types can be found in:
-  // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
-  mlir::Type convertONNXTypeToMLIRType(onnx::TensorProto_DataType onnxType) {
-    switch (onnxType) {
-    case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
-      return builder_.getF16Type();
-    case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:
-      return builder_.getF32Type();
-    case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
-      return builder_.getF64Type();
-    case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
-    case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
-      return builder_.getIntegerType(/*width=*/8);
-    case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
-    case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
-      return builder_.getIntegerType(/*width=*/16);
-    case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
-    case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
-      return builder_.getIntegerType(/*width=*/32);
-    case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
-    case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
-      return builder_.getIntegerType(/*width=*/64);
-    case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
-      return builder_.getI1Type();
-
-    case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
-    case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
-    case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
-    case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
-    default:
-      assert(false && "Unsupported data type encountered.");
-      return nullptr;
-    }
-  }
-
   /*!
    * Import an onnx input tensor type by determining and recording its type
    * in a list of input tensor mlir types.
@@ -119,7 +83,8 @@ private:
 
     auto elementOnnxType =
         (onnx::TensorProto_DataType)input.type().tensor_type().elem_type();
-    mlir::Type elementType = convertONNXTypeToMLIRType(elementOnnxType);
+    mlir::Type elementType =
+        convertONNXTypeToMLIRType(builder_, elementOnnxType);
     llvm::ArrayRef<int64_t> tensor_dims(dims.data(), dims.size());
     return mlir::RankedTensorType::get(tensor_dims, elementType);
   }
@@ -268,9 +233,13 @@ private:
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
       } else {
-        if (i < outputMap.size() && outputMap[i] >= MAX_TYPE) {
+        auto j = i;
+        // Variadic output is a single ODS result.
+        if (variadicOut)
+          j = 0;
+        if (j < outputMap.size() && outputMap[j] >= MAX_TYPE) {
           // Mapping gives a connection with an input.
-          mlir::Type inputType = inputs[outputMap[i] - MAX_TYPE].getType();
+          mlir::Type inputType = inputs[outputMap[j] - MAX_TYPE].getType();
           if (inputType.isa<mlir::TensorType>()) {
             auto elementType =
                 inputType.cast<mlir::TensorType>().getElementType();
@@ -279,9 +248,9 @@ private:
           } else {
             outputTypes.push_back(inputType);
           }
-        } else if (i < outputMap.size() && outputMap[i] != -1) {
+        } else if (j < outputMap.size() && outputMap[j] != -1) {
           // Mapping gives a direct type.
-          auto elementType = buildTypeFromIndex(outputMap[i]);
+          auto elementType = buildTypeFromIndex(outputMap[j]);
           auto outType = mlir::UnrankedTensorType::get(elementType);
           outputTypes.emplace_back(outType);
         } else {
@@ -305,13 +274,20 @@ private:
                 op.getOperation())) {
       auto outTypes = opWithTypeInference.resultTypeInference();
       for (int i = 0; i < node.output().size(); i++) {
-        (*op.getODSResults(i).begin()).setType(outTypes[i]);
+        if (variadicOut)
+          (*(op.getODSResults(0).begin() + i)).setType(outTypes[i]);
+        else
+          (*op.getODSResults(i).begin()).setType(outTypes[i]);
       }
     }
 
     for (int i = 0; i < node.output().size(); i++) {
-      frontend_symbols_.AddMapping(
-          legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));
+      if (variadicOut)
+        frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
+            *(op.getODSResults(0).begin() + i));
+      else
+        frontend_symbols_.AddMapping(
+            legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));
     }
   }
 
