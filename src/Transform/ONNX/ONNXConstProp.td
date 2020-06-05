@@ -50,7 +50,7 @@ def CreateNegOfConst :
  def CreateMulOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXMulOp>($_builder, $0, $1, $2)">;
 
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 // Patterns to enable opportunities with elementwise ADD operations.
   
 // Use commutativity to normalize constants in the second position of Add.
@@ -83,7 +83,7 @@ def AddConstProp : Pat<
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
 
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 // Patterns to enable opportunities with elementwise SUB / NEG operations.
 
 // Constant Propagation for Sub
@@ -112,7 +112,7 @@ def SubConstToNeg : Pat<
     [(IsNotAConstant:$x), (AttributeIsNull:$s)]>;
 
 
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 // Patterns to enable opportunities with elementwise MUL operations.
 // Exactly the same pattern as for the elementwise ADD operations.
   

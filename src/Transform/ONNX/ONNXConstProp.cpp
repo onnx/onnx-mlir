@@ -25,9 +25,9 @@ using namespace mlir;
 
 namespace {
 
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 // Code to perform constant propagation for binary in presence of broadcast.
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 
 // Template to generate binary operation results. It takes as inupt
 // the element type as well as the two element attributes for the
@@ -100,7 +100,6 @@ Attribute ComputeConstProppElementwiseBinary<ONNXMulOp>(
   }
   llvm_unreachable("constant propagation for MulOp: unkonwn data type");
 }
-
 
 // Recursively process one dimension in the rank of the two references. There
 // can be one of 3 cases.
@@ -203,10 +202,9 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
   return DenseElementsAttr::get(resType, resRef);
 }
 
-
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 // Code to perform constant propagation for unary operation.
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 
 template <typename OP>
 Attribute ComputeConstProppElementwiseUnary(
@@ -219,12 +217,12 @@ Attribute ComputeConstProppElementwiseUnary<ONNXNegOp>(
     PatternRewriter &rewriter, Type elementType, Attribute &attr) {
   if (elementType.isa<FloatType>()) {
     double val = attr.cast<FloatAttr>().getValueAsDouble();
-    double res = - val ;
+    double res = -val;
     return rewriter.getFloatAttr(elementType, res);
   }
   if (elementType.isa<IntegerType>()) {
     uint64_t val = attr.cast<IntegerAttr>().getInt();
-    uint64_t res = - val ;
+    uint64_t res = -val;
     return rewriter.getIntegerAttr(elementType, res);
   }
   llvm_unreachable("constant propagation for NegOp: unkonwn data type");
@@ -233,8 +231,7 @@ Attribute ComputeConstProppElementwiseUnary<ONNXNegOp>(
 template <typename ElementwiseUnaryOp>
 void RecurseConstProppElementwiseUnary(PatternRewriter &rewriter,
     std::vector<Attribute> &resVector, DenseElementsAttr &attr,
-    SmallVector<uint64_t, 4> &indices,
-    int freeRank) {
+    SmallVector<uint64_t, 4> &indices, int freeRank) {
   // printf("recurse with free %d\n", freeRank);
   if (freeRank == 0) {
     // Fully defined ranks.
@@ -251,10 +248,10 @@ void RecurseConstProppElementwiseUnary(PatternRewriter &rewriter,
     int size = attr.getType().getShape()[index];
     for (int i = 0; i < size; ++i) {
       indices[index] = i;
-      RecurseConstProppElementwiseUnary<ElementwiseUnaryOp>(rewriter,
-          resVector, attr, indices, freeRank - 1);
+      RecurseConstProppElementwiseUnary<ElementwiseUnaryOp>(
+          rewriter, resVector, attr, indices, freeRank - 1);
     }
-  } 
+  }
 }
 
 // Process the constant operands, perform the operation with broadcast, and
@@ -277,15 +274,16 @@ DenseElementsAttr ConstPropElementwiseUnary(
   return DenseElementsAttr::get(resType, resRef);
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 // Pattern definition.
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 
 #include "src/Transform/ONNX/ONNXConstProp.inc"
 
-////////////////////////////////////////////////////////////////////////////////
+  
+// =============================================================================
 // Code to manage the pass.
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 
 struct ConstPropONNXToONNXPass
     : public PassWrapper<ConstPropONNXToONNXPass, FunctionPass> {

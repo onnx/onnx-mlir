@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --constprop-onnx %s -split-input-file | FileCheck %s
 
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 /// MUL tests (same as add, so have only one).
 
 /// Test ConstantOp assoc for add
@@ -92,7 +92,7 @@ func @test_broadcast_3(%arg0 : tensor<3x2xi32>) -> tensor<3x2xi32> {
   // CHECK-NEXT: [[ADD1:%.+]] = "onnx.Add"(%arg0, [[CONST1]]) : (tensor<3x2xi32>, tensor<3x2xi32>) -> tensor<3x2xi32>
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 /// MUL tests (same as add, so have only one).
   
 /// Change (x*c1)*c2 to x*(c1*c2)
@@ -107,7 +107,7 @@ func @test_mul_constant_3(%arg0 : tensor<3xi32>) -> tensor<3xi32> {
   // CHECK-NEXT: [[MUL1:%.+]] = "onnx.Mul"(%arg0, [[CONST1]]) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// =============================================================================
 /// SUB and NEG tests.
   
 
