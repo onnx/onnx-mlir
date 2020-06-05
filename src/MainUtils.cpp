@@ -121,6 +121,7 @@ void compileModuleToSharedLibrary(
                                .dyn_cast_or_null<mlir::StringAttr>()
                                .getValue()
                                .str();
+  llvm::FileRemover constPackRemover(constPackFilePath);
 
   // Write LLVM bitcode.
   string outputFilename = outputBaseName + ".bc";
@@ -130,6 +131,7 @@ void compileModuleToSharedLibrary(
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
+  llvm::FileRemover bcRemover(outputFilename);
 
   // Compile LLVM bitcode to object file.
   Command llvmToObj(/*exe=*/kLlcPath, /*exeFileName=*/"llc");
@@ -137,18 +139,21 @@ void compileModuleToSharedLibrary(
   llvmToObj.appendStr("-relocation-model=pic");
   llvmToObj.appendStr(outputFilename);
   llvmToObj.exec();
+  std::string modelObjPath = outputBaseName + ".o";
+  llvm::FileRemover modelObjRemover(modelObjPath);
 
 #if __APPLE__
   // Create a empty stub file, compile it to an empty obj file.
   llvm::SmallVector<char, 20> stubSrcPath;
   llvm::sys::fs::createTemporaryFile("stub", "cpp", stubSrcPath);
-  std::string stubSrcPathStr(stubSrcPath.begin(), stubSrcPath.end());
   llvm::FileRemover subSrcRemover(stubSrcPath);
+  std::string stubSrcPathStr(stubSrcPath.begin(), stubSrcPath.end());
   Command createStubObj(/*exe=*/kCxxPath, /*exeFileName=*/kCxxFileName);
   std::string stubObjPathStr = stubSrcPathStr + ".o";
   createStubObj.appendList({"-o", stubObjPathStr})
       .appendList({"-c", stubSrcPathStr})
       .exec();
+  llvm::FileRemover stubObjRemover(stubObjPathStr);
 
   // Embed data into the empty stub obj file.
   std::string constPackObjPath = constPackFilePath + ".o";
@@ -158,6 +163,7 @@ void compileModuleToSharedLibrary(
       .appendList({"-sectcreate", "binary", "param", constPackFilePath})
       .appendStr(stubObjPathStr)
       .exec();
+  llvm::FileRemover constPackObjRemover(constPackObjPath);
 
 #elif __linux__
   // Create param.o holding packed parameter values.
@@ -168,6 +174,7 @@ void compileModuleToSharedLibrary(
       .appendList({"-o", constPackObjPath})
       .appendStr(constPackFilePath)
       .exec();
+  llvm::FileRemover constPackObjRemover(constPackObjPath);
 
   // Figure out what is the default symbol name describing the start/end
   // address of the embedded data.
@@ -195,7 +202,7 @@ void compileModuleToSharedLibrary(
   // Link everything into a shared object.
   Command link(kCxxPath, kCxxFileName);
   link.appendList({"-shared", "-fPIC"})
-      .appendStr(outputBaseName + ".o")
+      .appendStr(modelObjPath)
       .appendStr(constPackObjPath)
       .appendList({"-o", outputBaseName + ".so"})
       .appendStr(runtimeDirInclFlag)
