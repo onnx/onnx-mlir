@@ -26,8 +26,8 @@ public:
 
   using mlir::OpRewritePattern<mlir::KrnlGlobalOp>::OpRewritePattern;
 
-  explicit KrnlConstGlobalValueElision(mlir::MLIRContext *context,
-      int64_t elisionThreshold)
+  explicit KrnlConstGlobalValueElision(
+      mlir::MLIRContext *context, int64_t elisionThreshold)
       : OpRewritePattern(context), elisionThreshold(elisionThreshold) {}
 
   mlir::LogicalResult matchAndRewrite(
