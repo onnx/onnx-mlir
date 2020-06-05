@@ -112,7 +112,7 @@ int main() {
     onnx_mlir::ExecutionSession sess(
         pathStr + ".so", "_dyn_entry_point_test_conv");
 
-    vector<unique_ptr<DynMemRef>> inputs;
+    std::vector<unique_ptr<DynMemRef>> inputs;
     auto xDmr = unique_ptr<DynMemRef>(getRndRealDmr<float>({N, C, H, W}));
     inputs.emplace_back(move(xDmr));
     auto wDmr = unique_ptr<DynMemRef>(getRndRealDmr<float>({C, C, kH, kW}));
