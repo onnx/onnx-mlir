@@ -82,6 +82,26 @@ Attribute ComputeConstProppElementwiseBinary<ONNXSubOp>(
   llvm_unreachable("constant propagation for SubOp: unkonwn data type");
 }
 
+template <>
+Attribute ComputeConstProppElementwiseBinary<ONNXMulOp>(
+    PatternRewriter &rewriter, Type elementType, Attribute &lhsAttr,
+    Attribute &secondAttr) {
+  if (elementType.isa<FloatType>()) {
+    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
+    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
+    double res = lhsVal * rhsVal;
+    return rewriter.getFloatAttr(elementType, res);
+  }
+  if (elementType.isa<IntegerType>()) {
+    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
+    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
+    uint64_t res = lhsVal * rhsVal;
+    return rewriter.getIntegerAttr(elementType, res);
+  }
+  llvm_unreachable("constant propagation for MulOp: unkonwn data type");
+}
+
+
 // Recursively process one dimension in the rank of the two references. There
 // can be one of 3 cases.
 // 1) We have fully defined accesses for both operands, launch the computations.
@@ -183,18 +203,6 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
   return DenseElementsAttr::get(resType, resRef);
 }
 
-// Function called by the rules to generate the proper added constants
-DenseElementsAttr ConstPropForAddOfTwoConst(
-    PatternRewriter &rewriter, Value resOperand, Attribute &v1, Attribute &v2) {
-  return ConstPropElementwiseBinary<mlir::ONNXAddOp>(
-      rewriter, resOperand, v1, v2);
-}
-
-DenseElementsAttr ConstPropForSubOfTwoConst(
-    PatternRewriter &rewriter, Value resOperand, Attribute &v1, Attribute &v2) {
-  return ConstPropElementwiseBinary<mlir::ONNXSubOp>(
-      rewriter, resOperand, v1, v2);
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Code to perform constant propagation for unary operation.
@@ -253,7 +261,7 @@ void RecurseConstProppElementwiseUnary(PatternRewriter &rewriter,
 // generate the new constant operation.
 template <typename ElementwiseUnaryOp>
 DenseElementsAttr ConstPropElementwiseUnary(
-    PatternRewriter &rewriter, Value &resOperand, Attribute &attr) {
+    PatternRewriter &rewriter, Value resOperand, Attribute &attr) {
   DenseElementsAttr denseAttr =
       attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   assert(denseAttr && "expected dense attribute");
