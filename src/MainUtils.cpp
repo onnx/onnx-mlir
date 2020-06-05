@@ -41,26 +41,7 @@ llvm::Optional<std::string> getEnvVar(std::string name) {
   return llvm::None;
 }
 
-int executeCommandAndWait(
-    const std::string &exe, const std::vector<std::string> &cmds) {
-  auto argsRef = std::vector<llvm::StringRef>(cmds.begin(), cmds.end());
-  bool verbose = false;
-  if (const auto &verboseStr = getEnvVar("VERBOSE"))
-    std::istringstream(verboseStr.getValue()) >> verbose;
-
-  // If in verbose mode, print out command before execution.
-  if (verbose)
-    std::cout << llvm::join(argsRef, " ") << "\n";
-  int rc = llvm::sys::ExecuteAndWait(exe, llvm::makeArrayRef(argsRef));
-
-  if (rc != 0) {
-    fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
-    llvm_unreachable("Command execution failed.");
-  }
-
-  return rc;
-}
-
+// Helper struct to make command construction and execution easy & readable.
 struct Command {
   std::string _path;
   std::vector<std::string> _args;
@@ -68,19 +49,43 @@ struct Command {
   Command(std::string exe, const std::string &exeFileName)
       : _path(std::move(exe)), _args({exeFileName}) {}
 
-  void appendStr(const std::string &arg) { _args.emplace_back(arg); }
-
-  void appendList(const std::vector<std::string> &args) {
-    _args.insert(_args.end(), args.begin(), args.end());
+  // Append a single string argument.
+  Command &appendStr(const std::string &arg) {
+    _args.emplace_back(arg);
+    return *this;
   }
 
-  void resetArgs() {
+  // Append a list of string arguments.
+  Command &appendList(const std::vector<std::string> &args) {
+    _args.insert(_args.end(), args.begin(), args.end());
+    return *this;
+  }
+
+  // Reset arguments.
+  Command &resetArgs() {
     auto exeFileName = _args.front();
     _args.clear();
     _args.emplace_back(exeFileName);
+    return *this;
   }
 
-  int exec() { return executeCommandAndWait(_path, _args); }
+  // Execute command.
+  void exec() {
+    auto argsRef = vector<llvm::StringRef>(_args.begin(), _args.end());
+    bool verbose = false;
+    if (const auto &verboseStr = getEnvVar("VERBOSE"))
+      istringstream(verboseStr.getValue()) >> verbose;
+
+    // If in verbose mode, print out command before execution.
+    if (verbose)
+      cout << llvm::join(argsRef, " ") << "\n";
+    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef));
+
+    if (rc != 0) {
+      fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
+      llvm_unreachable("Command execution failed.");
+    }
+  }
 };
 } // namespace
 
@@ -126,6 +131,7 @@ void compileModuleToSharedLibrary(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
+  // Compile LLVM bitcode to object file.
   Command llvmToObj(/*exe=*/kLlcPath, /*exeFileName=*/"llc");
   llvmToObj.appendStr("-filetype=obj");
   llvmToObj.appendStr("-relocation-model=pic");
@@ -133,64 +139,68 @@ void compileModuleToSharedLibrary(
   llvmToObj.exec();
 
 #if __APPLE__
+  // Create a empty stub file, compile it to an empty obj file.
   llvm::SmallVector<char, 20> stubSrcPath;
   llvm::sys::fs::createTemporaryFile("stub", "cpp", stubSrcPath);
   std::string stubSrcPathStr(stubSrcPath.begin(), stubSrcPath.end());
   llvm::FileRemover subSrcRemover(stubSrcPath);
-
   Command createStubObj(/*exe=*/kCxxPath, /*exeFileName=*/kCxxFileName);
   std::string stubObjPathStr = stubSrcPathStr + ".o";
-  createStubObj.appendList({"-o", stubObjPathStr});
-  createStubObj.appendList({"-c", stubSrcPathStr});
-  createStubObj.exec();
+  createStubObj.appendList({"-o", stubObjPathStr})
+      .appendList({"-c", stubSrcPathStr})
+      .exec();
 
-  Command genParamObj(/*exe=*/kLinkerPath, /*exeFileName=*/kLinkerFileName);
-  genParamObj.appendStr("-r");
+  // Embed data into the empty stub obj file.
   std::string constPackObjPath = constPackFilePath + ".o";
-  genParamObj.appendList({"-o", constPackObjPath});
-  genParamObj.appendList({"-sectcreate", "binary", "param", constPackFilePath});
-  genParamObj.appendStr(stubObjPathStr);
-  genParamObj.exec();
+  Command genParamObj(/*exe=*/kLinkerPath, /*exeFileName=*/kLinkerFileName);
+  genParamObj.appendStr("-r")
+      .appendList({"-o", constPackObjPath})
+      .appendList({"-sectcreate", "binary", "param", constPackFilePath})
+      .appendStr(stubObjPathStr)
+      .exec();
 
 #elif __linux__
+  // Create param.o holding packed parameter values.
+  std::string constPackObjPath = constPackFilePath + ".o";
+  Command genParamObj(/*exe=*/kLinkerPath, /*exeFileName=*/kLinkerFileName);
+  genParamObj.appendStr("-r")
+      .appendList({"-b", "binary"})
+      .appendList({"-o", constPackObjPath})
+      .appendStr(constPackFilePath)
+      .exec();
+
+  // Figure out what is the default symbol name describing the start/end
+  // address of the embedded data.
   std::regex e("[^0-9A-Za-z]");
   auto sanitizedName =
       "_binary_" + std::regex_replace(constPackFilePath, e, "_");
 
-  // Create param.o holding packed parameter values.
-  Command genParamObj(/*exe=*/kLinkerPath, /*exeFileName=*/kLinkerFileName);
-  genParamObj.appendStr("-r");
-  genParamObj.appendList({"-b", "binary"});
-  std::string constPackObjPath = constPackFilePath + ".o";
-  genParamObj.appendList({"-o", constPackObjPath});
-  genParamObj.appendStr(constPackFilePath);
-  genParamObj.exec();
-
+  // Rename the symbols to saner ones expected by the runtime function.
   Command redefineSym(/*exe=*/kObjCopyPath, /*exeFileName=*/kObjCopyFileName);
-  redefineSym.appendStr("--redefine-sym");
-  redefineSym.appendStr(sanitizedName + "_start=_binary_param_bin_start");
-  redefineSym.appendStr(constPackObjPath);
-  redefineSym.exec();
-
-  redefineSym.resetArgs();
-  redefineSym.appendStr("--redefine-sym");
-  redefineSym.appendStr(sanitizedName + "_end=_binary_param_bin_end");
-  redefineSym.appendStr(constPackObjPath);
-  redefineSym.exec();
+  redefineSym.appendStr("--redefine-sym")
+      .appendStr(sanitizedName + "_start=_binary_param_bin_start")
+      .appendStr(constPackObjPath)
+      .exec();
+  redefineSym.resetArgs()
+      .appendStr("--redefine-sym")
+      .appendStr(sanitizedName + "_end=_binary_param_bin_end")
+      .appendStr(constPackObjPath)
+      .exec();
 
 #endif
-  std::string runtimeDirInclFlag = "";
+  std::string runtimeDirInclFlag;
   if (getEnvVar("RUNTIME_DIR").hasValue())
     runtimeDirInclFlag = "-L" + getEnvVar("RUNTIME_DIR").getValue();
 
+  // Link everything into a shared object.
   Command link(kCxxPath, kCxxFileName);
-  link.appendList({"-shared", "-fPIC"});
-  link.appendStr(outputBaseName + ".o");
-  link.appendStr(constPackObjPath);
-  link.appendList({"-o", outputBaseName + ".so"});
-  link.appendStr(runtimeDirInclFlag);
-  link.appendList({"-lEmbeddedDataLoader", "-lcruntime"});
-  link.exec();
+  link.appendList({"-shared", "-fPIC"})
+      .appendStr(outputBaseName + ".o")
+      .appendStr(constPackObjPath)
+      .appendList({"-o", outputBaseName + ".so"})
+      .appendStr(runtimeDirInclFlag)
+      .appendList({"-lEmbeddedDataLoader", "-lcruntime"})
+      .exec();
 }
 
 void registerDialects() {
