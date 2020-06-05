@@ -655,7 +655,6 @@ LogicalResult ONNXAddOp::inferShapes() {
   auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
   auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
-  //aee assert(0 && "try asserting");
   return success();
 }
 
