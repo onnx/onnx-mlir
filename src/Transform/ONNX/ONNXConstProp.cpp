@@ -280,7 +280,6 @@ DenseElementsAttr ConstPropElementwiseUnary(
 
 #include "src/Transform/ONNX/ONNXConstProp.inc"
 
-  
 // =============================================================================
 // Code to manage the pass.
 // =============================================================================
