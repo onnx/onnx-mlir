@@ -178,7 +178,7 @@ DynMemRef *getRndRealDmr(
 }
 
 template <typename T>
-inline bool assertDmrClose(
+inline bool isDmrClose(
     DynMemRef *a, DynMemRef *b, float rtol = 1e-5, float atol = 1e-5) {
 
   // Compare shape.
