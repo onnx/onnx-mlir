@@ -48,23 +48,5 @@ int main(int argc, char *argv[]) {
   string outputBaseName =
       inputFilename.substr(0, inputFilename.find_last_of("."));
 
-  mlir::PassManager pm(&context);
-  if (emissionTarget >= EmitONNXIR) {
-    addONNXToMLIRPasses(pm);
-  }
-
-  if (emissionTarget >= EmitMLIR) {
-    addONNXToKrnlPasses(pm);
-    addKrnlToAffinePasses(pm);
-  }
-
-  if (emissionTarget >= EmitLLVMIR)
-    addKrnlToLLVMPasses(pm);
-
-  if (mlir::failed(pm.run(*module)))
-    return 4;
-
-  emitOutputFiles(outputBaseName, emissionTarget, context, module);
-
-  return 0;
+  return compileModule(module, context, outputBaseName, emissionTarget);
 }

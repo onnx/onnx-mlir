@@ -18,6 +18,8 @@ target_include_directories(OMKrnlToLLVM
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
+target_link_libraries(OMKrnlToLLVM
+        onnx)
 
 #Linking dependencies:
 add_dependencies(OMKrnlToLLVM

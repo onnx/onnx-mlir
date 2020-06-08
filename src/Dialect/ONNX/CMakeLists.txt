@@ -14,6 +14,8 @@ target_include_directories(OMONNXOps
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
+target_link_libraries(OMONNXOps
+        onnx)
 add_dependencies(OMONNXOps OMONNXOpsIncGen)
 # Linking dependencies:
 add_dependencies(OMONNXOps
