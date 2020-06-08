@@ -47,7 +47,7 @@ jobs:
             cd onnx-mlir/build
             # Need to include the bin directory in $PATH,
             # otherwise CTest fails to find the test executables.
-            PATH=$(pwd)/bin:$PATH make test -j$(nproc)
+            RUNTIME_DIR=$(pwd)/lib PATH=$(pwd)/bin:$PATH make test -j$(nproc)
       - run:
           name: Run DocCheck
           command: cd onnx-mlir/build && cmake --build . --target check-doc
