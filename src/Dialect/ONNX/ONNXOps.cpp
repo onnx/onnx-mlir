@@ -437,7 +437,7 @@ static LogicalResult RNNShapeInference(T *op) {
   return success();
 }
 
-static void insertConvTransposeSpatialDim(SmallVector<int64_t, 4> *outputDims,
+static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
     ArrayRef<int64_t> xShape, Optional<ArrayAttr> kernelShape,
     Optional<ArrayAttr> padsOpt, Optional<ArrayAttr> stridesOpt,
     Optional<ArrayAttr> outputPadsOpt, Optional<ArrayAttr> outputShapeOpt,
@@ -464,7 +464,7 @@ static void insertConvTransposeSpatialDim(SmallVector<int64_t, 4> *outputDims,
     // processConvTypeParams comments to see how this value is derived).
     int64_t res = strideVal * (inputSize - 1) + outputPadsVal +
                   ((kernelSize - 1) * dilationVal + 1) - sumOfPads;
-    outputDims->emplace_back(res);
+    outputDims.emplace_back(res);
   }
 }
 
@@ -1493,7 +1493,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
   // Insert number of filters being applied (number of output channels).
   outputDims.emplace_back(weightShape[1]);
   // Compute and insert spatial dims.
-  insertConvTransposeSpatialDim(&outputDims, xShape, kernelShape, padsOpt,
+  insertConvTransposeSpatialDim(outputDims, xShape, kernelShape, padsOpt,
       stridesOpt, outputPads, outputShape, dilationsOpt);
 
   // Set the output shape if it's not already set
@@ -1769,24 +1769,13 @@ LogicalResult ONNXCastOp::inferShapes() {
   };
 
   int64_t targetType = toAttr().getInt();
-  switch (targetType) {
-  case 1: // FLOAT
-    getResult().setType(getOutputType(FloatType::getF32(getContext())));
-    break;
-  case 2: // UINT8
-    getResult().setType(getOutputType(
-        IntegerType::get(8, IntegerType::Unsigned, getContext())));
-    break;
-  case 3: // INT8
-    getResult().setType(
-        getOutputType(IntegerType::get(8, IntegerType::Signed, getContext())));
-    break;
-  case 10: // FLOAT16
-    getResult().setType(getOutputType(FloatType::getF16(getContext())));
-    break;
-  default:
-    return emitError(
-        llvm::formatv("Unable to shape infer for target type {0}", targetType));
+  OpBuilder builder(getContext());
+  if (auto elementType = convertONNXTypeToMLIRType(
+          builder, static_cast<onnx::TensorProto_DataType>(targetType))) {
+    getResult().setType(getOutputType(elementType));
+  } else {
+    return emitOpError("Unable to get the element type for to = " +
+                       std::to_string(targetType));
   }
   return success();
 }
@@ -1957,6 +1946,8 @@ LogicalResult ONNXFlattenOp::inferShapes() {
     return emitOpError("Output is a non-shaped type");
   }
 
+  // TODO(tjingrant): Seems like we can also fairly easily support the case
+  //                  where the batch dimension is dynamic
   if (!outTy.hasStaticShape()) {
     auto inShape = inTy.getShape();
     assert(inShape.size() >= 1 && "ONNXFlattenOp inShape.size() should be > 0");
@@ -2020,7 +2011,8 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes() {
   auto yTy = y().getType().cast<ShapedType>();
 
   if (!yTy.hasStaticShape()) {
-    // Unfortunately, we can't tell if this should be signed or unsigned here...
+    // TODO: Unfortunately, we can't tell if this should be signed or unsigned
+    //       here...
     IntegerType i8Type = IntegerType::get(8, getContext());
     RankedTensorType outType = RankedTensorType::get(inTy.getShape(), i8Type);
     y().setType(outType);
