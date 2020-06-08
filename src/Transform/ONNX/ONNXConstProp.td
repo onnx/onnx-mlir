@@ -16,14 +16,27 @@
 include "src/Dialect/ONNX/ONNXOps.td"
 #endif // OP_BASE
 
-/// Note: The DRR definition used for defining patterns is shown below:
-///
-/// class Pattern<
-///    dag sourcePattern, list<dag> resultPatterns,
-///    list<dag> additionalConstraints = [],
-///    dag benefitsAdded = (addBenefit 0)
-/// >;
 
+// =============================================================================
+// Instruction to add new constant operation rules. Minimally, you will have added
+// operation in the ONNXConstProp.cpp to perform the element-wise single value
+// handling of the new operator that you are dealing with. You will need to
+// generate a call to the method that handle the tensor constant prop. Here
+// is the call for a unary and binary operation. Adapt to your new operator:
+//
+// def CreateAddOfTwoConst :
+//   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
+//
+// def CreateNegOfConst :
+//   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXNegOp>($_builder, $0, $1)">;
+//
+// where you will have mostly to substitute your new operator as well as using
+// a new def name.
+//
+// Then you will need to add substitution rules, see examples below.
+// =============================================================================
+
+  
 // Useful test definitions.
 
 def IsNotAConstant :
