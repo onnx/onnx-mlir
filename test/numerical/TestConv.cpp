@@ -128,8 +128,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 }
 
 int main() {
-  // Automatic checking - generating a bunch of possible configurations randomly
-  // and test them for correctness.
+  // RapidCheck test case generation.
   rc::check("convolution implementation correctness", []() {
     const auto N = *rc::gen::inRange(1, 10);
     const auto C = *rc::gen::inRange(1, 20);
@@ -152,7 +151,7 @@ int main() {
         N, C, H, W, kH, kW, pHBegin, pHEnd, pWBegin, pWEnd));
   });
 
-  // Exhaustive checking for all padding configuration for 3x3 convolution.
+  // Exhaustive test case generation.
   for (int pHBegin = 0; pHBegin < 3; pHBegin++)
     for (int pHEnd = 0; pHEnd < 3; pHEnd++)
       for (int pWBegin = 0; pWBegin < 3; pWBegin++)
