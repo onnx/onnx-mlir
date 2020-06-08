@@ -34,20 +34,25 @@ public:
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape.
     f.walk([&](mlir::Operation *op) {
-      if (auto shape_op = dyn_cast<ShapeInference>(op))
-        if (returnsDynamicShape(op))
+      if (returnsDynamicShape(op)) {
+        if (auto shape_op = dyn_cast<ShapeInference>(op)) {
           if (failed(shape_op.inferShapes())) {
             op->emitError("unable to infer shape of operation without shape "
                           "inference method");
             return signalPassFailure();
           }
+        } else {
+          op->emitError("unable to infer shape of operation without shape "
+                        "inference interface");
+          return signalPassFailure();
+        }
+      }
     });
 
     int64_t dynamicOperations = 0;
     f.walk([&](mlir::Operation *op) {
-      if (auto shape_op = dyn_cast<ShapeInference>(op))
-        if (returnsDynamicShape(op))
-          dynamicOperations++;
+      if (returnsDynamicShape(op))
+        dynamicOperations++;
     });
 
     // If any dynamic operations remain, this indicates a failure.
@@ -73,7 +78,7 @@ public:
              !result_type.isa<RankedTensorType>();
     });
   }
-}; // namespace
+};
 } // end anonymous namespace
 
 /*!
