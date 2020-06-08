@@ -35,5 +35,5 @@ target_include_directories(PyRuntime PRIVATE
         ${ONNX_MLIR_SRC_ROOT})
 
 add_dependencies(PyRuntime cruntime)
-install(FILES Runtime/DynMemRef.h DESTINATION include)
+install(FILES DynMemRef.h DESTINATION include)
 install(TARGETS cruntime DESTINATION lib)
