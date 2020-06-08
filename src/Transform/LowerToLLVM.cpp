@@ -706,9 +706,14 @@ public:
           LLVM::LLVMType::getArrayTy(LLVM::LLVMType::getInt8Ty(llvmDialect),
               fileNameAttr.getValue().size());
       rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
-          LLVM::Linkage::Internal,
+          LLVM::Linkage::External,
           mlir::KrnlPackedConstantOp::getConstPackFilePathSymbolName(),
           fileNameAttr);
+
+      type = LLVM::LLVMType::getInt64Ty(llvmDialect);
+      rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+          LLVM::Linkage::External, llvm::StringRef("filePathStrLen"),
+          rewriter.getI64IntegerAttr(fileNameAttr.getValue().size()));
     }
 
     rewriter.eraseOp(op);

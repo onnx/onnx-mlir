@@ -17,6 +17,7 @@ void *getEmbeddedConstPool(int64_t size_in_byte) {
   memcpy(buffer, data, size);
   return data;
 }
+
 #elif __linux__
 extern char _binary_param_bin_start;
 extern char _binary_param_bin_end;
@@ -26,5 +27,33 @@ void *getEmbeddedConstPool(int64_t _) {
   void *buffer = malloc(size);
   memcpy(buffer, &_binary_param_bin_start, size);
   return buffer;
+}
+
+#else
+
+extern char constPackFilePath[];
+extern int64_t filePathStrLen;
+
+void *getEmbeddedConstPool(int64_t _) {
+  char *fname = (char *)calloc(1, filePathStrLen + 1);
+  memcpy(fname, constPackFilePath, filePathStrLen);
+
+  printf("Getting packed constants from %s\n", fname);
+
+  FILE *fileptr;
+  char *buffer;
+  long filelen;
+
+  //  printf("%s\n", &constPackFilePath[0]);
+  fileptr = fopen(fname, "rb"); // Open the file in binary mode
+  fseek(fileptr, 0, SEEK_END);  // Jump to the end of the file
+  filelen = ftell(fileptr);     // Get the current byte offset in the file
+  rewind(fileptr);              // Jump back to the beginning of the file
+
+  buffer = (char *)malloc(filelen * sizeof(char)); // Enough memory for the file
+  fread(buffer, filelen, 1, fileptr);              // Read in the entire file
+  fclose(fileptr);                                 // Close the file
+
+  return (void *)buffer;
 }
 #endif

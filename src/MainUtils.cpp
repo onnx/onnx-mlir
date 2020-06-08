@@ -121,13 +121,13 @@ void compileModuleToSharedLibrary(
                                .dyn_cast_or_null<mlir::StringAttr>()
                                .getValue()
                                .str();
-  llvm::FileRemover constPackRemover(constPackFilePath);
 
   // Write LLVM bitcode.
   string outputFilename = outputBaseName + ".bc";
   error_code error;
   llvm::raw_fd_ostream moduleBitcodeStream(
       outputFilename, error, llvm::sys::fs::F_None);
+
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
@@ -142,7 +142,9 @@ void compileModuleToSharedLibrary(
   std::string modelObjPath = outputBaseName + ".o";
   llvm::FileRemover modelObjRemover(modelObjPath);
 
+  llvm::Optional<std::string> constPackObjPath;
 #if __APPLE__
+  llvm::FileRemover constPackRemover(constPackFilePath);
   // Create a empty stub file, compile it to an empty obj file.
   llvm::SmallVector<char, 20> stubSrcPath;
   llvm::sys::fs::createTemporaryFile("stub", "cpp", stubSrcPath);
@@ -156,25 +158,26 @@ void compileModuleToSharedLibrary(
   llvm::FileRemover stubObjRemover(stubObjPathStr);
 
   // Embed data into the empty stub obj file.
-  std::string constPackObjPath = constPackFilePath + ".o";
+  constPackObjPath = constPackFilePath + ".o";
   Command genParamObj(/*exe=*/kLinkerPath, /*exeFileName=*/kLinkerFileName);
   genParamObj.appendStr("-r")
-      .appendList({"-o", constPackObjPath})
+      .appendList({"-o", constPackObjPath.getValue()})
       .appendList({"-sectcreate", "binary", "param", constPackFilePath})
       .appendStr(stubObjPathStr)
       .exec();
-  llvm::FileRemover constPackObjRemover(constPackObjPath);
+  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
 #elif __linux__
+  llvm::FileRemover constPackRemover(constPackFilePath);
   // Create param.o holding packed parameter values.
-  std::string constPackObjPath = constPackFilePath + ".o";
+  constPackObjPath = constPackFilePath + ".o";
   Command genParamObj(/*exe=*/kLinkerPath, /*exeFileName=*/kLinkerFileName);
   genParamObj.appendStr("-r")
       .appendList({"-b", "binary"})
-      .appendList({"-o", constPackObjPath})
+      .appendList({"-o", constPackObjPath.getValue()})
       .appendStr(constPackFilePath)
       .exec();
-  llvm::FileRemover constPackObjRemover(constPackObjPath);
+  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   // Figure out what is the default symbol name describing the start/end
   // address of the embedded data.
@@ -186,12 +189,12 @@ void compileModuleToSharedLibrary(
   Command redefineSym(/*exe=*/kObjCopyPath, /*exeFileName=*/kObjCopyFileName);
   redefineSym.appendStr("--redefine-sym")
       .appendStr(sanitizedName + "_start=_binary_param_bin_start")
-      .appendStr(constPackObjPath)
+      .appendStr(constPackObjPath.getValue())
       .exec();
   redefineSym.resetArgs()
       .appendStr("--redefine-sym")
       .appendStr(sanitizedName + "_end=_binary_param_bin_end")
-      .appendStr(constPackObjPath)
+      .appendStr(constPackObjPath.getValue())
       .exec();
 
 #endif
@@ -203,7 +206,7 @@ void compileModuleToSharedLibrary(
   Command link(kCxxPath, kCxxFileName);
   link.appendList({"-shared", "-fPIC"})
       .appendStr(modelObjPath)
-      .appendStr(constPackObjPath)
+      .appendStr(constPackObjPath.getValueOr(""))
       .appendList({"-o", outputBaseName + ".so"})
       .appendStr(runtimeDirInclFlag)
       .appendList({"-lEmbeddedDataLoader", "-lcruntime"})
@@ -240,7 +243,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerKrnlPass());
   // Fuse loops in Affine dialect.
-//  pm.addPass(mlir::createLoopFusionPass());
+  //  pm.addPass(mlir::createLoopFusionPass());
 }
 
 void addKrnlToLLVMPasses(mlir::PassManager &pm) {
