@@ -646,6 +646,7 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   populateStdToLLVMConversionPatterns(typeConverter, patterns,
       /*emitCWrapperS=*/true,
       /*useAlignedAlloc=*/false);
+
   patterns.insert<KrnlGlobalOpLowering>(&getContext(), typeConverter);
 
   // Lower from the `krnl` dialect i.e. the Reshape operation.
