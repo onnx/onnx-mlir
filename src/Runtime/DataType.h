@@ -1,3 +1,13 @@
+//===---------------------- DataType.h - ONNX DataTypes -------------------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains declaration of ONNX data types.
+//
+//===----------------------------------------------------------------------===//
+
 enum DYN_MEMREF_DATA_TYPE {
   UNDEFINED = 0;
   // Basic types.

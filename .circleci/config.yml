@@ -40,7 +40,14 @@ jobs:
           command: |
             sudo pip install -q -e ./onnx-mlir/third_party/onnx
             cd onnx-mlir/build
-            cmake --build . --target check-onnx-backend
+            VERBOSE=1 cmake --build . --target check-onnx-backend
+      - run:
+          name: Run Unit Tests
+          command: |
+            cd onnx-mlir/build
+            # Need to include the bin directory in $PATH,
+            # otherwise CTest fails to find the test executables.
+            PATH=$(pwd)/bin:$PATH make test -j$(nproc)
       - run:
           name: Run DocCheck
           command: cd onnx-mlir/build && cmake --build . --target check-doc

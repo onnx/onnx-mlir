@@ -1,30 +1,19 @@
-#include "Runtime.hpp"
+//===----- PyExecusionSession.hpp - PyExecutionSession Implementation -----===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains implementations of PyExecusionSession class, which helps
+// python programs interact with compiled binary model libraries.
+//
+//===----------------------------------------------------------------------===//
 
-ExecutionSession::ExecutionSession(
-    std::string sharedLibPath, std::string entryPointName) {
-  // Adapted from https://www.tldp.org/HOWTO/html_single/C++-dlopen/.
-  _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY);
-  if (!_sharedLibraryHandle) {
-    std::stringstream errStr;
-    errStr << "Cannot open library: " << dlerror() << std::endl;
-    throw std::runtime_error(errStr.str());
-  }
+#include "PyExecutionSession.hpp"
 
-  // Reset errors.
-  dlerror();
-  _entryPointFunc =
-      (entryPointFuncType)dlsym(_sharedLibraryHandle, entryPointName.c_str());
-  auto *dlsymError = dlerror();
-  if (dlsymError) {
-    std::stringstream errStr;
-    errStr << "Cannot load symbol '" << entryPointName << "': " << dlsymError
-           << std::endl;
-    dlclose(_sharedLibraryHandle);
-    throw std::runtime_error(errStr.str());
-  }
-}
+namespace onnx_mlir {
 
-std::vector<py::array> ExecutionSession::run(
+std::vector<py::array> PyExecutionSession::pyRun(
     std::vector<py::array> inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");
   auto *wrappedInput = createOrderedDynMemRefDict();
@@ -65,5 +54,4 @@ std::vector<py::array> ExecutionSession::run(
 
   return outputPyArrays;
 }
-
-ExecutionSession::~ExecutionSession() { dlclose(_sharedLibraryHandle); }
+} // namespace onnx_mlir

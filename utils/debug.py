@@ -63,7 +63,7 @@ def main(model_path):
 
     with tempfile.TemporaryDirectory() as temp_dir:
         print("Temporary directory has been created at {}".format(temp_dir))
-
+        
         # Save modified model & invoke onnx-mlir to compile it.
         temp_model_path = os.path.join(temp_dir, "model.onnx")
         onnx.save(model, temp_model_path)
