@@ -86,7 +86,7 @@ public:
     // Compute total size.
     auto memRefShape = memRefType.getShape();
     int64_t totalSize = 1;
-    for(int i=0; i<memRefShape.size(); i++)
+    for (int i = 0; i < memRefShape.size(); i++)
       totalSize *= memRefShape[i];
     totalSize *= getMemRefEltSizeInBytes(memRefType);
 
@@ -103,8 +103,8 @@ public:
     dealloc.getOperation()->moveBefore(&parentBlock->back());
 
     // Get reference to local MemRef.
-    auto zero = rewriter.create<ConstantOp>(loc,
-         rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
+    auto zero = rewriter.create<ConstantOp>(
+        loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
     auto poolMemRef =
         rewriter.create<KrnlGetRefOp>(loc, memRefType, newAlloc, zero);
 
@@ -120,7 +120,8 @@ public:
 
   LogicalResult matchAndRewrite(
       DeallocOp deallocOp, PatternRewriter &rewriter) const override {
-    if (auto getRefOp = llvm::dyn_cast<KrnlGetRefOp>(deallocOp.getOperand().getDefiningOp())) {
+    if (auto getRefOp = llvm::dyn_cast<KrnlGetRefOp>(
+            deallocOp.getOperand().getDefiningOp())) {
       rewriter.eraseOp(deallocOp);
       return success();
     }

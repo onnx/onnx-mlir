@@ -123,17 +123,16 @@ public:
 
     // This is the start of the memory pool containing the output MemRef.
     Type memPoolType = operandAdaptor.mempool()
-                       .getType()
-                       .cast<LLVM::LLVMType>()
-                       .getStructElementType(1);
-    Value alignedMemPoolBase = rewriter.create<LLVM::ExtractValueOp>(
-        loc, memPoolType, operandAdaptor.mempool(),
-        rewriter.getI64ArrayAttr(1));
+                           .getType()
+                           .cast<LLVM::LLVMType>()
+                           .getStructElementType(1);
+    Value alignedMemPoolBase = rewriter.create<LLVM::ExtractValueOp>(loc,
+        memPoolType, operandAdaptor.mempool(), rewriter.getI64ArrayAttr(1));
 
     // Get pointer using the offset.
     auto offset = operandAdaptor.offset();
-    auto outputI8PtrAlloc = rewriter.create<LLVM::GEPOp>(loc,
-        llvmI8PtrTy, alignedMemPoolBase, ArrayRef<Value>({offset}));
+    auto outputI8PtrAlloc = rewriter.create<LLVM::GEPOp>(
+        loc, llvmI8PtrTy, alignedMemPoolBase, ArrayRef<Value>({offset}));
 
     // Bitcast to output MemRef type i.e. from i8* to the element type
     // of the output MemRef.
