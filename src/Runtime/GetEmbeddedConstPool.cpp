@@ -44,7 +44,6 @@ void *getEmbeddedConstPool(int64_t _) {
   char *buffer;
   long filelen;
 
-  //  printf("%s\n", &constPackFilePath[0]);
   fileptr = fopen(fname, "rb"); // Open the file in binary mode
   fseek(fileptr, 0, SEEK_END);  // Jump to the end of the file
   filelen = ftell(fileptr);     // Get the current byte offset in the file
