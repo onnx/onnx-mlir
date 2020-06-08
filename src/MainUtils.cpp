@@ -310,7 +310,7 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
   if (emissionTarget == EmitLib) {
     // Write LLVM bitcode to disk, compile & link.
     compileModuleToSharedLibrary(module, outputBaseName);
-    printf("Shared library %s.so has been compiled.", outputBaseName.c_str());
+    printf("Shared library %s.so has been compiled.\n", outputBaseName.c_str());
   } else {
     // Emit the version with all constants included.
     outputCode(module, outputBaseName, ".onnx.mlir");
@@ -336,4 +336,26 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
           (outputBaseName + ".onnx.mlir").c_str());
     }
   }
+}
+
+int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, EmissionTargetType emissionTarget) {
+  mlir::PassManager pm(&context);
+  if (emissionTarget >= EmitONNXIR) {
+    addONNXToMLIRPasses(pm);
+  }
+
+  if (emissionTarget >= EmitMLIR) {
+    addONNXToKrnlPasses(pm);
+    addKrnlToAffinePasses(pm);
+  }
+
+  if (emissionTarget >= EmitLLVMIR)
+    addKrnlToLLVMPasses(pm);
+
+  if (mlir::failed(pm.run(*module)))
+    return 4;
+
+  emitOutputFiles(outputBaseName, emissionTarget, context, module);
+  return 0;
 }

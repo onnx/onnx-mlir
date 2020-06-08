@@ -4,26 +4,43 @@ add_library(cruntime STATIC
         DynMemRef.cpp
         DynMemRef.h
         DataType.h)
-target_include_directories(cruntime
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNX_MLIR_SRC_ROOT})
 
-pybind11_add_module(pyruntime
-        DynMemRef.cpp
+add_library(DynMemRefUtils
         DynMemRef.h
-        Runtime.cpp
-        Runtime.hpp)
-target_link_libraries(pyruntime PRIVATE ${CMAKE_DL_LIBS})
-target_include_directories(pyruntime
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
+        DynMemRef.cpp
+        DataType.h)
+
+add_library(ExecutionSession
+        ExecusionSession.hpp
+        ExecusionSession.cpp)
+target_link_libraries(ExecutionSession
+        ${CMAKE_DL_LIBS})
+target_include_directories(ExecutionSession PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
-add_dependencies(pyruntime cruntime)
+set_target_properties(ExecutionSession PROPERTIES
+        POSITION_INDEPENDENT_CODE TRUE)
+
+pybind11_add_module(PyRuntime
+        PyExecutionSession.cpp
+        PyExecutionSession.hpp)
+target_link_libraries(PyRuntime PRIVATE
+        ${CMAKE_DL_LIBS}
+        ExecutionSession
+        DynMemRefUtils)
+target_include_directories(PyRuntime PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
 
 add_library(EmbeddedDataLoader STATIC
         GetEmbeddedConstPool.h
         GetEmbeddedConstPool.cpp)
 set_target_properties(EmbeddedDataLoader PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
+
+add_dependencies(PyRuntime cruntime)
 install(FILES DynMemRef.h DESTINATION include)
 install(TARGETS cruntime DESTINATION lib)
 install(TARGETS EmbeddedDataLoader DESTINATION lib)

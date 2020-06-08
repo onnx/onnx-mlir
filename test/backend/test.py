@@ -24,7 +24,7 @@ LLC = os.path.join(test_config.LLVM_PROJ_BUILD_PATH, "bin/llc")
 doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
 RUNTIME_DIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "lib")
 sys.path.append(RUNTIME_DIR)
-from pyruntime import ExecutionSession
+from PyRuntime import ExecutionSession
 
 
 def execute_commands(cmds):
