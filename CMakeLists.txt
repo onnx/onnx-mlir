@@ -18,6 +18,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+include(CTest)
 include(MLIR.cmake)
 
 if (MSVC)
@@ -29,6 +30,7 @@ add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/benchmark)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/variant)
+add_subdirectory(third_party/rapidcheck)
 
 set(CMAKE_CXX_STANDARD 14)
 

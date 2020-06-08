@@ -23,10 +23,10 @@ toc:
         url: /ImportONNXDefs.html
       - page: About Documentation
         url: /Documentation.html
-#  - title: Discussions
-#    subfolderitems:
-#      - page: Placeholder
-#        url: /piece1.html
+  - title: Discussions
+    subfolderitems:
+      - page: Testing Guidelines
+        url: /Testing.html
   - title: Tools
     subfolderitems:
       - page: debug.py - Debug Numerical Errors
