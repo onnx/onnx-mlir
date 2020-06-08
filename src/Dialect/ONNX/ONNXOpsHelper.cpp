@@ -44,6 +44,7 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 // Convert type to MLIR type.
 // A complete list of types can be found in:
 // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
+// TODO: Update Int*/Uint* to emit signed/unsigned MLIR types
 mlir::Type convertONNXTypeToMLIRType(
     mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
   switch (onnxType) {
@@ -54,21 +55,17 @@ mlir::Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
     return builder_.getF64Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
-    return builder_.getIntegerType(/*width=*/8, true);
   case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
-    return builder_.getIntegerType(/*width=*/8, false);
+    return builder_.getIntegerType(/*width=*/8);
   case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
-    return builder_.getIntegerType(/*width=*/16, true);
   case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
-    return builder_.getIntegerType(/*width=*/16, false);
+    return builder_.getIntegerType(/*width=*/16);
   case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
-    return builder_.getIntegerType(/*width=*/32, true);
   case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
-    return builder_.getIntegerType(/*width=*/32, false);
+    return builder_.getIntegerType(/*width=*/32);
   case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
-    return builder_.getIntegerType(/*width=*/64, true);
   case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
-    return builder_.getIntegerType(/*width=*/64, false);
+    return builder_.getIntegerType(/*width=*/64);
   case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
     return builder_.getI1Type();
 

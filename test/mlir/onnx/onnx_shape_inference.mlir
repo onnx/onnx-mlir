@@ -904,8 +904,8 @@ func @test_cast_2(%arg0 : tensor<2x3x4xf32>) -> tensor<*xui8> {
   "std.return"(%1) : (tensor<*xui8>) -> ()
 
   // CHECK-LABEL: test_cast_2
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = 2 : i64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xui8>
-  // CHECK: return [[RES]] : tensor<2x3x4xui8>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = 2 : i64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi8>
+  // CHECK: return [[RES]] : tensor<2x3x4xi8>
 }
 
 func @test_cast_3(%arg0 : tensor<2x3x4xf32>) -> tensor<*xsi8> {
@@ -913,8 +913,8 @@ func @test_cast_3(%arg0 : tensor<2x3x4xf32>) -> tensor<*xsi8> {
   "std.return"(%1) : (tensor<*xsi8>) -> ()
 
   // CHECK-LABEL: test_cast_3
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = 3 : i64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xsi8>
-  // CHECK: return [[RES]] : tensor<2x3x4xsi8>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = 3 : i64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi8>
+  // CHECK: return [[RES]] : tensor<2x3x4xi8>
 }
 
 func @test_cast_10(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf16> {
