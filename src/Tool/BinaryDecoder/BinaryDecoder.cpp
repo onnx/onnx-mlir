@@ -4,6 +4,16 @@
 
 #include <llvm/Support/CommandLine.h>
 
+#if defined(_WIN32)
+
+#include <stdint.h>
+
+typedef uint8_t u_int8_t;
+typedef uint16_t u_int16_t;
+typedef uint32_t u_int32_t;
+
+#endif
+
 llvm::cl::opt<std::string> Filename(
     llvm::cl::Positional, llvm::cl::desc("<input file>"), llvm::cl::Required);
 llvm::cl::opt<int64_t> Start("s",
