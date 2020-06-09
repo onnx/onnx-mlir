@@ -57,6 +57,7 @@ target_link_libraries(MainUtils
         OMResultTypeInferenceOpInterface
         OMElideConstants
         OMElideKrnlGlobalConstants
+        OMEnableMemoryPool
         OMKrnlToAffine
         OMKrnlToLLVM
         OMONNXToKrnl

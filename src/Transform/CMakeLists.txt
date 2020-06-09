@@ -38,4 +38,17 @@ add_dependencies(OMElideKrnlGlobalConstants OMKrnlOpsInc)
 # Linking dependencies
 add_dependencies(OMElideKrnlGlobalConstants OMKrnlOps)
 
+add_library(OMEnableMemoryPool
+        EnableMemoryPool.cpp)
+target_include_directories(OMEnableMemoryPool
+        PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+target_link_libraries(OMEnableMemoryPool
+        onnx)
+add_dependencies(OMEnableMemoryPool
+        OMKrnlOps
+        OMONNXOps)
+
 add_subdirectory(ONNX)
