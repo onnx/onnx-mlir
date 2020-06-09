@@ -411,8 +411,7 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
         rewriter.create<SelectOp>(loc, zeroPredicate, zero, plusSelect);
     return result;
   } else {
-    emitError(loc, "unsupported element type");
-    return {};
+    llvm_unreachable("unsupported element type");
   }
 }
 
@@ -469,8 +468,7 @@ Value emitScalarOpFor<ONNXAbsOp>(ConversionPatternRewriter &rewriter,
     return rewriter.create<SelectOp>(
         loc, lessThanZero, negativeOperand, operand);
   } else {
-    emitError(loc, "unsupported element type");
-    return {};
+    llvm_unreachable("unsupported element type");
   }
 }
 
@@ -489,7 +487,7 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
     auto zero = emitConstantOp(rewriter, loc, elementType, 0);
     return rewriter.create<mlir::SubIOp>(loc, zero, operand); // 0 - X = -X
   } else {
-    emitError(loc, "unsupported element type");
+    llvm_unreachable("unsupported element type");
   }
 }
 
@@ -550,11 +548,11 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         loopIVs.push_back(arg);
     }
 
-    auto loadedVal = rewriter.create<LoadOp>(loc, X, loopIVs);
+    auto loadedVal = rewriter.create<AffineLoadOp>(loc, X, loopIVs);
     auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
         rewriter, loc, op, memRefType.getElementType(), {loadedVal});
     // Store result in the resulting array.
-    rewriter.create<StoreOp>(loc, loweredOpResult, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, loweredOpResult, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 

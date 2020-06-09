@@ -1,5 +1,5 @@
 # ONNX MLIR
-The Open Neural Network Exchange implementation in MLIR.
+The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
 
 | System      | Build Status |
 |-------------|--------------|
@@ -60,7 +60,7 @@ export LLVM_PROJ_BUILD=$(pwd)/llvm-project/build
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..
-cmake --build . --target onnx-mlir
+cmake --build .
 
 # Run FileCheck tests:
 export LIT_OPTS=-v
