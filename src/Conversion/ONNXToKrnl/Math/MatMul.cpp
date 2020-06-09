@@ -104,7 +104,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           allocOperands.emplace_back(dim);
         }
       } else {
-        emitError(loc, "Invalid shapes");
+        return emitError(loc, "Invalid shapes");
       }
 
       alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);

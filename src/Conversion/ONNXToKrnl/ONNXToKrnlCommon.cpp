@@ -344,7 +344,7 @@ Value emitConstantOp(ConversionPatternRewriter &rewriter, Location loc,
   } else if (typeKind == StandardTypes::Index) {
     constantAttr = rewriter.getIntegerAttr(type, (int64_t)value);
   } else {
-    emitError(loc, "unsupported element type");
+    llvm_unreachable("unsupported element type");
   }
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
@@ -409,10 +409,10 @@ Value emitPositiveInfinityConstantOp(
         constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
       }
     } else {
-      emitError(loc, "unsupported element type");
+      llvm_unreachable("unsupported element type");
     }
   } else {
-    emitError(loc, "unsupported element type");
+    llvm_unreachable("unsupported element type");
   }
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
@@ -477,10 +477,10 @@ Value emitNegativeInfinityConstantOp(
         constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
       }
     } else {
-      emitError(loc, "unsupported element type");
+      llvm_unreachable("unsupported element type");
     }
   } else {
-    emitError(loc, "unsupported element type");
+    llvm_unreachable("unsupported element type");
   }
 
   return rewriter.create<ConstantOp>(loc, constantAttr);

@@ -69,8 +69,7 @@ Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
     auto result = rewriter.create<SelectOp>(loc, max, lhs, rhs);
     return result;
   } else {
-    emitError(loc, "unsupported element type");
-    return nullptr;
+    llvm_unreachable("unsupported element type");
   }
 }
 
@@ -92,8 +91,7 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
     auto result = rewriter.create<SelectOp>(loc, min, lhs, rhs);
     return result;
   } else {
-    emitError(loc, "unsupported element type");
-    return nullptr;
+    llvm_unreachable("unsupported element type");
   }
 }
 

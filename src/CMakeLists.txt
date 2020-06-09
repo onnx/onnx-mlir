@@ -6,10 +6,18 @@ add_subdirectory(Tool)
 add_subdirectory(Builder)
 add_subdirectory(Runtime)
 
-add_executable(onnx-mlir
+add_library(MainUtils
         MainUtils.hpp
-        MainUtils.cpp
+        MainUtils.cpp)
+target_link_libraries(MainUtils onnx)
+
+target_include_directories(MainUtils PRIVATE ${ONNX_MLIR_SRC_ROOT})
+target_include_directories(MainUtils PRIVATE ${CMAKE_BINARY_DIR})
+target_include_directories(MainUtils PRIVATE ${ONNX_MLIR_BIN_ROOT})
+
+add_executable(onnx-mlir
         main.cpp)
+target_link_libraries(onnx-mlir MainUtils)
 
 # Locate llc, which is needed for translating LLVM bitcode
 # to object file.
@@ -38,7 +46,7 @@ endif()
 # So it's better not to use target_link_libraries for the add_subdirectory
 # targets, or only use it for libraries that have no further dependencies
 # (except system libraries such as libc).
-target_link_libraries(onnx-mlir
+target_link_libraries(MainUtils
         OMBuilder
         OMKrnlOps
         OMONNXOps
@@ -55,11 +63,12 @@ target_link_libraries(onnx-mlir
         OMONNXRewrite
         ${MLIRLibs}
         ${CMAKE_DL_LIBS})
+add_dependencies(onnx-mlir OMKrnlOpsInc OMONNXOpsInc)
 
 if (INCLUDE_ONNX_ML)
-  target_link_libraries(onnx-mlir OMMLONNXOps)
+  target_link_libraries(MainUtils OMMLONNXOps)
+  add_dependencies(MainUtils OMMLONNXOpsInc)
 endif()
-
 
 target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(onnx-mlir PRIVATE ${CMAKE_BINARY_DIR})
