@@ -37,8 +37,7 @@ public:
       if (returnsDynamicShape(op)) {
         if (auto shape_op = dyn_cast<ShapeInference>(op)) {
           if (failed(shape_op.inferShapes())) {
-            op->emitError("unable to infer shape of operation without shape "
-                          "inference method");
+            op->emitError("shape inference failed");
             return signalPassFailure();
           }
         } else {
@@ -80,7 +79,10 @@ public:
     // shaped outputs. All those operation need to implement the inferShape()
     // method.
     if (op->getName().getStringRef() != "onnx.Exp" &&
+        op->getName().getStringRef() != "onnx.Atan" &&
+        op->getName().getStringRef() != "onnx.Tan" &&
         op->getName().getStringRef() != "onnx.Tanh" &&
+        op->getName().getStringRef() != "onnx.Sin" &&
         op->getName().getStringRef() != "onnx.Sinh" &&
         op->getName().getStringRef() != "onnx.Cosh" &&
         op->getName().getStringRef() != "onnx.Cos" &&
@@ -131,7 +133,14 @@ public:
         op->getName().getStringRef() != "onnx.RNN" &&
         op->getName().getStringRef() != "onnx.LSTM" &&
         op->getName().getStringRef() != "onnx.GRU" &&
-        op->getName().getStringRef() != "onnx.Unsqueeze")
+        op->getName().getStringRef() != "onnx.Unsqueeze" &&
+        op->getName().getStringRef() != "onnx.Cast" &&
+        op->getName().getStringRef() != "onnx.ConvTranspose" &&
+        op->getName().getStringRef() != "onnx.Flatten" &&
+        op->getName().getStringRef() != "onnx.DynamicQuantizeLinear" &&
+        op->getName().getStringRef() != "onnx.QuantizeLinear" &&
+        op->getName().getStringRef() != "onnx.DequantizeLinear" &&
+        op->getName().getStringRef() != "onnx.ConvInteger")
       return false;
     return llvm::any_of(op->getResultTypes(), [](Type result_type) {
       return !result_type.isa<NoneType>() &&
