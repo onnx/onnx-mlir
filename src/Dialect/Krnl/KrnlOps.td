@@ -209,7 +209,9 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global"> {
 def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
   let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
   let description = [{
-    Retreieves a MemRef from within another MemRef.
+    Retreieves a MemRef from within another MemRef:
+
+    "krnl.getref"(%memref, %offset)
   }];
 
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset);

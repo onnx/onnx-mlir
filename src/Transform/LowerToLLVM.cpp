@@ -118,9 +118,6 @@ public:
     auto outputElementType =
         typeConverter.convertType(memRefTy.getElementType());
 
-    // Some frequently used types.
-    auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
-
     // This is the start of the memory pool containing the output MemRef.
     Type memPoolType = operandAdaptor.mempool()
                            .getType()
@@ -131,14 +128,16 @@ public:
 
     // Get pointer using the offset.
     auto offset = operandAdaptor.offset();
-    auto outputI8PtrAlloc = rewriter.create<LLVM::GEPOp>(
-        loc, llvmI8PtrTy, alignedMemPoolBase, ArrayRef<Value>({offset}));
+    auto llvmMemPoolType =
+        typeConverter.convertType(memPoolType).cast<LLVM::LLVMType>();
+    auto outputMemPoolTypePtrAlloc = rewriter.create<LLVM::GEPOp>(
+        loc, llvmMemPoolType, alignedMemPoolBase, ArrayRef<Value>({offset}));
 
     // Bitcast to output MemRef type i.e. from i8* to the element type
     // of the output MemRef.
     auto llvmOutputElementType = outputElementType.cast<LLVM::LLVMType>();
     Value outputTypedPtrAlloc = rewriter.create<LLVM::BitcastOp>(
-        loc, llvmOutputElementType.getPointerTo(), outputI8PtrAlloc);
+        loc, llvmOutputElementType.getPointerTo(), outputMemPoolTypePtrAlloc);
 
     // Create llvm MemRef from original MemRef and fill the data pointers.
     auto llvmMemRef = MemRefDescriptor::fromStaticShape(
