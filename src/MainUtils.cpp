@@ -46,8 +46,9 @@ struct Command {
   std::string _path;
   std::vector<std::string> _args;
 
-  Command(std::string exe, const std::string &exeFileName)
-      : _path(std::move(exe)), _args({exeFileName}) {}
+  Command(std::string exePath)
+      : _path(std::move(exePath)),
+        _args({llvm::sys::path::filename(exePath).str()}) {}
 
   // Append a single string argument.
   Command &appendStr(const std::string &arg) {
@@ -130,7 +131,7 @@ void compileModuleToSharedLibrary(
   llvm::sys::fs::createTemporaryFile("stub", "cpp", stubSrcPath);
   llvm::FileRemover subSrcRemover(stubSrcPath);
   std::string stubSrcPathStr(stubSrcPath.begin(), stubSrcPath.end());
-  Command createStubObj(/*exe=*/kCxxPath, /*exeFileName=*/kCxxFileName);
+  Command createStubObj(/*exePath=*/kCxxPath);
   std::string stubObjPathStr = stubSrcPathStr + ".o";
   createStubObj.appendList({"-o", stubObjPathStr})
       .appendList({"-c", stubSrcPathStr})
@@ -139,7 +140,7 @@ void compileModuleToSharedLibrary(
 
   // Embed data into the empty stub obj file.
   constPackObjPath = constPackFilePath + ".o";
-  Command genParamObj(/*exe=*/kLinkerPath, /*exeFileName=*/kLinkerFileName);
+  Command genParamObj(/*exePath=*/kLinkerPath);
   genParamObj.appendStr("-r")
       .appendList({"-o", constPackObjPath.getValue()})
       .appendList({"-sectcreate", "binary", "param", constPackFilePath})
@@ -150,7 +151,7 @@ void compileModuleToSharedLibrary(
 #elif __linux__
   // Create param.o holding packed parameter values.
   constPackObjPath = constPackFilePath + ".o";
-  Command genParamObj(/*exe=*/kLinkerPath, /*exeFileName=*/kLinkerFileName);
+  Command genParamObj(/*exePath=*/kLinkerPath);
   genParamObj.appendStr("-r")
       .appendList({"-b", "binary"})
       .appendList({"-o", constPackObjPath.getValue()})
@@ -165,7 +166,7 @@ void compileModuleToSharedLibrary(
       "_binary_" + std::regex_replace(constPackFilePath, e, "_");
 
   // Rename the symbols to saner ones expected by the runtime function.
-  Command redefineSym(/*exe=*/kObjCopyPath, /*exeFileName=*/kObjCopyFileName);
+  Command redefineSym(/*exePath=*/kObjCopyPath);
   redefineSym.appendStr("--redefine-sym")
       .appendStr(sanitizedName + "_start=_binary_param_bin_start")
       .appendStr(constPackObjPath.getValue())
@@ -209,7 +210,7 @@ void compileModuleToSharedLibrary(
   llvm::FileRemover bcRemover(outputFilename);
 
   // Compile LLVM bitcode to object file.
-  Command llvmToObj(/*exe=*/kLlcPath, /*exeFileName=*/"llc");
+  Command llvmToObj(/*exePath=*/kLlcPath);
   llvmToObj.appendStr("-filetype=obj");
   llvmToObj.appendStr("-relocation-model=pic");
   llvmToObj.appendStr(outputFilename);
@@ -222,7 +223,7 @@ void compileModuleToSharedLibrary(
     runtimeDirInclFlag = "-L" + getEnvVar("RUNTIME_DIR").getValue();
 
   // Link everything into a shared object.
-  Command link(kCxxPath, kCxxFileName);
+  Command link(kCxxPath);
   link.appendList({"-shared", "-fPIC"})
       .appendStr(modelObjPath)
       .appendStr(constPackObjPath.getValueOr(""))
