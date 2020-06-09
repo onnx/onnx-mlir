@@ -224,6 +224,7 @@ void registerDialects() {
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createDecomposeONNXToONNXPass());
+  pm.addPass(mlir::createConstPropONNXToONNXPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createAttributePromotionPass());
