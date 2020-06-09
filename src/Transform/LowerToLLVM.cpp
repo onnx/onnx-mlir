@@ -701,6 +701,8 @@ public:
       OpBuilder::InsertionGuard insertGuard(rewriter);
       rewriter.setInsertionPointToStart(module.getBody());
 
+      // Record constant pack *file path* as a global variable (by recording the
+      // file path string's underlying char array + its length).
       const auto &fileNameAttr = packedConstOp.file_nameAttr();
       auto type =
           LLVM::LLVMType::getArrayTy(LLVM::LLVMType::getInt8Ty(llvmDialect),
@@ -709,11 +711,27 @@ public:
           LLVM::Linkage::External,
           mlir::KrnlPackedConstantOp::getConstPackFilePathSymbolName(),
           fileNameAttr);
-
       type = LLVM::LLVMType::getInt64Ty(llvmDialect);
       rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
-          LLVM::Linkage::External, llvm::StringRef("filePathStrLen"),
+          LLVM::Linkage::External,
+          mlir::KrnlPackedConstantOp::getConstPackFilePathStrLenSymbolName(),
           rewriter.getI64IntegerAttr(fileNameAttr.getValue().size()));
+
+      // Record constant pack *file name* as a global variable (by recording the
+      // file name string's underlying char array + its length).
+      auto constPackFileName =
+          llvm::sys::path::filename(fileNameAttr.getValue());
+      type = LLVM::LLVMType::getArrayTy(
+          LLVM::LLVMType::getInt8Ty(llvmDialect), constPackFileName.size());
+      rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+          LLVM::Linkage::External,
+          mlir::KrnlPackedConstantOp::getConstPackFileNameSymbolName(),
+          rewriter.getStringAttr(constPackFileName));
+      type = LLVM::LLVMType::getInt64Ty(llvmDialect);
+      rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+          LLVM::Linkage::External,
+          mlir::KrnlPackedConstantOp::getConstPackFileNameStrLenSymbolName(),
+          rewriter.getI64IntegerAttr(constPackFileName.size()));
     }
 
     rewriter.eraseOp(op);

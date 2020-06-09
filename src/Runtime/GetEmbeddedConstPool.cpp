@@ -31,12 +31,12 @@ void *getEmbeddedConstPool(int64_t _) {
 
 #else
 
-extern char constPackFilePath[];
-extern int64_t filePathStrLen;
+extern char constPackFileName[];
+extern int64_t constPackFileNameStrLen;
 
 void *getEmbeddedConstPool(int64_t _) {
-  char *fname = (char *)calloc(1, filePathStrLen + 1);
-  memcpy(fname, constPackFilePath, filePathStrLen);
+  char *fname = (char *)calloc(1, constPackFileNameStrLen + 1);
+  memcpy(fname, constPackFileName, constPackFileNameStrLen);
 
   printf("Getting packed constants from %s\n", fname);
 

@@ -121,30 +121,10 @@ void compileModuleToSharedLibrary(
                                .dyn_cast_or_null<mlir::StringAttr>()
                                .getValue()
                                .str();
-
-  // Write LLVM bitcode.
-  string outputFilename = outputBaseName + ".bc";
-  error_code error;
-  llvm::raw_fd_ostream moduleBitcodeStream(
-      outputFilename, error, llvm::sys::fs::F_None);
-
-  llvm::WriteBitcodeToFile(
-      *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
-  moduleBitcodeStream.flush();
-  llvm::FileRemover bcRemover(outputFilename);
-
-  // Compile LLVM bitcode to object file.
-  Command llvmToObj(/*exe=*/kLlcPath, /*exeFileName=*/"llc");
-  llvmToObj.appendStr("-filetype=obj");
-  llvmToObj.appendStr("-relocation-model=pic");
-  llvmToObj.appendStr(outputFilename);
-  llvmToObj.exec();
-  std::string modelObjPath = outputBaseName + ".o";
-  llvm::FileRemover modelObjRemover(modelObjPath);
+  llvm::FileRemover constPackRemover(constPackFilePath);
 
   llvm::Optional<std::string> constPackObjPath;
 #if __APPLE__
-  llvm::FileRemover constPackRemover(constPackFilePath);
   // Create a empty stub file, compile it to an empty obj file.
   llvm::SmallVector<char, 20> stubSrcPath;
   llvm::sys::fs::createTemporaryFile("stub", "cpp", stubSrcPath);
@@ -168,7 +148,6 @@ void compileModuleToSharedLibrary(
   llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
 #elif __linux__
-  llvm::FileRemover constPackRemover(constPackFilePath);
   // Create param.o holding packed parameter values.
   constPackObjPath = constPackFilePath + ".o";
   Command genParamObj(/*exe=*/kLinkerPath, /*exeFileName=*/kLinkerFileName);
@@ -197,7 +176,50 @@ void compileModuleToSharedLibrary(
       .appendStr(constPackObjPath.getValue())
       .exec();
 
+#else
+  llvm::SmallVector<char, 10> permConstPackFileName(
+      constPackFilePath.begin(), constPackFilePath.end());
+  llvm::sys::path::replace_extension(permConstPackFileName, "bin");
+  std::string permConstPackFileNameStr(
+      permConstPackFileName.begin(), permConstPackFileName.end());
+  auto constPackFileName = llvm::sys::path::filename(outputBaseName) + "." +
+                           llvm::sys::path::filename(permConstPackFileNameStr);
+  llvm::sys::fs::rename(constPackFilePath, constPackFileName);
+  printf("Path after rename %s\n", constPackFileName.str().c_str());
+
+
+//  fdsfdsiof
+  mlir::Builder builder(*module);
+  (*module)
+      .lookupSymbol<mlir::LLVM::GlobalOp>(
+          mlir::KrnlPackedConstantOp::getConstPackFileNameSymbolName())
+      .valueAttr(builder.getStringAttr(constPackFileName.str()));
+  (*module)
+      .lookupSymbol<mlir::LLVM::GlobalOp>(
+          mlir::KrnlPackedConstantOp::getConstPackFileNameStrLenSymbolName())
+      .valueAttr(builder.getI64IntegerAttr(constPackFileName.str().size()));
 #endif
+
+  // Write LLVM bitcode.
+  string outputFilename = outputBaseName + ".bc";
+  error_code error;
+  llvm::raw_fd_ostream moduleBitcodeStream(
+      outputFilename, error, llvm::sys::fs::F_None);
+
+  llvm::WriteBitcodeToFile(
+      *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
+  moduleBitcodeStream.flush();
+  llvm::FileRemover bcRemover(outputFilename);
+
+  // Compile LLVM bitcode to object file.
+  Command llvmToObj(/*exe=*/kLlcPath, /*exeFileName=*/"llc");
+  llvmToObj.appendStr("-filetype=obj");
+  llvmToObj.appendStr("-relocation-model=pic");
+  llvmToObj.appendStr(outputFilename);
+  llvmToObj.exec();
+  std::string modelObjPath = outputBaseName + ".o";
+  llvm::FileRemover modelObjRemover(modelObjPath);
+
   std::string runtimeDirInclFlag;
   if (getEnvVar("RUNTIME_DIR").hasValue())
     runtimeDirInclFlag = "-L" + getEnvVar("RUNTIME_DIR").getValue();

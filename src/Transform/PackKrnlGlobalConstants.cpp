@@ -82,7 +82,7 @@ public:
         pathStr = filename.getValue();
       } else {
         llvm::SmallVector<char, 10> path;
-        llvm::sys::fs::createTemporaryFile("_packed_const", "tmp", path);
+        llvm::sys::fs::createTemporaryFile("packed_const", "tmp", path);
         pathStr = std::string(path.begin(), path.end());
       }
       packedConstOp.file_nameAttr(builder.getStringAttr(pathStr));
