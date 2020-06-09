@@ -28,6 +28,7 @@
 #include <io.h>
 #else
 #include <unistd.h>
+
 #endif
 
 using namespace std;
@@ -111,27 +112,24 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   }
 }
 
-void compileModuleToSharedLibrary(
-    const mlir::OwningModuleRef &module, string outputBaseName) {
-  // Extract constant pack file name, which is embedded as a symbol in the
-  // module being compiled.
-  auto constPackFilePathSym = (*module).lookupSymbol<mlir::LLVM::GlobalOp>(
-      mlir::KrnlPackedConstantOp::getConstPackFilePathSymbolName());
+llvm::Optional<std::string> preprocessConstPack(const OwningModuleRef &module) {
+  llvm::Optional<std::string> constPackObjPath;
+  auto constPackFilePathSym = (*module).lookupSymbol<LLVM::GlobalOp>(
+      KrnlPackedConstantOp::getConstPackFilePathSymbolName());
   auto constPackFilePath = constPackFilePathSym.valueAttr()
-                               .dyn_cast_or_null<mlir::StringAttr>()
+                               .dyn_cast_or_null<StringAttr>()
                                .getValue()
                                .str();
   llvm::FileRemover constPackRemover(constPackFilePath);
 
-  llvm::Optional<std::string> constPackObjPath;
 #if __APPLE__
   // Create a empty stub file, compile it to an empty obj file.
   llvm::SmallVector<char, 20> stubSrcPath;
   llvm::sys::fs::createTemporaryFile("stub", "cpp", stubSrcPath);
   llvm::FileRemover subSrcRemover(stubSrcPath);
-  std::string stubSrcPathStr(stubSrcPath.begin(), stubSrcPath.end());
+  string stubSrcPathStr(stubSrcPath.begin(), stubSrcPath.end());
   Command createStubObj(/*exe=*/kCxxPath, /*exeFileName=*/kCxxFileName);
-  std::string stubObjPathStr = stubSrcPathStr + ".o";
+  string stubObjPathStr = stubSrcPathStr + ".o";
   createStubObj.appendList({"-o", stubObjPathStr})
       .appendList({"-c", stubSrcPathStr})
       .exec();
@@ -187,8 +185,6 @@ void compileModuleToSharedLibrary(
   llvm::sys::fs::rename(constPackFilePath, constPackFileName);
   printf("Path after rename %s\n", constPackFileName.str().c_str());
 
-
-//  fdsfdsiof
   mlir::Builder builder(*module);
   (*module)
       .lookupSymbol<mlir::LLVM::GlobalOp>(
@@ -199,6 +195,14 @@ void compileModuleToSharedLibrary(
           mlir::KrnlPackedConstantOp::getConstPackFileNameStrLenSymbolName())
       .valueAttr(builder.getI64IntegerAttr(constPackFileName.str().size()));
 #endif
+  return constPackObjPath;
+}
+
+void compileModuleToSharedLibrary(
+    const mlir::OwningModuleRef &module, string outputBaseName) {
+  // Extract constant pack file name, which is embedded as a symbol in the
+  // module being compiled.
+  auto constPackObjPath = preprocessConstPack(module);
 
   // Write LLVM bitcode.
   string outputFilename = outputBaseName + ".bc";

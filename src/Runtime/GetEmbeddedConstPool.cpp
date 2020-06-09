@@ -38,8 +38,7 @@ void *getEmbeddedConstPool(int64_t _) {
   char *fname = (char *)calloc(1, constPackFileNameStrLen + 1);
   memcpy(fname, constPackFileName, constPackFileNameStrLen);
 
-  printf("Getting packed constants from %s\n", fname);
-
+  // Adapted from https://stackoverflow.com/a/22059317 .
   FILE *fileptr;
   char *buffer;
   long filelen;
