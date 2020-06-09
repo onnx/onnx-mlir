@@ -48,7 +48,7 @@ struct Command {
 
   Command(std::string exePath)
       : _path(std::move(exePath)),
-        _args({llvm::sys::path::filename(exePath).str()}) {}
+        _args({llvm::sys::path::filename(_path).str()}) {}
 
   // Append a single string argument.
   Command &appendStr(const std::string &arg) {
