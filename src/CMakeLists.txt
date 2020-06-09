@@ -25,16 +25,6 @@ if(NOT EXISTS "${LLVM_PROJ_BUILD}/bin/llc")
   message(ERROR "Cannot find llc.")
 endif()
 
-# Get the compiler command name, the C++ compiler is needed to to translate
-# object files to shared libraries.
-get_filename_component(CXX_COMPILER_FILENAME ${CMAKE_CXX_COMPILER} NAME)
-get_filename_component(CXX_LINKER_FILENAME ${CMAKE_LINKER} NAME)
-if (${CMAKE_OBJCOPY})
-  get_filename_component(OBJ_COPY_FILENAME ${CMAKE_OBJCOPY} NAME)
-else()
-  message(STATUS "Objcopy not found.")
-endif()
-
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
         ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp)
 
