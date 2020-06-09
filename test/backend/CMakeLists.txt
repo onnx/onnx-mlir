@@ -16,4 +16,4 @@ add_custom_target(check-onnx-backend
         ${CMAKE_CURRENT_BINARY_DIR}/test.py)
 
 add_dependencies(check-onnx-backend onnx-mlir)
-add_dependencies(check-onnx-backend pyruntime)
+add_dependencies(check-onnx-backend PyRuntime)

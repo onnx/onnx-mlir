@@ -7,6 +7,8 @@ target_include_directories(OMAttributePromotion
 # Linking dependencies:
 add_dependencies(OMAttributePromotion
         OMPromotableConstOperandsOpInterface)
+target_link_libraries(OMAttributePromotion
+        onnx)
 
 add_library(OMElideConstants
         ElideConstants.cpp)
@@ -16,6 +18,8 @@ target_include_directories(OMElideConstants
 
 add_dependencies(OMElideConstants
         OMONNXOps)
+target_link_libraries(OMElideConstants
+        onnx)
 
 set(LLVM_TARGET_DEFINITIONS ONNXRewrite.td)
 onnx_mlir_tablegen(ONNXRewrite.inc -gen-rewriters)
@@ -29,20 +33,28 @@ set(LLVM_TARGET_DEFINITIONS ONNXDecompose.td)
 onnx_mlir_tablegen(ONNXDecompose.inc -gen-rewriters)
 add_public_tablegen_target(OMONNXDecomposeIncGen)
 
+set(LLVM_TARGET_DEFINITIONS ONNXConstProp.td)
+onnx_mlir_tablegen(ONNXConstProp.inc -gen-rewriters)
+add_public_tablegen_target(OMONNXConstPropIncGen)
+
 add_library(OMONNXRewrite
         ONNXRewrite.cpp
         ONNXCombine.cpp
-        ONNXDecompose.cpp)
+        ONNXDecompose.cpp
+        ONNXConstProp.cpp)
 target_include_directories(OMONNXRewrite
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNF_MLIR_SRC_ROOT})
 add_dependencies(OMONNXRewrite
         OMONNXRewriteIncGen
         OMONNXDecomposeIncGen
-        OMONNXCombineIncGen)
+        OMONNXCombineIncGen
+        OMONNXConstPropIncGen)
 # Linking dependencies:
 add_dependencies(OMONNXRewrite
         OMONNXOps)
+target_link_libraries(OMONNXRewrite
+        onnx)
 
 add_library(OMShapeInference ShapeInferencePass.cpp)
 target_include_directories(OMShapeInference
