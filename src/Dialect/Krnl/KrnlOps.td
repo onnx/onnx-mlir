@@ -212,6 +212,9 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
     Retreieves a MemRef from within another MemRef:
 
     "krnl.getref"(%memref, %offset)
+
+    The offset is an integer which is used as an index into the input MemRef. It works
+    just like an array index.
   }];
 
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset);
