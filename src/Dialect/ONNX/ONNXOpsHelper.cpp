@@ -44,6 +44,7 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 // Convert type to MLIR type.
 // A complete list of types can be found in:
 // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
+// TODO: Update Int*/Uint* to emit signed/unsigned MLIR types
 mlir::Type convertONNXTypeToMLIRType(
     mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
   switch (onnxType) {

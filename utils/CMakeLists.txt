@@ -52,6 +52,6 @@ add_custom_target(OMONNXCheckVersion
        	COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/gen_onnx_mlir.py --check-operation-version)
 
 add_custom_target(OMMLONNXCheckVersion
-       	COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/gen_onnx_mlir.py 
+       	COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/gen_onnx_mlir.py
                 --check-operation-version --domain="ONNX_ML")
-        
+
