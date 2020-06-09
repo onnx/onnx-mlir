@@ -22,7 +22,7 @@ if (not os.environ.get('ONNX_MLIR_HOME', None)):
 VERBOSE = os.environ.get('VERBOSE', False)
 ONNX_MLIR = os.path.join(os.environ['ONNX_MLIR_HOME'], "bin/onnx-mlir")
 
-# Include runtime directory in python paths, so pyruntime can be imported.
+# Include runtime directory in python paths, so PyRuntime can be imported.
 RUNTIME_DIR = os.path.join(os.environ['ONNX_MLIR_HOME'], "lib")
 sys.path.append(RUNTIME_DIR)
 

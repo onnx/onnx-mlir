@@ -71,9 +71,11 @@ target_link_libraries(MainUtils
         OMONNXRewrite
         ${MLIRLibs}
         ${CMAKE_DL_LIBS})
+add_dependencies(onnx-mlir OMKrnlOpsInc OMONNXOpsInc)
 
 if (INCLUDE_ONNX_ML)
   target_link_libraries(MainUtils OMMLONNXOps)
+  add_dependencies(MainUtils OMMLONNXOpsInc)
 endif()
 
 add_dependencies(onnx-mlir cruntime)
