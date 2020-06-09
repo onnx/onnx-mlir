@@ -1584,10 +1584,9 @@ LogicalResult ONNXSqueezeOp::inferShapes() {
         axis = inRank + axis;
         hasNegativeAxis = true;
       }
-      if (std::find(axes.begin(), axes.end(), axis) == axes.end())
-        axes.emplace_back(axis);
-      else
+      if (std::find(axes.begin(), axes.end(), axis) != axes.end())
         return emitError("Duplicated axes");
+      axes.emplace_back(axis);
     }
     if (hasNegativeAxis) {
       // Update axes attribute so that it contains only positive values.

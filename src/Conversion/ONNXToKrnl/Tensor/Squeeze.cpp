@@ -21,7 +21,8 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
     ONNXSqueezeOpOperandAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
-    int outRank = memRefType.getRank();
+    auto memRefShape = memRefType.getShape();
+    auto elementSizeInBytes = getMemRefEltSizeInBytes(memRefType);
     Value data = operandAdaptor.data();
 
     // Assume that `axes` has been validated by shape inference.
@@ -33,27 +34,25 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
       axes.emplace_back(axis);
     }
 
-    // Insert an allocation and deallocation for the result of this operation.
-    Value alloc;
-
-    // Compute size in bytes.
-    Value tensorSize = emitConstantOp(rewriter, loc,
-        rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
-
+    // Insert an allocation and deallocation for the result of this operation,
+    // and compute the output tensor's size in bytes.
+    Value alloc, tensorSize;
     bool insertDealloc = checkInsertDealloc(op);
-    auto memRefShape = memRefType.getShape();
     if (hasAllConstantDimensions(memRefType)) {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      auto tensorSizeInBytes = elementSizeInBytes;
       for (int i = 0; i < memRefShape.size(); ++i) {
-        Value dimVal = emitConstantOp(
-            rewriter, loc, rewriter.getIntegerType(64), memRefShape[i]);
-        tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
+        tensorSizeInBytes *= memRefShape[i];
       }
+      tensorSize = emitConstantOp(
+          rewriter, loc, rewriter.getIntegerType(64), tensorSizeInBytes);
     } else {
       // Need to know the input dimension from which the unknown output
       // dimension comes from.
       SmallVector<Value, 4> allocOperands;
-      for (int inIdx = 0, outIdx = 0; inIdx < memRefShape.size(); ++inIdx) {
+      auto tensorSizeConstant = elementSizeInBytes;
+      int64_t inRank = data.getType().cast<ShapedType>().getRank();
+      for (decltype(inRank) inIdx = 0, outIdx = 0; inIdx < inRank; ++inIdx) {
         Value dimVal = nullptr;
         // Squeeze dimension is not in the output, ignore it.
         if (std::find(axes.begin(), axes.end(), inIdx) != axes.end())
@@ -61,22 +60,29 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
         // Found effective input dimension.
         if (memRefShape[outIdx] < 0) {
           Value index = rewriter.create<DimOp>(loc, data, inIdx);
-          dimVal = rewriter.create<IndexCastOp>(
-              loc, index, rewriter.getIntegerType(64));
           allocOperands.emplace_back(index);
         } else {
-          dimVal = emitConstantOp(
-              rewriter, loc, rewriter.getIntegerType(64), memRefShape[outIdx]);
+          // Collect constant dimensions for calculating the output tensor size.
+          tensorSizeConstant *= memRefShape[outIdx];
         }
-        tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
         // Move to the next output dimension.
         outIdx++;
       }
+      // Allocate memory.
       alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
       if (insertDealloc) {
         auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
+      }
+
+      // Compute the output tensor's size.
+      tensorSize = emitConstantOp(
+          rewriter, loc, rewriter.getIntegerType(64), tensorSizeConstant);
+      for (Value dim : allocOperands) {
+        Value dimVal =
+            rewriter.create<IndexCastOp>(loc, dim, rewriter.getIntegerType(64));
+        tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
       }
     }
     rewriter.create<KrnlMemcpyOp>(loc, alloc, data, tensorSize);
