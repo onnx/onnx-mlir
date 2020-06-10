@@ -42,6 +42,10 @@ add_dependencies(OMElideKrnlGlobalConstants OMKrnlOps)
 add_library(OMPackKrnlGlobalConstants
         PackKrnlGlobalConstants.cpp)
 target_include_directories(OMPackKrnlGlobalConstants
+        PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
 
 add_library(OMEnableMemoryPool
         EnableMemoryPool.cpp)
