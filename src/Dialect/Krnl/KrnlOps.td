@@ -196,7 +196,11 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy"> {
 def KrnlGlobalOp : Op<Krnl_Dialect, "global"> {
   let summary = "Krnl global operation";
   let description = [{
-    Operation for holding global data values. The
+    Operation for holding global data values. A global constant can have a
+    meaningful name recorded as its `name` attribute. Its content is stored
+    in the `value` dense element attribute. Alternatively, if the constants
+    are packed together, `offset` records the byte offset in the global
+    constant pool from which the current constant is to be read.
   }];
 
   let arguments = (ins AnyAttr:$shape,
