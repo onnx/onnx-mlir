@@ -19,6 +19,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
+#include "llvm/Support/FormatVariadic.h"
 
 #include "ONNXOps.hpp"
 
@@ -436,6 +437,37 @@ static LogicalResult RNNShapeInference(T *op) {
   return success();
 }
 
+static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
+    ArrayRef<int64_t> xShape, Optional<ArrayAttr> kernelShape,
+    Optional<ArrayAttr> padsOpt, Optional<ArrayAttr> stridesOpt,
+    Optional<ArrayAttr> outputPadsOpt, Optional<ArrayAttr> outputShapeOpt,
+    Optional<ArrayAttr> dilationsOpt = llvm::None, bool ceilMode = false) {
+  auto xRank = xShape.size();
+  auto spatialRank = ArrayAttrSize(kernelShape);
+  auto spatialOffset = xRank - spatialRank;
+
+  int64_t dilationVal = 1;
+  int64_t outputPadsVal = 0;
+  // output_shape[i] = stride[i] * (input_size[i] - 1) + output_padding[i] +
+  // ((kernel_shape[i] - 1) * dilations[i] + 1) - pads[start_i] - pads[end_i]
+  for (int i = 0; i < spatialRank; ++i) {
+    auto inputSize = xShape[spatialOffset + i];
+    auto sumOfPads =
+        ArrayAttrIntVal(padsOpt, i) + ArrayAttrIntVal(padsOpt, spatialRank + i);
+    auto kernelSize = ArrayAttrIntVal(kernelShape, i);
+    if (dilationsOpt.hasValue())
+      dilationVal = ArrayAttrIntVal(dilationsOpt, i);
+    auto strideVal = ArrayAttrIntVal(stridesOpt, i);
+    if (outputPadsOpt.hasValue())
+      outputPadsVal = ArrayAttrIntVal(outputPadsOpt, i);
+    // Number of useful values: input plus pad - effective size of kernel (see
+    // processConvTypeParams comments to see how this value is derived).
+    int64_t res = strideVal * (inputSize - 1) + outputPadsVal +
+                  ((kernelSize - 1) * dilationVal + 1) - sumOfPads;
+    outputDims.emplace_back(res);
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // ONNXOpsDialect
 //===----------------------------------------------------------------------===//
@@ -483,10 +515,37 @@ LogicalResult ONNXExpOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Atan
+/// Infer the output shape of the ONNXAtanOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXAtanOp::inferShapes() {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Tan
+/// Infer the output shape of the ONNXTanOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXTanOp::inferShapes() {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Tanh
 /// Infer the output shape of the ONNXTanhOp. This method is required by the
 /// shape inference interface.
 LogicalResult ONNXTanhOp::inferShapes() {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Sin
+/// Infer the output shape of the ONNXSinOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXSinOp::inferShapes() {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -1316,6 +1375,138 @@ LogicalResult ONNXConvOp::inferShapes() {
 
 //===----------------------------------------------------------------------===//
 
+// ConvTranspose
+
+// For this operation, we define the attributes once in the original Conv
+// operation class. There is no need to redefine the attribute names for the
+// other classes based on Conv.
+// Conv attributes output:
+//   -  auto_pad set to NOTSET;
+//   -  dilations, strides: set to 1 if not defined by user;
+//   -  kernelShape: inferred from weight matrix if not defined by user;
+//   -  pads: set to proper value, 0 if not defined by user.
+
+LogicalResult ONNXConvTransposeOp::inferShapes() {
+  // Generic shape for data input X, weight tensor W, and optional bias B
+  // X: (N x C x D1 x D2 ... x Dn)
+  // W: (M x C/group x k1 x k2 x ... x kn)
+  // B: (M) Optional
+
+  bool hasBias = !B().getType().isa<NoneType>();
+
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>() ||
+      !W().getType().isa<RankedTensorType>() ||
+      (hasBias && !B().getType().isa<RankedTensorType>())) {
+    return emitError("Input tensor not ranked");
+  }
+
+  auto xTy = X().getType().cast<RankedTensorType>();
+  auto xShape = xTy.getShape();
+  auto weightTy = W().getType().cast<RankedTensorType>();
+  auto weightShape = weightTy.getShape();
+  auto builder = mlir::Builder(this->getContext());
+
+  // Lowest supported convolution is a one dimensional convolution.
+  if (xShape.size() < 3) {
+    return emitError("Data input shape must be at least (NxCxD1)");
+  }
+
+  // Check that shape of weight and data have same length.
+  if (xShape.size() != weightShape.size()) {
+    return emitError("Weight size not compatible with data size");
+  }
+
+  // Group is a required attribute and should have default value of 1.
+  int64_t group = ONNXConvTransposeOp::group().getSExtValue();
+
+  // Check if the attribute actually exists. If it does not then add it.
+  if (!groupAttr())
+    groupAttr(builder.getI64IntegerAttr(group));
+
+  // Check that the X.shape[1] == (W.shape[0] * group) == C condition holds.
+  if (xShape[1] != -1 && weightShape[0] != -1 &&
+      xShape[1] != (weightShape[0] * group)) {
+    return emitError("Channel dimension mismatch");
+  }
+
+  // Check the size of bias.
+  if (hasBias) {
+    auto bTx = B().getType().cast<RankedTensorType>();
+    auto bShape = bTx.getShape();
+    if (bShape.size() != 1) {
+      return emitError("bias should be one dimensional");
+    }
+    if (bShape[0] != weightShape[1]) {
+      return emitError(
+          "bias should have same dimensions as weight's second dimension");
+    }
+  }
+
+  // Note: the value of the group attribut only impacts the way the
+  // computation is carried out and not the actual output size.
+
+  // Number of spatial dimensions.
+  auto spatialOffset = 2;
+  int32_t spatialRank = xShape.size() - spatialOffset;
+
+  // Use kernel_shape attribute if present otherwise use size from weight
+  // argument.
+  auto kernelShape = kernel_shape();
+  if (kernelShape.hasValue()) {
+    if (ArrayAttrSize(kernelShape) != spatialRank) {
+      return emitError(
+          "kernel_shape length incompatible with spatial dimensions");
+    }
+    // Have the right number of values, check them.
+    for (int i = 0; i < spatialRank; ++i)
+      if (ArrayAttrIntVal(kernelShape, i) < 1) {
+        return emitError("bad kernel_shape value");
+      }
+  } else {
+    // Deduce shape from weight input.
+    SmallVector<int64_t, 2> defaultVals;
+    for (int i = 0; i < spatialRank; ++i)
+      defaultVals.emplace_back(weightShape[spatialOffset + i]);
+    // Convert to ArrayRef, then build attribute, then store attribute.
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    auto builder = mlir::Builder(getContext());
+    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
+    kernelShape = kernel_shape();
+  }
+
+  // Process strides, dilations, and pads.
+  processConvTypeParams<>(this, X());
+  auto dilationsOpt = dilations();
+  auto stridesOpt = strides();
+  auto padsOpt = pads();
+  auto outputPads = output_padding();
+  auto outputShape = output_shape();
+  // TODO: handle the spatial dimension computation if output shape is specified
+  assert(!outputShape.hasValue() && "unhandled option in ConvTranspose");
+
+  // First two output dimensions consist of the number of batches and the
+  // number of kernels being applied.
+  SmallVector<int64_t, 4> outputDims;
+  // Insert batch size.
+  outputDims.emplace_back(xShape[0]);
+  // Insert number of filters being applied (number of output channels).
+  outputDims.emplace_back(weightShape[1]);
+  // Compute and insert spatial dims.
+  insertConvTransposeSpatialDim(outputDims, xShape, kernelShape, padsOpt,
+      stridesOpt, outputPads, outputShape, dilationsOpt);
+
+  // Set the output shape if it's not already set
+  if (!outputShape.hasValue()) {
+    output_shapeAttr(builder.getI64ArrayAttr(outputDims));
+  }
+
+  getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+
 // AveragePool
 // Infer shape attributes output:
 //   -  auto_pad set to NOTSET;
@@ -1607,6 +1798,33 @@ LogicalResult ONNXSqueezeOp::inferShapes() {
   return success();
 }
 
+// Cast
+
+LogicalResult ONNXCastOp::inferShapes() {
+  ShapedType inputType = input().getType().dyn_cast<ShapedType>();
+  if (!inputType) {
+    return emitError("Non-shaped input type");
+  }
+
+  auto getOutputType = [&inputType](Type elementType) -> Type {
+    if (inputType.hasRank()) {
+      return RankedTensorType::get(inputType.getShape(), elementType);
+    }
+    return UnrankedTensorType::get(elementType);
+  };
+
+  int64_t targetType = toAttr().getInt();
+  OpBuilder builder(getContext());
+  if (auto elementType = convertONNXTypeToMLIRType(
+          builder, static_cast<onnx::TensorProto_DataType>(targetType))) {
+    getResult().setType(getOutputType(elementType));
+  } else {
+    return emitOpError("Unable to get the element type for to = " +
+                       std::to_string(targetType));
+  }
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // Constant
 
@@ -1629,7 +1847,7 @@ LogicalResult ONNXConstantOp::inferShapes() {
 LogicalResult ONNXConcatOp::inferShapes() {
   int inputNum = getNumOperands();
   for (int i = 0; i < inputNum; ++i) {
-    if (!getOperand(i).getType().cast<RankedTensorType>())
+    if (!getOperand(i).getType().isa<RankedTensorType>())
       return emitError("Input tensor(s) not ranked");
   }
   // Checking value of axis parameter.
@@ -1756,6 +1974,219 @@ LogicalResult ONNXSplitOp::inferShapes() {
     getResults()[i].setType(
         RankedTensorType::get(resultShape, inputType.getElementType()));
   }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Flatten
+
+LogicalResult ONNXFlattenOp::inferShapes() {
+  assert(axis() == 1 && "ONNXFlattenOp can only handle axis=1 for now");
+  auto inTy = input().getType().dyn_cast<ShapedType>();
+  if (!inTy) {
+    return emitOpError("Input is a non-shaped type");
+  }
+  auto outTy = output().getType().dyn_cast<ShapedType>();
+  if (!outTy) {
+    return emitOpError("Output is a non-shaped type");
+  }
+
+  // TODO(tjingrant): Seems like we can also fairly easily support the case
+  //                  where the batch dimension is dynamic
+  if (!outTy.hasStaticShape()) {
+    auto inShape = inTy.getShape();
+    assert(inShape.size() >= 1 && "ONNXFlattenOp inShape.size() should be > 0");
+    uint64_t outDim = 1;
+    for (auto it = inShape.begin() + 1; it < inShape.end(); it++) {
+      outDim *= *it;
+    }
+
+    SmallVector<int64_t, 2> dims;
+    // https://pytorch.org/docs/master/generated/torch.nn.Flatten.html
+    dims.emplace_back(inShape[0]);
+    dims.emplace_back(outDim);
+    getResult().setType(RankedTensorType::get(dims, outTy.getElementType()));
+  }
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// DynamicQuantizeLinear
+
+LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes() {
+  auto inTy = x().getType().dyn_cast<RankedTensorType>();
+  if (!inTy || !inTy.hasStaticShape()) {
+    return emitOpError("Input is not a statically-shaped type");
+  }
+
+  auto yTy = y().getType().cast<ShapedType>();
+  auto yScaleTy = y_scale().getType().cast<ShapedType>();
+  auto yZPTy = y_zero_point().getType().cast<ShapedType>();
+
+  IntegerType i8Type = IntegerType::get(8, getContext());
+  RankedTensorType scalarType = RankedTensorType::get({}, i8Type);
+
+  // Set the types for the scalars
+  if (!yScaleTy.hasStaticShape()) {
+    y_scale().setType(scalarType);
+  }
+
+  if (!yZPTy.hasStaticShape()) {
+    y_zero_point().setType(scalarType);
+  }
+
+  if (!yTy.hasStaticShape()) {
+    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), i8Type);
+    y().setType(outType);
+  }
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// QuantizeLinear
+
+LogicalResult ONNXQuantizeLinearOp::inferShapes() {
+  auto inTy = x().getType().dyn_cast<RankedTensorType>();
+  if (!inTy || !inTy.hasStaticShape()) {
+    return emitOpError("Input is not a statically-shaped type");
+  }
+
+  auto yTy = y().getType().cast<ShapedType>();
+
+  if (!yTy.hasStaticShape()) {
+    // TODO: Unfortunately, we can't tell if this should be signed or unsigned
+    //       here...
+    IntegerType i8Type = IntegerType::get(8, getContext());
+    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), i8Type);
+    y().setType(outType);
+  }
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// DequantizeLinear
+
+LogicalResult ONNXDequantizeLinearOp::inferShapes() {
+  auto inTy = x().getType().dyn_cast<RankedTensorType>();
+  if (!inTy || !inTy.hasStaticShape()) {
+    return emitOpError("Input is not a statically-shaped type");
+  }
+
+  auto yTy = y().getType().cast<ShapedType>();
+
+  if (!yTy.hasStaticShape()) {
+    FloatType f32 = FloatType::getF32(getContext());
+    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), f32);
+    y().setType(outType);
+  }
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ConvInteger - copied almost exactly from Conv (X -> x, W -> w, no bias)
+
+LogicalResult ONNXConvIntegerOp::inferShapes() {
+  // Generic shape for data input X, weight tensor W
+  // X: (N x C x D1 x D2 ... x Dn)
+  // W: (M x C/group x k1 x k2 x ... x kn)
+
+  // Cannot infer shape if no shape exists.
+  if (!x().getType().isa<RankedTensorType>() ||
+      !w().getType().isa<RankedTensorType>()) {
+    return emitOpError("Input tensor not ranked");
+  }
+
+  auto xTy = x().getType().cast<RankedTensorType>();
+  if (!xTy.getElementType().isInteger(8)) {
+    return emitOpError("Invalid input type");
+  }
+  auto xShape = xTy.getShape();
+  auto weightTy = w().getType().cast<RankedTensorType>();
+  if (!weightTy.getElementType().isInteger(8)) {
+    return emitOpError("Invalid input type");
+  }
+  auto weightShape = weightTy.getShape();
+  auto builder = mlir::Builder(this->getContext());
+
+  // Lowest supported convolution is a one dimensional convolution.
+  if (xShape.size() < 3) {
+    return emitOpError("Data input shape must be at least (NxCxD1)");
+  }
+
+  // Check that shape of weight and data have same length.
+  if (xShape.size() != weightShape.size()) {
+    return emitError("Weight size not compatible with data size");
+  }
+
+  // Group is a required attribute and should have default value of 1.
+  int64_t group = ONNXConvIntegerOp::group().getSExtValue();
+
+  // Check if the attribute actually exists. If it does not then add it.
+  if (!groupAttr())
+    groupAttr(builder.getI64IntegerAttr(group));
+
+  // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
+  if (xShape[1] != -1 && weightShape[1] != -1 &&
+      xShape[1] != (weightShape[1] * group)) {
+    return emitOpError("Channel dimension mismatch");
+  }
+
+  // Note: the value of the group attribut only impacts the way the
+  // computation is carried out and not the actual output size.
+
+  // Number of spatial dimensions.
+  auto spatialOffset = 2;
+  int32_t spatialRank = xShape.size() - spatialOffset;
+
+  // Use kernel_shape attribute if present otherwise use size from weight
+  // argument.
+  auto kernelShape = kernel_shape();
+  if (kernelShape.hasValue()) {
+    if (ArrayAttrSize(kernelShape) != spatialRank) {
+      return emitOpError(
+          "kernel_shape length incompatible with spatial dimensions");
+    }
+    // Have the right number of values, check them.
+    for (int i = 0; i < spatialRank; ++i)
+      if (ArrayAttrIntVal(kernelShape, i) < 1) {
+        return emitError("bad kernel_shape value");
+      }
+  } else {
+    // Deduce shape from weight input.
+    SmallVector<int64_t, 2> defaultVals;
+    for (int i = 0; i < spatialRank; ++i)
+      defaultVals.emplace_back(weightShape[spatialOffset + i]);
+    // Convert to ArrayRef, then build attribute, then store attribute.
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    auto builder = mlir::Builder(getContext());
+    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
+    kernelShape = kernel_shape();
+  }
+
+  // Process strides, dilations, and pads.
+  processConvTypeParams<>(this, x());
+  auto dilationsOpt = dilations();
+  auto stridesOpt = strides();
+  auto padsOpt = pads();
+
+  // First two output dimensions consist of the number of batches and the
+  // number of kernels being applied.
+  SmallVector<int64_t, 4> outputDims;
+  // Insert batch size.
+  outputDims.emplace_back(xShape[0]);
+  // Insert number of filters being applied (number of output channels).
+  outputDims.emplace_back(weightShape[0]);
+  // Compute and insert spatial dims.
+  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
+      stridesOpt, dilationsOpt);
+
+  // ONNX spec specifies the output type as an int32
+  Type outputType = IntegerType::get(32, getContext());
+  getResult().setType(RankedTensorType::get(outputDims, outputType));
   return success();
 }
 

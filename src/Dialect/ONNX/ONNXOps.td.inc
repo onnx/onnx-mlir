@@ -278,7 +278,7 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
 }
 
 def ONNXAtanOp:ONNX_Op<"Atan",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Atan operation";
   let description = [{
   "Calculates the arctangent (inverse of tangent) of the given input tensor, element-wise."
@@ -449,7 +449,7 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
 }
 
 def ONNXCastOp:ONNX_Op<"Cast",
-  [NoSideEffect, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX Cast operation";
   let description = [{
   "The operator casts the elements of a given input tensor to a data type"
@@ -715,7 +715,7 @@ def ONNXConvOp:ONNX_Op<"Conv",
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ConvInteger operation";
   let description = [{
   "The integer convolution operator consumes an input tensor, its zero-point, a filter, and its zero-point,"
@@ -746,7 +746,7 @@ def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
 }
 
 def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ConvTranspose operation";
   let description = [{
   "The convolution transpose operator consumes an input tensor and a filter,"
@@ -924,7 +924,7 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
 }
 
 def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX DequantizeLinear operation";
   let description = [{
   "The linear dequantization operator. It consumes a quantized tensor, a scale, a zero point to compute the full precision tensor."
@@ -1053,7 +1053,7 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
 }
 
 def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX DynamicQuantizeLinear operation";
   let description = [{
   "A Function to fuse calculation for Scale, Zero Point and FP32->8Bit convertion of FP32 Input data."
@@ -1285,7 +1285,7 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
 }
 
 def ONNXFlattenOp:ONNX_Op<"Flatten",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Flatten operation";
   let description = [{
   "Flattens the input tensor into a 2D matrix. If input tensor has shape"
@@ -3327,7 +3327,7 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
 }
 
 def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX QuantizeLinear operation";
   let description = [{
   "The linear per-tensor/layer quantization operator. It consumes a high precision tensor, a scale, a zero point to compute the low precision / quantized tensor."
@@ -4787,7 +4787,7 @@ def ONNXSignOp:ONNX_Op<"Sign",
 }
 
 def ONNXSinOp:ONNX_Op<"Sin",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sin operation";
   let description = [{
   "Calculates the sine of the given input tensor, element-wise."
@@ -5223,7 +5223,7 @@ def ONNXSumOp:ONNX_Op<"Sum",
 }
 
 def ONNXTanOp:ONNX_Op<"Tan",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Tan operation";
   let description = [{
   "Calculates the tangent of the given input tensor, element-wise."
