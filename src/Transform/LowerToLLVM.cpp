@@ -88,6 +88,71 @@ static FlatSymbolRefAttr getOrInsertMemcpy(PatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlGetRefOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlGetRefOpLowering : public ConvertToLLVMPattern {
+public:
+  explicit KrnlGetRefOpLowering(
+      MLIRContext *context, LLVMTypeConverter &lowering_)
+      : ConvertToLLVMPattern(
+            KrnlGetRefOp::getOperationName(), context, lowering_) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto *context = op->getContext();
+    auto loc = op->getLoc();
+    auto *llvmDialect =
+        op->getContext()->getRegisteredDialect<LLVM::LLVMDialect>();
+    assert(llvmDialect && "expected llvm dialect to be registered");
+
+    KrnlGetRefOpOperandAdaptor operandAdaptor(operands);
+
+    // This is the type of the krnl.getref output. This type is used
+    // for the type of the internal MemRef.
+    auto type = op->getResult(0).getType();
+    auto memRefTy = type.cast<mlir::MemRefType>();
+    auto llvmMemRefType =
+        typeConverter.convertType(type).cast<LLVM::LLVMType>();
+    auto outputElementType =
+        typeConverter.convertType(memRefTy.getElementType());
+
+    // This is the start of the memory pool containing the output MemRef.
+    Type memPoolType = operandAdaptor.mempool()
+                           .getType()
+                           .cast<LLVM::LLVMType>()
+                           .getStructElementType(1);
+    Value alignedMemPoolBase = rewriter.create<LLVM::ExtractValueOp>(loc,
+        memPoolType, operandAdaptor.mempool(), rewriter.getI64ArrayAttr(1));
+
+    // Get pointer using the offset.
+    auto offset = operandAdaptor.offset();
+    auto llvmMemPoolType =
+        typeConverter.convertType(memPoolType).cast<LLVM::LLVMType>();
+    auto outputMemPoolTypePtrAlloc = rewriter.create<LLVM::GEPOp>(
+        loc, llvmMemPoolType, alignedMemPoolBase, ArrayRef<Value>({offset}));
+
+    // Bitcast to output MemRef type i.e. from i8* to the element type
+    // of the output MemRef.
+    auto llvmOutputElementType = outputElementType.cast<LLVM::LLVMType>();
+    Value outputTypedPtrAlloc = rewriter.create<LLVM::BitcastOp>(
+        loc, llvmOutputElementType.getPointerTo(), outputMemPoolTypePtrAlloc);
+
+    // Create llvm MemRef from original MemRef and fill the data pointers.
+    auto llvmMemRef = MemRefDescriptor::fromStaticShape(
+        rewriter, loc, typeConverter, memRefTy, outputTypedPtrAlloc);
+
+    rewriter.replaceOp(op, {llvmMemRef});
+    return success();
+  }
+
+private:
+  static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
+    return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlGlobalOpLowering
 //===----------------------------------------------------------------------===//
 
@@ -773,8 +838,10 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   populateStdToLLVMConversionPatterns(typeConverter, patterns,
       /*emitCWrapperS=*/true,
       /*useAlignedAlloc=*/false);
+
   patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
       &getContext(), typeConverter);
+  patterns.insert<KrnlGetRefOpLowering>(&getContext(), typeConverter);
 
   // Lower from the `krnl` dialect i.e. the Reshape operation.
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(

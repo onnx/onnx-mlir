@@ -55,6 +55,7 @@ target_link_libraries(MainUtils
         OMElideConstants
         OMElideKrnlGlobalConstants
         OMPackKrnlGlobalConstants
+        OMEnableMemoryPool
         OMKrnlToAffine
         OMKrnlToLLVM
         OMONNXToKrnl
