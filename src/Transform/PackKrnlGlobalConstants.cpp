@@ -67,10 +67,13 @@ public:
     module.walk(
         [&](FuncOp func) { applyPatternsAndFoldGreedily(func, patterns); });
 
+    bool isLE = llvm::support::endian::system_endianness() ==
+                llvm::support::endianness::little;
     mlir::OperationState state(module.getLoc(), "krnl.packed_const");
     KrnlPackedConstantOp::build(builder, state,
         builder.getIntegerType(/*width=*/64),
-        /*sizeInBytes=*/builder.getI64IntegerAttr(packedConst.size()),
+        /*size_in_bytes=*/builder.getI64IntegerAttr(packedConst.size()),
+        /*is_le=*/builder.getBoolAttr(isLE),
         /*value=*/nullptr,
         /*file_name=*/nullptr);
     auto packedConstOp =
