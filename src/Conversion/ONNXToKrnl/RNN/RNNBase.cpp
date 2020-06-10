@@ -47,7 +47,7 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   else if (activation.name.equals_lower("sigmoid"))
     res = rewriter.create<ONNXSigmoidOp>(loc, scalarMemRefType, alloc);
   else if (activation.name.equals_lower("affine"))
-    emitError(loc, "Unsupported activation");
+    llvm_unreachable("Unsupported activation");
   else if (activation.name.equals_lower("leakyrelu"))
     res = rewriter.create<ONNXLeakyReluOp>(
         loc, scalarMemRefType, alloc, attributes);
@@ -55,7 +55,7 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     res = rewriter.create<ONNXThresholdedReluOp>(
         loc, scalarMemRefType, alloc, attributes);
   else if (activation.name.equals_lower("scaledtanh"))
-    emitError(loc, "Unsupported activation");
+    llvm_unreachable("Unsupported activation");
   else if (activation.name.equals_lower("hardsigmoid"))
     res = rewriter.create<ONNXHardSigmoidOp>(
         loc, scalarMemRefType, alloc, attributes);

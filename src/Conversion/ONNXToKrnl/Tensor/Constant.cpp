@@ -25,9 +25,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
 
-    if (constantOp.sparse_value().hasValue()) {
-      emitError(loc, "Only support dense values at this time");
-    }
+    if (constantOp.sparse_value().hasValue())
+      return emitError(loc, "Only support dense values at this time");
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 

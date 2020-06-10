@@ -22,15 +22,15 @@ if (not os.environ.get('ONNX_MLIR_HOME', None)):
 VERBOSE = os.environ.get('VERBOSE', False)
 ONNX_MLIR = os.path.join(os.environ['ONNX_MLIR_HOME'], "bin/onnx-mlir")
 
-# Include runtime directory in python paths, so pyruntime can be imported.
+# Include runtime directory in python paths, so PyRuntime can be imported.
 RUNTIME_DIR = os.path.join(os.environ['ONNX_MLIR_HOME'], "lib")
 sys.path.append(RUNTIME_DIR)
 
 try:
-    from pyruntime import ExecutionSession
+    from PyRuntime import ExecutionSession
 except ImportError:
     raise ImportError(
-        "Looks like you did not build the pyruntime target, build it by running `make pyruntime`."
+        "Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`."
     )
 
 
@@ -63,7 +63,7 @@ def main(model_path):
 
     with tempfile.TemporaryDirectory() as temp_dir:
         print("Temporary directory has been created at {}".format(temp_dir))
-
+        
         # Save modified model & invoke onnx-mlir to compile it.
         temp_model_path = os.path.join(temp_dir, "model.onnx")
         onnx.save(model, temp_model_path)

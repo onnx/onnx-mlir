@@ -60,7 +60,7 @@ export LLVM_PROJ_BUILD=$(pwd)/llvm-project/build
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..
-cmake --build . --target onnx-mlir
+cmake --build .
 
 # Run FileCheck tests:
 export LIT_OPTS=-v
