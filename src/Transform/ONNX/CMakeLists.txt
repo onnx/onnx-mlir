@@ -43,10 +43,10 @@ onnx_mlir_tablegen(ONNXConstProp.inc -gen-rewriters)
 add_public_tablegen_target(OMONNXConstPropIncGen)
 
 add_library(OMONNXRewrite
-        ONNXRewrite.cpp
-        ONNXCombine.cpp
-        ONNXDecompose.cpp
-        ONNXConstProp.cpp)
+        Rewrite.cpp
+        Combine.cpp
+        Decompose.cpp
+        ConstProp.cpp)
 target_include_directories(OMONNXRewrite
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNF_MLIR_SRC_ROOT})
