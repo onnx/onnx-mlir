@@ -36,7 +36,7 @@ parser.add_argument("--check-operation-version",
                          " newer version of operation compared with version stored in  version_dicts",
                     action="store_true",
                     default=False)
-parser.add_argument("--domain", 
+parser.add_argument("--domain",
                     help="specify domain, ONNX or ONNX_ML",
                     default = "ONNX")
 
@@ -249,13 +249,14 @@ special_op_handler = dict([
 
 # Operations supporting shape inference.
 OpsWithShapeInference = [
-    'Exp', 'Tanh', 'Sinh', 'Cosh', 'Sigmoid', 'Relu', 'Add', 'Mul', 'Div',
-    'Sub', 'And', 'Or', 'Xor', 'Sum', 'Max', 'Min', 'MatMul', 'Gemm',
-    'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
+    'Exp', 'Atan', 'Tan', 'Tanh', 'Sin', 'Sinh', 'Cosh', 'Sigmoid', 'Relu',
+    'Add', 'Mul', 'Div', 'Sub', 'And', 'Or', 'Xor', 'Sum', 'Max', 'Min', 'MatMul',
+    'Gemm', 'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
     'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
     'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
     'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
-    'LSTM', 'GRU', 'Split', 'Pad'
+    'LSTM', 'GRU', 'Split', 'Pad', 'Cast', 'ConvTranspose', 'Flatten',
+    'DynamicQuantizeLinear', 'QuantizeLinear', 'DequantizeLinear', 'ConvInteger',
 ]
 
 # Operations supporting canonicalization.
@@ -286,7 +287,7 @@ OpsWithResultTypeInference = {
       resultTypes.push_back(mlir::UnrankedTensorType::get(
         convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));'''
 }
-       
+
 # Add an Op in this list if the Op needs result type deduction which is required
 # when writing declarative rewriting rules. Deduced type is always
 # an UnrankedTensorType whose element type is the same as the first operand's
@@ -295,11 +296,18 @@ OpsWithResultTypeInference = {
 # Currenlty, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
-custom_builder_ops_list = ['Abs', 'Mul', 'Exp', 'ReduceSum', 'ReduceSumSquare', 'Pad']
-
+custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSum', 'ReduceSumSquare', 'Pad']
+# Custom builder op list for operations with broadcast; we can deduce the right
+# output type, no need to leave it undef as in the above list.
+# Ops must have two operands, not one, not three... And there shall be two.
+# TODO: handle variadic ops omitted here: Max, Min, Min, Sum.
+custom_builder_broadcast_ops_list = ['Add', 'And', 'Div', 'Equal', 'Greater',
+                                     'Less', 'Mul', 'Or', 'Pow', 'Sub', 'Xor']
+# union of both
+custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broadcast_ops_list
 
 #a dictionary to add any special definition for an operation
-custom_definition_misc = dict([ ('Constant', 
+custom_definition_misc = dict([ ('Constant',
   '''    let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
       if (value) {
@@ -318,7 +326,7 @@ onnx_types = (
     'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
     'float', 'double', 'complex64', 'complex128'
 )
-tblgen_types = ('I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64', 
+tblgen_types = ('I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64',
     'Complex<F32>', 'Complex<F64>'
 )
 
@@ -417,7 +425,7 @@ def get_tblgen_type_index(type_str):
 
 #the possible data structures are tensor, map and seq(tensor())
 #TOFIX: currently, only tensor structure is supported
-def get_data_structure_element(allowed_type_str): 
+def get_data_structure_element(allowed_type_str):
     if allowed_type_str.startswith('tensor') :
         element = allowed_type_str.replace('tensor(', '', 1).replace(')', '', 1)
         return ('tensor', element)
@@ -447,9 +455,9 @@ def get_allowed_elem_types(schema, input):
                     return None
                 if  not t in allowed_type_list :
                     allowed_tyoe_list = allowed_type_list.append(t)
-    
+
             return allowed_type_list
-    
+
     return None
 
 
@@ -603,9 +611,9 @@ def get_output_type_mapping(schema):
 
         #unknown output type
         mapping.append(str(-1))
-        
+
     return mapping
-    
+
 def get_numberof_inout(s, indent, schema):
     expected_num_operands = get_numberof_list(schema.inputs)
     indent = inc_indent(indent)
@@ -665,8 +673,8 @@ def get_type_inference_func(s, indent, type_inference_code):
 
     indent = dec_indent(indent)
     return s
-  
-  
+
+
 
 def gen_op_def(schema):
     indent = inc_indent()
@@ -716,6 +724,8 @@ def gen_op_def(schema):
     s += indent + 'let results = (outs {});\n'.format(
         (',\n' + inc_indent(indent)).join(outs_strs))
 
+    # custom_builder_broadcast_ops_list
+    
     # add custom builders
     # use element type of the first operand to construct an UnrankedTensorType for the output.
     if schema.name in custom_builder_ops_list:
@@ -726,7 +736,8 @@ def gen_op_def(schema):
         else:
             s += indent + 'let builders = [\n'
             # Custom builders with operands and attributes having a seperate parameter.
-            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, Value X, Value, Y, Attribute A", [{}]>
+            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, Value X,
+            #   Value, Y, Attribute A", [{}]>
             indent = inc_indent(indent)
             s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state'
             operands_dict = get_operands_or_results(schema, is_input=True)
@@ -740,9 +751,26 @@ def gen_op_def(schema):
 
             # Get output type from first operand's type.
             first_operand_name = list(ins.items())[0][0]
-            s += indent + 'auto elementType = {}.getType().cast<TensorType>().getElementType();\n'.format(
-                first_operand_name)
-            s += indent + 'build(builder, state, UnrankedTensorType::get(elementType)'
+            build_type_name = ''
+            if schema.name in custom_builder_broadcast_ops_list:
+                second_operand_name = list(ins.items())[1][0]
+                s += indent + 'auto lhsTy = {}.getType().cast<RankedTensorType>();\n'. \
+                    format(first_operand_name)
+                s += indent + 'auto rhsTy = {}.getType().cast<RankedTensorType>();\n'. \
+                    format(second_operand_name)
+                s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
+                s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
+                s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
+                s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
+                    '.getType().cast<TensorType>().getElementType();\n';
+                s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
+                s += indent + '}\n';
+                build_type_name = 'elementType'
+            else:
+                s += indent + 'auto elementType = {}'.format(first_operand_name) + \
+                    '.getType().cast<TensorType>().getElementType();\n'
+                build_type_name = 'UnrankedTensorType::get(elementType)'
+            s += indent + 'build(builder, state, {}'.format(build_type_name)
             for name, _ in ins.items():
                 s += ', ' + name
             s += ');\n'
@@ -750,12 +778,26 @@ def gen_op_def(schema):
             s += indent + '}]>,\n'
 
             # Custom builders with all operands and attributes having aggregate parameters.
-            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
+            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands,
+            #    ArrayRef<NamedAttribute> attributes", [{}]>'
+            s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state, ' + \
+                'ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
             indent = inc_indent(indent)
-            s += indent + 'auto elementType = operands[0].getType().cast<TensorType>().getElementType();\n'
+            if schema.name in custom_builder_broadcast_ops_list:
+                s += indent + 'auto lhsTy = operands[0].getType().cast<RankedTensorType>();\n'
+                s += indent + 'auto rhsTy = operands[1].getType().cast<RankedTensorType>();\n'
+                s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
+                s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
+                s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
+                s += indent + indent + 'elementType = operands[0]' + \
+                    '.getType().cast<TensorType>().getElementType();\n';
+                s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
+                s += indent + '}\n';
+            else:    
+                s += indent + 'auto elementType = operands[0].getType().' + \
+                    'cast<TensorType>().getElementType();\n'
             s += indent + 'std::vector<mlir::Type> outputTypes;\n'
-            s += indent + 'outputTypes.emplace_back(UnrankedTensorType::get(elementType));\n'
+            s += indent + 'outputTypes.emplace_back({});\n'.format(build_type_name)
             s += indent + 'build(builder, state, outputTypes, operands, attributes);\n'
             indent = dec_indent(indent)
             s += indent + '}]>'
@@ -769,7 +811,7 @@ def gen_op_def(schema):
     # generate input/output number
     s = get_numberof_inout(s, indent, schema)
 
-    # generate ProtableConst 
+    # generate ProtableConst
     if schema.name in OpsWithPromotableConstOperands:
         s = get_promotable_const_operands_func(
             s, indent, OpsWithPromotableConstOperands[schema.name])
@@ -873,7 +915,7 @@ def build_operator_schemas():
                             schema.since_version, schema.name))
                     elif schema.since_version >  version_dict[schema.name]:
                         print("Check-operation-version: Operation {} has a newer version {}"+
-                            "(old version {})".format( schema.name, 
+                            "(old version {})".format( schema.name,
                             schema.since_version, version_dict[schema.name]))
                 else:
                     # Generate operation according to the version in version_dict.

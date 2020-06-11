@@ -74,7 +74,7 @@ def KrnlOptimizeLoopsOp : Op<Krnl_Dialect, "optimize_loops"> {
   let parser = [{ return ::parse$cppClass(parser, result); }];
 }
 
-def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator]> {
+def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator, AffineScope]> {
   let summary = "iterate operation";
   let description = [{
     The "krnl.iterate" operation is conceptually equivalent to a nested for loops.
@@ -200,6 +200,24 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global"> {
   }];
 
   let arguments = (ins AnyAttr:$shape, StrAttr:$name, OptionalAttr<AnyAttr>:$value);
+  let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
+  let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
+  let description = [{
+    Retreieves a MemRef from within another MemRef:
+
+    "krnl.getref"(%memref, %offset)
+
+    The offset is an integer which is used as an index into the input MemRef. It works
+    just like an array index.
+  }];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
   let parser = ?;

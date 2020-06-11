@@ -157,6 +157,7 @@ private:
       result.addTypes(mlir::UnrankedTensorType::get(builder_.getF32Type()));
     }
     result.addOperands(inputs);
+    result.addAttributes(ImportNodeAttributes(node));
     auto op = builder_.createOperation(result);
     for (int i = 0; i < node.output().size(); i++) {
       auto r = op->getResult(i);

@@ -1,9 +1,9 @@
 # Import ONNX specifications into ONNX-MLIR
 
 ONNX specifications are defined under `onnx/defs` directory in the ONNX project repository. 
-There is a python script onnx/defs/gen_doc.py that automatically generate documents about operations in ONNX (docs/Operations.md). 
+There is a python script onnx/defs/gen_onnx_mlir.py that automatically generate documents about operations in ONNX (docs/Operations.md). 
 ONNX-MLIR modified this script to import ONNX specifications into ONNX-MLIR. 
-There are two files generated for ONNX MLIR with the modified gen_doc.py:
+There are two files generated for ONNX MLIR with the modified gen_onnx_mlir.py:
 
 1. `src/Dialect/ONNX/ONNXOps.td.inc`: Operation definition for MLIR TableGen. `src/Dialect/ONNX/ONNXOps.td` includes this file.
 2. `src/Builder/OpBuildTable.inc`: C++ code for ONNX-MLIR frontend to import operation nodes from ONNX model. `src/Builder/FrontendDialectTransformer.cpp` includes this file.
@@ -22,7 +22,7 @@ Even though we strive to support the latest version of ONNX specification as qui
 Due to the possibility of such a delay, operator definition within the ONNX project repository may describe features and schemas that we do not yet support.
 
 ## Customization
-In addition to following the ONNX specification, the script gen_onnx_mlir.py,  modified gen_doc.py, provides some mechanism for you to customize the output. 
+In addition to following the ONNX specification, the script gen_onnx_mlir.py,  modified gen_onnx_mlir.py, provides some mechanism for you to customize the output. 
 Several tables are defined at the beginning of the script:
 1. `special_attr_defaults`: gives attribute special default value.
 2. `special_op_handler`: creates special import function in frontend_dialect_transformer.cpp. Currently, a special handler is used for operations with operational arguments
