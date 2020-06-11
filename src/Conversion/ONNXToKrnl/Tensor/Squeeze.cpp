@@ -25,6 +25,23 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
     auto elementSizeInBytes = getMemRefEltSizeInBytes(memRefType);
     Value data = operandAdaptor.data();
 
+    // If only this op uses the input, then simply construct from the input a
+    // MemRef of a new type, and return the new MemRef.
+    //
+    // Use `op->getOperands()` instead of `operands` in order to get the number
+    // input uses.
+    //
+    // KrnlGetRef requires static shapes for the output, so perform a sanity
+    // check for this.
+    if (op->getOperands()[0].hasOneUse() &&
+        hasAllConstantDimensions(memRefType)) {
+      auto zero = emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), 0);
+      Value krnlSqueezeInPlaceOp =
+          rewriter.create<KrnlGetRefOp>(loc, memRefType, data, zero);
+      rewriter.replaceOp(op, krnlSqueezeInPlaceOp);
+      return success();
+    }
+
     // Assume that `axes` has been validated by shape inference.
     // So, here we just get it.
     ArrayAttr axisAttrs = llvm::dyn_cast<ONNXSqueezeOp>(op).axesAttr();
