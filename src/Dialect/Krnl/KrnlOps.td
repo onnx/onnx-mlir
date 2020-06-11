@@ -223,3 +223,18 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
   let parser = ?;
   let printer = ?;
 }
+
+def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
+  let summary = "Krnl block operation";
+  let description = [{
+
+  }];
+
+  let arguments = (ins
+    AnyType:$loop, I64Attr:$tile_size);
+  let results = (outs Variadic<AnyType>:$blocked_loops);
+
+  let assemblyFormat = [{
+      $loop $tile_size attr-dict `:` functional-type($loop, $blocked_loops)
+  }];
+}
