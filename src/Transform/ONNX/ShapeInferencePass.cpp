@@ -72,7 +72,7 @@ public:
    *  Check if the given operation has a dynamically shaped result.
    */
   static bool returnsDynamicShape(Operation *op) {
-   return llvm::any_of(op->getResultTypes(), [](Type result_type) {
+    return llvm::any_of(op->getResultTypes(), [](Type result_type) {
       return !result_type.isa<NoneType>() &&
              !result_type.isa<RankedTensorType>();
     });
