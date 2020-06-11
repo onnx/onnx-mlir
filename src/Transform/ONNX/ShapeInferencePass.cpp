@@ -37,8 +37,7 @@ public:
       if (returnsDynamicShape(op)) {
         if (auto shape_op = dyn_cast<ShapeInference>(op)) {
           if (failed(shape_op.inferShapes())) {
-            op->emitError("unable to infer shape of operation without shape "
-                          "inference method");
+            op->emitError("shape inference failed");
             return signalPassFailure();
           }
         } else {
@@ -73,7 +72,7 @@ public:
    *  Check if the given operation has a dynamically shaped result.
    */
   static bool returnsDynamicShape(Operation *op) {
-    return llvm::any_of(op->getResultTypes(), [](Type result_type) {
+   return llvm::any_of(op->getResultTypes(), [](Type result_type) {
       return !result_type.isa<NoneType>() &&
              !result_type.isa<RankedTensorType>();
     });

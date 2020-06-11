@@ -20,11 +20,16 @@ std::unique_ptr<Pass> createDecomposeONNXToONNXPass();
 
 std::unique_ptr<Pass> createShapeInferencePass();
 
+std::unique_ptr<Pass> createConstPropONNXToONNXPass();
+
 /// Pass for promoting constant operands to attributes.
 std::unique_ptr<Pass> createAttributePromotionPass();
 
 /// Pass for eliding the values of constant operations.
 std::unique_ptr<Pass> createElideConstantValuePass();
+
+/// Pass for enabling a memory pool for MemRefs.
+std::unique_ptr<Pass> createKrnlEnableMemoryPoolPass();
 
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<Pass> createLowerToKrnlPass();

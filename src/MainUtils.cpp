@@ -88,6 +88,7 @@ void registerDialects() {
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createDecomposeONNXToONNXPass());
+  pm.addPass(mlir::createConstPropONNXToONNXPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createAttributePromotionPass());
@@ -101,10 +102,15 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.
   pm.addPass(mlir::createCanonicalizerPass());
+
+  // TODO: make this pass optional:
+  pm.addPass(mlir::createKrnlEnableMemoryPoolPass());
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerKrnlPass());
+  // Fuse loops in Affine dialect.
+  pm.addPass(mlir::createLoopFusionPass());
 }
 
 void addKrnlToLLVMPasses(mlir::PassManager &pm) {
