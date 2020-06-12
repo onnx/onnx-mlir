@@ -1,3 +1,15 @@
+//===----- BinaryDecoder.cpp - Decode binary files into typed arrays ------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains implementation of a utility called BinaryDecoder, which
+// decodes a sequence of binary data within a binary file specified by an
+// offset and a length into a typed array and print to stdout.
+//
+//===----------------------------------------------------------------------===//
+
 #include <fstream>
 #include <iostream>
 #include <string>

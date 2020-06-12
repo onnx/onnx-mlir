@@ -1,3 +1,14 @@
+//===---- GetEmbeddedConstPool.h - Get Embedded Const Pool API Func Decl---===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains runtime API declarations to extract constant pool values
+// embedded within the shared library binary files.
+//
+//===----------------------------------------------------------------------===//
+
 #pragma once
 
 #include <stdint.h>
