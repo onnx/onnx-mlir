@@ -37,7 +37,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   llvm::SmallVector<Type, 1> outputsType{yType};
 
   auto funcType = builder.getFunctionType(inputsType, outputsType);
-  string funcName = "test_conv";
+  string funcName = "main_graph";
   llvm::SmallVector<NamedAttribute, 1> attrs;
   auto funcOp =
       builder.create<FuncOp>(UnknownLoc::get(&ctx), funcName, funcType, attrs);
@@ -88,13 +88,13 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   OwningModuleRef moduleRef(module);
 
   llvm::SmallVector<char, 10> path;
-  llvm::sys::fs::createTemporaryFile("_test_conv", "", path);
+  llvm::sys::fs::createTemporaryFile("_main_graph", "", path);
   string pathStr(path.begin(), path.end());
   llvm::FileRemover remover(path);
 
   compileModule(moduleRef, ctx, pathStr, EmitLib);
   onnx_mlir::ExecutionSession sess(
-      pathStr + ".so", "_dyn_entry_point_test_conv");
+      pathStr + ".so", "_dyn_entry_point_main_graph");
 
   std::vector<unique_ptr<DynMemRef>> inputs;
   auto xDmr = unique_ptr<DynMemRef>(getRndRealDmr<float>({N, C, H, W}));

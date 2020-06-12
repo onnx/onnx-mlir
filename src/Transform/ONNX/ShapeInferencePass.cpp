@@ -50,8 +50,9 @@ public:
 
     int64_t dynamicOperations = 0;
     f.walk([&](mlir::Operation *op) {
-      if (returnsDynamicShape(op))
+      if (returnsDynamicShape(op)) {
         dynamicOperations++;
+      }
     });
 
     // If any dynamic operations remain, this indicates a failure.

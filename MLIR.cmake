@@ -269,6 +269,7 @@ set(ONNXMLIRWholeArchiveLibs
         OMPromotableConstOperandsOpInterface
         OMElideConstants
         OMElideKrnlGlobalConstants
+        OMPackKrnlGlobalConstants
         OMEnableMemoryPool)
 
 # Function to construct linkage option for the static libraries that must be

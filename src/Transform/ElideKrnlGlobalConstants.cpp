@@ -22,34 +22,31 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include "ElideKrnlGlobalConstants.hpp"
+
 using namespace mlir;
 
-namespace {
+const int64_t KrnlConstGlobalValueElision::kDefaultElisionThreshold = 32;
 
-/*!
- *  RewritePattern that replaces existing constant Krnl global values
- *  with a similar operation which preserves all attributes except the value
- *  attribute.
- */
+mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
+    mlir::KrnlGlobalOp op, mlir::PatternRewriter &rewriter) const {
+  auto loc = op.getLoc();
 
-class KrnlConstGlobalValueElision : public OpRewritePattern<KrnlGlobalOp> {
-public:
-  using OpRewritePattern<KrnlGlobalOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      KrnlGlobalOp op, PatternRewriter &rewriter) const override {
-    auto loc = op.getLoc();
-
-    if (op.value().hasValue()) {
-      auto newGlobalOp = rewriter.create<KrnlGlobalOp>(
-          loc, op.getResult().getType(), op.shape(), op.name(), nullptr);
+  if (op.value().hasValue()) {
+    const auto &valAttr = op.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
+    if (valAttr.getNumElements() > elisionThreshold) {
+      IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
+      auto newGlobalOp = rewriter.create<KrnlGlobalOp>(loc,
+          op.getResult().getType(), /*shape=*/op.shape(),
+          /*name=*/op.name(), /*value=*/nullptr, /*offset=*/offsetAttr);
       rewriter.replaceOp(op, newGlobalOp.getResult());
     }
-
-    return success();
   }
-};
 
+  return success();
+}
+
+namespace {
 /*!
  *  Function pass that performs constant value elision of Krnl globals.
  */
@@ -66,6 +63,7 @@ public:
     applyPatternsAndFoldGreedily(function, patterns);
   }
 };
+
 } // namespace
 
 std::unique_ptr<Pass> mlir::createElideConstGlobalValuePass() {
