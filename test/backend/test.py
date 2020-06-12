@@ -403,9 +403,18 @@ test_to_enable = [
     "test_lstm_with_initial_bias_cpu",
     "test_lstm_with_peepholes_cpu",
 
+    # Split
+    "test_split_equal_parts_1d_cpu",
+    "test_split_equal_parts_2d_cpu",
+    "test_split_equal_parts_default_axis_cpu",
+    "test_split_variable_parts_1d_cpu",
+    "test_split_variable_parts_2d_cpu",
+    "test_split_variable_parts_default_axis_cpu",
+
     # ResNet
     "test_resnet50_cpu",
 ]
+
 
 # Extract name of all test cases.
 import inspect

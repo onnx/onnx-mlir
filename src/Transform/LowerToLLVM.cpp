@@ -756,7 +756,7 @@ public:
         rewriter);
     auto constPackSize = rewriter.create<LLVM::ConstantOp>(loc,
         LLVM::LLVMType::getInt64Ty(llvmDialect),
-        packedConstOp.sizeInBytesAttr());
+        packedConstOp.size_in_bytesAttr());
     Value alloc = rewriter
                       .create<CallOp>(loc, getEmbeddedConstPoolRef, llvmI8PtrTy,
                           ArrayRef<Value>({constPackSize}))
@@ -797,6 +797,12 @@ public:
           LLVM::Linkage::External,
           mlir::KrnlPackedConstantOp::getConstPackFileNameStrLenSymbolName(),
           rewriter.getI64IntegerAttr(constPackFileName.size()));
+
+      type = LLVM::LLVMType::getInt8Ty(llvmDialect);
+      rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+          LLVM::Linkage::External,
+          mlir::KrnlPackedConstantOp::getConstPackIsLESymbolName(),
+          rewriter.getI8IntegerAttr(packedConstOp.is_le()));
     }
 
     rewriter.eraseOp(op);
