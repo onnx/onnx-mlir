@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import os
 import sys
 import unittest
+import warnings
 import onnx.backend.base
 import onnx.backend.test
 
@@ -29,7 +30,57 @@ from PyRuntime import ExecutionSession
 def execute_commands(cmds):
     if (VERBOSE):
         print(" ".join(cmds))
-    subprocess.run(cmds, stdout=subprocess.PIPE)
+    subprocess.run(cmds)
+
+
+# There are two issues, which necessitates the adoption of this endianness
+# aware wrapper around Execution Session:
+# 1. Input arrays are given sometimes in native byte order, sometime in
+#    LE byte order, and as soon as the python array enters into py::array
+#    C++ objects through pybind, we will no longer be able to query their
+#    endianness. So we must intercept the inputs and convert them into
+#    native endianness.
+# 2. Output arrays are compared with reference outputs, the comparison
+#    unfortunately includes checking that our outputs and reference outputs
+#    share the same endianness. So we try to figure out what is the desired
+#    reference output endianness, and convert our outputs to this desired
+#    endianness.
+class EndiannessAwareExecutionSession(ExecutionSession):
+    def __init__(self, path, entry_point):
+        super().__init__(path, entry_point)
+
+    def is_input_le(self, inputs):
+        inputs_endianness = list(map(lambda x: x.dtype.byteorder, inputs))
+        endianness_is_consistent = len(set(inputs_endianness)) <= 1
+        assert endianness_is_consistent, \
+            "Input arrays contain a mixture of endianness configuration."
+
+        sys_is_le = sys.byteorder == 'little'
+        # To interpret character symbols indicating endianness:
+        # https://numpy.org/doc/stable/reference/generated/numpy.dtype.byteorder.html
+        explicitly_le = inputs_endianness[0] == "<"
+        implicitly_le = (inputs_endianness[0] == "=" and sys_is_le)
+        return explicitly_le or implicitly_le
+
+    def run(self, inputs, **kwargs):
+        if len(inputs):
+            # Deduce desired endianness of output from inputs.
+            sys_is_le = sys.byteorder == 'little'
+            inp_is_le = self.is_input_le(inputs)
+            if (sys_is_le != inp_is_le):
+                inputs = list(
+                    map(lambda x: x.byteswap().newbyteorder(), inputs))
+            outputs = super().run(inputs)
+            if (sys_is_le != inp_is_le):
+                outputs = list(
+                    map(lambda x: x.byteswap().newbyteorder(), outputs))
+            return outputs
+        else:
+            # Can't deduce desired output endianess, fingers crossed.
+            warnings.warn(
+                "Cannot deduce desired output endianness, using native endianness by default."
+            )
+            return super().run(inputs)
 
 
 class DummyBackend(onnx.backend.base.Backend):
@@ -40,7 +91,8 @@ class DummyBackend(onnx.backend.base.Backend):
         onnx.save(model, "temp_model.onnx")
         # Call frontend to process temp_model.onnx, bit code will be generated.
         execute_commands([ONNX_MLIR, "temp_model.onnx"])
-        return ExecutionSession("./temp_model.so", "_dyn_entry_point_main_graph")
+        return EndiannessAwareExecutionSession("./temp_model.so",
+                                               "_dyn_entry_point_main_graph")
 
     @classmethod
     def supports_device(cls, device):
@@ -80,7 +132,6 @@ test_to_enable = [
     "test_concat_3d_axis_0_cpu",
     "test_concat_3d_axis_1_cpu",
     "test_concat_3d_axis_2_cpu",
-
     "test_concat_1d_axis_negative_1_cpu",
     "test_concat_2d_axis_negative_1_cpu",
     "test_concat_2d_axis_negative_2_cpu",
@@ -359,12 +410,18 @@ test_to_enable = [
     "test_split_variable_parts_1d_cpu",
     "test_split_variable_parts_2d_cpu",
     "test_split_variable_parts_default_axis_cpu",
+
+    # ResNet
+    "test_resnet50_cpu",
 ]
 
 
 # Extract name of all test cases.
 import inspect
-all_tests = inspect.getmembers(
+all_tests = []
+all_tests += inspect.getmembers(
+    backend_test.test_cases["OnnxBackendRealModelTest"])
+all_tests += inspect.getmembers(
     backend_test.test_cases["OnnxBackendNodeModelTest"])
 all_test_names = list(map(lambda x: x[0], all_tests))
 
@@ -372,8 +429,7 @@ all_test_names = list(map(lambda x: x[0], all_tests))
 for test_name in test_to_enable:
     assert test_name in all_test_names, """test name {} not found, it is likely
     that you may have misspelled the test name or the specified test does not
-    exist in the version of onnx package you installed.""".format(
-        test_name)
+    exist in the version of onnx package you installed.""".format(test_name)
     backend_test.include(r"^{}$".format(test_name))
 
 # import all test cases at global scope to make them visible to python.unittest

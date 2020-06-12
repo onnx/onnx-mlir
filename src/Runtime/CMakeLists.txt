@@ -1,6 +1,6 @@
 # Create shared libcruntime.so since model.so linkage for backend tests
 # will fail on x86 Linux if cruntime is statically linked.
-add_library(cruntime SHARED
+add_library(cruntime STATIC
         DynMemRef.cpp
         DynMemRef.h
         DataType.h)
@@ -34,6 +34,13 @@ target_include_directories(PyRuntime PRIVATE
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 
+add_library(EmbeddedDataLoader STATIC
+        GetEmbeddedConstPool.h
+        GetEmbeddedConstPool.cpp)
+set_target_properties(EmbeddedDataLoader PROPERTIES
+        POSITION_INDEPENDENT_CODE TRUE)
+
 add_dependencies(PyRuntime cruntime)
 install(FILES DynMemRef.h DESTINATION include)
 install(TARGETS cruntime DESTINATION lib)
+install(TARGETS EmbeddedDataLoader DESTINATION lib)
