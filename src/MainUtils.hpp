@@ -22,8 +22,8 @@
 
 #include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/MLONNX/MLONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
