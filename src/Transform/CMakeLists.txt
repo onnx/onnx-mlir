@@ -27,7 +27,8 @@ target_link_libraries(OMKrnlToLLVM
         onnx)
 
 add_library(OMElideKrnlGlobalConstants
-        ElideKrnlGlobalConstants.cpp)
+        ElideKrnlGlobalConstants.cpp
+        ElideKrnlGlobalConstants.hpp)
 target_include_directories(OMElideKrnlGlobalConstants
         PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
@@ -38,6 +39,14 @@ add_dependencies(OMElideKrnlGlobalConstants OMKrnlOpsInc)
 # Linking dependencies
 add_dependencies(OMElideKrnlGlobalConstants OMKrnlOps)
 
+add_library(OMPackKrnlGlobalConstants
+        PackKrnlGlobalConstants.cpp)
+target_include_directories(OMPackKrnlGlobalConstants
+        PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+
 add_library(OMEnableMemoryPool
         EnableMemoryPool.cpp)
 target_include_directories(OMEnableMemoryPool
@@ -45,6 +54,9 @@ target_include_directories(OMEnableMemoryPool
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
+add_dependencies(OMPackKrnlGlobalConstants
+        OMKrnlOps)
+
 target_link_libraries(OMEnableMemoryPool
         onnx)
 add_dependencies(OMEnableMemoryPool

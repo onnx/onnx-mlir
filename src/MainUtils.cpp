@@ -9,8 +9,15 @@
 //===----------------------------------------------------------------------===//
 
 #include <cstdio>
+#include <cstdlib>
 #include <fcntl.h>
+#include <regex>
+#include <string>
+
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/Program.h>
+#include <mlir/Dialect/LLVMIR/LLVMDialect.h>
+#include <mlir/IR/SymbolTable.h>
 
 #include "src/ExternalUtil.hpp"
 #include "src/MainUtils.hpp"
@@ -25,6 +32,63 @@
 
 using namespace std;
 using namespace onnx_mlir;
+
+namespace {
+
+llvm::Optional<std::string> getEnvVar(std::string name) {
+  if (const char *envVerbose = std::getenv(name.c_str()))
+    return std::string(envVerbose);
+  return llvm::None;
+}
+
+// Helper struct to make command construction and execution easy & readable.
+struct Command {
+  std::string _path;
+  std::vector<std::string> _args;
+
+  Command(std::string exePath)
+      : _path(std::move(exePath)),
+        _args({llvm::sys::path::filename(_path).str()}) {}
+
+  // Append a single string argument.
+  Command &appendStr(const std::string &arg) {
+    _args.emplace_back(arg);
+    return *this;
+  }
+
+  // Append a list of string arguments.
+  Command &appendList(const std::vector<std::string> &args) {
+    _args.insert(_args.end(), args.begin(), args.end());
+    return *this;
+  }
+
+  // Reset arguments.
+  Command &resetArgs() {
+    auto exeFileName = _args.front();
+    _args.clear();
+    _args.emplace_back(exeFileName);
+    return *this;
+  }
+
+  // Execute command.
+  void exec() {
+    auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
+    bool verbose = false;
+    if (const auto &verboseStr = getEnvVar("VERBOSE"))
+      istringstream(verboseStr.getValue()) >> verbose;
+
+    // If in verbose mode, print out command before execution.
+    if (verbose)
+      cout << llvm::join(argsRef, " ") << "\n";
+    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef));
+
+    if (rc != 0) {
+      fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
+      llvm_unreachable("Command execution failed.");
+    }
+  }
+};
+} // namespace
 
 void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
@@ -50,31 +114,123 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
 
 void compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, string outputBaseName) {
+  // Extract constant pack file name, which is embedded as a symbol in the
+  // module being compiled.
+  auto constPackFilePathSym = (*module).lookupSymbol<mlir::LLVM::GlobalOp>(
+      mlir::KrnlPackedConstantOp::getConstPackFilePathSymbolName());
+  auto constPackFilePath = constPackFilePathSym.valueAttr()
+                               .dyn_cast_or_null<mlir::StringAttr>()
+                               .getValue()
+                               .str();
+  llvm::FileRemover constPackRemover(constPackFilePath);
+
+  llvm::Optional<std::string> constPackObjPath;
+#if __APPLE__
+  // Create a empty stub file, compile it to an empty obj file.
+  llvm::SmallVector<char, 20> stubSrcPath;
+  llvm::sys::fs::createTemporaryFile("stub", "cpp", stubSrcPath);
+  llvm::FileRemover subSrcRemover(stubSrcPath);
+  std::string stubSrcPathStr(stubSrcPath.begin(), stubSrcPath.end());
+  Command createStubObj(/*exePath=*/kCxxPath);
+  std::string stubObjPathStr = stubSrcPathStr + ".o";
+  createStubObj.appendList({"-o", stubObjPathStr})
+      .appendList({"-c", stubSrcPathStr})
+      .exec();
+  llvm::FileRemover stubObjRemover(stubObjPathStr);
+
+  // Embed data into the empty stub obj file.
+  constPackObjPath = constPackFilePath + ".o";
+  Command genParamObj(/*exePath=*/kLinkerPath);
+  genParamObj.appendStr("-r")
+      .appendList({"-o", constPackObjPath.getValue()})
+      .appendList({"-sectcreate", "binary", "param", constPackFilePath})
+      .appendStr(stubObjPathStr)
+      .exec();
+  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
+
+#elif __linux__
+  // Create param.o holding packed parameter values.
+  constPackObjPath = constPackFilePath + ".o";
+  Command genParamObj(/*exePath=*/kLinkerPath);
+  genParamObj.appendStr("-r")
+      .appendList({"-b", "binary"})
+      .appendList({"-o", constPackObjPath.getValue()})
+      .appendStr(constPackFilePath)
+      .exec();
+  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
+
+  // Figure out what is the default symbol name describing the start/end
+  // address of the embedded data.
+  std::regex e("[^0-9A-Za-z]");
+  auto sanitizedName =
+      "_binary_" + std::regex_replace(constPackFilePath, e, "_");
+
+  // Rename the symbols to saner ones expected by the runtime function.
+  Command redefineSym(/*exePath=*/kObjCopyPath);
+  redefineSym.appendStr("--redefine-sym")
+      .appendStr(sanitizedName + "_start=_binary_param_bin_start")
+      .appendStr(constPackObjPath.getValue())
+      .exec();
+  redefineSym.resetArgs()
+      .appendStr("--redefine-sym")
+      .appendStr(sanitizedName + "_end=_binary_param_bin_end")
+      .appendStr(constPackObjPath.getValue())
+      .exec();
+
+#else
+  llvm::SmallVector<char, 10> permConstPackFileName(
+      constPackFilePath.begin(), constPackFilePath.end());
+  llvm::sys::path::replace_extension(permConstPackFileName, "bin");
+  std::string permConstPackFileNameStr(
+      permConstPackFileName.begin(), permConstPackFileName.end());
+  auto constPackFileName = llvm::sys::path::filename(outputBaseName) + "." +
+                           llvm::sys::path::filename(permConstPackFileNameStr);
+  llvm::sys::fs::rename(constPackFilePath, constPackFileName);
+
+  mlir::Builder builder(*module);
+  (*module)
+      .lookupSymbol<mlir::LLVM::GlobalOp>(
+          mlir::KrnlPackedConstantOp::getConstPackFileNameSymbolName())
+      .valueAttr(builder.getStringAttr(constPackFileName.str()));
+  (*module)
+      .lookupSymbol<mlir::LLVM::GlobalOp>(
+          mlir::KrnlPackedConstantOp::getConstPackFileNameStrLenSymbolName())
+      .valueAttr(builder.getI64IntegerAttr(constPackFileName.str().size()));
+#endif
+
   // Write LLVM bitcode.
   string outputFilename = outputBaseName + ".bc";
   error_code error;
   llvm::raw_fd_ostream moduleBitcodeStream(
       outputFilename, error, llvm::sys::fs::F_None);
+
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
+  llvm::FileRemover bcRemover(outputFilename);
 
-  // Compile bitcode to object file.
-  std::vector<std::string> llcArgs = {
-      "llc", "-filetype=obj", "-relocation-model=pic", outputFilename};
-  auto llcArgStrRefs =
-      std::vector<llvm::StringRef>(llcArgs.begin(), llcArgs.end());
-  llvm::sys::ExecuteAndWait(kLlcPath, llvm::makeArrayRef(llcArgStrRefs));
+  // Compile LLVM bitcode to object file.
+  Command llvmToObj(/*exePath=*/kLlcPath);
+  llvmToObj.appendStr("-filetype=obj");
+  llvmToObj.appendStr("-relocation-model=pic");
+  llvmToObj.appendStr(outputFilename);
+  llvmToObj.exec();
+  std::string modelObjPath = outputBaseName + ".o";
+  llvm::FileRemover modelObjRemover(modelObjPath);
 
-  // Link with runtime.
-  // TODO(tjingrant): link with runtime library in LLVM, and make the shared
-  // library more self-contained.
-  std::vector<std::string> cxxArgs = {kCxxFileName, "-shared", "-fPIC",
-      outputBaseName + ".o", "-o", outputBaseName + ".so",
-      "-L" + kRuntimeDirPath, "-lcruntime", "-Wl,-rpath," + kRuntimeDirPath};
-  auto argsArrayRefVector =
-      std::vector<llvm::StringRef>(cxxArgs.begin(), cxxArgs.end());
-  llvm::sys::ExecuteAndWait(kCxxPath, llvm::makeArrayRef(argsArrayRefVector));
+  std::string runtimeDirInclFlag;
+  if (getEnvVar("RUNTIME_DIR").hasValue())
+    runtimeDirInclFlag = "-L" + getEnvVar("RUNTIME_DIR").getValue();
+
+  // Link everything into a shared object.
+  Command link(kCxxPath);
+  link.appendList({"-shared", "-fPIC"})
+      .appendStr(modelObjPath)
+      .appendStr(constPackObjPath.getValueOr(""))
+      .appendList({"-o", outputBaseName + ".so"})
+      .appendStr(runtimeDirInclFlag)
+      .appendList({"-lEmbeddedDataLoader", "-lcruntime"})
+      .exec();
 }
 
 void registerDialects() {
@@ -99,6 +255,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerToKrnlPass());
+  pm.addPass(mlir::createPackKrnlGlobalConstantsPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.
@@ -111,7 +268,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerKrnlPass());
   // Fuse loops in Affine dialect.
-  pm.addPass(mlir::createLoopFusionPass());
+  //  pm.addPass(mlir::createLoopFusionPass());
 }
 
 void addKrnlToLLVMPasses(mlir::PassManager &pm) {
