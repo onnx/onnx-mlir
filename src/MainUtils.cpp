@@ -83,6 +83,7 @@ void registerDialects() {
   mlir::registerDialect<mlir::scf::SCFDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();
   mlir::registerDialect<mlir::ONNXOpsDialect>();
+  mlir::registerDialect<mlir::MLONNXOpsDialect>();
   mlir::registerDialect<mlir::KrnlOpsDialect>();
 }
 

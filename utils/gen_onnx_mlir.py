@@ -503,6 +503,9 @@ def get_operands_or_results(schema, is_input):
                 types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
                 types = list(map(lambda x: x.format(elem_types_str), types))
         elif structure == 'seq' :
+            # Seq is not supported yet.
+            # Use of TensorOf<[AnyTensor]> as a placeholder for tablegen.
+            # When the Operation is used, warning/error will be generated at runtime.
             if elem_types is None:
                 types = ["AnyMemRef", "TensorOf<[AnyTensor]>"]
             else:
@@ -510,6 +513,9 @@ def get_operands_or_results(schema, is_input):
                 types = ["TensorOf<[TensorOf<[{}]>]>", "MemRefOf<[{}]>"]
                 types = list(map(lambda x: x.format(elem_types_str), types))
         elif structure == 'map' :
+            # Map is not supported yet.
+            # Use of TupleOf as a placeholder for tablegen.
+            # When the Operation is used, warning/error will be generated at runtime.
             if elem_types is None:
                 types = ["AnyMemRef", "TupleOf<[AnyTensor]>"]
             else:

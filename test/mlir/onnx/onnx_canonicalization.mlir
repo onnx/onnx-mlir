@@ -96,3 +96,10 @@ func @test_gemm_add_fusion_rank3(%arg0: tensor<128x128x256xf32>, %arg1: tensor<1
   // CHECK-NEXT: [[GEMM:%.+]] = "onnx.Gemm"(%{{.*}}, %{{.*}}, %{{.*}}) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, transA = 0 : i64, transB = 0 : i64} : (tensor<128x128x256xf32>, tensor<128x128x256xf32>, tensor<256xf32>) -> tensor<*xf32>
   // return [[GEMM]] : tensor<*xf32>
 }
+
+
+//CHECK-LABEL @test_map1(%arg0: tuple<tensor<10xi64>, tensor<10xf32>>) -> tensor<*xf32> {
+func @test_map1(%arg0: tuple<tensor<10xi64>, tensor<10xf32>>) -> tensor<*xf32> {
+  %0 = "mlonnx.CastMap"(%arg0) {cast_to = "TO_FLOAT", map_form = "DENSE", max_map = 1} : (tuple<tensor<10xi64>, tensor<10xf32>>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
