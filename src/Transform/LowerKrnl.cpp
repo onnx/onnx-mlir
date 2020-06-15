@@ -212,6 +212,7 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   target.addLegalOp<KrnlEntryPointOp>();
   target.addLegalOp<KrnlGlobalOp>();
   target.addLegalOp<KrnlGetRefOp>();
+  target.addLegalOp<KrnlIterateOp>();
 
   OwningRewritePatternList patterns;
   patterns.insert<KrnlTerminatorLowering, KrnlDefineLoopsLowering,
@@ -275,9 +276,12 @@ void KrnlToAffineLoweringPass::runOnFunction() {
     target.addIllegalOp<KrnlBlockOp>();
     if (failed(applyPartialConversion(getFunction(), target, patterns)))
       return signalPassFailure();
-
-    return;
   }
+
+  // Just making sure no krnl.iterate ops left.
+  target.addIllegalOp<KrnlIterateOp>();
+  if (failed(applyPartialConversion(getFunction(), target, patterns)))
+    return signalPassFailure();
 }
 
 } // namespace
