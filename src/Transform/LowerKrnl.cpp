@@ -142,7 +142,7 @@ public:
 // Krnl to Affine Rewrite Patterns: KrnlOptimizeLoops operation.
 //===----------------------------------------------------------------------===//
 
-class KrnlBlockLowering : public OpRewritePattern<KrnlBlockOp> {
+class KrnlBlockOpLowering : public OpRewritePattern<KrnlBlockOp> {
 public:
   using OpRewritePattern<KrnlBlockOp>::OpRewritePattern;
 
@@ -165,105 +165,116 @@ struct KrnlToAffineLoweringPass
     : public PassWrapper<KrnlToAffineLoweringPass, FunctionPass> {
   void runOnFunction() final;
 };
+
+// Helper function to test if KrnlIterateOp is nested under another
+// KrnlIterateOp.
+bool isIterateOpNested(KrnlIterateOp iterateOp) {
+  // krnl.iterate is dynamically legal, if and only if it is enclosed by
+  // another krnl.iterate.
+  Operation *op = iterateOp;
+  while ((op = op->getParentOp()))
+    if (auto parentOp = dyn_cast<KrnlIterateOp>(op))
+      return true;
+  return false;
+}
+
+Optional<KrnlIterateOp> nextIterateOp(FuncOp function) {
+  Optional<KrnlIterateOp> nextIterateOp;
+  function.walk([&](KrnlIterateOp op) {
+    if (!isIterateOpNested(op))
+      nextIterateOp = op;
+  });
+  return nextIterateOp;
+}
+
+bool hasOnePerfectlyNestedIterateOp(KrnlIterateOp op) {
+  auto childrenOps = op.bodyRegion().getOps();
+  auto childrenOpsIter = childrenOps.begin();
+  if (childrenOpsIter == childrenOps.end() ||
+      !isa<KrnlIterateOp>(*childrenOpsIter))
+    return false;
+  if (++childrenOpsIter == childrenOps.end() ||
+      !(*childrenOpsIter).isKnownTerminator())
+    return false;
+  return true;
+}
 } // end anonymous namespace.
 
 void KrnlToAffineLoweringPass::runOnFunction() {
+  ConversionTarget target(getContext());
+
+  target.addLegalDialect<AffineDialect, StandardOpsDialect>();
+  // We expect IR to be free of Krnl Dialect Ops.
+  target.addIllegalDialect<KrnlOpsDialect>();
+
+  // Operations that should be converted to LLVM IRs directly.
+  target.addLegalOp<KrnlMemcpyOp>();
+  target.addLegalOp<KrnlEntryPointOp>();
+  target.addLegalOp<KrnlGlobalOp>();
+  target.addLegalOp<KrnlGetRefOp>();
+
+  OwningRewritePatternList patterns;
+  patterns.insert<KrnlTerminatorLowering, KrnlDefineLoopsLowering,
+      KrnlOptimizeLoopsLowering, KrnlBlockOpLowering>(&getContext());
+
   auto function = getFunction();
 
-  auto isIterateOpNested = [&](KrnlIterateOp iterateOp) {
-    // krnl.iterate is dynamically legal, if and only if it is enclosed by
-    // another krnl.iterate.
-    Operation *op = iterateOp;
-    while ((op = op->getParentOp()))
-      if (auto parentOp = dyn_cast<KrnlIterateOp>(op))
-        return true;
-    return false;
-  };
-
-  auto nextIterateOp = [&]() {
-    Optional<KrnlIterateOp> nextIterateOp;
-    function.walk([&](KrnlIterateOp op) {
-      if (!isIterateOpNested(op))
-        nextIterateOp = op;
-    });
-    return nextIterateOp;
-  };
-
   OpBuilder builder(&getContext());
-  while (auto iterateOp = nextIterateOp()) {
-    auto hasOneChildOp = [](KrnlIterateOp op) {
-      auto childrenOps = op.bodyRegion().getOps();
-      auto numTerminatorOp = 1;
-      return std::distance(childrenOps.begin(), childrenOps.end()) ==
-             1 + numTerminatorOp;
-    };
-    auto childrenContainIterateOp = [](KrnlIterateOp op) {
-      auto childrenIterateOps = op.bodyRegion().getOps<KrnlIterateOp>();
-      return std::distance(
-                 childrenIterateOps.begin(), childrenIterateOps.end()) > 0;
-    };
-
+  while (auto iterateOp = nextIterateOp(function)) {
     auto rootOp = iterateOp;
     SmallVector<KrnlIterateOp, 4> perfectlyNestedIterateOps = {*rootOp};
-    while (hasOneChildOp(*rootOp) && childrenContainIterateOp(*rootOp)) {
+    while (hasOnePerfectlyNestedIterateOp(*rootOp)) {
       auto nestedIterateOp =
           *rootOp->bodyRegion().getOps<KrnlIterateOp>().begin();
       perfectlyNestedIterateOps.emplace_back(nestedIterateOp);
       rootOp = nestedIterateOp;
     }
 
-    SmallVector<std::pair<Value, AffineForOp>, 4> nestedForOps;
-    for (auto op : perfectlyNestedIterateOps) {
-      lowerIterateOp(op, builder, nestedForOps);
-    }
+    SmallVector<std::pair<Value, AffineForOp>, 4> loopRefToLoop;
+    for (auto op : perfectlyNestedIterateOps)
+      lowerIterateOp(op, builder, loopRefToLoop);
 
-    ConversionTarget target(getContext());
-
-    target.addLegalDialect<AffineDialect, StandardOpsDialect>();
-    // We expect IR to be free of Krnl Dialect Ops.
-    target.addIllegalDialect<KrnlOpsDialect>();
-
-    // Operations that should be converted to LLVM IRs directly.
-    target.addLegalOp<KrnlMemcpyOp>();
-    target.addLegalOp<KrnlEntryPointOp>();
-    target.addLegalOp<KrnlGlobalOp>();
-    target.addLegalOp<KrnlGetRefOp>();
-
-    // Operations that pertain to schedules.
+    // Do not lower operations that pertain to schedules just yet.
     target.addLegalOp<KrnlBlockOp>();
     target.addLegalOp<KrnlDefineLoopsOp>();
+    if (failed(applyPartialConversion(getFunction(), target, patterns)))
+      return signalPassFailure();
 
-    OwningRewritePatternList patterns;
-    patterns.insert<KrnlTerminatorLowering, KrnlDefineLoopsLowering,
-        KrnlOptimizeLoopsLowering, KrnlBlockLowering>(&getContext());
-
-    if (failed(applyPartialConversion(getFunction(), target, patterns))) {
-      signalPassFailure();
-    }
-
-    for (auto loopRefToForOp : nestedForOps) {
+    // Manually lower schedule ops.
+    while (!loopRefToLoop.empty()) {
       Value loopRef;
       AffineForOp forOp;
-      std::tie(loopRef, forOp) = loopRefToForOp;
-      for (const auto &user : loopRef.getUsers()) {
-        if (isa<KrnlBlockOp>(user)) {
-          printf("Tiling!\n");
-          assert(user->getNumOperands() == 1);
-          SmallVector<AffineForOp, 4> tiledLoops;
-          SmallVector<AffineForOp, 4> loopsToTile = {forOp};
-          if (failed(tilePerfectlyNested(loopsToTile,
-                  cast<KrnlBlockOp>(user).tile_sizeAttr().getInt(),
-                  &tiledLoops)))
-            printf("tiling failed!\n");
+      std::tie(loopRef, forOp) = loopRefToLoop.pop_back_val();
+
+      auto loopRefUsers = loopRef.getUsers();
+      assert(std::distance(loopRefUsers.begin(), loopRefUsers.end()) <= 1 &&
+             "Loop reference used more than once.");
+
+      // No schedule primitives associated.
+      if (loopRefUsers.begin() == loopRefUsers.end())
+        continue;
+
+      auto user = *loopRefUsers.begin();
+      if (auto blockOp = cast_or_null<KrnlBlockOp>(user)) {
+        SmallVector<AffineForOp, 2> tiledLoops;
+        SmallVector<AffineForOp, 1> loopsToTile = {forOp};
+        if (failed(tilePerfectlyNested(loopsToTile,
+                cast<KrnlBlockOp>(user).tile_sizeAttr().getInt(),
+                &tiledLoops))) {
+          return signalPassFailure();
         }
+        assert(tiledLoops.size() == 2);
+        loopRefToLoop.emplace_back(
+            std::make_tuple(blockOp.getResult(0), tiledLoops[0]));
+        loopRefToLoop.emplace_back(
+            std::make_tuple(blockOp.getResult(1), tiledLoops[1]));
       }
     }
 
     target.addIllegalOp<KrnlDefineLoopsOp>();
     target.addIllegalOp<KrnlBlockOp>();
-    if (failed(applyPartialConversion(getFunction(), target, patterns))) {
-      signalPassFailure();
-    }
+    if (failed(applyPartialConversion(getFunction(), target, patterns)))
+      return signalPassFailure();
 
     return;
   }
