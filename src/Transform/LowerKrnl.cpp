@@ -265,9 +265,9 @@ void KrnlToAffineLoweringPass::runOnFunction() {
         }
         assert(tiledLoops.size() == 2);
         loopRefToLoop.emplace_back(
-            std::make_tuple(blockOp.getResult(0), tiledLoops[0]));
+            std::make_pair(blockOp.getResult(0), tiledLoops[0]));
         loopRefToLoop.emplace_back(
-            std::make_tuple(blockOp.getResult(1), tiledLoops[1]));
+            std::make_pair(blockOp.getResult(1), tiledLoops[1]));
       }
     }
 
