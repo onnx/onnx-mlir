@@ -25,16 +25,17 @@ using namespace mlir;
 
 namespace {
 
-// =============================================================================
-// Instructions to add a constant operation. There is currently support for
-// adding constant propagation for unary and binary athythmetic ops (binary ops
-// support broadcast). To add an operation, you simply have to add a templated
-// method on how to compute the result in terms of one or two inputs. Values
-// comes as Attribtues, and return is also an Attribute. In that function,
-// presumably you will need different methods to handle int / float /
-// strings... Note that these methods cannot fail. It is your responsablitity to
-// tests for which data type are supported in the rules directly. Specific type
-// restrictions can be added in the DRR files.
+//===----------------------------------------------------------------------===//
+// Instructions to add a constant operation.
+//===----------------------------------------------------------------------===//
+// There is currently support for adding constant propagation for unary and
+// binary athythmetic ops (binary ops support broadcast). To add an operation,
+// you simply have to add a templated method on how to compute the result in
+// terms of one or two inputs. Values comes as Attribtues, and return is also an
+// Attribute. In that function, presumably you will need different methods to
+// handle int / float / strings... Note that these methods cannot fail. It is
+// your responsablitity to tests for which data type are supported in the rules
+// directly. Specific type restrictions can be added in the DRR files.
 
 // The methods are:
 //
@@ -42,13 +43,12 @@ namespace {
 // and they need to be tempalted wtih an ONNX Operation (presuably).
 //
 // Then you need to add rules on how to transform the patterns; look into
-// ONNXConstProp.td for example.
+// ConstProp.td for example.
 //
-// =============================================================================
 
-// =============================================================================
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for binary in presence of broadcast.
-// =============================================================================
+//===----------------------------------------------------------------------===//
 
 // Template to generate binary operation results. It takes as inupt
 // the element type as well as the two element attributes for the
@@ -223,9 +223,9 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
   return DenseElementsAttr::get(resType, resRef);
 }
 
-// =============================================================================
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for unary operation.
-// =============================================================================
+//===----------------------------------------------------------------------===//
 
 template <typename OP>
 Attribute ComputeConstProppElementwiseUnary(
@@ -295,15 +295,15 @@ DenseElementsAttr ConstPropElementwiseUnary(
   return DenseElementsAttr::get(resType, resRef);
 }
 
-// =============================================================================
+//===----------------------------------------------------------------------===//
 // Pattern definition.
-// =============================================================================
+//===----------------------------------------------------------------------===//
 
 #include "src/Transform/ONNX/ONNXConstProp.inc"
 
-// =============================================================================
+//===----------------------------------------------------------------------===//
 // Code to manage the pass.
-// =============================================================================
+//===----------------------------------------------------------------------===//
 
 struct ConstPropONNXToONNXPass
     : public PassWrapper<ConstPropONNXToONNXPass, FunctionPass> {
