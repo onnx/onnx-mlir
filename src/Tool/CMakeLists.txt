@@ -1,1 +1,2 @@
 add_subdirectory(ONNXMLIROpt)
+add_subdirectory(BinaryDecoder)

@@ -16,13 +16,14 @@
 include "src/Dialect/ONNX/ONNXOps.td"
 #endif // OP_BASE
 
-
-// =============================================================================
-// Instruction to add new constant operation rules. Minimally, you will have added
-// operation in the ONNXConstProp.cpp to perform the element-wise single value
-// handling of the new operator that you are dealing with. You will need to
-// generate a call to the method that handle the tensor constant prop. Here
-// is the call for a unary and binary operation. Adapt to your new operator:
+//===----------------------------------------------------------------------===//
+// Instruction to add new constant operation rules.
+//===----------------------------------------------------------------------===//
+// Minimally, you will have added operation in the ONNXConstProp.cpp to perform
+// the element-wise single value handling of the new operator that you are dealing
+// with. You will need to generate a call to the method that handle the tensor
+// constant prop. Here is the call for a unary and binary operation. Adapt to your
+// new operator:
 //
 // def CreateAddOfTwoConst :
 //   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
@@ -34,7 +35,6 @@ include "src/Dialect/ONNX/ONNXOps.td"
 // a new def name.
 //
 // Then you will need to add substitution rules, see examples below.
-// =============================================================================
 
   
 // Useful test definitions.
@@ -63,8 +63,9 @@ def CreateNegOfConst :
  def CreateMulOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXMulOp>($_builder, $0, $1, $2)">;
 
-// =============================================================================
+//===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
+//===----------------------------------------------------------------------===//
   
 // Use commutativity to normalize constants in the second position of Add.
 def AddConstCommutative1 : Pat<
@@ -130,8 +131,9 @@ def AddConstProp : Pat<
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
 
-// =============================================================================
+//===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise SUB / NEG operations.
+//===----------------------------------------------------------------------===//
 
 // Constant Propagation for Sub
 def SubConstProp : Pat<
@@ -159,10 +161,11 @@ def SubConstToNeg : Pat<
     [(IsNotAConstant:$x), (AttributeIsNull:$s)]>;
 
 
-// =============================================================================
+//===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise MUL operations.
 // Exactly the same pattern as for the elementwise ADD operations.
-  
+//===----------------------------------------------------------------------===//
+
 // Use commutativity to normalize constants in the second position of Mul.
 def MulConstCommutative1 : Pat<
   // From mul(c, x).

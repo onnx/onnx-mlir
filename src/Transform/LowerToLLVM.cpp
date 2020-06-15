@@ -32,10 +32,9 @@ namespace {
 static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
     ModuleOp module, mlir::LLVM::LLVMType funcType, PatternRewriter &rewriter) {
   auto *context = module.getContext();
-  if (module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
-    auto symbolRef = SymbolRefAttr::get(funcName, context);
-    assert(symbolRef.getType() == funcType && "wrong symbol type");
-    return symbolRef;
+  if (auto sym = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
+    assert(sym.getType() == funcType && "wrong symbol type");
+    return SymbolRefAttr::get(funcName, context);
   }
 
   // Insert the function into the body of the parent module.
@@ -89,6 +88,71 @@ static FlatSymbolRefAttr getOrInsertMemcpy(PatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlGetRefOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlGetRefOpLowering : public ConvertToLLVMPattern {
+public:
+  explicit KrnlGetRefOpLowering(
+      MLIRContext *context, LLVMTypeConverter &lowering_)
+      : ConvertToLLVMPattern(
+            KrnlGetRefOp::getOperationName(), context, lowering_) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto *context = op->getContext();
+    auto loc = op->getLoc();
+    auto *llvmDialect =
+        op->getContext()->getRegisteredDialect<LLVM::LLVMDialect>();
+    assert(llvmDialect && "expected llvm dialect to be registered");
+
+    KrnlGetRefOpOperandAdaptor operandAdaptor(operands);
+
+    // This is the type of the krnl.getref output. This type is used
+    // for the type of the internal MemRef.
+    auto type = op->getResult(0).getType();
+    auto memRefTy = type.cast<mlir::MemRefType>();
+    auto llvmMemRefType =
+        typeConverter.convertType(type).cast<LLVM::LLVMType>();
+    auto outputElementType =
+        typeConverter.convertType(memRefTy.getElementType());
+
+    // This is the start of the memory pool containing the output MemRef.
+    Type memPoolType = operandAdaptor.mempool()
+                           .getType()
+                           .cast<LLVM::LLVMType>()
+                           .getStructElementType(1);
+    Value alignedMemPoolBase = rewriter.create<LLVM::ExtractValueOp>(loc,
+        memPoolType, operandAdaptor.mempool(), rewriter.getI64ArrayAttr(1));
+
+    // Get pointer using the offset.
+    auto offset = operandAdaptor.offset();
+    auto llvmMemPoolType =
+        typeConverter.convertType(memPoolType).cast<LLVM::LLVMType>();
+    auto outputMemPoolTypePtrAlloc = rewriter.create<LLVM::GEPOp>(
+        loc, llvmMemPoolType, alignedMemPoolBase, ArrayRef<Value>({offset}));
+
+    // Bitcast to output MemRef type i.e. from i8* to the element type
+    // of the output MemRef.
+    auto llvmOutputElementType = outputElementType.cast<LLVM::LLVMType>();
+    Value outputTypedPtrAlloc = rewriter.create<LLVM::BitcastOp>(
+        loc, llvmOutputElementType.getPointerTo(), outputMemPoolTypePtrAlloc);
+
+    // Create llvm MemRef from original MemRef and fill the data pointers.
+    auto llvmMemRef = MemRefDescriptor::fromStaticShape(
+        rewriter, loc, typeConverter, memRefTy, outputTypedPtrAlloc);
+
+    rewriter.replaceOp(op, {llvmMemRef});
+    return success();
+  }
+
+private:
+  static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
+    return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlGlobalOpLowering
 //===----------------------------------------------------------------------===//
 
@@ -138,55 +202,80 @@ public:
     // The llvm type of the global (example: [2 x [8 x float]])
     auto llvmGlobalType = globalType.cast<LLVM::LLVMType>();
 
-    {
-      OpBuilder::InsertionGuard insertGuard(rewriter);
-      rewriter.setInsertionPointToStart(module.getBody());
+    mlir::Value alloc;
+    if (krnlGlobalOp.value().hasValue()) {
+      {
+        OpBuilder::InsertionGuard insertGuard(rewriter);
+        rewriter.setInsertionPointToStart(module.getBody());
 
-      assert(krnlGlobalOp.value().hasValue() &&
-             "Krnl Global must always have a value");
-      global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
-          /*isConstant=*/true, LLVM::Linkage::Internal, name,
-          krnlGlobalOp.value().getValue());
+        assert(krnlGlobalOp.value().hasValue() &&
+               "Krnl Global must always have a value");
+        global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
+            /*isConstant=*/true, LLVM::Linkage::Internal, name,
+            krnlGlobalOp.value().getValue());
+      }
+
+      // Some frequently used types.
+      auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
+      auto llvmI64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
+
+      // Allocate the memory where the constants will be used from.
+      // This is a region of local memory and needs to be emitted as an alloca.
+      auto one = rewriter.create<LLVM::ConstantOp>(
+          loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
+      alloc = rewriter.create<LLVM::AllocaOp>(
+          loc, llvmGlobalType.getPointerTo(), one, /*alignment=*/0);
+
+      // Copy constant value into the local alloca:
+      //  - Bitcast alloc to i8*
+      Value int8PtrAlloc =
+          rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, alloc);
+      //  - Bitcast global to i8*
+      Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
+      Value i8PtrGlobal =
+          rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, globalValue);
+      //  - Set size.
+      Value memRefElementSize =
+          rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
+              rewriter.getI64IntegerAttr(getMemRefEltSizeInBytes(memRefTy)));
+      Value numElementsValue = rewriter.create<LLVM::ConstantOp>(
+          loc, llvmI64Ty, rewriter.getI64IntegerAttr(numElements));
+      Value totalElementsSize = rewriter.create<LLVM::MulOp>(
+          loc, memRefElementSize, numElementsValue);
+      Value int64Size =
+          rewriter.create<LLVM::SExtOp>(loc, llvmI64Ty, totalElementsSize);
+      //  - Set volatile.
+      Value isVolatile = rewriter.create<LLVM::ConstantOp>(loc,
+          LLVM::LLVMType::getInt1Ty(llvmDialect),
+          rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
+      //  - Copy constant data into the alloca.
+      auto memcpyRef = getOrInsertMemcpy(rewriter, module, llvmDialect);
+      rewriter.create<CallOp>(loc, memcpyRef,
+          LLVM::LLVMType::getVoidTy(llvmDialect),
+          ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
+    } else {
+      // Some frequently used types.
+      auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
+      auto llvmI64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
+
+      // Allocate the memory where the constants will be used from.
+      // This is a region of local memory and needs to be emitted as an alloca.
+      auto one = rewriter.create<LLVM::ConstantOp>(
+          loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
+
+      auto base = module.lookupSymbol<LLVM::GlobalOp>("packedConst");
+      assert(base && "Cannot find symbol packedConst.");
+
+      Value constPackBasePtrAddr =
+          rewriter.create<LLVM::AddressOfOp>(loc, base);
+      Value constPackBasePtr = rewriter.create<LLVM::LoadOp>(
+          loc, base.getType(), constPackBasePtrAddr);
+      auto offset = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
+          rewriter.getI64IntegerAttr(
+              krnlGlobalOp.offsetAttr().getValue().getSExtValue()));
+      alloc = rewriter.create<LLVM::GEPOp>(
+          loc, llvmI8PtrTy, constPackBasePtr, ValueRange({offset}));
     }
-
-    // Some frequently used types.
-    auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
-    auto llvmI64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
-
-    // Allocate the memory where the constants will be used from.
-    // This is a region of local memory and needs to be emitted as an alloca.
-    auto one = rewriter.create<LLVM::ConstantOp>(
-        loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
-    auto alloc = rewriter.create<LLVM::AllocaOp>(
-        loc, llvmGlobalType.getPointerTo(), one, /*alignment=*/0);
-
-    // Copy constant value into the local alloca:
-    //  - Bitcast alloc to i8*
-    Value int8PtrAlloc =
-        rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, alloc);
-    //  - Bitcast global to i8*
-    Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
-    Value i8PtrGlobal =
-        rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, globalValue);
-    //  - Set size.
-    Value memRefElementSize = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-        rewriter.getI64IntegerAttr(getMemRefEltSizeInBytes(memRefTy)));
-    Value numElementsValue = rewriter.create<LLVM::ConstantOp>(
-        loc, llvmI64Ty, rewriter.getI64IntegerAttr(numElements));
-    Value totalElementsSize =
-        rewriter.create<LLVM::MulOp>(loc, memRefElementSize, numElementsValue);
-    Value int64Size =
-        rewriter.create<LLVM::SExtOp>(loc, llvmI64Ty, totalElementsSize);
-    //  - Set volatile.
-    Value isVolatile = rewriter.create<LLVM::ConstantOp>(loc,
-        LLVM::LLVMType::getInt1Ty(llvmDialect),
-        rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
-    //  - Copy constant data into the alloca.
-    auto memcpyRef = getOrInsertMemcpy(rewriter, module, llvmDialect);
-    rewriter.create<CallOp>(loc, memcpyRef,
-        LLVM::LLVMType::getVoidTy(llvmDialect),
-        ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
-
     // Prepare data to be inserted into MemRef.
     auto llvmConstantElementType = constantElementType.cast<LLVM::LLVMType>();
     Value typedAlloc = rewriter.create<LLVM::BitcastOp>(
@@ -616,6 +705,115 @@ private:
     }
   }
 };
+
+//===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlPackedConstOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlPackedConstOpLowering : public ConvertToLLVMPattern {
+public:
+  explicit KrnlPackedConstOpLowering(
+      MLIRContext *context, LLVMTypeConverter &lowering_)
+      : ConvertToLLVMPattern(
+            KrnlPackedConstantOp::getOperationName(), context, lowering_) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto *context = op->getContext();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    auto loc = op->getLoc();
+
+    auto *llvmDialect =
+        op->getContext()->getRegisteredDialect<LLVM::LLVMDialect>();
+    assert(llvmDialect && "expected llvm dialect to be registered");
+
+    auto packedConstOp = llvm::dyn_cast<KrnlPackedConstantOp>(op);
+    LLVM::GlobalOp globalBase;
+    // Some frequently used types.
+    auto llvmI8PtrTy = LLVM::LLVMType::getInt8PtrTy(llvmDialect);
+    auto llvmI64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
+    {
+      OpBuilder::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(module.getBody());
+
+      globalBase = rewriter.create<LLVM::GlobalOp>(loc, llvmI8PtrTy,
+          /*isConstant=*/false, LLVM::Linkage::Internal, "packedConst",
+          nullptr);
+    }
+
+    auto mainFunc = module.lookupSymbol<FuncOp>("main_graph");
+    assert(mainFunc);
+
+    rewriter.setInsertionPoint(
+        &mainFunc.getBody().front(), mainFunc.getBody().front().begin());
+
+    //  - Initialize the global constant base.
+    Value basePtrAddr = rewriter.create<LLVM::AddressOfOp>(loc, globalBase);
+    auto getEmbeddedConstPoolRef = getOrInsertExternFunc(
+        KrnlPackedConstantOp::getEmbeddedDataLoaderMethodName(), module,
+        LLVM::LLVMType::getFunctionTy(
+            llvmI8PtrTy, {llvmI64Ty}, /*isVarArg=*/false),
+        rewriter);
+    auto constPackSize = rewriter.create<LLVM::ConstantOp>(loc,
+        LLVM::LLVMType::getInt64Ty(llvmDialect),
+        packedConstOp.size_in_bytesAttr());
+    Value alloc = rewriter
+                      .create<CallOp>(loc, getEmbeddedConstPoolRef, llvmI8PtrTy,
+                          ArrayRef<Value>({constPackSize}))
+                      .getResult(0);
+    rewriter.create<LLVM::StoreOp>(loc, alloc, basePtrAddr);
+    {
+      OpBuilder::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(module.getBody());
+
+      // Record constant pack *file path* as a global variable (by recording the
+      // file path string's underlying char array + its length).
+      const auto &fileNameAttr = packedConstOp.file_nameAttr();
+      auto type =
+          LLVM::LLVMType::getArrayTy(LLVM::LLVMType::getInt8Ty(llvmDialect),
+              fileNameAttr.getValue().size());
+      rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+          LLVM::Linkage::External,
+          mlir::KrnlPackedConstantOp::getConstPackFilePathSymbolName(),
+          fileNameAttr);
+      type = LLVM::LLVMType::getInt64Ty(llvmDialect);
+      rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+          LLVM::Linkage::External,
+          mlir::KrnlPackedConstantOp::getConstPackFilePathStrLenSymbolName(),
+          rewriter.getI64IntegerAttr(fileNameAttr.getValue().size()));
+
+      // Record constant pack *file name* as a global variable (by recording the
+      // file name string's underlying char array + its length).
+      auto constPackFileName =
+          llvm::sys::path::filename(fileNameAttr.getValue());
+      type = LLVM::LLVMType::getArrayTy(
+          LLVM::LLVMType::getInt8Ty(llvmDialect), constPackFileName.size());
+      rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+          LLVM::Linkage::External,
+          mlir::KrnlPackedConstantOp::getConstPackFileNameSymbolName(),
+          rewriter.getStringAttr(constPackFileName));
+      type = LLVM::LLVMType::getInt64Ty(llvmDialect);
+      rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+          LLVM::Linkage::External,
+          mlir::KrnlPackedConstantOp::getConstPackFileNameStrLenSymbolName(),
+          rewriter.getI64IntegerAttr(constPackFileName.size()));
+
+      type = LLVM::LLVMType::getInt8Ty(llvmDialect);
+      rewriter.create<LLVM::GlobalOp>(loc, type, /*isConstant=*/true,
+          LLVM::Linkage::External,
+          mlir::KrnlPackedConstantOp::getConstPackIsLESymbolName(),
+          rewriter.getI8IntegerAttr(packedConstOp.is_le()));
+    }
+
+    rewriter.eraseOp(op);
+    return success();
+  }
+
+private:
+  static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
+    return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+  }
+};
 } // end namespace
 
 //===----------------------------------------------------------------------===//
@@ -647,7 +845,9 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
       /*emitCWrapperS=*/true,
       /*useAlignedAlloc=*/false);
 
-  patterns.insert<KrnlGlobalOpLowering>(&getContext(), typeConverter);
+  patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
+      &getContext(), typeConverter);
+  patterns.insert<KrnlGetRefOpLowering>(&getContext(), typeConverter);
 
   // Lower from the `krnl` dialect i.e. the Reshape operation.
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(
@@ -656,8 +856,9 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
   if (failed(applyFullConversion(
-          getOperation(), target, patterns, &typeConverter)))
+          getOperation(), target, patterns, &typeConverter))) {
     signalPassFailure();
+  }
 }
 
 /// Create the pass for lowering `Krnl`, `Affine` and `Std` dialects to LLVM.
