@@ -250,3 +250,6 @@ void populateLoweringONNXConstantOpPattern(
 
 void populateLoweringONNXConcatOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXSplitOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);

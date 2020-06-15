@@ -1,9 +1,10 @@
 #pragma once
+
 #include <string>
 
 namespace onnx_mlir {
 const std::string kLlcPath = "@LLVM_PROJ_BUILD@/bin/llc";
 const std::string kCxxPath = "@CMAKE_CXX_COMPILER@";
-const std::string kCxxFileName = "@CXX_COMPILER_FILENAME@";
-const std::string kRuntimeDirPath = "@CMAKE_BINARY_DIR@/lib";
-}
+const std::string kLinkerPath = "@CMAKE_LINKER@";
+const std::string kObjCopyPath = "@CMAKE_OBJCOPY@";
+} // namespace onnx_mlir

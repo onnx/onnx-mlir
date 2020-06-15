@@ -38,9 +38,11 @@ struct ONNXConstantOpLowering : public ConversionPattern {
 
     // Emit the constant global in Krnl dialect.
     auto constantGlobal = rewriter.create<KrnlGlobalOp>(loc, memRefType,
-        rewriter.getI64ArrayAttr(shape),
+        /*shape=*/rewriter.getI64ArrayAttr(shape),
+        /*name=*/
         rewriter.getStringAttr("constant_" + std::to_string(constantID)),
-        constantOp.value().getValue());
+        /*value=*/constantOp.value().getValue(),
+        /*offset=*/nullptr);
 
     // Increment constant ID:
     constantID++;

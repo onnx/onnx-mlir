@@ -6,7 +6,7 @@ configure_lit_site_cfg(${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
                        MAIN_CONFIG
                        ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py)
 
-set(ONNX_MLIR_TEST_DEPENDS onnx-mlir-opt)
+set(ONNX_MLIR_TEST_DEPENDS onnx-mlir-opt binary-decoder)
 
 add_lit_testsuite(check-onnx-lit
                   "Running the ONNX MLIR regression tests"
