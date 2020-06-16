@@ -1222,7 +1222,7 @@ LogicalResult ONNXTransposeOp::inferShapes() {
     SmallVector<int64_t, 4> defaultVals;
     auto builder = mlir::Builder(getContext());
     auto rank = arrayTy.getShape().size();
-    for (int i = rank-1; i >= 0; --i)
+    for (int i = rank - 1; i >= 0; --i)
       defaultVals.emplace_back(i);
     // Set default attribute.
     ArrayRef<int64_t> defaultRefs(defaultVals);
