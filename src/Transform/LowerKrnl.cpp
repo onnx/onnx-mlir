@@ -72,7 +72,7 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &rewriter,
   if (currentNestedForOps.empty()) {
     // If no loops are involved, simply move operations from within iterateOp
     // body region to the parent region of iterateOp.
-    rewriter.setInsertionPoint(iterateOp);
+    rewriter.setInsertionPointAfter(iterateOp);
     iterateOp.bodyRegion().walk([&](Operation *op) {
       if (!op->isKnownTerminator())
         op->replaceAllUsesWith(rewriter.clone(*op));
@@ -81,9 +81,9 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &rewriter,
     // Transfer krnl.iterate region to innermost for op.
     auto innermostForOp = currentNestedForOps.back().second;
     innermostForOp.region().getBlocks().clear();
-    auto &region = innermostForOp.region();
-
-    region.getBlocks().splice(region.end(), iterateOp.bodyRegion().getBlocks());
+    auto &innerMostRegion = innermostForOp.region();
+    innerMostRegion.getBlocks().splice(
+        innerMostRegion.end(), iterateOp.bodyRegion().getBlocks());
   }
 
   iterateOp.erase();
@@ -192,7 +192,6 @@ bool isIterateOpNested(KrnlIterateOp iterateOp) {
 }
 
 Optional<KrnlIterateOp> nextIterateOp(FuncOp function) {
-
   Optional<KrnlIterateOp> nextIterateOp;
   function.walk([&](KrnlIterateOp op) {
     if (!isIterateOpNested(op))
@@ -237,6 +236,8 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   // Do not lower operations that pertain to schedules just yet.
   target.addLegalOp<KrnlBlockOp>();
   target.addLegalOp<KrnlDefineLoopsOp>();
+  target.addLegalOp<KrnlOptimizeLoopsOp>();
+  target.addLegalOp<KrnlReturnLoopsOp>();
   if (failed(applyPartialConversion(function, target, patterns)))
     return signalPassFailure();
 
@@ -252,8 +253,9 @@ void KrnlToAffineLoweringPass::runOnFunction() {
     }
 
     SmallVector<std::pair<Value, AffineForOp>, 4> loopRefToLoop;
-    for (auto op : perfectlyNestedIterateOps)
+    for (auto op : perfectlyNestedIterateOps) {
       lowerIterateOp(op, builder, loopRefToLoop);
+    }
 
     // Manually lower schedule ops.
     while (!loopRefToLoop.empty()) {
@@ -270,8 +272,9 @@ void KrnlToAffineLoweringPass::runOnFunction() {
         continue;
 
       auto user = *loopRefUsers.begin();
-      if (auto blockOp = cast_or_null<KrnlBlockOp>(user)) {
-        SmallVector<AffineForOp, 2> tiledLoops;
+      if (isa<KrnlBlockOp>(user)) {
+          auto blockOp = cast<KrnlBlockOp>(user);
+          SmallVector<AffineForOp, 2> tiledLoops;
         SmallVector<AffineForOp, 1> loopsToTile = {forOp};
         if (failed(tilePerfectlyNested(loopsToTile,
                 cast<KrnlBlockOp>(user).tile_sizeAttr().getInt(),
@@ -279,6 +282,7 @@ void KrnlToAffineLoweringPass::runOnFunction() {
           return signalPassFailure();
         }
         assert(tiledLoops.size() == 2);
+        assert(blockOp.getNumResults() == 2);
         loopRefToLoop.emplace_back(
             std::make_pair(blockOp.getResult(0), tiledLoops[0]));
         loopRefToLoop.emplace_back(
@@ -291,6 +295,8 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   target.addIllegalOp<KrnlDefineLoopsOp>();
   target.addIllegalOp<KrnlBlockOp>();
   target.addIllegalOp<KrnlIterateOp>();
+  target.addIllegalOp<KrnlOptimizeLoopsOp>();
+  target.addIllegalOp<KrnlReturnLoopsOp>();
   if (failed(applyPartialConversion(function, target, patterns)))
     return signalPassFailure();
 }
