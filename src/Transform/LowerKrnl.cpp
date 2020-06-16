@@ -84,8 +84,6 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &rewriter,
     auto &region = innermostForOp.region();
 
     region.getBlocks().splice(region.end(), iterateOp.bodyRegion().getBlocks());
-    //    rewriter.inlineRegionBefore(iterateOp.bodyRegion(), region,
-    //    region.end());
   }
 
   iterateOp.erase();
@@ -154,6 +152,21 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
+// Krnl to Affine Rewrite Patterns: KrnlOptimizeLoops operation.
+//===----------------------------------------------------------------------===//
+
+class KrnlReturnLoopOpLowering : public OpRewritePattern<KrnlReturnLoopsOp> {
+public:
+  using OpRewritePattern<KrnlReturnLoopsOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      KrnlReturnLoopsOp op, PatternRewriter &rewriter) const override {
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // KrnlToAffineLoweringPass
 //===----------------------------------------------------------------------===//
 
@@ -179,6 +192,7 @@ bool isIterateOpNested(KrnlIterateOp iterateOp) {
 }
 
 Optional<KrnlIterateOp> nextIterateOp(FuncOp function) {
+
   Optional<KrnlIterateOp> nextIterateOp;
   function.walk([&](KrnlIterateOp op) {
     if (!isIterateOpNested(op))
@@ -201,6 +215,7 @@ bool hasOnePerfectlyNestedIterateOp(KrnlIterateOp op) {
 } // end anonymous namespace.
 
 void KrnlToAffineLoweringPass::runOnFunction() {
+  auto function = getFunction();
   ConversionTarget target(getContext());
 
   target.addLegalDialect<AffineDialect, StandardOpsDialect>();
@@ -216,9 +231,14 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 
   OwningRewritePatternList patterns;
   patterns.insert<KrnlTerminatorLowering, KrnlDefineLoopsLowering,
-      KrnlOptimizeLoopsLowering, KrnlBlockOpLowering>(&getContext());
+      KrnlOptimizeLoopsLowering, KrnlBlockOpLowering, KrnlReturnLoopOpLowering>(
+      &getContext());
 
-  auto function = getFunction();
+  // Do not lower operations that pertain to schedules just yet.
+  target.addLegalOp<KrnlBlockOp>();
+  target.addLegalOp<KrnlDefineLoopsOp>();
+  if (failed(applyPartialConversion(function, target, patterns)))
+    return signalPassFailure();
 
   OpBuilder builder(&getContext());
   while (auto iterateOp = nextIterateOp(function)) {
@@ -234,12 +254,6 @@ void KrnlToAffineLoweringPass::runOnFunction() {
     SmallVector<std::pair<Value, AffineForOp>, 4> loopRefToLoop;
     for (auto op : perfectlyNestedIterateOps)
       lowerIterateOp(op, builder, loopRefToLoop);
-
-    // Do not lower operations that pertain to schedules just yet.
-    target.addLegalOp<KrnlBlockOp>();
-    target.addLegalOp<KrnlDefineLoopsOp>();
-    if (failed(applyPartialConversion(getFunction(), target, patterns)))
-      return signalPassFailure();
 
     // Manually lower schedule ops.
     while (!loopRefToLoop.empty()) {
@@ -271,16 +285,13 @@ void KrnlToAffineLoweringPass::runOnFunction() {
             std::make_pair(blockOp.getResult(1), tiledLoops[1]));
       }
     }
-
-    target.addIllegalOp<KrnlDefineLoopsOp>();
-    target.addIllegalOp<KrnlBlockOp>();
-    if (failed(applyPartialConversion(getFunction(), target, patterns)))
-      return signalPassFailure();
   }
 
   // Just making sure no krnl.iterate ops left.
+  target.addIllegalOp<KrnlDefineLoopsOp>();
+  target.addIllegalOp<KrnlBlockOp>();
   target.addIllegalOp<KrnlIterateOp>();
-  if (failed(applyPartialConversion(getFunction(), target, patterns)))
+  if (failed(applyPartialConversion(function, target, patterns)))
     return signalPassFailure();
 }
 
