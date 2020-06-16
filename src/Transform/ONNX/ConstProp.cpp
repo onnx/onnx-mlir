@@ -39,7 +39,7 @@ namespace {
 
 // The methods are:
 //
-// ComputeConstProppElementwiseBinary and ComputeConstProppElementwiseUnary
+// ComputeConstPropElementwiseBinary and ComputeConstPropElementwiseUnary
 // and they need to be tempalted wtih an ONNX Operation (presuably).
 //
 // Then you need to add rules on how to transform the patterns; look into
@@ -56,13 +56,13 @@ namespace {
 // attribute.
 
 template <typename OP>
-Attribute ComputeConstProppElementwiseBinary(PatternRewriter &rewriter,
+Attribute ComputeConstPropElementwiseBinary(PatternRewriter &rewriter,
     Type elementType, Attribute &lhsAttr, Attribute &secondAttr) {
   llvm_unreachable("unkonwn operation");
 }
 
 template <>
-Attribute ComputeConstProppElementwiseBinary<ONNXAddOp>(
+Attribute ComputeConstPropElementwiseBinary<ONNXAddOp>(
     PatternRewriter &rewriter, Type elementType, Attribute &lhsAttr,
     Attribute &secondAttr) {
   if (elementType.isa<FloatType>()) {
@@ -85,7 +85,7 @@ Attribute ComputeConstProppElementwiseBinary<ONNXAddOp>(
 }
 
 template <>
-Attribute ComputeConstProppElementwiseBinary<ONNXSubOp>(
+Attribute ComputeConstPropElementwiseBinary<ONNXSubOp>(
     PatternRewriter &rewriter, Type elementType, Attribute &lhsAttr,
     Attribute &secondAttr) {
   if (elementType.isa<FloatType>()) {
@@ -104,7 +104,7 @@ Attribute ComputeConstProppElementwiseBinary<ONNXSubOp>(
 }
 
 template <>
-Attribute ComputeConstProppElementwiseBinary<ONNXMulOp>(
+Attribute ComputeConstPropElementwiseBinary<ONNXMulOp>(
     PatternRewriter &rewriter, Type elementType, Attribute &lhsAttr,
     Attribute &secondAttr) {
   if (elementType.isa<FloatType>()) {
@@ -133,7 +133,7 @@ Attribute ComputeConstProppElementwiseBinary<ONNXMulOp>(
 // dimension size is equal to 1.
 
 template <typename ElementwiseBinaryOp>
-void RecurseConstProppElementwiseBinary(PatternRewriter &rewriter,
+void RecurseConstPropElementwiseBinary(PatternRewriter &rewriter,
     std::vector<Attribute> &resVector, DenseElementsAttr &lhsAttr,
     DenseElementsAttr &rhsAttr, SmallVector<uint64_t, 4> &lhsIndices,
     SmallVector<uint64_t, 4> &rhsIndices, int lhsFreeRank, int rhsFreeRank) {
@@ -145,7 +145,7 @@ void RecurseConstProppElementwiseBinary(PatternRewriter &rewriter,
     auto lhsElementAttr = lhsAttr.getValue(ArrayRef<uint64_t>(lhsIndices));
     auto rhsElementAttr = rhsAttr.getValue(ArrayRef<uint64_t>(rhsIndices));
     auto elementaryType = lhsAttr.getType().getElementType();
-    auto res = ComputeConstProppElementwiseBinary<ElementwiseBinaryOp>(
+    auto res = ComputeConstPropElementwiseBinary<ElementwiseBinaryOp>(
         rewriter, elementaryType, lhsElementAttr, rhsElementAttr);
     resVector.emplace_back(res);
   } else if (lhsFreeRank > rhsFreeRank) {
@@ -156,7 +156,7 @@ void RecurseConstProppElementwiseBinary(PatternRewriter &rewriter,
     int lhsSize = lhsAttr.getType().getShape()[lhsIndex];
     for (int i = 0; i < lhsSize; ++i) {
       lhsIndices[lhsIndex] = i;
-      RecurseConstProppElementwiseBinary<ElementwiseBinaryOp>(rewriter,
+      RecurseConstPropElementwiseBinary<ElementwiseBinaryOp>(rewriter,
           resVector, lhsAttr, rhsAttr, lhsIndices, rhsIndices, lhsFreeRank - 1,
           rhsFreeRank);
     }
@@ -168,7 +168,7 @@ void RecurseConstProppElementwiseBinary(PatternRewriter &rewriter,
     int rhsSize = rhsAttr.getType().getShape()[rhsIndex];
     for (int i = 0; i < rhsSize; ++i) {
       rhsIndices[rhsIndex] = i;
-      RecurseConstProppElementwiseBinary<ElementwiseBinaryOp>(rewriter,
+      RecurseConstPropElementwiseBinary<ElementwiseBinaryOp>(rewriter,
           resVector, lhsAttr, rhsAttr, lhsIndices, rhsIndices, lhsFreeRank,
           rhsFreeRank - 1);
     }
@@ -192,7 +192,7 @@ void RecurseConstProppElementwiseBinary(PatternRewriter &rewriter,
         lhsIndices[lhsIndex] = i;
       if (rhsSize > 1)
         rhsIndices[rhsIndex] = i;
-      RecurseConstProppElementwiseBinary<ElementwiseBinaryOp>(rewriter,
+      RecurseConstPropElementwiseBinary<ElementwiseBinaryOp>(rewriter,
           resVector, lhsAttr, rhsAttr, lhsIndices, rhsIndices, lhsFreeRank - 1,
           rhsFreeRank - 1);
     }
@@ -217,7 +217,7 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
   SmallVector<uint64_t, 4> lhsIndices(lhsRank, 0);
   SmallVector<uint64_t, 4> rhsIndices(rhsRank, 0);
   std::vector<Attribute> resVector;
-  RecurseConstProppElementwiseBinary<ElementwiseBinaryOp>(rewriter, resVector,
+  RecurseConstPropElementwiseBinary<ElementwiseBinaryOp>(rewriter, resVector,
       lhsDenseAttr, rhsDenseAttr, lhsIndices, rhsIndices, lhsRank, rhsRank);
   ArrayRef<Attribute> resRef(resVector);
   return DenseElementsAttr::get(resType, resRef);
@@ -228,13 +228,13 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 
 template <typename OP>
-Attribute ComputeConstProppElementwiseUnary(
+Attribute ComputeConstPropElementwiseUnary(
     PatternRewriter &rewriter, Type elementType, Attribute &attr) {
   llvm_unreachable("unkonwn operation");
 }
 
 template <>
-Attribute ComputeConstProppElementwiseUnary<ONNXNegOp>(
+Attribute ComputeConstPropElementwiseUnary<ONNXNegOp>(
     PatternRewriter &rewriter, Type elementType, Attribute &attr) {
   if (elementType.isa<FloatType>()) {
     double val = attr.cast<FloatAttr>().getValueAsDouble();
@@ -250,7 +250,7 @@ Attribute ComputeConstProppElementwiseUnary<ONNXNegOp>(
 }
 
 template <typename ElementwiseUnaryOp>
-void RecurseConstProppElementwiseUnary(PatternRewriter &rewriter,
+void RecurseConstPropElementwiseUnary(PatternRewriter &rewriter,
     std::vector<Attribute> &resVector, DenseElementsAttr &attr,
     SmallVector<uint64_t, 4> &indices, int freeRank) {
   // printf("recurse with free %d\n", freeRank);
@@ -258,7 +258,7 @@ void RecurseConstProppElementwiseUnary(PatternRewriter &rewriter,
     // Fully defined ranks.
     auto elementAttr = attr.getValue(ArrayRef<uint64_t>(indices));
     auto elementaryType = attr.getType().getElementType();
-    auto res = ComputeConstProppElementwiseUnary<ElementwiseUnaryOp>(
+    auto res = ComputeConstPropElementwiseUnary<ElementwiseUnaryOp>(
         rewriter, elementaryType, elementAttr);
     resVector.emplace_back(res);
   } else {
@@ -269,7 +269,7 @@ void RecurseConstProppElementwiseUnary(PatternRewriter &rewriter,
     int size = attr.getType().getShape()[index];
     for (int i = 0; i < size; ++i) {
       indices[index] = i;
-      RecurseConstProppElementwiseUnary<ElementwiseUnaryOp>(
+      RecurseConstPropElementwiseUnary<ElementwiseUnaryOp>(
           rewriter, resVector, attr, indices, freeRank - 1);
     }
   }
@@ -289,8 +289,58 @@ DenseElementsAttr ConstPropElementwiseUnary(
   auto rank = denseAttr.getType().getShape().size();
   SmallVector<uint64_t, 4> indices(rank, 0);
   std::vector<Attribute> resVector;
-  RecurseConstProppElementwiseUnary<ElementwiseUnaryOp>(
+  RecurseConstPropElementwiseUnary<ElementwiseUnaryOp>(
       rewriter, resVector, denseAttr, indices, rank);
+  ArrayRef<Attribute> resRef(resVector);
+  return DenseElementsAttr::get(resType, resRef);
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for transpose.
+//===----------------------------------------------------------------------===//
+
+void RecurseConstPropTranspose(PatternRewriter &rewriter,
+    std::vector<Attribute> &resVector, DenseElementsAttr &attr,
+    SmallVector<uint64_t, 4> &indices, SmallVector<uint64_t, 4> &perm,
+    int freeRank) {
+  // printf("recurse with free %d\n", freeRank);
+  if (freeRank == 0) {
+    // Fully defined ranks.
+    auto res = attr.getValue(ArrayRef<uint64_t>(indices));
+    resVector.emplace_back(res);
+  } else {
+    // Recurse.
+    auto shape = attr.getType().getShape();
+    int rank = shape.size();
+    int index = perm[rank - freeRank];
+    int size = attr.getType().getShape()[index];
+    for (int i = 0; i < size; ++i) {
+      indices[index] = i;
+      RecurseConstPropTranspose(
+          rewriter, resVector, attr, indices, perm, freeRank - 1);
+    }
+  }
+}
+
+DenseElementsAttr ConstPropTranspose(PatternRewriter &rewriter,
+    Value resOperand, Attribute &attr, ArrayAttr &permAttr) {
+  // Read dense attribute, the constant tensor we are transforming.
+  DenseElementsAttr denseAttr =
+      attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
+  assert(denseAttr && "expected dense attribute");
+  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+  auto rank = denseAttr.getType().getShape().size();
+  // Read permute vector.
+  SmallVector<uint64_t, 4> perm;
+  assert(permAttr && "permute attribute expected to be defined here");
+  for (auto permVal : permAttr.getValue())
+    perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
+  // Init indice vector.
+  SmallVector<uint64_t, 4> indices(rank, 0);
+  std::vector<Attribute> resVector;
+  // Copy using permute order.
+  RecurseConstPropTranspose(
+      rewriter, resVector, denseAttr, indices, perm, rank);
   ArrayRef<Attribute> resRef(resVector);
   return DenseElementsAttr::get(resType, resRef);
 }
