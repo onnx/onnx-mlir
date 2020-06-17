@@ -243,19 +243,23 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 
   OpBuilder builder(&getContext());
   while (auto iterateOp = nextIterateOp(function)) {
+    // Collect a maximal set of loop band to lower. They must be a perfectly
+    // nested sequence of for loops (this limitation follows from the
+    // precondition of current loop manupulation utility libraries).
     auto rootOp = iterateOp;
-    SmallVector<KrnlIterateOp, 4> perfectlyNestedIterateOps = {*rootOp};
+    SmallVector<KrnlIterateOp, 4> loopBand = {*rootOp};
     while (hasOnePerfectlyNestedIterateOp(*rootOp)) {
       auto nestedIterateOp =
           *rootOp->bodyRegion().getOps<KrnlIterateOp>().begin();
-      perfectlyNestedIterateOps.emplace_back(nestedIterateOp);
+      loopBand.emplace_back(nestedIterateOp);
       rootOp = nestedIterateOp;
     }
 
+    // Lower the band of iterateOps, initialize loopRefToLoop to be the list of
+    // loop reference and the for loop being referenced.
     SmallVector<std::pair<Value, AffineForOp>, 4> loopRefToLoop;
-    for (auto op : perfectlyNestedIterateOps) {
+    for (auto op : loopBand)
       lowerIterateOp(op, builder, loopRefToLoop);
-    }
 
     // Manually lower schedule ops.
     while (!loopRefToLoop.empty()) {
@@ -263,6 +267,7 @@ void KrnlToAffineLoweringPass::runOnFunction() {
       AffineForOp forOp;
       std::tie(loopRef, forOp) = loopRefToLoop.pop_back_val();
 
+      // Ensure that loop references are single-use during the scheduling phase.
       auto loopRefUsers = loopRef.getUsers();
       SmallVector<Operation *, 4> unfilteredUsers(
           loopRefUsers.begin(), loopRefUsers.end()),
@@ -273,10 +278,12 @@ void KrnlToAffineLoweringPass::runOnFunction() {
       assert(std::distance(users.begin(), users.end()) <= 1 &&
              "Loop reference used more than once.");
 
-      // No schedule primitives associated.
+      // No schedule primitives associated with this loop reference, move on.
       if (users.empty())
         continue;
 
+      // Scheduling operations detected, transform loops as directed, while
+      // keeping the loopRefToLoop mapping up-to-date.
       auto user = users.front();
       if (isa<KrnlBlockOp>(user)) {
         auto blockOp = cast<KrnlBlockOp>(user);
@@ -289,6 +296,8 @@ void KrnlToAffineLoweringPass::runOnFunction() {
         }
         assert(tiledLoops.size() == 2);
         assert(blockOp.getNumResults() == 2);
+        // Record the tiled loop references, and their corresponding tiled for
+        // loops in loopRefToLoop.
         loopRefToLoop.emplace_back(
             std::make_pair(blockOp.getResult(0), tiledLoops[0]));
         loopRefToLoop.emplace_back(
@@ -297,10 +306,12 @@ void KrnlToAffineLoweringPass::runOnFunction() {
     }
   }
 
-  // Just making sure no krnl.iterate ops left.
+  // KrnlIterateOp should be all gone by now.
+  target.addIllegalOp<KrnlIterateOp>();
+
+  // Remove/lower schedule related operations.
   target.addIllegalOp<KrnlDefineLoopsOp>();
   target.addIllegalOp<KrnlBlockOp>();
-  target.addIllegalOp<KrnlIterateOp>();
   target.addIllegalOp<KrnlOptimizeLoopsOp>();
   target.addIllegalOp<KrnlReturnLoopsOp>();
   if (failed(applyPartialConversion(function, target, patterns)))
