@@ -256,7 +256,7 @@ def KrnlPackedConstantOp : Op<Krnl_Dialect, "packed_const"> {
   let printer = ?;
 }
 
-def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
+def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [AffineScope]> {
   let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
   let description = [{
     Retreieves a MemRef from within another MemRef:
@@ -268,6 +268,7 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
   }];
 
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset);
+  let regions = (region AnyRegion:$region);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
   let parser = ?;
