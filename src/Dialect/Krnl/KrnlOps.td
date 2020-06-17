@@ -282,9 +282,9 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
 
   let arguments = (ins
     AnyType:$loop, I64Attr:$tile_size);
-  let results = (outs Variadic<AnyType>:$blocked_loops);
+  let results = (outs AnyType:$loop_block, AnyType:$loop_local);
 
   let assemblyFormat = [{
-      $loop $tile_size attr-dict `:` functional-type($loop, $blocked_loops)
+      $loop $tile_size attr-dict `:` functional-type($loop, results)
   }];
 }
