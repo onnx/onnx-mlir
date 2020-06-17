@@ -264,17 +264,23 @@ void KrnlToAffineLoweringPass::runOnFunction() {
       std::tie(loopRef, forOp) = loopRefToLoop.pop_back_val();
 
       auto loopRefUsers = loopRef.getUsers();
-      assert(std::distance(loopRefUsers.begin(), loopRefUsers.end()) <= 1 &&
+      SmallVector<Operation *, 4> unfilteredUsers(
+          loopRefUsers.begin(), loopRefUsers.end()),
+          users;
+      std::copy_if(unfilteredUsers.begin(), unfilteredUsers.end(),
+          std::back_inserter(users),
+          [](Operation *op) { return !isa<KrnlIterateOp>(op); });
+      assert(std::distance(users.begin(), users.end()) <= 1 &&
              "Loop reference used more than once.");
 
       // No schedule primitives associated.
-      if (loopRefUsers.begin() == loopRefUsers.end())
+      if (users.empty())
         continue;
 
-      auto user = *loopRefUsers.begin();
+      auto user = users.front();
       if (isa<KrnlBlockOp>(user)) {
-          auto blockOp = cast<KrnlBlockOp>(user);
-          SmallVector<AffineForOp, 2> tiledLoops;
+        auto blockOp = cast<KrnlBlockOp>(user);
+        SmallVector<AffineForOp, 2> tiledLoops;
         SmallVector<AffineForOp, 1> loopsToTile = {forOp};
         if (failed(tilePerfectlyNested(loopsToTile,
                 cast<KrnlBlockOp>(user).tile_sizeAttr().getInt(),
