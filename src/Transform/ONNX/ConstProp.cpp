@@ -69,7 +69,6 @@ Attribute ComputeConstPropElementwiseBinary<ONNXAddOp>(
     double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
     double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
     double res = lhsVal + rhsVal;
-    // printf("  %f + %f -> %f\n", lhsVal, rhsVal, res);
     // Could use the APFloat interface to emulate the results, are ok to simply
     // perform them in the highest possible precision.
     return rewriter.getFloatAttr(elementType, res);
@@ -78,7 +77,6 @@ Attribute ComputeConstPropElementwiseBinary<ONNXAddOp>(
     uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
     uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
     uint64_t res = lhsVal + rhsVal;
-    // printf("  %llu + %llu -> %llu\n", lhsVal, rhsVal, res);
     return rewriter.getIntegerAttr(elementType, res);
   }
   llvm_unreachable("constant propagation for AddOp: unkonwn data type");
@@ -137,7 +135,6 @@ void RecurseConstPropElementwiseBinary(PatternRewriter &rewriter,
     std::vector<Attribute> &resVector, DenseElementsAttr &lhsAttr,
     DenseElementsAttr &rhsAttr, SmallVector<uint64_t, 4> &lhsIndices,
     SmallVector<uint64_t, 4> &rhsIndices, int lhsFreeRank, int rhsFreeRank) {
-  // printf("recurse with free %d/%d\n", lhsFreeRank, rhsFreeRank);
   if (lhsFreeRank == 0) {
     // Fully defined ranks.
     assert(
@@ -253,7 +250,6 @@ template <typename ElementwiseUnaryOp>
 void RecurseConstPropElementwiseUnary(PatternRewriter &rewriter,
     std::vector<Attribute> &resVector, DenseElementsAttr &attr,
     SmallVector<uint64_t, 4> &indices, int freeRank) {
-  // printf("recurse with free %d\n", freeRank);
   if (freeRank == 0) {
     // Fully defined ranks.
     auto elementAttr = attr.getValue(ArrayRef<uint64_t>(indices));
@@ -303,7 +299,6 @@ void RecurseConstPropTranspose(PatternRewriter &rewriter,
     std::vector<Attribute> &resVector, DenseElementsAttr &attr,
     SmallVector<uint64_t, 4> &indices, SmallVector<uint64_t, 4> &perm,
     int freeRank) {
-  // printf("recurse with free %d\n", freeRank);
   if (freeRank == 0) {
     // Fully defined ranks.
     auto res = attr.getValue(ArrayRef<uint64_t>(indices));
