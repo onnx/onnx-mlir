@@ -1,7 +1,5 @@
 // RUN: onnx-mlir-opt --lower-krnl %s -split-input-file | FileCheck %s
 
-// -----
-
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0)>
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0 + 2)>
 // CHECK-DAG: #{{.*}} = affine_map<() -> (0)>
@@ -25,8 +23,6 @@ func @simple_block() {
 
   return
 }
-
-// -----
 
 func @block_nested() {
   // CHECK-LABEL: block_nested
