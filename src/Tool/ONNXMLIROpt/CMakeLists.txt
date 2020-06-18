@@ -12,4 +12,5 @@ endif()
 
 target_link_libraries(onnx-mlir-opt
         ${OMLibs}
-        ${MLIRLibs})
+        ${MLIRLibs}
+        onnx)
