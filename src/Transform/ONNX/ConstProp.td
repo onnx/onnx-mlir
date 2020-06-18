@@ -63,6 +63,9 @@ def CreateNegOfConst :
  def CreateMulOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXMulOp>($_builder, $0, $1, $2)">;
 
+def CreateTransposeOfConst :
+   NativeCodeCall<"ConstPropTranspose($_builder, $0, $1, $2)">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
@@ -229,4 +232,17 @@ def MulConstProp : Pat<
     // Mulitional constraints (no sparse)
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
+//===----------------------------------------------------------------------===//
+// Patterns to enable opportunities with Transpose operations.
+//===----------------------------------------------------------------------===//
+
+// Neg of constant is simly -const
+def TransposeofConst :  Pat<
+    // From TransposeOp(c, p)
+    (ONNXTransposeOp:$resOp (ONNXConstantOp $s, $v), $p),
+    // To c' where c' is transposed attribute
+    (ONNXConstantOp (GetNullAttr), (CreateTransposeOfConst $resOp, $v, $p)),
+    [(AttributeIsNull:$s)]>;
+
+  
 #endif // ONNX_CONSTPROP
