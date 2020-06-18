@@ -22,7 +22,8 @@ set(OMLibs
         OMElideConstants
         OMElideKrnlGlobalConstants
         OMPackKrnlGlobalConstants
-        OMEnableMemoryPool)
+        OMEnableMemoryPool
+        PARENT_SCOPE)
 
 add_subdirectory(Tool)
 
