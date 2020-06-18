@@ -5,7 +5,8 @@
 namespace onnx_mlir {
 
 void initOMPasses() {
-
+  // All passes implemented within onnx-mlir should register within this
+  // function to make themselves available as a command-line option.
   mlir::registerPass("decompose-onnx",
       "Decompose ONNX operations into composition of other ONNX operations.",
       []() -> std::unique_ptr<mlir::Pass> {
