@@ -256,6 +256,19 @@ set(MLIRWholeArchiveLibs
         MLIRSCF
         MLIRIR)
 
+set(MLIRWholeArchiveLibsDebug
+        MLIRAffineToStandard
+        MLIRAffineOps
+        MLIRLLVMIR
+        MLIRStandardOps
+        MLIRStandardToLLVM
+        MLIRTransforms
+        MLIRSCFToStandard
+        MLIRVector
+        MLIRSCF
+        MLIRIR
+        MLIRAffineTransforms)
+
 set(MLIRWholeArchiveSharedLibs
         ${MLIRAffineToStandard}
         ${MLIRAffineOps}
