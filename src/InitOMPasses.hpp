@@ -1,0 +1,72 @@
+#include "mlir/Pass/Pass.h"
+
+#include "src/Pass/Passes.hpp"
+
+namespace onnx_mlir {
+
+void initOMPasses() {
+
+  mlir::registerPass("decompose-onnx",
+      "Decompose ONNX operations into composition of other ONNX operations.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createDecomposeONNXToONNXPass();
+      });
+
+  mlir::registerPass("shape-inference",
+      "Shape inference for frontend dialects.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createShapeInferencePass();
+      });
+
+  mlir::registerPass("constprop-onnx",
+      "ConstProp ONNX operations into composition of other ONNX operations.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createConstPropONNXToONNXPass();
+      });
+
+  mlir::registerPass("attribute-promotion",
+      "Promote constant operands to attributes.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createAttributePromotionPass();
+      });
+
+  mlir::registerPass("elide-constants", "Elide values of constant operations.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createElideConstantValuePass();
+      });
+
+  mlir::registerPass("enable-memory-pool",
+      "Enable a memory pool for allocating internal MemRefs.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createKrnlEnableMemoryPoolPass();
+      });
+
+  mlir::registerPass(
+      "lower-krnl", "Lower Krnl dialect.", []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createLowerKrnlPass();
+      });
+
+  mlir::registerPass("lower-frontend", "Lower frontend ops to Krnl dialect.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createLowerToKrnlPass();
+      });
+
+  mlir::registerPass("elide-krnl-constants",
+      "Elide the constant values of the Global Krnl operations.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createElideConstGlobalValuePass();
+      });
+
+  mlir::registerPass("lower-all-llvm",
+      "Lower the Krnl Affine and Std dialects to LLVM.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createKrnlLowerToLLVMPass();
+      });
+
+  mlir::registerPass("pack-krnl-constants",
+      "Elide the constant values of the Global Krnl operations.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createPackKrnlGlobalConstantsPass();
+      });
+}
+} // namespace onnx_mlir
