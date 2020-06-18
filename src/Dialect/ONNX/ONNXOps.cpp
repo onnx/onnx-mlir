@@ -22,9 +22,11 @@
 #include "llvm/Support/FormatVariadic.h"
 
 #include "ONNXOps.hpp"
+#include "tf_types.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
+using namespace mlir::TF;
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
@@ -341,6 +343,11 @@ static LogicalResult RNNShapeInference(T *op) {
   Value X = op->X();
   Value W = op->W();
   Value R = op->R();
+
+  //if (X.getType().isa<mlir::TF::TensorFlowTypes::VARIANT>())
+  //  return op->emitError("Input tensor not ranked");
+  StringType  myt;
+
 
   if (!X.getType().isa<RankedTensorType>() ||
       !W.getType().isa<RankedTensorType>() ||
@@ -1315,6 +1322,8 @@ LogicalResult ONNXConvOp::inferShapes() {
   auto weightTy = W().getType().cast<RankedTensorType>();
   auto weightShape = weightTy.getShape();
   auto builder = mlir::Builder(this->getContext());
+
+  auto myT = StringType::get(this->getContext());
 
   // Lowest supported convolution is a one dimensional convolution.
   if (xShape.size() < 3)

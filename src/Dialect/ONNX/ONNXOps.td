@@ -17,6 +17,8 @@
 include "mlir/IR/OpBase.td"
 #endif // OP_BASE
 
+def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
+
 #ifdef SHAPE_INFERENCE_INTERFACE
 #else
 include "src/Interface/ShapeInferenceInterface.td"
@@ -230,7 +232,7 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
            I64ArrayAttr:$pads,
            DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
            DefaultValuedAttr<StrAttr, "constant">:$mode);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[AnyMemRef, TensorOf<[StringType]>]>:$output);
   // A build method with the result type deduction.
   let builders = [OpBuilder<"OpBuilder &builder, OperationState &state, "
                             "Value data, ArrayAttr pads, "

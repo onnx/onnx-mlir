@@ -15,7 +15,10 @@ add_library(OMONNXOps
         ONNXOps.cpp
         ONNXOps.hpp
         ONNXOpsHelper.cpp
-        ONNXOpsHelper.hpp)
+        ONNXOpsHelper.hpp
+        tf_types.cpp
+        tf_types.hpp)
+
 target_include_directories(OMONNXOps
         PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
