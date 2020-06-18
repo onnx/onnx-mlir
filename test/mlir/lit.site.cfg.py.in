@@ -1,8 +1,5 @@
 import lit.llvm
 
-if '@BUILD_SHARED_LIBS@' == 'ON':
-    config.environment['LD_LIBRARY_PATH'] = r"@LLVM_PROJ_BUILD@/lib:@ONNX_MLIR_BIN_ROOT@/lib:" + config.environment['LD_LIBRARY_PATH']
-
 config.llvm_tools_dir = r"@MLIR_TOOLS_DIR@"
 config.mlir_obj_root = r"@LLVM_PROJ_BUILD@"
 config.mlir_tools_dir = r"@MLIR_TOOLS_DIR@"

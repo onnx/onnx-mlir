@@ -323,6 +323,3 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 std::unique_ptr<Pass> mlir::createLowerKrnlPass() {
   return std::make_unique<KrnlToAffineLoweringPass>();
 }
-
-static PassRegistration<KrnlToAffineLoweringPass> pass(
-    "lower-krnl", "Lower Krnl dialect.");
