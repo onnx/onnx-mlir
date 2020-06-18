@@ -78,6 +78,3 @@ public:
 std::unique_ptr<mlir::Pass> mlir::createElideConstantValuePass() {
   return std::make_unique<ElideConstantValuePass>();
 }
-
-static PassRegistration<ElideConstantValuePass> pass(
-    "elide-constants", "Elide values of constant operations.");

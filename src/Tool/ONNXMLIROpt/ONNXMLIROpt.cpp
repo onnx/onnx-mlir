@@ -22,6 +22,7 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/MLONNX/MLONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
 
 using namespace onnx_mlir;
@@ -70,6 +71,7 @@ int main(int argc, char **argv) {
   mlir::registerDialect<mlir::ONNXOpsDialect>();
   mlir::registerDialect<mlir::MLONNXOpsDialect>();
   mlir::registerDialect<mlir::KrnlOpsDialect>();
+  initOMPasses();
 
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
