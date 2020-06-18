@@ -19,7 +19,7 @@ target_link_libraries(TestConv
         MainUtils
         ExecutionSession
         DynMemRefUtils)
-whole_archive_link_mlir(TestConv ${MLIRWholeArchiveLibs})
+
 target_include_directories(TestConv
         PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
