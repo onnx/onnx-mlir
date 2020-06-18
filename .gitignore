@@ -116,6 +116,7 @@ docs/_build/
 
 # PyBuilder
 target/
+utils/ONNXOps.td.inc
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -175,3 +176,6 @@ dmypy.json
 
 # pytype static type analyzer
 .pytype/
+
+#editor
+*~

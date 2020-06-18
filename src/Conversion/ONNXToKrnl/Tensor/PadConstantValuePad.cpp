@@ -26,7 +26,7 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
     // Only constant padding is supported now.
     auto padMode = llvm::dyn_cast<ONNXPadConstantValuePadOp>(op).mode();
     if (padMode != "constant")
-      emitError(loc, "unsupported mode for PadConstantValuePad");
+      return emitError(loc, "unsupported mode for PadConstantValuePad");
     auto constantValAttr =
         llvm::dyn_cast<ONNXPadConstantValuePadOp>(op).constant_valueAttr();
 
@@ -38,7 +38,7 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      emitError(loc, "unexpected output has non-Constant shape");
+      return emitError(loc, "unexpected output has non-Constant shape");
 
     // Number of loops
     auto memRefShape = memRefType.getShape();

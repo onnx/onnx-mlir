@@ -3,8 +3,40 @@ services:
   - docker
 language: cpp
 dist: bionic
+arch:
+  - s390x
+  - ppc64le
+  - amd64
 script:
+  - echo "CPU Architecture is " $TRAVIS_CPU_ARCH
+  - echo "commit is " $TRAVIS_COMMIT
+  - df -h
+  - if [ "$TRAVIS_COMMIT_MESSAGE" == "Update MLIR version" ]; then
+           echo "Building Prereq";
+           docker build --tag onnxmlirczar/onnx-mlir-llvmimage:$TRAVIS_CPU_ARCH -f ./docker/prereq.$TRAVIS_CPU_ARCH.Dockerfile ./utils;
+           docker login -u onnxmlirczar -p 143f1da2-332f-45a1-8587-d6cb07c13230 
+           docker push onnxmlirczar/onnx-mlir-llvmimage:$TRAVIS_CPU_ARCH 
+           exit;
+         else
+           echo "Regular Build";
+         fi
+  - docker build --tag onnx-mlir-build:initial --build-arg BASE="onnxmlirczar/onnx-mlir-image:$TRAVIS_CPU_ARCH"  -f ./docker/$TRAVIS_CPU_ARCH.Dockerfile ./docker
+  - docker run -itd --name build onnx-mlir-build:initial
+  - echo "docker is running now"
+  - df -h
+  - docker cp $(pwd) build:/build/onnx-mlir
   - cd docker
   - chmod a+x compile-onnx-mlir.sh
-  - docker build --tag onnx-mlir-build:initial .
-
+  - docker cp compile-onnx-mlir.sh build:/usr/bin/compile-onnx-mlir.sh
+  - echo "about to execute build inside docker"
+  - docker exec build df -h
+  - docker exec build compile-onnx-mlir.sh
+  - docker commit build onnxmlirczar/onnx-mlir-build:latest
+after_success: 
+  - if [ $TRAVIS_PULL_REQUEST == false ] && [ $TRAVIS_BRANCH == "master" ]; then
+            echo "Pushing new build to docker hub";
+            docker login -u onnxmlirczar -p 143f1da2-332f-45a1-8587-d6cb07c13230;
+            docker push onnxmlirczar/onnx-mlir-build:$TRAVIS_CPU_ARCH;
+        else 
+            echo "Skip pushing build"; 
+        fi

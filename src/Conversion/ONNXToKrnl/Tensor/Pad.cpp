@@ -27,17 +27,17 @@ struct ONNXPadOpLowering : public ConversionPattern {
     // Only constant padding is supported now.
     auto padMode = myOp.mode();
     if (padMode != "constant")
-      emitError(loc, "unsupported mode for Pad");
+      return emitError(loc, "unsupported mode for Pad");
     DenseElementsAttr constantValAttr =
         myOp.getAttr("constant_value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>();
     if (!constantValAttr)
-      emitError(loc, "unsupported value");
+      return emitError(loc, "unsupported value");
 
     DenseElementsAttr padsAttributes =
         myOp.getAttr("pads").dyn_cast_or_null<mlir::DenseElementsAttr>();
     if (!padsAttributes)
-      emitError(loc, "Pad: unknown pads");
+      return emitError(loc, "Pad: unknown pads");
 
     auto memRefType = convertToMemRefType(tensorType);
     Value alloc;
@@ -46,7 +46,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      emitError(loc, "unexpected output has non-Constant shape");
+      return emitError(loc, "unexpected output has non-Constant shape");
 
     // Number of loops
     auto memRefShape = memRefType.getShape();

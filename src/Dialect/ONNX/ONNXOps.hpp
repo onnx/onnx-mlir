@@ -20,7 +20,10 @@
 #include "mlir/IR/StandardTypes.h"
 
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp"
+#include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Interface/ShapeInferenceInterface.hpp"
+
+#include "ONNXOpsHelper.hpp"
 
 namespace mlir {
 

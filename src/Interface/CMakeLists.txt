@@ -25,3 +25,17 @@ target_include_directories(OMShapeInferenceOpInterface
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 add_dependencies(OMShapeInferenceOpInterface ShapeInferenceOpInterfaceIncGen)
+
+set(LLVM_TARGET_DEFINITIONS ResultTypeInferenceOpInterface.td)
+onnx_mlir_tablegen(ResultTypeInferenceOpInterface.hpp.inc -gen-op-interface-decls)
+onnx_mlir_tablegen(ResultTypeInferenceOpInterface.cpp.inc -gen-op-interface-defs)
+add_public_tablegen_target(OMResultTypeInferenceOpInterfaceIncGen)
+
+add_library(OMResultTypeInferenceOpInterface
+        ResultTypeInferenceOpInterface.hpp
+        ResultTypeInferenceOpInterface.cpp)
+target_include_directories(OMResultTypeInferenceOpInterface
+        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+add_dependencies(OMResultTypeInferenceOpInterface
+        OMResultTypeInferenceOpInterfaceIncGen)

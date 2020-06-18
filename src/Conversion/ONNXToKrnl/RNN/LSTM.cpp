@@ -168,8 +168,9 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     if (hasAllConstantDimensions(yMemRefType))
       state.allH = insertAllocAndDealloc(yMemRefType, loc, rewriter,
           checkInsertDealloc(op->getOperation(), 0));
-    else
-      emitError(loc, "Unsupported dynamic dimensions.");
+    else {
+      llvm_unreachable("Unsupported dynamic dimensions.");
+    }
   } else {
     state.allH = op->Y();
   }
@@ -181,7 +182,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
       state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter,
           checkInsertDealloc(op->getOperation(), 1));
     else
-      emitError(loc, "Unsupported dynamic dimensions.");
+      llvm_unreachable("Unsupported dynamic dimensions.");
   } else {
     auto yhMemRefType = MemRefType::get(
         {dimAt(operandAdaptor.W(), 0), dimAt(operandAdaptor.X(), 1),
@@ -197,7 +198,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
       state.ct = insertAllocAndDealloc(ycMemRefType, loc, rewriter,
           checkInsertDealloc(op->getOperation(), 2));
     else
-      emitError(loc, "Unsupported dynamic dimensions.");
+      llvm_unreachable("Unsupported dynamic dimensions.");
   } else {
     auto ycMemRefType = MemRefType::get(
         {dimAt(operandAdaptor.W(), 0), dimAt(operandAdaptor.X(), 1),

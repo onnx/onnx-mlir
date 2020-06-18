@@ -68,17 +68,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     // Read perm attribute.
     SmallVector<int, 4> perm;
     auto permAttribute = llvm::dyn_cast<ONNXTransposeOp>(op).permAttr();
-    if (permAttribute) {
-      for (auto permVal : permAttribute.getValue())
-        perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
-    } else {
-      // TODO: Remove when perm is guaranteed to be present (even for
-      // the default case). This means that perm was added by shape
-      // inference or another pass to contain the values corresponding
-      // to the default behavior of Transpose.
-      for (int i = iterationBlock.getArguments().size() - 1; i >= 0; i--)
-        perm.emplace_back(i);
-    }
+    assert(permAttribute && "permute attribute expected to be defined here");
+    for (auto permVal : permAttribute.getValue())
+      perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
     SmallVector<Value, 4> inLoopIVs;
     for (auto arg : iterationBlock.getArguments())

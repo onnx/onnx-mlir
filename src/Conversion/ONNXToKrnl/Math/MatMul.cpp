@@ -104,7 +104,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           allocOperands.emplace_back(dim);
         }
       } else {
-        emitError(loc, "Invalid shapes");
+        return emitError(loc, "Invalid shapes");
       }
 
       alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
@@ -258,12 +258,12 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         for (auto arg : loopBatchIVs)
           loopBatchKNIVs.emplace_back(arg);
       loopBatchKNIVs.emplace_back(loopKIVs[0]);
-      if (BShape.size() >= 2)
+      if (BShape.size() >= 2) {
         if (AShape.size() >= 2)
           loopBatchKNIVs.emplace_back(loopMNIVs[1]);
         else
           loopBatchKNIVs.emplace_back(loopMNIVs[0]);
-
+      }
       // Matmul computation
       auto loadedA = rewriter.create<AffineLoadOp>(loc, A, loopBatchMKIVs);
       auto loadedB = rewriter.create<AffineLoadOp>(loc, B, loopBatchKNIVs);

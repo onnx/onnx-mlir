@@ -12,8 +12,8 @@ def ONNXAbsOp:ONNX_Op<"Abs",
   "(Tensor<T>) where the absolute is, y = abs(x), is applied to"
   "the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$Y);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value X", [{
       auto elementType = X.getType().cast<TensorType>().getElementType();
@@ -26,6 +26,17 @@ def ONNXAbsOp:ONNX_Op<"Abs",
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXAcosOp:ONNX_Op<"Acos",
@@ -34,8 +45,19 @@ def ONNXAcosOp:ONNX_Op<"Acos",
   let description = [{
   "Calculates the arccosine (inverse of cosine) of the given input tensor, element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXAcoshOp:ONNX_Op<"Acosh",
@@ -44,8 +66,19 @@ def ONNXAcoshOp:ONNX_Op<"Acosh",
   let description = [{
   "Calculates the hyperbolic arccosine of the given input tensor element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXAddOp:ONNX_Op<"Add",
@@ -57,9 +90,46 @@ def ONNXAddOp:ONNX_Op<"Add",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$A,
+    AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$C);
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      build(builder, state, elementType, A, B);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(elementType);
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXAndOp:ONNX_Op<"And",
@@ -71,9 +141,46 @@ def ONNXAndOp:ONNX_Op<"And",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$A,
+    AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$C);
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      build(builder, state, elementType, A, B);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(elementType);
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {0};
+      }
+    }];
 }
 
 def ONNXArgMaxOp:ONNX_Op<"ArgMax",
@@ -85,10 +192,21 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
   "If keepdims equal 0, then the resulted tensor have the reduced dimension pruned. "
   "The type of the output tensor is integer."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$data,
     DefaultValuedAttr<I64Attr, "0">:$axis,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXArgMinOp:ONNX_Op<"ArgMin",
@@ -100,10 +218,21 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
   "If keepdims equal 0, then the resulted tensor have the reduced dimension pruned. "
   "The type of the output tensor is integer."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$data,
     DefaultValuedAttr<I64Attr, "0">:$axis,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXAsinOp:ONNX_Op<"Asin",
@@ -112,8 +241,19 @@ def ONNXAsinOp:ONNX_Op<"Asin",
   let description = [{
   "Calculates the arcsine (inverse of sine) of the given input tensor, element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXAsinhOp:ONNX_Op<"Asinh",
@@ -122,18 +262,40 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
   let description = [{
   "Calculates the hyperbolic arcsine of the given input tensor element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXAtanOp:ONNX_Op<"Atan",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Atan operation";
   let description = [{
   "Calculates the arctangent (inverse of tangent) of the given input tensor, element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXAtanhOp:ONNX_Op<"Atanh",
@@ -142,8 +304,19 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
   let description = [{
   "Calculates the hyperbolic arctangent of the given input tensor element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
@@ -180,14 +353,25 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
   " The output of each pooling window is divided by the number of elements (exclude pad when attribute count_include_pad is zero)."
   " "
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
     DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
     DefaultValuedAttr<I64Attr, "0">:$ceil_mode,
     DefaultValuedAttr<I64Attr, "0">:$count_include_pad,
     I64ArrayAttr:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
@@ -205,18 +389,29 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
   "to flatten the input shape to (N x C*D1*D2 ..*Dn) before a BatchNormalization Op."
   "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$scale,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$mean,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$var,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$scale,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$B,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$mean,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$var,
     DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
     DefaultValuedAttr<F32Attr, "0.9">:$momentum);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$out_mean,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$out_var,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$saved_mean,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$saved_var);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$out_mean,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$out_var,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$saved_mean,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$saved_var);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 5;
+    }
+    static int getNumberOfResults() {
+      return 5;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20,20,20,20,20};
+    }
+  }];
 }
 
 def ONNXBitShiftOp:ONNX_Op<"BitShift",
@@ -236,14 +431,25 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
   " not necessarily identical."
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64]>, MemRefOf<[I8,I16,I32,I64]>]>:$X,
+    AnyTypeOf<[TensorOf<[I8,I16,I32,I64]>, MemRefOf<[I8,I16,I32,I64]>]>:$Y,
     StrAttr:$direction);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Z);
+  let results = (outs AnyTypeOf<[TensorOf<[I8,I16,I32,I64]>, MemRefOf<[I8,I16,I32,I64]>]>:$Z);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXCastOp:ONNX_Op<"Cast",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX Cast operation";
   let description = [{
   "The operator casts the elements of a given input tensor to a data type"
@@ -269,6 +475,25 @@ def ONNXCastOp:ONNX_Op<"Cast",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     I64Attr:$to);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+    std::vector<mlir::Type> resultTypeInference() {
+      std::vector<mlir::Type> resultTypes;
+      auto toAttr = to().getSExtValue();
+      auto builder = mlir::OpBuilder(getContext());
+      resultTypes.push_back(mlir::UnrankedTensorType::get(
+        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));
+      return resultTypes;
+    }
+  }];
 }
 
 def ONNXCeilOp:ONNX_Op<"Ceil",
@@ -279,8 +504,19 @@ def ONNXCeilOp:ONNX_Op<"Ceil",
   "(Tensor<T>) where the ceil is, y = ceil(x), is applied to"
   "the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXClipOp:ONNX_Op<"Clip",
@@ -291,10 +527,21 @@ def ONNXClipOp:ONNX_Op<"Clip",
   "specified by the inputs 'min' and 'max'. They default to"
   "numeric_limits::lowest() and numeric_limits::max(), respectively."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$min,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$max);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$min,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$max);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXCompressOp:ONNX_Op<"Compress",
@@ -307,9 +554,20 @@ def ONNXCompressOp:ONNX_Op<"Compress",
   "    "
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$condition,
+    AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$condition,
     OptionalAttr<I64Attr>:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXConcatOp:ONNX_Op<"Concat",
@@ -321,6 +579,17 @@ def ONNXConcatOp:ONNX_Op<"Concat",
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$inputs,
     I64Attr:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$concat_result);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
@@ -336,10 +605,21 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
     I64Attr:$axis,
     DefaultValuedAttr<I64Attr, "0">:$new_axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$concat_result);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXConstantOp:ONNX_Op<"Constant",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX Constant operation";
   let description = [{
   "A constant tensor. Exactly one of the two attributes, either value or sparse_value,"
@@ -348,6 +628,26 @@ def ONNXConstantOp:ONNX_Op<"Constant",
   let arguments = (ins OptionalAttr<AnyAttr>:$sparse_value,
     OptionalAttr<AnyAttr>:$value);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 0;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+    std::vector<mlir::Type> resultTypeInference() {
+      std::vector<mlir::Type> resultTypes;
+      if (auto attr = valueAttr()) {
+        resultTypes.push_back(attr.getType());
+      } else if (auto attr = sparse_valueAttr()) {
+        resultTypes.push_back(attr.getType());
+      }
+      return resultTypes;
+    }
+  }];
     let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
       if (value) {
@@ -358,7 +658,8 @@ def ONNXConstantOp:ONNX_Op<"Constant",
         build(builder, state, tensorType, sparse_value, value);
       }
     }]>
-    ];}
+    ];
+}
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
   [NoSideEffect]> {
@@ -366,9 +667,20 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
   let description = [{
   "Generate a tensor with given value and shape."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>]>:$input,
     OptionalAttr<AnyAttr>:$value);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64,I8,I16,I32,I64,I1]>, MemRefOf<[F16,F32,F64,I8,I16,I32,I64,I1]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXConvOp:ONNX_Op<"Conv",
@@ -379,40 +691,62 @@ def ONNXConvOp:ONNX_Op<"Conv",
   "The convolution operator consumes an input tensor and a filter, and"
   "computes the output."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$B,
     DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<I64Attr, "1">:$group,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXConvIntegerOp:ONNX_Op<"ConvInteger",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ConvInteger operation";
   let description = [{
   "The integer convolution operator consumes an input tensor, its zero-point, a filter, and its zero-point,"
   "and computes the output. The production MUST never overflow. The accumulation may overflow if and only if in 32 bits."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$w,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$x_zero_point,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$w_zero_point,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$x,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$w,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>, NoneType]>:$x_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>, NoneType]>:$w_zero_point,
     DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<I64Attr, "1">:$group,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+  let results = (outs AnyTypeOf<[TensorOf<[I32]>, MemRefOf<[I32]>]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {3};
+    }
+  }];
 }
 
 def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ConvTranspose operation";
   let description = [{
   "The convolution transpose operator consumes an input tensor and a filter,"
@@ -430,9 +764,9 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
   ""
   "    "
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$B,
     DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<I64Attr, "1">:$group,
@@ -441,7 +775,18 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
     OptionalAttr<I64ArrayAttr>:$output_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXCosOp:ONNX_Op<"Cos",
@@ -450,8 +795,19 @@ def ONNXCosOp:ONNX_Op<"Cos",
   let description = [{
   "Calculates the cosine of the given input tensor, element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXCoshOp:ONNX_Op<"Cosh",
@@ -460,8 +816,19 @@ def ONNXCoshOp:ONNX_Op<"Cosh",
   let description = [{
   "Calculates the hyperbolic cosine of the given input tensor element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXCumSumOp:ONNX_Op<"CumSum",
@@ -489,11 +856,22 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
   "```"
   " "
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$axis,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F32,F64]>, MemRefOf<[I32,I64,F32,F64]>]>:$x,
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>]>:$axis,
     DefaultValuedAttr<I64Attr, "0">:$exclusive,
     DefaultValuedAttr<I64Attr, "0">:$reverse);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F32,F64]>, MemRefOf<[I32,I64,F32,F64]>]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
@@ -532,10 +910,21 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
     I64Attr:$blocksize,
     DefaultValuedAttr<StrAttr, "DCR">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX DequantizeLinear operation";
   let description = [{
   "The linear dequantization operator. It consumes a quantized tensor, a scale, a zero point to compute the full precision tensor."
@@ -543,10 +932,21 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
   "'x_zero_point' and 'x' must have same type. 'x' and 'y' must have same shape. In the case of dequantizing int32,"
   "there's no zero point (zero point is supposed to be 0)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I32]>, MemRefOf<[I8,I32]>]>:$x,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_scale,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$x_zero_point);
+    AnyTypeOf<[TensorOf<[I8,I32]>, MemRefOf<[I8,I32]>, NoneType]>:$x_zero_point);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {21};
+    }
+  }];
 }
 
 def ONNXDetOp:ONNX_Op<"Det",
@@ -559,8 +959,19 @@ def ONNXDetOp:ONNX_Op<"Det",
   "The output is a tensor of shape `[*]`, containing the determinants of all input submatrices."
   "e.g., When the input is 2-D, the output is a scalar(shape is empty: `[]`)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXDivOp:ONNX_Op<"Div",
@@ -571,9 +982,46 @@ def ONNXDivOp:ONNX_Op<"Div",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$A,
+    AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$C);
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      build(builder, state, elementType, A, B);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(elementType);
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
@@ -587,14 +1035,25 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
   "the training phase, so during testing nothing needs to be done."
   "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$data,
     DefaultValuedAttr<F32Attr, "0.5">:$ratio);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$mask);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output,
+    AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>, NoneType]>:$mask);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20,0};
+    }
+  }];
 }
 
 def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX DynamicQuantizeLinear operation";
   let description = [{
   "A Function to fuse calculation for Scale, Zero Point and FP32->8Bit convertion of FP32 Input data."
@@ -620,10 +1079,21 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
   "* rounding to nearest ties to even."
   "```"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, MemRefOf<[F32]>]>:$x);
+  let results = (outs AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$y,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point);
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$y_zero_point);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 3;
+    }
+    static std::vector<int> getTypeMap() {
+      return {1,-1,1};
+    }
+  }];
 }
 
 def ONNXEluOp:ONNX_Op<"Elu",
@@ -635,9 +1105,20 @@ def ONNXEluOp:ONNX_Op<"Elu",
   "0`, `f(x) = x for x >= 0`., is applied to the tensor elementwise."
   ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXEqualOp:ONNX_Op<"Equal",
@@ -649,9 +1130,46 @@ def ONNXEqualOp:ONNX_Op<"Equal",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I1,I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I1,I8,I16,I32,I64,F16,F32,F64]>]>:$A,
+    AnyTypeOf<[TensorOf<[I1,I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I1,I8,I16,I32,I64,F16,F32,F64]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$C);
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      build(builder, state, elementType, A, B);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(elementType);
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {0};
+      }
+    }];
 }
 
 def ONNXErfOp:ONNX_Op<"Erf",
@@ -660,8 +1178,19 @@ def ONNXErfOp:ONNX_Op<"Erf",
   let description = [{
   "Computes the error function of the given input tensor element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXExpOp:ONNX_Op<"Exp",
@@ -670,8 +1199,8 @@ def ONNXExpOp:ONNX_Op<"Exp",
   let description = [{
   "Calculates the exponential of the given input tensor, element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value input", [{
       auto elementType = input.getType().cast<TensorType>().getElementType();
@@ -684,6 +1213,17 @@ def ONNXExpOp:ONNX_Op<"Exp",
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXExpandOp:ONNX_Op<"Expand",
@@ -702,6 +1242,17 @@ def ONNXExpandOp:ONNX_Op<"Expand",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$shape);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
@@ -716,14 +1267,25 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
   "The 'dtype' argument must be one of the data types specified in the 'DataType' enum field in the"
   "TensorProto message and be valid as an output type."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64,I8,I16,I32,I64,I1]>, MemRefOf<[F16,F32,F64,I8,I16,I32,I64,I1]>]>:$input,
     OptionalAttr<I64Attr>:$dtype,
     DefaultValuedAttr<I64Attr, "0">:$k);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64,I8,I16,I32,I64,I1]>, MemRefOf<[F16,F32,F64,I8,I16,I32,I64,I1]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXFlattenOp:ONNX_Op<"Flatten",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Flatten operation";
   let description = [{
   "Flattens the input tensor into a 2D matrix. If input tensor has shape"
@@ -733,6 +1295,17 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     DefaultValuedAttr<I64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXFloorOp:ONNX_Op<"Floor",
@@ -743,8 +1316,19 @@ def ONNXFloorOp:ONNX_Op<"Floor",
   "(Tensor<T>) where the floor is, y = floor(x), is applied to"
   "the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXGRUOp:ONNX_Op<"GRU",
@@ -825,12 +1409,12 @@ def ONNXGRUOp:ONNX_Op<"GRU",
   "  - Ht = (1 - zt) (.) ht + zt (.) Ht-1"
   "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$R,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$B,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$sequence_lens,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$initial_h,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$R,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$B,
+    AnyTypeOf<[TensorOf<[I32]>, MemRefOf<[I32]>, NoneType]>:$sequence_lens,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$initial_h,
     OptionalAttr<F32ArrayAttr>:$activation_alpha,
     OptionalAttr<F32ArrayAttr>:$activation_beta,
     OptionalAttr<StrArrayAttr>:$activations,
@@ -838,8 +1422,19 @@ def ONNXGRUOp:ONNX_Op<"GRU",
     DefaultValuedAttr<StrAttr, "forward">:$direction,
     OptionalAttr<I64Attr>:$hidden_size,
     DefaultValuedAttr<I64Attr, "0">:$linear_before_reset);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y_h);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$Y,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$Y_h);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 6;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20,20};
+    }
+  }];
 }
 
 def ONNXGatherOp:ONNX_Op<"Gather",
@@ -905,9 +1500,20 @@ def ONNXGatherOp:ONNX_Op<"Gather",
   "```"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>]>:$indices,
     DefaultValuedAttr<I64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
@@ -971,9 +1577,20 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
   "```"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>]>:$indices,
     DefaultValuedAttr<I64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXGatherNDOp:ONNX_Op<"GatherND",
@@ -1049,6 +1666,17 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
@@ -1070,14 +1698,25 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
   "This operator supports **unidirectional broadcasting** (tensor C should be unidirectional broadcastable to tensor A * B); for more details please check [the doc](Broadcasting.md)."
   "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$C,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64,I32,I64]>, MemRefOf<[F16,F32,F64,I32,I64]>]>:$A,
+    AnyTypeOf<[TensorOf<[F16,F32,F64,I32,I64]>, MemRefOf<[F16,F32,F64,I32,I64]>]>:$B,
+    AnyTypeOf<[TensorOf<[F16,F32,F64,I32,I64]>, MemRefOf<[F16,F32,F64,I32,I64]>, NoneType]>:$C,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha,
     DefaultValuedAttr<F32Attr, "1.0">:$beta,
     DefaultValuedAttr<I64Attr, "0">:$transA,
     DefaultValuedAttr<I64Attr, "0">:$transB);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64,I32,I64]>, MemRefOf<[F16,F32,F64,I32,I64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
@@ -1088,8 +1727,19 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
   " the values in the same channel. This is equivalent to AveragePool with kernel size"
   " equal to the spatial dimension of input tensor."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
@@ -1100,9 +1750,20 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
   " the values in the same channel. This is equivalent to LpPool with kernel size"
   " equal to the spatial dimension of input tensor."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
     DefaultValuedAttr<I64Attr, "2">:$p);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
@@ -1113,8 +1774,19 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
   " the values in the same channel. This is equivalent to MaxPool with kernel size"
   " equal to the spatial dimension of input tensor."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXGreaterOp:ONNX_Op<"Greater",
@@ -1126,9 +1798,46 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$A,
+    AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$C);
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      build(builder, state, elementType, A, B);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(elementType);
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {0};
+      }
+    }];
 }
 
 def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
@@ -1139,10 +1848,21 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
   "(Tensor<T>) where the HardSigmoid function, y = max(0, min(1, alpha * x + beta)),"
   "is applied to the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
     DefaultValuedAttr<F32Attr, "0.2">:$alpha,
     DefaultValuedAttr<F32Attr, "0.5">:$beta);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXHardmaxOp:ONNX_Op<"Hardmax",
@@ -1164,9 +1884,20 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
   "will throw errors. The output tensor has the same shape"
   "and contains the hardmax values of the corresponding input."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input,
     DefaultValuedAttr<I64Attr, "1">:$axis);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXIdentityOp:ONNX_Op<"Identity",
@@ -1178,6 +1909,17 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXIfOp:ONNX_Op<"If",
@@ -1186,10 +1928,21 @@ def ONNXIfOp:ONNX_Op<"If",
   let description = [{
   "If conditional"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$cond,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$cond,
     AnyAttr:$else_branch,
     AnyAttr:$then_branch);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$outputs);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
@@ -1203,11 +1956,22 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
   "where mean and variance are computed per instance per channel."
   ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$scale,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$scale,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$B,
     DefaultValuedAttr<F32Attr, "1e-05">:$epsilon);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXIsInfOp:ONNX_Op<"IsInf",
@@ -1216,10 +1980,21 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
   let description = [{
   "Map infinity to true and other values to false."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64]>, MemRefOf<[F32,F64]>]>:$X,
     DefaultValuedAttr<I64Attr, "1">:$detect_negative,
     DefaultValuedAttr<I64Attr, "1">:$detect_positive);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
 }
 
 def ONNXIsNaNOp:ONNX_Op<"IsNaN",
@@ -1228,8 +2003,19 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
   let description = [{
   "Returns which elements of the input are NaN."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
 }
 
 def ONNXLRNOp:ONNX_Op<"LRN",
@@ -1247,12 +2033,23 @@ def ONNXLRNOp:ONNX_Op<"LRN",
   ""
   "Y[n, c, d1, ..., dk] = X[n, c, d1, ..., dk] / (bias + alpha / size * square_sum[n, c, d1, ..., dk] ) ^ beta"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
     DefaultValuedAttr<F32Attr, "0.0001">:$alpha,
     DefaultValuedAttr<F32Attr, "0.75">:$beta,
     DefaultValuedAttr<F32Attr, "1.0">:$bias,
     I64Attr:$size);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXLSTMOp:ONNX_Op<"LSTM",
@@ -1341,14 +2138,14 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
   "  - Ht = ot (.) h(Ct)"
   "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$R,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$B,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$sequence_lens,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$initial_h,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$initial_c,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$P,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$R,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$B,
+    AnyTypeOf<[TensorOf<[I32]>, MemRefOf<[I32]>, NoneType]>:$sequence_lens,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$initial_h,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$initial_c,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$P,
     OptionalAttr<F32ArrayAttr>:$activation_alpha,
     OptionalAttr<F32ArrayAttr>:$activation_beta,
     OptionalAttr<StrArrayAttr>:$activations,
@@ -1356,9 +2153,20 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
     DefaultValuedAttr<StrAttr, "forward">:$direction,
     OptionalAttr<I64Attr>:$hidden_size,
     DefaultValuedAttr<I64Attr, "0">:$input_forget);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y_h,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y_c);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$Y,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$Y_h,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$Y_c);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 8;
+    }
+    static int getNumberOfResults() {
+      return 3;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20,20,20};
+    }
+  }];
 }
 
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
@@ -1369,9 +2177,20 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
   "output data (Tensor<T>) where the function `f(x) = alpha * x for x < 0`,"
   "`f(x) = x for x >= 0`, is applied to the data tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
     DefaultValuedAttr<F32Attr, "0.01">:$alpha);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXLessOp:ONNX_Op<"Less",
@@ -1383,9 +2202,46 @@ def ONNXLessOp:ONNX_Op<"Less",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$A,
+    AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$C);
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      build(builder, state, elementType, A, B);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(elementType);
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {0};
+      }
+    }];
 }
 
 def ONNXLogOp:ONNX_Op<"Log",
@@ -1394,8 +2250,19 @@ def ONNXLogOp:ONNX_Op<"Log",
   let description = [{
   "Calculates the natural log of the given input tensor, element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
@@ -1417,9 +2284,20 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
   "will throw errors. The output tensor has the same shape"
   "and contains the logsoftmax values of the corresponding input."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input,
     DefaultValuedAttr<I64Attr, "1">:$axis);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop",
@@ -1540,11 +2418,22 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   "the scan_outputs from the previous layer, possibly going through several"
   "point-wise operators (e.g. dropout, residual connections, linear layer)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$M,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$cond,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>, NoneType]>:$M,
+    AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>, NoneType]>:$cond,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$v_initial,
     AnyAttr:$body);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$v_final_and_scan_outputs);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {22};
+    }
+  }];
 }
 
 def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
@@ -1553,10 +2442,21 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
   let description = [{
   "Given a matrix, apply Lp-normalization along the provided axis."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input,
     DefaultValuedAttr<I64Attr, "-1">:$axis,
     DefaultValuedAttr<I64Attr, "2">:$p);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXLpPoolOp:ONNX_Op<"LpPool",
@@ -1569,13 +2469,24 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
   " of the input tensor according to the kernel size and downsampling the"
   " data into the output tensor Y for further processing."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
     DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
     I64ArrayAttr:$kernel_shape,
     DefaultValuedAttr<I64Attr, "2">:$p,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXMatMulOp:ONNX_Op<"MatMul",
@@ -1584,9 +2495,20 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
   let description = [{
   "Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64,I32,I64]>, MemRefOf<[F16,F32,F64,I32,I64]>]>:$A,
+    AnyTypeOf<[TensorOf<[F16,F32,F64,I32,I64]>, MemRefOf<[F16,F32,F64,I32,I64]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64,I32,I64]>, MemRefOf<[F16,F32,F64,I32,I64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
@@ -1596,11 +2518,22 @@ def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
   "Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html."
   "The production MUST never overflow. The accumulation may overflow if and only if in 32 bits."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$a_zero_point,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$b_zero_point);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$A,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$B,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>, NoneType]>:$a_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>, NoneType]>:$b_zero_point);
+  let results = (outs AnyTypeOf<[TensorOf<[I32]>, MemRefOf<[I32]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {3};
+    }
+  }];
 }
 
 def ONNXMaxOp:ONNX_Op<"Max",
@@ -1611,8 +2544,19 @@ def ONNXMaxOp:ONNX_Op<"Max",
   "All inputs and outputs must have the same data type."
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$max);
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>>:$data_0);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$max);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
@@ -1649,7 +2593,7 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
   " The output of each pooling window is maximum number of elements exclude pad."
   " "
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
     DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
     DefaultValuedAttr<I64Attr, "0">:$ceil_mode,
     OptionalAttr<I64ArrayAttr>:$dilations,
@@ -1657,8 +2601,19 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
     OptionalAttr<I64ArrayAttr>:$pads,
     DefaultValuedAttr<I64Attr, "0">:$storage_order,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Indices);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y,
+    AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>, NoneType]>:$Indices);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20,4};
+    }
+  }];
 }
 
 def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
@@ -1669,11 +2624,22 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
   " apply max pooling across each RoI, to produce output 4-D tensor of shape"
   " (num_rois, channels, pooled_shape[0], pooled_shape[1])."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$rois,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$rois,
     I64ArrayAttr:$pooled_shape,
     DefaultValuedAttr<F32Attr, "1.0">:$spatial_scale);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
@@ -1699,13 +2665,24 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
   " which define the exact unpooling op. The attributes typically have the same values as the corrsponding"
   " pooling op that the unpooling op is trying to invert."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$I,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$output_shape,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>]>:$I,
+    AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>, NoneType]>:$output_shape,
     I64ArrayAttr:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXMeanOp:ONNX_Op<"Mean",
@@ -1716,8 +2693,19 @@ def ONNXMeanOp:ONNX_Op<"Mean",
   "All inputs and outputs must have the same data type."
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$mean);
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>>:$data_0);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$mean);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
@@ -1727,9 +2715,20 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
   "A MeanVarianceNormalization Function: Perform mean variance normalization"
   "      on the input tensor X using formula: <br/> ``` (X-EX)/sqrt(E(X-EX)^2) ```"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
     DefaultValuedAttr<I64ArrayAttr, "{0, 2, 3}">:$axes);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXMinOp:ONNX_Op<"Min",
@@ -1740,8 +2739,19 @@ def ONNXMinOp:ONNX_Op<"Min",
   "All inputs and outputs must have the same data type."
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$min);
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>>:$data_0);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$min);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXModOp:ONNX_Op<"Mod",
@@ -1762,10 +2772,21 @@ def ONNXModOp:ONNX_Op<"Mod",
   ""
   "  This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$A,
+    AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$B,
     DefaultValuedAttr<I64Attr, "0">:$fmod);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let results = (outs AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$C);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXMulOp:ONNX_Op<"Mul",
@@ -1776,21 +2797,46 @@ def ONNXMulOp:ONNX_Op<"Mul",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$A,
+    AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto elementType = A.getType().cast<TensorType>().getElementType();
-      build(builder, state, UnrankedTensorType::get(elementType), A, B);
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
       std::vector<mlir::Type> outputTypes;
-      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      outputTypes.emplace_back(elementType);
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXMultinomialOp:ONNX_Op<"Multinomial",
@@ -1800,11 +2846,22 @@ def ONNXMultinomialOp:ONNX_Op<"Multinomial",
   "Generate a tensor of samples from a multinomial distribution according to the probabilities"
   "of each of the possible outcomes."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input,
     DefaultValuedAttr<I64Attr, "6">:$dtype,
     DefaultValuedAttr<I64Attr, "1">:$sample_size,
     OptionalAttr<F32Attr>:$seed);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXNegOp:ONNX_Op<"Neg",
@@ -1815,8 +2872,19 @@ def ONNXNegOp:ONNX_Op<"Neg",
   "(Tensor<T>) where each element flipped sign, y = -x, is applied to"
   "the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,I32,I8,I16,I64,F16,F64]>, MemRefOf<[F32,I32,I8,I16,I64,F16,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F32,I32,I8,I16,I64,F16,F64]>, MemRefOf<[F32,I32,I8,I16,I64,F16,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
@@ -1838,6 +2906,17 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$score_threshold,
     DefaultValuedAttr<I64Attr, "0">:$center_point_box);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$selected_indices);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 5;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {22};
+    }
+  }];
 }
 
 def ONNXNonZeroOp:ONNX_Op<"NonZero",
@@ -1851,6 +2930,17 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXNotOp:ONNX_Op<"Not",
@@ -1859,8 +2949,19 @@ def ONNXNotOp:ONNX_Op<"Not",
   let description = [{
   "Returns the negation of the input tensor element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
 }
 
 def ONNXOneHotOp:ONNX_Op<"OneHot",
@@ -1887,11 +2988,22 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
   "    output[i, j, k, input[i, j, k]] = 1 for all i, j, k and 0 otherwise."
   ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$depth,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$indices,
+    AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$depth,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$values,
     DefaultValuedAttr<I64Attr, "-1">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {22};
+    }
+  }];
 }
 
 def ONNXOrOp:ONNX_Op<"Or",
@@ -1903,9 +3015,46 @@ def ONNXOrOp:ONNX_Op<"Or",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$A,
+    AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$C);
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      build(builder, state, elementType, A, B);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(elementType);
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {0};
+      }
+    }];
 }
 
 def ONNXPReluOp:ONNX_Op<"PRelu",
@@ -1917,9 +3066,20 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
   "`f(x) = x for x >= 0`., is applied to the data tensor elementwise."
   "This operator supports **unidirectional broadcasting** (tensor slope should be unidirectional broadcastable to input tensor X); for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$slope);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64,I32,I64]>, MemRefOf<[F16,F32,F64,I32,I64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16,F32,F64,I32,I64]>, MemRefOf<[F16,F32,F64,I32,I64]>]>:$slope);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64,I32,I64]>, MemRefOf<[F16,F32,F64,I32,I64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXPadOp:ONNX_Op<"Pad",
@@ -2008,11 +3168,11 @@ def ONNXPadOp:ONNX_Op<"Pad",
   "  ]"
   ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$data,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$pads,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$constant_value,
+    AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>, NoneType]>:$constant_value,
     DefaultValuedAttr<StrAttr, "constant">:$mode);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$output);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value data, Value pads, Value constant_value, StringAttr mode", [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
@@ -2026,6 +3186,15 @@ def ONNXPadOp:ONNX_Op<"Pad",
     }]>
     ];
     let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 3;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
       std::map<std::string, size_t> promotableConstOperands() {
         return {{"pads", 1}, {"constant_value", 2}};
       }
@@ -2041,9 +3210,46 @@ def ONNXPowOp:ONNX_Op<"Pow",
   "is applied to the data tensor elementwise."
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Z);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Z);
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value X, Value Y", [{
+      auto lhsTy = X.getType().cast<RankedTensorType>();
+      auto rhsTy = Y.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = X.getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      build(builder, state, elementType, X, Y);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(elementType);
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
@@ -2056,22 +3262,33 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
   "It means they must be either scalars (per tensor) or 1-D tensors (per output channel)."
   "Each input or output and its related zero point must have same type."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$x,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_scale,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$x_zero_point,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$w,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$x_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$w,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$w_scale,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$w_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$w_zero_point,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$B,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$y_zero_point,
+    AnyTypeOf<[TensorOf<[I32]>, MemRefOf<[I32]>, NoneType]>:$B,
     DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
     OptionalAttr<I64ArrayAttr>:$dilations,
     DefaultValuedAttr<I64Attr, "1">:$group,
     OptionalAttr<I64ArrayAttr>:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+  let results = (outs AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 9;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {1};
+    }
+  }];
 }
 
 def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
@@ -2087,29 +3304,51 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
   "and the number of elements of scale and zero point tensor of input 'b' should be equal to the number of columns of input 'b'."
   "Production must never overflow, and accumulation may overflow if and only if in 32 bits."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$a,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$a,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$a_scale,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$a_zero_point,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$b,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$a_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$b,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$b_scale,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$b_zero_point,
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$b_zero_point,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_zero_point);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$y_zero_point);
+  let results = (outs AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 8;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {1};
+    }
+  }];
 }
 
 def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX QuantizeLinear operation";
   let description = [{
   "The linear per-tensor/layer quantization operator. It consumes a high precision tensor, a scale, a zero point to compute the low precision / quantized tensor."
   "The quantization formula is y = saturate ((x / y_scale) + y_zero_point). For saturation, it saturates to [0, 255] if it's uint8, or [-128, 127] if it's int8."
   "For (x / y_scale), it's rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details. 'y_zero_point' and 'y' must have same type."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$x,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,I32]>, MemRefOf<[F32,I32]>]>:$x,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$y_scale,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$y_zero_point);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$y);
+    AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>, NoneType]>:$y_zero_point);
+  let results = (outs AnyTypeOf<[TensorOf<[I8]>, MemRefOf<[I8]>]>:$y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {1};
+    }
+  }];
 }
 
 def ONNXRNNOp:ONNX_Op<"RNN",
@@ -2178,20 +3417,31 @@ def ONNXRNNOp:ONNX_Op<"RNN",
   "  - Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)"
   "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$W,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$R,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$B,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$sequence_lens,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$initial_h,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$R,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$B,
+    AnyTypeOf<[TensorOf<[I32]>, MemRefOf<[I32]>, NoneType]>:$sequence_lens,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$initial_h,
     OptionalAttr<F32ArrayAttr>:$activation_alpha,
     OptionalAttr<F32ArrayAttr>:$activation_beta,
     DefaultValuedAttr<StrArrayAttr, "{\"Tanh\", \"Tanh\"}">:$activations,
     OptionalAttr<F32Attr>:$clip,
     DefaultValuedAttr<StrAttr, "forward">:$direction,
     OptionalAttr<I64Attr>:$hidden_size);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$Y_h);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$Y,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>, NoneType]>:$Y_h);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 6;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20,20};
+    }
+  }];
 }
 
 def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
@@ -2211,7 +3461,18 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
     DefaultValuedAttr<F32Attr, "1.0">:$scale,
     OptionalAttr<F32Attr>:$seed,
     I64ArrayAttr:$shape);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 0;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
@@ -2231,7 +3492,18 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
     DefaultValuedAttr<F32Attr, "0.0">:$mean,
     DefaultValuedAttr<F32Attr, "1.0">:$scale,
     OptionalAttr<F32Attr>:$seed);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
@@ -2250,7 +3522,18 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
     DefaultValuedAttr<F32Attr, "0.0">:$low,
     OptionalAttr<F32Attr>:$seed,
     I64ArrayAttr:$shape);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 0;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
@@ -2270,7 +3553,18 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
     DefaultValuedAttr<F32Attr, "1.0">:$high,
     DefaultValuedAttr<F32Attr, "0.0">:$low,
     OptionalAttr<F32Attr>:$seed);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXRangeOp:ONNX_Op<"Range",
@@ -2303,10 +3597,21 @@ def ONNXRangeOp:ONNX_Op<"Range",
   "Output: [10, 8, 6]"
   ""
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$start,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$limit,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$delta);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32,F64,I16,I32,I64]>, MemRefOf<[F32,F64,I16,I32,I64]>]>:$start,
+    AnyTypeOf<[TensorOf<[F32,F64,I16,I32,I64]>, MemRefOf<[F32,F64,I16,I32,I64]>]>:$limit,
+    AnyTypeOf<[TensorOf<[F32,F64,I16,I32,I64]>, MemRefOf<[F32,F64,I16,I32,I64]>]>:$delta);
+  let results = (outs AnyTypeOf<[TensorOf<[F32,F64,I16,I32,I64]>, MemRefOf<[F32,F64,I16,I32,I64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
@@ -2317,8 +3622,19 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
   "(Tensor<T>) where the reciprocal is, y = 1/x, is applied to"
   "the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
@@ -2332,10 +3648,21 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
   "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
   "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
@@ -2349,10 +3676,21 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
   "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
   "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
@@ -2366,10 +3704,21 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
   "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
   "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
@@ -2383,10 +3732,21 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
   "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
   "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
@@ -2400,10 +3760,21 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
   "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
   "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
@@ -2417,10 +3788,21 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
   "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
   "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
@@ -2434,10 +3816,21 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
   "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
   "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
@@ -2451,10 +3844,21 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
   "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
   "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
@@ -2468,10 +3872,10 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
   "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
   "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$reduced);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
@@ -2484,6 +3888,17 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
@@ -2497,10 +3912,10 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
   "The above behavior is similar to numpy, with the exception that numpy default keepdims to"
   "False instead of True."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$reduced);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
@@ -2513,6 +3928,17 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
       build(builder, state, outputTypes, operands, attributes);
     }]>
     ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXReluOp:ONNX_Op<"Relu",
@@ -2523,8 +3949,19 @@ def ONNXReluOp:ONNX_Op<"Relu",
   "(Tensor<T>) where the rectified linear function, y = max(0, x), is applied to"
   "the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReshapeOp:ONNX_Op<"Reshape",
@@ -2542,6 +3979,15 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$shape);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$reshaped);
   let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
     std::map<std::string, size_t> promotableConstOperands() {
       return {{"shape", 1}};
     }
@@ -2557,7 +4003,7 @@ def ONNXResizeOp:ONNX_Op<"Resize",
   "  output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \\"sizes\\" is not specified."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$roi,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$roi,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$scales,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$sizes,
     DefaultValuedAttr<StrAttr, "half_pixel">:$coordinate_transformation_mode,
@@ -2567,6 +4013,17 @@ def ONNXResizeOp:ONNX_Op<"Resize",
     DefaultValuedAttr<StrAttr, "nearest">:$mode,
     DefaultValuedAttr<StrAttr, "round_prefer_floor">:$nearest_mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
@@ -2612,6 +4069,17 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
     DefaultValuedAttr<I64Attr, "1">:$batch_axis,
     DefaultValuedAttr<I64Attr, "0">:$time_axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
@@ -2630,15 +4098,26 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
   "the value of the sampled locations are computed directly"
   "through bilinear interpolation."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$rois,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$batch_indices,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$rois,
+    AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>]>:$batch_indices,
     DefaultValuedAttr<StrAttr, "avg">:$mode,
     DefaultValuedAttr<I64Attr, "1">:$output_height,
     DefaultValuedAttr<I64Attr, "1">:$output_width,
     DefaultValuedAttr<I64Attr, "0">:$sampling_ratio,
     DefaultValuedAttr<F32Attr, "1.0">:$spatial_scale);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
@@ -2659,8 +4138,19 @@ def ONNXRoundOp:ONNX_Op<"Round",
   "round([-4.5]) = [-4.0]"
   "```"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXScanOp:ONNX_Op<"Scan",
@@ -2797,6 +4287,17 @@ def ONNXScanOp:ONNX_Op<"Scan",
     OptionalAttr<I64ArrayAttr>:$scan_output_axes,
     OptionalAttr<I64ArrayAttr>:$scan_output_directions);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$final_state_and_scan_outputs);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXScatterOp:ONNX_Op<"Scatter",
@@ -2858,10 +4359,21 @@ def ONNXScatterOp:ONNX_Op<"Scatter",
   "```"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>]>:$indices,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates,
     DefaultValuedAttr<I64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
@@ -2921,10 +4433,21 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
   "```"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>]>:$indices,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates,
     DefaultValuedAttr<I64Attr, "0">:$axis);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXScatterNDOp:ONNX_Op<"ScatterND",
@@ -2992,6 +4515,17 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$indices,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$updates);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSeluOp:ONNX_Op<"Selu",
@@ -3003,10 +4537,21 @@ def ONNXSeluOp:ONNX_Op<"Selu",
   "`y = gamma * (alpha * e^x - alpha) for x <= 0`, `y = gamma * x for x > 0`,"
   "is applied to the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
     DefaultValuedAttr<F32Attr, "1.67326">:$alpha,
     DefaultValuedAttr<F32Attr, "1.0507">:$gamma);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
@@ -3018,8 +4563,19 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
   "Negative value means counting positions from the back."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$position);
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>]>:$position);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$tensor);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
@@ -3031,6 +4587,17 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$inputs);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
@@ -3041,6 +4608,17 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
   }];
   let arguments = (ins OptionalAttr<I64Attr>:$dtype);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 0;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
@@ -3053,8 +4631,19 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
   "'position' is optional, by default it erases the last tensor from 'input_sequence'."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$position);
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>, NoneType]>:$position);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
@@ -3069,8 +4658,19 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$tensor,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$position);
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>, NoneType]>:$position);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
@@ -3080,7 +4680,18 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
   "Produces a scalar(tensor of empty shape) containing the number of tensors in 'input_sequence'."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input_sequence);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$length);
+  let results = (outs AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>]>:$length);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {4};
+    }
+  }];
 }
 
 def ONNXShapeOp:ONNX_Op<"Shape",
@@ -3090,7 +4701,18 @@ def ONNXShapeOp:ONNX_Op<"Shape",
   "Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$shape);
+  let results = (outs AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>]>:$shape);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {4};
+    }
+  }];
 }
 
 def ONNXShrinkOp:ONNX_Op<"Shrink",
@@ -3102,10 +4724,21 @@ def ONNXShrinkOp:ONNX_Op<"Shrink",
   "bias. The formula of this operator is: If x < -lambd, y = x + bias;"
   "If x > lambd, y = x - bias; Otherwise, y = 0."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$input,
     DefaultValuedAttr<F32Attr, "0.0">:$bias,
     DefaultValuedAttr<F32Attr, "0.5">:$lambd);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
@@ -3116,8 +4749,19 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
   "(Tensor<T>) where the sigmoid function, y = 1 / (1 + exp(-x)), is applied to the"
   "tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSignOp:ONNX_Op<"Sign",
@@ -3127,18 +4771,40 @@ def ONNXSignOp:ONNX_Op<"Sign",
   "Calculate the sign of the given input tensor element-wise."
   "If input > 0, output 1. if input < 0, output -1. if input == 0, output 0."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSinOp:ONNX_Op<"Sin",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Sin operation";
   let description = [{
   "Calculates the sine of the given input tensor, element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSinhOp:ONNX_Op<"Sinh",
@@ -3147,8 +4813,19 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
   let description = [{
   "Calculates the hyperbolic sine of the given input tensor element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSizeOp:ONNX_Op<"Size",
@@ -3158,7 +4835,18 @@ def ONNXSizeOp:ONNX_Op<"Size",
   "Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$size);
+  let results = (outs AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>]>:$size);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {4};
+    }
+  }];
 }
 
 def ONNXSliceOp:ONNX_Op<"Slice",
@@ -3201,11 +4889,22 @@ def ONNXSliceOp:ONNX_Op<"Slice",
   "  ]"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$starts,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$ends,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$axes,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$steps);
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>]>:$starts,
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>]>:$ends,
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>, NoneType]>:$axes,
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>, NoneType]>:$steps);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 5;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSoftmaxOp:ONNX_Op<"Softmax",
@@ -3227,9 +4926,20 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   "will throw errors. The output tensor has the same shape"
   "and contains the softmax values of the corresponding input."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input,
     DefaultValuedAttr<I64Attr, "1">:$axis);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus",
@@ -3240,8 +4950,19 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
   "(Tensor<T>) where the softplus function, y = ln(exp(x) + 1), is applied to"
   "the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSoftsignOp:ONNX_Op<"Softsign",
@@ -3250,8 +4971,19 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
   let description = [{
   "Calculates the softsign (x/(1+|x|)) of the given input tensor element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
@@ -3265,6 +4997,17 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
     I64Attr:$blocksize);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSplitOp:ONNX_Op<"Split",
@@ -3279,6 +5022,17 @@ def ONNXSplitOp:ONNX_Op<"Split",
     DefaultValuedAttr<I64Attr, "0">:$axis,
     OptionalAttr<I64ArrayAttr>:$split);
   let results = (outs Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$outputs);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return -1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
@@ -3297,10 +5051,21 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
   "dimension size of input tensor on 'axis'."
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
-    AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$split,
+    AnyTypeOf<[TensorOf<[I32,I64]>, MemRefOf<[I32,I64]>, NoneType]>:$split,
     DefaultValuedAttr<I64Attr, "0">:$axis,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output_sequence);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {-1};
+    }
+  }];
 }
 
 def ONNXSqrtOp:ONNX_Op<"Sqrt",
@@ -3311,8 +5076,19 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
   "(Tensor<T>) where the square root is, y = x^0.5, is applied to"
   "the tensor elementwise. If x is negative, then it will return NaN."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze",
@@ -3327,6 +5103,17 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$squeezed);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
@@ -3349,6 +5136,17 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
     OptionalAttr<StrAttr>:$locale,
     OptionalAttr<StrArrayAttr>:$stopwords);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXSubOp:ONNX_Op<"Sub",
@@ -3359,9 +5157,46 @@ def ONNXSubOp:ONNX_Op<"Sub",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$A,
+    AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[I32,I64,F16,F32,F64]>, MemRefOf<[I32,I64,F16,F32,F64]>]>:$C);
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      build(builder, state, elementType, A, B);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(elementType);
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXSumOp:ONNX_Op<"Sum",
@@ -3372,18 +5207,40 @@ def ONNXSumOp:ONNX_Op<"Sum",
   "All inputs and outputs must have the same data type."
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$data_0);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$sum);
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>>:$data_0);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$sum);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return -1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXTanOp:ONNX_Op<"Tan",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Tan operation";
   let description = [{
   "Calculates the tangent of the given input tensor, element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXTanhOp:ONNX_Op<"Tanh",
@@ -3392,8 +5249,19 @@ def ONNXTanhOp:ONNX_Op<"Tanh",
   let description = [{
   "Calculates the hyperbolic tangent of the given input tensor element-wise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
@@ -3438,7 +5306,18 @@ def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
     OptionalAttr<I64ArrayAttr>:$pool_int64s,
     OptionalAttr<StrArrayAttr>:$pool_strings,
     OptionalAttr<F32ArrayAttr>:$weights);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, MemRefOf<[F32]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {7};
+    }
+  }];
 }
 
 def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
@@ -3449,9 +5328,20 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
   "(Tensor<T>) where the rectified linear function, y = x for x > alpha, y = 0 otherwise,"
   "is applied to the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$X,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16,F32,F64]>, MemRefOf<[F16,F32,F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXTileOp:ONNX_Op<"Tile",
@@ -3463,8 +5353,19 @@ def ONNXTileOp:ONNX_Op<"Tile",
   "For example A = [[1, 2], [3, 4]], B = [1, 2], tile(A, B) = [[1, 2, 1, 2], [3, 4, 3, 4]]"
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$input,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$repeats);
+    AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>]>:$repeats);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXTopKOp:ONNX_Op<"TopK",
@@ -3486,13 +5387,24 @@ def ONNXTopKOp:ONNX_Op<"TopK",
   "Given two equivalent values, this operator uses the indices along the axis as"
   " a tiebreaker. That is, the element with the lower index will appear first."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$X,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$K,
     DefaultValuedAttr<I64Attr, "-1">:$axis,
     DefaultValuedAttr<I64Attr, "1">:$largest,
     DefaultValuedAttr<I64Attr, "1">:$sorted);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Values,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$Indices);
+  let results = (outs AnyTypeOf<[TensorOf<[I8,I16,I32,I64,F16,F32,F64]>, MemRefOf<[I8,I16,I32,I64,F16,F32,F64]>]>:$Values,
+    AnyTypeOf<[TensorOf<[I64]>, MemRefOf<[I64]>]>:$Indices);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20,4};
+    }
+  }];
 }
 
 def ONNXTransposeOp:ONNX_Op<"Transpose",
@@ -3506,6 +5418,17 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
     OptionalAttr<I64ArrayAttr>:$perm);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$transposed);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXUniqueOp:ONNX_Op<"Unique",
@@ -3595,6 +5518,17 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$indices,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$inverse_indices,
     AnyTypeOf<[AnyMemRef, AnyTensor, NoneType]>:$counts);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 4;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20,-1,-1,-1};
+    }
+  }];
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
@@ -3617,6 +5551,17 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
     I64ArrayAttr:$axes);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$expanded);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXUpsampleOp:ONNX_Op<"Upsample",
@@ -3631,6 +5576,17 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$scales,
     DefaultValuedAttr<StrAttr, "nearest">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXWhereOp:ONNX_Op<"Where",
@@ -3642,10 +5598,21 @@ def ONNXWhereOp:ONNX_Op<"Where",
   "    Where behaves like numpy.where with three parameters:"
   "    https://docs.scipy.org/doc/numpy/reference/generated/numpy.where.html"
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$condition,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$condition,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
     AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {21};
+    }
+  }];
 }
 
 def ONNXXorOp:ONNX_Op<"Xor",
@@ -3657,8 +5624,45 @@ def ONNXXorOp:ONNX_Op<"Xor",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$A,
-    AnyTypeOf<[AnyMemRef, AnyTensor]>:$B);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$A,
+    AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[I1]>, MemRefOf<[I1]>]>:$C);
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
+      auto lhsTy = A.getType().cast<RankedTensorType>();
+      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = A.getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      build(builder, state, elementType, A, B);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
+      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape()) {
+            elementType = operands[0].getType().cast<TensorType>().getElementType();
+            elementType = UnrankedTensorType::get(elementType);
+      }
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(elementType);
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {0};
+      }
+    }];
 }
 
