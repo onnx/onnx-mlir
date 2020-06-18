@@ -6,6 +6,25 @@ add_subdirectory(Tool)
 add_subdirectory(Builder)
 add_subdirectory(Runtime)
 
+# All ONNX-MLIR libraries.
+set(OMLibs
+        OMBuilder
+        OMKrnlOps
+        OMONNXOps
+        OMKrnlToAffine
+        OMKrnlToLLVM
+        OMONNXToKrnl
+        OMONNXRewrite
+        OMShapeInference
+        OMShapeInferenceOpInterface
+        OMAttributePromotion
+        OMPromotableConstOperandsOpInterface
+        OMResultTypeInferenceOpInterface
+        OMElideConstants
+        OMElideKrnlGlobalConstants
+        OMPackKrnlGlobalConstants
+        OMEnableMemoryPool)
+
 add_library(MainUtils
         MainUtils.hpp
         MainUtils.cpp)

@@ -252,26 +252,6 @@ set(MLIRLibs
 	      ${CURSES_LIBRARIES}
 	      ${ZLIB_LIBRARIES})
 
-# ONNX MLIR libraries that must be linked with --whole-archive for static build or
-# must be specified on LD_PRELOAD for shared build.
-set(OMLibs
-        OMBuilder
-        OMKrnlOps
-        OMONNXOps
-        OMKrnlToAffine
-        OMKrnlToLLVM
-        OMONNXToKrnl
-        OMONNXRewrite
-        OMShapeInference
-        OMShapeInferenceOpInterface
-        OMAttributePromotion
-        OMPromotableConstOperandsOpInterface
-        OMResultTypeInferenceOpInterface
-        OMElideConstants
-        OMElideKrnlGlobalConstants
-        OMPackKrnlGlobalConstants
-        OMEnableMemoryPool)
-
 set(LLVM_CMAKE_DIR
         "${LLVM_PROJ_BUILD}/lib/cmake/llvm"
         CACHE PATH "Path to LLVM cmake modules")
