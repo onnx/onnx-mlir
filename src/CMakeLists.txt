@@ -2,7 +2,6 @@ add_subdirectory(Interface)
 add_subdirectory(Dialect)
 add_subdirectory(Conversion)
 add_subdirectory(Transform)
-add_subdirectory(Tool)
 add_subdirectory(Builder)
 add_subdirectory(Runtime)
 
@@ -24,6 +23,8 @@ set(OMLibs
         OMElideKrnlGlobalConstants
         OMPackKrnlGlobalConstants
         OMEnableMemoryPool)
+
+add_subdirectory(Tool)
 
 add_library(MainUtils
         MainUtils.hpp
