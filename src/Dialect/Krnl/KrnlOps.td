@@ -271,6 +271,6 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [AffineScope]> {
   let regions = (region AnyRegion:$region);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
-  let parser = ?;
-  let printer = ?;
+  let printer = [{ return ::print(p, *this); }];
+  let parser = [{ return ::parse$cppClass(parser, result); }];
 }

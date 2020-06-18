@@ -367,6 +367,50 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
   state.addAttribute(KrnlEntryPointOp::getNumOutputsAttrName(), numOutputs);
 }
 
+//===----------------------------------------------------------------------===//
+// KrnlGetRefOp
+//===----------------------------------------------------------------------===//
+
+void print(OpAsmPrinter &p, KrnlGetRefOp &op) {
+  p << "krnl.getref(";
+  p.printOperands(op.operand_begin(), op.operand_end());
+  p << ")";
+  p << " : ";
+  p.printFunctionalType(op);
+}
+
+ParseResult parseKrnlGetRefOp(OpAsmParser &parser, OperationState &result) {
+  auto builder = parser.getBuilder();
+  auto context = builder.getContext();
+
+  // Parse operands: a MemRef followed by an iteger.
+  OpAsmParser::OperandType memRefInfo;
+  OpAsmParser::OperandType offsetInfo;
+  SmallVector<Type, 2> types;
+
+  if (parser.parseLParen() || parser.parseOperand(memRefInfo) ||
+      parser.parseComma() || parser.parseOperand(offsetInfo) ||
+      parser.parseRParen())
+    return failure();
+
+  // Parse the funtion type.
+  FunctionType funcTy;
+  if (parser.parseColonType(funcTy) ||
+      parser.addTypesToList(funcTy.getResults(), result.types)) {
+    failure();
+  }
+
+  // Resolve operands: a MemRef followed by an iteger.
+  if (parser.resolveOperand(memRefInfo, funcTy.getInput(0), result.operands) ||
+      parser.resolveOperand(offsetInfo, funcTy.getInput(1), result.operands))
+    return failure();
+
+  // Add a region.
+  Region *bodyRegion = result.addRegion();
+
+  return success();
+}
+
 #define GET_OP_CLASSES
 #include "src/Dialect/Krnl/KrnlOps.cpp.inc"
 } // namespace mlir

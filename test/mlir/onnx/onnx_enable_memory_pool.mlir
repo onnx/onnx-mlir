@@ -10,7 +10,7 @@ func @test_enable_memory_pool(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   // CHECK: [[CONST0:%.+]] = constant 0 : i64
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
   // CHECK: [[MEMPOOL:%.+]] = alloc() : memref<400xi8>
-  // CHECK: [[GETREF:%.+]] = "krnl.getref"([[MEMPOOL]], [[CONST0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
+  // CHECK: [[GETREF:%.+]] = krnl.getref([[MEMPOOL]], [[CONST0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
   // CHECK: krnl.define_loops
   // CHECK: krnl.optimize_loops
   // CHECK: krnl.iterate
@@ -37,9 +37,9 @@ func @test_enable_memory_pool_2(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf3
   // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[RES:%.+]] = alloc() : memref<10x20xf32>
   // CHECK: [[MEMPOOL0:%.+]] = alloc() : memref<800xi8>
-  // CHECK: [[GETREF0:%.+]] = "krnl.getref"([[MEMPOOL0]], [[CONST0]]) : (memref<800xi8>, i64) -> memref<10x20xf32>
+  // CHECK: [[GETREF0:%.+]] = krnl.getref([[MEMPOOL0]], [[CONST0]]) : (memref<800xi8>, i64) -> memref<10x20xf32>
   // CHECK: [[MEMPOOL1:%.+]] = alloc() : memref<400xi8>
-  // CHECK: [[GETREF1:%.+]] = "krnl.getref"([[MEMPOOL1]], [[CONST0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
+  // CHECK: [[GETREF1:%.+]] = krnl.getref([[MEMPOOL1]], [[CONST0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
   // CHECK: krnl.define_loops
   // CHECK: krnl.optimize_loops
   // CHECK: krnl.iterate

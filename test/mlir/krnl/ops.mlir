@@ -77,3 +77,17 @@ func @affine_map_bound(%N : index) {
 
   return
 }
+
+// -----
+
+func @getref(%arg0: memref<2x2xf32>) -> memref<2x2xf32> {
+  %c42_i64 = constant 42 : i64
+  %0 = alloc() : memref<10x10xf32>
+
+  // GENERIC: "krnl.getref"(%{{.*}}, %{{.*}}) ( {
+  // GENERIC-NEXT: }) : ({{.*}}, {{.*}}) -> {{.*}}
+  %1 = krnl.getref (%0, %c42_i64) : (memref<10x10xf32>, i64) -> memref<2x2xf32>
+
+  return %1 : memref<2x2xf32>
+
+}
