@@ -255,6 +255,9 @@ set(MLIRLibs
 # ONNX MLIR libraries that must be linked with --whole-archive for static build or
 # must be specified on LD_PRELOAD for shared build.
 set(OMLibs
+        OMBuilder
+        OMKrnlOps
+        OMONNXOps
         OMKrnlToAffine
         OMKrnlToLLVM
         OMONNXToKrnl

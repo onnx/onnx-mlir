@@ -43,22 +43,7 @@ endif()
 # targets, or only use it for libraries that have no further dependencies
 # (except system libraries such as libc).
 target_link_libraries(MainUtils
-        OMBuilder
-        OMKrnlOps
-        OMONNXOps
-        OMShapeInference
-        OMShapeInferenceOpInterface
-        OMAttributePromotion
-        OMPromotableConstOperandsOpInterface
-        OMResultTypeInferenceOpInterface
-        OMElideConstants
-        OMElideKrnlGlobalConstants
-        OMPackKrnlGlobalConstants
-        OMEnableMemoryPool
-        OMKrnlToAffine
-        OMKrnlToLLVM
-        OMONNXToKrnl
-        OMONNXRewrite
+        ${OMLibs}
         ${MLIRLibs}
         ${CMAKE_DL_LIBS})
 add_dependencies(onnx-mlir OMKrnlOpsInc OMONNXOpsInc)

@@ -11,9 +11,5 @@ if(BUILD_SHARED_LIBS)
 endif()
 
 target_link_libraries(onnx-mlir-opt
-        OMBuilder
-        OMKrnlOps
-        OMONNXOps
-        OMONNXRewrite
         ${OMLibs}
         ${MLIRLibs})
