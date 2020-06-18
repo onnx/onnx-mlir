@@ -22,9 +22,10 @@ set(OMLibs
         OMElideConstants
         OMElideKrnlGlobalConstants
         OMPackKrnlGlobalConstants
-        OMEnableMemoryPool
-        PARENT_SCOPE)
+        OMEnableMemoryPool)
+set(OMLibs ${OMLibs} PARENT_SCOPE)
 
+message(SATUS "OMLibs" ${OMLibs})
 add_subdirectory(Tool)
 
 add_library(MainUtils
