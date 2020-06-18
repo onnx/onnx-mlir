@@ -56,6 +56,13 @@ struct Command {
     return *this;
   }
 
+  // Append a single optional string argument.
+  Command &appendStrOpt(const llvm::Optional<std::string> &arg) {
+    if (arg.hasValue())
+      _args.emplace_back(arg.getValue());
+    return *this;
+  }
+
   // Append a list of string arguments.
   Command &appendList(const std::vector<std::string> &args) {
     _args.insert(_args.end(), args.begin(), args.end());
@@ -218,7 +225,7 @@ void compileModuleToSharedLibrary(
   std::string modelObjPath = outputBaseName + ".o";
   llvm::FileRemover modelObjRemover(modelObjPath);
 
-  std::string runtimeDirInclFlag;
+  llvm::Optional<std::string> runtimeDirInclFlag;
   if (getEnvVar("RUNTIME_DIR").hasValue())
     runtimeDirInclFlag = "-L" + getEnvVar("RUNTIME_DIR").getValue();
 
@@ -228,7 +235,7 @@ void compileModuleToSharedLibrary(
       .appendStr(modelObjPath)
       .appendStr(constPackObjPath.getValueOr(""))
       .appendList({"-o", outputBaseName + ".so"})
-      .appendStr(runtimeDirInclFlag)
+      .appendStrOpt(runtimeDirInclFlag)
       .appendList({"-lEmbeddedDataLoader", "-lcruntime"})
       .exec();
 }
