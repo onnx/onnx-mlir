@@ -20,8 +20,8 @@ target_link_libraries(onnx-mlir-opt
         ${MLIRLibs})
 
 if(BUILD_SHARED_LIBS)
-  target_link_libraries(onnx-mlir-opt
+  target_link_libraries(onnx-mlir-opt SHARED
           ${ONNXMLIRWholeArchiveLibs})
-  target_link_libraries(onnx-mlir-opt
+  target_link_libraries(onnx-mlir-opt SHARED
           ${MLIRWholeArchiveSharedLibs})
 endif()
