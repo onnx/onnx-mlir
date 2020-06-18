@@ -18,3 +18,8 @@ target_link_libraries(onnx-mlir-opt
         OMONNXOps
         OMONNXRewrite
         ${MLIRLibs})
+
+if (INCLUDE_ONNX_ML)
+  target_link_libraries(onnx-mlir-opt OMMLONNXOps)
+  add_dependencies(onnx-mlir-opt OMMLONNXOpsInc)
+endif()

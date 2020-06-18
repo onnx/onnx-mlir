@@ -31,7 +31,7 @@ public:
 
   /// Provide a utility accessor to the dialect namespace. This is used by
   /// several utilities for casting between dialects.
-  static StringRef getDialectNamespace() { return "onnx"; }
+  static StringRef getDialectNamespace() { return "mlonnx"; }
 };
 
 /// Include the auto-generated header file containing the declarations of the

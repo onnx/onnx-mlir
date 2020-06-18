@@ -23,7 +23,7 @@ add_custom_target(OMONNXOpsIncTranslation
         DEPENDS OMONNXOpsTableGenIncGen
                 OMONNXOpsBuildTableIncGen)
 
-# Invoke gen_onnx_mlir.py to obtain ONNXOps.td.inc, OpBuildTable.inc.
+# Invoke gen_onnx_mlir.py to obtain MLONNXOps.td.inc, MLOpBuildTable.inc.
 add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/MLONNXOps.td.inc
                 ${CMAKE_CURRENT_SOURCE_DIR}/MLOpBuildTable.inc
        	COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/gen_onnx_mlir.py --domain="ONNX_ML"
