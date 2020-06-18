@@ -256,6 +256,18 @@ set(MLIRWholeArchiveLibs
         MLIRSCF
         MLIRIR)
 
+set(MLIRWholeArchiveSharedLibs
+        ${MLIRAffineToStandard}
+        ${MLIRAffineOps}
+        ${MLIRLLVMIR}
+        ${MLIRStandardOps}
+        ${MLIRStandardToLLVM}
+        ${MLIRTransforms}
+        ${MLIRSCFToStandard}
+        ${MLIRVector}
+        ${MLIRSCF}
+        ${MLIRIR})
+
 # ONNX MLIR libraries that must be linked with --whole-archive for static build or
 # must be specified on LD_PRELOAD for shared build.
 set(ONNXMLIRWholeArchiveLibs

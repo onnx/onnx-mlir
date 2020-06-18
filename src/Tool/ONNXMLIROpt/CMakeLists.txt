@@ -23,5 +23,5 @@ if(BUILD_SHARED_LIBS)
   target_link_libraries(onnx-mlir-opt
           ${ONNXMLIRWholeArchiveLibs})
   target_link_libraries(onnx-mlir-opt
-          ${MLIRWholeArchiveLibs})
+          ${MLIRWholeArchiveSharedLibs})
 endif()
