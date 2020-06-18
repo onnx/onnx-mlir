@@ -266,6 +266,7 @@ set(OMLibs
         OMShapeInferenceOpInterface
         OMAttributePromotion
         OMPromotableConstOperandsOpInterface
+        OMResultTypeInferenceOpInterface
         OMElideConstants
         OMElideKrnlGlobalConstants
         OMPackKrnlGlobalConstants
