@@ -186,6 +186,16 @@ find_mlir_lib(LLVMDemangle)
 find_mlir_lib(LLVMFrontendOpenMP)
 
 set(MLIRLibs
+        ${MLIRAffineToStandard}
+        ${MLIRAffineOps}
+        ${MLIRLLVMIR}
+        ${MLIRStandardOps}
+        ${MLIRStandardToLLVM}
+        ${MLIRTransforms}
+        ${MLIRSCFToStandard}
+        ${MLIRVector}
+        ${MLIRSCF}
+        ${MLIRIR}
         ${MLIRLLVMIR}
         ${MLIROptLib}
         ${MLIRParser}
@@ -242,23 +252,9 @@ set(MLIRLibs
 	      ${CURSES_LIBRARIES}
 	      ${ZLIB_LIBRARIES})
 
-# MLIR libraries that must be linked with --whole-archive for static build or
-# must be specified on LD_PRELOAD for shared build.
-set(MLIRWholeArchiveLibs
-        MLIRAffineToStandard
-        MLIRAffineOps
-        MLIRLLVMIR
-        MLIRStandardOps
-        MLIRStandardToLLVM
-        MLIRTransforms
-        MLIRSCFToStandard
-        MLIRVector
-        MLIRSCF
-        MLIRIR)
-
 # ONNX MLIR libraries that must be linked with --whole-archive for static build or
 # must be specified on LD_PRELOAD for shared build.
-set(ONNXMLIRWholeArchiveLibs
+set(OMLibs
         OMKrnlToAffine
         OMKrnlToLLVM
         OMONNXToKrnl

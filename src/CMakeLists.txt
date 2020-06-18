@@ -29,7 +29,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
         ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp)
 
 set(ONNX_MLIR_LD_PRELOAD_onnx-mlir "" CACHE STRING "" FORCE)
-whole_archive_link_mlir(onnx-mlir ${MLIRWholeArchiveLibs})
 if(BUILD_SHARED_LIBS)
   message(STATUS "To run dynamically linked onnx-mlir, you must specify:")
   message(STATUS "LD_PRELOAD=${ONNX_MLIR_LD_PRELOAD_onnx-mlir}")
