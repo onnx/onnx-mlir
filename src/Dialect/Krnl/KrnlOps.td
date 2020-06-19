@@ -277,7 +277,9 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
 def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
   let summary = "Krnl block operation";
   let description = [{
-
+    Block a single for loop by a constant tile size. For instance,
+    $ib, $il = krnl.block %i, 4
+    means to block the for loop referred to by %i using a tile size of 4.
   }];
 
   let arguments = (ins
