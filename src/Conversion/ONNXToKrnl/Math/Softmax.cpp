@@ -104,9 +104,8 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
         outerLoopIVs.push_back(arg);
 
       // Reset accumulators.
-      rewriter.create<AffineStoreOp>(loc, zero, sumOp, ArrayRef<Value>{});
-      rewriter.create<AffineStoreOp>(
-          loc, negInfinity, maxOp, ArrayRef<Value>{});
+      rewriter.create<StoreOp>(loc, zero, sumOp);
+      rewriter.create<StoreOp>(loc, negInfinity, maxOp);
 
       // Create an inner loop to compute max.
       maxIterateOp = rewriter.create<KrnlIterateOp>(loc, innerPack);
@@ -116,9 +115,8 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
       softmaxIterateOp = rewriter.create<KrnlIterateOp>(loc, innerPack);
     } else {
       // Reset accumulators.
-      rewriter.create<AffineStoreOp>(loc, zero, sumOp, ArrayRef<Value>{});
-      rewriter.create<AffineStoreOp>(
-          loc, negInfinity, maxOp, ArrayRef<Value>{});
+      rewriter.create<StoreOp>(loc, zero, sumOp);
+      rewriter.create<StoreOp>(loc, negInfinity, maxOp);
 
       // Create an inner loop to compute max.
       maxIterateOp = rewriter.create<KrnlIterateOp>(loc, innerPack);
@@ -144,16 +142,16 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
       maxLoopIVs.push_back(arg);
 
     // Compute the max value.
-    Value max = rewriter.create<AffineLoadOp>(loc, maxOp);
+    Value max = rewriter.create<LoadOp>(loc, maxOp);
     Value nextMax = rewriter.create<AffineLoadOp>(loc, input, maxLoopIVs);
     auto maxCond =
         rewriter.create<CmpFOp>(loc, CmpFPredicate::OGT, max, nextMax);
     max = rewriter.create<SelectOp>(loc, maxCond, max, nextMax);
-    rewriter.create<AffineStoreOp>(loc, max, maxOp, ArrayRef<Value>{});
+    rewriter.create<StoreOp>(loc, max, maxOp);
 
     // Get the max.
     rewriter.setInsertionPoint(sumIterateOp);
-    max = rewriter.create<AffineLoadOp>(loc, maxOp);
+    max = rewriter.create<LoadOp>(loc, maxOp);
 
     // Insert instructions inside the sum loop.
     Block &sumIterationBlock = sumIterateOp.bodyRegion().front();
@@ -167,18 +165,18 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
       sumLoopIVs.push_back(arg);
 
     // Sum up values.
-    Value sum = rewriter.create<AffineLoadOp>(loc, sumOp);
+    Value sum = rewriter.create<LoadOp>(loc, sumOp);
     Value next = rewriter.create<AffineLoadOp>(loc, input, sumLoopIVs);
     Value sub = rewriter.create<SubFOp>(loc, next, max);
     Value exp = rewriter.create<ExpOp>(loc, sub);
     sum = rewriter.create<AddFOp>(loc, sum, exp);
-    rewriter.create<AffineStoreOp>(loc, sum, sumOp, ArrayRef<Value>{});
+    rewriter.create<StoreOp>(loc, sum, sumOp);
     // Store intermediate values in the result to avoid recomputation.
     rewriter.create<AffineStoreOp>(loc, exp, alloc, sumLoopIVs);
 
     // Get the sum.
     rewriter.setInsertionPoint(softmaxIterateOp);
-    sum = rewriter.create<AffineLoadOp>(loc, sumOp);
+    sum = rewriter.create<LoadOp>(loc, sumOp);
 
     // Insert instructions inside the softmax loop.
     Block &softmaxIterationBlock = softmaxIterateOp.bodyRegion().front();
