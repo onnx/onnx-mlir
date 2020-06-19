@@ -22,11 +22,10 @@
 #include "llvm/Support/FormatVariadic.h"
 
 #include "ONNXOps.hpp"
-#include "tf_types.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
-using namespace mlir::TF;
+//using namespace mlir::onnx_mlir;
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions

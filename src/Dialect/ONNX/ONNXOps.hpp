@@ -23,6 +23,7 @@
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Interface/ShapeInferenceInterface.hpp"
 
+#include "ONNXTypes.hpp"
 #include "ONNXOpsHelper.hpp"
 
 namespace mlir {
