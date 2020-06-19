@@ -70,5 +70,5 @@ LLVM_PROJ_BUILD=${LLVM_PROJECT_ROOT}/build      \
 cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} .. \
 
 make -j$(nproc) onnx-mlir
-VERBOSE=1 LIT_OPTS=-v make -j$(nproc) check-onnx-lit
+LIT_OPTS=-v make -j$(nproc) check-onnx-lit
 RUNTIME_DIR=$(pwd)/lib make -j$(nproc) check-onnx-backend
