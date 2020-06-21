@@ -69,6 +69,3 @@ public:
 std::unique_ptr<Pass> mlir::createElideConstGlobalValuePass() {
   return std::make_unique<ElideConstGlobalValuePass>();
 }
-
-static PassRegistration<ElideConstGlobalValuePass> pass("elide-krnl-constants",
-    "Elide the constant values of the Global Krnl operations.");

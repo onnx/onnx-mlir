@@ -909,6 +909,3 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
 std::unique_ptr<mlir::Pass> mlir::createKrnlLowerToLLVMPass() {
   return std::make_unique<KrnlToLLVMLoweringPass>();
 }
-
-static PassRegistration<KrnlToLLVMLoweringPass> pass(
-    "lower-all-llvm", "Lower the Krnl Affine and Std dialects to LLVM.");
