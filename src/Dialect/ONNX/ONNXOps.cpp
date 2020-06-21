@@ -491,14 +491,14 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
 }
 
 mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
-  if (parser.parseKeyword("string"))
+  if (parser.parseKeyword("String"))
     return Type();
 
   return StringType::get(getContext());
 }
 
 void ONNXOpsDialect::printType(mlir::Type type, mlir::DialectAsmPrinter &printer) const {
-  printer << "string";
+  printer << "String";
 }
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
@@ -1333,8 +1333,6 @@ LogicalResult ONNXConvOp::inferShapes() {
   auto weightTy = W().getType().cast<RankedTensorType>();
   auto weightShape = weightTy.getShape();
   auto builder = mlir::Builder(this->getContext());
-
-  auto myT = StringType::get(this->getContext());
 
   // Lowest supported convolution is a one dimensional convolution.
   if (xShape.size() < 3)

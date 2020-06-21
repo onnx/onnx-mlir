@@ -232,7 +232,7 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
            I64ArrayAttr:$pads,
            DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
            DefaultValuedAttr<StrAttr, "constant">:$mode);
-  let results = (outs AnyTypeOf<[AnyMemRef, TensorOf<[StringType]>]>:$output);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
   // A build method with the result type deduction.
   let builders = [OpBuilder<"OpBuilder &builder, OperationState &state, "
                             "Value data, ArrayAttr pads, "
