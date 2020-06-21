@@ -23,7 +23,6 @@
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Interface/ShapeInferenceInterface.hpp"
 
-#include "ONNXTypes.hpp"
 #include "ONNXOpsHelper.hpp"
 
 namespace mlir {
@@ -31,6 +30,12 @@ namespace mlir {
 class ONNXOpsDialect : public Dialect {
 public:
   ONNXOpsDialect(MLIRContext *context);
+
+  /// Parse an instance of a type registered to the onnx dialect.
+  mlir::Type parseType(mlir::DialectAsmParser &parser) const override;
+
+  /// Print an instance of a type registered to the onnx dialect.
+  void printType(mlir::Type type, mlir::DialectAsmPrinter &printer) const override;
 
   /// Provide a utility accessor to the dialect namespace. This is used by
   /// several utilities for casting between dialects.
@@ -42,6 +47,29 @@ public:
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.hpp.inc"
 
-} // end namespace mlir
+namespace ONNXTypes {
+
+enum Kind {
+  FIRST_USED_ONNX_TYPE = Type::FIRST_PRIVATE_EXPERIMENTAL_1_TYPE,
+//#define HANDLE_TF_TYPE(tftype, enumerant, name) enumerant,
+//#include "src/Dialect/ONNX/ONXTypes.def"
+  STRING,
+  LAST_USED_ONNX_TYPE,
+};
+}  // namespace ONNXTypes
+
+class StringType : public mlir::Type::TypeBase<StringType, mlir::Type> { 
+public:                                                             
+  using Base::Base;                                              
+  static bool kindof(unsigned kind) { return kind == ONNXTypes::STRING; } 
+
+  static unsigned getTypeKind() { return ONNXTypes::STRING; }
+
+  static StringType get(MLIRContext* ctx) { return Base::get(ctx, ONNXTypes::STRING);} 
+
+};
+
+}  // end namespace mlir
+
 
 namespace onnx_mlir {}

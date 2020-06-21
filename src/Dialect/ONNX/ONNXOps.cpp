@@ -11,6 +11,7 @@
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/Function.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Matchers.h"
@@ -25,7 +26,6 @@
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
-//using namespace mlir::onnx_mlir;
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
@@ -487,6 +487,18 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
 #define GET_OP_LIST
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
       >();
+  addTypes<StringType>();
+}
+
+mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
+  if (parser.parseKeyword("string"))
+    return Type();
+
+  return StringType::get(getContext());
+}
+
+void ONNXOpsDialect::printType(mlir::Type type, mlir::DialectAsmPrinter &printer) const {
+  printer << "string";
 }
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
