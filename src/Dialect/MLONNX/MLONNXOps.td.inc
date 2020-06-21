@@ -57,7 +57,7 @@ def MLONNXCastMapOp:MLONNX_Op<"CastMap",
   "    in ascending order based on this key.<br>The operator supports dense packing or sparse packing."
   "    If using sparse packing, the key cannot exceed the max_map-1 value."
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TupleOf<[TensorOf<[I64]>]>, MemRefOf<[I64]>]>:$X,
     DefaultValuedAttr<StrAttr, "TO_FLOAT">:$cast_to,
     DefaultValuedAttr<StrAttr, "DENSE">:$map_form,
     DefaultValuedAttr<I64Attr, "1">:$max_map);
@@ -124,7 +124,7 @@ def MLONNXDictVectorizerOp:MLONNX_Op<"DictVectorizer",
   "    then an input of ``{\"a\": 4, \"c\": 8}`` will produce an output of ``[4, 8, 0, 0]``."
   "    "
   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
+  let arguments = (ins AnyTypeOf<[TupleOf<[TensorOf<[I64,F32,F64]>]>, MemRefOf<[I64,F32,F64]>]>:$X,
     OptionalAttr<I64ArrayAttr>:$int64_vocabulary,
     OptionalAttr<StrArrayAttr>:$string_vocabulary);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Y);
@@ -555,7 +555,7 @@ def MLONNXZipMapOp:MLONNX_Op<"ZipMap",
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
     OptionalAttr<I64ArrayAttr>:$classlabels_int64s,
     OptionalAttr<StrArrayAttr>:$classlabels_strings);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$Z);
+  let results = (outs AnyTypeOf<[TensorOf<[TensorOf<[F32,I64]>]>, MemRefOf<[F32,I64]>]>:$Z);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;

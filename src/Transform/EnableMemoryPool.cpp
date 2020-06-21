@@ -154,6 +154,3 @@ public:
 std::unique_ptr<Pass> mlir::createKrnlEnableMemoryPoolPass() {
   return std::make_unique<KrnlEnableMemoryPoolPass>();
 }
-
-static PassRegistration<KrnlEnableMemoryPoolPass> pass("enable-memory-pool",
-    "Enable a memory pool for allocating internal MemRefs.");
