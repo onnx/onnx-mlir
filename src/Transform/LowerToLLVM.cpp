@@ -19,6 +19,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "onnx/onnx_pb.h"
 #include "llvm/ADT/Sequence.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -28,6 +29,38 @@
 using namespace mlir;
 
 namespace {
+
+static onnx::TensorProto::DataType llvmTypeToOnnxType(
+    mlir::LLVM::LLVMType elemType) {
+  if (elemType.isFloatTy())
+    return onnx::TensorProto::FLOAT;
+  if (elemType.isUnsignedInteger(8))
+    return onnx::TensorProto::UINT8;
+  if (elemType.isSignedInteger(8))
+    return onnx::TensorProto::INT8;
+  if (elemType.isUnsignedInteger(16))
+    return onnx::TensorProto::UINT16;
+  if (elemType.isSignedInteger(16))
+    return onnx::TensorProto::INT16;
+  if (elemType.isSignedInteger(32))
+    return onnx::TensorProto::INT32;
+  if (elemType.isSignedInteger(64))
+    return onnx::TensorProto::INT64;
+  // TODO, wait for Tong's input about how string is represented in MLIR.
+  if (elemType.isInteger(1))
+    return onnx::TensorProto::BOOL;
+  if (elemType.isHalfTy())
+    return onnx::TensorProto::FLOAT16;
+  if (elemType.isDoubleTy())
+    return onnx::TensorProto::DOUBLE;
+  if (elemType.isUnsignedInteger(32))
+    return onnx::TensorProto::UINT32;
+  if (elemType.isUnsignedInteger(64))
+    return onnx::TensorProto::INT64;
+  // Complex types don't seem to exist in LLVM Dialect.
+  elemType.dump();
+  llvm_unreachable("Unexpected LLVM type, cannot be converted to ONNX type.");
+}
 
 static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
     ModuleOp module, mlir::LLVM::LLVMType funcType, PatternRewriter &rewriter) {
@@ -374,6 +407,8 @@ public:
     SET_DATA,
     GET_SIZES,
     GET_STRIDES,
+    SET_DTYPE,
+    GET_DTYPE,
   };
 
   struct ApiSpec {
@@ -556,7 +591,9 @@ private:
         ApiSpec(API::GET_DYN_MEM_REF, "getDynMemRef", opaquePtrTy, {opaquePtrTy, int32Ty}),
         ApiSpec(API::SET_DYN_MEM_REF, "setDynMemRef", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy}),
         ApiSpec(API::GET_SIZES, "getSizes", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_STRIDES, "getStrides", int64PtrTy, {opaquePtrTy})
+        ApiSpec(API::GET_STRIDES, "getStrides", int64PtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_DTYPE, "getDType", int32Ty, {opaquePtrTy}),
+        ApiSpec(API::SET_DTYPE, "setDType", voidTy, {opaquePtrTy, int32Ty}),
     };
     // clang-format on
 
@@ -665,6 +702,7 @@ private:
       LLVM::LLVMDialect *llvmDialect) const {
     auto outMemRefTy = outMemRef.getType().dyn_cast<LLVM::LLVMType>();
     auto int64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
+    auto int32Ty = LLVM::LLVMType::getInt32Ty(llvmDialect);
 
     // Extract the data pointer, and record it in dynamic mem ref created.
     Value outMemRefDataPtr = rewriter.create<LLVM::ExtractValueOp>(loc,
@@ -674,6 +712,12 @@ private:
         loc, LLVM::LLVMType::getInt8PtrTy(llvmDialect), outMemRefDataPtr);
     callApi(rewriter, loc, apiRegistry, API::SET_DATA,
         {outDynMemRef, outMemRefDataPtr});
+    auto elemTy = outMemRefTy.getStructElementType(0).getPointerElementTy();
+    auto onnxTy = llvmTypeToOnnxType(elemTy);
+    auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
+        loc, int32Ty, rewriter.getI32IntegerAttr(onnxTy));
+    callApi(
+        rewriter, loc, apiRegistry, API::SET_DTYPE, {outDynMemRef, onnxTyVal});
 
     auto rank = getRankFromMemRefType(outMemRefTy);
     auto sizesArrayPtr =

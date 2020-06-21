@@ -29,14 +29,34 @@ typedef int64_t INDEX_TYPE;
 // all ranks and type combinations.
 // We will refer to it as a DMR (Dynamic MemRef).
 struct DynMemRef {
+
+  // Pointer to the raw memory space allocated to host the DMR content. This
+  // pointer should only be acessed for memory management purposes, not for
+  // reading DMR content.
   void *data;
+
+  // Pointer to the properly aligned array of elements stored in this Dmr.
   void *alignedData;
+
+  // Distance between the start of the raw memory space and the first element of
+  // the DMR content.
   INDEX_TYPE offset;
 
+  // Number of dimensions of the array represented by the DMR.
   unsigned int rank;
+
+  // An array recording the per-dimension sizes of the array represented by the
+  // DMR.
   INDEX_TYPE *sizes;
+
+  // An array recording the per-dimension strides of the array represented by
+  // the DMR.
   int64_t *strides;
 
+  // Refer to TensorProto_DataType at
+  // https://github.com/onnx/onnx/blob/cc2230603422bae893d5bc900d2d773ab34400a4/onnx/onnx-ml.proto#L451
+  // for enum value interpretation.
+  unsigned int dtype;
 #ifdef __cplusplus
   explicit DynMemRef(int _rank);
 
@@ -143,6 +163,12 @@ void *getAlignedData(DynMemRef *);
 
 // Set aligned data pointer for dynMemRef.
 void setAlignedData(DynMemRef *, void *);
+
+// Get the data type enum value of the dynMemRef.
+int getDType(DynMemRef *dynMemRef);
+
+// Set the data type enum value of the dynMemRef.
+void setDType(DynMemRef *dynMemRef, int onnxType);
 
 // Get ptr to sizes array.
 INDEX_TYPE *getSizes(DynMemRef *);

@@ -9,6 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "onnx/onnx_pb.h"
+
 #include "PyExecutionSession.hpp"
 
 namespace onnx_mlir {
@@ -48,8 +50,15 @@ std::vector<py::array> PyExecutionSession::pyRun(
     auto *dynMemRef = getDynMemRef(wrappedOutput, i);
     auto shape = std::vector<int64_t>(
         dynMemRef->sizes, dynMemRef->sizes + dynMemRef->rank);
-    outputPyArrays.emplace_back(
-        py::array(py::dtype("float32"), shape, dynMemRef->data));
+
+    // https://numpy.org/devdocs/user/basics.types.html
+    py::dtype dtype;
+    if (dynMemRef->dtype == onnx::TensorProto::INT32)
+      dtype = py::dtype("int32");
+    else if (dynMemRef->dtype == onnx::TensorProto::FLOAT)
+      dtype = py::dtype("float32");
+
+    outputPyArrays.emplace_back(py::array(dtype, shape, dynMemRef->data));
   }
 
   return outputPyArrays;

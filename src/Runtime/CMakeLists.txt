@@ -28,7 +28,8 @@ pybind11_add_module(PyRuntime
 target_link_libraries(PyRuntime PRIVATE
         ${CMAKE_DL_LIBS}
         ExecutionSession
-        DynMemRefUtils)
+        DynMemRefUtils
+        onnx)
 target_include_directories(PyRuntime PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_BIN_ROOT}
