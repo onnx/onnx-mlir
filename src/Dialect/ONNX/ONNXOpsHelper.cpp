@@ -10,6 +10,8 @@
 
 #include "ONNXOpsHelper.hpp"
 
+#include "ONNXOps.hpp"
+
 // Identity affine
 using namespace mlir;
 AffineMap getIdentityDimMap(Builder &builder) {
@@ -68,8 +70,10 @@ mlir::Type convertONNXTypeToMLIRType(
     return builder_.getIntegerType(/*width=*/64);
   case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
     return builder_.getI1Type();
-
   case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
+    //return builder_.getType(mlir::StringType);
+    return StringType::get(builder_.getContext());
+
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
