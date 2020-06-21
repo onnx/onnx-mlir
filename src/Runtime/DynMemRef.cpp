@@ -159,6 +159,8 @@ void setDType(DynMemRef *dynMemRef, int onnxType) {
 
 int getDType(DynMemRef *dynMemRef) { return dynMemRef->dtype; }
 
+unsigned int getRank(DynMemRef *dynMemRef) { return dynMemRef->rank; }
+
 void setStrides(DynMemRef *dynMemRef, int64_t *strides) {
   for (int i = 0; i < dynMemRef->rank; i++)
     dynMemRef->sizes[i] = strides[i];

@@ -170,6 +170,9 @@ int getDType(DynMemRef *dynMemRef);
 // Set the data type enum value of the dynMemRef.
 void setDType(DynMemRef *dynMemRef, int onnxType);
 
+// Get the rank of the dynMemRef.
+unsigned int getRank(DynMemRef *dynMemRef);
+
 // Get ptr to sizes array.
 INDEX_TYPE *getSizes(DynMemRef *);
 
