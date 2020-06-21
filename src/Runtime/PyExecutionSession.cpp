@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "onnx/onnx_pb.h"
+#include <third_party/onnx/onnx/onnx_pb.h>
 
 #include "PyExecutionSession.hpp"
 
@@ -53,10 +54,31 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
     // https://numpy.org/devdocs/user/basics.types.html
     py::dtype dtype;
-    if (dynMemRef->dtype == onnx::TensorProto::INT32)
-      dtype = py::dtype("int32");
-    else if (dynMemRef->dtype == onnx::TensorProto::FLOAT)
+    if (dynMemRef->dtype == onnx::TensorProto::FLOAT)
       dtype = py::dtype("float32");
+    else if (dynMemRef->dtype = onnx::TensorProto::UINT8)
+      dtype = py::dtype("uint8");
+    else if (dynMemRef->dtype = onnx::TensorProto::INT8)
+      dtype = py::dtype("int8");
+    else if (dynMemRef->dtype = onnx::TensorProto::UINT16)
+      dtype = py::dtype("uint16");
+    else if (dynMemRef->dtype = onnx::TensorProto::INT16)
+      dtype = py::dtype("int16");
+    else if (dynMemRef->dtype == onnx::TensorProto::INT32)
+      dtype = py::dtype("int32");
+    else if (dynMemRef->dtype == onnx::TensorProto::INT64)
+      dtype = py::dtype("int64");
+    // TODO(tjingrant) wait for Tong's input for how to represent string.
+    else if (dynMemRef->dtype = onnx::TensorProto::BOOL)
+      dtype = py::dtype("bool_");
+    else if (dynMemRef->dtype = onnx::TensorProto::FLOAT16)
+      dtype = py::dtype("float32");
+    else if (dynMemRef->dtype = onnx::TensorProto::DOUBLE)
+      dtype = py::dtype("float64");
+    else if (dynMemRef->dtype == onnx::TensorProto::UINT32)
+      dtype = py::dtype("uint32");
+    else if (dynMemRef->dtype == onnx::TensorProto::UINT64)
+      dtype = py::dtype("uint64");
 
     outputPyArrays.emplace_back(py::array(dtype, shape, dynMemRef->data));
   }
