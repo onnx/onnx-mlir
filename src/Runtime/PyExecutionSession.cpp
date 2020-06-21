@@ -79,6 +79,10 @@ std::vector<py::array> PyExecutionSession::pyRun(
       dtype = py::dtype("uint32");
     else if (dynMemRef->dtype == onnx::TensorProto::UINT64)
       dtype = py::dtype("uint64");
+    else {
+      fprintf(stderr, "Unsupported ONNX type in DynMemRef.dtype.");
+      exit(1);
+    }
 
     outputPyArrays.emplace_back(py::array(dtype, shape, dynMemRef->data));
   }
