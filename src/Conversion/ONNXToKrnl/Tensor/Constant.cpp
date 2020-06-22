@@ -25,9 +25,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
 
-    if (constantOp.sparse_value().hasValue()) {
-      emitError(loc, "Only support dense values at this time");
-    }
+    if (constantOp.sparse_value().hasValue())
+      return emitError(loc, "Only support dense values at this time");
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
@@ -39,9 +38,11 @@ struct ONNXConstantOpLowering : public ConversionPattern {
 
     // Emit the constant global in Krnl dialect.
     auto constantGlobal = rewriter.create<KrnlGlobalOp>(loc, memRefType,
-        rewriter.getI64ArrayAttr(shape),
+        /*shape=*/rewriter.getI64ArrayAttr(shape),
+        /*name=*/
         rewriter.getStringAttr("constant_" + std::to_string(constantID)),
-        constantOp.value().getValue());
+        /*value=*/constantOp.value().getValue(),
+        /*offset=*/nullptr);
 
     // Increment constant ID:
     constantID++;

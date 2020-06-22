@@ -165,6 +165,7 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   target.addLegalOp<KrnlMemcpyOp>();
   target.addLegalOp<KrnlEntryPointOp>();
   target.addLegalOp<KrnlGlobalOp>();
+  target.addLegalOp<KrnlGetRefOp>();
 
   OwningRewritePatternList patterns;
   patterns.insert<KrnlIterateOpLowering, KrnlTerminatorLowering,
@@ -180,6 +181,3 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 std::unique_ptr<Pass> mlir::createLowerKrnlPass() {
   return std::make_unique<KrnlToAffineLoweringPass>();
 }
-
-static PassRegistration<KrnlToAffineLoweringPass> pass(
-    "lower-krnl", "Lower Krnl dialect.");

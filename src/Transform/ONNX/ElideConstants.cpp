@@ -43,7 +43,7 @@ public:
     auto constOp = llvm::dyn_cast<ONNXConstantOp>(&op);
 
     if (constOp->sparse_value().hasValue())
-      emitError(loc, "Only support dense values at this time");
+      return emitError(loc, "Only support dense values at this time");
 
     if (constOp->value().hasValue()) {
       auto newConstOp = rewriter.create<ONNXConstantOp>(
@@ -78,6 +78,3 @@ public:
 std::unique_ptr<mlir::Pass> mlir::createElideConstantValuePass() {
   return std::make_unique<ElideConstantValuePass>();
 }
-
-static PassRegistration<ElideConstantValuePass> pass(
-    "elide-constants", "Elide values of constant operations.");

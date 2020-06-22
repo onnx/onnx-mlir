@@ -22,6 +22,7 @@
 
 #include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/MLONNX/MLONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -71,3 +72,6 @@ void outputCode(
 void emitOutputFiles(std::string outputBaseName,
     EmissionTargetType emissionTarget, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
+
+int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, EmissionTargetType targetType);

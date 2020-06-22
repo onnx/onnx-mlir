@@ -186,6 +186,16 @@ find_mlir_lib(LLVMDemangle)
 find_mlir_lib(LLVMFrontendOpenMP)
 
 set(MLIRLibs
+        ${MLIRAffineToStandard}
+        ${MLIRAffineOps}
+        ${MLIRLLVMIR}
+        ${MLIRStandardOps}
+        ${MLIRStandardToLLVM}
+        ${MLIRTransforms}
+        ${MLIRSCFToStandard}
+        ${MLIRVector}
+        ${MLIRSCF}
+        ${MLIRIR}
         ${MLIRLLVMIR}
         ${MLIROptLib}
         ${MLIRParser}
@@ -241,93 +251,6 @@ set(MLIRLibs
         ${CMAKE_THREAD_LIBS_INIT}
 	      ${CURSES_LIBRARIES}
 	      ${ZLIB_LIBRARIES})
-
-# MLIR libraries that must be linked with --whole-archive for static build or
-# must be specified on LD_PRELOAD for shared build.
-set(MLIRWholeArchiveLibs
-        MLIRAffineToStandard
-        MLIRAffineOps
-        MLIRLLVMIR
-        MLIRStandardOps
-        MLIRStandardToLLVM
-        MLIRTransforms
-        MLIRSCFToStandard
-        MLIRVector
-        MLIRSCF
-        MLIRIR)
-
-# ONNX MLIR libraries that must be linked with --whole-archive for static build or
-# must be specified on LD_PRELOAD for shared build.
-set(ONNXMLIRWholeArchiveLibs
-        OMKrnlToAffine
-        OMKrnlToLLVM
-        OMONNXToKrnl
-        OMONNXRewrite
-        OMShapeInference
-        OMShapeInferenceOpInterface
-        OMAttributePromotion
-        OMPromotableConstOperandsOpInterface
-        OMElideConstants
-        OMElideKrnlGlobalConstants)
-
-# Function to construct linkage option for the static libraries that must be
-# linked with --whole-archive (or equivalent).
-function(whole_archive_link target lib_dir)
-  get_property(link_flags TARGET ${target} PROPERTY LINK_FLAGS)
-  if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
-    set(link_flags "${link_flags} -L${lib_dir}  ")
-    foreach(LIB ${ARGN})
-      string(CONCAT link_flags ${link_flags}
-              "-Wl,-force_load, ${lib_dir}/lib${LIB}.a ")
-    endforeach(LIB)
-  elseif(MSVC)
-    foreach(LIB ${ARGN})
-      string(CONCAT link_flags ${link_flags} "/WHOLEARCHIVE:${lib_dir}/${LIB} ")
-    endforeach(LIB)
-  else()
-    set(link_flags "${link_flags} -L${lib_dir} -Wl,--whole-archive,")
-    foreach(LIB ${ARGN})
-      string(CONCAT link_flags ${link_flags} "-l${LIB},")
-    endforeach(LIB)
-    string(CONCAT link_flags ${link_flags} "--no-whole-archive")
-  endif()
-  set_target_properties(${target} PROPERTIES LINK_FLAGS ${link_flags})
-endfunction(whole_archive_link)
-
-# Function to construct LD_PRELOAD value for the shared libraries whose
-# static counterpart need --whole-archive linkage option.
-function(ld_preload_libs target lib_dir)
-  foreach(lib ${ARGN})
-    if("${${lib}}" STREQUAL "")
-      set(ONNX_MLIR_LD_PRELOAD_${target}
-	"${ONNX_MLIR_LD_PRELOAD_${target}}:${lib_dir}/lib${lib}.so"
-	CACHE STRING "" FORCE)
-    else()
-      set(ONNX_MLIR_LD_PRELOAD_${target}
-	"${ONNX_MLIR_LD_PRELOAD_${target}}:${${lib}}"
-	CACHE STRING "" FORCE)
-    endif()
-  endforeach(lib)
-endfunction(ld_preload_libs)
-
-function(whole_archive_link_mlir target)
-  if(BUILD_SHARED_LIBS)
-    ld_preload_libs(${target} ${LLVM_PROJECT_LIB} ${ARGN})
-  else()
-    whole_archive_link(${target} ${LLVM_PROJECT_LIB} ${ARGN})
-  endif()
-endfunction(whole_archive_link_mlir)
-
-function(whole_archive_link_onnx_mlir target)
-  foreach(lib_target ${ARGN})
-    add_dependencies(${target} ${lib_target})
-  endforeach(lib_target)
-  if(BUILD_SHARED_LIBS)
-    ld_preload_libs(${target} ${ONNX_MLIR_LIB_DIR} ${ARGN})
-  else()
-    whole_archive_link(${target} ${ONNX_MLIR_LIB_DIR} ${ARGN})
-  endif()
-endfunction(whole_archive_link_onnx_mlir)
 
 set(LLVM_CMAKE_DIR
         "${LLVM_PROJ_BUILD}/lib/cmake/llvm"

@@ -74,7 +74,7 @@ def KrnlOptimizeLoopsOp : Op<Krnl_Dialect, "optimize_loops"> {
   let parser = [{ return ::parse$cppClass(parser, result); }];
 }
 
-def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator]> {
+def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator, AffineScope]> {
   let summary = "iterate operation";
   let description = [{
     The "krnl.iterate" operation is conceptually equivalent to a nested for loops.
@@ -196,10 +196,78 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy"> {
 def KrnlGlobalOp : Op<Krnl_Dialect, "global"> {
   let summary = "Krnl global operation";
   let description = [{
-    Operation for holding global data values.
+    Operation for holding global data values. A global constant can have a
+    meaningful name recorded as its `name` attribute. Its content is stored
+    in the `value` dense element attribute. Alternatively, if the constants
+    are packed together, `offset` records the byte offset in the global
+    constant pool from which the current constant is to be read.
   }];
 
-  let arguments = (ins AnyAttr:$shape, StrAttr:$name, OptionalAttr<AnyAttr>:$value);
+  let arguments = (ins AnyAttr:$shape,
+    StrAttr:$name, OptionalAttr<AnyAttr>:$value, OptionalAttr<I64Attr>:$offset);
+  let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlPackedConstantOp : Op<Krnl_Dialect, "packed_const"> {
+  let summary = "Krnl packed constant operation";
+  let description = [{
+    Operation for holding packed constants.
+  }];
+
+  let arguments = (ins I64Attr:$size_in_bytes,
+                       BoolAttr:$is_le,
+                       OptionalAttr<AnyIntElementsAttr<8>>:$value,
+                       OptionalAttr<StrAttr>:$file_name);
+  let results = (outs I64:$output);
+
+  let extraClassDeclaration = [{
+    // The *path* to the file storing the constant pack on disk is encoded
+    // as a global variable in the LLVM module of the lowered model.
+    // getConstPackFilePathSymbolName returns the name of this symbol;
+    // getConstPackFilePathStrLenSymbolName returns the name of the symbol holding
+    // a constant value equal to the length of the file path.
+    static StringRef getConstPackFilePathSymbolName() { return "constPackFilePath"; }
+    static StringRef getConstPackFilePathStrLenSymbolName() { return "constPackFilePathStrLen"; }
+
+    // The *name* of the file storing the constant pack is also recorded for
+    // convenience. Similarly, getConstPackFileNameSymbolName and
+    // getConstPackFileNameStrLenSymbolName returns records the symbol holding
+    // the string constant representing the filename and the length of this
+    // string constant.
+    static StringRef getConstPackFileNameSymbolName() { return "constPackFileName"; }
+    static StringRef getConstPackFileNameStrLenSymbolName() { return "constPackFileNameStrLen"; }
+
+    // We record whether the constant pack is stored in LE byte order as a
+    // int8 symbol; it is to be interpreted as a boolean switch - with 0
+    // meaning that the constant pack is not stored in LE byte order and
+    // non-0 values meaning that it is stored in LE byte order.
+    static StringRef getConstPackIsLESymbolName() { return "constPackIsLE"; }
+    // The name of a function we call to read packed constants embedded within
+    // the current binary executable/library, or in the case of unsupported platform,
+    // from a binary constant pack file.
+    static StringRef getEmbeddedDataLoaderMethodName() {
+      return "getEmbeddedConstPool";
+    }
+  }];
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
+  let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
+  let description = [{
+    Retreieves a MemRef from within another MemRef:
+
+    "krnl.getref"(%memref, %offset)
+
+    The offset is an integer which is used as an index into the input MemRef. It works
+    just like an array index.
+  }];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
   let parser = ?;

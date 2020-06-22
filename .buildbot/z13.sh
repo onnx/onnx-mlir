@@ -71,4 +71,4 @@ cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} .. \
 
 make -j$(nproc) onnx-mlir
 make -j$(nproc) check-onnx-lit
-make -j$(nproc) check-onnx-backend
+RUNTIME_DIR=$(pwd)/lib make -j$(nproc) check-onnx-backend
