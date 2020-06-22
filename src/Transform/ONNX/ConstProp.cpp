@@ -375,6 +375,3 @@ void ConstPropONNXToONNXPass::runOnFunction() {
 std::unique_ptr<mlir::Pass> mlir::createConstPropONNXToONNXPass() {
   return std::make_unique<ConstPropONNXToONNXPass>();
 }
-
-static PassRegistration<ConstPropONNXToONNXPass> pass("constprop-onnx",
-    "ConstProp ONNX operations into composition of other ONNX operations.");
