@@ -548,11 +548,18 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         loopIVs.push_back(arg);
     }
 
-    auto loadedVal = rewriter.create<AffineLoadOp>(loc, X, loopIVs);
+    Value loadedVal;
+    if (loopIVs.empty())
+      loadedVal = rewriter.create<LoadOp>(loc, X);
+    else
+      loadedVal = rewriter.create<AffineLoadOp>(loc, X, loopIVs);
     auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
         rewriter, loc, op, memRefType.getElementType(), {loadedVal});
     // Store result in the resulting array.
-    rewriter.create<AffineStoreOp>(loc, loweredOpResult, alloc, loopIVs);
+    if (loopIVs.empty())
+      rewriter.create<StoreOp>(loc, loweredOpResult, alloc);
+    else
+      rewriter.create<AffineStoreOp>(loc, loweredOpResult, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -621,19 +628,28 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     }
     // Fold over operands for each of their scalar values
     Value accumulated, next;
-    auto accumulatedLoopIVs = getLoopIVsForBroadcasting(
+    std::vector<Value> accumulatedLoopIVs = getLoopIVsForBroadcasting(
         loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
-    accumulated =
-        rewriter.create<AffineLoadOp>(loc, operands[0], accumulatedLoopIVs);
+    if (accumulatedLoopIVs.empty())
+      accumulated = rewriter.create<LoadOp>(loc, operands[0]);
+    else
+      accumulated =
+          rewriter.create<AffineLoadOp>(loc, operands[0], accumulatedLoopIVs);
     for (unsigned i = 1; i < numArgs; i++) {
-      auto nextLoopIVs = getLoopIVsForBroadcasting(
+      std::vector<Value> nextLoopIVs = getLoopIVsForBroadcasting(
           loc, rewriter, loopIVs, operands[i], broadcastedDimInfo[i]);
-      next = rewriter.create<AffineLoadOp>(loc, operands[i], nextLoopIVs);
+      if (nextLoopIVs.empty())
+        next = rewriter.create<LoadOp>(loc, operands[i]);
+      else
+        next = rewriter.create<AffineLoadOp>(loc, operands[i], nextLoopIVs);
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
           rewriter, loc, op, memRefType.getElementType(), {accumulated, next});
     }
     // Store result in the resulting array.
-    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopIVs);
+    if (loopIVs.empty())
+      rewriter.create<StoreOp>(loc, accumulated, alloc);
+    else
+      rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 

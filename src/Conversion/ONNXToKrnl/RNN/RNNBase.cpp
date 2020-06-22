@@ -68,6 +68,6 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   else
     llvm_unreachable("Unsupported activation");
 
-  Value result = rewriter.create<AffineLoadOp>(loc, res);
+  Value result = rewriter.create<LoadOp>(loc, res);
   return result;
 }
