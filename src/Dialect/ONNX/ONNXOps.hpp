@@ -47,6 +47,13 @@ public:
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.hpp.inc"
 
+// The namespace onnxmlir is experimental.
+// onnx_mlir has been used in KRNL. Other candidates are onnxops, onnxdialect.
+// Should this namesapce for onnx mlir project or ONNXOp dialect? 
+// Or we need two namespace?
+// Will put all the ONNXOps into this namespace
+namespace onnxmlir {
+
 namespace ONNXTypes {
 
 enum Kind {
@@ -54,6 +61,7 @@ enum Kind {
 //#define HANDLE_TF_TYPE(tftype, enumerant, name) enumerant,
 //#include "src/Dialect/ONNX/ONXTypes.def"
   STRING,
+  SEQ,
   LAST_USED_ONNX_TYPE,
 };
 }  // namespace ONNXTypes
@@ -68,6 +76,28 @@ public:
   static StringType get(MLIRContext* ctx) { return Base::get(ctx, ONNXTypes::STRING);} 
 
 };
+
+#if 0
+namespace detail {
+struct SeqTypeStorage;
+} // end namespace onnx_detail
+
+class SeqType : public mlir::Type::TypeBase<SeqType, mlir::Type, SeqTypeStorage> {
+public:
+  using Base::Base;
+  static bool kindof(unsinged kind) { return kid == ONNXTypes::SEQ; }
+  
+  static unsigned getTypeKind() { return ONNXTypes::SEQ; }
+
+  static SeqType get(llvm::ArrayRef<lir::Type> elementTypes);
+
+  llvm::ArrayRef<mlir::Type> getElementTypes();
+
+  size_t getNumElementTypes() { return getElementTypes().size();}
+}
+#endif
+
+} // end namespace onnxmlir
 
 }  // end namespace mlir
 

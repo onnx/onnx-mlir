@@ -26,6 +26,7 @@
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
+using namespace mlir::onnxmlir;
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
@@ -342,11 +343,6 @@ static LogicalResult RNNShapeInference(T *op) {
   Value X = op->X();
   Value W = op->W();
   Value R = op->R();
-
-  //if (X.getType().isa<mlir::TF::TensorFlowTypes::VARIANT>())
-  //  return op->emitError("Input tensor not ranked");
-  StringType  myt;
-
 
   if (!X.getType().isa<RankedTensorType>() ||
       !W.getType().isa<RankedTensorType>() ||
