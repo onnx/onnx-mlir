@@ -363,9 +363,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
     for (unsigned i = 0; i < 4; ++i) {
       Value xwAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-      rewriter.create<AffineStoreOp>(loc, zero, xwAlloc, ArrayRef<Value>{});
+      rewriter.create<StoreOp>(loc, zero, xwAlloc);
       Value hrAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-      rewriter.create<AffineStoreOp>(loc, zero, hrAlloc, ArrayRef<Value>{});
+      rewriter.create<StoreOp>(loc, zero, hrAlloc);
       xwIOFC.emplace_back(xwAlloc);
       hrIOFC.emplace_back(hrAlloc);
     }
@@ -413,16 +413,14 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
           Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
           Value loadXW = rewriter.create<AffineLoadOp>(loc, xwIOFC[i]);
           Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
-          rewriter.create<AffineStoreOp>(
-              loc, nextXW, xwIOFC[i], ArrayRef<Value>{});
+          rewriter.create<StoreOp>(loc, nextXW, xwIOFC[i]);
           // Ht-1 * Riofc
           Value loadR = rewriter.create<AffineLoadOp>(
               loc, operandAdaptor.R(), rIOFCIVs[i]);
           Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
           Value loadHR = rewriter.create<AffineLoadOp>(loc, hrIOFC[i]);
           Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
-          rewriter.create<AffineStoreOp>(
-              loc, nextHR, hrIOFC[i], ArrayRef<Value>{});
+          rewriter.create<StoreOp>(loc, nextHR, hrIOFC[i]);
         }
       }
       rewriter.restoreInsertionPoint(ipReductionLoops);

@@ -28,7 +28,7 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   MemRefType scalarMemRefType =
       MemRefType::get({}, scalarOperand.getType(), {}, 0);
   Value alloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-  rewriter.create<AffineStoreOp>(loc, scalarOperand, alloc, ArrayRef<Value>{});
+  rewriter.create<StoreOp>(loc, scalarOperand, alloc);
 
   std::vector<mlir::NamedAttribute> attributes;
   if (activation.alpha) {
