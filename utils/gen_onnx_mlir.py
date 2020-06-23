@@ -36,9 +36,6 @@ parser.add_argument("--check-operation-version",
                          " newer version of operation compared with version stored in  version_dicts",
                     action="store_true",
                     default=False)
-parser.add_argument("--domain",
-                    help="specify domain, ONNX or ONNX_ML",
-                    default = "ONNX")
 
 args = parser.parse_args()
 
@@ -50,7 +47,7 @@ check_operation_version = args.check_operation_version
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
-onnx_version_dict = {'Abs': 6,
+version_dict = {'Abs': 6,
  'Acos': 7,
  'Acosh': 9,
  'Add': 7,
@@ -205,9 +202,8 @@ onnx_version_dict = {'Abs': 6,
  'Unsqueeze': 11,
  'Upsample': 10,
  'Where': 9,
- 'Xor': 7}
-
-onnx_ml_version_dict = {'ArrayFeatureExtractor': 1,
+ 'Xor': 7,
+ 'ArrayFeatureExtractor': 1,
  'Binarizer': 1,
  'CastMap': 1,
  'CategoryMapper': 1,
@@ -334,15 +330,8 @@ MAX_NUM_TYPES=20
 
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
-ONNX_ML = bool(args.domain == "ONNX_ML")
-
-sys.stderr.write("ONNX_ML {}\n".format(ONNX_ML))
 
 def should_render_domain(domain):  # type: (Text) -> bool
-    if domain == ONNX_ML_DOMAIN and not ONNX_ML:
-        return False
-    elif ONNX_ML and domain != ONNX_ML_DOMAIN:
-        return False
     return True
 
 
@@ -424,13 +413,14 @@ def get_tblgen_type_index(type_str):
     return tblgen_types.index(type_str)
 
 #the possible data structures are tensor, map and seq(tensor())
-#TOFIX: currently, only tensor structure is supported
-def get_data_structure_element(allowed_type_str):
-    if allowed_type_str.startswith('tensor') :
-        element = allowed_type_str.replace('tensor(', '', 1).replace(')', '', 1)
-        return ('tensor', element)
-    else :
-        return (None, None)
+def get_data_structure_element(allowed_type_str): 
+    structure_list = ['tensor', 'seq', 'map']
+    for structure in structure_list:
+        if allowed_type_str.startswith(structure) :
+            element = allowed_type_str.replace(
+                structure+'(', '', 1).replace(')', '', 1)
+            return (structure, element)
+    return (None, None)
 
 def get_allowed_elem_types(schema, input):
     #allowed_types_str = None
@@ -446,19 +436,25 @@ def get_allowed_elem_types(schema, input):
                 continue
             allowed_type_list=[]
             allowedTypes = type_constraint.allowed_type_strs
+            allowed_structure = None
             for allowedType in allowedTypes:
                 structure, element = get_data_structure_element(allowedType);
                 if structure == None or element == None:
-                    return None
+                    return None, None
+
+                if allowed_structure != None and allowed_structure != structure :
+                    print("{}: one structure assumed".format(schema.name))
+                    sys.exit(-1)
+                allowed_structure = structure
                 t = np_type_to_tblgen_attr_type(element)
                 if t == None :
-                    return None
+                    return allowed_structure, None
                 if  not t in allowed_type_list :
                     allowed_tyoe_list = allowed_type_list.append(t)
-
-            return allowed_type_list
-
-    return None
+    
+            return allowed_structure,allowed_type_list
+    
+    return None, None
 
 
 def inc_indent(indent=None):
@@ -486,14 +482,37 @@ def get_operands_or_results(schema, is_input):
 
     name_to_types = OrderedDict()
     for i, value in enumerate(value_list):
-        elem_types = get_allowed_elem_types(schema, value)
+        structure, elem_types = get_allowed_elem_types(schema, value)
 
-        if elem_types is None:
-            types = ["AnyMemRef", "AnyTensor"]
+        if structure == 'tensor' :
+            if elem_types is None:
+                types = ["AnyMemRef", "AnyTensor"]
+            else:
+                elem_types_str = ','.join(elem_types)
+                types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
+                types = list(map(lambda x: x.format(elem_types_str), types))
+        elif structure == 'seq' :
+            # Seq is not supported yet.
+            # Use of TensorOf<[AnyTensor]> as a placeholder for tablegen.
+            # When the Operation is used, warning/error will be generated at runtime.
+            if elem_types is None:
+                types = ["AnyMemRef", "TensorOf<[AnyTensor]>"]
+            else:
+                elem_types_str = ','.join(elem_types)
+                types = ["TensorOf<[TensorOf<[{}]>]>", "MemRefOf<[{}]>"]
+                types = list(map(lambda x: x.format(elem_types_str), types))
+        elif structure == 'map' :
+            # Map is not supported yet.
+            # Use of TupleOf as a placeholder for tablegen.
+            # When the Operation is used, warning/error will be generated at runtime.
+            if elem_types is None:
+                types = ["AnyMemRef", "TupleOf<[AnyTensor]>"]
+            else:
+                elem_types_str = ','.join(elem_types)
+                types = ["TupleOf<[TensorOf<[{}]>]>", "MemRefOf<[{}]>"]
+                types = list(map(lambda x: x.format(elem_types_str), types))
         else:
-            elem_types_str = ','.join(elem_types)
-            types = ["TensorOf<[{}]>", "MemRefOf<[{}]>"]
-            types = list(map(lambda x: x.format(elem_types_str), types))
+            types = ["AnyMemRef", "AnyTensor"]
 
         # If operand is promotable to an attribute, then it must be
         # nullable in case it migrates to be an attribute.
@@ -592,7 +611,7 @@ def get_output_type_mapping(schema):
     mapping=[]
     for output in schema.outputs :
         #if only one type is allowed, just set that
-        allowed_elem_types = get_allowed_elem_types(schema, output)
+        structure, allowed_elem_types = get_allowed_elem_types(schema, output)
         if allowed_elem_types != None and len(allowed_elem_types) == 1 :
             mapping.append(str(get_tblgen_type_index(allowed_elem_types[0])))
             continue
@@ -678,10 +697,7 @@ def get_type_inference_func(s, indent, type_inference_code):
 
 def gen_op_def(schema):
     indent = inc_indent()
-    if (ONNX_ML) :
-        s = 'def MLONNX{0}Op:MLONNX_Op<"{0}",\n'.format(schema.name)
-    else :
-        s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
+    s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
 
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
@@ -851,12 +867,8 @@ def gen_op_importer(schema, file):
         if OpSchema.FormalParameterOption.Variadic == output.option:
             expected_num_results = -1
 
-    if ONNX_ML:
-        handler_func = special_op_handler.get(
-            schema.name, "buildOperation<mlir::MLONNX{}Op>".format(schema.name))
-    else:
-        handler_func = special_op_handler.get(
-            schema.name, "buildOperation<mlir::ONNX{}Op>".format(schema.name))
+    handler_func = special_op_handler.get(
+        schema.name, "buildOperation<mlir::ONNX{}Op>".format(schema.name))
 
     # Special handlers currently require expected num operands/results to be specified.
     # TODO: remove special handlers.
@@ -890,10 +902,6 @@ def build_operator_schemas():
     for domain, _supportmap in sorted(index.items()):
         if not should_render_domain(domain):
             continue
-        if domain == ONNX_ML_DOMAIN:
-            version_dict = onnx_ml_version_dict
-        else:
-            version_dict = onnx_version_dict
         processed_supportmap = list()
         for _support, _namemap in sorted(_supportmap.items()):
             processed_namemap = list()
@@ -976,19 +984,13 @@ if __name__ == '__main__':
         if args.dry_run_onnx_ops:
             op_def = StringIO()
         else:
-            if args.domain == 'ONNX_ML':
-                op_def_file_path = os.path.join(curr_dir, 'MLONNXOps.td.inc')
-            else:
-                op_def_file_path = os.path.join(curr_dir, 'ONNXOps.td.inc')
+            op_def_file_path = os.path.join(curr_dir, 'ONNXOps.td.inc')
             op_def = io.open(op_def_file_path, 'w', newline='')
 
         if args.dry_run_op_build_table:
             op_importer = StringIO()
         else:
-            if args.domain == 'ONNX_ML':
-                op_importer_file_path = os.path.join(curr_dir, 'MLOpBuildTable.inc')
-            else :
-                op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
+            op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
             op_importer = io.open(op_importer_file_path, 'w', newline='')
     main(Args)
 

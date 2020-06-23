@@ -154,6 +154,26 @@ ONNX ArgMin operation
 | :----: | ----------- |
 `reduced` | memref of any type values or tensor of any type values
 
+### `onnx.ArrayFeatureExtractor` (ONNXArrayFeatureExtractorOp)
+
+ONNX ArrayFeatureExtractor operation
+
+"Select elements of the input tensor based on the indices passed.<br>"
+"    The indices are applied to the last axes of the tensor."
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | memref of any type values or tensor of any type values
+`Y` | memref of any type values or tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Z` | memref of any type values or tensor of any type values
+
 ### `onnx.Asin` (ONNXAsinOp)
 
 ONNX Asin operation
@@ -363,6 +383,30 @@ ONNX BatchNormalization operation in test mode
 | :----: | ----------- |
 `o_Y` | memref of any type values or tensor of any type values
 
+### `onnx.Binarizer` (ONNXBinarizerOp)
+
+ONNX Binarizer operation
+
+"Maps the values of the input tensor to either 0 or 1, element-wise, based on the outcome of a comparison against a threshold value."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`threshold` | FloatAttr | 32-bit float attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
 ### `onnx.BitShift` (ONNXBitShiftOp)
 
 ONNX BitShift operation
@@ -398,6 +442,34 @@ ONNX BitShift operation
 | Result | Description |
 | :----: | ----------- |
 `Z` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values
+
+### `onnx.CastMap` (ONNXCastMapOp)
+
+ONNX CastMap operation
+
+"Converts a map to a tensor.<br>The map key must be an int64 and the values will be ordered"
+"    in ascending order based on this key.<br>The operator supports dense packing or sparse packing."
+"    If using sparse packing, the key cannot exceed the max_map-1 value."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`cast_to` | StringAttr | string attribute
+`map_form` | StringAttr | string attribute
+`max_map` | IntegerAttr | 64-bit signless integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tuple with any combination of tensor of 64-bit signless integer values values or memref of 64-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
 
 ### `onnx.Cast` (ONNXCastOp)
 
@@ -440,6 +512,40 @@ ONNX Cast operation
 | Result | Description |
 | :----: | ----------- |
 `output` | memref of any type values or tensor of any type values
+
+### `onnx.CategoryMapper` (ONNXCategoryMapperOp)
+
+ONNX CategoryMapper operation
+
+"Converts strings to integers and vice versa.<br>"
+"    Two sequences of equal length are used to map between integers and strings,"
+"    with strings and integers at the same index detailing the mapping.<br>"
+"    Each operator converts either integers to strings or strings to integers, depending "
+"    on which default value attribute is provided. Only one default value attribute"
+"    should be defined.<br>"
+"    If the string default value is set, it will convert integers to strings."
+"    If the int default value is set, it will convert strings to integers."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`cats_int64s` | ArrayAttr | 64-bit integer array attribute
+`cats_strings` | ArrayAttr | string array attribute
+`default_int64` | IntegerAttr | 64-bit signless integer attribute
+`default_string` | StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | memref of any type values or tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
 
 ### `onnx.Ceil` (ONNXCeilOp)
 
@@ -531,7 +637,7 @@ ONNX ConcatFromSequence operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of any type values
+`input_sequence` | memref of any type values or tensor of tensor of any type values values
 
 #### Results:
 
@@ -895,6 +1001,42 @@ ONNX Det operation
 | :----: | ----------- |
 `Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
 
+### `onnx.DictVectorizer` (ONNXDictVectorizerOp)
+
+ONNX DictVectorizer operation
+
+"Uses an index mapping to convert a dictionary to an array.<br>"
+"    Given a dictionary, each key is looked up in the vocabulary attribute corresponding to"
+"    the key type. The index into the vocabulary array at which the key is found is then"
+"    used to index the output 1-D tensor 'Y' and insert into it the value found in the dictionary 'X'.<br>"
+"    The key type of the input map must correspond to the element type of the defined vocabulary attribute."
+"    Therefore, the output array will be equal in length to the index mapping vector parameter."
+"    All keys in the input dictionary must be present in the index mapping vector."
+"    For each item in the input dictionary, insert its value in the output array."
+"    Any keys not present in the input dictionary, will be zero in the output array.<br>"
+"    For example: if the ``string_vocabulary`` parameter is set to ``[\"a\", \"c\", \"b\", \"z\"]``,"
+"    then an input of ``{\"a\": 4, \"c\": 8}`` will produce an output of ``[4, 8, 0, 0]``."
+"    "
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`int64_vocabulary` | ArrayAttr | 64-bit integer array attribute
+`string_vocabulary` | ArrayAttr | string array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tuple with any combination of tensor of 64-bit signless integer or 32-bit float or 64-bit float values values or memref of 64-bit signless integer or 32-bit float or 64-bit float values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
+
 ### `onnx.Div` (ONNXDivOp)
 
 ONNX Div operation
@@ -1134,6 +1276,33 @@ ONNX EyeLike operation
 | Result | Description |
 | :----: | ----------- |
 `output` | tensor of 16-bit float or 32-bit float or 64-bit float or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 1-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 1-bit signless integer values
+
+### `onnx.FeatureVectorizer` (ONNXFeatureVectorizerOp)
+
+ONNX FeatureVectorizer operation
+
+"Concatenates input tensors into one continuous output.<br>"
+"    All input shapes are 2-D and are concatenated along the second dimention. 1-D tensors are treated as [1,C]."
+"    Inputs are copied to the output maintaining the order of the input arguments.<br>"
+"    All inputs must be integers or floats, while the output will be all floating point values."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`inputdimensions` | ArrayAttr | 64-bit integer array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 32-bit signless integer or 64-bit signless integer or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 32-bit float or 64-bit float values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
 
 ### `onnx.Flatten` (ONNXFlattenOp)
 
@@ -1768,6 +1937,40 @@ ONNX If operation
 | :----: | ----------- |
 `outputs` | memref of any type values or tensor of any type values
 
+### `onnx.Imputer` (ONNXImputerOp)
+
+ONNX Imputer operation
+
+"Replaces inputs that equal one value with another, leaving all other elements alone.<br>"
+"    This operator is typically used to replace missing values in situations where they have a canonical"
+"    representation, such as -1, 0, NaN, or some extreme value.<br>"
+"    One and only one of imputed_value_floats or imputed_value_int64s should be defined -- floats if the input tensor"
+"    holds floats, integers if the input tensor holds integers. The imputed values must all fit within the"
+"    width of the tensor element type. One and only one of the replaced_value_float or replaced_value_int64 should be defined,"
+"    which one depends on whether floats or integers are being processed.<br>"
+"    The imputed_value attribute length can be 1 element, or it can have one element per input feature.<br>In other words, if the input tensor has the shape [*,F], then the length of the attribute array may be 1 or F. If it is 1, then it is broadcast along the last dimension and applied to each feature."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`imputed_value_floats` | ArrayAttr | 32-bit float array attribute
+`imputed_value_int64s` | ArrayAttr | 64-bit integer array attribute
+`replaced_value_float` | FloatAttr | 32-bit float attribute
+`replaced_value_int64` | IntegerAttr | 64-bit signless integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
 ### `onnx.InstanceNormalization` (ONNXInstanceNormalizationOp)
 
 ONNX InstanceNormalization operation
@@ -1997,6 +2200,54 @@ ONNX LSTM operation
 `Y_h` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
 `Y_c` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
 
+### `onnx.LabelEncoder` (ONNXLabelEncoderOp)
+
+ONNX LabelEncoder operation
+
+"Maps each element in the input tensor to another value.<br>"
+"    The mapping is determined by the two parallel attributes, 'keys_*' and"
+"    'values_*' attribute. The i-th value in the specified 'keys_*' attribute"
+"    would be mapped to the i-th value in the specified 'values_*' attribute. It"
+"    implies that input's element type and the element type of the specified"
+"    'keys_*' should be identical while the output type is identical to the"
+"    specified 'values_*' attribute. If an input element can not be found in the"
+"    specified 'keys_*' attribute, the 'default_*' that matches the specified"
+"    'values_*' attribute may be used as its output value.<br>"
+"    Let's consider an example which maps a string tensor to an integer tensor."
+"    Assume and 'keys_strings' is [\"Amy\", \"Sally\"], 'values_int64s' is [5, 6],"
+"    and 'default_int64' is '-1'.  The input [\"Dori\", \"Amy\", \"Amy\", \"Sally\","
+"    \"Sally\"] would be mapped to [-1, 5, 5, 6, 6].<br>"
+"    Since this operator is an one-to-one mapping, its input and output shapes"
+"    are the same. Notice that only one of 'keys_*'/'values_*' can be set.<br>"
+"    For key look-up, bit-wise comparison is used so even a float NaN can be"
+"    mapped to a value in 'values_*' attribute.<br>"
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`default_float` | FloatAttr | 32-bit float attribute
+`default_int64` | IntegerAttr | 64-bit signless integer attribute
+`default_string` | StringAttr | string attribute
+`keys_floats` | ArrayAttr | 32-bit float array attribute
+`keys_int64s` | ArrayAttr | 64-bit integer array attribute
+`keys_strings` | ArrayAttr | string array attribute
+`values_floats` | ArrayAttr | 32-bit float array attribute
+`values_int64s` | ArrayAttr | 64-bit integer array attribute
+`values_strings` | ArrayAttr | string array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | memref of any type values or tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
+
 ### `onnx.LeakyRelu` (ONNXLeakyReluOp)
 
 ONNX LeakyRelu operation
@@ -2044,6 +2295,68 @@ ONNX Less operation
 | Result | Description |
 | :----: | ----------- |
 `C` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+
+### `onnx.LinearClassifier` (ONNXLinearClassifierOp)
+
+ONNX LinearClassifier operation
+
+"Linear classifier"
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`classlabels_ints` | ArrayAttr | 64-bit integer array attribute
+`classlabels_strings` | ArrayAttr | string array attribute
+`coefficients` | ArrayAttr | 32-bit float array attribute
+`intercepts` | ArrayAttr | 32-bit float array attribute
+`multi_class` | IntegerAttr | 64-bit signless integer attribute
+`post_transform` | StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
+`Z` | memref of any type values or tensor of any type values
+
+### `onnx.LinearRegressor` (ONNXLinearRegressorOp)
+
+ONNX LinearRegressor operation
+
+"Generalized linear regression evaluation.<br>"
+"    If targets is set to 1 (default) then univariate regression is performed.<br>"
+"    If targets is set to M then M sets of coefficients must be passed in as a sequence"
+"    and M results will be output for each input n in N.<br>"
+"    The coefficients array is of length n, and the coefficients for each target are contiguous."
+"    Intercepts are optional but if provided must match the number of targets."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`coefficients` | ArrayAttr | 32-bit float array attribute
+`intercepts` | ArrayAttr | 32-bit float array attribute
+`post_transform` | StringAttr | string attribute
+`targets` | IntegerAttr | 64-bit signless integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
 
 ### `onnx.Log` (ONNXLogOp)
 
@@ -2744,6 +3057,39 @@ ONNX NonZero operation
 | :----: | ----------- |
 `Y` | memref of any type values or tensor of any type values
 
+### `onnx.Normalizer` (ONNXNormalizerOp)
+
+ONNX Normalizer operation
+
+"Normalize the input.  There are three normalization modes, which have the corresponding formulas,"
+"    defined using element-wise infix operators '/' and '^' and tensor-wide functions 'max' and 'sum':<br>"
+"<br>"
+"    Max: Y = X / max(X)<br>"
+"    L1:  Y = X / sum(X)<br>"
+"    L2:  Y = sqrt(X^2 / sum(X^2)}<br>"
+"    In all modes, if the divisor is zero, Y == X."
+"<br>"
+"    For batches, that is, [N,C] tensors, normalization is done along the C axis. In other words, each row"
+"    of the batch is normalized independently."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`norm` | StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
+
 ### `onnx.Not` (ONNXNotOp)
 
 ONNX Not operation
@@ -2761,6 +3107,39 @@ ONNX Not operation
 | Result | Description |
 | :----: | ----------- |
 `Y` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+
+### `onnx.OneHotEncoder` (ONNXOneHotEncoderOp)
+
+ONNX OneHotEncoder operation
+
+"Replace each input element with an array of ones and zeros, where a single"
+"    one is placed at the index of the category that was passed in. The total category count "
+"    will determine the size of the extra dimension of the output array Y.<br>"
+"    For example, if we pass a tensor with a single value of 4, and a category count of 8, "
+"    the output will be a tensor with ``[0,0,0,0,1,0,0,0]``.<br>"
+"    This operator assumes every input feature is from the same set of categories.<br>"
+"    If the input is a tensor of float, int32, or double, the data will be cast"
+"    to integers and the cats_int64s category list will be used for the lookups."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`cats_int64s` | ArrayAttr | 64-bit integer array attribute
+`cats_strings` | ArrayAttr | string array attribute
+`zeros` | IntegerAttr | 64-bit signless integer attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | memref of any type values or tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
 
 ### `onnx.OneHot` (ONNXOneHotOp)
 
@@ -3945,6 +4324,97 @@ ONNX Round operation
 | :----: | ----------- |
 `Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
 
+### `onnx.SVMClassifier` (ONNXSVMClassifierOp)
+
+ONNX SVMClassifier operation
+
+"Support Vector Machine classifier"
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`classlabels_ints` | ArrayAttr | 64-bit integer array attribute
+`classlabels_strings` | ArrayAttr | string array attribute
+`coefficients` | ArrayAttr | 32-bit float array attribute
+`kernel_params` | ArrayAttr | 32-bit float array attribute
+`kernel_type` | StringAttr | string attribute
+`post_transform` | StringAttr | string attribute
+`prob_a` | ArrayAttr | 32-bit float array attribute
+`prob_b` | ArrayAttr | 32-bit float array attribute
+`rho` | ArrayAttr | 32-bit float array attribute
+`support_vectors` | ArrayAttr | 32-bit float array attribute
+`vectors_per_class` | ArrayAttr | 64-bit integer array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
+`Z` | memref of any type values or tensor of any type values
+
+### `onnx.SVMRegressor` (ONNXSVMRegressorOp)
+
+ONNX SVMRegressor operation
+
+"Support Vector Machine regression prediction and one-class SVM anomaly detection."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`coefficients` | ArrayAttr | 32-bit float array attribute
+`kernel_params` | ArrayAttr | 32-bit float array attribute
+`kernel_type` | StringAttr | string attribute
+`n_supports` | IntegerAttr | 64-bit signless integer attribute
+`one_class` | IntegerAttr | 64-bit signless integer attribute
+`post_transform` | StringAttr | string attribute
+`rho` | ArrayAttr | 32-bit float array attribute
+`support_vectors` | ArrayAttr | 32-bit float array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
+
+### `onnx.Scaler` (ONNXScalerOp)
+
+ONNX Scaler operation
+
+"Rescale input data, for example to standardize features by removing the mean and scaling to unit variance."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`offset` | ArrayAttr | 32-bit float array attribute
+`scale` | ArrayAttr | 32-bit float array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
+
 ### `onnx.Scan` (ONNXScanOp)
 
 ONNX Scan operation
@@ -4363,7 +4833,7 @@ ONNX SequenceAt operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of any type values
+`input_sequence` | memref of any type values or tensor of tensor of any type values values
 `position` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values
 
 #### Results:
@@ -4389,7 +4859,7 @@ ONNX SequenceConstruct operation
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of any type values
+`output_sequence` | memref of any type values or tensor of tensor of any type values values
 
 ### `onnx.SequenceEmpty` (ONNXSequenceEmptyOp)
 
@@ -4407,7 +4877,7 @@ ONNX SequenceEmpty operation
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | memref of any type values or tensor of tensor of any type values values
 
 ### `onnx.SequenceErase` (ONNXSequenceEraseOp)
 
@@ -4422,14 +4892,14 @@ ONNX SequenceErase operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of any type values
+`input_sequence` | memref of any type values or tensor of tensor of any type values values
 `position` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of any type values
+`output_sequence` | memref of any type values or tensor of tensor of any type values values
 
 ### `onnx.SequenceInsert` (ONNXSequenceInsertOp)
 
@@ -4445,7 +4915,7 @@ ONNX SequenceInsert operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of any type values
+`input_sequence` | memref of any type values or tensor of tensor of any type values values
 `tensor` | memref of any type values or tensor of any type values
 `position` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values or none type
 
@@ -4453,7 +4923,7 @@ ONNX SequenceInsert operation
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of any type values
+`output_sequence` | memref of any type values or tensor of tensor of any type values values
 
 ### `onnx.SequenceLength` (ONNXSequenceLengthOp)
 
@@ -4465,7 +4935,7 @@ ONNX SequenceLength operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of any type values
+`input_sequence` | memref of any type values or tensor of tensor of any type values values
 
 #### Results:
 
@@ -4828,7 +5298,7 @@ ONNX SplitToSequence operation
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of any type values
+`output_sequence` | memref of any type values or tensor of tensor of any type values values
 
 ### `onnx.Sqrt` (ONNXSqrtOp)
 
@@ -5161,6 +5631,104 @@ ONNX Transpose operation
 | :----: | ----------- |
 `transposed` | memref of any type values or tensor of any type values
 
+### `onnx.TreeEnsembleClassifier` (ONNXTreeEnsembleClassifierOp)
+
+ONNX TreeEnsembleClassifier operation
+
+"Tree Ensemble classifier.  Returns the top class for each of N inputs.<br>"
+"    The attributes named 'nodes_X' form a sequence of tuples, associated by "
+"    index into the sequences, which must all be of equal length. These tuples"
+"    define the nodes.<br>"
+"    Similarly, all fields prefixed with 'class_' are tuples of votes at the leaves."
+"    A leaf may have multiple votes, where each vote is weighted by"
+"    the associated class_weights index.<br>"
+"    One and only one of classlabels_strings or classlabels_int64s"
+"    will be defined. The class_ids are indices into this list."
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`base_values` | ArrayAttr | 32-bit float array attribute
+`class_ids` | ArrayAttr | 64-bit integer array attribute
+`class_nodeids` | ArrayAttr | 64-bit integer array attribute
+`class_treeids` | ArrayAttr | 64-bit integer array attribute
+`class_weights` | ArrayAttr | 32-bit float array attribute
+`classlabels_int64s` | ArrayAttr | 64-bit integer array attribute
+`classlabels_strings` | ArrayAttr | string array attribute
+`nodes_falsenodeids` | ArrayAttr | 64-bit integer array attribute
+`nodes_featureids` | ArrayAttr | 64-bit integer array attribute
+`nodes_hitrates` | ArrayAttr | 32-bit float array attribute
+`nodes_missing_value_tracks_true` | ArrayAttr | 64-bit integer array attribute
+`nodes_modes` | ArrayAttr | string array attribute
+`nodes_nodeids` | ArrayAttr | 64-bit integer array attribute
+`nodes_treeids` | ArrayAttr | 64-bit integer array attribute
+`nodes_truenodeids` | ArrayAttr | 64-bit integer array attribute
+`nodes_values` | ArrayAttr | 32-bit float array attribute
+`post_transform` | StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
+`Z` | memref of any type values or tensor of any type values
+
+### `onnx.TreeEnsembleRegressor` (ONNXTreeEnsembleRegressorOp)
+
+ONNX TreeEnsembleRegressor operation
+
+"Tree Ensemble regressor.  Returns the regressed values for each input in N.<br>"
+"    All args with nodes_ are fields of a tuple of tree nodes, and"
+"    it is assumed they are the same length, and an index i will decode the"
+"    tuple across these inputs.  Each node id can appear only once"
+"    for each tree id.<br>"
+"    All fields prefixed with target_ are tuples of votes at the leaves.<br>"
+"    A leaf may have multiple votes, where each vote is weighted by"
+"    the associated target_weights index.<br>"
+"    All trees must have their node ids start at 0 and increment by 1.<br>"
+"    Mode enum is BRANCH_LEQ, BRANCH_LT, BRANCH_GTE, BRANCH_GT, BRANCH_EQ, BRANCH_NEQ, LEAF"
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`aggregate_function` | StringAttr | string attribute
+`base_values` | ArrayAttr | 32-bit float array attribute
+`n_targets` | IntegerAttr | 64-bit signless integer attribute
+`nodes_falsenodeids` | ArrayAttr | 64-bit integer array attribute
+`nodes_featureids` | ArrayAttr | 64-bit integer array attribute
+`nodes_hitrates` | ArrayAttr | 32-bit float array attribute
+`nodes_missing_value_tracks_true` | ArrayAttr | 64-bit integer array attribute
+`nodes_modes` | ArrayAttr | string array attribute
+`nodes_nodeids` | ArrayAttr | 64-bit integer array attribute
+`nodes_treeids` | ArrayAttr | 64-bit integer array attribute
+`nodes_truenodeids` | ArrayAttr | 64-bit integer array attribute
+`nodes_values` | ArrayAttr | 32-bit float array attribute
+`post_transform` | StringAttr | string attribute
+`target_ids` | ArrayAttr | 64-bit integer array attribute
+`target_nodeids` | ArrayAttr | 64-bit integer array attribute
+`target_treeids` | ArrayAttr | 64-bit integer array attribute
+`target_weights` | ArrayAttr | 32-bit float array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Y` | memref of any type values or tensor of any type values
+
 ### `onnx.Unique` (ONNXUniqueOp)
 
 ONNX Unique operation
@@ -5369,4 +5937,32 @@ ONNX Xor operation
 | Result | Description |
 | :----: | ----------- |
 `C` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+
+### `onnx.ZipMap` (ONNXZipMapOp)
+
+ONNX ZipMap operation
+
+"Creates a map from the input and the attributes.<br>"
+"    The values are provided by the input tensor, while the keys are specified by the attributes."
+"    Must provide keys in either classlabels_strings or classlabels_int64s (but not both).<br>"
+"    The columns of the tensor correspond one-by-one to the keys specified by the attributes. There must be as many columns as keys.<br>"
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+`classlabels_int64s` | ArrayAttr | 64-bit integer array attribute
+`classlabels_strings` | ArrayAttr | string array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`X` | memref of any type values or tensor of any type values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+`Z` | tensor of tensor of 32-bit float or 64-bit signless integer values values or memref of 32-bit float or 64-bit signless integer values
 

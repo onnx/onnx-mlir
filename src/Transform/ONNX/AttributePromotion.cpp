@@ -101,6 +101,3 @@ public:
 std::unique_ptr<mlir::Pass> mlir::createAttributePromotionPass() {
   return std::make_unique<AttributePromotionPass>();
 }
-
-static PassRegistration<AttributePromotionPass> pass(
-    "attribute-promotion", "Promote constant operands to attributes.");
