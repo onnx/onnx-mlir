@@ -92,8 +92,8 @@ public:
       // Current memory pool size is the offset for the newly bundled
       // internal MemRef. Emit the offset as a constant.
       auto offset = rewriter.create<ConstantOp>(
-          loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64),
-                                       currentMemPoolSize));
+          loc, rewriter.getIntegerAttr(
+              rewriter.getIntegerType(64), currentMemPoolSize));
 
       // Size in bytes of the output of the krnl.getref operation.
       int64_t unbundledTotalSize =
@@ -111,9 +111,8 @@ public:
           rewriter.create<AllocOp>(loc, bundledMemPoolMemRefType);
 
       // The newly bundled MemRef expressed as a KrnlGetRefOp.
-      auto bundledMemRef =
-          rewriter.create<KrnlGetRefOp>(loc,
-              unbundledGetRef.getResult().getType(), bundledAlloc, offset);
+      auto bundledMemRef = rewriter.create<KrnlGetRefOp>(
+          loc, unbundledGetRef.getResult().getType(), bundledAlloc, offset);
       rewriter.replaceOp(unbundledGetRef, bundledMemRef.getResult());
 
       // Replace old memory pool with new one.
