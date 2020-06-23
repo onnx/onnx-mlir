@@ -167,9 +167,7 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
               dilations.empty() ? 1 : dilations[spatialIndex]));
 
       // Apply the affine map.
-      Value dimVal =
-          rewriter.create<AffineApplyOp>(loc, dimMap, dimArgs);
-
+      Value dimVal = rewriter.create<AffineApplyOp>(loc, dimMap, dimArgs);
       allocOperands.emplace_back(dimVal);
     }
   }
