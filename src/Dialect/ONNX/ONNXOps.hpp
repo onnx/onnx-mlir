@@ -35,7 +35,8 @@ public:
   mlir::Type parseType(mlir::DialectAsmParser &parser) const override;
 
   /// Print an instance of a type registered to the onnx dialect.
-  void printType(mlir::Type type, mlir::DialectAsmPrinter &printer) const override;
+  void printType(
+      mlir::Type type, mlir::DialectAsmPrinter &printer) const override;
 
   /// Provide a utility accessor to the dialect namespace. This is used by
   /// several utilities for casting between dialects.
@@ -49,7 +50,7 @@ public:
 
 // The namespace onnxmlir is experimental.
 // onnx_mlir has been used in KRNL. Other candidates are onnxops, onnxdialect.
-// Should this namesapce for onnx mlir project or ONNXOp dialect? 
+// Should this namesapce for onnx mlir project or ONNXOp dialect?
 // Or we need two namespace?
 // Will put all the ONNXOps into this namespace
 namespace onnxmlir {
@@ -58,28 +59,28 @@ namespace ONNXTypes {
 
 enum Kind {
   FIRST_USED_ONNX_TYPE = Type::FIRST_PRIVATE_EXPERIMENTAL_1_TYPE,
-//#define HANDLE_TF_TYPE(tftype, enumerant, name) enumerant,
-//#include "src/Dialect/ONNX/ONXTypes.def"
+  //#define HANDLE_TF_TYPE(tftype, enumerant, name) enumerant,
+  //#include "src/Dialect/ONNX/ONXTypes.def"
   STRING,
   SEQ,
   LAST_USED_ONNX_TYPE,
 };
-}  // namespace ONNXTypes
+} // namespace ONNXTypes
 
-class StringType : public mlir::Type::TypeBase<StringType, mlir::Type> { 
-public:                                                             
-  using Base::Base;                                              
-  static bool kindof(unsigned kind) { return kind == ONNXTypes::STRING; } 
+class StringType : public mlir::Type::TypeBase<StringType, mlir::Type> {
+public:
+  using Base::Base;
+  static bool kindof(unsigned kind) { return kind == ONNXTypes::STRING; }
 
   static unsigned getTypeKind() { return ONNXTypes::STRING; }
 
-  static StringType get(MLIRContext* ctx) { return Base::get(ctx, ONNXTypes::STRING);} 
-
+  static StringType get(MLIRContext *ctx) {
+    return Base::get(ctx, ONNXTypes::STRING);
+  }
 };
 
 } // end namespace onnxmlir
 
-}  // end namespace mlir
-
+} // end namespace mlir
 
 namespace onnx_mlir {}
