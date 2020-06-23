@@ -23,7 +23,6 @@
 #include <mlir/Support/MlirOptMain.h>
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/MLONNX/MLONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
@@ -79,7 +78,6 @@ int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
 
   mlir::registerDialect<mlir::ONNXOpsDialect>();
-  mlir::registerDialect<mlir::MLONNXOpsDialect>();
   mlir::registerDialect<mlir::KrnlOpsDialect>();
   initOMPasses();
 
