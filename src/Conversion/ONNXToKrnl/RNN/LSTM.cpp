@@ -322,8 +322,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
         for (unsigned i = 0; i < 4; ++i) {
           Value wHiddenIV =
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
-                  ValueRange(std::vector<Value>{/*iv=*/hiddenIV,
-                      /*index=*/constantIndices[i], /*size=*/hiddenDimVal}));
+                  std::vector<Value>{/*iv=*/hiddenIV,
+                      /*index=*/constantIndices[i], /*size=*/hiddenDimVal});
           wbIOFCIVs.emplace_back(SmallVector<Value, 2>{directionIV, wHiddenIV});
         }
         // Rb[iofc]
@@ -331,8 +331,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
           SmallVector<Value, 4> rbIVs;
           Value rHiddenIV =
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
-                  ValueRange(std::vector<Value>{/*iv=*/hiddenIV,
-                      /*index=*/constantIndices[i], /*size=*/hiddenDimVal}));
+                  std::vector<Value>{/*iv=*/hiddenIV,
+                      /*index=*/constantIndices[i], /*size=*/hiddenDimVal});
           rbIOFCIVs.emplace_back(SmallVector<Value, 2>{directionIV, rHiddenIV});
         }
       }
@@ -341,10 +341,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
       if (hasPeepholes) {
         for (unsigned i = 0; i < 3; ++i) {
           SmallVector<Value, 4> pIVs;
-          Value pHiddenIV =
-              rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
-                  ValueRange(std::vector<Value>{
-                      hiddenIV, constantIndices[i], hiddenDimVal}));
+          Value pHiddenIV = rewriter.create<AffineApplyOp>(loc,
+              accessByOffsetMap,
+              std::vector<Value>{hiddenIV, constantIndices[i], hiddenDimVal});
           pIOFIVs.emplace_back(SmallVector<Value, 2>{directionIV, pHiddenIV});
         }
       }
@@ -363,9 +362,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
     for (unsigned i = 0; i < 4; ++i) {
       Value xwAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-      rewriter.create<StoreOp>(loc, zero, xwAlloc);
+      rewriter.create<AffineStoreOp>(loc, zero, xwAlloc, ArrayRef<Value>{});
       Value hrAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-      rewriter.create<StoreOp>(loc, zero, hrAlloc);
+      rewriter.create<AffineStoreOp>(loc, zero, hrAlloc, ArrayRef<Value>{});
       xwIOFC.emplace_back(xwAlloc);
       hrIOFC.emplace_back(hrAlloc);
     }
@@ -392,10 +391,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
         // R[iofc] :: [num_directions, 4*hidden_size, input_size]
         for (unsigned i = 0; i < 4; ++i) {
           SmallVector<Value, 4> wIVs, rIVs;
-          Value wHiddenIV =
-              rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
-                  ValueRange(std::vector<Value>{
-                      hiddenIV, constantIndices[i], hiddenDimVal}));
+          Value wHiddenIV = rewriter.create<AffineApplyOp>(loc,
+              accessByOffsetMap,
+              std::vector<Value>{hiddenIV, constantIndices[i], hiddenDimVal});
 
           wIVs = {directionIV, wHiddenIV, reductionIV};
           wIOFCIVs.emplace_back(wIVs);
@@ -411,24 +409,26 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
           Value loadW = rewriter.create<AffineLoadOp>(
               loc, operandAdaptor.W(), wIOFCIVs[i]);
           Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
-          Value loadXW = rewriter.create<LoadOp>(loc, xwIOFC[i]);
+          Value loadXW = rewriter.create<AffineLoadOp>(loc, xwIOFC[i]);
           Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
-          rewriter.create<StoreOp>(loc, nextXW, xwIOFC[i]);
+          rewriter.create<AffineStoreOp>(
+              loc, nextXW, xwIOFC[i], ArrayRef<Value>{});
           // Ht-1 * Riofc
           Value loadR = rewriter.create<AffineLoadOp>(
               loc, operandAdaptor.R(), rIOFCIVs[i]);
           Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
-          Value loadHR = rewriter.create<LoadOp>(loc, hrIOFC[i]);
+          Value loadHR = rewriter.create<AffineLoadOp>(loc, hrIOFC[i]);
           Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
-          rewriter.create<StoreOp>(loc, nextHR, hrIOFC[i]);
+          rewriter.create<AffineStoreOp>(
+              loc, nextHR, hrIOFC[i], ArrayRef<Value>{});
         }
       }
       rewriter.restoreInsertionPoint(ipReductionLoops);
     }
 
     // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
-    Value loadXWI = rewriter.create<LoadOp>(loc, xwIOFC[0]);
-    Value loadHRI = rewriter.create<LoadOp>(loc, hrIOFC[0]);
+    Value loadXWI = rewriter.create<AffineLoadOp>(loc, xwIOFC[0]);
+    Value loadHRI = rewriter.create<AffineLoadOp>(loc, hrIOFC[0]);
     Value it = rewriter.create<AddFOp>(loc, loadXWI, loadHRI);
     if (hasPeepholes) {
       Value loadP =
@@ -447,8 +447,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     it = applyActivation(rewriter, loc, activationPack.f, it);
 
     // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
-    Value loadXWF = rewriter.create<LoadOp>(loc, xwIOFC[2]);
-    Value loadHRF = rewriter.create<LoadOp>(loc, hrIOFC[2]);
+    Value loadXWF = rewriter.create<AffineLoadOp>(loc, xwIOFC[2]);
+    Value loadHRF = rewriter.create<AffineLoadOp>(loc, hrIOFC[2]);
     Value ft = rewriter.create<AddFOp>(loc, loadXWF, loadHRF);
     if (hasPeepholes) {
       Value loadP =
@@ -467,8 +467,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     ft = applyActivation(rewriter, loc, activationPack.f, ft);
 
     // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
-    Value loadXWC = rewriter.create<LoadOp>(loc, xwIOFC[3]);
-    Value loadHRC = rewriter.create<LoadOp>(loc, hrIOFC[3]);
+    Value loadXWC = rewriter.create<AffineLoadOp>(loc, xwIOFC[3]);
+    Value loadHRC = rewriter.create<AffineLoadOp>(loc, hrIOFC[3]);
     Value ct = rewriter.create<AddFOp>(loc, loadXWC, loadHRC);
     if (hasBiasForInput) {
       Value loadWB =
@@ -487,8 +487,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     rewriter.create<AffineStoreOp>(loc, Ct, state.ct, cIVs);
 
     // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
-    Value loadXWO = rewriter.create<LoadOp>(loc, xwIOFC[1]);
-    Value loadHRO = rewriter.create<LoadOp>(loc, hrIOFC[1]);
+    Value loadXWO = rewriter.create<AffineLoadOp>(loc, xwIOFC[1]);
+    Value loadHRO = rewriter.create<AffineLoadOp>(loc, hrIOFC[1]);
     Value ot = rewriter.create<AddFOp>(loc, loadXWO, loadHRO);
     if (hasPeepholes) {
       Value loadP =

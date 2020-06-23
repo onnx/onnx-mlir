@@ -91,7 +91,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
         AffineMap indexWithOffsetMap =
             AffineMap::get(1, 0, rewriter.getAffineDimExpr(0) + pads[i]);
         Value outIV = rewriter.create<AffineApplyOp>(loc, indexWithOffsetMap,
-            ValueRange(ArrayRef<Value>{valueLoops.getInductionVar(i)}));
+            ArrayRef<Value>{valueLoops.getInductionVar(i)});
         outLoopIVs.emplace_back(outIV);
       }
     }

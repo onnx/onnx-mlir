@@ -548,18 +548,11 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         loopIVs.push_back(arg);
     }
 
-    Value loadedVal;
-    if (loopIVs.empty())
-      loadedVal = rewriter.create<LoadOp>(loc, X);
-    else
-      loadedVal = rewriter.create<AffineLoadOp>(loc, X, loopIVs);
+    auto loadedVal = rewriter.create<AffineLoadOp>(loc, X, loopIVs);
     auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
         rewriter, loc, op, memRefType.getElementType(), {loadedVal});
     // Store result in the resulting array.
-    if (loopIVs.empty())
-      rewriter.create<StoreOp>(loc, loweredOpResult, alloc);
-    else
-      rewriter.create<AffineStoreOp>(loc, loweredOpResult, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, loweredOpResult, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -631,9 +624,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Obtain the first operand.
     std::vector<Value> accumulatedLoopIVs = getLoopIVsForBroadcasting(
         loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
-    if (accumulatedLoopIVs.empty())
-      accumulated = rewriter.create<LoadOp>(loc, operands[0]);
-    else if (!hasAllConstantDimensions(memRefType))
+    if (!hasAllConstantDimensions(memRefType))
       // In case of unknown dimensions, use std.load since
       // 'getLoopIVsForBroadcasting' has not supported affine map so far.
       accumulated =
@@ -645,9 +636,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     for (unsigned i = 1; i < numArgs; i++) {
       std::vector<Value> nextLoopIVs = getLoopIVsForBroadcasting(
           loc, rewriter, loopIVs, operands[i], broadcastedDimInfo[i]);
-      if (nextLoopIVs.empty())
-        next = rewriter.create<LoadOp>(loc, operands[i]);
-      else if (!hasAllConstantDimensions(memRefType))
+      if (!hasAllConstantDimensions(memRefType))
         // In case of unknown dimensions, use std.load since
         // 'getLoopIVsForBroadcasting' has not supported affine map so far.
         next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
@@ -658,10 +647,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     }
 
     // Store result in the resulting array.
-    if (loopIVs.empty())
-      rewriter.create<StoreOp>(loc, accumulated, alloc);
-    else
-      rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 

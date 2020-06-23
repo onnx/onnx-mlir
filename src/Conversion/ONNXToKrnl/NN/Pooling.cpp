@@ -168,7 +168,7 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
 
       // Apply the affine map.
       Value dimVal =
-          rewriter.create<AffineApplyOp>(loc, dimMap, ValueRange(dimArgs));
+          rewriter.create<AffineApplyOp>(loc, dimMap, dimArgs);
 
       allocOperands.emplace_back(dimVal);
     }
@@ -441,11 +441,11 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       { // Construct poolStartValues and poolDimValues.
         for (int i = 0; i < kernelShape.size(); ++i) {
           Value startIndex = rewriter.create<AffineMaxOp>(
-              loc, poolStartMap, ValueRange(IVsAndConstants[i]));
+              loc, poolStartMap, IVsAndConstants[i]);
           poolStartValues.emplace_back(startIndex);
 
-          Value endIndex = rewriter.create<AffineMinOp>(
-              loc, poolEndMap, ValueRange(IVsAndConstants[i]));
+          Value endIndex =
+              rewriter.create<AffineMinOp>(loc, poolEndMap, IVsAndConstants[i]);
 
           Value dim = rewriter.create<SubIOp>(loc, endIndex, startIndex);
           if (isDilated) {
