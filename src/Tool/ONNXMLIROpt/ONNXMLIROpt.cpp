@@ -12,15 +12,15 @@
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/ToolOutputFile.h>
 #include <mlir/IR/AsmState.h>
-#include "mlir/IR/Dialect.h"
-#include "mlir/IR/MLIRContext.h"
-#include "mlir/InitAllDialects.h"
-#include "mlir/InitAllPasses.h"
+#include <mlir/IR/Dialect.h>
+#include <mlir/IR/MLIRContext.h>
+#include <mlir/InitAllDialects.h>
+#include <mlir/InitAllPasses.h>
+#include <mlir/Interfaces/ViewLikeInterface.h>
 #include <mlir/Pass/Pass.h>
 #include <mlir/Pass/PassManager.h>
 #include <mlir/Support/FileUtilities.h>
 #include <mlir/Support/MlirOptMain.h>
-#include <mlir/Interfaces/ViewLikeInterface.h>
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/MLONNX/MLONNXOps.hpp"
