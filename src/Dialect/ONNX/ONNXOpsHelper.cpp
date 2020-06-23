@@ -72,7 +72,6 @@ mlir::Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
     return builder_.getI1Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
-    //return builder_.getType(mlir::StringType);
     return StringType::get(builder_.getContext());
 
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:

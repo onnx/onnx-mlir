@@ -493,7 +493,8 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
   return StringType::get(getContext());
 }
 
-void ONNXOpsDialect::printType(mlir::Type type, mlir::DialectAsmPrinter &printer) const {
+void ONNXOpsDialect::printType(
+    mlir::Type type, mlir::DialectAsmPrinter &printer) const {
   printer << "String";
 }
 
