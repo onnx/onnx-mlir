@@ -316,3 +316,39 @@ if (opName == "Where")
    buildOperation<mlir::ONNXWhereOp>(node);
 if (opName == "Xor")
    buildOperation<mlir::ONNXXorOp>(node);
+if (opName == "ArrayFeatureExtractor")
+   buildOperation<mlir::ONNXArrayFeatureExtractorOp>(node);
+if (opName == "Binarizer")
+   buildOperation<mlir::ONNXBinarizerOp>(node);
+if (opName == "CastMap")
+   buildOperation<mlir::ONNXCastMapOp>(node);
+if (opName == "CategoryMapper")
+   buildOperation<mlir::ONNXCategoryMapperOp>(node);
+if (opName == "DictVectorizer")
+   buildOperation<mlir::ONNXDictVectorizerOp>(node);
+if (opName == "FeatureVectorizer")
+   buildOperation<mlir::ONNXFeatureVectorizerOp>(node);
+if (opName == "Imputer")
+   buildOperation<mlir::ONNXImputerOp>(node);
+if (opName == "LabelEncoder")
+   buildOperation<mlir::ONNXLabelEncoderOp>(node);
+if (opName == "LinearClassifier")
+   buildOperation<mlir::ONNXLinearClassifierOp>(node);
+if (opName == "LinearRegressor")
+   buildOperation<mlir::ONNXLinearRegressorOp>(node);
+if (opName == "Normalizer")
+   buildOperation<mlir::ONNXNormalizerOp>(node);
+if (opName == "OneHotEncoder")
+   buildOperation<mlir::ONNXOneHotEncoderOp>(node);
+if (opName == "SVMClassifier")
+   buildOperation<mlir::ONNXSVMClassifierOp>(node);
+if (opName == "SVMRegressor")
+   buildOperation<mlir::ONNXSVMRegressorOp>(node);
+if (opName == "Scaler")
+   buildOperation<mlir::ONNXScalerOp>(node);
+if (opName == "TreeEnsembleClassifier")
+   buildOperation<mlir::ONNXTreeEnsembleClassifierOp>(node);
+if (opName == "TreeEnsembleRegressor")
+   buildOperation<mlir::ONNXTreeEnsembleRegressorOp>(node);
+if (opName == "ZipMap")
+   buildOperation<mlir::ONNXZipMapOp>(node);
