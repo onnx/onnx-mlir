@@ -489,3 +489,28 @@ Value emitNegativeInfinityConstantOp(
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
   return (a.getValue()[i]).cast<IntegerAttr>().getInt();
 }
+
+bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
+  auto parentBlock = allocOp->getOperation()->getBlock();
+
+  bool opIsUsedInGetRef = false;
+  parentBlock->walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
+    auto result = allocOp->getResult();
+    for (const auto &operand : op.getOperands())
+      if (operand == result)
+        opIsUsedInGetRef = true;
+  });
+
+  return opIsUsedInGetRef;
+}
+
+// TODO: support dynamic sizes.
+int64_t getMemRefSizeInBytes(Value val) {
+  auto memRefType = convertToMemRefType(val.getType());
+  auto memRefShape = memRefType.getShape();
+  int64_t size = 1;
+  for (int i = 0; i < memRefShape.size(); i++)
+    size *= memRefShape[i];
+  size *= getMemRefEltSizeInBytes(memRefType);
+  return size;
+}

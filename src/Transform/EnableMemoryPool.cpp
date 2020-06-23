@@ -37,20 +37,6 @@ bool checkOpResultIsReturned(AllocOp *allocOp) {
   return opIsReturned;
 }
 
-bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
-  auto parentBlock = allocOp->getOperation()->getBlock();
-
-  bool opIsUsedInGetRef = false;
-  parentBlock->walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
-    auto result = allocOp->getResult();
-    for (const auto &operand : op.getOperands())
-      if (operand == result)
-        opIsUsedInGetRef = true;
-  });
-
-  return opIsUsedInGetRef;
-}
-
 /*!
  *  RewritePattern that replaces:
  *    %0 = alloc() : memref<<dims>x<type>>
@@ -84,11 +70,7 @@ public:
       return failure();
 
     // Compute total size.
-    auto memRefShape = memRefType.getShape();
-    int64_t totalSize = 1;
-    for (int i = 0; i < memRefShape.size(); i++)
-      totalSize *= memRefShape[i];
-    totalSize *= getMemRefEltSizeInBytes(memRefType);
+    int64_t totalSize = getMemRefSizeInBytes(allocOp.getResult());
 
     // Emit new alloc.
     SmallVector<int64_t, 1> memPoolShape;
