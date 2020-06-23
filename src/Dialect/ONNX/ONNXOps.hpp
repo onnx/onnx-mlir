@@ -77,26 +77,6 @@ public:
 
 };
 
-#if 0
-namespace detail {
-struct SeqTypeStorage;
-} // end namespace onnx_detail
-
-class SeqType : public mlir::Type::TypeBase<SeqType, mlir::Type, SeqTypeStorage> {
-public:
-  using Base::Base;
-  static bool kindof(unsinged kind) { return kid == ONNXTypes::SEQ; }
-  
-  static unsigned getTypeKind() { return ONNXTypes::SEQ; }
-
-  static SeqType get(llvm::ArrayRef<lir::Type> elementTypes);
-
-  llvm::ArrayRef<mlir::Type> getElementTypes();
-
-  size_t getNumElementTypes() { return getElementTypes().size();}
-}
-#endif
-
 } // end namespace onnxmlir
 
 }  // end namespace mlir
