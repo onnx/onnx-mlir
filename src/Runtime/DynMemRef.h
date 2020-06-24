@@ -176,8 +176,14 @@ unsigned int getRank(DynMemRef *dynMemRef);
 // Get ptr to sizes array.
 INDEX_TYPE *getSizes(DynMemRef *);
 
+// Set the sizes array (by copying size values from array `sizes`).
+void setSizes(DynMemRef *, INDEX_TYPE *sizes);
+
 // Get ptr to strides array.
 int64_t *getStrides(DynMemRef *);
+
+// Set the strides array (by copying stride values from array `strides`).
+void setStrides(DynMemRef *, int64_t *strides);
 
 #ifdef __cplusplus
 }
