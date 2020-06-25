@@ -1217,16 +1217,21 @@ LogicalResult ONNXTransposeOp::inferShapes() {
   auto arrayTy = data().getType().cast<RankedTensorType>();
   SmallVector<int64_t, 2> dims;
   auto permutation = ONNXTransposeOp::permAttr();
-  if (permutation) {
-    // Perform transposition according to perm attribute.
-    for (auto perm : permutation.getValue())
-      dims.emplace_back(arrayTy.getShape()[perm.cast<IntegerAttr>().getInt()]);
-  } else {
-    // Default
-    for (auto dim : llvm::reverse(arrayTy.getShape()))
-      dims.emplace_back(dim);
+  if (!permutation) {
+    // Generate revese order for default transpose operation.
+    SmallVector<int64_t, 4> defaultVals;
+    auto builder = mlir::Builder(getContext());
+    auto rank = arrayTy.getShape().size();
+    for (int i = rank - 1; i >= 0; --i)
+      defaultVals.emplace_back(i);
+    // Set default attribute.
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    permAttr(builder.getI64ArrayAttr(defaultRefs));
+    permutation = permAttr();
   }
-
+  // Perform transposition according to perm attribute.
+  for (auto perm : permutation.getValue())
+    dims.emplace_back(arrayTy.getShape()[perm.cast<IntegerAttr>().getInt()]);
   getResult().setType(RankedTensorType::get(dims, arrayTy.getElementType()));
   return success();
 }

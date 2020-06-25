@@ -120,6 +120,3 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {
   return std::make_unique<FrontendToKrnlLoweringPass>();
 }
-
-static PassRegistration<FrontendToKrnlLoweringPass> pass(
-    "lower-frontend", "Lower frontend ops to Krnl dialect.");

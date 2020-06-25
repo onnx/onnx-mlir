@@ -12,7 +12,7 @@ func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_default_transpose
-  // CHECK: [[RES:%.+]] = "onnx.Transpose"(%arg0) : (tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32>
+  // CHECK: [[RES:%.+]] = "onnx.Transpose"(%arg0) {perm = [3, 2, 1, 0]} : (tensor<5x5x1x32xf32>) -> tensor<32x1x5x5xf32>
   // CHECK: return [[RES]] : tensor<32x1x5x5xf32>
 }
 

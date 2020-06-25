@@ -2,14 +2,40 @@ add_subdirectory(Interface)
 add_subdirectory(Dialect)
 add_subdirectory(Conversion)
 add_subdirectory(Transform)
-add_subdirectory(Tool)
 add_subdirectory(Builder)
 add_subdirectory(Runtime)
+
+# All ONNX-MLIR libraries.
+set(OMLibs
+        OMBuilder
+        OMKrnlOps
+        OMONNXOps
+        OMKrnlToAffine
+        OMKrnlToLLVM
+        OMONNXToKrnl
+        OMONNXRewrite
+        OMShapeInference
+        OMShapeInferenceOpInterface
+        OMAttributePromotion
+        OMPromotableConstOperandsOpInterface
+        OMResultTypeInferenceOpInterface
+        OMElideConstants
+        OMElideKrnlGlobalConstants
+        OMPackKrnlGlobalConstants
+        OMEnableMemoryPool)
+set(OMLibs ${OMLibs} PARENT_SCOPE)
+
+message(SATUS "OMLibs" ${OMLibs})
+add_subdirectory(Tool)
 
 add_library(MainUtils
         MainUtils.hpp
         MainUtils.cpp)
-target_link_libraries(MainUtils onnx)
+target_link_libraries(MainUtils
+        ${OMLibs}
+        ${MLIRLibs}
+        ${CMAKE_DL_LIBS}
+        onnx)
 
 target_include_directories(MainUtils PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(MainUtils PRIVATE ${CMAKE_BINARY_DIR})
@@ -29,7 +55,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
         ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp)
 
 set(ONNX_MLIR_LD_PRELOAD_onnx-mlir "" CACHE STRING "" FORCE)
-whole_archive_link_mlir(onnx-mlir ${MLIRWholeArchiveLibs})
 if(BUILD_SHARED_LIBS)
   message(STATUS "To run dynamically linked onnx-mlir, you must specify:")
   message(STATUS "LD_PRELOAD=${ONNX_MLIR_LD_PRELOAD_onnx-mlir}")
@@ -43,31 +68,7 @@ endif()
 # So it's better not to use target_link_libraries for the add_subdirectory
 # targets, or only use it for libraries that have no further dependencies
 # (except system libraries such as libc).
-target_link_libraries(MainUtils
-        OMBuilder
-        OMKrnlOps
-        OMONNXOps
-        OMShapeInference
-        OMShapeInferenceOpInterface
-        OMAttributePromotion
-        OMPromotableConstOperandsOpInterface
-        OMResultTypeInferenceOpInterface
-        OMElideConstants
-        OMElideKrnlGlobalConstants
-        OMPackKrnlGlobalConstants
-        OMEnableMemoryPool
-        OMKrnlToAffine
-        OMKrnlToLLVM
-        OMONNXToKrnl
-        OMONNXRewrite
-        ${MLIRLibs}
-        ${CMAKE_DL_LIBS})
 add_dependencies(onnx-mlir OMKrnlOpsInc OMONNXOpsInc)
-
-if (INCLUDE_ONNX_ML)
-  target_link_libraries(MainUtils OMMLONNXOps)
-  add_dependencies(MainUtils OMMLONNXOpsInc)
-endif()
 
 add_dependencies(onnx-mlir cruntime)
 add_dependencies(onnx-mlir EmbeddedDataLoader)
