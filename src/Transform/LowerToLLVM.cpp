@@ -139,7 +139,7 @@ public:
         op->getContext()->getRegisteredDialect<LLVM::LLVMDialect>();
     assert(llvmDialect && "expected llvm dialect to be registered");
 
-    KrnlGetRefOpOperandAdaptor operandAdaptor(operands);
+    KrnlGetRefOpAdaptor operandAdaptor(operands);
 
     // This is the type of the krnl.getref output. This type is used
     // for the type of the internal MemRef.
@@ -340,7 +340,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     auto *context = op->getContext();
-    KrnlMemcpyOpOperandAdaptor operandAdaptor(operands);
+    KrnlMemcpyOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     auto *llvmDialect =
         op->getContext()->getRegisteredDialect<LLVM::LLVMDialect>();
@@ -899,8 +899,7 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
-  if (failed(applyFullConversion(
-          getOperation(), target, patterns, &typeConverter))) {
+  if (failed(applyFullConversion(getOperation(), target, patterns))) {
     signalPassFailure();
   }
 }

@@ -51,12 +51,12 @@ std::tuple<A, A> getActivationPack(RNNOp *op);
 // Allocate memory for RNN states and initialize them.
 template <typename RNNOp, typename S>
 S allocAndInitializeStates(ConversionPatternRewriter &rewriter, Location loc,
-    RNNOp *op, OperandAdaptor<RNNOp> operandAdaptor);
+    RNNOp *op, typename RNNOp::Adaptor operandAdaptor);
 
 // Calculate new states from the current input and states.
 template <typename RNNOp, typename S, typename A>
 void calculateState(ConversionPatternRewriter &rewriter, Location loc,
-    OperandAdaptor<RNNOp> operandAdaptor, S state, A activationSet,
+    typename RNNOp::Adaptor operandAdaptor, S state, A activationSet,
     Value directionIV, Value sequenceIV);
 
 // Write states to the RNN's outputs.
@@ -74,7 +74,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     RNNOp rnnOp = llvm::dyn_cast<RNNOp>(op);
-    OperandAdaptor<RNNOp> operandAdaptor(operands);
+    typename RNNOp::Adaptor operandAdaptor(operands);
 
     if (hasAllNoneOutput<RNNOp>(&rnnOp)) {
       rewriter.eraseOp(op);

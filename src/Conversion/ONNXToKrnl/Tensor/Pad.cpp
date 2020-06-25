@@ -19,7 +19,7 @@ struct ONNXPadOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXPadOp myOp = llvm::dyn_cast<ONNXPadOp>(op);
-    ONNXPadOpOperandAdaptor operandAdaptor(operands);
+    ONNXPadOpAdaptor operandAdaptor(operands);
     auto tensorType = myOp.output().getType();
 
     auto loc = op->getLoc();

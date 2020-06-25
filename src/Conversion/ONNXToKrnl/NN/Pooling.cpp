@@ -192,7 +192,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXMaxPoolSingleOutOpOperandAdaptor operandAdaptor(operands);
+    ONNXMaxPoolSingleOutOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     PoolOp poolOp = llvm::dyn_cast<PoolOp>(op);

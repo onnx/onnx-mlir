@@ -159,7 +159,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 template <>
 LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXLSTMOp *op,
-    OperandAdaptor<ONNXLSTMOp> operandAdaptor) {
+    typename ONNXLSTMOp::Adaptor operandAdaptor) {
   LstmState state;
 
   // Insert allocation and deallocation for the results of this operation.
@@ -237,7 +237,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
 template <>
 void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     ConversionPatternRewriter &rewriter, Location loc,
-    OperandAdaptor<ONNXLSTMOp> operandAdaptor, LstmState state,
+    typename ONNXLSTMOp::Adaptor operandAdaptor, LstmState state,
     LstmActivationPack activationPack, Value directionIV, Value sequenceIV) {
 
   bool hasBiasForInput = false, hasPeepholes = false;
@@ -536,3 +536,4 @@ void populateLoweringONNXLSTMOpPattern(
   patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmState, LstmActivationPack>>(
       ctx);
 }
+

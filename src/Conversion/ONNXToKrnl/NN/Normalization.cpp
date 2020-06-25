@@ -21,7 +21,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // batchnorm{epsilon}(x, scale, bias, mean, variance) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
-    ONNXBatchNormalizationTestModeOpOperandAdaptor operandAdaptor(operands);
+    ONNXBatchNormalizationTestModeOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
