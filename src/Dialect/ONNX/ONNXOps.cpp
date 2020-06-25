@@ -2040,9 +2040,10 @@ LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes() {
   auto yScaleTy = y_scale().getType().cast<ShapedType>();
   auto yZPTy = y_zero_point().getType().cast<ShapedType>();
 
-  IntegerType ui8Type = IntegerType::get(8, IntegerType::Unsigned, getContext());
+  IntegerType ui8Type =
+      IntegerType::get(8, IntegerType::Unsigned, getContext());
   FloatType f32Type = FloatType::getF32(getContext());
-  
+
   RankedTensorType scalarType = RankedTensorType::get({}, f32Type);
   RankedTensorType y_zero_point_type = RankedTensorType::get({}, ui8Type);
 
