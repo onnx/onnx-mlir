@@ -2040,8 +2040,11 @@ LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes() {
   auto yScaleTy = y_scale().getType().cast<ShapedType>();
   auto yZPTy = y_zero_point().getType().cast<ShapedType>();
 
-  IntegerType i8Type = IntegerType::get(8, getContext());
-  RankedTensorType scalarType = RankedTensorType::get({}, i8Type);
+  IntegerType ui8Type = IntegerType::get(8, IntegerType::Unsigned, getContext());
+  FloatType f32Type = FloatType::getF32(getContext());
+  
+  RankedTensorType scalarType = RankedTensorType::get({}, f32Type);
+  RankedTensorType y_zero_point_type = RankedTensorType::get({}, ui8Type);
 
   // Set the types for the scalars
   if (!yScaleTy.hasStaticShape()) {
@@ -2049,11 +2052,11 @@ LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes() {
   }
 
   if (!yZPTy.hasStaticShape()) {
-    y_zero_point().setType(scalarType);
+    y_zero_point().setType(y_zero_point_type);
   }
 
   if (!yTy.hasStaticShape()) {
-    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), i8Type);
+    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), ui8Type);
     y().setType(outType);
   }
 

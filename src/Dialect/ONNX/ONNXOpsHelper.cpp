@@ -58,17 +58,21 @@ mlir::Type convertONNXTypeToMLIRType(
   case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
     return builder_.getF64Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
     return builder_.getIntegerType(/*width=*/8);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
+    return builder_.getIntegerType(/*width=*/8, false);
   case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
     return builder_.getIntegerType(/*width=*/16);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
+    return builder_.getIntegerType(/*width=*/16, false);
   case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
     return builder_.getIntegerType(/*width=*/32);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
+    return builder_.getIntegerType(/*width=*/32, false);
   case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
     return builder_.getIntegerType(/*width=*/64);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
+    return builder_.getIntegerType(/*width=*/64, false);
   case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
     return builder_.getI1Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
