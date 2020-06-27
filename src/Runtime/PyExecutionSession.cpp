@@ -80,7 +80,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
     else if (dynMemRef->dtype == onnx::TensorProto::UINT64)
       dtype = py::dtype("uint64");
     else {
-      fprintf(stderr, "Unsupported ONNX type in DynMemRef.dtype.");
+      fprintf(stderr, "Unsupported ONNX type in RtMemRef.dtype.");
       exit(1);
     }
 

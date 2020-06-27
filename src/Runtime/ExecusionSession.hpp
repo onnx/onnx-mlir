@@ -15,7 +15,7 @@
 #include <dlfcn.h>
 #include <string>
 
-#include "src/Runtime/DynMemRef.h"
+#include "src/Runtime/RtMemRef.h"
 
 namespace onnx_mlir {
 
@@ -25,8 +25,8 @@ class ExecutionSession {
 public:
   ExecutionSession(std::string sharedLibPath, std::string entryPointName);
 
-  std::vector<std::unique_ptr<DynMemRef>> run(
-      std::vector<std::unique_ptr<DynMemRef>>);
+  std::vector<std::unique_ptr<RtMemRef>> run(
+      std::vector<std::unique_ptr<RtMemRef>>);
 
   ~ExecutionSession();
 

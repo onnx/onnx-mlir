@@ -1,13 +1,13 @@
 # Create shared libcruntime.so since model.so linkage for backend tests
 # will fail on x86 Linux if cruntime is statically linked.
 add_library(cruntime STATIC
-        DynMemRef.cpp
-        DynMemRef.h
+        RtMemRef.cpp
+        RtMemRef.h
         DataType.h)
 
 add_library(DynMemRefUtils
-        DynMemRef.h
-        DynMemRef.cpp
+        RtMemRef.h
+        RtMemRef.cpp
         DataType.h)
 
 add_library(ExecutionSession
@@ -42,6 +42,6 @@ set_target_properties(EmbeddedDataLoader PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 
 add_dependencies(PyRuntime cruntime)
-install(FILES DynMemRef.h DESTINATION include)
+install(FILES RtMemRef.h DESTINATION include)
 install(TARGETS cruntime DESTINATION lib)
 install(TARGETS EmbeddedDataLoader DESTINATION lib)

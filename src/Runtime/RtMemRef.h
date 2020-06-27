@@ -1,4 +1,4 @@
-//===------------ DynMemRef.h - Dynamic MemRef Implementation -------------===//
+//===------------ RtMemRef.h - Dynamic MemRef Implementation -------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -28,7 +28,7 @@ typedef int64_t INDEX_TYPE;
 // The same struct can be used to represent memrefs of
 // all ranks and type combinations.
 // We will refer to it as a DMR (Dynamic MemRef).
-struct DynMemRef {
+struct RtMemRef {
 
   // Pointer to the raw memory space allocated to host the DMR content. This
   // pointer should only be acessed for memory management purposes, not for
@@ -58,13 +58,13 @@ struct DynMemRef {
   // for enum value interpretation.
   unsigned int dtype;
 #ifdef __cplusplus
-  explicit DynMemRef(int _rank);
+  explicit RtMemRef(int _rank);
 
   // Create a full DMR of type T and shape _sizes, with all data fields
   // initialized to proper values and data pointers malloc'ed.
   template <typename T>
-  static DynMemRef *create(std::vector<INDEX_TYPE> _sizes) {
-    auto dmr = new DynMemRef(_sizes.size());
+  static RtMemRef *create(std::vector<INDEX_TYPE> _sizes) {
+    auto dmr = new RtMemRef(_sizes.size());
     dmr->offset = 0;
     dmr->rank = _sizes.size();
     dmr->sizes = (INDEX_TYPE *)malloc(dmr->rank * sizeof(INDEX_TYPE));
@@ -115,17 +115,17 @@ struct DynMemRef {
   // be used to access this DMR's constituent elements).
   std::vector<std::vector<INDEX_TYPE>> indexSet() const;
 
-  ~DynMemRef();
+  ~RtMemRef();
 #endif
 };
 
 #ifdef __cplusplus
-// Ordered DynMemRef Dictionary is a data structure for wrapping the input
+// Ordered RtMemRef Dictionary is a data structure for wrapping the input
 // dynmemrefs so that they can be addressed both by index and by name.
 struct OrderedDynMemRefDict;
 
 #else
-typedef struct DynMemRef DynMemRef;
+typedef struct RtMemRef RtMemRef;
 typedef struct _OrderedDynMemRefDict OrderedDynMemRefDict;
 #endif
 
@@ -143,47 +143,47 @@ OrderedDynMemRefDict *createOrderedDynMemRefDict();
 int64_t getSize(OrderedDynMemRefDict *dict);
 
 // Create a dynmemref with a certain rank.
-DynMemRef *createDynMemRef(int rank);
+RtMemRef *createDynMemRef(int rank);
 
 // Get the i-th dynmemref from orderedDict.
-DynMemRef *getDynMemRef(OrderedDynMemRefDict *orderedDict, int i);
+RtMemRef *getDynMemRef(OrderedDynMemRefDict *orderedDict, int i);
 
 // Set the i-th dynmemref in orderedDict to be dynMemRef.
 void setDynMemRef(
-    OrderedDynMemRefDict *tensorDict, int idx, DynMemRef *dynMemRef);
+        OrderedDynMemRefDict *tensorDict, int idx, RtMemRef *dynMemRef);
 
 // Get data pointer from dynMemRef.
-void *getData(DynMemRef *dynMemRef);
+void *getData(RtMemRef *dynMemRef);
 
 // Set data pointer for dynMemRef.
-void setData(DynMemRef *dynMemRef, void *data);
+void setData(RtMemRef *dynMemRef, void *data);
 
 // Get algined data pointer from dynMemRef.
-void *getAlignedData(DynMemRef *);
+void *getAlignedData(RtMemRef *);
 
 // Set aligned data pointer for dynMemRef.
-void setAlignedData(DynMemRef *, void *);
+void setAlignedData(RtMemRef *, void *);
 
 // Get the data type enum value of the dynMemRef.
-int getDType(DynMemRef *dynMemRef);
+int getDType(RtMemRef *dynMemRef);
 
 // Set the data type enum value of the dynMemRef.
-void setDType(DynMemRef *dynMemRef, int onnxType);
+void setDType(RtMemRef *dynMemRef, int onnxType);
 
 // Get the rank of the dynMemRef.
-unsigned int getRank(DynMemRef *dynMemRef);
+unsigned int getRank(RtMemRef *dynMemRef);
 
 // Get ptr to sizes array.
-INDEX_TYPE *getSizes(DynMemRef *);
+INDEX_TYPE *getSizes(RtMemRef *);
 
 // Set the sizes array (by copying size values from array `sizes`).
-void setSizes(DynMemRef *, INDEX_TYPE *sizes);
+void setSizes(RtMemRef *, INDEX_TYPE *sizes);
 
 // Get ptr to strides array.
-int64_t *getStrides(DynMemRef *);
+int64_t *getStrides(RtMemRef *);
 
 // Set the strides array (by copying stride values from array `strides`).
-void setStrides(DynMemRef *, int64_t *strides);
+void setStrides(RtMemRef *, int64_t *strides);
 
 #ifdef __cplusplus
 }
@@ -199,14 +199,14 @@ void printVector(std::vector<T> vec, std::string _delimiter = ",",
 }
 
 template <typename T>
-DynMemRef *getRndRealDmr(
+RtMemRef *getRndRealDmr(
     std::vector<INDEX_TYPE> sizes, T lb = -1.0, T ub = 1.0) {
   // Will be used to obtain a seed for the random number engine
   std::random_device rd;
   // Standard mersenne_twister_engine seeded with rd()
   std::mt19937 gen(rd());
   std::uniform_real_distribution<> dis(lb, ub);
-  auto dmr = DynMemRef::create<T>(sizes);
+  auto dmr = RtMemRef::create<T>(sizes);
   auto ptr = (T *)dmr->data;
   std::generate(ptr, ptr + dmr->size(), [&]() { return dis(gen); });
   return dmr;
@@ -214,7 +214,7 @@ DynMemRef *getRndRealDmr(
 
 template <typename T>
 inline bool isDmrClose(
-    DynMemRef *a, DynMemRef *b, float rtol = 1e-5, float atol = 1e-5) {
+        RtMemRef *a, RtMemRef *b, float rtol = 1e-5, float atol = 1e-5) {
 
   // Compare shape.
   auto aShape = std::vector<INDEX_TYPE>(a->sizes, a->sizes + a->rank);
@@ -267,3 +267,6 @@ inline bool isDmrClose(
   }
 }
 #endif
+
+// Will transition from DynMemRef to RtMemRef soon.
+typedef RtMemRef DynMemRef;
