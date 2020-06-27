@@ -150,7 +150,7 @@ RtMemRef *getDynMemRef(OrderedDynMemRefDict *orderedDict, int i);
 
 // Set the i-th dynmemref in orderedDict to be dynMemRef.
 void setDynMemRef(
-        OrderedDynMemRefDict *tensorDict, int idx, RtMemRef *dynMemRef);
+    OrderedDynMemRefDict *tensorDict, int idx, RtMemRef *dynMemRef);
 
 // Get data pointer from dynMemRef.
 void *getData(RtMemRef *dynMemRef);
@@ -214,7 +214,7 @@ RtMemRef *getRndRealDmr(
 
 template <typename T>
 inline bool isDmrClose(
-        RtMemRef *a, RtMemRef *b, float rtol = 1e-5, float atol = 1e-5) {
+    RtMemRef *a, RtMemRef *b, float rtol = 1e-5, float atol = 1e-5) {
 
   // Compare shape.
   auto aShape = std::vector<INDEX_TYPE>(a->sizes, a->sizes + a->rank);

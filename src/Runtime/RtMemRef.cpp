@@ -114,8 +114,7 @@ RtMemRef *getDynMemRef(OrderedDynMemRefDict *tensorDict, int idx) {
   return tensorDict->tensorDict[tensorDict->orderedNames[idx]];
 }
 
-void setDynMemRef(
-        OrderedDynMemRefDict *tensorDict, int idx, RtMemRef *tensor) {
+void setDynMemRef(OrderedDynMemRefDict *tensorDict, int idx, RtMemRef *tensor) {
   if (tensorDict->orderedNames.size() <= idx)
     tensorDict->orderedNames.resize(idx + 1);
 
