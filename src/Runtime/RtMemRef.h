@@ -24,60 +24,69 @@
 
 typedef int64_t INDEX_TYPE;
 
-// This is a dynamic version of memref.
-// The same struct can be used to represent memrefs of
-// all ranks and type combinations.
-// We will refer to it as a DMR (Dynamic MemRef).
+// Typically, MemRefs in MLIR context are used as a compile-time constructs.
+// Information such as element type and rank of the data payload is statically
+// encoded, meaning that they are determined and fixed at compile-time. This
+// presents significant burden for any runtime components trying to interact
+// with the compiled executable.
+//
+// Thus a version of MemRef struct that is amenable to runtime manipulation is
+// provided as a basis for building any runtime-related components providing
+// user-facing programming interfaces. All information are dynamically encoded
+// as members of this struct so that they can be accessed and modified easily
+// during runtime.
+//
+// We will refer to it as a RMF (Runtime MemRef).
 struct RtMemRef {
 
-  // Pointer to the raw memory space allocated to host the DMR content. This
+  // Pointer to the raw memory space allocated to host the RMR content. This
   // pointer should only be acessed for memory management purposes, not for
-  // reading DMR content.
+  // reading RMR content.
   void *data;
 
-  // Pointer to the properly aligned array of elements stored in this Dmr.
+  // Pointer to the properly aligned array of elements stored in this Rmr.
   void *alignedData;
 
   // Distance between the start of the raw memory space and the first element of
-  // the DMR content.
+  // the RMR content.
   INDEX_TYPE offset;
 
-  // Number of dimensions of the array represented by the DMR.
+  // Number of dimensions of the array represented by the RMR.
   unsigned int rank;
 
   // An array recording the per-dimension sizes of the array represented by the
-  // DMR.
+  // RMR.
   INDEX_TYPE *sizes;
 
   // An array recording the per-dimension strides of the array represented by
-  // the DMR.
+  // the RMR.
   int64_t *strides;
 
   // Refer to TensorProto_DataType at
   // https://github.com/onnx/onnx/blob/cc2230603422bae893d5bc900d2d773ab34400a4/onnx/onnx-ml.proto#L451
   // for enum value interpretation.
-  unsigned int dtype;
+  unsigned int onnx_dtype;
 #ifdef __cplusplus
   explicit RtMemRef(int _rank);
 
-  // Create a full DMR of type T and shape _sizes, with all data fields
+  // Create a full RMR of type T and shape _sizes, with all data fields
   // initialized to proper values and data pointers malloc'ed.
   template <typename T>
   static RtMemRef *create(std::vector<INDEX_TYPE> _sizes) {
-    auto dmr = new RtMemRef(_sizes.size());
-    dmr->offset = 0;
-    dmr->rank = _sizes.size();
-    dmr->sizes = (INDEX_TYPE *)malloc(dmr->rank * sizeof(INDEX_TYPE));
-    std::copy(_sizes.begin(), _sizes.end(), dmr->sizes);
+    auto rmr = new RtMemRef(_sizes.size());
+    rmr->offset = 0;
+    rmr->rank = _sizes.size();
+    rmr->sizes = (INDEX_TYPE *)malloc(rmr->rank * sizeof(INDEX_TYPE));
+    std::copy(_sizes.begin(), _sizes.end(), rmr->sizes);
 
-    dmr->strides = (int64_t *)malloc(dmr->rank * sizeof(int64_t));
-    auto computedStrides = dmr->computeStridesFromSizes();
-    std::copy(computedStrides.begin(), computedStrides.end(), dmr->strides);
+    rmr->strides = (int64_t *)malloc(rmr->rank * sizeof(int64_t));
+    auto computedStrides = rmr->computeStridesFromSizes();
+    std::copy(computedStrides.begin(), computedStrides.end(), rmr->strides);
 
-    dmr->data = malloc(dmr->size() * sizeof(T));
-    dmr->alignedData = dmr->data;
+    rmr->data = malloc(rmr->size() * sizeof(T));
+    rmr->alignedData = rmr->data;
 
-    return dmr;
+    return rmr;
   }
 
   // Access an element (by reference) at index position idxs.
@@ -95,13 +104,13 @@ struct RtMemRef {
     return typedPtr[idx];
   }
 
-  // Get a typed ptr to the data content of the DMR.
+  // Get a typed ptr to the data content of the RMR.
   template <typename T>
   T *typedPtr() {
     return (T *)data;
   }
 
-  // Get how many elements are stored in DMR, as implied by its shape.
+  // Get how many elements are stored in RMR, as implied by its shape.
   INDEX_TYPE size() const;
 
   // Helper function to compute strides of access along each dimensions from its
@@ -112,7 +121,7 @@ struct RtMemRef {
   INDEX_TYPE computeOffset(std::vector<INDEX_TYPE> &idxs) const;
 
   // Get the index set (i.e., all valid multi-dimensional array indexes that can
-  // be used to access this DMR's constituent elements).
+  // be used to access this RMR's constituent elements).
   std::vector<std::vector<INDEX_TYPE>> indexSet() const;
 
   ~RtMemRef();
@@ -199,21 +208,21 @@ void printVector(std::vector<T> vec, std::string _delimiter = ",",
 }
 
 template <typename T>
-RtMemRef *getRndRealDmr(
+RtMemRef *getRndRealRmr(
     std::vector<INDEX_TYPE> sizes, T lb = -1.0, T ub = 1.0) {
   // Will be used to obtain a seed for the random number engine
   std::random_device rd;
   // Standard mersenne_twister_engine seeded with rd()
   std::mt19937 gen(rd());
   std::uniform_real_distribution<> dis(lb, ub);
-  auto dmr = RtMemRef::create<T>(sizes);
-  auto ptr = (T *)dmr->data;
-  std::generate(ptr, ptr + dmr->size(), [&]() { return dis(gen); });
-  return dmr;
+  auto rmr = RtMemRef::create<T>(sizes);
+  auto ptr = (T *)rmr->data;
+  std::generate(ptr, ptr + rmr->size(), [&]() { return dis(gen); });
+  return rmr;
 }
 
 template <typename T>
-inline bool isDmrClose(
+inline bool isRmrClose(
     RtMemRef *a, RtMemRef *b, float rtol = 1e-5, float atol = 1e-5) {
 
   // Compare shape.

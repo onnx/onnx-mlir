@@ -51,7 +51,7 @@ INDEX_TYPE RtMemRef::size() const {
 
 std::vector<std::vector<INDEX_TYPE>> RtMemRef::indexSet() const {
   // First, we create index set of each dimension separately.
-  // i.e., for a tensor/DMR of shape (2, 3), its dimWiseIdxSet will be:
+  // i.e., for a tensor/RMR of shape (2, 3), its dimWiseIdxSet will be:
   // {{0,1}, {0,1,2}};
   std::vector<std::vector<INDEX_TYPE>> dimWiseIdxSet;
   for (auto dimSize : std::vector<INDEX_TYPE>(sizes, sizes + rank)) {
@@ -60,7 +60,7 @@ std::vector<std::vector<INDEX_TYPE>> RtMemRef::indexSet() const {
     dimWiseIdxSet.emplace_back(dimIdxSet);
   }
   // Then, the cartesian product of vectors within dimWiseIdxSet will be the
-  // index set for the whole DMR.
+  // index set for the whole RMR.
   return CartProduct(dimWiseIdxSet);
 }
 
@@ -153,10 +153,10 @@ int64_t getSize(OrderedDynMemRefDict *dict) {
 }
 
 void setDType(RtMemRef *dynMemRef, int onnxType) {
-  dynMemRef->dtype = onnxType;
+  dynMemRef->onnx_dtype = onnxType;
 }
 
-int getDType(RtMemRef *dynMemRef) { return dynMemRef->dtype; }
+int getDType(RtMemRef *dynMemRef) { return dynMemRef->onnx_dtype; }
 
 unsigned int getRank(RtMemRef *dynMemRef) { return dynMemRef->rank; }
 
