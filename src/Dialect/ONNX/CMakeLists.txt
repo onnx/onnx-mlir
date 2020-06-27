@@ -16,6 +16,7 @@ add_library(OMONNXOps
         ONNXOps.hpp
         ONNXOpsHelper.cpp
         ONNXOpsHelper.hpp)
+
 target_include_directories(OMONNXOps
         PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
