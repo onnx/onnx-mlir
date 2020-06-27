@@ -146,6 +146,11 @@ find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
 find_mlir_lib(MLIRSCFToStandard)
 find_mlir_lib(MLIRLoopLikeInterface)
+find_mlir_lib(MLIRLinalgOps)
+find_mlir_lib(MLIRLinalgEDSC)
+find_mlir_lib(MLIRLinalgAnalysis)
+find_mlir_lib(MLIRLinalgTransforms)
+find_mlir_lib(MLIRLinalgUtils)
 find_mlir_lib(MLIRSCF)
 find_mlir_lib(MLIRLLVMIRTransforms)
 find_mlir_lib(MLIRMlirOptMain)
@@ -165,6 +170,10 @@ find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRTranslation)
 find_mlir_lib(MLIRVector)
+find_mlir_lib(MLIRMlirOptMain)
+find_mlir_lib(MLIRAffineEDSC)
+find_mlir_lib(MLIRLinalgEDSC)
+find_mlir_lib(MLIRViewLikeInterface)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -226,6 +235,14 @@ set(MLIRLibs
         ${MLIRStandardToLLVM}
         ${MLIRSupport}
         ${MLIRTranslation}
+        ${MLIRLinalgOps}
+        ${MLIRLinalgEDSC}
+        ${MLIRLinalgAnalysis}
+        ${MLIRLinalgTransforms}
+        ${MLIRLinalgUtils}
+        ${MLIRAffineEDSC}
+        ${MLIRLinalgEDSC}
+        ${MLIRViewLikeInterface}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}

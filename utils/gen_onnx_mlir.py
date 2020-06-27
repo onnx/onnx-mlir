@@ -36,9 +36,6 @@ parser.add_argument("--check-operation-version",
                          " newer version of operation compared with version stored in  version_dicts",
                     action="store_true",
                     default=False)
-parser.add_argument("--domain",
-                    help="specify domain, ONNX or ONNX_ML",
-                    default = "ONNX")
 
 args = parser.parse_args()
 
@@ -50,7 +47,7 @@ check_operation_version = args.check_operation_version
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
-onnx_version_dict = {'Abs': 6,
+version_dict = {'Abs': 6,
  'Acos': 7,
  'Acosh': 9,
  'Add': 7,
@@ -205,9 +202,8 @@ onnx_version_dict = {'Abs': 6,
  'Unsqueeze': 11,
  'Upsample': 10,
  'Where': 9,
- 'Xor': 7}
-
-onnx_ml_version_dict = {'ArrayFeatureExtractor': 1,
+ 'Xor': 7,
+ 'ArrayFeatureExtractor': 1,
  'Binarizer': 1,
  'CastMap': 1,
  'CategoryMapper': 1,
@@ -324,25 +320,18 @@ custom_definition_misc = dict([ ('Constant',
 
 onnx_types = (
     'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
-    'float', 'double', 'complex64', 'complex128'
+    'float', 'double', 'complex64', 'complex128', 'string'
 )
-tblgen_types = ('I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32', 'F64',
-    'Complex<F32>', 'Complex<F64>'
+tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64', 'BF16', 'F16', 'F32', 'F64',
+    'Complex<F32>', 'Complex<F64>', 'StringType'
 )
 
 MAX_NUM_TYPES=20
 
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
-ONNX_ML = bool(args.domain == "ONNX_ML")
-
-sys.stderr.write("ONNX_ML {}\n".format(ONNX_ML))
 
 def should_render_domain(domain):  # type: (Text) -> bool
-    if domain == ONNX_ML_DOMAIN and not ONNX_ML:
-        return False
-    elif ONNX_ML and domain != ONNX_ML_DOMAIN:
-        return False
     return True
 
 
@@ -479,7 +468,7 @@ def dec_indent(indent):
 def join_args(args):
     return ", ".join(args)
 
-def get_operands_or_results(schema, is_input):
+def get_operands_or_results(schema, type_str_dict,  is_input):
     value_list = schema.inputs if is_input else schema.outputs
     if not value_list:
         return OrderedDict()
@@ -493,7 +482,10 @@ def get_operands_or_results(schema, is_input):
 
     name_to_types = OrderedDict()
     for i, value in enumerate(value_list):
-        structure, elem_types = get_allowed_elem_types(schema, value)
+        types = get_onnx_mlir_types(schema, type_str_dict,  value)
+
+        '''
+        structure, elem_types = get_allowed_elem_types(schema, type_str_dict,  value)
 
         if structure == 'tensor' :
             if elem_types is None:
@@ -524,6 +516,7 @@ def get_operands_or_results(schema, is_input):
                 types = list(map(lambda x: x.format(elem_types_str), types))
         else:
             types = ["AnyMemRef", "AnyTensor"]
+        '''
 
         # If operand is promotable to an attribute, then it must be
         # nullable in case it migrates to be an attribute.
@@ -704,14 +697,72 @@ def get_type_inference_func(s, indent, type_inference_code):
     indent = dec_indent(indent)
     return s
 
+def parse_type_str(allowedType):
+    # AnyI may be used for uint because the onnx_mlir is not generating uint output
+    # This will be fixed later and UI will be replace AnyI
+    onnx_to_mlir_type_dict = { '(': '<[',
+        ')': ']>',
+        'tensor' : 'TensorOf',
+        'seq' : 'TensorOf',
+        'map' : 'TupleOf',
+        'bool': 'I1',
+        #'uint8' : 'AnyI8',
+        #uint16' : 'AnyI16',
+        #uint32' : 'AnyI32',
+        #uint64' : 'AnyI64',
+        'uint8' : 'UI8',
+        'uint16' : 'UI16',
+        'uint32' : 'UI32',
+        'uint64' : 'UI64',
+        'int8' : 'I8',
+        'int16' : 'I16',
+        'int32' : 'I32',
+        'int64' : 'I64',
+        'float16' : 'F16',
+        'float' : 'F32',
+        'double' : 'F64',
+        'unkown' : 'BF16',  
+        'complex64' : 'Complex<F32>',
+        'complex128' : 'Complex<F64>',
+        'string' : 'StringType'}
 
+    for key, item in onnx_to_mlir_type_dict.items():
+        allowedType = allowedType.replace(key, item)
+    return allowedType
+          
+def parse_a_type_constraint(constraint):
+    allowedTypes = constraint.allowed_type_strs
+    mlirTypes = []
+    for allowedType in allowedTypes:
+        mlirType = parse_type_str(allowedType)
+        mlirTypes.append(mlirType)
+    # Remove redundant and sort. 
+    # However onnx keeps a consitently meaningful order
+    # There is no redundancy as long as each onnx type is mapped uniquely
+    # mlirTypes = sorted(list(set(mlirTypes)))
+    return mlirTypes
+
+def parse_type_constraints(schema):
+    type_str_dict = dict()
+    for type_constraint in schema.type_constraints:
+        type_str_dict[type_constraint.type_param_str]  = parse_a_type_constraint(type_constraint)
+    return type_str_dict
+
+def get_onnx_mlir_types(schema, type_str_dict, input):
+    if input.typeStr :
+         if not input.typeStr in type_str_dict :
+             # some arguments use type description directly
+             # instead of constraint
+             return [parse_type_str(input.typeStr)]
+         else :
+             return type_str_dict[input.typeStr]
+    else :
+        print('No typeStr ', schema.name)
+        return []
 
 def gen_op_def(schema):
     indent = inc_indent()
-    if (ONNX_ML) :
-        s = 'def MLONNX{0}Op:MLONNX_Op<"{0}",\n'.format(schema.name)
-    else :
-        s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
+    s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
 
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
@@ -741,15 +792,20 @@ def gen_op_def(schema):
             s += indent + '"{}"\n'.format(escaped_line)
     s += indent + '}];\n'
 
+
+    # handle the type constraint for input and output
+    # parse type constraint into onnx-mlir type string list
+    type_str_dict =  parse_type_constraints(schema)
+
     # Generate ins (consisting of operands and attributes).
-    ins = get_operands_or_results(schema, is_input=True)
+    ins = get_operands_or_results(schema, type_str_dict, is_input=True)
     ins.update(get_attrs(schema))
     ins_strs = ["{1}:${0}".format(*i) for i in ins.items()]
     s += indent + 'let arguments = (ins {});\n'.format(
         (',\n' + inc_indent(indent)).join(ins_strs))
 
     # Generate outs (operation results).
-    outs = get_operands_or_results(schema, is_input=False)
+    outs = get_operands_or_results(schema, type_str_dict, is_input=False)
     outs_strs = ["{1}:${0}".format(*i) for i in outs.items()]
     s += indent + 'let results = (outs {});\n'.format(
         (',\n' + inc_indent(indent)).join(outs_strs))
@@ -770,7 +826,7 @@ def gen_op_def(schema):
             #   Value, Y, Attribute A", [{}]>
             indent = inc_indent(indent)
             s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state'
-            operands_dict = get_operands_or_results(schema, is_input=True)
+            operands_dict = get_operands_or_results(schema, type_str_dict,  is_input=True)
             for name, ty in operands_dict.items():
                 s += ', {} {}'.format(tblgen_operand_type_to_cpp_type(ty),
                                       name)
@@ -881,12 +937,8 @@ def gen_op_importer(schema, file):
         if OpSchema.FormalParameterOption.Variadic == output.option:
             expected_num_results = -1
 
-    if ONNX_ML:
-        handler_func = special_op_handler.get(
-            schema.name, "buildOperation<mlir::MLONNX{}Op>".format(schema.name))
-    else:
-        handler_func = special_op_handler.get(
-            schema.name, "buildOperation<mlir::ONNX{}Op>".format(schema.name))
+    handler_func = special_op_handler.get(
+        schema.name, "buildOperation<mlir::ONNX{}Op>".format(schema.name))
 
     # Special handlers currently require expected num operands/results to be specified.
     # TODO: remove special handlers.
@@ -920,10 +972,6 @@ def build_operator_schemas():
     for domain, _supportmap in sorted(index.items()):
         if not should_render_domain(domain):
             continue
-        if domain == ONNX_ML_DOMAIN:
-            version_dict = onnx_ml_version_dict
-        else:
-            version_dict = onnx_version_dict
         processed_supportmap = list()
         for _support, _namemap in sorted(_supportmap.items()):
             processed_namemap = list()
@@ -1006,19 +1054,13 @@ if __name__ == '__main__':
         if args.dry_run_onnx_ops:
             op_def = StringIO()
         else:
-            if args.domain == 'ONNX_ML':
-                op_def_file_path = os.path.join(curr_dir, 'MLONNXOps.td.inc')
-            else:
-                op_def_file_path = os.path.join(curr_dir, 'ONNXOps.td.inc')
+            op_def_file_path = os.path.join(curr_dir, 'ONNXOps.td.inc')
             op_def = io.open(op_def_file_path, 'w', newline='')
 
         if args.dry_run_op_build_table:
             op_importer = StringIO()
         else:
-            if args.domain == 'ONNX_ML':
-                op_importer_file_path = os.path.join(curr_dir, 'MLOpBuildTable.inc')
-            else :
-                op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
+            op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
             op_importer = io.open(op_importer_file_path, 'w', newline='')
     main(Args)
 

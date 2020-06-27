@@ -14,8 +14,3 @@ target_link_libraries(onnx-mlir-opt
         ${OMLibs}
         ${MLIRLibs}
         onnx)
-
-if (INCLUDE_ONNX_ML)
-  target_link_libraries(onnx-mlir-opt OMMLONNXOps)
-  add_dependencies(onnx-mlir-opt OMMLONNXOpsInc)
-endif()

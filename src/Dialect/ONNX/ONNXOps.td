@@ -17,6 +17,8 @@
 include "mlir/IR/OpBase.td"
 #endif // OP_BASE
 
+def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
+
 #ifdef SHAPE_INFERENCE_INTERFACE
 #else
 include "src/Interface/ShapeInferenceInterface.td"
