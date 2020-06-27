@@ -96,13 +96,13 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   onnx_mlir::ExecutionSession sess(
       pathStr + ".so", "_dyn_entry_point_main_graph");
 
-  std::vector<unique_ptr<DynMemRef>> inputs;
-  auto xDmr = unique_ptr<DynMemRef>(getRndRealDmr<float>({N, C, H, W}));
+  std::vector<unique_ptr<RtMemRef>> inputs;
+  auto xDmr = unique_ptr<RtMemRef>(getRndRealDmr<float>({N, C, H, W}));
   inputs.emplace_back(move(xDmr));
-  auto wDmr = unique_ptr<DynMemRef>(getRndRealDmr<float>({C, C, kH, kW}));
+  auto wDmr = unique_ptr<RtMemRef>(getRndRealDmr<float>({C, C, kH, kW}));
   inputs.emplace_back(move(wDmr));
 
-  auto ref = DynMemRef::create<float>({NOut, COut, HOut, WOut});
+  auto ref = RtMemRef::create<float>({NOut, COut, HOut, WOut});
   auto &img = inputs.at(0);
   auto &filter = inputs.at(1);
   for (int64_t n = 0; n < NOut; n++)
