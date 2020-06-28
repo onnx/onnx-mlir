@@ -95,26 +95,26 @@ RtMemRef::~RtMemRef() {
 // An ordered dynamic MemRef dictionary.
 // The goal is to support accessing dynamic memory ref by name and by index.
 // Currently, only accessing by index is supported.
-struct OrderedDynMemRefDict {
+struct OrderedRtMemRefDict {
   std::map<std::string, RtMemRef *> tensorDict;
   std::vector<std::string> orderedNames;
 };
 
-int numDynMemRefs(OrderedDynMemRefDict *dict) {
+int numRtMemRefs(OrderedRtMemRefDict *dict) {
   return dict->orderedNames.size();
 }
 
-OrderedDynMemRefDict *createOrderedDynMemRefDict() {
-  return new OrderedDynMemRefDict();
+OrderedRtMemRefDict *createOrderedRtMemRefDict() {
+  return new OrderedRtMemRefDict();
 }
 
-RtMemRef *createDynMemRef(int rank) { return new RtMemRef(rank); }
+RtMemRef *createRtMemRef(int rank) { return new RtMemRef(rank); }
 
-RtMemRef *getDynMemRef(OrderedDynMemRefDict *tensorDict, int idx) {
+RtMemRef *getRtMemRef(OrderedRtMemRefDict *tensorDict, int idx) {
   return tensorDict->tensorDict[tensorDict->orderedNames[idx]];
 }
 
-void setDynMemRef(OrderedDynMemRefDict *tensorDict, int idx, RtMemRef *tensor) {
+void setRtMemRef(OrderedRtMemRefDict *tensorDict, int idx, RtMemRef *tensor) {
   if (tensorDict->orderedNames.size() <= idx)
     tensorDict->orderedNames.resize(idx + 1);
 
@@ -148,7 +148,7 @@ void setSizes(RtMemRef *dynMemRef, INDEX_TYPE *sizes) {
 
 int64_t *getStrides(RtMemRef *dynMemRef) { return dynMemRef->strides; }
 
-int64_t getSize(OrderedDynMemRefDict *dict) {
+int64_t getSize(OrderedRtMemRefDict *dict) {
   return dict->orderedNames.size();
 }
 

@@ -19,36 +19,36 @@ namespace onnx_mlir {
 std::vector<py::array> PyExecutionSession::pyRun(
     std::vector<py::array> inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");
-  auto *wrappedInput = createOrderedDynMemRefDict();
+  auto *wrappedInput = createOrderedRtMemRefDict();
   int inputIdx = 0;
   for (auto inputPyArray : inputsPyArray) {
-    auto *inputDynMemRef = createDynMemRef(inputPyArray.ndim());
+    auto *inputRtMemRef = createRtMemRef(inputPyArray.ndim());
     assert(inputPyArray.flags() && py::array::c_style &&
            "Expect contiguous python array.");
 
     if (inputPyArray.writeable()) {
-      inputDynMemRef->data = inputPyArray.mutable_data();
-      inputDynMemRef->alignedData = inputPyArray.mutable_data();
+      inputRtMemRef->data = inputPyArray.mutable_data();
+      inputRtMemRef->alignedData = inputPyArray.mutable_data();
     } else {
       // If data is not writable, copy them to a writable buffer.
       auto *copiedData = (float *)malloc(inputPyArray.nbytes());
       memcpy(copiedData, inputPyArray.data(), inputPyArray.nbytes());
-      inputDynMemRef->data = copiedData;
-      inputDynMemRef->alignedData = copiedData;
+      inputRtMemRef->data = copiedData;
+      inputRtMemRef->alignedData = copiedData;
     }
 
     for (int i = 0; i < inputPyArray.ndim(); i++) {
-      inputDynMemRef->sizes[i] = inputPyArray.shape(i);
-      inputDynMemRef->strides[i] = inputPyArray.strides(i);
+      inputRtMemRef->sizes[i] = inputPyArray.shape(i);
+      inputRtMemRef->strides[i] = inputPyArray.strides(i);
     }
 
-    setDynMemRef(wrappedInput, inputIdx++, inputDynMemRef);
+    setRtMemRef(wrappedInput, inputIdx++, inputRtMemRef);
   }
 
   std::vector<py::array> outputPyArrays;
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
-  for (int i = 0; i < numDynMemRefs(wrappedOutput); i++) {
-    auto *dynMemRef = getDynMemRef(wrappedOutput, i);
+  for (int i = 0; i < numRtMemRefs(wrappedOutput); i++) {
+    auto *dynMemRef = getRtMemRef(wrappedOutput, i);
     auto shape = std::vector<int64_t>(
         dynMemRef->sizes, dynMemRef->sizes + dynMemRef->rank);
 

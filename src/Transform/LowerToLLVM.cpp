@@ -504,7 +504,7 @@ public:
 
       // Fill in the memref underlying ptrToMemRef with information extracted
       // from dynMemRef.
-      fillPtrToMemRefWithDynMemRef(
+      fillPtrToMemRefWithRtMemRef(
           dynMemRef, ptrToMemRef, rewriter, loc, apiRegistry, llvmDialect);
 
       // ptrToMemRef will be an input to main computation graph function.
@@ -553,14 +553,14 @@ public:
       auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
       auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(outMemRefRank));
-      auto outDynMemRef = callApi(rewriter, loc, apiRegistry,
+      auto outRtMemRef = callApi(rewriter, loc, apiRegistry,
           API::CREATE_DYN_MEM_REF, {outMemRefRankVal});
-      fillDynMemRefWithMemRef(
-          memRef, outDynMemRef, rewriter, loc, apiRegistry, llvmDialect);
+      fillRtMemRefWithMemRef(
+          memRef, outRtMemRef, rewriter, loc, apiRegistry, llvmDialect);
       auto idx = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(i));
       callApi(rewriter, loc, apiRegistry, API::SET_DYN_MEM_REF,
-          {wrappedOutput, idx, outDynMemRef});
+          {wrappedOutput, idx, outRtMemRef});
     }
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(
@@ -584,12 +584,12 @@ private:
     // specifying its signature.
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
-        ApiSpec(API::CREATE_ORDERED_DYN_MEM_REF_DICT, "createOrderedDynMemRefDict", opaquePtrTy, {}),
-        ApiSpec(API::CREATE_DYN_MEM_REF, "createDynMemRef", opaquePtrTy, {int32Ty}),
+        ApiSpec(API::CREATE_ORDERED_DYN_MEM_REF_DICT, "createOrderedRtMemRefDict", opaquePtrTy, {}),
+        ApiSpec(API::CREATE_DYN_MEM_REF, "createRtMemRef", opaquePtrTy, {int32Ty}),
         ApiSpec(API::GET_DATA, "getData", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "setData", voidTy, {opaquePtrTy, opaquePtrTy}),
-        ApiSpec(API::GET_DYN_MEM_REF, "getDynMemRef", opaquePtrTy, {opaquePtrTy, int32Ty}),
-        ApiSpec(API::SET_DYN_MEM_REF, "setDynMemRef", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy}),
+        ApiSpec(API::GET_DYN_MEM_REF, "getRtMemRef", opaquePtrTy, {opaquePtrTy, int32Ty}),
+        ApiSpec(API::SET_DYN_MEM_REF, "setRtMemRef", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy}),
         ApiSpec(API::GET_SIZES, "getSizes", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_STRIDES, "getStrides", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DTYPE, "getDType", int32Ty, {opaquePtrTy}),
@@ -635,7 +635,7 @@ private:
     return *entryPointEntryBlock;
   }
 
-  void fillPtrToMemRefWithDynMemRef(Value &dynMemRef, Value &ptrToMemRef,
+  void fillPtrToMemRefWithRtMemRef(Value &dynMemRef, Value &ptrToMemRef,
       PatternRewriter &rewriter, const Location &loc,
       const std::map<API, ApiSpec> &apiRegistry,
       LLVM::LLVMDialect *llvmDialect) const {
@@ -696,7 +696,7 @@ private:
     rewriter.create<LLVM::StoreOp>(loc, memRef, ptrToMemRef);
   }
 
-  void fillDynMemRefWithMemRef(Value &outMemRef, Value &outDynMemRef,
+  void fillRtMemRefWithMemRef(Value &outMemRef, Value &outRtMemRef,
       PatternRewriter &rewriter, const Location &loc,
       const std::map<API, ApiSpec> &apiRegistry,
       LLVM::LLVMDialect *llvmDialect) const {
@@ -711,19 +711,19 @@ private:
     outMemRefDataPtr = rewriter.create<LLVM::BitcastOp>(
         loc, LLVM::LLVMType::getInt8PtrTy(llvmDialect), outMemRefDataPtr);
     callApi(rewriter, loc, apiRegistry, API::SET_DATA,
-        {outDynMemRef, outMemRefDataPtr});
+        {outRtMemRef, outMemRefDataPtr});
     auto elemTy = outMemRefTy.getStructElementType(0).getPointerElementTy();
     auto onnxTy = llvmTypeToOnnxType(elemTy);
     auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
         loc, int32Ty, rewriter.getI32IntegerAttr(onnxTy));
     callApi(
-        rewriter, loc, apiRegistry, API::SET_DTYPE, {outDynMemRef, onnxTyVal});
+        rewriter, loc, apiRegistry, API::SET_DTYPE, {outRtMemRef, onnxTyVal});
 
     auto rank = getRankFromMemRefType(outMemRefTy);
     auto sizesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_SIZES, {outDynMemRef});
+        callApi(rewriter, loc, apiRegistry, API::GET_SIZES, {outRtMemRef});
     auto stridesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_STRIDES, {outDynMemRef});
+        callApi(rewriter, loc, apiRegistry, API::GET_STRIDES, {outRtMemRef});
 
     for (decltype(rank) i = 0; i < rank; i++) {
       auto dimIdx = rewriter.create<LLVM::ConstantOp>(

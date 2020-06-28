@@ -19,7 +19,7 @@
 
 namespace onnx_mlir {
 
-typedef OrderedDynMemRefDict *(*entryPointFuncType)(OrderedDynMemRefDict *);
+typedef OrderedRtMemRefDict *(*entryPointFuncType)(OrderedRtMemRefDict *);
 
 class ExecutionSession {
 public:

@@ -5,7 +5,7 @@ add_library(cruntime STATIC
         RtMemRef.h
         DataType.h)
 
-add_library(DynMemRefUtils
+add_library(RtMemRefUtils
         RtMemRef.h
         RtMemRef.cpp
         DataType.h)
@@ -28,7 +28,7 @@ pybind11_add_module(PyRuntime
 target_link_libraries(PyRuntime PRIVATE
         ${CMAKE_DL_LIBS}
         ExecutionSession
-        DynMemRefUtils
+        RtMemRefUtils
         onnx)
 target_include_directories(PyRuntime PRIVATE
         ${ONNX_MLIR_SRC_ROOT}

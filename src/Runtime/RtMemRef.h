@@ -131,35 +131,35 @@ struct RtMemRef {
 #ifdef __cplusplus
 // Ordered RtMemRef Dictionary is a data structure for wrapping the input
 // dynmemrefs so that they can be addressed both by index and by name.
-struct OrderedDynMemRefDict;
+struct OrderedRtMemRefDict;
 
 #else
 typedef struct RtMemRef RtMemRef;
-typedef struct _OrderedDynMemRefDict OrderedDynMemRefDict;
+typedef struct _OrderedRtMemRefDict OrderedRtMemRefDict;
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Get number of dynamic memrefs in OrderedDynMemRefDict dict.
-int numDynMemRefs(OrderedDynMemRefDict *dict);
+// Get number of dynamic memrefs in OrderedRtMemRefDict dict.
+int numRtMemRefs(OrderedRtMemRefDict *dict);
 
 // Create an ordered dynamic memref dictionary.
-OrderedDynMemRefDict *createOrderedDynMemRefDict();
+OrderedRtMemRefDict *createOrderedRtMemRefDict();
 
 // Get how many dynamic memrefs are in dict.
-int64_t getSize(OrderedDynMemRefDict *dict);
+int64_t getSize(OrderedRtMemRefDict *dict);
 
 // Create a dynmemref with a certain rank.
-RtMemRef *createDynMemRef(int rank);
+RtMemRef *createRtMemRef(int rank);
 
 // Get the i-th dynmemref from orderedDict.
-RtMemRef *getDynMemRef(OrderedDynMemRefDict *orderedDict, int i);
+RtMemRef *getRtMemRef(OrderedRtMemRefDict *orderedDict, int i);
 
 // Set the i-th dynmemref in orderedDict to be dynMemRef.
-void setDynMemRef(
-    OrderedDynMemRefDict *tensorDict, int idx, RtMemRef *dynMemRef);
+void setRtMemRef(
+    OrderedRtMemRefDict *tensorDict, int idx, RtMemRef *dynMemRef);
 
 // Get data pointer from dynMemRef.
 void *getData(RtMemRef *dynMemRef);
@@ -277,5 +277,5 @@ inline bool isRmrClose(
 }
 #endif
 
-// Will transition from DynMemRef to RtMemRef soon.
-typedef RtMemRef DynMemRef;
+// Will transition from RtMemRef to RtMemRef soon.
+typedef RtMemRef RtMemRef;
