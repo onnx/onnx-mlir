@@ -158,8 +158,7 @@ RtMemRef *createRtMemRef(int rank);
 RtMemRef *getRtMemRef(OrderedRtMemRefDict *orderedDict, int i);
 
 // Set the i-th dynmemref in orderedDict to be dynMemRef.
-void setRtMemRef(
-    OrderedRtMemRefDict *tensorDict, int idx, RtMemRef *dynMemRef);
+void setRtMemRef(OrderedRtMemRefDict *tensorDict, int idx, RtMemRef *dynMemRef);
 
 // Get data pointer from dynMemRef.
 void *getData(RtMemRef *dynMemRef);

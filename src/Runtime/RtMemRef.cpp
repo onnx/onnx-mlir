@@ -148,9 +148,7 @@ void setSizes(RtMemRef *dynMemRef, INDEX_TYPE *sizes) {
 
 int64_t *getStrides(RtMemRef *dynMemRef) { return dynMemRef->strides; }
 
-int64_t getSize(OrderedRtMemRefDict *dict) {
-  return dict->orderedNames.size();
-}
+int64_t getSize(OrderedRtMemRefDict *dict) { return dict->orderedNames.size(); }
 
 void setDType(RtMemRef *dynMemRef, int onnxType) {
   dynMemRef->onnx_dtype = onnxType;

@@ -54,8 +54,7 @@ std::vector<std::unique_ptr<RtMemRef>> ExecutionSession::run(
   auto outputSize = getSize(wrappedOutput);
 
   for (size_t i = 0; i < getSize(wrappedOutput); i++) {
-    outs.emplace_back(
-        std::unique_ptr<RtMemRef>(getRtMemRef(wrappedOutput, i)));
+    outs.emplace_back(std::unique_ptr<RtMemRef>(getRtMemRef(wrappedOutput, i)));
   }
   return std::move(outs);
 }
