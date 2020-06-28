@@ -397,8 +397,8 @@ func @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi32>) -> tensor<*xf32> {
-  %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<4xi32>) -> tensor<*xf32>
+func @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
+  %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<?x10xf32>, tensor<4xi64>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reshape
@@ -411,56 +411,52 @@ func @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi32>) -> tensor<*x
 
   // CHECK: [[TYPE_IN_BYTES_1:%.+]] = constant 4 : i64
   // CHECK: %[[CONSTANT_1:.+]] = constant 0 : index
-  // CHECK: [[LOAD_0:%.+]] = load %arg1[%[[CONSTANT_1]]] : memref<4xi32>
+  // CHECK: [[LOAD_0:%.+]] = load %arg1[%[[CONSTANT_1]]] : memref<4xi64>
   // CHECK: [[DIM_1:%.+]] = dim %arg0, 0 : memref<?x10xf32>
-  // CHECK: [[DIM_1_CAST:%.+]] = index_cast [[DIM_1]] : index to i32
-  // CHECK: [[CONSTANT_2:%.+]] = constant 0 : i32
-  // CHECK: [[CMP_0:%.+]] = cmpi "eq", [[LOAD_0]], [[CONSTANT_2]] : i32
-  // CHECK: [[SELECT_0:%.+]] = select [[CMP_0]], [[DIM_1_CAST]], [[LOAD_0]] : i32
-  // CHECK: [[ZEXTI_0:%.+]] = zexti [[SELECT_0]] : i32 to i64
-  // CHECK: [[MUL_1:%.+]] = muli [[TYPE_IN_BYTES_1]], [[ZEXTI_0]] : i64
+  // CHECK: [[DIM_1_CAST:%.+]] = index_cast [[DIM_1]] : index to i64
+  // CHECK: [[CONSTANT_2:%.+]] = constant 0 : i64
+  // CHECK: [[CMP_0:%.+]] = cmpi "eq", [[LOAD_0]], [[CONSTANT_2]] : i64
+  // CHECK: [[SELECT_0:%.+]] = select [[CMP_0]], [[DIM_1_CAST]], [[LOAD_0]] : i64
+  // CHECK: [[MUL_1:%.+]] = muli [[TYPE_IN_BYTES_1]], [[SELECT_0]] : i64
 
   // CHECK: %[[CONSTANT_3:.+]] = constant 1 : index
-  // CHECK: [[LOAD_1:%.+]] = load %arg1[%[[CONSTANT_3]]] : memref<4xi32>
-  // CHECK: [[CONSTANT_3:%.+]] = constant 10 : i32
-  // CHECK: [[CONSTANT_4:%.+]] = constant 0 : i32
-  // CHECK: [[CMP_1:%.+]] = cmpi "eq", [[LOAD_1]], [[CONSTANT_4]] : i32
-  // CHECK: [[SELECT_1:%.+]] = select [[CMP_1]], [[CONSTANT_3]], [[LOAD_1]] : i32
-  // CHECK: [[ZEXTI_1:%.+]] = zexti [[SELECT_1]] : i32 to i64
-  // CHECK: [[MUL_2:%.+]] = muli [[MUL_1]], [[ZEXTI_1]] : i64
+  // CHECK: [[LOAD_1:%.+]] = load %arg1[%[[CONSTANT_3]]] : memref<4xi64>
+  // CHECK: [[CONSTANT_3:%.+]] = constant 10 : i64
+  // CHECK: [[CONSTANT_4:%.+]] = constant 0 : i64
+  // CHECK: [[CMP_1:%.+]] = cmpi "eq", [[LOAD_1]], [[CONSTANT_4]] : i64
+  // CHECK: [[SELECT_1:%.+]] = select [[CMP_1]], [[CONSTANT_3]], [[LOAD_1]] : i64
+  // CHECK: [[MUL_2:%.+]] = muli [[MUL_1]], [[SELECT_1]] : i64
 
   // CHECK: %[[CONSTANT_5:.+]] = constant 2 : index
-  // CHECK: [[LOAD_2:%.+]] = load %arg1[%[[CONSTANT_5]]] : memref<4xi32>
-  // CHECK: [[ZEXTI_2:%.+]] = zexti [[LOAD_2]] : i32 to i64
-  // CHECK: [[MUL_3:%.+]] = muli [[MUL_2]], [[ZEXTI_2]] : i64
+  // CHECK: [[LOAD_2:%.+]] = load %arg1[%[[CONSTANT_5]]] : memref<4xi64>
+  // CHECK: [[MUL_3:%.+]] = muli [[MUL_2]], [[LOAD_2]] : i64
 
   // CHECK: %[[CONSTANT_6:.+]] = constant 3 : index
-  // CHECK: [[LOAD_3:%.+]] = load %arg1[%[[CONSTANT_6]]] : memref<4xi32>
-  // CHECK: [[ZEXTI_3:%.+]] = zexti [[LOAD_3]] : i32 to i64
-  // CHECK: [[MUL_4:%.+]] = muli [[MUL_3]], [[ZEXTI_3]] : i64
+  // CHECK: [[LOAD_3:%.+]] = load %arg1[%[[CONSTANT_6]]] : memref<4xi64>
+  // CHECK: [[MUL_4:%.+]] = muli [[MUL_3]], [[LOAD_3]] : i64
 
   // CHECK: [[CONSTANT_7:%.+]] = constant 0 : i64
   // CHECK: [[SUB_0:%.+]] = subi [[CONSTANT_7]], [[MUL_4]] : i64
 
   // CHECK: [[CONSTANT_8:%.+]] = constant -1 : i64
-  // CHECK: [[CMP_2:%.+]] = cmpi "eq", [[ZEXTI_0]], [[CONSTANT_8]] : i64
+  // CHECK: [[CMP_2:%.+]] = cmpi "eq", [[SELECT_0]], [[CONSTANT_8]] : i64
   // CHECK: [[DIVISIGNED_0:%.+]] = divi_signed [[TENSOR_SIZE]], [[SUB_0]] : i64
-  // CHECK: [[SELECT_2:%.+]] = select [[CMP_2]], [[DIVISIGNED_0]], [[ZEXTI_0]] : i64
+  // CHECK: [[SELECT_2:%.+]] = select [[CMP_2]], [[DIVISIGNED_0]], [[SELECT_0]] : i64
   // CHECK: [[CAST_0:%.+]] = index_cast [[SELECT_2]] : i64 to index
 
-  // CHECK: [[CMP_3:%.+]] = cmpi "eq", [[ZEXTI_1]], [[CONSTANT_8]] : i64
+  // CHECK: [[CMP_3:%.+]] = cmpi "eq", [[SELECT_1]], [[CONSTANT_8]] : i64
   // CHECK: [[DIVISIGNED_1:%.+]] = divi_signed [[TENSOR_SIZE]], [[SUB_0]] : i64
-  // CHECK: [[SELECT_3:%.+]] = select [[CMP_3]], [[DIVISIGNED_1]], [[ZEXTI_1]] : i64
+  // CHECK: [[SELECT_3:%.+]] = select [[CMP_3]], [[DIVISIGNED_1]], [[SELECT_1]] : i64
   // CHECK: [[CAST_1:%.+]] = index_cast [[SELECT_3]] : i64 to index
 
-  // CHECK: [[CMP_4:%.+]] = cmpi "eq", [[ZEXTI_2]], [[CONSTANT_8]] : i64
+  // CHECK: [[CMP_4:%.+]] = cmpi "eq", [[LOAD_2]], [[CONSTANT_8]] : i64
   // CHECK: [[DIVISIGNED_2:%.+]] = divi_signed [[TENSOR_SIZE]], [[SUB_0]] : i64
-  // CHECK: [[SELECT_4:%.+]] = select [[CMP_4]], [[DIVISIGNED_2]], [[ZEXTI_2]] : i64
+  // CHECK: [[SELECT_4:%.+]] = select [[CMP_4]], [[DIVISIGNED_2]], [[LOAD_2]] : i64
   // CHECK: [[CAST_2:%.+]] = index_cast [[SELECT_4]] : i64 to index
 
-  // CHECK: [[CMP_5:%.+]] = cmpi "eq", [[ZEXTI_3]], [[CONSTANT_8]] : i64
+  // CHECK: [[CMP_5:%.+]] = cmpi "eq", [[LOAD_3]], [[CONSTANT_8]] : i64
   // CHECK: [[DIVISIGNED_3:%.+]] = divi_signed [[TENSOR_SIZE]], [[SUB_0]] : i64
-  // CHECK: [[SELECT_5:%.+]] = select [[CMP_5]], [[DIVISIGNED_3]], [[ZEXTI_3]] : i64
+  // CHECK: [[SELECT_5:%.+]] = select [[CMP_5]], [[DIVISIGNED_3]], [[LOAD_3]] : i64
   // CHECK: [[CAST_3:%.+]] = index_cast [[SELECT_5]] : i64 to index
 
   // CHECK: [[ALLOC:%.+]] = alloc([[CAST_0]], [[CAST_1]], [[CAST_2]], [[CAST_3]]) : memref<?x?x?x?xf32>

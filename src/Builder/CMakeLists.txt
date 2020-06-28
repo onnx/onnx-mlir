@@ -30,8 +30,3 @@ target_include_directories(OMBuilder
 # the compilation will fail.
 add_dependencies(OMBuilder OMONNXOpsInc)
 add_dependencies(OMBuilder OMONNXOps OMResultTypeInferenceOpInterface)
-
-if (INCLUDE_ONNX_ML)
-  add_dependencies(OMBuilder OMMLONNXOpsInc)
-  add_dependencies(OMBuilder OMMLONNXOps)
-endif()
