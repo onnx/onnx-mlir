@@ -703,7 +703,7 @@ def parse_type_str(allowedType):
     onnx_to_mlir_type_dict = { '(': '<[',
         ')': ']>',
         'tensor' : 'TensorOf',
-        'seq' : 'TensorOf',
+        'seq' : 'SeqOf',
         'map' : 'TupleOf',
         'bool': 'I1',
         #'uint8' : 'AnyI8',

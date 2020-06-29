@@ -21,8 +21,9 @@ def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
 
 def IsSeqTypePred : CPred<"$_self.isa<SeqType>()">;
 
-class SeqOf<list<Type> allowedTypes> :
-  ShapedContainerType<allowedTypes, IsSeqTypePred, "SeqType">;
+class SeqOf<list<Type> allowedTypes> : 
+  ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
+                "$_self.cast<SeqType>().getElementType()",  "SeqType">;
 
 #ifdef SHAPE_INFERENCE_INTERFACE
 #else

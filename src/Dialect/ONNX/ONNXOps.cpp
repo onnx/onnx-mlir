@@ -505,7 +505,7 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
       if (parser.parseType(elementType))
         return nullptr;
 
-      // TOFIX: type limitation for Seq? similar but different shape?? 
+      // TOFIX: type limitation for Seq? similar but different shape??
       elementTypes.push_back(elementType);
     } while (succeeded(parser.parseOptionalComma()));
 
@@ -2265,8 +2265,8 @@ struct SeqTypeStorage : public mlir::TypeStorage {
     return KeyTy(elementTypes);
   }
 
-  static SeqTypeStorage *construct(mlir::TypeStorageAllocator &allocator,
-      const KeyTy &key) {
+  static SeqTypeStorage *construct(
+      mlir::TypeStorageAllocator &allocator, const KeyTy &key) {
     llvm::ArrayRef<mlir::Type> elementTypes = allocator.copyInto(key);
     return new (allocator.allocate<SeqTypeStorage>())
         SeqTypeStorage(elementTypes);
@@ -2286,6 +2286,8 @@ SeqType SeqType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
 llvm::ArrayRef<mlir::Type> SeqType::getElementTypes() {
   return getImpl()->elementTypes;
 }
+
+mlir::Type SeqType::getElementType() { return getElementTypes()[0]; }
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
