@@ -273,3 +273,20 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
   let parser = ?;
   let printer = ?;
 }
+
+def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
+  let summary = "Krnl block operation";
+  let description = [{
+    Block a single for loop by a constant tile size. For instance,
+    $ib, $il = krnl.block %i, 4
+    means to block the for loop referred to by %i using a tile size of 4.
+  }];
+
+  let arguments = (ins
+    AnyType:$loop, I64Attr:$tile_size);
+  let results = (outs AnyType:$loop_block, AnyType:$loop_local);
+
+  let assemblyFormat = [{
+      $loop $tile_size attr-dict `:` functional-type($loop, results)
+  }];
+}
