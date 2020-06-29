@@ -88,6 +88,8 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     for (int i = 0; i < rank; ++i)
       if (memRefShape[i] < 0)
         allocOperands.push_back(fromOperands[i]);
+    // Set alignment attribute. Default value is `-1`, which does not set
+    // alignment.
     if (alignment >= 0) {
       IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
       alloc =
@@ -96,6 +98,8 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
       alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
     }
   } else {
+    // Set alignment attribute. Default value is `-1`, which does not set
+    // alignment.
     if (alignment >= 0) {
       SmallVector<Value, 4> allocOperandsEmpty;
       IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
