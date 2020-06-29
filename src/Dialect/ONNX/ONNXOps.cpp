@@ -484,6 +484,7 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
       >();
   addTypes<StringType>();
+  addTypes<SeqType>();
 }
 
 mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
