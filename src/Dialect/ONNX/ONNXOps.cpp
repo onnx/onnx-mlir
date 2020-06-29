@@ -487,15 +487,44 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
 }
 
 mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
-  if (parser.parseKeyword("String"))
+  StringRef keyword;
+  if (parser.parseKeyword(&keyword))
     return Type();
 
-  return StringType::get(getContext());
+  if (keyword == "String")
+    return StringType::get(getContext());
+  if (keyword == "Seq") {
+    if (parser.parseLess())
+      return Type();
+
+    SmallVector<mlir::Type, 1> elementTypes;
+    do {
+      llvm::SMLoc typeLoc = parser.getCurrentLocation();
+      mlir::Type elementType;
+      if (parser.parseType(elementType))
+        return nullptr;
+
+      // TOFIX: type limitation for Seq? similar but different shape?? 
+      elementTypes.push_back(elementType);
+    } while (succeeded(parser.parseOptionalComma()));
+
+    if (parser.parseGreater())
+      return Type();
+    return SeqType::get(elementTypes);
+  }
 }
 
 void ONNXOpsDialect::printType(
     mlir::Type type, mlir::DialectAsmPrinter &printer) const {
-  printer << "String";
+  if (auto stringType = type.dyn_cast<StringType>()) {
+    printer << "String";
+  } else if (auto seqType = type.dyn_cast<SeqType>()) {
+    printer << "Seq<";
+    llvm::interleaveComma(seqType.getElementTypes(), printer);
+    printer << '>';
+  } else {
+    llvm_unreachable("Unexpected onnxmlir type");
+  }
 }
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
@@ -2211,6 +2240,50 @@ LogicalResult ONNXConvIntegerOp::inferShapes() {
   Type outputType = IntegerType::get(32, getContext());
   getResult().setType(RankedTensorType::get(outputDims, outputType));
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX type related code
+//===----------------------------------------------------------------------===//
+
+namespace mlir {
+namespace onnxmlir {
+namespace detail {
+struct SeqTypeStorage : public mlir::TypeStorage {
+  using KeyTy = llvm::ArrayRef<mlir::Type>;
+
+  SeqTypeStorage(llvm::ArrayRef<mlir::Type> elementTypes)
+      : elementTypes(elementTypes) {}
+
+  bool operator==(const KeyTy &key) const { return key == elementTypes; }
+  static llvm::hash_code hasKey(const KeyTy &key) {
+    return llvm::hash_value(key);
+  }
+
+  static KeyTy getKey(llvm::ArrayRef<mlir::Type> elementTypes) {
+    return KeyTy(elementTypes);
+  }
+
+  static SeqTypeStorage *construct(mlir::TypeStorageAllocator &allocator,
+      const KeyTy &key) {
+    llvm::ArrayRef<mlir::Type> elementTypes = allocator.copyInto(key);
+    return new (allocator.allocate<SeqTypeStorage>())
+        SeqTypeStorage(elementTypes);
+  }
+  llvm::ArrayRef<mlir::Type> elementTypes;
+};
+} // end namespace detail
+} // end namespace onnxmlir
+} // end namespace mlir
+
+SeqType SeqType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
+  assert(!elementTypes.empty() && "expected non-empty seq");
+  mlir::MLIRContext *ctx = elementTypes.front().getContext();
+  return Base::get(ctx, ONNXTypes::SEQ, elementTypes);
+}
+
+llvm::ArrayRef<mlir::Type> SeqType::getElementTypes() {
+  return getImpl()->elementTypes;
 }
 
 //===----------------------------------------------------------------------===//
