@@ -207,17 +207,22 @@ Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
 // block is returned in the last argument of the function.
 void emitKrnlLoopsAndIterationForOperand(ConversionPatternRewriter &rewriter,
     Location loc, Value operand, std::vector<Value> &originalLoops,
-    KrnlOptimizeLoopsOp &optimizedLoopsOp, KrnlIterateOp &iterateOp) {
+    KrnlIterateOp &iterateOp) {
   // Operand shape.
   auto shape = operand.getType().cast<MemRefType>().getShape();
 
   // Number of loops.
   int64_t rank = shape.size();
 
+  // Define loops.
+  auto numLoops = rank;
+  auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
+  originalLoops.reserve(numLoops);
+  for (auto result : loopsOp.getResults())
+    originalLoops.push_back(result);
+
   // Define loops and optimized loops.
-  std::vector<Value> optimizedLoops;
-  optimizedLoopsOp =
-      emitOptimizedLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
+  std::vector<Value> optimizedLoops = originalLoops;
 
   KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
   // Iterate over the loop nest.

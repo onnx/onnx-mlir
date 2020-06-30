@@ -80,7 +80,7 @@ Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
 // block is returned in the last argument of the function.
 void emitKrnlLoopsAndIterationForOperand(ConversionPatternRewriter &rewriter,
     Location loc, Value operand, std::vector<Value> &originalLoops,
-    KrnlOptimizeLoopsOp &optimizedLoopsOp, KrnlIterateOp &iterateOp);
+    KrnlIterateOp &iterateOp);
 
 unsigned getMemRefEltSizeInBytes(MemRefType memRefType);
 

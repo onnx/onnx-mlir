@@ -526,19 +526,10 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     SmallVector<Value, 4> loopIVs;
     if (!hasAllScalarValues(operands)) {
       std::vector<Value> originalLoops;
-      KrnlOptimizeLoopsOp optimizedLoopsOp;
       KrnlIterateOp iterateOp;
       emitKrnlLoopsAndIterationForOperand(
-          rewriter, loc, X, originalLoops, optimizedLoopsOp, iterateOp);
-      Block &optimizationBlock = optimizedLoopsOp.region().front();
+          rewriter, loc, X, originalLoops, iterateOp);
       Block &iterationBlock = iterateOp.bodyRegion().front();
-
-      // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-      rewriter.setInsertionPointToEnd(&optimizationBlock);
-      // Return from KrnlOptimizeLoopsOp body.
-      // When no optimizations are present we just return the loops
-      // unchaged.
-      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
 
       // 2. Insert instructions inside the KernelIterateOp body.
       rewriter.setInsertionPointToStart(&iterationBlock);
@@ -599,18 +590,10 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
           getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
 
       std::vector<Value> originalLoops;
-      KrnlOptimizeLoopsOp optimizedLoopsOp;
       KrnlIterateOp iterateOp;
       emitKrnlLoopsAndIterationForOperand(
-          rewriter, loc, alloc, originalLoops, optimizedLoopsOp, iterateOp);
-      Block &optimizationBlock = optimizedLoopsOp.region().front();
+          rewriter, loc, alloc, originalLoops, iterateOp);
       Block &iterationBlock = iterateOp.bodyRegion().front();
-
-      // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-      rewriter.setInsertionPointToEnd(&optimizationBlock);
-      // Return from KrnlOptimizeLoopsOp body.
-      // When no optimizations are present we just return the loops unchaged.
-      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
 
       // 2. Insert instructions inside the KernelIterateOp body.
       rewriter.setInsertionPointToStart(&iterationBlock);
