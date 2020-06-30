@@ -6,7 +6,7 @@ target_link_libraries(TestConv
         rapidcheck
         MainUtils
         ExecutionSession
-        DynMemRefUtils)
+        RtMemRefUtils)
 
 target_include_directories(TestConv
         PRIVATE
