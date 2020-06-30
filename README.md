@@ -14,7 +14,32 @@ Currently there are images for amd64, ppc64le and IBM System Z respectively save
 onnxmlirczar/onnx-mlir-build:ppc64le and onnxmlirczar/onnx-mlir-build:s390x. To use one of these images either pull it directly from Docker Hub,
 launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile. The container contains the full build tree including
 the prerequisites and a clone of the source code. The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
-as a development environment. It is also possible to attach vscode to the running container.
+as a development environment. It is also possible to attach vscode to the running container. An example Dockerfile and vscode configuration files can be
+seen in the docs folder. The Dockerfile is shown here.
+
+[same-as-file]: <> (docs/dockerfile-example/Dockerfile)
+'''
+FROM onnxmlirczar/onnx-mlir-build:amd64
+
+WORKDIR /build
+ENV HOME=/build
+ENV PYENV_ROOT=$HOME/.pyenv
+ENV PATH=$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH
+RUN pyenv global 3.7.0
+RUN pyenv rehash
+
+ENV PATH=$PATH:/build/bin
+RUN apt-get update
+RUN apt-get install -y python-numpy
+RUN apt-get install -y python3-pip
+RUN apt-get install -y gdb
+RUN apt-get install -y lldb
+RUN apt-get install -y emacs
+WORKDIR /build/.vscode
+ADD .vscode /build/.vscode
+WORKDIR /build
+
+'''
 
 ## Prerequisites
 
