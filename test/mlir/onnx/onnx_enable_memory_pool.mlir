@@ -12,14 +12,12 @@ func @test_enable_memory_pool(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   // CHECK: [[MEMPOOL:%.+]] = alloc() : memref<400xi8>
   // CHECK: [[GETREF:%.+]] = "krnl.getref"([[MEMPOOL]], [[CONST0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
   // CHECK: krnl.define_loops
-  // CHECK: krnl.optimize_loops
   // CHECK: krnl.iterate
   // CHECK: [[LOAD1:%.+]] = load %arg0[%arg1, %arg2] : memref<10x10xf32>
   // CHECK: [[LOAD2:%.+]] = load %arg0[%arg1, %arg2] : memref<10x10xf32>
   // CHECK: [[ADDF1:%.+]] = addf [[LOAD1]], [[LOAD2]] : f32
   // CHECK: store [[ADDF1]], [[GETREF]][%arg1, %arg2] : memref<10x10xf32>
   // CHECK: krnl.define_loops
-  // CHECK: krnl.optimize_loops
   // CHECK: krnl.iterate
   // CHECK: dealloc [[MEMPOOL]] : memref<400xi8>
   // CHECK: return [[RES]] : memref<10x10xf32>
@@ -41,7 +39,6 @@ func @test_enable_memory_pool_2(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf3
   // CHECK: [[MEMPOOL1:%.+]] = alloc() : memref<400xi8>
   // CHECK: [[GETREF1:%.+]] = "krnl.getref"([[MEMPOOL1]], [[CONST0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
   // CHECK: krnl.define_loops
-  // CHECK: krnl.optimize_loops
   // CHECK: krnl.iterate
   // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[LOAD2:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xf32>
@@ -57,7 +54,6 @@ func @test_enable_memory_pool_2(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf3
   // CHECK: [[ADDF2:%.+]] = addf [[LOAD5]], [[MULF1]] : f32
   // CHECK: store [[ADDF2]], [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
   // CHECK: krnl.define_loops
-  // CHECK: krnl.optimize_loops
   // CHECK: krnl.iterate
   // CHECK: [[LOAD6:%.+]] = load [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
   // CHECK: [[LOAD7:%.+]] = load %arg1[%arg2, %arg3] : memref<10x20xf32>
