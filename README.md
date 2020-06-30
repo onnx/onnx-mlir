@@ -17,7 +17,7 @@ the prerequisites and a clone of the source code. The source can be modified and
 as a development environment. It is also possible to attach vscode to the running container. An example Dockerfile and vscode configuration files can be
 seen in the docs folder. The Dockerfile is shown here.
 
-[same-as-file]: <> (docs/dockerfile-example/Dockerfile)
+[same-as-file]: <> (docs/docker-example/Dockerfile)
 ```
 FROM onnxmlirczar/onnx-mlir-build:amd64
 
