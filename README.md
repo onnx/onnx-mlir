@@ -18,7 +18,7 @@ as a development environment. It is also possible to attach vscode to the runnin
 seen in the docs folder. The Dockerfile is shown here.
 
 [same-as-file]: <> (docs/dockerfile-example/Dockerfile)
-'''
+```
 FROM onnxmlirczar/onnx-mlir-build:amd64
 
 WORKDIR /build
@@ -39,7 +39,7 @@ WORKDIR /build/.vscode
 ADD .vscode /build/.vscode
 WORKDIR /build
 
-'''
+```
 
 ## Prerequisites
 
