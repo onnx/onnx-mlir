@@ -128,6 +128,14 @@ private:
     case onnx::AttributeProto::TENSOR:
       mlirAttr = onnxTensorProtoToDenseElmAttr(builder_, attr.t());
       break;
+    case onnx::AttributeProto::STRINGS: {
+      llvm::SmallVector<mlir::StringRef, 4> vectorStringRef;
+      for (auto item : attr.strings()) {
+        // std::cout<<" one string " << item <<"\n";
+        vectorStringRef.push_back(llvm::StringRef(item));
+      }
+      mlirAttr = builder_.getStrArrayAttr(llvm::makeArrayRef(vectorStringRef));
+      } break;
     default:
       llvm_unreachable("datatype for attribute is not implemented");
       break;
