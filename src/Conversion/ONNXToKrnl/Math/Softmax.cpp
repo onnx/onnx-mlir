@@ -55,8 +55,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     // Define loops.
     std::vector<Value> originalLoops;
     std::vector<Value> optimizedLoops;
-    Block *optimizationBlock =
-        defineLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
+    defineLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
 
     // Coerce the input into a 2-D tensor. `axis` will be the coercing point.
     // This coercing follows the softmax definition in ONNX:
@@ -93,10 +92,6 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     if (axis != 0) {
       outerIterateOp = rewriter.create<KrnlIterateOp>(loc, outerPack);
 
-      // No optimization
-      rewriter.setInsertionPointToEnd(optimizationBlock);
-      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
       // Insert instructions inside the outer loop.
       Block &outerIterationBlock = outerIterateOp.bodyRegion().front();
       rewriter.setInsertionPointToStart(&outerIterationBlock);
@@ -124,10 +119,6 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
       sumIterateOp = rewriter.create<KrnlIterateOp>(loc, innerPack);
       // Create an inner loop to compute softmax.
       softmaxIterateOp = rewriter.create<KrnlIterateOp>(loc, innerPack);
-
-      // No optimization
-      rewriter.setInsertionPointToEnd(optimizationBlock);
-      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
     }
 
     // Insert instructions inside the max loop.

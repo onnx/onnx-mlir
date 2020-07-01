@@ -58,8 +58,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
 
     std::vector<Value> originalLoops;
     std::vector<Value> optimizedLoops;
-    Block *optimizationBlock =
-        defineLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
+    defineLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
 
     // Create a KrnlIterateOp along C dimension.
     // This will be the outer-most loop in order to re-use scale, bias,
@@ -99,10 +98,6 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       addDimensionToPack(rewriter, loc, pack, operand, axes[i]);
     }
     auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
-
-    // No optimization
-    rewriter.setInsertionPointToEnd(optimizationBlock);
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
 
     Block &iterationBlock = iterateOp.bodyRegion().front();
     rewriter.setInsertionPointToStart(&iterationBlock);

@@ -184,8 +184,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     // Define loops to initialize the result.
     std::vector<Value> originalLoopsInit;
     std::vector<Value> optimizedLoopsInit;
-    Block *optimizationBlockInit = defineLoops(
-        rewriter, loc, originalLoopsInit, optimizedLoopsInit, outRank);
+    defineLoops(rewriter, loc, originalLoopsInit, optimizedLoopsInit, outRank);
 
     // Iteration information
     KrnlIterateOperandPack packInit(
@@ -197,9 +196,6 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     Block &iterationBlockInit = iterateOpInit.bodyRegion().front();
 
     // Perform the insertions into the body of the initialization loop.
-    // No optimization
-    rewriter.setInsertionPointToEnd(optimizationBlockInit);
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoopsInit);
 
     // Insert instructions inside the KernelIterateOp body.
     rewriter.setInsertionPointToStart(&iterationBlockInit);
@@ -217,8 +213,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     // Define an Krnl loop to do reduction.
     rewriter.setInsertionPointAfter(iterateOpInit);
     std::vector<Value> originalLoops, optimizedLoops;
-    Block *optimizationBlock =
-        defineLoops(rewriter, loc, originalLoops, optimizedLoops, inRank);
+    defineLoops(rewriter, loc, originalLoops, optimizedLoops, inRank);
     // Iteration information
     KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i) {
@@ -228,10 +223,6 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     Block &iterationBlock = iterateOp.bodyRegion().front();
 
     // Perform the insertions into the body of the reduction loop.
-    // No optimization
-    rewriter.setInsertionPointToEnd(optimizationBlock);
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
     // Insert instructions inside the KernelIterateOp body.
     rewriter.setInsertionPointToStart(&iterationBlock);
 

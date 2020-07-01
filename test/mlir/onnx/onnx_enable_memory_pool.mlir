@@ -45,7 +45,6 @@ func @test_enable_memory_pool_2(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf3
   // CHECK: [[ADDF1:%.+]] = addf [[LOAD1]], [[LOAD2]] : f32
   // CHECK: store [[ADDF1]], [[GETREF1]][%arg2, %arg3] : memref<10x10xf32>
   // CHECK: krnl.define_loops
-  // CHECK: krnl.optimize_loops
   // CHECK: krnl.iterate
   // CHECK: [[LOAD3:%.+]] = load [[GETREF1]][%arg2, %arg4] : memref<10x10xf32>
   // CHECK: [[LOAD4:%.+]] = load %arg1[%arg4, %arg3] : memref<10x20xf32>

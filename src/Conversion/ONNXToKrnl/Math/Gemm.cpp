@@ -73,8 +73,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Define loops.
     std::vector<Value> originalLoops;
     std::vector<Value> optimizedLoops;
-    Block *optimizationBlock =
-        defineLoops(rewriter, loc, originalLoops, optimizedLoops, numLoops);
+    defineLoops(rewriter, loc, originalLoops, optimizedLoops, numLoops);
 
     // We have two Krnl loops:
     // - Outer loop iterates over the output matrix dimensions, and
@@ -139,10 +138,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Now perform the insertions into the body of the
     // just generated instructions:
-
-    // No optimization
-    rewriter.setInsertionPointToEnd(optimizationBlock);
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
 
     // Insert instructions inside the outer loop.
     Block &outerIterationBlock = outerIterateOp.bodyRegion().front();

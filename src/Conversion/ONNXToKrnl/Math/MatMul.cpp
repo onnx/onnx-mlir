@@ -118,7 +118,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       // Define loops for batch dimensions.
       std::vector<Value> originalLoops;
       std::vector<Value> optimizedLoops;
-      Block *optimizationBlock = defineLoops(
+      defineLoops(
           rewriter, loc, originalLoops, optimizedLoops, memRefShape.size());
 
       // Outer KrnlIterateOp
@@ -144,10 +144,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           addDimensionToPack(rewriter, loc, outerPack, alloc, i);
         }
         auto outerIterateOp = rewriter.create<KrnlIterateOp>(loc, outerPack);
-
-        // No optimization
-        rewriter.setInsertionPointToEnd(optimizationBlock);
-        rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
 
         // Insert instructions into the outer KrnlIterateOp.
         Block &outerIterationBlock = outerIterateOp.bodyRegion().front();
@@ -196,12 +192,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, matmulPack);
       }
 
-      if (!hasBatchLoop) {
-        // No optimization
-        rewriter.setInsertionPointToEnd(optimizationBlock);
-        rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-      }
-
       // Insert instructions into the matmul KrnlIterateOp.
       Block &matmulIterationBlock = matmulIterateOp.bodyRegion().front();
       rewriter.setInsertionPointToStart(&matmulIterationBlock);
@@ -227,16 +217,11 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       //  Use a value from A.
       std::vector<Value> reduceLoops;
       std::vector<Value> optimizedReduceLoops;
-      Block *optimizationReduceBlock =
-          defineLoops(rewriter, loc, reduceLoops, optimizedReduceLoops, 1);
+      defineLoops(rewriter, loc, reduceLoops, optimizedReduceLoops, 1);
       KrnlIterateOperandPack reducePack(
           rewriter, reduceLoops, optimizedReduceLoops);
       addDimensionToPack(rewriter, loc, reducePack, A, AShape.size() - 1);
       auto reduceIterateOp = rewriter.create<KrnlIterateOp>(loc, reducePack);
-
-      // No optimization
-      rewriter.setInsertionPointToEnd(optimizationReduceBlock);
-      rewriter.create<KrnlReturnLoopsOp>(loc, reduceLoops);
 
       // Insert instructions into the reduction KrnlIterateOp.
       Block &reduceIterationBlock = reduceIterateOp.bodyRegion().front();
@@ -289,16 +274,12 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       //  Use a value from A.
       std::vector<Value> reduceLoops;
       std::vector<Value> optimizedReduceLoops;
-      Block *optimizationReduceBlock =
-          defineLoops(rewriter, loc, reduceLoops, optimizedReduceLoops, 1);
+
+      defineLoops(rewriter, loc, reduceLoops, optimizedReduceLoops, 1);
       KrnlIterateOperandPack reducePack(
           rewriter, reduceLoops, optimizedReduceLoops);
       addDimensionToPack(rewriter, loc, reducePack, A, 0);
       auto reduceIterateOp = rewriter.create<KrnlIterateOp>(loc, reducePack);
-
-      // No optimization
-      rewriter.setInsertionPointToEnd(optimizationReduceBlock);
-      rewriter.create<KrnlReturnLoopsOp>(loc, reduceLoops);
 
       // Insert instructions into the reduction KrnlIterateOp.
       Block &reduceIterationBlock = reduceIterateOp.bodyRegion().front();
