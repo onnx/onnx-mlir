@@ -3,15 +3,15 @@
 # such static library in a shared library can cause runtime failure on some architectures,
 # such as z. So we override the default and explicitly compile with -fPIC.
 add_library(cruntime STATIC
-        DynMemRef.cpp
-        DynMemRef.h
+        RtMemRef.cpp
+        RtMemRef.h
         DataType.h)
 set_target_properties(cruntime PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 
-add_library(DynMemRefUtils
-        DynMemRef.h
-        DynMemRef.cpp
+add_library(RtMemRefUtils
+        RtMemRef.h
+        RtMemRef.cpp
         DataType.h)
 
 add_library(ExecutionSession
@@ -32,7 +32,8 @@ pybind11_add_module(PyRuntime
 target_link_libraries(PyRuntime PRIVATE
         ${CMAKE_DL_LIBS}
         ExecutionSession
-        DynMemRefUtils)
+        RtMemRefUtils
+        onnx)
 target_include_directories(PyRuntime PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_BIN_ROOT}
@@ -46,6 +47,6 @@ set_target_properties(EmbeddedDataLoader PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 
 add_dependencies(PyRuntime cruntime)
-install(FILES DynMemRef.h DESTINATION include)
+install(FILES RtMemRef.h DESTINATION include)
 install(TARGETS cruntime DESTINATION lib)
 install(TARGETS EmbeddedDataLoader DESTINATION lib)

@@ -42,20 +42,19 @@ ExecutionSession::ExecutionSession(
   }
 }
 
-std::vector<std::unique_ptr<DynMemRef>> ExecutionSession::run(
-    std::vector<std::unique_ptr<DynMemRef>> ins) {
-  auto *wrappedInput = createOrderedDynMemRefDict();
+std::vector<std::unique_ptr<RtMemRef>> ExecutionSession::run(
+    std::vector<std::unique_ptr<RtMemRef>> ins) {
+  auto *wrappedInput = createOrderedRtMemRefDict();
   for (size_t i = 0; i < ins.size(); i++)
-    setDynMemRef(wrappedInput, i, ins.at(i).get());
+    setRtMemRef(wrappedInput, i, ins.at(i).get());
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
-  std::vector<std::unique_ptr<DynMemRef>> outs;
+  std::vector<std::unique_ptr<RtMemRef>> outs;
   auto outputSize = getSize(wrappedOutput);
 
   for (size_t i = 0; i < getSize(wrappedOutput); i++) {
-    outs.emplace_back(
-        std::unique_ptr<DynMemRef>(getDynMemRef(wrappedOutput, i)));
+    outs.emplace_back(std::unique_ptr<RtMemRef>(getRtMemRef(wrappedOutput, i)));
   }
   return std::move(outs);
 }
