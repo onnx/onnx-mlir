@@ -878,16 +878,16 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
 
   // Lower the MemRef types to a representation in LLVM.
+  LowerToLLVMOptions options;
+  options.emitCWrappers = true;
   LLVMTypeConverter typeConverter(&getContext());
-
+  
   // We have a combination of `krnl`, `affine`, and `std` operations. We
   // lower in stages until all the code is in the LLVM dialect.
   OwningRewritePatternList patterns;
   populateAffineToStdConversionPatterns(patterns, &getContext());
   populateLoopToStdConversionPatterns(patterns, &getContext());
-  populateStdToLLVMConversionPatterns(typeConverter, patterns,
-      /*emitCWrapperS=*/true,
-      /*useAlignedAlloc=*/false);
+  populateStdToLLVMConversionPatterns(typeConverter, patterns, options);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
       &getContext(), typeConverter);
