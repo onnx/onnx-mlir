@@ -24,7 +24,7 @@ func @test_constant(%arg0 : tensor<1xf32>) -> tensor<*xf32> {
   // CHECK: [[GLOBAL_SIZE_BYTES:%.+]] = llvm.sext [[CONST_MUL1]] : !llvm.i64 to !llvm.i64
 
   /// Volatile flag
-  // CHECK: [[CONST0:%.+]] = llvm.mlir.constant(0 : i1) : !llvm.i1
+  // CHECK: [[CONST0:%.+]] = llvm.mlir.constant(false) : !llvm.i1
 
   // CHECK: llvm.call @llvm.memcpy.p0i8.p0i8.i64([[I8ALLOCA]], [[I8GLOBAL]], [[GLOBAL_SIZE_BYTES]], [[CONST0]]) : (!llvm<"i8*">, !llvm<"i8*">, !llvm.i64, !llvm.i1) -> !llvm.void
 
