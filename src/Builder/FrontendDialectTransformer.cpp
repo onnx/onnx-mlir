@@ -114,9 +114,10 @@ private:
     case onnx::AttributeProto::INT:
       mlirAttr = builder_.getI64IntegerAttr(attr.i());
       break;
-    case onnx::AttributeProto::STRING:
-      mlirAttr = builder_.getStringAttr(attr.s());
-      break;
+    case onnx::AttributeProto::STRING: {
+      std::string *copiedString = new std::string(attr.s());
+      mlirAttr = builder_.getStringAttr(*copiedString);
+    } break;
     case onnx::AttributeProto::FLOATS:
       mlirAttr = builder_.getF32ArrayAttr(
           llvm::makeArrayRef(attr.floats().begin(), attr.floats().end()));
@@ -131,7 +132,8 @@ private:
     case onnx::AttributeProto::STRINGS: {
       llvm::SmallVector<mlir::StringRef, 4> vectorStringRef;
       for (auto item : attr.strings()) {
-        vectorStringRef.push_back(llvm::StringRef(item));
+        std::string *copiedString = new std::string(item);
+        vectorStringRef.push_back(llvm::StringRef(*copiedString));
       }
       mlirAttr = builder_.getStrArrayAttr(llvm::makeArrayRef(vectorStringRef));
     } break;
