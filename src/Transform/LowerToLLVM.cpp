@@ -881,7 +881,7 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
   LowerToLLVMOptions options;
   options.emitCWrappers = true;
   LLVMTypeConverter typeConverter(&getContext());
-  
+
   // We have a combination of `krnl`, `affine`, and `std` operations. We
   // lower in stages until all the code is in the LLVM dialect.
   OwningRewritePatternList patterns;
