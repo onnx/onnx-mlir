@@ -45,7 +45,7 @@ MemRefType convertToMemRefType(Type type);
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc,
-    ArrayRef<Value> operands = {});
+    ArrayRef<Value> operands = {}, int64_t alignment = -1);
 
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
