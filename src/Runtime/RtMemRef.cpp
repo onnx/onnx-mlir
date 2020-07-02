@@ -1,4 +1,4 @@
-//===----------- DynMemRef.cpp - Dynamic MemRef Implementation ------------===//
+//===----------- RtMemRef.cpp - Dynamic MemRef Implementation ------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "DynMemRef.h"
+#include "RtMemRef.h"
 
 namespace {
 // Helper function to compute cartisian product.
@@ -39,19 +39,19 @@ inline std::vector<std::vector<INDEX_TYPE>> CartProduct(
 }
 } // namespace
 
-DynMemRef::DynMemRef(int _rank) {
+RtMemRef::RtMemRef(int _rank) {
   rank = _rank;
   sizes = (INDEX_TYPE *)malloc(rank * sizeof(INDEX_TYPE));
   strides = (int64_t *)malloc(rank * sizeof(int64_t));
 }
 
-INDEX_TYPE DynMemRef::size() const {
+INDEX_TYPE RtMemRef::size() const {
   return std::accumulate(sizes, sizes + rank, 1, std::multiplies<>());
 }
 
-std::vector<std::vector<INDEX_TYPE>> DynMemRef::indexSet() const {
+std::vector<std::vector<INDEX_TYPE>> RtMemRef::indexSet() const {
   // First, we create index set of each dimension separately.
-  // i.e., for a tensor/DMR of shape (2, 3), its dimWiseIdxSet will be:
+  // i.e., for a tensor/RMR of shape (2, 3), its dimWiseIdxSet will be:
   // {{0,1}, {0,1,2}};
   std::vector<std::vector<INDEX_TYPE>> dimWiseIdxSet;
   for (auto dimSize : std::vector<INDEX_TYPE>(sizes, sizes + rank)) {
@@ -60,18 +60,18 @@ std::vector<std::vector<INDEX_TYPE>> DynMemRef::indexSet() const {
     dimWiseIdxSet.emplace_back(dimIdxSet);
   }
   // Then, the cartesian product of vectors within dimWiseIdxSet will be the
-  // index set for the whole DMR.
+  // index set for the whole RMR.
   return CartProduct(dimWiseIdxSet);
 }
 
-INDEX_TYPE DynMemRef::computeOffset(std::vector<INDEX_TYPE> &idxs) const {
+INDEX_TYPE RtMemRef::computeOffset(std::vector<INDEX_TYPE> &idxs) const {
   auto dimStrides = std::vector<INDEX_TYPE>(strides, strides + rank);
   INDEX_TYPE elemOffset = std::inner_product(
       idxs.begin(), idxs.end(), dimStrides.begin(), (INDEX_TYPE)0);
   return elemOffset;
 }
 
-std::vector<int64_t> DynMemRef::computeStridesFromSizes() const {
+std::vector<int64_t> RtMemRef::computeStridesFromSizes() const {
   // Shift dimension sizes one to the left, fill in the vacated rightmost
   // element with 1; this gets us a vector that'll be more useful for computing
   // strides of memory access along each dimension using prefix product (aka
@@ -86,7 +86,7 @@ std::vector<int64_t> DynMemRef::computeStridesFromSizes() const {
   return dimStrides;
 }
 
-DynMemRef::~DynMemRef() {
+RtMemRef::~RtMemRef() {
   free(data);
   free(sizes);
   free(strides);
@@ -95,27 +95,26 @@ DynMemRef::~DynMemRef() {
 // An ordered dynamic MemRef dictionary.
 // The goal is to support accessing dynamic memory ref by name and by index.
 // Currently, only accessing by index is supported.
-struct OrderedDynMemRefDict {
-  std::map<std::string, DynMemRef *> tensorDict;
+struct OrderedRtMemRefDict {
+  std::map<std::string, RtMemRef *> tensorDict;
   std::vector<std::string> orderedNames;
 };
 
-int numDynMemRefs(OrderedDynMemRefDict *dict) {
+int numRtMemRefs(OrderedRtMemRefDict *dict) {
   return dict->orderedNames.size();
 }
 
-OrderedDynMemRefDict *createOrderedDynMemRefDict() {
-  return new OrderedDynMemRefDict();
+OrderedRtMemRefDict *createOrderedRtMemRefDict() {
+  return new OrderedRtMemRefDict();
 }
 
-DynMemRef *createDynMemRef(int rank) { return new DynMemRef(rank); }
+RtMemRef *createRtMemRef(int rank) { return new RtMemRef(rank); }
 
-DynMemRef *getDynMemRef(OrderedDynMemRefDict *tensorDict, int idx) {
+RtMemRef *getRtMemRef(OrderedRtMemRefDict *tensorDict, int idx) {
   return tensorDict->tensorDict[tensorDict->orderedNames[idx]];
 }
 
-void setDynMemRef(
-    OrderedDynMemRefDict *tensorDict, int idx, DynMemRef *tensor) {
+void setRtMemRef(OrderedRtMemRefDict *tensorDict, int idx, RtMemRef *tensor) {
   if (tensorDict->orderedNames.size() <= idx)
     tensorDict->orderedNames.resize(idx + 1);
 
@@ -130,30 +129,36 @@ void setDynMemRef(
   tensorDict->tensorDict[tensorDict->orderedNames[idx]] = tensor;
 }
 
-void *getData(DynMemRef *dynMemRef) { return dynMemRef->data; }
+void *getData(RtMemRef *dynMemRef) { return dynMemRef->data; }
 
-void setData(DynMemRef *dynMemRef, void *dataPtr) { dynMemRef->data = dataPtr; }
+void setData(RtMemRef *dynMemRef, void *dataPtr) { dynMemRef->data = dataPtr; }
 
-void *getAlignedData(DynMemRef *dynMemRef) { return dynMemRef->alignedData; }
+void *getAlignedData(RtMemRef *dynMemRef) { return dynMemRef->alignedData; }
 
-void setAlignedData(DynMemRef *dynMemRef, void *dataPtr) {
+void setAlignedData(RtMemRef *dynMemRef, void *dataPtr) {
   dynMemRef->alignedData = dataPtr;
 }
 
-INDEX_TYPE *getSizes(DynMemRef *dynMemRef) { return dynMemRef->sizes; }
+INDEX_TYPE *getSizes(RtMemRef *dynMemRef) { return dynMemRef->sizes; }
 
-void setSizes(DynMemRef *dynMemRef, INDEX_TYPE *sizes) {
+void setSizes(RtMemRef *dynMemRef, INDEX_TYPE *sizes) {
   for (int i = 0; i < dynMemRef->rank; i++)
     dynMemRef->sizes[i] = sizes[i];
 }
 
-int64_t *getStrides(DynMemRef *dynMemRef) { return dynMemRef->strides; }
+int64_t *getStrides(RtMemRef *dynMemRef) { return dynMemRef->strides; }
 
-int64_t getSize(OrderedDynMemRefDict *dict) {
-  return dict->orderedNames.size();
+int64_t getSize(OrderedRtMemRefDict *dict) { return dict->orderedNames.size(); }
+
+void setDType(RtMemRef *dynMemRef, int onnxType) {
+  dynMemRef->onnx_dtype = onnxType;
 }
 
-void setStrides(DynMemRef *dynMemRef, int64_t *strides) {
+int getDType(RtMemRef *dynMemRef) { return dynMemRef->onnx_dtype; }
+
+unsigned int getRank(RtMemRef *dynMemRef) { return dynMemRef->rank; }
+
+void setStrides(RtMemRef *dynMemRef, int64_t *strides) {
   for (int i = 0; i < dynMemRef->rank; i++)
     dynMemRef->sizes[i] = strides[i];
 }
