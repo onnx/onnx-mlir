@@ -45,7 +45,8 @@ MemRefType convertToMemRefType(Type type) {
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands) {
+    PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands,
+    int64_t alignment) {
   // Put together alloc operands for any dynamic dimensions of the memref.
   AllocOp alloc;
   if (!operands.empty()) {
@@ -87,9 +88,26 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     for (int i = 0; i < rank; ++i)
       if (memRefShape[i] < 0)
         allocOperands.push_back(fromOperands[i]);
-    alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
+    // Set alignment attribute. Default value is `-1`, which does not set
+    // alignment.
+    if (alignment >= 0) {
+      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
+      alloc =
+          rewriter.create<AllocOp>(loc, type, allocOperands, constAlignAttr);
+    } else {
+      alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
+    }
   } else {
-    alloc = rewriter.create<AllocOp>(loc, type);
+    // Set alignment attribute. Default value is `-1`, which does not set
+    // alignment.
+    if (alignment >= 0) {
+      SmallVector<Value, 4> allocOperandsEmpty;
+      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
+      alloc = rewriter.create<AllocOp>(
+          loc, type, allocOperandsEmpty, constAlignAttr);
+    } else {
+      alloc = rewriter.create<AllocOp>(loc, type);
+    }
   }
 
   // Make sure to allocate at the beginning of the block if
