@@ -2133,37 +2133,11 @@ func @test_lstm_bidirectional_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x
 
 // -----
 
-func @test_squeeze_in_place(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
+func @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.Squeeze"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: @test_squeeze_in_place
-  // CHECK: [[OFFSET:%.+]] = constant 0 : i64
-  // CHECK: [[RES:%.+]] = "krnl.getref"(%arg0, [[OFFSET]]) : (memref<16x1x32x1x64xf32>, i64) -> memref<16x32x64xf32>
-  // CHECK: return [[RES]] : memref<16x32x64xf32>
-}
-
-// -----
-
-func @test_squeeze_multi_input_uses_before(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
-  %1 = "onnx.Exp"(%arg0): (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
-  %0 = "onnx.Squeeze"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: @test_squeeze_multi_input_uses_before
-  // CHECK: [[TENSOR_SIZE:%.+]] = constant 131072 : i64
-  // CHECK: "krnl.memcpy"([[RES]], %arg0, [[TENSOR_SIZE]]) : (memref<16x32x64xf32>, memref<16x1x32x1x64xf32>, i64) -> ()
-  // CHECK: return [[RES]] : memref<16x32x64xf32>
-}
-
-// -----
-
-func @test_squeeze_multi_input_uses_after(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Squeeze"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
-  %1 = "onnx.Exp"(%arg0): (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: @test_squeeze_multi_input_uses_after
+  // CHECK-LABEL: @test_squeeze
   // CHECK: [[RES:%.+]] = alloc() : memref<16x32x64xf32>
   // CHECK: [[TENSOR_SIZE:%.+]] = constant 131072 : i64
   // CHECK: "krnl.memcpy"([[RES]], %arg0, [[TENSOR_SIZE]]) : (memref<16x32x64xf32>, memref<16x1x32x1x64xf32>, i64) -> ()
