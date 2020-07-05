@@ -1346,7 +1346,7 @@ func @test_batchnorm_testmode_Nd(%arg0: tensor<1x2x1x3xf32>, %arg1: tensor<2xf32
   // CHECK:   [[MEAN:%.+]] = affine.load %arg3[%arg5] : memref<2xf32>
   // CHECK:   [[VARIANCE:%.+]] = affine.load %arg4[%arg5] : memref<2xf32>
   // CHECK:   krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#2, [[DEF_LOOPS]]#3) with ([[DEF_LOOPS]]#0 -> %arg6 = 0 to 1, [[DEF_LOOPS]]#2 -> %arg7 = 0 to 1, [[DEF_LOOPS]]#3 -> %arg8 = 0 to 3) {
-  // CHECK:     [[LOADED_VAL:%.+]] = load %arg0[%arg6, %arg5, %arg7, %arg8] : memref<1x2x1x3xf32>
+  // CHECK:     [[LOADED_VAL:%.+]] = affine.load %arg0[%arg6, %arg5, %arg7, %arg8] : memref<1x2x1x3xf32>
   // CHECK:     [[DIVIDEND:%.+]] = subf [[LOADED_VAL]], [[MEAN]] : f32
   // CHECK:     [[ADJUSTED_VARIANCE:%.+]] = addf [[VARIANCE]], [[EPSILON]] : f32
   // CHECK:     [[DIVISOR:%.+]] = sqrt [[ADJUSTED_VARIANCE]] : f32
