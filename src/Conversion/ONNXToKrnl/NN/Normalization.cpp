@@ -78,10 +78,10 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       loopCIVs.emplace_back(rewriter.create<ConstantIndexOp>(loc, 0));
     }
 
-    auto scaleVal = rewriter.create<LoadOp>(loc, scale, loopCIVs);
-    auto biasVal = rewriter.create<LoadOp>(loc, bias, loopCIVs);
-    auto meanVal = rewriter.create<LoadOp>(loc, mean, loopCIVs);
-    auto varianceVal = rewriter.create<LoadOp>(loc, variance, loopCIVs);
+    auto scaleVal = rewriter.create<AffineLoadOp>(loc, scale, loopCIVs);
+    auto biasVal = rewriter.create<AffineLoadOp>(loc, bias, loopCIVs);
+    auto meanVal = rewriter.create<AffineLoadOp>(loc, mean, loopCIVs);
+    auto varianceVal = rewriter.create<AffineLoadOp>(loc, variance, loopCIVs);
 
     // Create a KrnlIterateOp along the other dimensions.
     SmallVector<int64_t, 4> axes;
@@ -113,7 +113,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       loopIVs.emplace_back(args[0]);
     }
 
-    auto xVal = rewriter.create<LoadOp>(loc, operand, loopIVs);
+    auto xVal = rewriter.create<AffineLoadOp>(loc, operand, loopIVs);
     // normalize
     auto dividend = rewriter.create<SubFOp>(loc, xVal, meanVal);
     auto adjustedVarianceVal =
@@ -124,7 +124,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     auto scaleNormVal = rewriter.create<MulFOp>(loc, scaleVal, normVal);
     auto shiftScaleNormVal =
         rewriter.create<AddFOp>(loc, scaleNormVal, biasVal);
-    rewriter.create<StoreOp>(loc, shiftScaleNormVal, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, shiftScaleNormVal, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 

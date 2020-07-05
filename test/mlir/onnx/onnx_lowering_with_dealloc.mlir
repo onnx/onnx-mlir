@@ -13,18 +13,18 @@ func @test_add_add(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tens
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[ADDF:%.+]] = addf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[ADDF]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[ADDF]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
 
   /// Second Add
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[ADDF:%.+]] = addf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[ADDF]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[ADDF]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<10x10xf32>
@@ -46,18 +46,18 @@ func @test_mul_mul(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tens
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[MULF:%.+]] = mulf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[MULF]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[MULF]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
 
   /// Second Mul
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[MULF:%.+]] = mulf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[MULF]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[MULF]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<10x10xf32>
@@ -79,18 +79,18 @@ func @test_div_div(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tens
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[DIVF:%.+]] = divf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[DIVF]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[DIVF]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
 
   /// Second Div
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[DIVF:%.+]] = divf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[DIVF]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[DIVF]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<10x10xf32>
@@ -112,18 +112,18 @@ func @test_sub_sub(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tens
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[SUBF:%.+]] = subf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[SUBF]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[SUBF]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
 
   /// Second Sub
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[SUBF:%.+]] = subf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[SUBF]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[SUBF]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<10x10xf32>
@@ -145,18 +145,18 @@ func @test_and_and(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi1>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi1>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xi1>
   // CHECK: [[AND:%.+]] = and [[LOAD1]], [[LOAD2]] : i1
-  // CHECK: store [[AND]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: affine.store [[AND]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Second And
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xi1>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD1:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xi1>
   // CHECK: [[AND:%.+]] = and [[LOAD1]], [[LOAD2]] : i1
-  // CHECK: store [[AND]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: affine.store [[AND]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<10x10xi1>
@@ -178,18 +178,18 @@ func @test_or_or(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor<*
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi1>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi1>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xi1>
   // CHECK: [[OR:%.+]] = or [[LOAD1]], [[LOAD2]] : i1
-  // CHECK: store [[OR]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: affine.store [[OR]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Second Or
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xi1>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD1:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xi1>
   // CHECK: [[OR:%.+]] = or [[LOAD1]], [[LOAD2]] : i1
-  // CHECK: store [[OR]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: affine.store [[OR]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<10x10xi1>
@@ -211,18 +211,18 @@ func @test_xor_xor(%arg0 : tensor<10x10xi1>, %arg1 : tensor<10x10xi1>) -> tensor
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xi1>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xi1>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xi1>
   // CHECK: [[XOR:%.+]] = xor [[LOAD1]], [[LOAD2]] : i1
-  // CHECK: store [[XOR]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: affine.store [[XOR]], [[RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Second Xor
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xi1>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD1:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xi1>
   // CHECK: [[XOR:%.+]] = xor [[LOAD1]], [[LOAD2]] : i1
-  // CHECK: store [[XOR]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi1>
+  // CHECK: affine.store [[XOR]], [[RET_RES]][%arg2, %arg3] : memref<10x10xi1>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<10x10xi1>
@@ -504,18 +504,18 @@ func @test_sum_sum(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tens
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[ADD:%.+]] = addf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[ADD]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[ADD]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
 
   /// Second Sum
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[ADD:%.+]] = addf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[ADD]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[ADD]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
 
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<10x10xf32>
@@ -537,20 +537,20 @@ func @test_max_max(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tens
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[MAX:%.+]] = cmpf "ogt", [[LOAD1]], [[LOAD2]] : f32
   // CHECK: [[RELU_RES:%.+]] = select [[MAX]], [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[RELU_RES]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[RELU_RES]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
   
   /// Second Max
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[MAX:%.+]] = cmpf "ogt", [[LOAD1]], [[LOAD2]] : f32
   // CHECK: [[RELU_RES:%.+]] = select [[MAX]], [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[RELU_RES]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[RELU_RES]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
   
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<10x10xf32>
@@ -572,20 +572,20 @@ func @test_min_min(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tens
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[MIN:%.+]] = cmpf "olt", [[LOAD1]], [[LOAD2]] : f32
   // CHECK: [[RELU_RES:%.+]] = select [[MIN]], [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[RELU_RES]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[RELU_RES]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
   
   /// Second Min
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK: [[LOAD1:%.+]] = load [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg1[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[MIN:%.+]] = cmpf "olt", [[LOAD1]], [[LOAD2]] : f32
   // CHECK: [[RELU_RES:%.+]] = select [[MIN]], [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[RELU_RES]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[RELU_RES]], [[RET_RES]][%arg2, %arg3] : memref<10x10xf32>
   
   /// Dealloc of first result.
   // CHECK: dealloc [[RES]] : memref<10x10xf32>

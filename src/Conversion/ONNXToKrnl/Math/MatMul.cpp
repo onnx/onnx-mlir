@@ -211,7 +211,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       }
 
       // Fill the output with value 0.
-      rewriter.create<StoreOp>(loc, zero, alloc, loopBatchMNIVs);
+      rewriter.create<AffineStoreOp>(loc, zero, alloc, loopBatchMNIVs);
 
       //  Iterate along the reduction dimension.
       //  Use a value from A.
@@ -250,17 +250,17 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           loopBatchKNIVs.emplace_back(loopMNIVs[0]);
       }
       // Matmul computation
-      auto loadedA = rewriter.create<LoadOp>(loc, A, loopBatchMKIVs);
-      auto loadedB = rewriter.create<LoadOp>(loc, B, loopBatchKNIVs);
-      auto loadedY = rewriter.create<LoadOp>(loc, alloc, loopBatchMNIVs);
+      auto loadedA = rewriter.create<AffineLoadOp>(loc, A, loopBatchMKIVs);
+      auto loadedB = rewriter.create<AffineLoadOp>(loc, B, loopBatchKNIVs);
+      auto loadedY = rewriter.create<AffineLoadOp>(loc, alloc, loopBatchMNIVs);
       if (elementType.isa<IntegerType>()) {
         auto AB = rewriter.create<MulIOp>(loc, loadedA, loadedB);
         auto accumulated = rewriter.create<AddIOp>(loc, loadedY, AB);
-        rewriter.create<StoreOp>(loc, accumulated, alloc, loopBatchMNIVs);
+        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopBatchMNIVs);
       } else if (elementType.isa<FloatType>()) {
         auto AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
         auto accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-        rewriter.create<StoreOp>(loc, accumulated, alloc, loopBatchMNIVs);
+        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopBatchMNIVs);
       }
     } else if ((AShape.size() == 1) && (BShape.size() == 1)) {
       // Case 3:
@@ -268,7 +268,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
       // Fill the output with value 0.
       Value zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
-      rewriter.create<StoreOp>(loc, zero, alloc, zeroIndex);
+      rewriter.create<AffineStoreOp>(loc, zero, alloc, zeroIndex);
 
       //  Iterate along the reduction dimension.
       //  Use a value from A.
@@ -291,17 +291,17 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       loopKIVs.emplace_back(reduceIterationBlock.getArgument(0));
 
       // Matmul computation
-      auto loadedA = rewriter.create<LoadOp>(loc, A, loopKIVs);
-      auto loadedB = rewriter.create<LoadOp>(loc, B, loopKIVs);
-      auto loadedY = rewriter.create<LoadOp>(loc, alloc, zeroIndex);
+      auto loadedA = rewriter.create<AffineLoadOp>(loc, A, loopKIVs);
+      auto loadedB = rewriter.create<AffineLoadOp>(loc, B, loopKIVs);
+      auto loadedY = rewriter.create<AffineLoadOp>(loc, alloc, zeroIndex);
       if (elementType.isa<IntegerType>()) {
         auto AB = rewriter.create<MulIOp>(loc, loadedA, loadedB);
         auto accumulated = rewriter.create<AddIOp>(loc, loadedY, AB);
-        rewriter.create<StoreOp>(loc, accumulated, alloc, zeroIndex);
+        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, zeroIndex);
       } else if (elementType.isa<FloatType>()) {
         auto AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
         auto accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-        rewriter.create<StoreOp>(loc, accumulated, alloc, zeroIndex);
+        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, zeroIndex);
       }
     } else {
       // No scalar matrix multiplication.

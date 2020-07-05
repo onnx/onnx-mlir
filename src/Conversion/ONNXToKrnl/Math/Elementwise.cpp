@@ -602,20 +602,35 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       for (auto arg : iterationBlock.getArguments())
         loopIVs.push_back(arg);
     }
-    // Fold over operands for each of their scalar values
+    // Fold over operands for each of their scalar values.
     Value accumulated, next;
-    auto accumulatedLoopIVs = getLoopIVsForBroadcasting(
+    // Obtain the first operand.
+    std::vector<Value> accumulatedLoopIVs = getLoopIVsForBroadcasting(
         loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
-    accumulated = rewriter.create<LoadOp>(loc, operands[0], accumulatedLoopIVs);
+    if (!hasAllConstantDimensions(memRefType))
+      // In case of unknown dimensions, use std.load since
+      // 'getLoopIVsForBroadcasting' has not supported affine map so far.
+      accumulated =
+          rewriter.create<LoadOp>(loc, operands[0], accumulatedLoopIVs);
+    else
+      accumulated =
+          rewriter.create<AffineLoadOp>(loc, operands[0], accumulatedLoopIVs);
+    // Iterate over the remaining operands.
     for (unsigned i = 1; i < numArgs; i++) {
-      auto nextLoopIVs = getLoopIVsForBroadcasting(
+      std::vector<Value> nextLoopIVs = getLoopIVsForBroadcasting(
           loc, rewriter, loopIVs, operands[i], broadcastedDimInfo[i]);
-      next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
+      if (!hasAllConstantDimensions(memRefType))
+        // In case of unknown dimensions, use std.load since
+        // 'getLoopIVsForBroadcasting' has not supported affine map so far.
+        next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
+      else
+        next = rewriter.create<AffineLoadOp>(loc, operands[i], nextLoopIVs);
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
           rewriter, loc, op, memRefType.getElementType(), {accumulated, next});
     }
+
     // Store result in the resulting array.
-    rewriter.create<StoreOp>(loc, accumulated, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 

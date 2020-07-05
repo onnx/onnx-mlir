@@ -7,6 +7,40 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 | s390-Linux  | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Linux-s390x-Build)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Linux-s390x-Build/)             |
 | x86-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
 
+## Prebuilt Container
+An easy way to get started with ONNX-MLIR is to use a prebuilt docker image. These images are created as a result of a successful merge build on the trunk.
+This means that the latest image represents the tip of the trunk.
+Currently there are images for amd64, ppc64le and IBM System Z respectively saved in Docker Hub as onnxmlirczar/onnx-mlir-build:amd64,
+onnxmlirczar/onnx-mlir-build:ppc64le and onnxmlirczar/onnx-mlir-build:s390x. To use one of these images either pull it directly from Docker Hub,
+launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile. The container contains the full build tree including
+the prerequisites and a clone of the source code. The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
+as a development environment. It is also possible to attach vscode to the running container. An example Dockerfile and vscode configuration files can be
+seen in the docs folder. The Dockerfile is shown here.
+
+[same-as-file]: <> (docs/docker-example/Dockerfile)
+```
+FROM onnxmlirczar/onnx-mlir-build:amd64
+
+WORKDIR /build
+ENV HOME=/build
+ENV PYENV_ROOT=$HOME/.pyenv
+ENV PATH=$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH
+RUN pyenv global 3.7.0
+RUN pyenv rehash
+
+ENV PATH=$PATH:/build/bin
+RUN apt-get update
+RUN apt-get install -y python-numpy
+RUN apt-get install -y python3-pip
+RUN apt-get install -y gdb
+RUN apt-get install -y lldb
+RUN apt-get install -y emacs
+WORKDIR /build/.vscode
+ADD .vscode /build/.vscode
+WORKDIR /build
+
+```
+
 ## Prerequisites
 
 ```

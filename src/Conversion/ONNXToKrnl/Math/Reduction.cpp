@@ -208,7 +208,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 
     Value identity =
         getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
-    rewriter.create<StoreOp>(loc, identity, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, identity, alloc, loopIVs);
 
     // Define an Krnl loop to do reduction.
     rewriter.setInsertionPointAfter(iterateOpInit);
@@ -247,11 +247,11 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     }
 
     Value next, accumulated;
-    next = rewriter.create<LoadOp>(loc, operands[0], inLoopIVs);
-    accumulated = rewriter.create<LoadOp>(loc, alloc, outLoopIVs);
+    next = rewriter.create<AffineLoadOp>(loc, operands[0], inLoopIVs);
+    accumulated = rewriter.create<AffineLoadOp>(loc, alloc, outLoopIVs);
     accumulated = emitScalarOpFor<ONNXReductionOp>(
         rewriter, loc, op, memRefOutType.getElementType(), {accumulated, next});
-    rewriter.create<StoreOp>(loc, accumulated, alloc, outLoopIVs);
+    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, outLoopIVs);
 
     rewriter.replaceOp(op, alloc);
     return success();

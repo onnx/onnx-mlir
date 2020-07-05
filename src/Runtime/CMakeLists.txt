@@ -1,9 +1,13 @@
-# Create shared libcruntime.so since model.so linkage for backend tests
-# will fail on x86 Linux if cruntime is statically linked.
+# Create static libcruntime.a to be embedded in model.so to make model.so self contained.
+# However, by default object code for static library is not compiled with -fPIC. Embedding
+# such static library in a shared library can cause runtime failure on some architectures,
+# such as z. So we override the default and explicitly compile with -fPIC.
 add_library(cruntime STATIC
         RtMemRef.cpp
         RtMemRef.h
         DataType.h)
+set_target_properties(cruntime PROPERTIES
+        POSITION_INDEPENDENT_CODE TRUE)
 
 add_library(RtMemRefUtils
         RtMemRef.h
@@ -35,6 +39,7 @@ target_include_directories(PyRuntime PRIVATE
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 
+# See comments above about libcruntime.a
 add_library(EmbeddedDataLoader STATIC
         GetEmbeddedConstPool.h
         GetEmbeddedConstPool.cpp)

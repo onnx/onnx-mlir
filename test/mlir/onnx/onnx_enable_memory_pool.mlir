@@ -13,10 +13,10 @@ func @test_enable_memory_pool(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   // CHECK: [[GETREF:%.+]] = "krnl.getref"([[MEMPOOL]], [[CONST0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
   // CHECK: krnl.define_loops
   // CHECK: krnl.iterate
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg1, %arg2] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg0[%arg1, %arg2] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<10x10xf32>
   // CHECK: [[ADDF1:%.+]] = addf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[ADDF1]], [[GETREF]][%arg1, %arg2] : memref<10x10xf32>
+  // CHECK: affine.store [[ADDF1]], [[GETREF]][%arg1, %arg2] : memref<10x10xf32>
   // CHECK: krnl.define_loops
   // CHECK: krnl.iterate
   // CHECK: dealloc [[MEMPOOL]] : memref<400xi8>
@@ -40,24 +40,24 @@ func @test_enable_memory_pool_2(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf3
   // CHECK: [[GETREF1:%.+]] = "krnl.getref"([[MEMPOOL1]], [[CONST0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
   // CHECK: krnl.define_loops
   // CHECK: krnl.iterate
-  // CHECK: [[LOAD1:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[LOAD2:%.+]] = load %arg0[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: [[LOAD2:%.+]] = affine.load %arg0[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[ADDF1:%.+]] = addf [[LOAD1]], [[LOAD2]] : f32
-  // CHECK: store [[ADDF1]], [[GETREF1]][%arg2, %arg3] : memref<10x10xf32>
+  // CHECK: affine.store [[ADDF1]], [[GETREF1]][%arg2, %arg3] : memref<10x10xf32>
   // CHECK: krnl.define_loops
   // CHECK: krnl.iterate
-  // CHECK: [[LOAD3:%.+]] = load [[GETREF1]][%arg2, %arg4] : memref<10x10xf32>
-  // CHECK: [[LOAD4:%.+]] = load %arg1[%arg4, %arg3] : memref<10x20xf32>
-  // CHECK: [[LOAD5:%.+]] = load [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
+  // CHECK: [[LOAD3:%.+]] = affine.load [[GETREF1]][%arg2, %arg4] : memref<10x10xf32>
+  // CHECK: [[LOAD4:%.+]] = affine.load %arg1[%arg4, %arg3] : memref<10x20xf32>
+  // CHECK: [[LOAD5:%.+]] = affine.load [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
   // CHECK: [[MULF1:%.+]] = mulf [[LOAD3]], [[LOAD4]] : f32
   // CHECK: [[ADDF2:%.+]] = addf [[LOAD5]], [[MULF1]] : f32
-  // CHECK: store [[ADDF2]], [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
+  // CHECK: affine.store [[ADDF2]], [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
   // CHECK: krnl.define_loops
   // CHECK: krnl.iterate
-  // CHECK: [[LOAD6:%.+]] = load [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
-  // CHECK: [[LOAD7:%.+]] = load %arg1[%arg2, %arg3] : memref<10x20xf32>
+  // CHECK: [[LOAD6:%.+]] = affine.load [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
+  // CHECK: [[LOAD7:%.+]] = affine.load %arg1[%arg2, %arg3] : memref<10x20xf32>
   // CHECK: [[ADDF3:%.+]] = addf [[LOAD6]], [[LOAD7]] : f32
-  // CHECK: store [[ADDF3]], [[RES]][%arg2, %arg3] : memref<10x20xf32>
+  // CHECK: affine.store [[ADDF3]], [[RES]][%arg2, %arg3] : memref<10x20xf32>
   // CHECK: dealloc [[MEMPOOL1]] : memref<400xi8>
   // CHECK: dealloc [[MEMPOOL0]] : memref<800xi8>
   // CHECK: return [[RES]] : memref<10x20xf32>
