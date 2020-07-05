@@ -37,7 +37,9 @@
 #include "mlir/Target/LLVMIR.h"
 #include "mlir/Transforms/Passes.h"
 
-namespace onnx_mlir { extern std::string kExecPath; }
+namespace onnx_mlir {
+extern std::string kExecPath;
+}
 
 enum EmissionTargetType {
   EmitONNXBasic,

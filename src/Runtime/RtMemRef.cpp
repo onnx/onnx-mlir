@@ -152,7 +152,8 @@ int64_t getSize(OrderedRtMemRefDict *dict) { return dict->orderedNames.size(); }
 
 INDEX_TYPE getDataSize(RtMemRef *rtMemRef) {
   INDEX_TYPE n = rtMemRef->sizes[0];
-  for (int i = 1; i < rtMemRef->rank; i++) n *= rtMemRef->sizes[i];
+  for (int i = 1; i < rtMemRef->rank; i++)
+    n *= rtMemRef->sizes[i];
   return n;
 }
 
