@@ -150,6 +150,12 @@ int64_t *getStrides(RtMemRef *dynMemRef) { return dynMemRef->strides; }
 
 int64_t getSize(OrderedRtMemRefDict *dict) { return dict->orderedNames.size(); }
 
+INDEX_TYPE getDataSize(RtMemRef *rtMemRef) {
+  INDEX_TYPE n = rtMemRef->sizes[0];
+  for (int i = 1; i < rtMemRef->rank; i++) n *= rtMemRef->sizes[i];
+  return n;
+}
+
 void setDType(RtMemRef *dynMemRef, int onnxType) {
   dynMemRef->onnx_dtype = onnxType;
 }
@@ -160,5 +166,5 @@ unsigned int getRank(RtMemRef *dynMemRef) { return dynMemRef->rank; }
 
 void setStrides(RtMemRef *dynMemRef, int64_t *strides) {
   for (int i = 0; i < dynMemRef->rank; i++)
-    dynMemRef->sizes[i] = strides[i];
+    dynMemRef->strides[i] = strides[i];
 }

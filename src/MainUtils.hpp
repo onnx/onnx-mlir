@@ -37,18 +37,26 @@
 #include "mlir/Target/LLVMIR.h"
 #include "mlir/Transforms/Passes.h"
 
+namespace onnx_mlir { extern std::string kExecPath; }
+
 enum EmissionTargetType {
   EmitONNXBasic,
   EmitONNXIR,
   EmitMLIR,
   EmitLLVMIR,
   EmitLib,
+  EmitJNI,
 };
+
+void setExecPath(const char *argv0, void *fmain);
 
 void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
 
 void compileModuleToSharedLibrary(
+    const mlir::OwningModuleRef &module, std::string outputBaseName);
+
+void compileModuleToJniJar(
     const mlir::OwningModuleRef &module, std::string outputBaseName);
 
 void registerDialects();
