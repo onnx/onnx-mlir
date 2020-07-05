@@ -129,10 +129,14 @@ struct ONNXConvOpLowering : public ConversionPattern {
       if (group > 1) {
         // Middle loop is over groups and third loop is over the
         // kernel identifiers in the current group.
-        auto kernelsOffset = rewriter.create<MulIOp>(
-            loc, outerLoops.getInductionVar(gIndex), kernelsPerGroupValue);
-        kernel = rewriter.create<AddIOp>(
-            loc, kernelsOffset, outerLoops.getInductionVar(mIndex));
+        AffineMap kernelMap = AffineMap::get(2, 1,
+            /*gIndex=*/rewriter.getAffineDimExpr(0) *
+                    /*kernelsPerGroup=*/rewriter.getAffineSymbolExpr(0) +
+                /*mIndex=*/rewriter.getAffineDimExpr(1));
+        kernel = rewriter.create<AffineApplyOp>(loc, kernelMap,
+            ArrayRef<Value>{/*gIndex=*/outerLoops.getInductionVar(gIndex),
+                /*kernelsPerGroupValue=*/kernelsPerGroupValue,
+                /*mIndex=*/outerLoops.getInductionVar(mIndex)});
       }
 
       // 2.2 Define spatial loops
@@ -209,9 +213,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
                         /*subchannel=*/rewriter.getAffineSymbolExpr(0) +
                     /*c=*/rewriter.getAffineDimExpr(1));
             channelDepth = rewriter.create<AffineApplyOp>(loc, indexMap,
-                ValueRange(
-                    ArrayRef<Value>{/*g=*/outerLoops.getInductionVar(gIndex),
-                        /*c=*/channelDepth, /*subchannel=*/subchannels}));
+                ArrayRef<Value>{/*g=*/outerLoops.getInductionVar(gIndex),
+                    /*c=*/channelDepth, /*subchannel=*/subchannels});
           }
           dataIndices.emplace_back(channelDepth);
           // sX * rX + kX
@@ -231,8 +234,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
                 /*sX=*/rewriter.getAffineDimExpr(0) * /*rX=*/stride +
                     /*kX=*/rewriter.getAffineDimExpr(1));
             Value outIV = rewriter.create<AffineApplyOp>(loc, indexMap,
-                ValueRange(ArrayRef<Value>{spatialLoops.getInductionVar(i),
-                    innerLoops.getInductionVar(i + 1)}));
+                ArrayRef<Value>{spatialLoops.getInductionVar(i),
+                    innerLoops.getInductionVar(i + 1)});
             dataIndices.emplace_back(outIV);
           }
 
