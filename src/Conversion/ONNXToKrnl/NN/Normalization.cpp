@@ -57,8 +57,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     int64_t rank = memRefType.getRank();
 
     std::vector<Value> originalLoops;
-    std::vector<Value> optimizedLoops;
-    defineLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
+    defineLoopsEx(rewriter, loc, originalLoops, rank);
 
     // Create a KrnlIterateOp along C dimension.
     // This will be the outer-most loop in order to re-use scale, bias,
@@ -66,8 +65,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
 
     SmallVector<Value, 1> loopCIVs;
     if (rank > 1) {
-      KrnlIterateOperandPack cPack(
-          rewriter, originalLoops[1], optimizedLoops[1]);
+      KrnlIterateOperandPack cPack(rewriter, originalLoops[1]);
       addDimensionToPack(rewriter, loc, cPack, operand, 1);
       auto cIterateOp = rewriter.create<KrnlIterateOp>(loc, cPack);
       Block &cIterationBlock = cIterateOp.bodyRegion().front();
@@ -88,12 +86,11 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     axes.emplace_back(0);
     for (int64_t i = 2; i < rank; ++i)
       axes.emplace_back(i);
-    std::vector<Value> packLoops, packOptimizedLoops;
+    std::vector<Value> packLoops;
     for (int i = 0; i < axes.size(); ++i) {
       packLoops.emplace_back(originalLoops[axes[i]]);
-      packOptimizedLoops.emplace_back(optimizedLoops[axes[i]]);
     }
-    KrnlIterateOperandPack pack(rewriter, packLoops, packOptimizedLoops);
+    KrnlIterateOperandPack pack(rewriter, packLoops);
     for (int i = 0; i < axes.size(); ++i) {
       addDimensionToPack(rewriter, loc, pack, operand, axes[i]);
     }

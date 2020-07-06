@@ -117,9 +117,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
       // Define loops for batch dimensions.
       std::vector<Value> originalLoops;
-      std::vector<Value> optimizedLoops;
-      defineLoops(
-          rewriter, loc, originalLoops, optimizedLoops, memRefShape.size());
+      defineLoopsEx(rewriter, loc, originalLoops, memRefShape.size());
 
       // Outer KrnlIterateOp
       SmallVector<Value, 4> loopBatchIVs;
@@ -131,15 +129,12 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         for (int i = 0; i < memRefShape.size() - matmulResultDims; ++i)
           batchAxes.emplace_back(i);
 
-        std::vector<Value> outerLoops, optimizedOuterLoops;
+        std::vector<Value> outerLoops;
         outerLoops.reserve(batchAxes.size());
-        optimizedOuterLoops.reserve(batchAxes.size());
-        for (int i = 0; i < batchAxes.size(); ++i) {
+        for (int i = 0; i < batchAxes.size(); ++i)
           outerLoops.push_back(originalLoops[i]);
-          optimizedOuterLoops.push_back(optimizedLoops[i]);
-        }
-        KrnlIterateOperandPack outerPack(
-            rewriter, outerLoops, optimizedOuterLoops);
+
+        KrnlIterateOperandPack outerPack(rewriter, outerLoops);
         for (int i = 0; i < batchAxes.size(); ++i) {
           addDimensionToPack(rewriter, loc, outerPack, alloc, i);
         }
@@ -161,18 +156,14 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
       // Create a KrnlIterateOp for matrix multiplication.
       KrnlIterateOp matmulIterateOp;
-      std::vector<Value> matmulLoops, optimizedMatmulLoops;
+      std::vector<Value> matmulLoops;
       if (AShape.size() >= 2 && BShape.size() >= 2) {
         // 2-D x 2-D. Result has two dimensions.
         matmulLoops.reserve(2);
-        optimizedMatmulLoops.reserve(2);
         for (int i = 2; i > 0; --i) {
           matmulLoops.emplace_back(originalLoops[memRefShape.size() - i]);
-          optimizedMatmulLoops.emplace_back(
-              optimizedLoops[memRefShape.size() - i]);
         }
-        KrnlIterateOperandPack matmulPack(
-            rewriter, matmulLoops, optimizedMatmulLoops);
+        KrnlIterateOperandPack matmulPack(rewriter, matmulLoops);
         for (int i = 2; i > 0; --i) {
           addDimensionToPack(
               rewriter, loc, matmulPack, alloc, memRefShape.size() - i);
@@ -181,12 +172,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       } else {
         // 1-D x 2-D, and vice versa. Result has one dimension.
         matmulLoops.reserve(1);
-        optimizedMatmulLoops.reserve(1);
         matmulLoops.emplace_back(originalLoops[memRefShape.size() - 1]);
-        optimizedMatmulLoops.emplace_back(
-            optimizedLoops[memRefShape.size() - 1]);
-        KrnlIterateOperandPack matmulPack(
-            rewriter, matmulLoops, optimizedMatmulLoops);
+        KrnlIterateOperandPack matmulPack(rewriter, matmulLoops);
         addDimensionToPack(
             rewriter, loc, matmulPack, alloc, memRefShape.size() - 1);
         matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, matmulPack);
@@ -216,10 +203,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       //  Iterate along the reduction dimension.
       //  Use a value from A.
       std::vector<Value> reduceLoops;
-      std::vector<Value> optimizedReduceLoops;
-      defineLoops(rewriter, loc, reduceLoops, optimizedReduceLoops, 1);
-      KrnlIterateOperandPack reducePack(
-          rewriter, reduceLoops, optimizedReduceLoops);
+      defineLoopsEx(rewriter, loc, reduceLoops, 1);
+      KrnlIterateOperandPack reducePack(rewriter, reduceLoops);
       addDimensionToPack(rewriter, loc, reducePack, A, AShape.size() - 1);
       auto reduceIterateOp = rewriter.create<KrnlIterateOp>(loc, reducePack);
 
@@ -273,11 +258,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       //  Iterate along the reduction dimension.
       //  Use a value from A.
       std::vector<Value> reduceLoops;
-      std::vector<Value> optimizedReduceLoops;
 
-      defineLoops(rewriter, loc, reduceLoops, optimizedReduceLoops, 1);
-      KrnlIterateOperandPack reducePack(
-          rewriter, reduceLoops, optimizedReduceLoops);
+      defineLoopsEx(rewriter, loc, reduceLoops, 1);
+      KrnlIterateOperandPack reducePack(rewriter, reduceLoops);
       addDimensionToPack(rewriter, loc, reducePack, A, 0);
       auto reduceIterateOp = rewriter.create<KrnlIterateOp>(loc, reducePack);
 

@@ -191,15 +191,12 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
 }
 
 // Function that emits the definition of loops references.
-void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
-    std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
-    int64_t numLoops) {
+void defineLoopsEx(ConversionPatternRewriter &rewriter, Location loc,
+    std::vector<Value> &loops, int64_t numLoops) {
   auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
   loops.reserve(numLoops);
-  for (auto result : loopsOp.getResults()) {
+  for (auto result : loopsOp.getResults())
     loops.push_back(result);
-    optimizedLoops.push_back(result);
-  }
 }
 
 // Function which emits a basic set of loops and optimized loops
