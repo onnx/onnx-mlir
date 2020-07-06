@@ -23,6 +23,6 @@ jobs:
     - uses: actions/checkout@v2
     - name: build image
       run: |
-        docker build --tag onnxmlirczar/onnx-mlir-llvmimage:initial -f $GITHUB_WORKSPACE/.github/workflows/prereq.Dockerfile $GITHUB_WORKSPACE/utils
-        docker login -u onnxmlirczar -p 143f1da2-332f-45a1-8587-d6cb07c13230 
-        docker push onnxmlirczar/onnx-mlir-llvmimage:initial 
+        docker build --tag $GITHUB_ACTOR/onnx-mlir-llvmimage:initial -f $GITHUB_WORKSPACE/.github/workflows/prereq.Dockerfile $GITHUB_WORKSPACE/utils
+        #docker login -u onnxmlirczar -p 143f1da2-332f-45a1-8587-d6cb07c13230 
+        docker push $GITHUB_ACTOR/onnx-mlir-llvmimage:initial 
