@@ -1155,24 +1155,15 @@ func @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2
   // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CONST2:%.+]] = constant 2 : index
   // CHECK: [[OUTER_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[OPT_OUTER_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_OUTER_LOOPS]]#0, [[OPT_OUTER_LOOPS]]#1) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 5) {
+  // CHECK: krnl.iterate([[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 5) {
   // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[OPT_SPATIAL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_SPATIAL_LOOPS]]#0, [[OPT_SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg4 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg5 = 0 to 58) {
+  // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg4 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg5 = 0 to 58) {
   // CHECK: affine.store [[CONST1]], [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<1x5x27x58xf32>
   // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_INNER_LOOPS:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_INNER_LOOPS]]#0, [[OPT_INNER_LOOPS]]#1, [[OPT_INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg6 = 0 to 2, [[INNER_LOOPS]]#1 -> %arg7 = 0 to 6, [[INNER_LOOPS]]#2 -> %arg8 = 0 to 7) {
+  // CHECK: krnl.iterate([[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg6 = 0 to 2, [[INNER_LOOPS]]#1 -> %arg7 = 0 to 6, [[INNER_LOOPS]]#2 -> %arg8 = 0 to 7) {
   // CHECK: [[R1PLUSK1:%.+]] = affine.apply #{{.*}}(%arg4, %arg7)
   // CHECK: [[R2PLUSK2:%.+]] = affine.apply #{{.*}}(%arg5, %arg8)
   // CHECK: [[DATA:%.+]] = affine.load %arg0[%arg2, %arg6, [[R1PLUSK1]], [[R2PLUSK2]]] : memref<1x2x32x64xf32>
@@ -1200,24 +1191,15 @@ func @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x
   // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CONST2:%.+]] = constant 2 : index
   // CHECK: [[OUTER_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[OPT_OUTER_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_OUTER_LOOPS]]#0, [[OPT_OUTER_LOOPS]]#1) with ([[OUTER_LOOPS]]#0 -> %arg3 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg4 = 0 to 5) {
+  // CHECK: krnl.iterate([[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1) with ([[OUTER_LOOPS]]#0 -> %arg3 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg4 = 0 to 5) {
   // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[OPT_SPATIAL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_SPATIAL_LOOPS]]#0, [[OPT_SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg5 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg6 = 0 to 58) {
+  // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg5 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg6 = 0 to 58) {
   // CHECK: affine.store [[CONST1]], [[RES]][%arg3, %arg4, %arg5, %arg6] : memref<1x5x27x58xf32>
   // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_INNER_LOOPS:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_INNER_LOOPS]]#0, [[OPT_INNER_LOOPS]]#1, [[OPT_INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg7 = 0 to 2, [[INNER_LOOPS]]#1 -> %arg8 = 0 to 6, [[INNER_LOOPS]]#2 -> %arg9 = 0 to 7) {
+  // CHECK: krnl.iterate([[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg7 = 0 to 2, [[INNER_LOOPS]]#1 -> %arg8 = 0 to 6, [[INNER_LOOPS]]#2 -> %arg9 = 0 to 7) {
   // CHECK: [[R1PLUSK1:%.+]] = affine.apply #{{.*}}(%arg5, %arg8)
   // CHECK: [[R2PLUSK2:%.+]] = affine.apply #{{.*}}(%arg6, %arg9)
   // CHECK: [[DATA:%.+]] = affine.load %arg0[%arg3, %arg7, [[R1PLUSK1]], [[R2PLUSK2]]] : memref<1x2x32x64xf32>
@@ -1249,25 +1231,16 @@ func @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %arg1 : te
   // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CONST2:%.+]] = constant 3 : index
   // CHECK: [[OUTER_LOOPS:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_OUTER_LOOPS:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1, [[OUTER_LOOPS]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_OUTER_LOOPS]]#0, [[OPT_OUTER_LOOPS]]#1, [[OPT_OUTER_LOOPS]]#2) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 3, [[OUTER_LOOPS]]#2 -> %arg4 = 0 to 1) {
+  // CHECK: krnl.iterate([[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1, [[OUTER_LOOPS]]#2) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 3, [[OUTER_LOOPS]]#2 -> %arg4 = 0 to 1) {
   // CHECK: %[[ADD1:.+]] = affine.apply #{{.*}}(%arg3, [[CONST0]])[%arg4]
   // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[OPT_SPATIAL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_SPATIAL_LOOPS]]#0, [[OPT_SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg5 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg6 = 0 to 58) {
+  // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg5 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg6 = 0 to 58) {
   // CHECK: affine.store [[CONST1]], [[RES]][%arg2, %[[ADD1]], %arg5, %arg6] : memref<1x5x27x58xf32>
   // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_INNER_LOOPS:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_INNER_LOOPS]]#0, [[OPT_INNER_LOOPS]]#1, [[OPT_INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg7 = 0 to 3, [[INNER_LOOPS]]#1 -> %arg8 = 0 to 6, [[INNER_LOOPS]]#2 -> %arg9 = 0 to 7) {
+  // CHECK: krnl.iterate([[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg7 = 0 to 3, [[INNER_LOOPS]]#1 -> %arg8 = 0 to 6, [[INNER_LOOPS]]#2 -> %arg9 = 0 to 7) {
   // CHECK: [[ADD2:%.+]] = affine.apply #{{.*}}(%arg3, %arg7)[%c3]
   // CHECK: [[R1PLUSK1:%.+]] = affine.apply #{{.*}}(%arg5, %arg8) 
   // CHECK: [[R2PLUSK2:%.+]] = affine.apply #{{.*}}(%arg6, %arg9) 
@@ -1297,24 +1270,15 @@ func @test_conv_no_bias_no_pad_w_strides(%arg0 : tensor<1x9x32x64xf32>, %arg1 : 
   // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CONST2:%.+]] = constant 9 : index
   // CHECK: [[OUTER_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[OPT_OUTER_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_OUTER_LOOPS]]#0, [[OPT_OUTER_LOOPS]]#1) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 5) {
+  // CHECK: krnl.iterate([[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 5) {
   // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[OPT_SPATIAL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_SPATIAL_LOOPS]]#0, [[OPT_SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg4 = 0 to 14, [[SPATIAL_LOOPS]]#1 -> %arg5 = 0 to 29) {
+  // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg4 = 0 to 14, [[SPATIAL_LOOPS]]#1 -> %arg5 = 0 to 29) {
   // CHECK: affine.store [[CONST1]], [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<1x5x14x29xf32>
   // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_INNER_LOOPS:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK: krnl.return_loops [[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
 
-  // CHECK: krnl.iterate([[OPT_INNER_LOOPS]]#0, [[OPT_INNER_LOOPS]]#1, [[OPT_INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg6 = 0 to 9, [[INNER_LOOPS]]#1 -> %arg7 = 0 to 6, [[INNER_LOOPS]]#2 -> %arg8 = 0 to 7) {
+  // CHECK: krnl.iterate([[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg6 = 0 to 9, [[INNER_LOOPS]]#1 -> %arg7 = 0 to 6, [[INNER_LOOPS]]#2 -> %arg8 = 0 to 7) {
   // CHECK: [[R1PLUSK1:%.+]] = affine.apply #{{.*}}(%arg4, %arg7)
   // CHECK: [[R2PLUSK2:%.+]] = affine.apply #{{.*}}(%arg5, %arg8)
   // CHECK: [[DATA:%.+]] = affine.load %arg0[%arg2, %arg6, [[R1PLUSK1]], [[R2PLUSK2]]] : memref<1x9x32x64xf32>
@@ -1434,18 +1398,12 @@ func @test_constant_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
   // CHECK-LABEL: test_constant_pad1
   // CHECK: [[RES:%.+]] = alloc() : memref<18x20xf32>
   // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[OPT_LOOPS1:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOPS1]]#0, [[OPT_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 18, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 20) {
+  // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 18, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 20) {
   // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
   // CHECK: affine.store [[CST]], [[RES]][%arg1, %arg2] : memref<18x20xf32>
   // CHECK: }
   // CHECK: [[DEF_LOOPS2:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[OPT_LOOPS2:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOPS2]]#0, [[OPT_LOOPS2]]#1) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 16, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 16) {
+  // CHECK: krnl.iterate([[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 16, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 16) {
   // CHECK: [[ADD:%.+]] = affine.apply #{{.*}}(%arg2)
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<16x16xf32>
   // CHECK: affine.store [[LOAD]], [[RES]][%arg1, [[ADD]]] : memref<18x20xf32>
@@ -1459,18 +1417,12 @@ func @test_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
   // CHECK-LABEL: test_pad1
   // CHECK: [[RES:%.+]] = alloc() : memref<18x20xf32>
   // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[OPT_LOOPS1:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOPS1]]#0, [[OPT_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 18, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 20) {
+  // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 18, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 20) {
   // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
   // CHECK: affine.store [[CST]], [[RES]][%arg1, %arg2] : memref<18x20xf32>
   // CHECK: }
   // CHECK: [[DEF_LOOPS2:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[OPT_LOOPS2:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOPS2]]#0, [[OPT_LOOPS2]]#1) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 16, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 16) {
+  // CHECK: krnl.iterate([[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 16, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 16) {
   // CHECK: [[ADD:%.+]] = affine.apply #{{.*}}(%arg2)
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<16x16xf32>
   // CHECK: affine.store [[LOAD]], [[RES]][%arg1, [[ADD]]] : memref<18x20xf32>
@@ -1496,27 +1448,18 @@ func @test_concat_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, 
   // CHECK-LABEL: test_concat_1
   // CHECK: [[RES:%.+]] = alloc() : memref<5x5x9x32xf32>
   // CHECK: [[DEF_LOOPS0:%.+]]:4 = krnl.define_loops 4
-  // CHECK: [[OPT_LOOPS0:%.+]]:4 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOPS0]]#0, [[DEF_LOOPS0]]#1, [[DEF_LOOPS0]]#2, [[DEF_LOOPS0]]#3
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOPS0]]#0, [[OPT_LOOPS0]]#1, [[OPT_LOOPS0]]#2, [[OPT_LOOPS0]]#3) with ([[DEF_LOOPS0]]#0 -> %arg3 = 0 to 5, [[DEF_LOOPS0]]#1 -> %arg4 = 0 to 5, [[DEF_LOOPS0]]#2 -> %arg5 = 0 to 1, [[DEF_LOOPS0]]#3 -> %arg6 = 0 to 32) {
+  // CHECK: krnl.iterate([[DEF_LOOPS0]]#0, [[DEF_LOOPS0]]#1, [[DEF_LOOPS0]]#2, [[DEF_LOOPS0]]#3) with ([[DEF_LOOPS0]]#0 -> %arg3 = 0 to 5, [[DEF_LOOPS0]]#1 -> %arg4 = 0 to 5, [[DEF_LOOPS0]]#2 -> %arg5 = 0 to 1, [[DEF_LOOPS0]]#3 -> %arg6 = 0 to 32) {
   // CHECK: [[LOAD0:%.+]] = affine.load %arg0[%arg3, %arg4, %arg5, %arg6] :  memref<5x5x1x32xf32>
   // CHECK: affine.store [[LOAD0]], [[RES]][%arg3, %arg4, %arg5, %arg6] : memref<5x5x9x32xf32>
 
   // CHECK: [[DEF_LOOPS1:%.+]]:4 = krnl.define_loops 4
-  // CHECK: [[OPT_LOOPS1:%.+]]:4 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1, [[DEF_LOOPS1]]#2, [[DEF_LOOPS1]]#3
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOPS1]]#0, [[OPT_LOOPS1]]#1, [[OPT_LOOPS1]]#2, [[OPT_LOOPS1]]#3) with ([[DEF_LOOPS1]]#0 -> %arg3 = 0 to 5, [[DEF_LOOPS1]]#1 -> %arg4 = 0 to 5, [[DEF_LOOPS1]]#2 -> %arg5 = 0 to 3, [[DEF_LOOPS1]]#3 -> %arg6 = 0 to 32) {
+  // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1, [[DEF_LOOPS1]]#2, [[DEF_LOOPS1]]#3) with ([[DEF_LOOPS1]]#0 -> %arg3 = 0 to 5, [[DEF_LOOPS1]]#1 -> %arg4 = 0 to 5, [[DEF_LOOPS1]]#2 -> %arg5 = 0 to 3, [[DEF_LOOPS1]]#3 -> %arg6 = 0 to 32) {
   // CHECK: [[AFFINE_APPLY1:%.+]] = affine.apply #{{.*}}(%arg5)
   // CHECK: [[LOAD1:%.+]] = affine.load %arg1[%arg3, %arg4, %arg5, %arg6] :  memref<5x5x3x32xf32>
   // CHECK: affine.store [[LOAD1]], [[RES]][%arg3, %arg4, [[AFFINE_APPLY1]], %arg6] : memref<5x5x9x32xf32>
 
   // CHECK: [[DEF_LOOPS2:%.+]]:4 = krnl.define_loops 4
-  // CHECK: [[OPT_LOOPS2:%.+]]:4 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1, [[DEF_LOOPS2]]#2, [[DEF_LOOPS2]]#3
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOPS2]]#0, [[OPT_LOOPS2]]#1, [[OPT_LOOPS2]]#2, [[OPT_LOOPS2]]#3) with ([[DEF_LOOPS2]]#0 -> %arg3 = 0 to 5, [[DEF_LOOPS2]]#1 -> %arg4 = 0 to 5, [[DEF_LOOPS2]]#2 -> %arg5 = 0 to 5, [[DEF_LOOPS2]]#3 -> %arg6 = 0 to 32) {
+  // CHECK: krnl.iterate([[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1, [[DEF_LOOPS2]]#2, [[DEF_LOOPS2]]#3) with ([[DEF_LOOPS2]]#0 -> %arg3 = 0 to 5, [[DEF_LOOPS2]]#1 -> %arg4 = 0 to 5, [[DEF_LOOPS2]]#2 -> %arg5 = 0 to 5, [[DEF_LOOPS2]]#3 -> %arg6 = 0 to 32) {
   // CHECK: [[AFFINE_APPLY2:%.+]] = affine.apply #{{.*}}(%arg5)
   // CHECK: [[LOAD2:%.+]] = affine.load %arg2[%arg3, %arg4, %arg5, %arg6] :  memref<5x5x5x32xf32>
   // CHECK: affine.store [[LOAD2]], [[RES]][%arg3, %arg4, [[AFFINE_APPLY2]], %arg6] : memref<5x5x9x32xf32>
@@ -1541,18 +1484,12 @@ func @test_pool_general_computation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf
   // CHECK: [[IDENTITY:%.+]] = constant 0.000000e+00 : f32
 
   // CHECK: [[OUTPUT_LOOPS:%.+]]:4 = krnl.define_loops 4
-  // CHECK: [[OPT_OUTPUT_LOOPS:%.+]]:4 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_OUTPUT_LOOPS]]#0, [[OPT_OUTPUT_LOOPS]]#1, [[OPT_OUTPUT_LOOPS]]#2, [[OPT_OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31) {
+  // CHECK: krnl.iterate([[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31) {
 
   // CHECK:   affine.store [[IDENTITY]], [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
 
   // CHECK:   [[POOL_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK:   [[OPT_POOL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK:     krnl.return_loops [[POOL_LOOPS]]#0, [[POOL_LOOPS]]#1
-  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
-  // CHECK:   krnl.iterate([[OPT_POOL_LOOPS]]#0, [[OPT_POOL_LOOPS]]#1) with ([[POOL_LOOPS]]#0 -> %arg5 = 0 to min #{{.*}}(%arg3)[%c32, %c2, %c0, %c1, %c1_0], [[POOL_LOOPS]]#1 -> %arg6 = 0 to min #{{.*}}(%arg4)[%c32_1, %c2_2, %c0_3, %c1_4, %c1_5]) {
+  // CHECK:   krnl.iterate([[POOL_LOOPS]]#0, [[POOL_LOOPS]]#1) with ([[POOL_LOOPS]]#0 -> %arg5 = 0 to min #{{.*}}(%arg3)[%c32, %c2, %c0, %c1, %c1_0], [[POOL_LOOPS]]#1 -> %arg6 = 0 to min #{{.*}}(%arg4)[%c32_1, %c2_2, %c0_3, %c1_4, %c1_5]) {
   // CHECK:     {{.*}} = load %arg0[%arg1, %arg2, {{.*}}, {{.*}}] : memref<1x3x32x32xf32>
   // CHECK:     {{.*}} = affine.load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
   // CHECK:     affine.store {{.*}}, [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
@@ -1614,16 +1551,10 @@ func @test_averagepool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> tenso
   // CHECK: [[RES:%.+]] = alloc() : memref<1x3x31x31xf32>
 
   // CHECK: [[OUTPUT_LOOPS:%.+]]:4 = krnl.define_loops 4
-  // CHECK: [[OPT_OUTPUT_LOOPS:%.+]]:4 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_OUTPUT_LOOPS]]#0, [[OPT_OUTPUT_LOOPS]]#1, [[OPT_OUTPUT_LOOPS]]#2, [[OPT_OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31) {
+  // CHECK: krnl.iterate([[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31) {
 
   // CHECK:   [[POOL_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK:   [[OPT_POOL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK:     krnl.return_loops [[POOL_LOOPS]]#0, [[POOL_LOOPS]]#1
-  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
-  // CHECK:   krnl.iterate([[OPT_POOL_LOOPS]]#0, [[OPT_POOL_LOOPS]]#1) with ([[POOL_LOOPS]]#0 -> %arg5 = 0 to min #{{.*}}(%arg3)[%c32, %c2, %c0, %c1, %c1_0], [[POOL_LOOPS]]#1 -> %arg6 = 0 to min #{{.*}}(%arg4)[%c32_1, %c2_2, %c0_3, %c1_4, %c1_5]) {
+  // CHECK:   krnl.iterate([[POOL_LOOPS]]#0, [[POOL_LOOPS]]#1) with ([[POOL_LOOPS]]#0 -> %arg5 = 0 to min #{{.*}}(%arg3)[%c32, %c2, %c0, %c1, %c1_0], [[POOL_LOOPS]]#1 -> %arg6 = 0 to min #{{.*}}(%arg4)[%c32_1, %c2_2, %c0_3, %c1_4, %c1_5]) {
 
   // CHECK:     [[INPUT_LOAD:%.+]] = load %arg0[%arg1, %arg2, {{.*}}, {{.*}}] : memref<1x3x32x32xf32>
   // CHECK:     [[OUTPUT_LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
@@ -1647,16 +1578,10 @@ func @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*x
   // CHECK: [[RES:%.+]] = alloc() : memref<1x3x31x31xf32>
 
   // CHECK: [[OUTPUT_LOOPS:%.+]]:4 = krnl.define_loops 4
-  // CHECK: [[OPT_OUTPUT_LOOPS:%.+]]:4 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_OUTPUT_LOOPS]]#0, [[OPT_OUTPUT_LOOPS]]#1, [[OPT_OUTPUT_LOOPS]]#2, [[OPT_OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31) {
+  // CHECK: krnl.iterate([[OUTPUT_LOOPS]]#0, [[OUTPUT_LOOPS]]#1, [[OUTPUT_LOOPS]]#2, [[OUTPUT_LOOPS]]#3) with ([[OUTPUT_LOOPS]]#0 -> %arg1 = 0 to 1, [[OUTPUT_LOOPS]]#1 -> %arg2 = 0 to 3, [[OUTPUT_LOOPS]]#2 -> %arg3 = 0 to 31, [[OUTPUT_LOOPS]]#3 -> %arg4 = 0 to 31) {
 
   // CHECK:   [[POOL_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK:   [[OPT_POOL_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK:     krnl.return_loops [[POOL_LOOPS]]#0, [[POOL_LOOPS]]#1
-  // CHECK:   } : () -> (!krnl.loop, !krnl.loop)
-  // CHECK:   krnl.iterate([[OPT_POOL_LOOPS]]#0, [[OPT_POOL_LOOPS]]#1) with ([[POOL_LOOPS]]#0 -> %arg5 = 0 to min #{{.*}}(%arg3)[%c32, %c2, %c0, %c1, %c1_0], [[POOL_LOOPS]]#1 -> %arg6 = 0 to min #{{.*}}(%arg4)[%c32_1, %c2_2, %c0_3, %c1_4, %c1_5]) {
+  // CHECK:   krnl.iterate([[POOL_LOOPS]]#0, [[POOL_LOOPS]]#1) with ([[POOL_LOOPS]]#0 -> %arg5 = 0 to min #{{.*}}(%arg3)[%c32, %c2, %c0, %c1, %c1_0], [[POOL_LOOPS]]#1 -> %arg6 = 0 to min #{{.*}}(%arg4)[%c32_1, %c2_2, %c0_3, %c1_4, %c1_5]) {
 
   // CHECK:     [[INPUT_LOAD:%.+]] = load %arg0[%arg1, %arg2, {{.*}}, {{.*}}] : memref<1x3x32x32xf32>
   // CHECK:     [[OUTPUT_LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2, %arg3, %arg4] : memref<1x3x31x31xf32>
@@ -1686,19 +1611,13 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
 
   // CHECK:  [[INITIAL_VALUE:%.+]] = constant 0.000000e+00 : f32
   // CHECK:  [[INITIALIZE_LOOPS:%.+]]:3 = krnl.define_loops 3
-  // CHECK:  [[INITIALIZE_OPT_LOOPS:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK:    krnl.return_loops [[INITIALIZE_LOOPS]]#0, [[INITIALIZE_LOOPS]]#1, [[INITIALIZE_LOOPS]]#2
-  // CHECK:  } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK:  krnl.iterate([[INITIALIZE_OPT_LOOPS]]#0, [[INITIALIZE_OPT_LOOPS]]#1, [[INITIALIZE_OPT_LOOPS]]#2) with ([[INITIALIZE_LOOPS]]#0 -> %arg3 = 0 to 1, [[INITIALIZE_LOOPS]]#1 -> %arg4 = 0 to 3, [[INITIALIZE_LOOPS]]#2 -> %arg5 = 0 to 3) {
+  // CHECK:  krnl.iterate([[INITIALIZE_LOOPS]]#0, [[INITIALIZE_LOOPS]]#1, [[INITIALIZE_LOOPS]]#2) with ([[INITIALIZE_LOOPS]]#0 -> %arg3 = 0 to 1, [[INITIALIZE_LOOPS]]#1 -> %arg4 = 0 to 3, [[INITIALIZE_LOOPS]]#2 -> %arg5 = 0 to 3) {
   // CHECK:    affine.store [[INITIAL_VALUE]], [[HIDDEN_STATE]][%arg3, %arg4, %arg5] : memref<1x3x3xf32>
   // CHECK:    affine.store [[INITIAL_VALUE]], [[CELL_STATE]][%arg3, %arg4, %arg5] : memref<1x3x3xf32>
   // CHECK:  }
 
   // CHECK:  [[SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
-  // CHECK:  [[SEQUENCE_OPT_LOOPS:%.+]] = krnl.optimize_loops  {
-  // CHECK:    krnl.return_loops [[SEQUENCE_LOOPS]]
-  // CHECK:  } : () -> !krnl.loop
-  // CHECK:  krnl.iterate([[SEQUENCE_OPT_LOOPS]]) with ([[SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
+  // CHECK:  krnl.iterate([[SEQUENCE_LOOPS]]) with ([[SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
   // CHECK:    {{.*}} = constant 0 : index
   // CHECK:    {{.*}} = constant 3 : index
   // CHECK:    {{.*}} = constant 0 : index
@@ -1710,10 +1629,7 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
   // CHECK:    {{.*}} = constant 6 : index
   // CHECK:    {{.*}} = constant 7 : index
   // CHECK:    [[DATA_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK:    [[DATA_OPT_LOOPS:%.+]]:2 = krnl.optimize_loops  {
-  // CHECK:      krnl.return_loops [[DATA_LOOPS]]#0, [[DATA_LOOPS]]#1
-  // CHECK:    } : () -> (!krnl.loop, !krnl.loop)
-  // CHECK:    krnl.iterate([[DATA_OPT_LOOPS]]#0, [[DATA_OPT_LOOPS]]#1) with ([[DATA_LOOPS]]#0 -> %arg4 = 0 to 3, [[DATA_LOOPS]]#1 -> %arg5 = 0 to 3) {
+  // CHECK:    krnl.iterate([[DATA_LOOPS]]#0, [[DATA_LOOPS]]#1) with ([[DATA_LOOPS]]#0 -> %arg4 = 0 to 3, [[DATA_LOOPS]]#1 -> %arg5 = 0 to 3) {
   // CHECK:      [[hCt:%.+]] = alloc() : memref<f32>
   // CHECK:      [[Ot:%.+]] = alloc() : memref<f32>
   // CHECK:      [[ct:%.+]] = alloc() : memref<f32>
@@ -1741,10 +1657,7 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
   // CHECK:      affine.store [[ZERO_FLOAT]], [[Ht1Rc_GEMM]][] : memref<f32>
 
   // CHECK:      [[REDUCTION_LOOPS:%.+]] = krnl.define_loops 1
-  // CHECK:      [[REDUCTION_OPT_LOOPS:%.+]] = krnl.optimize_loops  {
-  // CHECK:        krnl.return_loops [[REDUCTION_LOOPS]]
-  // CHECK:      } : () -> !krnl.loop
-  // CHECK:      krnl.iterate([[REDUCTION_OPT_LOOPS]]) with ([[REDUCTION_LOOPS]] -> %arg6 = 0 to 2) {
+  // CHECK:      krnl.iterate([[REDUCTION_LOOPS]]) with ([[REDUCTION_LOOPS]] -> %arg6 = 0 to 2) {
   // CHECK:        [[INPUT_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[%c0_1, %c3]
   // CHECK:        [[OUTPUT_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[%c1, %c3]
   // CHECK:        [[FORGET_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[%c2, %c3]
@@ -1916,10 +1829,7 @@ func @test_lstm_reverse_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>
   // CHECK-LABEL: @test_lstm_reverse_mode
 
   // CHECK:  [[REVERSE_SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
-  // CHECK:  [[REVERSE_SEQUENCE_OPT_LOOPS:%.+]] = krnl.optimize_loops  {
-  // CHECK:    krnl.return_loops [[REVERSE_SEQUENCE_LOOPS]]
-  // CHECK:  } : () -> !krnl.loop
-  // CHECK:  krnl.iterate([[REVERSE_SEQUENCE_OPT_LOOPS]]) with ([[REVERSE_SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
+  // CHECK:  krnl.iterate([[REVERSE_SEQUENCE_LOOPS]]) with ([[REVERSE_SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
   // CHECK:  %[[SEQUENCE_LEN:.+]] = constant 4 : index
   // CHECK:  %[[REVERSE_SEQUENCE_IV:.+]] = affine.apply [[REVERSE_IV_MAP]](%arg3)[%[[SEQUENCE_LEN]]{{]}}
   // CHECK:  [[Xt_LOAD:%.+]] = affine.load %arg0[%[[REVERSE_SEQUENCE_IV]], {{.*}}, {{.*}}] : memref<4x3x2xf32>
@@ -1936,17 +1846,11 @@ func @test_lstm_bidirectional_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x
   // CHECK-LABEL: @test_lstm_bidirectional_mode
 
   // CHECK:  [[SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
-  // CHECK:  [[SEQUENCE_OPT_LOOPS:%.+]] = krnl.optimize_loops  {
-  // CHECK:    krnl.return_loops [[SEQUENCE_LOOPS]]
-  // CHECK:  } : () -> !krnl.loop
-  // CHECK:  krnl.iterate([[SEQUENCE_OPT_LOOPS]]) with ([[SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
+  // CHECK:  krnl.iterate([[SEQUENCE_LOOPS]]) with ([[SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
   // CHECK:  [[Xt_LOAD:%.+]] = affine.load %arg0[%arg3, {{.*}}, {{.*}}] : memref<4x3x2xf32>
 
   // CHECK:  [[REVERSE_SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
-  // CHECK:  [[REVERSE_SEQUENCE_OPT_LOOPS:%.+]] = krnl.optimize_loops  {
-  // CHECK:    krnl.return_loops [[REVERSE_SEQUENCE_LOOPS]]
-  // CHECK:  } : () -> !krnl.loop
-  // CHECK:  krnl.iterate([[REVERSE_SEQUENCE_OPT_LOOPS]]) with ([[REVERSE_SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
+  // CHECK:  krnl.iterate([[REVERSE_SEQUENCE_LOOPS]]) with ([[REVERSE_SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
   // CHECK:  %[[SEQUENCE_LEN:.+]] = constant 4 : index
   // CHECK:  %[[REVERSE_SEQUENCE_IV:.+]] = affine.apply [[REVERSE_IV_MAP]](%arg3)[%[[SEQUENCE_LEN]]{{]}}
   // CHECK:  [[Xt_LOAD:%.+]] = affine.load %arg0[%[[REVERSE_SEQUENCE_IV]], {{.*}}, {{.*}}] : memref<4x3x2xf32>
@@ -1993,18 +1897,12 @@ func @test_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*
   // CHECK: [[RES_1:%.+]] = alloc() : memref<8x32x64xf32>
   // CHECK: [[RES_0:%.+]] = alloc() : memref<8x32x64xf32>
   // CHECK: [[DEF_LOOP_0:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_LOOP_0:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOP_0]]#0, [[OPT_LOOP_0]]#1, [[OPT_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to 8, [[DEF_LOOP_0]]#1 -> %arg2 = 0 to 32, [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64) {
+  // CHECK: krnl.iterate([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to 8, [[DEF_LOOP_0]]#1 -> %arg2 = 0 to 32, [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64) {
   // CHECK:   [[LOAD_0:%.+]] = affine.load %arg0[%arg1, %arg2, %arg3] : memref<16x32x64xf32>
   // CHECK:   affine.store [[LOAD_0]], [[RES_0]][%arg1, %arg2, %arg3] : memref<8x32x64xf32>
   // CHECK: }
   // CHECK: [[DEF_LOOP_1:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_LOOP_1:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOP_1]]#0, [[OPT_LOOP_1]]#1, [[OPT_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to 8, [[DEF_LOOP_1]]#1 -> %arg2 = 0 to 32, [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64) {
+  // CHECK: krnl.iterate([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to 8, [[DEF_LOOP_1]]#1 -> %arg2 = 0 to 32, [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64) {
   // CHECK:   %[[INDEX:.+]] = affine.apply [[INDEX_MAP]](%arg1)
   // CHECK:   [[LOAD_1:%.+]] = affine.load %arg0[%[[INDEX]], %arg2, %arg3] : memref<16x32x64xf32>
   // CHECK:   affine.store [[LOAD_1]], [[RES_1]][%arg1, %arg2, %arg3] : memref<8x32x64xf32>
@@ -2024,18 +1922,12 @@ func @test_split_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tenso
   // CHECK: [[RES_1:%.+]] = alloc() : memref<16x30x64xf32>
   // CHECK: [[RES_0:%.+]] = alloc() : memref<16x2x64xf32>
   // CHECK: [[DEF_LOOP_0:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_LOOP_0:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOP_0]]#0, [[OPT_LOOP_0]]#1, [[OPT_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to 16, [[DEF_LOOP_0]]#1 -> %arg2 = 0 to 2, [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64) {
+  // CHECK: krnl.iterate([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to 16, [[DEF_LOOP_0]]#1 -> %arg2 = 0 to 2, [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64) {
   // CHECK:   [[LOAD_0:%.+]] = affine.load %arg0[%arg1, %arg2, %arg3] : memref<16x32x64xf32>
   // CHECK:   affine.store [[LOAD_0]], [[RES_0]][%arg1, %arg2, %arg3] : memref<16x2x64xf32>
   // CHECK: }
   // CHECK: [[DEF_LOOP_1:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_LOOP_1:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
-  // CHECK: krnl.iterate([[OPT_LOOP_1]]#0, [[OPT_LOOP_1]]#1, [[OPT_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to 16, [[DEF_LOOP_1]]#1 -> %arg2 = 0 to 30, [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64) {
+  // CHECK: krnl.iterate([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to 16, [[DEF_LOOP_1]]#1 -> %arg2 = 0 to 30, [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64) {
   // CHECK:   %[[INDEX:.+]] = affine.apply [[INDEX_MAP]](%arg2)
   // CHECK:   [[LOAD_1:%.+]] = affine.load %arg0[%arg1, %[[INDEX]], %arg3] : memref<16x32x64xf32>
   // CHECK:   affine.store [[LOAD_1]], [[RES_1]][%arg1, %arg2, %arg3] : memref<16x30x64xf32>
@@ -2057,20 +1949,14 @@ func @test_split_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>
   // CHECK: [[DIM_1:%.+]] = dim %arg0, 0 : memref<?x?x64xf32>
   // CHECK: [[RES_1:%.+]] = alloc([[DIM_1]]) : memref<?x30x64xf32>
   // CHECK: [[DEF_LOOP_0:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_LOOP_0:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
   // CHECK: [[DIM_0:%.+]] = dim [[RES_0]], 0 : memref<?x2x64xf32>
-  // CHECK: krnl.iterate([[OPT_LOOP_0]]#0, [[OPT_LOOP_0]]#1, [[OPT_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to [[DIM_0]], [[DEF_LOOP_0]]#1 -> %arg2 = 0 to 2, [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64) {
+  // CHECK: krnl.iterate([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to [[DIM_0]], [[DEF_LOOP_0]]#1 -> %arg2 = 0 to 2, [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64) {
   // CHECK:   [[LOAD_0:%.+]] = affine.load %arg0[%arg1, %arg2, %arg3] : memref<?x?x64xf32>
   // CHECK:   affine.store [[LOAD_0]], [[RES_0]][%arg1, %arg2, %arg3] : memref<?x2x64xf32>
   // CHECK: }
   // CHECK: [[DEF_LOOP_1:%.+]]:3 = krnl.define_loops 3
-  // CHECK: [[OPT_LOOP_1:%.+]]:3 = krnl.optimize_loops  {
-  // CHECK:   krnl.return_loops [[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2
-  // CHECK: } : () -> (!krnl.loop, !krnl.loop, !krnl.loop)
   // CHECK: [[DIM_1:%.+]] = dim [[RES_1]], 0 : memref<?x30x64xf32>
-  // CHECK: krnl.iterate([[OPT_LOOP_1]]#0, [[OPT_LOOP_1]]#1, [[OPT_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to [[DIM_1]], [[DEF_LOOP_1]]#1 -> %arg2 = 0 to 30, [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64) {
+  // CHECK: krnl.iterate([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to [[DIM_1]], [[DEF_LOOP_1]]#1 -> %arg2 = 0 to 30, [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64) {
   // CHECK:   %[[INDEX:.+]] = affine.apply [[INDEX_MAP]](%arg2)
   // CHECK:   [[LOAD_1:%.+]] = affine.load %arg0[%arg1, %[[INDEX]], %arg3] : memref<?x?x64xf32>
   // CHECK:   affine.store [[LOAD_1]], [[RES_1]][%arg1, %arg2, %arg3] : memref<?x30x64xf32>

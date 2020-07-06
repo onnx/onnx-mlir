@@ -185,25 +185,8 @@ void BuildKrnlLoop::createDefineAndOptimizeOp(bool withEmptyOptimization) {
     originalLoops.push_back(result);
   createdDefineOp = true;
 
-  // Insert optimize loop operation.
-  auto optimizedLoopsOp =
-      rewriter.create<KrnlOptimizeLoopsOp>(loc, originalLoopNum);
-  optLoops.reserve(originalLoopNum);
-
-  // Emit empty optimizations if flag is set.
-  if (withEmptyOptimization) {
-    for (auto result : optimizedLoopsOp.getResults())
-      optLoops.push_back(result);
-    optBlock = &optimizedLoopsOp.region().front();
-    auto ip = rewriter.saveInsertionPoint();
-    rewriter.setInsertionPointToEnd(optBlock);
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-    rewriter.restoreInsertionPoint(ip);
-  }
-  createdOptimizeOp = true;
-
   // prepare data structure to push bounds
-  pack = new KrnlIterateOperandPack(rewriter, originalLoops, optLoops);
+  pack = new KrnlIterateOperandPack(rewriter, originalLoops);
 }
 
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, int64_t upperBound) {
@@ -253,9 +236,6 @@ int BuildKrnlLoop::pushBounds(Value lowerBound, Value upperBound) {
 void BuildKrnlLoop::createIterateOp() {
   // Loop definition operation is mandatory.
   assert(createdDefineOp && "Must create define op before iterate op.");
-
-  // Loop optimization operation is mandatory (for now).
-  assert(createdOptimizeOp && "Must create optimize op before iterate op.");
 
   // Check if all bounds have been defined.
   assert(pushCount == originalLoopNum &&
