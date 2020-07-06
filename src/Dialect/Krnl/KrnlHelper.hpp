@@ -84,13 +84,11 @@ struct KrnlIterateOperandPack {
   }
 
   // Create a pack with optimizedLoops = inputLoops (ie., no optimization).
-    KrnlIterateOperandPack(mlir::Builder &builder,
-                           llvm::ArrayRef<mlir::Value> inputLoops)
-            : builder(builder), inputLoops(inputLoops),
-              optimizedLoops(inputLoops) {
-        _operands.insert(
-                _operands.end(), inputLoops.begin(), inputLoops.end());
-    }
+  KrnlIterateOperandPack(
+      mlir::Builder &builder, llvm::ArrayRef<mlir::Value> inputLoops)
+      : builder(builder), inputLoops(inputLoops), optimizedLoops(inputLoops) {
+    _operands.insert(_operands.end(), inputLoops.begin(), inputLoops.end());
+  }
 
   void pushConstantBound(int64_t bound);
 
