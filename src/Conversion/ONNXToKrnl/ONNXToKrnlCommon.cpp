@@ -210,13 +210,10 @@ KrnlOptimizeLoopsOp emitOptimizedLoops(ConversionPatternRewriter &rewriter,
   return optimizedLoopsOp;
 }
 
-// Function that emits the loops and their optimized version.
-// The function returns a reference to the inner optimization block.
+// Function that emits the definition of loops references.
 void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
     int64_t numLoops) {
-
-  // Define loops.
   auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
   loops.reserve(numLoops);
   for (auto result : loopsOp.getResults()) {
@@ -226,8 +223,7 @@ void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
 }
 
 // Function which emits a basic set of loops and optimized loops
-// for a given operation argument. A reference to the loop optimization
-// block is returned in the last argument of the function.
+// for a given operation argument.
 void emitKrnlLoopsAndIterationForOperand(ConversionPatternRewriter &rewriter,
     Location loc, Value operand, std::vector<Value> &originalLoops,
     KrnlIterateOp &iterateOp) {

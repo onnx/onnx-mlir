@@ -531,7 +531,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
           rewriter, loc, X, originalLoops, iterateOp);
       Block &iterationBlock = iterateOp.bodyRegion().front();
 
-      // 2. Insert instructions inside the KernelIterateOp body.
+      // Insert instructions inside the KernelIterateOp body.
       rewriter.setInsertionPointToStart(&iterationBlock);
 
       // Handle the operation:
