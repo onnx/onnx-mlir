@@ -126,9 +126,9 @@ struct ONNXRNNOpLowering : public ConversionPattern {
             rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
         Value reverseSequenceIV =
             rewriter.create<AffineApplyOp>(loc, reverseIVMap,
-                ValueRange(std::vector<Value>{sequenceLoops.getInductionVar(0),
+                std::vector<Value>{sequenceLoops.getInductionVar(0),
                     emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-                        sequenceDimSize)}));
+                        sequenceDimSize)});
         // Emit calculation for one RNN step.
         calculateState<RNNOp, S, A>(rewriter, loc, operandAdaptor, state,
             activationReverse, directionIV, reverseSequenceIV);

@@ -100,7 +100,7 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
     ArrayRef<Value> poolDimValues) {
   // AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
   bool countIncludePad = getCountIncludePad<ONNXAveragePoolOp>(poolOp);
-  Value numerator = rewriter.create<LoadOp>(loc, alloc, resultIndices);
+  Value numerator = rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
   Value denominator;
   if (countIncludePad) {
     int64_t kernelSize = 1;
@@ -120,7 +120,7 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 
   Value average = rewriter.create<DivFOp>(loc, numerator, denominator);
 
-  rewriter.create<StoreOp>(loc, average, alloc, resultIndices);
+  rewriter.create<AffineStoreOp>(loc, average, alloc, resultIndices);
 }
 
 //===----------------------------------------------------------------------===//
@@ -167,9 +167,7 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
               dilations.empty() ? 1 : dilations[spatialIndex]));
 
       // Apply the affine map.
-      Value dimVal =
-          rewriter.create<AffineApplyOp>(loc, dimMap, ValueRange(dimArgs));
-
+      Value dimVal = rewriter.create<AffineApplyOp>(loc, dimMap, dimArgs);
       allocOperands.emplace_back(dimVal);
     }
   }
@@ -346,7 +344,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         outputIndices.emplace_back(outputLoops.getInductionVar(i));
 
       // 2.1 Emit: output[n][c][ho][wo] = identity
-      rewriter.create<StoreOp>(loc, identity, alloc, outputIndices);
+      rewriter.create<AffineStoreOp>(loc, identity, alloc, outputIndices);
 
       // 2.2 Emit affine maps which express the lower and upper bounds for the
       // pooling window's dimensions.
@@ -441,11 +439,11 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       { // Construct poolStartValues and poolDimValues.
         for (int i = 0; i < kernelShape.size(); ++i) {
           Value startIndex = rewriter.create<AffineMaxOp>(
-              loc, poolStartMap, ValueRange(IVsAndConstants[i]));
+              loc, poolStartMap, IVsAndConstants[i]);
           poolStartValues.emplace_back(startIndex);
 
-          Value endIndex = rewriter.create<AffineMinOp>(
-              loc, poolEndMap, ValueRange(IVsAndConstants[i]));
+          Value endIndex =
+              rewriter.create<AffineMinOp>(loc, poolEndMap, IVsAndConstants[i]);
 
           Value dim = rewriter.create<SubIOp>(loc, endIndex, startIndex);
           if (isDilated) {
@@ -514,10 +512,10 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         Value loadInput =
             rewriter.create<LoadOp>(loc, inputOperand, inputIndices);
         Value loadPartialOutput =
-            rewriter.create<LoadOp>(loc, alloc, outputIndices);
+            rewriter.create<AffineLoadOp>(loc, alloc, outputIndices);
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
             outputElementType, {loadPartialOutput, loadInput});
-        rewriter.create<StoreOp>(loc, output, alloc, outputIndices);
+        rewriter.create<AffineStoreOp>(loc, output, alloc, outputIndices);
       }
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.
