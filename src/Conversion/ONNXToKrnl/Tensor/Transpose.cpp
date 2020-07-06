@@ -38,7 +38,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
     // Define loops.
     std::vector<Value> originalLoops;
-    defineLoopsEx(rewriter, loc, originalLoops, rank);
+    defineLoops(rewriter, loc, originalLoops, rank);
 
     KrnlIterateOperandPack pack(rewriter, originalLoops);
     // Iterate over the loop nest using the input shape.

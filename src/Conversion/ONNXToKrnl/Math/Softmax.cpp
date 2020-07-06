@@ -54,7 +54,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
 
     // Define loops.
     std::vector<Value> originalLoops;
-    defineLoopsEx(rewriter, loc, originalLoops, rank);
+    defineLoops(rewriter, loc, originalLoops, rank);
 
     // Coerce the input into a 2-D tensor. `axis` will be the coercing point.
     // This coercing follows the softmax definition in ONNX:

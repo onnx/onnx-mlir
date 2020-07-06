@@ -72,7 +72,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Define loops.
     std::vector<Value> originalLoops;
-    defineLoopsEx(rewriter, loc, originalLoops, numLoops);
+    defineLoops(rewriter, loc, originalLoops, numLoops);
 
     // We have two Krnl loops:
     // - Outer loop iterates over the output matrix dimensions, and

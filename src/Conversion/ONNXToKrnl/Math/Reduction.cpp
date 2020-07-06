@@ -183,7 +183,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 
     // Define loops to initialize the result.
     std::vector<Value> originalLoopsInit;
-    defineLoopsEx(rewriter, loc, originalLoopsInit, outRank);
+    defineLoops(rewriter, loc, originalLoopsInit, outRank);
 
     // Iteration information
     KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
@@ -211,7 +211,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     // Define an Krnl loop to do reduction.
     rewriter.setInsertionPointAfter(iterateOpInit);
     std::vector<Value> originalLoops;
-    defineLoopsEx(rewriter, loc, originalLoops, inRank);
+    defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
     KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i) {

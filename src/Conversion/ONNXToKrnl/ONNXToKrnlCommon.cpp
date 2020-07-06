@@ -191,41 +191,12 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
 }
 
 // Function that emits the definition of loops references.
-void defineLoopsEx(ConversionPatternRewriter &rewriter, Location loc,
+void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &loops, int64_t numLoops) {
   auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
   loops.reserve(numLoops);
   for (auto result : loopsOp.getResults())
     loops.push_back(result);
-}
-
-// Function which emits a basic set of loops and optimized loops
-// for a given operation argument.
-void emitKrnlLoopsAndIterationForOperand(ConversionPatternRewriter &rewriter,
-    Location loc, Value operand, std::vector<Value> &originalLoops,
-    KrnlIterateOp &iterateOp) {
-  // Operand shape.
-  auto shape = operand.getType().cast<MemRefType>().getShape();
-
-  // Number of loops.
-  int64_t rank = shape.size();
-
-  // Define loops.
-  auto numLoops = rank;
-  auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
-  originalLoops.reserve(numLoops);
-  for (auto result : loopsOp.getResults())
-    originalLoops.push_back(result);
-
-  // Define loops and optimized loops.
-  std::vector<Value> optimizedLoops = originalLoops;
-
-  KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
-  // Iterate over the loop nest.
-  for (int i = 0; i < rank; ++i)
-    addDimensionToPack(rewriter, loc, pack, operand, i);
-
-  iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
 }
 
 unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {

@@ -117,7 +117,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
       // Define loops for batch dimensions.
       std::vector<Value> originalLoops;
-      defineLoopsEx(rewriter, loc, originalLoops, memRefShape.size());
+      defineLoops(rewriter, loc, originalLoops, memRefShape.size());
 
       // Outer KrnlIterateOp
       SmallVector<Value, 4> loopBatchIVs;
@@ -203,7 +203,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       //  Iterate along the reduction dimension.
       //  Use a value from A.
       std::vector<Value> reduceLoops;
-      defineLoopsEx(rewriter, loc, reduceLoops, 1);
+      defineLoops(rewriter, loc, reduceLoops, 1);
       KrnlIterateOperandPack reducePack(rewriter, reduceLoops);
       addDimensionToPack(rewriter, loc, reducePack, A, AShape.size() - 1);
       auto reduceIterateOp = rewriter.create<KrnlIterateOp>(loc, reducePack);
@@ -259,7 +259,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       //  Use a value from A.
       std::vector<Value> reduceLoops;
 
-      defineLoopsEx(rewriter, loc, reduceLoops, 1);
+      defineLoops(rewriter, loc, reduceLoops, 1);
       KrnlIterateOperandPack reducePack(rewriter, reduceLoops);
       addDimensionToPack(rewriter, loc, reducePack, A, 0);
       auto reduceIterateOp = rewriter.create<KrnlIterateOp>(loc, reducePack);

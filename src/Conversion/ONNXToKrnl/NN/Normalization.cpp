@@ -57,7 +57,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     int64_t rank = memRefType.getRank();
 
     std::vector<Value> originalLoops;
-    defineLoopsEx(rewriter, loc, originalLoops, rank);
+    defineLoops(rewriter, loc, originalLoops, rank);
 
     // Create a KrnlIterateOp along C dimension.
     // This will be the outer-most loop in order to re-use scale, bias,
