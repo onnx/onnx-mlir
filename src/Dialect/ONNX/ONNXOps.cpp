@@ -2259,6 +2259,22 @@ LogicalResult ONNXConvIntegerOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Shape
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXShapeOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!data().getType().isa<RankedTensorType>())
+    return emitOpError("Input tensor not ranked");
+
+  // Output is an 1D int64 tensor containing the shape of the input tensor.
+  int64_t rank = data().getType().cast<RankedTensorType>().getRank();
+  Type outElementType = shape().getType().cast<TensorType>().getElementType();
+  SmallVector<int64_t, 1> outDims(1, rank);
+  getResult().setType(RankedTensorType::get(outDims, outElementType));
+}
+
+//===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 

@@ -1128,3 +1128,15 @@ func @test_convinteger_11(%arg0 : tensor<1x2x32x64xi8>, %arg1 : tensor<5x2x6x7xi
   // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvInteger"(%arg0, %arg1, %arg2, %arg3) {auto_pad = "NOTSET", dilations = [2, 3], group = 1 : i64, kernel_shape = [6, 7], pads = [5, 9, 5, 9], strides = [1, 1]} : (tensor<1x2x32x64xi8>, tensor<5x2x6x7xi8>, tensor<i8>, tensor<i8>) -> tensor<1x5x32x64xi32>
   // CHECK: return [[RES_ATTR]] : tensor<1x5x32x64xi32>
 }
+
+// -----
+
+func @test_shape(%arg0: tensor<?x3x2xf32>) -> tensor<*xi64> {
+  %0 = "onnx.Shape"(%arg0) : (tensor<?x3x2xf32>) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+
+  // CHECK-LABEL: test_shape
+  // CHECK: [[RES:%.+]] = "onnx.Shape"(%arg0) : (tensor<?x3x2xf32>) -> tensor<3xi64>
+  // CHECK: return [[RES]] : tensor<3xi64>
+}
+
