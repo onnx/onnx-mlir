@@ -69,8 +69,8 @@ KrnlOptimizeLoopsOp emitOptimizedLoops(ConversionPatternRewriter &rewriter,
     Location loc, std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
     int64_t numLoops);
 
-// Function that emits the loops and their optimized version.
-// The function returns a reference to the inner optimization block.
+// Function that emits the define_loop operation to define `numLoops`
+// number of krnl loops, and fill `loop` with the newly defined loops.
 void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &loops, int64_t numLoops);
 

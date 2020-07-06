@@ -119,8 +119,7 @@ private:
 };
 
 // Helper function to write kernel loops. This class will let us build a single
-// define/optimize/iterate operation combo. We can then insert optimizations in
-// the body of the optimization operation, and operations in the body of the
+// define/iterate operation combo. We can then insert operations in the body of the
 // iterate operation.
 //
 // The sequence is as follow:
@@ -128,10 +127,7 @@ private:
 //   1) Create an object giving the rewriter, location, and number of loop in
 //   the original (non optimized) loop.
 //
-//   2) Create define & optimize ops (currently paired). Optimizations can then
-//   be added to the inner block of the optimize operation. Make sure to set
-//   the insertion point to that block for optimizations to go in the right
-//   place.
+//   2) Create define_loops ops.
 //
 //   3) Push the bounds for each of the original loops. Bounds are pushed in
 //   pairs (lower & upper bounds). There are a few methods to do it depending
