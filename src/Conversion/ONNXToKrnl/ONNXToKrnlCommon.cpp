@@ -190,26 +190,6 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
   }
 }
 
-// Function that defines the KRNL dialect loops and their respective
-// optimized version.
-KrnlOptimizeLoopsOp emitOptimizedLoops(ConversionPatternRewriter &rewriter,
-    Location loc, std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
-    int64_t numLoops) {
-  // Define loops.
-  auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
-  loops.reserve(numLoops);
-  for (auto result : loopsOp.getResults())
-    loops.push_back(result);
-
-  // Define optimized version of the loops.
-  auto optimizedLoopsOp = rewriter.create<KrnlOptimizeLoopsOp>(loc, numLoops);
-  optimizedLoops.reserve(numLoops);
-  for (auto result : optimizedLoopsOp.getResults())
-    optimizedLoops.push_back(result);
-
-  return optimizedLoopsOp;
-}
-
 // Function that emits the definition of loops references.
 void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
