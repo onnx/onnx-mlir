@@ -93,7 +93,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
 
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
-      sequenceLoops.createDefineAndOptimizeOp();
+      sequenceLoops.createDefineOp();
       sequenceLoops.pushBounds(0, sequenceDimSize);
       sequenceLoops.createIterateOp();
 
@@ -112,7 +112,7 @@ struct ONNXRNNOpLowering : public ConversionPattern {
 
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
       BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
-      sequenceLoops.createDefineAndOptimizeOp();
+      sequenceLoops.createDefineOp();
       sequenceLoops.pushBounds(0, sequenceDimSize);
       sequenceLoops.createIterateOp();
 

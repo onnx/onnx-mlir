@@ -160,7 +160,7 @@ public:
   // Create define and optimize loop with loopNum original loops. If
   // withEmptyOptimization is true, the optimization is simply the identity
   // function (no optimizations).
-  void createDefineAndOptimizeOp(bool withEmptyOptimization = true);
+  void createDefineOp(bool withEmptyOptimization = true);
 
   // Push bounds (lower and upper) for each of the loops (order matters).
   // The function returns the order number associated with the loop iteration.
@@ -179,12 +179,12 @@ public:
   // operations associated with this loop nest have been emitted already.
   void createIterateOp();
 
-  // Create the loop nest definition, optimization and iteration operations
+  // Create the loop nest definition and iteration operations
   // for a given operand of MemRef type. The loop nest has a depth equal to the
   // rank of the MemRef operand. The lower bound of each loop is zero. The
   // upper bound of each loop is given by the corresponding dimension of the
   // MemRef operand.
-  void createDefineOptimizeAndIterateOp(
+  void createDefineAndIterateOp(
       Value memRefOperand, bool withEmptyOptimization = true);
 
   // Get the (original loop) induction variable associated with the given
@@ -227,7 +227,6 @@ private:
 
   // Flags that keep track of emitted operations.
   bool createdDefineOp;
-  bool createdOptimizeOp;
   bool createdIterateOp;
 
   // Saved insertion point in the code region of the KrnlOptimizeLoopsOp.

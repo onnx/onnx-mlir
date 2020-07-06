@@ -527,7 +527,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     if (!hasAllScalarValues(operands)) {
       // Create iterateOp & get block within iterate op.
       BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
-      loops.createDefineOptimizeAndIterateOp(X);
+      loops.createDefineAndIterateOp(X);
       Block *iterationBlock = loops.getIterateBlock();
 
       // Insert instructions inside the KernelIterateOp body.
@@ -589,7 +589,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
       // Create iterateOp & get block within iterate op.
       BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
-      loops.createDefineOptimizeAndIterateOp(alloc);
+      loops.createDefineAndIterateOp(alloc);
       Block *iterationBlock = loops.getIterateBlock();
 
       // Insert instructions inside the KernelIterateOp body.
