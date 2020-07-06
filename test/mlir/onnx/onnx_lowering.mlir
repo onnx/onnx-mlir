@@ -2196,7 +2196,8 @@ func @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -> tensor
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: @test_squeeze_unknown_dimensions
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x1x32x?x64xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x1x32x?x64xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x32x64xf32>
   // CHECK: [[TENSOR_SIZE_0:%.+]] = constant 8192 : i64
   // CHECK: [[DIM_0_i64:%.+]] = index_cast [[DIM_0]] : index to i64
