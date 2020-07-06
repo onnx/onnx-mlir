@@ -59,15 +59,18 @@ struct ONNXConcatOpLowering : public ConversionPattern {
         if (r != axis || writeOffset == 0) {
           writeIndices.emplace_back(inputLoops.getInductionVar(r));
         } else {
-          auto indexWithOffset = rewriter.create<AddIOp>(loc,
-              rewriter.create<ConstantIndexOp>(loc, writeOffset),
-              inputLoops.getInductionVar(r));
+          AffineMap indexWithOffsetMap =
+              AffineMap::get(1, 0, rewriter.getAffineDimExpr(0) + writeOffset);
+          Value indexWithOffset =
+              rewriter.create<AffineApplyOp>(loc, indexWithOffsetMap,
+                  ArrayRef<Value>{inputLoops.getInductionVar(r)});
           writeIndices.emplace_back(indexWithOffset);
         }
       }
       // Insert copy.
-      auto loadData = rewriter.create<LoadOp>(loc, operands[i], readIndices);
-      rewriter.create<StoreOp>(loc, loadData, alloc, writeIndices);
+      auto loadData =
+          rewriter.create<AffineLoadOp>(loc, operands[i], readIndices);
+      rewriter.create<AffineStoreOp>(loc, loadData, alloc, writeIndices);
       // Increment offset
       writeOffset += currShape[axis];
     }

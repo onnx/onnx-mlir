@@ -1,0 +1,33 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "gnu++14",
+            "intelliSenseMode": "clang-x64"
+        },
+        {
+            "name": "onnx-mlir-linux",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "forcedInclude": [
+                "${default}"
+            ],    
+            "defines": [
+                "ONNX_ML=1"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "compilerArgs": ["-I${workspaceFolder}/llvm-project/mlir/include", "-I${workspaceFolder}/llvm-project/build/tools/mlir/include","-I${workspaceFolder}/llvm-project/include", "-I${workspaceFolder}/llvm-project/build/ßinclude"],
+            "cStandard": "c11",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "${default}"
+        }
+    ],
+    "version": 4
+}
