@@ -24,7 +24,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     bool hasBias = !op->getOperand(2).getType().isa<NoneType>();
 
     Value A, B, C;
-    ONNXGemmOpOperandAdaptor operandAdaptor(operands);
+    ONNXGemmOpAdaptor operandAdaptor(operands);
     A = operandAdaptor.A();
     B = operandAdaptor.B();
     if (hasBias)
@@ -156,23 +156,23 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Initialize the output of A*B
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
-    rewriter.create<StoreOp>(loc, zero, alloc, loopMNIVs);
+    rewriter.create<AffineStoreOp>(loc, zero, alloc, loopMNIVs);
 
     // Compute A*B
     auto matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, reductionPack);
 
     // Compute beta*C, and add up to alpha*A*B (unidirectional broadcasting)
-    auto loadedAB = rewriter.create<LoadOp>(loc, alloc, loopMNIVs);
+    auto loadedAB = rewriter.create<AffineLoadOp>(loc, alloc, loopMNIVs);
     auto alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
     if (hasBias) {
       auto loopCIVs = getLoopIVsForBroadcasting(
           loc, rewriter, loopMNIVs, C, broadcastedDimInfo);
-      auto loadedC = rewriter.create<LoadOp>(loc, C, loopCIVs);
+      auto loadedC = rewriter.create<AffineLoadOp>(loc, C, loopCIVs);
       auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
       auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-      rewriter.create<StoreOp>(loc, Y, alloc, loopMNIVs);
+      rewriter.create<AffineStoreOp>(loc, Y, alloc, loopMNIVs);
     } else {
-      rewriter.create<StoreOp>(loc, alphaAB, alloc, loopMNIVs);
+      rewriter.create<AffineStoreOp>(loc, alphaAB, alloc, loopMNIVs);
     }
 
     // Insert instructions to do matrix multiplication: A*B
@@ -199,12 +199,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     }
 
     // Matmul computation
-    auto loadedA = rewriter.create<LoadOp>(loc, A, loopAIVs);
-    auto loadedB = rewriter.create<LoadOp>(loc, B, loopBIVs);
-    auto loadedY = rewriter.create<LoadOp>(loc, alloc, loopMNIVs);
+    auto loadedA = rewriter.create<AffineLoadOp>(loc, A, loopAIVs);
+    auto loadedB = rewriter.create<AffineLoadOp>(loc, B, loopBIVs);
+    auto loadedY = rewriter.create<AffineLoadOp>(loc, alloc, loopMNIVs);
     auto AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
     auto accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-    rewriter.create<StoreOp>(loc, accumulated, alloc, loopMNIVs);
+    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopMNIVs);
 
     rewriter.replaceOp(op, alloc);
 

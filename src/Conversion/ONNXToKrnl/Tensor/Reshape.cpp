@@ -18,7 +18,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXReshapeOpOperandAdaptor operandAdaptor(operands);
+    ONNXReshapeOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     Value data = operandAdaptor.data();
     auto inputShape = data.getType().cast<MemRefType>().getShape();
@@ -64,7 +64,8 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
       for (int i = 0; i < memRefShape.size(); ++i) {
         Value index = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
         // Load index from array of indices.
-        Value loadedVal = rewriter.create<LoadOp>(loc, operands[1], index);
+        Value loadedVal =
+            rewriter.create<AffineLoadOp>(loc, operands[1], index);
         // If a dimension is zero, the actual dimension value is taken from the
         // input tensor.
         //

@@ -18,7 +18,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXTransposeOpOperandAdaptor operandAdaptor(operands);
+    ONNXTransposeOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -80,8 +80,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     for (int i = 0; i < iterationBlock.getArguments().size(); ++i)
       outLoopIVs.emplace_back(iterationBlock.getArguments()[perm[i]]);
 
-    auto inVal = rewriter.create<LoadOp>(loc, data, inLoopIVs);
-    rewriter.create<StoreOp>(loc, inVal, alloc, outLoopIVs);
+    auto inVal = rewriter.create<AffineLoadOp>(loc, data, inLoopIVs);
+    rewriter.create<AffineStoreOp>(loc, inVal, alloc, outLoopIVs);
 
     rewriter.replaceOp(op, alloc);
 
