@@ -253,7 +253,7 @@ OpsWithShapeInference = [
     'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
     'LSTM', 'GRU', 'Split', 'Pad', 'Cast', 'ConvTranspose', 'Flatten',
     'DynamicQuantizeLinear', 'QuantizeLinear', 'DequantizeLinear', 'ConvInteger',
-    'Squeeze', 'Shape',
+    'Squeeze', 'Shape', 'Tile'
 ]
 
 # Operations supporting canonicalization.
@@ -267,7 +267,8 @@ OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
 # tuples, whose first item is the attribute/operand name, and the second item is
 # the index at which such operand occurs in the list of the operation's inputs.
 OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
-                                  "Pad": [("pads", 1), ("constant_value", 2)]}
+                                  "Pad": [("pads", 1), ("constant_value", 2)],
+                                  "Tile": [("repeats", 1)]}
 
 # Interface for special handling of type inference
 # The common code are put into get_type_inference_func
