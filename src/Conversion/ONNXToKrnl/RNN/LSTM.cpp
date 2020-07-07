@@ -539,4 +539,3 @@ void populateLoweringONNXLSTMOpPattern(
   patterns.insert<ONNXRNNOpLowering<ONNXLSTMOp, LstmState, LstmActivationPack>>(
       ctx);
 }
-
