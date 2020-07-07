@@ -176,7 +176,7 @@ BuildKrnlLoop::~BuildKrnlLoop() {
     free(pack);
 }
 
-void BuildKrnlLoop::createDefineOp(bool withEmptyOptimization) {
+void BuildKrnlLoop::createDefineOp() {
   // Insert define loop operation.
   auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, originalLoopNum);
   originalLoops.reserve(originalLoopNum);
@@ -246,15 +246,14 @@ void BuildKrnlLoop::createIterateOp() {
   createdIterateOp = true;
 }
 
-void BuildKrnlLoop::createDefineAndIterateOp(
-    Value memRefOperand, bool withEmptyOptimization) {
+void BuildKrnlLoop::createDefineAndIterateOp(Value memRefOperand) {
   // Rank of the MemRef operand. We will emit a loop for each dimension.
   int loopNum = memRefOperand.getType().cast<MemRefType>().getShape().size();
   assert(originalLoopNum == loopNum &&
          "Mismatch in loop numbers from constructor and define.");
 
   // Emit the definition and the optimization operations for the loop nest.
-  createDefineOp(withEmptyOptimization);
+  createDefineOp();
 
   // Push a lower-upper bound pair for each dimension of the MemRef operand.
   // The lower bound in this case is always zero.

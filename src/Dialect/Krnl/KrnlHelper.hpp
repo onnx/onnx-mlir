@@ -119,8 +119,8 @@ private:
 };
 
 // Helper function to write kernel loops. This class will let us build a single
-// define/iterate operation combo. We can then insert operations in the body of the
-// iterate operation.
+// define/iterate operation combo. We can then insert operations in the body of
+// the iterate operation.
 //
 // The sequence is as follow:
 //
@@ -156,7 +156,7 @@ public:
   // Create define and optimize loop with loopNum original loops. If
   // withEmptyOptimization is true, the optimization is simply the identity
   // function (no optimizations).
-  void createDefineOp(bool withEmptyOptimization = true);
+  void createDefineOp();
 
   // Push bounds (lower and upper) for each of the loops (order matters).
   // The function returns the order number associated with the loop iteration.
@@ -180,8 +180,7 @@ public:
   // rank of the MemRef operand. The lower bound of each loop is zero. The
   // upper bound of each loop is given by the corresponding dimension of the
   // MemRef operand.
-  void createDefineAndIterateOp(
-      Value memRefOperand, bool withEmptyOptimization = true);
+  void createDefineAndIterateOp(Value memRefOperand);
 
   // Get the (original loop) induction variable associated with the given
   // index. Use the index returned when pushing the bounds.
