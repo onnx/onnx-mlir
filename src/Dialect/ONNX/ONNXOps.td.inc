@@ -1438,7 +1438,7 @@ def ONNXGRUOp:ONNX_Op<"GRU",
 }
 
 def ONNXGatherOp:ONNX_Op<"Gather",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Gather operation";
   let description = [{
   "Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather"

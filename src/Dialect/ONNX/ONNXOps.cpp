@@ -2265,7 +2265,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes() {
 LogicalResult ONNXShapeOp::inferShapes() {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
-    return emitOpError("Input tensor not ranked");
+    return emitError("Input tensor not ranked");
 
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   int64_t rank = data().getType().cast<RankedTensorType>().getRank();
@@ -2282,7 +2282,7 @@ LogicalResult ONNXShapeOp::inferShapes() {
 LogicalResult ONNXTileOp::inferShapes() {
   // Cannot infer shape if no shape exists.
   if (!input().getType().isa<RankedTensorType>())
-    return emitOpError("Input tensor not ranked");
+    return emitError("Input tensor not ranked");
 
   // Read 'repeats' value.
   if (!repeats().getType().isa<RankedTensorType>())
@@ -2337,6 +2337,54 @@ LogicalResult ONNXTileOp::inferShapes() {
   getResult().setType(
       RankedTensorType::get(dims, inputTensorTy.getElementType()));
 
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Gather
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGatherOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!data().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+  if (!indices().getType().isa<RankedTensorType>())
+    return emitError("Indices tensor not ranked");
+
+  auto inputShape = data().getType().cast<RankedTensorType>().getShape();
+  auto indicesShape = indices().getType().cast<RankedTensorType>().getShape();
+  int64_t inputRank = inputShape.size();
+  int64_t indicesRank = indicesShape.size();
+
+  if (inputRank < 1)
+    return emitError("Input tensor must have rank >= 1");
+
+  // Read 'axis' attribute.
+  auto axisIndex = axis().getSExtValue();
+  // 'axis' must be in [-rank, rank-1]
+  if (axisIndex < -inputRank || axisIndex >= inputRank)
+    return emitError("Gather axis value out of bound");
+  // Convert a negative axis to a positive axis.
+  if (axisIndex < 0) {
+    axisIndex += inputRank;
+    auto builder = mlir::Builder(getContext());
+    axisAttr(builder.getI64IntegerAttr(axisIndex));
+  }
+
+  // Output has rank of 'indicesRank + (inputRank - 1).
+  // Output shape is constructed from 'input' by:
+  //    replacing the dimension at 'axis' in 'input' by the shape of 'indices'.
+  SmallVector<int64_t, 1> outDims;
+  for (decltype(inputRank) i = 0; i < inputRank; ++i) {
+    if (i == axisIndex)
+      for (decltype(indicesRank) j = 0; j < indicesRank; ++j)
+        outDims.emplace_back(indicesShape[j]);
+    else
+      outDims.emplace_back(inputShape[i]);
+  }
+
+  getResult().setType(RankedTensorType::get(
+      outDims, data().getType().cast<RankedTensorType>().getElementType()));
   return success();
 }
 
