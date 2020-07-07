@@ -131,9 +131,8 @@ private:
       break;
     case onnx::AttributeProto::STRINGS: {
       llvm::SmallVector<mlir::StringRef, 4> vectorStringRef;
-      for (auto item : attr.strings()) {
-        std::string *copiedString = new std::string(item);
-        vectorStringRef.push_back(llvm::StringRef(*copiedString));
+      for (const auto &item : attr.strings()) {
+        vectorStringRef.push_back(llvm::StringRef(item));
       }
       mlirAttr = builder_.getStrArrayAttr(llvm::makeArrayRef(vectorStringRef));
     } break;
