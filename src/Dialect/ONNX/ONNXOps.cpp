@@ -2269,9 +2269,9 @@ LogicalResult ONNXShapeOp::inferShapes() {
 
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   int64_t rank = data().getType().cast<RankedTensorType>().getRank();
-  Type outElementType = shape().getType().cast<TensorType>().getElementType();
   SmallVector<int64_t, 1> outDims(1, rank);
-  getResult().setType(RankedTensorType::get(outDims, outElementType));
+  getResult().setType(
+      RankedTensorType::get(outDims, IntegerType::get(64, getContext())));
   return success();
 }
 
