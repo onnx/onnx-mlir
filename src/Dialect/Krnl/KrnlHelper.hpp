@@ -127,7 +127,7 @@ private:
 //   1) Create an object giving the rewriter, location, and number of loop in
 //   the original (non optimized) loop.
 //
-//   2) Create define_loops ops.
+//   2) Create define_loops ops to define new loop variables.
 //
 //   3) Push the bounds for each of the original loops. Bounds are pushed in
 //   pairs (lower & upper bounds). There are a few methods to do it depending
