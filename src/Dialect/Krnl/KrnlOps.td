@@ -290,3 +290,19 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
       $loop $tile_size attr-dict `:` functional-type($loop, results)
   }];
 }
+
+def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
+  let summary = "Krnl permute operation";
+  let description = [{
+    Block a single for loop by a constant tile size. For instance,
+    $ib, $il = krnl.block %i, 4
+    means to block the for loop referred to by %i using a tile size of 4.
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$mapping);
+  let results = (outs Variadic<AnyType>);
+
+  let assemblyFormat = [{
+      $loops $mapping attr-dict `:` functional-type($loops, results)
+  }];
+}
