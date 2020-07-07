@@ -2,6 +2,10 @@
 # It will create a new Docker image for the TravisCI build and push it to Docker Hub
 # This image contains the prereqs for building onnx-mlir including a precompiled copy of the appropriate
 # LLVM and MLIR code.
+# 
+# To make this work on your fork you need to enable the github workflow and set a personal access token for your
+# docker hub account in the github secrets.
+# When the action succeeds it will put the prereq image in your docker hub repository.
 
 name: Build Docker Prereq Image
 
