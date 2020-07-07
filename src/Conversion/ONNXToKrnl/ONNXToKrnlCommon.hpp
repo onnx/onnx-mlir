@@ -63,12 +63,6 @@ std::map<int64_t, int64_t> getReductionMapping(
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     KrnlIterateOperandPack &pack, Value operand, int index);
 
-// Function that defines the KRNL dialect loops and their respective
-// optimized version.
-KrnlOptimizeLoopsOp emitOptimizedLoops(ConversionPatternRewriter &rewriter,
-    Location loc, std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
-    int64_t numLoops);
-
 // Function that emits the define_loop operation to define `numLoops`
 // number of krnl loops, and fill `loop` with the newly defined loops.
 void defineLoops(ConversionPatternRewriter &rewriter, Location loc,

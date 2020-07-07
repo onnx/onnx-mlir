@@ -125,42 +125,12 @@ public:
 // Krnl to Affine Rewrite Patterns: KrnlOptimizeLoops operation.
 //===----------------------------------------------------------------------===//
 
-class KrnlOptimizeLoopsLowering : public OpRewritePattern<KrnlOptimizeLoopsOp> {
-public:
-  using OpRewritePattern<KrnlOptimizeLoopsOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      KrnlOptimizeLoopsOp op, PatternRewriter &rewriter) const override {
-    rewriter.eraseOp(op);
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// Krnl to Affine Rewrite Patterns: KrnlOptimizeLoops operation.
-//===----------------------------------------------------------------------===//
-
 class KrnlBlockOpLowering : public OpRewritePattern<KrnlBlockOp> {
 public:
   using OpRewritePattern<KrnlBlockOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
       KrnlBlockOp op, PatternRewriter &rewriter) const override {
-    rewriter.eraseOp(op);
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// Krnl to Affine Rewrite Patterns: KrnlOptimizeLoops operation.
-//===----------------------------------------------------------------------===//
-
-class KrnlReturnLoopOpLowering : public OpRewritePattern<KrnlReturnLoopsOp> {
-public:
-  using OpRewritePattern<KrnlReturnLoopsOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      KrnlReturnLoopsOp op, PatternRewriter &rewriter) const override {
     rewriter.eraseOp(op);
     return success();
   }
@@ -230,14 +200,11 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 
   OwningRewritePatternList patterns;
   patterns.insert<KrnlTerminatorLowering, KrnlDefineLoopsLowering,
-      KrnlOptimizeLoopsLowering, KrnlBlockOpLowering, KrnlReturnLoopOpLowering>(
-      &getContext());
+      KrnlBlockOpLowering>(&getContext());
 
   // Do not lower operations that pertain to schedules just yet.
   target.addLegalOp<KrnlBlockOp>();
   target.addLegalOp<KrnlDefineLoopsOp>();
-  target.addLegalOp<KrnlOptimizeLoopsOp>();
-  target.addLegalOp<KrnlReturnLoopsOp>();
   if (failed(applyPartialConversion(function, target, patterns)))
     return signalPassFailure();
 
@@ -312,8 +279,6 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   // Remove/lower schedule related operations.
   target.addIllegalOp<KrnlDefineLoopsOp>();
   target.addIllegalOp<KrnlBlockOp>();
-  target.addIllegalOp<KrnlOptimizeLoopsOp>();
-  target.addIllegalOp<KrnlReturnLoopsOp>();
   if (failed(applyPartialConversion(function, target, patterns)))
     return signalPassFailure();
 }
