@@ -20,7 +20,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
-    ONNXConvOpOperandAdaptor operandAdaptor(operands);
+    ONNXConvOpAdaptor operandAdaptor(operands);
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc;

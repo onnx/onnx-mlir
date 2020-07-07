@@ -20,7 +20,7 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto tensorType = (*op->result_type_begin());
-    ONNXPadConstantValuePadOpOperandAdaptor operandAdaptor(operands);
+    ONNXPadConstantValuePadOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     // Only constant padding is supported now.

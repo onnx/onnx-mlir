@@ -20,7 +20,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
 
-    ONNXMatMulOpOperandAdaptor operandAdaptor(operands);
+    ONNXMatMulOpAdaptor operandAdaptor(operands);
     Value A = operandAdaptor.A();
     Value B = operandAdaptor.B();
     auto AShape = A.getType().cast<MemRefType>().getShape();

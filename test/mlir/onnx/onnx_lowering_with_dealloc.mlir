@@ -240,20 +240,24 @@ func @test_exp_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_exp_exp
   /// First Exp
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
   // CHECK: affine.store [[EXP]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Exp
-  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_1:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], [[C0_1]] : memref<?x10xf32>
   // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_2:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
@@ -275,10 +279,12 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_tanh_tanh
   /// First Tanh
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
@@ -291,10 +297,12 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[TANH]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Tanh
-  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_1:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], [[C0_1]] : memref<?x10xf32>
   // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_2:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
@@ -322,10 +330,12 @@ func @test_sinh_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_sinh_sinh
   /// First Sinh
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
@@ -338,10 +348,12 @@ func @test_sinh_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[SINH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Sinh
-  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], [[C0_0]] : memref<?x10xf32>
   // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_2:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
@@ -369,10 +381,12 @@ func @test_cosh_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_cosh_cosh
   /// First Cosh
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
@@ -385,11 +399,12 @@ func @test_cosh_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[COSH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Cosh
-  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_1:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], [[C0_1]] : memref<?x10xf32>
   // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[C0_2:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
@@ -416,10 +431,12 @@ func @test_sigmoid_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_sigmoid_sigmoid
   /// First Sigmoid
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
@@ -431,10 +448,12 @@ func @test_sigmoid_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[SIGMOID_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Sigmoid
-  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_1:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], [[C0_1]] : memref<?x10xf32>
   // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_2:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
@@ -461,10 +480,12 @@ func @test_relu_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_relu_relu
   /// First Relu
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
@@ -473,10 +494,12 @@ func @test_relu_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[RELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Second Relu
-  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_1:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], [[C0_1]] : memref<?x10xf32>
   // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_2:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
@@ -603,10 +626,12 @@ func @test_elu_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_elu_elu
   /// First Elu
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
@@ -620,10 +645,12 @@ func @test_elu_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Second Elu
-  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_1:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], [[C0_1]] : memref<?x10xf32>
   // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_2:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
@@ -652,10 +679,12 @@ func @test_leakyrelu_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_leakyrelu_leakyrelu
   /// First LeakyRelu
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
@@ -666,10 +695,12 @@ func @test_leakyrelu_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Second LeakyRelu
-  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_1:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], [[C0_1]] : memref<?x10xf32>
   // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_2:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
@@ -695,10 +726,12 @@ func @test_selu_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_selu_selu
   /// First Selu
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
@@ -713,10 +746,12 @@ func @test_selu_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[SELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Second Selu
-  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_1:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], [[C0_1]] : memref<?x10xf32>
   // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_2:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
@@ -746,10 +781,12 @@ func @test_hardsigmoid_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_hardsigmoid_hardsigmoid
   /// First HardSigmoid
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
@@ -765,10 +802,12 @@ func @test_hardsigmoid_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[SELECT2]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second HardSigmoid
-  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_1:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], [[C0_1]] : memref<?x10xf32>
   // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_2:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
@@ -799,10 +838,12 @@ func @test_reciprocal_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_reciprocal_reciprocal
   /// First Reciprocal
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, 0 : memref<?x10xf32>
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
@@ -810,10 +851,12 @@ func @test_reciprocal_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[RECIPROCAL_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Second Reciprocal
-  // CHECK: [[DIM_0:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_1:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim [[RES]], [[C0_1]] : memref<?x10xf32>
   // CHECK: [[RET_RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[DIM_2:%.+]] = dim [[RES]], 0 : memref<?x10xf32>
+  // CHECK: [[C0_2:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32

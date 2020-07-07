@@ -24,7 +24,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     bool hasBias = !op->getOperand(2).getType().isa<NoneType>();
 
     Value A, B, C;
-    ONNXGemmOpOperandAdaptor operandAdaptor(operands);
+    ONNXGemmOpAdaptor operandAdaptor(operands);
     A = operandAdaptor.A();
     B = operandAdaptor.B();
     if (hasBias)

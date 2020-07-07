@@ -18,7 +18,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXReshapeOpOperandAdaptor operandAdaptor(operands);
+    ONNXReshapeOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     Value data = operandAdaptor.data();
     auto inputShape = data.getType().cast<MemRefType>().getShape();
