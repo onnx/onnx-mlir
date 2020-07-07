@@ -230,8 +230,12 @@ private:
 
     // Trailing optional inputs.
     if (!variadicIn)
-      for (auto i = inputs.size(); i < expectedNumOperands; i++)
+      for (auto i = inputs.size(); i < expectedNumOperands; i++) {
+        if (!none_)
+          none_ = builder_.create<mlir::ConstantOp>(
+              UnknownLoc(), builder_.getUnitAttr());
         inputs.emplace_back(none_);
+      }
 
     std::vector<mlir::Type> outputTypes;
 
@@ -489,11 +493,6 @@ private:
         entryBlockArgIdx++;
       }
     }
-
-    // Create a NoneTyped constant to be used for optional operation inputs
-    // which are not used.
-    none_ =
-        builder_.create<mlir::ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
 
     // Import nodes in the graph.
     for (const auto &item : graph.node()) {
