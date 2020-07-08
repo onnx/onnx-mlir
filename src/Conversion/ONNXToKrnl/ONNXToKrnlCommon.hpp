@@ -247,5 +247,5 @@ bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
 
 int64_t getMemRefSizeInBytes(Value val);
 
-Value getDynamicMemRefSizeInBytes(MemRefType type, Location loc,
-    PatternRewriter &rewriter, AllocOp allocOp);
+Value getDynamicMemRefSizeInBytes(
+    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp);

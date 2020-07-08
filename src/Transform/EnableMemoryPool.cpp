@@ -84,10 +84,10 @@ public:
       auto memPoolMemRefType =
           MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
 
-      Value dyanmicTotalSize = getDynamicMemRefSizeInBytes(memRefType, loc,
-          rewriter, allocOp);
-      newAlloc = rewriter.create<AllocOp>(loc,
-          memPoolMemRefType, dyanmicTotalSize);
+      Value dyanmicTotalSize =
+          getDynamicMemRefSizeInBytes(memRefType, loc, rewriter, allocOp);
+      newAlloc =
+          rewriter.create<AllocOp>(loc, memPoolMemRefType, dyanmicTotalSize);
     }
 
     // Emit new dealloc.
