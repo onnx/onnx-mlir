@@ -2371,6 +2371,20 @@ LogicalResult ONNXGatherOp::inferShapes() {
     axisAttr(builder.getI64IntegerAttr(axisIndex));
   }
 
+  // If 'indices' is a constant, check whether its values are valid or not.
+  auto constantOp = getONNXConstantOp(indices());
+  if (constantOp && inputShape[axisIndex] != -1) {
+    DenseElementsAttr valueAttribute =
+        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    if (!valueAttribute)
+      return emitError("DenseElementsAttr expected");
+    for (auto value : valueAttribute.getValues<IntegerAttr>()) {
+      auto index = value.cast<IntegerAttr>().getInt();
+      if (index < -inputShape[axisIndex] || index >= inputShape[axisIndex])
+        return emitError("Indices tensor contains an out-of-bound index");
+    }
+  }
+
   // Output has rank of 'indicesRank + (inputRank - 1).
   // Output shape is constructed from 'input' by:
   //    replacing the dimension at 'axis' in 'input' by the shape of 'indices'.
