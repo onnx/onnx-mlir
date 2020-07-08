@@ -61,23 +61,34 @@ public:
     // TODO: Enable this pass for MemRef with dyanmic shapes.
     // If alloc operation is not returned then it is a candidate for
     // being included in the memory pool.
-    if (!hasAllConstantDimensions(memRefType) ||
-        checkOpResultIsReturned(&allocOp))
+    if (checkOpResultIsReturned(&allocOp))
       return failure();
 
     // Check the result of this alloc is not already used by a krnl.getref.
     if (checkOpResultIsUsedByGetRef(&allocOp))
       return failure();
 
-    // Compute total size.
-    int64_t totalSize = getMemRefSizeInBytes(allocOp.getResult());
-
-    // Emit new alloc.
+    AllocOp newAlloc;
     SmallVector<int64_t, 1> memPoolShape;
-    memPoolShape.emplace_back(totalSize);
-    auto memPoolMemRefType =
-        MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
-    auto newAlloc = rewriter.create<AllocOp>(loc, memPoolMemRefType);
+    if (hasAllConstantDimensions(memRefType)) {
+      // Compute total size.
+      int64_t totalSize = getMemRefSizeInBytes(allocOp.getResult());
+
+      // Emit new alloc.
+      memPoolShape.emplace_back(totalSize);
+      auto memPoolMemRefType =
+          MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
+      newAlloc = rewriter.create<AllocOp>(loc, memPoolMemRefType);
+    } else {
+      memPoolShape.emplace_back(-1);
+      auto memPoolMemRefType =
+          MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
+
+      Value dyanmicTotalSize = getDynamicMemRefSizeInBytes(memRefType, loc,
+          rewriter, allocOp);
+      newAlloc = rewriter.create<AllocOp>(loc,
+          memPoolMemRefType, dyanmicTotalSize);
+    }
 
     // Emit new dealloc.
     auto dealloc = rewriter.create<DeallocOp>(loc, newAlloc);
