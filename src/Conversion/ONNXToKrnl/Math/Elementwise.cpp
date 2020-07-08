@@ -525,26 +525,16 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
 
     SmallVector<Value, 4> loopIVs;
     if (!hasAllScalarValues(operands)) {
-      std::vector<Value> originalLoops;
-      KrnlOptimizeLoopsOp optimizedLoopsOp;
-      KrnlIterateOp iterateOp;
-      emitKrnlLoopsAndIterationForOperand(
-          rewriter, loc, X, originalLoops, optimizedLoopsOp, iterateOp);
-      Block &optimizationBlock = optimizedLoopsOp.region().front();
-      Block &iterationBlock = iterateOp.bodyRegion().front();
+      // Create iterateOp & get block within iterate op.
+      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
+      loops.createDefineAndIterateOp(X);
+      Block *iterationBlock = loops.getIterateBlock();
 
-      // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-      rewriter.setInsertionPointToEnd(&optimizationBlock);
-      // Return from KrnlOptimizeLoopsOp body.
-      // When no optimizations are present we just return the loops
-      // unchaged.
-      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
-      // 2. Insert instructions inside the KernelIterateOp body.
-      rewriter.setInsertionPointToStart(&iterationBlock);
+      // Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(iterationBlock);
 
       // Handle the operation:
-      for (auto arg : iterationBlock.getArguments())
+      for (auto arg : iterationBlock->getArguments())
         loopIVs.push_back(arg);
     }
 
@@ -555,7 +545,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     rewriter.create<AffineStoreOp>(loc, loweredOpResult, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
-
     return success();
   }
 };
@@ -598,41 +587,47 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       broadcastedDimInfo =
           getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
 
-      std::vector<Value> originalLoops;
-      KrnlOptimizeLoopsOp optimizedLoopsOp;
-      KrnlIterateOp iterateOp;
-      emitKrnlLoopsAndIterationForOperand(
-          rewriter, loc, alloc, originalLoops, optimizedLoopsOp, iterateOp);
-      Block &optimizationBlock = optimizedLoopsOp.region().front();
-      Block &iterationBlock = iterateOp.bodyRegion().front();
+      // Create iterateOp & get block within iterate op.
+      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
+      loops.createDefineAndIterateOp(alloc);
+      Block *iterationBlock = loops.getIterateBlock();
 
-      // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-      rewriter.setInsertionPointToEnd(&optimizationBlock);
-      // Return from KrnlOptimizeLoopsOp body.
-      // When no optimizations are present we just return the loops unchaged.
-      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
-      // 2. Insert instructions inside the KernelIterateOp body.
-      rewriter.setInsertionPointToStart(&iterationBlock);
+      // Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(iterationBlock);
 
       // Handle the operation:
-      for (auto arg : iterationBlock.getArguments())
+      for (auto arg : iterationBlock->getArguments())
         loopIVs.push_back(arg);
     }
-    // Fold over operands for each of their scalar values
+    // Fold over operands for each of their scalar values.
     Value accumulated, next;
-    auto accumulatedLoopIVs = getLoopIVsForBroadcasting(
+    // Obtain the first operand.
+    std::vector<Value> accumulatedLoopIVs = getLoopIVsForBroadcasting(
         loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
-    accumulated = rewriter.create<LoadOp>(loc, operands[0], accumulatedLoopIVs);
+    if (!hasAllConstantDimensions(memRefType))
+      // In case of unknown dimensions, use std.load since
+      // 'getLoopIVsForBroadcasting' has not supported affine map so far.
+      accumulated =
+          rewriter.create<LoadOp>(loc, operands[0], accumulatedLoopIVs);
+    else
+      accumulated =
+          rewriter.create<AffineLoadOp>(loc, operands[0], accumulatedLoopIVs);
+    // Iterate over the remaining operands.
     for (unsigned i = 1; i < numArgs; i++) {
-      auto nextLoopIVs = getLoopIVsForBroadcasting(
+      std::vector<Value> nextLoopIVs = getLoopIVsForBroadcasting(
           loc, rewriter, loopIVs, operands[i], broadcastedDimInfo[i]);
-      next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
+      if (!hasAllConstantDimensions(memRefType))
+        // In case of unknown dimensions, use std.load since
+        // 'getLoopIVsForBroadcasting' has not supported affine map so far.
+        next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
+      else
+        next = rewriter.create<AffineLoadOp>(loc, operands[i], nextLoopIVs);
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
           rewriter, loc, op, memRefType.getElementType(), {accumulated, next});
     }
+
     // Store result in the resulting array.
-    rewriter.create<StoreOp>(loc, accumulated, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 

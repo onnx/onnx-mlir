@@ -21,7 +21,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // batchnorm{epsilon}(x, scale, bias, mean, variance) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
-    ONNXBatchNormalizationTestModeOpOperandAdaptor operandAdaptor(operands);
+    ONNXBatchNormalizationTestModeOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -57,9 +57,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     int64_t rank = memRefType.getRank();
 
     std::vector<Value> originalLoops;
-    std::vector<Value> optimizedLoops;
-    Block *optimizationBlock =
-        defineLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
+    defineLoops(rewriter, loc, originalLoops, rank);
 
     // Create a KrnlIterateOp along C dimension.
     // This will be the outer-most loop in order to re-use scale, bias,
@@ -67,8 +65,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
 
     SmallVector<Value, 1> loopCIVs;
     if (rank > 1) {
-      KrnlIterateOperandPack cPack(
-          rewriter, originalLoops[1], optimizedLoops[1]);
+      KrnlIterateOperandPack cPack(rewriter, originalLoops[1]);
       addDimensionToPack(rewriter, loc, cPack, operand, 1);
       auto cIterateOp = rewriter.create<KrnlIterateOp>(loc, cPack);
       Block &cIterationBlock = cIterateOp.bodyRegion().front();
@@ -79,30 +76,25 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       loopCIVs.emplace_back(rewriter.create<ConstantIndexOp>(loc, 0));
     }
 
-    auto scaleVal = rewriter.create<LoadOp>(loc, scale, loopCIVs);
-    auto biasVal = rewriter.create<LoadOp>(loc, bias, loopCIVs);
-    auto meanVal = rewriter.create<LoadOp>(loc, mean, loopCIVs);
-    auto varianceVal = rewriter.create<LoadOp>(loc, variance, loopCIVs);
+    auto scaleVal = rewriter.create<AffineLoadOp>(loc, scale, loopCIVs);
+    auto biasVal = rewriter.create<AffineLoadOp>(loc, bias, loopCIVs);
+    auto meanVal = rewriter.create<AffineLoadOp>(loc, mean, loopCIVs);
+    auto varianceVal = rewriter.create<AffineLoadOp>(loc, variance, loopCIVs);
 
     // Create a KrnlIterateOp along the other dimensions.
     SmallVector<int64_t, 4> axes;
     axes.emplace_back(0);
     for (int64_t i = 2; i < rank; ++i)
       axes.emplace_back(i);
-    std::vector<Value> packLoops, packOptimizedLoops;
+    std::vector<Value> packLoops;
     for (int i = 0; i < axes.size(); ++i) {
       packLoops.emplace_back(originalLoops[axes[i]]);
-      packOptimizedLoops.emplace_back(optimizedLoops[axes[i]]);
     }
-    KrnlIterateOperandPack pack(rewriter, packLoops, packOptimizedLoops);
+    KrnlIterateOperandPack pack(rewriter, packLoops);
     for (int i = 0; i < axes.size(); ++i) {
       addDimensionToPack(rewriter, loc, pack, operand, axes[i]);
     }
     auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
-
-    // No optimization
-    rewriter.setInsertionPointToEnd(optimizationBlock);
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
 
     Block &iterationBlock = iterateOp.bodyRegion().front();
     rewriter.setInsertionPointToStart(&iterationBlock);
@@ -118,7 +110,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       loopIVs.emplace_back(args[0]);
     }
 
-    auto xVal = rewriter.create<LoadOp>(loc, operand, loopIVs);
+    auto xVal = rewriter.create<AffineLoadOp>(loc, operand, loopIVs);
     // normalize
     auto dividend = rewriter.create<SubFOp>(loc, xVal, meanVal);
     auto adjustedVarianceVal =
@@ -129,7 +121,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     auto scaleNormVal = rewriter.create<MulFOp>(loc, scaleVal, normVal);
     auto shiftScaleNormVal =
         rewriter.create<AddFOp>(loc, scaleNormVal, biasVal);
-    rewriter.create<StoreOp>(loc, shiftScaleNormVal, alloc, loopIVs);
+    rewriter.create<AffineStoreOp>(loc, shiftScaleNormVal, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 
