@@ -20,7 +20,7 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto tensorType = (*op->result_type_begin());
-    ONNXPadConstantValuePadOpOperandAdaptor operandAdaptor(operands);
+    ONNXPadConstantValuePadOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     // Only constant padding is supported now.
@@ -46,14 +46,14 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
 
     // Iterate over the loop nest using the output shape.
     BuildKrnlLoop padLoops(rewriter, loc, rank);
-    padLoops.createDefineAndOptimizeOp();
+    padLoops.createDefineOp();
     for (int i = 0; i < rank; ++i)
       padLoops.pushBounds(0, alloc, i);
     padLoops.createIterateOp();
 
     // Iterate over the loop nest using the input shape.
     BuildKrnlLoop valueLoops(rewriter, loc, rank);
-    valueLoops.createDefineAndOptimizeOp();
+    valueLoops.createDefineOp();
     for (int i = 0; i < rank; ++i)
       valueLoops.pushBounds(0, operandAdaptor.data(), i);
     valueLoops.createIterateOp();

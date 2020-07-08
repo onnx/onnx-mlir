@@ -20,7 +20,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
-    ONNXConvOpOperandAdaptor operandAdaptor(operands);
+    ONNXConvOpAdaptor operandAdaptor(operands);
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc;
@@ -107,7 +107,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // 1. Define outer loops and emit empty optimization block:
     int64_t nOuterLoops = (group > 1) ? 3 : 2;
     BuildKrnlLoop outerLoops(rewriter, loc, nOuterLoops);
-    outerLoops.createDefineAndOptimizeOp();
+    outerLoops.createDefineOp();
     //   for n = 0 .. N:
     int nIndex = outerLoops.pushBounds(0, inputOperand, 0);
     //   for g = 0 .. N:
@@ -142,7 +142,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       // 2.2 Define spatial loops
       int64_t nSpatialLoops = resultShape.size() - 2;
       BuildKrnlLoop spatialLoops(rewriter, loc, nSpatialLoops);
-      spatialLoops.createDefineAndOptimizeOp();
+      spatialLoops.createDefineOp();
       for (int i = 2; i < resultShape.size(); ++i)
         spatialLoops.pushBounds(0, alloc, i);
 
@@ -168,7 +168,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // 3.2 Define inner loops.
         int64_t nInnerLoops = 1 + (kernelShape.size() - 2);
         BuildKrnlLoop innerLoops(rewriter, loc, nInnerLoops);
-        innerLoops.createDefineAndOptimizeOp();
+        innerLoops.createDefineOp();
         //   for c = 0 .. C/group
         int cIndex = innerLoops.pushBounds(0, kernelShape[1]);
         //   for Kx = 0 .. KX

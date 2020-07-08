@@ -24,7 +24,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     bool hasBias = !op->getOperand(2).getType().isa<NoneType>();
 
     Value A, B, C;
-    ONNXGemmOpOperandAdaptor operandAdaptor(operands);
+    ONNXGemmOpAdaptor operandAdaptor(operands);
     A = operandAdaptor.A();
     B = operandAdaptor.B();
     if (hasBias)
@@ -72,9 +72,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Define loops.
     std::vector<Value> originalLoops;
-    std::vector<Value> optimizedLoops;
-    Block *optimizationBlock =
-        defineLoops(rewriter, loc, originalLoops, optimizedLoops, numLoops);
+    defineLoops(rewriter, loc, originalLoops, numLoops);
 
     // We have two Krnl loops:
     // - Outer loop iterates over the output matrix dimensions, and
@@ -84,23 +82,18 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     std::vector<Value> outerLoops, optimizedOuterLoops;
     outerLoops.reserve(2);
     optimizedOuterLoops.reserve(2);
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 2; ++i)
       outerLoops.push_back(originalLoops[i]);
-      optimizedOuterLoops.push_back(optimizedLoops[i]);
-    }
-    KrnlIterateOperandPack outerPack(rewriter, outerLoops, optimizedOuterLoops);
+    KrnlIterateOperandPack outerPack(rewriter, outerLoops);
     // Induction variables for the outer loops
     for (int i = 0; i < 2; ++i)
       addDimensionToPack(rewriter, loc, outerPack, alloc, i);
 
     // Reduction loop
-    std::vector<Value> reductionLoops, optimizedReductionLoops;
+    std::vector<Value> reductionLoops;
     reductionLoops.reserve(1);
-    optimizedReductionLoops.reserve(1);
     reductionLoops.push_back(originalLoops[2]);
-    optimizedReductionLoops.push_back(optimizedLoops[2]);
-    KrnlIterateOperandPack reductionPack(
-        rewriter, reductionLoops, optimizedReductionLoops);
+    KrnlIterateOperandPack reductionPack(rewriter, reductionLoops);
     // Induction variable for the reduction dimension
     // Try to find and use a static value from A or B first.
     // If it failed then use a dynamic value.
@@ -140,10 +133,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Now perform the insertions into the body of the
     // just generated instructions:
 
-    // No optimization
-    rewriter.setInsertionPointToEnd(optimizationBlock);
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
     // Insert instructions inside the outer loop.
     Block &outerIterationBlock = outerIterateOp.bodyRegion().front();
     rewriter.setInsertionPointToStart(&outerIterationBlock);
@@ -154,14 +143,15 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       loopMNIVs.emplace_back(arg);
     }
 
-    // Initialize the output of A*B
+    // Initialize the output of A * B
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
     rewriter.create<AffineStoreOp>(loc, zero, alloc, loopMNIVs);
 
-    // Compute A*B
+    // Compute A * B
     auto matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, reductionPack);
 
-    // Compute beta*C, and add up to alpha*A*B (unidirectional broadcasting)
+    // Compute beta * C, and add up to alpha * A * B (unidirectional
+    // broadcasting)
     auto loadedAB = rewriter.create<AffineLoadOp>(loc, alloc, loopMNIVs);
     auto alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
     if (hasBias) {
@@ -175,7 +165,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       rewriter.create<AffineStoreOp>(loc, alphaAB, alloc, loopMNIVs);
     }
 
-    // Insert instructions to do matrix multiplication: A*B
+    // Insert instructions to do matrix multiplication: A * B
     Block &matmulIterationBlock = matmulIterateOp.bodyRegion().front();
     rewriter.setInsertionPointToStart(&matmulIterationBlock);
 
