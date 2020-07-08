@@ -222,8 +222,12 @@ private:
 
     // Trailing optional inputs.
     if (!variadicIn)
-      for (auto i = inputs.size(); i < expectedNumOperands; i++)
+      for (auto i = inputs.size(); i < expectedNumOperands; i++) {
+        if (!none_)
+          none_ = builder_.create<mlir::ConstantOp>(
+              UnknownLoc(), builder_.getUnitAttr());
         inputs.emplace_back(none_);
+      }
 
     std::vector<mlir::Type> outputTypes;
 
@@ -306,26 +310,6 @@ private:
       }
 
     buildOutputAndOperation<T>(
-        node, inputs, expectedNumOperands, expectedNumResults);
-  }
-
-  void ImportNodeReshape(onnx::NodeProto node) {
-    int expectedNumOperands = mlir::ONNXReshapeOp::getNumberOfOperands();
-    int expectedNumResults = mlir::ONNXReshapeOp::getNumberOfResults();
-    std::vector<mlir::Value> inputs;
-    std::string item;
-    for (int i = 0; i < node.input().size(); ++i) {
-      item = node.input()[i];
-      // For the second argument, check if there exists an initializer.
-      if (initializedTensors.ContainKey(legalize_name(item))) {
-        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-            UnknownLoc(), builder_, legalize_name(item)));
-      } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
-      }
-    }
-
-    buildOutputAndOperation<mlir::ONNXReshapeOp>(
         node, inputs, expectedNumOperands, expectedNumResults);
   }
 
@@ -481,11 +465,6 @@ private:
         entryBlockArgIdx++;
       }
     }
-
-    // Create a NoneTyped constant to be used for optional operation inputs
-    // which are not used.
-    none_ =
-        builder_.create<mlir::ConstantOp>(UnknownLoc(), builder_.getUnitAttr());
 
     // Import nodes in the graph.
     for (const auto &item : graph.node()) {

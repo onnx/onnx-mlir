@@ -79,47 +79,6 @@ ParseResult parseKrnlDefineLoopsOp(
 }
 
 //===----------------------------------------------------------------------===//
-// KrnlOptimizeLoopsOp
-//===----------------------------------------------------------------------===//
-
-void KrnlOptimizeLoopsOp::build(
-    OpBuilder &builder, OperationState &result, int num_optimized_loops) {
-  result.types.append(num_optimized_loops, LoopType::get(builder.getContext()));
-  // Create a region and a block for the body.
-  // Schedule intrinsics will be placed into this region.
-  Region *region = result.addRegion();
-  auto *body = new Block();
-  region->push_back(body);
-}
-
-void print(OpAsmPrinter &p, KrnlOptimizeLoopsOp &op) {
-  p << "krnl.optimize_loops ";
-  p.printRegion(op.region(), /*printEntryBlockArgs=*/false,
-      /*printBlockTerminators=*/true);
-  p << " : ";
-  p.printFunctionalType(op);
-}
-
-ParseResult parseKrnlOptimizeLoopsOp(
-    OpAsmParser &parser, OperationState &result) {
-  // Parse the schedule body region.
-  Region *region = result.addRegion();
-  if (parser.parseRegion(*region, llvm::None, llvm::None))
-    return failure();
-
-  // Parse the function type for the schedule operation.
-  // Then following the hint of this parsed function type, parse the
-  // returned timestamp space dimension handlers.
-  FunctionType schedule_func_type;
-  if (parser.parseColonType(schedule_func_type) ||
-      parser.addTypesToList(schedule_func_type.getResults(), result.types)) {
-    failure();
-  }
-
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // KrnlIterateOp
 //===----------------------------------------------------------------------===//
 
@@ -340,25 +299,8 @@ static LogicalResult verify(KrnlIterateOp op) {
 }
 
 //===----------------------------------------------------------------------===//
-// KrnlReturnLoopsOp
+// KrnlEntryPointOp
 //===----------------------------------------------------------------------===//
-
-void print(OpAsmPrinter &p, KrnlReturnLoopsOp &op) {
-  p << "krnl.return_loops ";
-  p.printOperands(op.operand_begin(), op.operand_end());
-}
-
-ParseResult parseKrnlReturnLoopsOp(
-    OpAsmParser &parser, OperationState &result) {
-  // Parse the loops to return.
-  SmallVector<OpAsmParser::OperandType, 4> timestamp_dim_handlers;
-  if (parser.parseOperandList(timestamp_dim_handlers) ||
-      parser.resolveOperands(timestamp_dim_handlers,
-          LoopType::get(result.getContext()), result.operands))
-    return failure();
-
-  return success();
-}
 
 void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
     SymbolRefAttr funcAttr, IntegerAttr numInputs, IntegerAttr numOutputs) {

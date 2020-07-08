@@ -11,6 +11,7 @@
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/Function.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Matchers.h"
@@ -25,6 +26,7 @@
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
+using namespace mlir::onnxmlir;
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
@@ -481,6 +483,19 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
 #define GET_OP_LIST
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
       >();
+  addTypes<StringType>();
+}
+
+mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
+  if (parser.parseKeyword("String"))
+    return Type();
+
+  return StringType::get(getContext());
+}
+
+void ONNXOpsDialect::printType(
+    mlir::Type type, mlir::DialectAsmPrinter &printer) const {
+  printer << "String";
 }
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
@@ -1789,6 +1804,51 @@ LogicalResult ONNXUnsqueezeOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+
+// Squeeze
+
+LogicalResult ONNXSqueezeOp::inferShapes() {
+  if (!data().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = data().getType().cast<RankedTensorType>();
+  int64_t inRank = operandTy.getRank();
+
+  ArrayAttr axisAttrs = axesAttr();
+  if (!axisAttrs)
+    return emitError("Axes attribute is required");
+
+  SmallVector<int64_t, 4> axes;
+  bool hasNegativeAxis = false;
+  for (auto axisAttr : axisAttrs.getValue()) {
+    int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+    if (axis < -inRank || axis >= inRank)
+      return emitError("Invalid axis value");
+    if (axis < 0) {
+      axis = inRank + axis;
+      hasNegativeAxis = true;
+    }
+    if (std::find(axes.begin(), axes.end(), axis) != axes.end())
+      return emitError("Duplicated axes");
+    axes.emplace_back(axis);
+  }
+  if (hasNegativeAxis) {
+    // Update axes attribute so that it contains only positive values.
+    auto builder = mlir::Builder(getContext());
+    ArrayRef<int64_t> defaultRefs(axes);
+    axesAttr(builder.getI64ArrayAttr(defaultRefs));
+  }
+
+  SmallVector<int64_t, 4> dims;
+  for (int i = 0; i < inRank; ++i) {
+    if (std::find(axes.begin(), axes.end(), i) == axes.end()) {
+      dims.emplace_back(operandTy.getShape()[i]);
+    }
+  }
+  getResult().setType(RankedTensorType::get(dims, operandTy.getElementType()));
+  return success();
+}
+
 // Cast
 //===----------------------------------------------------------------------===//
 
@@ -2025,8 +2085,12 @@ LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes() {
   auto yScaleTy = y_scale().getType().cast<ShapedType>();
   auto yZPTy = y_zero_point().getType().cast<ShapedType>();
 
-  IntegerType i8Type = IntegerType::get(8, getContext());
-  RankedTensorType scalarType = RankedTensorType::get({}, i8Type);
+  IntegerType ui8Type =
+      IntegerType::get(8, IntegerType::Unsigned, getContext());
+  FloatType f32Type = FloatType::getF32(getContext());
+
+  RankedTensorType scalarType = RankedTensorType::get({}, f32Type);
+  RankedTensorType y_zero_point_type = RankedTensorType::get({}, ui8Type);
 
   // Set the types for the scalars
   if (!yScaleTy.hasStaticShape()) {
@@ -2034,11 +2098,11 @@ LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes() {
   }
 
   if (!yZPTy.hasStaticShape()) {
-    y_zero_point().setType(scalarType);
+    y_zero_point().setType(y_zero_point_type);
   }
 
   if (!yTy.hasStaticShape()) {
-    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), i8Type);
+    RankedTensorType outType = RankedTensorType::get(inTy.getShape(), ui8Type);
     y().setType(outType);
   }
 

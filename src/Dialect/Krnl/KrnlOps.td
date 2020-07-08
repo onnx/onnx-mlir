@@ -48,32 +48,6 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
 }];
 }
 
-def KrnlOptimizeLoopsOp : Op<Krnl_Dialect, "optimize_loops"> {
-  let summary = "optimize_loops operation";
-  let description = [{
-    The "krnl.optimize_loops" operation is essentially a cosmetic operation
-    which exists to encapsulate a region where loops are being scheduled /
-    optimized.
-
-    The optimized loops are returned at the end of the region associated with
-    the krnl.optimize_loops operation.
-
-    For example : TBD once we have actual schedule intrinsics.
-  }];
-
-  let arguments = (ins Variadic<AnyType>);
-  let results = (outs Variadic<AnyType>);
-  let regions = (region SizedRegion<1>:$region);
-
-  let skipDefaultBuilders = 1;
-
-  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result, "
-                             "int timestamp_space_rank"> ];
-
-  let printer = [{ return ::print(p, *this); }];
-  let parser = [{ return ::parse$cppClass(parser, result); }];
-}
-
 def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator, AffineScope]> {
   let summary = "iterate operation";
   let description = [{
@@ -127,19 +101,6 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator, AffineS
     let printer = [{ return ::print(p, *this); }];
     let parser = [{ return ::parse$cppClass(parser, result); }];
     let verifier = [{ return ::verify(*this); }];
-}
-
-def KrnlReturnLoopsOp : Op<Krnl_Dialect, "return_loops", [Terminator]> {
-  let summary = "Krnl return handler operation";
-  let description = [{
-    Krnl return_loops operation is a terminator operation for returning
-    scheduled dimension handlers in the krnl.optimize_loops region.
-  }];
-
-  let arguments = (ins Variadic<AnyType>);
-
-  let printer = [{ return ::print(p, *this); }];
-  let parser = [{ return ::parse$cppClass(parser, result); }];
 }
 
 def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
@@ -272,4 +233,21 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
 
   let parser = ?;
   let printer = ?;
+}
+
+def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
+  let summary = "Krnl block operation";
+  let description = [{
+    Block a single for loop by a constant tile size. For instance,
+    $ib, $il = krnl.block %i, 4
+    means to block the for loop referred to by %i using a tile size of 4.
+  }];
+
+  let arguments = (ins
+    AnyType:$loop, I64Attr:$tile_size);
+  let results = (outs AnyType:$loop_block, AnyType:$loop_local);
+
+  let assemblyFormat = [{
+      $loop $tile_size attr-dict `:` functional-type($loop, results)
+  }];
 }

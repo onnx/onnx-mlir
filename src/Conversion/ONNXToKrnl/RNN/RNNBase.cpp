@@ -28,7 +28,7 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   MemRefType scalarMemRefType =
       MemRefType::get({}, scalarOperand.getType(), {}, 0);
   Value alloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-  rewriter.create<StoreOp>(loc, scalarOperand, alloc);
+  rewriter.create<AffineStoreOp>(loc, scalarOperand, alloc, ArrayRef<Value>{});
 
   std::vector<mlir::NamedAttribute> attributes;
   if (activation.alpha) {
@@ -68,6 +68,6 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   else
     llvm_unreachable("Unsupported activation");
 
-  Value result = rewriter.create<LoadOp>(loc, res);
+  Value result = rewriter.create<AffineLoadOp>(loc, res);
   return result;
 }

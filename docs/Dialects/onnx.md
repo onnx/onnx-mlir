@@ -11,13 +11,13 @@ ONNX Abs operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Acos` (ONNXAcosOp)
 
@@ -29,13 +29,13 @@ ONNX Acos operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Acosh` (ONNXAcoshOp)
 
@@ -47,13 +47,13 @@ ONNX Acosh operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Add` (ONNXAddOp)
 
@@ -67,14 +67,14 @@ ONNX Add operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`A` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`C` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`C` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.And` (ONNXAndOp)
 
@@ -89,14 +89,14 @@ ONNX And operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
-`B` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`A` | tensor of 1-bit signless integer values
+`B` | tensor of 1-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`C` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`C` | tensor of 1-bit signless integer values
 
 ### `onnx.ArgMax` (ONNXArgMaxOp)
 
@@ -111,20 +111,20 @@ ONNX ArgMax operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | memref of any type values or tensor of any type values
+`reduced` | tensor of 64-bit signless integer values
 
 ### `onnx.ArgMin` (ONNXArgMinOp)
 
@@ -139,20 +139,20 @@ ONNX ArgMin operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | memref of any type values or tensor of any type values
+`reduced` | tensor of 64-bit signless integer values
 
 ### `onnx.ArrayFeatureExtractor` (ONNXArrayFeatureExtractorOp)
 
@@ -165,14 +165,14 @@ ONNX ArrayFeatureExtractor operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
-`Y` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values or tensor of stirng type values
+`Y` | tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Z` | memref of any type values or tensor of any type values
+`Z` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values or tensor of stirng type values
 
 ### `onnx.Asin` (ONNXAsinOp)
 
@@ -184,13 +184,13 @@ ONNX Asin operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Asinh` (ONNXAsinhOp)
 
@@ -202,13 +202,13 @@ ONNX Asinh operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Atan` (ONNXAtanOp)
 
@@ -220,13 +220,13 @@ ONNX Atan operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Atanh` (ONNXAtanhOp)
 
@@ -238,13 +238,13 @@ ONNX Atanh operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.AveragePool` (ONNXAveragePoolOp)
 
@@ -284,24 +284,24 @@ ONNX AveragePool operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`auto_pad` | StringAttr | string attribute
-`ceil_mode` | IntegerAttr | 64-bit signless integer attribute
-`count_include_pad` | IntegerAttr | 64-bit signless integer attribute
-`kernel_shape` | ArrayAttr | 64-bit integer array attribute
-`pads` | ArrayAttr | 64-bit integer array attribute
-`strides` | ArrayAttr | 64-bit integer array attribute
+`auto_pad` | ::mlir::StringAttr | string attribute
+`ceil_mode` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`count_include_pad` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.BatchNormalization` (ONNXBatchNormalizationOp)
 
@@ -322,28 +322,28 @@ ONNX BatchNormalization operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`epsilon` | FloatAttr | 32-bit float attribute
-`momentum` | FloatAttr | 32-bit float attribute
+`epsilon` | ::mlir::FloatAttr | 32-bit float attribute
+`momentum` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`scale` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`mean` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`var` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`scale` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`mean` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`var` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`out_mean` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`out_var` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`saved_mean` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`saved_var` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`out_mean` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+`out_var` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type
+`saved_mean` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type or none type
+`saved_var` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type or none type or none type
 
 ### `onnx.BatchNormalizationTestMode` (ONNXBatchNormalizationTestModeOp)
 
@@ -364,8 +364,8 @@ ONNX BatchNormalization operation in test mode
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`epsilon` | FloatAttr | 32-bit float attribute
-`momentum` | FloatAttr | 32-bit float attribute
+`epsilon` | ::mlir::FloatAttr | 32-bit float attribute
+`momentum` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
@@ -393,19 +393,19 @@ ONNX Binarizer operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`threshold` | FloatAttr | 32-bit float attribute
+`threshold` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`Y` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 ### `onnx.BitShift` (ONNXBitShiftOp)
 
@@ -428,20 +428,20 @@ ONNX BitShift operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`direction` | StringAttr | string attribute
+`direction` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values
-`Y` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values
+`Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Z` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values
+`Z` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values
 
 ### `onnx.CastMap` (ONNXCastMapOp)
 
@@ -455,21 +455,21 @@ ONNX CastMap operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`cast_to` | StringAttr | string attribute
-`map_form` | StringAttr | string attribute
-`max_map` | IntegerAttr | 64-bit signless integer attribute
+`cast_to` | ::mlir::StringAttr | string attribute
+`map_form` | ::mlir::StringAttr | string attribute
+`max_map` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tuple with any combination of tensor of 64-bit signless integer values values or memref of 64-bit signless integer values
+`X` | tuple with any combination of 64-bit signless integer or stirng type values or tuple with any combination of 64-bit signless integer or 32-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of stirng type values or tensor of 32-bit float values or tensor of 64-bit signless integer values
 
 ### `onnx.Cast` (ONNXCastOp)
 
@@ -499,19 +499,19 @@ ONNX Cast operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`to` | IntegerAttr | 64-bit signless integer attribute
+`to` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of stirng type values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of stirng type values
 
 ### `onnx.CategoryMapper` (ONNXCategoryMapperOp)
 
@@ -530,22 +530,22 @@ ONNX CategoryMapper operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`cats_int64s` | ArrayAttr | 64-bit integer array attribute
-`cats_strings` | ArrayAttr | string array attribute
-`default_int64` | IntegerAttr | 64-bit signless integer attribute
-`default_string` | StringAttr | string attribute
+`cats_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`cats_strings` | ::mlir::ArrayAttr | string array attribute
+`default_int64` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`default_string` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of stirng type values or tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of stirng type values or tensor of 64-bit signless integer values
 
 ### `onnx.Ceil` (ONNXCeilOp)
 
@@ -559,13 +559,13 @@ ONNX Ceil operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Clip` (ONNXClipOp)
 
@@ -579,15 +579,15 @@ ONNX Clip operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`min` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`max` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`min` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+`max` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type
 
 ### `onnx.Compress` (ONNXCompressOp)
 
@@ -602,20 +602,20 @@ ONNX Compress operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
-`condition` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`condition` | tensor of 1-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.ConcatFromSequence` (ONNXConcatFromSequenceOp)
 
@@ -630,20 +630,20 @@ ONNX ConcatFromSequence operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
-`new_axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`new_axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of tensor of any type values values
+`input_sequence` | tensor of tensor of 8-bit unsigned integer values values or tensor of tensor of 16-bit unsigned integer values values or tensor of tensor of 32-bit unsigned integer values values or tensor of tensor of 64-bit unsigned integer values values or tensor of tensor of 8-bit signless integer values values or tensor of tensor of 16-bit signless integer values values or tensor of tensor of 32-bit signless integer values values or tensor of tensor of 64-bit signless integer values values or tensor of tensor of 16-bit float values values or tensor of tensor of 32-bit float values values or tensor of tensor of 64-bit float values values or tensor of tensor of stirng type values values or tensor of tensor of 1-bit signless integer values values or tensor of tensor of complex type with 32-bit float elements values values or tensor of tensor of complex type with 64-bit float elements values values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`concat_result` | memref of any type values or tensor of any type values
+`concat_result` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Concat` (ONNXConcatOp)
 
@@ -655,19 +655,19 @@ ONNX Concat operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`inputs` | memref of any type values or tensor of any type values
+`inputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`concat_result` | memref of any type values or tensor of any type values
+`concat_result` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.ConstantOfShape` (ONNXConstantOfShapeOp)
 
@@ -679,19 +679,19 @@ ONNX ConstantOfShape operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`value` | Attribute | any attribute
+`value` | ::mlir::Attribute | any attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 64-bit signless integer values or memref of 64-bit signless integer values
+`input` | tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 1-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 1-bit signless integer values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values
 
 ### `onnx.Constant` (ONNXConstantOp)
 
@@ -704,14 +704,14 @@ ONNX Constant operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`sparse_value` | Attribute | any attribute
-`value` | Attribute | any attribute
+`sparse_value` | ::mlir::Attribute | any attribute
+`value` | ::mlir::Attribute | any attribute
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.ConvInteger` (ONNXConvIntegerOp)
 
@@ -724,27 +724,27 @@ ONNX ConvInteger operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`auto_pad` | StringAttr | string attribute
-`dilations` | ArrayAttr | 64-bit integer array attribute
-`group` | IntegerAttr | 64-bit signless integer attribute
-`kernel_shape` | ArrayAttr | 64-bit integer array attribute
-`pads` | ArrayAttr | 64-bit integer array attribute
-`strides` | ArrayAttr | 64-bit integer array attribute
+`auto_pad` | ::mlir::StringAttr | string attribute
+`dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`group` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`x` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`w` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`x_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values or none type
-`w_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values or none type
+`x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`w` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or none type
+`w_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`y` | tensor of 32-bit signless integer values or memref of 32-bit signless integer values
+`y` | tensor of 32-bit signless integer values
 
 ### `onnx.Conv` (ONNXConvOp)
 
@@ -757,26 +757,26 @@ ONNX Conv operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`auto_pad` | StringAttr | string attribute
-`dilations` | ArrayAttr | 64-bit integer array attribute
-`group` | IntegerAttr | 64-bit signless integer attribute
-`kernel_shape` | ArrayAttr | 64-bit integer array attribute
-`pads` | ArrayAttr | 64-bit integer array attribute
-`strides` | ArrayAttr | 64-bit integer array attribute
+`auto_pad` | ::mlir::StringAttr | string attribute
+`dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`group` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`W` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`W` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
 
 ### `onnx.ConvTranspose` (ONNXConvTransposeOp)
 
@@ -801,28 +801,28 @@ ONNX ConvTranspose operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`auto_pad` | StringAttr | string attribute
-`dilations` | ArrayAttr | 64-bit integer array attribute
-`group` | IntegerAttr | 64-bit signless integer attribute
-`kernel_shape` | ArrayAttr | 64-bit integer array attribute
-`output_padding` | ArrayAttr | 64-bit integer array attribute
-`output_shape` | ArrayAttr | 64-bit integer array attribute
-`pads` | ArrayAttr | 64-bit integer array attribute
-`strides` | ArrayAttr | 64-bit integer array attribute
+`auto_pad` | ::mlir::StringAttr | string attribute
+`dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`group` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`output_padding` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`output_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`W` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`W` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
 
 ### `onnx.Cos` (ONNXCosOp)
 
@@ -834,13 +834,13 @@ ONNX Cos operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Cosh` (ONNXCoshOp)
 
@@ -852,13 +852,13 @@ ONNX Cosh operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.CumSum` (ONNXCumSumOp)
 
@@ -889,21 +889,21 @@ ONNX CumSum operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`exclusive` | IntegerAttr | 64-bit signless integer attribute
-`reverse` | IntegerAttr | 64-bit signless integer attribute
+`exclusive` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`reverse` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`x` | tensor of 32-bit signless integer or 64-bit signless integer or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 32-bit float or 64-bit float values
-`axis` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values
+`x` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values
+`axis` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`y` | tensor of 32-bit signless integer or 64-bit signless integer or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 32-bit float or 64-bit float values
+`y` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.DepthToSpace` (ONNXDepthToSpaceOp)
 
@@ -941,20 +941,20 @@ ONNX DepthToSpace operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`blocksize` | IntegerAttr | 64-bit signless integer attribute
-`mode` | StringAttr | string attribute
+`blocksize` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`mode` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.DequantizeLinear` (ONNXDequantizeLinearOp)
 
@@ -969,15 +969,15 @@ ONNX DequantizeLinear operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`x` | tensor of 8-bit signless integer or 32-bit signless integer values or memref of 8-bit signless integer or 32-bit signless integer values
-`x_scale` | memref of any type values or tensor of any type values
-`x_zero_point` | tensor of 8-bit signless integer or 32-bit signless integer values or memref of 8-bit signless integer or 32-bit signless integer values or none type
+`x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values
+`x_scale` | tensor of 32-bit float values
+`x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`y` | memref of any type values or tensor of any type values
+`y` | tensor of 32-bit float values
 
 ### `onnx.Det` (ONNXDetOp)
 
@@ -993,13 +993,13 @@ ONNX Det operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.DictVectorizer` (ONNXDictVectorizerOp)
 
@@ -1022,20 +1022,20 @@ ONNX DictVectorizer operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`int64_vocabulary` | ArrayAttr | 64-bit integer array attribute
-`string_vocabulary` | ArrayAttr | string array attribute
+`int64_vocabulary` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`string_vocabulary` | ::mlir::ArrayAttr | string array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tuple with any combination of tensor of 64-bit signless integer or 32-bit float or 64-bit float values values or memref of 64-bit signless integer or 32-bit float or 64-bit float values
+`X` | tuple with any combination of stirng type or 64-bit signless integer values or tuple with any combination of 64-bit signless integer or stirng type values or tuple with any combination of 64-bit signless integer or 32-bit float values or tuple with any combination of 64-bit signless integer or 64-bit float values or tuple with any combination of stirng type or 32-bit float values or tuple with any combination of stirng type or 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 64-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values
 
 ### `onnx.Div` (ONNXDivOp)
 
@@ -1049,14 +1049,14 @@ ONNX Div operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`A` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`C` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`C` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Dropout` (ONNXDropoutOp)
 
@@ -1073,20 +1073,20 @@ ONNX Dropout operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`ratio` | FloatAttr | 32-bit float attribute
+`ratio` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`mask` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values or none type
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`mask` | tensor of 1-bit signless integer values or none type
 
 ### `onnx.DynamicQuantizeLinear` (ONNXDynamicQuantizeLinearOp)
 
@@ -1119,15 +1119,15 @@ ONNX DynamicQuantizeLinear operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`x` | tensor of 32-bit float values or memref of 32-bit float values
+`x` | tensor of 32-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`y` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`y_scale` | memref of any type values or tensor of any type values
-`y_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
+`y` | tensor of 8-bit unsigned integer values
+`y_scale` | tensor of 32-bit float values
+`y_zero_point` | tensor of 8-bit unsigned integer values
 
 ### `onnx.Elu` (ONNXEluOp)
 
@@ -1142,19 +1142,19 @@ ONNX Elu operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`alpha` | FloatAttr | 32-bit float attribute
+`alpha` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.EntryPoint` (ONNXEntryPointOp)
 
@@ -1175,14 +1175,14 @@ ONNX Equal operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 1-bit signless integer or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 1-bit signless integer or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 1-bit signless integer or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 1-bit signless integer or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`A` | tensor of 1-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 1-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`C` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`C` | tensor of 1-bit signless integer values
 
 ### `onnx.Erf` (ONNXErfOp)
 
@@ -1194,13 +1194,13 @@ ONNX Erf operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Exp` (ONNXExpOp)
 
@@ -1212,13 +1212,13 @@ ONNX Exp operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Expand` (ONNXExpandOp)
 
@@ -1237,14 +1237,14 @@ ONNX Expand operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
-`shape` | memref of any type values or tensor of any type values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`shape` | tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.EyeLike` (ONNXEyeLikeOp)
 
@@ -1262,20 +1262,20 @@ ONNX EyeLike operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | IntegerAttr | 64-bit signless integer attribute
-`k` | IntegerAttr | 64-bit signless integer attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`k` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 1-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 1-bit signless integer values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 1-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 1-bit signless integer values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values
 
 ### `onnx.FeatureVectorizer` (ONNXFeatureVectorizerOp)
 
@@ -1290,19 +1290,19 @@ ONNX FeatureVectorizer operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`inputdimensions` | ArrayAttr | 64-bit integer array attribute
+`inputdimensions` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit signless integer or 64-bit signless integer or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 32-bit float or 64-bit float values
+`X` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 32-bit float values
 
 ### `onnx.Flatten` (ONNXFlattenOp)
 
@@ -1316,19 +1316,19 @@ ONNX Flatten operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Floor` (ONNXFloorOp)
 
@@ -1342,13 +1342,13 @@ ONNX Floor operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.GRU` (ONNXGRUOp)
 
@@ -1432,31 +1432,31 @@ ONNX GRU operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`activation_alpha` | ArrayAttr | 32-bit float array attribute
-`activation_beta` | ArrayAttr | 32-bit float array attribute
-`activations` | ArrayAttr | string array attribute
-`clip` | FloatAttr | 32-bit float attribute
-`direction` | StringAttr | string attribute
-`hidden_size` | IntegerAttr | 64-bit signless integer attribute
-`linear_before_reset` | IntegerAttr | 64-bit signless integer attribute
+`activation_alpha` | ::mlir::ArrayAttr | 32-bit float array attribute
+`activation_beta` | ::mlir::ArrayAttr | 32-bit float array attribute
+`activations` | ::mlir::ArrayAttr | string array attribute
+`clip` | ::mlir::FloatAttr | 32-bit float attribute
+`direction` | ::mlir::StringAttr | string attribute
+`hidden_size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`linear_before_reset` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`W` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`R` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`sequence_lens` | tensor of 32-bit signless integer values or memref of 32-bit signless integer values or none type
-`initial_h` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`W` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`R` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+`sequence_lens` | tensor of 32-bit signless integer values or none type
+`initial_h` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`Y_h` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type or none type
+`Y_h` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type or none type or none type
 
 ### `onnx.GatherElements` (ONNXGatherElementsOp)
 
@@ -1522,20 +1522,20 @@ ONNX GatherElements operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
-`indices` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.GatherND` (ONNXGatherNDOp)
 
@@ -1611,14 +1611,14 @@ ONNX GatherND operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
-`indices` | memref of any type values or tensor of any type values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`indices` | tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Gather` (ONNXGatherOp)
 
@@ -1686,20 +1686,20 @@ ONNX Gather operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
-`indices` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Gemm` (ONNXGemmOp)
 
@@ -1723,24 +1723,24 @@ ONNX Gemm operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`alpha` | FloatAttr | 32-bit float attribute
-`beta` | FloatAttr | 32-bit float attribute
-`transA` | IntegerAttr | 64-bit signless integer attribute
-`transB` | IntegerAttr | 64-bit signless integer attribute
+`alpha` | ::mlir::FloatAttr | 32-bit float attribute
+`beta` | ::mlir::FloatAttr | 32-bit float attribute
+`transA` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`transB` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values
-`B` | tensor of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values
-`C` | tensor of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values or none type
+`A` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+`B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+`C` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type
 
 ### `onnx.GlobalAveragePool` (ONNXGlobalAveragePoolOp)
 
@@ -1754,13 +1754,13 @@ ONNX GlobalAveragePool operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.GlobalLpPool` (ONNXGlobalLpPoolOp)
 
@@ -1774,19 +1774,19 @@ ONNX GlobalLpPool operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`p` | IntegerAttr | 64-bit signless integer attribute
+`p` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.GlobalMaxPool` (ONNXGlobalMaxPoolOp)
 
@@ -1800,13 +1800,13 @@ ONNX GlobalMaxPool operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Greater` (ONNXGreaterOp)
 
@@ -1821,14 +1821,14 @@ ONNX Greater operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`C` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`C` | tensor of 1-bit signless integer values
 
 ### `onnx.HardSigmoid` (ONNXHardSigmoidOp)
 
@@ -1842,20 +1842,20 @@ ONNX HardSigmoid operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`alpha` | FloatAttr | 32-bit float attribute
-`beta` | FloatAttr | 32-bit float attribute
+`alpha` | ::mlir::FloatAttr | 32-bit float attribute
+`beta` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Hardmax` (ONNXHardmaxOp)
 
@@ -1880,19 +1880,19 @@ ONNX Hardmax operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Identity` (ONNXIdentityOp)
 
@@ -1904,13 +1904,13 @@ ONNX Identity operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.If` (ONNXIfOp)
 
@@ -1922,20 +1922,20 @@ ONNX If operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`else_branch` | Attribute | any attribute
-`then_branch` | Attribute | any attribute
+`else_branch` | ::mlir::Attribute | any attribute
+`then_branch` | ::mlir::Attribute | any attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`cond` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`cond` | tensor of 1-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`outputs` | memref of any type values or tensor of any type values
+`outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Imputer` (ONNXImputerOp)
 
@@ -1954,22 +1954,22 @@ ONNX Imputer operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`imputed_value_floats` | ArrayAttr | 32-bit float array attribute
-`imputed_value_int64s` | ArrayAttr | 64-bit integer array attribute
-`replaced_value_float` | FloatAttr | 32-bit float attribute
-`replaced_value_int64` | IntegerAttr | 64-bit signless integer attribute
+`imputed_value_floats` | ::mlir::ArrayAttr | 32-bit float array attribute
+`imputed_value_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`replaced_value_float` | ::mlir::FloatAttr | 32-bit float attribute
+`replaced_value_int64` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`Y` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 ### `onnx.InstanceNormalization` (ONNXInstanceNormalizationOp)
 
@@ -1986,21 +1986,21 @@ ONNX InstanceNormalization operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`epsilon` | FloatAttr | 32-bit float attribute
+`epsilon` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`scale` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`scale` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.IsInf` (ONNXIsInfOp)
 
@@ -2012,20 +2012,20 @@ ONNX IsInf operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`detect_negative` | IntegerAttr | 64-bit signless integer attribute
-`detect_positive` | IntegerAttr | 64-bit signless integer attribute
+`detect_negative` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`detect_positive` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 64-bit float values or memref of 32-bit float or 64-bit float values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`Y` | tensor of 1-bit signless integer values
 
 ### `onnx.IsNaN` (ONNXIsNaNOp)
 
@@ -2037,13 +2037,13 @@ ONNX IsNaN operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`Y` | tensor of 1-bit signless integer values
 
 ### `onnx.LRN` (ONNXLRNOp)
 
@@ -2064,22 +2064,22 @@ ONNX LRN operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`alpha` | FloatAttr | 32-bit float attribute
-`beta` | FloatAttr | 32-bit float attribute
-`bias` | FloatAttr | 32-bit float attribute
-`size` | IntegerAttr | 64-bit signless integer attribute
+`alpha` | ::mlir::FloatAttr | 32-bit float attribute
+`beta` | ::mlir::FloatAttr | 32-bit float attribute
+`bias` | ::mlir::FloatAttr | 32-bit float attribute
+`size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.LSTM` (ONNXLSTMOp)
 
@@ -2171,34 +2171,34 @@ ONNX LSTM operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`activation_alpha` | ArrayAttr | 32-bit float array attribute
-`activation_beta` | ArrayAttr | 32-bit float array attribute
-`activations` | ArrayAttr | string array attribute
-`clip` | FloatAttr | 32-bit float attribute
-`direction` | StringAttr | string attribute
-`hidden_size` | IntegerAttr | 64-bit signless integer attribute
-`input_forget` | IntegerAttr | 64-bit signless integer attribute
+`activation_alpha` | ::mlir::ArrayAttr | 32-bit float array attribute
+`activation_beta` | ::mlir::ArrayAttr | 32-bit float array attribute
+`activations` | ::mlir::ArrayAttr | string array attribute
+`clip` | ::mlir::FloatAttr | 32-bit float attribute
+`direction` | ::mlir::StringAttr | string attribute
+`hidden_size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`input_forget` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`W` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`R` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`sequence_lens` | tensor of 32-bit signless integer values or memref of 32-bit signless integer values or none type
-`initial_h` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`initial_c` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`P` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`W` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`R` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+`sequence_lens` | tensor of 32-bit signless integer values or none type
+`initial_h` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type
+`initial_c` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type or none type
+`P` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type or none type or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`Y_h` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`Y_c` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type or none type or none type or none type
+`Y_h` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type or none type or none type or none type or none type
+`Y_c` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type or none type or none type or none type or none type or none type
 
 ### `onnx.LabelEncoder` (ONNXLabelEncoderOp)
 
@@ -2226,27 +2226,27 @@ ONNX LabelEncoder operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`default_float` | FloatAttr | 32-bit float attribute
-`default_int64` | IntegerAttr | 64-bit signless integer attribute
-`default_string` | StringAttr | string attribute
-`keys_floats` | ArrayAttr | 32-bit float array attribute
-`keys_int64s` | ArrayAttr | 64-bit integer array attribute
-`keys_strings` | ArrayAttr | string array attribute
-`values_floats` | ArrayAttr | 32-bit float array attribute
-`values_int64s` | ArrayAttr | 64-bit integer array attribute
-`values_strings` | ArrayAttr | string array attribute
+`default_float` | ::mlir::FloatAttr | 32-bit float attribute
+`default_int64` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`default_string` | ::mlir::StringAttr | string attribute
+`keys_floats` | ::mlir::ArrayAttr | 32-bit float array attribute
+`keys_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keys_strings` | ::mlir::ArrayAttr | string array attribute
+`values_floats` | ::mlir::ArrayAttr | 32-bit float array attribute
+`values_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`values_strings` | ::mlir::ArrayAttr | string array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of stirng type values or tensor of 64-bit signless integer values or tensor of 32-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of stirng type values or tensor of 64-bit signless integer values or tensor of 32-bit float values
 
 ### `onnx.LeakyRelu` (ONNXLeakyReluOp)
 
@@ -2260,19 +2260,19 @@ ONNX LeakyRelu operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`alpha` | FloatAttr | 32-bit float attribute
+`alpha` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Less` (ONNXLessOp)
 
@@ -2287,14 +2287,14 @@ ONNX Less operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`C` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`C` | tensor of 1-bit signless integer values
 
 ### `onnx.LinearClassifier` (ONNXLinearClassifierOp)
 
@@ -2306,25 +2306,25 @@ ONNX LinearClassifier operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`classlabels_ints` | ArrayAttr | 64-bit integer array attribute
-`classlabels_strings` | ArrayAttr | string array attribute
-`coefficients` | ArrayAttr | 32-bit float array attribute
-`intercepts` | ArrayAttr | 32-bit float array attribute
-`multi_class` | IntegerAttr | 64-bit signless integer attribute
-`post_transform` | StringAttr | string attribute
+`classlabels_ints` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`classlabels_strings` | ::mlir::ArrayAttr | string array attribute
+`coefficients` | ::mlir::ArrayAttr | 32-bit float array attribute
+`intercepts` | ::mlir::ArrayAttr | 32-bit float array attribute
+`multi_class` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`post_transform` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
-`Z` | memref of any type values or tensor of any type values
+`Y` | tensor of stirng type values or tensor of 64-bit signless integer values
+`Z` | tensor of 32-bit float values
 
 ### `onnx.LinearRegressor` (ONNXLinearRegressorOp)
 
@@ -2341,22 +2341,22 @@ ONNX LinearRegressor operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`coefficients` | ArrayAttr | 32-bit float array attribute
-`intercepts` | ArrayAttr | 32-bit float array attribute
-`post_transform` | StringAttr | string attribute
-`targets` | IntegerAttr | 64-bit signless integer attribute
+`coefficients` | ::mlir::ArrayAttr | 32-bit float array attribute
+`intercepts` | ::mlir::ArrayAttr | 32-bit float array attribute
+`post_transform` | ::mlir::StringAttr | string attribute
+`targets` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 32-bit float values
 
 ### `onnx.Log` (ONNXLogOp)
 
@@ -2368,13 +2368,13 @@ ONNX Log operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.LogSoftmax` (ONNXLogSoftmaxOp)
 
@@ -2399,19 +2399,19 @@ ONNX LogSoftmax operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Loop` (ONNXLoopOp)
 
@@ -2535,21 +2535,21 @@ ONNX Loop operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`body` | Attribute | any attribute
+`body` | ::mlir::Attribute | any attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`M` | tensor of 64-bit signless integer values or memref of 64-bit signless integer values or none type
-`cond` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values or none type
-`v_initial` | memref of any type values or tensor of any type values
+`M` | tensor of 64-bit signless integer values or none type
+`cond` | tensor of 1-bit signless integer values or none type
+`v_initial` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`v_final_and_scan_outputs` | memref of any type values or tensor of any type values
+`v_final_and_scan_outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.LpNormalization` (ONNXLpNormalizationOp)
 
@@ -2561,20 +2561,20 @@ ONNX LpNormalization operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
-`p` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`p` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.LpPool` (ONNXLpPoolOp)
 
@@ -2590,23 +2590,23 @@ ONNX LpPool operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`auto_pad` | StringAttr | string attribute
-`kernel_shape` | ArrayAttr | 64-bit integer array attribute
-`p` | IntegerAttr | 64-bit signless integer attribute
-`pads` | ArrayAttr | 64-bit integer array attribute
-`strides` | ArrayAttr | 64-bit integer array attribute
+`auto_pad` | ::mlir::StringAttr | string attribute
+`kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`p` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.MatMulInteger` (ONNXMatMulIntegerOp)
 
@@ -2619,16 +2619,16 @@ ONNX MatMulInteger operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`B` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`a_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values or none type
-`b_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values or none type
+`A` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`B` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`a_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or none type
+`b_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit signless integer values or memref of 32-bit signless integer values
+`Y` | tensor of 32-bit signless integer values
 
 ### `onnx.MatMul` (ONNXMatMulOp)
 
@@ -2640,14 +2640,14 @@ ONNX MatMul operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values
-`B` | tensor of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values
+`A` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+`B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 ### `onnx.Max` (ONNXMaxOp)
 
@@ -2661,13 +2661,13 @@ ONNX Max operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`data_0` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`data_0` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`max` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`max` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.MaxPool` (ONNXMaxPoolOp)
 
@@ -2707,26 +2707,26 @@ ONNX MaxPool operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`auto_pad` | StringAttr | string attribute
-`ceil_mode` | IntegerAttr | 64-bit signless integer attribute
-`dilations` | ArrayAttr | 64-bit integer array attribute
-`kernel_shape` | ArrayAttr | 64-bit integer array attribute
-`pads` | ArrayAttr | 64-bit integer array attribute
-`storage_order` | IntegerAttr | 64-bit signless integer attribute
-`strides` | ArrayAttr | 64-bit integer array attribute
+`auto_pad` | ::mlir::StringAttr | string attribute
+`ceil_mode` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`storage_order` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`Indices` | tensor of 64-bit signless integer values or memref of 64-bit signless integer values or none type
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`Indices` | tensor of 64-bit signless integer values or none type
 
 ### `onnx.MaxPoolSingleOut` (ONNXMaxPoolSingleOutOp)
 
@@ -2739,13 +2739,13 @@ ONNX MaxPool operation with a single output.
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`auto_pad` | StringAttr | string attribute
-`ceil_mode` | IntegerAttr | 64-bit signless integer attribute
-`dilations` | ArrayAttr | 64-bit integer array attribute
-`kernel_shape` | ArrayAttr | 64-bit integer array attribute
-`pads` | ArrayAttr | 64-bit integer array attribute
-`storage_order` | IntegerAttr | 64-bit signless integer attribute
-`strides` | ArrayAttr | 64-bit integer array attribute
+`auto_pad` | ::mlir::StringAttr | string attribute
+`ceil_mode` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`storage_order` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
@@ -2771,21 +2771,21 @@ ONNX MaxRoiPool operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`pooled_shape` | ArrayAttr | 64-bit integer array attribute
-`spatial_scale` | FloatAttr | 32-bit float attribute
+`pooled_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`spatial_scale` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`rois` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`rois` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.MaxUnpool` (ONNXMaxUnpoolOp)
 
@@ -2814,23 +2814,23 @@ ONNX MaxUnpool operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`kernel_shape` | ArrayAttr | 64-bit integer array attribute
-`pads` | ArrayAttr | 64-bit integer array attribute
-`strides` | ArrayAttr | 64-bit integer array attribute
+`kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`I` | tensor of 64-bit signless integer values or memref of 64-bit signless integer values
-`output_shape` | tensor of 64-bit signless integer values or memref of 64-bit signless integer values or none type
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`I` | tensor of 64-bit signless integer values
+`output_shape` | tensor of 64-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Mean` (ONNXMeanOp)
 
@@ -2844,13 +2844,13 @@ ONNX Mean operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`data_0` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`data_0` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`mean` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`mean` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.MeanVarianceNormalization` (ONNXMeanVarianceNormalizationOp)
 
@@ -2863,19 +2863,19 @@ ONNX MeanVarianceNormalization operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Min` (ONNXMinOp)
 
@@ -2889,13 +2889,13 @@ ONNX Min operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`data_0` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`data_0` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`min` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`min` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Mod` (ONNXModOp)
 
@@ -2919,20 +2919,20 @@ ONNX Mod operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`fmod` | IntegerAttr | 64-bit signless integer attribute
+`fmod` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`A` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`C` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`C` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Mul` (ONNXMulOp)
 
@@ -2946,14 +2946,14 @@ ONNX Mul operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`A` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`C` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`C` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Multinomial` (ONNXMultinomialOp)
 
@@ -2966,21 +2966,21 @@ ONNX Multinomial operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | IntegerAttr | 64-bit signless integer attribute
-`sample_size` | IntegerAttr | 64-bit signless integer attribute
-`seed` | FloatAttr | 32-bit float attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`sample_size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`seed` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values
+`output` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 ### `onnx.Neg` (ONNXNegOp)
 
@@ -2994,13 +2994,13 @@ ONNX Neg operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 32-bit signless integer or 8-bit signless integer or 16-bit signless integer or 64-bit signless integer or 16-bit float or 64-bit float values or memref of 32-bit float or 32-bit signless integer or 8-bit signless integer or 16-bit signless integer or 64-bit signless integer or 16-bit float or 64-bit float values
+`X` | tensor of 32-bit float values or tensor of 32-bit signless integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit float or 32-bit signless integer or 8-bit signless integer or 16-bit signless integer or 64-bit signless integer or 16-bit float or 64-bit float values or memref of 32-bit float or 32-bit signless integer or 8-bit signless integer or 16-bit signless integer or 64-bit signless integer or 16-bit float or 64-bit float values
+`Y` | tensor of 32-bit float values or tensor of 32-bit signless integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 64-bit float values
 
 ### `onnx.NonMaxSuppression` (ONNXNonMaxSuppressionOp)
 
@@ -3018,23 +3018,23 @@ ONNX NonMaxSuppression operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`center_point_box` | IntegerAttr | 64-bit signless integer attribute
+`center_point_box` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`boxes` | memref of any type values or tensor of any type values
-`scores` | memref of any type values or tensor of any type values
-`max_output_boxes_per_class` | memref of any type values or tensor of any type values or none type
-`iou_threshold` | memref of any type values or tensor of any type values or none type
-`score_threshold` | memref of any type values or tensor of any type values or none type
+`boxes` | tensor of 32-bit float values
+`scores` | tensor of 32-bit float values
+`max_output_boxes_per_class` | tensor of 64-bit signless integer values or none type
+`iou_threshold` | tensor of 32-bit float values or none type
+`score_threshold` | tensor of 32-bit float values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`selected_indices` | memref of any type values or tensor of any type values
+`selected_indices` | tensor of 64-bit signless integer values
 
 ### `onnx.NonZero` (ONNXNonZeroOp)
 
@@ -3049,13 +3049,13 @@ ONNX NonZero operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 64-bit signless integer values
 
 ### `onnx.Normalizer` (ONNXNormalizerOp)
 
@@ -3076,19 +3076,19 @@ ONNX Normalizer operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`norm` | StringAttr | string attribute
+`norm` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 32-bit float values
 
 ### `onnx.Not` (ONNXNotOp)
 
@@ -3100,13 +3100,13 @@ ONNX Not operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`X` | tensor of 1-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`Y` | tensor of 1-bit signless integer values
 
 ### `onnx.OneHotEncoder` (ONNXOneHotEncoderOp)
 
@@ -3125,21 +3125,21 @@ ONNX OneHotEncoder operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`cats_int64s` | ArrayAttr | 64-bit integer array attribute
-`cats_strings` | ArrayAttr | string array attribute
-`zeros` | IntegerAttr | 64-bit signless integer attribute
+`cats_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`cats_strings` | ::mlir::ArrayAttr | string array attribute
+`zeros` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of stirng type values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 32-bit float values
 
 ### `onnx.OneHot` (ONNXOneHotOp)
 
@@ -3169,21 +3169,21 @@ ONNX OneHot operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`indices` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`depth` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`values` | memref of any type values or tensor of any type values
+`indices` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`depth` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`values` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Or` (ONNXOrOp)
 
@@ -3198,14 +3198,14 @@ ONNX Or operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
-`B` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`A` | tensor of 1-bit signless integer values
+`B` | tensor of 1-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`C` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`C` | tensor of 1-bit signless integer values
 
 ### `onnx.PRelu` (ONNXPReluOp)
 
@@ -3220,14 +3220,14 @@ ONNX PRelu operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values
-`slope` | tensor of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+`slope` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values or memref of 16-bit float or 32-bit float or 64-bit float or 32-bit signless integer or 64-bit signless integer values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 ### `onnx.PadConstantPad` (ONNXPadConstantPadOp)
 
@@ -3241,8 +3241,8 @@ ONNX Pad operation with constant padding value
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`pads` | ArrayAttr | 64-bit integer array attribute
-`mode` | StringAttr | string attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`mode` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
@@ -3271,8 +3271,8 @@ ONNX Pad operation with constant padding value
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`constant_value` | FloatAttr | 32-bit float attribute
-`mode` | StringAttr | string attribute
+`constant_value` | ::mlir::FloatAttr | 32-bit float attribute
+`mode` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
@@ -3299,9 +3299,9 @@ ONNX Pad operation with constant padding value
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`pads` | ArrayAttr | 64-bit integer array attribute
-`constant_value` | FloatAttr | 32-bit float attribute
-`mode` | StringAttr | string attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`constant_value` | ::mlir::FloatAttr | 32-bit float attribute
+`mode` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
@@ -3405,21 +3405,21 @@ ONNX Pad operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`mode` | StringAttr | string attribute
+`mode` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`pads` | memref of any type values or tensor of any type values or none type
-`constant_value` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or none type
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`pads` | tensor of 64-bit signless integer values or none type
+`constant_value` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
 
 ### `onnx.Pow` (ONNXPowOp)
 
@@ -3434,14 +3434,14 @@ ONNX Pow operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Z` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Z` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.QLinearConv` (ONNXQLinearConvOp)
 
@@ -3457,32 +3457,32 @@ ONNX QLinearConv operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`auto_pad` | StringAttr | string attribute
-`dilations` | ArrayAttr | 64-bit integer array attribute
-`group` | IntegerAttr | 64-bit signless integer attribute
-`kernel_shape` | ArrayAttr | 64-bit integer array attribute
-`pads` | ArrayAttr | 64-bit integer array attribute
-`strides` | ArrayAttr | 64-bit integer array attribute
+`auto_pad` | ::mlir::StringAttr | string attribute
+`dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`group` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`x` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`x_scale` | memref of any type values or tensor of any type values
-`x_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`w` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`w_scale` | memref of any type values or tensor of any type values
-`w_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`y_scale` | memref of any type values or tensor of any type values
-`y_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`B` | tensor of 32-bit signless integer values or memref of 32-bit signless integer values or none type
+`x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`x_scale` | tensor of 32-bit float values
+`x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`w` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`w_scale` | tensor of 32-bit float values
+`w_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`y_scale` | tensor of 32-bit float values
+`y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`B` | tensor of 32-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`y` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
+`y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
 
 ### `onnx.QLinearMatMul` (ONNXQLinearMatMulOp)
 
@@ -3501,20 +3501,20 @@ ONNX QLinearMatMul operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`a` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`a_scale` | memref of any type values or tensor of any type values
-`a_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`b` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`b_scale` | memref of any type values or tensor of any type values
-`b_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
-`y_scale` | memref of any type values or tensor of any type values
-`y_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
+`a` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`a_scale` | tensor of 32-bit float values
+`a_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`b` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`b_scale` | tensor of 32-bit float values
+`b_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+`y_scale` | tensor of 32-bit float values
+`y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`y` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
+`y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
 
 ### `onnx.QuantizeLinear` (ONNXQuantizeLinearOp)
 
@@ -3528,15 +3528,15 @@ ONNX QuantizeLinear operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`x` | tensor of 32-bit float or 32-bit signless integer values or memref of 32-bit float or 32-bit signless integer values
-`y_scale` | memref of any type values or tensor of any type values
-`y_zero_point` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values or none type
+`x` | tensor of 32-bit float values or tensor of 32-bit signless integer values
+`y_scale` | tensor of 32-bit float values
+`y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`y` | tensor of 8-bit signless integer values or memref of 8-bit signless integer values
+`y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or none type
 
 ### `onnx.RNN` (ONNXRNNOp)
 
@@ -3608,30 +3608,30 @@ ONNX RNN operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`activation_alpha` | ArrayAttr | 32-bit float array attribute
-`activation_beta` | ArrayAttr | 32-bit float array attribute
-`activations` | ArrayAttr | string array attribute
-`clip` | FloatAttr | 32-bit float attribute
-`direction` | StringAttr | string attribute
-`hidden_size` | IntegerAttr | 64-bit signless integer attribute
+`activation_alpha` | ::mlir::ArrayAttr | 32-bit float array attribute
+`activation_beta` | ::mlir::ArrayAttr | 32-bit float array attribute
+`activations` | ::mlir::ArrayAttr | string array attribute
+`clip` | ::mlir::FloatAttr | 32-bit float attribute
+`direction` | ::mlir::StringAttr | string attribute
+`hidden_size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`W` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`R` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`sequence_lens` | tensor of 32-bit signless integer values or memref of 32-bit signless integer values or none type
-`initial_h` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`W` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`R` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+`sequence_lens` | tensor of 32-bit signless integer values or none type
+`initial_h` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
-`Y_h` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values or none type
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type or none type
+`Y_h` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type or none type or none type or none type
 
 ### `onnx.RandomNormalLike` (ONNXRandomNormalLikeOp)
 
@@ -3649,22 +3649,22 @@ ONNX RandomNormalLike operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | IntegerAttr | 64-bit signless integer attribute
-`mean` | FloatAttr | 32-bit float attribute
-`scale` | FloatAttr | 32-bit float attribute
-`seed` | FloatAttr | 32-bit float attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`mean` | ::mlir::FloatAttr | 32-bit float attribute
+`scale` | ::mlir::FloatAttr | 32-bit float attribute
+`seed` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.RandomNormal` (ONNXRandomNormalOp)
 
@@ -3682,17 +3682,17 @@ ONNX RandomNormal operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | IntegerAttr | 64-bit signless integer attribute
-`mean` | FloatAttr | 32-bit float attribute
-`scale` | FloatAttr | 32-bit float attribute
-`seed` | FloatAttr | 32-bit float attribute
-`shape` | ArrayAttr | 64-bit integer array attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`mean` | ::mlir::FloatAttr | 32-bit float attribute
+`scale` | ::mlir::FloatAttr | 32-bit float attribute
+`seed` | ::mlir::FloatAttr | 32-bit float attribute
+`shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.RandomUniformLike` (ONNXRandomUniformLikeOp)
 
@@ -3710,22 +3710,22 @@ ONNX RandomUniformLike operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | IntegerAttr | 64-bit signless integer attribute
-`high` | FloatAttr | 32-bit float attribute
-`low` | FloatAttr | 32-bit float attribute
-`seed` | FloatAttr | 32-bit float attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`high` | ::mlir::FloatAttr | 32-bit float attribute
+`low` | ::mlir::FloatAttr | 32-bit float attribute
+`seed` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.RandomUniform` (ONNXRandomUniformOp)
 
@@ -3742,17 +3742,17 @@ ONNX RandomUniform operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | IntegerAttr | 64-bit signless integer attribute
-`high` | FloatAttr | 32-bit float attribute
-`low` | FloatAttr | 32-bit float attribute
-`seed` | FloatAttr | 32-bit float attribute
-`shape` | ArrayAttr | 64-bit integer array attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`high` | ::mlir::FloatAttr | 32-bit float attribute
+`low` | ::mlir::FloatAttr | 32-bit float attribute
+`seed` | ::mlir::FloatAttr | 32-bit float attribute
+`shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Range` (ONNXRangeOp)
 
@@ -3788,15 +3788,15 @@ ONNX Range operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`start` | tensor of 32-bit float or 64-bit float or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values or memref of 32-bit float or 64-bit float or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values
-`limit` | tensor of 32-bit float or 64-bit float or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values or memref of 32-bit float or 64-bit float or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values
-`delta` | tensor of 32-bit float or 64-bit float or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values or memref of 32-bit float or 64-bit float or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values
+`start` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+`limit` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+`delta` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 32-bit float or 64-bit float or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values or memref of 32-bit float or 64-bit float or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer values
+`output` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 ### `onnx.Reciprocal` (ONNXReciprocalOp)
 
@@ -3810,13 +3810,13 @@ ONNX Reciprocal operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.ReduceL1` (ONNXReduceL1Op)
 
@@ -3833,20 +3833,20 @@ ONNX ReduceL1 operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.ReduceL2` (ONNXReduceL2Op)
 
@@ -3863,20 +3863,20 @@ ONNX ReduceL2 operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.ReduceLogSumExp` (ONNXReduceLogSumExpOp)
 
@@ -3893,20 +3893,20 @@ ONNX ReduceLogSumExp operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.ReduceLogSum` (ONNXReduceLogSumOp)
 
@@ -3923,20 +3923,20 @@ ONNX ReduceLogSum operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.ReduceMax` (ONNXReduceMaxOp)
 
@@ -3953,20 +3953,20 @@ ONNX ReduceMax operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.ReduceMean` (ONNXReduceMeanOp)
 
@@ -3983,20 +3983,20 @@ ONNX ReduceMean operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.ReduceMin` (ONNXReduceMinOp)
 
@@ -4013,20 +4013,20 @@ ONNX ReduceMin operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.ReduceProd` (ONNXReduceProdOp)
 
@@ -4043,20 +4043,20 @@ ONNX ReduceProd operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.ReduceSum` (ONNXReduceSumOp)
 
@@ -4073,20 +4073,20 @@ ONNX ReduceSum operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.ReduceSumSquare` (ONNXReduceSumSquareOp)
 
@@ -4103,20 +4103,20 @@ ONNX ReduceSumSquare operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`data` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`reduced` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Relu` (ONNXReluOp)
 
@@ -4130,13 +4130,13 @@ ONNX Relu operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Reshape` (ONNXReshapeOp)
 
@@ -4153,14 +4153,14 @@ ONNX Reshape operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
-`shape` | memref of any type values or tensor of any type values or none type
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`shape` | tensor of 64-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`reshaped` | memref of any type values or tensor of any type values
+`reshaped` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Resize` (ONNXResizeOp)
 
@@ -4174,27 +4174,27 @@ ONNX Resize operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`coordinate_transformation_mode` | StringAttr | string attribute
-`cubic_coeff_a` | FloatAttr | 32-bit float attribute
-`exclude_outside` | IntegerAttr | 64-bit signless integer attribute
-`extrapolation_value` | FloatAttr | 32-bit float attribute
-`mode` | StringAttr | string attribute
-`nearest_mode` | StringAttr | string attribute
+`coordinate_transformation_mode` | ::mlir::StringAttr | string attribute
+`cubic_coeff_a` | ::mlir::FloatAttr | 32-bit float attribute
+`exclude_outside` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`extrapolation_value` | ::mlir::FloatAttr | 32-bit float attribute
+`mode` | ::mlir::StringAttr | string attribute
+`nearest_mode` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
-`roi` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`scales` | memref of any type values or tensor of any type values
-`sizes` | memref of any type values or tensor of any type values or none type
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`scales` | tensor of 32-bit float values
+`sizes` | tensor of 64-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.ReverseSequence` (ONNXReverseSequenceOp)
 
@@ -4238,21 +4238,21 @@ ONNX ReverseSequence operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`batch_axis` | IntegerAttr | 64-bit signless integer attribute
-`time_axis` | IntegerAttr | 64-bit signless integer attribute
+`batch_axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`time_axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
-`sequence_lens` | memref of any type values or tensor of any type values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`sequence_lens` | tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.RoiAlign` (ONNXRoiAlignOp)
 
@@ -4274,25 +4274,25 @@ ONNX RoiAlign operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`mode` | StringAttr | string attribute
-`output_height` | IntegerAttr | 64-bit signless integer attribute
-`output_width` | IntegerAttr | 64-bit signless integer attribute
-`sampling_ratio` | IntegerAttr | 64-bit signless integer attribute
-`spatial_scale` | FloatAttr | 32-bit float attribute
+`mode` | ::mlir::StringAttr | string attribute
+`output_height` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`output_width` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`sampling_ratio` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`spatial_scale` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`rois` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
-`batch_indices` | tensor of 64-bit signless integer values or memref of 64-bit signless integer values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`rois` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`batch_indices` | tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Round` (ONNXRoundOp)
 
@@ -4316,13 +4316,13 @@ ONNX Round operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.SVMClassifier` (ONNXSVMClassifierOp)
 
@@ -4334,30 +4334,30 @@ ONNX SVMClassifier operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`classlabels_ints` | ArrayAttr | 64-bit integer array attribute
-`classlabels_strings` | ArrayAttr | string array attribute
-`coefficients` | ArrayAttr | 32-bit float array attribute
-`kernel_params` | ArrayAttr | 32-bit float array attribute
-`kernel_type` | StringAttr | string attribute
-`post_transform` | StringAttr | string attribute
-`prob_a` | ArrayAttr | 32-bit float array attribute
-`prob_b` | ArrayAttr | 32-bit float array attribute
-`rho` | ArrayAttr | 32-bit float array attribute
-`support_vectors` | ArrayAttr | 32-bit float array attribute
-`vectors_per_class` | ArrayAttr | 64-bit integer array attribute
+`classlabels_ints` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`classlabels_strings` | ::mlir::ArrayAttr | string array attribute
+`coefficients` | ::mlir::ArrayAttr | 32-bit float array attribute
+`kernel_params` | ::mlir::ArrayAttr | 32-bit float array attribute
+`kernel_type` | ::mlir::StringAttr | string attribute
+`post_transform` | ::mlir::StringAttr | string attribute
+`prob_a` | ::mlir::ArrayAttr | 32-bit float array attribute
+`prob_b` | ::mlir::ArrayAttr | 32-bit float array attribute
+`rho` | ::mlir::ArrayAttr | 32-bit float array attribute
+`support_vectors` | ::mlir::ArrayAttr | 32-bit float array attribute
+`vectors_per_class` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
-`Z` | memref of any type values or tensor of any type values
+`Y` | tensor of stirng type values or tensor of 64-bit signless integer values
+`Z` | tensor of 32-bit float values
 
 ### `onnx.SVMRegressor` (ONNXSVMRegressorOp)
 
@@ -4369,26 +4369,26 @@ ONNX SVMRegressor operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`coefficients` | ArrayAttr | 32-bit float array attribute
-`kernel_params` | ArrayAttr | 32-bit float array attribute
-`kernel_type` | StringAttr | string attribute
-`n_supports` | IntegerAttr | 64-bit signless integer attribute
-`one_class` | IntegerAttr | 64-bit signless integer attribute
-`post_transform` | StringAttr | string attribute
-`rho` | ArrayAttr | 32-bit float array attribute
-`support_vectors` | ArrayAttr | 32-bit float array attribute
+`coefficients` | ::mlir::ArrayAttr | 32-bit float array attribute
+`kernel_params` | ::mlir::ArrayAttr | 32-bit float array attribute
+`kernel_type` | ::mlir::StringAttr | string attribute
+`n_supports` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`one_class` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`post_transform` | ::mlir::StringAttr | string attribute
+`rho` | ::mlir::ArrayAttr | 32-bit float array attribute
+`support_vectors` | ::mlir::ArrayAttr | 32-bit float array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 32-bit float values
 
 ### `onnx.Scaler` (ONNXScalerOp)
 
@@ -4400,20 +4400,20 @@ ONNX Scaler operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`offset` | ArrayAttr | 32-bit float array attribute
-`scale` | ArrayAttr | 32-bit float array attribute
+`offset` | ::mlir::ArrayAttr | 32-bit float array attribute
+`scale` | ::mlir::ArrayAttr | 32-bit float array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 32-bit float values
 
 ### `onnx.Scan` (ONNXScanOp)
 
@@ -4545,24 +4545,24 @@ ONNX Scan operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`body` | Attribute | any attribute
-`num_scan_inputs` | IntegerAttr | 64-bit signless integer attribute
-`scan_input_axes` | ArrayAttr | 64-bit integer array attribute
-`scan_input_directions` | ArrayAttr | 64-bit integer array attribute
-`scan_output_axes` | ArrayAttr | 64-bit integer array attribute
-`scan_output_directions` | ArrayAttr | 64-bit integer array attribute
+`body` | ::mlir::Attribute | any attribute
+`num_scan_inputs` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`scan_input_axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`scan_input_directions` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`scan_output_axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`scan_output_directions` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`initial_state_and_scan_inputs` | memref of any type values or tensor of any type values
+`initial_state_and_scan_inputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`final_state_and_scan_outputs` | memref of any type values or tensor of any type values
+`final_state_and_scan_outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.ScatterElements` (ONNXScatterElementsOp)
 
@@ -4624,21 +4624,21 @@ ONNX ScatterElements operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
-`indices` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values
-`updates` | memref of any type values or tensor of any type values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+`updates` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.ScatterND` (ONNXScatterNDOp)
 
@@ -4705,15 +4705,15 @@ ONNX ScatterND operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
-`indices` | memref of any type values or tensor of any type values
-`updates` | memref of any type values or tensor of any type values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`indices` | tensor of 64-bit signless integer values
+`updates` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Scatter` (ONNXScatterOp)
 
@@ -4777,21 +4777,21 @@ ONNX Scatter operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
-`indices` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values
-`updates` | memref of any type values or tensor of any type values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`indices` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+`updates` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Selu` (ONNXSeluOp)
 
@@ -4806,20 +4806,20 @@ ONNX Selu operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`alpha` | FloatAttr | 32-bit float attribute
-`gamma` | FloatAttr | 32-bit float attribute
+`alpha` | ::mlir::FloatAttr | 32-bit float attribute
+`gamma` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.SequenceAt` (ONNXSequenceAtOp)
 
@@ -4833,14 +4833,14 @@ ONNX SequenceAt operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of tensor of any type values values
-`position` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values
+`input_sequence` | tensor of tensor of 8-bit unsigned integer values values or tensor of tensor of 16-bit unsigned integer values values or tensor of tensor of 32-bit unsigned integer values values or tensor of tensor of 64-bit unsigned integer values values or tensor of tensor of 8-bit signless integer values values or tensor of tensor of 16-bit signless integer values values or tensor of tensor of 32-bit signless integer values values or tensor of tensor of 64-bit signless integer values values or tensor of tensor of 16-bit float values values or tensor of tensor of 32-bit float values values or tensor of tensor of 64-bit float values values or tensor of tensor of stirng type values values or tensor of tensor of 1-bit signless integer values values or tensor of tensor of complex type with 32-bit float elements values values or tensor of tensor of complex type with 64-bit float elements values values
+`position` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`tensor` | memref of any type values or tensor of any type values
+`tensor` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.SequenceConstruct` (ONNXSequenceConstructOp)
 
@@ -4853,13 +4853,13 @@ ONNX SequenceConstruct operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`inputs` | memref of any type values or tensor of any type values
+`inputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of tensor of any type values values
+`output_sequence` | tensor of tensor of 8-bit unsigned integer values values or tensor of tensor of 16-bit unsigned integer values values or tensor of tensor of 32-bit unsigned integer values values or tensor of tensor of 64-bit unsigned integer values values or tensor of tensor of 8-bit signless integer values values or tensor of tensor of 16-bit signless integer values values or tensor of tensor of 32-bit signless integer values values or tensor of tensor of 64-bit signless integer values values or tensor of tensor of 16-bit float values values or tensor of tensor of 32-bit float values values or tensor of tensor of 64-bit float values values or tensor of tensor of stirng type values values or tensor of tensor of 1-bit signless integer values values or tensor of tensor of complex type with 32-bit float elements values values or tensor of tensor of complex type with 64-bit float elements values values
 
 ### `onnx.SequenceEmpty` (ONNXSequenceEmptyOp)
 
@@ -4871,13 +4871,13 @@ ONNX SequenceEmpty operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | IntegerAttr | 64-bit signless integer attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of tensor of any type values values
+`output` | tensor of tensor of 8-bit unsigned integer values values or tensor of tensor of 16-bit unsigned integer values values or tensor of tensor of 32-bit unsigned integer values values or tensor of tensor of 64-bit unsigned integer values values or tensor of tensor of 8-bit signless integer values values or tensor of tensor of 16-bit signless integer values values or tensor of tensor of 32-bit signless integer values values or tensor of tensor of 64-bit signless integer values values or tensor of tensor of 16-bit float values values or tensor of tensor of 32-bit float values values or tensor of tensor of 64-bit float values values or tensor of tensor of stirng type values values or tensor of tensor of 1-bit signless integer values values or tensor of tensor of complex type with 32-bit float elements values values or tensor of tensor of complex type with 64-bit float elements values values
 
 ### `onnx.SequenceErase` (ONNXSequenceEraseOp)
 
@@ -4892,14 +4892,14 @@ ONNX SequenceErase operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of tensor of any type values values
-`position` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values or none type
+`input_sequence` | tensor of tensor of 8-bit unsigned integer values values or tensor of tensor of 16-bit unsigned integer values values or tensor of tensor of 32-bit unsigned integer values values or tensor of tensor of 64-bit unsigned integer values values or tensor of tensor of 8-bit signless integer values values or tensor of tensor of 16-bit signless integer values values or tensor of tensor of 32-bit signless integer values values or tensor of tensor of 64-bit signless integer values values or tensor of tensor of 16-bit float values values or tensor of tensor of 32-bit float values values or tensor of tensor of 64-bit float values values or tensor of tensor of stirng type values values or tensor of tensor of 1-bit signless integer values values or tensor of tensor of complex type with 32-bit float elements values values or tensor of tensor of complex type with 64-bit float elements values values
+`position` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of tensor of any type values values
+`output_sequence` | tensor of tensor of 8-bit unsigned integer values values or tensor of tensor of 16-bit unsigned integer values values or tensor of tensor of 32-bit unsigned integer values values or tensor of tensor of 64-bit unsigned integer values values or tensor of tensor of 8-bit signless integer values values or tensor of tensor of 16-bit signless integer values values or tensor of tensor of 32-bit signless integer values values or tensor of tensor of 64-bit signless integer values values or tensor of tensor of 16-bit float values values or tensor of tensor of 32-bit float values values or tensor of tensor of 64-bit float values values or tensor of tensor of stirng type values values or tensor of tensor of 1-bit signless integer values values or tensor of tensor of complex type with 32-bit float elements values values or tensor of tensor of complex type with 64-bit float elements values values
 
 ### `onnx.SequenceInsert` (ONNXSequenceInsertOp)
 
@@ -4915,15 +4915,15 @@ ONNX SequenceInsert operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of tensor of any type values values
-`tensor` | memref of any type values or tensor of any type values
-`position` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values or none type
+`input_sequence` | tensor of tensor of 8-bit unsigned integer values values or tensor of tensor of 16-bit unsigned integer values values or tensor of tensor of 32-bit unsigned integer values values or tensor of tensor of 64-bit unsigned integer values values or tensor of tensor of 8-bit signless integer values values or tensor of tensor of 16-bit signless integer values values or tensor of tensor of 32-bit signless integer values values or tensor of tensor of 64-bit signless integer values values or tensor of tensor of 16-bit float values values or tensor of tensor of 32-bit float values values or tensor of tensor of 64-bit float values values or tensor of tensor of stirng type values values or tensor of tensor of 1-bit signless integer values values or tensor of tensor of complex type with 32-bit float elements values values or tensor of tensor of complex type with 64-bit float elements values values
+`tensor` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`position` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of tensor of any type values values
+`output_sequence` | tensor of tensor of 8-bit unsigned integer values values or tensor of tensor of 16-bit unsigned integer values values or tensor of tensor of 32-bit unsigned integer values values or tensor of tensor of 64-bit unsigned integer values values or tensor of tensor of 8-bit signless integer values values or tensor of tensor of 16-bit signless integer values values or tensor of tensor of 32-bit signless integer values values or tensor of tensor of 64-bit signless integer values values or tensor of tensor of 16-bit float values values or tensor of tensor of 32-bit float values values or tensor of tensor of 64-bit float values values or tensor of tensor of stirng type values values or tensor of tensor of 1-bit signless integer values values or tensor of tensor of complex type with 32-bit float elements values values or tensor of tensor of complex type with 64-bit float elements values values
 
 ### `onnx.SequenceLength` (ONNXSequenceLengthOp)
 
@@ -4935,13 +4935,13 @@ ONNX SequenceLength operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input_sequence` | memref of any type values or tensor of tensor of any type values values
+`input_sequence` | tensor of tensor of 8-bit unsigned integer values values or tensor of tensor of 16-bit unsigned integer values values or tensor of tensor of 32-bit unsigned integer values values or tensor of tensor of 64-bit unsigned integer values values or tensor of tensor of 8-bit signless integer values values or tensor of tensor of 16-bit signless integer values values or tensor of tensor of 32-bit signless integer values values or tensor of tensor of 64-bit signless integer values values or tensor of tensor of 16-bit float values values or tensor of tensor of 32-bit float values values or tensor of tensor of 64-bit float values values or tensor of tensor of stirng type values values or tensor of tensor of 1-bit signless integer values values or tensor of tensor of complex type with 32-bit float elements values values or tensor of tensor of complex type with 64-bit float elements values values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`length` | tensor of 64-bit signless integer values or memref of 64-bit signless integer values
+`length` | tensor of 64-bit signless integer values
 
 ### `onnx.Shape` (ONNXShapeOp)
 
@@ -4953,13 +4953,13 @@ ONNX Shape operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`shape` | tensor of 64-bit signless integer values or memref of 64-bit signless integer values
+`shape` | tensor of 64-bit signless integer values
 
 ### `onnx.Shrink` (ONNXShrinkOp)
 
@@ -4974,20 +4974,20 @@ ONNX Shrink operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`bias` | FloatAttr | 32-bit float attribute
-`lambd` | FloatAttr | 32-bit float attribute
+`bias` | ::mlir::FloatAttr | 32-bit float attribute
+`lambd` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Sigmoid` (ONNXSigmoidOp)
 
@@ -5001,13 +5001,13 @@ ONNX Sigmoid operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Sign` (ONNXSignOp)
 
@@ -5020,13 +5020,13 @@ ONNX Sign operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Sin` (ONNXSinOp)
 
@@ -5038,13 +5038,13 @@ ONNX Sin operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Sinh` (ONNXSinhOp)
 
@@ -5056,13 +5056,13 @@ ONNX Sinh operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Size` (ONNXSizeOp)
 
@@ -5074,13 +5074,13 @@ ONNX Size operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`size` | tensor of 64-bit signless integer values or memref of 64-bit signless integer values
+`size` | tensor of 64-bit signless integer values
 
 ### `onnx.Slice` (ONNXSliceOp)
 
@@ -5125,17 +5125,17 @@ ONNX Slice operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
-`starts` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values
-`ends` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values
-`axes` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values or none type
-`steps` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values or none type
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`starts` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+`ends` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
+`axes` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type
+`steps` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Softmax` (ONNXSoftmaxOp)
 
@@ -5160,19 +5160,19 @@ ONNX Softmax operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Softplus` (ONNXSoftplusOp)
 
@@ -5186,13 +5186,13 @@ ONNX Softplus operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Softsign` (ONNXSoftsignOp)
 
@@ -5204,13 +5204,13 @@ ONNX Softsign operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.SpaceToDepth` (ONNXSpaceToDepthOp)
 
@@ -5224,19 +5224,19 @@ ONNX SpaceToDepth operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`blocksize` | IntegerAttr | 64-bit signless integer attribute
+`blocksize` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Split` (ONNXSplitOp)
 
@@ -5250,20 +5250,20 @@ ONNX Split operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
-`split` | ArrayAttr | 64-bit integer array attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`split` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`outputs` | memref of any type values or tensor of any type values
+`outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.SplitToSequence` (ONNXSplitToSequenceOp)
 
@@ -5284,21 +5284,21 @@ ONNX SplitToSequence operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
-`keepdims` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
-`split` | tensor of 32-bit signless integer or 64-bit signless integer values or memref of 32-bit signless integer or 64-bit signless integer values or none type
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`split` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output_sequence` | memref of any type values or tensor of tensor of any type values values
+`output_sequence` | tensor of tensor of 8-bit unsigned integer values values or tensor of tensor of 16-bit unsigned integer values values or tensor of tensor of 32-bit unsigned integer values values or tensor of tensor of 64-bit unsigned integer values values or tensor of tensor of 8-bit signless integer values values or tensor of tensor of 16-bit signless integer values values or tensor of tensor of 32-bit signless integer values values or tensor of tensor of 64-bit signless integer values values or tensor of tensor of 16-bit float values values or tensor of tensor of 32-bit float values values or tensor of tensor of 64-bit float values values or tensor of tensor of stirng type values values or tensor of tensor of 1-bit signless integer values values or tensor of tensor of complex type with 32-bit float elements values values or tensor of tensor of complex type with 64-bit float elements values values
 
 ### `onnx.Sqrt` (ONNXSqrtOp)
 
@@ -5312,13 +5312,13 @@ ONNX Sqrt operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Squeeze` (ONNXSqueezeOp)
 
@@ -5333,19 +5333,19 @@ ONNX Squeeze operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`squeezed` | memref of any type values or tensor of any type values
+`squeezed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.StringNormalizer` (ONNXStringNormalizerOp)
 
@@ -5365,22 +5365,22 @@ ONNX StringNormalizer operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`case_change_action` | StringAttr | string attribute
-`is_case_sensitive` | IntegerAttr | 64-bit signless integer attribute
-`locale` | StringAttr | string attribute
-`stopwords` | ArrayAttr | string array attribute
+`case_change_action` | ::mlir::StringAttr | string attribute
+`is_case_sensitive` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`locale` | ::mlir::StringAttr | string attribute
+`stopwords` | ::mlir::ArrayAttr | string array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of stirng type values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of stirng type values
 
 ### `onnx.Sub` (ONNXSubOp)
 
@@ -5394,14 +5394,14 @@ ONNX Sub operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`B` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`A` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`B` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`C` | tensor of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
+`C` | tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Sum` (ONNXSumOp)
 
@@ -5415,13 +5415,13 @@ ONNX Sum operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`data_0` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`data_0` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`sum` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`sum` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Tan` (ONNXTanOp)
 
@@ -5433,13 +5433,13 @@ ONNX Tan operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Tanh` (ONNXTanhOp)
 
@@ -5451,13 +5451,13 @@ ONNX Tanh operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.TfIdfVectorizer` (ONNXTfIdfVectorizerOp)
 
@@ -5495,27 +5495,27 @@ ONNX TfIdfVectorizer operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`max_gram_length` | IntegerAttr | 64-bit signless integer attribute
-`max_skip_count` | IntegerAttr | 64-bit signless integer attribute
-`min_gram_length` | IntegerAttr | 64-bit signless integer attribute
-`mode` | StringAttr | string attribute
-`ngram_counts` | ArrayAttr | 64-bit integer array attribute
-`ngram_indexes` | ArrayAttr | 64-bit integer array attribute
-`pool_int64s` | ArrayAttr | 64-bit integer array attribute
-`pool_strings` | ArrayAttr | string array attribute
-`weights` | ArrayAttr | 32-bit float array attribute
+`max_gram_length` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`max_skip_count` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`min_gram_length` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`mode` | ::mlir::StringAttr | string attribute
+`ngram_counts` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`ngram_indexes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`pool_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`pool_strings` | ::mlir::ArrayAttr | string array attribute
+`weights` | ::mlir::ArrayAttr | 32-bit float array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of stirng type values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit float values or memref of 32-bit float values
+`Y` | tensor of 32-bit float values
 
 ### `onnx.ThresholdedRelu` (ONNXThresholdedReluOp)
 
@@ -5529,19 +5529,19 @@ ONNX ThresholdedRelu operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`alpha` | FloatAttr | 32-bit float attribute
+`alpha` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 16-bit float or 32-bit float or 64-bit float values or memref of 16-bit float or 32-bit float or 64-bit float values
+`Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.Tile` (ONNXTileOp)
 
@@ -5555,14 +5555,14 @@ ONNX Tile operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`input` | memref of any type values or tensor of any type values
-`repeats` | tensor of 64-bit signless integer values or memref of 64-bit signless integer values
+`input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`repeats` | tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.TopK` (ONNXTopKOp)
 
@@ -5587,23 +5587,23 @@ ONNX TopK operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
-`largest` | IntegerAttr | 64-bit signless integer attribute
-`sorted` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`largest` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`sorted` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`K` | memref of any type values or tensor of any type values
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`K` | tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Values` | tensor of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values or memref of 8-bit signless integer or 16-bit signless integer or 32-bit signless integer or 64-bit signless integer or 16-bit float or 32-bit float or 64-bit float values
-`Indices` | tensor of 64-bit signless integer values or memref of 64-bit signless integer values
+`Values` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+`Indices` | tensor of 64-bit signless integer values
 
 ### `onnx.Transpose` (ONNXTransposeOp)
 
@@ -5617,19 +5617,19 @@ ONNX Transpose operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`perm` | ArrayAttr | 64-bit integer array attribute
+`perm` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`transposed` | memref of any type values or tensor of any type values
+`transposed` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.TreeEnsembleClassifier` (ONNXTreeEnsembleClassifierOp)
 
@@ -5649,36 +5649,36 @@ ONNX TreeEnsembleClassifier operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`base_values` | ArrayAttr | 32-bit float array attribute
-`class_ids` | ArrayAttr | 64-bit integer array attribute
-`class_nodeids` | ArrayAttr | 64-bit integer array attribute
-`class_treeids` | ArrayAttr | 64-bit integer array attribute
-`class_weights` | ArrayAttr | 32-bit float array attribute
-`classlabels_int64s` | ArrayAttr | 64-bit integer array attribute
-`classlabels_strings` | ArrayAttr | string array attribute
-`nodes_falsenodeids` | ArrayAttr | 64-bit integer array attribute
-`nodes_featureids` | ArrayAttr | 64-bit integer array attribute
-`nodes_hitrates` | ArrayAttr | 32-bit float array attribute
-`nodes_missing_value_tracks_true` | ArrayAttr | 64-bit integer array attribute
-`nodes_modes` | ArrayAttr | string array attribute
-`nodes_nodeids` | ArrayAttr | 64-bit integer array attribute
-`nodes_treeids` | ArrayAttr | 64-bit integer array attribute
-`nodes_truenodeids` | ArrayAttr | 64-bit integer array attribute
-`nodes_values` | ArrayAttr | 32-bit float array attribute
-`post_transform` | StringAttr | string attribute
+`base_values` | ::mlir::ArrayAttr | 32-bit float array attribute
+`class_ids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`class_nodeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`class_treeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`class_weights` | ::mlir::ArrayAttr | 32-bit float array attribute
+`classlabels_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`classlabels_strings` | ::mlir::ArrayAttr | string array attribute
+`nodes_falsenodeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_featureids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_hitrates` | ::mlir::ArrayAttr | 32-bit float array attribute
+`nodes_missing_value_tracks_true` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_modes` | ::mlir::ArrayAttr | string array attribute
+`nodes_nodeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_treeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_truenodeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_values` | ::mlir::ArrayAttr | 32-bit float array attribute
+`post_transform` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
-`Z` | memref of any type values or tensor of any type values
+`Y` | tensor of stirng type values or tensor of 64-bit signless integer values
+`Z` | tensor of 32-bit float values
 
 ### `onnx.TreeEnsembleRegressor` (ONNXTreeEnsembleRegressorOp)
 
@@ -5699,35 +5699,35 @@ ONNX TreeEnsembleRegressor operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`aggregate_function` | StringAttr | string attribute
-`base_values` | ArrayAttr | 32-bit float array attribute
-`n_targets` | IntegerAttr | 64-bit signless integer attribute
-`nodes_falsenodeids` | ArrayAttr | 64-bit integer array attribute
-`nodes_featureids` | ArrayAttr | 64-bit integer array attribute
-`nodes_hitrates` | ArrayAttr | 32-bit float array attribute
-`nodes_missing_value_tracks_true` | ArrayAttr | 64-bit integer array attribute
-`nodes_modes` | ArrayAttr | string array attribute
-`nodes_nodeids` | ArrayAttr | 64-bit integer array attribute
-`nodes_treeids` | ArrayAttr | 64-bit integer array attribute
-`nodes_truenodeids` | ArrayAttr | 64-bit integer array attribute
-`nodes_values` | ArrayAttr | 32-bit float array attribute
-`post_transform` | StringAttr | string attribute
-`target_ids` | ArrayAttr | 64-bit integer array attribute
-`target_nodeids` | ArrayAttr | 64-bit integer array attribute
-`target_treeids` | ArrayAttr | 64-bit integer array attribute
-`target_weights` | ArrayAttr | 32-bit float array attribute
+`aggregate_function` | ::mlir::StringAttr | string attribute
+`base_values` | ::mlir::ArrayAttr | 32-bit float array attribute
+`n_targets` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`nodes_falsenodeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_featureids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_hitrates` | ::mlir::ArrayAttr | 32-bit float array attribute
+`nodes_missing_value_tracks_true` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_modes` | ::mlir::ArrayAttr | string array attribute
+`nodes_nodeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_treeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_truenodeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`nodes_values` | ::mlir::ArrayAttr | 32-bit float array attribute
+`post_transform` | ::mlir::StringAttr | string attribute
+`target_ids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`target_nodeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`target_treeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`target_weights` | ::mlir::ArrayAttr | 32-bit float array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values or memref of 32-bit float or 64-bit float or 64-bit signless integer or 32-bit signless integer values
+`X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 32-bit float values
 
 ### `onnx.Unique` (ONNXUniqueOp)
 
@@ -5813,23 +5813,23 @@ ONNX Unique operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | IntegerAttr | 64-bit signless integer attribute
-`sorted` | IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`sorted` | ::mlir::IntegerAttr | 64-bit signless integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
-`indices` | memref of any type values or tensor of any type values or none type
-`inverse_indices` | memref of any type values or tensor of any type values or none type
-`counts` | memref of any type values or tensor of any type values or none type
+`Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`indices` | tensor of 64-bit signless integer values or none type
+`inverse_indices` | tensor of 64-bit signless integer values or none type
+`counts` | tensor of 64-bit signless integer values or none type
 
 ### `onnx.Unsqueeze` (ONNXUnsqueezeOp)
 
@@ -5852,19 +5852,19 @@ ONNX Unsqueeze operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axes` | ArrayAttr | 64-bit integer array attribute
+`axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
+`data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`expanded` | memref of any type values or tensor of any type values
+`expanded` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Upsample` (ONNXUpsampleOp)
 
@@ -5878,20 +5878,20 @@ ONNX Upsample operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`mode` | StringAttr | string attribute
+`mode` | ::mlir::StringAttr | string attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
-`scales` | memref of any type values or tensor of any type values
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`scales` | tensor of 32-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | memref of any type values or tensor of any type values
+`Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Where` (ONNXWhereOp)
 
@@ -5906,15 +5906,15 @@ ONNX Where operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`condition` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
-`X` | memref of any type values or tensor of any type values
-`Y` | memref of any type values or tensor of any type values
+`condition` | tensor of 1-bit signless integer values
+`X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+`Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
 ### `onnx.Xor` (ONNXXorOp)
 
@@ -5929,14 +5929,14 @@ ONNX Xor operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`A` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
-`B` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`A` | tensor of 1-bit signless integer values
+`B` | tensor of 1-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`C` | tensor of 1-bit signless integer values or memref of 1-bit signless integer values
+`C` | tensor of 1-bit signless integer values
 
 ### `onnx.ZipMap` (ONNXZipMapOp)
 
@@ -5951,18 +5951,18 @@ ONNX ZipMap operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`classlabels_int64s` | ArrayAttr | 64-bit integer array attribute
-`classlabels_strings` | ArrayAttr | string array attribute
+`classlabels_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`classlabels_strings` | ::mlir::ArrayAttr | string array attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | memref of any type values or tensor of any type values
+`X` | tensor of 32-bit float values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Z` | tensor of tensor of 32-bit float or 64-bit signless integer values values or memref of 32-bit float or 64-bit signless integer values
+`Z` | tensor of tuple with any combination of stirng type or 32-bit float values values or tensor of tuple with any combination of 64-bit signless integer or 32-bit float values values
 

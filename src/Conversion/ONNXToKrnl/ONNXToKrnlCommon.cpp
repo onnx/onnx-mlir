@@ -45,7 +45,8 @@ MemRefType convertToMemRefType(Type type) {
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands) {
+    PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands,
+    int64_t alignment) {
   // Put together alloc operands for any dynamic dimensions of the memref.
   AllocOp alloc;
   if (!operands.empty()) {
@@ -87,9 +88,26 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     for (int i = 0; i < rank; ++i)
       if (memRefShape[i] < 0)
         allocOperands.push_back(fromOperands[i]);
-    alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
+    // Set alignment attribute. Default value is `-1`, which does not set
+    // alignment.
+    if (alignment >= 0) {
+      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
+      alloc =
+          rewriter.create<AllocOp>(loc, type, allocOperands, constAlignAttr);
+    } else {
+      alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
+    }
   } else {
-    alloc = rewriter.create<AllocOp>(loc, type);
+    // Set alignment attribute. Default value is `-1`, which does not set
+    // alignment.
+    if (alignment >= 0) {
+      SmallVector<Value, 4> allocOperandsEmpty;
+      IntegerAttr constAlignAttr = rewriter.getI64IntegerAttr(alignment);
+      alloc = rewriter.create<AllocOp>(
+          loc, type, allocOperandsEmpty, constAlignAttr);
+    } else {
+      alloc = rewriter.create<AllocOp>(loc, type);
+    }
   }
 
   // Make sure to allocate at the beginning of the block if
@@ -172,59 +190,13 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
   }
 }
 
-// Function that defines the KRNL dialect loops and their respective
-// optimized version.
-KrnlOptimizeLoopsOp emitOptimizedLoops(ConversionPatternRewriter &rewriter,
-    Location loc, std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
-    int64_t numLoops) {
-  // Define loops.
+// Function that emits the definition of loops references.
+void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
+    std::vector<Value> &loops, int64_t numLoops) {
   auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
   loops.reserve(numLoops);
   for (auto result : loopsOp.getResults())
     loops.push_back(result);
-
-  // Define optimized version of the loops.
-  auto optimizedLoopsOp = rewriter.create<KrnlOptimizeLoopsOp>(loc, numLoops);
-  optimizedLoops.reserve(numLoops);
-  for (auto result : optimizedLoopsOp.getResults())
-    optimizedLoops.push_back(result);
-
-  return optimizedLoopsOp;
-}
-
-// Function that emits the loops and their optimized version.
-// The function returns a reference to the inner optimization block.
-Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
-    std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
-    int64_t numLoops) {
-  KrnlOptimizeLoopsOp optimizedLoopsOp =
-      emitOptimizedLoops(rewriter, loc, loops, optimizedLoops, numLoops);
-  return &optimizedLoopsOp.region().front();
-}
-
-// Function which emits a basic set of loops and optimized loops
-// for a given operation argument. A reference to the loop optimization
-// block is returned in the last argument of the function.
-void emitKrnlLoopsAndIterationForOperand(ConversionPatternRewriter &rewriter,
-    Location loc, Value operand, std::vector<Value> &originalLoops,
-    KrnlOptimizeLoopsOp &optimizedLoopsOp, KrnlIterateOp &iterateOp) {
-  // Operand shape.
-  auto shape = operand.getType().cast<MemRefType>().getShape();
-
-  // Number of loops.
-  int64_t rank = shape.size();
-
-  // Define loops and optimized loops.
-  std::vector<Value> optimizedLoops;
-  optimizedLoopsOp =
-      emitOptimizedLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
-
-  KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
-  // Iterate over the loop nest.
-  for (int i = 0; i < rank; ++i)
-    addDimensionToPack(rewriter, loc, pack, operand, i);
-
-  iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
 }
 
 unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
@@ -488,4 +460,29 @@ Value emitNegativeInfinityConstantOp(
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
   return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+}
+
+bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
+  auto parentBlock = allocOp->getOperation()->getBlock();
+
+  bool opIsUsedInGetRef = false;
+  parentBlock->walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
+    auto result = allocOp->getResult();
+    for (const auto &operand : op.getOperands())
+      if (operand == result)
+        opIsUsedInGetRef = true;
+  });
+
+  return opIsUsedInGetRef;
+}
+
+// TODO: support dynamic sizes.
+int64_t getMemRefSizeInBytes(Value val) {
+  auto memRefType = convertToMemRefType(val.getType());
+  auto memRefShape = memRefType.getShape();
+  int64_t size = 1;
+  for (int i = 0; i < memRefShape.size(); i++)
+    size *= memRefShape[i];
+  size *= getMemRefEltSizeInBytes(memRefType);
+  return size;
 }
