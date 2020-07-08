@@ -332,7 +332,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //     for ho in range(HO):
     //       for wo in range(WO):
     BuildKrnlLoop outputLoops(rewriter, loc, outputShape.size());
-    outputLoops.createDefineOptimizeAndIterateOp(alloc);
+    outputLoops.createDefineAndIterateOp(alloc);
 
     auto ipMainRegion = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
@@ -475,7 +475,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //      output[n][c][ho][wo] =
       //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
       BuildKrnlLoop poolingLoops(rewriter, loc, kernelShape.size());
-      poolingLoops.createDefineAndOptimizeOp();
+      poolingLoops.createDefineOp();
       for (int i = 0; i < kernelShape.size(); ++i)
         poolingLoops.pushBounds(
             0, poolDimMap, llvm::makeArrayRef(IVsAndConstants[i]));

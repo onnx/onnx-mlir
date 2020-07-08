@@ -38,11 +38,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
     // Define loops.
     std::vector<Value> originalLoops;
-    std::vector<Value> optimizedLoops;
-    Block *optimizationBlock =
-        defineLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
+    defineLoops(rewriter, loc, originalLoops, rank);
 
-    KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
+    KrnlIterateOperandPack pack(rewriter, originalLoops);
     // Iterate over the loop nest using the input shape.
     for (int i = 0; i < rank; ++i)
       addDimensionToPack(rewriter, loc, pack, data, i);
@@ -53,14 +51,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     // Now perform the insertions into the body of the
     // just generated instructions:
 
-    // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-    rewriter.setInsertionPointToEnd(optimizationBlock);
-    // Return from KrnlOptimizeLoopsOp body.
-    // When no optimizations are present we just return the loops
-    // unchaged.
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
-    // 2. Insert instructions inside the KernelIterateOp body.
+    // Insert instructions inside the KernelIterateOp body.
     rewriter.setInsertionPointToStart(&iterationBlock);
 
     // Handle the operation.
