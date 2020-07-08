@@ -20,7 +20,7 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto tensorType = (*op->result_type_begin());
-    ONNXPadConstantValuePadOpOperandAdaptor operandAdaptor(operands);
+    ONNXPadConstantValuePadOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
 
     // Only constant padding is supported now.
@@ -46,14 +46,14 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
 
     // Iterate over the loop nest using the output shape.
     BuildKrnlLoop padLoops(rewriter, loc, rank);
-    padLoops.createDefineAndOptimizeOp();
+    padLoops.createDefineOp();
     for (int i = 0; i < rank; ++i)
       padLoops.pushBounds(0, alloc, i);
     padLoops.createIterateOp();
 
     // Iterate over the loop nest using the input shape.
     BuildKrnlLoop valueLoops(rewriter, loc, rank);
-    valueLoops.createDefineAndOptimizeOp();
+    valueLoops.createDefineOp();
     for (int i = 0; i < rank; ++i)
       valueLoops.pushBounds(0, operandAdaptor.data(), i);
     valueLoops.createIterateOp();
@@ -77,15 +77,17 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
       if (pad_begin[i] == 0) {
         outLoopIVs.emplace_back(valueLoops.getInductionVar(i));
       } else {
-        auto outIV = rewriter.create<AddIOp>(loc,
-            rewriter.create<ConstantIndexOp>(loc, pad_begin[i]),
-            valueLoops.getInductionVar(i));
+        AffineMap indexWithOffsetMap =
+            AffineMap::get(1, 0, rewriter.getAffineDimExpr(0) + pad_begin[i]);
+        Value outIV = rewriter.create<AffineApplyOp>(loc, indexWithOffsetMap,
+            ArrayRef<Value>{valueLoops.getInductionVar(i)});
         outLoopIVs.emplace_back(outIV);
       }
     }
 
-    auto inVal = rewriter.create<LoadOp>(loc, operandAdaptor.data(), inLoopIVs);
-    rewriter.create<StoreOp>(loc, inVal, alloc, outLoopIVs);
+    auto inVal =
+        rewriter.create<AffineLoadOp>(loc, operandAdaptor.data(), inLoopIVs);
+    rewriter.create<AffineStoreOp>(loc, inVal, alloc, outLoopIVs);
     rewriter.setInsertionPointToStart(padLoops.getIterateBlock());
 
     SmallVector<Value, 4> outLoopIVs1;
@@ -93,7 +95,7 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
       outLoopIVs1.emplace_back(padLoops.getInductionVar(i));
 
     auto inVal1 = rewriter.create<ConstantOp>(loc, constantValAttr);
-    rewriter.create<StoreOp>(loc, inVal1, alloc, outLoopIVs1);
+    rewriter.create<AffineStoreOp>(loc, inVal1, alloc, outLoopIVs1);
 
     // Replace the original op with the generated code.
     rewriter.replaceOp(op, alloc);

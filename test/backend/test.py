@@ -403,6 +403,10 @@ test_to_enable = [
     "test_lstm_with_initial_bias_cpu",
     "test_lstm_with_peepholes_cpu",
 
+    # Squeeze
+    "test_squeeze_cpu",
+    "test_squeeze_negative_axes_cpu",
+
     # Split
     "test_split_equal_parts_1d_cpu",
     "test_split_equal_parts_2d_cpu",

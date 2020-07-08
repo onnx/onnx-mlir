@@ -190,59 +190,13 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
   }
 }
 
-// Function that defines the KRNL dialect loops and their respective
-// optimized version.
-KrnlOptimizeLoopsOp emitOptimizedLoops(ConversionPatternRewriter &rewriter,
-    Location loc, std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
-    int64_t numLoops) {
-  // Define loops.
+// Function that emits the definition of loops references.
+void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
+    std::vector<Value> &loops, int64_t numLoops) {
   auto loopsOp = rewriter.create<KrnlDefineLoopsOp>(loc, numLoops);
   loops.reserve(numLoops);
   for (auto result : loopsOp.getResults())
     loops.push_back(result);
-
-  // Define optimized version of the loops.
-  auto optimizedLoopsOp = rewriter.create<KrnlOptimizeLoopsOp>(loc, numLoops);
-  optimizedLoops.reserve(numLoops);
-  for (auto result : optimizedLoopsOp.getResults())
-    optimizedLoops.push_back(result);
-
-  return optimizedLoopsOp;
-}
-
-// Function that emits the loops and their optimized version.
-// The function returns a reference to the inner optimization block.
-Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
-    std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
-    int64_t numLoops) {
-  KrnlOptimizeLoopsOp optimizedLoopsOp =
-      emitOptimizedLoops(rewriter, loc, loops, optimizedLoops, numLoops);
-  return &optimizedLoopsOp.region().front();
-}
-
-// Function which emits a basic set of loops and optimized loops
-// for a given operation argument. A reference to the loop optimization
-// block is returned in the last argument of the function.
-void emitKrnlLoopsAndIterationForOperand(ConversionPatternRewriter &rewriter,
-    Location loc, Value operand, std::vector<Value> &originalLoops,
-    KrnlOptimizeLoopsOp &optimizedLoopsOp, KrnlIterateOp &iterateOp) {
-  // Operand shape.
-  auto shape = operand.getType().cast<MemRefType>().getShape();
-
-  // Number of loops.
-  int64_t rank = shape.size();
-
-  // Define loops and optimized loops.
-  std::vector<Value> optimizedLoops;
-  optimizedLoopsOp =
-      emitOptimizedLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
-
-  KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
-  // Iterate over the loop nest.
-  for (int i = 0; i < rank; ++i)
-    addDimensionToPack(rewriter, loc, pack, operand, i);
-
-  iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
 }
 
 unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
