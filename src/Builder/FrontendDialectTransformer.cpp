@@ -114,10 +114,9 @@ private:
     case onnx::AttributeProto::INT:
       mlirAttr = builder_.getI64IntegerAttr(attr.i());
       break;
-    case onnx::AttributeProto::STRING: {
-      std::string *copiedString = new std::string(attr.s());
-      mlirAttr = builder_.getStringAttr(*copiedString);
-    } break;
+    case onnx::AttributeProto::STRING: 
+      mlirAttr = builder_.getStringAttr(attr.s());
+      break;
     case onnx::AttributeProto::FLOATS:
       mlirAttr = builder_.getF32ArrayAttr(
           llvm::makeArrayRef(attr.floats().begin(), attr.floats().end()));
