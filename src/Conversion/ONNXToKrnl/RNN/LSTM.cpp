@@ -159,7 +159,7 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
 template <>
 LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXLSTMOp *op,
-    OperandAdaptor<ONNXLSTMOp> operandAdaptor) {
+    typename ONNXLSTMOp::Adaptor operandAdaptor) {
   LstmState state;
 
   // Insert allocation and deallocation for the results of this operation.
@@ -212,7 +212,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
       operandAdaptor.X().getType().cast<ShapedType>().getElementType(), 0);
   int nLoops = 3;
   BuildKrnlLoop initializationLoops(rewriter, loc, nLoops);
-  initializationLoops.createDefineOptimizeAndIterateOp(state.ht);
+  initializationLoops.createDefineAndIterateOp(state.ht);
   auto ipInitializationLoops = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(initializationLoops.getIterateBlock());
   {
@@ -239,7 +239,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
 template <>
 void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     ConversionPatternRewriter &rewriter, Location loc,
-    OperandAdaptor<ONNXLSTMOp> operandAdaptor, LstmState state,
+    typename ONNXLSTMOp::Adaptor operandAdaptor, LstmState state,
     LstmActivationPack activationPack, Value directionIV, Value sequenceIV) {
 
   bool hasBiasForInput = false, hasPeepholes = false;
@@ -292,7 +292,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
   //     compute it, ft, ct, Ct, ot, Ht
 
   BuildKrnlLoop stateLoops(rewriter, loc, 2);
-  stateLoops.createDefineAndOptimizeOp();
+  stateLoops.createDefineOp();
   stateLoops.pushBounds(0, batchDimSize);
   stateLoops.pushBounds(0, hiddenDimSize);
   stateLoops.createIterateOp();
@@ -372,7 +372,7 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     { // Emit instructions for matrix multiplications.
       // input_size is the reduction dimension.
       BuildKrnlLoop reductionLoops(rewriter, loc, 1);
-      reductionLoops.createDefineAndOptimizeOp();
+      reductionLoops.createDefineOp();
       reductionLoops.pushBounds(0, inputDimSize);
       reductionLoops.createIterateOp();
 
