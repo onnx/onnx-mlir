@@ -83,6 +83,13 @@ struct KrnlIterateOperandPack {
         _operands.end(), optimizedLoops.begin(), optimizedLoops.end());
   }
 
+  // Create a pack with optimizedLoops = inputLoops (ie., no optimization).
+  KrnlIterateOperandPack(
+      mlir::Builder &builder, llvm::ArrayRef<mlir::Value> inputLoops)
+      : builder(builder), inputLoops(inputLoops), optimizedLoops(inputLoops) {
+    _operands.insert(_operands.end(), inputLoops.begin(), inputLoops.end());
+  }
+
   void pushConstantBound(int64_t bound);
 
   void pushOperandBound(mlir::Value operand);
@@ -112,19 +119,15 @@ private:
 };
 
 // Helper function to write kernel loops. This class will let us build a single
-// define/optimize/iterate operation combo. We can then insert optimizations in
-// the body of the optimization operation, and operations in the body of the
-// iterate operation.
+// define/iterate operation combo. We can then insert operations in the body of
+// the iterate operation.
 //
 // The sequence is as follow:
 //
 //   1) Create an object giving the rewriter, location, and number of loop in
 //   the original (non optimized) loop.
 //
-//   2) Create define & optimize ops (currently paired). Optimizations can then
-//   be added to the inner block of the optimize operation. Make sure to set
-//   the insertion point to that block for optimizations to go in the right
-//   place.
+//   2) Create define_loops ops to define new loop variables.
 //
 //   3) Push the bounds for each of the original loops. Bounds are pushed in
 //   pairs (lower & upper bounds). There are a few methods to do it depending
@@ -153,7 +156,7 @@ public:
   // Create define and optimize loop with loopNum original loops. If
   // withEmptyOptimization is true, the optimization is simply the identity
   // function (no optimizations).
-  void createDefineAndOptimizeOp(bool withEmptyOptimization = true);
+  void createDefineOp();
 
   // Push bounds (lower and upper) for each of the loops (order matters).
   // The function returns the order number associated with the loop iteration.
@@ -172,13 +175,12 @@ public:
   // operations associated with this loop nest have been emitted already.
   void createIterateOp();
 
-  // Create the loop nest definition, optimization and iteration operations
+  // Create the loop nest definition and iteration operations
   // for a given operand of MemRef type. The loop nest has a depth equal to the
   // rank of the MemRef operand. The lower bound of each loop is zero. The
   // upper bound of each loop is given by the corresponding dimension of the
   // MemRef operand.
-  void createDefineOptimizeAndIterateOp(
-      Value memRefOperand, bool withEmptyOptimization = true);
+  void createDefineAndIterateOp(Value memRefOperand);
 
   // Get the (original loop) induction variable associated with the given
   // index. Use the index returned when pushing the bounds.
@@ -220,7 +222,6 @@ private:
 
   // Flags that keep track of emitted operations.
   bool createdDefineOp;
-  bool createdOptimizeOp;
   bool createdIterateOp;
 
   // Saved insertion point in the code region of the KrnlOptimizeLoopsOp.
