@@ -70,7 +70,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
       BuildKrnlLoop outputLoops(rewriter, loc, rank);
-      outputLoops.createDefineOptimizeAndIterateOp(allocs[i]);
+      outputLoops.createDefineAndIterateOp(allocs[i]);
       outputLoops.createIterateOp();
       rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
       // Indices for the read and write.

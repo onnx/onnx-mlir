@@ -54,9 +54,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
 
     // Define loops.
     std::vector<Value> originalLoops;
-    std::vector<Value> optimizedLoops;
-    Block *optimizationBlock =
-        defineLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
+    defineLoops(rewriter, loc, originalLoops, rank);
 
     // Coerce the input into a 2-D tensor. `axis` will be the coercing point.
     // This coercing follows the softmax definition in ONNX:
@@ -65,26 +63,22 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     // dimensions. The outer loop is only created once `axis` is not zero.
 
     // Define an outer loop with respect to axis.
-    std::vector<Value> outerLoops, optimizedOuterLoops;
+    std::vector<Value> outerLoops;
     outerLoops.reserve(axis);
-    optimizedOuterLoops.reserve(axis);
     for (int i = 0; i < axis; ++i) {
       outerLoops.push_back(originalLoops[i]);
-      optimizedOuterLoops.push_back(optimizedLoops[i]);
     }
-    KrnlIterateOperandPack outerPack(rewriter, outerLoops, optimizedOuterLoops);
+    KrnlIterateOperandPack outerPack(rewriter, outerLoops);
     for (int i = 0; i < axis; ++i)
       addDimensionToPack(rewriter, loc, outerPack, input, i);
 
     // Define an inner loop with respect to axis.
-    std::vector<Value> innerLoops, optimizedInnerLoops;
+    std::vector<Value> innerLoops;
     innerLoops.reserve(rank - axis);
-    optimizedInnerLoops.reserve(rank - axis);
     for (int i = axis; i < rank; ++i) {
       innerLoops.push_back(originalLoops[i]);
-      optimizedInnerLoops.push_back(optimizedLoops[i]);
     }
-    KrnlIterateOperandPack innerPack(rewriter, innerLoops, optimizedInnerLoops);
+    KrnlIterateOperandPack innerPack(rewriter, innerLoops);
     for (int i = axis; i < rank; ++i)
       addDimensionToPack(rewriter, loc, innerPack, input, i);
 
@@ -92,10 +86,6 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     SmallVector<Value, 4> outerLoopIVs;
     if (axis != 0) {
       outerIterateOp = rewriter.create<KrnlIterateOp>(loc, outerPack);
-
-      // No optimization
-      rewriter.setInsertionPointToEnd(optimizationBlock);
-      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
 
       // Insert instructions inside the outer loop.
       Block &outerIterationBlock = outerIterateOp.bodyRegion().front();
@@ -126,10 +116,6 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
       sumIterateOp = rewriter.create<KrnlIterateOp>(loc, innerPack);
       // Create an inner loop to compute softmax.
       softmaxIterateOp = rewriter.create<KrnlIterateOp>(loc, innerPack);
-
-      // No optimization
-      rewriter.setInsertionPointToEnd(optimizationBlock);
-      rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
     }
 
     // Insert instructions inside the max loop.

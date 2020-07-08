@@ -46,7 +46,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       auto currShape = operands[i].getType().cast<MemRefType>().getShape();
       // Create loop.
       BuildKrnlLoop inputLoops(rewriter, loc, rank);
-      inputLoops.createDefineAndOptimizeOp();
+      inputLoops.createDefineOp();
       for (int r = 0; r < rank; ++r)
         inputLoops.pushBounds(0, operands[i], r);
       inputLoops.createIterateOp();
