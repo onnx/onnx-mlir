@@ -3,8 +3,7 @@
 namespace onnx_mlir {
 
 void initMLIRPasses() {
-  mlir::registerPass("convert-vector-to-scf",
-      "Convert vector to SCF.",
+  mlir::registerPass("convert-vector-to-scf", "Convert vector to SCF.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createConvertVectorToSCFPass();
       });
@@ -13,8 +12,7 @@ void initMLIRPasses() {
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createLowerAffinePass();
       });
-  mlir::registerPass("convert-scf-to-std",
-      "Lower SCF to Standard Dialect.",
+  mlir::registerPass("convert-scf-to-std", "Lower SCF to Standard Dialect.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createLowerToCFGPass();
       });
