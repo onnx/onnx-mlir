@@ -4,22 +4,22 @@ namespace onnx_mlir {
 
 void initMLIRPasses() {
   mlir::registerPass("convert-vector-to-scf",
-      "Decompose ONNX operations into composition of other ONNX operations.",
+      "Convert vector to SCF.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createConvertVectorToSCFPass();
       });
   mlir::registerPass("lower-affine",
-      "Decompose ONNX operations into composition of other ONNX operations.",
+      "Lower Affine Dialect to Standard Dialect.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createLowerAffinePass();
       });
   mlir::registerPass("convert-scf-to-std",
-      "Decompose ONNX operations into composition of other ONNX operations.",
+      "Lower SCF to Standard Dialect.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createLowerToCFGPass();
       });
   mlir::registerPass("convert-vector-to-llvm",
-      "Decompose ONNX operations into composition of other ONNX operations.",
+      "Lower Vector Dialect to LLVM IR Dialect.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createConvertVectorToLLVMPass();
       });
