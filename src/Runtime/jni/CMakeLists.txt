@@ -22,6 +22,9 @@ if(Java_Development_FOUND AND JNI_FOUND)
           ${JAVA_INCLUDE_PATH}
           ${JAVA_INCLUDE_PATH2})
 
+  install_jar(javaruntime DESTINATION lib)
+  install(TARGETS jniruntime DESTINATION lib)
+
 else()
   message(WARNING "Java Development component or JNI not found, JNI targets will not work")
 endif()

@@ -48,19 +48,32 @@ llvm::Optional<std::string> getEnvVar(std::string name) {
 //   /foo/bar/bin/onnx-mlir,
 //     the runtime directory is /foo/bar/lib (note that when onnx-mlir is
 //     installed system wide, which is typically /usr/local/bin, this will
-//     correctly resolve to /usr/local/lib), otherwise
+//     correctly resolve to /usr/local/lib), but some systems still have
+//     lib64 so we check that first. If neither exists, then
 //   - use CMAKE_INSTALL_PREFIX/lib, which is typically /usr/local/lib
 string getRuntimeDir() {
-  if (const auto &dir = getEnvVar("ONNX_MLIR_RUNTIME_DIR"))
-    return dir.getValue();
+  const auto &envDir = getEnvVar("ONNX_MLIR_RUNTIME_DIR");
+  if (envDir && llvm::sys::fs::exists(envDir.getValue()))
+    return envDir.getValue();
 
-  string dir = llvm::sys::path::parent_path(kExecPath).str();
-  if (llvm::sys::path::stem(dir).str().compare("bin") == 0)
-    return dir.substr(0, dir.size() - 3) + "lib";
+  string execDir = llvm::sys::path::parent_path(kExecPath).str();
+  if (llvm::sys::path::stem(execDir).str().compare("bin") == 0) {
+    string p = execDir.substr(0, execDir.size() - 3);
+    if (llvm::sys::fs::exists(p + "lib64"))
+      return p + "lib64";
+    if (llvm::sys::fs::exists(p + "lib"))
+      return p + "lib";
+  }
 
-  llvm::SmallString<8> p(kInstPath);
-  llvm::sys::path::append(p, "lib");
-  return llvm::StringRef(p).str();
+  llvm::SmallString<8> instDir64(kInstPath);
+  llvm::sys::path::append(instDir64, "lib64");
+  string p = llvm::StringRef(instDir64).str();
+  if (llvm::sys::fs::exists(p))
+    return p;
+
+  llvm::SmallString<8> instDir(kInstPath);
+  llvm::sys::path::append(instDir, "lib");
+  return llvm::StringRef(instDir).str();
 }
 
 // Helper struct to make command construction and execution easy & readable.
@@ -265,7 +278,7 @@ void genSharedLib(const mlir::OwningModuleRef &module,
     string modelSharedLibPath, std::vector<string> opts,
     std::vector<string> objs, std::vector<string> libs) {
 
-  llvm::Optional<std::string> runtimeDirInclFlag = "-L" + getRuntimeDir();
+  string runtimeDirInclFlag = "-L" + getRuntimeDir();
 
   Command link(kCxxPath);
   link.appendList(opts)
@@ -280,7 +293,9 @@ void genSharedLib(const mlir::OwningModuleRef &module,
 // jni runtime).
 void genJniJar(const mlir::OwningModuleRef &module, string modelSharedLibPath,
     string modelJniJarPath) {
-  string javaRuntimeJarPath = getRuntimeDir() + "/javaruntime.jar";
+  llvm::SmallString<8> runtimeDir(getRuntimeDir());
+  llvm::sys::path::append(runtimeDir, "javaruntime.jar");
+  string javaRuntimeJarPath = llvm::StringRef(runtimeDir).str();
 
   // Copy javaruntime.jar to model jar.
   llvm::sys::fs::copy_file(javaRuntimeJarPath, modelJniJarPath);
