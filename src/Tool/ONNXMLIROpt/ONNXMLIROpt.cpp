@@ -24,6 +24,7 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/InitMLIRPasses.hpp"
 #include "src/InitOMPasses.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -64,6 +65,7 @@ int main(int argc, char **argv) {
   mlir::registerDialect<mlir::LLVM::LLVMDialect>();
   mlir::registerDialect<mlir::scf::SCFDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();
+  mlir::registerDialect<mlir::vector::VectorDialect>();
 
   // Register transformation passes.
 #define GEN_PASS_REGISTRATION
@@ -75,11 +77,15 @@ int main(int argc, char **argv) {
 #define GEN_PASS_REGISTRATION
 #include "mlir/Dialect/Linalg/Passes.h.inc"
 
+#define GEN_PASS_REGISTRATION
+#include "mlir/Dialect/SCF/Passes.h.inc"
+
   llvm::InitLLVM y(argc, argv);
 
   mlir::registerDialect<mlir::ONNXOpsDialect>();
   mlir::registerDialect<mlir::KrnlOpsDialect>();
   initOMPasses();
+  initMLIRPasses();
 
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();

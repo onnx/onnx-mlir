@@ -63,24 +63,10 @@ std::map<int64_t, int64_t> getReductionMapping(
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     KrnlIterateOperandPack &pack, Value operand, int index);
 
-// Function that defines the KRNL dialect loops and their respective
-// optimized version.
-KrnlOptimizeLoopsOp emitOptimizedLoops(ConversionPatternRewriter &rewriter,
-    Location loc, std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
-    int64_t numLoops);
-
-// Function that emits the loops and their optimized version.
-// The function returns a reference to the inner optimization block.
-Block *defineLoops(ConversionPatternRewriter &rewriter, Location loc,
-    std::vector<Value> &loops, std::vector<Value> &optimizedLoops,
-    int64_t numLoops);
-
-// Function which emits a basic set of loops and optimized loops
-// for a given operation argument. A reference to the loop optimization
-// block is returned in the last argument of the function.
-void emitKrnlLoopsAndIterationForOperand(ConversionPatternRewriter &rewriter,
-    Location loc, Value operand, std::vector<Value> &originalLoops,
-    KrnlOptimizeLoopsOp &optimizedLoopsOp, KrnlIterateOp &iterateOp);
+// Function that emits the define_loop operation to define `numLoops`
+// number of krnl loops, and fill `loop` with the newly defined loops.
+void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
+    std::vector<Value> &loops, int64_t numLoops);
 
 unsigned getMemRefEltSizeInBytes(MemRefType memRefType);
 
@@ -256,3 +242,7 @@ void populateLoweringONNXSqueezeOpPattern(
 
 void populateLoweringONNXSplitOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
+
+int64_t getMemRefSizeInBytes(Value val);

@@ -152,6 +152,7 @@ find_mlir_lib(MLIRLinalgAnalysis)
 find_mlir_lib(MLIRLinalgTransforms)
 find_mlir_lib(MLIRLinalgUtils)
 find_mlir_lib(MLIRSCF)
+find_mlir_lib(MLIRSCFTransforms)
 find_mlir_lib(MLIRLLVMIRTransforms)
 find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRParser)
@@ -165,11 +166,14 @@ find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRSupport)
 find_mlir_lib(MLIROpenMP)
 find_mlir_lib(MLIROptLib)
+find_mlir_lib(MLIRTableGen)
 find_mlir_lib(MLIRTargetLLVMIRModuleTranslation)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRTranslation)
 find_mlir_lib(MLIRVector)
+find_mlir_lib(MLIRVectorToLLVM)
+find_mlir_lib(MLIRVectorToSCF)
 find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRAffineEDSC)
 find_mlir_lib(MLIRLinalgEDSC)
@@ -181,7 +185,6 @@ find_mlir_lib(LLVMAsmParser)
 find_mlir_lib(LLVMBinaryFormat)
 find_mlir_lib(LLVMRemarks)
 find_mlir_lib(LLVMIRReader)
-find_mlir_lib(LLVMMLIRTableGen)
 find_mlir_lib(LLVMTransformUtils)
 find_mlir_lib(LLVMBitstreamReader)
 find_mlir_lib(LLVMAnalysis)
@@ -203,6 +206,8 @@ set(MLIRLibs
         ${MLIRTransforms}
         ${MLIRSCFToStandard}
         ${MLIRVector}
+        ${MLIRVectorToLLVM}
+        ${MLIRVectorToSCF}
         ${MLIRSCF}
         ${MLIRIR}
         ${MLIRLLVMIR}
@@ -226,6 +231,7 @@ set(MLIRLibs
         ${MLIRLLVMIRTransforms}        
         ${MLIRSCFToStandard}
         ${MLIRSCF}
+        ${MLIRSCFTransforms}
         ${MLIRLoopAnalysis}
         ${MLIRLoopLikeInterface}
         ${MLIROpenMP}

@@ -48,6 +48,10 @@ gcc >= 6.4
 libprotoc >= 3.11.0
 cmake >= 3.15.4
 ```
+At any point in time, ONNX MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. Periodically the maintainers
+need to move to a more recent LLVM level. Among other things, this requires that the commit string in utils/clone-mlir.sh be updated. A consequence of
+making this change is that the TravisCI build will fail until the Docker images that contain the prereqs are rebuilt. There is a GitHub workflow that rebuilds
+this image for the amd64 architecture, but currently the ppc64le and s390x images must be rebuilt manually. The Dockerfiles to accomplish that are in the repo.
 
 ## Installation on UNIX
 
@@ -58,7 +62,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 0dc91bfd11e6cced0c46c1a25cc96edea0d8fc22 && cd ..
+cd llvm-project && git checkout 32791937d7aceb0a5e1eaabf1bb1a6dbe1639792 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -148,7 +152,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 0dc91bfd11e6cced0c46c1a25cc96edea0d8fc22 && cd ..
+cd llvm-project && git checkout 32791937d7aceb0a5e1eaabf1bb1a6dbe1639792 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)

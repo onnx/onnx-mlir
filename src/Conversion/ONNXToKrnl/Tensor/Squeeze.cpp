@@ -18,7 +18,7 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXSqueezeOpOperandAdaptor operandAdaptor(operands);
+    ONNXSqueezeOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto memRefShape = memRefType.getShape();

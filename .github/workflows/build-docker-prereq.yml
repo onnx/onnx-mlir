@@ -2,6 +2,10 @@
 # It will create a new Docker image for the TravisCI build and push it to Docker Hub
 # This image contains the prereqs for building onnx-mlir including a precompiled copy of the appropriate
 # LLVM and MLIR code.
+# 
+# To make this work on your fork you need to enable the github workflow and set a personal access token for your
+# docker hub account in the github secrets.
+# When the action succeeds it will put the prereq image in your docker hub repository.
 
 name: Build Docker Prereq Image
 
@@ -21,8 +25,17 @@ jobs:
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
-    - name: build image
+    - name: build image on fork
+      if: ! endsWith(github.ref, '/master')
+      env:
+        DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+      run: |
+        docker build --tag $GITHUB_ACTOR/onnx-mlir-llvmimage:initial -f $GITHUB_WORKSPACE/.github/workflows/prereq.Dockerfile $GITHUB_WORKSPACE/utils
+        docker login -u $GITHUB_ACTOR -p "$DOCKER_HUB_TOKEN" 
+        docker push $GITHUB_ACTOR/onnx-mlir-llvmimage:initial
+    - name: build image on master
+      if: endsWith(github.ref, '/master')
       run: |
         docker build --tag onnxmlirczar/onnx-mlir-llvmimage:initial -f $GITHUB_WORKSPACE/.github/workflows/prereq.Dockerfile $GITHUB_WORKSPACE/utils
-        docker login -u onnxmlirczar -p 143f1da2-332f-45a1-8587-d6cb07c13230 
-        docker push onnxmlirczar/onnx-mlir-llvmimage:initial 
+        docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        docker push onnxmlirczar/onnx-mlir-llvmimage:initial

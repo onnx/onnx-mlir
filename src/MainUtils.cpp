@@ -386,6 +386,8 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
 
   // TODO: make this pass optional:
   pm.addPass(mlir::createKrnlEnableMemoryPoolPass());
+  pm.addPass(mlir::createKrnlBundleMemoryPoolsPass());
+  pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {

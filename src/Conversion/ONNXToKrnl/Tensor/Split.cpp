@@ -70,7 +70,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Create loop.
       BuildKrnlLoop outputLoops(rewriter, loc, rank);
-      outputLoops.createDefineOptimizeAndIterateOp(allocs[i]);
+      outputLoops.createDefineAndIterateOp(allocs[i]);
       outputLoops.createIterateOp();
       rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
       // Indices for the read and write.
@@ -92,8 +92,9 @@ struct ONNXSplitOpLowering : public ConversionPattern {
         writeIndices.emplace_back(outputLoops.getInductionVar(r));
       }
       // Insert copy.
-      auto loadData = rewriter.create<LoadOp>(loc, operands[0], readIndices);
-      rewriter.create<StoreOp>(loc, loadData, allocs[i], writeIndices);
+      auto loadData =
+          rewriter.create<AffineLoadOp>(loc, operands[0], readIndices);
+      rewriter.create<AffineStoreOp>(loc, loadData, allocs[i], writeIndices);
     }
     rewriter.replaceOp(op, allocs);
     return success();
