@@ -8,6 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <map>
+
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
@@ -122,7 +124,7 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-// Krnl to Affine Rewrite Patterns: KrnlOptimizeLoops operation.
+// Krnl to Affine Rewrite Patterns: KrnlBlock operation.
 //===----------------------------------------------------------------------===//
 
 class KrnlBlockOpLowering : public OpRewritePattern<KrnlBlockOp> {
@@ -131,6 +133,21 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlBlockOp op, PatternRewriter &rewriter) const override {
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Krnl to Affine Rewrite Patterns: KrnlPermute operation.
+//===----------------------------------------------------------------------===//
+
+class KrnlPermuteOpLowering : public OpRewritePattern<KrnlPermuteOp> {
+public:
+  using OpRewritePattern<KrnlPermuteOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      KrnlPermuteOp op, PatternRewriter &rewriter) const override {
     rewriter.eraseOp(op);
     return success();
   }
@@ -200,10 +217,11 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 
   OwningRewritePatternList patterns;
   patterns.insert<KrnlTerminatorLowering, KrnlDefineLoopsLowering,
-      KrnlBlockOpLowering>(&getContext());
+      KrnlBlockOpLowering, KrnlPermuteOpLowering>(&getContext());
 
   // Do not lower operations that pertain to schedules just yet.
   target.addLegalOp<KrnlBlockOp>();
+  target.addLegalOp<KrnlPermuteOp>();
   target.addLegalOp<KrnlDefineLoopsOp>();
   if (failed(applyPartialConversion(function, target, patterns)))
     return signalPassFailure();
@@ -234,7 +252,8 @@ void KrnlToAffineLoweringPass::runOnFunction() {
       AffineForOp forOp;
       std::tie(loopRef, forOp) = loopRefToLoop.pop_back_val();
 
-      // Ensure that loop references are single-use during the scheduling phase.
+      // Get user operations excluding krnl.iterate. These operations will be
+      // scheduling primitives.
       auto loopRefUsers = loopRef.getUsers();
       SmallVector<Operation *, 4> unfilteredUsers(
           loopRefUsers.begin(), loopRefUsers.end()),
@@ -242,8 +261,6 @@ void KrnlToAffineLoweringPass::runOnFunction() {
       std::copy_if(unfilteredUsers.begin(), unfilteredUsers.end(),
           std::back_inserter(users),
           [](Operation *op) { return !isa<KrnlIterateOp>(op); });
-      assert(std::distance(users.begin(), users.end()) <= 1 &&
-             "Loop reference used more than once.");
 
       // No schedule primitives associated with this loop reference, move on.
       if (users.empty())
@@ -269,10 +286,45 @@ void KrnlToAffineLoweringPass::runOnFunction() {
             std::make_pair(blockOp.getResult(0), tiledLoops[0]));
         loopRefToLoop.emplace_back(
             std::make_pair(blockOp.getResult(1), tiledLoops[1]));
+      } else if (isa<KrnlPermuteOp>(user)) {
+        auto permuteOp = cast<KrnlPermuteOp>(user);
+
+        // Re-insert loop reference back for convenience.
+        loopRefToLoop.insert(
+            loopRefToLoop.begin(), std::make_pair(loopRef, forOp));
+        llvm::SmallDenseMap<Value, AffineForOp, 4> map(
+            loopRefToLoop.begin(), loopRefToLoop.end());
+
+        bool allReferredLoopsScheduled =
+            std::all_of(permuteOp.operand_begin(), permuteOp.operand_end(),
+                [&](const Value &val) { return map.count(val) > 0; });
+
+        if (!allReferredLoopsScheduled)
+          continue;
+
+        SmallVector<AffineForOp, 4> loopsToPermute;
+        std::transform(permuteOp.operand_begin(), permuteOp.operand_end(),
+            std::back_inserter(loopsToPermute),
+            [&](const Value &val) { return map[val]; });
+
+        SmallVector<unsigned int, 4> permuteMap;
+        for (const auto &attr : permuteOp.map().getAsRange<IntegerAttr>())
+          permuteMap.emplace_back(attr.getValue().getSExtValue());
+
+        permuteLoops(loopsToPermute, permuteMap);
+
+        loopRefToLoop.clear();
+        //        loopRefToLoop.erase(std::remove_if(
+        //            loopRefToLoop.begin(), loopRefToLoop.end(), [&](const auto
+        //            &pair) {
+        //              return std::find_if(permuteOp.operand_begin(),
+        //                         permuteOp.operand_end(), [&](const Value
+        //                         &loopRef) {
+        //                           return loopRef == pair.first;
+        //                         }) != permuteOp.operand_end();
+        //            }));
       }
     }
-
-
   }
 
   // KrnlIterateOp should be all gone by now.
@@ -281,6 +333,7 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   // Remove/lower schedule related operations.
   target.addIllegalOp<KrnlDefineLoopsOp>();
   target.addIllegalOp<KrnlBlockOp>();
+  target.addIllegalOp<KrnlPermuteOp>();
   if (failed(applyPartialConversion(function, target, patterns)))
     return signalPassFailure();
 }

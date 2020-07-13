@@ -260,10 +260,9 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
     means to block the for loop referred to by %i using a tile size of 4.
   }];
 
-  let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$mapping);
-  let results = (outs Variadic<AnyType>);
-
+  let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
+  let results = (outs Variadic<AnyType>:$permuted_loops);
   let assemblyFormat = [{
-      $loops $mapping attr-dict `:` functional-type($loops, results)
+      `(` $loops `)` $map attr-dict `:` functional-type($loops, results)
   }];
 }
