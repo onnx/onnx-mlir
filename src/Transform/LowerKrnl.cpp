@@ -334,7 +334,6 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   if (failed(applyPartialConversion(function, target, patterns)))
     return signalPassFailure();
 }
-
 } // namespace
 
 std::unique_ptr<Pass> mlir::createLowerKrnlPass() {
