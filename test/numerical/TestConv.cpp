@@ -13,6 +13,8 @@
 #include "src/MainUtils.hpp"
 #include "src/Runtime/ExecusionSession.hpp"
 
+#define SHARED_LIB_BASE string("./TestConv_main_graph")
+
 using namespace std;
 
 // Returns whether onnx-mlir compiled convolution is producing the same results
@@ -87,14 +89,9 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
   OwningModuleRef moduleRef(module);
 
-  llvm::SmallVector<char, 10> path;
-  llvm::sys::fs::createTemporaryFile("_main_graph", "", path);
-  string pathStr(path.begin(), path.end());
-  llvm::FileRemover remover(path);
-
-  compileModule(moduleRef, ctx, pathStr, EmitLib);
+  compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
   onnx_mlir::ExecutionSession sess(
-      pathStr + ".so", "_dyn_entry_point_main_graph");
+      SHARED_LIB_BASE + ".so", "_dyn_entry_point_main_graph");
 
   std::vector<unique_ptr<RtMemRef>> inputs;
   auto xRmr = unique_ptr<RtMemRef>(getRndRealRmr<float>({N, C, H, W}));
@@ -127,7 +124,10 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   return isRmrClose<float>(conv.get(), ref);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+  setExecPath(argv[0], (void *)main);
+  llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
+
   // RapidCheck test case generation.
   rc::check("convolution implementation correctness", []() {
     const auto N = *rc::gen::inRange(1, 10);

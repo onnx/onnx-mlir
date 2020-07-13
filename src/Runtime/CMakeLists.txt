@@ -1,3 +1,5 @@
+add_subdirectory(jni)
+
 # Create static libcruntime.a to be embedded in model.so to make model.so self contained.
 # However, by default object code for static library is not compiled with -fPIC. Embedding
 # such static library in a shared library can cause runtime failure on some architectures,
