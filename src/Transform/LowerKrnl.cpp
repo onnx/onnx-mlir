@@ -312,17 +312,14 @@ void KrnlToAffineLoweringPass::runOnFunction() {
           permuteMap.emplace_back(attr.getValue().getSExtValue());
 
         permuteLoops(loopsToPermute, permuteMap);
-
-        loopRefToLoop.clear();
-        //        loopRefToLoop.erase(std::remove_if(
-        //            loopRefToLoop.begin(), loopRefToLoop.end(), [&](const auto
-        //            &pair) {
-        //              return std::find_if(permuteOp.operand_begin(),
-        //                         permuteOp.operand_end(), [&](const Value
-        //                         &loopRef) {
-        //                           return loopRef == pair.first;
-        //                         }) != permuteOp.operand_end();
-        //            }));
+        auto remoteItr = std::remove_if(
+            loopRefToLoop.begin(), loopRefToLoop.end(), [&](const auto &pair) {
+              return std::find_if(permuteOp.operand_begin(),
+                         permuteOp.operand_end(), [&](const Value &loopRef) {
+                           return loopRef == pair.first;
+                         }) != permuteOp.operand_end();
+            });
+        loopRefToLoop.erase(remoteItr, loopRefToLoop.end());
       }
     }
   }
