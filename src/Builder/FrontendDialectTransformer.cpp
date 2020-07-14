@@ -128,6 +128,13 @@ private:
     case onnx::AttributeProto::TENSOR:
       mlirAttr = onnxTensorProtoToDenseElmAttr(builder_, attr.t());
       break;
+    case onnx::AttributeProto::STRINGS: {
+      llvm::SmallVector<mlir::StringRef, 4> vectorStringRef;
+      for (const auto &item : attr.strings()) {
+        vectorStringRef.push_back(llvm::StringRef(item));
+      }
+      mlirAttr = builder_.getStrArrayAttr(llvm::makeArrayRef(vectorStringRef));
+    } break;
     default:
       llvm_unreachable("datatype for attribute is not implemented");
       break;
@@ -310,26 +317,6 @@ private:
       }
 
     buildOutputAndOperation<T>(
-        node, inputs, expectedNumOperands, expectedNumResults);
-  }
-
-  void ImportNodeReshape(onnx::NodeProto node) {
-    int expectedNumOperands = mlir::ONNXReshapeOp::getNumberOfOperands();
-    int expectedNumResults = mlir::ONNXReshapeOp::getNumberOfResults();
-    std::vector<mlir::Value> inputs;
-    std::string item;
-    for (int i = 0; i < node.input().size(); ++i) {
-      item = node.input()[i];
-      // For the second argument, check if there exists an initializer.
-      if (initializedTensors.ContainKey(legalize_name(item))) {
-        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-            UnknownLoc(), builder_, legalize_name(item)));
-      } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
-      }
-    }
-
-    buildOutputAndOperation<mlir::ONNXReshapeOp>(
         node, inputs, expectedNumOperands, expectedNumResults);
   }
 

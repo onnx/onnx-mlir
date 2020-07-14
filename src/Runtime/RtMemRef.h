@@ -151,6 +151,9 @@ OrderedRtMemRefDict *createOrderedRtMemRefDict();
 // Get how many dynamic memrefs are in dict.
 int64_t getSize(OrderedRtMemRefDict *dict);
 
+// Get how many data elements are in RtMemRef.
+INDEX_TYPE getDataSize(RtMemRef *rtMemRef);
+
 // Create a dynmemref with a certain rank.
 RtMemRef *createRtMemRef(int rank);
 

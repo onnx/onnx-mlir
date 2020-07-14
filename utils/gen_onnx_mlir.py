@@ -239,7 +239,6 @@ special_op_handler = dict([
     ("MaxPool", "ImportNodeMaxPool"),
     ("BatchNormalization", "ImportNodeBatchNormalization"),
     ("Pad", "ImportNodePad"),
-    ("Reshape", "ImportNodeReshape"),
     #("Transpose", "ImportNodeTranspose")
 ])
 
@@ -429,7 +428,15 @@ def get_allowed_elem_types(schema, input):
     # return allowed_types_str
     # TODO: enable type constraints.
     if input.typeStr :
-         tstr = input.typeStr
+        tstr = input.typeStr
+        structure, element = get_data_structure_element(tstr);
+        # In case the type is directly specified
+        if structure and element :
+            t = np_type_to_tblgen_attr_type(element)
+            if t == None :
+                return allowed_structure, None
+            else :
+                return structure, [t]
     else :
         return None
     if schema.type_constraints:
