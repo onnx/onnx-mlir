@@ -2529,6 +2529,8 @@ LogicalResult ONNXSliceOp::inferShapes() {
         index = 0;
       else if (index > dataShape[axis])
         index = dataShape[axis];
+      else if (index < 0)
+        index += dataShape[axis];
       startsValue.emplace_back(index);
       i++;
     }
@@ -2553,6 +2555,8 @@ LogicalResult ONNXSliceOp::inferShapes() {
         index = 0;
       else if (index > dataShape[axis])
         index = dataShape[axis];
+      else if (index < 0)
+        index += dataShape[axis];
       endsValue.emplace_back(index);
       i++;
     }
@@ -2597,6 +2601,8 @@ LogicalResult ONNXSliceOp::inferShapes() {
     int64_t start = startsValue[i];
     int64_t end = endsValue[i];
     int64_t step = stepsValue[i];
+    if (step < 0)
+      step = -step;
 
     int64_t q = (end - start) / step;
     int64_t r = (end - start) % step;
