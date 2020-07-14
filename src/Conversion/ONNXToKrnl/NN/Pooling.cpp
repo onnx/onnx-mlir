@@ -230,12 +230,15 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     // Kernel offset in the input shape.
     int kernelOffset = inputShape.size() - kernelShape.size();
 
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
 
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else {
       alloc = insertAllocAndDeallocForPooling(rewriter, loc, insertDealloc,
           memRefType, inputOperand, kernelShape, pads, strides, dilations,

@@ -508,6 +508,9 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     // If the output has a dynamic dimension, pass the operands required for
     // each dynamic dimension to the AllocOp. The first operand of the
     // operation is used. The operands of the op need to match in terms of
@@ -518,10 +521,10 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     bool insertDealloc = checkInsertDealloc(op);
 
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else
       alloc =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, {X});
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op, {X});
 
     SmallVector<Value, 4> loopIVs;
     if (!hasAllScalarValues(operands)) {
@@ -566,6 +569,9 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     // If the output has a dynamic dimension, we compute its dimension at
@@ -574,10 +580,10 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // comes from.
     // TODO: can the dimension of the result differ after optimizations?
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else
       alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, operands);
+          memRefType, loc, rewriter, insertDealloc, op, operands);
 
     SmallVector<Value, 4> loopIVs;
     std::map<int, std::map<int, Value>> broadcastedDimInfo;

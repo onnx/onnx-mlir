@@ -73,6 +73,9 @@ struct ONNXRNNOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
 
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     RNNOp rnnOp = llvm::dyn_cast<RNNOp>(op);
     typename RNNOp::Adaptor operandAdaptor(operands);
 

@@ -35,11 +35,14 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto biasOperand = operandAdaptor.B();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
 
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else
       alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {inputOperand});
+          memRefType, loc, rewriter, insertDealloc, op, {inputOperand});
 
     // R = Conv(D, K)
     //

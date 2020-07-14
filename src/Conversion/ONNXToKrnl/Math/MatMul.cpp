@@ -39,12 +39,21 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // A value zero
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
 
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else {
+      PatternRewriter::InsertionGuard insertGuard(rewriter);
+      FuncOp function = cast<FuncOp>(op->getParentOp());
+      bool allOperandsAreInInitBlock = operandsInInitOrArgList(function, {A, B});
+      if (allOperandsAreInInitBlock)
+        rewriter.setInsertionPoint(getInitInsertionPoint(function));
+
       SmallVector<Value, 4> allocOperands;
       if (AShape.size() >= 2 && BShape.size() >= 2) {
         // Both arguments are N-D, N >= 2
@@ -108,6 +117,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       }
 
       alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+
+      if (allOperandsAreInInitBlock)
+        markOperandInInitBlock(function, alloc);
     }
 
     if (AShape.size() >= 2 || BShape.size() >= 2) {

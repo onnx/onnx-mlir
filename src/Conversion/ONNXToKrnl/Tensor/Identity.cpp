@@ -18,6 +18,11 @@ struct ONNXIdentityOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+    auto loc = op->getLoc();
+
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     ONNXIdentityOpAdaptor operandAdaptor(operands);
     rewriter.replaceOp(op, operandAdaptor.input());
     return success();

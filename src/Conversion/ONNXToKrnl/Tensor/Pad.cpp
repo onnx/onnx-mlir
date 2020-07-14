@@ -40,11 +40,15 @@ struct ONNXPadOpLowering : public ConversionPattern {
       return emitError(loc, "Pad: unknown pads");
 
     auto memRefType = convertToMemRefType(tensorType);
+
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
 
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else
       return emitError(loc, "unexpected output has non-Constant shape");
 

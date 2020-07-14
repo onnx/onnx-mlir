@@ -155,12 +155,15 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     std::map<int64_t, int64_t> outInDimMap =
         getReductionMapping(memRefInType, axes, isKeepdims);
 
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefOutType)) {
       alloc =
-          insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
+          insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc, op);
     } else {
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {

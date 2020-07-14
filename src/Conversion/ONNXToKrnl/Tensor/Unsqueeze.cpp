@@ -34,6 +34,9 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
       axes.emplace_back(axis);
     }
 
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
 
@@ -44,7 +47,7 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
     bool insertDealloc = checkInsertDealloc(op);
     auto memRefShape = memRefType.getShape();
     if (hasAllConstantDimensions(memRefType)) {
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
       for (int i = 0; i < memRefShape.size(); ++i) {
         Value dimVal = emitConstantOp(
             rewriter, loc, rewriter.getIntegerType(64), memRefShape[i]);

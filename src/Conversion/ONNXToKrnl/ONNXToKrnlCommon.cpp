@@ -43,10 +43,112 @@ MemRefType convertToMemRefType(Type type) {
   return memRefType;
 }
 
+/// Create init block if there isn't one already and records it as a
+/// initialization state for the function to which the input operation
+/// belongs to.
+void createInitState(PatternRewriter &rewriter, Location loc, Operation *op) {
+  // The function in which the ONNX operation resides.
+  FuncOp function = cast<FuncOp>(op->getParentOp());
+
+  // If this is the first time we encounter an operation in this
+  // function, we create an entry inside the initMap and split the
+  // function body into an init block and a main block.
+  //
+  // function func_name() {
+  //    ... init block ...
+  //    br ^bb1
+  //  ^bb1:  // pred: ^bb0
+  //    ... main block ...
+  //    return
+  // }
+  //
+  // Note: the block ^bb0 being the first block has its label omitted.
+  //
+  if (initMap.count(function) == 0) {
+    ONNXOperandsInitState initState;
+
+    // All input arguments are considered as part of the initialization block
+    // so add them to the operandsInInitBlock set.
+    Block *functionBlock = op->getBlock();
+    for (auto arg : functionBlock->getArguments())
+      initState.operandsInInitBlock.insert(arg);
+
+    initState.initBlock = rewriter.getInsertionBlock();
+    auto currentPoint = rewriter.getInsertionPoint();
+    initState.mainBlock =
+        rewriter.splitBlock(initState.initBlock, currentPoint);
+
+    rewriter.setInsertionPointToEnd(initState.initBlock);
+
+    // Insert a branch operation from initBlock to mainBlock. This
+    // ensures the final code contains legal blocks.
+    initState.branchInit = rewriter.create<BranchOp>(loc, initState.mainBlock);
+
+    // Set insertion point to start of mainBlock.
+    rewriter.setInsertionPointToStart(initState.mainBlock);
+
+    initMap.insert(
+        std::pair<FuncOp, ONNXOperandsInitState>(function, initState));
+  }
+}
+
+Block *getInitBlock(FuncOp function) {
+  assert(initMap.count(function) > 0 &&
+      "Initialization state not defined for this function.");
+  return initMap[function].initBlock;
+}
+
+Block *getMainBlock(FuncOp function) {
+  assert(initMap.count(function) > 0 &&
+      "Initialization state not defined for this function.");
+  return initMap[function].mainBlock;
+}
+
+BranchOp getInitInsertionPoint(FuncOp function) {
+  assert(initMap.count(function) > 0 &&
+      "Initialization state not defined for this function.");
+  return initMap[function].branchInit;
+}
+
+/// Check if all operands used for allocating the size of the result are
+/// in the initialization block (i.e. initBlock).
+bool operandsInInitOrArgList(FuncOp function, ArrayRef<Value> operands) {
+  assert(initMap.count(function) > 0 &&
+      "Initialization state not defined for this function.");
+
+  bool allInitOrArg = true;
+  for (int i = 0; i < operands.size(); i++) {
+    if (initMap[function].operandsInInitBlock.count(operands[i]) == 0)
+      allInitOrArg = false;
+  }
+
+  return allInitOrArg;
+}
+
+/// Add operand to list of operands in the init block.
+void markOperandInInitBlock(FuncOp function, Value operand) {
+  assert(initMap.count(function) > 0 &&
+      "Initialization state not defined for this function.");
+  initMap[function].operandsInInitBlock.insert(operand);
+}
+
 /// Insert an allocation and deallocation for the given MemRefType.
-Value insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands,
-    int64_t alignment) {
+Value insertAllocAndDeallocWithFunction(MemRefType type, Location loc,
+    PatternRewriter &rewriter, bool insertDealloc, FuncOp function,
+    ArrayRef<Value> operands, int64_t alignment) {
+  assert(getInitInsertionPoint(function) && "Init insertion point is null.");
+
+  // Save insertion point in case we need to change it to the initBlock.
+  PatternRewriter::InsertionGuard insertGuard(rewriter);
+
+  // Check if all operands are in the init region or are input arguments.
+  bool allOperandsAreInInitBlock = operandsInInitOrArgList(function, operands);
+
+  // Set insertion point at the end of the initialization block just before
+  // the branch instruction.
+  if (allOperandsAreInInitBlock)
+    rewriter.setInsertionPoint(getInitInsertionPoint(function));
+
   // Put together alloc operands for any dynamic dimensions of the memref.
   AllocOp alloc;
   if (!operands.empty()) {
@@ -110,18 +212,32 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     }
   }
 
+  // If the alloc was emitted inside the initializatin block then mark add
+  // it to the set of values emitted in the initialization block.
+  if (allOperandsAreInInitBlock)
+    markOperandInInitBlock(function, alloc.getResult());
+
   // Make sure to allocate at the beginning of the block if
   // all dimensions are known.
-  auto *parentBlock = alloc.getOperation()->getBlock();
   if (hasAllConstantDimensions(type))
-    alloc.getOperation()->moveBefore(&parentBlock->front());
+    alloc.getOperation()->moveBefore(&getInitBlock(function)->front());
 
   if (insertDealloc) {
     auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
-    dealloc.getOperation()->moveBefore(&parentBlock->back());
+    dealloc.getOperation()->moveBefore(&getMainBlock(function)->back());
   }
 
   return alloc;
+}
+
+/// Insert an allocation and deallocation for the given MemRefType.
+Value insertAllocAndDealloc(MemRefType type, Location loc,
+    PatternRewriter &rewriter, bool insertDealloc, Operation *op,
+    ArrayRef<Value> operands, int64_t alignment) {
+  FuncOp function = cast<FuncOp>(op->getParentOp());
+
+  return insertAllocAndDeallocWithFunction(type, loc, rewriter,
+      insertDealloc, function, operands, alignment);
 }
 
 // Determine if current function returns the result value of the

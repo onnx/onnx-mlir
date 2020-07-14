@@ -32,6 +32,9 @@ struct ONNXSplitOpLowering : public ConversionPattern {
     auto rank = splitOp.input().getType().cast<ShapedType>().getRank();
     auto outputNum = splitOp.getNumResults();
 
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     // Alloc and dealloc.
     SmallVector<Value, 4> allocs;
     for (int i = 0; i < outputNum; ++i) {
@@ -40,7 +43,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       auto memRefType = convertToMemRefType(splitOp.outputs()[i].getType());
 
       if (hasAllConstantDimensions(memRefType))
-        alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+        alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
       else {
         SmallVector<Value, 4> allocOperands;
         auto shape = memRefType.getShape();

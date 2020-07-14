@@ -19,7 +19,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/SetVector.h"
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -28,6 +30,24 @@
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
+
+//===----------------------------------------------------------------------===//
+// Insertion point for initialization instructions and the blocks used for
+// inserting the initialization and main code. These blocks will disappear
+// when the first canonicalization is performed because the init block
+// unconditionally branches into the second block. These blocks exist only for
+// the purpose of this optimization.
+// The support happens on a per function basis.
+//===----------------------------------------------------------------------===//
+
+typedef struct ONNXOperandsInitState {
+  Block *initBlock;
+  Block *mainBlock;
+  BranchOp branchInit;
+  llvm::SetVector<Value> operandsInInitBlock;
+} ONNXOperandsInitState;
+
+static llvm::MapVector<FuncOp, ONNXOperandsInitState> initMap;
 
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
@@ -44,7 +64,11 @@ MemRefType convertToMemRefType(Type type);
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter &rewriter, bool insertDealloc,
+    PatternRewriter &rewriter, bool insertDealloc, Operation *op,
+    ArrayRef<Value> operands = {}, int64_t alignment = -1);
+
+Value insertAllocAndDeallocWithFunction(MemRefType type, Location loc,
+    PatternRewriter &rewriter, bool insertDealloc, FuncOp function,
     ArrayRef<Value> operands = {}, int64_t alignment = -1);
 
 // Determine if current function returns the result value of the
@@ -246,3 +270,15 @@ void populateLoweringONNXSplitOpPattern(
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
 
 int64_t getMemRefSizeInBytes(Value val);
+
+void createInitState(PatternRewriter &rewriter, Location loc, Operation *op);
+
+Block *getInitBlock(FuncOp function);
+
+Block *getMainBlock(FuncOp function);
+
+BranchOp getInitInsertionPoint(FuncOp function);
+
+bool operandsInInitOrArgList(FuncOp function, ArrayRef<Value> operands);
+
+void markOperandInInitBlock(FuncOp function, Value operand);

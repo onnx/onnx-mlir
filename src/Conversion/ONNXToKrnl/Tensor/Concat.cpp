@@ -20,6 +20,10 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
     auto loc = op->getLoc();
+
+    // Create init block if this is the first operation in the function.
+    createInitState(rewriter, loc, op);
+
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     ONNXConcatOp concatOp = llvm::dyn_cast<ONNXConcatOp>(op);
@@ -33,10 +37,10 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     assert((axis >= 0 && axis < rank) && "Concat axis out of bounds");
 
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else
       alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {resultOperand});
+          memRefType, loc, rewriter, insertDealloc, op, {resultOperand});
 
     // Creates loops, one for each input.
     int writeOffset = 0;
