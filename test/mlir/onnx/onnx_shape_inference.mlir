@@ -1196,3 +1196,45 @@ func @test_gather_negative_axis(%arg0 : tensor<3x3xf32>, %arg1 : tensor<1x2xi64>
   // CHECK: return [[RES]] : tensor<3x1x2xf32>
 }
 
+// -----
+
+///func @test_constant_of_shape_empty_tensor() -> tensor<*xf32> {
+///  %cst = constant unit
+///  %0 = "onnx.ConstantOfShape"(%cst) : (none) -> tensor<*xf32>
+///  "std.return"(%0) : (tensor<*xf32>) -> ()
+///}
+
+// -----
+
+func @test_constant_of_shape(%arg0 : tensor<3xi64>) -> tensor<*xf32> {
+  %0 = "onnx.ConstantOfShape"(%arg0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape
+  // CHECK: [[RES:%.+]] = "onnx.ConstantOfShape"(%arg0) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<?x?x?xf32>
+  // CHECK: return [[RES]] : tensor<?x?x?xf32>
+}
+
+// -----
+
+func @test_constant_of_shape_constant() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[3, 4, 5]> : tensor<3xi64> } : () -> tensor<3xi64>
+  %1 = "onnx.ConstantOfShape"(%0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape_constant
+  // CHECK: [[CONSTANT:%.+]] = "onnx.Constant"() {value = dense<[3, 4, 5]> : tensor<3xi64>} : () -> tensor<3xi64>
+  // CHECK: [[RES:%.+]] = "onnx.ConstantOfShape"([[CONSTANT]]) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<3x4x5xf32>
+  // CHECK: return [[RES]] : tensor<3x4x5xf32>
+}
+
+// -----
+
+func @test_slice_constant(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
+  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %starts = "onnx.Constant"() {value = dense<[1, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %steps = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+}

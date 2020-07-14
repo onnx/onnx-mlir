@@ -662,7 +662,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ConstantOfShape operation";
   let description = [{
   "Generate a tensor with given value and shape."
@@ -4850,7 +4850,7 @@ def ONNXSizeOp:ONNX_Op<"Size",
 }
 
 def ONNXSliceOp:ONNX_Op<"Slice",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Slice operation";
   let description = [{
   "Produces a slice of the input tensor along multiple axes. Similar to numpy:"
