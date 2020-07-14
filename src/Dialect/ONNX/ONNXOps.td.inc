@@ -662,7 +662,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX ConstantOfShape operation";
   let description = [{
   "Generate a tensor with given value and shape."
@@ -679,6 +679,15 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+    std::vector<mlir::Type> resultTypeInference() {
+      std::vector<mlir::Type> resultTypes;
+      if (auto attr = valueAttr()) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(attr.getType().cast<ShapedType>().getElementType()));
+      } else {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(FloatType::getF32(getContext())));
+      }
+      return resultTypes;
     }
   }];
 }

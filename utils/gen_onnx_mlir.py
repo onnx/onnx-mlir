@@ -283,7 +283,15 @@ OpsWithResultTypeInference = {
     '''auto toAttr = to().getSExtValue();
       auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(
-        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));'''
+        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));''',
+  "ConstantOfShape":
+  '''if (auto attr = valueAttr()) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          attr.getType().cast<ShapedType>().getElementType()));
+      } else {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          FloatType::getF32(getContext())));
+      }'''
 }
 
 # Add an Op in this list if the Op needs result type deduction which is required
