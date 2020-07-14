@@ -683,9 +683,11 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
       if (auto attr = valueAttr()) {
-        resultTypes.push_back(mlir::UnrankedTensorType::get(attr.getType().cast<ShapedType>().getElementType()));
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          attr.getType().cast<ShapedType>().getElementType()));
       } else {
-        resultTypes.push_back(mlir::UnrankedTensorType::get(FloatType::getF32(getContext())));
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          FloatType::getF32(getContext())));
       }
       return resultTypes;
     }

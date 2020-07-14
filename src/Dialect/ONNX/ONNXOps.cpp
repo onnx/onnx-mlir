@@ -2427,18 +2427,17 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes() {
         mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values)));
   }
 
-  // If 'input' is an empty tensor, the output would be a scalar.
-  if (input().getType().isa<NoneType>()) {
-    getResult().setType(RankedTensorType::get({}, elementType));
-    return success();
-  }
-
   // 'input' must be a 1D tensor.
   auto inputShape = input().getType().cast<RankedTensorType>().getShape();
   if (inputShape.size() != 1)
     return emitError("Input tensor must be a 1D tensor");
   if (inputShape[0] == -1)
     return emitError("Input tensor must have static shape");
+  if (inputShape[0] == 0) {
+    // If 'input' is an empty tensor, the output would be a scalar.
+    getResult().setType(RankedTensorType::get({}, elementType));
+    return success();
+  }
 
   // Calculate output dimensions.
   SmallVector<int64_t, 4> outputDims(inputShape[0], -1);

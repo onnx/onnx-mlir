@@ -1198,11 +1198,14 @@ func @test_gather_negative_axis(%arg0 : tensor<3x3xf32>, %arg1 : tensor<1x2xi64>
 
 // -----
 
-///func @test_constant_of_shape_empty_tensor() -> tensor<*xf32> {
-///  %cst = constant unit
-///  %0 = "onnx.ConstantOfShape"(%cst) : (none) -> tensor<*xf32>
-///  "std.return"(%0) : (tensor<*xf32>) -> ()
-///}
+func @test_constant_of_shape_empty_tensor(%arg0 : tensor<0xi64>) -> tensor<*xf32> {
+  %0 = "onnx.ConstantOfShape"(%arg0) : (tensor<0xi64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape_empty_tensor
+  // CHECK: [[RES:%.+]] = "onnx.ConstantOfShape"(%arg0) {value = dense<0.000000e+00> : tensor<1xf32>} : (tensor<0xi64>) -> tensor<f32>
+  // CHECK: return [[RES]] : tensor<f32>
+}
 
 // -----
 
