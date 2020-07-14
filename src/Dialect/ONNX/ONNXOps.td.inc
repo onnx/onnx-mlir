@@ -204,7 +204,7 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {-1};
+      return {4};
     }
   }];
 }
@@ -230,7 +230,7 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {-1};
+      return {4};
     }
   }];
 }
@@ -955,7 +955,7 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {21};
+      return {7};
     }
   }];
 }
@@ -1102,7 +1102,7 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
       return 3;
     }
     static std::vector<int> getTypeMap() {
-      return {1,-1,1};
+      return {1,7,1};
     }
   }];
 }
@@ -2925,7 +2925,7 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {22};
+      return {4};
     }
   }];
 }
@@ -2949,7 +2949,7 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {-1};
+      return {4};
     }
   }];
 }
@@ -5155,7 +5155,7 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {11};
     }
   }];
 }
@@ -5540,7 +5540,7 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
       return 4;
     }
     static std::vector<int> getTypeMap() {
-      return {20,-1,-1,-1};
+      return {20,4,4,4};
     }
   }];
 }
@@ -5837,7 +5837,7 @@ def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {-1};
+      return {7};
     }
   }];
 }
@@ -5943,7 +5943,7 @@ def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {-1,-1};
+      return {-1,7};
     }
   }];
 }
@@ -5973,7 +5973,7 @@ def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {-1};
+      return {7};
     }
   }];
 }
@@ -6004,7 +6004,7 @@ def ONNXNormalizerOp:ONNX_Op<"Normalizer",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {-1};
+      return {7};
     }
   }];
 }
@@ -6035,7 +6035,7 @@ def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {-1};
+      return {7};
     }
   }];
 }
@@ -6068,7 +6068,7 @@ def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {-1,-1};
+      return {-1,7};
     }
   }];
 }
@@ -6097,7 +6097,7 @@ def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {-1};
+      return {7};
     }
   }];
 }
@@ -6120,7 +6120,7 @@ def ONNXScalerOp:ONNX_Op<"Scaler",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {-1};
+      return {7};
     }
   }];
 }
@@ -6167,7 +6167,7 @@ def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {-1,-1};
+      return {-1,7};
     }
   }];
 }
@@ -6214,7 +6214,7 @@ def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {-1};
+      return {7};
     }
   }];
 }

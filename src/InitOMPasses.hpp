@@ -42,6 +42,12 @@ void initOMPasses() {
         return mlir::createKrnlEnableMemoryPoolPass();
       });
 
+  mlir::registerPass("bundle-memory-pools",
+      "Bundle memory pools of internal MemRefs into a single memory pool.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createKrnlBundleMemoryPoolsPass();
+      });
+
   mlir::registerPass(
       "lower-krnl", "Lower Krnl dialect.", []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createLowerKrnlPass();
