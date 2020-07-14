@@ -309,13 +309,7 @@ private:
     int expectedNumOperands = T::getNumberOfOperands();
     int expectedNumResults = T::getNumberOfResults();
     for (const auto &item : node.input())
-      if (item.empty()) {
-        // Optional inputs using empty string will be imported as NoneType.
-        if (!none_)
-          none_ = builder_.create<mlir::ConstantOp>(
-              UnknownLoc(), builder_.getUnitAttr());
-        inputs.emplace_back(none_);
-      } else if (initializedTensors.ContainKey(legalize_name(item))) {
+      if (initializedTensors.ContainKey(legalize_name(item))) {
         inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
             UnknownLoc(), builder_, legalize_name(item)));
       } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
