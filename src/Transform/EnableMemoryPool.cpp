@@ -24,10 +24,10 @@ using namespace mlir;
 namespace {
 
 bool checkOpResultIsReturned(AllocOp *allocOp) {
-  auto parentBlock = allocOp->getOperation()->getBlock();
+  FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsReturned = false;
-  parentBlock->walk([&opIsReturned, allocOp](ReturnOp op) {
+  function.walk([&opIsReturned, allocOp](ReturnOp op) {
     auto result = allocOp->getResult();
     for (const auto &operand : op.getOperands())
       if (operand == result)
@@ -81,8 +81,15 @@ public:
 
     // Emit new dealloc.
     auto dealloc = rewriter.create<DeallocOp>(loc, newAlloc);
-    auto parentBlock = allocOp.getOperation()->getBlock();
-    dealloc.getOperation()->moveBefore(&parentBlock->back());
+
+    Operation *op = allocOp.getOperation();
+    FuncOp function = getContainingFunction(op);
+    if (containingFunctionHasInitBlock(op)) {
+      dealloc.getOperation()->moveBefore(&getMainBlock(function)->back());
+    } else {
+      auto parentBlock = allocOp.getOperation()->getBlock();
+      dealloc.getOperation()->moveBefore(&parentBlock->back());
+    }
 
     // Get reference to local MemRef.
     auto zero = rewriter.create<ConstantOp>(

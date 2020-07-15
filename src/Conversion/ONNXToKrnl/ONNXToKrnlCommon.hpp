@@ -271,7 +271,11 @@ bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
 
 int64_t getMemRefSizeInBytes(Value val);
 
+FuncOp getContainingFunction(Operation *op);
+
 void createInitState(PatternRewriter &rewriter, Location loc, Operation *op);
+
+bool containingFunctionHasInitBlock(Operation *op);
 
 Block *getInitBlock(FuncOp function);
 

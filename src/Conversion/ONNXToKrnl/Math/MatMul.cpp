@@ -49,7 +49,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else {
       PatternRewriter::InsertionGuard insertGuard(rewriter);
-      FuncOp function = cast<FuncOp>(op->getParentOp());
+      FuncOp function = getContainingFunction(op);
       bool allOperandsAreInInitBlock = operandsInInitOrArgList(function, {A, B});
       if (allOperandsAreInInitBlock)
         rewriter.setInsertionPoint(getInitInsertionPoint(function));

@@ -43,12 +43,33 @@ MemRefType convertToMemRefType(Type type) {
   return memRefType;
 }
 
+/// Retrieve function which contains the current operation.
+FuncOp getContainingFunction(Operation *op) {
+  Operation *parentFuncOp = op->getParentOp();
+
+  // While parent is not a FuncOp and its cast to a FuncOp is null.
+  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
+    parentFuncOp = parentFuncOp->getParentOp();
+
+  return cast<FuncOp>(parentFuncOp);
+}
+
 /// Create init block if there isn't one already and records it as a
 /// initialization state for the function to which the input operation
 /// belongs to.
 void createInitState(PatternRewriter &rewriter, Location loc, Operation *op) {
   // The function in which the ONNX operation resides.
-  FuncOp function = cast<FuncOp>(op->getParentOp());
+  FuncOp function = getContainingFunction(op);
+
+  // If the parent operation cannot be converted to a function and this is the
+  // first instruction in the function, then we need to skip the creation of
+  // the init and main blocks. This is to avoid the emission of the init and
+  // main blocks at the wrong level.
+  // TODO: enable the creation of the init and main blocks even in this
+  // corner case. For now it is unsupported.
+  FuncOp immediateParent = llvm::dyn_cast_or_null<FuncOp>(op->getParentOp());
+  if (!immediateParent && initMap.count(function) == 0)
+    return;
 
   // If this is the first time we encounter an operation in this
   // function, we create an entry inside the initMap and split the
@@ -92,6 +113,11 @@ void createInitState(PatternRewriter &rewriter, Location loc, Operation *op) {
   }
 }
 
+bool containingFunctionHasInitBlock(Operation *op) {
+  FuncOp function = getContainingFunction(op);
+  return initMap.count(function) > 0;
+}
+
 Block *getInitBlock(FuncOp function) {
   assert(initMap.count(function) > 0 &&
       "Initialization state not defined for this function.");
@@ -113,8 +139,9 @@ BranchOp getInitInsertionPoint(FuncOp function) {
 /// Check if all operands used for allocating the size of the result are
 /// in the initialization block (i.e. initBlock).
 bool operandsInInitOrArgList(FuncOp function, ArrayRef<Value> operands) {
-  assert(initMap.count(function) > 0 &&
-      "Initialization state not defined for this function.");
+  // If no initialization block exists then alloc cannot be moved.
+  if (initMap.count(function) == 0)
+    return false;
 
   bool allInitOrArg = true;
   for (int i = 0; i < operands.size(); i++) {
@@ -127,6 +154,9 @@ bool operandsInInitOrArgList(FuncOp function, ArrayRef<Value> operands) {
 
 /// Add operand to list of operands in the init block.
 void markOperandInInitBlock(FuncOp function, Value operand) {
+  // Check if function is valid. At this point it has to be.
+  assert(function && "Attempt to add operand when function is null.");
+  // A valid function must have an initialization state.
   assert(initMap.count(function) > 0 &&
       "Initialization state not defined for this function.");
   initMap[function].operandsInInitBlock.insert(operand);
@@ -136,20 +166,20 @@ void markOperandInInitBlock(FuncOp function, Value operand) {
 Value insertAllocAndDeallocWithFunction(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, FuncOp function,
     ArrayRef<Value> operands, int64_t alignment) {
-  assert(getInitInsertionPoint(function) && "Init insertion point is null.");
-
+  // Put together alloc operands for any dynamic dimensions of the memref.
   // Save insertion point in case we need to change it to the initBlock.
   PatternRewriter::InsertionGuard insertGuard(rewriter);
 
-  // Check if all operands are in the init region or are input arguments.
-  bool allOperandsAreInInitBlock = operandsInInitOrArgList(function, operands);
+  // Check if all operands of the alloc are in the init region or are input
+  // arguments. If some of them are not or there is no init block, this
+  // variable will be false.
+  bool canMove = operandsInInitOrArgList(function, operands);
 
-  // Set insertion point at the end of the initialization block just before
-  // the branch instruction.
-  if (allOperandsAreInInitBlock)
+  // If a legal move to the init bloack is possible, tet insertion point
+  // at the end of the initialization block just before the branch instruction.
+  if (canMove)
     rewriter.setInsertionPoint(getInitInsertionPoint(function));
 
-  // Put together alloc operands for any dynamic dimensions of the memref.
   AllocOp alloc;
   if (!operands.empty()) {
     auto memRefShape = type.getShape();
@@ -199,6 +229,11 @@ Value insertAllocAndDeallocWithFunction(MemRefType type, Location loc,
     } else {
       alloc = rewriter.create<AllocOp>(loc, type, allocOperands);
     }
+
+    // If the alloc was emitted inside the initializatin block then mark add
+    // it to the set of values emitted in the initialization block.
+    if (canMove)
+      markOperandInInitBlock(function, alloc.getResult());
   } else {
     // Set alignment attribute. Default value is `-1`, which does not set
     // alignment.
@@ -212,19 +247,34 @@ Value insertAllocAndDeallocWithFunction(MemRefType type, Location loc,
     }
   }
 
-  // If the alloc was emitted inside the initializatin block then mark add
-  // it to the set of values emitted in the initialization block.
-  if (allOperandsAreInInitBlock)
-    markOperandInInitBlock(function, alloc.getResult());
-
   // Make sure to allocate at the beginning of the block if
   // all dimensions are known.
-  if (hasAllConstantDimensions(type))
-    alloc.getOperation()->moveBefore(&getInitBlock(function)->front());
+  auto *parentBlock = alloc.getOperation()->getBlock();
+  if (hasAllConstantDimensions(type)) {
+    // Check if this move is a move to the init block or to the top of the
+    // function without an init block. For the case in which all dimensions
+    // are constant, the `canMove` variable will be false if there is no
+    // init block.
+    if (canMove) {
+      // The alloc was emitted in the init block already so just record
+      // that this value is not available in the init block.
+      // alloc.getOperation()->moveBefore(&getInitBlock(function)->front());
+      markOperandInInitBlock(function, alloc.getResult());
+    } else {
+      // No init block exists in this case so just move it as before.
+      alloc.getOperation()->moveBefore(&parentBlock->front());
+    }
+  }
 
   if (insertDealloc) {
     auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
-    dealloc.getOperation()->moveBefore(&getMainBlock(function)->back());
+    // Move dealloc to the end of the main block if such a block exists.
+    if (canMove) {
+      dealloc.getOperation()->moveBefore(&getMainBlock(function)->back());
+    } else {
+      // If no main block exists, move to parent block.
+      dealloc.getOperation()->moveBefore(&parentBlock->back());
+    }
   }
 
   return alloc;
@@ -234,7 +284,7 @@ Value insertAllocAndDeallocWithFunction(MemRefType type, Location loc,
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, Operation *op,
     ArrayRef<Value> operands, int64_t alignment) {
-  FuncOp function = cast<FuncOp>(op->getParentOp());
+  FuncOp function = getContainingFunction(op);
 
   return insertAllocAndDeallocWithFunction(type, loc, rewriter,
       insertDealloc, function, operands, alignment);
@@ -579,10 +629,10 @@ int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
 }
 
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
-  auto parentBlock = allocOp->getOperation()->getBlock();
+  FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsUsedInGetRef = false;
-  parentBlock->walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
+  function.walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
     auto result = allocOp->getResult();
     for (const auto &operand : op.getOperands())
       if (operand == result)
