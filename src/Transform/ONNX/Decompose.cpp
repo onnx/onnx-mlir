@@ -24,6 +24,24 @@
 using namespace mlir;
 
 namespace {
+ 
+// Create an DenseElementsAttr of ArrayAttr.
+// This function is used to get Value Type for Scaler function.
+DenseElementsAttr createDenseArrayAttr(
+    PatternRewriter &rewriter, ArrayAttr origAttrs) {
+  mlir::Type elementType = rewriter.getF32Type();
+  int nElements = origAttrs.getValue().size();
+  SmallVector<float, 4> wrapper(nElements, 0);
+  if (origAttrs) {
+    for (int i = 0; i < nElements; ++i) {
+      wrapper[i] = origAttrs.getValue()[i].cast<FloatAttr>().getValueAsDouble();
+    }
+  }
+  return DenseElementsAttr::get(
+      RankedTensorType::get(wrapper.size(), elementType),
+      llvm::makeArrayRef(wrapper));
+}
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXDecompose.inc"
 
@@ -60,4 +78,14 @@ void DecomposeONNXToONNXPass::runOnFunction() {
  */
 std::unique_ptr<mlir::Pass> mlir::createDecomposeONNXToONNXPass() {
   return std::make_unique<DecomposeONNXToONNXPass>();
+}
+
+/// on the ONNXScalerOp.
+void ONNXScalerOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &result, MLIRContext *context) {
+  result.insert<ScalerNullPattern>(context);
+  result.insert<ScalerNullPattern2>(context);
+  result.insert<ScalerNoScalePattern>(context);
+  result.insert<ScalerNoOffsetPattern>(context);
+  result.insert<ScalerPattern>(context);
 }
