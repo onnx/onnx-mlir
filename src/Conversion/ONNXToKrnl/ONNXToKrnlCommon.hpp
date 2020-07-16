@@ -53,7 +53,7 @@ typedef struct ONNXOperandsInitState {
   ~ONNXOperandsInitState() { delete operandsInInitBlock; }
 } ONNXOperandsInitState;
 
-static std::map<FuncOp, ONNXOperandsInitState*> initMap;
+static std::map<FuncOp, ONNXOperandsInitState *> initMap;
 
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.

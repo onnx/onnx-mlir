@@ -34,7 +34,8 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     assert((axis >= 0 && axis < rank) && "Concat axis out of bounds");
 
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else
       alloc = insertAllocAndDealloc(
           memRefType, loc, rewriter, insertDealloc, op, {resultOperand});
