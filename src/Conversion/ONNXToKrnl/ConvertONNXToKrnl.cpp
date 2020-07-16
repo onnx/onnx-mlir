@@ -34,6 +34,40 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
+// FuncOp lowering to Function with init and main blocks.
+//===----------------------------------------------------------------------===//
+
+struct FuncOpSignatureConversion : public OpConversionPattern<FuncOp> {
+  FuncOpSignatureConversion(MLIRContext *ctx, TypeConverter &converter)
+      : OpConversionPattern(converter, ctx) {}
+
+  /// Hook for derived classes to implement combined matching and rewriting.
+  LogicalResult
+  matchAndRewrite(FuncOp funcOp, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const override {
+    FunctionType type = funcOp.getType();
+
+    // Convert the original function types.
+    TypeConverter::SignatureConversion result(type.getNumInputs());
+    SmallVector<Type, 1> newResults;
+    if (failed(typeConverter->convertSignatureArgs(type.getInputs(), result)) ||
+        failed(typeConverter->convertTypes(type.getResults(), newResults)) ||
+        failed(rewriter.convertRegionTypes(&funcOp.getBody(), *typeConverter,
+                                           &result)))
+      return failure();
+
+    addInitBlock(rewriter, funcOp.getLoc(), funcOp);
+
+    // Update the function signature in-place.
+    rewriter.updateRootInPlace(funcOp, [&] {
+      funcOp.setType(FunctionType::get(result.getConvertedTypes(), newResults,
+                                       funcOp.getContext()));
+    });
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Frontend to Krnl Dialect lowering pass
 //===----------------------------------------------------------------------===//
 
@@ -47,6 +81,9 @@ struct FrontendToKrnlLoweringPass
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
+
+  // // Create a new initMap
+  // initMap = new llvm::DenseMap<FuncOp, ONNXOperandsInitState*>();
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -76,11 +113,11 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     return tensor_to_memref_converter.isSignatureLegal(op.getType());
   });
 
-  // Type conversion for function signatures.
-  // Call MLIR FuncOp signature conversion when result type is
-  // a ranked tensor.
-  populateFuncOpTypeConversionPattern(
-      patterns, &getContext(), tensor_to_memref_converter);
+  // // Type conversion for function signatures.
+  // // Call MLIR FuncOp signature conversion when result type is
+  // // a ranked tensor.
+  // populateFuncOpTypeConversionPattern(
+  //     patterns, &getContext(), tensor_to_memref_converter);
 
   // Frontend operation lowering.
   // Math
@@ -108,12 +145,16 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXLSTMOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
+  patterns.insert<FuncOpSignatureConversion>(
+      &getContext(), tensor_to_memref_converter);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
   // operations were not converted successfully.
   if (failed(applyPartialConversion(module, target, patterns)))
     signalPassFailure();
+
+  initMap.clear();
 }
 
 std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {

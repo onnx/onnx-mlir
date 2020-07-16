@@ -23,9 +23,6 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     Value data = operandAdaptor.data();
     auto inputShape = data.getType().cast<MemRefType>().getShape();
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto memRefShape = memRefType.getShape();

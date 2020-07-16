@@ -37,9 +37,6 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     auto mean = operandAdaptor.mean();
     auto variance = operandAdaptor.var();
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);

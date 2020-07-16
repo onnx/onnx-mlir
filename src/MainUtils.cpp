@@ -378,6 +378,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerToKrnlPass());
+  pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createPackKrnlGlobalConstantsPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization

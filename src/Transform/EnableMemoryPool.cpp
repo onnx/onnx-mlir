@@ -81,15 +81,8 @@ public:
 
     // Emit new dealloc.
     auto dealloc = rewriter.create<DeallocOp>(loc, newAlloc);
-
-    Operation *op = allocOp.getOperation();
-    FuncOp function = getContainingFunction(op);
-    if (containingFunctionHasInitBlock(op)) {
-      dealloc.getOperation()->moveBefore(&getMainBlock(function)->back());
-    } else {
-      auto parentBlock = allocOp.getOperation()->getBlock();
-      dealloc.getOperation()->moveBefore(&parentBlock->back());
-    }
+    auto parentBlock = allocOp.getOperation()->getBlock();
+    dealloc.getOperation()->moveBefore(&parentBlock->back());
 
     // Get reference to local MemRef.
     auto zero = rewriter.create<ConstantOp>(

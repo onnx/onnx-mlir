@@ -35,9 +35,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto biasOperand = operandAdaptor.B();
     bool hasBias = !biasOperand.getType().isa<NoneType>();
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else

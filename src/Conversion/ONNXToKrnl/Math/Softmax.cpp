@@ -33,9 +33,6 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     auto elementType = memRefType.getElementType();
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType))

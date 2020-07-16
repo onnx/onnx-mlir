@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --lower-frontend --enable-memory-pool --bundle-memory-pools --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --lower-frontend --canonicalize --enable-memory-pool --bundle-memory-pools --canonicalize %s -split-input-file | FileCheck %s
 
 func @test_bundle_memory_pool(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf32>) -> tensor<10x20xf32> {
   %0 = "onnx.Add"(%arg0, %arg0) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
@@ -10,19 +10,19 @@ func @test_bundle_memory_pool(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf32>
   return %5 : tensor<10x20xf32>
 
   // CHECK-LABEL: test_bundle_memory_pool
-  // CHECK: [[CONST0:%.+]] = constant 0 : i64
   // CHECK: [[CONST00:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[CONST800:%.+]] = constant 800 : i64
+  // CHECK: [[CONST0:%.+]] = constant 0 : i64
+  // CHECK: [[CONST400:%.+]] = constant 400 : i64
   // CHECK: [[CONST1200:%.+]] = constant 1200 : i64
   // CHECK: [[CONST2000:%.+]] = constant 2000 : i64
-  // CHECK: [[CONST2800:%.+]] = constant 2800 : i64
-  // CHECK: [[MEMPOOL:%.+]] = alloc() : memref<3200xi8>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST2800]]) : (memref<3200xi8>, i64) -> memref<10x10xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST2000]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST1200]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST800]]) : (memref<3200xi8>, i64) -> memref<10x10xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST0]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
+  // CHECK: [[CONST2400:%.+]] = constant 2400 : i64
   // CHECK: [[RES:%.+]] = alloc() : memref<10x20xf32>
+  // CHECK: [[MEMPOOL:%.+]] = alloc() : memref<3200xi8>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST2400]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST2000]]) : (memref<3200xi8>, i64) -> memref<10x10xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST1200]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST400]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST0]]) : (memref<3200xi8>, i64) -> memref<10x10xf32>
   // CHECK: dealloc [[MEMPOOL]] : memref<3200xi8>
   // CHECK: return [[RES]] : memref<10x20xf32>
 }

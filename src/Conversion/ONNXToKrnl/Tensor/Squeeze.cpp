@@ -34,9 +34,6 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
       axes.emplace_back(axis);
     }
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     // Insert an allocation and deallocation for the result of this operation,
     // and compute the output tensor's size in bytes.
     Value alloc, tensorSize;

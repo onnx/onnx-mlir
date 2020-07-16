@@ -41,9 +41,6 @@ struct ONNXPadOpLowering : public ConversionPattern {
 
     auto memRefType = convertToMemRefType(tensorType);
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
 

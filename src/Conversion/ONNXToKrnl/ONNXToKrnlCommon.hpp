@@ -19,7 +19,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/SetVector.h"
 
@@ -44,10 +44,18 @@ typedef struct ONNXOperandsInitState {
   Block *initBlock;
   Block *mainBlock;
   BranchOp branchInit;
-  llvm::SetVector<Value> operandsInInitBlock;
+  llvm::SetVector<Value> *operandsInInitBlock;
+
+  ONNXOperandsInitState() {
+    operandsInInitBlock = new llvm::SetVector<Value>();
+  }
+
+  ~ONNXOperandsInitState() {
+    delete operandsInInitBlock;
+  }
 } ONNXOperandsInitState;
 
-static llvm::MapVector<FuncOp, ONNXOperandsInitState> initMap;
+static std::map<FuncOp, ONNXOperandsInitState*> initMap;
 
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
@@ -69,7 +77,8 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 
 Value insertAllocAndDeallocWithFunction(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, FuncOp function,
-    ArrayRef<Value> operands = {}, int64_t alignment = -1);
+    bool functionLevelAlloc, ArrayRef<Value> operands = {},
+    int64_t alignment = -1);
 
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
@@ -273,7 +282,7 @@ int64_t getMemRefSizeInBytes(Value val);
 
 FuncOp getContainingFunction(Operation *op);
 
-void createInitState(PatternRewriter &rewriter, Location loc, Operation *op);
+void addInitBlock(PatternRewriter &rewriter, Location loc, FuncOp op);
 
 bool containingFunctionHasInitBlock(Operation *op);
 
@@ -283,6 +292,7 @@ Block *getMainBlock(FuncOp function);
 
 BranchOp getInitInsertionPoint(FuncOp function);
 
-bool operandsInInitOrArgList(FuncOp function, ArrayRef<Value> operands);
+bool checkAllocMovable(FuncOp function, bool functionLevelAlloc,
+    ArrayRef<Value> operands);
 
 void markOperandInInitBlock(FuncOp function, Value operand);

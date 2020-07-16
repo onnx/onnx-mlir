@@ -168,7 +168,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     auto yMemRefType = convertToMemRefType(op->Y().getType());
     if (hasAllConstantDimensions(yMemRefType))
       state.allH = insertAllocAndDeallocWithFunction(yMemRefType, loc, rewriter,
-          checkInsertDealloc(op->getOperation(), 0), function);
+          checkInsertDealloc(op->getOperation(), 0), function, true);
     else {
       llvm_unreachable("Unsupported dynamic dimensions.");
     }
@@ -181,7 +181,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     auto yhMemRefType = convertToMemRefType(op->Y_h().getType());
     if (hasAllConstantDimensions(yhMemRefType))
       state.ht = insertAllocAndDeallocWithFunction(yhMemRefType, loc, rewriter,
-          checkInsertDealloc(op->getOperation(), 1), function);
+          checkInsertDealloc(op->getOperation(), 1), function, true);
     else
       llvm_unreachable("Unsupported dynamic dimensions.");
   } else {
@@ -189,7 +189,8 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
         {dimAt(operandAdaptor.W(), 0), dimAt(operandAdaptor.X(), 1),
             dimAt(operandAdaptor.R(), 2)},
         operandAdaptor.X().getType().cast<ShapedType>().getElementType());
-    state.ht = insertAllocAndDeallocWithFunction(yhMemRefType, loc, rewriter, true, function);
+    state.ht = insertAllocAndDeallocWithFunction(
+        yhMemRefType, loc, rewriter, true, function, true);
   }
 
   // Y_c :: [num_directions, batch_size, hidden_size]
@@ -197,7 +198,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     auto ycMemRefType = convertToMemRefType(op->Y_c().getType());
     if (hasAllConstantDimensions(ycMemRefType))
       state.ct = insertAllocAndDeallocWithFunction(ycMemRefType, loc, rewriter,
-          checkInsertDealloc(op->getOperation(), 2), function);
+          checkInsertDealloc(op->getOperation(), 2), function, true);
     else
       llvm_unreachable("Unsupported dynamic dimensions.");
   } else {
@@ -205,7 +206,8 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
         {dimAt(operandAdaptor.W(), 0), dimAt(operandAdaptor.X(), 1),
             dimAt(operandAdaptor.R(), 2)},
         operandAdaptor.X().getType().cast<ShapedType>().getElementType());
-    state.ct = insertAllocAndDeallocWithFunction(ycMemRefType, loc, rewriter, true, function);
+    state.ct = insertAllocAndDeallocWithFunction(
+        ycMemRefType, loc, rewriter, true, function, true);
   }
 
   // Initialize ht and ct.

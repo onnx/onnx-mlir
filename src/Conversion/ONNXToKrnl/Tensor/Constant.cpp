@@ -25,9 +25,6 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     if (constantOp.sparse_value().hasValue())
       return emitError(loc, "Only support dense values at this time");
 

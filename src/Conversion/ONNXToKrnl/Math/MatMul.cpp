@@ -39,9 +39,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // A value zero
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
@@ -50,8 +47,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     else {
       PatternRewriter::InsertionGuard insertGuard(rewriter);
       FuncOp function = getContainingFunction(op);
-      bool allOperandsAreInInitBlock = operandsInInitOrArgList(function, {A, B});
-      if (allOperandsAreInInitBlock)
+      bool functionLevelAlloc = (op->getParentOp() == function);
+      bool canMove = checkAllocMovable(function, functionLevelAlloc, {A, B});
+      if (canMove)
         rewriter.setInsertionPoint(getInitInsertionPoint(function));
 
       SmallVector<Value, 4> allocOperands;
@@ -118,7 +116,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
       alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
 
-      if (allOperandsAreInInitBlock)
+      if (canMove)
         markOperandInInitBlock(function, alloc);
     }
 

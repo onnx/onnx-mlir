@@ -508,9 +508,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     // If the output has a dynamic dimension, pass the operands required for
     // each dynamic dimension to the AllocOp. The first operand of the
     // operation is used. The operands of the op need to match in terms of
@@ -568,9 +565,6 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
-
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
 
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);

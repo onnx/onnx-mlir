@@ -155,9 +155,6 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     std::map<int64_t, int64_t> outInDimMap =
         getReductionMapping(memRefInType, axes, isKeepdims);
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);

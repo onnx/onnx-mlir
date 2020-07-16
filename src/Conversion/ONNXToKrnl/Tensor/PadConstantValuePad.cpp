@@ -33,9 +33,6 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(tensorType);
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
 

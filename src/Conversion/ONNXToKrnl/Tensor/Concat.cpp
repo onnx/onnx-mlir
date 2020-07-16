@@ -21,9 +21,6 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     // Gather info.
     auto loc = op->getLoc();
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     ONNXConcatOp concatOp = llvm::dyn_cast<ONNXConcatOp>(op);

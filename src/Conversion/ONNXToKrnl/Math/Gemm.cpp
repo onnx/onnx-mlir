@@ -42,9 +42,6 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     bool isTransA = (llvm::dyn_cast<GemmOp>(op).transA() != 0);
     bool isTransB = (llvm::dyn_cast<GemmOp>(op).transB() != 0);
 
-    // Create init block if this is the first operation in the function.
-    createInitState(rewriter, loc, op);
-
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
