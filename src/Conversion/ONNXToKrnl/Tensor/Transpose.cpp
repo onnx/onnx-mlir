@@ -28,7 +28,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     Value data = operandAdaptor.data();
 
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else
       alloc = insertAllocAndDealloc(
           memRefType, loc, rewriter, insertDealloc, op, {data});

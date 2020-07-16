@@ -90,13 +90,14 @@ void addInitBlock(PatternRewriter &rewriter, Location loc, FuncOp function) {
 
     // Insert a branch operation from initBlock to mainBlock. This
     // ensures the final code contains legal blocks.
-    initState->branchInit = rewriter.create<BranchOp>(loc, initState->mainBlock);
+    initState->branchInit =
+        rewriter.create<BranchOp>(loc, initState->mainBlock);
 
     // Set insertion point to start of mainBlock.
     rewriter.setInsertionPointToStart(initState->mainBlock);
 
     initMap.insert(
-        std::pair<FuncOp, ONNXOperandsInitState*>(function, initState));
+        std::pair<FuncOp, ONNXOperandsInitState *>(function, initState));
   }
 }
 
@@ -107,26 +108,26 @@ bool containingFunctionHasInitBlock(Operation *op) {
 
 Block *getInitBlock(FuncOp function) {
   assert(initMap.count(function) > 0 &&
-      "Initialization state not defined for this function.");
+         "Initialization state not defined for this function.");
   return initMap[function]->initBlock;
 }
 
 Block *getMainBlock(FuncOp function) {
   assert(initMap.count(function) > 0 &&
-      "Initialization state not defined for this function.");
+         "Initialization state not defined for this function.");
   return initMap[function]->mainBlock;
 }
 
 BranchOp getInitInsertionPoint(FuncOp function) {
   assert(initMap.count(function) > 0 &&
-      "Initialization state not defined for this function.");
+         "Initialization state not defined for this function.");
   return initMap[function]->branchInit;
 }
 
 /// Check if all operands used for allocating the size of the result are
 /// in the initialization block (i.e. initBlock).
-bool checkAllocMovable(FuncOp function, bool functionLevelAlloc,
-    ArrayRef<Value> operands) {
+bool checkAllocMovable(
+    FuncOp function, bool functionLevelAlloc, ArrayRef<Value> operands) {
   // If no initialization block exists then alloc cannot be moved.
   if (initMap.count(function) == 0)
     return false;
@@ -150,7 +151,7 @@ void markOperandInInitBlock(FuncOp function, Value operand) {
   assert(function && "Attempt to add operand when function is null.");
   // A valid function must have an initialization state.
   assert(initMap.count(function) > 0 &&
-      "Initialization state not defined for this function.");
+         "Initialization state not defined for this function.");
   initMap[function]->operandsInInitBlock->insert(operand);
 }
 
@@ -284,8 +285,8 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
     printf("This is not a function level alloc!\n");
   }
 
-  return insertAllocAndDeallocWithFunction(type, loc, rewriter,
-      insertDealloc, function, functionLevelAlloc, operands, alignment);
+  return insertAllocAndDeallocWithFunction(type, loc, rewriter, insertDealloc,
+      function, functionLevelAlloc, operands, alignment);
 }
 
 // Determine if current function returns the result value of the

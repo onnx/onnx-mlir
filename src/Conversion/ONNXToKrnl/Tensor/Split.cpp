@@ -40,7 +40,8 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       auto memRefType = convertToMemRefType(splitOp.outputs()[i].getType());
 
       if (hasAllConstantDimensions(memRefType))
-        alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+        alloc =
+            insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
       else {
         SmallVector<Value, 4> allocOperands;
         auto shape = memRefType.getShape();

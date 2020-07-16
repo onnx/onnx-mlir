@@ -50,9 +50,7 @@ typedef struct ONNXOperandsInitState {
     operandsInInitBlock = new llvm::SetVector<Value>();
   }
 
-  ~ONNXOperandsInitState() {
-    delete operandsInInitBlock;
-  }
+  ~ONNXOperandsInitState() { delete operandsInInitBlock; }
 } ONNXOperandsInitState;
 
 static std::map<FuncOp, ONNXOperandsInitState*> initMap;
@@ -292,7 +290,7 @@ Block *getMainBlock(FuncOp function);
 
 BranchOp getInitInsertionPoint(FuncOp function);
 
-bool checkAllocMovable(FuncOp function, bool functionLevelAlloc,
-    ArrayRef<Value> operands);
+bool checkAllocMovable(
+    FuncOp function, bool functionLevelAlloc, ArrayRef<Value> operands);
 
 void markOperandInInitBlock(FuncOp function, Value operand);

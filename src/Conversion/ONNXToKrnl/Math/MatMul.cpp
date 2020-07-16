@@ -43,7 +43,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else {
       PatternRewriter::InsertionGuard insertGuard(rewriter);
       FuncOp function = getContainingFunction(op);

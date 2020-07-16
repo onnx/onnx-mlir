@@ -44,7 +44,8 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
     bool insertDealloc = checkInsertDealloc(op);
     auto memRefShape = memRefType.getShape();
     if (hasAllConstantDimensions(memRefType)) {
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
       for (int i = 0; i < memRefShape.size(); ++i) {
         Value dimVal = emitConstantOp(
             rewriter, loc, rewriter.getIntegerType(64), memRefShape[i]);

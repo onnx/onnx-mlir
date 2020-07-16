@@ -518,10 +518,11 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     bool insertDealloc = checkInsertDealloc(op);
 
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
-    else
       alloc =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op, {X});
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+    else
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, op, {X});
 
     SmallVector<Value, 4> loopIVs;
     if (!hasAllScalarValues(operands)) {
@@ -574,7 +575,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // comes from.
     // TODO: can the dimension of the result differ after optimizations?
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else
       alloc = insertAllocAndDealloc(
           memRefType, loc, rewriter, insertDealloc, op, operands);

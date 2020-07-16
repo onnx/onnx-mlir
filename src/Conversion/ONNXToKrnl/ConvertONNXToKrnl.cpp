@@ -42,9 +42,8 @@ struct FuncOpSignatureConversion : public OpConversionPattern<FuncOp> {
       : OpConversionPattern(converter, ctx) {}
 
   /// Hook for derived classes to implement combined matching and rewriting.
-  LogicalResult
-  matchAndRewrite(FuncOp funcOp, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(FuncOp funcOp, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
     FunctionType type = funcOp.getType();
 
     // Convert the original function types.
@@ -52,16 +51,16 @@ struct FuncOpSignatureConversion : public OpConversionPattern<FuncOp> {
     SmallVector<Type, 1> newResults;
     if (failed(typeConverter->convertSignatureArgs(type.getInputs(), result)) ||
         failed(typeConverter->convertTypes(type.getResults(), newResults)) ||
-        failed(rewriter.convertRegionTypes(&funcOp.getBody(), *typeConverter,
-                                           &result)))
+        failed(rewriter.convertRegionTypes(
+            &funcOp.getBody(), *typeConverter, &result)))
       return failure();
 
     addInitBlock(rewriter, funcOp.getLoc(), funcOp);
 
     // Update the function signature in-place.
     rewriter.updateRootInPlace(funcOp, [&] {
-      funcOp.setType(FunctionType::get(result.getConvertedTypes(), newResults,
-                                       funcOp.getContext()));
+      funcOp.setType(FunctionType::get(
+          result.getConvertedTypes(), newResults, funcOp.getContext()));
     });
     return success();
   }
@@ -81,9 +80,6 @@ struct FrontendToKrnlLoweringPass
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
-
-  // // Create a new initMap
-  // initMap = new llvm::DenseMap<FuncOp, ONNXOperandsInitState*>();
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -112,12 +108,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     // FuncOp is legal only if types have been converted to Std types.
     return tensor_to_memref_converter.isSignatureLegal(op.getType());
   });
-
-  // // Type conversion for function signatures.
-  // // Call MLIR FuncOp signature conversion when result type is
-  // // a ranked tensor.
-  // populateFuncOpTypeConversionPattern(
-  //     patterns, &getContext(), tensor_to_memref_converter);
 
   // Frontend operation lowering.
   // Math

@@ -37,7 +37,8 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
     bool insertDealloc = checkInsertDealloc(op);
 
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else
       return emitError(loc, "unexpected output has non-Constant shape");
 
