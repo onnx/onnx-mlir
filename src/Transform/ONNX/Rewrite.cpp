@@ -20,7 +20,8 @@ namespace {
 
 // Create an DenseElementsAttr of ArrayAttr.
 // This function is used to get Value Type for Scaler function.
-DenseElementsAttr createDenseArrayAttr(PatternRewriter &rewriter, ArrayAttr origAttrs) {
+DenseElementsAttr createDenseArrayAttr(
+    PatternRewriter &rewriter, ArrayAttr origAttrs) {
   mlir::Type elementType = rewriter.getF32Type();
   int nElements = origAttrs.getValue().size();
   SmallVector<float, 4> wrapper(nElements, 0);
