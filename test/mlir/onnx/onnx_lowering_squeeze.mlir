@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --lower-frontend %s | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --lower-frontend %s -split-input-file | FileCheck %s
 
 func @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.Squeeze"(%arg0) { axes = [1, -2]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)

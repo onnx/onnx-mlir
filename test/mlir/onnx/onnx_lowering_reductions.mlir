@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --lower-frontend %s | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --lower-frontend %s -split-input-file | FileCheck %s
 
 func @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMax"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
@@ -22,6 +22,8 @@ func @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<3x2xf32>
 }
 
+// -----
+
 func @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMin"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -44,6 +46,8 @@ func @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<3x2xf32>
 }
 
+// -----
+
 func @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceProd"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -64,6 +68,8 @@ func @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: }
   // CHECK: return [[RES]] : memref<3x2xf32>
 }
+
+// -----
 
 func @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceSum"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>

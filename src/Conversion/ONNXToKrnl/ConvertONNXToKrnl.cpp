@@ -55,13 +55,12 @@ struct FuncOpSignatureConversion : public OpConversionPattern<FuncOp> {
             &funcOp.getBody(), *typeConverter, &result)))
       return failure();
 
-    addInitBlock(rewriter, funcOp.getLoc(), funcOp);
-
     // Update the function signature in-place.
     rewriter.updateRootInPlace(funcOp, [&] {
       funcOp.setType(FunctionType::get(
           result.getConvertedTypes(), newResults, funcOp.getContext()));
     });
+    addInitBlock(rewriter, funcOp.getLoc(), funcOp);
     return success();
   }
 };
@@ -80,6 +79,11 @@ struct FrontendToKrnlLoweringPass
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
+
+  // Create an entry for this module
+  FunctionToInitStates *initStates = new FunctionToInitStates();
+  initMap.insert(
+      std::pair<ModuleOp, FunctionToInitStates *>(module, initStates));
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -144,7 +148,13 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   if (failed(applyPartialConversion(module, target, patterns)))
     signalPassFailure();
 
-  initMap.clear();
+  // Once all the functions in the module have been lowered, the initMap
+  // data structure can be cleared and the composing states deallocated.
+  for (auto it = initStates->begin(); it != initStates->end(); ++it) {
+    delete it->second;
+  }
+  delete initStates;
+  initMap.erase(module);
 }
 
 std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {

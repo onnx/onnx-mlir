@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --lower-frontend %s | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --lower-frontend %s -split-input-file | FileCheck %s
 
 // -----
 

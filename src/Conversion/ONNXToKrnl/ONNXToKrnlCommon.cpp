@@ -11,6 +11,8 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
+std::map<ModuleOp, FunctionToInitStates *> initMap;
+
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType type) {
   auto memRefShape = type.getShape();
@@ -69,7 +71,9 @@ void addInitBlock(PatternRewriter &rewriter, Location loc, FuncOp function) {
   //
   // Note: the block ^bb0 being the first block has its label omitted.
   //
-  if (initMap.count(function) == 0) {
+  ModuleOp module = cast<ModuleOp>(function.getParentOp());
+  FunctionToInitStates *initStates = initMap[module];
+  if (initStates->count(function) == 0) {
     ONNXOperandsInitState *initState = new ONNXOperandsInitState();
 
     // All input arguments are considered as part of the initialization block
@@ -96,32 +100,40 @@ void addInitBlock(PatternRewriter &rewriter, Location loc, FuncOp function) {
     // Set insertion point to start of mainBlock.
     rewriter.setInsertionPointToStart(initState->mainBlock);
 
-    initMap.insert(
+    initStates->insert(
         std::pair<FuncOp, ONNXOperandsInitState *>(function, initState));
   }
 }
 
 bool containingFunctionHasInitBlock(Operation *op) {
   FuncOp function = getContainingFunction(op);
-  return initMap.count(function) > 0;
+  ModuleOp module = cast<ModuleOp>(function.getParentOp());
+  FunctionToInitStates initStates = *initMap[module];
+  return initStates.count(function) > 0;
 }
 
 Block *getInitBlock(FuncOp function) {
-  assert(initMap.count(function) > 0 &&
+  ModuleOp module = cast<ModuleOp>(function.getParentOp());
+  FunctionToInitStates initStates = *initMap[module];
+  assert(initStates.count(function) > 0 &&
          "Initialization state not defined for this function.");
-  return initMap[function]->initBlock;
+  return initStates[function]->initBlock;
 }
 
 Block *getMainBlock(FuncOp function) {
-  assert(initMap.count(function) > 0 &&
+  ModuleOp module = cast<ModuleOp>(function.getParentOp());
+  FunctionToInitStates initStates = *initMap[module];
+  assert(initStates.count(function) > 0 &&
          "Initialization state not defined for this function.");
-  return initMap[function]->mainBlock;
+  return initStates[function]->mainBlock;
 }
 
 BranchOp getInitInsertionPoint(FuncOp function) {
-  assert(initMap.count(function) > 0 &&
+  ModuleOp module = cast<ModuleOp>(function.getParentOp());
+  FunctionToInitStates initStates = *initMap[module];
+  assert(initStates.count(function) > 0 &&
          "Initialization state not defined for this function.");
-  return initMap[function]->branchInit;
+  return initStates[function]->branchInit;
 }
 
 /// Check if all operands used for allocating the size of the result are
@@ -129,7 +141,9 @@ BranchOp getInitInsertionPoint(FuncOp function) {
 bool checkAllocMovable(
     FuncOp function, bool functionLevelAlloc, ArrayRef<Value> operands) {
   // If no initialization block exists then alloc cannot be moved.
-  if (initMap.count(function) == 0)
+  ModuleOp module = cast<ModuleOp>(function.getParentOp());
+  FunctionToInitStates initStates = *initMap[module];
+  if (initStates.count(function) == 0)
     return false;
 
   // If the alloc is not function level alloc then it cannot be moved.
@@ -138,7 +152,7 @@ bool checkAllocMovable(
 
   bool allInitOrArg = true;
   for (int i = 0; i < operands.size(); i++) {
-    if (initMap[function]->operandsInInitBlock->count(operands[i]) == 0)
+    if (initStates[function]->operandsInInitBlock->count(operands[i]) == 0)
       allInitOrArg = false;
   }
 
@@ -149,10 +163,12 @@ bool checkAllocMovable(
 void markOperandInInitBlock(FuncOp function, Value operand) {
   // Check if function is valid. At this point it has to be.
   assert(function && "Attempt to add operand when function is null.");
+  ModuleOp module = cast<ModuleOp>(function.getParentOp());
+  FunctionToInitStates initStates = *initMap[module];
   // A valid function must have an initialization state.
-  assert(initMap.count(function) > 0 &&
+  assert(initStates.count(function) > 0 &&
          "Initialization state not defined for this function.");
-  initMap[function]->operandsInInitBlock->insert(operand);
+  initStates[function]->operandsInInitBlock->insert(operand);
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.
