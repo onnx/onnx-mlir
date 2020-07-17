@@ -81,9 +81,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
   // Create an entry for this module
-  FunctionToInitStates *initStates = new FunctionToInitStates();
   initMap.insert(
-      std::pair<ModuleOp, FunctionToInitStates *>(module, initStates));
+      std::pair<ModuleOp, std::unique_ptr<FunctionToInitStates>>(
+          module, std::make_unique<FunctionToInitStates>()));
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -148,12 +148,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   if (failed(applyPartialConversion(module, target, patterns)))
     signalPassFailure();
 
-  // Once all the functions in the module have been lowered, the initMap
-  // data structure can be cleared and the composing states deallocated.
-  for (auto it = initStates->begin(); it != initStates->end(); ++it) {
-    delete it->second;
-  }
-  delete initStates;
   initMap.erase(module);
 }
 
