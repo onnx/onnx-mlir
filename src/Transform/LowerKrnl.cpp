@@ -34,7 +34,7 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
   auto operandItr =
       iterateOp.operand_begin() + iterateOp.getNumOptimizedLoops();
   for (size_t boundIdx = 0; boundIdx < boundMapAttrs.size(); boundIdx += 2) {
-    // Consume input loop operand, currently do not do anything with it.
+    // Consume input loop operand, at this stage, do not do anything with it.
     auto unoptimizedLoopRef = *(operandItr++);
 
     // Organize operands into lower/upper bounds in affine.for ready formats.
@@ -49,10 +49,9 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
           operands.end(), operandItr, operandItr + map.getNumInputs());
       std::advance(operandItr, map.getNumInputs());
     }
-    currentNestedForOps.emplace_back(std::make_pair(
-        unoptimizedLoopRef, builder.create<AffineForOp>(iterateOp.getLoc(),
-                                lbOperands, lbMap, ubOperands, ubMap)));
-
+    auto forOp = builder.create<AffineForOp>(
+        iterateOp.getLoc(), lbOperands, lbMap, ubOperands, ubMap);
+    currentNestedForOps.emplace_back(std::make_pair(unoptimizedLoopRef, forOp));
     builder.setInsertionPoint(currentNestedForOps.back().second.getBody(),
         currentNestedForOps.back().second.getBody()->begin());
   }
@@ -85,27 +84,13 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     auto innermostForOp = currentNestedForOps.back().second;
     innermostForOp.region().getBlocks().clear();
     auto &innerMostRegion = innermostForOp.region();
-
-    // Convert Krnl Terminator to Affine Terminator.
-    for (auto &block : iterateOp.bodyRegion().getBlocks()) {
-      auto krnlTerm = block.getOps<KrnlTerminatorOp>();
-      if (!krnlTerm.empty()) {
-        KrnlTerminatorOp termOp = *krnlTerm.begin();
-        //        builder.setInsertionPoint(termOp);
-        //        builder.create<AffineTerminatorOp>(iterateOp.getLoc());
-        termOp.erase();
-      }
-    }
-
-    AffineForOp::ensureTerminator(
-        iterateOp.bodyRegion(), builder, iterateOp.getLoc());
     innerMostRegion.getBlocks().splice(
         innerMostRegion.end(), iterateOp.bodyRegion().getBlocks());
   }
 
   iterateOp.erase();
   for (const auto &pair : currentNestedForOps)
-    refToOps[pair.first] = pair.second;
+    refToOps.try_emplace(pair.first, pair.second);
 }
 
 //===----------------------------------------------------------------------===//
@@ -118,59 +103,7 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlTerminatorOp op, PatternRewriter &rewriter) const override {
-    auto parentOp = op.getParentOp();
-    op.erase();
-    rewriter.eraseOp(op);
-    //    rewriter.replaceOpWithNewOp<AffineTerminatorOp>(op);
-
-    //    printf("replaced!");
-    fprintf(stderr, "replaced!\n");
-    parentOp->dump();
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// Krnl to Affine Rewrite Patterns: KrnlDefineLoops operation.
-//===----------------------------------------------------------------------===//
-
-class KrnlDefineLoopsLowering : public OpRewritePattern<KrnlDefineLoopsOp> {
-public:
-  using OpRewritePattern<KrnlDefineLoopsOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      KrnlDefineLoopsOp op, PatternRewriter &rewriter) const override {
-    rewriter.eraseOp(op);
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// Krnl to Affine Rewrite Patterns: KrnlBlock operation.
-//===----------------------------------------------------------------------===//
-
-class KrnlBlockOpLowering : public OpRewritePattern<KrnlBlockOp> {
-public:
-  using OpRewritePattern<KrnlBlockOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      KrnlBlockOp op, PatternRewriter &rewriter) const override {
-    rewriter.eraseOp(op);
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// Krnl to Affine Rewrite Patterns: KrnlPermute operation.
-//===----------------------------------------------------------------------===//
-
-class KrnlPermuteOpLowering : public OpRewritePattern<KrnlPermuteOp> {
-public:
-  using OpRewritePattern<KrnlPermuteOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      KrnlPermuteOp op, PatternRewriter &rewriter) const override {
-    rewriter.eraseOp(op);
+    rewriter.replaceOpWithNewOp<AffineTerminatorOp>(op);
     return success();
   }
 };
@@ -187,65 +120,35 @@ struct KrnlToAffineLoweringPass
     : public PassWrapper<KrnlToAffineLoweringPass, FunctionPass> {
   void runOnFunction() final;
 };
-
-// Helper function to test if KrnlIterateOp is nested under another
-// KrnlIterateOp.
-bool isIterateOpNested(KrnlIterateOp iterateOp) {
-  // krnl.iterate is dynamically legal, if and only if it is enclosed by
-  // another krnl.iterate.
-  Operation *op = iterateOp;
-  while ((op = op->getParentOp()))
-    if (auto parentOp = dyn_cast<KrnlIterateOp>(op))
-      return true;
-  return false;
-}
-
-Optional<KrnlIterateOp> nextIterateOp(FuncOp function) {
-  Optional<KrnlIterateOp> nextIterateOp;
-  function.walk([&](KrnlIterateOp op) {
-    if (!isIterateOpNested(op))
-      nextIterateOp = op;
-  });
-  return nextIterateOp;
-}
-
-bool hasOnePerfectlyNestedIterateOp(KrnlIterateOp op) {
-  auto childrenOps = op.bodyRegion().getOps();
-  auto childrenOpsIter = childrenOps.begin();
-  if (childrenOpsIter == childrenOps.end() ||
-      !isa<KrnlIterateOp>(*childrenOpsIter))
-    return false;
-  if (++childrenOpsIter == childrenOps.end() ||
-      !(*childrenOpsIter).isKnownTerminator())
-    return false;
-  return true;
-}
 } // end anonymous namespace.
 
-bool interpretOperation(Operation *op, OpBuilder &builder,
-    llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp) {
-  if (isa<KrnlDefineLoopsOp>(op)) {
+LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
+    llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
+    llvm::SmallVectorImpl<Operation *> &opsToErase) {
+  if (auto defineOp = dyn_cast_or_null<KrnlDefineLoopsOp>(op)) {
+    // Collect users of defineLoops operations that are iterate operations.
     auto usersItr = op->getUsers();
     std::set<Operation *> iterateOps;
     std::copy_if(usersItr.begin(), usersItr.end(),
         std::inserter(iterateOps, iterateOps.begin()),
         [](Operation *user) { return isa<KrnlIterateOp>(user); });
 
+    // Lower iterate operations and record the mapping between loop references
+    // and affine for loop operations in loopRefToOp map.
     if (!iterateOps.empty()) {
       for (auto iterateOp : iterateOps) {
         auto castedIterateOp = dyn_cast<KrnlIterateOp>(iterateOp);
         lowerIterateOp(castedIterateOp, builder, loopRefToOp);
       }
-      return true;
     }
+    opsToErase.emplace_back(defineOp);
+    return success();
   } else if (auto blockOp = dyn_cast_or_null<KrnlBlockOp>(op)) {
     SmallVector<AffineForOp, 2> tiledLoops;
     SmallVector<AffineForOp, 1> loopsToTile = {loopRefToOp[blockOp.loop()]};
     if (failed(tilePerfectlyNested(
             loopsToTile, blockOp.tile_sizeAttr().getInt(), &tiledLoops))) {
-      fprintf(stderr, "Error!\n");
-      exit(1);
-      //      return signalPassFailure();
+      return failure();
     }
     assert(tiledLoops.size() == 2);
     assert(blockOp.getNumResults() == 2);
@@ -253,47 +156,73 @@ bool interpretOperation(Operation *op, OpBuilder &builder,
     // for loops in loopRefToLoop.
     loopRefToOp[blockOp.getResult(0)] = tiledLoops[0];
     loopRefToOp[blockOp.getResult(1)] = tiledLoops[1];
-    blockOp.erase();
-    return true;
+    opsToErase.emplace_back(blockOp);
+    return success();
   } else if (auto permuteOp = dyn_cast_or_null<KrnlPermuteOp>(op)) {
+    // Collect loops to permute.
     SmallVector<AffineForOp, 4> loopsToPermute;
     std::transform(permuteOp.operand_begin(), permuteOp.operand_end(),
         std::back_inserter(loopsToPermute),
         [&](const Value &val) { return loopRefToOp[val]; });
 
+    // Construct permutation map from integer array attribute.
     SmallVector<unsigned int, 4> permuteMap;
     for (const auto &attr : permuteOp.map().getAsRange<IntegerAttr>())
       permuteMap.emplace_back(attr.getValue().getSExtValue());
 
+    // Permute loops.
     permuteLoops(loopsToPermute, permuteMap);
 
-    permuteOp.erase();
-    return true;
+    opsToErase.emplace_back(permuteOp);
+    return success();
+  } else if (auto unrollOp = dyn_cast_or_null<KrnlUnrollOp>(op)) {
+    // Unroll the affine for loop fully.
+    auto loopRef = unrollOp.loop();
+    loopUnrollFull(loopRefToOp[loopRef]);
+
+    opsToErase.emplace_back(unrollOp);
+    return success();
   }
 
   for (auto &region : op->getRegions())
     for (auto &block : region.getBlocks()) {
-      bool requireRevisit;
-      do {
-        requireRevisit = false;
-        block.walk([&](Operation *next) {
-          requireRevisit |= interpretOperation(next, builder, loopRefToOp);
-          if (requireRevisit)
-            return WalkResult::interrupt();
-          return WalkResult::advance();
-        });
-      } while (requireRevisit);
+      bool errored = false;
+      block.walk([&](Operation *next) {
+        if (failed(
+                interpretOperation(next, builder, loopRefToOp, opsToErase))) {
+          errored = true;
+          return WalkResult::interrupt();
+        }
+        return WalkResult::advance();
+      });
+      if (errored)
+        return failure();
     }
 
-  return false;
+  return success();
 }
 
 void KrnlToAffineLoweringPass::runOnFunction() {
   OpBuilder builder(&getContext());
-
   mlir::Operation *funcOp = getFunction();
+
   llvm::SmallDenseMap<Value, AffineForOp, 4> loopRefToOp;
-  interpretOperation(funcOp, builder, loopRefToOp);
+  llvm::SmallVector<Operation *, 4> opsToErase;
+  if (failed(interpretOperation(funcOp, builder, loopRefToOp, opsToErase))) {
+    signalPassFailure();
+    return;
+  }
+
+  // Remove operations that have been interpreted.
+  for (const auto &op : opsToErase)
+    op->erase();
+
+  ConversionTarget target(getContext());
+  target.addIllegalOp<KrnlTerminatorOp>();
+  OwningRewritePatternList patterns;
+  patterns.insert<KrnlTerminatorLowering>(&getContext());
+  if (failed(applyPartialConversion(getFunction(), target, patterns)))
+    signalPassFailure();
 }
 } // namespace
 
