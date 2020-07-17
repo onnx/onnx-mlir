@@ -88,7 +88,7 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
         innerMostRegion.end(), iterateOp.bodyRegion().getBlocks());
   }
 
-//  iterateOp.erase();
+  //  iterateOp.erase();
   for (const auto &pair : currentNestedForOps)
     refToOps.try_emplace(pair.first, pair.second);
 }
@@ -103,7 +103,7 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlTerminatorOp op, PatternRewriter &rewriter) const override {
-      printf("Replace!\n");
+    printf("Replace!\n");
     rewriter.replaceOpWithNewOp<AffineTerminatorOp>(op);
     return success();
   }
@@ -129,11 +129,13 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
 
   if (auto defineOp = dyn_cast_or_null<KrnlDefineLoopsOp>(op)) {
     // Collect users of defineLoops operations that are iterate operations.
-    auto usersItr = op->getUsers();
-    std::set<KrnlIterateOp> iterateOps;
-    for (auto itr : llvm::make_range(usersItr.begin(), usersItr.end()))
-        if (isa<KrnlIterateOp>(itr))
-            iterateOps.emplace(dyn_cast<KrnlIterateOp>(itr));
+    std::vector<KrnlIterateOp> iterateOps;
+    for (auto result : op->getResults())
+      for (auto *user : result.getUsers())
+        if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(user))
+          if (std::find(iterateOps.begin(), iterateOps.end(), iterateOp) ==
+              iterateOps.end())
+            iterateOps.push_back(dyn_cast<KrnlIterateOp>(user));
 
     // Lower iterate operations and record the mapping between loop references
     // and affine for loop operations in loopRefToOp map.
@@ -148,9 +150,10 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
   } else if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(op)) {
     // If an iterateOp has no unoptimized loop references, then we need to lower
     // them manually.
-    if (std::find(opsToErase.begin(), opsToErase.end(), iterateOp) == opsToErase.end()) {
-        opsToErase.emplace_back(iterateOp);
-        lowerIterateOp(iterateOp, builder, loopRefToOp);
+    if (std::find(opsToErase.begin(), opsToErase.end(), iterateOp) ==
+        opsToErase.end()) {
+      opsToErase.emplace_back(iterateOp);
+      lowerIterateOp(iterateOp, builder, loopRefToOp);
     }
     return success();
   } else if (auto blockOp = dyn_cast_or_null<KrnlBlockOp>(op)) {
