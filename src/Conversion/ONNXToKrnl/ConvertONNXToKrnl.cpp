@@ -81,9 +81,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
   // Create an entry for this module
-  initMap.insert(
-      std::pair<ModuleOp, std::unique_ptr<FunctionToInitStates>>(
-          module, std::make_unique<FunctionToInitStates>()));
+  initMap.insert(std::pair<ModuleOp, std::unique_ptr<FunctionToInitStates>>(
+      module, std::make_unique<FunctionToInitStates>()));
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.

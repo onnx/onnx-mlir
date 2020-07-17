@@ -47,7 +47,8 @@ typedef struct ONNXOperandsInitState {
   llvm::SetVector<Value> operandsInInitBlock;
 } ONNXOperandsInitState;
 
-typedef std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>> FunctionToInitStates;
+typedef std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>>
+    FunctionToInitStates;
 
 extern std::map<ModuleOp, std::unique_ptr<FunctionToInitStates>> initMap;
 
