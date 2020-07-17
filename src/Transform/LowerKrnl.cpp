@@ -88,7 +88,7 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
         innerMostRegion.end(), iterateOp.bodyRegion().getBlocks());
   }
 
-  iterateOp.erase();
+//  iterateOp.erase();
   for (const auto &pair : currentNestedForOps)
     refToOps.try_emplace(pair.first, pair.second);
 }
@@ -103,6 +103,7 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlTerminatorOp op, PatternRewriter &rewriter) const override {
+      printf("Replace!\n");
     rewriter.replaceOpWithNewOp<AffineTerminatorOp>(op);
     return success();
   }
@@ -125,27 +126,37 @@ struct KrnlToAffineLoweringPass
 LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
     llvm::SmallVectorImpl<Operation *> &opsToErase) {
+
   if (auto defineOp = dyn_cast_or_null<KrnlDefineLoopsOp>(op)) {
     // Collect users of defineLoops operations that are iterate operations.
     auto usersItr = op->getUsers();
-    std::set<Operation *> iterateOps;
-    std::copy_if(usersItr.begin(), usersItr.end(),
-        std::inserter(iterateOps, iterateOps.begin()),
-        [](Operation *user) { return isa<KrnlIterateOp>(user); });
+    std::set<KrnlIterateOp> iterateOps;
+    for (auto itr : llvm::make_range(usersItr.begin(), usersItr.end()))
+        if (isa<KrnlIterateOp>(itr))
+            iterateOps.emplace(dyn_cast<KrnlIterateOp>(itr));
 
     // Lower iterate operations and record the mapping between loop references
     // and affine for loop operations in loopRefToOp map.
     if (!iterateOps.empty()) {
-      for (auto iterateOp : iterateOps) {
-        auto castedIterateOp = dyn_cast<KrnlIterateOp>(iterateOp);
-        lowerIterateOp(castedIterateOp, builder, loopRefToOp);
+      for (auto opToLower : iterateOps) {
+        lowerIterateOp(opToLower, builder, loopRefToOp);
+        opsToErase.emplace_back(opToLower);
       }
     }
     opsToErase.emplace_back(defineOp);
     return success();
+  } else if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(op)) {
+    // If an iterateOp has no unoptimized loop references, then we need to lower
+    // them manually.
+    if (std::find(opsToErase.begin(), opsToErase.end(), iterateOp) == opsToErase.end()) {
+        opsToErase.emplace_back(iterateOp);
+        lowerIterateOp(iterateOp, builder, loopRefToOp);
+    }
+    return success();
   } else if (auto blockOp = dyn_cast_or_null<KrnlBlockOp>(op)) {
     SmallVector<AffineForOp, 2> tiledLoops;
     SmallVector<AffineForOp, 1> loopsToTile = {loopRefToOp[blockOp.loop()]};
+    printf("loopsToTile has size %d\n", loopRefToOp.count(blockOp.loop()));
     if (failed(tilePerfectlyNested(
             loopsToTile, blockOp.tile_sizeAttr().getInt(), &tiledLoops))) {
       return failure();
@@ -156,6 +167,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     // for loops in loopRefToLoop.
     loopRefToOp[blockOp.getResult(0)] = tiledLoops[0];
     loopRefToOp[blockOp.getResult(1)] = tiledLoops[1];
+
     opsToErase.emplace_back(blockOp);
     return success();
   } else if (auto permuteOp = dyn_cast_or_null<KrnlPermuteOp>(op)) {
@@ -213,9 +225,11 @@ void KrnlToAffineLoweringPass::runOnFunction() {
     return;
   }
 
+  getFunction().dump();
   // Remove operations that have been interpreted.
   for (const auto &op : opsToErase)
     op->erase();
+  getFunction().dump();
 
   ConversionTarget target(getContext());
   target.addIllegalOp<KrnlTerminatorOp>();
