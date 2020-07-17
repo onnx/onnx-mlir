@@ -84,7 +84,7 @@ void addInitBlock(PatternRewriter &rewriter, Location loc, FuncOp function) {
     // so add them to the operandsInInitBlock set.
     Block *functionBlock = &function.front();
     for (auto arg : functionBlock->getArguments())
-      initState->operandsInInitBlock->insert(arg);
+      initState->operandsInInitBlock.insert(arg);
 
     PatternRewriter::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(functionBlock);
@@ -153,7 +153,7 @@ bool checkAllocMovable(
 
   bool allInitOrArg = true;
   for (int i = 0; i < operands.size(); i++) {
-    if (initStates->at(function)->operandsInInitBlock->count(operands[i]) == 0)
+    if (initStates->at(function)->operandsInInitBlock.count(operands[i]) == 0)
       allInitOrArg = false;
   }
 
@@ -169,7 +169,7 @@ void markOperandInInitBlock(FuncOp function, Value operand) {
   // A valid function must have an initialization state.
   assert(initStates->count(function) > 0 &&
          "Initialization state not defined for this function.");
-  initStates->at(function)->operandsInInitBlock->insert(operand);
+  initStates->at(function)->operandsInInitBlock.insert(operand);
 }
 
 /// Insert an allocation and deallocation for the given MemRefType.

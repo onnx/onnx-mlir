@@ -44,13 +44,7 @@ typedef struct ONNXOperandsInitState {
   Block *initBlock;
   Block *mainBlock;
   BranchOp branchInit;
-  llvm::SetVector<Value> *operandsInInitBlock;
-
-  ONNXOperandsInitState() {
-    operandsInInitBlock = new llvm::SetVector<Value>();
-  }
-
-  ~ONNXOperandsInitState() { delete operandsInInitBlock; }
+  llvm::SetVector<Value> operandsInInitBlock;
 } ONNXOperandsInitState;
 
 typedef std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>> FunctionToInitStates;
