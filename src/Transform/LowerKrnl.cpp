@@ -17,6 +17,8 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/LoopUtils.h"
 
+#include "llvm/ADT/SetVector.h"
+
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -125,7 +127,7 @@ struct KrnlToAffineLoweringPass
 
 LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
-    llvm::SmallVectorImpl<Operation *> &opsToErase) {
+    llvm::SetVector<Operation *> &opsToErase) {
 
   if (auto defineOp = dyn_cast_or_null<KrnlDefineLoopsOp>(op)) {
     // Collect users of defineLoops operations that are iterate operations.
@@ -142,17 +144,16 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     if (!iterateOps.empty()) {
       for (auto opToLower : iterateOps) {
         lowerIterateOp(opToLower, builder, loopRefToOp);
-        opsToErase.emplace_back(opToLower);
+        opsToErase.insert(opToLower);
       }
     }
-    opsToErase.emplace_back(defineOp);
+    opsToErase.insert(op);
     return success();
   } else if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(op)) {
     // If an iterateOp has no unoptimized loop references, then we need to lower
     // them manually.
-    if (std::find(opsToErase.begin(), opsToErase.end(), iterateOp) ==
-        opsToErase.end()) {
-      opsToErase.emplace_back(iterateOp);
+    if (opsToErase.count(op) == 0) {
+      opsToErase.insert(op);
       lowerIterateOp(iterateOp, builder, loopRefToOp);
     }
     return success();
@@ -171,7 +172,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     loopRefToOp[blockOp.getResult(0)] = tiledLoops[0];
     loopRefToOp[blockOp.getResult(1)] = tiledLoops[1];
 
-    opsToErase.emplace_back(blockOp);
+    opsToErase.insert(op);
     return success();
   } else if (auto permuteOp = dyn_cast_or_null<KrnlPermuteOp>(op)) {
     // Collect loops to permute.
@@ -188,14 +189,14 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     // Permute loops.
     permuteLoops(loopsToPermute, permuteMap);
 
-    opsToErase.emplace_back(permuteOp);
+    opsToErase.insert(op);
     return success();
   } else if (auto unrollOp = dyn_cast_or_null<KrnlUnrollOp>(op)) {
     // Unroll the affine for loop fully.
     auto loopRef = unrollOp.loop();
     loopUnrollFull(loopRefToOp[loopRef]);
 
-    opsToErase.emplace_back(unrollOp);
+    opsToErase.insert(op);
     return success();
   }
 
@@ -222,7 +223,7 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   mlir::Operation *funcOp = getFunction();
 
   llvm::SmallDenseMap<Value, AffineForOp, 4> loopRefToOp;
-  llvm::SmallVector<Operation *, 4> opsToErase;
+  llvm::SetVector<Operation *> opsToErase;
   if (failed(interpretOperation(funcOp, builder, loopRefToOp, opsToErase))) {
     signalPassFailure();
     return;
@@ -230,8 +231,18 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 
   getFunction().dump();
   // Remove operations that have been interpreted.
-  for (const auto &op : opsToErase)
+  for (const auto &op : opsToErase) {
+    //      op->erase();
+    fprintf(stderr, "=================\n");
+    op->dump();
+    fprintf(stderr, "=================\n");
+  }
+
+  fprintf(stderr, "Erase....\n");
+  for (const auto &op : opsToErase) {
     op->erase();
+    //        op->dump();
+  }
   getFunction().dump();
 
   ConversionTarget target(getContext());
