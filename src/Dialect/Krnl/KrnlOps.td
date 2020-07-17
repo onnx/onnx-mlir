@@ -261,8 +261,8 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
   }];
 
   let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
-  let results = (outs Variadic<AnyType>:$permuted_loops);
+  let results = (outs);
   let assemblyFormat = [{
-      `(` $loops `)` $map attr-dict `:` functional-type($loops, results)
+      `(` $loops `)` $map attr-dict `:` type($loops)
   }];
 }
