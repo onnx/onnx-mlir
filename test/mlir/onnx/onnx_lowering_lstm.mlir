@@ -1,12 +1,11 @@
-// RUN: onnx-mlir-opt --shape-inference --lower-frontend %s | FileCheck %s
-
-// CHECK-DAG: [[ACCESS_BY_OFFSET_MAP:#.+]] = affine_map<(d0)[s0, s1] -> (d0 + s0 * s1)>
-// CHECK-DAG: [[REVERSE_IV_MAP1:#.+]] = affine_map<(d0)[s0] -> (-d0 + s0 - 1)>
+// RUN: onnx-mlir-opt --shape-inference --lower-frontend %s -split-input-file | FileCheck %s
 
 func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
   %cst = constant unit
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : i64} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
   return %Y_h : tensor<*xf32>
+
+  // CHECK-DAG: [[ACCESS_BY_OFFSET_MAP:#.+]] = affine_map<(d0)[s0, s1] -> (d0 + s0 * s1)>
 
   // CHECK-LABEL: @test_lstm_general_computation
 
@@ -230,6 +229,8 @@ func @test_lstm_reverse_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : i64, direction = "reverse"} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
   return %Y_h : tensor<*xf32>
 
+  // CHECK-DAG: [[REVERSE_IV_MAP1:#.+]] = affine_map<(d0)[s0] -> (-d0 + s0 - 1)>
+
   // CHECK-LABEL: @test_lstm_reverse_mode
 
   // CHECK:  [[REVERSE_SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
@@ -245,6 +246,8 @@ func @test_lstm_bidirectional_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x
   %cst = constant unit
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : i64, direction = "bidirectional"} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
   return %Y_h : tensor<*xf32>
+
+  // CHECK-DAG: [[REVERSE_IV_MAP1:#.+]] = affine_map<(d0)[s0] -> (-d0 + s0 - 1)>
 
   // CHECK-LABEL: @test_lstm_bidirectional_mode
 
