@@ -130,30 +130,15 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     llvm::SetVector<Operation *> &opsToErase) {
   for (auto &region : op->getRegions())
     for (auto &block : region.getBlocks()) {
-      bool errored = false;
-      //      auto& blockOps = block.getOperations();
-      //
-      //      if blockOps.
-      //      auto currOp = &block.front();
-      //      while (currOp = blockOps.getNextNode(*currOp))
-      for (size_t i = 0; i < block.getOperations().size(); i++) {
-        // Build `beg`, and `end` such that beg points to the i-th operation,
-        // and end
-        auto beg = block.begin();
-        std::advance(beg, i);
-        auto end = block.begin();
-        std::advance(end, i + 1);
-        block.walk(beg, end, [&](Operation *next) {
-          if (failed(
-                  interpretOperation(next, builder, loopRefToOp, opsToErase))) {
-            errored = true;
-            return WalkResult::interrupt();
-          }
-          return WalkResult::advance();
-        });
-      }
-      if (errored)
-        return failure();
+      auto &blockOps = block.getOperations();
+      for (auto itr = blockOps.begin(); itr != blockOps.end();)
+        if (failed(interpretOperation(
+                &(*itr), builder, loopRefToOp, opsToErase))) {
+          errored = true;
+          return failure();
+        } else {
+          ++itr;
+        }
     }
 
   if (auto defineOp = dyn_cast_or_null<KrnlDefineLoopsOp>(op)) {
@@ -242,10 +227,9 @@ void KrnlToAffineLoweringPass::runOnFunction() {
     return;
   }
 
-  for (const auto &op :
-      llvm::make_range(opsToErase.rbegin(), opsToErase.rend())) {
+  // Erase interpreted operations.
+  for (const auto &op : opsToErase)
     op->erase();
-  }
 
   ConversionTarget target(getContext());
   target.addIllegalOp<KrnlTerminatorOp>();
