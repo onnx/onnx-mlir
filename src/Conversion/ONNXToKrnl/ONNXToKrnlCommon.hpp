@@ -19,7 +19,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/SetVector.h"
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -28,6 +30,37 @@
 #include "src/Pass/Passes.hpp"
 
 using namespace mlir;
+
+//===----------------------------------------------------------------------===//
+// Insertion point for initialization instructions and the blocks used for
+// inserting the initialization and main code. These blocks will disappear
+// when the first canonicalization is performed because the init block
+// unconditionally branches into the second block. These blocks exist only for
+// the purpose of this optimization.
+// The support happens on a per function basis.
+//===----------------------------------------------------------------------===//
+
+typedef struct ONNXOperandsInitState {
+  Block *initBlock;
+  Block *mainBlock;
+  BranchOp branchInit;
+  llvm::SetVector<Value> operandsInInitBlock;
+} ONNXOperandsInitState;
+
+typedef std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>>
+    FunctionToInitStates;
+
+// This map is used by the FrontendToKrnlLoweringPass pass to keep track of the
+// allocations emitted in the initialization block for each function of a given
+// module. A translation unit can consist of several modules, each with several
+// functions hence the structure shown below.
+// This data structure enables the emission of dyanmic `alloc` instructions
+// in the initialization block of a function if all the other operands the
+// computation of its parameters depends on are also present in that function's
+// initialization block.
+// This data structure is live only during the execution of the frontend
+// lowering to Krnl dialect pass (FrontendToKrnlLoweringPass).
+extern std::map<ModuleOp, std::unique_ptr<FunctionToInitStates>> initMap;
 
 //===----------------------------------------------------------------------===//
 // Common functions used when lowering the ONNX frontend dialect to KRNL.
@@ -44,8 +77,13 @@ MemRefType convertToMemRefType(Type type);
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter &rewriter, bool insertDealloc,
+    PatternRewriter &rewriter, bool insertDealloc, Operation *op,
     ArrayRef<Value> operands = {}, int64_t alignment = -1);
+
+Value insertAllocAndDeallocWithFunction(MemRefType type, Location loc,
+    PatternRewriter &rewriter, bool insertDealloc, FuncOp function,
+    bool functionLevelAlloc, ArrayRef<Value> operands = {},
+    int64_t alignment = -1);
 
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
@@ -246,3 +284,20 @@ void populateLoweringONNXSplitOpPattern(
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
 
 int64_t getMemRefSizeInBytes(Value val);
+
+FuncOp getContainingFunction(Operation *op);
+
+void addInitBlock(PatternRewriter &rewriter, Location loc, FuncOp op);
+
+bool containingFunctionHasInitBlock(Operation *op);
+
+Block *getInitBlock(FuncOp function);
+
+Block *getMainBlock(FuncOp function);
+
+BranchOp getInitInsertionPoint(FuncOp function);
+
+bool checkAllocMovable(
+    FuncOp function, bool functionLevelAlloc, ArrayRef<Value> operands);
+
+void markOperandInInitBlock(FuncOp function, Value operand);
