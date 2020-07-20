@@ -106,7 +106,6 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
         innerMostRegion.end(), iterateOp.bodyRegion().getBlocks());
   }
 
-  //  iterateOp.erase();
   for (const auto &pair : currentNestedForOps)
     refToOps.try_emplace(pair.first, pair.second);
 }
@@ -127,7 +126,8 @@ struct KrnlToAffineLoweringPass
 
 LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
-    llvm::SetVector<Operation *> &opsToErase) {
+    llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
+  // Recursively interpret nested operations.
   for (auto &region : op->getRegions())
     for (auto &block : region.getBlocks()) {
       auto &blockOps = block.getOperations();
@@ -179,6 +179,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     }
     assert(tiledLoops.size() == 2);
     assert(blockOp.getNumResults() == 2);
+
     // Record the tiled loop references, and their corresponding tiled
     // for loops in loopRefToLoop.
     loopRefToOp[blockOp.getResult(0)] = tiledLoops[0];
@@ -198,7 +199,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     for (const auto &attr : permuteOp.map().getAsRange<IntegerAttr>())
       permuteMap.emplace_back(attr.getValue().getSExtValue());
 
-    // Permute loops.
+    // Perform loop permutation.
     permuteLoops(loopsToPermute, permuteMap);
 
     opsToErase.insert(op);
@@ -219,8 +220,13 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   OpBuilder builder(&getContext());
   mlir::Operation *funcOp = getFunction();
 
+  // Interpret krnl dialect operations while looping recursively through
+  // operations within the current function, note that erasing operations while
+  // iterating is tricky because it can invalidate the iterator, so we collect
+  // the operations to be erased in a small ptr set `opsToErase`, and only erase
+  // after iteration completes.
   llvm::SmallDenseMap<Value, AffineForOp, 4> loopRefToOp;
-  llvm::SetVector<Operation *> opsToErase;
+  llvm::SmallPtrSet<Operation *, 4> opsToErase;
   if (failed(interpretOperation(funcOp, builder, loopRefToOp, opsToErase))) {
     signalPassFailure();
     return;
