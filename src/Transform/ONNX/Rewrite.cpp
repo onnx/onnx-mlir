@@ -116,6 +116,7 @@ void ONNXScalerOp::getCanonicalizationPatterns(
   result.insert<ScalerNullPattern>(context);
   result.insert<ScalerNullPattern2>(context);
   result.insert<ScalerNoScalePattern>(context);
+  result.insert<ScalerNoScalePattern2>(context);
   result.insert<ScalerNoOffsetPattern>(context);
   result.insert<ScalerPattern>(context);
 }

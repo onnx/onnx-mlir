@@ -115,7 +115,8 @@ def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>().
 def createDenseArrayAttr:
   NativeCodeCall<"createDenseArrayAttr($_builder, $0)">;
 
-def ScalerT : NativeCodeCall<"$_builder.getI64IntegerAttr(0)">;
+// TensorProt_DataType_FLOAT is 1
+def ScalerT : NativeCodeCall<"$_builder.getI64IntegerAttr(1)">;
 
 // No attribute
 def ScalerNullPattern : Pat<
@@ -134,6 +135,14 @@ def ScalerNoScalePattern : Pat<
   (ONNXScalerOp $x, $a, $b),
     (ONNXSubOp $x,
       (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))),
+    [(HasFloatType:$x), (AttributeIsNull:$b)]>;
+
+def ScalerNoScalePattern2 : Pat<
+  (ONNXScalerOp $x, $a, $b),
+    (ONNXSubOp 
+      (ONNXCastOp $x, (ScalerT)),
+      (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))
+    ),
     [(AttributeIsNull:$b)]>;
 
 // No offset
