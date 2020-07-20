@@ -50,6 +50,16 @@ typedef struct ONNXOperandsInitState {
 typedef std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>>
     FunctionToInitStates;
 
+// This map is used by the FrontendToKrnlLoweringPass pass to keep track of the
+// allocations emitted in the initialization block for each function of a given
+// module. A translation unit can consist of several modules, each with several
+// functions hence the structure shown below.
+// This data structure enables the emission of dyanmic `alloc` instructions
+// in the initialization block of a function if all the other operands the
+// computation of its parameters depends on are also present in that function's
+// initialization block.
+// This data structure is live only during the execution of the frontend
+// lowering to Krnl dialect pass (FrontendToKrnlLoweringPass).
 extern std::map<ModuleOp, std::unique_ptr<FunctionToInitStates>> initMap;
 
 //===----------------------------------------------------------------------===//
