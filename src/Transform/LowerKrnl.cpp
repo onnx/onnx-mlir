@@ -106,7 +106,7 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
         innerMostRegion.end(), iterateOp.bodyRegion().getBlocks());
   }
 
-  iterateOp.erase();
+  //  iterateOp.erase();
   for (const auto &pair : currentNestedForOps)
     refToOps.try_emplace(pair.first, pair.second);
 }
@@ -128,6 +128,33 @@ struct KrnlToAffineLoweringPass
 LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
     llvm::SetVector<Operation *> &opsToErase) {
+  for (auto &region : op->getRegions())
+    for (auto &block : region.getBlocks()) {
+      bool errored = false;
+      //      auto& blockOps = block.getOperations();
+      //
+      //      if blockOps.
+      //      auto currOp = &block.front();
+      //      while (currOp = blockOps.getNextNode(*currOp))
+      for (size_t i = 0; i < block.getOperations().size(); i++) {
+        // Build `beg`, and `end` such that beg points to the i-th operation,
+        // and end
+        auto beg = block.begin();
+        std::advance(beg, i);
+        auto end = block.begin();
+        std::advance(end, i + 1);
+        block.walk(beg, end, [&](Operation *next) {
+          if (failed(
+                  interpretOperation(next, builder, loopRefToOp, opsToErase))) {
+            errored = true;
+            return WalkResult::interrupt();
+          }
+          return WalkResult::advance();
+        });
+      }
+      if (errored)
+        return failure();
+    }
 
   if (auto defineOp = dyn_cast_or_null<KrnlDefineLoopsOp>(op)) {
     // Collect users of defineLoops operations that are iterate operations.
@@ -143,7 +170,10 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     // and affine for loop operations in loopRefToOp map.
     if (!iterateOps.empty()) {
       for (auto opToLower : iterateOps) {
-        lowerIterateOp(opToLower, builder, loopRefToOp);
+        if (opsToErase.count(opToLower) == 0) {
+          lowerIterateOp(opToLower, builder, loopRefToOp);
+          opsToErase.insert(opToLower);
+        }
       }
     }
     opsToErase.insert(op);
@@ -153,6 +183,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     // them manually.
     if (opsToErase.count(op) == 0) {
       lowerIterateOp(iterateOp, builder, loopRefToOp);
+      opsToErase.insert(iterateOp);
     }
     return success();
   } else if (auto blockOp = dyn_cast_or_null<KrnlBlockOp>(op)) {
@@ -196,28 +227,6 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     opsToErase.insert(op);
     return success();
   }
-
-  for (auto &region : op->getRegions())
-    for (auto &block : region.getBlocks()) {
-      bool errored = false;
-
-      for (int i = 0; i < block.getOperations().size(); i++) {
-        auto itr_begin = block.begin();
-        std::advance(itr_begin, i);
-        auto itr_end = block.begin();
-        std::advance(itr_end, i + 1);
-        block.walk(itr_begin, itr_end, [&](Operation *next) {
-          if (failed(
-                  interpretOperation(next, builder, loopRefToOp, opsToErase))) {
-            errored = true;
-            return WalkResult::interrupt();
-          }
-          return WalkResult::advance();
-        });
-      }
-      if (errored)
-        return failure();
-    }
 
   return success();
 }
