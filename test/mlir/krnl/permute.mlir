@@ -2,8 +2,8 @@
 
 func @simple_permute() {
   %ii, %jj = krnl.define_loops 2
-  %oj, %oi = krnl.permute(%ii, %jj) [1, 0] : (!krnl.loop, !krnl.loop) -> (!krnl.loop, !krnl.loop)
-  krnl.iterate(%oj, %oi) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
+  krnl.permute(%ii, %jj) [1, 0] : !krnl.loop, !krnl.loop
+  krnl.iterate(%ii, %jj) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20) {
     %foo = addi %i, %i : index
   }
 
