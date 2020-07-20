@@ -12,6 +12,7 @@ using namespace std;
 using namespace onnx_mlir;
 
 int main(int argc, char *argv[]) {
+  setExecPath(argv[0], (void *)main);
   registerDialects();
 
   llvm::cl::OptionCategory OnnxMlirOptions(
@@ -33,7 +34,9 @@ int main(int argc, char *argv[]) {
           clEnumVal(EmitLLVMIR, "Lower model to LLVM IR (LLVM dialect)."),
           clEnumVal(EmitLib, "Lower model to LLVM IR, emit (to file) "
                              "LLVM bitcode for model, compile and link it to a "
-                             "shared library.")),
+                             "shared library."),
+          clEnumVal(EmitJNI, "Lower model to LLMV IR -> LLVM bitcode "
+                             "-> JNI shared library -> jar")),
       llvm::cl::init(EmitLib), llvm::cl::cat(OnnxMlirOptions));
 
   llvm::cl::HideUnrelatedOptions(OnnxMlirOptions);

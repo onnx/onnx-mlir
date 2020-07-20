@@ -256,7 +256,7 @@ OpsWithShapeInference = [
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Scaler']
 
 # Operations who have operands that, if produced by constant operations, should
 # be promoted to become an attribute (via attribute promotion).
@@ -427,7 +427,15 @@ def get_allowed_elem_types(schema, input):
     # return allowed_types_str
     # TODO: enable type constraints.
     if input.typeStr :
-         tstr = input.typeStr
+        tstr = input.typeStr
+        structure, element = get_data_structure_element(tstr);
+        # In case the type is directly specified
+        if structure and element :
+            t = np_type_to_tblgen_attr_type(element)
+            if t == None :
+                return allowed_structure, None
+            else :
+                return structure, [t]
     else :
         return None
     if schema.type_constraints:
@@ -740,6 +748,9 @@ def parse_a_type_constraint(constraint):
     # However onnx keeps a consitently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
     # mlirTypes = sorted(list(set(mlirTypes)))
+
+    # MemRef is always needed
+    mlirTypes.append("AnyMemRef")
     return mlirTypes
 
 def parse_type_constraints(schema):

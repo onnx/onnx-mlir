@@ -31,6 +31,9 @@ std::unique_ptr<Pass> createElideConstantValuePass();
 /// Pass for enabling a memory pool for MemRefs.
 std::unique_ptr<Pass> createKrnlEnableMemoryPoolPass();
 
+/// Pass for enabling a memory pool for MemRefs.
+std::unique_ptr<Pass> createKrnlBundleMemoryPoolsPass();
+
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<Pass> createLowerToKrnlPass();
 
