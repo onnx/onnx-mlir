@@ -503,7 +503,7 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
       llvm::SMLoc typeLoc = parser.getCurrentLocation();
       mlir::Type elementType;
       if (parser.parseType(elementType))
-        return nullptr;
+        return Type();
 
       // TOFIX: type limitation for Seq? similar but different shape??
       elementTypes.push_back(elementType);
