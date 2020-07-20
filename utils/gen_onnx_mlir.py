@@ -256,7 +256,7 @@ OpsWithShapeInference = [
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Scaler']
 
 # Operations who have operands that, if produced by constant operations, should
 # be promoted to become an attribute (via attribute promotion).
@@ -757,6 +757,9 @@ def parse_a_type_constraint(constraint):
     # However onnx keeps a consitently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
     # mlirTypes = sorted(list(set(mlirTypes)))
+
+    # MemRef is always needed
+    mlirTypes.append("AnyMemRef")
     return mlirTypes
 
 def parse_type_constraints(schema):
