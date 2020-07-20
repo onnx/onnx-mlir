@@ -134,7 +134,6 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
       for (auto itr = blockOps.begin(); itr != blockOps.end();)
         if (failed(interpretOperation(
                 &(*itr), builder, loopRefToOp, opsToErase))) {
-          errored = true;
           return failure();
         } else {
           ++itr;
