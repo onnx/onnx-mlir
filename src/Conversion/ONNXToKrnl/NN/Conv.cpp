@@ -36,10 +36,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
     bool hasBias = !biasOperand.getType().isa<NoneType>();
 
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else
       alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {inputOperand});
+          memRefType, loc, rewriter, insertDealloc, op, {inputOperand});
 
     // R = Conv(D, K)
     //

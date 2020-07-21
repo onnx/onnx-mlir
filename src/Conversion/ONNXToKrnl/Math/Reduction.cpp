@@ -159,8 +159,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefOutType)) {
-      alloc =
-          insertAllocAndDealloc(memRefOutType, loc, rewriter, insertDealloc);
+      alloc = insertAllocAndDealloc(
+          memRefOutType, loc, rewriter, insertDealloc, op);
     } else {
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
