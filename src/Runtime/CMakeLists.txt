@@ -15,6 +15,8 @@ add_library(RtMemRefUtils
         RtMemRef.h
         RtMemRef.cpp
         DataType.h)
+set_target_properties(RtMemRefUtils PROPERTIES
+        POSITION_INDEPENDENT_CODE TRUE)
 
 add_library(ExecutionSession
         ExecusionSession.hpp
