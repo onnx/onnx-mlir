@@ -46,8 +46,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType))
-      alloc =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
       auto memRefShape = memRefType.getShape();
       SmallVector<Value, 2> allocOperands;

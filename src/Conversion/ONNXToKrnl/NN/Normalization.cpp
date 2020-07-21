@@ -42,11 +42,10 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     bool insertDealloc = checkInsertDealloc(op);
 
     if (hasAllConstantDimensions(memRefType))
-      alloc =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
       alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, op, {operand});
+          memRefType, loc, rewriter, insertDealloc, {operand});
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
     // In case of N, C is assumed to be 1.
