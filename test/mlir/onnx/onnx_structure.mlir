@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt %s | FileCheck %s
+// RUN: onnx-mlir-opt %s -split-input-file | FileCheck %s
 
 //===----------------------------------------------------------------------===//
 // CHECK-LABEL: @check_map1(%arg0: tuple<i64, f32>) -> tensor<*xf32> {

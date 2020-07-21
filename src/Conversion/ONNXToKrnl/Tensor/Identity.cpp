@@ -18,7 +18,6 @@ struct ONNXIdentityOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
     ONNXIdentityOpAdaptor operandAdaptor(operands);
     rewriter.replaceOp(op, operandAdaptor.input());
     return success();

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --lower-frontend --canonicalize --enable-memory-pool --bundle-memory-pools --canonicalize %s | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --lower-frontend --enable-memory-pool --bundle-memory-pools --canonicalize %s -split-input-file | FileCheck %s
 
 func @test_bundle_memory_pool(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf32>) -> tensor<10x20xf32> {
   %0 = "onnx.Add"(%arg0, %arg0) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
@@ -10,8 +10,8 @@ func @test_bundle_memory_pool(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf32>
   return %5 : tensor<10x20xf32>
 
   // CHECK-LABEL: test_bundle_memory_pool
-  // CHECK: [[CONST00:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CONST0:%.+]] = constant 0 : i64
+  // CHECK: [[CONST00:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CONST400:%.+]] = constant 400 : i64
   // CHECK: [[CONST1200:%.+]] = constant 1200 : i64
   // CHECK: [[CONST2000:%.+]] = constant 2000 : i64
