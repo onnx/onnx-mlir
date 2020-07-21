@@ -80,7 +80,7 @@ struct FrontendToKrnlLoweringPass
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
-  // Create an entry for this module
+  // Create an entry for this module.
   initMap.insert(std::pair<ModuleOp, std::unique_ptr<FunctionToInitStates>>(
       module, std::make_unique<FunctionToInitStates>()));
 
