@@ -43,8 +43,16 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     else {
+      PatternRewriter::InsertionGuard insertGuard(rewriter);
+      FuncOp function = getContainingFunction(op);
+      bool functionLevelAlloc = (op->getParentOp() == function);
+      bool canMove = checkAllocMovable(function, functionLevelAlloc, {A, B});
+      if (canMove)
+        rewriter.setInsertionPoint(getInitInsertionPoint(function));
+
       SmallVector<Value, 4> allocOperands;
       if (AShape.size() >= 2 && BShape.size() >= 2) {
         // Both arguments are N-D, N >= 2
@@ -108,6 +116,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       }
 
       alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+
+      if (canMove)
+        markOperandInInitBlock(function, alloc);
     }
 
     if (AShape.size() >= 2 || BShape.size() >= 2) {

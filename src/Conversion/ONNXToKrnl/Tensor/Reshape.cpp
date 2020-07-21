@@ -46,7 +46,8 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
 
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType)) {
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+      alloc =
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
     } else {
       // If a dimension is zero, the actual dimension value is taken from the
       // input tensor.
