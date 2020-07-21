@@ -22,17 +22,15 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
-
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     Value data = operandAdaptor.data();
 
     if (hasAllConstantDimensions(memRefType))
-      alloc =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
       alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, op, {data});
+          memRefType, loc, rewriter, insertDealloc, {data});
 
     // Number of loops
     auto memRefShape = memRefType.getShape();
