@@ -251,3 +251,38 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
       $loop $tile_size attr-dict `:` functional-type($loop, results)
   }];
 }
+
+def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
+  let summary = "Krnl permute operation";
+  let description = [{
+    Permute a set of affine for loops using a specified permutation map.
+    For example,
+    ```
+    krnl.permute (%i, %j) [1, 0]
+    ```
+    transposes the loop referred to by %i and %j.
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
+  let results = (outs);
+  let assemblyFormat = [{
+      `(` $loops `)` $map attr-dict `:` type($loops)
+  }];
+}
+
+def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
+  let summary = "Krnl unroll operation";
+  let description = [{
+    Fully unroll the specified loops.
+    ```
+    krnl.unroll %i
+    ```
+    unrolls the loop referred to by %i fully.
+  }];
+
+  let arguments = (ins AnyType:$loop);
+  let results = (outs);
+  let assemblyFormat = [{
+      $loop attr-dict `:` type($loop)
+  }];
+}
