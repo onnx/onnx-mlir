@@ -3597,7 +3597,7 @@ def ONNXRangeOp:ONNX_Op<"Range",
   "   "
   "`    output[i] =  start + (i * delta);  ` "
   ""
-  "`}`  "
+  "`}` "
   ""
   "`Example 1`"
   "Inputs: start = 3, limit = 9, delta = 3"
