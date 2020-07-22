@@ -252,7 +252,7 @@ OpsWithShapeInference = [
     'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
     'LSTM', 'GRU', 'Split', 'Pad', 'Cast', 'ConvTranspose', 'Flatten',
     'DynamicQuantizeLinear', 'QuantizeLinear', 'DequantizeLinear', 'ConvInteger',
-    'Squeeze', 'Shape', 'Tile', 'Gather', 'ConstantOfShape', 'Slice'
+    'Squeeze', 'Shape', 'Tile', 'Gather', 'ConstantOfShape', 'Slice', 'Scaler'
 ]
 
 # Operations supporting canonicalization.

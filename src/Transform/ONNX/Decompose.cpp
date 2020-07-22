@@ -26,14 +26,15 @@ using namespace mlir;
 namespace {
 
 // Create an DenseElementsAttr of ArrayAttr.
-// This function is used to get Value Type of an EXISTING ArrayAttr for Scaler function.
+// This function is used to get Value Type of an EXISTING ArrayAttr for Scaler
+// function.
 DenseElementsAttr createDenseArrayAttr(
     PatternRewriter &rewriter, ArrayAttr origAttrs) {
   mlir::Type elementType = rewriter.getF32Type();
   int nElements = origAttrs.getValue().size();
   SmallVector<float, 4> wrapper(nElements, 0);
   for (int i = 0; i < nElements; ++i) {
-      wrapper[i] = origAttrs.getValue()[i].cast<FloatAttr>().getValueAsDouble();
+    wrapper[i] = origAttrs.getValue()[i].cast<FloatAttr>().getValueAsDouble();
   }
   return DenseElementsAttr::get(
       RankedTensorType::get(wrapper.size(), elementType),
@@ -78,4 +79,3 @@ void DecomposeONNXToONNXPass::runOnFunction() {
 std::unique_ptr<mlir::Pass> mlir::createDecomposeONNXToONNXPass() {
   return std::make_unique<DecomposeONNXToONNXPass>();
 }
-

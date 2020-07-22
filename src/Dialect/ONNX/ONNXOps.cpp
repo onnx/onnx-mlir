@@ -1878,6 +1878,28 @@ LogicalResult ONNXCastOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Scaler
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXScalerOp::inferShapes() {
+  ShapedType inputType = X().getType().dyn_cast<ShapedType>();
+  if (!inputType) {
+    return emitError("Non-shaped input type");
+  }
+
+  auto getOutputType = [&inputType](Type elementType) -> Type {
+    if (inputType.hasRank()) {
+      return RankedTensorType::get(inputType.getShape(), elementType);
+    }
+    return UnrankedTensorType::get(elementType);
+  };
+
+  FloatType f32Type = FloatType::getF32(getContext());
+  getResult().setType(getOutputType(f32Type));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Constant
 //===----------------------------------------------------------------------===//
 
