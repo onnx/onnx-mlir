@@ -662,7 +662,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX ConstantOfShape operation";
   let description = [{
   "Generate a tensor with given value and shape."
@@ -679,6 +679,17 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+    std::vector<mlir::Type> resultTypeInference() {
+      std::vector<mlir::Type> resultTypes;
+      if (auto attr = valueAttr()) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          attr.getType().cast<ShapedType>().getElementType()));
+      } else {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          FloatType::getF32(getContext())));
+      }
+      return resultTypes;
     }
   }];
 }
@@ -1438,7 +1449,7 @@ def ONNXGRUOp:ONNX_Op<"GRU",
 }
 
 def ONNXGatherOp:ONNX_Op<"Gather",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Gather operation";
   let description = [{
   "Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather"
@@ -4695,7 +4706,7 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
 }
 
 def ONNXShapeOp:ONNX_Op<"Shape",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Shape operation";
   let description = [{
   "Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor."
@@ -4850,7 +4861,7 @@ def ONNXSizeOp:ONNX_Op<"Size",
 }
 
 def ONNXSliceOp:ONNX_Op<"Slice",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Slice operation";
   let description = [{
   "Produces a slice of the input tensor along multiple axes. Similar to numpy:"
@@ -5345,7 +5356,7 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
 }
 
 def ONNXTileOp:ONNX_Op<"Tile",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"PromotableConstOperandsOpInterface">]> {
   let summary = "ONNX Tile operation";
   let description = [{
   "Constructs a tensor by tiling a given tensor."
@@ -5353,7 +5364,7 @@ def ONNXTileOp:ONNX_Op<"Tile",
   "For example A = [[1, 2], [3, 4]], B = [1, 2], tile(A, B) = [[1, 2, 1, 2], [3, 4, 3, 4]]"
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$input,
-    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$repeats);
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$repeats);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -5364,6 +5375,9 @@ def ONNXTileOp:ONNX_Op<"Tile",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+    std::map<std::string, size_t> promotableConstOperands() {
+      return {{"repeats", 1}};
     }
   }];
 }
