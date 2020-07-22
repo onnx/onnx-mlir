@@ -6103,7 +6103,7 @@ def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
 }
 
 def ONNXScalerOp:ONNX_Op<"Scaler",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Scaler operation";
   let description = [{
   "Rescale input data, for example to standardize features by removing the mean and scaling to unit variance."
