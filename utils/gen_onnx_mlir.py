@@ -252,7 +252,7 @@ OpsWithShapeInference = [
     'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
     'LSTM', 'GRU', 'Split', 'Pad', 'Cast', 'ConvTranspose', 'Flatten',
     'DynamicQuantizeLinear', 'QuantizeLinear', 'DequantizeLinear', 'ConvInteger',
-    'Squeeze'
+    'Squeeze', 'Shape', 'Tile', 'Gather', 'ConstantOfShape', 'Slice'
 ]
 
 # Operations supporting canonicalization.
@@ -266,7 +266,8 @@ OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Scaler']
 # tuples, whose first item is the attribute/operand name, and the second item is
 # the index at which such operand occurs in the list of the operation's inputs.
 OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
-                                  "Pad": [("pads", 1), ("constant_value", 2)]}
+                                  "Pad": [("pads", 1), ("constant_value", 2)],
+                                  "Tile": [("repeats", 1)]}
 
 # Interface for special handling of type inference
 # The common code are put into get_type_inference_func
@@ -281,7 +282,15 @@ OpsWithResultTypeInference = {
     '''auto toAttr = to().getSExtValue();
       auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(
-        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));'''
+        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));''',
+  "ConstantOfShape":
+  '''if (auto attr = valueAttr()) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          attr.getType().cast<ShapedType>().getElementType()));
+      } else {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          FloatType::getF32(getContext())));
+      }'''
 }
 
 # Add an Op in this list if the Op needs result type deduction which is required
