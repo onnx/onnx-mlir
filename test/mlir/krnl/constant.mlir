@@ -1,4 +1,6 @@
-// RUN: onnx-mlir-opt --shape-inference --lower-frontend --lower-krnl --lower-all-llvm %s | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --lower-frontend --lower-krnl --lower-all-llvm %s -split-input-file | FileCheck %s
+
+// -----
 
 func @test_constant(%arg0 : tensor<1xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : () -> tensor<*xf32>

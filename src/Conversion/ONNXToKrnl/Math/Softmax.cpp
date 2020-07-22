@@ -36,21 +36,18 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType))
-      alloc =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
       alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, op, input);
+          memRefType, loc, rewriter, insertDealloc, input);
 
     // Shape of the result
     auto memRefShape = memRefType.getShape();
 
     // Insert allocations and deallocations for sum and max.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-    Value sumOp =
-        insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true, op);
-    Value maxOp =
-        insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true, op);
+    Value sumOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
+    Value maxOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
     Value negInfinity = rewriter.create<ConstantOp>(loc,
         FloatAttr::get(elementType, -std::numeric_limits<float>::infinity()));

@@ -161,14 +161,13 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     ConversionPatternRewriter &rewriter, Location loc, ONNXLSTMOp *op,
     typename ONNXLSTMOp::Adaptor operandAdaptor) {
   LstmState state;
-  FuncOp function = cast<FuncOp>(op->getParentOp());
 
   // Insert allocation and deallocation for the results of this operation.
   if (!isNoneType(op->Y())) {
     auto yMemRefType = convertToMemRefType(op->Y().getType());
     if (hasAllConstantDimensions(yMemRefType))
-      state.allH = insertAllocAndDeallocWithFunction(yMemRefType, loc, rewriter,
-          checkInsertDealloc(op->getOperation(), 0), function, true);
+      state.allH = insertAllocAndDealloc(yMemRefType, loc, rewriter,
+          checkInsertDealloc(op->getOperation(), 0));
     else {
       llvm_unreachable("Unsupported dynamic dimensions.");
     }
@@ -180,8 +179,8 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
   if (!isNoneType(op->Y_h())) {
     auto yhMemRefType = convertToMemRefType(op->Y_h().getType());
     if (hasAllConstantDimensions(yhMemRefType))
-      state.ht = insertAllocAndDeallocWithFunction(yhMemRefType, loc, rewriter,
-          checkInsertDealloc(op->getOperation(), 1), function, true);
+      state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter,
+          checkInsertDealloc(op->getOperation(), 1));
     else
       llvm_unreachable("Unsupported dynamic dimensions.");
   } else {
@@ -189,16 +188,15 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
         {dimAt(operandAdaptor.W(), 0), dimAt(operandAdaptor.X(), 1),
             dimAt(operandAdaptor.R(), 2)},
         operandAdaptor.X().getType().cast<ShapedType>().getElementType());
-    state.ht = insertAllocAndDeallocWithFunction(
-        yhMemRefType, loc, rewriter, true, function, true);
+    state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter, true);
   }
 
   // Y_c :: [num_directions, batch_size, hidden_size]
   if (!isNoneType(op->Y_c())) {
     auto ycMemRefType = convertToMemRefType(op->Y_c().getType());
     if (hasAllConstantDimensions(ycMemRefType))
-      state.ct = insertAllocAndDeallocWithFunction(ycMemRefType, loc, rewriter,
-          checkInsertDealloc(op->getOperation(), 2), function, true);
+      state.ct = insertAllocAndDealloc(ycMemRefType, loc, rewriter,
+          checkInsertDealloc(op->getOperation(), 2));
     else
       llvm_unreachable("Unsupported dynamic dimensions.");
   } else {
@@ -206,8 +204,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
         {dimAt(operandAdaptor.W(), 0), dimAt(operandAdaptor.X(), 1),
             dimAt(operandAdaptor.R(), 2)},
         operandAdaptor.X().getType().cast<ShapedType>().getElementType());
-    state.ct = insertAllocAndDeallocWithFunction(
-        ycMemRefType, loc, rewriter, true, function, true);
+    state.ct = insertAllocAndDealloc(ycMemRefType, loc, rewriter, true);
   }
 
   // Initialize ht and ct.
