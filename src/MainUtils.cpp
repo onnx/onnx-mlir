@@ -1,4 +1,4 @@
-//===--------------------------- main_utils.cpp ---------------------------===//
+//===--------------------------- MainUtils.cpp ---------------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <regex>
 #include <string>
+#include <vector>
 
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/Program.h>
@@ -21,8 +22,6 @@
 
 #include "src/ExternalUtil.hpp"
 #include "src/MainUtils.hpp"
-
-#include "MainUtils.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -39,6 +38,42 @@ llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
   return llvm::None;
+}
+
+// Runtime directory contains all the libraries, jars, etc. that are
+// necessary for running onnx-mlir. It's resolved in the following order:
+//
+//   - if ONNX_MLIR_RUNTIME_DIR is set, use it, otherwise
+//   - get path from where onnx-mlir is run, if it's of the form
+//   /foo/bar/bin/onnx-mlir,
+//     the runtime directory is /foo/bar/lib (note that when onnx-mlir is
+//     installed system wide, which is typically /usr/local/bin, this will
+//     correctly resolve to /usr/local/lib), but some systems still have
+//     lib64 so we check that first. If neither exists, then
+//   - use CMAKE_INSTALL_PREFIX/lib, which is typically /usr/local/lib
+string getRuntimeDir() {
+  const auto &envDir = getEnvVar("ONNX_MLIR_RUNTIME_DIR");
+  if (envDir && llvm::sys::fs::exists(envDir.getValue()))
+    return envDir.getValue();
+
+  string execDir = llvm::sys::path::parent_path(kExecPath).str();
+  if (llvm::sys::path::stem(execDir).str().compare("bin") == 0) {
+    string p = execDir.substr(0, execDir.size() - 3);
+    if (llvm::sys::fs::exists(p + "lib64"))
+      return p + "lib64";
+    if (llvm::sys::fs::exists(p + "lib"))
+      return p + "lib";
+  }
+
+  llvm::SmallString<8> instDir64(kInstPath);
+  llvm::sys::path::append(instDir64, "lib64");
+  string p = llvm::StringRef(instDir64).str();
+  if (llvm::sys::fs::exists(p))
+    return p;
+
+  llvm::SmallString<8> instDir(kInstPath);
+  llvm::sys::path::append(instDir, "lib");
+  return llvm::StringRef(instDir).str();
 }
 
 // Helper struct to make command construction and execution easy & readable.
@@ -97,6 +132,12 @@ struct Command {
 };
 } // namespace
 
+void setExecPath(const char *argv0, void *fmain) {
+  string p;
+  if (!(p = llvm::sys::fs::getMainExecutable(argv0, fmain)).empty())
+    kExecPath = p;
+}
+
 void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module) {
   // Handle '.mlir' input to the ONNX MLIR frontend.
@@ -119,8 +160,8 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
   }
 }
 
-void compileModuleToSharedLibrary(
-    const mlir::OwningModuleRef &module, string outputBaseName) {
+void genConstPackObj(const mlir::OwningModuleRef &module,
+    llvm::Optional<string> &constPackObjPath) {
   // Extract constant pack file name, which is embedded as a symbol in the
   // module being compiled.
   auto constPackFilePathSym = (*module).lookupSymbol<mlir::LLVM::GlobalOp>(
@@ -131,7 +172,6 @@ void compileModuleToSharedLibrary(
                                .str();
   llvm::FileRemover constPackRemover(constPackFilePath);
 
-  llvm::Optional<std::string> constPackObjPath;
 #if __APPLE__
   // Create a empty stub file, compile it to an empty obj file.
   llvm::SmallVector<char, 20> stubSrcPath;
@@ -153,7 +193,6 @@ void compileModuleToSharedLibrary(
       .appendList({"-sectcreate", "binary", "param", constPackFilePath})
       .appendStr(stubObjPathStr)
       .exec();
-  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
 #elif __linux__
   // Create param.o holding packed parameter values.
@@ -164,7 +203,6 @@ void compileModuleToSharedLibrary(
       .appendList({"-o", constPackObjPath.getValue()})
       .appendStr(constPackFilePath)
       .exec();
-  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   // Figure out what is the default symbol name describing the start/end
   // address of the embedded data.
@@ -204,40 +242,119 @@ void compileModuleToSharedLibrary(
           mlir::KrnlPackedConstantOp::getConstPackFileNameStrLenSymbolName())
       .valueAttr(builder.getI64IntegerAttr(constPackFileName.str().size()));
 #endif
+}
 
-  // Write LLVM bitcode.
-  string outputFilename = outputBaseName + ".bc";
+// Write LLVM bitcode.
+void genLLVMBitcode(const mlir::OwningModuleRef &module, string bitcodePath) {
   error_code error;
+
   llvm::raw_fd_ostream moduleBitcodeStream(
-      outputFilename, error, llvm::sys::fs::F_None);
+      bitcodePath, error, llvm::sys::fs::F_None);
 
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
-  llvm::FileRemover bcRemover(outputFilename);
+}
 
-  // Compile LLVM bitcode to object file.
+// Compile LLVM bitcode to object file.
+void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
+    string modelObjPath) {
   Command llvmToObj(/*exePath=*/kLlcPath);
-  llvmToObj.appendStr("-filetype=obj");
-  llvmToObj.appendStr("-relocation-model=pic");
-  llvmToObj.appendStr(outputFilename);
-  llvmToObj.exec();
-  std::string modelObjPath = outputBaseName + ".o";
+  llvmToObj.appendStr("-filetype=obj")
+      .appendStr("-relocation-model=pic")
+      .appendList({"-o", modelObjPath})
+      .appendStr(bitcodePath)
+      .exec();
+}
+
+void genJniObject(const mlir::OwningModuleRef &module, string jniSharedLibPath,
+    string jniObjPath) {
+  Command ar(/*exePath=*/kArPath);
+  ar.appendStr("x").appendStr(jniSharedLibPath).appendStr(jniObjPath).exec();
+}
+
+// Link everything into a shared object.
+void genSharedLib(const mlir::OwningModuleRef &module,
+    string modelSharedLibPath, std::vector<string> opts,
+    std::vector<string> objs, std::vector<string> libs) {
+
+  string runtimeDirInclFlag = "-L" + getRuntimeDir();
+
+  Command link(kCxxPath);
+  link.appendList(opts)
+      .appendList(objs)
+      .appendList({"-o", modelSharedLibPath})
+      .appendStrOpt(runtimeDirInclFlag)
+      .appendList(libs)
+      .exec();
+}
+
+// Create jar containing java runtime and model shared library (which includes
+// jni runtime).
+void genJniJar(const mlir::OwningModuleRef &module, string modelSharedLibPath,
+    string modelJniJarPath) {
+  llvm::SmallString<8> runtimeDir(getRuntimeDir());
+  llvm::sys::path::append(runtimeDir, "javaruntime.jar");
+  string javaRuntimeJarPath = llvm::StringRef(runtimeDir).str();
+
+  // Copy javaruntime.jar to model jar.
+  llvm::sys::fs::copy_file(javaRuntimeJarPath, modelJniJarPath);
+
+  // Add shared library to model jar.
+  Command jar(kJarPath);
+  jar.appendList({"uf", modelJniJarPath}).appendStr(modelSharedLibPath).exec();
+}
+
+void compileModuleToSharedLibrary(
+    const mlir::OwningModuleRef &module, std::string outputBaseName) {
+
+  llvm::Optional<string> constPackObjPath;
+  genConstPackObj(module, constPackObjPath);
+  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
+
+  string bitcodePath = outputBaseName + ".bc";
+  genLLVMBitcode(module, bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath);
+
+  string modelObjPath = outputBaseName + ".o";
+  genModelObject(module, bitcodePath, modelObjPath);
   llvm::FileRemover modelObjRemover(modelObjPath);
 
-  llvm::Optional<std::string> runtimeDirInclFlag;
-  if (getEnvVar("RUNTIME_DIR").hasValue())
-    runtimeDirInclFlag = "-L" + getEnvVar("RUNTIME_DIR").getValue();
+  string modelSharedLibPath = outputBaseName + ".so";
+  genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"},
+      {constPackObjPath.getValueOr(""), modelObjPath},
+      {"-lEmbeddedDataLoader", "-lcruntime"});
+}
 
-  // Link everything into a shared object.
-  Command link(kCxxPath);
-  link.appendList({"-shared", "-fPIC"})
-      .appendStr(modelObjPath)
-      .appendStr(constPackObjPath.getValueOr(""))
-      .appendList({"-o", outputBaseName + ".so"})
-      .appendStrOpt(runtimeDirInclFlag)
-      .appendList({"-lEmbeddedDataLoader", "-lcruntime"})
-      .exec();
+void compileModuleToJniJar(
+    const mlir::OwningModuleRef &module, std::string outputBaseName) {
+
+  llvm::Optional<string> constPackObjPath;
+  genConstPackObj(module, constPackObjPath);
+  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
+
+  string bitcodePath = outputBaseName + ".bc";
+  genLLVMBitcode(module, bitcodePath);
+  llvm::FileRemover bitcodeRemover(bitcodePath);
+
+  string modelObjPath = outputBaseName + ".o";
+  genModelObject(module, bitcodePath, modelObjPath);
+  llvm::FileRemover modelObjRemover(modelObjPath);
+
+  string jniSharedLibPath = getRuntimeDir() + "/libjniruntime.a";
+  string jniObjPath = "jnidummy.c.o";
+  genJniObject(module, jniSharedLibPath, jniObjPath);
+  llvm::FileRemover jniObjRemover(jniObjPath);
+
+  string modelSharedLibPath = "libmodel.so";
+  genSharedLib(module, modelSharedLibPath,
+      {"-shared", "-fPIC", "-z", "noexecstack"},
+      {constPackObjPath.getValueOr(""), modelObjPath, jniObjPath},
+      {"-lEmbeddedDataLoader", "-lcruntime", "-ljniruntime"});
+  llvm::FileRemover modelSharedLibRemover(modelSharedLibPath);
+
+  string modelJniJarPath = outputBaseName + ".jar";
+  genJniJar(module, modelSharedLibPath, modelJniJarPath);
 }
 
 void registerDialects() {
@@ -349,6 +466,9 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     // Write LLVM bitcode to disk, compile & link.
     compileModuleToSharedLibrary(module, outputBaseName);
     printf("Shared library %s.so has been compiled.\n", outputBaseName.c_str());
+  } else if (emissionTarget == EmitJNI) {
+    compileModuleToJniJar(module, outputBaseName);
+    printf("JNI archive %s.jar has been compiled.\n", outputBaseName.c_str());
   } else {
     // Emit the version with all constants included.
     outputCode(module, outputBaseName, ".onnx.mlir");

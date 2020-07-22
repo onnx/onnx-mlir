@@ -55,12 +55,6 @@ endif()
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
         ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp)
 
-set(ONNX_MLIR_LD_PRELOAD_onnx-mlir "" CACHE STRING "" FORCE)
-if(BUILD_SHARED_LIBS)
-  message(STATUS "To run dynamically linked onnx-mlir, you must specify:")
-  message(STATUS "LD_PRELOAD=${ONNX_MLIR_LD_PRELOAD_onnx-mlir}")
-endif()
-
 # Libraries specified on the target_link_libraries for the add_subdirectory
 # targets get added to the end of the list here. This creates two problems:
 # 1. It produces duplicated libraries being specified for the link command.
