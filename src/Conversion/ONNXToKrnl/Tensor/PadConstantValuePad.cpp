@@ -32,13 +32,11 @@ struct ONNXPadConstantValuePadOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(tensorType);
-
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
 
     if (hasAllConstantDimensions(memRefType))
-      alloc =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
       return emitError(loc, "unexpected output has non-Constant shape");
 

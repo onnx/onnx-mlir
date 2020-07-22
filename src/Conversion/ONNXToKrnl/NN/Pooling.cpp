@@ -235,8 +235,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     bool insertDealloc = checkInsertDealloc(op);
 
     if (hasAllConstantDimensions(memRefType))
-      alloc =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
       alloc = insertAllocAndDeallocForPooling(rewriter, loc, insertDealloc,
           memRefType, inputOperand, kernelShape, pads, strides, dilations,

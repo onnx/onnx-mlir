@@ -24,10 +24,10 @@ using namespace mlir;
 namespace {
 
 bool checkOpResultIsReturned(AllocOp *allocOp) {
-  FuncOp function = getContainingFunction(allocOp->getOperation());
+  auto parentBlock = allocOp->getOperation()->getBlock();
 
   bool opIsReturned = false;
-  function.walk([&opIsReturned, allocOp](ReturnOp op) {
+  parentBlock->walk([&opIsReturned, allocOp](ReturnOp op) {
     auto result = allocOp->getResult();
     for (const auto &operand : op.getOperands())
       if (operand == result)

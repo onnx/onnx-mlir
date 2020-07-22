@@ -87,6 +87,8 @@ public:
 
     // Get a KrnlGetRefOp which does not use the current alloc.
     if (KrnlGetRefOp unbundledGetRef = getUnbundledGetRef(&allocOp)) {
+      unbundledGetRef.dump();
+
       // Current memory pool size is the offset for the newly bundled
       // internal MemRef. Emit the offset as a constant.
       auto offset = rewriter.create<ConstantOp>(

@@ -39,8 +39,7 @@ struct ONNXSqueezeOpLowering : public ConversionPattern {
     Value alloc, tensorSize;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(memRefType)) {
-      alloc =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, op);
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
       auto tensorSizeInBytes = elementSizeInBytes;
       for (int i = 0; i < memRefShape.size(); ++i) {
         tensorSizeInBytes *= memRefShape[i];
