@@ -53,7 +53,8 @@ private:
   // mapping between string name and symbol
   OnnxMlirSymbolMapping frontend_symbols_;
 
-  typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(const onnx::NodeProto &);
+  typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
+      const onnx::NodeProto &);
 
   std::map<std::string, ImportHandlerType> import_handler_map_;
 
@@ -360,7 +361,7 @@ private:
   /*!
    * Special handle for Pad operations.
    */
-  void ImportNodePad(const onnx::NodeProto& node) {
+  void ImportNodePad(const onnx::NodeProto &node) {
 
     int nOps = node.input().size();
     if (nOps == 2) {
@@ -409,7 +410,7 @@ private:
   }
 
   void InitHandlerMap() {
-#include "src/Builder/OpBuildTable.inc"     
+#include "src/Builder/OpBuildTable.inc"
   }
 
   /*!

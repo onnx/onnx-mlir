@@ -946,7 +946,7 @@ special cases:
 
 def gen_op_importer(schema, file):
     indent = inc_indent()
-    s = indent + 'if (opName == "' + schema.name + '")\n'
+    s = indent + 'import_handler_map_["' + schema.name +'"] = \n '
 
     expected_num_operands = len(schema.inputs)
     expected_num_results = len(schema.outputs)
@@ -970,8 +970,8 @@ def gen_op_importer(schema, file):
         args.append(
             '/* expected_num_results = */ {}'.format(expected_num_results))
     """
-    s += inc_indent(indent) + " {}({});\n".format(
-        handler_func, ", ".join(args))
+    s += inc_indent(indent) + '&onnx_mlir::detail::FrontendGenImpl::'
+    s += handler_func+';\n'
 
     file.write(s)
 
