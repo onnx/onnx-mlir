@@ -54,4 +54,68 @@ def ReduceLogSumExpOpPattern: Pat<(ONNXReduceLogSumExpOp $oprd, $axes, $keepdims
 def ReduceSumSquareOpPattern: Pat<(ONNXReduceSumSquareOp $oprd, $axes, $keepdims),
                                   (ONNXReduceSumOp (ONNXMulOp $oprd, $oprd), $axes, $keepdims)>;
 
+//===----------------------------------------------------------------------===//
+// ONNXScalerOp %X, %Offest, %Scale
+// x input, a offset, b scale
+//===----------------------------------------------------------------------===//
+// Useful test definitions.
+def AttributeIsNull :
+    Constraint<CPred<"! ($_self)">,
+  "Attribute is null">;
+
+def AttributeNotNull :
+Constraint<CPred<" ($_self)">,
+        "Attribute exists">;
+
+def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>().getElementType().isF32())">>;
+
+def GetNullAttr :
+	NativeCodeCall<"Attribute()">;
+
+// Create a DenseElementsAttr from an ArrayAttr.
+def createDenseArrayAttr:
+  NativeCodeCall<"createDenseArrayAttr($_builder, $0)">;
+
+def ScalerT : NativeCodeCall<"$_builder.getI64IntegerAttr(1)">;
+
+// No attribute
+def ScalerNullPattern : Pat<
+	(ONNXScalerOp $x, $a, $b),
+	(replaceWithValue $x),
+  [(HasFloatType:$x), (AttributeIsNull:$a), (AttributeIsNull:$b)],
+  (addBenefit 4)>;
+
+// No attribute, input x not float type
+def ScalerNullPattern2 : Pat<
+	(ONNXScalerOp $x, $a, $b),
+	(ONNXCastOp $x, (ScalerT)),
+	[(AttributeIsNull:$a), (AttributeIsNull:$b)],
+  (addBenefit 3)>;
+
+// No scale
+def ScalerNoScalePattern : Pat<
+  (ONNXScalerOp $x, $a, $b),
+    (ONNXSubOp $x,
+    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))),
+  [(AttributeIsNull:$b)],
+  (addBenefit 2)>;
+
+// No offset
+def ScalerNoOffsetPattern : Pat<
+  (ONNXScalerOp $x, $a, $b),
+  (ONNXMulOp $x,
+    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b))),
+  [(AttributeIsNull:$a)],
+  (addBenefit 2)>;
+
+// Normal ONNXScalerOp
+def ScalerPattern : Pat<
+  (ONNXScalerOp $x, $a, $b),
+  (ONNXMulOp 
+    (ONNXSubOp $x,
+      (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))),
+    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b))),
+  [],
+  (addBenefit 1)>;
+
 #endif // ONNX_DECOMPOSE

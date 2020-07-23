@@ -252,11 +252,11 @@ OpsWithShapeInference = [
     'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
     'LSTM', 'GRU', 'Split', 'Pad', 'Cast', 'ConvTranspose', 'Flatten',
     'DynamicQuantizeLinear', 'QuantizeLinear', 'DequantizeLinear', 'ConvInteger',
-    'Squeeze', 'Shape', 'Tile', 'Gather', 'ConstantOfShape', 'Slice'
+    'Squeeze', 'Shape', 'Tile', 'Gather', 'ConstantOfShape', 'Slice', 'Scaler'
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Scaler']
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
 
 # Operations who have operands that, if produced by constant operations, should
 # be promoted to become an attribute (via attribute promotion).
