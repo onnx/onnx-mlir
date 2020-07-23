@@ -63,10 +63,6 @@ def AttributeIsNull :
     Constraint<CPred<"! ($_self)">,
   "Attribute is null">;
 
-def AttributeNotNull :
-Constraint<CPred<" ($_self)">,
-        "Attribute exists">;
-
 def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>().getElementType().isF32())">>;
 
 def GetNullAttr :
