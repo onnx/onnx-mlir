@@ -1878,6 +1878,17 @@ LogicalResult ONNXCastOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Scaler
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXScalerOp::inferShapes() {
+  ShapedType inputType = X().getType().dyn_cast<ShapedType>();
+  getResult().setType(RankedTensorType::get(
+      inputType.getShape(), FloatType::getF32(getContext())));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Constant
 //===----------------------------------------------------------------------===//
 

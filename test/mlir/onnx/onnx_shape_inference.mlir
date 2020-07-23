@@ -1355,3 +1355,15 @@ func @test_slice_all_constant_negative_steps(%arg0 : tensor<2x4xf32>) -> tensor<
   // CHECK: [[RES:%.+]] = "onnx.Slice"(%arg0, [[STARTS]], [[ENDS]], [[AXES]], [[STEPS]]) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<1x2xf32>
   // CHECK: return [[RES]] : tensor<1x2xf32>
 }
+
+//===----------------------------------------------------------------------===//
+/// Test the shape inferencing for the scaler operation.
+//===----------------------------------------------------------------------===//
+func @test_scaler_no_scale_int(%arg0: tensor<3xi32>) -> tensor<*xf32> {
+  %0 = "onnx.Scaler"(%arg0) {offset = [1986.99939 : f32, 0.99999988 : f32, 0.999999701 : f32]} : (tensor<3xi32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_scaler_no_scale_int
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.Scaler"(%arg0) {offset = [1986.99939 : f32, 0.99999988 : f32, 0.999999701 : f32]} : (tensor<3xi32>) -> tensor<3xf32>
+  // CHECK: return [[RES_ATTR]] : tensor<3xf32>
+}
