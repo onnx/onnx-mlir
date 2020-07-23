@@ -252,7 +252,7 @@ OpsWithShapeInference = [
     'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
     'LSTM', 'GRU', 'Split', 'Pad', 'Cast', 'ConvTranspose', 'Flatten',
     'DynamicQuantizeLinear', 'QuantizeLinear', 'DequantizeLinear', 'ConvInteger',
-    'Squeeze'
+    'Squeeze', 'Shape', 'Tile', 'Gather', 'ConstantOfShape', 'Slice'
 ]
 
 # Operations supporting canonicalization.
@@ -266,7 +266,8 @@ OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Scaler']
 # tuples, whose first item is the attribute/operand name, and the second item is
 # the index at which such operand occurs in the list of the operation's inputs.
 OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
-                                  "Pad": [("pads", 1), ("constant_value", 2)]}
+                                  "Pad": [("pads", 1), ("constant_value", 2)],
+                                  "Tile": [("repeats", 1)]}
 
 # Interface for special handling of type inference
 # The common code are put into get_type_inference_func
@@ -281,7 +282,15 @@ OpsWithResultTypeInference = {
     '''auto toAttr = to().getSExtValue();
       auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(
-        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));'''
+        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));''',
+  "ConstantOfShape":
+  '''if (auto attr = valueAttr()) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          attr.getType().cast<ShapedType>().getElementType()));
+      } else {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          FloatType::getF32(getContext())));
+      }'''
 }
 
 # Add an Op in this list if the Op needs result type deduction which is required
@@ -851,9 +860,9 @@ def gen_op_def(schema):
             build_type_name = ''
             if schema.name in custom_builder_broadcast_ops_list:
                 second_operand_name = list(ins.items())[1][0]
-                s += indent + 'auto lhsTy = {}.getType().cast<RankedTensorType>();\n'. \
+                s += indent + 'auto lhsTy = {}.getType();\n'. \
                     format(first_operand_name)
-                s += indent + 'auto rhsTy = {}.getType().cast<RankedTensorType>();\n'. \
+                s += indent + 'auto rhsTy = {}.getType();\n'. \
                     format(second_operand_name)
                 s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
@@ -881,8 +890,8 @@ def gen_op_def(schema):
                 'ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
             indent = inc_indent(indent)
             if schema.name in custom_builder_broadcast_ops_list:
-                s += indent + 'auto lhsTy = operands[0].getType().cast<RankedTensorType>();\n'
-                s += indent + 'auto rhsTy = operands[1].getType().cast<RankedTensorType>();\n'
+                s += indent + 'auto lhsTy = operands[0].getType();\n'
+                s += indent + 'auto rhsTy = operands[1].getType();\n'
                 s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
