@@ -79,20 +79,30 @@ def ScalerNullPattern : Pat<
 	(ONNXScalerOp $x, $a, $b),
 	(replaceWithValue $x),
   [(HasFloatType:$x), (AttributeIsNull:$a), (AttributeIsNull:$b)],
-  (addBenefit 4)>;
+  (addBenefit 5)>;
 
 // No attribute, input x not float type
 def ScalerNullPattern2 : Pat<
 	(ONNXScalerOp $x, $a, $b),
 	(ONNXCastOp $x, (ScalerT)),
 	[(AttributeIsNull:$a), (AttributeIsNull:$b)],
-  (addBenefit 3)>;
+  (addBenefit 4)>;
 
 // No scale
 def ScalerNoScalePattern : Pat<
   (ONNXScalerOp $x, $a, $b),
     (ONNXSubOp $x,
     (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))),
+  [(HasFloatType:$x), (AttributeIsNull:$b)],
+  (addBenefit 3)>;
+
+// No scale, input x not float type
+def ScalerNoScalePattern2 : Pat<
+ (ONNXScalerOp $x, $a, $b),
+  (ONNXSubOp
+   (ONNXCastOp $x, (ScalerT)),
+   (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))
+  ),
   [(AttributeIsNull:$b)],
   (addBenefit 2)>;
 
@@ -101,6 +111,15 @@ def ScalerNoOffsetPattern : Pat<
   (ONNXScalerOp $x, $a, $b),
   (ONNXMulOp $x,
     (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b))),
+  [(HasFloatType:$x), (AttributeIsNull:$a)],
+  (addBenefit 3)>;
+
+// No offset, input x not float type
+def ScalerNoOffsetPattern2 : Pat<
+ (ONNXScalerOp $x, $a, $b),
+  (ONNXMulOp
+   (ONNXCastOp $x, (ScalerT)),
+   (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b))),
   [(AttributeIsNull:$a)],
   (addBenefit 2)>;
 
@@ -111,7 +130,18 @@ def ScalerPattern : Pat<
     (ONNXSubOp $x,
       (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))),
     (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b))),
-  [],
+  [(HasFloatType:$x)],
   (addBenefit 1)>;
+
+// Normal ONNXScalerOp, input x not float type
+def ScalerPattern2 : Pat<
+  (ONNXScalerOp $x, $a, $b),
+  (ONNXMulOp 
+    (ONNXSubOp (ONNXCastOp $x, (ScalerT)),
+      (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))),
+    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b))),
+  [],
+  (addBenefit 0)>;
+
 
 #endif // ONNX_DECOMPOSE
