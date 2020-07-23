@@ -143,5 +143,4 @@ def ScalerPattern2 : Pat<
   [],
   (addBenefit 0)>;
 
-
 #endif // ONNX_DECOMPOSE
