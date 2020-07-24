@@ -313,19 +313,27 @@ custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broa
 
 #a dictionary to add any special definition for an operation
 custom_definition_misc = dict([ ('Constant',
-  '''    let builders = [
-    OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
-      if (value) {
-        auto tensorType = value.getType();
-        build(builder, state, tensorType, sparse_value, value);
-      } else {
-        auto tensorType = sparse_value.getType();
-        build(builder, state, tensorType, sparse_value, value);
-      }
-    }]>
-    ];'''
-  )])
-
+ '''  let builders = [
+  OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
+   if (value) {
+    auto tensorType = value.getType();
+    build(builder, state, tensorType, sparse_value, value);
+   } else {
+    auto tensorType = sparse_value.getType();
+    build(builder, state, tensorType, sparse_value, value);
+   }
+  }]>
+  ];'''),
+  ('Cast',
+ '''   let builders = [
+  OpBuilder<"OpBuilder &builder, OperationState &state, Value input, IntegerAttr to", [{
+   auto toAttr = to.getValue().getSExtValue();
+   auto resultType = mlir::UnrankedTensorType::get(
+    convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)));
+   build(builder, state, resultType, input, to);
+  }] >
+  ];'''
+ )])
 
 onnx_types = (
     'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
