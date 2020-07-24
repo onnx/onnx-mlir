@@ -399,7 +399,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 void addKrnlToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
-  pm.addPass(mlir::createKrnlLowerToLLVMPass());
+  pm.addPass(mlir::createConvertKrnlToLLVMPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
 

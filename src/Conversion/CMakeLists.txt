@@ -1,1 +1,2 @@
 add_subdirectory(ONNXToKrnl)
+add_subdirectory(KrnlToLLVM)

@@ -44,7 +44,7 @@ std::unique_ptr<Pass> createLowerKrnlPass();
 std::unique_ptr<Pass> createElideConstGlobalValuePass();
 
 /// Pass for lowering Krnl dialect to LLVM dialect.
-std::unique_ptr<Pass> createKrnlLowerToLLVMPass();
+std::unique_ptr<Pass> createConvertKrnlToLLVMPass();
 
 /// Pass for packing Krnl global constants.
 std::unique_ptr<Pass> createPackKrnlGlobalConstantsPass();

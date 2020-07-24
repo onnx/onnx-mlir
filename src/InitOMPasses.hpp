@@ -65,10 +65,10 @@ void initOMPasses() {
         return mlir::createElideConstGlobalValuePass();
       });
 
-  mlir::registerPass("lower-all-llvm",
+  mlir::registerPass("convert-krnl-to-llvm",
       "Lower the Krnl Affine and Std dialects to LLVM.",
       []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createKrnlLowerToLLVMPass();
+        return mlir::createConvertKrnlToLLVMPass();
       });
 
   mlir::registerPass("pack-krnl-constants",
