@@ -29,7 +29,8 @@ class HasRankOf<int rank> : Constraint<CPred<"$0.getType().isa<ShapedType>() && 
 def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>().getElementType().isF32())">>;
 def HasFloatTypeAttr : Constraint<CPred<"(($_self).getValue()==1)">>;
-
+// ddef HasSameType:
+//. d  NativeCodeCall<"HasSameType($_builder, $0, $1)">;
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
@@ -61,11 +62,22 @@ def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $
 
 // ONNX_Op (onnx.Cast (%X, $type)) = ONNX_Op (%X)
 
+
+def HasSameElementType : Constraint<
+    CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
+          "convertONNXTypeToMLIRType($_builder, static_cast<onnx::TensorProto_DataType>($1.cast<::mlir::IntegerAttr>().getInt())))">,
+    "has same element type">;
+
+// def : Pattern<(TwoResultOp:$results $input),
+//               [(...), (...)],
+//               [(F32Tensor:$results__0), (HasNoUseOf:$results__1),
+//                (HasSameElementShape $results__0, $input)]>;
+
 // No attribute
 def CastEliminationPattern : Pat<
 	(ONNXCastOp $arg, $type),
 	(replaceWithValue $arg),
-  [(HasFloatType:$arg), (HasFloatTypeAttr: $type)]>;
+  [(HasSameElementType $arg, $type)]>;
 
 
 #endif // ONNX_COMBINE

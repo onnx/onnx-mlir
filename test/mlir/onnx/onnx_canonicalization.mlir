@@ -99,10 +99,10 @@ func @test_gemm_add_fusion_rank3(%arg0: tensor<128x128x256xf32>, %arg1: tensor<1
 
 // -----
 
-//CHECK-LABEL: @cast_elimination(%{{.*}}: tensor<*xf32>) -> tensor<*xf32> {
-func @cast_elimination(%arg0: tensor<*xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<*xf32>) -> tensor<*xf32>
-  return %0 : tensor<*xf32>
+//CHECK-LABEL: @cast_elimination(%{{.*}}: tensor<2xf32>) -> tensor<2xf32> {
+func @cast_elimination(%arg0: tensor<2xf32>) -> tensor<2xf32> {
+  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<2xf32>) -> tensor<2xf32>
+  return %0 : tensor<2xf32>
 
-  // CHECK-NEXT: return %arg0 : tensor<*xf32>
+  // CHECK-NEXT: return %arg0 : tensor<2xf32>
 }
