@@ -27,6 +27,9 @@ include "src/Dialect/ONNX/ONNXOps.td"
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 class HasRankOf<int rank> : Constraint<CPred<"$0.getType().isa<ShapedType>() && $0.getType().cast<ShapedType>().getRank() == " # rank>>;
 def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
+def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>().getElementType().isF32())">>;
+def HasFloatTypeAttr : Constraint<CPred<"(($_self).getValue()==1)">>;
+
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
@@ -54,5 +57,15 @@ def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
 def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $v1, $v2), $m2, $m3),
                              (ONNXPadConstantValuePadOp $m1, $v2, $m2, $m3),
                              [(HasOneUse $res)]>;
+
+
+// ONNX_Op (onnx.Cast (%X, $type)) = ONNX_Op (%X)
+
+// No attribute
+def CastEliminationPattern : Pat<
+	(ONNXCastOp $arg, $type),
+	(replaceWithValue $arg),
+  [(HasFloatType:$arg), (HasFloatTypeAttr: $type)]>;
+
 
 #endif // ONNX_COMBINE

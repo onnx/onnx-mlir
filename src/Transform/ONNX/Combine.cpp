@@ -18,6 +18,7 @@
 using namespace mlir;
 
 namespace {
+
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXCombine.inc"
 } // end anonymous namespace
@@ -43,4 +44,10 @@ void ONNXIdentityOp::getCanonicalizationPatterns(
 void ONNXPadConstantValueOp::getCanonicalizationPatterns(
     OwningRewritePatternList &result, MLIRContext *context) {
   result.insert<ConstantPadPattern>(context);
+}
+
+/// on the ONNXCastOp.
+void ONNXCastOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &result, MLIRContext *context) {
+  result.insert<CastEliminationPattern>(context);
 }
