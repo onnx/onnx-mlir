@@ -256,11 +256,25 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
   let summary = "Krnl permute operation";
   let description = [{
     Permute a set of affine for loops using a specified permutation map.
-    For example,
+    The permutation map `map` should be constructed in such way that the
+    for loop referred to by the i-th operand to permute operation is sent
+    to the `map[i]`-th position.
+
+    For example, the following krnl dialect IR:
     ```
-    krnl.permute (%i, %j) [1, 0]
+    %ii, %jj, %kk = krnl.define_loops 3
+    krnl.permute(%ii, %jj, %kk) [1, 2, 0] : !krnl.loop, !krnl.loop, !krnl.loop
+    krnl.iterate (%ii, %jj, %kk) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20, %kk -> %k = 0 to 30) {}
     ```
-    transposes the loop referred to by %i and %j.
+    will be lowered to:
+    ```
+    affine.for %arg0 = 0 to 30 {
+      affine.for %arg1 = 0 to 10 {
+        affine.for %arg2 = 0 to 20 {
+        }
+      }
+    }
+    ```
   }];
 
   let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
