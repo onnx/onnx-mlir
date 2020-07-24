@@ -48,9 +48,9 @@ void initOMPasses() {
         return mlir::createKrnlBundleMemoryPoolsPass();
       });
 
-  mlir::registerPass(
-      "lower-krnl", "Lower Krnl dialect.", []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createLowerKrnlPass();
+  mlir::registerPass("convert-krnl-to-affine", "Lower Krnl dialect.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createConvertKrnlToAffinePass();
       });
 
   mlir::registerPass("convert-onnx-to-krnl",

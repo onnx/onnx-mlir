@@ -25,7 +25,7 @@ namespace {
 // Krnl to Affine Rewrite Patterns: KrnlTerminator operation.
 //===----------------------------------------------------------------------===//
 
-class KrnlTerminatorLowering : public OpRewritePattern<KrnlTerminatorOp> {
+class ConvertKrnlToAffinePass : public OpRewritePattern<KrnlTerminatorOp> {
 public:
   using OpRewritePattern<KrnlTerminatorOp>::OpRewritePattern;
 
@@ -235,7 +235,7 @@ void KrnlToAffineLoweringPass::runOnFunction() {
   target.addIllegalOp<KrnlTerminatorOp>();
   target.addLegalOp<AffineTerminatorOp>();
   OwningRewritePatternList patterns;
-  patterns.insert<KrnlTerminatorLowering>(&getContext());
+  patterns.insert<ConvertKrnlToAffinePass>(&getContext());
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
           getFunction(), target, patterns, &unconverted)))
@@ -243,6 +243,6 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 }
 } // namespace
 
-std::unique_ptr<Pass> mlir::createLowerKrnlPass() {
+std::unique_ptr<Pass> mlir::createConvertKrnlToAffinePass() {
   return std::make_unique<KrnlToAffineLoweringPass>();
 }
