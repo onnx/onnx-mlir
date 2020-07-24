@@ -53,7 +53,8 @@ void initOMPasses() {
         return mlir::createLowerKrnlPass();
       });
 
-  mlir::registerPass("lower-frontend", "Lower frontend ops to Krnl dialect.",
+  mlir::registerPass("convert-onnx-to-krnl",
+      "Lower frontend ops to Krnl dialect.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createLowerToKrnlPass();
       });

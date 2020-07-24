@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --lower-frontend --enable-memory-pool --lower-krnl --lower-all-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --enable-memory-pool --lower-krnl --lower-all-llvm %s -split-input-file | FileCheck %s
 
 func @test_memory_pool(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Add"(%arg0, %arg0) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
