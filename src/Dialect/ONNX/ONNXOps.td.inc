@@ -95,8 +95,8 @@ def ONNXAddOp:ONNX_Op<"Add",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto lhsTy = A.getType().cast<RankedTensorType>();
-      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -106,8 +106,8 @@ def ONNXAddOp:ONNX_Op<"Add",
       build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
-      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -146,8 +146,8 @@ def ONNXAndOp:ONNX_Op<"And",
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto lhsTy = A.getType().cast<RankedTensorType>();
-      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -157,8 +157,8 @@ def ONNXAndOp:ONNX_Op<"And",
       build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
-      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -662,7 +662,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
 }
 
 def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX ConstantOfShape operation";
   let description = [{
   "Generate a tensor with given value and shape."
@@ -679,6 +679,17 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
     }
     static std::vector<int> getTypeMap() {
       return {-1};
+    }
+    std::vector<mlir::Type> resultTypeInference() {
+      std::vector<mlir::Type> resultTypes;
+      if (auto attr = valueAttr()) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          attr.getType().cast<ShapedType>().getElementType()));
+      } else {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          FloatType::getF32(getContext())));
+      }
+      return resultTypes;
     }
   }];
 }
@@ -987,8 +998,8 @@ def ONNXDivOp:ONNX_Op<"Div",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto lhsTy = A.getType().cast<RankedTensorType>();
-      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -998,8 +1009,8 @@ def ONNXDivOp:ONNX_Op<"Div",
       build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
-      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -1135,8 +1146,8 @@ def ONNXEqualOp:ONNX_Op<"Equal",
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto lhsTy = A.getType().cast<RankedTensorType>();
-      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -1146,8 +1157,8 @@ def ONNXEqualOp:ONNX_Op<"Equal",
       build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
-      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -1438,7 +1449,7 @@ def ONNXGRUOp:ONNX_Op<"GRU",
 }
 
 def ONNXGatherOp:ONNX_Op<"Gather",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Gather operation";
   let description = [{
   "Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather"
@@ -1803,8 +1814,8 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto lhsTy = A.getType().cast<RankedTensorType>();
-      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -1814,8 +1825,8 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
       build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
-      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -2207,8 +2218,8 @@ def ONNXLessOp:ONNX_Op<"Less",
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto lhsTy = A.getType().cast<RankedTensorType>();
-      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -2218,8 +2229,8 @@ def ONNXLessOp:ONNX_Op<"Less",
       build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
-      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -2802,8 +2813,8 @@ def ONNXMulOp:ONNX_Op<"Mul",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto lhsTy = A.getType().cast<RankedTensorType>();
-      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -2813,8 +2824,8 @@ def ONNXMulOp:ONNX_Op<"Mul",
       build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
-      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -3020,8 +3031,8 @@ def ONNXOrOp:ONNX_Op<"Or",
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto lhsTy = A.getType().cast<RankedTensorType>();
-      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -3031,8 +3042,8 @@ def ONNXOrOp:ONNX_Op<"Or",
       build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
-      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -3215,8 +3226,8 @@ def ONNXPowOp:ONNX_Op<"Pow",
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$Z);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value X, Value Y", [{
-      auto lhsTy = X.getType().cast<RankedTensorType>();
-      auto rhsTy = Y.getType().cast<RankedTensorType>();
+      auto lhsTy = X.getType();
+      auto rhsTy = Y.getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -3226,8 +3237,8 @@ def ONNXPowOp:ONNX_Op<"Pow",
       build(builder, state, elementType, X, Y);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
-      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -4695,7 +4706,7 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
 }
 
 def ONNXShapeOp:ONNX_Op<"Shape",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Shape operation";
   let description = [{
   "Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor."
@@ -4850,7 +4861,7 @@ def ONNXSizeOp:ONNX_Op<"Size",
 }
 
 def ONNXSliceOp:ONNX_Op<"Slice",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Slice operation";
   let description = [{
   "Produces a slice of the input tensor along multiple axes. Similar to numpy:"
@@ -5162,8 +5173,8 @@ def ONNXSubOp:ONNX_Op<"Sub",
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto lhsTy = A.getType().cast<RankedTensorType>();
-      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -5173,8 +5184,8 @@ def ONNXSubOp:ONNX_Op<"Sub",
       build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
-      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -5345,7 +5356,7 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
 }
 
 def ONNXTileOp:ONNX_Op<"Tile",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"PromotableConstOperandsOpInterface">]> {
   let summary = "ONNX Tile operation";
   let description = [{
   "Constructs a tensor by tiling a given tensor."
@@ -5353,7 +5364,7 @@ def ONNXTileOp:ONNX_Op<"Tile",
   "For example A = [[1, 2], [3, 4]], B = [1, 2], tile(A, B) = [[1, 2, 1, 2], [3, 4, 3, 4]]"
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$input,
-    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$repeats);
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$repeats);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -5364,6 +5375,9 @@ def ONNXTileOp:ONNX_Op<"Tile",
     }
     static std::vector<int> getTypeMap() {
       return {20};
+    }
+    std::map<std::string, size_t> promotableConstOperands() {
+      return {{"repeats", 1}};
     }
   }];
 }
@@ -5629,8 +5643,8 @@ def ONNXXorOp:ONNX_Op<"Xor",
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
-      auto lhsTy = A.getType().cast<RankedTensorType>();
-      auto rhsTy = B.getType().cast<RankedTensorType>();
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -5640,8 +5654,8 @@ def ONNXXorOp:ONNX_Op<"Xor",
       build(builder, state, elementType, A, B);
     }]>,
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
-      auto lhsTy = operands[0].getType().cast<RankedTensorType>();
-      auto rhsTy = operands[1].getType().cast<RankedTensorType>();
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
@@ -6089,8 +6103,7 @@ def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
 }
 
 def ONNXScalerOp:ONNX_Op<"Scaler",
-  [NoSideEffect]> {
-  let hasCanonicalizer = 1;
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Scaler operation";
   let description = [{
   "Rescale input data, for example to standardize features by removing the mean and scaling to unit variance."
