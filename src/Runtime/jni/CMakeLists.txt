@@ -14,11 +14,11 @@ if(Java_Development_FOUND AND JNI_FOUND)
   # Target for JNI runtime lib
   add_library(jniruntime STATIC
           jniwrapper.c jnilog.c jnidummy.c
-          com_ibm_onnxmlir_DynEntryPoint.h jnilog.h ../RtMemRef.h)
+          com_ibm_onnxmlir_DynEntryPoint.h jnilog.h ../include/RtMemRef.h)
   set_target_properties(jniruntime PROPERTIES
           POSITION_INDEPENDENT_CODE TRUE)
   target_include_directories(jniruntime PRIVATE
-          ${ONNX_MLIR_SRC_ROOT}/src/Runtime
+          ${ONNX_MLIR_SRC_ROOT}/src/Runtime/include
           ${JAVA_INCLUDE_PATH}
           ${JAVA_INCLUDE_PATH2})
 

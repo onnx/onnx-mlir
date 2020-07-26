@@ -1,10 +1,10 @@
-//===------- ExecusionSession.cpp - ExecutionSession Implementation -------===//
+//===------- ExecutionSession.cpp - ExecutionSession Implementation -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains implementations of ExecusionSession class, which helps C++
+// This file contains implementations of ExecutionSession class, which helps C++
 // programs interact with compiled binary model libraries.
 //
 //===----------------------------------------------------------------------===//
@@ -14,7 +14,7 @@
 #include <sstream>
 #include <vector>
 
-#include "ExecusionSession.hpp"
+#include "ExecutionSession.hpp"
 
 namespace onnx_mlir {
 
@@ -42,19 +42,20 @@ ExecutionSession::ExecutionSession(
   }
 }
 
-std::vector<std::unique_ptr<RtMemRef>> ExecutionSession::run(
-    std::vector<std::unique_ptr<RtMemRef>> ins) {
-  auto *wrappedInput = createOrderedRtMemRefDict();
+std::vector<std::unique_ptr<RtMemRef, decltype(&rmr_destroy)>>
+ExecutionSession::run(
+    std::vector<std::unique_ptr<RtMemRef, decltype(&rmr_destroy)>> ins) {
+  auto *wrappedInput = ormrd_create();
   for (size_t i = 0; i < ins.size(); i++)
-    setRtMemRef(wrappedInput, i, ins.at(i).get());
+    ormrd_setRmrByIndex(wrappedInput, ins.at(i).get(), i);
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
-  std::vector<std::unique_ptr<RtMemRef>> outs;
-  auto outputSize = getSize(wrappedOutput);
+  std::vector<std::unique_ptr<RtMemRef, decltype(&rmr_destroy)>> outs;
 
-  for (size_t i = 0; i < getSize(wrappedOutput); i++) {
-    outs.emplace_back(std::unique_ptr<RtMemRef>(getRtMemRef(wrappedOutput, i)));
+  for (size_t i = 0; i < ormrd_getNumOfRmrs(wrappedOutput); i++) {
+    outs.emplace_back(std::unique_ptr<RtMemRef, decltype(&rmr_destroy)>(
+        ormrd_getRmrByIndex(wrappedOutput, i), rmr_destroy));
   }
   return std::move(outs);
 }

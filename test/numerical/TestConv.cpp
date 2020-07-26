@@ -11,7 +11,7 @@
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/MainUtils.hpp"
-#include "src/Runtime/ExecusionSession.hpp"
+#include "src/Runtime/ExecutionSession.hpp"
 
 #define SHARED_LIB_BASE string("./TestConv_main_graph")
 
@@ -93,35 +93,37 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   onnx_mlir::ExecutionSession sess(
       SHARED_LIB_BASE + ".so", "_dyn_entry_point_main_graph");
 
-  std::vector<unique_ptr<RtMemRef>> inputs;
-  auto xRmr = unique_ptr<RtMemRef>(getRndRealRmr<float>({N, C, H, W}));
+  std::vector<unique_ptr<RtMemRef, decltype(&rmr_destroy)>> inputs;
+  auto xRmr = unique_ptr<RtMemRef, decltype(&rmr_destroy)>(
+      rmr_createWithRandomData<float>({N, C, H, W}), rmr_destroy);
   inputs.emplace_back(move(xRmr));
-  auto wRmr = unique_ptr<RtMemRef>(getRndRealRmr<float>({C, C, kH, kW}));
+  auto wRmr = unique_ptr<RtMemRef, decltype(&rmr_destroy)>(
+      rmr_createWithRandomData<float>({C, C, kH, kW}), rmr_destroy);
   inputs.emplace_back(move(wRmr));
 
-  auto ref = RtMemRef::create<float>({NOut, COut, HOut, WOut});
+  auto ref = rmr_createWithDataSizes<float>({NOut, COut, HOut, WOut});
   auto &img = inputs.at(0);
   auto &filter = inputs.at(1);
   for (int64_t n = 0; n < NOut; n++)
     for (int64_t c = 0; c < COut; c++)
       for (int64_t h = 0; h < HOut; h++)
         for (int64_t w = 0; w < WOut; w++) {
-          ref->elem<float>({n, c, h, w}) = 0;
+          rmr_getElemByOffset<float>(ref, {n, c, h, w}) = 0;
           for (int64_t ci = 0; ci < C; ci++)
             for (int64_t kh = 0; kh < kH; kh++)
               for (int64_t kw = 0; kw < kW; kw++)
                 if ((h + kh - pHBegin >= 0 && h + kh - pHBegin < H) &&
                     (w + kw - pWBegin >= 0 && w + kw - pWBegin < W))
-                  ref->elem<float>({n, c, h, w}) +=
-                      img->elem<float>(
+                  rmr_getElemByOffset<float>(ref, {n, c, h, w}) +=
+                      rmr_getElemByOffset<float>(img.get(),
                           {n, ci, h + kh - pHBegin, w + kw - pWBegin}) *
-                      filter->elem<float>({c, ci, kh, kw});
+                      rmr_getElemByOffset<float>(filter.get(), {c, ci, kh, kw});
         }
 
   auto outputs = sess.run(move(inputs));
   auto &conv = outputs.at(0);
 
-  return isRmrClose<float>(conv.get(), ref);
+  return rmr_areTwoRmrsClose<float>(conv.get(), ref);
 }
 
 int main(int argc, char *argv[]) {

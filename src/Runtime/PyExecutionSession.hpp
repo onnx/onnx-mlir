@@ -15,7 +15,7 @@
 
 namespace py = pybind11;
 
-#include "src/Runtime/ExecusionSession.hpp"
+#include "ExecutionSession.hpp"
 
 namespace onnx_mlir {
 
