@@ -39,3 +39,31 @@ func @tiling() {
   // CHECK-NEXT: }
   return
 }
+
+func @tiling3d() {
+  %ii, %jj, %kk = krnl.define_loops 3
+  // Blocking each loop by a factor of 4.
+  %ib, %il = krnl.block %ii 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+  %jb, %jl = krnl.block %jj 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+  %kb, %kl = krnl.block %kk 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+  // Move iteration over tile coordinates to be the outer loops and iterateion over
+  // the inter-tile elements to be the inner loops.
+  krnl.permute(%ib, %il, %jb, %jl, %kb, %kl) [0, 3, 1, 4, 2, 5] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
+  krnl.iterate(%ib, %il, %jb, %jl, %kb, %kl) with (%ii -> %i = 0 to 1024, %jj -> %j = 0 to 2048, %kk -> %k = 0 to 4096)  {
+  }
+
+  // CHECK-LABEL: tiling3d
+  // CHECK-NEXT:  affine.for [[I_BLOCK_IV:%.+]] = 0 to 1024 step 4 {
+  // CHECK-NEXT:    affine.for [[J_BLOCK_IV:%.+]] = 0 to 2048 step 4 {
+  // CHECK-NEXT:      affine.for [[K_BLOCK_IV:%.+]] = 0 to 4096 step 4 {
+  // CHECK-NEXT:        affine.for [[I_INNER_IV:%.+]] = #map0([[I_BLOCK_IV]]) to #map1([[I_BLOCK_IV]]) {
+  // CHECK-NEXT:          affine.for [[J_INNER_IV:%.+]] = #map0([[J_BLOCK_IV]]) to #map1([[J_BLOCK_IV]]) {
+  // CHECK-NEXT:            affine.for [[K_INNER_IV:%.+]] = #map0([[K_BLOCK_IV]]) to #map1([[K_BLOCK_IV]]) {
+  // CHECK-NEXT:            }
+  // CHECK-NEXT:          }
+  // CHECK-NEXT:        }
+  // CHECK-NEXT:      }
+  // CHECK-NEXT:    }
+  // CHECK-NEXT:  }
+  return
+}

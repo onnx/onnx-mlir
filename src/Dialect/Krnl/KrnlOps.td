@@ -256,11 +256,59 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
   let summary = "Krnl permute operation";
   let description = [{
     Permute a set of affine for loops using a specified permutation map.
-    For example,
+    The permutation map `map` should be constructed in such way that the
+    for loop referred to by the i-th operand to permute operation is sent
+    to the `map[i]`-th position.
+
+    For example, the following krnl dialect IR:
     ```
-    krnl.permute (%i, %j) [1, 0]
+    %ii, %jj, %kk = krnl.define_loops 3
+    krnl.permute(%ii, %jj, %kk) [1, 2, 0] : !krnl.loop, !krnl.loop, !krnl.loop
+    krnl.iterate (%ii, %jj, %kk) with (%ii -> %i = 0 to 10, %jj -> %j = 0 to 20, %kk -> %k = 0 to 30) {}
     ```
-    transposes the loop referred to by %i and %j.
+    will be lowered to:
+    ```
+    // Referenced by %kk
+    affine.for %arg0 = 0 to 30 {
+      // Referenced by %ii
+      affine.for %arg1 = 0 to 10 {
+        // Referenced by %jj
+        affine.for %arg2 = 0 to 20 {
+        }
+      }
+    }
+    ```
+
+    For a more complicated example, we demonstrate 3-D tiling using krnl.block in
+    conjunction with krnl.permute:
+    ```
+    %ii, %jj, %kk = krnl.define_loops 3
+    // Blocking each loop by a factor of 4.
+    %ib, %il = krnl.block %ii 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %jb, %jl = krnl.block %jj 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %kb, %kl = krnl.block %kk 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    // Move iteration over tile coordinates to be the outer loops and iterateion over
+    // the inter-tile elements to be the inner loops.
+    krnl.permute(%ib, %il, %jb, %jl, %kb, %kl) [0, 3, 1, 4, 2, 5] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
+    krnl.iterate(%ib, %il, %jb, %jl, %kb, %kl) with (%ii -> %i = 0 to 1024, %jj -> %j = 0 to 2048, %kk -> %k = 0 to 4096)  {
+    }
+    ```
+
+    The above IR gets lowered to:
+    ```
+    affine.for %arg0 = 0 to 1024 step 4 {
+      affine.for %arg1 = 0 to 2048 step 4 {
+        affine.for %arg2 = 0 to 4096 step 4 {
+          affine.for %arg3 = #map0(%arg0) to #map1(%arg0) {
+            affine.for %arg4 = #map0(%arg1) to #map1(%arg1) {
+              affine.for %arg5 = #map0(%arg2) to #map1(%arg2) {
+              }
+            }
+          }
+        }
+      }
+    }
+    ```
   }];
 
   let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
