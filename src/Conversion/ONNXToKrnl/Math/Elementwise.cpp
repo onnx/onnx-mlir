@@ -85,6 +85,34 @@ struct ScalarOp<ONNXSqrtOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXCastOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value operand = scalarOperands[0];
+  printf("starting lowering\n");
+  ONNXCastOp castOp = llvm::dyn_cast<ONNXCastOp>(op);
+  auto type = convertONNXTypeToMLIRType(rewriter, static_cast<onnx::TensorProto_DataType>(castOp.toAttr().getInt()));
+
+  if (elementType.isa<FloatType>()) {
+    if (type.isa<IntegerType>()) {
+        return rewriter.create<FPToSIOp>(loc, type, operand);
+    }
+    return operand;
+
+  } else if (elementType.isa<IntegerType>()) {
+    if (type.isa<FloatType>()) {
+        return rewriter.create<SIToFPOp>(loc, type, operand);
+    }
+    return operand;
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSinhOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -665,5 +693,6 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
 }
