@@ -25,7 +25,7 @@ namespace bstd = mpark;
 #include "FrontendDialectTransformer.hpp"
 
 namespace onnx_mlir {
-namespace {
+namespace detail {
 
 /*!
  *  The list of tensors initialized by the ONNX model.
@@ -37,6 +37,7 @@ public:
   FrontendGenImpl(mlir::MLIRContext &context)
       : context_(context), builder_(&context) {
     module_ = mlir::ModuleOp::create(mlir::UnknownLoc::get(&context));
+    InitHandlerMap();
   }
 
   mlir::ModuleOp ImportONNXModel(onnx::ModelProto model) {
@@ -51,6 +52,11 @@ private:
   mlir::Value none_;
   // mapping between string name and symbol
   OnnxMlirSymbolMapping frontend_symbols_;
+
+  typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
+      const onnx::NodeProto &);
+
+  std::map<std::string, ImportHandlerType> import_handler_map_;
 
   mlir::Location UnknownLoc() { return mlir::UnknownLoc::get(&context_); }
 
@@ -329,7 +335,7 @@ private:
   /*!
    * Special handle for MaxPool operations.
    */
-  void ImportNodeMaxPool(onnx::NodeProto node) {
+  void ImportNodeMaxPool(const onnx::NodeProto &node) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
       buildOperation<mlir::ONNXMaxPoolSingleOutOp>(node);
@@ -341,7 +347,7 @@ private:
   /*!
    * Special handle for BatchNormalization operations.
    */
-  void ImportNodeBatchNormalization(onnx::NodeProto node) {
+  void ImportNodeBatchNormalization(const onnx::NodeProto &node) {
     int nOuts = node.output().size();
     if (nOuts == 1) {
       // Test mode with one output.
@@ -355,7 +361,7 @@ private:
   /*!
    * Special handle for Pad operations.
    */
-  void ImportNodePad(onnx::NodeProto node) {
+  void ImportNodePad(const onnx::NodeProto &node) {
 
     int nOps = node.input().size();
     if (nOps == 2) {
@@ -400,12 +406,16 @@ private:
     // the generic operator is used
     // one known reeason is the optional input
 
+    (this->*(import_handler_map_[opName.str()]))(node);
+  }
+
+  void InitHandlerMap() {
 #include "src/Builder/OpBuildTable.inc"
   }
 
   /*!
    * Import output tensor, by doing the following:
-   * - Add the type of this output tensor to a list of tensor
+   * - Add the t/yp this output tensor to a list of tensor
    *   types representing return types of this graph function.
    * - Add this output tensor to the list of mlir::Value
    *   to be returned by the function representing computation graph.
@@ -499,7 +509,7 @@ private:
     mainFunc.setType(funcType);
   }
 }; // FrontendGenImpl class
-} // namespace
+} // namespace detail
 } // namespace onnx_mlir
 
 namespace onnx_mlir {
@@ -512,7 +522,7 @@ void ImportFrontendModelFile(std::string model_fname,
   auto parse_success = model.ParseFromIstream(&input);
   assert(parse_success && "Onnx Model Parsing Failed.");
 
-  FrontendGenImpl myONNXGen(context);
+  detail::FrontendGenImpl myONNXGen(context);
   module = myONNXGen.ImportONNXModel(model);
 }
 } // namespace onnx_mlir
