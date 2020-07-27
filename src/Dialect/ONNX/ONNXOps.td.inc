@@ -450,6 +450,7 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
 
 def ONNXCastOp:ONNX_Op<"Cast",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Cast operation";
   let description = [{
   "The operator casts the elements of a given input tensor to a data type"
