@@ -1,0 +1,71 @@
+# Builds and tests onnx-mlir across platforms
+# We do not leverage the current CI scripts
+# 1) Build llvm and run tests
+# 2) Build onnx-mlir and run tests
+# 3) Test onnx-mlir
+
+name: ONNX_MLIR_CI_$(SourceBranchName)_$(Date:yyyy.MM.dd)$(Rev:.rr)
+
+resources:
+  repositories:
+  - repository: self 
+  - repository: llvm-project
+    type: git
+    name: llvm-project/llvm-project
+    ref: refs/heads/tvp
+
+# Trigger CI and PR build on the master branch
+trigger:
+- apollo
+
+# Nightly build regardless of triggers
+schedules:
+- cron: "0 12 * * *"
+  displayName: 5:00 AM (UTC - 7) daily build
+  branches:
+    include:
+    - apollo
+  always: true
+
+# Set up variables for jobs, used across templates
+variables:
+- name: LLVMBuildDir
+  value: '$(Build.BinariesDirectory)/build_llvm'
+- name: LLVMSourceDir
+  value: '$(Build.SourcesDirectory)/llvm-project'
+- name: ONNXMLIRBuildDir
+  value: '$(Build.BinariesDirectory)/build_onnx_mlir'
+- name: ONNXMLIRSourceDir
+  value: '$(Build.SourcesDirectory)/onnx-mlir'
+# Environment variables, mostly used by Windows
+- name: LLVM_PROJ_BUILD
+  value: $(LLVMBuildDir)
+- name: LLVM_PROJ_SRC
+  value: $(LLVMSourceDir)
+- name: LIT_OPTS
+  value: '-v'
+- name: CURSES_LIB_PATH
+  value: $(Agent.ToolsDirectory)/PDCurses
+
+jobs:
+- job: Build_And_Test_ONNX_MLIR_Windows
+  displayName: "Build and Test ONNX MLIR (Windows)"
+  pool:
+    name: Default
+    demands:
+    - Agent.OS -equals Windows_NT
+  steps:
+  - template: BuildOnnxMlir.yml
+    parameters:
+      GeneratorString: '"Visual Studio 16 2019" -A x64 -T host=x64'
+      CMakeExternalLIT: '-DLLVM_EXTERNAL_LIT="$(LLVMBuildDir)\Release\bin\llvm-lit.py"'
+
+- job: Build_And_Test_ONNX_MLIR_Ubuntu
+  displayName: "Build and Test ONNX MLIR (Ubuntu)"
+  pool:
+    name: Default
+    demands:
+    - Agent.OS -equals Linux
+    - CentOS -equals false
+  steps:
+  - template: BuildOnnxMlir.yml

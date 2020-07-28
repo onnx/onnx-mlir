@@ -1,7 +1,7 @@
 configure_file(test.py test.py COPYONLY)
 configure_file(test_config.py.in test_config.py)
 
-find_package(PythonInterp 3 REQUIRED)
+find_package(Python3 COMPONENTS Interpreter)
 
 set(LD_PRELOADS $<TARGET_FILE:cruntime>)
 
@@ -12,7 +12,7 @@ if(EXISTS ${LIBSTDCXX_LIB})
 endif()
 
 add_custom_target(check-onnx-backend
-        COMMAND ${PYTHON_EXECUTABLE}
+        COMMAND ${PYTHON3_EXECUTABLE}
         ${CMAKE_CURRENT_BINARY_DIR}/test.py)
 
 add_dependencies(check-onnx-backend onnx-mlir)
