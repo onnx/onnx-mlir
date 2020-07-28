@@ -161,7 +161,7 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
 }
 
 void genConstPackObj(const mlir::OwningModuleRef &module,
-    llvm::Optional<string> &constPackObjPath) {
+    llvm::Optional<string> &constPackObjPath, string outputBaseName) {
   // Extract constant pack file name, which is embedded as a symbol in the
   // module being compiled.
   auto constPackFilePathSym = (*module).lookupSymbol<mlir::LLVM::GlobalOp>(
@@ -223,6 +223,10 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
       .exec();
 
 #else
+  /* FIXME: final object file should be set in constPackObjPath
+   * so that when this function returns, the caller (compileModuleToSharedLibrary
+   * and compileModuleToJniJar) can put constPackObjPath into llvm::FileRemover.
+   */
   llvm::SmallVector<char, 10> permConstPackFileName(
       constPackFilePath.begin(), constPackFilePath.end());
   llvm::sys::path::replace_extension(permConstPackFileName, "bin");
@@ -309,7 +313,7 @@ void compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
   llvm::Optional<string> constPackObjPath;
-  genConstPackObj(module, constPackObjPath);
+  genConstPackObj(module, constPackObjPath, outputBaseName);
   llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
@@ -330,7 +334,7 @@ void compileModuleToJniJar(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
   llvm::Optional<string> constPackObjPath;
-  genConstPackObj(module, constPackObjPath);
+  genConstPackObj(module, constPackObjPath, outputBaseName);
   llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
