@@ -224,8 +224,9 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
 
 #else
   /* FIXME: final object file should be set in constPackObjPath
-   * so that when this function returns, the caller (compileModuleToSharedLibrary
-   * and compileModuleToJniJar) can put constPackObjPath into llvm::FileRemover.
+   * so that when this function returns, the caller
+   * (compileModuleToSharedLibrary and compileModuleToJniJar) can put
+   * constPackObjPath into llvm::FileRemover.
    */
   llvm::SmallVector<char, 10> permConstPackFileName(
       constPackFilePath.begin(), constPackFilePath.end());
