@@ -223,10 +223,11 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
       .exec();
 
 #else
-  /* FIXME: final object file should be set in constPackObjPath
-   * so that when this function returns, the caller
-   * (compileModuleToSharedLibrary and compileModuleToJniJar) can put
-   * constPackObjPath into llvm::FileRemover.
+  /* The final constant pack object file on Windows is NOT embedded into
+   * the shared library but rather is kept in a separate .bin file. So
+   * do not set it in constPackObjPath so that when this function returns
+   * the caller (compileModuleToSharedLibrary and compileModuleToJniJar)
+   * won't put it into llvm::FileRemover.
    */
   llvm::SmallVector<char, 10> permConstPackFileName(
       constPackFilePath.begin(), constPackFilePath.end());
