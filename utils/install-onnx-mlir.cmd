@@ -9,6 +9,16 @@ cd onnx-mlir\build
 call cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 -DLLVM_EXTERNAL_LIT="%root_dir%\llvm-project\build\Release\bin\llvm-lit.py" -DCMAKE_BUILD_TYPE=Release ..
 call cmake --build . --config Release --target onnx-mlir -- /m
 
+if [ $? -ne 0 ]; then
+  echo "build onnx-mlir failed."
+  exit 1
+fi
+
 REM Run FileCheck tests
 set LIT_OPTS=-v
 call cmake --build . --config Release --target check-onnx-lit
+
+if [ $? -ne 0 ]; then
+  echo "FileCheck tests for onnx-mlir failed."
+  exit 1
+fi
