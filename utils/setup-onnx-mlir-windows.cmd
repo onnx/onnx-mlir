@@ -20,18 +20,18 @@ git clone https://github.com/wmcbrine/PDCurses.git
 set PDCURSES_SRCDIR=%root_dir%/PDCurses
 cd PDCurses
 call nmake -f wincon/Makefile.vc
-if [ $? -ne 0 ]; then
-  echo "build PDCurses failed."
-  exit 1
-fi
+IF NOT %ERRORLEVEL% EQU 0 (
+    @echo "build PDCurses failed."
+    EXIT 1
+)
 
 REM Build LLVM
 cd /d %root_dir%
 call onnx-mlir/utils/install-mlir.cmd
-if [ $? -ne 0 ]; then
-  echo "build MLIR failed."
-  exit 1
-fi
+IF NOT %ERRORLEVEL% EQU 0 (
+    @echo "build MLIR failed."
+    EXIT 1
+)
 
 REM Build onnx-mlir
 cd /d %root_dir%
