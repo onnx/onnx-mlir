@@ -3078,7 +3078,7 @@ def ONNXOrOp:ONNX_Op<"Or",
 }
 
 def ONNXPReluOp:ONNX_Op<"PRelu",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX PRelu operation";
   let description = [{
   "PRelu takes input data (Tensor<T>) and slope tensor as input, and produces one"
