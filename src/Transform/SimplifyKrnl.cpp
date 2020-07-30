@@ -40,8 +40,8 @@ public:
           cmpIOp.getPredicate() == CmpIPredicate::ugt ||
           cmpIOp.getPredicate() == CmpIPredicate::ult ||
           cmpIOp.getPredicate() == CmpIPredicate::ne)
-        replacement = rewriter.create<ConstantOp>(loc,
-            rewriter.getIntegerAttr(rewriter.getIndexType(), 0));
+        replacement = rewriter.create<ConstantOp>(
+            loc, rewriter.getIntegerAttr(rewriter.getIndexType(), 0));
 
       // Cmp Ops which are true when operands are the same.
       if (cmpIOp.getPredicate() == CmpIPredicate::eq ||
@@ -49,8 +49,8 @@ public:
           cmpIOp.getPredicate() == CmpIPredicate::ule ||
           cmpIOp.getPredicate() == CmpIPredicate::sge ||
           cmpIOp.getPredicate() == CmpIPredicate::uge)
-        replacement = rewriter.create<ConstantOp>(loc,
-            rewriter.getIntegerAttr(rewriter.getIndexType(), 1));
+        replacement = rewriter.create<ConstantOp>(
+            loc, rewriter.getIntegerAttr(rewriter.getIndexType(), 1));
     }
 
     if (!replacement)

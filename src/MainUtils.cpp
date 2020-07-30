@@ -390,6 +390,10 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // oppertunities.
   pm.addPass(mlir::createCanonicalizerPass());
 
+  // Simplify Krnl code pass.
+  pm.addPass(mlir::createSimplifyKrnlPass());
+  pm.addPass(mlir::createCanonicalizerPass());
+
   // TODO: make this pass optional:
   pm.addPass(mlir::createKrnlEnableMemoryPoolPass());
   pm.addPass(mlir::createKrnlBundleMemoryPoolsPass());

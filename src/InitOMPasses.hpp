@@ -36,8 +36,7 @@ void initOMPasses() {
         return mlir::createElideConstantValuePass();
       });
 
-  mlir::registerPass("simplify-krnl",
-      "Simplify code at Krnl level.",
+  mlir::registerPass("simplify-krnl", "Simplify code at Krnl level.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createSimplifyKrnlPass();
       });
