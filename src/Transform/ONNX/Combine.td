@@ -27,6 +27,10 @@ include "src/Dialect/ONNX/ONNXOps.td"
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 class HasRankOf<int rank> : Constraint<CPred<"$0.getType().isa<ShapedType>() && $0.getType().cast<ShapedType>().getRank() == " # rank>>;
 def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
+def HasSameElementType : Constraint<
+    CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
+          "convertONNXTypeToMLIRType($_builder, static_cast<onnx::TensorProto_DataType>($1.cast<::mlir::IntegerAttr>().getInt())))">,
+    "has same element type">;
 
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
@@ -54,5 +58,13 @@ def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
 def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $v1, $v2), $m2, $m3),
                              (ONNXPadConstantValuePadOp $m1, $v2, $m2, $m3),
                              [(HasOneUse $res)]>;
+
+
+// ONNX_Op (onnx.Cast (%X, $type)) = ONNX_Op (%X)
+def CastEliminationPattern : Pat<
+	(ONNXCastOp $arg, $type),
+	(replaceWithValue $arg),
+  [(HasSameElementType $arg, $type)]>;
+
 
 #endif // ONNX_COMBINE

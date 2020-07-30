@@ -252,11 +252,11 @@ OpsWithShapeInference = [
     'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
     'LSTM', 'GRU', 'Split', 'Pad', 'Cast', 'ConvTranspose', 'Flatten',
     'DynamicQuantizeLinear', 'QuantizeLinear', 'DequantizeLinear', 'ConvInteger',
-    'Squeeze'
+    'Squeeze', 'Shape', 'Tile', 'Gather', 'ConstantOfShape', 'Slice', 'Scaler'
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast']
 
 # Operations who have operands that, if produced by constant operations, should
 # be promoted to become an attribute (via attribute promotion).
@@ -266,7 +266,8 @@ OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv']
 # tuples, whose first item is the attribute/operand name, and the second item is
 # the index at which such operand occurs in the list of the operation's inputs.
 OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
-                                  "Pad": [("pads", 1), ("constant_value", 2)]}
+                                  "Pad": [("pads", 1), ("constant_value", 2)],
+                                  "Tile": [("repeats", 1)]}
 
 # Interface for special handling of type inference
 # The common code are put into get_type_inference_func
@@ -281,7 +282,15 @@ OpsWithResultTypeInference = {
     '''auto toAttr = to().getSExtValue();
       auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(
-        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));'''
+        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));''',
+  "ConstantOfShape":
+  '''if (auto attr = valueAttr()) {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          attr.getType().cast<ShapedType>().getElementType()));
+      } else {
+        resultTypes.push_back(mlir::UnrankedTensorType::get(
+          FloatType::getF32(getContext())));
+      }'''
 }
 
 # Add an Op in this list if the Op needs result type deduction which is required
@@ -304,19 +313,27 @@ custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broa
 
 #a dictionary to add any special definition for an operation
 custom_definition_misc = dict([ ('Constant',
-  '''    let builders = [
-    OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
-      if (value) {
-        auto tensorType = value.getType();
-        build(builder, state, tensorType, sparse_value, value);
-      } else {
-        auto tensorType = sparse_value.getType();
-        build(builder, state, tensorType, sparse_value, value);
-      }
-    }]>
-    ];'''
-  )])
-
+ '''  let builders = [
+  OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
+   if (value) {
+    auto tensorType = value.getType();
+    build(builder, state, tensorType, sparse_value, value);
+   } else {
+    auto tensorType = sparse_value.getType();
+    build(builder, state, tensorType, sparse_value, value);
+   }
+  }]>
+  ];'''),
+  ('Cast',
+ '''   let builders = [
+  OpBuilder<"OpBuilder &builder, OperationState &state, Value input, IntegerAttr to", [{
+   auto toAttr = to.getValue().getSExtValue();
+   auto resultType = mlir::UnrankedTensorType::get(
+    convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)));
+   build(builder, state, resultType, input, to);
+  }] >
+  ];'''
+ )])
 
 onnx_types = (
     'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
@@ -748,6 +765,9 @@ def parse_a_type_constraint(constraint):
     # However onnx keeps a consitently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
     # mlirTypes = sorted(list(set(mlirTypes)))
+
+    # MemRef is always needed
+    mlirTypes.append("AnyMemRef")
     return mlirTypes
 
 def parse_type_constraints(schema):
@@ -848,9 +868,9 @@ def gen_op_def(schema):
             build_type_name = ''
             if schema.name in custom_builder_broadcast_ops_list:
                 second_operand_name = list(ins.items())[1][0]
-                s += indent + 'auto lhsTy = {}.getType().cast<RankedTensorType>();\n'. \
+                s += indent + 'auto lhsTy = {}.getType();\n'. \
                     format(first_operand_name)
-                s += indent + 'auto rhsTy = {}.getType().cast<RankedTensorType>();\n'. \
+                s += indent + 'auto rhsTy = {}.getType();\n'. \
                     format(second_operand_name)
                 s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
@@ -878,8 +898,8 @@ def gen_op_def(schema):
                 'ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
             indent = inc_indent(indent)
             if schema.name in custom_builder_broadcast_ops_list:
-                s += indent + 'auto lhsTy = operands[0].getType().cast<RankedTensorType>();\n'
-                s += indent + 'auto rhsTy = operands[1].getType().cast<RankedTensorType>();\n'
+                s += indent + 'auto lhsTy = operands[0].getType();\n'
+                s += indent + 'auto rhsTy = operands[1].getType();\n'
                 s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
@@ -934,7 +954,7 @@ special cases:
 
 def gen_op_importer(schema, file):
     indent = inc_indent()
-    s = indent + 'if (opName == "' + schema.name + '")\n'
+    s = indent + 'import_handler_map_["' + schema.name +'"] = \n '
 
     expected_num_operands = len(schema.inputs)
     expected_num_results = len(schema.outputs)
@@ -958,8 +978,8 @@ def gen_op_importer(schema, file):
         args.append(
             '/* expected_num_results = */ {}'.format(expected_num_results))
     """
-    s += inc_indent(indent) + " {}({});\n".format(
-        handler_func, ", ".join(args))
+    s += inc_indent(indent) + '&onnx_mlir::detail::FrontendGenImpl::'
+    s += handler_func+';\n'
 
     file.write(s)
 
@@ -1032,7 +1052,7 @@ def main(args):  # type: (Type[Args]) -> None
         '//********************************************************\n'
         '//   Do not modify this file directly.\n'
         '//   This file is automatically generated via script.\n'
-        '//   Details can be found in docs/readonnxdefs.md .\n'
+        '//   Details can be found in docs/ImportONNXDefs.md .\n'
         '//********************************************************\n\n')
     autogen_warning = autogen_warning.format(curr_utc_time)
 
