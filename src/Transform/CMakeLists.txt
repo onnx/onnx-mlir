@@ -75,4 +75,17 @@ add_dependencies(OMBundleMemoryPools
         OMKrnlOps
         OMONNXOps)
 
+add_library(OMSimplifyKrnl
+        SimplifyKrnl.cpp)
+target_include_directories(OMSimplifyKrnl
+        PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+target_link_libraries(OMSimplifyKrnl
+        onnx)
+add_dependencies(OMSimplifyKrnl
+        OMKrnlOps
+        OMONNXOps)
+
 add_subdirectory(ONNX)

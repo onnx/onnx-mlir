@@ -23,7 +23,8 @@ set(OMLibs
         OMElideKrnlGlobalConstants
         OMPackKrnlGlobalConstants
         OMEnableMemoryPool
-        OMBundleMemoryPools)
+        OMBundleMemoryPools
+        OMSimplifyKrnl)
 set(OMLibs ${OMLibs} PARENT_SCOPE)
 
 message(SATUS "OMLibs" ${OMLibs})

@@ -36,6 +36,12 @@ void initOMPasses() {
         return mlir::createElideConstantValuePass();
       });
 
+  mlir::registerPass("simplify-krnl",
+      "Simplify code at Krnl level.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createSimplifyKrnlPass();
+      });
+
   mlir::registerPass("enable-memory-pool",
       "Enable a memory pool for allocating internal MemRefs.",
       []() -> std::unique_ptr<mlir::Pass> {
