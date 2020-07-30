@@ -18,15 +18,6 @@
 using namespace mlir;
 
 namespace {
-// // Check whether an ArrayAttr contains non-zero values or not.
-// bool HasSameType(Value origValue, IntegerAttr attr) {
-// 	Type input_elementType = origValue.getType().dyn_cast<ShapedType>().getElementType()
-// 	int64_t targetType = attr.getValue().getInt();
-// 	Type elementType = convertONNXTypeToMLIRType(
-// 	  builder, static_cast<onnx::TensorProto_DataType>(targetType))
-// 	if (input_elementType == elementType) 	return true;	     
-// 	else return false;	      
-// }
 
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXCombine.inc"
