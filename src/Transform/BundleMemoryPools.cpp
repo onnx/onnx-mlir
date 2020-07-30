@@ -25,10 +25,10 @@ using namespace mlir;
 namespace {
 
 KrnlGetRefOp getUnbundledGetRef(AllocOp *memPool) {
-  auto parentBlock = memPool->getOperation()->getBlock();
+  FuncOp function = getContainingFunction(memPool->getOperation());
 
   KrnlGetRefOp unbundledGetRef = nullptr;
-  parentBlock->walk([&unbundledGetRef, memPool](KrnlGetRefOp op) {
+  function.walk([&unbundledGetRef, memPool](KrnlGetRefOp op) {
     auto result = memPool->getResult();
     if (op.getOperands()[0] != result)
       unbundledGetRef = op;
@@ -91,8 +91,6 @@ public:
 
     // Get a KrnlGetRefOp which does not use the current alloc.
     if (KrnlGetRefOp unbundledGetRef = getUnbundledGetRef(&allocOp)) {
-      unbundledGetRef.dump();
-
       // Current memory pool size is the offset for the newly bundled
       // internal MemRef. Emit the offset as a constant.
       auto offset = rewriter.create<ConstantOp>(
