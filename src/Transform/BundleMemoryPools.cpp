@@ -25,10 +25,10 @@ using namespace mlir;
 namespace {
 
 KrnlGetRefOp getUnbundledGetRef(AllocOp *memPool) {
-  FuncOp function = getContainingFunction(memPool->getOperation());
+  auto parentBlock = memPool->getOperation()->getBlock();
 
   KrnlGetRefOp unbundledGetRef = nullptr;
-  function.walk([&unbundledGetRef, memPool](KrnlGetRefOp op) {
+  parentBlock->walk([&unbundledGetRef, memPool](KrnlGetRefOp op) {
     auto result = memPool->getResult();
     if (op.getOperands()[0] != result)
       unbundledGetRef = op;
