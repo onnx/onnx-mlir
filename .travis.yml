@@ -35,7 +35,7 @@ script:
 after_success: 
   - if [ $TRAVIS_PULL_REQUEST == false ] && [ $TRAVIS_BRANCH == "master" ]; then
             echo "Pushing new build to docker hub";
-            docker login -u onnxmlirczar -p 143f1da2-332f-45a1-8587-d6cb07c13230;
+            docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN";
             docker push onnxmlirczar/onnx-mlir-build:$TRAVIS_CPU_ARCH;
         else 
             echo "Skip pushing build"; 
