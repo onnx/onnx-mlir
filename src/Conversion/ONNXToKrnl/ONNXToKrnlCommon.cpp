@@ -295,8 +295,8 @@ std::vector<Value> getLoopIVsForBroadcasting(Location loc,
   return newLoopIVs;
 }
 
-Value emitConstantOp(ConversionPatternRewriter &rewriter, Location loc,
-    Type type, double value) {
+Value emitConstantOp(
+    PatternRewriter &rewriter, Location loc, Type type, double value) {
   Attribute constantAttr;
   auto typeKind = type.getKind();
   if (typeKind == StandardTypes::F16) {
@@ -485,4 +485,32 @@ int64_t getMemRefSizeInBytes(Value val) {
     size *= memRefShape[i];
   size *= getMemRefEltSizeInBytes(memRefType);
   return size;
+}
+
+Value getDynamicMemRefSizeInBytes(
+    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp) {
+  // Initialize the size variable with the size in bytes of the type.
+  int64_t typeSize = getMemRefEltSizeInBytes(type);
+  Value result =
+      emitConstantOp(rewriter, loc, rewriter.getIndexType(), typeSize);
+
+  // Multiply all dimensions (constant and dynamic).
+  auto memRefShape = type.getShape();
+  auto rank = memRefShape.size();
+  int dynDimIdx = 0;
+  for (int idx = 0; idx < rank; ++idx) {
+    if (memRefShape[idx] < 0) {
+      // Dyanmic size.
+      auto dynamicDim = allocOp.getOperands()[dynDimIdx];
+      dynDimIdx++;
+      result = rewriter.create<MulIOp>(loc, result, dynamicDim);
+    } else {
+      // Static size.
+      auto staticDim = emitConstantOp(
+          rewriter, loc, rewriter.getIndexType(), memRefShape[idx]);
+      result = rewriter.create<MulIOp>(loc, result, staticDim);
+    }
+  }
+
+  return result;
 }
