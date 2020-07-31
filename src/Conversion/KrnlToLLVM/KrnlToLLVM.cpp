@@ -285,7 +285,7 @@ public:
       //  - Copy constant data into the alloca.
       auto memcpyRef = getOrInsertMemcpy(rewriter, module, llvmDialect);
       rewriter.create<CallOp>(loc, memcpyRef,
-          LLVM::LLVMType::getVoidTy(llvmDialect),
+          ArrayRef<Type>({}),
           ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
     } else {
       // Some frequently used types.
@@ -382,7 +382,7 @@ public:
 
     // Memcpy call
     rewriter.create<CallOp>(loc, memcpyRef,
-        LLVM::LLVMType::getVoidTy(llvmDialect),
+        ArrayRef<Type>({}),
         ArrayRef<Value>({alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory,
             int64Size, isVolatile}));
 
@@ -614,8 +614,12 @@ private:
   // returned, otherwise return nullptr.
   Value callApi(PatternRewriter &rewriter, Location loc, ApiRegistry registry,
       API apiId, ArrayRef<Value> params) const {
+    SmallVector<Type, 1> outputTys;
+    auto outputTy = registry.at(apiId).outputTy;
+    if (!outputTy.isVoidTy())
+      outputTys.emplace_back(outputTy);
     auto returnVals =
-        rewriter.create<LLVM::CallOp>(loc, registry.at(apiId).outputTy,
+        rewriter.create<LLVM::CallOp>(loc, ArrayRef<Type>(outputTys),
             registry.at(apiId).symbolRef, ArrayRef<Value>(params));
     if (returnVals.getNumResults() == 1)
       return returnVals.getResult(0);
