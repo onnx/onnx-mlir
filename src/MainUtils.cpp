@@ -251,15 +251,27 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
 }
 
 // Write LLVM bitcode.
-void genLLVMBitcode(const mlir::OwningModuleRef &module, string bitcodePath) {
+void genLLVMBitcode(const mlir::OwningModuleRef &module, string bitcodePath,
+    string outputBaseName) {
   error_code error;
 
+  // Write bitcode to a temporary file.
+  string bitcodeTempPath = outputBaseName + ".tmp.bc";
+  llvm::FileRemover bitcodeTempRemover(bitcodeTempPath);
+
   llvm::raw_fd_ostream moduleBitcodeStream(
-      bitcodePath, error, llvm::sys::fs::F_None);
+      bitcodeTempPath, error, llvm::sys::fs::F_None);
 
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
+
+  // Optimize the bitcode.
+  Command optBitcode(/*exePath=*/kOptPath);
+  optBitcode.appendStr("-O3")
+      .appendList({"-o", bitcodePath})
+      .appendStr(bitcodeTempPath)
+      .exec();
 }
 
 // Compile LLVM bitcode to object file.
@@ -319,7 +331,7 @@ void compileModuleToSharedLibrary(
   llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
-  genLLVMBitcode(module, bitcodePath);
+  genLLVMBitcode(module, bitcodePath, outputBaseName);
   llvm::FileRemover bitcodeRemover(bitcodePath);
 
   string modelObjPath = outputBaseName + ".o";
@@ -340,7 +352,7 @@ void compileModuleToJniJar(
   llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
-  genLLVMBitcode(module, bitcodePath);
+  genLLVMBitcode(module, bitcodePath, outputBaseName);
   llvm::FileRemover bitcodeRemover(bitcodePath);
 
   string modelObjPath = outputBaseName + ".o";
