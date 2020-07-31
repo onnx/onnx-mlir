@@ -1,3 +1,4 @@
+REM This script is for Windows-CI. It will additionally catch exit codes.
 call curl -o miniconda.exe --location https://repo.continuum.io/miniconda/Miniconda3-latest-Windows-x86_64.exe
 call MiniConda.exe /S /D=%UserProfile%\Miniconda3
 set PATH=%PATH%;%UserProfile%\Miniconda3\Scripts
@@ -21,7 +22,7 @@ set PDCURSES_SRCDIR=%root_dir%/PDCurses
 cd PDCurses
 call nmake -f wincon/Makefile.vc
 IF NOT %ERRORLEVEL% EQU 0 (
-    @echo "build PDCurses failed."
+    @echo "Build PDCurses failed."
     EXIT 1
 )
 
@@ -29,10 +30,14 @@ REM Build LLVM
 cd /d %root_dir%
 call onnx-mlir/utils/install-mlir.cmd
 IF NOT %ERRORLEVEL% EQU 0 (
-    @echo "build MLIR failed."
+    @echo "Build MLIR failed."
     EXIT 1
 )
 
 REM Build onnx-mlir
 cd /d %root_dir%
 call onnx-mlir/utils/install-onnx-mlir.cmd
+IF NOT %ERRORLEVEL% EQU 0 (
+    @echo "Build onnx-mlir failed."
+    EXIT 1
+)
