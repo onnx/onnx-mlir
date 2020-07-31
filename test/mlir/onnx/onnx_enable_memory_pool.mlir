@@ -62,3 +62,46 @@ func @test_enable_memory_pool_2(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf3
   // CHECK: dealloc [[MEMPOOL0]] : memref<800xi8>
   // CHECK: return [[RES]] : memref<10x20xf32>
 }
+
+// Two intermediate dynamic sized MemRefs.
+func @test_enable_memory_pool_3(%arg0: tensor<?x?xf32>, %arg1: tensor<?x10xf32>, %arg2: tensor<10x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<?x10xf32>) -> tensor<*xf32>
+  %1 = "onnx.Add"(%0, %0) : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+  %2 = "onnx.MatMul"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+  return %2 : tensor<*xf32>
+
+  // CHECK-LABEL: test_enable_memory_pool_3
+  // CHECK: [[CONST4:%.+]] = constant 4 : index
+  // CHECK: [[CONST10:%.+]] = constant 10 : index
+  // CHECK: [[CONST0_I64:%.+]] = constant 0 : i64
+  // CHECK: [[CONST1:%.+]] = constant 1 : index
+  // CHECK: [[CONST0:%.+]] = constant 0 : index
+  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[DIM1:%.+]] = dim %arg0, [[CONST0]] : memref<?x?xf32>
+  // CHECK: [[TMP1:%.+]] = muli [[DIM1]], [[CONST4]] : index
+  // CHECK: [[TMP2:%.+]] = muli [[TMP1]], [[CONST10]] : index
+  // CHECK: [[MEMPOOL1:%.+]] = alloc([[TMP2]]) : memref<?xi8>
+  // CHECK: [[DATA1:%.+]] = "krnl.getref"([[MEMPOOL1]], [[CONST0_I64]]) : (memref<?xi8>, i64) -> memref<?x10xf32>
+  // CHECK: krnl.define_loops 2
+  // CHECK: krnl.iterate
+  // CHECK: affine.store {{.*}}, [[DATA1]][%arg3, %arg4] : memref<?x10xf32>
+  // CHECK: [[CMP1:%.+]] = cmpi "sgt", [[DIM1]], [[DIM1]] : index
+  // CHECK: [[SELECT1:%.+]] = select [[CMP1]], [[DIM1]], [[DIM1]] : index
+  // CHECK: [[TMP3:%.+]] = muli [[SELECT1]], [[CONST4]] : index
+  // CHECK: [[TMP4:%.+]] = muli [[TMP3]], [[CONST10]] : index
+  // CHECK: [[MEMPOOL2:%.+]] = alloc([[TMP4]]) : memref<?xi8>
+  // CHECK: [[DATA2:%.+]] = "krnl.getref"([[MEMPOOL2]], [[CONST0_I64]]) : (memref<?xi8>, i64) -> memref<?x10xf32>
+  // CHECK: krnl.define_loops 2
+  // CHECK: krnl.iterate
+  // CHECK: affine.store {{.*}}, [[DATA2]][%arg3, %arg4] : memref<?x10xf32>
+  // CHECK: [[DATA3:%.+]] = alloc([[DIM1]]) : memref<?x10xf32>
+  // CHECK: krnl.define_loops 2
+  // CHECK: krnl.iterate
+  // CHECK: affine.store [[CST]], [[DATA3]][%arg3, %arg4] : memref<?x10xf32>
+  // CHECK: krnl.define_loops 1
+  // CHECK: krnl.iterate
+  // CHECK: affine.store {{.*}}, [[DATA3]][%arg3, %arg4] : memref<?x10xf32>
+  // CHECK: dealloc [[MEMPOOL2]] : memref<?xi8>
+  // CHECK: dealloc [[MEMPOOL1]] : memref<?xi8>
+  // CHECK: return [[DATA3]] : memref<?x10xf32>
+}
