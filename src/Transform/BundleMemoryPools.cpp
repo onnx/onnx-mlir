@@ -73,6 +73,10 @@ public:
     if (!checkOpResultIsUsedByGetRef(&allocOp))
       return failure();
 
+    // TODO: remove once we support the bundling of dynamic memory pools.
+    if (!hasAllConstantDimensions(memRefType))
+      return failure();
+
     // Alloc memory type must be byte.
     if (getMemRefEltSizeInBytes(memRefType) != 1)
       return failure();
