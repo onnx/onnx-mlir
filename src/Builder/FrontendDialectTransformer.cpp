@@ -406,7 +406,14 @@ private:
     // the generic operator is used
     // one known reeason is the optional input
 
-    (this->*(import_handler_map_[opName.str()]))(node);
+    //(this->*(import_handler_map_[opName.str()]))(node);
+    auto handler = import_handler_map_.find(opName.str());
+    if (handler != import_handler_map_.end()) {
+        (this->*(std::get<1>(*handler)))(node);
+    } else {
+        std::cout << "Not found\n";
+    }
+
   }
 
   void InitHandlerMap() {
