@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --lower-krnl --lower-all-llvm %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-krnl-to-affine --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
 
 func @test_getref_lowering(%arg0: memref<2x2xf32>) -> memref<2x2xf32> {
   %c13_i64 = constant 13 : i64
