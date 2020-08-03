@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --lower-krnl %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0)>
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0 + 2)>
