@@ -250,27 +250,27 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
 #endif
 }
 
-// Write LLVM bitcode.
-void genLLVMBitcode(const mlir::OwningModuleRef &module, string bitcodePath,
-    string outputBaseName) {
+// Write LLVM optimized bitcode.
+void genLLVMBitcode(const mlir::OwningModuleRef &module,
+    string optimizedBitcodePath, string outputBaseName) {
   error_code error;
 
-  // Write bitcode to a temporary file.
-  string bitcodeTempPath = outputBaseName + ".tmp.bc";
-  llvm::FileRemover bitcodeTempRemover(bitcodeTempPath);
+  // Write bitcode to a file.
+  string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
+  llvm::FileRemover unoptimzedBitcodeRemover(unoptimizedBitcodePath);
 
   llvm::raw_fd_ostream moduleBitcodeStream(
-      bitcodeTempPath, error, llvm::sys::fs::F_None);
+      unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
 
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
-  // Optimize the bitcode.
+  // Use the LLVM's 'opt' command to optimize the bitcode.
   Command optBitcode(/*exePath=*/kOptPath);
   optBitcode.appendStr("-O3")
-      .appendList({"-o", bitcodePath})
-      .appendStr(bitcodeTempPath)
+      .appendList({"-o", optimizedBitcodePath})
+      .appendStr(unoptimizedBitcodePath)
       .exec();
 }
 
