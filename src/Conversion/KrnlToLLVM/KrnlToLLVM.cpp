@@ -880,14 +880,14 @@ void ConvertKrlnToLLVMPass::runOnOperation() {
   // Lower the MemRef types to a representation in LLVM.
   LowerToLLVMOptions options;
   options.emitCWrappers = true;
-  LLVMTypeConverter typeConverter(&getContext());
+  LLVMTypeConverter typeConverter(&getContext(), options);
 
   // We have a combination of `krnl`, `affine`, and `std` operations. We
   // lower in stages until all the code is in the LLVM dialect.
   OwningRewritePatternList patterns;
   populateAffineToStdConversionPatterns(patterns, &getContext());
   populateLoopToStdConversionPatterns(patterns, &getContext());
-  populateStdToLLVMConversionPatterns(typeConverter, patterns, options);
+  populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
       &getContext(), typeConverter);
