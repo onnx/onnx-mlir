@@ -78,7 +78,6 @@ func @test_scaler_null(%arg0: tensor<3xi32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) : (tensor<3xi32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
-
   // CHECK-NEXT: %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<3xi32>) -> tensor<3xf32>
   // CHECK-NEXT: return %0 : tensor<3xf32>
 }

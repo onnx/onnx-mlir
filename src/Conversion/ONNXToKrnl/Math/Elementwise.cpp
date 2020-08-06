@@ -91,25 +91,41 @@ template <>
 Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  Value operand = scalarOperands[0];
-  printf("starting lowering\n");
   ONNXCastOp castOp = llvm::dyn_cast<ONNXCastOp>(op);
-  auto type = convertONNXTypeToMLIRType(rewriter, static_cast<onnx::TensorProto_DataType>(castOp.toAttr().getInt()));
+  auto mlirtype = convertONNXTypeToMLIRType(rewriter,
+      static_cast<onnx::TensorProto_DataType>(castOp.toAttr().getInt()));
+  Value operand = scalarOperands[0];
+  auto origtype = operand.getType();
 
-  if (elementType.isa<FloatType>()) {
-    if (type.isa<IntegerType>()) {
-        return rewriter.create<FPToSIOp>(loc, type, operand);
-    }
+  // check output type is the same as expected output type
+  if (elementType != mlirtype)
+    llvm_unreachable("output type different from expected output type");
+
+  // if same input and output type, return input
+  if (origtype == elementType)
     return operand;
 
-  } else if (elementType.isa<IntegerType>()) {
-    if (type.isa<FloatType>()) {
-        return rewriter.create<SIToFPOp>(loc, type, operand);
+  if (origtype.isa<FloatType>()) {
+    // cast from floating-point type to integer type
+    if (elementType.isa<IntegerType>())
+      return rewriter.create<FPToSIOp>(loc, elementType, operand);
+    // cast from floating-point type to other floating-point type
+    else if (elementType.isa<FloatType>()) {
+      // cast from floating-point to wider floating-point
+      if (origtype.getIntOrFloatBitWidth() <
+          elementType.getIntOrFloatBitWidth())
+        return rewriter.create<FPExtOp>(loc, elementType, operand);
+      // cast from floating-point to narrower floating-point
+      else
+        return rewriter.create<FPTruncOp>(loc, elementType, operand);
     }
-    return operand;
-  } else {
-    llvm_unreachable("unsupported element type");
   }
+  // int to float
+  else if (origtype.isa<IntegerType>()) {
+    if (elementType.isa<FloatType>())
+      return rewriter.create<SIToFPOp>(loc, elementType, operand);
+  }
+  llvm_unreachable("unsupported element type");
 }
 
 //===----------------------------------------------------------------------===//
