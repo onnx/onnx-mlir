@@ -161,7 +161,7 @@ void LoadMLIR(string inputFilename, mlir::MLIRContext &context,
 }
 
 void genConstPackObj(const mlir::OwningModuleRef &module,
-    llvm::Optional<string> &constPackObjPath) {
+    llvm::Optional<string> &constPackObjPath, string outputBaseName) {
   // Extract constant pack file name, which is embedded as a symbol in the
   // module being compiled.
   auto constPackFilePathSym = (*module).lookupSymbol<mlir::LLVM::GlobalOp>(
@@ -223,6 +223,12 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
       .exec();
 
 #else
+  /* The final constant pack object file on Windows is NOT embedded into
+   * the shared library but rather is kept in a separate .bin file. So
+   * do not set it in constPackObjPath so that when this function returns
+   * the caller (compileModuleToSharedLibrary and compileModuleToJniJar)
+   * won't put it into llvm::FileRemover.
+   */
   llvm::SmallVector<char, 10> permConstPackFileName(
       constPackFilePath.begin(), constPackFilePath.end());
   llvm::sys::path::replace_extension(permConstPackFileName, "bin");
@@ -244,16 +250,28 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
 #endif
 }
 
-// Write LLVM bitcode.
-void genLLVMBitcode(const mlir::OwningModuleRef &module, string bitcodePath) {
+// Write LLVM optimized bitcode.
+void genLLVMBitcode(const mlir::OwningModuleRef &module,
+    string optimizedBitcodePath, string outputBaseName) {
   error_code error;
 
+  // Write bitcode to a file.
+  string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
+  llvm::FileRemover unoptimzedBitcodeRemover(unoptimizedBitcodePath);
+
   llvm::raw_fd_ostream moduleBitcodeStream(
-      bitcodePath, error, llvm::sys::fs::F_None);
+      unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
 
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
+
+  // Use the LLVM's 'opt' command to optimize the bitcode.
+  Command optBitcode(/*exePath=*/kOptPath);
+  optBitcode.appendStr("-O3")
+      .appendList({"-o", optimizedBitcodePath})
+      .appendStr(unoptimizedBitcodePath)
+      .exec();
 }
 
 // Compile LLVM bitcode to object file.
@@ -309,11 +327,11 @@ void compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
   llvm::Optional<string> constPackObjPath;
-  genConstPackObj(module, constPackObjPath);
+  genConstPackObj(module, constPackObjPath, outputBaseName);
   llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
-  genLLVMBitcode(module, bitcodePath);
+  genLLVMBitcode(module, bitcodePath, outputBaseName);
   llvm::FileRemover bitcodeRemover(bitcodePath);
 
   string modelObjPath = outputBaseName + ".o";
@@ -330,11 +348,11 @@ void compileModuleToJniJar(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
   llvm::Optional<string> constPackObjPath;
-  genConstPackObj(module, constPackObjPath);
+  genConstPackObj(module, constPackObjPath, outputBaseName);
   llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
-  genLLVMBitcode(module, bitcodePath);
+  genLLVMBitcode(module, bitcodePath, outputBaseName);
   llvm::FileRemover bitcodeRemover(bitcodePath);
 
   string modelObjPath = outputBaseName + ".o";
@@ -391,7 +409,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
-  pm.addPass(mlir::createLowerKrnlPass());
+  pm.addPass(mlir::createConvertKrnlToAffinePass());
   // Fuse loops in Affine dialect.
   //  pm.addPass(mlir::createLoopFusionPass());
 }
@@ -399,7 +417,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 void addKrnlToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
-  pm.addPass(mlir::createKrnlLowerToLLVMPass());
+  pm.addPass(mlir::createConvertKrnlToLLVMPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
 

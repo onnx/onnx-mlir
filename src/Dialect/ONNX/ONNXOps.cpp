@@ -484,18 +484,48 @@ ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
       >();
   addTypes<StringType>();
+  addTypes<SeqType>();
 }
 
 mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
-  if (parser.parseKeyword("String"))
+  StringRef keyword;
+  if (parser.parseKeyword(&keyword))
     return Type();
 
-  return StringType::get(getContext());
+  if (keyword == "String")
+    return StringType::get(getContext());
+  if (keyword == "Seq") {
+    if (parser.parseLess())
+      return Type();
+
+    SmallVector<mlir::Type, 1> elementTypes;
+    do {
+      llvm::SMLoc typeLoc = parser.getCurrentLocation();
+      mlir::Type elementType;
+      if (parser.parseType(elementType))
+        return Type();
+
+      // TOFIX: type limitation for Seq? similar but different shape??
+      elementTypes.push_back(elementType);
+    } while (succeeded(parser.parseOptionalComma()));
+
+    if (parser.parseGreater())
+      return Type();
+    return SeqType::get(elementTypes);
+  }
 }
 
 void ONNXOpsDialect::printType(
     mlir::Type type, mlir::DialectAsmPrinter &printer) const {
-  printer << "String";
+  if (auto stringType = type.dyn_cast<StringType>()) {
+    printer << "String";
+  } else if (auto seqType = type.dyn_cast<SeqType>()) {
+    printer << "Seq<";
+    llvm::interleaveComma(seqType.getElementTypes(), printer);
+    printer << '>';
+  } else {
+    llvm_unreachable("Unexpected onnxmlir type");
+  }
 }
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
@@ -1878,6 +1908,17 @@ LogicalResult ONNXCastOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Scaler
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXScalerOp::inferShapes() {
+  ShapedType inputType = X().getType().dyn_cast<ShapedType>();
+  getResult().setType(RankedTensorType::get(
+      inputType.getShape(), FloatType::getF32(getContext())));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Constant
 //===----------------------------------------------------------------------===//
 
@@ -2615,8 +2656,55 @@ LogicalResult ONNXSliceOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// ONNX type related code
+//===----------------------------------------------------------------------===//
+
+namespace mlir {
+namespace onnxmlir {
+namespace detail {
+struct SeqTypeStorage : public mlir::TypeStorage {
+  using KeyTy = llvm::ArrayRef<mlir::Type>;
+
+  SeqTypeStorage(llvm::ArrayRef<mlir::Type> elementTypes)
+      : elementTypes(elementTypes) {}
+
+  bool operator==(const KeyTy &key) const { return key == elementTypes; }
+  static llvm::hash_code hasKey(const KeyTy &key) {
+    return llvm::hash_value(key);
+  }
+
+  static KeyTy getKey(llvm::ArrayRef<mlir::Type> elementTypes) {
+    return KeyTy(elementTypes);
+  }
+
+  static SeqTypeStorage *construct(
+      mlir::TypeStorageAllocator &allocator, const KeyTy &key) {
+    llvm::ArrayRef<mlir::Type> elementTypes = allocator.copyInto(key);
+    return new (allocator.allocate<SeqTypeStorage>())
+        SeqTypeStorage(elementTypes);
+  }
+  llvm::ArrayRef<mlir::Type> elementTypes;
+};
+} // end namespace detail
+} // end namespace onnxmlir
+} // end namespace mlir
+
+SeqType SeqType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
+  assert(!elementTypes.empty() && "expected non-empty seq");
+  mlir::MLIRContext *ctx = elementTypes.front().getContext();
+  return Base::get(ctx, ONNXTypes::SEQ, elementTypes);
+}
+
+llvm::ArrayRef<mlir::Type> SeqType::getElementTypes() {
+  return getImpl()->elementTypes;
+}
+
+mlir::Type SeqType::getElementType() { return getElementTypes()[0]; }
+
+//===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 
 #define GET_OP_CLASSES
+
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"

@@ -26,7 +26,6 @@ set(OMLibs
         OMBundleMemoryPools)
 set(OMLibs ${OMLibs} PARENT_SCOPE)
 
-message(SATUS "OMLibs" ${OMLibs})
 add_subdirectory(Tool)
 
 add_library(MainUtils
