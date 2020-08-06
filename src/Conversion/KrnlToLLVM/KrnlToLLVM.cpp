@@ -401,8 +401,6 @@ public:
   enum class API {
     CREATE_ORDERED_RTMEMREF_DICT,
     CREATE_RTMEMREF,
-    GET_RTMEMREF_BY_INDEX,
-    SET_RTMEMREF_BY_INDEX,
     GET_DATA,
     SET_DATA,
     GET_DATA_SIZES,
@@ -611,8 +609,6 @@ private:
     std::vector<ApiSpec> apiSpecs = {
         ApiSpec(API::CREATE_ORDERED_RTMEMREF_DICT, "ormrd_create", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
         ApiSpec(API::CREATE_RTMEMREF, "rmr_create", opaquePtrTy, {int32Ty}),
-        ApiSpec(API::GET_RTMEMREF_BY_INDEX, "ormrd_getRmrByIndex", opaquePtrTy, {opaquePtrTy, int32Ty}),
-        ApiSpec(API::SET_RTMEMREF_BY_INDEX, "ormrd_setRmrByIndex", voidTy, {opaquePtrTy,  opaquePtrTy, int32Ty}),
         ApiSpec(API::GET_DATA, "rmr_getData", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "rmr_setData", voidTy, {opaquePtrTy, opaquePtrTy}),
         ApiSpec(API::GET_DATA_SIZES, "rmr_getDataSizes", int64PtrTy, {opaquePtrTy}),
