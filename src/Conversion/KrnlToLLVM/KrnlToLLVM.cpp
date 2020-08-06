@@ -575,8 +575,8 @@ public:
 
       auto rmrPtrAddrTy = opaquePtrTy.getPointerTo();
       auto rmrPtrAddr = rewriter
-                            .create<LLVM::GEPOp>(loc, rmrPtrAddrTy, wrappedOutputPtrArr,
-                                ArrayRef<Value>({idxVal}))
+                            .create<LLVM::GEPOp>(loc, rmrPtrAddrTy,
+                                wrappedOutputPtrArr, ArrayRef<Value>({idxVal}))
                             .getResult();
 
       rewriter.create<LLVM::StoreOp>(loc, outRtMemRef, rmrPtrAddr);
