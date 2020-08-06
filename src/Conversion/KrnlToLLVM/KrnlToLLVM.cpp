@@ -488,7 +488,7 @@ public:
     SmallVector<Value, 4> staticInputs;
     auto wrappedInput = entryPointEntryBlock.getArgument(0);
 
-    auto rmrPtrPtr =
+    auto rmrPtrArr =
         callApi(rewriter, loc, apiRegistry, API::GET_RMRS, {wrappedInput});
     for (size_t i = 0; i < staticEntryPointTy.getFunctionNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
@@ -497,7 +497,7 @@ public:
 
       auto rmrPtrAddrTy = opaquePtrTy.getPointerTo();
       auto rmrPtrAddr = rewriter
-                            .create<LLVM::GEPOp>(loc, rmrPtrAddrTy, rmrPtrPtr,
+                            .create<LLVM::GEPOp>(loc, rmrPtrAddrTy, rmrPtrArr,
                                 ArrayRef<Value>({idxVal}))
                             .getResult();
       auto rmrPtr = rewriter.create<LLVM::LoadOp>(loc, opaquePtrTy, rmrPtrAddr)
@@ -553,7 +553,7 @@ public:
 
     auto numOutput = rewriter.create<LLVM::ConstantOp>(
         loc, int32Ty, rewriter.getI64IntegerAttr(outMemRefList.size()));
-    auto wrappedOutputPtrArr = rewriter.create<LLVM::AllocaOp>(
+    auto outRmrPtrsArr = rewriter.create<LLVM::AllocaOp>(
         loc, opaquePtrTy.getPointerTo(), numOutput, /*alignment=*/0);
 
     for (decltype(numOutputs) i = 0; i < outMemRefList.size(); i++) {
@@ -576,7 +576,7 @@ public:
       auto rmrPtrAddrTy = opaquePtrTy.getPointerTo();
       auto rmrPtrAddr = rewriter
                             .create<LLVM::GEPOp>(loc, rmrPtrAddrTy,
-                                wrappedOutputPtrArr, ArrayRef<Value>({idxVal}))
+                                outRmrPtrsArr, ArrayRef<Value>({idxVal}))
                             .getResult();
 
       rewriter.create<LLVM::StoreOp>(loc, outRtMemRef, rmrPtrAddr);
@@ -584,7 +584,7 @@ public:
 
     // Create wrapped output.
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
-        API::CREATE_ORDERED_RTMEMREF_DICT, {wrappedOutputPtrArr, numOutput});
+        API::CREATE_ORDERED_RTMEMREF_DICT, {outRmrPtrsArr, numOutput});
 
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(
