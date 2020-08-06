@@ -16,7 +16,11 @@
 #include <typeinfo>
 #include <vector>
 
+#ifdef __APPLE__
+#include <stdlib.h>
+#else
 #include <malloc.h>
+#endif
 
 // clang-format off
 #include "_RtMemRef.h"

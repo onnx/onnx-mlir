@@ -16,7 +16,11 @@
 #include <string>
 #include <vector>
 
-#include "malloc.h"
+#ifdef __APPLE__
+#include <stdlib.h>
+#else
+#include <malloc.h>
+#endif
 
 using namespace std;
 

@@ -409,6 +409,7 @@ public:
     GET_DATA_STRIDES,
     SET_DATA_TYPE,
     GET_DATA_TYPE,
+    GET_RMRS,
   };
 
   struct ApiSpec {
@@ -486,12 +487,21 @@ public:
     // them to static mem refs.
     SmallVector<Value, 4> staticInputs;
     auto wrappedInput = entryPointEntryBlock.getArgument(0);
+
+    auto rmrPtrPtr =
+        callApi(rewriter, loc, apiRegistry, API::GET_RMRS, {wrappedInput});
     for (size_t i = 0; i < staticEntryPointTy.getFunctionNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(i));
-      auto rtMemRef = callApi(rewriter, loc, apiRegistry,
-          API::GET_RTMEMREF_BY_INDEX, {wrappedInput, idxVal});
+
+      auto rmrPtrAddrTy = opaquePtrTy.getPointerTo();
+      auto rmrPtrAddr = rewriter
+                            .create<LLVM::GEPOp>(loc, rmrPtrAddrTy, rmrPtrPtr,
+                                ArrayRef<Value>({idxVal}))
+                            .getResult();
+      auto rmrPtr = rewriter.create<LLVM::LoadOp>(loc, opaquePtrTy, rmrPtrAddr)
+                        .getResult();
 
       // Create a (static) memref type corresponding to the i-th memref input to
       // the inference function on stack, and load it to memRef.
@@ -503,9 +513,9 @@ public:
           /*alignment=*/0);
 
       // Fill in the memref underlying ptrToMemRef with information extracted
-      // from rtMemRef.
+      // from rmrPtr.
       fillPtrToMemRefWithRtMemRef(
-          rtMemRef, ptrToMemRef, rewriter, loc, apiRegistry, llvmDialect);
+          rmrPtr, ptrToMemRef, rewriter, loc, apiRegistry, llvmDialect);
 
       // ptrToMemRef will be an input to main computation graph function.
       staticInputs.emplace_back(ptrToMemRef);
@@ -541,13 +551,15 @@ public:
       }
     }
 
-    // Create wrapped output.
-    auto wrappedOutput = callApi(
-        rewriter, loc, apiRegistry, API::CREATE_ORDERED_RTMEMREF_DICT, {});
+    auto numOutput = rewriter.create<LLVM::ConstantOp>(
+        loc, int32Ty, rewriter.getI64IntegerAttr(outMemRefList.size()));
+    auto wrappedOutputPtrArr = rewriter.create<LLVM::AllocaOp>(
+        loc, opaquePtrTy.getPointerTo(), numOutput, /*alignment=*/0);
 
     for (decltype(numOutputs) i = 0; i < outMemRefList.size(); i++) {
       // Get the i-th memref returned, convert to a dynamic memref and store it
       // in the wrappedOutput.
+
       auto memRef = outMemRefList.at(i);
       auto outMemRefTy = memRef.getType().dyn_cast<LLVMType>();
       auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
@@ -557,11 +569,23 @@ public:
           rewriter, loc, apiRegistry, API::CREATE_RTMEMREF, {outMemRefRankVal});
       fillRtMemRefWithMemRef(
           memRef, outRtMemRef, rewriter, loc, apiRegistry, llvmDialect);
-      auto idx = rewriter.create<LLVM::ConstantOp>(
+
+      auto idxVal = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(i));
-      callApi(rewriter, loc, apiRegistry, API::SET_RTMEMREF_BY_INDEX,
-          {wrappedOutput, outRtMemRef, idx});
+
+      auto rmrPtrAddrTy = opaquePtrTy.getPointerTo();
+      auto rmrPtrAddr = rewriter
+                            .create<LLVM::GEPOp>(loc, rmrPtrAddrTy, wrappedOutputPtrArr,
+                                ArrayRef<Value>({idxVal}))
+                            .getResult();
+
+      rewriter.create<LLVM::StoreOp>(loc, outRtMemRef, rmrPtrAddr);
     }
+
+    // Create wrapped output.
+    auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
+        API::CREATE_ORDERED_RTMEMREF_DICT, {wrappedOutputPtrArr, numOutput});
+
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(
         loc, SmallVector<Value, 1>({wrappedOutput}));
@@ -576,6 +600,7 @@ private:
     using LLVMType = LLVM::LLVMType;
     auto voidTy = LLVMType::getVoidTy(llvmDialect);
     auto opaquePtrTy = LLVMType::getInt8PtrTy(llvmDialect);
+    auto opaquePtrPtrTy = opaquePtrTy.getPointerTo();
     auto int32Ty = LLVMType::getInt32Ty(llvmDialect);
     auto int64Ty = LLVMType::getInt64Ty(llvmDialect);
     auto int64PtrTy = int64Ty.getPointerTo();
@@ -584,7 +609,7 @@ private:
     // specifying its signature.
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
-        ApiSpec(API::CREATE_ORDERED_RTMEMREF_DICT, "ormrd_create", opaquePtrTy, {}),
+        ApiSpec(API::CREATE_ORDERED_RTMEMREF_DICT, "ormrd_create", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
         ApiSpec(API::CREATE_RTMEMREF, "rmr_create", opaquePtrTy, {int32Ty}),
         ApiSpec(API::GET_RTMEMREF_BY_INDEX, "ormrd_getRmrByIndex", opaquePtrTy, {opaquePtrTy, int32Ty}),
         ApiSpec(API::SET_RTMEMREF_BY_INDEX, "ormrd_setRmrByIndex", voidTy, {opaquePtrTy,  opaquePtrTy, int32Ty}),
@@ -594,6 +619,7 @@ private:
         ApiSpec(API::GET_DATA_STRIDES, "rmr_getDataStrides", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_TYPE, "rmr_getDataType", int32Ty, {opaquePtrTy}),
         ApiSpec(API::SET_DATA_TYPE, "rmr_setDataType", voidTy, {opaquePtrTy, int32Ty}),
+        ApiSpec(API::GET_RMRS, "ormrd_getRmrs", opaquePtrPtrTy, {opaquePtrTy}),
     };
     // clang-format on
 
