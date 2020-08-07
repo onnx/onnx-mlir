@@ -1045,7 +1045,7 @@ def ONNXDivOp:ONNX_Op<"Div",
 }
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Dropout operation";
   let description = [{
   "Dropout takes one input floating tensor and produces two tensor outputs,"
@@ -1193,7 +1193,7 @@ def ONNXEqualOp:ONNX_Op<"Equal",
 }
 
 def ONNXErfOp:ONNX_Op<"Erf",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Erf operation";
   let description = [{
   "Computes the error function of the given input tensor element-wise."
@@ -1247,7 +1247,7 @@ def ONNXExpOp:ONNX_Op<"Exp",
 }
 
 def ONNXExpandOp:ONNX_Op<"Expand",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Expand operation";
   let description = [{
   "Broadcast the input tensor following the given shape and the broadcast rule."
@@ -3222,7 +3222,7 @@ def ONNXPadOp:ONNX_Op<"Pad",
 }
 
 def ONNXPowOp:ONNX_Op<"Pow",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Pow operation";
   let description = [{
   "Pow takes input data (Tensor<T>) and exponent Tensor, and"
@@ -3798,7 +3798,7 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceMean operation";
   let description = [{
   "Computes the mean of the input tensor's element along the provided axes. The resulted"
