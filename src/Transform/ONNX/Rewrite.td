@@ -125,7 +125,7 @@ def ConvOpPaddingPattern: Pat<
 //   y = w_ * x + b_
 // where
 //   w_ = scale * w / sqrt(var + eps)
-//   b_ = B - scale * (b - mean) / sqrt(var + eps)
+//   b_ = B + scale * (b - mean) / sqrt(var + eps)
 //
 // Hence, we rewrite: 
 //   onnx.BatchNormalizationTestMode(
@@ -138,7 +138,7 @@ def ConvOpPaddingPattern: Pat<
 //    
 //    where
 //      w_ = scale * w / sqrt(var + eps)
-//      b_ = B - scale * (b - mean) / sqrt(var + eps)
+//      b_ = B + scale * (b - mean) / sqrt(var + eps)
 //
 //===----------------------------------------------------------------------===//
 
@@ -156,7 +156,7 @@ def FuseBatchNormTestModeConvPattern: Pat<
                                                                    (createConstantOpFromFloatAttr $epsilon, $res)))),
                                  (createArrayAttrOfOneToRankOf $w))), 
      // b_
-     (ONNXSubOp $B,
+     (ONNXAddOp $B,
                 (ONNXDivOp 
                    (ONNXMulOp $scale, 
                               (subtractOrNeg $b, $mean, $res)),
