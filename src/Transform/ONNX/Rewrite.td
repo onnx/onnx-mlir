@@ -151,17 +151,14 @@ def FuseBatchNormTestModeConvPattern: Pat<
      $x,
      // w_
      (ONNXMulOp $w, 
-                (ONNXUnsqueezeOp (ONNXDivOp $scale,
-                                            (ONNXSqrtOp (ONNXAddOp $var,
-                                                                   (createConstantOpFromFloatAttr $epsilon, $res)))),
+                (ONNXUnsqueezeOp (ONNXDivOp:$coefficientW 
+                                    $scale,
+                                    (ONNXSqrtOp (ONNXAddOp $var,
+                                                           (createConstantOpFromFloatAttr $epsilon, $res)))),
                                  (createArrayAttrOfOneToRankOf $w))), 
      // b_
      (ONNXAddOp $B,
-                (ONNXDivOp 
-                   (ONNXMulOp $scale, 
-                              (subtractOrNeg $b, $mean, $res)),
-                   (ONNXSqrtOp (ONNXAddOp $var,
-                                          (createConstantOpFromFloatAttr $epsilon, $res))))), 
+                (ONNXMulOp $coefficientW, (subtractOrNeg $b, $mean, $res))), 
 
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides)
 >;
