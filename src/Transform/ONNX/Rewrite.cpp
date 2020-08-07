@@ -18,6 +18,43 @@ using namespace mlir;
 
 namespace {
 
+// Create a constant op from a float attribute
+// Here we use a DenseElementsAttr. However, please use 'value_float' attribute
+// to construct a constant op once ONNXConstantOp supports 'value_float'.
+ONNXConstantOp createConstantOpFromFloatAttr(
+    PatternRewriter &rewriter, Location loc, FloatAttr attr, Type elementType) {
+  SmallVector<int64_t, 1> dims;
+  dims.emplace_back(1);
+  SmallVector<float, 1> values;
+  values.emplace_back(attr.getValue().convertToFloat());
+  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
+  auto constantAttr =
+      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+  return rewriter.create<mlir::ONNXConstantOp>(
+      loc, mlir::Attribute(), constantAttr);
+}
+
+// If the lhs is not NoneType, do subtraction.
+// Otherwise, take the negative of the rhs.
+Value subtractOrNeg(
+    PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
+  if (lhs.getType().isa<NoneType>()) {
+    Value result = rewriter.create<ONNXNegOp>(loc, rhs);
+    return result;
+  } else {
+    Value result = rewriter.create<ONNXSubOp>(loc, lhs, rhs);
+    return result;
+  }
+}
+
+// Create an ArrayAttr of IntergerAttr(s) of values in [1, N].
+ArrayAttr createArrayAttrOfOneToN(PatternRewriter &rewriter, int N) {
+  SmallVector<int64_t, 4> vals;
+  for (int i = 1; i <= N; ++i)
+    vals.emplace_back(i);
+  return rewriter.getI64ArrayAttr(vals);
+}
+
 // Check whether an ArrayAttr contains non-zero values or not.
 bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
   bool allZeros = true;
@@ -91,4 +128,10 @@ DenseElementsAttr insertZerosForNonPaddedDims(
 void ONNXConvOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<ConvOpPaddingPattern>(context);
+}
+
+/// on the ONNXBatchNormalizationTestModeOp.
+void ONNXBatchNormalizationTestModeOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<FuseBatchNormTestModeConvPattern>(context);
 }

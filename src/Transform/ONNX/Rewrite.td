@@ -24,6 +24,19 @@ include "src/Dialect/ONNX/ONNXOps.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+// Create a constant op from a float attribute
+def createConstantOpFromFloatAttr: NativeCodeCall<
+  "createConstantOpFromFloatAttr($_builder, $1.getDefiningOp()->getLoc(), $0, $1.getType().cast<ShapedType>().getElementType())">;
+
+// If the lhs is not NoneType, do subtraction.
+// Otherwise, take the negative of the rhs.
+def subtractOrNeg: NativeCodeCall<
+  "subtractOrNeg($_builder, $2.getDefiningOp()->getLoc(), $0, $1)">;
+
+// Create an ArrayAttr of IntergerAttr(s) of values in [1, N].
+def createArrayAttrOfOneToRankOf: NativeCodeCall<
+  "createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 1)">;
+
 def GetNullAttr :
    NativeCodeCall<"Attribute()">;
 
@@ -98,6 +111,59 @@ def ConvOpPaddingPattern: Pat<
      (createArrayAttrOfZerosFrom $pads),
      $strides),
   [(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
+>;
+
+//===----------------------------------------------------------------------===//
+// This is to fuse the composition: 'BatchNorm o Conv' into 'Conv'
+// by deriving new 'w' and 'b' for 'Conv':
+//
+// We have:
+//   (Conv)      z = w * x + b 
+//   (BatchNorm) y = scale * (z - mean) / sqrt(var + eps) + bias
+//
+// which corresponds to the following computation:
+//   y = w_ * x + b_
+// where
+//   w_ = scale * w / sqrt(var + eps)
+//   b_ = B - scale * (b - mean) / sqrt(var + eps)
+//
+// Hence, we rewrite: 
+//   onnx.BatchNormalizationTestMode(
+//       onnx.Conv(x, w, b),
+//       scale, B, mean, var
+//   ) {eps = ...}
+//
+// as:
+//    onnx.Conv(x, w_, b_)
+//    
+//    where
+//      w_ = scale * w / sqrt(var + eps)
+//      b_ = B - scale * (b - mean) / sqrt(var + eps)
+//
+//===----------------------------------------------------------------------===//
+
+def FuseBatchNormTestModeConvPattern: Pat<
+  (ONNXBatchNormalizationTestModeOp:$res
+    (ONNXConvOp $x, $w, $b,
+                $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
+    $scale, $B, $mean, $var, $epsilon, $momentum),
+  (ONNXConvOp
+     $x,
+     // w_
+     (ONNXMulOp $w, 
+                (ONNXUnsqueezeOp (ONNXDivOp $scale,
+                                            (ONNXSqrtOp (ONNXAddOp $var,
+                                                                   (createConstantOpFromFloatAttr $epsilon, $res)))),
+                                 (createArrayAttrOfOneToRankOf $w))), 
+     // b_
+     (ONNXSubOp $B,
+                (ONNXDivOp 
+                   (ONNXMulOp $scale, 
+                              (subtractOrNeg $b, $mean, $res)),
+                   (ONNXSqrtOp (ONNXAddOp $var,
+                                          (createConstantOpFromFloatAttr $epsilon, $res))))), 
+
+     $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides)
 >;
 
 #endif // ONNX_REWRITE
