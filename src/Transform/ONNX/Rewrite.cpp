@@ -21,10 +21,8 @@ namespace {
 // Create a DenseElementsAttr from a float attribute.
 DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     PatternRewriter &rewriter, Type elementType, FloatAttr attr) {
-  SmallVector<int64_t, 1> dims;
-  dims.emplace_back(1);
-  SmallVector<float, 1> values;
-  values.emplace_back(attr.getValue().convertToFloat());
+  SmallVector<int64_t, 1> dims(1, 1);
+  SmallVector<float, 1> values(1, attr.getValue().convertToFloat());
   auto tensorType = mlir::RankedTensorType::get(dims, elementType);
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 }
