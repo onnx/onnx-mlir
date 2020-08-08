@@ -18,24 +18,19 @@ using namespace mlir;
 
 namespace {
 
-// Create a constant op from a float attribute
-// Here we use a DenseElementsAttr. However, please use 'value_float' attribute
-// to construct a constant op once ONNXConstantOp supports 'value_float'.
-ONNXConstantOp createConstantOpFromFloatAttr(
-    PatternRewriter &rewriter, Location loc, FloatAttr attr, Type elementType) {
+// Create a DenseElementsAttr from a float attribute.
+DenseElementsAttr createDenseElementsAttrFromFloatAttr(
+    PatternRewriter &rewriter, Type elementType, FloatAttr attr) {
   SmallVector<int64_t, 1> dims;
   dims.emplace_back(1);
   SmallVector<float, 1> values;
   values.emplace_back(attr.getValue().convertToFloat());
   auto tensorType = mlir::RankedTensorType::get(dims, elementType);
-  auto constantAttr =
-      mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-  return rewriter.create<mlir::ONNXConstantOp>(
-      loc, mlir::Attribute(), constantAttr);
+  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 }
 
-// If the lhs is not NoneType, do subtraction.
-// Otherwise, take the negative of the rhs.
+// If 'lhs' is not NoneType, return 'lhs - rhs'.
+// Otherwise, return '-rhs'.
 Value subtractOrNeg(
     PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
   if (lhs.getType().isa<NoneType>()) {

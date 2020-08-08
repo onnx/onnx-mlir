@@ -24,17 +24,17 @@ include "src/Dialect/ONNX/ONNXOps.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
-// Create a constant op from a float attribute
-def createConstantOpFromFloatAttr: NativeCodeCall<
-  "createConstantOpFromFloatAttr($_builder, $1.getDefiningOp()->getLoc(), $0, $1.getType().cast<ShapedType>().getElementType())">;
+// Create a DenseElementsAttr from a float attribute and an element type.
+def createDenseElementsAttrFromFloatAttr : NativeCodeCall<
+  "createDenseElementsAttrFromFloatAttr($_builder, $0.getType().cast<ShapedType>().getElementType(), $1)">;
 
-// If the lhs is not NoneType, do subtraction.
-// Otherwise, take the negative of the rhs.
+// If '$1' is not NoneType, do subtraction '$1 - $2'.
+// Otherwise, take the negative of '$2'.
 def subtractOrNeg: NativeCodeCall<
-  "subtractOrNeg($_builder, $2.getDefiningOp()->getLoc(), $0, $1)">;
+  "subtractOrNeg($_builder, $0.getDefiningOp()->getLoc(), $1, $2)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N].
-def createArrayAttrOfOneToRankOf: NativeCodeCall<
+def createArrayAttrOfOneToRankOf : NativeCodeCall<
   "createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
 def GetNullAttr :
@@ -150,15 +150,24 @@ def FuseBatchNormTestModeConvPattern: Pat<
   (ONNXConvOp
      $x,
      // w_
-     (ONNXMulOp $w, 
-                (ONNXUnsqueezeOp (ONNXDivOp:$coefficientW 
-                                    $scale,
-                                    (ONNXSqrtOp (ONNXAddOp $var,
-                                                           (createConstantOpFromFloatAttr $epsilon, $res)))),
-                                 (createArrayAttrOfOneToRankOf $w))), 
+     (ONNXMulOp
+        $w,
+        (ONNXUnsqueezeOp
+           (ONNXDivOp:$coefficientW
+              $scale,
+              (ONNXSqrtOp
+                 (ONNXAddOp
+                    $var,
+                    (ONNXConstantOp
+                       (GetNullAttr),
+                       (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
+           (createArrayAttrOfOneToRankOf $w))),
      // b_
-     (ONNXAddOp $B,
-                (ONNXMulOp $coefficientW, (subtractOrNeg $b, $mean, $res))), 
+     (ONNXAddOp
+        $B,
+        (ONNXMulOp
+           $coefficientW,
+           (subtractOrNeg $res, $b, $mean))),
 
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides)
 >;
