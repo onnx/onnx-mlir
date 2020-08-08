@@ -60,8 +60,14 @@ def CreateSubOfTwoConst :
 def CreateNegOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXNegOp>($_builder, $0, $1)">;
 
- def CreateMulOfTwoConst :
+def CreateSqrtOfConst :
+   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXSqrtOp>($_builder, $0, $1)">;
+
+def CreateMulOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXMulOp>($_builder, $0, $1, $2)">;
+
+def CreateDivOfTwoConst :
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXDivOp>($_builder, $0, $1, $2)">;
 
 def CreateTransposeOfConst :
    NativeCodeCall<"ConstPropTranspose($_builder, $0, $1, $2)">;
@@ -163,7 +169,14 @@ def SubConstToNeg : Pat<
     (ONNXAddOp $x, (ONNXConstantOp (GetNullAttr), (CreateNegOfConst $constOp, $v))),
     [(IsNotAConstant:$x), (AttributeIsNull:$s)]>;
 
-
+// Constant Propagation for Sqrt
+def SqrtofConst :  Pat<
+    // From  onnx.Sqrt(c)
+    (ONNXSqrtOp (ONNXConstantOp:$constOp $s, $v)),
+    // To sqrt(c)
+    (ONNXConstantOp (GetNullAttr), (CreateSqrtOfConst $constOp, $v)),
+    [(AttributeIsNull:$s)]>;
+ 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise MUL operations.
 // Exactly the same pattern as for the elementwise ADD operations.
@@ -231,6 +244,16 @@ def MulConstProp : Pat<
     (ONNXConstantOp (GetNullAttr), (CreateMulOfTwoConst $mulOp, $v1, $v2)),
     // Mulitional constraints (no sparse)
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
+
+// Constant Propagation for Div 
+def DivConstProp : Pat<
+    // From div(c1, c2).
+    (ONNXMulOp:$mulOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
+    // To c1/c2
+    (ONNXConstantOp (GetNullAttr), (CreateDivOfTwoConst $mulOp, $v1, $v2)),
+    // Division constraints (no sparse)
+    [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
+
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Transpose operations.
