@@ -72,6 +72,9 @@ def CreateDivOfTwoConst :
 def CreateTransposeOfConst :
    NativeCodeCall<"ConstPropTranspose($_builder, $0, $1, $2)">;
 
+def CreateUnsqueezeOfConst:
+   NativeCodeCall<"ConstPropUnsqueeze($_builder, $0, $1)">;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
@@ -248,7 +251,7 @@ def MulConstProp : Pat<
 // Constant Propagation for Div 
 def DivConstProp : Pat<
     // From div(c1, c2).
-    (ONNXMulOp:$mulOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
+    (ONNXDivOp:$mulOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
     // To c1/c2
     (ONNXConstantOp (GetNullAttr), (CreateDivOfTwoConst $mulOp, $v1, $v2)),
     // Division constraints (no sparse)
@@ -267,5 +270,16 @@ def TransposeofConst :  Pat<
     (ONNXConstantOp (GetNullAttr), (CreateTransposeOfConst $resOp, $v, $p)),
     [(AttributeIsNull:$s)]>;
 
-  
+//===----------------------------------------------------------------------===//
+// Patterns to enable opportunities with Unsqueeze operations.
+//===----------------------------------------------------------------------===//
+
+def UnsqueezeofConst :  Pat<
+    // From Unsqueeze (c, axis)
+    (ONNXUnsqueezeOp:$resOp (ONNXConstantOp $s, $v), $_),
+    // To c' where c' is the unsqueezed value.
+    (ONNXConstantOp (GetNullAttr), (CreateUnsqueezeOfConst $resOp, $v)),
+    [(AttributeIsNull:$s)]>;
+
+
 #endif // ONNX_CONSTPROP

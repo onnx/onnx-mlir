@@ -374,6 +374,28 @@ DenseElementsAttr ConstPropTranspose(PatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for unsqueeze.
+//===----------------------------------------------------------------------===//
+
+DenseElementsAttr ConstPropUnsqueeze(
+    PatternRewriter &rewriter, Value resOperand, Attribute &attr) {
+  // Read dense attribute, the constant tensor we are transforming.
+  DenseElementsAttr denseAttr =
+      attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
+  assert(denseAttr && "expected dense attribute");
+  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+
+  // Unqueeze does not change the order of access, so just copy the whole data.
+  std::vector<Attribute> resVector;
+  for (auto value : denseAttr.getValues<Attribute>()) {
+    resVector.emplace_back(value);
+  }
+
+  ArrayRef<Attribute> resRef(resVector);
+  return DenseElementsAttr::get(resType, resRef);
+}
+
+//===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 
