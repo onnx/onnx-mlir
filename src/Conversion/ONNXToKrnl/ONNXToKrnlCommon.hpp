@@ -42,6 +42,9 @@ bool hasAllScalarValues(ArrayRef<Value> values);
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type);
 
+/// Retrieve function which contains the current operation.
+FuncOp getContainingFunction(Operation *op);
+
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc,
