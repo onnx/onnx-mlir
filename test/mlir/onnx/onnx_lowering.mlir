@@ -2018,3 +2018,88 @@ func @test_split_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>
   // CHECK: }
   // CHECK: return [[RES_0]], [[RES_1]] : memref<?x2x64xf32>, memref<?x30x64xf32>
 }
+
+// -----
+
+func @cast_lowering_sametype(%arg0: tensor<f32>) -> tensor<f32> {
+  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<f32>) -> tensor<f32>
+  "std.return"(%0) : (tensor<f32>) -> ()
+
+  // CHECK-LABEL: cast_lowering_sametype
+  // CHECK: [[RES:%.+]] = alloc() : memref<f32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[] : memref<f32>
+  // CHECK: affine.store [[LOAD]], [[RES]][] : memref<f32>
+  // CHECK: return [[RES]] : memref<f32>
+}
+
+// -----
+
+func @cast_lowering_intfloat(%arg0: tensor<i64>) -> tensor<f32> {
+  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<i64>) -> tensor<f32>
+  "std.return"(%0) : (tensor<f32>) -> ()
+
+  // CHECK-LABEL: cast_lowering_intfloat
+  // CHECK: [[RES:%.+]] = alloc() : memref<f32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[] : memref<i64>
+  // CHECK: [[VAL:%.+]] = sitofp [[LOAD]] : i64 to f32
+  // CHECK: affine.store [[VAL]], [[RES]][] : memref<f32>
+  // CHECK: return [[RES]] : memref<f32>
+}
+
+// -----
+
+func @cast_lowering_floatint(%arg0: tensor<f32>) -> tensor<i64> {
+  %0 = "onnx.Cast"(%arg0) {to = 7 : i64} : (tensor<f32>) -> tensor<i64>
+  "std.return"(%0) : (tensor<i64>) -> ()
+
+  // CHECK-LABEL: cast_lowering_floatint
+  // CHECK: [[RES:%.+]] = alloc() : memref<i64>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[] : memref<f32>
+  // CHECK: [[VAL:%.+]] = fptosi [[LOAD]] : f32 to i64
+  // CHECK: affine.store [[VAL]], [[RES]][] : memref<i64>
+  // CHECK: return [[RES]] : memref<i64>
+}
+
+// -----
+
+func @cast_lowering_f16f32(%arg0: tensor<f16>) -> tensor<f32> {
+  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<f16>) -> tensor<f32>
+  "std.return"(%0) : (tensor<f32>) -> ()
+
+  // CHECK-LABEL: cast_lowering_f16f32
+  // CHECK: [[RES:%.+]] = alloc() : memref<f32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[] : memref<f16>
+  // CHECK: [[VAL:%.+]] = fpext [[LOAD]] : f16 to f32
+  // CHECK: affine.store [[VAL]], [[RES]][] : memref<f32>
+  // CHECK: return [[RES]] : memref<f32>
+}
+
+// -----
+
+func @cast_lowering_f64f32(%arg0: tensor<f64>) -> tensor<f32> {
+  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<f64>) -> tensor<f32>
+  "std.return"(%0) : (tensor<f32>) -> ()
+
+  // CHECK-LABEL: cast_lowering_f64f32
+  // CHECK: [[RES:%.+]] = alloc() : memref<f32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[] : memref<f64>
+  // CHECK: [[VAL:%.+]] = fptrunc [[LOAD]] : f64 to f32
+  // CHECK: affine.store [[VAL]], [[RES]][] : memref<f32>
+  // CHECK: return [[RES]] : memref<f32>
+}
+
+// -----
+
+func @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
+  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<10xf64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: cast_lowering_f64f32_10
+  // CHECK: [[RES:%.+]] = alloc() : memref<10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]] = krnl.define_loops 1
+  // CHECK: krnl.iterate([[DEF_LOOPS]]) with ([[DEF_LOOPS]] -> %arg1 = 0 to 10) {
+  // CHECK: [[LOAD1:%.+]] = affine.load %arg0[%arg1] : memref<10xf64>
+  // CHECK: [[FPTRUNC:%.+]] = fptrunc [[LOAD1]] : f64 to f32
+  // CHECK: affine.store [[FPTRUNC]], [[RES]][%arg1] : memref<10xf32>
+  // CHECK: return [[RES]] : memref<10xf32>
+}
