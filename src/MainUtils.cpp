@@ -250,16 +250,28 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
 #endif
 }
 
-// Write LLVM bitcode.
-void genLLVMBitcode(const mlir::OwningModuleRef &module, string bitcodePath) {
+// Write LLVM optimized bitcode.
+void genLLVMBitcode(const mlir::OwningModuleRef &module,
+    string optimizedBitcodePath, string outputBaseName) {
   error_code error;
 
+  // Write bitcode to a file.
+  string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
+  llvm::FileRemover unoptimzedBitcodeRemover(unoptimizedBitcodePath);
+
   llvm::raw_fd_ostream moduleBitcodeStream(
-      bitcodePath, error, llvm::sys::fs::F_None);
+      unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
 
   llvm::WriteBitcodeToFile(
       *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
   moduleBitcodeStream.flush();
+
+  // Use the LLVM's 'opt' command to optimize the bitcode.
+  Command optBitcode(/*exePath=*/kOptPath);
+  optBitcode.appendStr("-O3")
+      .appendList({"-o", optimizedBitcodePath})
+      .appendStr(unoptimizedBitcodePath)
+      .exec();
 }
 
 // Compile LLVM bitcode to object file.
@@ -319,7 +331,7 @@ void compileModuleToSharedLibrary(
   llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
-  genLLVMBitcode(module, bitcodePath);
+  genLLVMBitcode(module, bitcodePath, outputBaseName);
   llvm::FileRemover bitcodeRemover(bitcodePath);
 
   string modelObjPath = outputBaseName + ".o";
@@ -340,7 +352,7 @@ void compileModuleToJniJar(
   llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
-  genLLVMBitcode(module, bitcodePath);
+  genLLVMBitcode(module, bitcodePath, outputBaseName);
   llvm::FileRemover bitcodeRemover(bitcodePath);
 
   string modelObjPath = outputBaseName + ".o";
@@ -397,7 +409,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
-  pm.addPass(mlir::createLowerKrnlPass());
+  pm.addPass(mlir::createConvertKrnlToAffinePass());
   // Fuse loops in Affine dialect.
   //  pm.addPass(mlir::createLoopFusionPass());
 }
@@ -405,7 +417,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 void addKrnlToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
-  pm.addPass(mlir::createKrnlLowerToLLVMPass());
+  pm.addPass(mlir::createConvertKrnlToLLVMPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
