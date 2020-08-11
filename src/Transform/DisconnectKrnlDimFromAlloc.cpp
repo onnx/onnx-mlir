@@ -55,8 +55,7 @@ public:
     int64_t index = indexOp.getAttrOfType<IntegerAttr>("value").getInt();
 
     // Get defining operation for the MemRef argument.
-    AllocOp allocOp =
-        dyn_cast<AllocOp>(krnlDimOp.alloc().getDefiningOp());
+    AllocOp allocOp = dyn_cast<AllocOp>(krnlDimOp.alloc().getDefiningOp());
     auto memRefShape =
         convertToMemRefType(allocOp.getResult().getType()).getShape();
     auto rank = memRefShape.size();
