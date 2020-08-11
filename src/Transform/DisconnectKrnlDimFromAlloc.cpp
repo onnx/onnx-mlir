@@ -59,21 +59,20 @@ public:
         dyn_cast<AllocOp>(krnlDimOp.alloc().getDefiningOp());
     auto memRefShape =
         convertToMemRefType(allocOp.getResult().getType()).getShape();
-    auto rank =  memRefShape.size();
+    auto rank = memRefShape.size();
     assert(index >= 0 && index < rank && "Index must be in bounds");
 
     Value result;
     if (memRefShape[index] > -1) {
       // If dimension is static, then we can just emit the constant value.
       result = rewriter.create<ConstantOp>(loc,
-          rewriter.getIntegerAttr(rewriter.getIndexType(),
-              memRefShape[index]));
+          rewriter.getIntegerAttr(rewriter.getIndexType(), memRefShape[index]));
     } else {
       // If dimension is dynamic we need to return the input alloc Value which
       // corresponds to it.
       int64_t dynDimIdx = getAllocArgIndex(allocOp, index);
       assert(dynDimIdx >= 0 && dynDimIdx < allocOp.getOperands().size() &&
-          "Dynamic index outside range of alloc argument list.");
+             "Dynamic index outside range of alloc argument list.");
       result = allocOp.getOperands()[dynDimIdx];
     }
 

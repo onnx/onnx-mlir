@@ -77,8 +77,7 @@ void initOMPasses() {
         return mlir::createPackKrnlGlobalConstantsPass();
       });
 
-  mlir::registerPass("disconnect-dims",
-      "Disconnect dims from allocs.",
+  mlir::registerPass("disconnect-dims", "Disconnect dims from allocs.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createDisconnectKrnlDimFromAllocPass();
       });
