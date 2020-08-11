@@ -22,3 +22,23 @@ jobs:
   - script: |
       call utils\setup-onnx-mlir-windows.cmd
     displayName: Build onnx-mlir
+
+  - script: |
+      pip install -q -e ./onnx-mlir/third_party/onnx
+      cd onnx-mlir/build
+      RUNTIME_DIR=%cd%/lib cmake --build . --target check-onnx-backend
+      IF NOT %ERRORLEVEL% EQU 0 (
+          @echo "End-To-End Tests failed."
+          EXIT 1
+      )      
+    displayName: Run End-To-End Tests
+
+  - script: |
+      # Need to include the bin directory in $PATH,
+      # otherwise CTest fails to find the test executables.  
+      RUNTIME_DIR=%cd%/lib PATH=%pwd%/bin:%PATH% make test -j$(nproc)
+      IF NOT %ERRORLEVEL% EQU 0 (
+          @echo "Unit Tests failed."
+          EXIT 1
+      )       
+    displayName: Run Unit Tests
