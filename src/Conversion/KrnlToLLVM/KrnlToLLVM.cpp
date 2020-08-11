@@ -284,8 +284,7 @@ public:
           rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
       //  - Copy constant data into the alloca.
       auto memcpyRef = getOrInsertMemcpy(rewriter, module, llvmDialect);
-      rewriter.create<CallOp>(loc, memcpyRef,
-          ArrayRef<Type>({}),
+      rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
           ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
     } else {
       // Some frequently used types.
@@ -381,8 +380,7 @@ public:
         rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
 
     // Memcpy call
-    rewriter.create<CallOp>(loc, memcpyRef,
-        ArrayRef<Type>({}),
+    rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
         ArrayRef<Value>({alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory,
             int64Size, isVolatile}));
 
@@ -648,7 +646,8 @@ private:
     auto memRefTy = memRefPtrTy.getPointerElementTy();
     auto int64Ty = LLVM::LLVMType::getInt64Ty(llvmDialect);
 
-    Value memRef = rewriter.create<LLVM::UndefOp>(loc, memRefPtrTy.getPointerElementTy());
+    Value memRef =
+        rewriter.create<LLVM::UndefOp>(loc, memRefPtrTy.getPointerElementTy());
 
     // Set dataPtr and alignedDataPtr;
     auto dataPtr =
