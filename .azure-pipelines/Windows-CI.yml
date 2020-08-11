@@ -24,7 +24,7 @@ jobs:
     displayName: Build onnx-mlir
 
   - script: |
-      pip install -q -e ./onnx-mlir/third_party/onnx
+      pip install -q -e onnx-mlir/third_party/onnx
       cd onnx-mlir/build
       set RUNTIME_DIR=%cd%/lib
       cmake --build . --target check-onnx-backend
