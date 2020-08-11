@@ -85,6 +85,50 @@ struct ScalarOp<ONNXSqrtOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXCastOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  ONNXCastOp castOp = llvm::dyn_cast<ONNXCastOp>(op);
+  auto mlirtype = convertONNXTypeToMLIRType(rewriter,
+      static_cast<onnx::TensorProto_DataType>(castOp.toAttr().getInt()));
+  Value operand = scalarOperands[0];
+  auto origtype = operand.getType();
+
+  // check output type is the same as expected output type
+  if (elementType != mlirtype)
+    llvm_unreachable("output type different from expected output type");
+
+  // if same input and output type, return input
+  if (origtype == elementType)
+    return operand;
+
+  if (origtype.isa<FloatType>()) {
+    // cast from floating-point type to integer type
+    if (elementType.isa<IntegerType>())
+      return rewriter.create<FPToSIOp>(loc, elementType, operand);
+    // cast from floating-point type to other floating-point type
+    else if (elementType.isa<FloatType>()) {
+      // cast from floating-point to wider floating-point
+      if (origtype.getIntOrFloatBitWidth() <
+          elementType.getIntOrFloatBitWidth())
+        return rewriter.create<FPExtOp>(loc, elementType, operand);
+      // cast from floating-point to narrower floating-point
+      else
+        return rewriter.create<FPTruncOp>(loc, elementType, operand);
+    }
+  }
+  // int to float
+  else if (origtype.isa<IntegerType>()) {
+    if (elementType.isa<FloatType>())
+      return rewriter.create<SIToFPOp>(loc, elementType, operand);
+  }
+  llvm_unreachable("unsupported element type");
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSinhOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -665,5 +709,6 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
 }
