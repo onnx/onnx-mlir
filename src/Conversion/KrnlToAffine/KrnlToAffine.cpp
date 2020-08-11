@@ -233,6 +233,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
 
   ConversionTarget target(getContext());
   target.addIllegalOp<KrnlTerminatorOp>();
+  // krnl.dim operations must be lowered prior to this pass.
+  target.addIllegalOp<KrnlDimOp>();
   target.addLegalOp<AffineTerminatorOp>();
   OwningRewritePatternList patterns;
   patterns.insert<KrnlTerminatorLowering>(&getContext());

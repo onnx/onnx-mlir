@@ -249,3 +249,5 @@ int64_t getMemRefSizeInBytes(Value val);
 
 Value getDynamicMemRefSizeInBytes(
     MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp);
+
+int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);
