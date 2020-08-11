@@ -770,6 +770,29 @@ LogicalResult ONNXAbsOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// Erf
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXErfOp::inferShapes() {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Pow
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXPowOp::inferShapes() {
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Add
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXAddOp. This method is required by the
@@ -1286,6 +1309,19 @@ LogicalResult ONNXTransposeOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReduceMaxOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ReduceMean
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXReduceMeanOp::inferShapes() {
   if (!getOperand().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -2652,6 +2688,90 @@ LogicalResult ONNXSliceOp::inferShapes() {
   }
 
   getResult().setType(RankedTensorType::get(outputDims, elementType));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Expand
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXExpandOp::inferShapes() {
+  if (!input().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto lhsTy = input().getType().cast<RankedTensorType>();
+
+  auto elementType = lhsTy.getElementType();
+  auto lhsShape = lhsTy.getShape();
+  SmallVector<int64_t, 2> rhsShape;
+
+  Operation *shapeDef = shape().getDefiningOp();
+
+  if (mlir::ONNXShapeOp shapeOp =
+          dyn_cast_or_null<mlir::ONNXShapeOp>(shapeDef)) {
+    // If the shape operand is produced by a onnx.Shape operation, infer its
+    // shape and use it as the requested shape.
+    if (!shapeOp.data().getType().isa<RankedTensorType>())
+      return emitError("Input tensor not ranked");
+
+    ArrayRef<int64_t> rhsShapeRef =
+        shapeOp.data().getType().cast<RankedTensorType>().getShape();
+    rhsShape.assign(rhsShapeRef.begin(), rhsShapeRef.end());
+
+  } else if (mlir::ONNXConstantOp constantOp =
+                 dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDef)) {
+    // If the shape operand is produced by a onnx.Constant operation, extract
+    // the actual value of the constant and use it as the reqested shape.
+
+    auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
+
+    if (shapeTensorTy.getRank() != 1)
+      return emitError("Shape tensor must have rank one");
+
+    DenseElementsAttr valueAttribute =
+        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    if (!valueAttribute)
+      return emitError("DenseElementsAttr expected");
+
+    int64_t shapeRank = shapeTensorTy.getShape()[0];
+    rhsShape.resize(shapeRank);
+
+    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
+    for (int i = 0; i != shapeRank; ++i)
+      rhsShape[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+
+    assert(valueIt == valueAttribute.getValues<IntegerAttr>().end() &&
+           "Shape of constant does not match its actual value");
+  } else {
+    return emitError(
+        "Shape argument of Expand is the output of an unexpected operation: " +
+        shapeDef->getName().getStringRef() +
+        ". Supported operations are: onnx.Constant and onnx.Shape");
+  }
+
+  SmallVector<int64_t, 2> resultShape;
+  if (!getBroadcastedShape(lhsShape, rhsShape, resultShape)) {
+    return emitError("Tensor not exapandable");
+  }
+
+  getResult().setType(RankedTensorType::get(resultShape, elementType));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Dropout
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXDropoutOp::inferShapes() {
+  if (!data().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  getResult(0).setType(data().getType());
+
+  auto inputShape = data().getType().cast<RankedTensorType>().getShape();
+
+  IntegerType i1Type = IntegerType::get(1, IntegerType::Signless, getContext());
+  getResult(1).setType(RankedTensorType::get(inputShape, i1Type));
   return success();
 }
 
