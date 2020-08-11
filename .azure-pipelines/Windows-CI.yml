@@ -26,7 +26,8 @@ jobs:
   - script: |
       pip install -q -e ./onnx-mlir/third_party/onnx
       cd onnx-mlir/build
-      RUNTIME_DIR=%cd%/lib cmake --build . --target check-onnx-backend
+      set RUNTIME_DIR=%cd%/lib
+      cmake --build . --target check-onnx-backend
       IF NOT %ERRORLEVEL% EQU 0 (
           @echo "End-To-End Tests failed."
           EXIT 1
@@ -36,7 +37,8 @@ jobs:
   - script: |
       # Need to include the bin directory in $PATH,
       # otherwise CTest fails to find the test executables.  
-      RUNTIME_DIR=%cd%/lib PATH=%pwd%/bin:%PATH% make test -j$(nproc)
+      set PATH=%PATH%;%cd%/bin
+      make test -j$(nproc)
       IF NOT %ERRORLEVEL% EQU 0 (
           @echo "Unit Tests failed."
           EXIT 1
