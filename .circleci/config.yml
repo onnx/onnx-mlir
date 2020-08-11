@@ -18,7 +18,7 @@ jobs:
             git submodule update --init --recursive
       # Use cached mlir installation if possible.
       - restore_cache:
-          key: V16-LLVM-PROJECT-{{ arch }}
+          key: V17-LLVM-PROJECT-{{ arch }}
       - run:
           name: Install MLIR
           command: |
@@ -29,7 +29,7 @@ jobs:
               source onnx-mlir/utils/install-mlir.sh
             fi
       - save_cache:
-          key: V16-LLVM-PROJECT-{{ arch }}
+          key: V17-LLVM-PROJECT-{{ arch }}
           paths:
             - llvm-project
       - run:
