@@ -14,3 +14,14 @@ func @check_string(%arg0: tensor<10x20x!onnx.String>) -> tensor<10x20x!onnx.Stri
   // CHECK-NEXT: return %arg0 : tensor<10x20x!onnx.String>
 }
 
+// CHECK-LABEL: @check_seq(%arg0: tensor<10x20xf32>, %arg1: tensor<5x20xf32>) -> tensor<*xf32> {
+func @check_seq(%arg0: tensor<10x20xf32>, %arg1: tensor<5x20xf32>) -> tensor<*xf32> {
+  %cst = "onnx.Constant"() {value = dense<[0]> : tensor<1xi32>} : () -> tensor<1xi32>
+  %0 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<10x20xf32>, tensor<5x20xf32>) -> !onnx.Seq<tensor<10x20xf32>, tensor<5x20xf32>>
+  %1 = "onnx.SequenceAt"(%0, %cst) : (!onnx.Seq<tensor<10x20xf32>, tensor<5x20xf32>>, tensor<1xi32>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+  // CHECK-NEXT: %0 = "onnx.Constant"() {value = dense<0> : tensor<1xi32>} : () -> tensor<1xi32>
+  // CHECK-NEXT: %1 = "onnx.SequenceConstruct"(%arg0, %arg1) : (tensor<10x20xf32>, tensor<5x20xf32>) -> !onnx.Seq<tensor<10x20xf32>, tensor<5x20xf32>>
+  // CHECK-NEXT: %2 = "onnx.SequenceAt"(%1, %0) : (!onnx.Seq<tensor<10x20xf32>, tensor<5x20xf32>>, tensor<1xi32>) -> tensor<*xf32>
+}
+

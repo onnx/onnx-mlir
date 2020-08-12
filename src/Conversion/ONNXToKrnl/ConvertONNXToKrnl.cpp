@@ -1,5 +1,4 @@
-//====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering
-//--------===//
+//====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering -------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

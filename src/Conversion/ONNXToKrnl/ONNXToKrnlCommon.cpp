@@ -43,6 +43,17 @@ MemRefType convertToMemRefType(Type type) {
   return memRefType;
 }
 
+/// Retrieve function which contains the current operation.
+FuncOp getContainingFunction(Operation *op) {
+  Operation *parentFuncOp = op->getParentOp();
+
+  // While parent is not a FuncOp and its cast to a FuncOp is null.
+  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
+    parentFuncOp = parentFuncOp->getParentOp();
+
+  return cast<FuncOp>(parentFuncOp);
+}
+
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands,
@@ -295,8 +306,8 @@ std::vector<Value> getLoopIVsForBroadcasting(Location loc,
   return newLoopIVs;
 }
 
-Value emitConstantOp(ConversionPatternRewriter &rewriter, Location loc,
-    Type type, double value) {
+Value emitConstantOp(
+    PatternRewriter &rewriter, Location loc, Type type, double value) {
   Attribute constantAttr;
   auto typeKind = type.getKind();
   if (typeKind == StandardTypes::F16) {
@@ -463,10 +474,10 @@ int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
 }
 
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
-  auto parentBlock = allocOp->getOperation()->getBlock();
+  FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsUsedInGetRef = false;
-  parentBlock->walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
+  function.walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
     auto result = allocOp->getResult();
     for (const auto &operand : op.getOperands())
       if (operand == result)
@@ -485,4 +496,32 @@ int64_t getMemRefSizeInBytes(Value val) {
     size *= memRefShape[i];
   size *= getMemRefEltSizeInBytes(memRefType);
   return size;
+}
+
+Value getDynamicMemRefSizeInBytes(
+    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp) {
+  // Initialize the size variable with the size in bytes of the type.
+  int64_t typeSize = getMemRefEltSizeInBytes(type);
+  Value result =
+      emitConstantOp(rewriter, loc, rewriter.getIndexType(), typeSize);
+
+  // Multiply all dimensions (constant and dynamic).
+  auto memRefShape = type.getShape();
+  auto rank = memRefShape.size();
+  int dynDimIdx = 0;
+  for (int idx = 0; idx < rank; ++idx) {
+    if (memRefShape[idx] < 0) {
+      // Dyanmic size.
+      auto dynamicDim = allocOp.getOperands()[dynDimIdx];
+      dynDimIdx++;
+      result = rewriter.create<MulIOp>(loc, result, dynamicDim);
+    } else {
+      // Static size.
+      auto staticDim = emitConstantOp(
+          rewriter, loc, rewriter.getIndexType(), memRefShape[idx]);
+      result = rewriter.create<MulIOp>(loc, result, staticDim);
+    }
+  }
+
+  return result;
 }

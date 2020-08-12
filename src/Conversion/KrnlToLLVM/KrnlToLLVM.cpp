@@ -57,6 +57,15 @@ static onnx::TensorProto::DataType llvmTypeToOnnxType(
     return onnx::TensorProto::UINT32;
   if (elemType.isUnsignedInteger(64))
     return onnx::TensorProto::INT64;
+  // LLVM Dialect does not have signed/unsigned int, only signless int
+  if (elemType.isIntegerTy(8))
+    return onnx::TensorProto::INT8;
+  if (elemType.isIntegerTy(16))
+    return onnx::TensorProto::INT16;
+  if (elemType.isIntegerTy(32))
+    return onnx::TensorProto::INT32;
+  if (elemType.isIntegerTy(64))
+    return onnx::TensorProto::INT64;
   // Complex types don't seem to exist in LLVM Dialect.
   elemType.dump();
   llvm_unreachable("Unexpected LLVM type, cannot be converted to ONNX type.");
@@ -865,13 +874,13 @@ private:
 //===----------------------------------------------------------------------===//
 
 namespace {
-struct KrnlToLLVMLoweringPass
-    : public PassWrapper<KrnlToLLVMLoweringPass, OperationPass<ModuleOp>> {
+struct ConvertKrlnToLLVMPass
+    : public PassWrapper<ConvertKrlnToLLVMPass, OperationPass<ModuleOp>> {
   void runOnOperation() final;
 };
 } // end anonymous namespace
 
-void KrnlToLLVMLoweringPass::runOnOperation() {
+void ConvertKrlnToLLVMPass::runOnOperation() {
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
@@ -905,6 +914,6 @@ void KrnlToLLVMLoweringPass::runOnOperation() {
 }
 
 /// Create the pass for lowering `Krnl`, `Affine` and `Std` dialects to LLVM.
-std::unique_ptr<mlir::Pass> mlir::createKrnlLowerToLLVMPass() {
-  return std::make_unique<KrnlToLLVMLoweringPass>();
+std::unique_ptr<mlir::Pass> mlir::createConvertKrnlToLLVMPass() {
+  return std::make_unique<ConvertKrlnToLLVMPass>();
 }

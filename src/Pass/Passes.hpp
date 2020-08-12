@@ -38,13 +38,13 @@ std::unique_ptr<Pass> createKrnlBundleMemoryPoolsPass();
 std::unique_ptr<Pass> createLowerToKrnlPass();
 
 /// Pass for lowering frontend dialects to Krnl IR dialect.
-std::unique_ptr<Pass> createLowerKrnlPass();
+std::unique_ptr<Pass> createConvertKrnlToAffinePass();
 
 /// Pass for eliding the values of global Krnl operations.
 std::unique_ptr<Pass> createElideConstGlobalValuePass();
 
 /// Pass for lowering Krnl dialect to LLVM dialect.
-std::unique_ptr<Pass> createKrnlLowerToLLVMPass();
+std::unique_ptr<Pass> createConvertKrnlToLLVMPass();
 
 /// Pass for packing Krnl global constants.
 std::unique_ptr<Pass> createPackKrnlGlobalConstantsPass();

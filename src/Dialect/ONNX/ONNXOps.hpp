@@ -79,6 +79,27 @@ public:
   }
 };
 
+namespace detail {
+struct SeqTypeStorage;
+} // namespace detail
+
+class SeqType
+    : public mlir::Type::TypeBase<SeqType, mlir::Type, detail::SeqTypeStorage> {
+public:
+  using Base::Base;
+  static bool kindof(unsigned kind) { return kind == ONNXTypes::SEQ; }
+
+  static unsigned getTypeKind() { return ONNXTypes::SEQ; }
+
+  static SeqType get(llvm::ArrayRef<mlir::Type> elementTypes);
+
+  llvm::ArrayRef<mlir::Type> getElementTypes();
+
+  mlir::Type getElementType();
+
+  size_t getNumElementTypes() { return getElementTypes().size(); }
+};
+
 } // end namespace onnxmlir
 
 } // end namespace mlir

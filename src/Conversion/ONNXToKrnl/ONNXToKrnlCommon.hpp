@@ -42,6 +42,9 @@ bool hasAllScalarValues(ArrayRef<Value> values);
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type);
 
+/// Retrieve function which contains the current operation.
+FuncOp getContainingFunction(Operation *op);
+
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc,
@@ -86,7 +89,7 @@ std::vector<Value> getLoopIVsForBroadcasting(Location loc,
 // Use this function for small values only to avoid unexpected loss in type
 // casting.
 Value emitConstantOp(
-    ConversionPatternRewriter &rewriter, Location loc, Type type, double value);
+    PatternRewriter &rewriter, Location loc, Type type, double value);
 
 // Emit a positive infinity constant of a specific type.
 // Supported types: F16, F32, F64, Int8, Int16, Int32, Int64.
@@ -246,3 +249,6 @@ void populateLoweringONNXSplitOpPattern(
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
 
 int64_t getMemRefSizeInBytes(Value val);
+
+Value getDynamicMemRefSizeInBytes(
+    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp);
