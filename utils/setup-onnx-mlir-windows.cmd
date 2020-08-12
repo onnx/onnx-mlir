@@ -45,7 +45,8 @@ IF NOT %ERRORLEVEL% EQU 0 (
 cd /d %root_dir%/onnx-mlir
 git submodule update --init --recursive
 cd ..
-pip install -e onnx-mlir/third_party/onnx
+python -m pip install --upgrade pip
+python -m pip install -e onnx-mlir/third_party/onnx
 cd /d onnx-mlir/build
 set RUNTIME_DIR=%cd%\lib
 call cmake --build . --target check-onnx-backend
