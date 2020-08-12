@@ -25,7 +25,7 @@ jobs:
 
   - script: |
       cd ..
-      git git submodule update --init --recursive
+      git submodule update --init --recursive
       cd ..
       pip install -e onnx-mlir\third_party\onnx
       cd onnx-mlir\build
