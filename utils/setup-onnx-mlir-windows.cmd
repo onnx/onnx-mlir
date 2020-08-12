@@ -41,3 +41,22 @@ IF NOT %ERRORLEVEL% EQU 0 (
     @echo "Build onnx-mlir failed."
     EXIT 1
 )
+
+cd /d %root_dir%/onnx-mlir
+git submodule update --init --recursive
+cd ..
+pip install -e onnx-mlir/third_party/onnx
+cd /d onnx-mlir/build
+set RUNTIME_DIR=%cd%\lib
+call cmake --build . --target check-onnx-backend
+IF NOT %ERRORLEVEL% EQU 0 (
+    @echo "End-To-End Tests failed."
+    EXIT 1
+)      
+
+set PATH=%PATH%;%cd%\bin
+call make test -j$(nproc)
+IF NOT %ERRORLEVEL% EQU 0 (
+    @echo "Unit Tests failed."
+    EXIT 1
+)   
