@@ -24,6 +24,7 @@ jobs:
     displayName: Build onnx-mlir
 
   - script: |
+      cd ../../
       pip install -q -e onnx-mlir/third_party/onnx
       cd onnx-mlir/build
       set RUNTIME_DIR=%cd%/lib
