@@ -107,7 +107,7 @@ func @cast_elimination(%arg0: tensor<2xf32>) -> tensor<2xf32> {
   // CHECK-NEXT: return %arg0 : tensor<2xf32>
 }
 
-// ----
+// -----
 
 func @test_conv_batchnormtestmode_fusion_nobias(%arg0 : tensor<1x3x224x224xf32>) -> tensor<1x64x112x112xf32> {
     %cst = constant unit
