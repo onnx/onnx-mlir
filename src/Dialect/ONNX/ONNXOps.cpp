@@ -2781,24 +2781,25 @@ LogicalResult ONNXDropoutOp::inferShapes() {
 
 LogicalResult ONNXOneHotEncoderOp::inferShapes() {
   ShapedType inputType = X().getType().dyn_cast<ShapedType>();
-  if(!X())
+  if (!X())
     return emitError("no input found");
 
-  auto elementType = inputType.getElementType(); 
-  auto shape = inputType.getShape(); 
+  auto elementType = inputType.getElementType();
+  auto shape = inputType.getShape();
   int64_t outDim = 0;
 
-  // If the input is a tensor of float, int32, or double, 
-  // the data will be cast to integers and 
+  // If the input is a tensor of float, int32, or double,
+  // the data will be cast to integers and
   // the cats_int64s category list will be used for the lookups.
-  if (elementType.isIntOrFloat()){
+  if (elementType.isIntOrFloat()) {
     if (!cats_int64s())
-      return emitError("input is a tensor of float, int32, or double, but no cats_int64s attribute");
+      return emitError("input is a tensor of float, int32, or double, but no "
+                       "cats_int64s attribute");
     outDim = ArrayAttrSize(cats_int64s());
-  }
-  else{
+  } else {
     if (!cats_strings())
-      return emitError("input is not a tensor of float, int32, or double, but no cats_strings attribute");
+      return emitError("input is not a tensor of float, int32, or double, but "
+                       "no cats_strings attribute");
     outDim = ArrayAttrSize(cats_strings());
   }
 
@@ -2806,8 +2807,8 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes() {
   // total category count will determine the size of the extra dimension
   int8_t flag = 0;
   SmallVector<int64_t, 2> dims;
-  for (int i = 0; i != shape.size(); ++i){
-    if (i == shape.size()-1 && shape[i] == 1) {
+  for (int i = 0; i != shape.size(); ++i) {
+    if (i == shape.size() - 1 && shape[i] == 1) {
       dims.emplace_back(outDim);
       flag = 1;
       break;
@@ -2817,8 +2818,8 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes() {
   if (!flag)
     dims.emplace_back(outDim);
 
-  getResult().setType(RankedTensorType::get(
-      dims, FloatType::getF32(getContext())));
+  getResult().setType(
+      RankedTensorType::get(dims, FloatType::getF32(getContext())));
   return success();
 }
 
