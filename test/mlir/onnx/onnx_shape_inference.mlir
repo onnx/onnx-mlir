@@ -1480,3 +1480,73 @@ func @test_dropout(%arg0: tensor<1x2x3x4xf32>) -> (tensor<*xf32>, tensor<*xi1>) 
   // CHECK: [[RES:%.+]], [[MASK:%.+]] = "onnx.Dropout"(%arg0) {ratio =  1.000000e-01 : f32} : (tensor<1x2x3x4xf32>) -> (tensor<1x2x3x4xf32>, tensor<1x2x3x4xi1>)
   // CHECK: return [[RES]], [[MASK]] : tensor<1x2x3x4xf32>, tensor<1x2x3x4xi1>
 }
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for OneHotEncoder.
+//===----------------------------------------------------------------------===//
+
+func @test_onehotencoder_string1 (%arg0: tensor<20x!onnx.String>) -> tensor<*xf32> {
+  %0 = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], cats_int64s = [1, 2, 4], zeros = 1 : i64} : (tensor<20x!onnx.String>) -> tensor<*xf32>  
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_onehotencoder_string1
+  // CHECK: [[RES:%.+]] = "onnx.OneHotEncoder"(%arg0) {cats_int64s = [1, 2, 4], cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x!onnx.String>) -> tensor<20x2xf32>
+  // CHECK: return [[RES]] : tensor<20x2xf32>
+}
+
+// -----
+
+func @test_onehotencoder_string2 (%arg0: tensor<20x1x!onnx.String>) -> tensor<*xf32> {
+  %0 = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x1x!onnx.String>) -> tensor<*xf32>  
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_onehotencoder_string2
+  // CHECK: [[RES:%.+]] = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x1x!onnx.String>) -> tensor<20x2xf32>
+  // CHECK: return [[RES]] : tensor<20x2xf32>
+}
+
+// -----
+
+func @test_onehotencoder_string3 (%arg0: tensor<20x2x!onnx.String>) -> tensor<*xf32> {
+  %0 = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x2x!onnx.String>) -> tensor<*xf32>  
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_onehotencoder_string3
+  // CHECK: [[RES:%.+]] = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x2x!onnx.String>) -> tensor<20x2x2xf32>
+  // CHECK: return [[RES]] : tensor<20x2x2xf32>
+}
+
+// -----
+
+func @test_onehotencoder_float1(%arg0: tensor<20xf32>) -> tensor<*xf32> {
+  %0 = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], cats_int64s = [1, 2, 4], zeros = 1 : i64} : (tensor<20xf32>) -> tensor<*xf32>  
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_onehotencoder_float1
+  // CHECK: [[RES:%.+]] = "onnx.OneHotEncoder"(%arg0) {cats_int64s = [1, 2, 4], cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20xf32>) -> tensor<20x3xf32>
+  // CHECK: return [[RES]] : tensor<20x3xf32>
+}
+
+// -----
+
+func @test_onehotencoder_float2(%arg0: tensor<20x1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], cats_int64s = [1, 2, 4], zeros = 1 : i64} : (tensor<20x1xf32>) -> tensor<*xf32>  
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_onehotencoder_float2
+  // CHECK: [[RES:%.+]] = "onnx.OneHotEncoder"(%arg0) {cats_int64s = [1, 2, 4], cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x1xf32>) -> tensor<20x3xf32>
+  // CHECK: return [[RES]] : tensor<20x3xf32>
+}
+
+// -----
+
+func @test_onehotencoder_float3(%arg0: tensor<20x2x3xf32>) -> tensor<*xf32> {
+  %0 = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], cats_int64s = [1, 2, 4], zeros = 1 : i64} : (tensor<20x2x3xf32>) -> tensor<*xf32>  
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_onehotencoder_float3
+  // CHECK: [[RES:%.+]] = "onnx.OneHotEncoder"(%arg0) {cats_int64s = [1, 2, 4], cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x2x3xf32>) -> tensor<20x2x3x3xf32>
+  // CHECK: return [[RES]] : tensor<20x2x3x3xf32>
+}
