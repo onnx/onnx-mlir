@@ -57,6 +57,15 @@ static onnx::TensorProto::DataType llvmTypeToOnnxType(
     return onnx::TensorProto::UINT32;
   if (elemType.isUnsignedInteger(64))
     return onnx::TensorProto::INT64;
+  // LLVM Dialect does not have signed/unsigned int, only signless int
+  if (elemType.isIntegerTy(8))
+    return onnx::TensorProto::INT8;
+  if (elemType.isIntegerTy(16))
+    return onnx::TensorProto::INT16;
+  if (elemType.isIntegerTy(32))
+    return onnx::TensorProto::INT32;
+  if (elemType.isIntegerTy(64))
+    return onnx::TensorProto::INT64;
   // Complex types don't seem to exist in LLVM Dialect.
   elemType.dump();
   llvm_unreachable("Unexpected LLVM type, cannot be converted to ONNX type.");
