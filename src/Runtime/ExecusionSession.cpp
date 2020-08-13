@@ -21,23 +21,23 @@ namespace onnx_mlir {
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, std::string entryPointName) {
   // Adapted from https://www.tldp.org/HOWTO/html_single/C++-dlopen/.
-  #if _WIN32
+#if _WIN32
   _sharedLibraryHandle = LoadLibrary(sharedLibPath.c_str());
-  #else  
+#else  
   _sharedLibraryHandle = dlopen(sharedLibPath.c_str(), RTLD_LAZY);
-  #endif
+#endif
   if (!_sharedLibraryHandle) {
     std::stringstream errStr;
-    #if _WIN32
+#if _WIN32
     errStr << GetLastError() << std::endl;
-    #else
+#else
     errStr << "Cannot open library: " << dlerror() << std::endl;
-    #endif
+#endif
     throw std::runtime_error(errStr.str());
   }
 
   // Reset errors.
-  #if _WIN32
+#if _WIN32
   GetLastError();
   _entryPointFunc =
       (entryPointFuncType)GetProcAddress((HMODULE)_sharedLibraryHandle, entryPointName.c_str());
@@ -48,8 +48,8 @@ ExecutionSession::ExecutionSession(
            << std::endl;
     FreeLibrary((HMODULE)_sharedLibraryHandle);
     throw std::runtime_error(errStr.str());
-  }  
-  #else
+  }
+#else
   dlerror();
   _entryPointFunc =
       (entryPointFuncType)dlsym(_sharedLibraryHandle, entryPointName.c_str());
@@ -60,8 +60,8 @@ ExecutionSession::ExecutionSession(
            << std::endl;
     dlclose(_sharedLibraryHandle);
     throw std::runtime_error(errStr.str());
-  }  
-  #endif
+  }
+#endif
 }
 
 std::vector<std::unique_ptr<RtMemRef>> ExecutionSession::run(
@@ -82,10 +82,10 @@ std::vector<std::unique_ptr<RtMemRef>> ExecutionSession::run(
 }
 
 ExecutionSession::~ExecutionSession() {
-  #if _WIN32
+#if _WIN32
   FreeLibrary((HMODULE)_sharedLibraryHandle);
-  #else
+#else
   dlclose(_sharedLibraryHandle);
-  #endif
+#endif
   }
 } // namespace onnx_mlir
