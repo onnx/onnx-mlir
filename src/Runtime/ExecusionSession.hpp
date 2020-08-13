@@ -12,7 +12,11 @@
 #pragma once
 
 #include <cassert>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <dlfcn.h>
+#endif
 #include <string>
 
 #include "src/Runtime/RtMemRef.h"
