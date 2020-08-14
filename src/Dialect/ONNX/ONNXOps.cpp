@@ -1747,22 +1747,29 @@ LogicalResult ONNXPadOp::inferShapes() {
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Pad: unknown input shape");
 
-  // Cannot infer if the pads is not constant
-  ArrayAttr padsAttributes =
-      getAttr("pads").dyn_cast_or_null<mlir::ArrayAttr>();
-  if (!padsAttributes)
-    return emitError("Pad: unknown pads ") << getAttr("pads");
-
   auto dataTy = data().getType().cast<RankedTensorType>();
   auto dataShape = dataTy.getShape();
   auto dataRank = dataTy.getRank();
   SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
 
   // Get pads from valueAttribute.
+  Attribute padattr = getAttr("pads");
   SmallVector<int64_t, 2> pads(dataRank * 2, -1);
-  auto valueIt = padsAttributes.getValue().begin();
-  for (int64_t i = 0; i < dataRank * 2; ++i)
-    pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+  // Sometimes it's an ArrayAttr and sometimes it's a DenseElementsAttr, so
+  // handle both cases.
+  if (ArrayAttr padsAttributes = padattr.dyn_cast_or_null<mlir::ArrayAttr>()) {
+    auto valueIt = padsAttributes.getValue().begin();
+    for (int64_t i = 0; i < dataRank * 2; ++i)
+      pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+  } else if (DenseElementsAttr padsAttributes =
+                 padattr.dyn_cast_or_null<mlir::DenseElementsAttr>()) {
+    auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
+    for (int64_t i = 0; i < dataRank * 2; ++i)
+      pads[i] = (*valueIt++).getInt();
+  } else {
+    // Cannot infer if the pads is not constant
+    return emitError("Pad: unknown pads ") << getAttr("pads");
+  }
 
   // Pads consists of two values for each axis of data.
   // The two values specify the number of elements padded before and after
