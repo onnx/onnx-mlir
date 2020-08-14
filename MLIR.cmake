@@ -264,7 +264,6 @@ set(MLIRLibs
         ${MLIRLinalgEDSC}
         ${MLIRViewLikeInterface}
         ${MLIRPresburger}
-        ${MLIRInferTypeOpInterface}
         ${MLIRShape}
         ${MLIRShapeToStandard}
         ${MLIRShapeToSCF}
