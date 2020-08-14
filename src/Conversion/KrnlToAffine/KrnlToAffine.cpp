@@ -31,7 +31,7 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlTerminatorOp op, PatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<AffineTerminatorOp>(op);
+    rewriter.replaceOpWithNewOp<AffineYieldOp>(op);
     return success();
   }
 };
@@ -233,7 +233,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
 
   ConversionTarget target(getContext());
   target.addIllegalOp<KrnlTerminatorOp>();
-  target.addLegalOp<AffineTerminatorOp>();
+  target.addLegalOp<AffineYieldOp>();
   OwningRewritePatternList patterns;
   patterns.insert<KrnlTerminatorLowering>(&getContext());
   DenseSet<Operation *> unconverted;

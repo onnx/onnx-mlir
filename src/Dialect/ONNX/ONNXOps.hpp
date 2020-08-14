@@ -67,7 +67,8 @@ enum Kind {
 };
 } // namespace ONNXTypes
 
-class StringType : public mlir::Type::TypeBase<StringType, mlir::Type> {
+class StringType
+    : public mlir::Type::TypeBase<StringType, mlir::Type, mlir::TypeStorage> {
 public:
   using Base::Base;
   static bool kindof(unsigned kind) { return kind == ONNXTypes::STRING; }
