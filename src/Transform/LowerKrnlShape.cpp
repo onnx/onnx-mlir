@@ -47,18 +47,15 @@ public:
 
     SmallVector<mlir::Value, 4> fromExtentsOpOperands;
     for (int idx = 0; idx < rank; idx++) {
-      auto index = rewriter.create<ConstantOp>(loc,
-          rewriter.getIntegerAttr(rewriter.getIndexType(), idx));
-      auto operand =
-          rewriter.create<KrnlDimOp>(
-              loc, rewriter.getIndexType(), krnlShapeOp.alloc(), index);
+      auto index = rewriter.create<ConstantOp>(
+          loc, rewriter.getIntegerAttr(rewriter.getIndexType(), idx));
+      auto operand = rewriter.create<KrnlDimOp>(
+          loc, rewriter.getIndexType(), krnlShapeOp.alloc(), index);
       fromExtentsOpOperands.emplace_back(operand);
     }
 
-    auto fromExtentsOp =
-        rewriter.create<mlir::shape::FromExtentsOp>(
-            loc, rewriter.getType<mlir::shape::ShapeType>(),
-            fromExtentsOpOperands);
+    auto fromExtentsOp = rewriter.create<mlir::shape::FromExtentsOp>(
+        loc, rewriter.getType<mlir::shape::ShapeType>(), fromExtentsOpOperands);
     rewriter.replaceOp(krnlShapeOp, fromExtentsOp.getResult());
 
     return success();
