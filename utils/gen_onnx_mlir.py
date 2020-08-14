@@ -280,6 +280,7 @@ OpsWithShapeInference=[
     'Min',
     'Mul',
     'Neg',
+    'OneHotEncoder',
     'Or',
     'Pad',
     'Pow',
