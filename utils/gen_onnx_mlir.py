@@ -32,7 +32,7 @@ parser.add_argument("--dry-run-op-build-table",
                     action="store_true",
                     default=False)
 parser.add_argument("--check-operation-version",
-                    help="check whether the imported onnx package has new operation or " 
+                    help="check whether the imported onnx package has new operation or "
                          " newer version of operation compared with version stored in  version_dicts",
                     action="store_true",
                     default=False)
@@ -41,186 +41,185 @@ args = parser.parse_args()
 
 check_operation_version = args.check_operation_version
 
-
 # Record the version of each operation that is treated as the current version.
 # To check whether the onnx package being used has newer version operation,
 # run this script with --check-operation-version flag.
 # Update this dictionary when a newer version is implemented
 # TODO: how to keep the old version
 version_dict = {'Abs': 6,
- 'Acos': 7,
- 'Acosh': 9,
- 'Add': 7,
- 'And': 7,
- 'ArgMax': 11,
- 'ArgMin': 11,
- 'Asin': 7,
- 'Asinh': 9,
- 'Atan': 7,
- 'Atanh': 9,
- 'AveragePool': 11,
- 'BatchNormalization': 9,
- 'BitShift': 11,
- 'Cast': 9,
- 'Ceil': 6,
- 'Clip': 11,
- 'Compress': 11,
- 'Concat': 11,
- 'ConcatFromSequence': 11,
- 'Constant': 11,
- 'ConstantOfShape': 9,
- 'Conv': 11,
- 'ConvInteger': 10,
- 'ConvTranspose': 11,
- 'Cos': 7,
- 'Cosh': 9,
- 'CumSum': 11,
- 'DepthToSpace': 11,
- 'DequantizeLinear': 10,
- 'Det': 11,
- 'Div': 7,
- 'Dropout': 10,
- 'DynamicQuantizeLinear': 11,
- 'Elu': 6,
- 'Equal': 11,
- 'Erf': 9,
- 'Exp': 6,
- 'Expand': 8,
- 'EyeLike': 9,
- 'Flatten': 11,
- 'Floor': 6,
- 'GRU': 7,
- 'Gather': 11,
- 'GatherElements': 11,
- 'GatherND': 11,
- 'Gemm': 11,
- 'GlobalAveragePool': 1,
- 'GlobalLpPool': 2,
- 'GlobalMaxPool': 1,
- 'Greater': 9,
- 'HardSigmoid': 6,
- 'Hardmax': 11,
- 'Identity': 1,
- 'If': 11,
- 'InstanceNormalization': 6,
- 'IsInf': 10,
- 'IsNaN': 9,
- 'LRN': 1,
- 'LSTM': 7,
- 'LeakyRelu': 6,
- 'Less': 9,
- 'Log': 6,
- 'LogSoftmax': 11,
- 'Loop': 11,
- 'LpNormalization': 1,
- 'LpPool': 11,
- 'MatMul': 9,
- 'MatMulInteger': 10,
- 'Max': 8,
- 'MaxPool': 11,
- 'MaxRoiPool': 1,
- 'MaxUnpool': 11,
- 'Mean': 8,
- 'MeanVarianceNormalization': 9,
- 'Min': 8,
- 'Mod': 10,
- 'Mul': 7,
- 'Multinomial': 7,
- 'Neg': 6,
- 'NonMaxSuppression': 11,
- 'NonZero': 9,
- 'Not': 1,
- 'OneHot': 11,
- 'Or': 7,
- 'PRelu': 9,
- 'Pad': 11,
- 'Pow': 7,
- 'QLinearConv': 10,
- 'QLinearMatMul': 10,
- 'QuantizeLinear': 10,
- 'RNN': 7,
- 'RandomNormal': 1,
- 'RandomNormalLike': 1,
- 'RandomUniform': 1,
- 'RandomUniformLike': 1,
- 'Range': 11,
- 'Reciprocal': 6,
- 'ReduceL1': 11,
- 'ReduceL2': 11,
- 'ReduceLogSum': 11,
- 'ReduceLogSumExp': 11,
- 'ReduceMax': 11,
- 'ReduceMean': 11,
- 'ReduceMin': 11,
- 'ReduceProd': 11,
- 'ReduceSum': 11,
- 'ReduceSumSquare': 11,
- 'Relu': 6,
- 'Reshape': 5,
- 'Resize': 11,
- 'ReverseSequence': 10,
- 'RoiAlign': 10,
- 'Round': 11,
- 'Scan': 11,
- 'Scatter': 11,
- 'ScatterElements': 11,
- 'ScatterND': 11,
- 'Selu': 6,
- 'SequenceAt': 11,
- 'SequenceConstruct': 11,
- 'SequenceEmpty': 11,
- 'SequenceErase': 11,
- 'SequenceInsert': 11,
- 'SequenceLength': 11,
- 'Shape': 1,
- 'Shrink': 9,
- 'Sigmoid': 6,
- 'Sign': 9,
- 'Sin': 7,
- 'Sinh': 9,
- 'Size': 1,
- 'Slice': 11,
- 'Softmax': 11,
- 'Softplus': 1,
- 'Softsign': 1,
- 'SpaceToDepth': 1,
- 'Split': 11,
- 'SplitToSequence': 11,
- 'Sqrt': 6,
- 'Squeeze': 11,
- 'StringNormalizer': 10,
- 'Sub': 7,
- 'Sum': 8,
- 'Tan': 7,
- 'Tanh': 6,
- 'TfIdfVectorizer': 9,
- 'ThresholdedRelu': 10,
- 'Tile': 6,
- 'TopK': 11,
- 'Transpose': 1,
- 'Unique': 11,
- 'Unsqueeze': 11,
- 'Upsample': 10,
- 'Where': 9,
- 'Xor': 7,
- 'ArrayFeatureExtractor': 1,
- 'Binarizer': 1,
- 'CastMap': 1,
- 'CategoryMapper': 1,
- 'DictVectorizer': 1,
- 'FeatureVectorizer': 1,
- 'Imputer': 1,
- 'LabelEncoder': 2,
- 'LinearClassifier': 1,
- 'LinearRegressor': 1,
- 'Normalizer': 1,
- 'OneHotEncoder': 1,
- 'SVMClassifier': 1,
- 'SVMRegressor': 1,
- 'Scaler': 1,
- 'TreeEnsembleClassifier': 1,
- 'TreeEnsembleRegressor': 1,
- 'ZipMap': 1}
+                'Acos': 7,
+                'Acosh': 9,
+                'Add': 7,
+                'And': 7,
+                'ArgMax': 11,
+                'ArgMin': 11,
+                'Asin': 7,
+                'Asinh': 9,
+                'Atan': 7,
+                'Atanh': 9,
+                'AveragePool': 11,
+                'BatchNormalization': 9,
+                'BitShift': 11,
+                'Cast': 9,
+                'Ceil': 6,
+                'Clip': 11,
+                'Compress': 11,
+                'Concat': 11,
+                'ConcatFromSequence': 11,
+                'Constant': 11,
+                'ConstantOfShape': 9,
+                'Conv': 11,
+                'ConvInteger': 10,
+                'ConvTranspose': 11,
+                'Cos': 7,
+                'Cosh': 9,
+                'CumSum': 11,
+                'DepthToSpace': 11,
+                'DequantizeLinear': 10,
+                'Det': 11,
+                'Div': 7,
+                'Dropout': 10,
+                'DynamicQuantizeLinear': 11,
+                'Elu': 6,
+                'Equal': 11,
+                'Erf': 9,
+                'Exp': 6,
+                'Expand': 8,
+                'EyeLike': 9,
+                'Flatten': 11,
+                'Floor': 6,
+                'GRU': 7,
+                'Gather': 11,
+                'GatherElements': 11,
+                'GatherND': 11,
+                'Gemm': 11,
+                'GlobalAveragePool': 1,
+                'GlobalLpPool': 2,
+                'GlobalMaxPool': 1,
+                'Greater': 9,
+                'HardSigmoid': 6,
+                'Hardmax': 11,
+                'Identity': 1,
+                'If': 11,
+                'InstanceNormalization': 6,
+                'IsInf': 10,
+                'IsNaN': 9,
+                'LRN': 1,
+                'LSTM': 7,
+                'LeakyRelu': 6,
+                'Less': 9,
+                'Log': 6,
+                'LogSoftmax': 11,
+                'Loop': 11,
+                'LpNormalization': 1,
+                'LpPool': 11,
+                'MatMul': 9,
+                'MatMulInteger': 10,
+                'Max': 8,
+                'MaxPool': 11,
+                'MaxRoiPool': 1,
+                'MaxUnpool': 11,
+                'Mean': 8,
+                'MeanVarianceNormalization': 9,
+                'Min': 8,
+                'Mod': 10,
+                'Mul': 7,
+                'Multinomial': 7,
+                'Neg': 6,
+                'NonMaxSuppression': 11,
+                'NonZero': 9,
+                'Not': 1,
+                'OneHot': 11,
+                'Or': 7,
+                'PRelu': 9,
+                'Pad': 11,
+                'Pow': 7,
+                'QLinearConv': 10,
+                'QLinearMatMul': 10,
+                'QuantizeLinear': 10,
+                'RNN': 7,
+                'RandomNormal': 1,
+                'RandomNormalLike': 1,
+                'RandomUniform': 1,
+                'RandomUniformLike': 1,
+                'Range': 11,
+                'Reciprocal': 6,
+                'ReduceL1': 11,
+                'ReduceL2': 11,
+                'ReduceLogSum': 11,
+                'ReduceLogSumExp': 11,
+                'ReduceMax': 11,
+                'ReduceMean': 11,
+                'ReduceMin': 11,
+                'ReduceProd': 11,
+                'ReduceSum': 11,
+                'ReduceSumSquare': 11,
+                'Relu': 6,
+                'Reshape': 5,
+                'Resize': 11,
+                'ReverseSequence': 10,
+                'RoiAlign': 10,
+                'Round': 11,
+                'Scan': 11,
+                'Scatter': 11,
+                'ScatterElements': 11,
+                'ScatterND': 11,
+                'Selu': 6,
+                'SequenceAt': 11,
+                'SequenceConstruct': 11,
+                'SequenceEmpty': 11,
+                'SequenceErase': 11,
+                'SequenceInsert': 11,
+                'SequenceLength': 11,
+                'Shape': 1,
+                'Shrink': 9,
+                'Sigmoid': 6,
+                'Sign': 9,
+                'Sin': 7,
+                'Sinh': 9,
+                'Size': 1,
+                'Slice': 11,
+                'Softmax': 11,
+                'Softplus': 1,
+                'Softsign': 1,
+                'SpaceToDepth': 1,
+                'Split': 11,
+                'SplitToSequence': 11,
+                'Sqrt': 6,
+                'Squeeze': 11,
+                'StringNormalizer': 10,
+                'Sub': 7,
+                'Sum': 8,
+                'Tan': 7,
+                'Tanh': 6,
+                'TfIdfVectorizer': 9,
+                'ThresholdedRelu': 10,
+                'Tile': 6,
+                'TopK': 11,
+                'Transpose': 1,
+                'Unique': 11,
+                'Unsqueeze': 11,
+                'Upsample': 10,
+                'Where': 9,
+                'Xor': 7,
+                'ArrayFeatureExtractor': 1,
+                'Binarizer': 1,
+                'CastMap': 1,
+                'CategoryMapper': 1,
+                'DictVectorizer': 1,
+                'FeatureVectorizer': 1,
+                'Imputer': 1,
+                'LabelEncoder': 2,
+                'LinearClassifier': 1,
+                'LinearRegressor': 1,
+                'Normalizer': 1,
+                'OneHotEncoder': 1,
+                'SVMClassifier': 1,
+                'SVMRegressor': 1,
+                'Scaler': 1,
+                'TreeEnsembleClassifier': 1,
+                'TreeEnsembleRegressor': 1,
+                'ZipMap': 1}
 
 # Manual specification of attribute defaults.
 special_attr_defaults = dict([
@@ -240,11 +239,11 @@ special_op_handler = dict([
     ("BatchNormalization", "ImportNodeBatchNormalization"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
-    #("Transpose", "ImportNodeTranspose")
+    # ("Transpose", "ImportNodeTranspose")
 ])
 
 # Operations supporting shape inference.
-OpsWithShapeInference=[
+OpsWithShapeInference = [
     'Abs',
     'Add',
     'And',
@@ -336,25 +335,25 @@ OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
 # Interface for special handling of type inference
 # The common code are put into get_type_inference_func
 OpsWithResultTypeInference = {
-  "Constant":
-  '''if (auto attr = valueAttr()) {
-        resultTypes.push_back(attr.getType());
-      } else if (auto attr = sparse_valueAttr()) {
-        resultTypes.push_back(attr.getType());
-      }''',
-  "Cast":
-    '''auto toAttr = to().getSExtValue();
-      auto builder = mlir::OpBuilder(getContext());
-      resultTypes.push_back(mlir::UnrankedTensorType::get(
-        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));''',
-  "ConstantOfShape":
-  '''if (auto attr = valueAttr()) {
-        resultTypes.push_back(mlir::UnrankedTensorType::get(
-          attr.getType().cast<ShapedType>().getElementType()));
-      } else {
-        resultTypes.push_back(mlir::UnrankedTensorType::get(
-          FloatType::getF32(getContext())));
-      }'''
+    "Constant":
+        '''if (auto attr = valueAttr()) {
+              resultTypes.push_back(attr.getType());
+            } else if (auto attr = sparse_valueAttr()) {
+              resultTypes.push_back(attr.getType());
+            }''',
+    "Cast":
+        '''auto toAttr = to().getSExtValue();
+          auto builder = mlir::OpBuilder(getContext());
+          resultTypes.push_back(mlir::UnrankedTensorType::get(
+            convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));''',
+    "ConstantOfShape":
+        '''if (auto attr = valueAttr()) {
+              resultTypes.push_back(mlir::UnrankedTensorType::get(
+                attr.getType().cast<ShapedType>().getElementType()));
+            } else {
+              resultTypes.push_back(mlir::UnrankedTensorType::get(
+                FloatType::getF32(getContext())));
+            }'''
 }
 
 # Add an Op in this list if the Op needs result type deduction which is required
@@ -375,42 +374,43 @@ custom_builder_broadcast_ops_list = ['Add', 'And', 'Div', 'Equal', 'Greater',
 # union of both
 custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broadcast_ops_list
 
-#a dictionary to add any special definition for an operation
-custom_definition_misc = dict([ ('Constant',
- '''  let builders = [
-  OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
-   if (value) {
-    auto tensorType = value.getType();
-    build(builder, state, tensorType, sparse_value, value);
-   } else {
-    auto tensorType = sparse_value.getType();
-    build(builder, state, tensorType, sparse_value, value);
-   }
-  }]>
-  ];'''),
-  ('Cast',
- '''   let builders = [
-  OpBuilder<"OpBuilder &builder, OperationState &state, Value input, IntegerAttr to", [{
-   auto toAttr = to.getValue().getSExtValue();
-   auto resultType = mlir::UnrankedTensorType::get(
-    convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)));
-   build(builder, state, resultType, input, to);
-  }] >
-  ];'''
- )])
+# a dictionary to add any special definition for an operation
+custom_definition_misc = dict([('Constant',
+                                '''  let builders = [
+                                 OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
+                                  if (value) {
+                                   auto tensorType = value.getType();
+                                   build(builder, state, tensorType, sparse_value, value);
+                                  } else {
+                                   auto tensorType = sparse_value.getType();
+                                   build(builder, state, tensorType, sparse_value, value);
+                                  }
+                                 }]>
+                                 ];'''),
+                               ('Cast',
+                                '''   let builders = [
+                                 OpBuilder<"OpBuilder &builder, OperationState &state, Value input, IntegerAttr to", [{
+                                  auto toAttr = to.getValue().getSExtValue();
+                                  auto resultType = mlir::UnrankedTensorType::get(
+                                   convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)));
+                                  build(builder, state, resultType, input, to);
+                                 }] >
+                                 ];'''
+                                )])
 
 onnx_types = (
     'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
     'float', 'double', 'complex64', 'complex128', 'string'
 )
 tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64', 'BF16', 'F16', 'F32', 'F64',
-    'Complex<F32>', 'Complex<F64>', 'StringType'
-)
+                'Complex<F32>', 'Complex<F64>', 'StringType'
+                )
 
-MAX_NUM_TYPES=20
+MAX_NUM_TYPES = 20
 
 SNIPPETS = collect_snippets()
 SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
+
 
 def should_render_domain(domain):  # type: (Text) -> bool
     return True
@@ -450,11 +450,11 @@ def onnx_attr_type_to_mlir_attr_type(t):
         mlir_attr_type = 'StrArrayAttr'
     else:
         mlir_attr_type = 'AnyAttr'
-    #TODO: tensor and sparse tensor
+    # TODO: tensor and sparse tensor
     return mlir_attr_type
 
 
-#TODO: any better way to do this.
+# TODO: any better way to do this.
 def tblgen_attr_type_to_cpp_type(t):
     if 'I64Attr' in t:
         cpp_type = 'IntegerAttr'
@@ -490,40 +490,43 @@ def np_type_to_tblgen_attr_type(tstr):
     else:
         return tblgen_types[i]
 
+
 def get_tblgen_type_index(type_str):
     return tblgen_types.index(type_str)
 
-#the possible data structures are tensor, map and seq(tensor())
-def get_data_structure_element(allowed_type_str): 
+
+# the possible data structures are tensor, map and seq(tensor())
+def get_data_structure_element(allowed_type_str):
     structure_list = ['tensor', 'seq', 'map']
     for structure in structure_list:
-        if allowed_type_str.startswith(structure) :
+        if allowed_type_str.startswith(structure):
             element = allowed_type_str.replace(
-                structure+'(', '', 1).replace(')', '', 1)
+                structure + '(', '', 1).replace(')', '', 1)
             return (structure, element)
     return (None, None)
 
+
 def get_allowed_elem_types(schema, input):
-    #allowed_types_str = None
+    # allowed_types_str = None
     # return allowed_types_str
     # TODO: enable type constraints.
-    if input.typeStr :
+    if input.typeStr:
         tstr = input.typeStr
         structure, element = get_data_structure_element(tstr);
         # In case the type is directly specified
-        if structure and element :
+        if structure and element:
             t = np_type_to_tblgen_attr_type(element)
-            if t == None :
+            if t == None:
                 return allowed_structure, None
-            else :
+            else:
                 return structure, [t]
-    else :
+    else:
         return None
     if schema.type_constraints:
         for type_constraint in schema.type_constraints:
-            if type_constraint.type_param_str != tstr :
+            if type_constraint.type_param_str != tstr:
                 continue
-            allowed_type_list=[]
+            allowed_type_list = []
             allowedTypes = type_constraint.allowed_type_strs
             allowed_structure = None
             for allowedType in allowedTypes:
@@ -531,18 +534,18 @@ def get_allowed_elem_types(schema, input):
                 if structure == None or element == None:
                     return None, None
 
-                if allowed_structure != None and allowed_structure != structure :
+                if allowed_structure != None and allowed_structure != structure:
                     print("{}: one structure assumed".format(schema.name))
                     sys.exit(-1)
                 allowed_structure = structure
                 t = np_type_to_tblgen_attr_type(element)
-                if t == None :
+                if t == None:
                     return allowed_structure, None
-                if  not t in allowed_type_list :
+                if not t in allowed_type_list:
                     allowed_tyoe_list = allowed_type_list.append(t)
-    
-            return allowed_structure,allowed_type_list
-    
+
+            return allowed_structure, allowed_type_list
+
     return None, None
 
 
@@ -557,7 +560,8 @@ def dec_indent(indent):
 def join_args(args):
     return ", ".join(args)
 
-def get_operands_or_results(schema, type_str_dict,  is_input):
+
+def get_operands_or_results(schema, type_str_dict, is_input):
     value_list = schema.inputs if is_input else schema.outputs
     if not value_list:
         return OrderedDict()
@@ -571,7 +575,7 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
 
     name_to_types = OrderedDict()
     for i, value in enumerate(value_list):
-        types = get_onnx_mlir_types(schema, type_str_dict,  value)
+        types = get_onnx_mlir_types(schema, type_str_dict, value)
 
         '''
         structure, elem_types = get_allowed_elem_types(schema, type_str_dict,  value)
@@ -620,9 +624,9 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
             if value.isHomogeneous:
                 types = ["Variadic<{}>".format(any_type_of(types))]
             else:
-                #TODO handle(variadic, heterogeneous) "
+                # TODO handle(variadic, heterogeneous) "
                 sys.stderr.write("warning: (variadic, heterogeneous) for" + schema.name +
-                      ' ' + value.name + "\n")
+                                 ' ' + value.name + "\n")
 
         # Since output name can coincide with that of an input, we explicitly
         # append a suffix "_out" to such names for disambiguation.
@@ -669,7 +673,7 @@ def get_attrs(schema):
                     return formatted
                 elif isinstance(
                         value,
-                    (bytes, bytearray)) and sys.version_info[0] == 3:
+                        (bytes, bytearray)) and sys.version_info[0] == 3:
                     return str(value.decode('utf-8'))
                 return str(value)
 
@@ -693,38 +697,41 @@ def get_attrs(schema):
             name_to_type[attr.name] = get_attr_type_optional(attr.type)
     return name_to_type
 
+
 def get_numberof_list(mylist):
     expected_num = len(mylist)
-    for element in mylist :
+    for element in mylist:
         if OpSchema.FormalParameterOption.Variadic == element.option:
             expected_num = -1
     return expected_num
 
+
 def get_output_type_mapping(schema):
-    mapping=[]
-    for output in schema.outputs :
-        #if only one type is allowed, just set that
+    mapping = []
+    for output in schema.outputs:
+        # if only one type is allowed, just set that
         structure, allowed_elem_types = get_allowed_elem_types(schema, output)
-        if allowed_elem_types != None and len(allowed_elem_types) == 1 :
+        if allowed_elem_types != None and len(allowed_elem_types) == 1:
             mapping.append(str(get_tblgen_type_index(allowed_elem_types[0])))
             continue
 
-        #map the type string
-        if output.typeStr :
+        # map the type string
+        if output.typeStr:
             tstr = output.typeStr
             found = False
             for i, input in enumerate(schema.inputs):
                 if input.typeStr and input.typeStr == tstr:
-                    mapping.append(str(i+MAX_NUM_TYPES))
+                    mapping.append(str(i + MAX_NUM_TYPES))
                     found = True
                     break
             if found:
                 continue
 
-        #unknown output type
+        # unknown output type
         mapping.append(str(-1))
 
     return mapping
+
 
 def get_numberof_inout(s, indent, schema):
     expected_num_operands = get_numberof_list(schema.inputs)
@@ -758,17 +765,18 @@ def get_promotable_const_operands_func(s, indent, const_operands_name_to_idx):
         for name_to_idx in const_operands_name_to_idx
     ]) + "}"
 
-    #s += indent + "let extraClassDeclaration = [{\n"
+    # s += indent + "let extraClassDeclaration = [{\n"
     indent = inc_indent(indent)
     s += indent + "std::map<std::string, size_t> promotableConstOperands() {\n"
     indent = inc_indent(indent)
     s += indent + "return {};\n".format(cpp_name_to_idx_literal)
     indent = dec_indent(indent)
     s += indent + "}\n"
-    #indent = dec_indent(indent)
-    #s += indent + "}];\n"
+    # indent = dec_indent(indent)
+    # s += indent + "}];\n"
 
     return s
+
 
 def get_type_inference_func(s, indent, type_inference_code):
     indent = inc_indent(indent)
@@ -786,39 +794,41 @@ def get_type_inference_func(s, indent, type_inference_code):
     indent = dec_indent(indent)
     return s
 
+
 def parse_type_str(allowedType):
     # AnyI may be used for uint because the onnx_mlir is not generating uint output
     # This will be fixed later and UI will be replace AnyI
-    onnx_to_mlir_type_dict = { '(': '<[',
-        ')': ']>',
-        'tensor' : 'TensorOf',
-        'seq' : 'SeqOf',
-        'map' : 'TupleOf',
-        'bool': 'I1',
-        #'uint8' : 'AnyI8',
-        #uint16' : 'AnyI16',
-        #uint32' : 'AnyI32',
-        #uint64' : 'AnyI64',
-        'uint8' : 'UI8',
-        'uint16' : 'UI16',
-        'uint32' : 'UI32',
-        'uint64' : 'UI64',
-        'int8' : 'I8',
-        'int16' : 'I16',
-        'int32' : 'I32',
-        'int64' : 'I64',
-        'float16' : 'F16',
-        'float' : 'F32',
-        'double' : 'F64',
-        'unkown' : 'BF16',  
-        'complex64' : 'Complex<F32>',
-        'complex128' : 'Complex<F64>',
-        'string' : 'StringType'}
+    onnx_to_mlir_type_dict = {'(': '<[',
+                              ')': ']>',
+                              'tensor': 'TensorOf',
+                              'seq': 'SeqOf',
+                              'map': 'TupleOf',
+                              'bool': 'I1',
+                              # 'uint8' : 'AnyI8',
+                              # uint16' : 'AnyI16',
+                              # uint32' : 'AnyI32',
+                              # uint64' : 'AnyI64',
+                              'uint8': 'UI8',
+                              'uint16': 'UI16',
+                              'uint32': 'UI32',
+                              'uint64': 'UI64',
+                              'int8': 'I8',
+                              'int16': 'I16',
+                              'int32': 'I32',
+                              'int64': 'I64',
+                              'float16': 'F16',
+                              'float': 'F32',
+                              'double': 'F64',
+                              'unkown': 'BF16',
+                              'complex64': 'Complex<F32>',
+                              'complex128': 'Complex<F64>',
+                              'string': 'StringType'}
 
     for key, item in onnx_to_mlir_type_dict.items():
         allowedType = allowedType.replace(key, item)
     return allowedType
-          
+
+
 def parse_a_type_constraint(constraint):
     allowedTypes = constraint.allowed_type_strs
     mlirTypes = []
@@ -834,23 +844,26 @@ def parse_a_type_constraint(constraint):
     mlirTypes.append("AnyMemRef")
     return mlirTypes
 
+
 def parse_type_constraints(schema):
     type_str_dict = dict()
     for type_constraint in schema.type_constraints:
-        type_str_dict[type_constraint.type_param_str]  = parse_a_type_constraint(type_constraint)
+        type_str_dict[type_constraint.type_param_str] = parse_a_type_constraint(type_constraint)
     return type_str_dict
 
+
 def get_onnx_mlir_types(schema, type_str_dict, input):
-    if input.typeStr :
-         if not input.typeStr in type_str_dict :
-             # some arguments use type description directly
-             # instead of constraint
-             return [parse_type_str(input.typeStr)]
-         else :
-             return type_str_dict[input.typeStr]
-    else :
+    if input.typeStr:
+        if not input.typeStr in type_str_dict:
+            # some arguments use type description directly
+            # instead of constraint
+            return [parse_type_str(input.typeStr)]
+        else:
+            return type_str_dict[input.typeStr]
+    else:
         print('No typeStr ', schema.name)
         return []
+
 
 def gen_op_def(schema):
     indent = inc_indent()
@@ -879,15 +892,14 @@ def gen_op_def(schema):
     if schema.doc:
         lines = schema.doc.lstrip().splitlines()
         for line in lines:
-            escaped_line = line.replace('"', '\\"')\
-                               .replace('}]', '\\}\\]')
+            escaped_line = line.replace('"', '\\"') \
+                .replace('}]', '\\}\\]')
             s += indent + '"{}"\n'.format(escaped_line)
     s += indent + '}];\n'
 
-
     # handle the type constraint for input and output
     # parse type constraint into onnx-mlir type string list
-    type_str_dict =  parse_type_constraints(schema)
+    type_str_dict = parse_type_constraints(schema)
 
     # Generate ins (consisting of operands and attributes).
     ins = get_operands_or_results(schema, type_str_dict, is_input=True)
@@ -903,7 +915,7 @@ def gen_op_def(schema):
         (',\n' + inc_indent(indent)).join(outs_strs))
 
     # custom_builder_broadcast_ops_list
-    
+
     # add custom builders
     # use element type of the first operand to construct an UnrankedTensorType for the output.
     if schema.name in custom_builder_ops_list:
@@ -918,7 +930,7 @@ def gen_op_def(schema):
             #   Value, Y, Attribute A", [{}]>
             indent = inc_indent(indent)
             s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state'
-            operands_dict = get_operands_or_results(schema, type_str_dict,  is_input=True)
+            operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
             for name, ty in operands_dict.items():
                 s += ', {} {}'.format(tblgen_operand_type_to_cpp_type(ty),
                                       name)
@@ -940,13 +952,13 @@ def gen_op_def(schema):
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
                 s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
-                    '.getType().cast<TensorType>().getElementType();\n';
+                     '.getType().cast<TensorType>().getElementType();\n';
                 s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
                 s += indent + '}\n';
                 build_type_name = 'elementType'
             else:
                 s += indent + 'auto elementType = {}'.format(first_operand_name) + \
-                    '.getType().cast<TensorType>().getElementType();\n'
+                     '.getType().cast<TensorType>().getElementType();\n'
                 build_type_name = 'UnrankedTensorType::get(elementType)'
             s += indent + 'build(builder, state, {}'.format(build_type_name)
             for name, _ in ins.items():
@@ -959,7 +971,7 @@ def gen_op_def(schema):
             # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands,
             #    ArrayRef<NamedAttribute> attributes", [{}]>'
             s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state, ' + \
-                'ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
+                 'ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
             indent = inc_indent(indent)
             if schema.name in custom_builder_broadcast_ops_list:
                 s += indent + 'auto lhsTy = operands[0].getType();\n'
@@ -968,12 +980,12 @@ def gen_op_def(schema):
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
                 s += indent + indent + 'elementType = operands[0]' + \
-                    '.getType().cast<TensorType>().getElementType();\n';
+                     '.getType().cast<TensorType>().getElementType();\n';
                 s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
                 s += indent + '}\n';
-            else:    
+            else:
                 s += indent + 'auto elementType = operands[0].getType().' + \
-                    'cast<TensorType>().getElementType();\n'
+                     'cast<TensorType>().getElementType();\n'
             s += indent + 'std::vector<mlir::Type> outputTypes;\n'
             s += indent + 'outputTypes.emplace_back({});\n'.format(build_type_name)
             s += indent + 'build(builder, state, outputTypes, operands, attributes);\n'
@@ -984,7 +996,7 @@ def gen_op_def(schema):
 
     # generate extracClassDeclaration
     s += indent + "let extraClassDeclaration = [{\n"
-    #indent = inc_indent(indent)
+    # indent = inc_indent(indent)
 
     # generate input/output number
     s = get_numberof_inout(s, indent, schema)
@@ -1000,7 +1012,7 @@ def gen_op_def(schema):
 
     s += indent + '}];\n'
 
-    if ( schema.name in custom_definition_misc) :
+    if (schema.name in custom_definition_misc):
         s += custom_definition_misc[schema.name] + '\n'
 
     s += '}\n\n'
@@ -1018,7 +1030,7 @@ special cases:
 
 def gen_op_importer(schema, file):
     indent = inc_indent()
-    s = indent + 'import_handler_map_["' + schema.name +'"] = \n '
+    s = indent + 'import_handler_map_["' + schema.name + '"] = \n '
 
     expected_num_operands = len(schema.inputs)
     expected_num_results = len(schema.outputs)
@@ -1043,7 +1055,7 @@ def gen_op_importer(schema, file):
             '/* expected_num_results = */ {}'.format(expected_num_results))
     """
     s += inc_indent(indent) + '&onnx_mlir::detail::FrontendGenImpl::'
-    s += handler_func+';\n'
+    s += handler_func + ';\n'
 
     file.write(s)
 
@@ -1074,22 +1086,22 @@ def build_operator_schemas():
                 if schema.name in exsting_ops:
                     continue
 
-                if check_operation_version :
+                if check_operation_version:
                     # Generate operation of the latest version of your onnx.
                     exsting_ops.add(schema.name)
                     processed_namemap.append((n, schema, versions))
 
                     # Add checks against version_dict
-                    if schema.name not in version_dict :
+                    if schema.name not in version_dict:
                         print("Check-operation-version: Operation {} with version is new".format(
                             schema.since_version, schema.name))
-                    elif schema.since_version >  version_dict[schema.name]:
-                        print("Check-operation-version: Operation {} has a newer version {}"+
-                            "(old version {})".format( schema.name,
-                            schema.since_version, version_dict[schema.name]))
+                    elif schema.since_version > version_dict[schema.name]:
+                        print("Check-operation-version: Operation {} has a newer version {}" +
+                              "(old version {})".format(schema.name,
+                                                        schema.since_version, version_dict[schema.name]))
                 else:
                     # Generate operation according to the version in version_dict.
-                    if schema.name not in version_dict :
+                    if schema.name not in version_dict:
                         continue
                     found = False
                     for schema in reversed(versions):
@@ -1101,7 +1113,7 @@ def build_operator_schemas():
                             break
                     if not found:
                         print("Your onnx may be too old."
-                           "right version for opertion {} not found".format(
+                              "right version for opertion {} not found".format(
                             schema.name))
                         sys.exit()
             processed_supportmap.append((_support, processed_namemap))
@@ -1136,11 +1148,13 @@ def main(args):  # type: (Type[Args]) -> None
                     gen_op_importer(schema, op_importer)
                     r = gen_op_def(schema)
                     op_def.write(r)
-    if check_operation_version :
+    if check_operation_version:
         pprint.pprint(version_dict)
+
 
 if __name__ == '__main__':
     curr_dir = os.path.dirname(os.path.realpath(__file__))
+
 
     class Args(object):
         if args.dry_run_onnx_ops:
@@ -1154,10 +1168,11 @@ if __name__ == '__main__':
         else:
             op_importer_file_path = os.path.join(curr_dir, 'OpBuildTable.inc')
             op_importer = io.open(op_importer_file_path, 'w', newline='')
+
+
     main(Args)
 
     if args.dry_run_onnx_ops:
         sys.stdout.write(Args.op_def.getvalue())
     if args.dry_run_op_build_table:
         sys.stdout.write(Args.op_importer.getvalue())
-
