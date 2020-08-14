@@ -45,7 +45,6 @@ public:
     auto loc = krnlDimOp.getLoc();
 
     // If index is not constant, return failure.
-    // TODO: support dynamic index case.
     ConstantOp indexOp =
         dyn_cast<ConstantOp>(krnlDimOp.index().getDefiningOp());
     if (!indexOp)
