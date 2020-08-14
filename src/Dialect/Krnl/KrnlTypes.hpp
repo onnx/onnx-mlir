@@ -23,7 +23,9 @@ enum Kinds {
 };
 }
 
-class LoopType : public mlir::Type::TypeBase<LoopType, mlir::Type> {
+class LoopType
+    : public mlir::Type::TypeBase<LoopType, mlir::Type, mlir::TypeStorage> {
+
 public:
   using Base::Base;
 

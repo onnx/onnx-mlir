@@ -133,11 +133,13 @@ function(find_mlir_lib lib)
 endfunction(find_mlir_lib)
 
 find_mlir_lib(MLIRAffineOps)
+find_mlir_lib(MLIRAffineUtils)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAffineTransforms)
 find_mlir_lib(MLIRAnalysis)
 find_mlir_lib(MLIRCallInterfaces)
 find_mlir_lib(MLIRControlFlowInterfaces)
+find_mlir_lib(MLIRCopyOpInterface)
 find_mlir_lib(MLIRDialect)
 find_mlir_lib(MLIREDSC)
 find_mlir_lib(MLIRExecutionEngine)
@@ -158,6 +160,7 @@ find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRParser)
 find_mlir_lib(MLIRPass)
 find_mlir_lib(MLIRStandardOps)
+find_mlir_lib(MLIRStandardOpsTransforms)
 find_mlir_lib(MLIRStandardToLLVM)
 find_mlir_lib(MLIRSideEffectInterfaces)
 find_mlir_lib(MLIRTargetLLVMIR)
@@ -172,12 +175,14 @@ find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRTranslation)
 find_mlir_lib(MLIRVector)
+find_mlir_lib(MLIRVectorInterfaces)
 find_mlir_lib(MLIRVectorToLLVM)
 find_mlir_lib(MLIRVectorToSCF)
 find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRAffineEDSC)
 find_mlir_lib(MLIRLinalgEDSC)
 find_mlir_lib(MLIRViewLikeInterface)
+find_mlir_lib(MLIRPresburger)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -200,12 +205,16 @@ find_mlir_lib(LLVMFrontendOpenMP)
 set(MLIRLibs
         ${MLIRAffineToStandard}
         ${MLIRAffineOps}
+        ${MLIRAffineUtils}
+        ${MLIRCopyOpInterface}
         ${MLIRLLVMIR}
         ${MLIRStandardOps}
+        ${MLIRStandardOpsTransforms}
         ${MLIRStandardToLLVM}
         ${MLIRTransforms}
         ${MLIRSCFToStandard}
         ${MLIRVector}
+        ${MLIRVectorInterfaces}
         ${MLIRVectorToLLVM}
         ${MLIRVectorToSCF}
         ${MLIRSCF}
@@ -249,6 +258,7 @@ set(MLIRLibs
         ${MLIRAffineEDSC}
         ${MLIRLinalgEDSC}
         ${MLIRViewLikeInterface}
+        ${MLIRPresburger}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}
