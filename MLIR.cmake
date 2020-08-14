@@ -143,6 +143,7 @@ find_mlir_lib(MLIRCopyOpInterface)
 find_mlir_lib(MLIRDialect)
 find_mlir_lib(MLIREDSC)
 find_mlir_lib(MLIRExecutionEngine)
+find_mlir_lib(MLIRInferTypeOpInterface)
 find_mlir_lib(MLIRIR)
 find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
@@ -167,6 +168,10 @@ find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransforms)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRSupport)
+find_mlir_lib(MLIRShape)
+find_mlir_lib(MLIRShapeToStandard)
+find_mlir_lib(MLIRShapeToSCF)
+find_mlir_lib(MLIRSideEffectInterfaces)
 find_mlir_lib(MLIROpenMP)
 find_mlir_lib(MLIROptLib)
 find_mlir_lib(MLIRTableGen)
@@ -259,6 +264,11 @@ set(MLIRLibs
         ${MLIRLinalgEDSC}
         ${MLIRViewLikeInterface}
         ${MLIRPresburger}
+        ${MLIRInferTypeOpInterface}
+        ${MLIRShape}
+        ${MLIRShapeToStandard}
+        ${MLIRShapeToSCF}
+        ${MLIRInferTypeOpInterface}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}
