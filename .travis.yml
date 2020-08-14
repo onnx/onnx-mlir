@@ -11,7 +11,7 @@ script:
   - echo "CPU Architecture is " $TRAVIS_CPU_ARCH
   - echo "commit is " $TRAVIS_COMMIT
   - df -h
-  - if [ "$TRAVIS_COMMIT_MESSAGE" == "Update MLIR version" ]; then
+  - if true; then
            echo "Building Prereq";
            docker build --tag onnxmlirczar/onnx-mlir-llvmimage:$TRAVIS_CPU_ARCH -f ./docker/prereq.$TRAVIS_CPU_ARCH.Dockerfile ./utils;
            docker login -u onnxmlirczar -p 143f1da2-332f-45a1-8587-d6cb07c13230 
