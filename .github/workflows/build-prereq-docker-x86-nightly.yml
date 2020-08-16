@@ -19,6 +19,9 @@ jobs:
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
+    - name: try login
+      run: |
+        docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
     - name: build image on fork
       env:
         DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
