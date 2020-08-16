@@ -30,12 +30,6 @@ COPY clone-mlir.sh bin/clone-mlir.sh
 RUN chmod a+x bin/clone-mlir.sh
 RUN clone-mlir.sh
 
-WORKDIR /build/llvm-project
-# These patches are necessary for a successful llvm/mlir build on s390x.
-RUN wget https://reviews.llvm.org/file/data/q6ebmr7tbbbrcp7rh3gp/PHID-FILE-xtg2u4u4kwwenxbtcxso/D80695.diff
-RUN wget https://reviews.llvm.org/file/data/gbn3hhpdyw5dd65hgarg/PHID-FILE-t27qkbykwnudxymuhsdf/D80272.diff
-RUN git apply D80695.diff && git apply D80272.diff
-
 WORKDIR /build/llvm-project/build
 RUN cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_PROJECTS=mlir \
@@ -46,4 +40,4 @@ RUN cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_RTTI=ON
 
 RUN cmake --build . --target -- ${MAKEFLAGS}
-RUN cmake --build . --target check-mlir
+# RUN cmake --build . --target check-mlir
