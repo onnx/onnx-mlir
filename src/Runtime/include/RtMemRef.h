@@ -22,8 +22,8 @@ typedef int64_t INDEX_TYPE;
 struct RtMemRef;
 typedef struct RtMemRef RtMemRef;
 
-struct OrderedRtMemRefDict;
-typedef struct OrderedRtMemRefDict OrderedRtMemRefDict;
+struct RtMemRefList;
+typedef struct RtMemRefList OrderedRtMemRefDict;
 
 #ifdef __cplusplus
 extern "C" {
@@ -173,46 +173,46 @@ void rmr_setName(RtMemRef *rmr, char *name);
 INDEX_TYPE rmr_getNumOfElems(RtMemRef *rmr);
 
 /*---------------------------------------- */
-/* C/C++ API for OrderedRtMemRefDict calls */
+/* C/C++ API for RtMemRefList calls */
 /*---------------------------------------- */
 
 /**
- * OrderedRtMemRefDict creator
+ * RtMemRefList creator
  *
  * @param rmrs, array of pointers to RtMemRef
  * @param n, number of elements in rmrs array
- * @return pointer to the OrderedRtMemRefDict created, NULL if creation failed.
+ * @return pointer to the RtMemRefList created, NULL if creation failed.
  *
- * Create an OrderedRtMemRefDict with specified RtMemRef array.
+ * Create an RtMemRefList with specified RtMemRef array.
  * If a RtMemRef has a name, in addition to be accessed by its index,
  * the RtMemRef can also be accessed by its name.
  */
-OrderedRtMemRefDict *ormrd_create(RtMemRef *rmrs[], int n);
+RtMemRefList *ormrd_create(RtMemRef *rmrs[], int n);
 
 /**
- * OrderedRtMemRefDict destroyer
+ * RtMemRefList destroyer
  *
- * @param ormrd, pointer to the OrderedRtMemRefDict to be destroyed
+ * @param ormrd, pointer to the RtMemRefList to be destroyed
  *
- * Destroy the OrderedRtMemRefDict struct.
+ * Destroy the RtMemRefList struct.
  */
-void ormrd_destroy(OrderedRtMemRefDict *ormrd);
+void ormrd_destroy(RtMemRefList *ormrd);
 
 /**
- * OrderedRtMemRefDict RtMemRef array getter
+ * RtMemRefList RtMemRef array getter
  *
- * @param ormrd, pointer to the OrderedRtMemRefDict
+ * @param ormrd, pointer to the RtMemRefList
  * @return pointer to the array of RtMemRef pointers.
  */
-RtMemRef **ormrd_getRmrs(OrderedRtMemRefDict *ormrd);
+RtMemRef **ormrd_getRmrs(RtMemRefList *ormrd);
 
 /**
- * OrderedRtMemRefDict number of RtMemRefs getter
+ * RtMemRefList number of RtMemRefs getter
  *
- * @param ormrd, pointer to the OrderedRtMemRefDict
+ * @param ormrd, pointer to the RtMemRefList
  * @return number of elements in the RtMemRef array.
  */
-int ormrd_getNumOfRmrs(OrderedRtMemRefDict *ormrd);
+int ormrd_getNumOfRmrs(RtMemRefList *ormrd);
 
 #ifdef __cplusplus
 }

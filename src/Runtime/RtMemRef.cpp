@@ -57,9 +57,9 @@ void rmr_setData(RtMemRef *rmr, void *data) {
    * Once this is done, caller will be responsible for
    * managing the data buffer.
    */
-  if (rmr->_dataMalloc) {
+  if (rmr->_owningData) {
     free(rmr->_data);
-    rmr->_dataMalloc = false;
+    rmr->_owningData = false;
   }
   rmr->_data = data;
 }
@@ -116,30 +116,26 @@ INDEX_TYPE rmr_getNumOfElems(RtMemRef *rmr) {
 }
 
 /*---------------------------------------- */
-/* C/C++ API for OrderedRtMemRefDict calls */
+/* C/C++ API for RtMemRefList calls */
 /*---------------------------------------- */
 
-/* OrderedRtMemRefDict creator */
-OrderedRtMemRefDict *ormrd_create(RtMemRef *rmrs[], int n) {
+/* RtMemRefList creator */
+RtMemRefList *ormrd_create(RtMemRef *rmrs[], int n) {
   try {
-    return new OrderedRtMemRefDict(rmrs, n);
+    return new RtMemRefList(rmrs, n);
   } catch (const invalid_argument &e) {
     return NULL;
   }
 }
 
-/* OrderedRtMemRefDict destroyer */
-void ormrd_destroy(OrderedRtMemRefDict *ormrd) { delete ormrd; }
+/* RtMemRefList destroyer */
+void ormrd_destroy(RtMemRefList *ormrd) { delete ormrd; }
 
-/* OrderedRtMemRefDict RtMemRef array getter */
-RtMemRef **ormrd_getRmrs(OrderedRtMemRefDict *ormrd) {
-  return ormrd->_rmrs.data();
-}
+/* RtMemRefList RtMemRef array getter */
+RtMemRef **ormrd_getRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs.data(); }
 
-/* OrderedRtMemRefDict number of RtMemRef getter */
-int ormrd_getNumOfRmrs(OrderedRtMemRefDict *ormrd) {
-  return ormrd->_rmrs.size();
-}
+/* RtMemRefList number of RtMemRef getter */
+int ormrd_getNumOfRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs.size(); }
 
 /* ================ Internal C++ API call implementation ================ */
 
@@ -185,7 +181,7 @@ RtMemRef *rmr_createWithDataSizes(vector<INDEX_TYPE> dataSizes) {
   }
 
   /* Set flag for destructor */
-  rmr->_dataMalloc = true;
+  rmr->_owningData = true;
 
   return rmr;
 }
@@ -316,25 +312,25 @@ inline bool rmr_areTwoRmrsClose(
 }
 
 /*---------------------------------------------------- */
-/* C++ API for internal only OrderedRtMemRefDict calls */
+/* C++ API for internal only RtMemRefList calls */
 /*---------------------------------------------------- */
 
-/* Create an empty OrderedRtMemRefDict so RtMemRef can be added one by one. */
-OrderedRtMemRefDict *ormrd_create(void) { return new OrderedRtMemRefDict(); }
+/* Create an empty RtMemRefList so RtMemRef can be added one by one. */
+RtMemRefList *ormrd_create(void) { return new RtMemRefList(); }
 
-/* Return RtMemRef at specified index in the OrderedRtMemRefDict */
-RtMemRef *ormrd_getRmrByIndex(OrderedRtMemRefDict *ormrd, int index) {
+/* Return RtMemRef at specified index in the RtMemRefList */
+RtMemRef *ormrd_getRmrByIndex(RtMemRefList *ormrd, int index) {
   assert(index >= 0);
   return index < ormrd->_rmrs.size() ? ormrd->_rmrs[index] : NULL;
 }
 
-/* Set RtMemRef at specified index in the OrderedRtMemRefDict
+/* Set RtMemRef at specified index in the RtMemRefList
  *
  * Currently,
  * - attempting to set RtMemRef at the same index more than once is a bug
  * - attempting to set RtMemRef with a name that already exists is a bug
  */
-void ormrd_setRmrByIndex(OrderedRtMemRefDict *ormrd, RtMemRef *rmr, int index) {
+void ormrd_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index) {
   if (index < ormrd->_rmrs.size())
     assert(index >= 0 && ormrd->_rmrs[index] == NULL);
   else
@@ -348,8 +344,8 @@ void ormrd_setRmrByIndex(OrderedRtMemRefDict *ormrd, RtMemRef *rmr, int index) {
   ormrd->_rmrs[index] = rmr;
 }
 
-/* Return RtMemRef of specified name in the OrderedRtMemRefDict */
-RtMemRef *ormrd_getRmrByName(OrderedRtMemRefDict *ormrd, string name) {
+/* Return RtMemRef of specified name in the RtMemRefList */
+RtMemRef *ormrd_getRmrByName(RtMemRefList *ormrd, string name) {
   return ormrd->_n2imap[name] ? ormrd->_rmrs[ormrd->_n2imap[name]] : NULL;
 }
 

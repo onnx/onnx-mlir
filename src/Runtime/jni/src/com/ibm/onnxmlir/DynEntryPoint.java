@@ -56,9 +56,9 @@ public class DynEntryPoint {
         }
     }
 
-    private static native OrderedRtMemRefDict main_graph_jni(OrderedRtMemRefDict ormrd);
+    private static native RtMemRefList main_graph_jni(RtMemRefList ormrd);
     
-    public static OrderedRtMemRefDict main_graph(OrderedRtMemRefDict ormrd) {
+    public static RtMemRefList main_graph(RtMemRefList ormrd) {
         return main_graph_jni(ormrd);
     }
 }

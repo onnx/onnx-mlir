@@ -2,7 +2,7 @@ package com.ibm.onnxmlir;
 
 import java.util.HashMap;
 
-public class OrderedRtMemRefDict {
+public class RtMemRefList {
 
     private RtMemRef[] _rmrs;
     private HashMap<String, Integer> _n2i;
@@ -12,7 +12,7 @@ public class OrderedRtMemRefDict {
      * 
      * @param rmrs DynMemRef array
      */
-    public OrderedRtMemRefDict(RtMemRef[] rmrs) {
+    public RtMemRefList(RtMemRef[] rmrs) {
         /* Go through the RtMemRef array, check each for validity,
          * and create name (if not empty) to index mapping.
          */

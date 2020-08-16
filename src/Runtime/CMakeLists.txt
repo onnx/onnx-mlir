@@ -17,7 +17,7 @@ target_include_directories(cruntime PRIVATE
 add_library(RtMemRefUtils
         RtMemRef.cpp
         RtMemRef.hpp
-	DataType.h
+        DataType.h
         include/_RtMemRef.h)
 set_target_properties(RtMemRefUtils PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)

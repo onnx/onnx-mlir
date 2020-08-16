@@ -22,8 +22,6 @@
 #include <malloc.h>
 #endif
 
-using namespace std;
-
 /* Typically, MemRefs in MLIR context are used as a compile-time constructs.
  * Information such as element type and rank of the data payload is statically
  * encoded, meaning that they are determined and fixed at compile-time. This
@@ -56,9 +54,10 @@ struct RtMemRef {
       _offset = 0;
       _dataType = ONNX_TYPE_UNDEFINED;
       _rank = rank;
-      _dataMalloc = false;
+      _owningData = false;
     } else {
-      throw runtime_error("RtMemRef(" + to_string(rank) + ") malloc error");
+      throw std::runtime_error(
+          "RtMemRef(" + std::to_string(rank) + ") malloc error");
     }
   };
 
@@ -68,34 +67,33 @@ struct RtMemRef {
    * Destroy the RtMemRef struct.
    */
   ~RtMemRef(void) {
-    if (_dataMalloc)
+    if (_owningData)
       free(_data);
     free(_dataSizes);
     free(_dataStrides);
   };
 
-  void *_data;            /* data buffer                    */
-  void *_alignedData;     /* aligned data buffer            */
-  INDEX_TYPE _offset;     /* offset of 1st element          */
-  INDEX_TYPE *_dataSizes; /* sizes array                    */
-  int64_t *_dataStrides;  /* strides array                  */
-  int _dataType;          /* ONNX data type                 */
-  int _rank;              /* rank                           */
-  string _name;           /* optional name for named access */
-  bool _dataMalloc;       /* if we malloc _data ourselves, destructor will
+  void *_data; /* data buffer                                              */
+  void *_alignedData;     /* aligned data buffer that the rmr indexes.     */
+  INDEX_TYPE _offset;     /* offset of 1st element                         */
+  INDEX_TYPE *_dataSizes; /* sizes array                                   */
+  int64_t *_dataStrides;  /* strides array                                 */
+  int _dataType;          /* ONNX data type                                */
+  int _rank;              /* rank                                          */
+  std::string _name;      /* optional name for named access                */
+  bool _owningData;       /* if we malloc _data ourselves, destructor will
                            * free _data, otherwise, if _data is set via setData call,
-                           * then free _data is caller's responsibility.
-                           */
+                           * then free _data is caller's responsibility       */
 };
 
-struct OrderedRtMemRefDict {
+struct RtMemRefList {
   /**
    * Constructor
    *
-   * Create an OrderedRtMemRefDict with specified RtMemRef pointer array
+   * Create an RtMemRefList with specified RtMemRef pointer array
    * and the size of the array
    */
-  OrderedRtMemRefDict(RtMemRef *rmrs[], int n) {
+  RtMemRefList(RtMemRef *rmrs[], int n) {
     _rmrs.assign(&rmrs[0], &rmrs[n]);
 
     /* Go through the RtMemRef array and create name (if not empty) to index
@@ -103,8 +101,8 @@ struct OrderedRtMemRefDict {
     for (int i = 0; i < n; i++) {
       if (!_rmrs[i]->_name.empty() &&
           _n2imap.insert({_rmrs[i]->_name, i}).second == false) {
-        throw invalid_argument("RtMemRef[" + to_string(i) +
-                               "] duplicate name: " + _rmrs[i]->_name);
+        throw std::invalid_argument("RtMemRef[" + std::to_string(i) +
+                                    "] duplicate name: " + _rmrs[i]->_name);
       }
     }
   };
@@ -113,17 +111,17 @@ struct OrderedRtMemRefDict {
   /**
    * Constructor
    *
-   * Create an empty OrderedRtMemRefDict for internal API calls.
+   * Create an empty RtMemRefList for internal API calls.
    */
-  OrderedRtMemRefDict(void){};
+  RtMemRefList(void){};
 #endif
 
   /**
    * Destructor
    *
-   * Destroy the OrderedRtMemRefDict struct.
+   * Destroy the RtMemRefList struct.
    */
-  ~OrderedRtMemRefDict(void) {
+  ~RtMemRefList(void) {
     /* Destroy all the RtMemRefs */
     for (int i = 0; i < _rmrs.size(); i++)
       if (_rmrs[i])
@@ -134,8 +132,8 @@ struct OrderedRtMemRefDict {
    * that can be quickly returned as an array. A name to index map is used
    * to address ReMemRefs by name.
    */
-  vector<RtMemRef *> _rmrs; /* RtMemRef vector   */
-  map<string, int> _n2imap; /* name to index map */
+  std::vector<RtMemRef *> _rmrs;      /* RtMemRef vector   */
+  std::map<std::string, int> _n2imap; /* name to index map */
 };
 
 /*------------------------------------------------------- */
@@ -144,7 +142,7 @@ struct OrderedRtMemRefDict {
 
 /* Helper function to compute the number of data elements */
 static inline INDEX_TYPE getNumOfElems(INDEX_TYPE *dataSizes, int rank) {
-  return accumulate(dataSizes, dataSizes + rank, 1, multiplies<>());
+  return accumulate(dataSizes, dataSizes + rank, 1, std::multiplies<>());
 }
 
 /* Helper function to get the ONNX data type size in bytes */
@@ -158,11 +156,11 @@ static inline int getDataTypeSize(int dataType) {
 #ifdef RTMEMREF_INTERNAL_API
 
 /* Helper function to compute cartisian product */
-static inline vector<vector<INDEX_TYPE>> CartProduct(
-    const vector<vector<INDEX_TYPE>> &v) {
-  vector<vector<INDEX_TYPE>> s = {{}};
+static inline std::vector<std::vector<INDEX_TYPE>> CartProduct(
+    const std::vector<std::vector<INDEX_TYPE>> &v) {
+  std::vector<std::vector<INDEX_TYPE>> s = {{}};
   for (const auto &u : v) {
-    vector<vector<INDEX_TYPE>> r;
+    std::vector<std::vector<INDEX_TYPE>> r;
     for (const auto &x : s) {
       for (const auto y : u) {
         r.push_back(x);
@@ -175,27 +173,27 @@ static inline vector<vector<INDEX_TYPE>> CartProduct(
 }
 
 /* Helper function to compute data strides from sizes */
-static inline vector<int64_t> computeStridesFromSizes(
+static inline std::vector<int64_t> computeStridesFromSizes(
     INDEX_TYPE *dataSizes, int rank) {
   // Shift dimension sizes one to the left, fill in the vacated rightmost
   // element with 1; this gets us a vector that'll be more useful for computing
   // strides of memory access along each dimension using prefix product (aka
   // partial_sum with a multiply operator below). The intuition is that the size
   // of the leading dimension does not matter when computing strides.
-  vector<int64_t> sizesVec(dataSizes + 1, dataSizes + rank);
+  std::vector<int64_t> sizesVec(dataSizes + 1, dataSizes + rank);
   sizesVec.push_back(1);
 
-  vector<int64_t> dimStrides(rank);
-  partial_sum(
-      sizesVec.rbegin(), sizesVec.rend(), dimStrides.rbegin(), multiplies<>());
+  std::vector<int64_t> dimStrides(rank);
+  partial_sum(sizesVec.rbegin(), sizesVec.rend(), dimStrides.rbegin(),
+      std::multiplies<>());
   return dimStrides;
 }
 
 /* Helper function to compute linear offset from a multi-dimensional index array
  */
 static inline INDEX_TYPE computeElemOffset(
-    int64_t *dataStrides, int rank, vector<INDEX_TYPE> &indexes) {
-  auto dimStrides = vector<INDEX_TYPE>(dataStrides, dataStrides + rank);
+    int64_t *dataStrides, int rank, std::vector<INDEX_TYPE> &indexes) {
+  auto dimStrides = std::vector<INDEX_TYPE>(dataStrides, dataStrides + rank);
   INDEX_TYPE elemOffset = inner_product(
       indexes.begin(), indexes.end(), dimStrides.begin(), (INDEX_TYPE)0);
   return elemOffset;
@@ -203,9 +201,9 @@ static inline INDEX_TYPE computeElemOffset(
 
 /* Helper function to print a vector with delimiter */
 template <typename T>
-static inline void printVector(
-    vector<T> vec, string _delimiter = ",", ostream &stream = cout) {
-  string delimiter;
+static inline void printVector(std::vector<T> vec, std::string _delimiter = ",",
+    std::ostream &stream = std::cout) {
+  std::string delimiter;
   for (const auto &elem : vec) {
     stream << delimiter << elem;
     delimiter = _delimiter;

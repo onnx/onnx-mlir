@@ -132,41 +132,41 @@ bool rmr_areTwoRmrsClose(
     RtMemRef *a, RtMemRef *b, float rtol = 1e-5, float atol = 1e-5);
 
 /*---------------------------------------------------- */
-/* C++ API for internal only OrderedRtMemRefDict calls */
+/* C++ API for internal only RtMemRefList calls */
 /*---------------------------------------------------- */
 
 /**
- * OrderedRtMemRefDict creator
+ * RtMemRefList creator
  *
- * @return pointer to an empty OrderedRtMemRefDict, NULL if creation failed.
+ * @return pointer to an empty RtMemRefList, NULL if creation failed.
  */
-OrderedRtMemRefDict *ormrd_create(void);
+RtMemRefList *ormrd_create(void);
 
 /**
- * OrderedRtMemRefDict RtMemRef getter by index
+ * RtMemRefList RtMemRef getter by index
  *
- * @param ormrd, pointer to the OrderedRtMemRefDict
+ * @param ormrd, pointer to the RtMemRefList
  * @param index, index of the RtMemRef
  * @reutrn pointer to the RtMemRef, NULL if not found.
  */
-RtMemRef *ormrd_getRmrByIndex(OrderedRtMemRefDict *ormrd, int index);
+RtMemRef *ormrd_getRmrByIndex(RtMemRefList *ormrd, int index);
 
 /**
- * OrderedRtMemRefDict RtMemRef setter by index
+ * RtMemRefList RtMemRef setter by index
  *
- * @param ormrd, pointer to the OrderedRtMemRefDict
+ * @param ormrd, pointer to the RtMemRefList
  * @param rmr, pointer to the RtMemRef
  * @param index, index in the array of RtMemRef pointers
  *
  * Set the RtMemRef pointer in the array of RtMemRef points at index.
  */
-void ormrd_setRmrByIndex(OrderedRtMemRefDict *ormrd, RtMemRef *rmr, int index);
+void ormrd_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index);
 
 /**
- * OrderedRtMemRefDict RtMemRef getter by name
+ * RtMemRefList RtMemRef getter by name
  *
- * @param ormrd, pointer to the OrderedRtMemRefDict
+ * @param ormrd, pointer to the RtMemRefList
  * @param name, name of the RtMemRef
  * @return pointer to the RtMemRef, NULL if not found.
  */
-RtMemRef *ormrd_getRmrByName(OrderedRtMemRefDict *ormrd, std::string name);
+RtMemRef *ormrd_getRmrByName(RtMemRefList *ormrd, std::string name);
