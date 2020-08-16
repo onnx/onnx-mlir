@@ -1,6 +1,4 @@
-
-name: build-docker-prereq-x86-
-
+name: build-docker-prereq-x86-nightly
 
 on: 
   workflow_dispatch:
@@ -11,6 +9,8 @@ on:
         default: 'warning'
       tags:
         description: 'Test scenario tags'  
+  pull_request:
+    branches: [ master ]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -18,5 +18,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - run: |
-        echo "Log level: ${{ github.event.inputs.logLevel }}"
-        echo "Tags: ${{ github.event.inputs.tags }}" 
+        echo "hello world"
