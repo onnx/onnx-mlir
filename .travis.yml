@@ -11,9 +11,9 @@ env:
   - NIGHTLY=true
   - NIGHTLY=false
 script:
-  - CPU_ARCH = $TRAVIS_CPU_ARCH
+  - export CPU_ARCH = $TRAVIS_CPU_ARCH
   - if [ "$CPU_ARCH" == "amd64" ] ; then
-      CPU_ARCH = "x86"
+      export CPU_ARCH = "x86"
     fi
   - echo "CPU Architecture is " $CPU_ARCH
   - echo "commit is " $TRAVIS_COMMIT
