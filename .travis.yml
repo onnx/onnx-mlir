@@ -7,11 +7,18 @@ arch:
   - s390x
   - ppc64le
   - amd64
+env:
+  - NIGHTLY=true
+  - NIGHTLY=false
 script:
   - echo "CPU Architecture is " $TRAVIS_CPU_ARCH
   - echo "commit is " $TRAVIS_COMMIT
   - df -h
-  - docker build --tag onnx-mlir-build:initial --build-arg BASE="onnxmlirczar/onnx-mlir-image:$TRAVIS_CPU_ARCH"  -f ./docker/$TRAVIS_CPU_ARCH.Dockerfile ./docker
+  - if [ "$NIGHTLY" = true ] ; then
+      docker build --tag onnx-mlir-build:initial --build-arg BASE="onnxmlirczar/onnx-mlir-image:$TRAVIS_CPU_ARCH-nightly"  -f ./docker/$TRAVIS_CPU_ARCH.Dockerfile ./docker;
+    else
+      docker build --tag onnx-mlir-build:initial --build-arg BASE="onnxmlirczar/onnx-mlir-image:$TRAVIS_CPU_ARCH"  -f ./docker/$TRAVIS_CPU_ARCH.Dockerfile ./docker;
+    fi
   - docker run -itd --name build onnx-mlir-build:initial
   - echo "docker is running now"
   - df -h
