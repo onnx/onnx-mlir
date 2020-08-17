@@ -40,7 +40,7 @@ script:
   - docker exec build compile-onnx-mlir.sh
   - docker commit build onnxmlirczar/onnx-mlir-build:$CPU_ARCH
 after_success: 
-  - if [ $TRAVIS_PULL_REQUEST == false ] && [ $TRAVIS_BRANCH == "master" ] && [ $NIGHTLY == fase ]; then
+  - if [ $TRAVIS_PULL_REQUEST == false ] && [ $TRAVIS_BRANCH == "master" ] && [ $NIGHTLY == false ]; then
             echo "Pushing new build to docker hub";
             docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN";
             docker push onnxmlirczar/onnx-mlir-build:$CPU_ARCH;
