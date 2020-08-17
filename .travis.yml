@@ -16,10 +16,10 @@ script:
   - df -h
   - if [ "$NIGHTLY" = true ] ; then
       echo "Using nightly llvm-mlir image, build may fail.";
-      docker build --tag onnx-mlir-build:initial --build-arg BASE="onnxmlirczar/onnx-mlir-image:${TRAVIS_CPU_ARCH}-nightly"  -f ./docker/$TRAVIS_CPU_ARCH.Dockerfile ./docker;
+      docker build --tag onnx-mlir-build:initial --build-arg BASE="onnxmlirczar/onnx-mlir-llvmimage:${TRAVIS_CPU_ARCH}-nightly"  -f ./docker/$TRAVIS_CPU_ARCH.Dockerfile ./docker;
     else
       echo "Using latest compatible llvm-mlir image, build should not fail.";
-      docker build --tag onnx-mlir-build:initial --build-arg BASE="onnxmlirczar/onnx-mlir-image:$TRAVIS_CPU_ARCH"  -f ./docker/$TRAVIS_CPU_ARCH.Dockerfile ./docker;
+      docker build --tag onnx-mlir-build:initial --build-arg BASE="onnxmlirczar/onnx-mlir-llvmimage:$TRAVIS_CPU_ARCH"  -f ./docker/$TRAVIS_CPU_ARCH.Dockerfile ./docker;
     fi
   - docker run -itd --name build onnx-mlir-build:initial
   - echo "docker is running now"
