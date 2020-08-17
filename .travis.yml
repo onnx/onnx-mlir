@@ -13,7 +13,7 @@ env:
 script:
   - export CPU_ARCH=$TRAVIS_CPU_ARCH
   - if [ "$CPU_ARCH" == "amd64" ] ; then
-      export CPU_ARCH="x86"
+      export CPU_ARCH="x86";
     fi
   - echo "CPU Architecture is " $CPU_ARCH
   - echo "commit is " $TRAVIS_COMMIT
