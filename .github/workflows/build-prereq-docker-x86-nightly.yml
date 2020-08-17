@@ -1,14 +1,14 @@
-name: build-docker-prereq-x86-nightly
+name: Build x86 LLVM-Nightly Prereq Image
 
 on: 
+  # Allow manually triggering rebuild.
   workflow_dispatch:
+  # Run every week (on Sunday). 
   schedule:
-    # * is a special character in YAML so you have to quote this string
     - cron:  '0 0 * * SUN'
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  build-llvm-nightly-x86-prereq-container:
+  build-x86-llvm-nightly-prereq-img:
     runs-on: ubuntu-latest
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -20,7 +20,7 @@ jobs:
         # Swaps utils/clone-mlir for a different shell script that clones the latest version of llvm/mlir.
         mv $GITHUB_WORKSPACE/utils/clone-mlir.sh $GITHUB_WORKSPACE/utils/clone-mlir-backup.sh
         cp $GITHUB_WORKSPACE/utils/clone-mlir-master.sh $GITHUB_WORKSPACE/utils/clone-mlir.sh
-        # Build docker image for x86 arch, with the latest llvm/mlir & publish it.
+        # Build docker image for x86 arch, with the latest llvm/mlir and subsequently publish it.
         docker build --tag onnxmlirczar/onnx-mlir-llvmimage:x86-nightly -f $GITHUB_WORKSPACE/.github/workflows/prereq.Dockerfile $GITHUB_WORKSPACE/utils
         docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN" 
         docker push onnxmlirczar/onnx-mlir-llvmimage:x86-nightly
