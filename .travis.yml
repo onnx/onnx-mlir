@@ -10,8 +10,9 @@ arch:
 env:
   - NIGHTLY=true
   - NIGHTLY=false
-allow_failures:
-  - env: NIGHTLY=true
+jobs:
+  allow_failures:
+    - env: NIGHTLY=true
 script:
   - export CPU_ARCH=$TRAVIS_CPU_ARCH
   - if [ "$CPU_ARCH" == "amd64" ] ; then
