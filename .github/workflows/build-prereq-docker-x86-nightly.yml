@@ -2,8 +2,6 @@ name: build-docker-prereq-x86-nightly
 
 on: 
   workflow_dispatch:
-  pull_request:
-    branches: [ master ]
   schedule:
     # * is a special character in YAML so you have to quote this string
     - cron:  '0 0 * * SUN'
@@ -19,7 +17,10 @@ jobs:
       env:
         DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
       run: |
+        # Swaps utils/clone-mlir for a different shell script that clones the latest version of llvm/mlir.
+        mv $GITHUB_WORKSPACE/utils/clone-mlir.sh $GITHUB_WORKSPACE/utils/clone-mlir-backup.sh
+        cp $GITHUB_WORKSPACE/utils/clone-mlir-master.sh $GITHUB_WORKSPACE/utils/clone-mlir.sh
         # Build docker image for x86 arch, with the latest llvm/mlir & publish it.
-        docker build --tag onnxmlirczar/onnx-mlir-llvmimage:x86 -f $GITHUB_WORKSPACE/.github/workflows/prereq.Dockerfile $GITHUB_WORKSPACE/utils
+        docker build --tag onnxmlirczar/onnx-mlir-llvmimage:x86-nightly -f $GITHUB_WORKSPACE/.github/workflows/prereq.Dockerfile $GITHUB_WORKSPACE/utils
         docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN" 
-        docker push onnxmlirczar/onnx-mlir-llvmimage:x86
+        docker push onnxmlirczar/onnx-mlir-llvmimage:x86-nightly
