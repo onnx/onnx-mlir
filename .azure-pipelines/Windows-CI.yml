@@ -29,7 +29,7 @@ jobs:
       cd ..
       pip install -e onnx-mlir\third_party\onnx
       cd onnx-mlir\build
-      set RUNTIME_DIR=%cd%\lib
+      set RUNTIME_DIR=%cd%\lib\Debug
       cmake --build . --target check-onnx-backend
       IF NOT %ERRORLEVEL% EQU 0 (
           @echo "End-To-End Tests failed."
