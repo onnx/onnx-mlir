@@ -23,7 +23,7 @@ struct RtMemRef;
 typedef struct RtMemRef RtMemRef;
 
 struct RtMemRefList;
-typedef struct RtMemRefList OrderedRtMemRefDict;
+typedef struct RtMemRefList RtMemRefList;
 
 #ifdef __cplusplus
 extern "C" {
