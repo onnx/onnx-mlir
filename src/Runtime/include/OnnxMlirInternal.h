@@ -14,7 +14,7 @@
 #include <vector>
 
 /* ================ External C/C++ API call declaration ================ */
-#include "RtMemRef.h"
+#include "OnnxMlir.h"
 
 /* ================ Internal C++ API call declaration ================ */
 

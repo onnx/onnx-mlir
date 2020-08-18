@@ -7,7 +7,7 @@ add_subdirectory(jni)
 add_library(cruntime STATIC
         RtMemRef.cpp
         RtMemRef.hpp
-        include/RtMemRef.h)
+        include/OnnxMlir.h)
 set_target_properties(cruntime PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 target_include_directories(cruntime PRIVATE
@@ -58,6 +58,6 @@ set_target_properties(EmbeddedDataLoader PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 
 add_dependencies(PyRuntime cruntime)
-install(FILES include/RtMemRef.h DESTINATION include)
+install(FILES include/OnnxMlir.h DESTINATION include)
 install(TARGETS cruntime DESTINATION lib)
 install(TARGETS EmbeddedDataLoader DESTINATION lib)
