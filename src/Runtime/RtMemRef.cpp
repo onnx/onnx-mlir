@@ -23,7 +23,7 @@
 #endif
 
 // clang-format off
-#include "_RtMemRef.h"
+#include "OnnxMlirInternal.h"
 #include "DataType.h"
 #include "RtMemRef.hpp"
 // clang-format on

@@ -18,7 +18,7 @@ add_library(RtMemRefUtils
         RtMemRef.cpp
         RtMemRef.hpp
         DataType.h
-        include/_RtMemRef.h)
+        include/OnnxMlirInternal.h)
 set_target_properties(RtMemRefUtils PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 target_compile_definitions(RtMemRefUtils PRIVATE RTMEMREF_INTERNAL_API)

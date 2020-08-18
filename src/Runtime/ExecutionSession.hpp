@@ -15,7 +15,7 @@
 #include <dlfcn.h>
 #include <string>
 
-#include "_RtMemRef.h"
+#include "OnnxMlirInternal.h"
 
 namespace onnx_mlir {
 
