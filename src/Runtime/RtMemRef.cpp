@@ -149,7 +149,7 @@ int rmrListGetNumRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs.size(); }
 
 /* RtMemRef creator with data sizes and element type  */
 template <typename T>
-RtMemRef *rmr_createWithDataSizes(vector<INDEX_TYPE> dataSizes) {
+RtMemRef *rmrCreateWithShape(vector<INDEX_TYPE> dataSizes) {
   /* Create a RtMemRef with data sizes and strides allocated */
   auto rmr = rmrCreate(dataSizes.size());
   if (rmr == NULL)
@@ -190,7 +190,7 @@ RtMemRef *rmr_createWithDataSizes(vector<INDEX_TYPE> dataSizes) {
 
 /* RtMemRef creator with data sizes, element type and random data */
 template <typename T>
-RtMemRef *rmr_createWithRandomData(
+RtMemRef *rmrCreateWithRandomData(
     vector<INDEX_TYPE> dataSizes, T lbound, T ubound) {
   // Will be used to obtain a seed for the random number engine
   random_device rd;
@@ -198,7 +198,7 @@ RtMemRef *rmr_createWithRandomData(
   mt19937 gen(rd());
   uniform_real_distribution<> dis(lbound, ubound);
 
-  auto rmr = rmr_createWithDataSizes<T>(dataSizes);
+  auto rmr = rmrCreateWithShape<T>(dataSizes);
   if (rmr == NULL)
     return NULL;
 
@@ -209,38 +209,38 @@ RtMemRef *rmr_createWithRandomData(
 }
 
 /* RtMemRef aligned data getter */
-void *rmr_getAlignedData(RtMemRef *rmr) { return rmr->_alignedData; }
+void *rmrGetAlignedData(RtMemRef *rmr) { return rmr->_alignedData; }
 
 /* RtMemRef aligned data setter */
-void rmr_setAlignedData(RtMemRef *rmr, void *alignedData) {
+void rmrSetAlignedData(RtMemRef *rmr, void *alignedData) {
   rmr->_alignedData = alignedData;
 }
 
 /* Access an element (by reference) at offset computed by index array */
 template <typename T>
-T &rmr_getElemByOffset(RtMemRef *rmr, std::vector<INDEX_TYPE> indexes) {
-  INDEX_TYPE elemOffset = rmr_computeElemOffset(rmr, indexes);
+T &rmrGetElem(RtMemRef *rmr, std::vector<INDEX_TYPE> indexes) {
+  INDEX_TYPE elemOffset = rmrComputeElemOffset(rmr, indexes);
   return ((T *)rmr->_data)[elemOffset];
 }
 
 /* Access an element (by reference) at linear offset */
 template <typename T>
-T &rmr_getElemByIndex(RtMemRef *rmr, INDEX_TYPE index) {
+T &rmrGetElemByOffset(RtMemRef *rmr, INDEX_TYPE index) {
   return ((T *)rmr->_data)[index];
 }
 
 /* Compute strides vector from sizes vector */
-vector<int64_t> rmr_computeStridesFromSizes(RtMemRef *rmr) {
+vector<int64_t> rmrComputeStridesFromShape(RtMemRef *rmr) {
   return computeStridesFromSizes(rmr->_dataSizes, rmr->_rank);
 }
 
 /* Compute linear element offset from multi-dimensional index array */
-INDEX_TYPE rmr_computeElemOffset(RtMemRef *rmr, vector<INDEX_TYPE> &indexes) {
+INDEX_TYPE rmrComputeElemOffset(RtMemRef *rmr, vector<INDEX_TYPE> &indexes) {
   return computeElemOffset(rmr->_dataStrides, rmr->_rank, indexes);
 }
 
 /* Compute index set for the whole RtMemRef */
-vector<vector<INDEX_TYPE>> rmr_computeIndexSet(RtMemRef *rmr) {
+vector<vector<INDEX_TYPE>> rmrComputeIndexSet(RtMemRef *rmr) {
   // First, we create index set of each dimension separately.
   // i.e., for a tensor/RMR of shape (2, 3), its dimWiseIdxSet will be:
   // {{0,1}, {0,1,2}};
@@ -258,7 +258,7 @@ vector<vector<INDEX_TYPE>> rmr_computeIndexSet(RtMemRef *rmr) {
 
 /* Check whether two RtMemRef data are "close" to each other */
 template <typename T>
-inline bool rmr_areTwoRmrsClose(
+inline bool rmrAreTwoRmrsClose(
     RtMemRef *a, RtMemRef *b, float rtol, float atol) {
 
   // Compare shape.
@@ -294,9 +294,9 @@ inline bool rmr_areTwoRmrsClose(
   } else {
     // Figure out where and what went wrong, this can be slow; but hopefully we
     // don't need this often.
-    for (const auto &idx : rmr_computeIndexSet(a)) {
-      T aElem = rmr_getElemByOffset<T>(a, idx);
-      T bElem = rmr_getElemByOffset<T>(b, idx);
+    for (const auto &idx : rmrComputeIndexSet(a)) {
+      T aElem = rmrGetElem<T>(a, idx);
+      T bElem = rmrGetElem<T>(b, idx);
       auto elmAbsDiff = abs(aElem - bElem);
       auto withinRtol = (elmAbsDiff / aElem < rtol);
       auto withinAtol = (elmAbsDiff < atol);
@@ -318,10 +318,10 @@ inline bool rmr_areTwoRmrsClose(
 /*---------------------------------------------------- */
 
 /* Create an empty RtMemRefList so RtMemRef can be added one by one. */
-RtMemRefList *rmr_list_create(void) { return new RtMemRefList(); }
+RtMemRefList *rmrListCreate(void) { return new RtMemRefList(); }
 
 /* Return RtMemRef at specified index in the RtMemRefList */
-RtMemRef *rmr_list_getRmrByIndex(RtMemRefList *ormrd, int index) {
+RtMemRef *rmrListGetRmrByIndex(RtMemRefList *ormrd, int index) {
   assert(index >= 0);
   return index < ormrd->_rmrs.size() ? ormrd->_rmrs[index] : NULL;
 }
@@ -332,7 +332,7 @@ RtMemRef *rmr_list_getRmrByIndex(RtMemRefList *ormrd, int index) {
  * - attempting to set RtMemRef at the same index more than once is a bug
  * - attempting to set RtMemRef with a name that already exists is a bug
  */
-void rmr_list_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index) {
+void rmrListSetRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index) {
   if (index < ormrd->_rmrs.size())
     assert(index >= 0 && ormrd->_rmrs[index] == NULL);
   else
@@ -347,7 +347,7 @@ void rmr_list_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index) {
 }
 
 /* Return RtMemRef of specified name in the RtMemRefList */
-RtMemRef *rmr_list_getRmrByName(RtMemRefList *ormrd, string name) {
+RtMemRef *rmrListGetRmrByName(RtMemRefList *ormrd, string name) {
   return ormrd->_n2imap[name] ? ormrd->_rmrs[ormrd->_n2imap[name]] : NULL;
 }
 
@@ -355,30 +355,30 @@ RtMemRef *rmr_list_getRmrByName(RtMemRefList *ormrd, string name) {
  * include them in the library
  */
 static void __dummy_donot_call__(void) {
-  rmr_createWithDataSizes<int32_t>(vector<INDEX_TYPE>{});
-  rmr_createWithDataSizes<int64_t>(vector<INDEX_TYPE>{});
-  rmr_createWithDataSizes<float>(vector<INDEX_TYPE>{});
-  rmr_createWithDataSizes<double>(vector<INDEX_TYPE>{});
+  rmrCreateWithShape<int32_t>(vector<INDEX_TYPE>{});
+  rmrCreateWithShape<int64_t>(vector<INDEX_TYPE>{});
+  rmrCreateWithShape<float>(vector<INDEX_TYPE>{});
+  rmrCreateWithShape<double>(vector<INDEX_TYPE>{});
 
-  rmr_createWithRandomData<int32_t>(vector<INDEX_TYPE>{});
-  rmr_createWithRandomData<int64_t>(vector<INDEX_TYPE>{});
-  rmr_createWithRandomData<float>(vector<INDEX_TYPE>{});
-  rmr_createWithRandomData<double>(vector<INDEX_TYPE>{});
+  rmrCreateWithRandomData<int32_t>(vector<INDEX_TYPE>{});
+  rmrCreateWithRandomData<int64_t>(vector<INDEX_TYPE>{});
+  rmrCreateWithRandomData<float>(vector<INDEX_TYPE>{});
+  rmrCreateWithRandomData<double>(vector<INDEX_TYPE>{});
 
-  rmr_getElemByOffset<int32_t>(NULL, vector<INDEX_TYPE>{});
-  rmr_getElemByOffset<int64_t>(NULL, vector<INDEX_TYPE>{});
-  rmr_getElemByOffset<float>(NULL, vector<INDEX_TYPE>{});
-  rmr_getElemByOffset<double>(NULL, vector<INDEX_TYPE>{});
+  rmrGetElem<int32_t>(NULL, vector<INDEX_TYPE>{});
+  rmrGetElem<int64_t>(NULL, vector<INDEX_TYPE>{});
+  rmrGetElem<float>(NULL, vector<INDEX_TYPE>{});
+  rmrGetElem<double>(NULL, vector<INDEX_TYPE>{});
 
-  rmr_getElemByIndex<int32_t>(NULL, 0);
-  rmr_getElemByIndex<int64_t>(NULL, 0);
-  rmr_getElemByIndex<float>(NULL, 0);
-  rmr_getElemByIndex<double>(NULL, 0);
+  rmrGetElemByOffset<int32_t>(NULL, 0);
+  rmrGetElemByOffset<int64_t>(NULL, 0);
+  rmrGetElemByOffset<float>(NULL, 0);
+  rmrGetElemByOffset<double>(NULL, 0);
 
-  rmr_areTwoRmrsClose<int32_t>(NULL, NULL);
-  rmr_areTwoRmrsClose<int64_t>(NULL, NULL);
-  rmr_areTwoRmrsClose<float>(NULL, NULL);
-  rmr_areTwoRmrsClose<double>(NULL, NULL);
+  rmrAreTwoRmrsClose<int32_t>(NULL, NULL);
+  rmrAreTwoRmrsClose<int64_t>(NULL, NULL);
+  rmrAreTwoRmrsClose<float>(NULL, NULL);
+  rmrAreTwoRmrsClose<double>(NULL, NULL);
 }
 
 #endif

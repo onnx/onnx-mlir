@@ -45,9 +45,9 @@ ExecutionSession::ExecutionSession(
 std::vector<std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>>
 ExecutionSession::run(
     std::vector<std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>> ins) {
-  auto *wrappedInput = rmr_list_create();
+  auto *wrappedInput = rmrListCreate();
   for (size_t i = 0; i < ins.size(); i++)
-    rmr_list_setRmrByIndex(wrappedInput, ins.at(i).get(), i);
+    rmrListSetRmrByIndex(wrappedInput, ins.at(i).get(), i);
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
@@ -55,7 +55,7 @@ ExecutionSession::run(
 
   for (size_t i = 0; i < rmrListGetNumRmrs(wrappedOutput); i++) {
     outs.emplace_back(std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>(
-        rmr_list_getRmrByIndex(wrappedOutput, i), rmrDestroy));
+        rmrListGetRmrByIndex(wrappedOutput, i), rmrDestroy));
   }
   return std::move(outs);
 }

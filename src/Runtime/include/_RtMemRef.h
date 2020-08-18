@@ -32,7 +32,7 @@
  * data fields initialized to proper values and data pointers malloc'ed.
  */
 template <typename T>
-RtMemRef *rmr_createWithDataSizes(std::vector<INDEX_TYPE> dataSizes);
+RtMemRef *rmrCreateWithShape(std::vector<INDEX_TYPE> dataSizes);
 
 /**
  * RtMemRef creator with data sizes, element type and random data
@@ -42,12 +42,12 @@ RtMemRef *rmr_createWithDataSizes(std::vector<INDEX_TYPE> dataSizes);
  * @param ubound (optional), upper bound of the random distribution
  * @return pointer to RtMemRef created, NULL if creation failed.
  *
- * Create a full RtMemRef like what rmr_createWithDataSizes does
+ * Create a full RtMemRef like what rmrCreateWithShape does
  * and also fill the RtMemRef data buffer with randomly generated
  * real numbers from a uniform distribution between lbound and ubound.
  */
 template <typename T>
-RtMemRef *rmr_createWithRandomData(
+RtMemRef *rmrCreateWithRandomData(
     std::vector<INDEX_TYPE> dataSizes, T lbound = -1.0, T ubound = 1.0);
 
 /**
@@ -57,7 +57,7 @@ RtMemRef *rmr_createWithRandomData(
  * @return pointer to the aligned data buffer of the RtMemRef,
  *         NULL if the aligned data buffer is not set.
  */
-void *rmr_getAlignedData(RtMemRef *rmr);
+void *rmrGetAlignedData(RtMemRef *rmr);
 
 /**
  * RtMemRef aligned data setter
@@ -67,7 +67,7 @@ void *rmr_getAlignedData(RtMemRef *rmr);
  *
  * Set the aligned data buffer pointer of the RtMemRef.
  */
-void rmr_setAlignedData(RtMemRef *rmr, void *alignedData);
+void rmrSetAlignedData(RtMemRef *rmr, void *alignedData);
 
 /**
  * RtMemRef data element getter by offset
@@ -77,7 +77,7 @@ void rmr_setAlignedData(RtMemRef *rmr, void *alignedData);
  * @return typed element by reference at the offset computed by the index array.
  */
 template <typename T>
-T &rmr_getElemByOffset(RtMemRef *rmr, std::vector<INDEX_TYPE> indexes);
+T &rmrGetElem(RtMemRef *rmr, std::vector<INDEX_TYPE> indexes);
 
 /**
  * RtMemRef data element getter by index
@@ -87,7 +87,7 @@ T &rmr_getElemByOffset(RtMemRef *rmr, std::vector<INDEX_TYPE> indexes);
  * @return typed element by reference at the linear offset.
  */
 template <typename T>
-T &rmr_getElemByIndex(RtMemRef *rmr, INDEX_TYPE index);
+T &rmrGetElemByOffset(RtMemRef *rmr, INDEX_TYPE index);
 
 /**
  * RtMemRef strides computation
@@ -95,7 +95,7 @@ T &rmr_getElemByIndex(RtMemRef *rmr, INDEX_TYPE index);
  * @param rmr, pointer to the RtMemRef
  * @return data strides of the RtMemRef computed from the data sizes.
  */
-std::vector<int64_t> rmr_computeStridesFromSizes(RtMemRef *rmr);
+std::vector<int64_t> rmrComputeStridesFromShape(RtMemRef *rmr);
 
 /**
  * RtMemRef linear offset computation
@@ -104,7 +104,7 @@ std::vector<int64_t> rmr_computeStridesFromSizes(RtMemRef *rmr);
  * @param indexes, multi-dimensional index array
  * @return linear offset.
  */
-INDEX_TYPE rmr_computeElemOffset(
+INDEX_TYPE rmrComputeElemOffset(
     RtMemRef *rmr, std::vector<INDEX_TYPE> &indexes);
 
 /**
@@ -115,7 +115,7 @@ INDEX_TYPE rmr_computeElemOffset(
  *         that can be used to access this RtMemRef's constituent elements)
  *         for the whole RtMemRef.
  */
-std::vector<std::vector<INDEX_TYPE>> rmr_computeIndexSet(RtMemRef *rmr);
+std::vector<std::vector<INDEX_TYPE>> rmrComputeIndexSet(RtMemRef *rmr);
 
 /**
  * RtMemRef "distance" computation
@@ -128,7 +128,7 @@ std::vector<std::vector<INDEX_TYPE>> rmr_computeIndexSet(RtMemRef *rmr);
  *         specified tolerance, respectively, false otherwise.
  */
 template <typename T>
-bool rmr_areTwoRmrsClose(
+bool rmrAreTwoRmrsClose(
     RtMemRef *a, RtMemRef *b, float rtol = 1e-5, float atol = 1e-5);
 
 /*---------------------------------------------------- */
@@ -140,7 +140,7 @@ bool rmr_areTwoRmrsClose(
  *
  * @return pointer to an empty RtMemRefList, NULL if creation failed.
  */
-RtMemRefList *rmr_list_create(void);
+RtMemRefList *rmrListCreate(void);
 
 /**
  * RtMemRefList RtMemRef getter by index
@@ -149,7 +149,7 @@ RtMemRefList *rmr_list_create(void);
  * @param index, index of the RtMemRef
  * @reutrn pointer to the RtMemRef, NULL if not found.
  */
-RtMemRef *rmr_list_getRmrByIndex(RtMemRefList *ormrd, int index);
+RtMemRef *rmrListGetRmrByIndex(RtMemRefList *ormrd, int index);
 
 /**
  * RtMemRefList RtMemRef setter by index
@@ -160,7 +160,7 @@ RtMemRef *rmr_list_getRmrByIndex(RtMemRefList *ormrd, int index);
  *
  * Set the RtMemRef pointer in the array of RtMemRef points at index.
  */
-void rmr_list_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index);
+void rmrListSetRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index);
 
 /**
  * RtMemRefList RtMemRef getter by name
@@ -169,4 +169,4 @@ void rmr_list_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index);
  * @param name, name of the RtMemRef
  * @return pointer to the RtMemRef, NULL if not found.
  */
-RtMemRef *rmr_list_getRmrByName(RtMemRefList *ormrd, std::string name);
+RtMemRef *rmrListGetRmrByName(RtMemRefList *ormrd, std::string name);

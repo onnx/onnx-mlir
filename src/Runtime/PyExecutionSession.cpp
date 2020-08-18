@@ -19,7 +19,7 @@ namespace onnx_mlir {
 std::vector<py::array> PyExecutionSession::pyRun(
     std::vector<py::array> inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");
-  auto *wrappedInput = rmr_list_create();
+  auto *wrappedInput = rmrListCreate();
   int inputIdx = 0;
   for (auto inputPyArray : inputsPyArray) {
     auto *inputRtMemRef = rmrCreate(inputPyArray.ndim());
@@ -28,25 +28,25 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
     if (inputPyArray.writeable()) {
       rmrSetData(inputRtMemRef, inputPyArray.mutable_data());
-      rmr_setAlignedData(inputRtMemRef, inputPyArray.mutable_data());
+      rmrSetAlignedData(inputRtMemRef, inputPyArray.mutable_data());
     } else {
       // If data is not writable, copy them to a writable buffer.
       auto *copiedData = (float *)malloc(inputPyArray.nbytes());
       memcpy(copiedData, inputPyArray.data(), inputPyArray.nbytes());
       rmrSetData(inputRtMemRef, copiedData);
-      rmr_setAlignedData(inputRtMemRef, copiedData);
+      rmrSetAlignedData(inputRtMemRef, copiedData);
     }
 
     rmrSetDataShape(inputRtMemRef, (INDEX_TYPE *)inputPyArray.shape());
     rmrSetDataStrides(inputRtMemRef, (int64_t *)inputPyArray.strides());
 
-    rmr_list_setRmrByIndex(wrappedInput, inputRtMemRef, inputIdx++);
+    rmrListSetRmrByIndex(wrappedInput, inputRtMemRef, inputIdx++);
   }
 
   std::vector<py::array> outputPyArrays;
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
   for (int i = 0; i < rmrListGetNumRmrs(wrappedOutput); i++) {
-    auto *rmr = rmr_list_getRmrByIndex(wrappedOutput, i);
+    auto *rmr = rmrListGetRmrByIndex(wrappedOutput, i);
     auto shape = std::vector<int64_t>(
         rmrGetDataShape(rmr), rmrGetDataShape(rmr) + rmrGetRank(rmr));
 
