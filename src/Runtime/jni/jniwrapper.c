@@ -85,7 +85,7 @@
   } while (0)
 
 /* Model shared library entry point */
-extern OrderedRtMemRefDict *_dyn_entry_point_main_graph(OrderedRtMemRefDict *);
+extern RtMemRefList *_dyn_entry_point_main_graph(RtMemRefList *);
 
 /* Java classes and methods needed for making various JNI API calls */
 typedef struct {
@@ -93,7 +93,7 @@ typedef struct {
   jclass long_cls;   /* java/lang/Long class                       */
   jclass string_cls; /* java/lang/String class                     */
   jclass rmr_cls;    /* com/ibm/onnxmlir/RtMemRef class            */
-  jclass ormrd_cls;  /* com/ibm/onnxmlir/OrderedRtMemRefDict class */
+  jclass ormrd_cls;  /* com/ibm/onnxmlir/RtMemRefList class */
 
   jmethodID rmr_constructor;       /* RtMemRef constructor              */
   jmethodID rmr_getData;           /* RtMemRef getData method           */
@@ -110,15 +110,15 @@ typedef struct {
   jmethodID rmr_setName;           /* RtMemRef setName method           */
   jmethodID rmr_getNumOfElems;     /* RtMemRef getNumOfElems method     */
 
-  jmethodID ormrd_constructor; /* OrderedRtMemRefDict constructor    */
-  jmethodID ormrd_getRmrs;     /* OrderedRtMemRefDict getRmrs method */
+  jmethodID ormrd_constructor; /* RtMemRefList constructor    */
+  jmethodID ormrd_getRmrs;     /* RtMemRefList getRmrs method */
 } jniapi_t;
 
 jniapi_t jniapi;
 
 /* Fill in struct jniapi */
 jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
-  /* Get Java Exception, Long, String, RtMemRef, and OrderedRtMemRefDict classes
+  /* Get Java Exception, Long, String, RtMemRef, and RtMemRefList classes
    */
   JNI_VAR_CALL(
       env, japi->ecpt_cls, (*env)->FindClass(env, "java/lang/Exception"));
@@ -128,7 +128,7 @@ jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
   JNI_VAR_CALL(
       env, japi->rmr_cls, (*env)->FindClass(env, "com/ibm/onnxmlir/RtMemRef"));
   JNI_VAR_CALL(env, japi->ormrd_cls,
-      (*env)->FindClass(env, "com/ibm/onnxmlir/OrderedRtMemRefDict"));
+      (*env)->FindClass(env, "com/ibm/onnxmlir/RtMemRefList"));
 
   /* Get method ID of constructor and various methods in RtMemRef */
   JNI_VAR_CALL(env, japi->rmr_constructor,
@@ -164,7 +164,7 @@ jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
   JNI_VAR_CALL(env, japi->rmr_getNumOfElems,
       (*env)->GetMethodID(env, japi->rmr_cls, "getNumOfElems", "()J"));
 
-  /* Get method ID of constructor and various methods in OrderedRtMemRefDict */
+  /* Get method ID of constructor and various methods in RtMemRefList */
   JNI_VAR_CALL(env, japi->ormrd_constructor,
       (*env)->GetMethodID(
           env, japi->ormrd_cls, "<init>", "([Lcom/ibm/onnxmlir/RtMemRef;)V"));
@@ -176,10 +176,10 @@ jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
 }
 
 /* Convert Java object to native data structure */
-OrderedRtMemRefDict *ormrd_java_to_native(
+RtMemRefList *ormrd_java_to_native(
     JNIEnv *env, jclass cls, jobject obj, jniapi_t *japi) {
 
-  /* Get RtMemRef array Java object in OrderedRtMemRefDict */
+  /* Get RtMemRef array Java object in RtMemRefList */
   JNI_TYPE_VAR_CALL(env, jobjectArray, ormrd_rmrs,
       (*env)->CallObjectMethod(env, obj, japi->ormrd_getRmrs));
 
@@ -262,10 +262,10 @@ OrderedRtMemRefDict *ormrd_java_to_native(
     JNI_CALL(env, (*env)->ReleaseStringUTFChars(env, rmr_name, jni_name));
   }
 
-  /* Create OrderedRtMemRefDict to be constructed and passed to the
+  /* Create RtMemRefList to be constructed and passed to the
    * model shared library
    */
-  LIB_TYPE_VAR_CALL(OrderedRtMemRefDict *, ormrd,
+  LIB_TYPE_VAR_CALL(RtMemRefList *, ormrd,
       ormrd_create(jni_rmrs, ormrd_nrmr), NULL, env, japi->ecpt_cls,
       "ormrd=null");
 
@@ -274,12 +274,12 @@ OrderedRtMemRefDict *ormrd_java_to_native(
 
 /* Convert native data structure to Java object */
 jobject ormrd_native_to_java(
-    JNIEnv *env, jclass cls, OrderedRtMemRefDict *dict, jniapi_t *japi) {
+    JNIEnv *env, jclass cls, RtMemRefList *dict, jniapi_t *japi) {
 
-  /* Get the RtMemRef array in the OrderedRtMemRefDict */
+  /* Get the RtMemRef array in the RtMemRefList */
   LIB_TYPE_VAR_CALL(RtMemRef **, jni_rmrs, ormrd_getRmrs(dict), NULL, env,
       japi->ecpt_cls, "jni_rmrs=null");
-  /* Get the number of RtMemRefs in the OrderedRtMemRefDict */
+  /* Get the number of RtMemRefs in the RtMemRefList */
   LIB_TYPE_VAR_CALL(int, jni_nrmr, ormrd_getNumOfRmrs(dict), 0, env,
       japi->ecpt_cls, "jni_nrmr=0");
 
@@ -358,7 +358,7 @@ jobject ormrd_native_to_java(
     JNI_CALL(env, (*env)->SetObjectArrayElement(env, obj_rmrs, i, obj_rmr));
   }
 
-  /* Create the OrderedRtMemRefDict java object */
+  /* Create the RtMemRefList java object */
   JNI_TYPE_VAR_CALL(env, jobject, ormrd,
       (*env)->NewObject(
           env, japi->ormrd_cls, japi->ormrd_constructor, obj_rmrs));
@@ -370,10 +370,10 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_DynEntryPoint_main_1graph_1jni(
     JNIEnv *env, jclass cls, jobject obj) {
   CHECK_CALL(jniapi_t *, japi, fill_jniapi(env, &jniapi), NULL);
 
-  CHECK_CALL(OrderedRtMemRefDict *, input_ormrd,
+  CHECK_CALL(RtMemRefList *, input_ormrd,
       ormrd_java_to_native(env, cls, obj, japi), NULL);
 
-  CHECK_CALL(OrderedRtMemRefDict *, dict,
+  CHECK_CALL(RtMemRefList *, dict,
       _dyn_entry_point_main_graph(input_ormrd), NULL);
 
   CHECK_CALL(

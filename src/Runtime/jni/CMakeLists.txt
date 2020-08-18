@@ -7,7 +7,7 @@ if(Java_Development_FOUND AND JNI_FOUND)
   # Target for Java runtime jar
   add_jar(javaruntime
           src/com/ibm/onnxmlir/DynEntryPoint.java
-	  src/com/ibm/onnxmlir/OrderedRtMemRefDict.java
+	      src/com/ibm/onnxmlir/RtMemRefList.java
           src/com/ibm/onnxmlir/RtMemRef.java
           OUTPUT_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 
