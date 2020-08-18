@@ -14,56 +14,16 @@
 #include <string>
 
 enum RTMEMREF_DATA_TYPE {
-  ONNX_TYPE_UNDEFINED = 0,
-  // Basic types.
-  ONNX_TYPE_FLOAT = 1,  // float
-  ONNX_TYPE_UINT8 = 2,  // uint8_t
-  ONNX_TYPE_INT8 = 3,   // int8_t
-  ONNX_TYPE_UINT16 = 4, // uint16_t
-  ONNX_TYPE_INT16 = 5,  // int16_t
-  ONNX_TYPE_INT32 = 6,  // int32_t
-  ONNX_TYPE_INT64 = 7,  // int64_t
-  ONNX_TYPE_STRING = 8, // string
-  ONNX_TYPE_BOOL = 9,   // bool
-
-  // IEEE754 half-precision floating-point format (16 bits wide).
-  // This format has 1 sign bit, 5 exponent bits, and 10 mantissa bits.
-  ONNX_TYPE_FLOAT16 = 10,
-
-  ONNX_TYPE_DOUBLE = 11, // double
-  ONNX_TYPE_UINT32 = 12, // uint32_t
-  ONNX_TYPE_UINT64 = 13, // uint64_t
-  ONNX_TYPE_COMPLEX64 =
-      14, // complex with float32 real and imaginary components
-  ONNX_TYPE_COMPLEX128 =
-      15, // complex with float64 real and imaginary components
-
-  // Non-IEEE floating-point format based on IEEE754 single-precision
-  // floating-point number truncated to 16 bits.
-  // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
-  ONNX_TYPE_BFLOAT16 = 16,
-
-  // Future extensions go here.
+#define OM_TYPE_METADATA_DEF(ENUM_NAME, ENUM_VAL, DTYPE_SIZE)                  \
+  ENUM_NAME = ENUM_VAL,
+#include "DataTypeMetaData.h"
+#undef OM_TYPE_METADATA_DEF
 };
 
 const int RTMEMREF_DATA_TYPE_SIZE[] = {
-    0,                // UNDEFINED
-    sizeof(float),    // FLOAT
-    sizeof(uint8_t),  // UINT8
-    sizeof(int8_t),   // INT8
-    sizeof(uint16_t), // UINT16
-    sizeof(int16_t),  // INT16
-    sizeof(int32_t),  // INT32
-    sizeof(int64_t),  // INT64
-    0,                // STRING
-    sizeof(bool),     // BOOL
-    2,                // FLOAT16
-    sizeof(double),   // DOUBLE
-    sizeof(uint32_t), // UINT32
-    sizeof(uint64_t), // UINT64
-    8,                // COMPLEX64
-    16,               // COMPLEX128
-    2,                // BFLOAT16
+#define OM_TYPE_METADATA_DEF(ENUM_NAME, ENUM_VAL, DTYPE_SIZE) DTYPE_SIZE,
+#include "DataTypeMetaData.h"
+#undef OM_TYPE_METADATA_DEF
 };
 
 // Note by design const map has no [] operator since [] creates a default
