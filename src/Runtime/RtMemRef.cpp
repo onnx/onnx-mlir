@@ -37,11 +37,13 @@ using namespace std;
 /*----------------------------- */
 
 /* RtMemRef creator */
-RtMemRef *rmrCreate(int rank) {
+RtMemRef *rmrCreate(int rank, char *name, bool owningData) {
   try {
-    return new RtMemRef(rank);
+    auto *rmr = new RtMemRef(rank);
+    rmr->_name = name;
+    rmr->_owningData = owningData;
   } catch (const runtime_error &e) {
-    return NULL;
+    return nullptr;
   }
 }
 
@@ -53,13 +55,9 @@ void *rmrGetData(RtMemRef *rmr) { return rmr->_data; }
 
 /* RtMemRef data setter */
 void rmrSetData(RtMemRef *rmr, void *data) {
-  /* If we allocated the data buffer, free it first.
-   * Once this is done, caller will be responsible for
-   * managing the data buffer.
-   */
+  /* If we allocated the data buffer, free it first. */
   if (rmr->_owningData) {
     free(rmr->_data);
-    rmr->_owningData = false;
   }
   rmr->_data = data;
 }
