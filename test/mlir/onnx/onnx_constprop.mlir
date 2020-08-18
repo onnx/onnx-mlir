@@ -227,3 +227,47 @@ func @test_default_transpose_const_3() -> tensor<*xi32> {
   // CHECK: [[RES:%.+]] =  "onnx.Constant"() {value = dense<[{{.}}[111, 112, 113, 114], [211, 212, 213, 214]{{.}}, [{{.}}121, 122, 123, 124], [221, 222, 223, 224]{{.}}, [{{.}}131, 132, 133, 134], [231, 232, 233, 234]{{.}}]> : tensor<3x2x4xi32>} : () -> tensor<3x2x4xi32>
   // CHECK: return [[RES]] : tensor<3x2x4xi32>
 }
+
+//===----------------------------------------------------------------------===//
+/// Div tests
+
+// -----
+
+// CHECK-LABEL: @test_div(%arg0: tensor<3x2xf32>) -> tensor<3x2xf32>
+func @test_div(%arg0: tensor<3x2xf32>) -> tensor<3x2xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[2.0, 4.0], [6.0, 8.0], [10.0, 12.0]]> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
+  %1 = "onnx.Constant"() {value = dense<[[2.0]]> : tensor<1x1xf32>} : () -> tensor<1x1xf32>
+  %2 = "onnx.Div"(%0, %1) : (tensor<3x2xf32>, tensor<1x1xf32>) -> tensor<3x2xf32>
+  "std.return"(%2) : (tensor<3x2xf32>) -> ()
+  // CHECK: {{.*}} = "onnx.Constant"() {value = dense<{{\[}}[1.000000e+00, 2.000000e+00], [3.000000e+00, 4.000000e+00], [5.000000e+00, 6.000000e+00]{{\]}}> : tensor<3x2xf32>} : () -> tensor<3x2xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+}
+
+//===----------------------------------------------------------------------===//
+/// Sqrt tests
+
+// -----
+
+// CHECK-LABEL: @test_sqrt() -> tensor<1x2xf32>
+func @test_sqrt() -> tensor<1x2xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[4.0, 16.0]]> : tensor<1x2xf32>} : () -> tensor<1x2xf32>
+  %1 = "onnx.Sqrt"(%0) : (tensor<1x2xf32>) -> tensor<1x2xf32>
+  "std.return"(%1) : (tensor<1x2xf32>) -> ()
+  // CHECK: {{.*}} = "onnx.Constant"() {value = dense<{{\[}}[2.000000e+00, 4.000000e+00]{{\]}}> : tensor<1x2xf32>} : () -> tensor<1x2xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Sqrt"{{.*}}
+}
+
+//===----------------------------------------------------------------------===//
+/// Unsqueeze tests
+
+// -----
+
+// CHECK-LABEL: @test_unsqueeze() -> tensor<2x1x1xf32>
+func @test_unsqueeze() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[4.0, 16.0]> : tensor<2xf32>} : () -> tensor<2xf32>
+  %1 = "onnx.Unsqueeze"(%0) {axes = [1, 2]} : (tensor<2xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+  // CHECK: {{.*}} = "onnx.Constant"() {value = dense<{{\[}}{{\[}}[4.000000e+00]{{\]}}, {{\[}}[1.600000e+01]{{\]}}{{\]}}> : tensor<2x1x1xf32>} : () -> tensor<2x1x1xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+}
+
