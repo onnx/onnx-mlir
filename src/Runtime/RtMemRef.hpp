@@ -93,9 +93,7 @@ struct RtMemRefList {
    * Create an RtMemRefList with specified RtMemRef pointer array
    * and the size of the array
    */
-  RtMemRefList(RtMemRef *rmrs[], int n) {
-    _rmrs.assign(&rmrs[0], &rmrs[n]);
-  };
+  RtMemRefList(RtMemRef *rmrs[], int n) { _rmrs.assign(&rmrs[0], &rmrs[n]); };
 
 #ifdef RTMEMREF_INTERNAL_API
   /**
@@ -122,7 +120,7 @@ struct RtMemRefList {
    * that can be quickly returned as an array. A name to index map is used
    * to address ReMemRefs by name.
    */
-  std::vector<RtMemRef *> _rmrs;      /* RtMemRef vector   */
+  std::vector<RtMemRef *> _rmrs; /* RtMemRef vector   */
 };
 
 /*------------------------------------------------------- */
