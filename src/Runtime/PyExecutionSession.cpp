@@ -27,18 +27,18 @@ std::vector<py::array> PyExecutionSession::pyRun(
            "Expect contiguous python array.");
 
     if (inputPyArray.writeable()) {
-        rmrSetData(inputRtMemRef, inputPyArray.mutable_data());
+      rmrSetData(inputRtMemRef, inputPyArray.mutable_data());
       rmr_setAlignedData(inputRtMemRef, inputPyArray.mutable_data());
     } else {
       // If data is not writable, copy them to a writable buffer.
       auto *copiedData = (float *)malloc(inputPyArray.nbytes());
       memcpy(copiedData, inputPyArray.data(), inputPyArray.nbytes());
-        rmrSetData(inputRtMemRef, copiedData);
+      rmrSetData(inputRtMemRef, copiedData);
       rmr_setAlignedData(inputRtMemRef, copiedData);
     }
 
-      rmrSetDataShape(inputRtMemRef, (INDEX_TYPE *) inputPyArray.shape());
-      rmrSetDataStrides(inputRtMemRef, (int64_t *) inputPyArray.strides());
+    rmrSetDataShape(inputRtMemRef, (INDEX_TYPE *)inputPyArray.shape());
+    rmrSetDataStrides(inputRtMemRef, (int64_t *)inputPyArray.strides());
 
     rmr_list_setRmrByIndex(wrappedInput, inputRtMemRef, inputIdx++);
   }
@@ -48,7 +48,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
   for (int i = 0; i < rmrListGetNumRmrs(wrappedOutput); i++) {
     auto *rmr = rmr_list_getRmrByIndex(wrappedOutput, i);
     auto shape = std::vector<int64_t>(
-            rmrGetDataShape(rmr), rmrGetDataShape(rmr) + rmrGetRank(rmr));
+        rmrGetDataShape(rmr), rmrGetDataShape(rmr) + rmrGetRank(rmr));
 
     // https://numpy.org/devdocs/user/basics.types.html
     py::dtype dtype;
