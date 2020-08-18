@@ -37,16 +37,27 @@ extern "C" {
  * RtMemRef creator
  *
  * @param rank, rank of the data sizes and strides
+ * @return pointer to RtMemRef created, NULL if creation failed.
+ *
+ * Create a RtMemRef with specified rank. Memory for data sizes and
+ * strides are allocated.
+ */
+RtMemRef *rmrCreate(int rank);
+
+/**
+ * RtMemRef creator
+ *
+ * @param rank, rank of the data sizes and strides
  * @param name, (optional) name of the tensor
  * @param owningData, whether the rmr owns the underlying data, if true, data
  * pointer will be released when the corresponding rmr gets released or goes out
- * of scope .
+ * of scope.
  * @return pointer to RtMemRef created, NULL if creation failed.
  *
- * Create Create a RtMemRef with specified rank. Memory for data sizes and
- * strides are allocated.
+ * Create a RtMemRef with specified rank, name and data ownership. Memory for
+ * data sizes and strides are allocated.
  */
-RtMemRef *rmrCreate(int rank, char *name = NULL, bool owningData = true);
+RtMemRef *rmrCreateWithNameAndOwnership(int rank, char *name, bool owningData);
 
 /**
  * RtMemRef destroyer

@@ -37,11 +37,21 @@ using namespace std;
 /*----------------------------- */
 
 /* RtMemRef creator */
-RtMemRef *rmrCreate(int rank, char *name, bool owningData) {
+RtMemRef *rmrCreate(int rank) {
+  try {
+    auto *rmr = new RtMemRef(rank);
+    rmr->_owningData = true;
+  } catch (const runtime_error &e) {
+    return nullptr;
+  }
+}
+
+/* More detailed RtMemRef creator */
+RtMemRef *rmrCreateWithNameAndOwnership(int rank, char *name, bool ownership) {
   try {
     auto *rmr = new RtMemRef(rank);
     rmr->_name = name;
-    rmr->_owningData = owningData;
+    rmr->_owningData = ownership;
   } catch (const runtime_error &e) {
     return nullptr;
   }
