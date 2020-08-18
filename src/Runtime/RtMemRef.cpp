@@ -271,7 +271,7 @@ inline bool rmr_areTwoRmrsClose(
   }
 
   // Compute absolute difference, verify it's within tolerable range.
-  auto anum = rmr_getNumOfElems(a);
+  auto anum = rmrGetNumOfElems(a);
   vector<T> absoluteDiff(anum);
   transform((T *)a->_data, (T *)a->_data + anum, (T *)b->_data,
       absoluteDiff.begin(), minus<>());
