@@ -252,4 +252,3 @@ module {
 ## Troubleshooting
 
 If the latest LLVM project fails to work due to the latest changes to the MLIR subproject please consider using a slightly older version of LLVM. One such version, which we use, can be found [here](https://github.com/clang-ykt/llvm-project).
-
