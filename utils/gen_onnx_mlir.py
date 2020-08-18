@@ -364,7 +364,8 @@ OpsWithResultTypeInference = {
 # Currenlty, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
-custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSum', 'ReduceSumSquare', 'Pad']
+custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSum', 'ReduceSumSquare',
+                                    'Pad', 'Sqrt', 'Neg', 'Unsqueeze']
 # Custom builder op list for operations with broadcast; we can deduce the right
 # output type, no need to leave it undef as in the above list.
 # Ops must have two operands, not one, not three... And there shall be two.
