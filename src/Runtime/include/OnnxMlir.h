@@ -16,6 +16,7 @@
 #else
 #include <stdint.h>
 #endif
+#include <stdbool.h>
 
 typedef int64_t INDEX_TYPE;
 
