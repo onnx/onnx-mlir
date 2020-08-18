@@ -149,7 +149,7 @@ int rmrListGetNumRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs.size(); }
 template <typename T>
 RtMemRef *rmr_createWithDataSizes(vector<INDEX_TYPE> dataSizes) {
   /* Create a RtMemRef with data sizes and strides allocated */
-  auto rmr = rmr_create(dataSizes.size());
+  auto rmr = rmrCreate(dataSizes.size());
   if (rmr == NULL)
     return NULL;
 
@@ -157,14 +157,14 @@ RtMemRef *rmr_createWithDataSizes(vector<INDEX_TYPE> dataSizes) {
   rmr->_rank = dataSizes.size();
   if ((rmr->_data = malloc(
            getNumOfElems(dataSizes.data(), rmr->_rank) * sizeof(T))) == NULL) {
-    rmr_destroy(rmr);
+    rmrDestroy(rmr);
     return NULL;
   }
 
   rmr->_alignedData = rmr->_data;
   rmr->_offset = 0;
 
-  /* Copy dataSizes, _dataSizes already allocated by rmr_create */
+  /* Copy dataSizes, _dataSizes already allocated by rmrCreate */
   copy(dataSizes.begin(), dataSizes.end(), rmr->_dataSizes);
 
   /* Compute and copy dataStrides, _dataStrides already allocated by rmrCreate
@@ -271,7 +271,7 @@ inline bool rmr_areTwoRmrsClose(
   }
 
   // Compute absolute difference, verify it's within tolerable range.
-  auto anum = rmrGetNumOfElems(a);
+  auto anum = rmrGetNumElems(a);
   vector<T> absoluteDiff(anum);
   transform((T *)a->_data, (T *)a->_data + anum, (T *)b->_data,
       absoluteDiff.begin(), minus<>());
