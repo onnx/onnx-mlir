@@ -3,11 +3,13 @@ services:
 language: cpp
 os:
   - linux
+  - osx
 dist: bionic
 arch:
   - s390x
   - ppc64le
   - amd64
+osx_image: xcode11.6
 env:
   - NIGHTLY=true
   - NIGHTLY=false
