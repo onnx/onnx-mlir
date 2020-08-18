@@ -89,11 +89,11 @@ extern RtMemRefList *_dyn_entry_point_main_graph(RtMemRefList *);
 
 /* Java classes and methods needed for making various JNI API calls */
 typedef struct {
-  jclass ecpt_cls;   /* java/lang/Exception class                  */
-  jclass long_cls;   /* java/lang/Long class                       */
-  jclass string_cls; /* java/lang/String class                     */
-  jclass rmr_cls;    /* com/ibm/onnxmlir/RtMemRef class            */
-  jclass rmr_list_cls;  /* com/ibm/onnxmlir/RtMemRefList class */
+  jclass ecpt_cls;     /* java/lang/Exception class                  */
+  jclass long_cls;     /* java/lang/Long class                       */
+  jclass string_cls;   /* java/lang/String class                     */
+  jclass rmr_cls;      /* com/ibm/onnxmlir/RtMemRef class            */
+  jclass rmr_list_cls; /* com/ibm/onnxmlir/RtMemRefList class */
 
   jmethodID rmr_constructor;       /* RtMemRef constructor              */
   jmethodID rmr_getData;           /* RtMemRef getData method           */
@@ -166,11 +166,11 @@ jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
 
   /* Get method ID of constructor and various methods in RtMemRefList */
   JNI_VAR_CALL(env, japi->rmr_list_constructor,
-      (*env)->GetMethodID(
-          env, japi->rmr_list_cls, "<init>", "([Lcom/ibm/onnxmlir/RtMemRef;)V"));
+      (*env)->GetMethodID(env, japi->rmr_list_cls, "<init>",
+          "([Lcom/ibm/onnxmlir/RtMemRef;)V"));
   JNI_VAR_CALL(env, japi->rmr_list_getRmrs,
-      (*env)->GetMethodID(
-          env, japi->rmr_list_cls, "getRmrs", "()[Lcom/ibm/onnxmlir/RtMemRef;"));
+      (*env)->GetMethodID(env, japi->rmr_list_cls, "getRmrs",
+          "()[Lcom/ibm/onnxmlir/RtMemRef;"));
 
   return japi;
 }
@@ -190,8 +190,9 @@ RtMemRefList *rmr_list_java_to_native(
   /* Allocate memory for holding each Java rmr object and RtMemRef pointers
    * for constructing native RtMemRef array
    */
-  LIB_TYPE_VAR_CALL(jobject *, obj_rmrs, malloc(rmr_list_nrmr * sizeof(jobject)),
-      NULL, env, japi->ecpt_cls, "obj_rmrs=null");
+  LIB_TYPE_VAR_CALL(jobject *, obj_rmrs,
+      malloc(rmr_list_nrmr * sizeof(jobject)), NULL, env, japi->ecpt_cls,
+      "obj_rmrs=null");
   LIB_TYPE_VAR_CALL(RtMemRef **, jni_rmrs,
       malloc(rmr_list_nrmr * sizeof(RtMemRef *)), NULL, env, japi->ecpt_cls,
       "jni_rmrs=null");
@@ -265,8 +266,9 @@ RtMemRefList *rmr_list_java_to_native(
   /* Create RtMemRefList to be constructed and passed to the
    * model shared library
    */
-  LIB_TYPE_VAR_CALL(RtMemRefList *, ormrd, rmr_list_create(jni_rmrs, rmr_list_nrmr),
-      NULL, env, japi->ecpt_cls, "ormrd=null");
+  LIB_TYPE_VAR_CALL(RtMemRefList *, ormrd,
+      rmr_list_create(jni_rmrs, rmr_list_nrmr), NULL, env, japi->ecpt_cls,
+      "ormrd=null");
 
   return ormrd;
 }
@@ -276,10 +278,10 @@ jobject rmr_list_native_to_java(
     JNIEnv *env, jclass cls, RtMemRefList *dict, jniapi_t *japi) {
 
   /* Get the RtMemRef array in the RtMemRefList */
-  LIB_TYPE_VAR_CALL(RtMemRef **, jni_rmrs, rmr_list_getRmrs(dict), NULL, env,
+  LIB_TYPE_VAR_CALL(RtMemRef **, jni_rmrs, rmrListGetRmrs(dict), NULL, env,
       japi->ecpt_cls, "jni_rmrs=null");
   /* Get the number of RtMemRefs in the RtMemRefList */
-  LIB_TYPE_VAR_CALL(int, jni_nrmr, rmr_list_getNumOfRmrs(dict), 0, env,
+  LIB_TYPE_VAR_CALL(int, jni_nrmr, rmrListGetNumOfRmrs(dict), 0, env,
       japi->ecpt_cls, "jni_nrmr=0");
 
   /* Create RtMemRef java object array */
@@ -289,22 +291,22 @@ jobject rmr_list_native_to_java(
   /* Loop through the native RtMemRef structs */
   for (int i = 0; i < jni_nrmr; i++) {
 
-    LIB_TYPE_VAR_CALL(void *, jni_data, rmr_getData(jni_rmrs[i]), NULL, env,
+    LIB_TYPE_VAR_CALL(void *, jni_data, rmrGetData(jni_rmrs[i]), NULL, env,
         japi->ecpt_cls, "rmr[%d]:data=null", i);
-    LIB_TYPE_VAR_CALL(long *, jni_dataSizes, rmr_getDataSizes(jni_rmrs[i]),
-        NULL, env, japi->ecpt_cls, "rmr[%d]:dataSizes=null", i);
-    LIB_TYPE_VAR_CALL(long *, jni_dataStrides, rmr_getDataStrides(jni_rmrs[i]),
+    LIB_TYPE_VAR_CALL(long *, jni_dataSizes, rmrGetDataSizes(jni_rmrs[i]), NULL,
+        env, japi->ecpt_cls, "rmr[%d]:dataSizes=null", i);
+    LIB_TYPE_VAR_CALL(long *, jni_dataStrides, rmrGetDataStrides(jni_rmrs[i]),
         NULL, env, japi->ecpt_cls, "rmr[%d]:dataStrides=null", i);
-    LIB_TYPE_VAR_CALL(int, jni_dataType, rmr_getDataType(jni_rmrs[i]), 0, env,
+    LIB_TYPE_VAR_CALL(int, jni_dataType, rmrGetDataType(jni_rmrs[i]), 0, env,
         japi->ecpt_cls, "rmr[%d]:dataType=0", i);
     LIB_TYPE_VAR_CALL(long, jni_dataBufferSize,
         rmr_getDataBufferSize(jni_rmrs[i]), 0, env, japi->ecpt_cls,
         "rmr[%ld]:dataBufferSize=0", i);
-    LIB_TYPE_VAR_CALL(int, jni_rank, rmr_getRank(jni_rmrs[i]), 0, env,
+    LIB_TYPE_VAR_CALL(int, jni_rank, rmrGetRank(jni_rmrs[i]), 0, env,
         japi->ecpt_cls, "rmr[%d]:rank=0", i);
-    LIB_TYPE_VAR_CALL(char *, jni_name, rmr_getName(jni_rmrs[i]), NULL, env,
+    LIB_TYPE_VAR_CALL(char *, jni_name, rmrGetName(jni_rmrs[i]), NULL, env,
         japi->ecpt_cls, "rmr[%d]:name=null", i);
-    LIB_TYPE_VAR_CALL(long, jni_numOfElems, rmr_getNumOfElems(jni_rmrs[i]), 0,
+    LIB_TYPE_VAR_CALL(long, jni_numOfElems, rmrGetNumOfElems(jni_rmrs[i]), 0,
         env, japi->ecpt_cls, "rmr[%d]:numOfElems=0", i);
 
     /* Print debug info on what we got from the native side */
@@ -375,8 +377,8 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_DynEntryPoint_main_1graph_1jni(
   CHECK_CALL(
       RtMemRefList *, dict, _dyn_entry_point_main_graph(input_ormrd), NULL);
 
-  CHECK_CALL(
-      jobject, output_ormrd, rmr_list_native_to_java(env, cls, dict, japi), NULL);
+  CHECK_CALL(jobject, output_ormrd,
+      rmr_list_native_to_java(env, cls, dict, japi), NULL);
 
   return output_ormrd;
 }
