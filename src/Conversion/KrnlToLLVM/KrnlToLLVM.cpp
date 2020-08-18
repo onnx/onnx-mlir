@@ -10,6 +10,7 @@
 
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
+#include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -879,6 +880,7 @@ void ConvertKrlnToLLVMPass::runOnOperation() {
   OwningRewritePatternList patterns;
   populateAffineToStdConversionPatterns(patterns, &getContext());
   populateLoopToStdConversionPatterns(patterns, &getContext());
+  populateShapeToStandardConversionPatterns(patterns, &getContext());
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
