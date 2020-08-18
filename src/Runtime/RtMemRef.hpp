@@ -125,7 +125,7 @@ struct RtMemRefList {
     /* Destroy all the RtMemRefs */
     for (int i = 0; i < _rmrs.size(); i++)
       if (_rmrs[i])
-          rmrDestroy(_rmrs[i]);
+        rmrDestroy(_rmrs[i]);
   };
 
   /* To facilitate user facing API getRmrs, RtMemRefs are kept in a vector

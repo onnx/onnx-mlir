@@ -55,7 +55,7 @@ ExecutionSession::run(
 
   for (size_t i = 0; i < rmrListGetNumRmrs(wrappedOutput); i++) {
     outs.emplace_back(std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>(
-            rmr_list_getRmrByIndex(wrappedOutput, i), rmrDestroy));
+        rmr_list_getRmrByIndex(wrappedOutput, i), rmrDestroy));
   }
   return std::move(outs);
 }

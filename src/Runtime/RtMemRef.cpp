@@ -132,7 +132,9 @@ RtMemRefList *rmrListCreate(RtMemRef **rmrs, int n) {
 void rmrListDestroy(RtMemRefList *ormrd) { delete ormrd; }
 
 /* RtMemRefList RtMemRef array getter */
-RtMemRef **rmrListGetPtrToRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs.data(); }
+RtMemRef **rmrListGetPtrToRmrs(RtMemRefList *ormrd) {
+  return ormrd->_rmrs.data();
+}
 
 /* RtMemRefList number of RtMemRef getter */
 int rmrListGetNumRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs.size(); }
