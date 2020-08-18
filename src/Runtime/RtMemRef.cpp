@@ -329,9 +329,9 @@ inline bool rmrAreTwoRmrsClose(
 RtMemRefList *rmrListCreate(void) { return new RtMemRefList(); }
 
 /* Return RtMemRef at specified index in the RtMemRefList */
-RtMemRef *rmrListGetRmrByIndex(RtMemRefList *ormrd, int index) {
+RtMemRef *rmrListGetRmrByIndex(RtMemRefList *rlist, int index) {
   assert(index >= 0);
-  return index < ormrd->_rmrs.size() ? ormrd->_rmrs[index] : NULL;
+  return index < rlist->_rmrs.size() ? rlist->_rmrs[index] : NULL;
 }
 
 /* Set RtMemRef at specified index in the RtMemRefList
@@ -340,23 +340,20 @@ RtMemRef *rmrListGetRmrByIndex(RtMemRefList *ormrd, int index) {
  * - attempting to set RtMemRef at the same index more than once is a bug
  * - attempting to set RtMemRef with a name that already exists is a bug
  */
-void rmrListSetRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index) {
-  if (index < ormrd->_rmrs.size())
-    assert(index >= 0 && ormrd->_rmrs[index] == NULL);
+void rmrListSetRmrByIndex(RtMemRefList *rlist, RtMemRef *rmr, int index) {
+  if (index < rlist->_rmrs.size())
+    assert(index >= 0 && rlist->_rmrs[index] == NULL);
   else
-    ormrd->_rmrs.resize(index + 1);
-
-  /* if the RtMemRef has a name, try to create the name to index mapping */
-  if (!rmr->_name.empty()) {
-    auto ret = ormrd->_n2imap.insert({rmr->_name, index});
-    assert(ret.second == true && "duplicate RtMemRef name");
-  }
-  ormrd->_rmrs[index] = rmr;
+    rlist->_rmrs.resize(index + 1);
+  rlist->_rmrs[index] = rmr;
 }
 
 /* Return RtMemRef of specified name in the RtMemRefList */
-RtMemRef *rmrListGetRmrByName(RtMemRefList *ormrd, string name) {
-  return ormrd->_n2imap[name] ? ormrd->_rmrs[ormrd->_n2imap[name]] : NULL;
+RtMemRef *rmrListGetRmrByName(RtMemRefList *rlist, string name) {
+  for (int i = 0; i < rlist->_rmrs.size(); i++)
+    if (rlist->_rmrs[i]->_name == name)
+      return rlist->_rmrs[i];
+    return NULL;
 }
 
 /* Force the compiler to instantiate the template functions and
