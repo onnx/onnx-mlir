@@ -265,9 +265,8 @@ RtMemRefList *ormrd_java_to_native(
   /* Create RtMemRefList to be constructed and passed to the
    * model shared library
    */
-  LIB_TYPE_VAR_CALL(RtMemRefList *, ormrd,
-      ormrd_create(jni_rmrs, ormrd_nrmr), NULL, env, japi->ecpt_cls,
-      "ormrd=null");
+  LIB_TYPE_VAR_CALL(RtMemRefList *, ormrd, ormrd_create(jni_rmrs, ormrd_nrmr),
+      NULL, env, japi->ecpt_cls, "ormrd=null");
 
   return ormrd;
 }
@@ -373,8 +372,8 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_DynEntryPoint_main_1graph_1jni(
   CHECK_CALL(RtMemRefList *, input_ormrd,
       ormrd_java_to_native(env, cls, obj, japi), NULL);
 
-  CHECK_CALL(RtMemRefList *, dict,
-      _dyn_entry_point_main_graph(input_ormrd), NULL);
+  CHECK_CALL(
+      RtMemRefList *, dict, _dyn_entry_point_main_graph(input_ormrd), NULL);
 
   CHECK_CALL(
       jobject, output_ormrd, ormrd_native_to_java(env, cls, dict, japi), NULL);
