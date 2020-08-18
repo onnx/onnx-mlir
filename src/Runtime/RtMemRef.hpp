@@ -95,16 +95,6 @@ struct RtMemRefList {
    */
   RtMemRefList(RtMemRef *rmrs[], int n) {
     _rmrs.assign(&rmrs[0], &rmrs[n]);
-
-    /* Go through the RtMemRef array and create name (if not empty) to index
-     * mapping */
-    for (int i = 0; i < n; i++) {
-      if (!_rmrs[i]->_name.empty() &&
-          _n2imap.insert({_rmrs[i]->_name, i}).second == false) {
-        throw std::invalid_argument("RtMemRef[" + std::to_string(i) +
-                                    "] duplicate name: " + _rmrs[i]->_name);
-      }
-    }
   };
 
 #ifdef RTMEMREF_INTERNAL_API
@@ -133,7 +123,6 @@ struct RtMemRefList {
    * to address ReMemRefs by name.
    */
   std::vector<RtMemRef *> _rmrs;      /* RtMemRef vector   */
-  std::map<std::string, int> _n2imap; /* name to index map */
 };
 
 /*------------------------------------------------------- */
