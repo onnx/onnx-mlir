@@ -262,8 +262,9 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
 
-  llvm::WriteBitcodeToFile(
-      *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
+  llvm::LLVMContext llvmContext;
+  llvm::WriteBitcodeToFile(*mlir::translateModuleToLLVMIR(*module, llvmContext),
+      moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
