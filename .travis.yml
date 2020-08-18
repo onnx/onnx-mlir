@@ -1,7 +1,8 @@
-sudo: required
 services:
   - docker
 language: cpp
+os:
+  - linux
 dist: bionic
 arch:
   - s390x
