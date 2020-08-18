@@ -353,7 +353,7 @@ RtMemRef *rmrListGetRmrByName(RtMemRefList *rlist, string name) {
   for (int i = 0; i < rlist->_rmrs.size(); i++)
     if (rlist->_rmrs[i]->_name == name)
       return rlist->_rmrs[i];
-    return NULL;
+  return NULL;
 }
 
 /* Force the compiler to instantiate the template functions and
