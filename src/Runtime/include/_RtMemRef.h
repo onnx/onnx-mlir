@@ -140,7 +140,7 @@ bool rmr_areTwoRmrsClose(
  *
  * @return pointer to an empty RtMemRefList, NULL if creation failed.
  */
-RtMemRefList *ormrd_create(void);
+RtMemRefList *rmr_list_create(void);
 
 /**
  * RtMemRefList RtMemRef getter by index
@@ -149,7 +149,7 @@ RtMemRefList *ormrd_create(void);
  * @param index, index of the RtMemRef
  * @reutrn pointer to the RtMemRef, NULL if not found.
  */
-RtMemRef *ormrd_getRmrByIndex(RtMemRefList *ormrd, int index);
+RtMemRef *rmr_list_getRmrByIndex(RtMemRefList *ormrd, int index);
 
 /**
  * RtMemRefList RtMemRef setter by index
@@ -160,7 +160,7 @@ RtMemRef *ormrd_getRmrByIndex(RtMemRefList *ormrd, int index);
  *
  * Set the RtMemRef pointer in the array of RtMemRef points at index.
  */
-void ormrd_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index);
+void rmr_list_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index);
 
 /**
  * RtMemRefList RtMemRef getter by name
@@ -169,4 +169,4 @@ void ormrd_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index);
  * @param name, name of the RtMemRef
  * @return pointer to the RtMemRef, NULL if not found.
  */
-RtMemRef *ormrd_getRmrByName(RtMemRefList *ormrd, std::string name);
+RtMemRef *rmr_list_getRmrByName(RtMemRefList *ormrd, std::string name);

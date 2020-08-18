@@ -93,12 +93,12 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   onnx_mlir::ExecutionSession sess(
       SHARED_LIB_BASE + ".so", "_dyn_entry_point_main_graph");
 
-  std::vector<unique_ptr<RtMemRef, decltype(&rmr_destroy)>> inputs;
-  auto xRmr = unique_ptr<RtMemRef, decltype(&rmr_destroy)>(
-      rmr_createWithRandomData<float>({N, C, H, W}), rmr_destroy);
+  std::vector<unique_ptr<RtMemRef, decltype(&rmrDestroy)>> inputs;
+  auto xRmr = unique_ptr<RtMemRef, decltype(&rmrDestroy)>(
+          rmr_createWithRandomData<float>({N, C, H, W}), rmrDestroy);
   inputs.emplace_back(move(xRmr));
-  auto wRmr = unique_ptr<RtMemRef, decltype(&rmr_destroy)>(
-      rmr_createWithRandomData<float>({C, C, kH, kW}), rmr_destroy);
+  auto wRmr = unique_ptr<RtMemRef, decltype(&rmrDestroy)>(
+          rmr_createWithRandomData<float>({C, C, kH, kW}), rmrDestroy);
   inputs.emplace_back(move(wRmr));
 
   auto ref = rmr_createWithDataSizes<float>({NOut, COut, HOut, WOut});

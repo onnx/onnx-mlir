@@ -605,15 +605,15 @@ private:
     // specifying its signature.
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
-        ApiSpec(API::CREATE_ORDERED_RTMEMREF_DICT, "ormrd_create", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
-        ApiSpec(API::CREATE_RTMEMREF, "rmr_create", opaquePtrTy, {int32Ty}),
-        ApiSpec(API::GET_DATA, "rmr_getData", opaquePtrTy, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA, "rmr_setData", voidTy, {opaquePtrTy, opaquePtrTy}),
-        ApiSpec(API::GET_DATA_SIZES, "rmr_getDataSizes", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_DATA_STRIDES, "rmr_getDataStrides", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_DATA_TYPE, "rmr_getDataType", int32Ty, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA_TYPE, "rmr_setDataType", voidTy, {opaquePtrTy, int32Ty}),
-        ApiSpec(API::GET_RMRS, "ormrd_getRmrs", opaquePtrPtrTy, {opaquePtrTy}),
+        ApiSpec(API::CREATE_ORDERED_RTMEMREF_DICT, "rmrListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
+        ApiSpec(API::CREATE_RTMEMREF, "rmrCreate", opaquePtrTy, {int32Ty}),
+        ApiSpec(API::GET_DATA, "rmrGetData", opaquePtrTy, {opaquePtrTy}),
+        ApiSpec(API::SET_DATA, "rmrSetData", voidTy, {opaquePtrTy, opaquePtrTy}),
+        ApiSpec(API::GET_DATA_SIZES, "rmrGetDataShape", int64PtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_DATA_STRIDES, "rmrGetDataStrides", int64PtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_DATA_TYPE, "rmrGetDataType", int32Ty, {opaquePtrTy}),
+        ApiSpec(API::SET_DATA_TYPE, "rmrSetDataType", voidTy, {opaquePtrTy, int32Ty}),
+        ApiSpec(API::GET_RMRS, "rmrListGetPtrToRmrs", opaquePtrPtrTy, {opaquePtrTy}),
     };
     // clang-format on
 

@@ -37,7 +37,7 @@ using namespace std;
 /*----------------------------- */
 
 /* RtMemRef creator */
-RtMemRef *rmr_create(int rank) {
+RtMemRef *rmrCreate(int rank) {
   try {
     return new RtMemRef(rank);
   } catch (const runtime_error &e) {
@@ -46,13 +46,13 @@ RtMemRef *rmr_create(int rank) {
 }
 
 /* RtMemRef destroyer */
-void rmr_destroy(RtMemRef *rmr) { delete rmr; }
+void rmrDestroy(RtMemRef *rmr) { delete rmr; }
 
 /* RtMemRef data getter */
-void *rmr_getData(RtMemRef *rmr) { return rmr->_data; }
+void *rmrGetData(RtMemRef *rmr) { return rmr->_data; }
 
 /* RtMemRef data setter */
-void rmr_setData(RtMemRef *rmr, void *data) {
+void rmrSetData(RtMemRef *rmr, void *data) {
   /* If we allocated the data buffer, free it first.
    * Once this is done, caller will be responsible for
    * managing the data buffer.
@@ -65,28 +65,28 @@ void rmr_setData(RtMemRef *rmr, void *data) {
 }
 
 /* RtMemRef data sizes getter */
-INDEX_TYPE *rmr_getDataSizes(RtMemRef *rmr) { return rmr->_dataSizes; }
+INDEX_TYPE *rmrGetDataShape(RtMemRef *rmr) { return rmr->_dataSizes; }
 
 /* RtMemRef data sizes setter */
-void rmr_setDataSizes(RtMemRef *rmr, INDEX_TYPE *dataSizes) {
+void rmrSetDataShape(RtMemRef *rmr, INDEX_TYPE *dataSizes) {
   for (int i = 0; i < rmr->_rank; i++)
     rmr->_dataSizes[i] = dataSizes[i];
 }
 
 /* RtMemRef data strides getter */
-int64_t *rmr_getDataStrides(RtMemRef *rmr) { return rmr->_dataStrides; }
+int64_t *rmrGetDataStrides(RtMemRef *rmr) { return rmr->_dataStrides; }
 
 /* RtMemRef data strides setter */
-void rmr_setDataStrides(RtMemRef *rmr, int64_t *dataStrides) {
+void rmrSetDataStrides(RtMemRef *rmr, int64_t *dataStrides) {
   for (int i = 0; i < rmr->_rank; i++)
     rmr->_dataStrides[i] = dataStrides[i];
 }
 
 /* RtMemRef data type getter */
-int rmr_getDataType(RtMemRef *rmr) { return rmr->_dataType; }
+int rmrGetDataType(RtMemRef *rmr) { return rmr->_dataType; }
 
 /* RtMemRef data type setter */
-void rmr_setDataType(RtMemRef *rmr, int dataType) {
+void rmrSetDataType(RtMemRef *rmr, int dataType) {
   rmr->_dataType =
       dataType < 0 || dataType >= sizeof(RTMEMREF_DATA_TYPE_SIZE) / sizeof(int)
           ? ONNX_TYPE_UNDEFINED
@@ -94,24 +94,24 @@ void rmr_setDataType(RtMemRef *rmr, int dataType) {
 }
 
 /* RtMemRef data buffer size getter */
-int64_t rmr_getDataBufferSize(RtMemRef *rmr) {
+int64_t rmrGetDataBufferSize(RtMemRef *rmr) {
   return getNumOfElems(rmr->_dataSizes, rmr->_rank) *
          getDataTypeSize(rmr->_dataType);
 }
 
 /* RtMemRef rank getter */
-int rmr_getRank(RtMemRef *rmr) { return rmr->_rank; }
+int rmrGetRank(RtMemRef *rmr) { return rmr->_rank; }
 
 /* RtMemRef name getter */
-char *rmr_getName(RtMemRef *rmr) { return (char *)rmr->_name.c_str(); }
+char *rmrGetName(RtMemRef *rmr) { return (char *)rmr->_name.c_str(); }
 
 /* RtMemRef name setter */
-void rmr_setName(RtMemRef *rmr, char *name) {
+void rmrSetName(RtMemRef *rmr, char *name) {
   rmr->_name = name ? string(name) : "";
 }
 
 /* RtMemRef number of elements getter */
-INDEX_TYPE rmr_getNumOfElems(RtMemRef *rmr) {
+INDEX_TYPE rmrGetNumElems(RtMemRef *rmr) {
   return getNumOfElems(rmr->_dataSizes, rmr->_rank);
 }
 
@@ -120,7 +120,7 @@ INDEX_TYPE rmr_getNumOfElems(RtMemRef *rmr) {
 /*---------------------------------------- */
 
 /* RtMemRefList creator */
-RtMemRefList *ormrd_create(RtMemRef *rmrs[], int n) {
+RtMemRefList *rmrListCreate(RtMemRef **rmrs, int n) {
   try {
     return new RtMemRefList(rmrs, n);
   } catch (const invalid_argument &e) {
@@ -129,13 +129,13 @@ RtMemRefList *ormrd_create(RtMemRef *rmrs[], int n) {
 }
 
 /* RtMemRefList destroyer */
-void ormrd_destroy(RtMemRefList *ormrd) { delete ormrd; }
+void rmrListDestroy(RtMemRefList *ormrd) { delete ormrd; }
 
 /* RtMemRefList RtMemRef array getter */
-RtMemRef **ormrd_getRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs.data(); }
+RtMemRef **rmrListGetPtrToRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs.data(); }
 
 /* RtMemRefList number of RtMemRef getter */
-int ormrd_getNumOfRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs.size(); }
+int rmrListGetNumRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs.size(); }
 
 /* ================ Internal C++ API call implementation ================ */
 
@@ -167,7 +167,7 @@ RtMemRef *rmr_createWithDataSizes(vector<INDEX_TYPE> dataSizes) {
   /* Copy dataSizes, _dataSizes already allocated by rmr_create */
   copy(dataSizes.begin(), dataSizes.end(), rmr->_dataSizes);
 
-  /* Compute and copy dataStrides, _dataStrides already allocated by rmr_create
+  /* Compute and copy dataStrides, _dataStrides already allocated by rmrCreate
    */
   auto computedStrides = computeStridesFromSizes(rmr->_dataSizes, rmr->_rank);
   copy(computedStrides.begin(), computedStrides.end(), rmr->_dataStrides);
@@ -316,10 +316,10 @@ inline bool rmr_areTwoRmrsClose(
 /*---------------------------------------------------- */
 
 /* Create an empty RtMemRefList so RtMemRef can be added one by one. */
-RtMemRefList *ormrd_create(void) { return new RtMemRefList(); }
+RtMemRefList *rmr_list_create(void) { return new RtMemRefList(); }
 
 /* Return RtMemRef at specified index in the RtMemRefList */
-RtMemRef *ormrd_getRmrByIndex(RtMemRefList *ormrd, int index) {
+RtMemRef *rmr_list_getRmrByIndex(RtMemRefList *ormrd, int index) {
   assert(index >= 0);
   return index < ormrd->_rmrs.size() ? ormrd->_rmrs[index] : NULL;
 }
@@ -330,7 +330,7 @@ RtMemRef *ormrd_getRmrByIndex(RtMemRefList *ormrd, int index) {
  * - attempting to set RtMemRef at the same index more than once is a bug
  * - attempting to set RtMemRef with a name that already exists is a bug
  */
-void ormrd_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index) {
+void rmr_list_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index) {
   if (index < ormrd->_rmrs.size())
     assert(index >= 0 && ormrd->_rmrs[index] == NULL);
   else
@@ -345,7 +345,7 @@ void ormrd_setRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index) {
 }
 
 /* Return RtMemRef of specified name in the RtMemRefList */
-RtMemRef *ormrd_getRmrByName(RtMemRefList *ormrd, string name) {
+RtMemRef *rmr_list_getRmrByName(RtMemRefList *ormrd, string name) {
   return ormrd->_n2imap[name] ? ormrd->_rmrs[ormrd->_n2imap[name]] : NULL;
 }
 

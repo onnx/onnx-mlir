@@ -26,8 +26,8 @@ public:
   ExecutionSession(std::string sharedLibPath, std::string entryPointName);
 
   // Use custom deleter since forward declared RtMemRef hides destructor
-  std::vector<std::unique_ptr<RtMemRef, decltype(&rmr_destroy)>> run(
-      std::vector<std::unique_ptr<RtMemRef, decltype(&rmr_destroy)>>);
+  std::vector<std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>> run(
+      std::vector<std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>>);
 
   ~ExecutionSession();
 

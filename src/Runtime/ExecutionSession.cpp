@@ -42,20 +42,20 @@ ExecutionSession::ExecutionSession(
   }
 }
 
-std::vector<std::unique_ptr<RtMemRef, decltype(&rmr_destroy)>>
+std::vector<std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>>
 ExecutionSession::run(
-    std::vector<std::unique_ptr<RtMemRef, decltype(&rmr_destroy)>> ins) {
-  auto *wrappedInput = ormrd_create();
+    std::vector<std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>> ins) {
+  auto *wrappedInput = rmr_list_create();
   for (size_t i = 0; i < ins.size(); i++)
-    ormrd_setRmrByIndex(wrappedInput, ins.at(i).get(), i);
+    rmr_list_setRmrByIndex(wrappedInput, ins.at(i).get(), i);
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
-  std::vector<std::unique_ptr<RtMemRef, decltype(&rmr_destroy)>> outs;
+  std::vector<std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>> outs;
 
-  for (size_t i = 0; i < ormrd_getNumOfRmrs(wrappedOutput); i++) {
-    outs.emplace_back(std::unique_ptr<RtMemRef, decltype(&rmr_destroy)>(
-        ormrd_getRmrByIndex(wrappedOutput, i), rmr_destroy));
+  for (size_t i = 0; i < rmrListGetNumRmrs(wrappedOutput); i++) {
+    outs.emplace_back(std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>(
+            rmr_list_getRmrByIndex(wrappedOutput, i), rmrDestroy));
   }
   return std::move(outs);
 }

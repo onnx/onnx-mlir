@@ -42,7 +42,7 @@ extern "C" {
  * Create Create a RtMemRef with specified rank. Memory for data sizes and
  * strides are allocated.
  */
-RtMemRef *rmr_create(int rank);
+RtMemRef *rmrCreate(int rank);
 
 /**
  * RtMemRef destroyer
@@ -51,7 +51,7 @@ RtMemRef *rmr_create(int rank);
  *
  * Destroy the RtMemRef struct.
  */
-void rmr_destroy(RtMemRef *rmr);
+void rmrDestroy(RtMemRef *rmr);
 
 /**
  * RtMemRef data getter
@@ -60,7 +60,7 @@ void rmr_destroy(RtMemRef *rmr);
  * @return pointer to the data buffer of the RtMemRef,
  *         NULL if the data buffer is not set.
  */
-void *rmr_getData(RtMemRef *rmr);
+void *rmrGetData(RtMemRef *rmr);
 
 /**
  * RtMemRef data setter
@@ -73,15 +73,15 @@ void *rmr_getData(RtMemRef *rmr);
  * will not free the data buffer. Because we don't know how exactly the
  * data buffer is allocated, e.g., it could have been allocated on the stack.
  */
-void rmr_setData(RtMemRef *rmr, void *data);
+void rmrSetData(RtMemRef *rmr, void *data);
 
 /**
  * RtMemRef data sizes getter
  *
  * @param rmr, pointer to the RtMemRef
- * @return pointer to the data sizes array.
+ * @return pointer to the data shape array.
  */
-INDEX_TYPE *rmr_getDataSizes(RtMemRef *rmr);
+INDEX_TYPE *rmrGetDataShape(RtMemRef *rmr);
 
 /**
  * RtMemRef data sizes setter
@@ -91,7 +91,7 @@ INDEX_TYPE *rmr_getDataSizes(RtMemRef *rmr);
  *
  * Set the data sizes array of the RtMemRef to the values in the input array.
  */
-void rmr_setDataSizes(RtMemRef *rmr, INDEX_TYPE *dataSizes);
+void rmrSetDataShape(RtMemRef *rmr, INDEX_TYPE *dataSizes);
 
 /**
  * RtMemRef data strides getter
@@ -99,7 +99,7 @@ void rmr_setDataSizes(RtMemRef *rmr, INDEX_TYPE *dataSizes);
  * @param rmr, pointer to the RtMemRef
  * @return pointer to the data strides array.
  */
-int64_t *rmr_getDataStrides(RtMemRef *rmr);
+int64_t *rmrGetDataStrides(RtMemRef *rmr);
 
 /**
  * RtMemRef data strides setter
@@ -109,7 +109,7 @@ int64_t *rmr_getDataStrides(RtMemRef *rmr);
  *
  * Set the data strides array of the RtMemRef to the values in the input array.
  */
-void rmr_setDataStrides(RtMemRef *rmr, int64_t *dataStrides);
+void rmrSetDataStrides(RtMemRef *rmr, int64_t *dataStrides);
 
 /**
  * RtMemRef data type getter
@@ -117,7 +117,7 @@ void rmr_setDataStrides(RtMemRef *rmr, int64_t *dataStrides);
  * @param rmr, pointer to the RtMemRef
  * @return ONNX data type of the data buffer elements.
  */
-int rmr_getDataType(RtMemRef *rmr);
+int rmrGetDataType(RtMemRef *rmr);
 
 /**
  * RtMemRef data type setter
@@ -127,7 +127,7 @@ int rmr_getDataType(RtMemRef *rmr);
  *
  * Set the ONNX data type of the data buffer elements.
  */
-void rmr_setDataType(RtMemRef *rmr, int dataType);
+void rmrSetDataType(RtMemRef *rmr, int dataType);
 
 /**
  * RtMemRef data buffer size getter
@@ -135,7 +135,7 @@ void rmr_setDataType(RtMemRef *rmr, int dataType);
  * @param rmr, pointer to the RtMemRef
  * @return the total size of the data buffer in bytes.
  */
-int64_t rmr_getDataBufferSize(RtMemRef *rmr);
+int64_t rmrGetDataBufferSize(RtMemRef *rmr);
 
 /**
  * RtMemRef rank getter
@@ -143,7 +143,7 @@ int64_t rmr_getDataBufferSize(RtMemRef *rmr);
  * @param rmr, pointer to the RtMemRef
  * @return rank of data sizes and strides of the RtMemRef.
  */
-int rmr_getRank(RtMemRef *rmr);
+int rmrGetRank(RtMemRef *rmr);
 
 /**
  * RtMemRef name getter
@@ -152,7 +152,7 @@ int rmr_getRank(RtMemRef *rmr);
  * @return pointer to the name of the RtMemRef,
  *         an empty string if the name is not set.
  */
-char *rmr_getName(RtMemRef *rmr);
+char *rmrGetName(RtMemRef *rmr);
 
 /**
  * RtMemRef name setter
@@ -162,7 +162,7 @@ char *rmr_getName(RtMemRef *rmr);
  *
  * Set the name of the RtMemRef.
  */
-void rmr_setName(RtMemRef *rmr, char *name);
+void rmrSetName(RtMemRef *rmr, char *name);
 
 /**
  * RtMemRef number of elements getter
@@ -170,7 +170,7 @@ void rmr_setName(RtMemRef *rmr, char *name);
  * @param rmr, pointer to the RtMemRef
  * @return the number of elements in the data buffer.
  */
-INDEX_TYPE rmr_getNumOfElems(RtMemRef *rmr);
+INDEX_TYPE rmrGetNumElems(RtMemRef *rmr);
 
 /*---------------------------------------- */
 /* C/C++ API for RtMemRefList calls */
@@ -187,7 +187,7 @@ INDEX_TYPE rmr_getNumOfElems(RtMemRef *rmr);
  * If a RtMemRef has a name, in addition to be accessed by its index,
  * the RtMemRef can also be accessed by its name.
  */
-RtMemRefList *ormrd_create(RtMemRef *rmrs[], int n);
+RtMemRefList *rmrListCreate(RtMemRef **rmrs, int n);
 
 /**
  * RtMemRefList destroyer
@@ -196,7 +196,7 @@ RtMemRefList *ormrd_create(RtMemRef *rmrs[], int n);
  *
  * Destroy the RtMemRefList struct.
  */
-void ormrd_destroy(RtMemRefList *ormrd);
+void rmrListDestroy(RtMemRefList *ormrd);
 
 /**
  * RtMemRefList RtMemRef array getter
@@ -204,7 +204,7 @@ void ormrd_destroy(RtMemRefList *ormrd);
  * @param ormrd, pointer to the RtMemRefList
  * @return pointer to the array of RtMemRef pointers.
  */
-RtMemRef **ormrd_getRmrs(RtMemRefList *ormrd);
+RtMemRef **rmrListGetPtrToRmrs(RtMemRefList *ormrd);
 
 /**
  * RtMemRefList number of RtMemRefs getter
@@ -212,7 +212,7 @@ RtMemRef **ormrd_getRmrs(RtMemRefList *ormrd);
  * @param ormrd, pointer to the RtMemRefList
  * @return number of elements in the RtMemRef array.
  */
-int ormrd_getNumOfRmrs(RtMemRefList *ormrd);
+int rmrListGetNumRmrs(RtMemRefList *ormrd);
 
 #ifdef __cplusplus
 }
