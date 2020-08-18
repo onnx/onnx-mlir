@@ -34,7 +34,7 @@
  * as members of this struct so that they can be accessed and modified easily
  * during runtime.
  *
- * We will refer to it as a RMR (Runtime MemRef).
+ * We will refer to it as a RMF (Runtime MemRef).
  */
 
 struct RtMemRef {
@@ -80,8 +80,8 @@ struct RtMemRef {
   int64_t *_dataStrides;  /* strides array                                 */
   int _dataType;          /* ONNX data type                                */
   int _rank;              /* rank                                          */
-  char *_name;            /* optional name for named access                */
-  int _owningData;        /* if we malloc _data ourselves, destructor will
+  std::string _name;      /* optional name for named access                */
+  bool _owningData;       /* if we malloc _data ourselves, destructor will
                            * free _data, otherwise, if _data is set via setData call,
                            * then free _data is caller's responsibility       */
 };
@@ -93,9 +93,18 @@ struct RtMemRefList {
    * Create an RtMemRefList with specified RtMemRef pointer array
    * and the size of the array
    */
-  RtMemRefList(RtMemRef **rmrs, int n) {
-    _rmrs = rmrs;
-    _n = n;
+  RtMemRefList(RtMemRef *rmrs[], int n) {
+    _rmrs.assign(&rmrs[0], &rmrs[n]);
+
+    /* Go through the RtMemRef array and create name (if not empty) to index
+     * mapping */
+    for (int i = 0; i < n; i++) {
+      if (!_rmrs[i]->_name.empty() &&
+          _n2imap.insert({_rmrs[i]->_name, i}).second == false) {
+        throw std::invalid_argument("RtMemRef[" + std::to_string(i) +
+                                    "] duplicate name: " + _rmrs[i]->_name);
+      }
+    }
   };
 
 #ifdef RTMEMREF_INTERNAL_API
@@ -114,7 +123,7 @@ struct RtMemRefList {
    */
   ~RtMemRefList(void) {
     /* Destroy all the RtMemRefs */
-    for (size_t i = 0; i < _n; i++)
+    for (int i = 0; i < _rmrs.size(); i++)
       if (_rmrs[i])
         rmrDestroy(_rmrs[i]);
   };
@@ -123,8 +132,8 @@ struct RtMemRefList {
    * that can be quickly returned as an array. A name to index map is used
    * to address ReMemRefs by name.
    */
-  RtMemRef **_rmrs; /* RtMemRef vector   */
-  size_t _n;
+  std::vector<RtMemRef *> _rmrs;      /* RtMemRef vector   */
+  std::map<std::string, int> _n2imap; /* name to index map */
 };
 
 /*------------------------------------------------------- */

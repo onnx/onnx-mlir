@@ -103,10 +103,12 @@ int64_t rmrGetDataBufferSize(RtMemRef *rmr) {
 int rmrGetRank(RtMemRef *rmr) { return rmr->_rank; }
 
 /* RtMemRef name getter */
-char *rmrGetName(RtMemRef *rmr) { return rmr->_name; }
+char *rmrGetName(RtMemRef *rmr) { return (char *)rmr->_name.c_str(); }
 
 /* RtMemRef name setter */
-void rmrSetName(RtMemRef *rmr, char *name) { rmr->_name = name; }
+void rmrSetName(RtMemRef *rmr, char *name) {
+  rmr->_name = name ? string(name) : "";
+}
 
 /* RtMemRef number of elements getter */
 INDEX_TYPE rmrGetNumElems(RtMemRef *rmr) {
@@ -130,10 +132,12 @@ RtMemRefList *rmrListCreate(RtMemRef **rmrs, int n) {
 void rmrListDestroy(RtMemRefList *ormrd) { delete ormrd; }
 
 /* RtMemRefList RtMemRef array getter */
-RtMemRef **rmrListGetPtrToRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs; }
+RtMemRef **rmrListGetPtrToRmrs(RtMemRefList *ormrd) {
+  return ormrd->_rmrs.data();
+}
 
 /* RtMemRefList number of RtMemRef getter */
-int rmrListGetNumRmrs(RtMemRefList *ormrd) { return ormrd->_n; }
+int rmrListGetNumRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs.size(); }
 
 /* ================ Internal C++ API call implementation ================ */
 
