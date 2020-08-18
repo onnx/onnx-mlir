@@ -65,7 +65,7 @@ void *rmrGetData(RtMemRef *rmr) { return rmr->_data; }
 
 /* RtMemRef data setter */
 void rmrSetData(RtMemRef *rmr, void *data) {
-  /* If we allocated the data buffer, free it first. */
+  /* If we own the data buffer, free it first. */
   if (rmr->_owningData) {
     free(rmr->_data);
   }

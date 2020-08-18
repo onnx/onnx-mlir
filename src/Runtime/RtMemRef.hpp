@@ -73,7 +73,7 @@ struct RtMemRef {
     free(_dataStrides);
   };
 
-  void *_data; /* data buffer                                              */
+  void *_data;            /* data buffer                                   */
   void *_alignedData;     /* aligned data buffer that the rmr indexes.     */
   INDEX_TYPE _offset;     /* offset of 1st element                         */
   INDEX_TYPE *_dataSizes; /* sizes array                                   */
