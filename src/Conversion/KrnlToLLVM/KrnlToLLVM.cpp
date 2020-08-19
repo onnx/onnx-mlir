@@ -858,7 +858,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(
     LLVMTypeConverter &typeConverter) {
   populateAffineToStdConversionPatterns(patterns, ctx);
   populateLoopToStdConversionPatterns(patterns, ctx);
-  populateShapeToStandardConversionPatterns(patterns, &getContext());
+  populateShapeToStandardConversionPatterns(patterns, ctx);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
