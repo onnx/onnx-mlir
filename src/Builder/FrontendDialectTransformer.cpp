@@ -548,10 +548,14 @@ private:
     llvm::SmallVector<llvm::StringRef, 4> outputNames;
 
     // Import the input tensor types that are not constant and not initialized.
+    int numInputs = 0;
     for (const auto &input : graph.input()) {
       if (!initializedTensors.ContainKey(legalize_name(input.name()))) {
         inputNames.push_back(input.name());
         arg_types.emplace_back(ImportInputTensorType(input));
+        // numInputs is the number of graph inputs not contained within the
+        // initializer
+        ++numInputs;
       }
     }
 
@@ -572,9 +576,7 @@ private:
     // Emit the entry point operation which specifies the number of user
     // inputs and outputs.
     auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
-        /*numInputs=*/graph.input().size() < graph.initializer().size()
-            ? graph.input().size()
-            : graph.input().size() - graph.initializer().size(),
+        /*numInputs=*/numInputs,
         /*numOutputs=*/graph.output().size());
 
     // Get the entru block inside the main function and set the insertion point
