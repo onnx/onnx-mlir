@@ -22,7 +22,7 @@
 #include "onnx/onnx_pb.h"
 #include "llvm/ADT/Sequence.h"
 
-#include "KrnlToLLVM.hpp"
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVM.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"

@@ -11,10 +11,16 @@
 #ifndef KRNL_TO_LLVM_H
 #define KRNL_TO_LLVM_H
 
+#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
+
 namespace mlir {
+
+class LLVMTypeConverter;
+class OwningRewritePatternList;
 
 void populateAffineAndKrnlToLLVMConversion(OwningRewritePatternList &patterns,
     MLIRContext *ctx, LLVMTypeConverter &typeConverter);
+
 } // namespace mlir
 
 #endif // KRNL_TO_LLVM_H
