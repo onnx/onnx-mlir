@@ -42,6 +42,9 @@ bool hasAllScalarValues(ArrayRef<Value> values);
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type);
 
+/// Retrieve function which contains the current operation.
+FuncOp getContainingFunction(Operation *op);
+
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc,
@@ -249,3 +252,14 @@ int64_t getMemRefSizeInBytes(Value val);
 
 Value getDynamicMemRefSizeInBytes(
     MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp);
+
+/// This function returns the index in the list of alloc arguments of the
+/// dynamic dimension corresponding to `index` in the MemRef shape.
+/// As an example:
+///
+/// alloc(%d0, %d1, %d2) : memref<10x?x?x20x?x30xf32>
+///
+/// In the above alloc the list of alloc arguments is being represented by
+/// %d0, %d1 and %d2. Their indices 0, 1, 2 correspond to `index` values
+/// 1, 2 and 4 in the MemRef shape respectively
+int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);

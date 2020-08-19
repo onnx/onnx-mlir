@@ -67,18 +67,11 @@ int main(int argc, char **argv) {
   mlir::registerDialect<mlir::StandardOpsDialect>();
   mlir::registerDialect<mlir::vector::VectorDialect>();
 
-  // Register transformation passes.
-#define GEN_PASS_REGISTRATION
-#include "mlir/Transforms/Passes.h.inc"
-
-#define GEN_PASS_REGISTRATION
-#include "mlir/Dialect/Affine/Passes.h.inc"
-
-#define GEN_PASS_REGISTRATION
-#include "mlir/Dialect/Linalg/Passes.h.inc"
-
-#define GEN_PASS_REGISTRATION
-#include "mlir/Dialect/SCF/Passes.h.inc"
+  registerTransformsPasses();
+  registerAffinePasses();
+  registerLinalgPasses();
+  registerSCFPasses();
+  registerStandardPasses();
 
   llvm::InitLLVM y(argc, argv);
 

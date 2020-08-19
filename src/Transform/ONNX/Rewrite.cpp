@@ -18,6 +18,36 @@ using namespace mlir;
 
 namespace {
 
+// Create a DenseElementsAttr from a float attribute.
+DenseElementsAttr createDenseElementsAttrFromFloatAttr(
+    PatternRewriter &rewriter, Type elementType, FloatAttr attr) {
+  SmallVector<int64_t, 1> dims(1, 1);
+  SmallVector<float, 1> values(1, attr.getValue().convertToFloat());
+  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
+  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+}
+
+// If 'lhs' is not NoneType, return 'lhs - rhs'.
+// Otherwise, return '-rhs'.
+Value subtractOrNeg(
+    PatternRewriter &rewriter, Location loc, Value lhs, Value rhs) {
+  if (lhs.getType().isa<NoneType>()) {
+    Value result = rewriter.create<ONNXNegOp>(loc, rhs);
+    return result;
+  } else {
+    Value result = rewriter.create<ONNXSubOp>(loc, lhs, rhs);
+    return result;
+  }
+}
+
+// Create an ArrayAttr of IntergerAttr(s) of values in [1, N].
+ArrayAttr createArrayAttrOfOneToN(PatternRewriter &rewriter, int N) {
+  SmallVector<int64_t, 4> vals;
+  for (int i = 1; i <= N; ++i)
+    vals.emplace_back(i);
+  return rewriter.getI64ArrayAttr(vals);
+}
+
 // Check whether an ArrayAttr contains non-zero values or not.
 bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
   bool allZeros = true;
@@ -91,4 +121,10 @@ DenseElementsAttr insertZerosForNonPaddedDims(
 void ONNXConvOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<ConvOpPaddingPattern>(context);
+}
+
+/// on the ONNXBatchNormalizationTestModeOp.
+void ONNXBatchNormalizationTestModeOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<FuseBatchNormTestModeConvPattern>(context);
 }

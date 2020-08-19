@@ -47,4 +47,17 @@ add_dependencies(OMBundleMemoryPools
         OMKrnlOps
         OMONNXOps)
 
+add_library(OMDisconnectKrnlDimFromAlloc
+        DisconnectKrnlDimFromAlloc.cpp)
+target_include_directories(OMDisconnectKrnlDimFromAlloc
+        PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+target_link_libraries(OMDisconnectKrnlDimFromAlloc
+        onnx)
+add_dependencies(OMDisconnectKrnlDimFromAlloc
+        OMKrnlOps
+        OMONNXOps)
+
 add_subdirectory(ONNX)
