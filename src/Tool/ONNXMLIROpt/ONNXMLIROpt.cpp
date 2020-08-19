@@ -66,6 +66,7 @@ int main(int argc, char **argv) {
   mlir::registerDialect<mlir::scf::SCFDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();
   mlir::registerDialect<mlir::vector::VectorDialect>();
+  mlir::registerDialect<mlir::shape::ShapeDialect>();
 
   registerTransformsPasses();
   registerAffinePasses();
