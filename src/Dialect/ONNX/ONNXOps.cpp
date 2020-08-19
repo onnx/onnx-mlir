@@ -2810,6 +2810,45 @@ LogicalResult ONNXDropoutOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// OneHotEncoder
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXOneHotEncoderOp::inferShapes() {
+  ShapedType inputType = X().getType().dyn_cast<ShapedType>();
+  if (!inputType)
+    return emitError("Non-shaped input type");
+  auto shape = inputType.getShape();
+  int64_t outDim = 0;
+
+  // If the input is a tensor of float, int32, or double,
+  // the data will be cast to integers and
+  // the cats_int64s category list will be used for the lookups.
+  if (inputType.getElementType().isIntOrFloat()) {
+    if (!cats_int64s())
+      return emitError("input is a tensor of float, int32, or double, but no "
+                       "cats_int64s attribute");
+    outDim = ArrayAttrSize(cats_int64s());
+  } else {
+    if (!cats_strings())
+      return emitError("input is not a tensor of float, int32, or double, but "
+                       "no cats_strings attribute");
+    outDim = ArrayAttrSize(cats_strings());
+  }
+
+  // Encoded output data, having one more dimension than X
+  // total category count will determine the size of the extra dimension
+  SmallVector<int64_t, 2> dims;
+  for (int i = 0; i != shape.size(); ++i) {
+    dims.emplace_back(shape[i]);
+  }
+  dims.emplace_back(outDim);
+
+  getResult().setType(
+      RankedTensorType::get(dims, FloatType::getF32(getContext())));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX type related code
 //===----------------------------------------------------------------------===//
 
