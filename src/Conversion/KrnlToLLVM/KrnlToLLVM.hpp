@@ -15,6 +15,7 @@
 
 namespace mlir {
 
+class MLIRContext;
 class LLVMTypeConverter;
 class OwningRewritePatternList;
 
