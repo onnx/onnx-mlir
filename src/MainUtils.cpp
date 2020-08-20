@@ -262,8 +262,9 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   llvm::raw_fd_ostream moduleBitcodeStream(
       unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
 
-  llvm::WriteBitcodeToFile(
-      *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
+  llvm::LLVMContext llvmContext;
+  llvm::WriteBitcodeToFile(*mlir::translateModuleToLLVMIR(*module, llvmContext),
+      moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
@@ -380,6 +381,7 @@ void registerDialects() {
   mlir::registerDialect<mlir::LLVM::LLVMDialect>();
   mlir::registerDialect<mlir::scf::SCFDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();
+  mlir::registerDialect<mlir::shape::ShapeDialect>();
   mlir::registerDialect<mlir::ONNXOpsDialect>();
   mlir::registerDialect<mlir::KrnlOpsDialect>();
 }
@@ -392,6 +394,11 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createAttributePromotionPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createAttributePromotionPass());
+  // There are more opportunities for const propagation once all tensors have
+  // inferred shapes.
+  pm.addPass(mlir::createConstPropONNXToONNXPass());
+  // Clean dead code.
+  pm.addPass(mlir::createSymbolDCEPass());
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
