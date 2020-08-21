@@ -72,4 +72,4 @@ cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} .. \
 make -j$(nproc)
 make -j$(nproc) check-onnx-lit
 make -j$(nproc) check-onnx-backend
-PATH=$(pwd)/bin:$PATH make -j$(nproc) test
+make -j$(nproc) test

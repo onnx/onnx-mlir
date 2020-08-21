@@ -1,5 +1,6 @@
+ARG BASE
 # Grab pre-built LLVM from docker hub
-FROM onnxmlirczar/onnx-mlir-llvmimage:s390x
+FROM $BASE
 
 WORKDIR /build/bin
 WORKDIR /build

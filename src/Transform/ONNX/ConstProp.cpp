@@ -21,6 +21,8 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include <math.h>
+
 using namespace mlir;
 
 namespace {
@@ -120,6 +122,26 @@ Attribute ComputeConstPropElementwiseBinary<ONNXMulOp>(
   llvm_unreachable("constant propagation for MulOp: unkonwn data type");
 }
 
+template <>
+Attribute ComputeConstPropElementwiseBinary<ONNXDivOp>(
+    PatternRewriter &rewriter, Type elementType, Attribute &lhsAttr,
+    Attribute &secondAttr) {
+  if (elementType.isa<FloatType>()) {
+    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
+    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
+    assert(rhsVal != 0 && "division by a zero");
+    double res = lhsVal / rhsVal;
+    return rewriter.getFloatAttr(elementType, res);
+  }
+  if (elementType.isa<IntegerType>()) {
+    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
+    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
+    assert(rhsVal != 0 && "division by a zero");
+    uint64_t res = lhsVal / rhsVal;
+    return rewriter.getIntegerAttr(elementType, res);
+  }
+  llvm_unreachable("constant propagation for DivOp: unkonwn data type");
+}
 // Recursively process one dimension in the rank of the two references. There
 // can be one of 3 cases.
 // 1) We have fully defined accesses for both operands, launch the computations.
@@ -246,6 +268,17 @@ Attribute ComputeConstPropElementwiseUnary<ONNXNegOp>(
   llvm_unreachable("constant propagation for NegOp: unkonwn data type");
 }
 
+template <>
+Attribute ComputeConstPropElementwiseUnary<ONNXSqrtOp>(
+    PatternRewriter &rewriter, Type elementType, Attribute &attr) {
+  if (elementType.isa<FloatType>()) {
+    double val = attr.cast<FloatAttr>().getValueAsDouble();
+    double res = sqrt(val);
+    return rewriter.getFloatAttr(elementType, res);
+  }
+  llvm_unreachable("constant propagation for SqrtOp: unkonwn data type");
+}
+
 template <typename ElementwiseUnaryOp>
 void RecurseConstPropElementwiseUnary(PatternRewriter &rewriter,
     std::vector<Attribute> &resVector, DenseElementsAttr &attr,
@@ -336,6 +369,28 @@ DenseElementsAttr ConstPropTranspose(PatternRewriter &rewriter,
   // Copy using permute order.
   RecurseConstPropTranspose(
       rewriter, resVector, denseAttr, indices, perm, rank);
+  ArrayRef<Attribute> resRef(resVector);
+  return DenseElementsAttr::get(resType, resRef);
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for unsqueeze.
+//===----------------------------------------------------------------------===//
+
+DenseElementsAttr ConstPropUnsqueeze(
+    PatternRewriter &rewriter, Value resOperand, Attribute &attr) {
+  // Read dense attribute, the constant tensor we are transforming.
+  DenseElementsAttr denseAttr =
+      attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
+  assert(denseAttr && "expected dense attribute");
+  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+
+  // Unqueeze does not change the order of access, so just copy the whole data.
+  std::vector<Attribute> resVector;
+  for (auto value : denseAttr.getValues<Attribute>()) {
+    resVector.emplace_back(value);
+  }
+
   ArrayRef<Attribute> resRef(resVector);
   return DenseElementsAttr::get(resType, resRef);
 }
