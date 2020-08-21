@@ -48,8 +48,8 @@ cd ..
 python -m pip install --upgrade pip
 python -m pip install onnx==1.6.0
 cd /d onnx-mlir/build
-set RUNTIME_DIR=%cd%\lib\Debug
-call cmake --build . --target check-onnx-backend
+set RUNTIME_DIR=%cd%\lib
+call cmake --build . --config Release --target check-onnx-backend
 IF NOT %ERRORLEVEL% EQU 0 (
     @echo "End-To-End Tests failed."
     EXIT 1
