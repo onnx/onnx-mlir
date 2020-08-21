@@ -73,17 +73,18 @@ struct RtMemRef {
     free(_dataStrides);
   };
 
-  void *_data;            /* data buffer                                   */
-  void *_alignedData;     /* aligned data buffer that the rmr indexes.     */
-  INDEX_TYPE _offset;     /* offset of 1st element                         */
-  INDEX_TYPE *_dataSizes; /* sizes array                                   */
-  int64_t *_dataStrides;  /* strides array                                 */
-  int _dataType;          /* ONNX data type                                */
-  int _rank;              /* rank                                          */
-  std::string _name;      /* optional name for named access                */
-  bool _owningData;       /* if we malloc _data ourselves, destructor will
-                           * free _data, otherwise, if _data is set via setData call,
-                           * then free _data is caller's responsibility       */
+  void *_data;            /* data buffer                                           */
+  void *_alignedData;     /* aligned data buffer that the rmr indexes.             */
+  INDEX_TYPE _offset;     /* offset of 1st element                                 */
+  INDEX_TYPE *_dataSizes; /* sizes array                                           */
+  int64_t *_dataStrides;  /* strides array                                         */
+  int _dataType;          /* ONNX data type                                        */
+  int _rank;              /* rank                                                  */
+  std::string _name;      /* optional name for named access                        */
+  bool _owningData;       /* indicates whether the Rmr owns the memory space
+                             referenced by _data. Rmr struct will release the memory
+                             space refereced by _data upon destruction if and only if
+                             it owns it. */
 };
 
 struct RtMemRefList {
