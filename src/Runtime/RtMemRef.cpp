@@ -356,34 +356,44 @@ RtMemRef *rmrListGetRmrByName(RtMemRefList *rlist, string name) {
   return NULL;
 }
 
-/* Force the compiler to instantiate the template functions and
- * include them in the library
- */
-static void __dummy_donot_call__(void) {
-  rmrCreateWithShape<int32_t>(vector<INDEX_TYPE>{});
-  rmrCreateWithShape<int64_t>(vector<INDEX_TYPE>{});
-  rmrCreateWithShape<float>(vector<INDEX_TYPE>{});
-  rmrCreateWithShape<double>(vector<INDEX_TYPE>{});
+// Explicit instantiation of all templated API functions.
 
-  rmrCreateWithRandomData<int32_t>(vector<INDEX_TYPE>{});
-  rmrCreateWithRandomData<int64_t>(vector<INDEX_TYPE>{});
-  rmrCreateWithRandomData<float>(vector<INDEX_TYPE>{});
-  rmrCreateWithRandomData<double>(vector<INDEX_TYPE>{});
+template RtMemRef *rmrCreateWithShape<int32_t>(
+    std::vector<INDEX_TYPE> dataSizes);
+template RtMemRef *rmrCreateWithShape<int64_t>(
+    std::vector<INDEX_TYPE> dataSizes);
+template RtMemRef *rmrCreateWithShape<float>(std::vector<INDEX_TYPE> dataSizes);
+template RtMemRef *rmrCreateWithShape<double>(
+    std::vector<INDEX_TYPE> dataSizes);
 
-  rmrGetElem<int32_t>(NULL, vector<INDEX_TYPE>{});
-  rmrGetElem<int64_t>(NULL, vector<INDEX_TYPE>{});
-  rmrGetElem<float>(NULL, vector<INDEX_TYPE>{});
-  rmrGetElem<double>(NULL, vector<INDEX_TYPE>{});
+template RtMemRef *rmrCreateWithRandomData<int32_t>(
+    std::vector<INDEX_TYPE> dataSizes, int32_t lbound, int32_t ubound);
+template RtMemRef *rmrCreateWithRandomData<int64_t>(
+    std::vector<INDEX_TYPE> dataSizes, int64_t lbound, int64_t ubound);
+template RtMemRef *rmrCreateWithRandomData<float>(
+    std::vector<INDEX_TYPE> dataSizes, float lbound, float ubound);
+template RtMemRef *rmrCreateWithRandomData<double>(
+    std::vector<INDEX_TYPE> dataSizes, double lbound, double ubound);
 
-  rmrGetElemByOffset<int32_t>(NULL, 0);
-  rmrGetElemByOffset<int64_t>(NULL, 0);
-  rmrGetElemByOffset<float>(NULL, 0);
-  rmrGetElemByOffset<double>(NULL, 0);
+template int32_t &rmrGetElem<int32_t>(
+    RtMemRef *, std::vector<INDEX_TYPE> indexes);
+template int64_t &rmrGetElem<int64_t>(
+    RtMemRef *, std::vector<INDEX_TYPE> indexes);
+template float &rmrGetElem<float>(RtMemRef *, std::vector<INDEX_TYPE> indexes);
+template double &rmrGetElem<double>(
+    RtMemRef *, std::vector<INDEX_TYPE> indexes);
 
-  rmrAreTwoRmrsClose<int32_t>(NULL, NULL);
-  rmrAreTwoRmrsClose<int64_t>(NULL, NULL);
-  rmrAreTwoRmrsClose<float>(NULL, NULL);
-  rmrAreTwoRmrsClose<double>(NULL, NULL);
-}
+template int32_t &rmrGetElemByOffset<int32_t>(RtMemRef *, INDEX_TYPE index);
+template int64_t &rmrGetElemByOffset<int64_t>(RtMemRef *, INDEX_TYPE index);
+template float &rmrGetElemByOffset<float>(RtMemRef *, INDEX_TYPE indexs);
+template double &rmrGetElemByOffset<double>(RtMemRef *, INDEX_TYPE index);
 
+template bool rmrAreTwoRmrsClose<int32_t>(
+    RtMemRef *a, RtMemRef *b, float rtol, float atol);
+template bool rmrAreTwoRmrsClose<int64_t>(
+    RtMemRef *a, RtMemRef *b, float rtol, float atol);
+template bool rmrAreTwoRmrsClose<float>(
+    RtMemRef *a, RtMemRef *b, float rtol, float atol);
+template bool rmrAreTwoRmrsClose<double>(
+    RtMemRef *a, RtMemRef *b, float rtol, float atol);
 #endif
