@@ -8,13 +8,16 @@
 // helper functions.
 //
 //===----------------------------------------------------------------------===//
-#pragma once
+
+#ifndef __ONNX_MLIR_INTERNAL_H__
+#define __ONNX_MLIR_INTERNAL_H__
+
+#include "OnnxMlir.h"
+
+#ifdef __cplusplus
 #include <cstdint>
 #include <string>
 #include <vector>
-
-/* ================ External C/C++ API call declaration ================ */
-#include "OnnxMlir.h"
 
 /* ================ Internal C++ API call declaration ================ */
 
@@ -152,17 +155,6 @@ RtMemRefList *rmrListCreate(void);
 RtMemRef *rmrListGetRmrByIndex(RtMemRefList *ormrd, int index);
 
 /**
- * RtMemRefList RtMemRef setter by index
- *
- * @param ormrd, pointer to the RtMemRefList
- * @param rmr, pointer to the RtMemRef
- * @param index, index in the array of RtMemRef pointers
- *
- * Set the RtMemRef pointer in the array of RtMemRef points at index.
- */
-void rmrListSetRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index);
-
-/**
  * RtMemRefList RtMemRef getter by name
  *
  * @param ormrd, pointer to the RtMemRefList
@@ -170,3 +162,6 @@ void rmrListSetRmrByIndex(RtMemRefList *ormrd, RtMemRef *rmr, int index);
  * @return pointer to the RtMemRef, NULL if not found.
  */
 RtMemRef *rmrListGetRmrByName(RtMemRefList *ormrd, std::string name);
+
+#endif
+#endif

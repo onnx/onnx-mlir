@@ -8,6 +8,7 @@
 // helper functions.
 //
 //===----------------------------------------------------------------------===//
+#ifdef __cplusplus
 #pragma once
 #include <algorithm>
 #include <iostream>
@@ -15,6 +16,7 @@
 #include <numeric>
 #include <string>
 #include <vector>
+#endif
 
 #ifdef __APPLE__
 #include <stdlib.h>
@@ -38,6 +40,7 @@
  */
 
 struct RtMemRef {
+#ifdef __cplusplus
   /**
    * Constructor
    *
@@ -61,77 +64,87 @@ struct RtMemRef {
     }
   };
 
+  RtMemRef() = default;
+
   /**
    * Destructor
    *
    * Destroy the RtMemRef struct.
    */
-  ~RtMemRef(void) {
+  ~RtMemRef() {
     if (_owningData)
       free(_data);
     free(_dataSizes);
     free(_dataStrides);
   };
+#endif
 
-  void *_data;            /* data buffer                                           */
-  void *_alignedData;     /* aligned data buffer that the rmr indexes.             */
-  INDEX_TYPE _offset;     /* offset of 1st element                                 */
-  INDEX_TYPE *_dataSizes; /* sizes array                                           */
-  int64_t *_dataStrides;  /* strides array                                         */
-  int _dataType;          /* ONNX data type                                        */
-  int _rank;              /* rank                                                  */
-  std::string _name;      /* optional name for named access                        */
-  bool _owningData;       /* indicates whether the Rmr owns the memory space
-                             referenced by _data. Rmr struct will release the memory
-                             space refereced by _data upon destruction if and only if
-                             it owns it. */
+  void *_data;            // data buffer
+  void *_alignedData;     // aligned data buffer that the rmr indexes.
+  INDEX_TYPE _offset;     // offset of 1st element
+  INDEX_TYPE *_dataSizes; // sizes array
+  int64_t *_dataStrides;  // strides array
+  int _dataType;          // ONNX data type
+  int _rank;              // rank
+  char *_name;            // optional name for named access
+  bool _owningData;       // indicates whether the Rmr owns the memory space
+                    // referenced by _data. Rmr struct will release the memory
+                    // space referred to by _data upon destruction if and only
+                    // if it owns it.
 };
 
 struct RtMemRefList {
+#ifdef __cplusplus
   /**
    * Constructor
    *
    * Create an RtMemRefList with specified RtMemRef pointer array
    * and the size of the array
    */
-  RtMemRefList(RtMemRef *rmrs[], int n) { _rmrs.assign(&rmrs[0], &rmrs[n]); };
+  RtMemRefList(RtMemRef *rmrs[], int n) : _rmrs(rmrs), _n(n){};
 
-#ifdef RTMEMREF_INTERNAL_API
   /**
    * Constructor
    *
    * Create an empty RtMemRefList for internal API calls.
    */
-  RtMemRefList(void){};
-#endif
+  RtMemRefList() = default;
 
   /**
    * Destructor
    *
    * Destroy the RtMemRefList struct.
    */
-  ~RtMemRefList(void) {
+  ~RtMemRefList() {
     /* Destroy all the RtMemRefs */
-    for (int i = 0; i < _rmrs.size(); i++)
+    for (int i = 0; i < _n; i++)
       if (_rmrs[i])
         rmrDestroy(_rmrs[i]);
   };
+#endif
 
   /* To facilitate user facing API getRmrs, RtMemRefs are kept in a vector
    * that can be quickly returned as an array. A name to index map is used
    * to address ReMemRefs by name.
    */
-  std::vector<RtMemRef *> _rmrs; /* RtMemRef vector   */
+  RtMemRef **_rmrs; // RtMemRef array
+
+  size_t _n; // Number of elements in _rmrs.
 };
+
+/* Helper function to compute the number of data elements */
+static inline INDEX_TYPE getNumOfElems(INDEX_TYPE *dataSizes, int rank) {
+  INDEX_TYPE numElem = 1;
+  for (int i = 0; i < rank; i++)
+    numElem *= dataSizes[i];
+  return numElem;
+}
 
 /*------------------------------------------------------- */
 /* Internal function used by RtMemRef itself, not exposed */
 /*------------------------------------------------------- */
 
-/* Helper function to compute the number of data elements */
-static inline INDEX_TYPE getNumOfElems(INDEX_TYPE *dataSizes, int rank) {
-  return accumulate(dataSizes, dataSizes + rank, 1, std::multiplies<>());
-}
+#ifdef __cplusplus
 
 /* Helper function to get the ONNX data type size in bytes */
 static inline int getDataTypeSize(int dataType) {
@@ -140,8 +153,6 @@ static inline int getDataTypeSize(int dataType) {
              ? 0
              : RTMEMREF_DATA_TYPE_SIZE[dataType];
 }
-
-#ifdef RTMEMREF_INTERNAL_API
 
 /* Helper function to compute cartisian product */
 static inline std::vector<std::vector<INDEX_TYPE>> CartProduct(

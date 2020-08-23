@@ -14,21 +14,60 @@
 #ifdef __cplusplus
 #include <cstdint>
 #else
+#include <stdbool.h>
 #include <stdint.h>
 #endif
-#include <stdbool.h>
 
-/*! \mainpage My Personal Index Page
+/*! \mainpage ONNX-MLIR Model Execution API documentation
  *
  * \section intro_sec Introduction
  *
- * This is the introduction.
+ * ONNX-MLIR project comes with an executable `onnx-mlir` capable
+ * of compiling onnx models to a shared library. In this documentation, we
+ * explain and document ways to interact programmatically with the compiled
+ * shared library using the API's defined in `src/Runtime/include/OnnxMlir.h`.
  *
- * \section install_sec Installation
+ * \section Important Data Structures
+ * \subsection RtMemRef
  *
- * \subsection step1 Step 1: Opening the box
+ * `RtMemRef` is the data structure used to describe the runtime information
+ * (rank, shape, data type, etc) associated with a tensor (or `MemRef`, in the
+ * context of MLIR). Specifically, it can be described as a struct with the
+ * following data members:
  *
- * etc...
+ * ```cpp
+ * void *_data;            // data buffer
+ * void *_alignedData;     // aligned data buffer that the rmr indexes.
+ * INDEX_TYPE _offset;     // offset of 1st element
+ * INDEX_TYPE *_dataSizes; // sizes array
+ * int64_t *_dataStrides;  // strides array
+ * int _dataType;          // ONNX data type
+ * int _rank;              // rank
+ * std::string _name;      // optional name for named access
+ * bool _owningData;       // indicates whether the Rmr owns the memory space
+ *                            referenced by _data. Rmr struct will release the
+ * memory space refereced by _data upon destruction if and only if it owns it.
+ * ```
+ *
+ * \subsection RtMemRefList
+ * `RtMemRefList` is a data structure used to hold a list of RtMemRef pointers.
+ *
+ * \section Inference Function Signature
+ *
+ * All compiled model will have the same exact C function signature equivalent
+ * to:
+ *
+ * ```c
+ * RtMemRefList* _dyn_entry_point_main_graph(RtMemRefList*);
+ * ```
+ *
+ * That is to say, the model inference function consumes a list of input
+ * RtMemRefs and produces a list of output RtMemRefs.
+ *
+ * \section Invoke the Inference Function with C API
+ *
+ *
+ *
  */
 
 typedef int64_t INDEX_TYPE;

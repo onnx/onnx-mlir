@@ -5,9 +5,10 @@ add_subdirectory(jni)
 # such static library in a shared library can cause runtime failure on some architectures,
 # such as z. So we override the default and explicitly compile with -fPIC.
 add_library(cruntime STATIC
-        RtMemRef.cpp
-        RtMemRef.hpp
-        include/OnnxMlir.h)
+        include/OnnxMlir.h
+        RtMemRef.c)
+set_target_properties(cruntime PROPERTIES
+        LANGUAGE C)
 set_target_properties(cruntime PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 target_include_directories(cruntime PRIVATE
@@ -16,7 +17,6 @@ target_include_directories(cruntime PRIVATE
 
 add_library(RtMemRefUtils
         RtMemRef.cpp
-        RtMemRef.hpp
         DataType.h
         include/OnnxMlirInternal.h)
 set_target_properties(RtMemRefUtils PROPERTIES

@@ -19,7 +19,8 @@ namespace onnx_mlir {
 std::vector<py::array> PyExecutionSession::pyRun(
     std::vector<py::array> inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");
-  auto *wrappedInput = rmrListCreate();
+
+  std::vector<RtMemRef *> rmrs;
   int inputIdx = 0;
   for (auto inputPyArray : inputsPyArray) {
     auto *inputRtMemRef = rmrCreate(inputPyArray.ndim());
@@ -39,9 +40,9 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
     rmrSetDataShape(inputRtMemRef, (INDEX_TYPE *)inputPyArray.shape());
     rmrSetDataStrides(inputRtMemRef, (int64_t *)inputPyArray.strides());
-
-    rmrListSetRmrByIndex(wrappedInput, inputRtMemRef, inputIdx++);
+    rmrs.emplace_back(inputRtMemRef);
   }
+  auto *wrappedInput = rmrListCreate(&rmrs[0], rmrs.size());
 
   std::vector<py::array> outputPyArrays;
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
