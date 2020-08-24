@@ -474,7 +474,7 @@ public:
         op.getAttrOfType<SymbolRefAttr>(
               KrnlEntryPointOp::getEntryPointFuncAttrName())
             .getLeafReference();
-    auto dynEntryPointName = "_dyn_entry_point_" + staticEntryPointFuncName;
+    auto dynEntryPointName = "run_" + staticEntryPointFuncName;
     assert(module.lookupSymbol(dynEntryPointName.str()) == nullptr &&
            "dynamic entry point name is not unique");
     rewriter.eraseOp(op);

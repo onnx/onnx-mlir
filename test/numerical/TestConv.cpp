@@ -90,8 +90,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   OwningModuleRef moduleRef(module);
 
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
-  onnx_mlir::ExecutionSession sess(
-      SHARED_LIB_BASE + ".so", "_dyn_entry_point_main_graph");
+  onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
 
   std::vector<unique_ptr<RtMemRef, decltype(&rmrDestroy)>> inputs;
   auto xRmr = unique_ptr<RtMemRef, decltype(&rmrDestroy)>(

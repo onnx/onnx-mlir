@@ -240,7 +240,6 @@ void rmrSetName(RtMemRef *rmr, char *name);
  */
 INDEX_TYPE rmrGetNumElems(RtMemRef *rmr);
 
-
 /*---------------------------------------- */
 /* C/C++ API for RtMemRefList calls */
 /*---------------------------------------- */
