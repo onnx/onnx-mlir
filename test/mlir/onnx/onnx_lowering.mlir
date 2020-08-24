@@ -1405,7 +1405,7 @@ func @test_batchnorm_testmode_2d(%arg0: tensor<10x3xf32>, %arg1: tensor<3xf32>, 
   // CHECK-LABEL: test_batchnorm_testmode_2d
   // CHECK: [[RES:%.+]] = alloc() : memref<10x3xf32>
   // CHECK: [[EPSILON:%.+]] = constant 9.99999974E-6 : f32
-  // CHECK: [[DEF_LOOPS:%.+]]:4 = krnl.define_loops 2
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#1 -> %arg5 = 0 to 3) {
   // CHECK:   [[SCALE:%.+]] = affine.load %arg1[%arg5] : memref<3xf32>
   // CHECK:   [[BIAS:%.+]] = affine.load %arg2[%arg5] : memref<3xf32>
