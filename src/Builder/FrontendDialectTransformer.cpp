@@ -158,8 +158,8 @@ private:
 
     // If the node has a name, then import it.
     if (node.has_name()) {
-      attributes.push_back(
-          builder_.getNamedAttr("name", builder_.getStringAttr(node.name())));
+      attributes.push_back(builder_.getNamedAttr(
+          "onnx_node_name", builder_.getStringAttr(node.name())));
     }
     return attributes;
   }
