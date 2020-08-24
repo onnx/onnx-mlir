@@ -203,7 +203,7 @@ void rmrSetDataType(RtMemRef *rmr, int dataType);
  * @param rmr, pointer to the RtMemRef
  * @return the total size of the data buffer in bytes.
  */
-int64_t rmrGetDataBufferSize(RtMemRef *rmr);
+// int64_t rmrGetDataBufferSize(RtMemRef *rmr);
 
 /**
  * RtMemRef rank getter
@@ -239,6 +239,7 @@ void rmrSetName(RtMemRef *rmr, char *name);
  * @return the number of elements in the data buffer.
  */
 INDEX_TYPE rmrGetNumElems(RtMemRef *rmr);
+
 
 /*---------------------------------------- */
 /* C/C++ API for RtMemRefList calls */

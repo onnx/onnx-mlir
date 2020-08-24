@@ -25,6 +25,9 @@
 #include <malloc.h>
 #endif
 
+#include <stdio.h>
+#include <string.h>
+
 // clang-format off
 #include "OnnxMlirInternal.h"
 #include "DataType.h"
@@ -90,7 +93,9 @@ void rmrSetData(RtMemRef *rmr, void *data) {
 }
 
 /* RtMemRef data sizes getter */
-INDEX_TYPE *rmrGetDataShape(RtMemRef *rmr) { return rmr->_dataSizes; }
+INDEX_TYPE *rmrGetDataShape(RtMemRef *rmr) {
+    return rmr->_dataSizes;
+}
 
 /* RtMemRef data sizes setter */
 void rmrSetDataShape(RtMemRef *rmr, INDEX_TYPE *dataSizes) {
@@ -118,11 +123,11 @@ void rmrSetDataType(RtMemRef *rmr, int dataType) {
           : dataType;
 }
 
-/* RtMemRef data buffer size getter */
-int64_t rmrGetDataBufferSize(RtMemRef *rmr) {
-  return getNumOfElems(rmr->_dataSizes, rmr->_rank) *
-         getDataTypeSize(rmr->_dataType);
-}
+///* RtMemRef data buffer size getter */
+//int64_t rmrGetDataBufferSize(RtMemRef *rmr) {
+//  return getNumOfElems(rmr->_dataSizes, rmr->_rank) *
+//         getDataTypeSize(rmr->_dataType);
+//}
 
 /* RtMemRef rank getter */
 int rmrGetRank(RtMemRef *rmr) { return rmr->_rank; }
@@ -344,7 +349,8 @@ inline bool rmrAreTwoRmrsClose(
 /* Return RtMemRef at specified index in the RtMemRefList */
 RtMemRef *rmrListGetRmrByIndex(RtMemRefList *rlist, int index) {
   assert(index >= 0);
-  return index < rlist->_n ? rlist->_rmrs[index] : NULL;
+  assert(index < rlist->_n);
+  return rlist->_rmrs[index];
 }
 
 /* Return RtMemRef of specified name in the RtMemRefList */

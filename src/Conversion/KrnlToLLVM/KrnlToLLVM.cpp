@@ -129,6 +129,26 @@ static FlatSymbolRefAttr getOrInsertMemcpy(
   return SymbolRefAttr::get("llvm.memcpy.p0i8.p0i8.i64", context);
 }
 
+static FlatSymbolRefAttr getOrInsertMalloc(
+    PatternRewriter &rewriter, ModuleOp module) {
+  // Insert the malloc/aligned_alloc declaration if it is not already present.
+  auto allocFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("malloc");
+  auto ctx = rewriter.getContext();
+  LLVMTypeConverter converter(ctx);
+  if (!allocFunc) {
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+    SmallVector<LLVM::LLVMType, 2> callArgTypes = {converter.getIndexType()};
+    // aligned_alloc(size_t alignment, size_t size)
+    auto voidPtrType = LLVM::LLVMType::getInt8PtrTy(&converter.getContext());
+    allocFunc =
+        rewriter.create<LLVM::LLVMFuncOp>(rewriter.getUnknownLoc(), "malloc",
+            LLVM::LLVMType::getFunctionTy(voidPtrType, callArgTypes,
+                /*isVarArg=*/false));
+  }
+  return SymbolRefAttr::get("malloc", ctx);
+}
+
 //===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlGetRefOpLowering
 //===----------------------------------------------------------------------===//
@@ -441,6 +461,7 @@ public:
     using LLVMType = LLVM::LLVMType;
     auto opaquePtrTy = LLVMType::getInt8PtrTy(context);
     auto int32Ty = LLVMType::getInt32Ty(context);
+    auto int64Ty = LLVMType::getInt64Ty(context);
 
     // Rewrite Krnl Entry Point Operation to an LLVM function with a dynamic
     // signature. The signature is dynamic because it remains the same no matter
@@ -548,8 +569,24 @@ public:
 
     auto numOutput = rewriter.create<LLVM::ConstantOp>(
         loc, int32Ty, rewriter.getI64IntegerAttr(outMemRefList.size()));
-    auto outRmrPtrsArr = rewriter.create<LLVM::AllocaOp>(
-        loc, opaquePtrTy.getPointerTo(), numOutput, /*alignment=*/0);
+
+    auto mallocSym = getOrInsertMalloc(rewriter, module);
+    // TODO(tjingrant): get pointer size from data layout.
+    size_t kPtrSize = 8;
+    auto outputRmrPtrsArraySizeInByte = rewriter.create<LLVM::ConstantOp>(loc,
+        int64Ty, rewriter.getI64IntegerAttr(outMemRefList.size() * kPtrSize));
+    auto outRmrPtrsArr =
+        rewriter
+            .create<LLVM::CallOp>(loc,
+                LLVM::LLVMType::getInt8PtrTy(module.getContext()), mallocSym,
+                ArrayRef<Value>(outputRmrPtrsArraySizeInByte))
+            .getResult(0);
+    outRmrPtrsArr = rewriter
+                        .create<LLVM::BitcastOp>(loc,
+                            LLVM::LLVMType::getInt8PtrTy(module.getContext())
+                                .getPointerTo(0),
+                            outRmrPtrsArr)
+                        .getResult();
 
     for (decltype(numOutputs) i = 0; i < outMemRefList.size(); i++) {
       // Get the i-th memref returned, convert to a dynamic memref and store it

@@ -21,7 +21,6 @@ std::vector<py::array> PyExecutionSession::pyRun(
   assert(_entryPointFunc && "Entry point not loaded.");
 
   std::vector<RtMemRef *> rmrs;
-  int inputIdx = 0;
   for (auto inputPyArray : inputsPyArray) {
     auto *inputRtMemRef = rmrCreate(inputPyArray.ndim());
     assert(inputPyArray.flags() && py::array::c_style &&
@@ -44,8 +43,9 @@ std::vector<py::array> PyExecutionSession::pyRun(
   }
   auto *wrappedInput = rmrListCreate(&rmrs[0], rmrs.size());
 
-  std::vector<py::array> outputPyArrays;
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
+
+  std::vector<py::array> outputPyArrays;
   for (int i = 0; i < rmrListGetNumRmrs(wrappedOutput); i++) {
     auto *rmr = rmrListGetRmrByIndex(wrappedOutput, i);
     auto shape = std::vector<int64_t>(
