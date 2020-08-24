@@ -43,6 +43,17 @@ MemRefType convertToMemRefType(Type type) {
   return memRefType;
 }
 
+/// Retrieve function which contains the current operation.
+FuncOp getContainingFunction(Operation *op) {
+  Operation *parentFuncOp = op->getParentOp();
+
+  // While parent is not a FuncOp and its cast to a FuncOp is null.
+  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
+    parentFuncOp = parentFuncOp->getParentOp();
+
+  return cast<FuncOp>(parentFuncOp);
+}
+
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands,
@@ -463,10 +474,10 @@ int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
 }
 
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
-  auto parentBlock = allocOp->getOperation()->getBlock();
+  FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsUsedInGetRef = false;
-  parentBlock->walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
+  function.walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
     auto result = allocOp->getResult();
     for (const auto &operand : op.getOperands())
       if (operand == result)
@@ -513,4 +524,21 @@ Value getDynamicMemRefSizeInBytes(
   }
 
   return result;
+}
+
+int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
+  auto memRefShape =
+      convertToMemRefType(allocOp.getResult().getType()).getShape();
+  auto rank = memRefShape.size();
+
+  int dynDimIdx = 0;
+  for (int idx = 0; idx < rank; ++idx) {
+    if (memRefShape[idx] < 0) {
+      if (idx == index)
+        return dynDimIdx;
+      dynDimIdx++;
+    }
+  }
+
+  return -1;
 }

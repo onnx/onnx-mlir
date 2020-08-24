@@ -40,6 +40,12 @@ std::unique_ptr<Pass> createLowerToKrnlPass();
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<Pass> createConvertKrnlToAffinePass();
 
+/// Pass for lowering krnl.dim operations to standard dialect.
+std::unique_ptr<Pass> createDisconnectKrnlDimFromAllocPass();
+
+/// Pass for lowering krnl.shape operation.
+std::unique_ptr<Pass> createLowerKrnlShapePass();
+
 /// Pass for eliding the values of global Krnl operations.
 std::unique_ptr<Pass> createElideConstGlobalValuePass();
 
