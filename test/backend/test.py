@@ -22,7 +22,10 @@ LLC = os.path.join(test_config.LLVM_PROJ_BUILD_PATH, "bin/llc")
 
 # Make lib folder under build directory visible in PYTHONPATH
 doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
-RUNTIME_DIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "lib")
+if os.name == 'nt':
+    RUNTIME_DIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "lib/Release")
+else:
+    RUNTIME_DIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "lib")
 sys.path.append(RUNTIME_DIR)
 from PyRuntime import ExecutionSession
 
