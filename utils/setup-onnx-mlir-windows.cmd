@@ -46,7 +46,7 @@ cd /d %root_dir%/onnx-mlir
 git submodule update --init --recursive
 cd ..
 python -m pip install --upgrade pip
-python -m pip install onnx==1.6.0
+pip install -e onnx-mlir\third_party\onnx
 cd /d onnx-mlir/build
 call cmake --build . --config Release --target check-onnx-backend
 IF NOT %ERRORLEVEL% EQU 0 (
