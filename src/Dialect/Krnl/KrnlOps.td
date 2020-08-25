@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 include "mlir/IR/OpBase.td"
+include "mlir/Dialect/Shape/IR/ShapeBase.td"
 
 def Krnl_Dialect : Dialect {
   let name = "krnl";
@@ -355,3 +356,21 @@ def KrnlDimOp : Op<Krnl_Dialect, "dim"> {
   let parser = ?;
   let printer = ?;
 }
+
+def KrnlShapeOp : Op<Krnl_Dialect, "shape"> {
+  let summary = "Krnl operation to retreieve the shape of a MemRef.";
+  let description = [{
+    Extracts the shape of a MemRef:
+    ```
+      "krnl.shape"(%memref)
+    ```
+    The return result is of `shape.type`.
+  }];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc);
+  let results = (outs Shape_ShapeType:$shape);
+
+  let parser = ?;
+  let printer = ?;
+}
+

@@ -381,6 +381,7 @@ void registerDialects() {
   mlir::registerDialect<mlir::LLVM::LLVMDialect>();
   mlir::registerDialect<mlir::scf::SCFDialect>();
   mlir::registerDialect<mlir::StandardOpsDialect>();
+  mlir::registerDialect<mlir::shape::ShapeDialect>();
   mlir::registerDialect<mlir::ONNXOpsDialect>();
   mlir::registerDialect<mlir::KrnlOpsDialect>();
 }
