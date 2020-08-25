@@ -46,6 +46,8 @@ cd /d %root_dir%/onnx-mlir
 git submodule update --init --recursive
 cd ..
 python -m pip install --upgrade pip
+set USE_MSVC_STATIC_RUNTIME=0
+set CMAKE_ARGS=-DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON
 pip install -e onnx-mlir\third_party\onnx
 cd /d onnx-mlir/build
 call cmake --build . --config Release --target check-onnx-backend
