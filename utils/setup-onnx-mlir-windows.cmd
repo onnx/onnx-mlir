@@ -15,6 +15,11 @@ cd ..
 cp -r %onnx-mlir_dir% onnx-mlir 
 set root_dir=%cd%
 
+python -m pip install --upgrade pip
+set USE_MSVC_STATIC_RUNTIME=0
+set CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=ON -DProtobuf_USE_STATIC_LIBS=OFF -DONNX_USE_LITE_PROTO=ON"
+pip install -e onnx-mlir\third_party\onnx
+
 REM Build PDcurses
 cd /d %root_dir%
 git clone https://github.com/wmcbrine/PDCurses.git
@@ -45,9 +50,6 @@ IF NOT %ERRORLEVEL% EQU 0 (
 cd /d %root_dir%/onnx-mlir
 git submodule update --init --recursive
 cd ..
-python -m pip install --upgrade pip
-set USE_MSVC_STATIC_RUNTIME=0
-pip install -e onnx-mlir\third_party\onnx
 cd /d onnx-mlir/build
 call cmake --build . --config Release --target check-onnx-backend
 IF NOT %ERRORLEVEL% EQU 0 (
