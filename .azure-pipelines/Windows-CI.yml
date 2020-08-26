@@ -13,7 +13,7 @@ jobs:
   steps:
   - task: UsePythonVersion@0
     inputs:
-      versionSpec: '3.7.8'
+      versionSpec: '3.7.9'
       architecture: 'x64'
 
   - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
