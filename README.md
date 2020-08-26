@@ -47,6 +47,7 @@ WORKDIR /build
 gcc >= 6.4
 libprotoc >= 3.11.0
 cmake >= 3.15.4
+JDK >= 1.8
 ```
 At any point in time, ONNX MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. Periodically the maintainers
 need to move to a more recent LLVM level. Among other things, this requires that the commit string in utils/clone-mlir.sh be updated. A consequence of
@@ -219,18 +220,20 @@ OPTIONS:
 
 Generic Options:
 
-  --help        - Display available options (--help-hidden for more)
-  --help-list   - Display list of available options (--help-list-hidden for more)
-  --version     - Display the version of this program
+  --help           - Display available options (--help-hidden for more)
+  --help-list      - Display list of available options (--help-list-hidden for more)
+  --version        - Display the version of this program
 
 ONNX MLIR Options:
 These are frontend options.
 
   Choose target to emit:
-      --EmitONNXIR - Ingest ONNX and emit corresponding ONNX dialect.
-      --EmitMLIR   - Lower model to MLIR built-in transformation dialect.
-      --EmitLLVMIR - Lower model to LLVM IR (LLVM dialect).
-      --EmitLLVMBC - Lower model to LLVM IR and emit (to file) LLVM bitcode for model.
+      --EmitONNXBasic - Ingest ONNX and emit the basic ONNX operations withoutinferred shapes.
+      --EmitONNXIR    - Ingest ONNX and emit corresponding ONNX dialect.
+      --EmitMLIR      - Lower model to MLIR built-in transformation dialect.
+      --EmitLLVMIR    - Lower model to LLVM IR (LLVM dialect).
+      --EmitLib       - Lower model to LLVM IR, emit (to file) LLVM bitcode for model, compile and link it to a shared library.
+      --EmitJNI       - Lower model to LLMV IR -> LLVM bitcode -> JNI shared library -> jar
 ```
 
 ## Example
