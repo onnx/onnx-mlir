@@ -351,21 +351,58 @@ func @test_conv_12(%arg0 : tensor<1x2x32xf32>, %arg1 : tensor<5x2x6xf32>, %arg2 
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test shape inference for ConvTranspose.
+//===----------------------------------------------------------------------===//
+
+func @test_conv_transpose_1(%arg0 : tensor<1x64x36x48xf32>, %arg1 : tensor<64x1x2x2xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %0 = "onnx.ConvTranspose"(%arg0, %arg1, %cst) {dilations = [1, 1], kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_conv_transpose_1
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : i64, kernel_shape = [2, 2], output_shape = [1, 1, 72, 96], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x1x72x96xf32>
+  // CHECK: return [[RES_ATTR]] : tensor<1x1x72x96xf32>
+}
+
+func @test_conv_transpose_2(%arg0 : tensor<1x64x36x48xf32>, %arg1 : tensor<64x1x2x2xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %0 = "onnx.ConvTranspose"(%arg0, %arg1, %cst) {dilations = [1, 1], group = 64 : i64, kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_conv_transpose_2
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 64 : i64, kernel_shape = [2, 2], output_shape = [1, 64, 72, 96], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x64x72x96xf32>
+  // CHECK: return [[RES_ATTR]] : tensor<1x64x72x96xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test shape inference for PadConstantValuePad.
 //===----------------------------------------------------------------------===//
 
 /// Test Pad_1
 func @test_Pad_1(%arg0 : tensor<16x13xf32>) -> tensor<*xf32> {
   %cst = constant unit
-  %0 = "onnx.Pad"(%arg0, %cst, %cst) {constant_value = dense<0.000000e+00> : tensor<1xf32>, mode = "constant", pads = dense<[0, 2, 2, 4]> : tensor<4xi32>} : (tensor<16x13xf32>, none, none) -> tensor<*xf32>
+  %0 = "onnx.Pad"(%arg0, %cst, %cst) {constant_value = dense<0.000000e+00> : tensor<1xf32>, mode = "constant", pads = [0, 2, 2, 4]} : (tensor<16x13xf32>, none, none) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_Pad_1
   // CHECK-NEXT: [[NONE:%.+]] = constant unit
-  // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[NONE]], [[NONE]]) {constant_value = dense<0.000000e+00> : tensor<1xf32>, mode = "constant", pads = dense<[0, 2, 2, 4]> : tensor<4xi32>} : (tensor<16x13xf32>, none, none) -> tensor<18x19xf32>
+  // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[NONE]], [[NONE]]) {constant_value = dense<0.000000e+00> : tensor<1xf32>, mode = "constant", pads = [0, 2, 2, 4]} : (tensor<16x13xf32>, none, none) -> tensor<18x19xf32>
   // CHECK: return [[RES]] : tensor<18x19xf32>
 }
 
+/// Test Pad_2
+func @test_Pad_2(%arg0 : tensor<16x13xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %0 = "onnx.Pad"(%arg0, %cst, %cst) {mode = "edge", pads = [0, 2, 2, 4]} : (tensor<16x13xf32>, none, none) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_Pad_2
+  // CHECK-NEXT: [[NONE:%.+]] = constant unit
+  // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[NONE]], [[NONE]]) {mode = "edge", pads = [0, 2, 2, 4]} : (tensor<16x13xf32>, none, none) -> tensor<18x19xf32>
+  // CHECK: return [[RES]] : tensor<18x19xf32>
+}
 
 /// Test PadConstantValuePad_1
 func @test_PadConstantValuePad_1(%arg0 : tensor<16x13xf32>) -> tensor<*xf32> {

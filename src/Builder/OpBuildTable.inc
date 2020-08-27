@@ -269,7 +269,7 @@ import_handler_map_["Sinh"] =
 import_handler_map_["Size"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSizeOp>;
 import_handler_map_["Slice"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSliceOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodeSlice;
 import_handler_map_["Softmax"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxOp>;
 import_handler_map_["Softplus"] = 
