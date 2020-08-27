@@ -1565,3 +1565,25 @@ func @test_onehotencoder_float2(%arg0: tensor<20x2x3xf32>) -> tensor<*xf32> {
   // CHECK: [[RES:%.+]] = "onnx.OneHotEncoder"(%arg0) {cats_int64s = [1, 2, 4], cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x2x3xf32>) -> tensor<20x2x3x3xf32>
   // CHECK: return [[RES]] : tensor<20x2x3x3xf32>
 }
+
+// -----
+
+func @test_size_op1(%arg0: tensor<20x2x3xf32>) -> tensor<*xi64> {
+  %0 = "onnx.Size"(%arg0) : (tensor<20x2x3xf32>) -> tensor<*xi64>  
+  "std.return"(%0) : (tensor<*xi64>) -> ()
+
+  // CHECK-LABEL: test_size_op1
+  // CHECK: [[RES:%.+]] = "onnx.Size"(%arg0) : (tensor<20x2x3xf32>) -> tensor<i64>
+  // CHECK: return [[RES]] : tensor<i64>
+}
+
+// -----
+
+func @test_size_op2(%arg0: tensor<*xf32>) -> tensor<*xi64> {
+  %0 = "onnx.Size"(%arg0) : (tensor<*xf32>) -> tensor<*xi64>  
+  "std.return"(%0) : (tensor<*xi64>) -> ()
+
+  // CHECK-LABEL: test_size_op2
+  // CHECK: [[RES:%.+]] = "onnx.Size"(%arg0) : (tensor<*xf32>) -> tensor<i64>
+  // CHECK: return [[RES]] : tensor<i64>
+}
