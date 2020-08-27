@@ -106,3 +106,35 @@ func @cast_elimination(%arg0: tensor<2xf32>) -> tensor<2xf32> {
 
   // CHECK-NEXT: return %arg0 : tensor<2xf32>
 }
+
+// -----
+
+// Check the removal of identity transposes.
+// CHECK-LABEL: func @test_transpose_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+func @test_transpose_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+  %0 = "onnx.Transpose"(%arg0)  {perm = [0, 1, 2, 3]} : (tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32>
+  // CHECK-NEXT: return %arg0 : tensor<10x11x12x13xf32>
+  "std.return"(%0) : (tensor<10x11x12x13xf32>) -> ()
+}
+
+// -----
+
+// Check the combining of transposes into a simple transpose.
+// CHECK-LABEL: func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
+func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
+  %0 = "onnx.Transpose"(%arg0)  {perm = [3, 2, 1, 0]} : (tensor<10x11x12x13xf32>) -> tensor<13x12x11x10xf32>
+  %1 = "onnx.Transpose"(%0)  {perm = [2, 3, 0, 1]} : (tensor<13x12x11x10xf32>) -> tensor<11x10x13x12xf32>
+  // CHECK-NEXT: %{{.*}} = "onnx.Transpose"(%arg0) {perm = [1, 0, 3, 2]} : (tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32>
+  "std.return"(%1) : (tensor<11x10x13x12xf32>) -> ()
+}
+
+// -----
+
+// Check the combining of transposes into an identity transpose, which in turns is removed
+// CHECK-LABEL: func @test_transpose_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+func @test_transpose_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+  %0 = "onnx.Transpose"(%arg0)  {perm = [3, 2, 1, 0]} : (tensor<10x11x12x13xf32>) -> tensor<13x12x11x10xf32>
+  %1 = "onnx.Transpose"(%0)  {perm = [3, 2, 1, 0]} : (tensor<13x12x11x10xf32>) -> tensor<10x11x12x13xf32>
+  // CHECK-NEXT: return %arg0 : tensor<10x11x12x13xf32>
+  "std.return"(%1) : (tensor<10x11x12x13xf32>) -> ()
+}
