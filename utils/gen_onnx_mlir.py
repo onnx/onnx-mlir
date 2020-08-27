@@ -301,7 +301,6 @@ OpsWithShapeInference=[
     'Sign',
     'Sin',
     'Sinh',
-    'Size',
     'Slice',
     'Softmax',
     'Softplus',

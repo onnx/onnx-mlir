@@ -2353,18 +2353,6 @@ LogicalResult ONNXShapeOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
-// Size
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXSizeOp::inferShapes() {
-  // Output is scalar of int64 containing the size of the input tensor.
-  SmallVector<int64_t, 1> outDims(1, 0);
-  getResult().setType(
-      RankedTensorType::get(outDims, IntegerType::get(64, getContext())));
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // Tile
 //===----------------------------------------------------------------------===//
 
