@@ -17,6 +17,14 @@
 include "mlir/IR/OpBase.td"
 #endif // OP_BASE
 
+def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
+
+def IsSeqTypePred : CPred<"$_self.isa<SeqType>()">;
+
+class SeqOf<list<Type> allowedTypes> : 
+  ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
+                "$_self.cast<SeqType>().getElementType()",  "SeqType">;
+
 #ifdef SHAPE_INFERENCE_INTERFACE
 #else
 include "src/Interface/ShapeInferenceInterface.td"
@@ -26,6 +34,11 @@ include "src/Interface/ShapeInferenceInterface.td"
 #else
 include "src/Interface/PromotableConstOperandsOpInterface.td"
 #endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
+
+#ifdef RESULT_TYPE_INFERENCE_OP_INTERFACE
+#else
+include "src/Interface/ResultTypeInferenceOpInterface.td"
+#endif // RESULT_TYPE_INFERENCE_OP_INTERFACE
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
@@ -38,7 +51,7 @@ def ONNX_Dialect : Dialect {
 //   * The mnemonic for the operation, or the name without the dialect prefix.
 //   * A list of traits for the operation.
 class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
-    Op<ONNX_Dialect, mnemonic, traits>;
+    Op<ONNX_Dialect, mnemonic, traits> ;
 
 //===----------------------------------------------------------------------===//
 // ONNX Operations
@@ -61,7 +74,7 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 // 4. type of string, complex64 and complex128 for input/output are ignored 
 // 5. unsigned int are treated as signed one
 
-include "mlir/Interfaces/SideEffects.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Dialect/ONNX/ONNXOps.td.inc"
 
 // Indicate entry point functions of ONNX graph.
@@ -71,7 +84,7 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
 
-  let builders = [OpBuilder<[{Builder *builder, OperationState &state,
+  let builders = [OpBuilder<[{OpBuilder &builder, OperationState &state,
                              FuncOp function, int numInputs, int numOutputs}]>];
 
   let extraClassDeclaration = [{
@@ -112,11 +125,23 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
            DefaultValuedAttr<I64Attr, "0">:$storage_order,
            OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BatchNormalization operation in test mode";
+  let hasCanonicalizer = 1;
   let description = [{
     "Carries out batch normalization as described in the paper"
     "https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,"
@@ -137,6 +162,17 @@ def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
            DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
            DefaultValuedAttr<F32Attr, "0.9">:$momentum);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 5;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {20};
+    }
+  }];
 }
 
 def ONNXPadConstantValueOp : ONNX_Op<"PadConstantValue",
@@ -154,6 +190,17 @@ def ONNXPadConstantValueOp : ONNX_Op<"PadConstantValue",
            DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
 }
 
 def ONNXPadConstantPadOp : ONNX_Op<"PadConstantPad",
@@ -168,6 +215,17 @@ def ONNXPadConstantPadOp : ONNX_Op<"PadConstantPad",
            I64ArrayAttr:$pads,
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
 }
 
 def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
@@ -183,9 +241,20 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
   // A build method with the result type deduction.
-  let builders = [OpBuilder<"Builder *builder, OperationState &state, "
+  let builders = [OpBuilder<"OpBuilder &builder, OperationState &state, "
                             "Value data, ArrayAttr pads, "
                             "FloatAttr constant_value, StringAttr mode">];
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 1;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {0};
+    }
+  }];
 }
 
 #endif // ONNX_OPS

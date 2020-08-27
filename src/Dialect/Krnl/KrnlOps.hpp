@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/DialectImplementation.h"
@@ -32,6 +33,7 @@ public:
       return LoopType::get(parser.getBuilder().getContext());
 
     parser.emitError(parser.getCurrentLocation(), "Unknown type");
+    return {};
   }
 
   /// Print a type registered to this dialect.

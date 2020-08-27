@@ -1,5 +1,43 @@
 # ONNX MLIR
-The Open Neural Network Exchange implementation in MLIR.
+The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
+
+| System      | Build Status |
+|-------------|--------------|
+| x86-Linux   | [![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)             |
+| s390-Linux  | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Linux-s390x-Build)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Linux-s390x-Build/)             |
+| x86-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
+
+## Prebuilt Container
+An easy way to get started with ONNX-MLIR is to use a prebuilt docker image. These images are created as a result of a successful merge build on the trunk.
+This means that the latest image represents the tip of the trunk.
+Currently there are images for amd64, ppc64le and IBM System Z respectively saved in Docker Hub as onnxmlirczar/onnx-mlir-build:amd64,
+onnxmlirczar/onnx-mlir-build:ppc64le and onnxmlirczar/onnx-mlir-build:s390x. To use one of these images either pull it directly from Docker Hub,
+launch a container and run an interactive bash shell in it, or use it as the base image in a dockerfile. The container contains the full build tree including
+the prerequisites and a clone of the source code. The source can be modified and onnx-mlir rebuilt from within the container, so it is possible to use it
+as a development environment. It is also possible to attach vscode to the running container. An example Dockerfile and vscode configuration files can be
+seen in the docs folder. The Dockerfile is shown here.
+
+[same-as-file]: <> (docs/docker-example/Dockerfile)
+```
+FROM onnxmlirczar/onnx-mlir-build:x86
+
+WORKDIR /build
+ENV HOME=/build
+ENV PYENV_ROOT=$HOME/.pyenv
+ENV PATH=$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH
+RUN pyenv global 3.7.0
+RUN pyenv rehash
+
+ENV PATH=$PATH:/build/bin
+RUN apt-get update
+RUN apt-get install -y python-numpy
+RUN apt-get install -y python3-pip
+RUN apt-get install -y gdb
+RUN apt-get install -y lldb
+RUN apt-get install -y emacs
+WORKDIR /build/.vscode
+ADD .vscode /build/.vscode
+WORKDIR /build
 
 [![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)
 [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)
@@ -11,6 +49,10 @@ gcc >= 6.4
 libprotoc >= 3.11.0
 cmake >= 3.15.4
 ```
+At any point in time, ONNX MLIR depends on a specific commit of the LLVM project that has been shown to work with the project. Periodically the maintainers
+need to move to a more recent LLVM level. Among other things, this requires that the commit string in utils/clone-mlir.sh be updated. A consequence of
+making this change is that the TravisCI build will fail until the Docker images that contain the prereqs are rebuilt. There is a GitHub workflow that rebuilds
+this image for the amd64 architecture, but currently the ppc64le and s390x images must be rebuilt manually. The Dockerfiles to accomplish that are in the repo.
 
 ## Installation on UNIX
 
@@ -21,7 +63,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 3ce0ad1b336e67a76d78ae7ff7d66fe127586620 && cd ..
+cd llvm-project && git checkout 9c94908320549a1a2328c758d6bbb694466021e7 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -57,7 +99,7 @@ export LLVM_PROJ_BUILD=$(pwd)/llvm-project/build
 
 mkdir onnx-mlir/build && cd onnx-mlir/build
 cmake ..
-cmake --build . --target onnx-mlir
+cmake --build .
 
 # Run FileCheck tests:
 export LIT_OPTS=-v
@@ -111,7 +153,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 3ce0ad1b336e67a76d78ae7ff7d66fe127586620 && cd ..
+cd llvm-project && git checkout 9c94908320549a1a2328c758d6bbb694466021e7 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)

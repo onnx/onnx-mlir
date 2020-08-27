@@ -25,12 +25,14 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
-#include "mlir/Conversion/LoopToStandard/ConvertLoopToStandard.h"
+#include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
-#include "mlir/InitAllDialects.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Module.h"
+#include "mlir/InitAllDialects.h"
+#include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Parser.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
@@ -42,14 +44,20 @@ enum EmissionTargetType {
   EmitONNXIR,
   EmitMLIR,
   EmitLLVMIR,
-  EmitLLVMBC,
+  EmitLib,
+  EmitJNI,
 };
 
-void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
-              mlir::OwningModuleRef &module);
+void setExecPath(const char *argv0, void *fmain);
 
-void EmitLLVMBitCode(
-	const mlir::OwningModuleRef &module, std::string outputFilename);
+void LoadMLIR(std::string inputFilename, mlir::MLIRContext &context,
+    mlir::OwningModuleRef &module);
+
+void compileModuleToSharedLibrary(
+    const mlir::OwningModuleRef &module, std::string outputBaseName);
+
+void compileModuleToJniJar(
+    const mlir::OwningModuleRef &module, std::string outputBaseName);
 
 void registerDialects();
 
@@ -66,9 +74,11 @@ void processInputFile(std::string inputFilename,
     mlir::OwningModuleRef &module);
 
 void outputCode(
-    mlir::OwningModuleRef &module, std::string filename,
-    std::string extension);
+    mlir::OwningModuleRef &module, std::string filename, std::string extension);
 
 void emitOutputFiles(std::string outputBaseName,
     EmissionTargetType emissionTarget, mlir::MLIRContext &context,
     mlir::OwningModuleRef &module);
+
+int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, EmissionTargetType targetType);

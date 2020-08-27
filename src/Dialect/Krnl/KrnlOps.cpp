@@ -47,12 +47,12 @@ KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
 //===----------------------------------------------------------------------===//
 
 void KrnlDefineLoopsOp::build(
-    Builder *builder, OperationState &result, int64_t num_loops) {
+    OpBuilder &builder, OperationState &result, int64_t num_loops) {
   // Create the same number of dimension handlers as the number of
   // dimensions in the associated integer set.
-  result.types.append(num_loops, LoopType::get(builder->getContext()));
+  result.types.append(num_loops, LoopType::get(builder.getContext()));
   result.addAttribute(
-      getNumLoopsAttrName(), builder->getI32IntegerAttr(num_loops));
+      getNumLoopsAttrName(), builder.getI32IntegerAttr(num_loops));
 }
 
 void print(OpAsmPrinter &p, KrnlDefineLoopsOp &op) {
@@ -75,48 +75,6 @@ ParseResult parseKrnlDefineLoopsOp(
       numLoops.getValue().getSExtValue(), LoopType::get(builder.getContext()));
   if (parser.addTypesToList(loopTypes, result.types))
     return failure();
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// KrnlOptimizeLoopsOp
-//===----------------------------------------------------------------------===//
-
-void KrnlOptimizeLoopsOp::build(
-    Builder *builder, OperationState &result, int num_optimized_loops) {
-  result.types.append(
-      num_optimized_loops, LoopType::get(builder->getContext()));
-  // Create a region and a block for the body.
-  // Schedule intrinsics will be placed into this region.
-  Region *region = result.addRegion();
-  auto *body = new Block();
-  region->push_back(body);
-}
-
-void print(OpAsmPrinter &p, KrnlOptimizeLoopsOp &op) {
-  p << "krnl.optimize_loops ";
-  p.printRegion(op.region(), /*printEntryBlockArgs=*/false,
-      /*printBlockTerminators=*/true);
-  p << " : ";
-  p.printFunctionalType(op);
-}
-
-ParseResult parseKrnlOptimizeLoopsOp(
-    OpAsmParser &parser, OperationState &result) {
-  // Parse the schedule body region.
-  Region *region = result.addRegion();
-  if (parser.parseRegion(*region, llvm::None, llvm::None))
-    return failure();
-
-  // Parse the function type for the schedule operation.
-  // Then following the hint of this parsed function type, parse the
-  // returned timestamp space dimension handlers.
-  FunctionType schedule_func_type;
-  if (parser.parseColonType(schedule_func_type) ||
-      parser.addTypesToList(schedule_func_type.getResults(), result.types)) {
-    failure();
-  }
-
   return success();
 }
 
@@ -145,7 +103,7 @@ ParseResult parseKrnlOptimizeLoopsOp(
  * Then the bounds will be parsed as:
  *   %i0 = 10 to N : %i1 = M to 20
  */
-void KrnlIterateOp::build(Builder *builder, OperationState &result,
+void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     KrnlIterateOperandPack operandPack) {
   // Record optimized loops and the number of such loops.
   result.addOperands(operandPack.getOperands());
@@ -153,7 +111,7 @@ void KrnlIterateOp::build(Builder *builder, OperationState &result,
       KrnlIterateOp::getBoundsAttrName(), operandPack.getAttributes());
 
   result.addAttribute(getNumOptimizedLoopsAttrName(),
-      builder->getI64IntegerAttr(operandPack.getNumOptimizedLoops()));
+      builder.getI64IntegerAttr(operandPack.getNumOptimizedLoops()));
 
   // Create a region and a block for the body. The arguments of the region are
   // the loop induction variables; there can be multiple induction variables
@@ -161,11 +119,11 @@ void KrnlIterateOp::build(Builder *builder, OperationState &result,
   Region *bodyRegion = result.addRegion();
   auto *body = new Block();
   auto body_args = llvm::SmallVector<Type, 4>(
-      operandPack.getNumInputLoops(), IndexType::get(builder->getContext()));
+      operandPack.getNumInputLoops(), IndexType::get(builder.getContext()));
   body->addArguments(body_args);
   bodyRegion->push_back(body);
 
-  ensureTerminator(*bodyRegion, *builder, result.location);
+  ensureTerminator(*bodyRegion, builder, result.location);
 }
 
 void print(OpAsmPrinter &p, KrnlIterateOp &op) {
@@ -247,7 +205,7 @@ ParseResult parseKrnlIterateOp(OpAsmParser &parser, OperationState &result) {
     // Get the attribute location.
     llvm::SMLoc attrLoc = parser.getCurrentLocation();
     Attribute boundAttr;
-    llvm::SmallVector<NamedAttribute, 1> tempBoundAttrContainer;
+    NamedAttrList tempBoundAttrContainer;
     if (parser.parseAttribute(
             boundAttr, builder.getIndexType(), "temp", tempBoundAttrContainer))
       return failure();
@@ -341,27 +299,10 @@ static LogicalResult verify(KrnlIterateOp op) {
 }
 
 //===----------------------------------------------------------------------===//
-// KrnlReturnLoopsOp
+// KrnlEntryPointOp
 //===----------------------------------------------------------------------===//
 
-void print(OpAsmPrinter &p, KrnlReturnLoopsOp &op) {
-  p << "krnl.return_loops ";
-  p.printOperands(op.operand_begin(), op.operand_end());
-}
-
-ParseResult parseKrnlReturnLoopsOp(
-    OpAsmParser &parser, OperationState &result) {
-  // Parse the loops to return.
-  SmallVector<OpAsmParser::OperandType, 4> timestamp_dim_handlers;
-  if (parser.parseOperandList(timestamp_dim_handlers) ||
-      parser.resolveOperands(timestamp_dim_handlers,
-          LoopType::get(result.getContext()), result.operands))
-    return failure();
-
-  return success();
-}
-
-void KrnlEntryPointOp::build(mlir::Builder *builder, OperationState &state,
+void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
     SymbolRefAttr funcAttr, IntegerAttr numInputs, IntegerAttr numOutputs) {
   state.addAttribute(KrnlEntryPointOp::getEntryPointFuncAttrName(), funcAttr);
   state.addAttribute(KrnlEntryPointOp::getNumInputsAttrName(), numInputs);

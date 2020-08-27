@@ -16,12 +16,11 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const final {
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
 
-    ONNXMatMulOpOperandAdaptor operandAdaptor(operands);
+    ONNXMatMulOpAdaptor operandAdaptor(operands);
     Value A = operandAdaptor.A();
     Value B = operandAdaptor.B();
     auto AShape = A.getType().cast<MemRefType>().getShape();
@@ -105,7 +104,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           allocOperands.emplace_back(dim);
         }
       } else {
-        emitError(loc, "Invalid shapes");
+        return emitError(loc, "Invalid shapes");
       }
 
       alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
@@ -118,9 +117,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
       // Define loops for batch dimensions.
       std::vector<Value> originalLoops;
-      std::vector<Value> optimizedLoops;
-      Block *optimizationBlock = defineLoops(rewriter, loc, originalLoops,
-            optimizedLoops, memRefShape.size());
+      defineLoops(rewriter, loc, originalLoops, memRefShape.size());
 
       // Outer KrnlIterateOp
       SmallVector<Value, 4> loopBatchIVs;
@@ -132,23 +129,16 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         for (int i = 0; i < memRefShape.size() - matmulResultDims; ++i)
           batchAxes.emplace_back(i);
 
-        std::vector<Value> outerLoops, optimizedOuterLoops;
+        std::vector<Value> outerLoops;
         outerLoops.reserve(batchAxes.size());
-        optimizedOuterLoops.reserve(batchAxes.size());
-        for (int i = 0; i < batchAxes.size(); ++i) {
+        for (int i = 0; i < batchAxes.size(); ++i)
           outerLoops.push_back(originalLoops[i]);
-          optimizedOuterLoops.push_back(optimizedLoops[i]);
-        }
-        KrnlIterateOperandPack outerPack(rewriter, outerLoops,
-                                         optimizedOuterLoops);
+
+        KrnlIterateOperandPack outerPack(rewriter, outerLoops);
         for (int i = 0; i < batchAxes.size(); ++i) {
           addDimensionToPack(rewriter, loc, outerPack, alloc, i);
         }
         auto outerIterateOp = rewriter.create<KrnlIterateOp>(loc, outerPack);
-
-        // No optimization
-        rewriter.setInsertionPointToEnd(optimizationBlock);
-        rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
 
         // Insert instructions into the outer KrnlIterateOp.
         Block &outerIterationBlock = outerIterateOp.bodyRegion().front();
@@ -166,41 +156,27 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
       // Create a KrnlIterateOp for matrix multiplication.
       KrnlIterateOp matmulIterateOp;
-      std::vector<Value> matmulLoops, optimizedMatmulLoops;
+      std::vector<Value> matmulLoops;
       if (AShape.size() >= 2 && BShape.size() >= 2) {
         // 2-D x 2-D. Result has two dimensions.
         matmulLoops.reserve(2);
-        optimizedMatmulLoops.reserve(2);
         for (int i = 2; i > 0; --i) {
           matmulLoops.emplace_back(originalLoops[memRefShape.size() - i]);
-          optimizedMatmulLoops.emplace_back(
-              optimizedLoops[memRefShape.size() - i]);
         }
-        KrnlIterateOperandPack matmulPack(rewriter, matmulLoops,
-                                          optimizedMatmulLoops);
+        KrnlIterateOperandPack matmulPack(rewriter, matmulLoops);
         for (int i = 2; i > 0; --i) {
-          addDimensionToPack(rewriter, loc, matmulPack, alloc,
-                             memRefShape.size() - i);
+          addDimensionToPack(
+              rewriter, loc, matmulPack, alloc, memRefShape.size() - i);
         }
         matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, matmulPack);
       } else {
         // 1-D x 2-D, and vice versa. Result has one dimension.
         matmulLoops.reserve(1);
-        optimizedMatmulLoops.reserve(1);
         matmulLoops.emplace_back(originalLoops[memRefShape.size() - 1]);
-        optimizedMatmulLoops.emplace_back(
-            optimizedLoops[memRefShape.size() - 1]);
-        KrnlIterateOperandPack matmulPack(rewriter, matmulLoops,
-                                          optimizedMatmulLoops);
-        addDimensionToPack(rewriter, loc, matmulPack, alloc,
-                           memRefShape.size() - 1);
+        KrnlIterateOperandPack matmulPack(rewriter, matmulLoops);
+        addDimensionToPack(
+            rewriter, loc, matmulPack, alloc, memRefShape.size() - 1);
         matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, matmulPack);
-      }
-
-      if (!hasBatchLoop) {
-        // No optimization
-        rewriter.setInsertionPointToEnd(optimizationBlock);
-        rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
       }
 
       // Insert instructions into the matmul KrnlIterateOp.
@@ -222,22 +198,15 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       }
 
       // Fill the output with value 0.
-      rewriter.create<StoreOp>(loc, zero, alloc, loopBatchMNIVs);
+      rewriter.create<AffineStoreOp>(loc, zero, alloc, loopBatchMNIVs);
 
       //  Iterate along the reduction dimension.
       //  Use a value from A.
       std::vector<Value> reduceLoops;
-      std::vector<Value> optimizedReduceLoops;
-      Block *optimizationReduceBlock =
-          defineLoops(rewriter, loc, reduceLoops, optimizedReduceLoops, 1);
-      KrnlIterateOperandPack reducePack(rewriter, reduceLoops,
-                                        optimizedReduceLoops);
+      defineLoops(rewriter, loc, reduceLoops, 1);
+      KrnlIterateOperandPack reducePack(rewriter, reduceLoops);
       addDimensionToPack(rewriter, loc, reducePack, A, AShape.size() - 1);
       auto reduceIterateOp = rewriter.create<KrnlIterateOp>(loc, reducePack);
-
-      // No optimization
-      rewriter.setInsertionPointToEnd(optimizationReduceBlock);
-      rewriter.create<KrnlReturnLoopsOp>(loc, reduceLoops);
 
       // Insert instructions into the reduction KrnlIterateOp.
       Block &reduceIterationBlock = reduceIterateOp.bodyRegion().front();
@@ -259,24 +228,24 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         for (auto arg : loopBatchIVs)
           loopBatchKNIVs.emplace_back(arg);
       loopBatchKNIVs.emplace_back(loopKIVs[0]);
-      if (BShape.size() >= 2)
+      if (BShape.size() >= 2) {
         if (AShape.size() >= 2)
           loopBatchKNIVs.emplace_back(loopMNIVs[1]);
         else
           loopBatchKNIVs.emplace_back(loopMNIVs[0]);
-
+      }
       // Matmul computation
-      auto loadedA = rewriter.create<LoadOp>(loc, A, loopBatchMKIVs);
-      auto loadedB = rewriter.create<LoadOp>(loc, B, loopBatchKNIVs);
-      auto loadedY = rewriter.create<LoadOp>(loc, alloc, loopBatchMNIVs);
+      auto loadedA = rewriter.create<AffineLoadOp>(loc, A, loopBatchMKIVs);
+      auto loadedB = rewriter.create<AffineLoadOp>(loc, B, loopBatchKNIVs);
+      auto loadedY = rewriter.create<AffineLoadOp>(loc, alloc, loopBatchMNIVs);
       if (elementType.isa<IntegerType>()) {
         auto AB = rewriter.create<MulIOp>(loc, loadedA, loadedB);
         auto accumulated = rewriter.create<AddIOp>(loc, loadedY, AB);
-        rewriter.create<StoreOp>(loc, accumulated, alloc, loopBatchMNIVs);
+        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopBatchMNIVs);
       } else if (elementType.isa<FloatType>()) {
         auto AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
         auto accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-        rewriter.create<StoreOp>(loc, accumulated, alloc, loopBatchMNIVs);
+        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopBatchMNIVs);
       }
     } else if ((AShape.size() == 1) && (BShape.size() == 1)) {
       // Case 3:
@@ -284,22 +253,16 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
       // Fill the output with value 0.
       Value zeroIndex = rewriter.create<ConstantIndexOp>(loc, 0);
-      rewriter.create<StoreOp>(loc, zero, alloc, zeroIndex);
+      rewriter.create<AffineStoreOp>(loc, zero, alloc, zeroIndex);
 
       //  Iterate along the reduction dimension.
       //  Use a value from A.
       std::vector<Value> reduceLoops;
-      std::vector<Value> optimizedReduceLoops;
-      Block *optimizationReduceBlock =
-          defineLoops(rewriter, loc, reduceLoops, optimizedReduceLoops, 1);
-      KrnlIterateOperandPack reducePack(rewriter, reduceLoops,
-                                        optimizedReduceLoops);
+
+      defineLoops(rewriter, loc, reduceLoops, 1);
+      KrnlIterateOperandPack reducePack(rewriter, reduceLoops);
       addDimensionToPack(rewriter, loc, reducePack, A, 0);
       auto reduceIterateOp = rewriter.create<KrnlIterateOp>(loc, reducePack);
-
-      // No optimization
-      rewriter.setInsertionPointToEnd(optimizationReduceBlock);
-      rewriter.create<KrnlReturnLoopsOp>(loc, reduceLoops);
 
       // Insert instructions into the reduction KrnlIterateOp.
       Block &reduceIterationBlock = reduceIterateOp.bodyRegion().front();
@@ -311,17 +274,17 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       loopKIVs.emplace_back(reduceIterationBlock.getArgument(0));
 
       // Matmul computation
-      auto loadedA = rewriter.create<LoadOp>(loc, A, loopKIVs);
-      auto loadedB = rewriter.create<LoadOp>(loc, B, loopKIVs);
-      auto loadedY = rewriter.create<LoadOp>(loc, alloc, zeroIndex);
+      auto loadedA = rewriter.create<AffineLoadOp>(loc, A, loopKIVs);
+      auto loadedB = rewriter.create<AffineLoadOp>(loc, B, loopKIVs);
+      auto loadedY = rewriter.create<AffineLoadOp>(loc, alloc, zeroIndex);
       if (elementType.isa<IntegerType>()) {
         auto AB = rewriter.create<MulIOp>(loc, loadedA, loadedB);
         auto accumulated = rewriter.create<AddIOp>(loc, loadedY, AB);
-        rewriter.create<StoreOp>(loc, accumulated, alloc, zeroIndex);
+        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, zeroIndex);
       } else if (elementType.isa<FloatType>()) {
         auto AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
         auto accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-        rewriter.create<StoreOp>(loc, accumulated, alloc, zeroIndex);
+        rewriter.create<AffineStoreOp>(loc, accumulated, alloc, zeroIndex);
       }
     } else {
       // No scalar matrix multiplication.

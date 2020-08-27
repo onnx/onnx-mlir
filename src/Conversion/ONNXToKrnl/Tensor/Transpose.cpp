@@ -18,7 +18,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXTransposeOpOperandAdaptor operandAdaptor(operands);
+    ONNXTransposeOpAdaptor operandAdaptor(operands);
     auto loc = op->getLoc();
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -38,11 +38,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
     // Define loops.
     std::vector<Value> originalLoops;
-    std::vector<Value> optimizedLoops;
-    Block *optimizationBlock =
-        defineLoops(rewriter, loc, originalLoops, optimizedLoops, rank);
+    defineLoops(rewriter, loc, originalLoops, rank);
 
-    KrnlIterateOperandPack pack(rewriter, originalLoops, optimizedLoops);
+    KrnlIterateOperandPack pack(rewriter, originalLoops);
     // Iterate over the loop nest using the input shape.
     for (int i = 0; i < rank; ++i)
       addDimensionToPack(rewriter, loc, pack, data, i);
@@ -53,14 +51,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     // Now perform the insertions into the body of the
     // just generated instructions:
 
-    // 1. Insert any optimizations in the KrnlOptimizeLoopsOp body.
-    rewriter.setInsertionPointToEnd(optimizationBlock);
-    // Return from KrnlOptimizeLoopsOp body.
-    // When no optimizations are present we just return the loops
-    // unchaged.
-    rewriter.create<KrnlReturnLoopsOp>(loc, originalLoops);
-
-    // 2. Insert instructions inside the KernelIterateOp body.
+    // Insert instructions inside the KernelIterateOp body.
     rewriter.setInsertionPointToStart(&iterationBlock);
 
     // Handle the operation.
@@ -68,17 +59,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     // Read perm attribute.
     SmallVector<int, 4> perm;
     auto permAttribute = llvm::dyn_cast<ONNXTransposeOp>(op).permAttr();
-    if (permAttribute) {
-      for (auto permVal : permAttribute.getValue())
-        perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
-    } else {
-      // TODO: Remove when perm is guaranteed to be present (even for
-      // the default case). This means that perm was added by shape
-      // inference or another pass to contain the values corresponding
-      // to the default behavior of Transpose.
-      for (int i = iterationBlock.getArguments().size() - 1; i >= 0; i--)
-        perm.emplace_back(i);
-    }
+    assert(permAttribute && "permute attribute expected to be defined here");
+    for (auto permVal : permAttribute.getValue())
+      perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
     SmallVector<Value, 4> inLoopIVs;
     for (auto arg : iterationBlock.getArguments())
@@ -88,8 +71,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     for (int i = 0; i < iterationBlock.getArguments().size(); ++i)
       outLoopIVs.emplace_back(iterationBlock.getArguments()[perm[i]]);
 
-    auto inVal = rewriter.create<LoadOp>(loc, data, inLoopIVs);
-    rewriter.create<StoreOp>(loc, inVal, alloc, outLoopIVs);
+    auto inVal = rewriter.create<AffineLoadOp>(loc, data, inLoopIVs);
+    rewriter.create<AffineStoreOp>(loc, inVal, alloc, outLoopIVs);
 
     rewriter.replaceOp(op, alloc);
 
