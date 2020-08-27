@@ -236,11 +236,11 @@ These are frontend options.
 ## Example
 
 For example, to lower an ONNX model (e.g., add.onnx) to ONNX dialect, use the following command:
-```
+```shell
 ./onnx-mlir --EmitONNXIR add.onnx
 ```
 The output should look like:
-```
+```mlir
 module {
   func @main_graph(%arg0: tensor<10x10x10xf32>, %arg1: tensor<10x10x10xf32>) -> tensor<10x10x10xf32> {
     %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10x10xf32>, tensor<10x10x10xf32>) -> tensor<10x10x10xf32>
