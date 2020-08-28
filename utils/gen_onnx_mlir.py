@@ -239,6 +239,7 @@ special_op_handler = dict([
     ("MaxPool", "ImportNodeMaxPool"),
     ("BatchNormalization", "ImportNodeBatchNormalization"),
     ("Pad", "ImportNodePad"),
+    ("Slice", "ImportNodeSlice"),
     #("Transpose", "ImportNodeTranspose")
 ])
 
@@ -284,6 +285,7 @@ OpsWithShapeInference=[
     'Or',
     'Pad',
     'Pow',
+    'PRelu',
     'QuantizeLinear',
     'RNN',
     'Reciprocal',
