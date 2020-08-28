@@ -166,10 +166,28 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
         tensorType, llvm::makeArrayRef(arrayAttrInitializer));
     break;
   }
+  case (onnx::TensorProto::DOUBLE): {
+    const auto &arrayAttrInitializer =
+        CreateArrayAttribute<double>(initializer);
+    auto elmType = builder.getF64Type();
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
+    break;
+  }
   case (onnx::TensorProto::INT8): {
     const auto &arrayAttrInitializer =
         CreateArrayAttribute<int32_t>(initializer);
     auto elmType = builder.getIntegerType(8);
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::makeArrayRef(arrayAttrInitializer));
+    break;
+  }
+  case (onnx::TensorProto::UINT8): {
+    const auto &arrayAttrInitializer =
+        CreateArrayAttribute<int32_t>(initializer);
+    auto elmType = builder.getIntegerType(8, false);
     auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
     denseElmAttr = mlir::DenseElementsAttr::get(
         tensorType, llvm::makeArrayRef(arrayAttrInitializer));
