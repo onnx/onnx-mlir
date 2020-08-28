@@ -525,3 +525,20 @@ Value getDynamicMemRefSizeInBytes(
 
   return result;
 }
+
+int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
+  auto memRefShape =
+      convertToMemRefType(allocOp.getResult().getType()).getShape();
+  auto rank = memRefShape.size();
+
+  int dynDimIdx = 0;
+  for (int idx = 0; idx < rank; ++idx) {
+    if (memRefShape[idx] < 0) {
+      if (idx == index)
+        return dynDimIdx;
+      dynDimIdx++;
+    }
+  }
+
+  return -1;
+}
