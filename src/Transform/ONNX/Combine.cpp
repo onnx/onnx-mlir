@@ -37,12 +37,13 @@ ArrayAttr CombinedTransposePattern(PatternRewriter &rewriter,
     auto index = secondPermVal.cast<IntegerAttr>().getInt();
     resPerm.emplace_back(initialPerm[index]);
   }
+  // Convert to Array of Attributes.
   ArrayRef<int64_t> resPermRefs(resPerm);
   return rewriter.getI64ArrayAttr(resPermRefs);
 }
 
 /// Test if the permute pattern correspond to an identity pattern.
-
+/// Identity patterns are {0, 1, 2, ... , rank -1}.
 bool IsIdentityPermuteVector(ArrayAttr &permAttr) {
   int64_t currentIndex = 0;
   for (auto permVal : permAttr.getValue())

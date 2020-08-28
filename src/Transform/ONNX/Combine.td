@@ -66,7 +66,7 @@ def CastEliminationPattern : Pat<
 	(replaceWithValue $arg),
   [(HasSameElementType $arg, $type)]>;
 
-// Combine transposes
+// Combine transposes.
 def CreateCombinedTransposedPattern :
    NativeCodeCall<"CombinedTransposePattern($_builder, $0, $1)">;
 
@@ -75,16 +75,17 @@ def IsIdentityPermuteAttribute :
     "has identity permute vector">;
 
 def FuseTransposePattern:  Pat<
-  // transpose of a transpose
+  // Transpose of a transpose.
   (ONNXTransposeOp (ONNXTransposeOp $v, $p1), $p2),
-  // combined transpose
+  // Transpose with combined pattern.
   (ONNXTransposeOp $v, (CreateCombinedTransposedPattern $p1, $p2))>;
 
 def RemoveIdentityTransposePattern:  Pat<
-  // transpose of a transpose
+  // Transpose with an identity pattern (e.g. {0, 1, 2, 3}).
   (ONNXTransposeOp $v, $p),
-  // combined transpose
+  // Remove the transpose.
   (replaceWithValue $v),
+  // Check that we have indeed a identity transpose pattern.
   [(IsIdentityPermuteAttribute:$p)]>;
 
 
