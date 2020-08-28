@@ -25,7 +25,7 @@ namespace {
 
 /// Compute the combined permute pattern from a pair of permute patterns.
 ArrayAttr CombinedTransposePattern(PatternRewriter &rewriter,
-   ArrayAttr &firstPermAttr , ArrayAttr &secondPermAttr) {
+    ArrayAttr &firstPermAttr, ArrayAttr &secondPermAttr) {
   // Read first permute vectors.
   SmallVector<int64_t, 4> initialPerm;
   for (auto firstPermVal : firstPermAttr.getValue())
