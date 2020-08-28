@@ -33,8 +33,8 @@
 using namespace mlir;
 
 namespace mlir {
-KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
-    : Dialect(getDialectNamespace(), context) {
+  KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
+    : Dialect(getDialectNamespace(), context, TypeID::get<KrnlOpsDialect>()) {
   addOperations<
 #define GET_OP_LIST
 #include "src/Dialect/Krnl/KrnlOps.cpp.inc"
