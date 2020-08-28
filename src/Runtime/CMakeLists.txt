@@ -19,8 +19,8 @@ set_target_properties(RtMemRefUtils PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 
 add_library(ExecutionSession
-        ExecusionSession.hpp
-        ExecusionSession.cpp)
+        ExecutionSession.hpp
+        ExecutionSession.cpp)
 target_link_libraries(ExecutionSession
         ${CMAKE_DL_LIBS})
 target_include_directories(ExecutionSession PRIVATE
