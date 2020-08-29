@@ -191,3 +191,24 @@ func @test_conv_batchnormtestmode_fusion(%arg0 : tensor<1x3x224x224xf32>, %arg1 
     // CHECK: return [[RES]] : tensor<1x64x112x112xf32>
 }
 
+// -----
+
+func @test_shape1(%arg0 : tensor<2x4x8x16xf32>) -> tensor<*xi64> {
+  %0 = "onnx.Shape"(%arg0) : (tensor<2x4x8x16xf32>) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+
+  // CHECK-LABEL: @test_shape1
+  // CHECK-NEXT: %0 = "onnx.Constant"() {value = dense<[2, 4, 8, 16]> : tensor<4xi64>} : () -> tensor<*xi64>
+  // CHECK-NEXT: %0 : tensor<*xi64>
+}
+
+// -----
+
+func @test_size1(%arg0 : tensor<2x4x8x16xf32>) -> tensor<*xi64> {
+  %0 = "onnx.Size"(%arg0) : (tensor<2x4x8x16xf32>) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+
+  // CHECK-LABEL: @test_size1
+  // CHECK-NEXT: %0 = "onnx.Constant"() {value = dense<1024> : tensor<1xi64>} : () -> tensor<*xi64>
+  // CHECK-NEXT: %0 : tensor<*xi64>
+}
