@@ -27,6 +27,37 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttr(
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 }
 
+DenseElementsAttr createDenseElementsAttrFromShape(
+    PatternRewriter &rewriter, Value value) {
+  auto inType = value.getType().dyn_cast<ShapedType>();;
+  if (!inType) 
+    llvm_unreachable("Shaped type is execptd\n");
+  auto shape = inType.getShape();
+  SmallVector<int64_t, 1> dims(1, inType.getRank());
+  SmallVector<int64_t, 4> values;
+  for(auto s : shape) {
+    values.push_back(s);
+  }
+  auto tensorType = mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+}
+
+DenseElementsAttr createDenseElementsAttrFromSize(
+    PatternRewriter &rewriter, Value value) {
+  auto inType = value.getType().dyn_cast<ShapedType>();;
+  if (!inType) 
+    llvm_unreachable("Shaped type is execptd\n");
+  auto shape = inType.getShape();
+  SmallVector<int64_t, 1> dims(1, 1);
+  int64_t size = 1;
+  for(auto s : shape) {
+    size *= s;
+  }
+  SmallVector<int64_t, 1> values(1, size);
+  auto tensorType = mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+}
+
 // If 'lhs' is not NoneType, return 'lhs - rhs'.
 // Otherwise, return '-rhs'.
 Value subtractOrNeg(
@@ -127,4 +158,16 @@ void ONNXConvOp::getCanonicalizationPatterns(
 void ONNXBatchNormalizationTestModeOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<FuseBatchNormTestModeConvPattern>(context);
+}
+
+/// on the ONNXShapeOp.
+void ONNXShapeOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<ShapeToConstantPattern>(context);
+}
+
+/// on the ONNXSizeOp.
+void ONNXSizeOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<SizeToConstantPattern>(context);
 }

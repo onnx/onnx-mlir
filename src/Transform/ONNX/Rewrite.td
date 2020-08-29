@@ -28,6 +28,14 @@ include "src/Dialect/ONNX/ONNXOps.td"
 def createDenseElementsAttrFromFloatAttr : NativeCodeCall<
   "createDenseElementsAttrFromFloatAttr($_builder, $0.getType().cast<ShapedType>().getElementType(), $1)">;
 
+// Create a DenseElementsAttr from the shape of the type of a value.
+def createDenseElementsAttrFromShape : NativeCodeCall<
+  "createDenseElementsAttrFromShape($_builder, $0)">;
+
+// Create a DenseElementsAttr from the size of the type of a value.
+def createDenseElementsAttrFromSize : NativeCodeCall<
+  "createDenseElementsAttrFromSize($_builder, $0)">;
+
 // If '$1' is not NoneType, do subtraction '$1 - $2'.
 // Otherwise, take the negative of '$2'.
 def subtractOrNeg: NativeCodeCall<
@@ -172,4 +180,19 @@ def FuseBatchNormTestModeConvPattern: Pat<
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides)
 >;
 
+def ShapeToConstantPattern: Pat<
+     (ONNXShapeOp $A),
+     (ONNXConstantOp
+        (GetNullAttr),
+        (createDenseElementsAttrFromShape $A)),
+     []
+>;
+
+def SizeToConstantPattern: Pat<
+     (ONNXSizeOp $A),
+     (ONNXConstantOp
+        (GetNullAttr),
+        (createDenseElementsAttrFromSize $A)),
+     []
+>;
 #endif // ONNX_REWRITE
