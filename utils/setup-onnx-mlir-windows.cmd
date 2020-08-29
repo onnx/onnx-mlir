@@ -4,9 +4,12 @@ call MiniConda.exe /S /D=%UserProfile%\Miniconda3
 set PATH=%PATH%;%UserProfile%\Miniconda3\Scripts
 set PATH "%UserProfile%\Miniconda3\Scripts;%PATH%" /M
 
-call conda create --yes --quiet --name onnx-mlir -c conda-forge python=3.7 libprotobuf=3.10.0
+call conda create --yes --quiet --name onnx-mlir -c conda-forge python=3.7 libprotobuf=3.10.0 pybind11
 call activate.bat onnx-mlir
 call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+
+
+
 
 REM Copy original repo directory to onnx-mlir
 git submodule update --init --recursive
@@ -14,6 +17,13 @@ set onnx-mlir_dir=%cd%
 cd ..
 cp -r %onnx-mlir_dir% onnx-mlir 
 set root_dir=%cd%
+
+
+python -m pip install --upgrade pip
+set USE_MSVC_STATIC_RUNTIME=0
+set CMAKE_ARGS="-DONNX_USE_PROTOBUF_SHARED_LIBS=ON -DProtobuf_USE_STATIC_LIBS=OFF -DONNX_USE_LITE_PROTO=ON"
+pip install -e onnx-mlir\third_party\onnx
+pip install -e onnx-mlir\third_party\onnx
 
 REM Build PDcurses
 cd /d %root_dir%
