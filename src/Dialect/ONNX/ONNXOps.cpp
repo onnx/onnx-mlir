@@ -2885,7 +2885,7 @@ struct SeqTypeStorage : public mlir::TypeStorage {
 SeqType SeqType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
   assert(!elementTypes.empty() && "expected non-empty seq");
   mlir::MLIRContext *ctx = elementTypes.front().getContext();
-  return Base::get(ctx, ONNXTypes::SEQ, elementTypes);
+  return Base::get(ctx, elementTypes);
 }
 
 llvm::ArrayRef<mlir::Type> SeqType::getElementTypes() {
