@@ -25,7 +25,7 @@ namespace {
 
 /// Compute the combined permute pattern from a pair of permute patterns.
 ArrayAttr CombinedTransposePattern(PatternRewriter &rewriter,
-    ArrayAttr &firstPermAttr, ArrayAttr &secondPermAttr) {
+    ArrayAttr firstPermAttr, ArrayAttr secondPermAttr) {
   // Read first permute vectors.
   SmallVector<int64_t, 4> initialPerm;
   for (auto firstPermVal : firstPermAttr.getValue())
@@ -44,7 +44,7 @@ ArrayAttr CombinedTransposePattern(PatternRewriter &rewriter,
 
 /// Test if the permute pattern correspond to an identity pattern.
 /// Identity patterns are {0, 1, 2, ... , rank -1}.
-bool IsIdentityPermuteVector(ArrayAttr &permAttr) {
+bool IsIdentityPermuteVector(ArrayAttr permAttr) {
   int64_t currentIndex = 0;
   for (auto permVal : permAttr.getValue())
     if (permVal.cast<IntegerAttr>().getInt() != currentIndex++)
