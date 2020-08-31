@@ -59,9 +59,7 @@ class StringType
 public:
   using Base::Base;
 
-  static StringType get(MLIRContext *ctx) {
-    return Base::get(ctx);
-  }
+  static StringType get(MLIRContext *ctx) { return Base::get(ctx); }
 };
 
 namespace detail {

@@ -22,8 +22,6 @@ public:
   // Support type inquiry through isa, cast and dyn_cast.
 
   // Get a unique instance of Loop type.
-  static LoopType get(mlir::MLIRContext *context) {
-    return Base::get(context);
-  }
+  static LoopType get(mlir::MLIRContext *context) { return Base::get(context); }
 };
 } // namespace mlir
