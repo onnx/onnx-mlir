@@ -377,13 +377,15 @@ void compileModuleToJniJar(
 }
 
 void registerDialects() {
-  mlir::registerDialect<mlir::AffineDialect>();
-  mlir::registerDialect<mlir::LLVM::LLVMDialect>();
-  mlir::registerDialect<mlir::scf::SCFDialect>();
-  mlir::registerDialect<mlir::StandardOpsDialect>();
-  mlir::registerDialect<mlir::shape::ShapeDialect>();
-  mlir::registerDialect<mlir::ONNXOpsDialect>();
-  mlir::registerDialect<mlir::KrnlOpsDialect>();
+  mlir::MLIRContext context(/*loadAllDialects=*/false);
+  // Load our Dialect in this MLIR Context.
+  context.getOrLoadDialect<mlir::AffineDialect>();
+  context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
+  context.getOrLoadDialect<mlir::scf::SCFDialect>();
+  context.getOrLoadDialect<mlir::StandardOpsDialect>();
+  context.getOrLoadDialect<mlir::shape::ShapeDialect>();
+  context.getOrLoadDialect<mlir::ONNXOpsDialect>();
+  context.getOrLoadDialect<mlir::KrnlOpsDialect>();
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
