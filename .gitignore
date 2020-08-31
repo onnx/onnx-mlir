@@ -179,3 +179,6 @@ dmypy.json
 
 #editor
 *~
+
+# Visual Studio Code Files
+.vscode
