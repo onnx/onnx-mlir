@@ -4861,7 +4861,7 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
 }
 
 def ONNXSizeOp:ONNX_Op<"Size",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Size operation";
   let description = [{
   "Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor."
