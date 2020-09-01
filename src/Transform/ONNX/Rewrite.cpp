@@ -27,36 +27,30 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttr(
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 }
 
+// Create a DenseElementsAttr based on the shape of type.
 DenseElementsAttr createDenseElementsAttrFromShape(
     PatternRewriter &rewriter, Value value) {
-  auto inType = value.getType().dyn_cast<ShapedType>();
+  auto inType = value.getType().cast<ShapedType>();
   ;
   if (!inType)
     llvm_unreachable("Shaped type is execptd\n");
   auto shape = inType.getShape();
-  SmallVector<int64_t, 1> dims(1, inType.getRank());
-  SmallVector<int64_t, 4> values;
-  for (auto s : shape) {
-    values.push_back(s);
-  }
+  SmallVector<int64_t, 1> dims = {inType.getRank()};
+  SmallVector<int64_t, 4> values(shape.begin(), shape.end());
   auto tensorType =
       mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 }
 
+// Create a DenseElementsAttr based on the size of type.
 DenseElementsAttr createDenseElementsAttrFromSize(
     PatternRewriter &rewriter, Value value) {
-  auto inType = value.getType().dyn_cast<ShapedType>();
+  auto inType = value.getType().cast<ShapedType>();
   ;
   if (!inType)
     llvm_unreachable("Shaped type is execptd\n");
-  auto shape = inType.getShape();
   SmallVector<int64_t, 1> dims(1, 1);
-  int64_t size = 1;
-  for (auto s : shape) {
-    size *= s;
-  }
-  SmallVector<int64_t, 1> values(1, size);
+  SmallVector<int64_t, 1> values = {inType.getNumElements()};
   auto tensorType =
       mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
