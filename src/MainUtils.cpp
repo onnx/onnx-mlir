@@ -376,8 +376,7 @@ void compileModuleToJniJar(
   genJniJar(module, modelSharedLibPath, modelJniJarPath);
 }
 
-void registerDialects() {
-  mlir::MLIRContext context(/*loadAllDialects=*/false);
+void registerDialects(mlir::MLIRContext &context) {
   // Load our Dialect in this MLIR Context.
   context.getOrLoadDialect<mlir::AffineDialect>();
   context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
