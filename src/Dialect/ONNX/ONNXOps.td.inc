@@ -5456,6 +5456,7 @@ def ONNXTopKOp:ONNX_Op<"TopK",
 
 def ONNXTransposeOp:ONNX_Op<"Transpose",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Transpose operation";
   let description = [{
   "Transpose the input tensor similar to numpy.transpose. For example, when"
