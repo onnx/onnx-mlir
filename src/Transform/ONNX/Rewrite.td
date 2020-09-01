@@ -180,12 +180,18 @@ def FuseBatchNormTestModeConvPattern: Pat<
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides)
 >;
 
+def IsStaticShapeTensor:
+   Constraint<
+     CPred<
+       "$_self.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
+     "hasStaticShape">;
+
 def ShapeToConstantPattern: Pat<
      (ONNXShapeOp $A),
      (ONNXConstantOp
         (GetNullAttr),
         (createDenseElementsAttrFromShape $A)),
-     []
+     [(IsStaticShapeTensor:$A)]
 >;
 
 def SizeToConstantPattern: Pat<
@@ -193,6 +199,6 @@ def SizeToConstantPattern: Pat<
      (ONNXConstantOp
         (GetNullAttr),
         (createDenseElementsAttrFromSize $A)),
-     []
+     [(IsStaticShapeTensor:$A)]
 >;
 #endif // ONNX_REWRITE
