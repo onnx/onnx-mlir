@@ -111,7 +111,7 @@ private:
   }
 
   mlir::NamedAttribute convertOnnxAttributeProtoToMlirNamedAttribute(
-      onnx::AttributeProto &attr) {
+      onnx::AttributeProto attr) {
     mlir::Attribute mlirAttr;
     switch (attr.type()) {
     case onnx::AttributeProto::FLOAT:
