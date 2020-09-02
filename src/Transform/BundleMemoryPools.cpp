@@ -43,7 +43,7 @@ typedef struct ONNXOperandsInitState {
 } ONNXOperandsInitState;
 
 typedef std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>>
-  FunctionToInitStates;
+    FunctionToInitStates;
 
 // Helper data structure for the bundling of dynamic AllocOps.
 std::map<ModuleOp, std::unique_ptr<FunctionToInitStates>> initMap;
@@ -377,7 +377,8 @@ public:
     // of a block. A temporary ordered list of dependent instructions is
     // necessary.
     llvm::SmallVector<Operation *, 32> orderedDependentOps;
-    for (auto &op : llvm::make_range(parentBlock->begin(), std::prev(parentBlock->end())))
+    for (auto &op :
+        llvm::make_range(parentBlock->begin(), std::prev(parentBlock->end())))
       if (dependentOps.count(&op) > 0)
         orderedDependentOps.emplace_back(&op);
 
@@ -428,8 +429,8 @@ public:
         loc, bundledMemPoolMemRefType, bundledAllocOperand.getResult());
     bundledAlloc.getOperation()->moveBefore(&initState->mainBlock->front());
 
-    KrnlGetRefOp bundledMemRef = rewriter.create<KrnlGetRefOp>(
-        loc, currentAllocGetRef.getResult().getType(), bundledAlloc,
+    KrnlGetRefOp bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
+        currentAllocGetRef.getResult().getType(), bundledAlloc,
         integerDynamicMemoryPoolSize);
     bundledMemRef.getOperation()->moveAfter(bundledAlloc);
 
@@ -457,11 +458,12 @@ public:
 
     ModuleOp module = cast<ModuleOp>(function.getParentOp());
     initMap.insert(std::pair<ModuleOp, std::unique_ptr<FunctionToInitStates>>(
-       module, std::make_unique<FunctionToInitStates>()));
+        module, std::make_unique<FunctionToInitStates>()));
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
-    patterns.insert<KrnlBundleMemoryPools, KrnlBundleDynamicMemoryPools>(&getContext());
+    patterns.insert<KrnlBundleMemoryPools, KrnlBundleDynamicMemoryPools>(
+        &getContext());
 
     applyPatternsAndFoldGreedily(function, patterns);
 
