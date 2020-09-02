@@ -3090,7 +3090,7 @@ def ONNXOrOp:ONNX_Op<"Or",
 }
 
 def ONNXPReluOp:ONNX_Op<"PRelu",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX PRelu operation";
   let description = [{
   "PRelu takes input data (Tensor<T>) and slope tensor as input, and produces one"
@@ -5456,6 +5456,7 @@ def ONNXTopKOp:ONNX_Op<"TopK",
 
 def ONNXTransposeOp:ONNX_Op<"Transpose",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Transpose operation";
   let description = [{
   "Transpose the input tensor similar to numpy.transpose. For example, when"
