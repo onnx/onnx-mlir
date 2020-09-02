@@ -488,7 +488,8 @@ private:
   void ImportCustomNode(const onnx::NodeProto &node) {
     llvm::StringRef opName = node.op_type();
 
-    mlir::emitWarning(UnknownLoc(), "Could not find op importer: assuming this represents a custom operator.");
+    mlir::emitWarning(UnknownLoc(), "Could not find op importer: assuming this "
+                                    "represents a custom operator.");
   }
 
   void ImportNode(const onnx::NodeProto &node) {
@@ -498,9 +499,9 @@ private:
     // for a custom op, and issue a warning.
     auto handler = import_handler_map_.find(opName.str());
     if (handler != import_handler_map_.end()) {
-         (this->*(handler->second))(node);
+      (this->*(handler->second))(node);
     } else {
-        ImportCustomNode(node);     
+      ImportCustomNode(node);
     }
   }
 
