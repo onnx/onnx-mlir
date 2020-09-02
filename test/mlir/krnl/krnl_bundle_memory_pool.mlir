@@ -106,3 +106,80 @@ func @test_dynamic_pool_bundling(%arg0: memref<?x?xf32>) -> memref<?x10xf32> {
   // CHECK: dealloc [[DYN_MEMPOOL]] : memref<?xi8>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+func @test_dynamic_and_static_pool_bundling(%arg0: memref<?x?xf32>, %arg1: memref<10x10xf32>) -> memref<?x10xf32> {
+  %c1 = constant 1 : index
+  %c0 = constant 0 : index
+  %cst = constant 0.000000e+00 : f32
+  %ind = constant 0 : index
+  %c4 = constant 4 : index
+  %c10 = constant 10 : index
+  %c0_i64 = constant 0 : i64
+  %0 = dim %arg0, %c0 : memref<?x?xf32>
+  %1 = muli %0, %c4 : index
+  %2 = muli %1, %c10 : index
+  %3 = alloc(%2) : memref<?xi8>
+  %4 = "krnl.getref"(%3, %c0_i64) : (memref<?xi8>, i64) -> memref<?x10xf32>
+  %const_alloc1 = alloc() : memref<800xi8>
+  %const_ref1 = "krnl.getref"(%const_alloc1, %c0_i64) : (memref<800xi8>, i64) -> memref<10x20xf32>
+  %const_alloc2 = alloc() : memref<400xi8>
+  %const_ref2 = "krnl.getref"(%const_alloc2, %c0_i64) : (memref<400xi8>, i64) -> memref<10x10xf32>
+  %6 = cmpi "sgt", %0, %0 : index
+  %7 = select %6, %0, %0 : index
+  %8 = muli %7, %c4 : index
+  %9 = muli %8, %c10 : index
+  %10 = alloc(%9) : memref<?xi8>
+  %11 = "krnl.getref"(%10, %c0_i64) : (memref<?xi8>, i64) -> memref<?x10xf32>
+  %12 = cmpi "eq", %0, %c1 : index
+  %13 = cmpi "eq", %0, %c1 : index
+  %15 = alloc(%0) : memref<?x10xf32>
+  %const_alloc3 = alloc() : memref<1600xi8>
+  %const_ref3 = "krnl.getref"(%const_alloc3, %c0_i64) : (memref<1600xi8>, i64) -> memref<10x40xf32>
+  affine.store %cst, %4[%ind, %ind] : memref<?x10xf32>
+  affine.store %cst, %11[%ind, %ind] : memref<?x10xf32>
+  affine.store %cst, %15[%ind, %ind] : memref<?x10xf32>
+  affine.store %cst, %const_ref2[%ind, %ind] : memref<10x10xf32>
+  affine.store %cst, %const_ref1[%ind, %ind] : memref<10x20xf32>
+  affine.store %cst, %const_ref3[%ind, %ind] : memref<10x40xf32>
+  dealloc %10 : memref<?xi8>
+  dealloc %3 : memref<?xi8>
+  dealloc %const_alloc1 : memref<800xi8>
+  dealloc %const_alloc2 : memref<400xi8>
+  dealloc %const_alloc3 : memref<1600xi8>
+  return %15 : memref<?x10xf32>
+
+  // CHECK-LABEL: test_dynamic_and_static_pool_bundling
+  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[C4:%.+]] = constant 4 : index
+  // CHECK: [[C10:%.+]] = constant 10 : index
+  // CHECK: [[C400_I64:%.+]] = constant 400 : i64
+  // CHECK: [[C2000_I64:%.+]] = constant 2000 : i64
+  // CHECK: [[C0_I64:%.+]] = constant 0 : i64
+  // CHECK: [[DIM:%.+]] = dim %arg0, [[C0]] : memref<?x?xf32>
+  // CHECK: [[SGT:%.+]] = cmpi "sgt", [[DIM]], [[DIM]] : index
+  // CHECK: [[SELECT:%.+]] = select [[SGT]], [[DIM]], [[DIM]] : index
+  // CHECK: [[MUL1:%.+]] = muli [[SELECT]], [[C4]] : index
+  // CHECK: [[OFFSET1:%.+]] = muli [[MUL1]], [[C10]] : index
+  // CHECK: [[MUL2:%.+]] = muli [[DIM]], [[C4]] : index
+  // CHECK: [[OFFSET2:%.+]] = muli [[MUL2]], [[C10]] : index
+  // CHECK: [[MEMPOOL_SIZE:%.+]] = addi [[OFFSET1]], [[OFFSET2]] : index
+  // CHECK: [[OFFSET1_I64:%.+]] = index_cast [[OFFSET1]] : index to i64
+  // CHECK: [[DYN_MEMPOOL:%.+]] = alloc([[MEMPOOL_SIZE]]) : memref<?xi8>
+  // CHECK: [[DATA1:%.+]] = "krnl.getref"([[DYN_MEMPOOL]], [[OFFSET1_I64]]) : (memref<?xi8>, i64) -> memref<?x10xf32>
+  // CHECK: [[DATA2:%.+]] = "krnl.getref"([[DYN_MEMPOOL]], [[C0_I64]]) : (memref<?xi8>, i64) -> memref<?x10xf32>
+  // CHECK: [[STATIC_MEMPOOL:%.+]] = alloc() : memref<2800xi8>
+  // CHECK: [[DATA3:%.+]] = "krnl.getref"([[STATIC_MEMPOOL]], [[C2000_I64]]) : (memref<2800xi8>, i64) -> memref<10x20xf32>
+  // CHECK: [[DATA4:%.+]] = "krnl.getref"([[STATIC_MEMPOOL]], [[C400_I64]]) : (memref<2800xi8>, i64) -> memref<10x40xf32>
+  // CHECK: [[DATA5:%.+]] = "krnl.getref"([[STATIC_MEMPOOL]], [[C0_I64]]) : (memref<2800xi8>, i64) -> memref<10x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM]]) : memref<?x10xf32>
+  // CHECK: affine.store [[CST]], [[DATA1]][0, 0] : memref<?x10xf32>
+  // CHECK: affine.store [[CST]], [[DATA2]][0, 0] : memref<?x10xf32>
+  // CHECK: affine.store [[CST]], [[RES]][0, 0] : memref<?x10xf32>
+  // CHECK: affine.store [[CST]], [[DATA5]][0, 0] : memref<10x10xf32>
+  // CHECK: affine.store [[CST]], [[DATA3]][0, 0] : memref<10x20xf32>
+  // CHECK: affine.store [[CST]], [[DATA4]][0, 0] : memref<10x40xf32>
+  // CHECK: dealloc [[DYN_MEMPOOL]] : memref<?xi8>
+  // CHECK: dealloc [[STATIC_MEMPOOL]] : memref<2800xi8>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}

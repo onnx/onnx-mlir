@@ -42,11 +42,8 @@ typedef struct ONNXOperandsInitState {
   AllocOp dynamicMemoryPool;
 } ONNXOperandsInitState;
 
-typedef std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>>
-    FunctionToInitStates;
-
 // Helper data structure for the bundling of dynamic AllocOps.
-std::map<ModuleOp, std::unique_ptr<FunctionToInitStates>> initMap;
+std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>> initMap;
 
 //===----------------------------------------------------------------------===//
 // Helper functions.
@@ -63,8 +60,12 @@ FuncOp getContainingFunction(AllocOp op) {
   return cast<FuncOp>(parentFuncOp);
 }
 
-bool addInitBlock(PatternRewriter &rewriter, Location loc,
-    std::unique_ptr<FunctionToInitStates> &initStates, AllocOp allocOp) {
+bool hasInitBlock(FuncOp function) {
+  std::unique_ptr<ONNXOperandsInitState> &initState = initMap.at(function);
+  return initState->initBlock != nullptr;
+}
+
+bool addInitBlock(PatternRewriter &rewriter, Location loc, AllocOp allocOp) {
   // If this is the first time we encounter an operation in this
   // function, we create an entry inside the initMap and split the
   // function body into an init block and a main block.
@@ -79,16 +80,11 @@ bool addInitBlock(PatternRewriter &rewriter, Location loc,
   //
   // Note: the block ^bb0 being the first block has its label omitted.
   //
-
   FuncOp function = getContainingFunction(allocOp);
-
-  // std::unique_ptr<FunctionToInitStates> &initStates = initMap.at(module);
-  if (initStates->count(function) == 0) {
-    initStates->insert(
-        std::pair<FuncOp, std::unique_ptr<ONNXOperandsInitState>>(
-            function, std::make_unique<ONNXOperandsInitState>()));
-    std::unique_ptr<ONNXOperandsInitState> &initState =
-        initStates->at(function);
+  // If the function does not contain an init block, create one.
+  if (!hasInitBlock(function)) {
+    std::unique_ptr<ONNXOperandsInitState> &initState = initMap.at(function);
+    initState = std::make_unique<ONNXOperandsInitState>();
 
     // All input arguments are considered as part of the initialization block
     // so add them to the operandsInInitBlock set.
@@ -192,7 +188,7 @@ public:
     if (!checkOpResultIsUsedByGetRef(&allocOp))
       return failure();
 
-    // TODO: remove once we support the bundling of dynamic memory pools.
+    // Only handle constant AllocOps.
     if (!hasAllConstantDimensions(memRefType))
       return failure();
 
@@ -204,12 +200,16 @@ public:
     if (memRefShape.size() != 1)
       return failure();
 
-    // TODO: Change this when dyanmic shapes are supported.
-    // TODO: Add support for dynamic shapes.
     int64_t currentMemPoolSize = memRefShape[0];
 
     // Get a KrnlGetRefOp which does not use the current alloc.
     if (KrnlGetRefOp unbundledGetRef = getUnbundledGetRef(&allocOp)) {
+      // Make sure that this get ref uses a static alloc.
+      auto unbundledGetRefType =
+          convertToMemRefType(unbundledGetRef.getResult().getType());
+      if (!hasAllConstantDimensions(unbundledGetRefType))
+        return failure();
+
       // Current memory pool size is the offset for the newly bundled
       // internal MemRef. Emit the offset as a constant.
       auto offset = rewriter.create<ConstantOp>(
@@ -295,16 +295,11 @@ public:
     FuncOp function = getContainingFunction(allocOp);
     Block *firstBlock = &function.getBody().front();
 
-    // Module where function resides.
-    ModuleOp module = cast<ModuleOp>(function.getParentOp());
-    std::unique_ptr<FunctionToInitStates> &initStates = initMap.at(module);
-
     // If this is the alloc representing the memory pool and the function
     // already has an init block, pattern matching must fail to avoid
     // processing the dynamic memory pool a second time.
-    if (initStates->count(function) != 0) {
-      std::unique_ptr<ONNXOperandsInitState> &initState =
-          initStates->at(function);
+    if (hasInitBlock(function)) {
+      std::unique_ptr<ONNXOperandsInitState> &initState = initMap.at(function);
       if (allocOp == initState->dynamicMemoryPool)
         return failure();
     }
@@ -385,11 +380,10 @@ public:
     // If no dynamic alloc is in the trace of the dependent operations,
     // emit the size calculation in the init block, if one exists already,
     // if not, create the init block.
-    bool addedInitBlock = addInitBlock(rewriter, loc, initStates, allocOp);
+    bool addedInitBlock = addInitBlock(rewriter, loc, allocOp);
 
     // Move the ordered dependent size calculation to the init block.
-    std::unique_ptr<ONNXOperandsInitState> &initState =
-        initStates->at(function);
+    std::unique_ptr<ONNXOperandsInitState> &initState = initMap.at(function);
     for (auto &op : orderedDependentOps)
       op->moveBefore(initState->branchInit);
 
@@ -456,9 +450,13 @@ public:
   void runOnFunction() override {
     auto function = getFunction();
 
-    ModuleOp module = cast<ModuleOp>(function.getParentOp());
-    initMap.insert(std::pair<ModuleOp, std::unique_ptr<FunctionToInitStates>>(
-        module, std::make_unique<FunctionToInitStates>()));
+    // ModuleOp module = cast<ModuleOp>(function.getParentOp());
+    initMap.insert(std::pair<FuncOp, std::unique_ptr<ONNXOperandsInitState>>(
+        function, std::make_unique<ONNXOperandsInitState>()));
+
+    // Initialize state for this function.
+    std::unique_ptr<ONNXOperandsInitState> &initState = initMap.at(function);
+    initState->initBlock = nullptr;
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
@@ -467,7 +465,7 @@ public:
 
     applyPatternsAndFoldGreedily(function, patterns);
 
-    initMap.erase(module);
+    initMap.erase(function);
   }
 };
 } // namespace
