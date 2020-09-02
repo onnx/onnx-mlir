@@ -32,7 +32,7 @@ namespace {
 // when the first canonicalization is performed because the init block
 // unconditionally branches into the second block. These blocks exist only for
 // the purpose of this optimization.
-// The support happens on a per function basis.
+// The information is recorded on a per function basis.
 //===----------------------------------------------------------------------===//
 
 typedef struct ONNXOperandsInitState {
@@ -45,17 +45,12 @@ typedef struct ONNXOperandsInitState {
 typedef std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>>
   FunctionToInitStates;
 
-// This map is used by the FrontendToKrnlLoweringPass pass to keep track of the
-// allocations emitted in the initialization block for each function of a given
-// module. A translation unit can consist of several modules, each with several
-// functions hence the structure shown below.
-// This data structure enables the emission of dyanmic `alloc` instructions
-// in the initialization block of a function if all the other operands the
-// computation of its parameters depends on are also present in that function's
-// initialization block.
-// This data structure is live only during the execution of the frontend
-// lowering to Krnl dialect pass (FrontendToKrnlLoweringPass).
+// Helper data structure for the bundling of dynamic AllocOps.
 std::map<ModuleOp, std::unique_ptr<FunctionToInitStates>> initMap;
+
+//===----------------------------------------------------------------------===//
+// Helper functions.
+//===----------------------------------------------------------------------===//
 
 /// Retrieve function which contains the current operation.
 FuncOp getContainingFunction(AllocOp op) {
@@ -157,6 +152,10 @@ KrnlGetRefOp getCurrentAllocGetRef(AllocOp *allocOp) {
   return currentAllocGetRef;
 }
 
+//===----------------------------------------------------------------------===//
+// Rewrite patterns.
+//===----------------------------------------------------------------------===//
+
 /*!
  *  RewritePattern that replaces:
  *    %mem1 = alloc() : memref<<dims1>x<type>>
@@ -247,6 +246,18 @@ public:
   }
 };
 
+/*!
+ *  RewritePattern that merges a new dynamic AllocOp with the existing dynamic
+ *  memory pool.
+ *    %dyn_mempool = alloc(%a) : memref<?xi8>
+ *    %new_alloc = alloc(%b) : memref<?xi8>
+ *    %new_ref = krnl.getref %new_alloc 0 : memref<?xi8>
+ *  =>
+ *    %c = addi %a, %b
+ *    %dyn_mempool = alloc(%c) : memref<?xi8>
+ *    %new_ref = krnl.getref %dyn_mempool %a : memref<?xi8>
+ */
+
 class KrnlBundleDynamicMemoryPools : public OpRewritePattern<AllocOp> {
 public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
@@ -257,9 +268,6 @@ public:
 
     auto memRefType = convertToMemRefType(allocOp.getResult().getType());
     auto memRefShape = memRefType.getShape();
-
-    printf("Currently looking at: \n");
-    allocOp.getOperation()->dump();
 
     // If alloca result is not used by getref then it cannot be part of
     // the memory pool.
@@ -297,10 +305,8 @@ public:
     if (initStates->count(function) != 0) {
       std::unique_ptr<ONNXOperandsInitState> &initState =
           initStates->at(function);
-      if (allocOp == initState->dynamicMemoryPool) {
-        printf(" STOP 1 \n");
+      if (allocOp == initState->dynamicMemoryPool)
         return failure();
-      }
     }
 
     // Initialize work queue data structure.
@@ -363,22 +369,17 @@ public:
       operandList.erase(operandList.begin());
     }
 
-    printf("==================> %d\n", dependsOnLocalDynamicAlloc);
-    if (dependsOnLocalDynamicAlloc) {
+    if (dependsOnLocalDynamicAlloc)
       return failure();
-    }
 
     // Order the dependent values in the same order they appear in the code.
     // One cannot iterate over and make changes to the order of the operations
     // of a block. A temporary ordered list of dependent instructions is
     // necessary.
     llvm::SmallVector<Operation *, 32> orderedDependentOps;
-    for (auto &op : llvm::make_range(parentBlock->begin(), std::prev(parentBlock->end()))) {
-      if (dependentOps.count(&op) > 0) {
+    for (auto &op : llvm::make_range(parentBlock->begin(), std::prev(parentBlock->end())))
+      if (dependentOps.count(&op) > 0)
         orderedDependentOps.emplace_back(&op);
-        // op.dump();
-      }
-    }
 
     // If no dynamic alloc is in the trace of the dependent operations,
     // emit the size calculation in the init block, if one exists already,
@@ -399,9 +400,8 @@ public:
 
     // Get the getref of the current allocOp. There is exactly one such getref.
     KrnlGetRefOp currentAllocGetRef = getCurrentAllocGetRef(&allocOp);
-    if (!currentAllocGetRef) {
+    if (!currentAllocGetRef)
       return failure();
-    }
 
     // Add the current alloc size to the current MemPool size.
     Value dynamicMemoryPoolSize = initState->dynamicMemoryPool.getOperand(0);
@@ -464,8 +464,6 @@ public:
     patterns.insert<KrnlBundleMemoryPools, KrnlBundleDynamicMemoryPools>(&getContext());
 
     applyPatternsAndFoldGreedily(function, patterns);
-
-    module.dump();
 
     initMap.erase(module);
   }
