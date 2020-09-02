@@ -40,8 +40,6 @@ typedef struct ONNXOperandsInitState {
   Block *mainBlock;
   BranchOp branchInit;
   AllocOp dynamicMemoryPool;
-  Value currentMemPoolSize;
-  // llvm::SetVector<Value> operandsInInitBlock;
 } ONNXOperandsInitState;
 
 typedef std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>>
@@ -70,28 +68,8 @@ FuncOp getContainingFunction(AllocOp op) {
   return cast<FuncOp>(parentFuncOp);
 }
 
-FuncOp getContainingFunctionForOp(Operation *op) {
-  Operation *parentFuncOp = op->getParentOp();
-
-  // While parent is not a FuncOp and its cast to a FuncOp is null.
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
-    parentFuncOp = parentFuncOp->getParentOp();
-
-  return cast<FuncOp>(parentFuncOp);
-}
-
-// // The alloc cannot be part of the memory pool if the size computation
-// // depends on an intermediate AllocOp.
-// bool allocCanBePartOfMemPool(AllocOp) {
-//   bool canBeIncludedInMemPool = true;
-
-//   // TODO
-//   auto parentBlock = allocOp->getOperation()->getBlock();
-
-//   return canBeIncludedInMemPool;
-// }
-
-void addInitBlock(PatternRewriter &rewriter, Location loc, std::unique_ptr<FunctionToInitStates> &initStates, AllocOp allocOp) {
+bool addInitBlock(PatternRewriter &rewriter, Location loc,
+    std::unique_ptr<FunctionToInitStates> &initStates, AllocOp allocOp) {
   // If this is the first time we encounter an operation in this
   // function, we create an entry inside the initMap and split the
   // function body into an init block and a main block.
@@ -108,13 +86,6 @@ void addInitBlock(PatternRewriter &rewriter, Location loc, std::unique_ptr<Funct
   //
 
   FuncOp function = getContainingFunction(allocOp);
-  // ModuleOp module = cast<ModuleOp>(function.getParentOp());
-
-  // // If this is the first time we encounter the module, add it.
-  // if (initMap.count(module) == 0) {
-  //   initMap.insert(std::pair<ModuleOp, std::unique_ptr<FunctionToInitStates>>(
-  //      module, std::make_unique<FunctionToInitStates>()));
-  // }
 
   // std::unique_ptr<FunctionToInitStates> &initStates = initMap.at(module);
   if (initStates->count(function) == 0) {
@@ -127,9 +98,6 @@ void addInitBlock(PatternRewriter &rewriter, Location loc, std::unique_ptr<Funct
     // All input arguments are considered as part of the initialization block
     // so add them to the operandsInInitBlock set.
     Block *functionBlock = &function.front();
-    // for (auto arg : functionBlock->getArguments())
-    //   initState->operandsInInitBlock.insert(arg);
-
     PatternRewriter::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(functionBlock);
 
@@ -145,19 +113,15 @@ void addInitBlock(PatternRewriter &rewriter, Location loc, std::unique_ptr<Funct
     initState->branchInit =
         rewriter.create<BranchOp>(loc, initState->mainBlock);
 
+    rewriter.setInsertionPointToStart(initState->mainBlock);
+
     // Save a reference to the current dynamic memory pool value.
     initState->dynamicMemoryPool = allocOp;
 
-    // Move it to the start of the mainBlock.
-    // The allocs can now be moved because an alloc always precedes
-    // any getrefs accessing it. No getrefs are ever moved inside
-    // the init block.
-    allocOp.moveBefore(initState->mainBlock->front());
-
-    // Current memory pool size is zero.
-    initState->currentMemPoolSize =
-        emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+    return true;
   }
+
+  return false;
 }
 
 bool isBlockArgument(Block *block, Value operand) {
@@ -166,72 +130,6 @@ bool isBlockArgument(Block *block, Value operand) {
       return true;
   return false;
 }
-
-// void printDependentOps(AllocOp *allocOp) {
-//   auto parentBlock = allocOp->getOperation()->getBlock();
-
-//   // Initialize work queue data structure.
-//   Operation *op = allocOp->getOperation();
-//   std::vector<Value> operandList;
-//     for (const auto &operand : allocOp->getOperands()) {
-//     operandList.emplace_back(operand);
-//   }
-
-//   // Check if list of operations depends on dynamic local allocs.
-//   bool dependsOnLocalAlloc = false;
-
-//   // Construct the list of Values on which the current AllocOp depends on.
-//   llvm::SetVector<Operation *> dependentOps;
-//   while (operandList.size() > 0) {
-//     Value currentElement = operandList[0];
-//     Operation *definingOperation = currentElement.getDefiningOp();
-
-//     // If this value has not been seen before, process it.
-//     if (dependentOps.count(definingOperation) == 0) {
-//       // Add value to dependent values list.
-//       dependentOps.insert(definingOperation);
-
-//       // Add operands to work queue.
-//       for (const auto &operand : definingOperation->getOperands()) {
-//         // Check operand is not a block argument. If it is skip it, we
-//         // consider block arguments to be leafs.
-//         if (!isBlockArgument(parentBlock, operand))
-//           operandList.emplace_back(operand);
-
-//         // Check if the current operation is a dim or a load and the
-//         // argument list involves a local AllocOp with dynamic sizes.
-//         // If that's the case then it means that the whole set of
-//         // instructions cannot be moved.
-//         // Check if the current operation is a DimOp or a LoadOp.
-//         if (llvm::dyn_cast<DimOp>(definingOperation) ||
-//             llvm::dyn_cast<LoadOp>(definingOperation)) {
-//           Operation *operandOp = operand.getDefiningOp();
-//           if (operandOp) {
-//             auto localAlloc = llvm::dyn_cast<AllocOp>(operandOp);
-//             if (localAlloc) {
-//               auto memRefType =
-//                   convertToMemRefType(localAlloc.getResult().getType());
-//               if (!hasAllConstantDimensions(memRefType))
-//                 dependsOnLocalAlloc = true;
-//             }
-//           }
-//         }
-//       }
-//     }
-
-//     // Erase first element from work queue.
-//     operandList.erase(operandList.begin());
-//   }
-
-//   // Print the dependent values in the correct order.
-//   for (auto &op : llvm::make_range(parentBlock->begin(), std::prev(parentBlock->end()))) {
-//     if (dependentOps.count(&op) > 0) {
-//       op.dump();
-//     }
-//   }
-
-//   printf("==================> %d\n", dependsOnLocalAlloc);
-// }
 
 KrnlGetRefOp getUnbundledGetRef(AllocOp *memPool) {
   auto parentBlock = memPool->getOperation()->getBlock();
@@ -246,17 +144,17 @@ KrnlGetRefOp getUnbundledGetRef(AllocOp *memPool) {
   return unbundledGetRef;
 }
 
-KrnlGetRefOp getCurrentAllocGetRef(AllocOp allocOp) {
-  auto parentBlock = allocOp.getOperation()->getBlock();
+KrnlGetRefOp getCurrentAllocGetRef(AllocOp *allocOp) {
+  auto parentBlock = allocOp->getOperation()->getBlock();
 
-  KrnlGetRefOp unbundledGetRef = nullptr;
-  parentBlock->walk([&unbundledGetRef, memPool](KrnlGetRefOp op) {
-    auto result = memPool->getResult();
-    if (op.getOperands()[0] != result)
-      unbundledGetRef = op;
+  KrnlGetRefOp currentAllocGetRef = nullptr;
+  parentBlock->walk([&currentAllocGetRef, allocOp](KrnlGetRefOp op) {
+    auto result = allocOp->getResult();
+    if (op.getOperands()[0] == result)
+      currentAllocGetRef = op;
   });
 
-  return unbundledGetRef;
+  return currentAllocGetRef;
 }
 
 /*!
@@ -396,9 +294,14 @@ public:
     // If this is the alloc representing the memory pool and the function
     // already has an init block, pattern matching must fail to avoid
     // processing the dynamic memory pool a second time.
-    if (initStates->count(function) != 0 &&
-        allocOp == initState->dynamicMemoryPool)
-      return failure();
+    if (initStates->count(function) != 0) {
+      std::unique_ptr<ONNXOperandsInitState> &initState =
+          initStates->at(function);
+      if (allocOp == initState->dynamicMemoryPool) {
+        printf(" STOP 1 \n");
+        return failure();
+      }
+    }
 
     // Initialize work queue data structure.
     Operation *op = allocOp.getOperation();
@@ -461,8 +364,9 @@ public:
     }
 
     printf("==================> %d\n", dependsOnLocalDynamicAlloc);
-    if (dependsOnLocalDynamicAlloc)
+    if (dependsOnLocalDynamicAlloc) {
       return failure();
+    }
 
     // Order the dependent values in the same order they appear in the code.
     // One cannot iterate over and make changes to the order of the operations
@@ -472,14 +376,14 @@ public:
     for (auto &op : llvm::make_range(parentBlock->begin(), std::prev(parentBlock->end()))) {
       if (dependentOps.count(&op) > 0) {
         orderedDependentOps.emplace_back(&op);
-        op.dump();
+        // op.dump();
       }
     }
 
     // If no dynamic alloc is in the trace of the dependent operations,
     // emit the size calculation in the init block, if one exists already,
     // if not, create the init block.
-    addInitBlock(rewriter, loc, initStates, allocOp);
+    bool addedInitBlock = addInitBlock(rewriter, loc, initStates, allocOp);
 
     // Move the ordered dependent size calculation to the init block.
     std::unique_ptr<ONNXOperandsInitState> &initState =
@@ -489,77 +393,58 @@ public:
 
     // Bundle MemRef type: <?xi8>
     SmallVector<int64_t, 1> memPoolShape;
-    newMemPoolShape.emplace_back(-1);
+    memPoolShape.emplace_back(-1);
     auto bundledMemPoolMemRefType =
-        MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
+        MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
 
     // Get the getref of the current allocOp. There is exactly one such getref.
-    KrnlGetRefOp unbundledGetRef = getCurrentAllocGetRef(allocOp);
-
-    if (KrnlGetRefOp unbundledGetRef = getUnbundledGetRef(&allocOp)) {
-      // Add the current alloc size to the current MemPool size.
-      Value bundledAllocOperand = rewriter.create<AddIOp>(loc, initState->currentMemPoolSize, allocOp.getOperand(0))
-
-      // We need to emit a new alloc which contains the additional MemRef.
-      auto bundledAlloc =
-          rewriter.create<AllocOp>(loc, bundledMemPoolMemRefType, bundledAllocOperand);
-
-      // The newly bundled MemRef expressed as a KrnlGetRefOp.
-      // Current memory pool size is the offset for the newly bundled
-      // internal MemRef.
-      auto bundledMemRef = rewriter.create<KrnlGetRefOp>(
-          loc, unbundledGetRef.getResult().getType(), bundledAlloc, initState->currentMemPoolSize);
-      rewriter.replaceOp(unbundledGetRef, bundledMemRef.getResult());
-
-      // Replace old memory pool with new one.
-      rewriter.replaceOp(allocOp, bundledAlloc.getResult());
-
-      // Update MemPool size.
-      initState->currentMemPoolSize = bundledAllocOperand;
-
-      return success();
+    KrnlGetRefOp currentAllocGetRef = getCurrentAllocGetRef(&allocOp);
+    if (!currentAllocGetRef) {
+      return failure();
     }
 
-    // initState->dynamicMemoryPool = op;
-    // initState->currentMemPoolSize = op.getOperand(0);
+    // Add the current alloc size to the current MemPool size.
+    Value dynamicMemoryPoolSize = initState->dynamicMemoryPool.getOperand(0);
+    if (addedInitBlock) {
+      Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+      zero.getDefiningOp()->moveBefore(initState->branchInit);
+      dynamicMemoryPoolSize = zero;
+    }
 
-    // addInitBlock(rewriter, loc, allocOp);
+    AddIOp bundledAllocOperand = rewriter.create<AddIOp>(
+        loc, dynamicMemoryPoolSize, allocOp.getOperand(0));
+    bundledAllocOperand.getOperation()->moveBefore(initState->branchInit);
 
-    // In case this is the first AllocOp add init block and initialize
-    // the data structure for keeping track of the memory pool.
-    // addInitBlock(rewriter, loc, allocOp);
-    // printDependentOps(&allocOp);
-    return failure();
+    // The newly bundled MemRef expressed as a KrnlGetRefOp.
+    // Current memory pool size is the offset for the newly bundled
+    // internal MemRef.
+    Value integerDynamicMemoryPoolSize = rewriter.create<IndexCastOp>(
+        loc, dynamicMemoryPoolSize, rewriter.getIntegerType(64));
+    integerDynamicMemoryPoolSize.getDefiningOp()->moveBefore(
+        initState->branchInit);
+
+    // We need to emit a new alloc which contains the additional MemRef.
+    AllocOp bundledAlloc = rewriter.create<AllocOp>(
+        loc, bundledMemPoolMemRefType, bundledAllocOperand.getResult());
+    bundledAlloc.getOperation()->moveBefore(&initState->mainBlock->front());
+
+    KrnlGetRefOp bundledMemRef = rewriter.create<KrnlGetRefOp>(
+        loc, currentAllocGetRef.getResult().getType(), bundledAlloc,
+        integerDynamicMemoryPoolSize);
+    bundledMemRef.getOperation()->moveAfter(bundledAlloc);
+
+    // Replace old memory pool with new one.
+    rewriter.replaceOp(initState->dynamicMemoryPool, bundledAlloc.getResult());
+
+    // Replace old getref with new getref from new memory pool.
+    rewriter.replaceOp(currentAllocGetRef, bundledMemRef.getResult());
+
+    // Update MemPool size.
+    initState->dynamicMemoryPool = bundledAlloc;
+
+    return success();
   }
 };
-
-// struct FuncOpSignatureConversion : public OpRewritePattern<FuncOp> {
-//    FuncOpSignatureConversion(MLIRContext *ctx, TypeConverter &converter)
-//        : OpConversionPattern(converter, ctx) {}
-
-//     /// Hook for derived classes to implement combined matching and rewriting.
-//    LogicalResult matchAndRewrite(FuncOp funcOp, ArrayRef<Value> operands,
-//        ConversionPatternRewriter &rewriter) const override {
-//      FunctionType type = funcOp.getType();
-
-//       // Convert the original function types.
-//      TypeConverter::SignatureConversion result(type.getNumInputs());
-//      SmallVector<Type, 1> newResults;
-//      if (failed(typeConverter->convertSignatureArgs(type.getInputs(), result)) ||
-//          failed(typeConverter->convertTypes(type.getResults(), newResults)) ||
-//          failed(rewriter.convertRegionTypes(
-//              &funcOp.getBody(), *typeConverter, &result)))
-//        return failure();
-
-//       // Update the function signature in-place.
-//      rewriter.updateRootInPlace(funcOp, [&] {
-//        funcOp.setType(FunctionType::get(
-//            result.getConvertedTypes(), newResults, funcOp.getContext()));
-//      });
-//      addInitBlock(rewriter, funcOp.getLoc(), funcOp);
-//      return success();
-//    }
-//  };
 
 /*!
  *  Function pass that enables memory pooling for MemRefs.
@@ -579,6 +464,8 @@ public:
     patterns.insert<KrnlBundleMemoryPools, KrnlBundleDynamicMemoryPools>(&getContext());
 
     applyPatternsAndFoldGreedily(function, patterns);
+
+    module.dump();
 
     initMap.erase(module);
   }
