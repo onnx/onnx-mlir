@@ -11,6 +11,9 @@ arch:
 env:
   - NIGHTLY=true
   - NIGHTLY=false
+stages:
+  - name: prereq
+  - name: test
 jobs:
   allow_failures:
     - env: NIGHTLY=true
@@ -18,6 +21,7 @@ jobs:
     - stage: prereq
       script:
         - echo "Helloworld!"
+        
     - stage: test
       script:
         - export CPU_ARCH=$TRAVIS_CPU_ARCH
