@@ -43,13 +43,6 @@ public:
       os << "loop";
       return;
     });
-    /*
-    switch (type.getKind()) {
-    case KrnlTypes::Loop:
-      os << "loop";
-      return;
-    }
-    */
   }
 };
 
