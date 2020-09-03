@@ -12,18 +12,52 @@ env:
   - NIGHTLY=true
   - NIGHTLY=false
 stages:
-  - name: prereq
+  - name: prereq-init
+  - name: prereq-0
+  - name: prereq-1
+  - name: prereq-2
+  - name: prereq-final
   - name: test
 jobs:
   allow_failures:
     - env: NIGHTLY=true
   include:
-    - stage: prereq
+    # Iteratively (5 times * 40 min max time each) build docker pre-req image for s390x.
+    - stage: prereq-init
       arch:
         - s390x
       script:
-        - echo "Helloworld!"
-    - stage: prereq
+        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="ubuntu:focal" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:s390x
+    - stage: prereq-0
+      arch:
+        - s390x
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:s390x" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:s390x
+    - stage: prereq-1
+      arch:
+        - s390x
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:s390x" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:s390x
+    - stage: prereq-2
+      arch:
+        - s390x
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:s390x" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:s390x
+    - stage: prereq-final
+        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:s390x" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-prereq:s390x
+    
+    # Iteratively (5 times * 40 min max time each) build docker pre-req image for x86.
+    - stage: prereq-init
       arch:
         - amd64
       script:
