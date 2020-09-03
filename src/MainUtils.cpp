@@ -461,7 +461,8 @@ void outputCode(
 #else
   if (fork() == 0) {
     freopen(tempFilename.c_str(), "w", stderr);
-    module->dump();
+    //module->dump();
+    module->print(llvm::errs()
     fclose(stderr);
     exit(0);
   }
