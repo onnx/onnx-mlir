@@ -21,7 +21,10 @@ jobs:
     - stage: prereq
       arch:
         - s390x
-        - ppc64le
+      script:
+        - echo "Helloworld!"
+    - stage: prereq
+      arch:
         - amd64
       script:
         - echo "Helloworld!"
