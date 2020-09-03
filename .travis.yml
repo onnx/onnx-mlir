@@ -56,6 +56,9 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:s390x
     - stage: prereq-final
+      arch:
+        - s390x
+      script:
         - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:s390x" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-prereq:s390x
@@ -90,6 +93,9 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le
     - stage: prereq-final
+      arch:
+        - ppc64le
+      script:
         - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-prereq:ppc64le
