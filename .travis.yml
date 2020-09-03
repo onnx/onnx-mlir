@@ -19,6 +19,10 @@ jobs:
     - env: NIGHTLY=true
   include:
     - stage: prereq
+      arch:
+        - s390x
+        - ppc64le
+        - amd64
       script:
         - echo "Helloworld!"
         
