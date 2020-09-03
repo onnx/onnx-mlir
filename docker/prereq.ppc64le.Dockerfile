@@ -47,7 +47,7 @@ RUN if [ ! -f "/build/llvm-project/build/CMakeCache.txt" ]; then \
        -DLLVM_TARGETS_TO_BUILD="host" \
        -DCMAKE_BUILD_TYPE=Release \
        -DLLVM_ENABLE_ASSERTIONS=ON \
-       -DLLVM_ENABLE_RTTI=ON;
+       -DLLVM_ENABLE_RTTI=ON; \
     fi
 
 RUN if timeout 40m cmake --build . --target -- ${MAKEFLAGS} ; then
