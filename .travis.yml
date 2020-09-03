@@ -59,7 +59,7 @@ jobs:
       arch:
         - s390x
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:s390x" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-prereq:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:s390x" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-prereq:s390x
     
