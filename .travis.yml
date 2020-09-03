@@ -56,6 +56,40 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-prereq:s390x
     
+    # Iteratively (5 times * 40 min max time each) build docker pre-req image for ppc64le.
+    - stage: prereq-init
+      arch:
+        - ppc64le
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="ubuntu:focal" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le
+    - stage: prereq-0
+      arch:
+        - ppc64le
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le
+    - stage: prereq-1
+      arch:
+        - ppc64le
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le
+    - stage: prereq-2
+      arch:
+        - ppc64le
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le
+    - stage: prereq-final
+        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-prereq:ppc64le
+    
     # Iteratively (5 times * 40 min max time each) build docker pre-req image for x86.
     - stage: prereq-init
       arch:
