@@ -164,7 +164,7 @@ jobs:
       arch:
         - amd64
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:x86 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:x86 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:x86" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:x86
     - stage: prereq-1
@@ -172,7 +172,7 @@ jobs:
       arch:
         - amd64
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:x86 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:x86 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:x86" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:x86
     - stage: prereq-2
@@ -180,7 +180,7 @@ jobs:
       arch:
         - amd64
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:x86 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:x86 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:x86" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:x86
     - stage: prereq-final
@@ -188,7 +188,7 @@ jobs:
       arch:
         - amd64
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage:x86 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage:x86 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:x86" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage:x86
 
