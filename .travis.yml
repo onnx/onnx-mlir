@@ -65,6 +65,7 @@ jobs:
     
     # Iteratively (5 times * 40 min max time each) build docker pre-req image for ppc64le.
     - stage: prereq-init
+      dist: focal
       arch:
         - ppc64le
       script:
