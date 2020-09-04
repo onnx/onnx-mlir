@@ -51,5 +51,5 @@ RUN if [ ! -f "/build/llvm-project/build/CMakeCache.txt" ]; then \
     fi
 
 RUN if timeout 40m cmake --build . --target -- ${MAKEFLAGS} ; then \
-      cmake --build . --target check-mlir \
+      cmake --build . --target check-mlir; \
     fi
