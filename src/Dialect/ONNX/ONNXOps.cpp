@@ -512,6 +512,8 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
     if (parser.parseGreater())
       return Type();
     return SeqType::get(elementTypes);
+  } else {
+    llvm_unreachable("Unexpected onnxmlir keyword");
   }
 }
 
