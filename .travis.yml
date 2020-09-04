@@ -69,6 +69,8 @@ jobs:
         - ppc64le
       script:
         - echo N | sudo tee /sys/module/overlay/parameters/metacopy
+        - echo "metacopy turned off?"
+        - sudo cat /sys/module/overlay/parameters/metacopy
         - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="ubuntu:focal" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le
