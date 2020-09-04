@@ -6,7 +6,6 @@ FROM $BASE_IMAGE
 WORKDIR /build
 
 # install stuff that is needed for compiling LLVM, MLIR and ONNX
-# Turn off metacopy.
 RUN apt-get update
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y git cmake ninja-build libprotobuf-dev protobuf-compiler
 RUN DEBIAN_FRONTEND=noninteractive \
@@ -51,6 +50,6 @@ RUN if [ ! -f "/build/llvm-project/build/CMakeCache.txt" ]; then \
        -DLLVM_ENABLE_RTTI=ON; \
     fi
 
-RUN if timeout 40m cmake --build . --target -- ${MAKEFLAGS} ; then \
+RUN if timeout 30m cmake --build . --target -- ${MAKEFLAGS} ; then \
       cmake --build . --target check-mlir; \
     fi
