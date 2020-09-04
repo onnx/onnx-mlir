@@ -642,7 +642,7 @@ private:
     auto memRefTy = memRefPtrTy.getPointerElementTy();
     auto int64Ty = LLVM::LLVMType::getInt64Ty(context);
 
-    Value memRef = rewriter.create<LLVM::LoadOp>(loc, memRefPtrTy, ptrToMemRef);
+    Value memRef = rewriter.create<LLVM::LoadOp>(loc, memRefTy, ptrToMemRef);
 
     // Set dataPtr and alignedDataPtr;
     auto dataPtr =
