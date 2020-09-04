@@ -26,121 +26,6 @@ jobs:
   allow_failures:
     - env: NIGHTLY=true
   include:
-    # Iteratively (5 times * 40 min max time each) build docker pre-req image for s390x.
-    - stage: prereq-init
-      arch:
-        - s390x
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="ubuntu:focal" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:s390x
-    - stage: prereq-0
-      arch:
-        - s390x
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:s390x" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:s390x
-    - stage: prereq-1
-      arch:
-        - s390x
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:s390x" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:s390x
-    - stage: prereq-2
-      arch:
-        - s390x
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:s390x" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:s390x
-    - stage: prereq-final
-      arch:
-        - s390x
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:s390x" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq:s390x
-    
-    # Iteratively (5 times * 40 min max time each) build docker pre-req image for ppc64le.
-    - stage: prereq-init
-      dist: focal
-      arch:
-        - ppc64le
-      before_install:
-        #- sudo bash -c "echo N | tee /sys/module/overlay/parameters/metacopy"
-        - docker info
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="ubuntu:bionic" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le
-    - stage: prereq-0
-      arch:
-        - ppc64le
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le
-    - stage: prereq-1
-      arch:
-        - ppc64le
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le
-    - stage: prereq-2
-      arch:
-        - ppc64le
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le
-    - stage: prereq-final
-      arch:
-        - ppc64le
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq:ppc64le
-    
-    # Iteratively (5 times * 40 min max time each) build docker pre-req image for amd64.
-    - stage: prereq-init
-      arch:
-        - amd64
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:amd64 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="ubuntu:focal" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:amd64
-    - stage: prereq-0
-      arch:
-        - amd64
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:amd64 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:amd64" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:amd64
-    - stage: prereq-1
-      arch:
-        - amd64
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:amd64 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:amd64" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:amd64
-    - stage: prereq-2
-      arch:
-        - amd64
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:amd64 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:amd64" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq-intermediate:amd64
-    - stage: prereq-final
-      arch:
-        - amd64
-      script:
-        - docker build -t onnxmlirczar/onnx-mlir-prereq:amd64 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-prereq-intermediate:amd64" ./utils
-        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
-        - docker push onnxmlirczar/onnx-mlir-prereq:amd64
-        
     - stage: test
       script:
         - export CPU_ARCH=$TRAVIS_CPU_ARCH
@@ -170,11 +55,150 @@ jobs:
         - docker exec build compile-onnx-mlir.sh
         - docker exec build test-onnx-mlir.sh
         - docker commit build onnxmlirczar/onnx-mlir-build:$CPU_ARCH
-after_success: 
+
+    ##########################################################################################
+    #
+    # Incrementally build s390 prereq docker images through 5 time-constrained steps.
+    #
+    ##########################################################################################
+    - stage: prereq-init
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - s390x
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="ubuntu:focal" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
+    - stage: prereq-0
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - s390x
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
+    - stage: prereq-1
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - s390x
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
+    - stage: prereq-2
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - s390x
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
+    - stage: prereq-final
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - s390x
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage:s390x
+
+    ##########################################################################################
+    #
+    # Incrementally build ppc64le prereq docker images through 5 time-constrained steps.
+    #
+    ##########################################################################################
+    - stage: prereq-init
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - ppc64le
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="ubuntu:bionic" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
+    - stage: prereq-0
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - ppc64le
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
+    - stage: prereq-1
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - ppc64le
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
+    - stage: prereq-2
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - ppc64le
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
+    - stage: prereq-final
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - ppc64le
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage:ppc64le
+
+    ##########################################################################################
+    #
+    # Incrementally build amd64 prereq docker images through 5 time-constrained steps.
+    #
+    ##########################################################################################
+    - stage: prereq-init
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - amd64
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="ubuntu:focal" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:amd64
+    - stage: prereq-0
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - amd64
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:amd64
+    - stage: prereq-1
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - amd64
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:amd64
+    - stage: prereq-2
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - amd64
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:amd64
+    - stage: prereq-final
+      if: commit_message = "Rebuild prereq docker."
+      arch:
+        - amd64
+      script:
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage:amd64 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
+        - docker push onnxmlirczar/onnx-mlir-llvmimage:amd64
+
+after_success:
   - if [ $TRAVIS_PULL_REQUEST == false ] && [ $TRAVIS_BRANCH == "master" ] && [ $NIGHTLY == false ]; then
             echo "Pushing new build to docker hub";
             docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN";
             docker push onnxmlirczar/onnx-mlir-build:$CPU_ARCH;
-        else 
-            echo "Skip pushing build"; 
+        else
+            echo "Skip pushing build";
         fi
