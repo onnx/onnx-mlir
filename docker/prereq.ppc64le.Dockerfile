@@ -6,6 +6,8 @@ FROM $BASE_IMAGE
 WORKDIR /build
 
 # install stuff that is needed for compiling LLVM, MLIR and ONNX
+# Turn off metacopy.
+RUN echo N | sudo tee /sys/module/overlay/parameters/metacopy
 RUN apt-get update
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y git cmake ninja-build libprotobuf-dev protobuf-compiler
 RUN DEBIAN_FRONTEND=noninteractive \
