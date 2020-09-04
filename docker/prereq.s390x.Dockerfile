@@ -24,10 +24,11 @@ ENV HOME=/build
 ENV PYENV_ROOT=$HOME/.pyenv
 ENV PATH=$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH
 
-RUN if [ ! -d .pyenv ]; then \
+RUN if [ ! -f "./pyenv-installed" ]; then \
       pyenv install 3.7.0 && \
       pyenv global 3.7.0 && \
-      pyenv rehash; \
+      pyenv rehash && \
+      touch ./pyenv-installed; \
     fi
 
 # first install MLIR in llvm-project
