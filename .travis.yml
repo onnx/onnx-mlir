@@ -69,7 +69,8 @@ jobs:
       arch:
         - ppc64le
       before_install:
-        - sudo bash -c "echo N | tee /sys/module/overlay/parameters/metacopy"
+        #- sudo bash -c "echo N | tee /sys/module/overlay/parameters/metacopy"
+        - docker info
       script:
         - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="ubuntu:bionic" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
