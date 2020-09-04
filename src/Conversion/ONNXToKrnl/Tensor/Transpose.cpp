@@ -29,14 +29,14 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     if (hasAllConstantDimensions(memRefType))
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
-      // TODO: While the code below appears to nominally handle the alloc of data
-      // in presence of dynamic dimensions, this appears to be false as the
-      // operand passed here "{data}" reflect the input sizes and does not reflect
-      // the transpose. Indeed, if an input is 4x3x2 then the output would be 2x3x4.
-      // If any of the 2,3,or 4 are dynamic dimensions, then we simply pass below
-      // the operand of the not-transposed input data to determine the dynamic
-      // sizes of the to-be-transposed data. At this time, there is also no
-      // dynamic size lowering tests...
+      // TODO: While the code below appears to nominally handle the alloc of
+      // data in presence of dynamic dimensions, this appears to be false as the
+      // operand passed here "{data}" reflect the input sizes and does not
+      // reflect the transpose. Indeed, if an input is 4x3x2 then the output
+      // would be 2x3x4. If any of the 2,3,or 4 are dynamic dimensions, then we
+      // simply pass below the operand of the not-transposed input data to
+      // determine the dynamic sizes of the to-be-transposed data. At this time,
+      // there is also no dynamic size lowering tests...
       alloc = insertAllocAndDealloc(
           memRefType, loc, rewriter, insertDealloc, {data});
 

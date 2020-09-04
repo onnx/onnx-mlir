@@ -21,7 +21,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     ONNXGatherOpAdaptor operandAdaptor(operands);
     ONNXGatherOp gatherOp = llvm::dyn_cast<ONNXGatherOp>(op);
     auto loc = op->getLoc();
-        // get input operands, shapes, and rank
+    // get input operands, shapes, and rank
     Value data = operandAdaptor.data();
     auto dataShape = data.getType().cast<MemRefType>().getShape();
     int64_t dataRank = dataShape.size();
@@ -55,7 +55,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     for (int jj = 0; jj < indicesRank; ++jj)
       addDimensionToPack(rewriter, loc, pack, indices, jj);
     // Finally iterates over the Nk (data after axis), kk indices in above algo.
-    int kIndexStart = jIndexStart + indicesRank - (axisIndex+1);
+    int kIndexStart = jIndexStart + indicesRank - (axisIndex + 1);
     for (int kk = axisIndex + 1; kk < dataRank; ++kk)
       addDimensionToPack(rewriter, loc, pack, data, kk);
     // Insert an allocation and deallocation for the result of this operation.
@@ -83,7 +83,8 @@ struct ONNXGatherOpLowering : public ConversionPattern {
           iterationBlock.getArguments()[jIndexStart + j]);
     auto indexValInteger =
         rewriter.create<AffineLoadOp>(loc, indices, indicesMemRefVal);
-    auto indexVal = rewriter.create<IndexCastOp>(loc, indexValInteger, rewriter.getIndexType());
+    auto indexVal = rewriter.create<IndexCastOp>(
+        loc, indexValInteger, rewriter.getIndexType());
 
     // Then read input data into DataVal: first add ii's.
     SmallVector<Value, 4> dataMemRefVal;
@@ -93,11 +94,9 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Then add indices[jj] (indexVal)
     dataMemRefVal.emplace_back(indexVal);
     // Then add kk's
-    for (int k = axisIndex + 1; k < dataRank; ++k) {
-      printf("  %d: emplace loop index %d\n", k, kIndexStart +k);
+    for (int k = axisIndex + 1; k < dataRank; ++k)
       dataMemRefVal.emplace_back(
           iterationBlock.getArguments()[kIndexStart + k]);
-    }
     auto dataVal = rewriter.create<AffineLoadOp>(loc, data, dataMemRefVal);
 
     // Then store the value in the output.
