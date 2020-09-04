@@ -68,6 +68,8 @@ jobs:
       dist: focal
       arch:
         - ppc64le
+      before_install:
+        - echo N | sudo tee /sys/module/overlay/parameters/metacopy
       script:
         - docker build -t onnxmlirczar/onnx-mlir-prereq-intermediate:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="ubuntu:bionic" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
