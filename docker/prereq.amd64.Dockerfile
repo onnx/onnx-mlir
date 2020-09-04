@@ -31,7 +31,7 @@ RUN if [ ! -d .pyenv ]; then \
     fi
 
 # first install MLIR in llvm-project
-RUN mkdir bin
+RUN mkdir -p bin
 ENV PATH=$PATH:/build/bin
 COPY clone-mlir.sh bin/clone-mlir.sh
 RUN chmod a+x bin/clone-mlir.sh
