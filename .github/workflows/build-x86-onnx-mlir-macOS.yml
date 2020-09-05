@@ -1,6 +1,6 @@
 name: Build x86 onnx-mlir on macOS
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   build-x86-onnx-mlir-macOS:
