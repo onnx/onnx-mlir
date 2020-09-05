@@ -612,6 +612,13 @@ private:
   // returned, otherwise return nullptr.
   Value callApi(PatternRewriter &rewriter, Location loc, ApiRegistry registry,
       API apiId, ArrayRef<Value> params) const {
+    // To be used as parameters in LLVM::CallOp, voidTy must be converted
+    // to empty list to avoid emission of an SSA value with voidTy. However,
+    // we still keep using LLVM voidTy (as opposed to empty list) when recording 
+    // API function signatures in API registry because when declaring API functions
+    // in LLVM IR, the correct way to indicate an output type for "void" is still
+    // LLVM voidTy.
+    // Relevant discussion thread: https://github.com/onnx/onnx-mlir/issues/255.
     SmallVector<Type, 1> outputTys;
     auto outputTy = registry.at(apiId).outputTy;
     if (!outputTy.isVoidTy())
