@@ -65,8 +65,8 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
       constantVal = emitConstantOp(rewriter, loc, elementType, valueInt);
     } else if (elementType.isa<FloatType>()) {
       auto valueIt = valueAttr.getValues<FloatAttr>().begin();
-      auto valueInt = (*valueIt++).cast<FloatAttr>().getValueAsDouble();
-      constantVal = emitConstantOp(rewriter, loc, elementType, valueInt);
+      auto valueFloat = (*valueIt++).cast<FloatAttr>().getValueAsDouble();
+      constantVal = emitConstantOp(rewriter, loc, elementType, valueFloat);
     } else {
       llvm_unreachable("unsupported element type");
     }
