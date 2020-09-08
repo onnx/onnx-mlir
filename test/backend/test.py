@@ -417,6 +417,8 @@ test_to_enable = [
 
     # ResNet
     "test_resnet50_cpu",
+    # VGG19
+    "test_vgg19_cpu",
 ]
 
 
