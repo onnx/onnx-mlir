@@ -415,10 +415,10 @@ test_to_enable = [
     "test_split_variable_parts_2d_cpu",
     "test_split_variable_parts_default_axis_cpu",
 
-    # ResNet
+    # Model
     "test_resnet50_cpu",
-    # VGG19
     "test_vgg19_cpu",
+    "test_shufflenet_cpu",
 ]
 
 
