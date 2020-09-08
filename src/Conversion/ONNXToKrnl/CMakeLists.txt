@@ -20,6 +20,7 @@ add_library(OMONNXToKrnl
         Tensor/Squeeze.cpp
         Tensor/Unsqueeze.cpp
         Tensor/Constant.cpp
+        Tensor/ConstantOfShape.cpp
         Tensor/Concat.cpp
         Tensor/Split.cpp
         ConvertONNXToKrnl.cpp)

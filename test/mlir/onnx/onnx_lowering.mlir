@@ -2132,3 +2132,67 @@ func @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
   // CHECK: affine.store [[FPTRUNC]], [[RES]][%arg1] : memref<10xf32>
   // CHECK: return [[RES]] : memref<10xf32>
 }
+
+// -----
+
+func @test_constant_of_shape_empty_tensor(%arg0 : tensor<0xi64>) -> tensor<*xf32> {
+  %0 = "onnx.ConstantOfShape"(%arg0) : (tensor<0xi64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape_empty_tensor
+  // CHECK: [[RES:%.+]] = alloc() : memref<f32>
+  // CHECK: [[CST_VALUE:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: affine.store [[CST_VALUE]], [[RES]][] : memref<f32>
+  // CHECK: return [[RES]] : memref<f32>
+}
+
+// -----
+
+func @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) -> tensor<*xf32> {
+  %0 = "onnx.ConstantOfShape"(%arg0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape_dynamic_dims
+  // CHECK: [[CST0:%.+]] = constant 0 : index
+  // CHECK: [[LOAD_DIM_0:%.+]] = affine.load %arg0{{\[}}[[CST0]]{{\]}} : memref<3xi64>
+  // CHECK: [[DIM_0:%.+]] = index_cast [[LOAD_DIM_0]] : i64 to index
+  // CHECK: [[CST1:%.+]] = constant 1 : index
+  // CHECK: [[LOAD_DIM_1:%.+]] = affine.load %arg0{{\[}}[[CST1]]{{\]}} : memref<3xi64>
+  // CHECK: [[DIM_1:%.+]] = index_cast [[LOAD_DIM_1]] : i64 to index
+  // CHECK: [[CST2:%.+]] = constant 2 : index
+  // CHECK: [[LOAD_DIM_2:%.+]] = affine.load %arg0{{\[}}[[CST2]]{{\]}} : memref<3xi64>
+  // CHECK: [[DIM_2:%.+]] = index_cast [[LOAD_DIM_2]] : i64 to index
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]], [[DIM_1]], [[DIM_2]]) : memref<?x?x?xf32>
+
+  // CHECK: [[CST_VALUE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[LOOP_DEF:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[CST00:%.+]] = constant 0 : index
+  // CHECK: [[RES_DIM_0:%.+]] = dim [[RES]], [[CST00]] : memref<?x?x?xf32>
+  // CHECK: [[CST11:%.+]] = constant 1 : index
+  // CHECK: [[RES_DIM_1:%.+]] = dim [[RES]], [[CST11]] : memref<?x?x?xf32>
+  // CHECK: [[CST22:%.+]] = constant 2 : index
+  // CHECK: [[RES_DIM_2:%.+]] = dim [[RES]], [[CST22]] : memref<?x?x?xf32>
+  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg1 = 0 to [[RES_DIM_0]], [[LOOP_DEF]]#1 -> %arg2 = 0 to [[RES_DIM_1]], [[LOOP_DEF]]#2 -> %arg3 = 0 to [[RES_DIM_2]]) {
+  // CHECK:   affine.store [[CST_VALUE]], [[RES]][%arg1, %arg2, %arg3] : memref<?x?x?xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<?x?x?xf32>
+}
+
+// -----
+
+func @test_constant_of_shape_static_dims() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[3, 4, 5]> : tensor<3xi64> } : () -> tensor<3xi64>
+  %1 = "onnx.ConstantOfShape"(%0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape_static_dims
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x4x5xf32>
+  // CHECK: [[GLOBAL_CST:%.+]] = "krnl.global"() {name = "constant_0", shape = [3], value = dense<[3, 4, 5]> : tensor<3xi64>} : () -> memref<3xi64>
+  // CHECK: [[CST_VALUE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[LOOP_DEF:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg0 = 0 to 3, [[LOOP_DEF]]#1 -> %arg1 = 0 to 4, [[LOOP_DEF]]#2 -> %arg2 = 0 to 5) {
+  // CHECK:   affine.store [[CST_VALUE]], [[RES]][%arg0, %arg1, %arg2] : memref<3x4x5xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x4x5xf32>
+}
+
