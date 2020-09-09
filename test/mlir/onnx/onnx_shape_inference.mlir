@@ -351,21 +351,58 @@ func @test_conv_12(%arg0 : tensor<1x2x32xf32>, %arg1 : tensor<5x2x6xf32>, %arg2 
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test shape inference for ConvTranspose.
+//===----------------------------------------------------------------------===//
+
+func @test_conv_transpose_1(%arg0 : tensor<1x64x36x48xf32>, %arg1 : tensor<64x1x2x2xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %0 = "onnx.ConvTranspose"(%arg0, %arg1, %cst) {dilations = [1, 1], kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_conv_transpose_1
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : i64, kernel_shape = [2, 2], output_shape = [1, 1, 72, 96], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x1x72x96xf32>
+  // CHECK: return [[RES_ATTR]] : tensor<1x1x72x96xf32>
+}
+
+func @test_conv_transpose_2(%arg0 : tensor<1x64x36x48xf32>, %arg1 : tensor<64x1x2x2xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %0 = "onnx.ConvTranspose"(%arg0, %arg1, %cst) {dilations = [1, 1], group = 64 : i64, kernel_shape = [2, 2], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_conv_transpose_2
+  // CHECK: [[RES_ATTR:%.+]] = "onnx.ConvTranspose"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", dilations = [1, 1], group = 64 : i64, kernel_shape = [2, 2], output_shape = [1, 64, 72, 96], pads = [0, 0, 0, 0], strides = [2, 2]} : (tensor<1x64x36x48xf32>, tensor<64x1x2x2xf32>, none) -> tensor<1x64x72x96xf32>
+  // CHECK: return [[RES_ATTR]] : tensor<1x64x72x96xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test shape inference for PadConstantValuePad.
 //===----------------------------------------------------------------------===//
 
 /// Test Pad_1
 func @test_Pad_1(%arg0 : tensor<16x13xf32>) -> tensor<*xf32> {
   %cst = constant unit
-  %0 = "onnx.Pad"(%arg0, %cst, %cst) {constant_value = dense<0.000000e+00> : tensor<1xf32>, mode = "constant", pads = dense<[0, 2, 2, 4]> : tensor<4xi32>} : (tensor<16x13xf32>, none, none) -> tensor<*xf32>
+  %0 = "onnx.Pad"(%arg0, %cst, %cst) {constant_value = dense<0.000000e+00> : tensor<1xf32>, mode = "constant", pads = [0, 2, 2, 4]} : (tensor<16x13xf32>, none, none) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_Pad_1
   // CHECK-NEXT: [[NONE:%.+]] = constant unit
-  // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[NONE]], [[NONE]]) {constant_value = dense<0.000000e+00> : tensor<1xf32>, mode = "constant", pads = dense<[0, 2, 2, 4]> : tensor<4xi32>} : (tensor<16x13xf32>, none, none) -> tensor<18x19xf32>
+  // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[NONE]], [[NONE]]) {constant_value = dense<0.000000e+00> : tensor<1xf32>, mode = "constant", pads = [0, 2, 2, 4]} : (tensor<16x13xf32>, none, none) -> tensor<18x19xf32>
   // CHECK: return [[RES]] : tensor<18x19xf32>
 }
 
+/// Test Pad_2
+func @test_Pad_2(%arg0 : tensor<16x13xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %0 = "onnx.Pad"(%arg0, %cst, %cst) {mode = "edge", pads = [0, 2, 2, 4]} : (tensor<16x13xf32>, none, none) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_Pad_2
+  // CHECK-NEXT: [[NONE:%.+]] = constant unit
+  // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[NONE]], [[NONE]]) {mode = "edge", pads = [0, 2, 2, 4]} : (tensor<16x13xf32>, none, none) -> tensor<18x19xf32>
+  // CHECK: return [[RES]] : tensor<18x19xf32>
+}
 
 /// Test PadConstantValuePad_1
 func @test_PadConstantValuePad_1(%arg0 : tensor<16x13xf32>) -> tensor<*xf32> {
@@ -1356,6 +1393,8 @@ func @test_slice_all_constant_negative_steps(%arg0 : tensor<2x4xf32>) -> tensor<
   // CHECK: return [[RES]] : tensor<1x2xf32>
 }
 
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test the shape inferencing for the scaler operation.
 //===----------------------------------------------------------------------===//
@@ -1366,4 +1405,163 @@ func @test_scaler_no_scale_int(%arg0: tensor<3xi32>) -> tensor<*xf32> {
   // CHECK-LABEL: test_scaler_no_scale_int
   // CHECK: [[RES_ATTR:%.+]] = "onnx.Scaler"(%arg0) {offset = [1986.99939 : f32, 0.99999988 : f32, 0.999999701 : f32]} : (tensor<3xi32>) -> tensor<3xf32>
   // CHECK: return [[RES_ATTR]] : tensor<3xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for Pow.
+//===----------------------------------------------------------------------===//
+
+func @test_pow(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<f32>) -> tensor<*xf32> {
+  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<1x2x3x4xf32>, tensor<f32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_pow
+  // CHECK: [[RES:%.+]] = "onnx.Pow"(%arg0, %arg1) : (tensor<1x2x3x4xf32>, tensor<f32>) -> tensor<1x2x3x4xf32>
+  // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for Erf.
+//===----------------------------------------------------------------------===//
+
+func @test_erf(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Erf"(%arg0) : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_erf
+  // CHECK: [[RES:%.+]] = "onnx.Erf"(%arg0) : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x4xf32>
+  // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for Expand.
+//===----------------------------------------------------------------------===//
+
+func @test_expand_with_constant(%arg0 : tensor<2x1x6x1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[7, 1, 5]> : tensor<3xi64> } : () -> tensor<3xi64>
+  %1 = "onnx.Expand"(%arg0, %0) : (tensor<2x1x6x1xf32>, tensor<3xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_expand_with_constant
+  // CHECK: [[RES:%.+]] = "onnx.Expand"(%arg0, %0) : (tensor<2x1x6x1xf32>, tensor<3xi64>) -> tensor<2x7x6x5xf32>
+  // CHECK: return [[RES]] : tensor<2x7x6x5xf32>
+}
+
+// -----
+
+func @test_expand_with_shape(%arg0 : tensor<2x1x6x1xf32>, %arg1: tensor<6x2xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Shape"(%arg1) : (tensor<6x2xf32>) -> tensor<*xi64>
+  %1 = "onnx.Expand"(%arg0, %0) : (tensor<2x1x6x1xf32>, tensor<*xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_expand_with_shape
+  // CHECK: [[SHAPE:%.+]] = "onnx.Shape"(%arg1) : (tensor<6x2xf32>) -> tensor<2xi64>
+  // CHECK: [[RES:%.+]] = "onnx.Expand"(%arg0, [[SHAPE]]) : (tensor<2x1x6x1xf32>, tensor<2xi64>) -> tensor<2x1x6x2xf32>
+  // CHECK: return [[RES]] : tensor<2x1x6x2xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for ReduceMean.
+//===----------------------------------------------------------------------===//
+
+func @test_reduce_mean_1(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ReduceMean"(%arg0) {axes = [-1], keepdims = 1 : i64} : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reduce_mean_1
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [-1], keepdims = 1 : i64} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3x1xf32>
+  // CHECK: return [[RES]] : tensor<1x2x3x1xf32>
+}
+
+// -----
+
+func @test_reduce_mean_2(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ReduceMean"(%arg0) {axes = [2], keepdims = 1 : i64} : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reduce_mean_2
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2], keepdims = 1 : i64} : (tensor<1x2x3x4xf32>) -> tensor<1x2x1x4xf32>
+  // CHECK: return [[RES]] : tensor<1x2x1x4xf32>
+}
+
+// -----
+
+func @test_reduce_mean_3(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.ReduceMean"(%arg0) {axes = [-1], keepdims = 0 : i64} : (tensor<1x2x3x4xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reduce_mean_3
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [-1], keepdims = 0 : i64} : (tensor<1x2x3x4xf32>) -> tensor<1x2x3xf32>
+  // CHECK: return [[RES]] : tensor<1x2x3xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for Dropout.
+//===----------------------------------------------------------------------===//
+
+func @test_dropout(%arg0: tensor<1x2x3x4xf32>) -> (tensor<*xf32>, tensor<*xi1>) {
+  %output, %mask = "onnx.Dropout"(%arg0) {ratio =  1.000000e-01 : f32} : (tensor<1x2x3x4xf32>) -> (tensor<*xf32>, tensor<*xi1>)
+  "std.return"(%output, %mask) : (tensor<*xf32>, tensor<*xi1>) -> ()
+
+  // CHECK-LABEL: test_dropout
+  // CHECK: [[RES:%.+]], [[MASK:%.+]] = "onnx.Dropout"(%arg0) {ratio =  1.000000e-01 : f32} : (tensor<1x2x3x4xf32>) -> (tensor<1x2x3x4xf32>, tensor<1x2x3x4xi1>)
+  // CHECK: return [[RES]], [[MASK]] : tensor<1x2x3x4xf32>, tensor<1x2x3x4xi1>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for OneHotEncoder.
+//===----------------------------------------------------------------------===//
+
+func @test_onehotencoder_string1 (%arg0: tensor<20x1x!onnx.String>) -> tensor<*xf32> {
+  %0 = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x1x!onnx.String>) -> tensor<*xf32>  
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_onehotencoder_string1
+  // CHECK: [[RES:%.+]] = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x1x!onnx.String>) -> tensor<20x1x2xf32>
+  // CHECK: return [[RES]] : tensor<20x1x2xf32>
+}
+
+// -----
+
+func @test_onehotencoder_string2 (%arg0: tensor<20x2x!onnx.String>) -> tensor<*xf32> {
+  %0 = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x2x!onnx.String>) -> tensor<*xf32>  
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_onehotencoder_string2
+  // CHECK: [[RES:%.+]] = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x2x!onnx.String>) -> tensor<20x2x2xf32>
+  // CHECK: return [[RES]] : tensor<20x2x2xf32>
+}
+
+// -----
+
+func @test_onehotencoder_float1(%arg0: tensor<20x1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], cats_int64s = [1, 2, 4], zeros = 1 : i64} : (tensor<20x1xf32>) -> tensor<*xf32>  
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_onehotencoder_float1
+  // CHECK: [[RES:%.+]] = "onnx.OneHotEncoder"(%arg0) {cats_int64s = [1, 2, 4], cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x1xf32>) -> tensor<20x1x3xf32>
+  // CHECK: return [[RES]] : tensor<20x1x3xf32>
+}
+
+// -----
+
+func @test_onehotencoder_float2(%arg0: tensor<20x2x3xf32>) -> tensor<*xf32> {
+  %0 = "onnx.OneHotEncoder"(%arg0) {cats_strings = ["female", "male"], cats_int64s = [1, 2, 4], zeros = 1 : i64} : (tensor<20x2x3xf32>) -> tensor<*xf32>  
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_onehotencoder_float2
+  // CHECK: [[RES:%.+]] = "onnx.OneHotEncoder"(%arg0) {cats_int64s = [1, 2, 4], cats_strings = ["female", "male"], zeros = 1 : i64} : (tensor<20x2x3xf32>) -> tensor<20x2x3x3xf32>
+  // CHECK: return [[RES]] : tensor<20x2x3x3xf32>
 }

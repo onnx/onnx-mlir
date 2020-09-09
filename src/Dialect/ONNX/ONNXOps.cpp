@@ -478,24 +478,54 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
 ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
-    : mlir::Dialect(getDialectNamespace(), ctx) {
+    : mlir::Dialect(getDialectNamespace(), ctx, TypeID::get<ONNXOpsDialect>()) {
   addOperations<
 #define GET_OP_LIST
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
       >();
   addTypes<StringType>();
+  addTypes<SeqType>();
 }
 
 mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
-  if (parser.parseKeyword("String"))
+  StringRef keyword;
+  if (parser.parseKeyword(&keyword))
     return Type();
 
-  return StringType::get(getContext());
+  if (keyword == "String")
+    return StringType::get(getContext());
+  if (keyword == "Seq") {
+    if (parser.parseLess())
+      return Type();
+
+    SmallVector<mlir::Type, 1> elementTypes;
+    do {
+      llvm::SMLoc typeLoc = parser.getCurrentLocation();
+      mlir::Type elementType;
+      if (parser.parseType(elementType))
+        return Type();
+
+      // TOFIX: type limitation for Seq? similar but different shape??
+      elementTypes.push_back(elementType);
+    } while (succeeded(parser.parseOptionalComma()));
+
+    if (parser.parseGreater())
+      return Type();
+    return SeqType::get(elementTypes);
+  }
 }
 
 void ONNXOpsDialect::printType(
     mlir::Type type, mlir::DialectAsmPrinter &printer) const {
-  printer << "String";
+  if (auto stringType = type.dyn_cast<StringType>()) {
+    printer << "String";
+  } else if (auto seqType = type.dyn_cast<SeqType>()) {
+    printer << "Seq<";
+    llvm::interleaveComma(seqType.getElementTypes(), printer);
+    printer << '>';
+  } else {
+    llvm_unreachable("Unexpected onnxmlir type");
+  }
 }
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
@@ -670,6 +700,16 @@ LogicalResult ONNXSeluOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// PRelu
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXPReluOp. This method is required by
+/// the shape inference interface.
+LogicalResult ONNXPReluOp::inferShapes() {
+  getResult().setType(getOperand(0).getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Reciprocal
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXReciprocalOp. This method is required by
@@ -736,6 +776,29 @@ LogicalResult ONNXSignOp::inferShapes() {
 /// shape inference interface.
 LogicalResult ONNXAbsOp::inferShapes() {
   getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Erf
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXErfOp::inferShapes() {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Pow
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXPowOp::inferShapes() {
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  getResult().setType(getBroadcastedType(lhsTy, rhsTy));
   return success();
 }
 
@@ -1111,14 +1174,13 @@ LogicalResult ONNXBatchNormalizationTestModeOp::inferShapes() {
   // Check whether the shapes of scale, bias, mean and variance are valid.
   // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
   // In case of N, C is assumed to be 1.
+  // 2-D tensors are assumed to be of shape NxC
   // Shapes of scale, bias, mean and variance must be C.
   int64_t c = -1;
   if (inputTensorTy.getShape().size() == 1) {
     c = 1;
-  } else if (inputTensorTy.getShape().size() > 2) {
+  } else if (inputTensorTy.getShape().size() >= 2) {
     c = (inputTensorTy.getShape()[1] != -1) ? inputTensorTy.getShape()[1] : -1;
-  } else {
-    return emitError("Wrong rank for the input");
   }
 
   if (c != -1) {
@@ -1265,6 +1327,19 @@ LogicalResult ONNXReduceMaxOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// ReduceMean
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXReduceMeanOp::inferShapes() {
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto operandTy = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(getReductionOutputType(operandTy, axes(), keepdims()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ReduceMin
 //===----------------------------------------------------------------------===//
 
@@ -1353,8 +1428,10 @@ LogicalResult ONNXConvOp::inferShapes() {
 
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (xShape[1] != -1 && weightShape[1] != -1 &&
-      xShape[1] != (weightShape[1] * group))
-    return emitError("Channel dimension mismatch");
+      xShape[1] != (weightShape[1] * group)) {
+    return emitOpError("Channel dimension mismatch")
+           << xTy << " " << weightTy << " " << group;
+  }
 
   // Check the size of bias.
   if (hasBias) {
@@ -1434,7 +1511,7 @@ LogicalResult ONNXConvOp::inferShapes() {
 LogicalResult ONNXConvTransposeOp::inferShapes() {
   // Generic shape for data input X, weight tensor W, and optional bias B
   // X: (N x C x D1 x D2 ... x Dn)
-  // W: (M x C/group x k1 x k2 x ... x kn)
+  // W: (C x M/group x k1 x k2 x ... x kn)
   // B: (M) Optional
 
   bool hasBias = !B().getType().isa<NoneType>();
@@ -1469,10 +1546,15 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
   if (!groupAttr())
     groupAttr(builder.getI64IntegerAttr(group));
 
-  // Check that the X.shape[1] == (W.shape[0] * group) == C condition holds.
-  if (xShape[1] != -1 && weightShape[0] != -1 &&
-      xShape[1] != (weightShape[0] * group)) {
-    return emitError("Channel dimension mismatch");
+  int64_t inChannels = weightShape[0];
+  int64_t outChannels = weightShape[1] * group;
+
+  // Check that the X.shape[1] == W.shape[0] == C && X.shape[1] % group == 0
+  // condition holds.
+  if (xShape[1] != -1 && inChannels != -1 && xShape[1] != inChannels &&
+      xShape[1] % group != 0) {
+    return emitOpError("Channel dimension mismatch")
+           << xTy << " " << weightTy << " " << group;
   }
 
   // Check the size of bias.
@@ -1482,9 +1564,9 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
     if (bShape.size() != 1) {
       return emitError("bias should be one dimensional");
     }
-    if (bShape[0] != weightShape[1]) {
+    if (bShape[0] != outChannels) {
       return emitError(
-          "bias should have same dimensions as weight's second dimension");
+          "bias should have same dimensions as number of output channels");
     }
   }
 
@@ -1535,8 +1617,9 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
   SmallVector<int64_t, 4> outputDims;
   // Insert batch size.
   outputDims.emplace_back(xShape[0]);
-  // Insert number of filters being applied (number of output channels).
-  outputDims.emplace_back(weightShape[1]);
+  // Insert number of filters being applied (number of output channels *
+  // groups).
+  outputDims.emplace_back(outChannels);
   // Compute and insert spatial dims.
   insertConvTransposeSpatialDim(outputDims, xShape, kernelShape, padsOpt,
       stridesOpt, outputPads, outputShape, dilationsOpt);
@@ -1664,22 +1747,29 @@ LogicalResult ONNXPadOp::inferShapes() {
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Pad: unknown input shape");
 
-  // Cannot infer if the pads is not constant
-  DenseElementsAttr padsAttributes =
-      getAttr("pads").dyn_cast_or_null<mlir::DenseElementsAttr>();
-  if (!padsAttributes)
-    return emitError("Pad: unknown pads");
-
   auto dataTy = data().getType().cast<RankedTensorType>();
   auto dataShape = dataTy.getShape();
   auto dataRank = dataTy.getRank();
   SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
 
   // Get pads from valueAttribute.
+  Attribute padattr = getAttr("pads");
   SmallVector<int64_t, 2> pads(dataRank * 2, -1);
-  auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
-  for (int64_t i = 0; i < dataRank * 2; ++i)
-    pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+  // Sometimes it's an ArrayAttr and sometimes it's a DenseElementsAttr, so
+  // handle both cases.
+  if (ArrayAttr padsAttributes = padattr.dyn_cast_or_null<mlir::ArrayAttr>()) {
+    auto valueIt = padsAttributes.getValue().begin();
+    for (int64_t i = 0; i < dataRank * 2; ++i)
+      pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+  } else if (DenseElementsAttr padsAttributes =
+                 padattr.dyn_cast_or_null<mlir::DenseElementsAttr>()) {
+    auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
+    for (int64_t i = 0; i < dataRank * 2; ++i)
+      pads[i] = (*valueIt++).getInt();
+  } else {
+    // Cannot infer if the pads is not constant
+    return emitError("Pad: unknown pads ") << getAttr("pads");
+  }
 
   // Pads consists of two values for each axis of data.
   // The two values specify the number of elements padded before and after
@@ -1946,9 +2036,11 @@ LogicalResult ONNXConcatOp::inferShapes() {
           return emitError("Concat axis being concatenated is "
                            "expected to be known at compile time for now");
       } else if (currShape[j] != commonShape[j]) {
-        return emitError(
-            "Concat input dimensions must be all identical, "
-            "except for dimension on the axis of the concatenation");
+        return emitError("Concat input dimensions must be all identical, "
+                         "except for dimension on the axis of the "
+                         "concatenation. Expected something compatible with: ")
+               << commonType << " but got " << getOperand(i).getType()
+               << " instead.";
       }
     }
     cummulativeAxisSize += currShape[axisIndex];
@@ -2621,13 +2713,191 @@ LogicalResult ONNXSliceOp::inferShapes() {
     outputDims[axis] = q;
   }
 
+  // Fill in the rest of the dimensions - assume they're untouched.
+  for (int i = 0, e = outputDims.size(); i < e; ++i) {
+    if (llvm::any_of(axesValue, [i](int64_t a) { return a == i; })) {
+      continue;
+    }
+    outputDims[i] = dataShape[i];
+  }
+
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// Expand
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXExpandOp::inferShapes() {
+  if (!input().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto lhsTy = input().getType().cast<RankedTensorType>();
+
+  auto elementType = lhsTy.getElementType();
+  auto lhsShape = lhsTy.getShape();
+  SmallVector<int64_t, 2> rhsShape;
+
+  Operation *shapeDef = shape().getDefiningOp();
+
+  if (mlir::ONNXShapeOp shapeOp =
+          dyn_cast_or_null<mlir::ONNXShapeOp>(shapeDef)) {
+    // If the shape operand is produced by a onnx.Shape operation, infer its
+    // shape and use it as the requested shape.
+    if (!shapeOp.data().getType().isa<RankedTensorType>())
+      return emitError("Input tensor not ranked");
+
+    ArrayRef<int64_t> rhsShapeRef =
+        shapeOp.data().getType().cast<RankedTensorType>().getShape();
+    rhsShape.assign(rhsShapeRef.begin(), rhsShapeRef.end());
+
+  } else if (mlir::ONNXConstantOp constantOp =
+                 dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDef)) {
+    // If the shape operand is produced by a onnx.Constant operation, extract
+    // the actual value of the constant and use it as the reqested shape.
+
+    auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
+
+    if (shapeTensorTy.getRank() != 1)
+      return emitError("Shape tensor must have rank one");
+
+    DenseElementsAttr valueAttribute =
+        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    if (!valueAttribute)
+      return emitError("DenseElementsAttr expected");
+
+    int64_t shapeRank = shapeTensorTy.getShape()[0];
+    rhsShape.resize(shapeRank);
+
+    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
+    for (int i = 0; i != shapeRank; ++i)
+      rhsShape[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+
+    assert(valueIt == valueAttribute.getValues<IntegerAttr>().end() &&
+           "Shape of constant does not match its actual value");
+  } else {
+    return emitError(
+        "Shape argument of Expand is the output of an unexpected operation: " +
+        shapeDef->getName().getStringRef() +
+        ". Supported operations are: onnx.Constant and onnx.Shape");
+  }
+
+  SmallVector<int64_t, 2> resultShape;
+  if (!getBroadcastedShape(lhsShape, rhsShape, resultShape)) {
+    return emitError("Tensor not exapandable");
+  }
+
+  getResult().setType(RankedTensorType::get(resultShape, elementType));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Dropout
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXDropoutOp::inferShapes() {
+  if (!data().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  getResult(0).setType(data().getType());
+
+  auto inputShape = data().getType().cast<RankedTensorType>().getShape();
+
+  IntegerType i1Type = IntegerType::get(1, IntegerType::Signless, getContext());
+  getResult(1).setType(RankedTensorType::get(inputShape, i1Type));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// OneHotEncoder
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXOneHotEncoderOp::inferShapes() {
+  ShapedType inputType = X().getType().dyn_cast<ShapedType>();
+  if (!inputType)
+    return emitError("Non-shaped input type");
+  auto shape = inputType.getShape();
+  int64_t outDim = 0;
+
+  // If the input is a tensor of float, int32, or double,
+  // the data will be cast to integers and
+  // the cats_int64s category list will be used for the lookups.
+  if (inputType.getElementType().isIntOrFloat()) {
+    if (!cats_int64s())
+      return emitError("input is a tensor of float, int32, or double, but no "
+                       "cats_int64s attribute");
+    outDim = ArrayAttrSize(cats_int64s());
+  } else {
+    if (!cats_strings())
+      return emitError("input is not a tensor of float, int32, or double, but "
+                       "no cats_strings attribute");
+    outDim = ArrayAttrSize(cats_strings());
+  }
+
+  // Encoded output data, having one more dimension than X
+  // total category count will determine the size of the extra dimension
+  SmallVector<int64_t, 2> dims;
+  for (int i = 0; i != shape.size(); ++i) {
+    dims.emplace_back(shape[i]);
+  }
+  dims.emplace_back(outDim);
+
+  getResult().setType(
+      RankedTensorType::get(dims, FloatType::getF32(getContext())));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX type related code
+//===----------------------------------------------------------------------===//
+
+namespace mlir {
+namespace onnxmlir {
+namespace detail {
+struct SeqTypeStorage : public mlir::TypeStorage {
+  using KeyTy = llvm::ArrayRef<mlir::Type>;
+
+  SeqTypeStorage(llvm::ArrayRef<mlir::Type> elementTypes)
+      : elementTypes(elementTypes) {}
+
+  bool operator==(const KeyTy &key) const { return key == elementTypes; }
+  static llvm::hash_code hasKey(const KeyTy &key) {
+    return llvm::hash_value(key);
+  }
+
+  static KeyTy getKey(llvm::ArrayRef<mlir::Type> elementTypes) {
+    return KeyTy(elementTypes);
+  }
+
+  static SeqTypeStorage *construct(
+      mlir::TypeStorageAllocator &allocator, const KeyTy &key) {
+    llvm::ArrayRef<mlir::Type> elementTypes = allocator.copyInto(key);
+    return new (allocator.allocate<SeqTypeStorage>())
+        SeqTypeStorage(elementTypes);
+  }
+  llvm::ArrayRef<mlir::Type> elementTypes;
+};
+} // end namespace detail
+} // end namespace onnxmlir
+} // end namespace mlir
+
+SeqType SeqType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
+  assert(!elementTypes.empty() && "expected non-empty seq");
+  mlir::MLIRContext *ctx = elementTypes.front().getContext();
+  return Base::get(ctx, elementTypes);
+}
+
+llvm::ArrayRef<mlir::Type> SeqType::getElementTypes() {
+  return getImpl()->elementTypes;
+}
+
+mlir::Type SeqType::getElementType() { return getElementTypes()[0]; }
 
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
 
 #define GET_OP_CLASSES
+
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"

@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 include "mlir/IR/OpBase.td"
+include "mlir/Dialect/Shape/IR/ShapeBase.td"
 
 def Krnl_Dialect : Dialect {
   let name = "krnl";
@@ -334,3 +335,42 @@ def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
       $loop attr-dict `:` type($loop)
   }];
 }
+
+def KrnlDimOp : Op<Krnl_Dialect, "dim"> {
+  let summary = "Krnl dimensions operation.";
+  let description = [{
+    Emits the dimension of a MemRef independent of the MemRef alloc:
+
+    "krnl.dim"(%memref, %index)
+
+    The index identifies the dimension within the shape which is going to be emitted.
+    Initially the krnl.dim operation depends on the alloc of the MemRef.
+    Unlike the std.dim operation which maintains a dependency on the alloc of the MemRef, the dimension emitted by krnl.dim will not depend on the alloc operation of the MemRef once the krnl.dim operation is lowered.
+
+    Any changes to the original MemRef size after the krnl.dim has been lowered will not be picked up by the emitted dimension. This allows the original MemRef to be safely modified via code transformations or affine map normalization without the risk of changing the value already emitted via krnl.dim.
+  }];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc, Index:$index);
+  let results = (outs Index:$dimension);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlShapeOp : Op<Krnl_Dialect, "shape"> {
+  let summary = "Krnl operation to retreieve the shape of a MemRef.";
+  let description = [{
+    Extracts the shape of a MemRef:
+    ```
+      "krnl.shape"(%memref)
+    ```
+    The return result is of `shape.type`.
+  }];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc);
+  let results = (outs Shape_ShapeType:$shape);
+
+  let parser = ?;
+  let printer = ?;
+}
+

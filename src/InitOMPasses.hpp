@@ -48,12 +48,13 @@ void initOMPasses() {
         return mlir::createKrnlBundleMemoryPoolsPass();
       });
 
-  mlir::registerPass(
-      "lower-krnl", "Lower Krnl dialect.", []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createLowerKrnlPass();
+  mlir::registerPass("convert-krnl-to-affine", "Lower Krnl dialect.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createConvertKrnlToAffinePass();
       });
 
-  mlir::registerPass("lower-frontend", "Lower frontend ops to Krnl dialect.",
+  mlir::registerPass("convert-onnx-to-krnl",
+      "Lower frontend ops to Krnl dialect.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createLowerToKrnlPass();
       });
@@ -64,16 +65,27 @@ void initOMPasses() {
         return mlir::createElideConstGlobalValuePass();
       });
 
-  mlir::registerPass("lower-all-llvm",
+  mlir::registerPass("convert-krnl-to-llvm",
       "Lower the Krnl Affine and Std dialects to LLVM.",
       []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createKrnlLowerToLLVMPass();
+        return mlir::createConvertKrnlToLLVMPass();
       });
 
   mlir::registerPass("pack-krnl-constants",
       "Elide the constant values of the Global Krnl operations.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createPackKrnlGlobalConstantsPass();
+      });
+
+  mlir::registerPass("disconnect-dims", "Disconnect dims from allocs.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createDisconnectKrnlDimFromAllocPass();
+      });
+
+  mlir::registerPass("lower-krnl-shape",
+      "Lower krnl.shape operation to use Shape dialect operations.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createLowerKrnlShapePass();
       });
 }
 } // namespace onnx_mlir

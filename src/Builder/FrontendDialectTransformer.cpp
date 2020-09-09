@@ -111,7 +111,7 @@ private:
   }
 
   mlir::NamedAttribute convertOnnxAttributeProtoToMlirNamedAttribute(
-      onnx::AttributeProto &attr) {
+      onnx::AttributeProto attr) {
     mlir::Attribute mlirAttr;
     switch (attr.type()) {
     case onnx::AttributeProto::FLOAT:
@@ -154,6 +154,12 @@ private:
     for (int i = 0; i < node.attribute_size(); ++i) {
       auto attr = node.attribute(i);
       attributes.push_back(convertOnnxAttributeProtoToMlirNamedAttribute(attr));
+    }
+
+    // If the node has a name, then import it.
+    if (node.has_name()) {
+      attributes.push_back(builder_.getNamedAttr(
+          "onnx_node_name", builder_.getStringAttr(node.name())));
     }
     return attributes;
   }
@@ -397,6 +403,88 @@ private:
     }
   }
 
+  void ImportNodeSlice(const onnx::NodeProto &node) {
+    std::array<mlir::Value, 5> inVals = {
+        nullptr,
+    };
+
+    for (const auto &item : llvm::enumerate(node.input())) {
+      if (initializedTensors.ContainKey(legalize_name(item.value()))) {
+        inVals[item.index()] = initializedTensors.EmitInitializerForInputTensor(
+            UnknownLoc(), builder_, legalize_name(item.value()));
+      } else if (frontend_symbols_.ContainKey(legalize_name(item.value()))) {
+        inVals[item.index()] =
+            frontend_symbols_.GetTensorByOnnxName(item.value());
+      } else {
+        assert(false && "Unknown input");
+      }
+    }
+
+    // Data input is imported but starts, ends, axes, and steps may come from
+    // attributes, and need to be created as constant ops.
+    const auto elementType = builder_.getIntegerType(64);
+    const auto tensorType = mlir::RankedTensorType::get({1}, elementType);
+    const auto attributes = ImportNodeAttributes(node);
+    for (auto attr : attributes) {
+      if (auto arrayAttr = attr.second.dyn_cast<mlir::ArrayAttr>()) {
+        auto constantDenseAttribute =
+            mlir::DenseElementsAttr::get(tensorType, arrayAttr.getValue());
+        auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+            UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+        mlir::Value constantValue = constantOp.output();
+
+        // Map from ONNX attributes to indices, which are
+        // matched with ONNXSliceOp::build ordering.
+        auto inputIdx = llvm::StringSwitch<int>(attr.first)
+                            .Case("starts", 1)
+                            .Case("ends", 2)
+                            .Case("axes", 3)
+                            .Case("steps", 4)
+                            .Default(-1);
+        if (inputIdx < 0)
+          continue;
+        assert(inVals[inputIdx] == nullptr &&
+               "This input has already been filled in");
+        inVals[inputIdx] = constantValue;
+      }
+    }
+
+    assert(inVals[1] != nullptr && "Slice requires a starts attribute");
+    assert(inVals[2] != nullptr && "Slice requires an ends attribute");
+    const auto startsType = inVals[1].getType().dyn_cast<RankedTensorType>();
+    assert(startsType != nullptr && "starts type is not a RankedTensorType");
+    auto startsDim = startsType.getShape()[0];
+
+    // If axes is not specified, default to [0, ..., ndim-1]
+    if (inVals[3] == nullptr) {
+      SmallVector<int64_t, 1> vals = {};
+      for (size_t s = 0; s < startsDim; ++s)
+        vals.emplace_back(s);
+      auto constantDenseAttribute =
+          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
+      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+      mlir::Value constantResult = constantOp.output();
+      inVals[3] = constantResult;
+    }
+
+    // If steps is not specified, default to [1, ..., 1]
+    if (inVals[4] == nullptr) {
+      SmallVector<int64_t, 1> vals(startsDim, 1);
+      auto constantDenseAttribute =
+          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
+      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+      mlir::Value constantResult = constantOp.output();
+      inVals[4] = constantResult;
+    }
+
+    int nIn = mlir::ONNXSliceOp::getNumberOfOperands();
+    int nOut = mlir::ONNXSliceOp::getNumberOfResults();
+    const auto in = std::vector<mlir::Value>(inVals.begin(), inVals.end());
+    buildOutputAndOperation<mlir::ONNXSliceOp>(node, in, nIn, nOut);
+  }
+
   void ImportNode(const onnx::NodeProto &node) {
     llvm::StringRef opName = node.op_type();
 
@@ -406,7 +494,9 @@ private:
     // the generic operator is used
     // one known reeason is the optional input
 
-    (this->*(import_handler_map_[opName.str()]))(node);
+    auto found = import_handler_map_.find(opName.str());
+    assert(found != import_handler_map_.end() && "Could not find op importer");
+    (this->*(found->second))(node);
   }
 
   void InitHandlerMap() {
@@ -452,20 +542,41 @@ private:
     //  * maintain a list of the defined graph
     llvm::SmallVector<mlir::Type, 4> arg_types;
 
+    // Get a list of function attributes - including names of inputs and outputs
+    llvm::SmallVector<mlir::NamedAttribute, 4> funcAttrs;
+    llvm::SmallVector<llvm::StringRef, 4> inputNames;
+    llvm::SmallVector<llvm::StringRef, 4> outputNames;
+
     // Import the input tensor types that are not constant and not initialized.
-    for (const auto &input : graph.input())
-      if (!initializedTensors.ContainKey(legalize_name(input.name())))
+    int numInputs = 0;
+    for (const auto &input : graph.input()) {
+      if (!initializedTensors.ContainKey(legalize_name(input.name()))) {
+        inputNames.push_back(input.name());
         arg_types.emplace_back(ImportInputTensorType(input));
+        // numInputs is the number of graph inputs not contained within the
+        // initializer
+        ++numInputs;
+      }
+    }
+
+    for (const auto &output : graph.output()) {
+      outputNames.push_back(output.name());
+    }
+
+    funcAttrs.emplace_back(builder_.getNamedAttr(
+        "input_names", builder_.getStrArrayAttr(inputNames)));
+    funcAttrs.emplace_back(builder_.getNamedAttr(
+        "output_names", builder_.getStrArrayAttr(outputNames)));
 
     // Create the main function.
     auto funcType = builder_.getFunctionType(arg_types, {});
-    auto mainFunc =
-        mlir::FuncOp::create(UnknownLoc(), name, funcType, /* attrs = */ {});
+    auto mainFunc = mlir::FuncOp::create(UnknownLoc(), name, funcType,
+        /* attrs = */ llvm::makeArrayRef(funcAttrs));
 
     // Emit the entry point operation which specifies the number of user
     // inputs and outputs.
     auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
-        /*numInputs=*/graph.input().size() - graph.initializer().size(),
+        /*numInputs=*/numInputs,
         /*numOutputs=*/graph.output().size());
 
     // Get the entru block inside the main function and set the insertion point
