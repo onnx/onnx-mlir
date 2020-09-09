@@ -13,7 +13,8 @@ using namespace onnx_mlir;
 
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
-  registerDialects();
+  mlir::MLIRContext context;
+  registerDialects(context);
 
   llvm::cl::OptionCategory OnnxMlirOptions(
       "ONNX MLIR Options", "These are frontend options.");
@@ -43,7 +44,6 @@ int main(int argc, char *argv[]) {
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "ONNX MLIR modular optimizer driver\n");
 
-  mlir::MLIRContext context;
   mlir::OwningModuleRef module;
   processInputFile(inputFilename, emissionTarget, context, module);
 
