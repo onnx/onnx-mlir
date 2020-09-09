@@ -97,7 +97,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     for (int k = axisIndex + 1; k < dataRank; ++k)
       dataMemRefVal.emplace_back(
           iterationBlock.getArguments()[kIndexStart + k]);
-    auto dataVal = rewriter.create<AffineLoadOp>(loc, data, dataMemRefVal);
+    auto dataVal = rewriter.create<LoadOp>(loc, data, dataMemRefVal);
 
     // Then store the value in the output.
     SmallVector<Value, 4> outputMemRefVal;
