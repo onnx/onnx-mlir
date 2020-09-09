@@ -250,16 +250,29 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
 #endif
 }
 
-// Write LLVM bitcode.
-void genLLVMBitcode(const mlir::OwningModuleRef &module, string bitcodePath) {
+// Write LLVM optimized bitcode.
+void genLLVMBitcode(const mlir::OwningModuleRef &module,
+    string optimizedBitcodePath, string outputBaseName) {
   error_code error;
 
-  llvm::raw_fd_ostream moduleBitcodeStream(
-      bitcodePath, error, llvm::sys::fs::F_None);
+  // Write bitcode to a file.
+  string unoptimizedBitcodePath = outputBaseName + ".unoptimized.bc";
+  llvm::FileRemover unoptimzedBitcodeRemover(unoptimizedBitcodePath);
 
-  llvm::WriteBitcodeToFile(
-      *mlir::translateModuleToLLVMIR(*module), moduleBitcodeStream);
+  llvm::raw_fd_ostream moduleBitcodeStream(
+      unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
+
+  llvm::LLVMContext llvmContext;
+  llvm::WriteBitcodeToFile(*mlir::translateModuleToLLVMIR(*module, llvmContext),
+      moduleBitcodeStream);
   moduleBitcodeStream.flush();
+
+  // Use the LLVM's 'opt' command to optimize the bitcode.
+  Command optBitcode(/*exePath=*/kOptPath);
+  optBitcode.appendStr("-O3")
+      .appendList({"-o", optimizedBitcodePath})
+      .appendStr(unoptimizedBitcodePath)
+      .exec();
 }
 
 // Compile LLVM bitcode to object file.
@@ -319,7 +332,7 @@ void compileModuleToSharedLibrary(
   llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
-  genLLVMBitcode(module, bitcodePath);
+  genLLVMBitcode(module, bitcodePath, outputBaseName);
   llvm::FileRemover bitcodeRemover(bitcodePath);
 
   string modelObjPath = outputBaseName + ".o";
@@ -340,7 +353,7 @@ void compileModuleToJniJar(
   llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
-  genLLVMBitcode(module, bitcodePath);
+  genLLVMBitcode(module, bitcodePath, outputBaseName);
   llvm::FileRemover bitcodeRemover(bitcodePath);
 
   string modelObjPath = outputBaseName + ".o";
@@ -363,13 +376,15 @@ void compileModuleToJniJar(
   genJniJar(module, modelSharedLibPath, modelJniJarPath);
 }
 
-void registerDialects() {
-  mlir::registerDialect<mlir::AffineDialect>();
-  mlir::registerDialect<mlir::LLVM::LLVMDialect>();
-  mlir::registerDialect<mlir::scf::SCFDialect>();
-  mlir::registerDialect<mlir::StandardOpsDialect>();
-  mlir::registerDialect<mlir::ONNXOpsDialect>();
-  mlir::registerDialect<mlir::KrnlOpsDialect>();
+void registerDialects(mlir::MLIRContext &context) {
+  // Load our Dialect in this MLIR Context.
+  context.getOrLoadDialect<mlir::AffineDialect>();
+  context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
+  context.getOrLoadDialect<mlir::scf::SCFDialect>();
+  context.getOrLoadDialect<mlir::StandardOpsDialect>();
+  context.getOrLoadDialect<mlir::shape::ShapeDialect>();
+  context.getOrLoadDialect<mlir::ONNXOpsDialect>();
+  context.getOrLoadDialect<mlir::KrnlOpsDialect>();
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
@@ -380,6 +395,11 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createAttributePromotionPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createAttributePromotionPass());
+  // There are more opportunities for const propagation once all tensors have
+  // inferred shapes.
+  pm.addPass(mlir::createConstPropONNXToONNXPass());
+  // Clean dead code.
+  pm.addPass(mlir::createSymbolDCEPass());
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
@@ -397,7 +417,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
-  pm.addPass(mlir::createLowerKrnlPass());
+  pm.addPass(mlir::createConvertKrnlToAffinePass());
   // Fuse loops in Affine dialect.
   //  pm.addPass(mlir::createLoopFusionPass());
 }
@@ -405,7 +425,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 void addKrnlToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
-  pm.addPass(mlir::createKrnlLowerToLLVMPass());
+  pm.addPass(mlir::createConvertKrnlToLLVMPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
 

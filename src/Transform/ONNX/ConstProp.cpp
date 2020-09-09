@@ -21,6 +21,8 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
+#include <math.h>
+
 using namespace mlir;
 
 namespace {
@@ -57,14 +59,14 @@ namespace {
 
 template <typename OP>
 Attribute ComputeConstPropElementwiseBinary(PatternRewriter &rewriter,
-    Type elementType, Attribute &lhsAttr, Attribute &secondAttr) {
+    Type elementType, Attribute lhsAttr, Attribute secondAttr) {
   llvm_unreachable("unkonwn operation");
 }
 
 template <>
 Attribute ComputeConstPropElementwiseBinary<ONNXAddOp>(
-    PatternRewriter &rewriter, Type elementType, Attribute &lhsAttr,
-    Attribute &secondAttr) {
+    PatternRewriter &rewriter, Type elementType, Attribute lhsAttr,
+    Attribute secondAttr) {
   if (elementType.isa<FloatType>()) {
     double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
     double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
@@ -84,8 +86,8 @@ Attribute ComputeConstPropElementwiseBinary<ONNXAddOp>(
 
 template <>
 Attribute ComputeConstPropElementwiseBinary<ONNXSubOp>(
-    PatternRewriter &rewriter, Type elementType, Attribute &lhsAttr,
-    Attribute &secondAttr) {
+    PatternRewriter &rewriter, Type elementType, Attribute lhsAttr,
+    Attribute secondAttr) {
   if (elementType.isa<FloatType>()) {
     double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
     double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
@@ -103,8 +105,8 @@ Attribute ComputeConstPropElementwiseBinary<ONNXSubOp>(
 
 template <>
 Attribute ComputeConstPropElementwiseBinary<ONNXMulOp>(
-    PatternRewriter &rewriter, Type elementType, Attribute &lhsAttr,
-    Attribute &secondAttr) {
+    PatternRewriter &rewriter, Type elementType, Attribute lhsAttr,
+    Attribute secondAttr) {
   if (elementType.isa<FloatType>()) {
     double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
     double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
@@ -120,6 +122,26 @@ Attribute ComputeConstPropElementwiseBinary<ONNXMulOp>(
   llvm_unreachable("constant propagation for MulOp: unkonwn data type");
 }
 
+template <>
+Attribute ComputeConstPropElementwiseBinary<ONNXDivOp>(
+    PatternRewriter &rewriter, Type elementType, Attribute lhsAttr,
+    Attribute secondAttr) {
+  if (elementType.isa<FloatType>()) {
+    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
+    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
+    assert(rhsVal != 0 && "division by a zero");
+    double res = lhsVal / rhsVal;
+    return rewriter.getFloatAttr(elementType, res);
+  }
+  if (elementType.isa<IntegerType>()) {
+    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
+    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
+    assert(rhsVal != 0 && "division by a zero");
+    uint64_t res = lhsVal / rhsVal;
+    return rewriter.getIntegerAttr(elementType, res);
+  }
+  llvm_unreachable("constant propagation for DivOp: unkonwn data type");
+}
 // Recursively process one dimension in the rank of the two references. There
 // can be one of 3 cases.
 // 1) We have fully defined accesses for both operands, launch the computations.
@@ -132,8 +154,8 @@ Attribute ComputeConstPropElementwiseBinary<ONNXMulOp>(
 
 template <typename ElementwiseBinaryOp>
 void RecurseConstPropElementwiseBinary(PatternRewriter &rewriter,
-    std::vector<Attribute> &resVector, DenseElementsAttr &lhsAttr,
-    DenseElementsAttr &rhsAttr, SmallVector<uint64_t, 4> &lhsIndices,
+    std::vector<Attribute> &resVector, DenseElementsAttr lhsAttr,
+    DenseElementsAttr rhsAttr, SmallVector<uint64_t, 4> &lhsIndices,
     SmallVector<uint64_t, 4> &rhsIndices, int lhsFreeRank, int rhsFreeRank) {
   if (lhsFreeRank == 0) {
     // Fully defined ranks.
@@ -200,7 +222,7 @@ void RecurseConstPropElementwiseBinary(PatternRewriter &rewriter,
 // generate the new constant operation.
 template <typename ElementwiseBinaryOp>
 DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
-    Value resOperand, Attribute &lhsAttr, Attribute &rhsAttr) {
+    Value resOperand, Attribute lhsAttr, Attribute rhsAttr) {
   DenseElementsAttr lhsDenseAttr =
       lhsAttr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   DenseElementsAttr rhsDenseAttr =
@@ -226,13 +248,13 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
 
 template <typename OP>
 Attribute ComputeConstPropElementwiseUnary(
-    PatternRewriter &rewriter, Type elementType, Attribute &attr) {
+    PatternRewriter &rewriter, Type elementType, Attribute attr) {
   llvm_unreachable("unkonwn operation");
 }
 
 template <>
 Attribute ComputeConstPropElementwiseUnary<ONNXNegOp>(
-    PatternRewriter &rewriter, Type elementType, Attribute &attr) {
+    PatternRewriter &rewriter, Type elementType, Attribute attr) {
   if (elementType.isa<FloatType>()) {
     double val = attr.cast<FloatAttr>().getValueAsDouble();
     double res = -val;
@@ -246,9 +268,20 @@ Attribute ComputeConstPropElementwiseUnary<ONNXNegOp>(
   llvm_unreachable("constant propagation for NegOp: unkonwn data type");
 }
 
+template <>
+Attribute ComputeConstPropElementwiseUnary<ONNXSqrtOp>(
+    PatternRewriter &rewriter, Type elementType, Attribute attr) {
+  if (elementType.isa<FloatType>()) {
+    double val = attr.cast<FloatAttr>().getValueAsDouble();
+    double res = sqrt(val);
+    return rewriter.getFloatAttr(elementType, res);
+  }
+  llvm_unreachable("constant propagation for SqrtOp: unkonwn data type");
+}
+
 template <typename ElementwiseUnaryOp>
 void RecurseConstPropElementwiseUnary(PatternRewriter &rewriter,
-    std::vector<Attribute> &resVector, DenseElementsAttr &attr,
+    std::vector<Attribute> &resVector, DenseElementsAttr attr,
     SmallVector<uint64_t, 4> &indices, int freeRank) {
   if (freeRank == 0) {
     // Fully defined ranks.
@@ -275,7 +308,7 @@ void RecurseConstPropElementwiseUnary(PatternRewriter &rewriter,
 // generate the new constant operation.
 template <typename ElementwiseUnaryOp>
 DenseElementsAttr ConstPropElementwiseUnary(
-    PatternRewriter &rewriter, Value resOperand, Attribute &attr) {
+    PatternRewriter &rewriter, Value resOperand, Attribute attr) {
   DenseElementsAttr denseAttr =
       attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   assert(denseAttr && "expected dense attribute");
@@ -296,7 +329,7 @@ DenseElementsAttr ConstPropElementwiseUnary(
 //===----------------------------------------------------------------------===//
 
 void RecurseConstPropTranspose(PatternRewriter &rewriter,
-    std::vector<Attribute> &resVector, DenseElementsAttr &attr,
+    std::vector<Attribute> &resVector, DenseElementsAttr attr,
     SmallVector<uint64_t, 4> &indices, SmallVector<uint64_t, 4> &perm,
     int freeRank) {
   if (freeRank == 0) {
@@ -318,7 +351,7 @@ void RecurseConstPropTranspose(PatternRewriter &rewriter,
 }
 
 DenseElementsAttr ConstPropTranspose(PatternRewriter &rewriter,
-    Value resOperand, Attribute &attr, ArrayAttr &permAttr) {
+    Value resOperand, Attribute attr, ArrayAttr permAttr) {
   // Read dense attribute, the constant tensor we are transforming.
   DenseElementsAttr denseAttr =
       attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
@@ -336,6 +369,28 @@ DenseElementsAttr ConstPropTranspose(PatternRewriter &rewriter,
   // Copy using permute order.
   RecurseConstPropTranspose(
       rewriter, resVector, denseAttr, indices, perm, rank);
+  ArrayRef<Attribute> resRef(resVector);
+  return DenseElementsAttr::get(resType, resRef);
+}
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for unsqueeze.
+//===----------------------------------------------------------------------===//
+
+DenseElementsAttr ConstPropUnsqueeze(
+    PatternRewriter &rewriter, Value resOperand, Attribute attr) {
+  // Read dense attribute, the constant tensor we are transforming.
+  DenseElementsAttr denseAttr =
+      attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
+  assert(denseAttr && "expected dense attribute");
+  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+
+  // Unqueeze does not change the order of access, so just copy the whole data.
+  std::vector<Attribute> resVector;
+  for (auto value : denseAttr.getValues<Attribute>()) {
+    resVector.emplace_back(value);
+  }
+
   ArrayRef<Attribute> resRef(resVector);
   return DenseElementsAttr::get(resType, resRef);
 }

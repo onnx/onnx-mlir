@@ -106,6 +106,9 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       loopIVs.emplace_back(loopCIVs[0]); // Insert C back.
       for (int i = 1; i < args.size(); ++i)
         loopIVs.emplace_back(args[i]);
+    } else if (rank == 2) {
+      loopIVs.emplace_back(args[0]);
+      loopIVs.emplace_back(loopCIVs[0]); // Insert C back.
     } else {
       loopIVs.emplace_back(args[0]);
     }

@@ -21,8 +21,11 @@ Update as you push code to the master branch.
 | Cos            |                 | v  | v | v |    |       |
 | Cosh           |                 | v  | v | v |    |       |
 | Div            |                 | v  | v | v |    | M     |
+| Dropout        |                 | v  | v |   |    |       |
 | Elu            |                 | v  | v | v |    |       |
+| Erf            |                 | v  | v |   |    |       |
 | Exp            |                 | v  | v | v |    |       |
+| Expand         |                 | v  | v |   |    |       |
 | Gemm           |                 | v  | v | v |    | U     |
 | HardSigmoid    |                 | v  | v | v |    |       |
 | Identity       |                 | v  | v | v |    |       |
@@ -35,12 +38,14 @@ Update as you push code to the master branch.
 | Mul            |                 | v  | v | v |    | M     |
 | Or             |                 | v  | v | v |    | M     |
 | Pad            |                 | v  | V | v |    | const only |
+| Pow            |                 | v  | v |   |    | M     |
 | Reciprocal     |                 | v  | v | v |    |       |
 | ReduceMax      |                 | v  | v | v |    |       |
 | ReduceL1       |                 | v  |   |   |    | be decomposed into ReduceSum and Abs |
 | ReduceL2       |                 | v  |   |   |    | be decomposed into ReduceSumSquare and Sqrt |
 | ReduceLogSum   |                 | v  |   |   |    | be decomposed into ReduceSum and Log |
 | ReduceLogSumExp|                 | v  |   |   |    | be decomposed into ReduceLogSum and Exp |
+| ReduceMean     |                 | v  | v |   |    |       |
 | ReduceMin      |                 | v  | v | v |    |       |
 | ReduceProd     |                 | v  | v | v |    |       |
 | ReduceSum      |                 | v  | v | v |    |       |
@@ -104,12 +109,9 @@ And add literal tests at each step, and end to end tests once completed.
 | DepthToSpace   |                 |    |   |   |    |       |
 | DequantizeLin  |                 |    |   |   |    |       |
 | Det            |                 |    |   |   |    |       |
-| Dropout        |                 |    |   |   |    |       |
 | DynQuantizeLin |                 |    |   |   |    |       |
 | Einsum         |                 |    |   |   |    | V     |
 | Equal          |                 |    |   |   |    | M     |
-| Erf            |                 |    |   |   |    |       |
-| Expand         |                 |    |   |   |    |       |
 | EyeLike        |                 |    |   |   |    |       |
 | Flatten        |                 |    |   |   |    |       |
 | Floor          |                 |    |   |   |    |       |
@@ -151,7 +153,6 @@ And add literal tests at each step, and end to end tests once completed.
 | Not            |                 |    |   |   |    |       |
 | OneHot         |                 |    |   |   |    |       |
 | PRelu          |                 |    |   |   |    | U     |
-| Power          |                 |    |   |   |    | M     |
 | QLinearConv    |                 |    |   |   |    | P     |
 | QLinearMatMul  |                 |    |   |   |    | M     |
 | QuantizeLinear |                 |    |   |   |    |       |
@@ -161,7 +162,6 @@ And add literal tests at each step, and end to end tests once completed.
 | RandUniform    |                 |    |   |   |    |       |
 | RandUniformLike|                 |    |   |   |    |       |
 | Range          |                 |    |   |   |    |       |
-| ReduceMean     |                 |    |   |   |    |       |
 | Resize         |                 |    |   |   |    |       |
 | ReverseSequence|                 |    |   |   |    |       |
 | RoiAlign       |                 |    |   |   |    |       |

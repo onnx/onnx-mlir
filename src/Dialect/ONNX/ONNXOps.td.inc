@@ -610,7 +610,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
   "By default 'new_axis' is 0, the behavior is similar to numpy.concatenate."
   "When 'new_axis' is 1, the behavior is similar to numpy.stack."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[TensorOf<[UI8]>]>, TensorOf<[TensorOf<[UI16]>]>, TensorOf<[TensorOf<[UI32]>]>, TensorOf<[TensorOf<[UI64]>]>, TensorOf<[TensorOf<[I8]>]>, TensorOf<[TensorOf<[I16]>]>, TensorOf<[TensorOf<[I32]>]>, TensorOf<[TensorOf<[I64]>]>, TensorOf<[TensorOf<[F16]>]>, TensorOf<[TensorOf<[F32]>]>, TensorOf<[TensorOf<[F64]>]>, TensorOf<[TensorOf<[StringType]>]>, TensorOf<[TensorOf<[I1]>]>, TensorOf<[TensorOf<[Complex<F32>]>]>, TensorOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$input_sequence,
+  let arguments = (ins AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$input_sequence,
     I64Attr:$axis,
     DefaultValuedAttr<I64Attr, "0">:$new_axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$concat_result);
@@ -1045,7 +1045,7 @@ def ONNXDivOp:ONNX_Op<"Div",
 }
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Dropout operation";
   let description = [{
   "Dropout takes one input floating tensor and produces two tensor outputs,"
@@ -1193,7 +1193,7 @@ def ONNXEqualOp:ONNX_Op<"Equal",
 }
 
 def ONNXErfOp:ONNX_Op<"Erf",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Erf operation";
   let description = [{
   "Computes the error function of the given input tensor element-wise."
@@ -1247,7 +1247,7 @@ def ONNXExpOp:ONNX_Op<"Exp",
 }
 
 def ONNXExpandOp:ONNX_Op<"Expand",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Expand operation";
   let description = [{
   "Broadcast the input tensor following the given shape and the broadcast rule."
@@ -2894,17 +2894,29 @@ def ONNXNegOp:ONNX_Op<"Neg",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[I32]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F64]>, AnyMemRef]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[I32]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F64]>, AnyMemRef]>:$Y);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value X", [{
+      auto elementType = X.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), X);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
@@ -3078,7 +3090,7 @@ def ONNXOrOp:ONNX_Op<"Or",
 }
 
 def ONNXPReluOp:ONNX_Op<"PRelu",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX PRelu operation";
   let description = [{
   "PRelu takes input data (Tensor<T>) and slope tensor as input, and produces one"
@@ -3222,7 +3234,7 @@ def ONNXPadOp:ONNX_Op<"Pad",
 }
 
 def ONNXPowOp:ONNX_Op<"Pow",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Pow operation";
   let description = [{
   "Pow takes input data (Tensor<T>) and exponent Tensor, and"
@@ -3798,7 +3810,7 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceMean operation";
   let description = [{
   "Computes the mean of the input tensor's element along the provided axes. The resulted"
@@ -4582,7 +4594,7 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
   "Accepted range for 'position' is in `[-n, n - 1]`, where `n` is the number of tensors in 'input_sequence'."
   "Negative value means counting positions from the back."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[TensorOf<[UI8]>]>, TensorOf<[TensorOf<[UI16]>]>, TensorOf<[TensorOf<[UI32]>]>, TensorOf<[TensorOf<[UI64]>]>, TensorOf<[TensorOf<[I8]>]>, TensorOf<[TensorOf<[I16]>]>, TensorOf<[TensorOf<[I32]>]>, TensorOf<[TensorOf<[I64]>]>, TensorOf<[TensorOf<[F16]>]>, TensorOf<[TensorOf<[F32]>]>, TensorOf<[TensorOf<[F64]>]>, TensorOf<[TensorOf<[StringType]>]>, TensorOf<[TensorOf<[I1]>]>, TensorOf<[TensorOf<[Complex<F32>]>]>, TensorOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$input_sequence,
+  let arguments = (ins AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$input_sequence,
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, AnyMemRef]>:$position);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$tensor);
   let extraClassDeclaration = [{
@@ -4606,7 +4618,7 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
   "All tensors in 'inputs' must have the same data type."
   }];
   let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$inputs);
-  let results = (outs AnyTypeOf<[TensorOf<[TensorOf<[UI8]>]>, TensorOf<[TensorOf<[UI16]>]>, TensorOf<[TensorOf<[UI32]>]>, TensorOf<[TensorOf<[UI64]>]>, TensorOf<[TensorOf<[I8]>]>, TensorOf<[TensorOf<[I16]>]>, TensorOf<[TensorOf<[I32]>]>, TensorOf<[TensorOf<[I64]>]>, TensorOf<[TensorOf<[F16]>]>, TensorOf<[TensorOf<[F32]>]>, TensorOf<[TensorOf<[F64]>]>, TensorOf<[TensorOf<[StringType]>]>, TensorOf<[TensorOf<[I1]>]>, TensorOf<[TensorOf<[Complex<F32>]>]>, TensorOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$output_sequence);
+  let results = (outs AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$output_sequence);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return -1;
@@ -4627,7 +4639,7 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
   "Construct an empty tensor sequence, with given data type."
   }];
   let arguments = (ins OptionalAttr<I64Attr>:$dtype);
-  let results = (outs AnyTypeOf<[TensorOf<[TensorOf<[UI8]>]>, TensorOf<[TensorOf<[UI16]>]>, TensorOf<[TensorOf<[UI32]>]>, TensorOf<[TensorOf<[UI64]>]>, TensorOf<[TensorOf<[I8]>]>, TensorOf<[TensorOf<[I16]>]>, TensorOf<[TensorOf<[I32]>]>, TensorOf<[TensorOf<[I64]>]>, TensorOf<[TensorOf<[F16]>]>, TensorOf<[TensorOf<[F32]>]>, TensorOf<[TensorOf<[F64]>]>, TensorOf<[TensorOf<[StringType]>]>, TensorOf<[TensorOf<[I1]>]>, TensorOf<[TensorOf<[Complex<F32>]>]>, TensorOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$output);
+  let results = (outs AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 0;
@@ -4650,9 +4662,9 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
   "Negative value means counting positions from the back."
   "'position' is optional, by default it erases the last tensor from 'input_sequence'."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[TensorOf<[UI8]>]>, TensorOf<[TensorOf<[UI16]>]>, TensorOf<[TensorOf<[UI32]>]>, TensorOf<[TensorOf<[UI64]>]>, TensorOf<[TensorOf<[I8]>]>, TensorOf<[TensorOf<[I16]>]>, TensorOf<[TensorOf<[I32]>]>, TensorOf<[TensorOf<[I64]>]>, TensorOf<[TensorOf<[F16]>]>, TensorOf<[TensorOf<[F32]>]>, TensorOf<[TensorOf<[F64]>]>, TensorOf<[TensorOf<[StringType]>]>, TensorOf<[TensorOf<[I1]>]>, TensorOf<[TensorOf<[Complex<F32>]>]>, TensorOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$input_sequence,
+  let arguments = (ins AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$input_sequence,
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, AnyMemRef, NoneType]>:$position);
-  let results = (outs AnyTypeOf<[TensorOf<[TensorOf<[UI8]>]>, TensorOf<[TensorOf<[UI16]>]>, TensorOf<[TensorOf<[UI32]>]>, TensorOf<[TensorOf<[UI64]>]>, TensorOf<[TensorOf<[I8]>]>, TensorOf<[TensorOf<[I16]>]>, TensorOf<[TensorOf<[I32]>]>, TensorOf<[TensorOf<[I64]>]>, TensorOf<[TensorOf<[F16]>]>, TensorOf<[TensorOf<[F32]>]>, TensorOf<[TensorOf<[F64]>]>, TensorOf<[TensorOf<[StringType]>]>, TensorOf<[TensorOf<[I1]>]>, TensorOf<[TensorOf<[Complex<F32>]>]>, TensorOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$output_sequence);
+  let results = (outs AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$output_sequence);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 2;
@@ -4676,10 +4688,10 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
   "Negative value means counting positions from the back."
   "'position' is optional, by default it inserts 'tensor' to the back of 'input_sequence'."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[TensorOf<[UI8]>]>, TensorOf<[TensorOf<[UI16]>]>, TensorOf<[TensorOf<[UI32]>]>, TensorOf<[TensorOf<[UI64]>]>, TensorOf<[TensorOf<[I8]>]>, TensorOf<[TensorOf<[I16]>]>, TensorOf<[TensorOf<[I32]>]>, TensorOf<[TensorOf<[I64]>]>, TensorOf<[TensorOf<[F16]>]>, TensorOf<[TensorOf<[F32]>]>, TensorOf<[TensorOf<[F64]>]>, TensorOf<[TensorOf<[StringType]>]>, TensorOf<[TensorOf<[I1]>]>, TensorOf<[TensorOf<[Complex<F32>]>]>, TensorOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$input_sequence,
+  let arguments = (ins AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$input_sequence,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$tensor,
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, AnyMemRef, NoneType]>:$position);
-  let results = (outs AnyTypeOf<[TensorOf<[TensorOf<[UI8]>]>, TensorOf<[TensorOf<[UI16]>]>, TensorOf<[TensorOf<[UI32]>]>, TensorOf<[TensorOf<[UI64]>]>, TensorOf<[TensorOf<[I8]>]>, TensorOf<[TensorOf<[I16]>]>, TensorOf<[TensorOf<[I32]>]>, TensorOf<[TensorOf<[I64]>]>, TensorOf<[TensorOf<[F16]>]>, TensorOf<[TensorOf<[F32]>]>, TensorOf<[TensorOf<[F64]>]>, TensorOf<[TensorOf<[StringType]>]>, TensorOf<[TensorOf<[I1]>]>, TensorOf<[TensorOf<[Complex<F32>]>]>, TensorOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$output_sequence);
+  let results = (outs AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$output_sequence);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -4699,7 +4711,7 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
   let description = [{
   "Produces a scalar(tensor of empty shape) containing the number of tensors in 'input_sequence'."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[TensorOf<[UI8]>]>, TensorOf<[TensorOf<[UI16]>]>, TensorOf<[TensorOf<[UI32]>]>, TensorOf<[TensorOf<[UI64]>]>, TensorOf<[TensorOf<[I8]>]>, TensorOf<[TensorOf<[I16]>]>, TensorOf<[TensorOf<[I32]>]>, TensorOf<[TensorOf<[I64]>]>, TensorOf<[TensorOf<[F16]>]>, TensorOf<[TensorOf<[F32]>]>, TensorOf<[TensorOf<[F64]>]>, TensorOf<[TensorOf<[StringType]>]>, TensorOf<[TensorOf<[I1]>]>, TensorOf<[TensorOf<[Complex<F32>]>]>, TensorOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$input_sequence);
+  let arguments = (ins AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$input_sequence);
   let results = (outs AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$length);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -5074,7 +5086,7 @@ def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
     AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, AnyMemRef, NoneType]>:$split,
     DefaultValuedAttr<I64Attr, "0">:$axis,
     DefaultValuedAttr<I64Attr, "1">:$keepdims);
-  let results = (outs AnyTypeOf<[TensorOf<[TensorOf<[UI8]>]>, TensorOf<[TensorOf<[UI16]>]>, TensorOf<[TensorOf<[UI32]>]>, TensorOf<[TensorOf<[UI64]>]>, TensorOf<[TensorOf<[I8]>]>, TensorOf<[TensorOf<[I16]>]>, TensorOf<[TensorOf<[I32]>]>, TensorOf<[TensorOf<[I64]>]>, TensorOf<[TensorOf<[F16]>]>, TensorOf<[TensorOf<[F32]>]>, TensorOf<[TensorOf<[F64]>]>, TensorOf<[TensorOf<[StringType]>]>, TensorOf<[TensorOf<[I1]>]>, TensorOf<[TensorOf<[Complex<F32>]>]>, TensorOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$output_sequence);
+  let results = (outs AnyTypeOf<[SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, AnyMemRef]>:$output_sequence);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 2;
@@ -5098,17 +5110,29 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$Y);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value X", [{
+      auto elementType = X.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), X);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze",
@@ -5432,6 +5456,7 @@ def ONNXTopKOp:ONNX_Op<"TopK",
 
 def ONNXTransposeOp:ONNX_Op<"Transpose",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Transpose operation";
   let description = [{
   "Transpose the input tensor similar to numpy.transpose. For example, when"
@@ -5574,17 +5599,29 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
     I64ArrayAttr:$axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$expanded);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes", [{
+      auto elementType = data.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), data, axes);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXUpsampleOp:ONNX_Op<"Upsample",
@@ -6019,7 +6056,7 @@ def ONNXNormalizerOp:ONNX_Op<"Normalizer",
 }
 
 def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX OneHotEncoder operation";
   let description = [{
   "Replace each input element with an array of ones and zeros, where a single"
@@ -6240,7 +6277,7 @@ def ONNXZipMapOp:ONNX_Op<"ZipMap",
   let arguments = (ins TensorOf<[F32]>:$X,
     OptionalAttr<I64ArrayAttr>:$classlabels_int64s,
     OptionalAttr<StrArrayAttr>:$classlabels_strings);
-  let results = (outs AnyTypeOf<[TensorOf<[TupleOf<[StringType, F32]>]>, TensorOf<[TupleOf<[I64, F32]>]>, AnyMemRef]>:$Z);
+  let results = (outs AnyTypeOf<[SeqOf<[TupleOf<[StringType, F32]>]>, SeqOf<[TupleOf<[I64, F32]>]>, AnyMemRef]>:$Z);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;

@@ -19,6 +19,12 @@ include "mlir/IR/OpBase.td"
 
 def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
 
+def IsSeqTypePred : CPred<"$_self.isa<SeqType>()">;
+
+class SeqOf<list<Type> allowedTypes> : 
+  ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
+                "$_self.cast<SeqType>().getElementType()",  "SeqType">;
+
 #ifdef SHAPE_INFERENCE_INTERFACE
 #else
 include "src/Interface/ShapeInferenceInterface.td"
@@ -135,6 +141,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
 def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
     [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BatchNormalization operation in test mode";
+  let hasCanonicalizer = 1;
   let description = [{
     "Carries out batch normalization as described in the paper"
     "https://arxiv.org/abs/1502.03167. Depending on the mode it is being run,"

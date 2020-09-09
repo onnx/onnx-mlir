@@ -43,6 +43,17 @@ MemRefType convertToMemRefType(Type type) {
   return memRefType;
 }
 
+/// Retrieve function which contains the current operation.
+FuncOp getContainingFunction(Operation *op) {
+  Operation *parentFuncOp = op->getParentOp();
+
+  // While parent is not a FuncOp and its cast to a FuncOp is null.
+  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
+    parentFuncOp = parentFuncOp->getParentOp();
+
+  return cast<FuncOp>(parentFuncOp);
+}
+
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands,
@@ -295,165 +306,170 @@ std::vector<Value> getLoopIVsForBroadcasting(Location loc,
   return newLoopIVs;
 }
 
-Value emitConstantOp(ConversionPatternRewriter &rewriter, Location loc,
-    Type type, double value) {
+Value emitConstantOp(
+    PatternRewriter &rewriter, Location loc, Type type, double value) {
   Attribute constantAttr;
-  auto typeKind = type.getKind();
-  if (typeKind == StandardTypes::F16) {
-    constantAttr = rewriter.getF16FloatAttr((float)value);
-  } else if (typeKind == StandardTypes::F32) {
-    constantAttr = rewriter.getF32FloatAttr((float)value);
-  } else if (typeKind == StandardTypes::F64) {
-    constantAttr = rewriter.getF64FloatAttr(value);
-  } else if (typeKind == StandardTypes::Integer) {
-    auto width = type.cast<IntegerType>().getWidth();
-    if (width == 1) {
-      constantAttr = rewriter.getBoolAttr(false);
-    } else {
-      constantAttr =
-          rewriter.getIntegerAttr(type, APInt(width, (int64_t)value));
-    }
-  } else if (typeKind == StandardTypes::Index) {
-    constantAttr = rewriter.getIntegerAttr(type, (int64_t)value);
-  } else {
-    llvm_unreachable("unsupported element type");
-  }
 
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>(
+          [&](Type) { constantAttr = rewriter.getF16FloatAttr((float)value); })
+      .Case<Float32Type>(
+          [&](Type) { constantAttr = rewriter.getF32FloatAttr((float)value); })
+      .Case<Float64Type>(
+          [&](Type) { constantAttr = rewriter.getF64FloatAttr((float)value); })
+      .Case<IntegerType>([&](Type) {
+        auto width = type.cast<IntegerType>().getWidth();
+        if (width == 1) {
+          constantAttr = rewriter.getBoolAttr(false);
+        } else {
+          constantAttr =
+              rewriter.getIntegerAttr(type, APInt(width, (int64_t)value));
+        }
+      })
+      .Case<IndexType>([&](Type) {
+        constantAttr = rewriter.getIntegerAttr(type, (int64_t)value);
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
   return rewriter.create<ConstantOp>(loc, constantAttr);
 }
 
 Value emitPositiveInfinityConstantOp(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
   Attribute constantAttr;
-  auto typeKind = type.getKind();
-  if (typeKind == StandardTypes::F16) {
-    // 0x7C00
-    float value = std::numeric_limits<float>::infinity();
-    constantAttr = rewriter.getF16FloatAttr(value);
-  } else if (typeKind == StandardTypes::F32) {
-    // 0x7F800000
-    float value = std::numeric_limits<float>::infinity();
-    constantAttr = rewriter.getF32FloatAttr(value);
-  } else if (typeKind == StandardTypes::F64) {
-    // 0x7FF0000000000000
-    double value = std::numeric_limits<double>::infinity();
-    constantAttr = rewriter.getF64FloatAttr(value);
-  } else if (typeKind == StandardTypes::Integer) {
-    auto width = type.cast<IntegerType>().getWidth();
-    // The latest llvm-project includes a patch which allows getting the sign of
-    // IntegerType:
-    // https://github.com/llvm/llvm-project/commit/35b685270b410f6a1351c2a527021f22330c25b9
-    // as follows:
-    //   auto isSigned = type.cast<IntegerType>().isSigned();
-    // TODO (tungld): update the following statement once our llvm-project is
-    // upgraded to include the patch.
-    auto isSigned = true;
-    if (width == 8) {
-      if (isSigned) {
-        int8_t value = std::numeric_limits<int8_t>::max();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      } else {
-        uint8_t value = std::numeric_limits<uint8_t>::max();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      }
-    } else if (width == 16) {
-      if (isSigned) {
-        int16_t value = std::numeric_limits<int16_t>::max();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      } else {
-        uint16_t value = std::numeric_limits<uint16_t>::max();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      }
-    } else if (width == 32) {
-      if (isSigned) {
-        int32_t value = std::numeric_limits<int32_t>::max();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      } else {
-        uint32_t value = std::numeric_limits<uint32_t>::max();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      }
-    } else if (width == 64) {
-      if (isSigned) {
-        int64_t value = std::numeric_limits<int64_t>::max();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      } else {
-        uint64_t value = std::numeric_limits<uint64_t>::max();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      }
-    } else {
-      llvm_unreachable("unsupported element type");
-    }
-  } else {
-    llvm_unreachable("unsupported element type");
-  }
 
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>([&](Type) {
+        // 0x7C00
+        float value = std::numeric_limits<float>::infinity();
+        constantAttr = rewriter.getF16FloatAttr(value);
+      })
+      .Case<Float32Type>([&](Type) {
+        // 0x7F800000
+        float value = std::numeric_limits<float>::infinity();
+        constantAttr = rewriter.getF32FloatAttr(value);
+      })
+      .Case<Float64Type>([&](Type) {
+        // 0x7FF0000000000000
+        double value = std::numeric_limits<double>::infinity();
+        constantAttr = rewriter.getF64FloatAttr(value);
+      })
+      .Case<IntegerType>([&](Type) {
+        auto width = type.cast<IntegerType>().getWidth();
+        // The latest llvm-project includes a patch which allows getting the
+        // sign of IntegerType:
+        // https://github.com/llvm/llvm-project/commit/35b685270b410f6a1351c2a527021f22330c25b9
+        // as follows:
+        //   auto isSigned = type.cast<IntegerType>().isSigned();
+        // TODO (tungld): update the following statement once our llvm-project
+        // is upgraded to include the patch.
+        auto isSigned = true;
+        if (width == 8) {
+          if (isSigned) {
+            int8_t value = std::numeric_limits<int8_t>::max();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          } else {
+            uint8_t value = std::numeric_limits<uint8_t>::max();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          }
+        } else if (width == 16) {
+          if (isSigned) {
+            int16_t value = std::numeric_limits<int16_t>::max();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          } else {
+            uint16_t value = std::numeric_limits<uint16_t>::max();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          }
+        } else if (width == 32) {
+          if (isSigned) {
+            int32_t value = std::numeric_limits<int32_t>::max();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          } else {
+            uint32_t value = std::numeric_limits<uint32_t>::max();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          }
+        } else if (width == 64) {
+          if (isSigned) {
+            int64_t value = std::numeric_limits<int64_t>::max();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          } else {
+            uint64_t value = std::numeric_limits<uint64_t>::max();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          }
+        } else {
+          llvm_unreachable("unsupported element type");
+        }
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
   return rewriter.create<ConstantOp>(loc, constantAttr);
 }
 
 Value emitNegativeInfinityConstantOp(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
   Attribute constantAttr;
-  auto typeKind = type.getKind();
-  if (typeKind == StandardTypes::F16) {
-    // 0xFC00
-    float value = -std::numeric_limits<float>::infinity();
-    constantAttr = rewriter.getF16FloatAttr(value);
-  } else if (typeKind == StandardTypes::F32) {
-    // 0xFF800000
-    float value = -std::numeric_limits<float>::infinity();
-    constantAttr = rewriter.getF32FloatAttr(value);
-  } else if (typeKind == StandardTypes::F64) {
-    // 0xFFF0000000000000
-    double value = -std::numeric_limits<double>::infinity();
-    constantAttr = rewriter.getF64FloatAttr(value);
-  } else if (typeKind == StandardTypes::Integer) {
-    auto width = type.cast<IntegerType>().getWidth();
-    // The latest llvm-project includes a patch which allows getting the sign of
-    // IntegerType:
-    // https://github.com/llvm/llvm-project/commit/35b685270b410f6a1351c2a527021f22330c25b9
-    // as follows:
-    //   auto isSigned = type.cast<IntegerType>().isSigned();
-    // TODO (tungld): update the following statement once our llvm-project is
-    // upgraded to include the patch.
-    auto isSigned = true;
-    if (width == 8) {
-      if (isSigned) {
-        int8_t value = std::numeric_limits<int8_t>::min();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      } else {
-        uint8_t value = std::numeric_limits<uint8_t>::min();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      }
-    } else if (width == 16) {
-      if (isSigned) {
-        int16_t value = std::numeric_limits<int16_t>::min();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      } else {
-        uint16_t value = std::numeric_limits<uint16_t>::min();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      }
-    } else if (width == 32) {
-      if (isSigned) {
-        int32_t value = std::numeric_limits<int32_t>::min();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      } else {
-        uint32_t value = std::numeric_limits<uint32_t>::min();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      }
-    } else if (width == 64) {
-      if (isSigned) {
-        int64_t value = std::numeric_limits<int64_t>::min();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      } else {
-        uint64_t value = std::numeric_limits<uint64_t>::min();
-        constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
-      }
-    } else {
-      llvm_unreachable("unsupported element type");
-    }
-  } else {
-    llvm_unreachable("unsupported element type");
-  }
+
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>([&](Type) {
+        // 0xFC00
+        float value = -std::numeric_limits<float>::infinity();
+        constantAttr = rewriter.getF16FloatAttr(value);
+      })
+      .Case<Float32Type>([&](Type) {
+        // 0xFF800000
+        float value = -std::numeric_limits<float>::infinity();
+        constantAttr = rewriter.getF32FloatAttr(value);
+      })
+      .Case<Float64Type>([&](Type) {
+        // 0xFFF0000000000000
+        double value = -std::numeric_limits<double>::infinity();
+        constantAttr = rewriter.getF64FloatAttr(value);
+      })
+      .Case<IntegerType>([&](Type) {
+        auto width = type.cast<IntegerType>().getWidth();
+        // The latest llvm-project includes a patch which allows getting the
+        // sign of IntegerType:
+        // https://github.com/llvm/llvm-project/commit/35b685270b410f6a1351c2a527021f22330c25b9
+        // as follows:
+        //   auto isSigned = type.cast<IntegerType>().isSigned();
+        // TODO (tungld): update the following statement once our llvm-project
+        // is upgraded to include the patch.
+        auto isSigned = true;
+        if (width == 8) {
+          if (isSigned) {
+            int8_t value = std::numeric_limits<int8_t>::min();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          } else {
+            uint8_t value = std::numeric_limits<uint8_t>::min();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          }
+        } else if (width == 16) {
+          if (isSigned) {
+            int16_t value = std::numeric_limits<int16_t>::min();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          } else {
+            uint16_t value = std::numeric_limits<uint16_t>::min();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          }
+        } else if (width == 32) {
+          if (isSigned) {
+            int32_t value = std::numeric_limits<int32_t>::min();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          } else {
+            uint32_t value = std::numeric_limits<uint32_t>::min();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          }
+        } else if (width == 64) {
+          if (isSigned) {
+            int64_t value = std::numeric_limits<int64_t>::min();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          } else {
+            uint64_t value = std::numeric_limits<uint64_t>::min();
+            constantAttr = rewriter.getIntegerAttr(type, APInt(width, value));
+          }
+        } else {
+          llvm_unreachable("unsupported element type");
+        }
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
 }
@@ -463,10 +479,10 @@ int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
 }
 
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
-  auto parentBlock = allocOp->getOperation()->getBlock();
+  FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsUsedInGetRef = false;
-  parentBlock->walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
+  function.walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
     auto result = allocOp->getResult();
     for (const auto &operand : op.getOperands())
       if (operand == result)
@@ -485,4 +501,49 @@ int64_t getMemRefSizeInBytes(Value val) {
     size *= memRefShape[i];
   size *= getMemRefEltSizeInBytes(memRefType);
   return size;
+}
+
+Value getDynamicMemRefSizeInBytes(
+    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp) {
+  // Initialize the size variable with the size in bytes of the type.
+  int64_t typeSize = getMemRefEltSizeInBytes(type);
+  Value result =
+      emitConstantOp(rewriter, loc, rewriter.getIndexType(), typeSize);
+
+  // Multiply all dimensions (constant and dynamic).
+  auto memRefShape = type.getShape();
+  auto rank = memRefShape.size();
+  int dynDimIdx = 0;
+  for (int idx = 0; idx < rank; ++idx) {
+    if (memRefShape[idx] < 0) {
+      // Dyanmic size.
+      auto dynamicDim = allocOp.getOperands()[dynDimIdx];
+      dynDimIdx++;
+      result = rewriter.create<MulIOp>(loc, result, dynamicDim);
+    } else {
+      // Static size.
+      auto staticDim = emitConstantOp(
+          rewriter, loc, rewriter.getIndexType(), memRefShape[idx]);
+      result = rewriter.create<MulIOp>(loc, result, staticDim);
+    }
+  }
+
+  return result;
+}
+
+int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
+  auto memRefShape =
+      convertToMemRefType(allocOp.getResult().getType()).getShape();
+  auto rank = memRefShape.size();
+
+  int dynDimIdx = 0;
+  for (int idx = 0; idx < rank; ++idx) {
+    if (memRefShape[idx] < 0) {
+      if (idx == index)
+        return dynDimIdx;
+      dynDimIdx++;
+    }
+  }
+
+  return -1;
 }

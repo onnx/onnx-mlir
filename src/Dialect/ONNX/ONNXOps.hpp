@@ -54,29 +54,30 @@ public:
 // Or we need two namespace?
 // Will put all the ONNXOps into this namespace
 namespace onnxmlir {
-
-namespace ONNXTypes {
-
-enum Kind {
-  FIRST_USED_ONNX_TYPE = Type::FIRST_PRIVATE_EXPERIMENTAL_1_TYPE,
-  //#define HANDLE_TF_TYPE(tftype, enumerant, name) enumerant,
-  //#include "src/Dialect/ONNX/ONXTypes.def"
-  STRING,
-  SEQ,
-  LAST_USED_ONNX_TYPE,
-};
-} // namespace ONNXTypes
-
-class StringType : public mlir::Type::TypeBase<StringType, mlir::Type> {
+class StringType
+    : public mlir::Type::TypeBase<StringType, mlir::Type, mlir::TypeStorage> {
 public:
   using Base::Base;
-  static bool kindof(unsigned kind) { return kind == ONNXTypes::STRING; }
 
-  static unsigned getTypeKind() { return ONNXTypes::STRING; }
+  static StringType get(MLIRContext *ctx) { return Base::get(ctx); }
+};
 
-  static StringType get(MLIRContext *ctx) {
-    return Base::get(ctx, ONNXTypes::STRING);
-  }
+namespace detail {
+struct SeqTypeStorage;
+} // namespace detail
+
+class SeqType
+    : public mlir::Type::TypeBase<SeqType, mlir::Type, detail::SeqTypeStorage> {
+public:
+  using Base::Base;
+
+  static SeqType get(llvm::ArrayRef<mlir::Type> elementTypes);
+
+  llvm::ArrayRef<mlir::Type> getElementTypes();
+
+  mlir::Type getElementType();
+
+  size_t getNumElementTypes() { return getElementTypes().size(); }
 };
 
 } // end namespace onnxmlir

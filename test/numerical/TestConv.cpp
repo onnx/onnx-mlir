@@ -23,8 +23,8 @@ using namespace std;
 bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
     const int W, const int kH, const int kW, const int pHBegin, const int pHEnd,
     const int pWBegin, const int pWEnd) {
-  registerDialects();
   MLIRContext ctx;
+  registerDialects(ctx);
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);

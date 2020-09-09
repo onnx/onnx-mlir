@@ -18,7 +18,7 @@ jobs:
             git submodule update --init --recursive
       # Use cached mlir installation if possible.
       - restore_cache:
-          key: V15-LLVM-PROJECT-{{ arch }}
+          key: V18-LLVM-PROJECT-{{ arch }}
       - run:
           name: Install MLIR
           command: |
@@ -29,7 +29,7 @@ jobs:
               source onnx-mlir/utils/install-mlir.sh
             fi
       - save_cache:
-          key: V15-LLVM-PROJECT-{{ arch }}
+          key: V18-LLVM-PROJECT-{{ arch }}
           paths:
             - llvm-project
       - run:
@@ -47,7 +47,7 @@ jobs:
             cd onnx-mlir/build
             # Need to include the bin directory in $PATH,
             # otherwise CTest fails to find the test executables.
-            RUNTIME_DIR=$(pwd)/lib PATH=$(pwd)/bin:$PATH make test -j$(nproc)
+            RUNTIME_DIR=$(pwd)/lib make test -j$(nproc)
       - run:
           name: Run DocCheck
           command: cd onnx-mlir/build && cmake --build . --target check-doc

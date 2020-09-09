@@ -239,24 +239,89 @@ special_op_handler = dict([
     ("MaxPool", "ImportNodeMaxPool"),
     ("BatchNormalization", "ImportNodeBatchNormalization"),
     ("Pad", "ImportNodePad"),
+    ("Slice", "ImportNodeSlice"),
     #("Transpose", "ImportNodeTranspose")
 ])
 
 # Operations supporting shape inference.
-OpsWithShapeInference = [
-    'Exp', 'Atan', 'Tan', 'Tanh', 'Sin', 'Sinh', 'Cosh', 'Sigmoid', 'Relu',
-    'Add', 'Mul', 'Div', 'Sub', 'And', 'Or', 'Xor', 'Sum', 'Max', 'Min', 'MatMul',
-    'Gemm', 'LeakyRelu', 'Elu', 'Selu', 'HardSigmoid', 'Reshape', 'Reciprocal',
-    'Identity', 'Cos', 'Log', 'Transpose', 'Softmax', 'ReduceMax', 'ReduceMin',
-    'ReduceProd', 'ReduceSum', 'Softplus', 'Softsign', 'Sqrt', 'Unsqueeze',
-    'Sign', 'Constant', 'AveragePool', 'Abs', 'Conv', 'Concat', 'Neg', 'RNN',
-    'LSTM', 'GRU', 'Split', 'Pad', 'Cast', 'ConvTranspose', 'Flatten',
-    'DynamicQuantizeLinear', 'QuantizeLinear', 'DequantizeLinear', 'ConvInteger',
-    'Squeeze', 'Shape', 'Tile', 'Gather', 'ConstantOfShape', 'Slice', 'Scaler'
+OpsWithShapeInference=[
+    'Abs',
+    'Add',
+    'And',
+    'Atan',
+    'AveragePool',
+    'Cast',
+    'Concat',
+    'Constant',
+    'ConstantOfShape',
+    'Conv',
+    'ConvInteger',
+    'ConvTranspose',
+    'Cos',
+    'Cosh',
+    'DequantizeLinear',
+    'Div',
+    'Dropout',
+    'DynamicQuantizeLinear',
+    'Elu',
+    'Erf',
+    'Exp',
+    'Expand',
+    'Flatten',
+    'GRU',
+    'Gather',
+    'Gemm',
+    'HardSigmoid',
+    'Identity',
+    'LSTM',
+    'LeakyRelu',
+    'Log',
+    'MatMul',
+    'Max',
+    'Min',
+    'Mul',
+    'Neg',
+    'OneHotEncoder',
+    'Or',
+    'Pad',
+    'Pow',
+    'PRelu',
+    'QuantizeLinear',
+    'RNN',
+    'Reciprocal',
+    'ReduceMax',
+    'ReduceMean',
+    'ReduceMin',
+    'ReduceProd',
+    'ReduceSum',
+    'Relu',
+    'Reshape',
+    'Scaler',
+    'Selu',
+    'Shape',
+    'Sigmoid',
+    'Sign',
+    'Sin',
+    'Sinh',
+    'Slice',
+    'Softmax',
+    'Softplus',
+    'Softsign',
+    'Split',
+    'Sqrt',
+    'Squeeze',
+    'Sub',
+    'Sum',
+    'Tan',
+    'Tanh',
+    'Tile',
+    'Transpose',
+    'Unsqueeze',
+    'Xor',
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast']
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast', 'Transpose']
 
 # Operations who have operands that, if produced by constant operations, should
 # be promoted to become an attribute (via attribute promotion).
@@ -301,7 +366,8 @@ OpsWithResultTypeInference = {
 # Currenlty, there are only two build methods generated:
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
-custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSum', 'ReduceSumSquare', 'Pad']
+custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSum', 'ReduceSumSquare',
+                                    'Pad', 'Sqrt', 'Neg', 'Unsqueeze']
 # Custom builder op list for operations with broadcast; we can deduce the right
 # output type, no need to leave it undef as in the above list.
 # Ops must have two operands, not one, not three... And there shall be two.
@@ -728,7 +794,7 @@ def parse_type_str(allowedType):
     onnx_to_mlir_type_dict = { '(': '<[',
         ')': ']>',
         'tensor' : 'TensorOf',
-        'seq' : 'TensorOf',
+        'seq' : 'SeqOf',
         'map' : 'TupleOf',
         'bool': 'I1',
         #'uint8' : 'AnyI8',

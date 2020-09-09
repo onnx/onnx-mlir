@@ -31,7 +31,7 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlTerminatorOp op, PatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<AffineTerminatorOp>(op);
+    rewriter.replaceOpWithNewOp<AffineYieldOp>(op);
     return success();
   }
 };
@@ -106,15 +106,15 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
 }
 
 //===----------------------------------------------------------------------===//
-// KrnlToAffineLoweringPass
+// ConvertKrnlToAffinePass
 //===----------------------------------------------------------------------===//
 
 /// This is a partial lowering to affine loops of the krnl dialect operations.
 /// At this stage the dialect will contain standard operations as well like
 /// add and multiply, this pass will leave these operations intact.
 namespace {
-struct KrnlToAffineLoweringPass
-    : public PassWrapper<KrnlToAffineLoweringPass, FunctionPass> {
+struct ConvertKrnlToAffinePass
+    : public PassWrapper<ConvertKrnlToAffinePass, FunctionPass> {
   void runOnFunction() final;
 };
 } // end anonymous namespace.
@@ -211,7 +211,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
   return success();
 }
 
-void KrnlToAffineLoweringPass::runOnFunction() {
+void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   mlir::Operation *funcOp = getFunction();
 
@@ -233,7 +233,9 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 
   ConversionTarget target(getContext());
   target.addIllegalOp<KrnlTerminatorOp>();
-  target.addLegalOp<AffineTerminatorOp>();
+  // krnl.dim operations must be lowered prior to this pass.
+  target.addIllegalOp<KrnlDimOp>();
+  target.addLegalOp<AffineYieldOp>();
   OwningRewritePatternList patterns;
   patterns.insert<KrnlTerminatorLowering>(&getContext());
   DenseSet<Operation *> unconverted;
@@ -243,6 +245,6 @@ void KrnlToAffineLoweringPass::runOnFunction() {
 }
 } // namespace
 
-std::unique_ptr<Pass> mlir::createLowerKrnlPass() {
-  return std::make_unique<KrnlToAffineLoweringPass>();
+std::unique_ptr<Pass> mlir::createConvertKrnlToAffinePass() {
+  return std::make_unique<ConvertKrnlToAffinePass>();
 }
