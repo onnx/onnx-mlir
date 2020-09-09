@@ -478,7 +478,7 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
 ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
-    : mlir::Dialect(getDialectNamespace(), ctx) {
+    : mlir::Dialect(getDialectNamespace(), ctx, TypeID::get<ONNXOpsDialect>()) {
   addOperations<
 #define GET_OP_LIST
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
@@ -2887,7 +2887,7 @@ struct SeqTypeStorage : public mlir::TypeStorage {
 SeqType SeqType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
   assert(!elementTypes.empty() && "expected non-empty seq");
   mlir::MLIRContext *ctx = elementTypes.front().getContext();
-  return Base::get(ctx, ONNXTypes::SEQ, elementTypes);
+  return Base::get(ctx, elementTypes);
 }
 
 llvm::ArrayRef<mlir::Type> SeqType::getElementTypes() {
