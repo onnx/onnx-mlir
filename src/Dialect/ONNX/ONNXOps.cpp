@@ -2165,15 +2165,9 @@ LogicalResult ONNXCastOp::inferShapes(
     return UnrankedTensorType::get(elementType);
   };
 
-  int64_t targetType = to();
+  mlir::Type targetType = this->getAttr("to").cast<::mlir::TypeAttr>().getValue();
   OpBuilder builder(getContext());
-  if (auto elementType = convertONNXTypeToMLIRType(
-          builder, static_cast<onnx::TensorProto_DataType>(targetType))) {
-    getResult().setType(getOutputType(elementType));
-  } else {
-    return emitOpError("Unable to get the element type for to = " +
-                       std::to_string(targetType));
-  }
+  getResult().setType(targetType);
   return success();
 }
 

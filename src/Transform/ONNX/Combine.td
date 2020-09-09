@@ -34,7 +34,7 @@ class HasRankOf<int rank> : Constraint<CPred<"$0.getType().isa<ShapedType>() && 
 def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 def HasSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
-          "convertONNXTypeToMLIRType($_builder, static_cast<onnx::TensorProto_DataType>($1.cast<::mlir::IntegerAttr>().getSInt())))">,
+          "$1.cast<::mlir::TypeAttr>().getValue())">,
     "has same element type">;
 
 //===----------------------------------------------------------------------===//

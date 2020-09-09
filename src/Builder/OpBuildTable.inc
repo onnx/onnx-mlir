@@ -33,7 +33,7 @@ import_handler_map_["BatchNormalization"] =
 import_handler_map_["BitShift"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitShiftOp>;
 import_handler_map_["Cast"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCastOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodeCast;
 import_handler_map_["Ceil"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeilOp>;
 import_handler_map_["Clip"] = 

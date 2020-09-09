@@ -104,4 +104,8 @@ private:
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     mlir::OpBuilder &builder, const onnx::TensorProto &initializer);
 
+
+mlir::Type convertONNXTypeToMLIRType(
+    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
+
 } // namespace onnx_mlir
