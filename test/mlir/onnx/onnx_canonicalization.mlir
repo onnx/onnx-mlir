@@ -222,3 +222,49 @@ func @test_transpose_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10
   // CHECK-NEXT: return %arg0 : tensor<10x11x12x13xf32>
   "std.return"(%1) : (tensor<10x11x12x13xf32>) -> ()
 }
+
+// -----
+
+func @test_shape1(%arg0 : tensor<2x4x8x16xf32>) -> tensor<*xi64> {
+  %0 = "onnx.Shape"(%arg0) : (tensor<2x4x8x16xf32>) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+
+  // CHECK-LABEL: @test_shape1
+  // CHECK-NEXT: %0 = "onnx.Constant"() {value = dense<[2, 4, 8, 16]> : tensor<4xi64>} : () -> tensor<*xi64>
+  // CHECK-NEXT: %0 : tensor<*xi64>
+}
+
+// -----
+
+func @test_shape2(%arg0 : tensor<?x4x8x16xf32>) -> tensor<*xi64> {
+  %0 = "onnx.Shape"(%arg0) : (tensor<?x4x8x16xf32>) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+
+  // CHECK-LABEL: @test_shape2
+  // CHECK-NEXT: %0 = "onnx.Shape"(%arg0) : (tensor<?x4x8x16xf32>) -> tensor<*xi64>
+  // CHECK-NEXT: return %0 : tensor<*xi64>
+}
+
+
+// -----
+
+func @test_size1(%arg0 : tensor<2x4x8x16xf32>) -> tensor<*xi64> {
+  %0 = "onnx.Size"(%arg0) : (tensor<2x4x8x16xf32>) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+
+  // CHECK-LABEL: @test_size1
+  // CHECK-NEXT: %0 = "onnx.Constant"() {value = dense<1024> : tensor<1xi64>} : () -> tensor<*xi64>
+  // CHECK-NEXT: %0 : tensor<*xi64>
+}
+
+// -----
+
+func @test_size2(%arg0 : tensor<*xf32>) -> tensor<*xi64> {
+  %0 = "onnx.Size"(%arg0) : (tensor<*xf32>) -> tensor<*xi64>
+  return %0 : tensor<*xi64>
+
+  // CHECK-LABEL: @test_size2
+  // CHECK-NEXT: %0 = "onnx.Size"(%arg0) : (tensor<*xf32>) -> tensor<*xi64>
+  // CHECK-NEXT: return %0 : tensor<*xi64>
+}
+
