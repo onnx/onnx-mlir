@@ -95,3 +95,9 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
   result.insert<FuseTransposePattern>(context);
   result.insert<RemoveIdentityTransposePattern>(context);
 }
+
+/// on the ONNXDropoutOp.
+void ONNXDropoutOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &result, MLIRContext *context) {
+  result.insert<DropoutEliminationPattern>(context);
+}
