@@ -427,8 +427,10 @@ test_to_enable = [
     # It is unknown why 'uint8' came from.
     #"test_constantofshape_int_zeros_cpu",
 
-    # ResNet
+    # Model
     "test_resnet50_cpu",
+    "test_vgg19_cpu",
+    "test_shufflenet_cpu",
 ]
 
 

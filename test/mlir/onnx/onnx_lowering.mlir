@@ -1272,13 +1272,13 @@ func @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %arg1 : te
 
   // CHECK-LABEL: test_conv_no_bias_no_pad_w_group
   // CHECK: [[RES:%.+]] = alloc() : memref<1x5x27x58xf32>
-  // CHECK: [[CONST0:%.+]] = constant 1 : index
+  // CHECK: %[[CONST0:.+]] = constant 1 : index
   // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CONST2:%.+]] = constant 3 : index
   // CHECK: [[OUTER_LOOPS:%.+]]:3 = krnl.define_loops 3
 
   // CHECK: krnl.iterate([[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1, [[OUTER_LOOPS]]#2) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 3, [[OUTER_LOOPS]]#2 -> %arg4 = 0 to 1) {
-  // CHECK: %[[ADD1:.+]] = affine.apply #{{.*}}(%arg3, [[CONST0]])[%arg4]
+  // CHECK: %[[ADD1:.+]] = affine.apply #{{.*}}(%arg3, %arg4)[%[[CONST0]]]
   // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
 
   // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg5 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg6 = 0 to 58) {
