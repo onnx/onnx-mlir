@@ -1,7 +1,7 @@
-find_package(Python3 COMPONENTS Interpreter)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 add_custom_target(check-doc
-        COMMAND ${PYTHON3_EXECUTABLE}
+        COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/check.py
                         ${ONNX_MLIR_SRC_ROOT}
                         --exclude_dirs

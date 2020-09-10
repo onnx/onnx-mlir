@@ -1,12 +1,18 @@
 # Download Repos, build and check LLVM, build and check ONNX MLIR
 
 parameters:
-- name: GeneratorString
+- name: CMakeBuildTarget
   type: string
-  default: 'Ninja'
+  default: ''
 - name: CMakeExternalLIT
   type: string
   default: ''
+- name: GeneratorString
+  type: string
+  default: 'Ninja'
+- name: PythonExePath
+  type: string
+  default: '/usr/bin/python3'
 
 
 steps:
@@ -22,7 +28,7 @@ steps:
         $(LLVMSourceDir)/llvm
         -DLLVM_ENABLE_PROJECTS=mlir
         -DLLVM_BUILD_EXAMPLES=ON
-        -DLLVM_TARGETS_TO_BUILD="host;Athena;Apollo"
+        -DLLVM_TARGETS_TO_BUILD="host;Apollo"
         -DCMAKE_BUILD_TYPE=Release
         -DLLVM_ENABLE_ASSERTIONS=ON
         -DLLVM_ENABLE_RTTI=ON
@@ -48,15 +54,17 @@ steps:
         $(ONNXMLIRSourceDir)
         ${{ parameters.CMakeExternalLIT }}
         -DCMAKE_BUILD_TYPE=Release
+        -DADO_DOWNLOAD_ONNX_TEST_FILES=ON
+        -DPYTHON_EXECUTABLE=${{ parameters.PythonExePath }}
 
   - task: CMake@1
     displayName: 'Build ONNX MLIR'
     inputs:
       workingDirectory: '$(ONNXMLIRBuildDir)'
-      cmakeArgs: '--build . --target onnx-mlir'
+      cmakeArgs: '--build . --config Release --target ${{ parameters.CMakeBuildTarget }}'
 
   - task: CMake@1
     displayName: 'Check ONNX MLIR'
     inputs:
       workingDirectory: '$(ONNXMLIRBuildDir)'
-      cmakeArgs: '--build . --target check-onnx-lit'
+      cmakeArgs: '--build . --config Release --target check-onnx-lit'

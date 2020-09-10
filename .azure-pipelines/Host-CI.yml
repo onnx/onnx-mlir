@@ -46,6 +46,8 @@ variables:
   value: '-v'
 - name: CURSES_LIB_PATH
   value: $(Agent.ToolsDirectory)/PDCurses
+- name: CTEST_OUTPUT_ON_FAILURE
+  value: 1
 
 jobs:
 - job: Build_And_Test_ONNX_MLIR_Windows
@@ -57,8 +59,10 @@ jobs:
   steps:
   - template: BuildOnnxMlir.yml
     parameters:
-      GeneratorString: '"Visual Studio 16 2019" -A x64 -T host=x64'
+      CMakeBuildTarget: 'onnx-mlir -- /m'
       CMakeExternalLIT: '-DLLVM_EXTERNAL_LIT="$(LLVMBuildDir)\Release\bin\llvm-lit.py"'
+      GeneratorString: '"Visual Studio 16 2019" -A x64 -T host=x64'
+      PythonExePath: '"C:/Program Files (x86)/Microsoft Visual Studio/Shared/Python36_64/python.EXE"'
 
 - job: Build_And_Test_ONNX_MLIR_Ubuntu
   displayName: "Build and Test ONNX MLIR (Ubuntu)"
@@ -69,3 +73,21 @@ jobs:
     - CentOS -equals false
   steps:
   - template: BuildOnnxMlir.yml
+
+  # Pulled the following steps out of the template because they are currently Linux specific, until we get upstream fixes
+  - script: |
+      pip3 install --user -e $(ONNXMLIRSourceDir)/third_party/onnx
+    displayName: 'Install ONNX Python Module'
+
+  - task: CMake@1
+    displayName: 'End-To-End Test ONNX'
+    inputs:
+      workingDirectory: '$(ONNXMLIRBuildDir)'
+      cmakeArgs: '--build . --config Release --target check-onnx-backend'
+
+  - task: CMake@1
+    displayName: 'ONNX MLIR Unit Tests'
+    inputs:
+      workingDirectory: '$(ONNXMLIRBuildDir)'
+      cmakeArgs: '--build . --config Release --target test'
+
