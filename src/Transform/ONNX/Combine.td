@@ -24,6 +24,11 @@ include "src/Dialect/ONNX/ONNXOps.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+// Usefult code generation invokation.
+def GetNullAttr : NativeCodeCall<"Attribute()">;
+
+def GetUnitAttr: NativeCodeCall<"$_builder.getUnitAttr()">;
+
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 class HasRankOf<int rank> : Constraint<CPred<"$0.getType().isa<ShapedType>() && $0.getType().cast<ShapedType>().getRank() == " # rank>>;
 def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
@@ -55,10 +60,14 @@ def FuseGemmFollowedByAddition : Pat<(ONNXAddOp (ONNXGemmOp:$res $m1, $m2, $none
 def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
                                      (replaceWithValue $arg)>;
 
+// y, mask = onnx.Dropout(x) -> y, mask = x, none
+def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $ratio),
+                                        [(replaceWithValue $arg),
+                                         (ONNXConstantOp (GetNullAttr), (GetUnitAttr))]>;
+
 def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $v1, $v2), $m2, $m3),
                              (ONNXPadConstantValuePadOp $m1, $v2, $m2, $m3),
                              [(HasOneUse $res)]>;
-
 
 // ONNX_Op (onnx.Cast (%X, $type)) = ONNX_Op (%X)
 def CastEliminationPattern : Pat<
