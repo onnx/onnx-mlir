@@ -19,7 +19,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXGatherOpAdaptor operandAdaptor(operands);
-    ONNXGatherOp gatherOp = llvm::dyn_cast<ONNXGatherOp>(op);
+    ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);
     auto loc = op->getLoc();
     // get input operands, shapes, and rank
     Value data = operandAdaptor.data();
