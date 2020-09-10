@@ -191,6 +191,8 @@ func @test_conv_batchnormtestmode_fusion(%arg0 : tensor<1x3x224x224xf32>, %arg1 
     // CHECK: return [[RES]] : tensor<1x64x112x112xf32>
 }
 
+// -----
+
 // Check the removal of identity transposes.
 // CHECK-LABEL: func @test_transpose_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
 func @test_transpose_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
@@ -198,6 +200,8 @@ func @test_transpose_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x
   // CHECK-NEXT: return %arg0 : tensor<10x11x12x13xf32>
   "std.return"(%0) : (tensor<10x11x12x13xf32>) -> ()
 }
+
+// -----
 
 // Check the combining of transposes into a simple transpose.
 // CHECK-LABEL: func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
@@ -207,6 +211,8 @@ func @test_transpose_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x1
   // CHECK-NEXT: %{{.*}} = "onnx.Transpose"(%arg0) {perm = [1, 0, 3, 2]} : (tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32>
   "std.return"(%1) : (tensor<11x10x13x12xf32>) -> ()
 }
+
+// -----
 
 // Check the combining of transposes into an identity transpose, which in turns is removed.
 // CHECK-LABEL: func @test_transpose_fusion_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {

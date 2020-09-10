@@ -31,9 +31,6 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttr(
 DenseElementsAttr createDenseElementsAttrFromShape(
     PatternRewriter &rewriter, Value value) {
   auto inType = value.getType().cast<ShapedType>();
-  ;
-  if (!inType)
-    llvm_unreachable("Shaped type is execptd\n");
   auto shape = inType.getShape();
   SmallVector<int64_t, 1> dims = {inType.getRank()};
   SmallVector<int64_t, 4> values(shape.begin(), shape.end());
@@ -46,9 +43,6 @@ DenseElementsAttr createDenseElementsAttrFromShape(
 DenseElementsAttr createDenseElementsAttrFromSize(
     PatternRewriter &rewriter, Value value) {
   auto inType = value.getType().cast<ShapedType>();
-  ;
-  if (!inType)
-    llvm_unreachable("Shaped type is execptd\n");
   SmallVector<int64_t, 1> dims(1, 1);
   SmallVector<int64_t, 1> values = {inType.getNumElements()};
   auto tensorType =
