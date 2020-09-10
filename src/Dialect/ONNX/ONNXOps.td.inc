@@ -1046,6 +1046,7 @@ def ONNXDivOp:ONNX_Op<"Div",
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Dropout operation";
   let description = [{
   "Dropout takes one input floating tensor and produces two tensor outputs,"
