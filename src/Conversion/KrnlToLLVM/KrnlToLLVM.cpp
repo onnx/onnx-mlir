@@ -12,6 +12,7 @@
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -287,8 +288,7 @@ public:
           rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
       //  - Copy constant data into the alloca.
       auto memcpyRef = getOrInsertMemcpy(rewriter, module);
-      rewriter.create<CallOp>(loc, memcpyRef,
-          LLVM::LLVMType::getVoidTy(context),
+      rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
           ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
     } else {
       // Some frequently used types.
@@ -381,7 +381,7 @@ public:
         rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
 
     // Memcpy call
-    rewriter.create<CallOp>(loc, memcpyRef, LLVM::LLVMType::getVoidTy(context),
+    rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
         ArrayRef<Value>({alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory,
             int64Size, isVolatile}));
 
@@ -612,8 +612,19 @@ private:
   // returned, otherwise return nullptr.
   Value callApi(PatternRewriter &rewriter, Location loc, ApiRegistry registry,
       API apiId, ArrayRef<Value> params) const {
+    // To be used as parameters in LLVM::CallOp, voidTy must be converted
+    // to empty list to avoid emission of an SSA value with voidTy. However,
+    // we still keep using LLVM voidTy (as opposed to empty list) when recording
+    // API function signatures in API registry because when declaring API
+    // functions in LLVM IR, the correct way to indicate an output type for
+    // "void" is still LLVM voidTy. Relevant discussion thread:
+    // https://github.com/onnx/onnx-mlir/issues/255.
+    SmallVector<Type, 1> outputTys;
+    auto outputTy = registry.at(apiId).outputTy;
+    if (!outputTy.isVoidTy())
+      outputTys.emplace_back(outputTy);
     auto returnVals =
-        rewriter.create<LLVM::CallOp>(loc, registry.at(apiId).outputTy,
+        rewriter.create<LLVM::CallOp>(loc, ArrayRef<Type>(outputTys),
             registry.at(apiId).symbolRef, ArrayRef<Value>(params));
     if (returnVals.getNumResults() == 1)
       return returnVals.getResult(0);
@@ -642,7 +653,7 @@ private:
     auto memRefTy = memRefPtrTy.getPointerElementTy();
     auto int64Ty = LLVM::LLVMType::getInt64Ty(context);
 
-    Value memRef = rewriter.create<LLVM::LoadOp>(loc, memRefTy, ptrToMemRef);
+    Value memRef = rewriter.create<LLVM::UndefOp>(loc, memRefTy);
 
     // Set dataPtr and alignedDataPtr;
     auto dataPtr =
@@ -859,6 +870,8 @@ void mlir::populateAffineAndKrnlToLLVMConversion(
   populateAffineToStdConversionPatterns(patterns, ctx);
   populateLoopToStdConversionPatterns(patterns, ctx);
   populateShapeToStandardConversionPatterns(patterns, ctx);
+  populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
+  populateVectorToLLVMConversionPatterns(typeConverter, patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
@@ -883,6 +896,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  target.addIllegalOp<LLVM::DialectCastOp>();
 
   // Lower the MemRef types to a representation in LLVM.
   LowerToLLVMOptions options;
