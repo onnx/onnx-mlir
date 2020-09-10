@@ -2135,6 +2135,12 @@ func @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
 
 // -----
 
+// Check the lowering of ConstantOfShape when:
+//   - No value attribute.
+//   - The input is an empty tensor.
+// Expected emitted code:
+//   - No need a Krnl iterate.
+//   - The output is a scalar tensor.
 func @test_constant_of_shape_empty_tensor(%arg0 : tensor<0xi64>) -> tensor<*xf32> {
   %0 = "onnx.ConstantOfShape"(%arg0) : (tensor<0xi64>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -2148,6 +2154,11 @@ func @test_constant_of_shape_empty_tensor(%arg0 : tensor<0xi64>) -> tensor<*xf32
 
 // -----
 
+// Check the lowering of ConstantOfShape when:
+//   - The input is not a constant tensor.
+// Expected emitted code:
+//   - Emit code to compute output dimensions from the input's dimensions.
+//   - Krnl iterates are used to set values to the output.
 func @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) -> tensor<*xf32> {
   %0 = "onnx.ConstantOfShape"(%arg0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -2180,6 +2191,11 @@ func @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) -> tensor<*xf32
 
 // -----
 
+// Check the lowering of ConstantOfShape when:
+//   - The input is a constant tensor.
+// Expected emitted code:
+//   - Output dimensions are computed during compilation time.
+//   - Krnl iterates are used to set values to the output.
 func @test_constant_of_shape_static_dims() -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[3, 4, 5]> : tensor<3xi64> } : () -> tensor<3xi64>
   %1 = "onnx.ConstantOfShape"(%0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
