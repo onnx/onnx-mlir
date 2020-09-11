@@ -27,6 +27,29 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttr(
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 }
 
+// Create a DenseElementsAttr based on the shape of type.
+DenseElementsAttr createDenseElementsAttrFromShape(
+    PatternRewriter &rewriter, Value value) {
+  auto inType = value.getType().cast<ShapedType>();
+  auto shape = inType.getShape();
+  SmallVector<int64_t, 1> dims = {inType.getRank()};
+  SmallVector<int64_t, 4> values(shape.begin(), shape.end());
+  auto tensorType =
+      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+}
+
+// Create a DenseElementsAttr based on the size of type.
+DenseElementsAttr createDenseElementsAttrFromSize(
+    PatternRewriter &rewriter, Value value) {
+  auto inType = value.getType().cast<ShapedType>();
+  SmallVector<int64_t, 1> dims(1, 1);
+  SmallVector<int64_t, 1> values = {inType.getNumElements()};
+  auto tensorType =
+      mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
+  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+}
+
 // If 'lhs' is not NoneType, return 'lhs - rhs'.
 // Otherwise, return '-rhs'.
 Value subtractOrNeg(
@@ -127,4 +150,16 @@ void ONNXConvOp::getCanonicalizationPatterns(
 void ONNXBatchNormalizationTestModeOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<FuseBatchNormTestModeConvPattern>(context);
+}
+
+/// on the ONNXShapeOp.
+void ONNXShapeOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<ShapeToConstantPattern>(context);
+}
+
+/// on the ONNXSizeOp.
+void ONNXSizeOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<SizeToConstantPattern>(context);
 }

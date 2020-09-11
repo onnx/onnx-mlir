@@ -1046,6 +1046,7 @@ def ONNXDivOp:ONNX_Op<"Div",
 
 def ONNXDropoutOp:ONNX_Op<"Dropout",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Dropout operation";
   let description = [{
   "Dropout takes one input floating tensor and produces two tensor outputs,"
@@ -4728,6 +4729,7 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
 
 def ONNXShapeOp:ONNX_Op<"Shape",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Shape operation";
   let description = [{
   "Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor."
@@ -4862,6 +4864,7 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
 
 def ONNXSizeOp:ONNX_Op<"Size",
   [NoSideEffect]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Size operation";
   let description = [{
   "Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor."
@@ -5456,6 +5459,7 @@ def ONNXTopKOp:ONNX_Op<"TopK",
 
 def ONNXTransposeOp:ONNX_Op<"Transpose",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Transpose operation";
   let description = [{
   "Transpose the input tensor similar to numpy.transpose. For example, when"
