@@ -253,8 +253,8 @@ set(MLIRLibs
         ${MLIRSideEffectInterfaces}
         ${MLIRStandardOps}
         ${MLIRStandardToLLVM}
-        ${MLIRSupport}
         ${MLIRTranslation}
+        ${MLIRSupport}
         ${MLIRLinalgOps}
         ${MLIRLinalgEDSC}
         ${MLIRLinalgAnalysis}
