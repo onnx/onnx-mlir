@@ -157,6 +157,11 @@ test_to_enable = [
     "test_exp_cpu",
     "test_exp_example_cpu",
 
+    # Gather Op:
+    #"test_gather_0",
+    #"test_gather_1",
+    #"test_gather_negative_indices",
+
     # Gemm Op:
     "test_gemm_all_attributes_cpu",
     "test_gemm_alpha_cpu",
