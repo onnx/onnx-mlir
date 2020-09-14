@@ -64,7 +64,9 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
 /// on the ONNXMatMultOp.
 void ONNXAddOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<MulAddToGemmOptPattern>(context);
+  // === TVP specific ===
+  // Comment out conversion to Gemm as TTU does not support that
+  //results.insert<MulAddToGemmOptPattern>(context);
 }
 
 void ONNXGemmOp::getCanonicalizationPatterns(

@@ -179,6 +179,7 @@ find_mlir_lib(MLIRTargetLLVMIRModuleTranslation)
 find_mlir_lib(MLIRTargetLLVMIR)
 find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRTranslation)
+find_mlir_lib(MLIRTVP)
 find_mlir_lib(MLIRVector)
 find_mlir_lib(MLIRVectorInterfaces)
 find_mlir_lib(MLIRVectorToLLVM)
@@ -217,6 +218,7 @@ set(MLIRLibs
         ${MLIRStandardOpsTransforms}
         ${MLIRStandardToLLVM}
         ${MLIRTransforms}
+        ${MLIRTVP}
         ${MLIRSCFToStandard}
         ${MLIRVector}
         ${MLIRVectorInterfaces}
