@@ -2170,3 +2170,25 @@ func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<1x3x2xf32> {
   // CHECK: [[DATA:%.+]] = load %arg0{{.}}[[ARG1]], [[AFFINE2]]{{.}} : memref<3x3xf32>
   // CHECK: affine.store [[DATA]], [[ALLOC]]{{.}}[[ARG1]], [[ARG2]], [[ARG3]]{{.}} : memref<1x3x2xf32>
 }
+
+
+// -----
+
+// Test Tile with 2D input and constant repeats
+func @test_tile1(%arg0 : tensor<4x8xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() { value = dense<[3, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Tile"(%arg0, %0) : (tensor<4x8xf32>, tensor<2xi64>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+  // CHECK-LABEL: test_tile1
+  // CHECK: [[ALLOC:%.+]] = alloc() : memref<12x16xf32>
+  // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[3, 2]> : tensor<2xi64>} : () -> memref<2xi64>
+  // CHECK: [[LOOP:%.+]]:2 = krnl.define_loops 2
+  // CHECK: krnl.iterate([[LOOP]]#0, [[LOOP]]#1) with ([[LOOP]]#0 -> [[ARG1:%.+]] = 0 to 12, [[LOOP]]#1 -> [[ARG2:%.+]] = 0 to 16) {
+  // CHECK: [[CONST0:%.+]] = constant 3 : index
+  // CHECK: [[MOD0:%.+]] = remi_unsigned [[ARG1]], [[CONST0]] : index
+  // CHECK: [[CONST1:%.+]] = constant 2 : index
+  // CHECK: [[MOD1:%.+]] = remi_unsigned [[ARG2]], [[CONST1]] : index
+  // CHECK: [[DATA:%.+]] = affine.load %arg0{{.}}[[MOD0]], [[MOD1]]{{.}} : memref<4x8xf32>
+  // CHECK: affine.store [[DATA]], [[ALLOC]]{{.}}[[ARG1]], [[ARG2]]{{.}} : memref<12x16xf32>
+}
+
