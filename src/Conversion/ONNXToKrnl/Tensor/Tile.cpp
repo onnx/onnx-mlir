@@ -27,9 +27,11 @@ struct ONNXTileOpLowering : public ConversionPattern {
     int64_t inputRank = inputShape.size();
 
     Value repeats = operandAdaptor.repeats();
+/*
     auto repeatsMemRefType = repeats.getType().cast<MemRefType>();
     auto repeatsShape = repeats.getType().cast<MemRefType>().getShape();
     int64_t repeatsRank = repeatsShape.size();
+*/
 
     // get output info
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -40,7 +42,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
     SmallVector<int64_t, 4> repeatsConst(inputRank, 0);
     for (auto i = 0; i < inputRank; i++) {
       if (inputShape[i] != -1 && outputMemRefShape[i] != -1) {
-        repeatsConst[i] = outputMemRefShape[i]/inputShape[i];
+        repeatsConst[i] = outputMemRefShape[i] / inputShape[i];
       }
     }
 
@@ -78,22 +80,23 @@ struct ONNXTileOpLowering : public ConversionPattern {
     for (int j = 0; j < outputRank; ++j) {
       Value repeatsElementVal;
       if (repeatsConst[j] != 0) {
-        repeatsElementVal =
-            emitConstantOp(rewriter, loc, rewriter.getIndexType(), repeatsConst[j]);
+        repeatsElementVal = emitConstantOp(
+            rewriter, loc, rewriter.getIndexType(), repeatsConst[j]);
       } else {
-        auto indexVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), j);
+        auto indexVal =
+            emitConstantOp(rewriter, loc, rewriter.getIndexType(), j);
         SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
         auto repeatsLoadVal =
             rewriter.create<AffineLoadOp>(loc, repeats, repeatsMemRefVal);
         repeatsElementVal = rewriter.create<IndexCastOp>(
-          loc, repeatsLoadVal, rewriter.getIndexType());
+            loc, repeatsLoadVal, rewriter.getIndexType());
       }
       auto loopVarVal = iterationBlock.getArguments()[j];
-      auto exprVal = rewriter.create<UnsignedRemIOp>(
-          loc, loopVarVal, repeatsElementVal);
+      auto exprVal =
+          rewriter.create<UnsignedRemIOp>(loc, loopVarVal, repeatsElementVal);
       inputMemRefVal.emplace_back(exprVal);
     }
-    auto inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
+    auto inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
 
     SmallVector<Value, 4> outputMemRefVal(iterationBlock.getArguments().begin(),
         iterationBlock.getArguments().end());
