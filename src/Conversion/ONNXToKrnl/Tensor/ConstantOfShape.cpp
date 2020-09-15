@@ -22,7 +22,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     ONNXConstantOfShapeOpAdaptor operandAdaptor(operands);
 
-    auto valueAttr = llvm::dyn_cast<ONNXConstantOfShapeOp>(op)
+    auto valueAttr = llvm::cast<ONNXConstantOfShapeOp>(op)
                          .value()
                          .getValue()
                          .cast<DenseElementsAttr>();
@@ -51,8 +51,8 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
       alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
       // Insert deallocation if needed.
       if (insertDealloc) {
-        auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        Block *parentBlock = alloc.getDefiningOp()->getBlock();
+        DeallocOp dealloc = rewriter.create<DeallocOp>(loc, alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }

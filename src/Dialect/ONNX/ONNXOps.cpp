@@ -512,6 +512,8 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
     if (parser.parseGreater())
       return Type();
     return SeqType::get(elementTypes);
+  } else {
+    llvm_unreachable("Unexpected onnxmlir keyword");
   }
 }
 
@@ -2373,6 +2375,18 @@ LogicalResult ONNXShapeOp::inferShapes() {
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   int64_t rank = data().getType().cast<RankedTensorType>().getRank();
   SmallVector<int64_t, 1> outDims(1, rank);
+  getResult().setType(
+      RankedTensorType::get(outDims, IntegerType::get(64, getContext())));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Size
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXSizeOp::inferShapes() {
+  // Output is scalar of int64 containing the size of the input tensor.
+  SmallVector<int64_t, 1> outDims;
   getResult().setType(
       RankedTensorType::get(outDims, IntegerType::get(64, getContext())));
   return success();

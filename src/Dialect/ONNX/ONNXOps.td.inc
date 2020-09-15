@@ -4863,7 +4863,7 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
 }
 
 def ONNXSizeOp:ONNX_Op<"Size",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Size operation";
   let description = [{

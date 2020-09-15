@@ -223,6 +223,9 @@ void populateLoweringONNXUnsqueezeOpPattern(
 void populateLoweringONNXTransposeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXGatherOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXPadConstantValuePadOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
@@ -235,10 +238,10 @@ void populateLoweringONNXReshapeOpPattern(
 void populateLoweringONNXIdentityOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
-void populateLoweringONNXConstantOpPattern(
+void populateLoweringONNXConstantOfShapeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
-void populateLoweringONNXConstantOfShapeOpPattern(
+void populateLoweringONNXConstantOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXConcatOpPattern(
