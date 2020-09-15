@@ -35,11 +35,13 @@ struct ONNXTileOpLowering : public ConversionPattern {
 
     // Infer value of repeats() from shape of input and output.
     SmallVector<int64_t, 4> repeatsConst(inputRank, 0);
-    for (auto i = 0; i < inputRank; i++) {
-      if (inputShape[i] != -1 && outputMemRefShape[i] != -1) {
-        repeatsConst[i] = outputMemRefShape[i] / inputShape[i];
-      }
-    }
+    /*
+        for (auto i = 0; i < inputRank; i++) {
+          if (inputShape[i] != -1 && outputMemRefShape[i] != -1) {
+            repeatsConst[i] = outputMemRefShape[i] / inputShape[i];
+          }
+        }
+    */
 
     bool insertDealloc = checkInsertDealloc(op);
     Value alloc;
@@ -93,7 +95,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
       inputMemRefVal.emplace_back(exprVal);
     }
 
-    // Load the value from input 
+    // Load the value from input
     auto inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
     SmallVector<Value, 4> outputMemRefVal(iterationBlock.getArguments().begin(),
         iterationBlock.getArguments().end());
@@ -153,7 +155,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
 
     // Define loops and iteration trip counts (equivalent to size of output)
     std::vector<Value> originalLoops;
-    defineLoops(rewriter, loc, originalLoops, outputRank*2);
+    defineLoops(rewriter, loc, originalLoops, outputRank * 2);
     KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (int ii = 0; ii < outputRank; ++ii) {
       addDimensionToPack(rewriter, loc, pack, input, ii);
@@ -184,13 +186,14 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
 
     SmallVector<Value, 4> inputMemRefVal;
     for (int j = 0; j < inputRank; ++j) {
-      inputMemRefVal.emplace_back(iterationBlock.getArguments()[j*2]);
+      inputMemRefVal.emplace_back(iterationBlock.getArguments()[j * 2]);
     }
-          
+
     SmallVector<Value, 4> outputMemRefVal;
     for (int j = 0; j < inputRank; ++j) {
-      auto dimExprVal = rewriter.create<MulIOp>(loc, iterationBlock.getArguments()[j*2],
-           iterationBlock.getArguments()[j*2+1]);
+      auto dimExprVal =
+          rewriter.create<MulIOp>(loc, iterationBlock.getArguments()[j * 2],
+              iterationBlock.getArguments()[j * 2 + 1]);
       outputMemRefVal.emplace_back(dimExprVal);
     }
 
