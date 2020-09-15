@@ -36,6 +36,14 @@ struct ONNXTileOpLowering : public ConversionPattern {
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
 
+    // Infer value of repeats() from shape of input and output.
+    SmallVector<int64_t, 4> repeatsConst(inputRank, 0);
+    for (auto i = 0; i < inputRank; i++) {
+      if (inputShape[i] != -1 && outputMemRefShape[i] != -1) {
+        repeatsConst[i] = outputMemRefShape[i]/inputShape[i];
+      }
+    }
+
     bool insertDealloc = checkInsertDealloc(op);
     Value alloc;
     if (hasAllConstantDimensions(outputMemRefType))
@@ -68,15 +76,21 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // But the subscript of store is not contigous, or even not affine.
     SmallVector<Value, 4> inputMemRefVal;
     for (int j = 0; j < outputRank; ++j) {
-      auto indexVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), j);
-      SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
-      auto repeatsElementVal =
-          rewriter.create<AffineLoadOp>(loc, repeats, repeatsMemRefVal);
-      auto repeatsElementConvertedVal = rewriter.create<IndexCastOp>(
-          loc, repeatsElementVal, rewriter.getIndexType());
+      Value repeatsElementVal;
+      if (repeatsConst[j] != 0) {
+        repeatsElementVal =
+            emitConstantOp(rewriter, loc, rewriter.getIndexType(), repeatsConst[j]);
+      } else {
+        auto indexVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), j);
+        SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
+        auto repeatsLoadVal =
+            rewriter.create<AffineLoadOp>(loc, repeats, repeatsMemRefVal);
+        repeatsElementVal = rewriter.create<IndexCastOp>(
+          loc, repeatsLoadVal, rewriter.getIndexType());
+      }
       auto loopVarVal = iterationBlock.getArguments()[j];
       auto exprVal = rewriter.create<UnsignedRemIOp>(
-          loc, loopVarVal, repeatsElementConvertedVal);
+          loc, loopVarVal, repeatsElementVal);
       inputMemRefVal.emplace_back(exprVal);
     }
     auto inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
