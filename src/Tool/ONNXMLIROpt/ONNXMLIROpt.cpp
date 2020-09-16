@@ -68,6 +68,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::StandardOpsDialect>();
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::shape::ShapeDialect>();
+  registry.insert<mlir::tvp::TVPDialect>();
 
   registerTransformsPasses();
   registerAffinePasses();
