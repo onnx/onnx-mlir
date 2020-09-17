@@ -79,7 +79,7 @@ int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
 // Get reduction type
 //===----------------------------------------------------------------------===//
 RankedTensorType getReductionOutputType(
-    RankedTensorType operandTy, Optional<ArrayAttr> axesAttrs, APInt keepdims) {
+    RankedTensorType operandTy, Optional<ArrayAttr> axesAttrs, uint64_t keepdims) {
   int64_t rank = operandTy.getRank();
 
   SmallVector<int64_t, 4> axes;
@@ -378,7 +378,7 @@ static LogicalResult RNNShapeInference(T *op) {
   // Get hidden size from hidden_size attribute.
   int64_t hiddenSize = -1;
   if (op->hidden_size().hasValue()) {
-    hiddenSize = op->hidden_size().getValue().getSExtValue();
+    hiddenSize = op->hidden_size().getValue();
   } else {
     // Infer hidden_size from wShape and rShape if possible.
     if (rShape[2] != -1)
@@ -1420,7 +1420,7 @@ LogicalResult ONNXConvOp::inferShapes() {
     return emitError("Weight size not compatible with data size");
 
   // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvOp::group().getSExtValue();
+  int64_t group = ONNXConvOp::group();
 
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
@@ -1540,7 +1540,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
   }
 
   // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvTransposeOp::group().getSExtValue();
+  int64_t group = ONNXConvTransposeOp::group();
 
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
@@ -1660,7 +1660,7 @@ LogicalResult ONNXAveragePoolOp::inferShapes() {
         "kernel_shape is a mandatory attribute for which there is no default");
 
   // Ceil mode.
-  auto ceilMode = ceil_mode().getSExtValue();
+  auto ceilMode = ceil_mode();
 
   // Process strides and pads.
   LogicalResult res =
@@ -1713,7 +1713,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes() {
         "kernel_shape is a mandatory attribute for which there is no default");
 
   // Storage order.
-  auto storageOrder = storage_order().getSExtValue();
+  auto storageOrder = storage_order();
   if (storageOrder != 0)
     return emitError("column major storage order not supported at this time");
 
@@ -1724,7 +1724,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes() {
   auto padsOpt = pads();
 
   // Ceil mode.
-  auto ceilMode = ceil_mode().getSExtValue();
+  auto ceilMode = ceil_mode();
 
   SmallVector<int64_t, 4> outputDims;
   // Insert batch size.
@@ -2010,7 +2010,7 @@ LogicalResult ONNXConcatOp::inferShapes() {
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   auto commonShape = commonType.getShape();
   auto commonRank = commonShape.size();
-  auto axisIndex = axis().getSExtValue();
+  int64_t axisIndex = axis();
   // Negative axis means values are counted from the opposite side.
   if (axisIndex < 0) {
     axisIndex = commonRank + axisIndex;
@@ -2088,7 +2088,7 @@ LogicalResult ONNXSplitOp::inferShapes() {
   int64_t inputRank = inputShape.size();
 
   // Checking value of axis parameter.
-  auto axisIndex = axis().getSExtValue();
+  int64_t axisIndex = axis();
   if (axisIndex < -inputRank || axisIndex >= inputRank)
     return emitError("Split axis value out of bound");
   // Negative axis means values are counted from the opposite side.
@@ -2294,7 +2294,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes() {
   }
 
   // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvIntegerOp::group().getSExtValue();
+  int64_t group = ONNXConvIntegerOp::group();
 
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
@@ -2463,7 +2463,7 @@ LogicalResult ONNXGatherOp::inferShapes() {
     return emitError("Input tensor must have rank >= 1");
 
   // Read 'axis' attribute.
-  auto axisIndex = axis().getSExtValue();
+  int64_t axisIndex = axis();
   // 'axis' must be in [-rank, rank-1]
   if (axisIndex < -inputRank || axisIndex >= inputRank)
     return emitError("Gather axis value out of bound");

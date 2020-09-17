@@ -69,6 +69,8 @@ int main(int argc, char **argv) {
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::shape::ShapeDialect>();
   registry.insert<mlir::tvp::TVPDialect>();
+  registry.insert<mlir::ONNXOpsDialect>();
+  registry.insert<mlir::KrnlOpsDialect>();
 
   registerTransformsPasses();
   registerAffinePasses();
@@ -78,8 +80,6 @@ int main(int argc, char **argv) {
 
   llvm::InitLLVM y(argc, argv);
 
-  mlir::registerDialect<mlir::ONNXOpsDialect>();
-  mlir::registerDialect<mlir::KrnlOpsDialect>();
   initOMPasses();
   initMLIRPasses();
 
