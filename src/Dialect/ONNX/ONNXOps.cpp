@@ -78,8 +78,8 @@ int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
 //===----------------------------------------------------------------------===//
 // Get reduction type
 //===----------------------------------------------------------------------===//
-RankedTensorType getReductionOutputType(
-    RankedTensorType operandTy, Optional<ArrayAttr> axesAttrs, uint64_t keepdims) {
+RankedTensorType getReductionOutputType(RankedTensorType operandTy,
+    Optional<ArrayAttr> axesAttrs, uint64_t keepdims) {
   int64_t rank = operandTy.getRank();
 
   SmallVector<int64_t, 4> axes;
