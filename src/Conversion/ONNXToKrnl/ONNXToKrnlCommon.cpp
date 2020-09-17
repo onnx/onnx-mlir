@@ -243,7 +243,7 @@ std::map<int, std::map<int, Value>> getBroadcastedDimInfo(Location loc,
     sharedDimCount[dimIdx] = 0;
     for (int i = 0; i < operands.size(); ++i) {
       auto shape = operands[i].getType().cast<MemRefType>().getShape();
-      if (reversedIdx <= shape.size() - 1)
+      if (!shape.empty() && reversedIdx <= shape.size() - 1)
         sharedDimCount[dimIdx]++;
     }
   }

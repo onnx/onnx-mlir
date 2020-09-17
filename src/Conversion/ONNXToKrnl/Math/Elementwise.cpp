@@ -593,6 +593,26 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
   }
 };
 
+bool hasBroadcastingDimensions(
+    std::map<int, std::map<int, Value>> &broadcastedDimInfo) {
+  for (auto element : broadcastedDimInfo) {
+    if (element.second.size() > 0)
+      return true;
+  }
+
+  return false;
+}
+
+bool hasAffineMapOperand(mlir::Operation::operand_type_range argTypes) {
+  for (auto const &type : argTypes) {
+    if (convertToMemRefType(type).getAffineMaps().size() > 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Element-wise variadic ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseVariadicOp>
@@ -648,7 +668,10 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Obtain the first operand.
     std::vector<Value> accumulatedLoopIVs = getLoopIVsForBroadcasting(
         loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
-    if (!hasAllConstantDimensions(memRefType))
+
+    bool hasBroadcasting = hasBroadcastingDimensions(broadcastedDimInfo);
+    bool hasAffineMapArgument = hasAffineMapOperand(op->getOperandTypes());
+    if (hasBroadcasting || hasAffineMapArgument)
       // In case of unknown dimensions, use std.load since
       // 'getLoopIVsForBroadcasting' has not supported affine map so far.
       accumulated =
@@ -660,7 +683,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     for (unsigned i = 1; i < numArgs; i++) {
       std::vector<Value> nextLoopIVs = getLoopIVsForBroadcasting(
           loc, rewriter, loopIVs, operands[i], broadcastedDimInfo[i]);
-      if (!hasAllConstantDimensions(memRefType))
+      if (hasBroadcasting || hasAffineMapArgument)
         // In case of unknown dimensions, use std.load since
         // 'getLoopIVsForBroadcasting' has not supported affine map so far.
         next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
