@@ -208,7 +208,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       strides.emplace_back(stride.cast<IntegerAttr>().getInt());
 
     // Read ceil_mode attribute
-    auto ceilMode = poolOp.ceil_mode().getSExtValue();
+    auto ceilMode = poolOp.ceil_mode();
 
     // Read pads attribute
     SmallVector<int64_t, 4> pads;

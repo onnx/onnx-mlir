@@ -345,7 +345,7 @@ OpsWithResultTypeInference = {
         resultTypes.push_back(attr.getType());
       }''',
   "Cast":
-    '''auto toAttr = to().getSExtValue();
+    '''auto toAttr = to();
       auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(
         convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));''',
