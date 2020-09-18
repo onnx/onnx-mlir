@@ -170,7 +170,6 @@ find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRSupport)
 find_mlir_lib(MLIRShape)
 find_mlir_lib(MLIRShapeToStandard)
-find_mlir_lib(MLIRShapeToSCF)
 find_mlir_lib(MLIRSideEffectInterfaces)
 find_mlir_lib(MLIROpenMP)
 find_mlir_lib(MLIROptLib)
@@ -266,7 +265,6 @@ set(MLIRLibs
         ${MLIRPresburger}
         ${MLIRShape}
         ${MLIRShapeToStandard}
-        ${MLIRShapeToSCF}
         ${MLIRInferTypeOpInterface}
         # strict order verified
         ${LLVMBitWriter}
