@@ -77,11 +77,20 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
     return tensor_to_memref_converter.isSignatureLegal(op.getType());
   });
 
+  target.addDynamicallyLegalOp<CallOp>([&](CallOp op) {
+    // CallOp is legal only if types have been converted to Std types.
+    return tensor_to_memref_converter.isSignatureLegal(op);
+  });
+
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
   populateFuncOpTypeConversionPattern(
       patterns, &getContext(), tensor_to_memref_converter);
+  // Type conversion for calls that involve tensors.
+  populateCallOpTypeConversionPattern(
+      patterns, &getContext(), tensor_to_memref_converter);
+
 
   // Frontend operation lowering.
   // Math
