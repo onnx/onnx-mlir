@@ -91,18 +91,19 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXSoftmaxOpPattern(patterns, &getContext());
   populateLoweringONNXMatMulOpPattern(patterns, &getContext());
   // Tensor
-  populateLoweringONNXReshapeOpPattern(patterns, &getContext());
-  populateLoweringONNXPadConstantValuePadOpPattern(patterns, &getContext());
-  populateLoweringONNXPadOpPattern(patterns, &getContext());
-  populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
-  populateLoweringONNXTransposeOpPattern(patterns, &getContext());
+  populateLoweringONNXConcatOpPattern(patterns, &getContext());
+  populateLoweringONNXConstantOpPattern(patterns, &getContext());
+  populateLoweringONNXConstantOfShapeOpPattern(patterns, &getContext());
   populateLoweringONNXGatherOpPattern(patterns, &getContext());
   populateLoweringONNXIdentityOpPattern(patterns, &getContext());
-  populateLoweringONNXConstantOfShapeOpPattern(patterns, &getContext());
-  populateLoweringONNXConstantOpPattern(patterns, &getContext());
-  populateLoweringONNXConcatOpPattern(patterns, &getContext());
-  populateLoweringONNXSqueezeOpPattern(patterns, &getContext());
+  populateLoweringONNXPadConstantValuePadOpPattern(patterns, &getContext());
+  populateLoweringONNXPadOpPattern(patterns, &getContext());
+  populateLoweringONNXReshapeOpPattern(patterns, &getContext());
+  populateLoweringONNXShapeOpPattern(patterns, &getContext());
   populateLoweringONNXSplitOpPattern(patterns, &getContext());
+  populateLoweringONNXSqueezeOpPattern(patterns, &getContext());
+  populateLoweringONNXTransposeOpPattern(patterns, &getContext());
+  populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, &getContext());
   populateLoweringONNXNormalizationOpPattern(patterns, &getContext());

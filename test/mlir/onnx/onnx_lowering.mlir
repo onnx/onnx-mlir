@@ -2250,3 +2250,36 @@ func @test_constant_of_shape_static_dims() -> tensor<*xf32> {
   // CHECK: return [[RES]] : memref<3x4x5xf32>
 }
 
+// Test shape known
+func @test_shape_known(%arg0 : tensor<10x10xf32>) -> tensor<2xi64> {
+  %0 = "onnx.Shape"(%arg0) : (tensor<10x10xf32>) -> tensor<2xi64>
+  "std.return"(%0) : (tensor<2xi64>) -> ()
+
+   // CHECK-LABEL: test_shape_known
+   // CHECK: [[ALLOC:%.+]] = alloc() : memref<2xi64>
+   // CHECK: [[IND0:%.+]] = constant 0 : index
+   // CHECK: [[STORE0:%.+]] = constant 10 : i64
+   // CHECK: store [[STORE0]], [[ALLOC]]{{.}}[[IND0]]{{.}} : memref<2xi64>
+   // CHECK: [[IND1:%.+]] = constant 1 : index
+   // CHECK: [[STORE1:%.+]] = constant 10 : i64
+   // CHECK: store [[STORE1]], [[ALLOC]]{{.}}[[IND1]]{{.}} : memref<2xi64>
+   // CHECK: return [[ALLOC]] : memref<2xi64>
+}
+
+// Test shape unknown
+func @test_shape_unknown(%arg0 : tensor<?x?xf32>) -> tensor<2xi64> {
+  %0 = "onnx.Shape"(%arg0) : (tensor<?x?xf32>) -> tensor<2xi64>
+  "std.return"(%0) : (tensor<2xi64>) -> ()
+
+    // CHECK-LABEL: test_shape_unknown
+    // CHECK: [[ALLOC:%.+]] = alloc() : memref<2xi64>
+    // CHECK: [[STOREIND0:%.+]] = constant 0 : index
+    // CHECK: [[STOREVAL0:%.+]] = dim %arg0, [[STOREIND0]] : memref<?x?xf32>
+    // CHECK: [[STOREINT0:%.+]] = index_cast [[STOREVAL0]] : index to i64
+    // CHECK: store [[STOREINT0]], [[ALLOC]]{{.}}[[STOREIND0]]{{.}} : memref<2xi64>
+    // CHECK: [[STOREIND1:%.+]] = constant 1 : index
+    // CHECK: [[STOREVAL1:%.+]] = dim %arg0, [[STOREIND1]] : memref<?x?xf32>
+    // CHECK: [[STOREINT1:%.+]] = index_cast [[STOREVAL1]] : index to i64
+    // CHECK: store [[STOREINT1]], [[ALLOC]]{{.}}[[STOREIND1]]{{.}} : memref<2xi64>
+    // CHECK: return [[ALLOC]] : memref<2xi64>
+}

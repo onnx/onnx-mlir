@@ -12,18 +12,19 @@ add_library(OMONNXToKrnl
         RNN/RNNBase.cpp
         RNN/RNNBase.hpp
         RNN/LSTM.cpp
-        Tensor/Identity.cpp
-        Tensor/Reshape.cpp
-        Tensor/PadConstantValuePad.cpp
-        Tensor/Pad.cpp
-        Tensor/Transpose.cpp
-        Tensor/Squeeze.cpp
-        Tensor/Unsqueeze.cpp
+        Tensor/Concat.cpp
         Tensor/Constant.cpp
         Tensor/ConstantOfShape.cpp
-        Tensor/Concat.cpp
-        Tensor/Split.cpp
         Tensor/Gather.cpp
+        Tensor/Identity.cpp
+        Tensor/Pad.cpp
+        Tensor/PadConstantValuePad.cpp
+        Tensor/Reshape.cpp
+        Tensor/Shape.cpp
+        Tensor/Split.cpp
+        Tensor/Squeeze.cpp
+        Tensor/Transpose.cpp
+        Tensor/Unsqueeze.cpp
         ConvertONNXToKrnl.cpp)
 target_link_libraries(OMONNXToKrnl
         onnx)
