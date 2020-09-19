@@ -51,8 +51,10 @@ script:
   - docker exec build test-onnx-mlir.sh
   - docker commit build onnxmlirczar/onnx-mlir-build:$CPU_ARCH
 jobs:
+  fast_finish: true
   allow_failures:
     - env: NIGHTLY=true
+    - arch: ppc64le
   include:
     ##########################################################################################
     #
