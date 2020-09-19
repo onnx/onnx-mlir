@@ -73,10 +73,12 @@ struct ONNXTileOpLowering : public ConversionPattern {
 
     // Infer value of repeats() from shape of input and output.
     SmallVector<int64_t, 4> repeatsConst(inputRank, 0);
+    bool repeatsIsConstant = true;
     for (auto i = 0; i < inputRank; i++) {
-      if (inputShape[i] != -1 && outputMemRefShape[i] != -1) {
+      if (inputShape[i] != -1 && outputMemRefShape[i] != -1)
         repeatsConst[i] = outputMemRefShape[i] / inputShape[i];
-      }
+      else 
+        repeatsIsConstant = false;
     }
 
     bool insertDealloc = checkInsertDealloc(op);
@@ -133,7 +135,11 @@ struct ONNXTileOpLowering : public ConversionPattern {
     }
 
     // Load the value from input
-    auto inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
+    Value inputVal;
+    if (repeatsIsConstant)
+      inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
+    else
+      inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
     SmallVector<Value, 4> outputMemRefVal(iterationBlock.getArguments().begin(),
         iterationBlock.getArguments().end());
 
@@ -177,10 +183,12 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     // Infer value of repeats() from shape of input and output.
 
     SmallVector<int64_t, 4> repeatsConst(inputRank, 0);
+    bool repeatsIsConstant = true;
     for (auto i = 0; i < inputRank; i++) {
-      if (inputShape[i] != -1 && outputMemRefShape[i] != -1) {
+      if (inputShape[i] != -1 && outputMemRefShape[i] != -1)
         repeatsConst[i] = outputMemRefShape[i] / inputShape[i];
-      }
+      else 
+        repeatsIsConstant = false;
     }
 
     bool insertDealloc = checkInsertDealloc(op);
@@ -237,7 +245,10 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     }
 
     auto inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
-    rewriter.create<StoreOp>(loc, inputVal, alloc, outputMemRefVal);
+    if (repeatsIsConstant)
+      rewriter.create<AffineStoreOp>(loc, inputVal, alloc, outputMemRefVal);
+    else
+      rewriter.create<StoreOp>(loc, inputVal, alloc, outputMemRefVal);
 
     rewriter.replaceOp(op, alloc);
 

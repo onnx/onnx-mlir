@@ -2188,7 +2188,7 @@ func @test_tile1(%arg0 : tensor<4x8xf32>) -> tensor<*xf32> {
   // CHECK: [[MOD0:%.+]] = remi_unsigned [[ARG1]], [[CONST0]] : index
   // CHECK: [[CONST1:%.+]] = constant 2 : index
   // CHECK: [[MOD1:%.+]] = remi_unsigned [[ARG2]], [[CONST1]] : index
-  // CHECK: [[DATA:%.+]] = load %arg0{{.}}[[MOD0]], [[MOD1]]{{.}} : memref<4x8xf32>
+  // CHECK: [[DATA:%.+]] = affine.load %arg0{{.}}[[MOD0]], [[MOD1]]{{.}} : memref<4x8xf32>
   // CHECK: affine.store [[DATA]], [[ALLOC]]{{.}}[[ARG1]], [[ARG2]]{{.}} : memref<12x16xf32>
 }
 
