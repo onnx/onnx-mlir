@@ -420,6 +420,18 @@ test_to_enable = [
     "test_split_variable_parts_2d_cpu",
     "test_split_variable_parts_default_axis_cpu",
 
+    # ConstantOfShape
+    "test_constantofshape_float_ones_cpu",
+    # Error:
+    #    Items are not equal:
+    #     ACTUAL: dtype('int32')
+    #     DESIRED: dtype('uint8')
+    # In this test, 'int32' was specified for value attribute as in
+    # onnx/onnx/backend/test/case/node/constantofshape.py
+    # and onnx-mlir correctly imported and converted the model.
+    # It is unknown why 'uint8' came from.
+    #"test_constantofshape_int_zeros_cpu",
+
     # Model
     "test_resnet50_cpu",
     "test_vgg19_cpu",
