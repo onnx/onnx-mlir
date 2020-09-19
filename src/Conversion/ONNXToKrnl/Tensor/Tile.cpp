@@ -16,7 +16,8 @@ using namespace mlir;
 // Helper function to insert alloc and dealloc ops for memref of dynamic shape.
 //
 
-Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc, ConversionPatternRewriter &rewriter, bool insertDealloc, Value inputOperand,
+Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
+    ConversionPatternRewriter &rewriter, bool insertDealloc, Value inputOperand,
     Value repeatsOperand) {
   AllocOp alloc;
   auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
@@ -24,8 +25,7 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc, Conversi
 
   SmallVector<Value, 4> allocOperands;
   for (int i = 0; i < inputRank; ++i) {
-    auto indexVal =
-        emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
+    auto indexVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
     SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
     auto repeatsLoadVal =
         rewriter.create<AffineLoadOp>(loc, repeatsOperand, repeatsMemRefVal);
@@ -47,8 +47,8 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc, Conversi
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return alloc;
-} 
-    
+}
+
 struct ONNXTileOpLowering : public ConversionPattern {
   ONNXTileOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXTileOp::getOperationName(), 1, ctx) {}
@@ -77,7 +77,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
     for (auto i = 0; i < inputRank; i++) {
       if (inputShape[i] != -1 && outputMemRefShape[i] != -1)
         repeatsConst[i] = outputMemRefShape[i] / inputShape[i];
-      else 
+      else
         repeatsIsConstant = false;
     }
 
@@ -87,8 +87,8 @@ struct ONNXTileOpLowering : public ConversionPattern {
       alloc =
           insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);
     else
-      alloc =
-          insertAllocAndDeallocForTile(outputMemRefType, loc, rewriter, insertDealloc, input, repeats);
+      alloc = insertAllocAndDeallocForTile(
+          outputMemRefType, loc, rewriter, insertDealloc, input, repeats);
 
     // Define loops and iteration trip counts (equivalent to size of output)
     std::vector<Value> originalLoops;
@@ -187,7 +187,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     for (auto i = 0; i < inputRank; i++) {
       if (inputShape[i] != -1 && outputMemRefShape[i] != -1)
         repeatsConst[i] = outputMemRefShape[i] / inputShape[i];
-      else 
+      else
         repeatsIsConstant = false;
     }
 
@@ -197,8 +197,8 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       alloc =
           insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);
     else
-      alloc =
-          insertAllocAndDeallocForTile(outputMemRefType, loc, rewriter, insertDealloc, input, repeats);
+      alloc = insertAllocAndDeallocForTile(
+          outputMemRefType, loc, rewriter, insertDealloc, input, repeats);
 
     // Define loops and iteration trip counts (equivalent to size of output)
     std::vector<Value> originalLoops;
