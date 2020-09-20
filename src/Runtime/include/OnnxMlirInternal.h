@@ -12,7 +12,7 @@
 #ifndef __ONNX_MLIR_INTERNAL_H__
 #define __ONNX_MLIR_INTERNAL_H__
 
-#include "OnnxMlir.h"
+#include "OnnxMlirRuntime.h"
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -144,15 +144,6 @@ bool rmrAreTwoRmrsClose(
  * @return pointer to an empty RtMemRefList, NULL if creation failed.
  */
 RtMemRefList *rmrListCreate(void);
-
-/**
- * RtMemRefList RtMemRef getter by index
- *
- * @param ormrd, pointer to the RtMemRefList
- * @param index, index of the RtMemRef
- * @reutrn pointer to the RtMemRef, NULL if not found.
- */
-RtMemRef *rmrListGetRmrByIndex(RtMemRefList *ormrd, int index);
 
 /**
  * RtMemRefList RtMemRef getter by name

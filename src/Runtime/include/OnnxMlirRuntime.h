@@ -1,4 +1,4 @@
-//===-------- RtMemRef.h - external RtMemRef C/C++ API call header --------===//
+//===------- OnnxMlirRuntime.h - ONNX-MLIR Runtime API Declarations -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -8,8 +8,8 @@
 // helper functions.
 //
 //===----------------------------------------------------------------------===//
-#ifndef __RTMEMREF_H__
-#define __RTMEMREF_H__
+#ifndef __ONNX_MLIR_RUNTIME_H__
+#define __ONNX_MLIR_RUNTIME_H__
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -17,6 +17,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #endif
+
+#include <OnnxMlirRuntime/OnnxDataType.h>
 
 /*! \mainpage ONNX-MLIR Model Execution API documentation
  *
@@ -58,7 +60,7 @@
  * to:
  *
  * ```c
- * RtMemRefList* _dyn_entry_point_main_graph(RtMemRefList*);
+ * RtMemRefList* run_main_graph(RtMemRefList*);
  * ```
  *
  * That is to say, the model inference function consumes a list of input
@@ -66,8 +68,92 @@
  *
  * \section Invoke the Inference Function with C API
  *
+ * In this section, we will walk through an example using the API functions to
+ *run a simple ONNX model consisting of an add operation. To create such an onnx
+ *model, use the following python script:
  *
+ * ```py
+ * import onnx
+ * from onnx import helper
+ * from onnx import AttributeProto, TensorProto, GraphProto
  *
+ * # Create one input (ValueInfoProto)
+ * X1 = helper.make_tensor_value_info('X1', TensorProto.FLOAT, [3, 2])
+ * X2 = helper.make_tensor_value_info('X2', TensorProto.FLOAT, [3, 2])
+ *
+ * # Create one output (ValueInfoProto)
+ * Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT, [3, 2])
+ *
+ * # Create a node (NodeProto) - This is based on Pad-11
+ * node_def = helper.make_node(
+ *     'Add', # node name
+ *     ['X1', 'X2'], # inputs
+ *     ['Y'], # outputs
+ * )
+ *
+ * # Create the graph (GraphProto)
+ * graph_def = helper.make_graph(
+ *     [node_def],
+ *     'test-model',
+ *     [X1, X2],
+ *     [Y],
+ * )
+ *
+ * # Create the model (ModelProto)
+ * model_def = helper.make_model(graph_def, producer_name='onnx-example')
+ *
+ * print('The model is:\n{}'.format(model_def))
+ * onnx.checker.check_model(model_def)
+ * onnx.save(model_def, "add.onnx")
+ * print('The model is checked!')
+ *```
+ *
+ * To compile the above model, run `onnx-mlir add.onnx` and a binary library
+ *"add.so" should appear. We can use the following C code to call into the
+ *compiled function computing the sum of two inputs:
+ *
+ * ```c
+ * #include <OnnxMlir.h>
+ * #include <stdio.h>
+ *
+ * RtMemRefList *run_main_graph(RtMemRefList *);
+ *
+ * int main() {
+ *   // Construct x1 rmr filled with 1.
+ *   float x1Data[] = {1., 1., 1., 1., 1., 1.};
+ *   RtMemRef *x1 = rmrCreate(2);
+ *   rmrSetData(x1, x1Data);
+ *
+ *   // Construct x2 rmr filled with 2.
+ *   float x2Data[] = {2., 2., 2., 2., 2., 2.};
+ *   RtMemRef *x2 = rmrCreate(2);
+ *   rmrSetData(x2, x2Data);
+ *
+ *   // Construct a list of rmrs as input.
+ *   RtMemRef *list[2] = {x1, x2};
+ *   RtMemRefList *input = rmrListCreate(list, 2);
+ *
+ *   // Call the compiled onnx model function.
+ *   RtMemRefList *outputList = run_main_graph(input);
+ *
+ *   // Get the first rmr as output.
+ *   RtMemRef *y = rmrListGetRmrByIndex(outputList, 0);
+ *
+ *   // Print its content, should be all 3.
+ *   for (int i = 0; i < 6; i++)
+ *     printf("%f ", ((float *)rmrGetData(y))[i]);
+ *
+ *   return 0;
+ * }
+ * ```
+ *
+ * Compile with `gcc main.c add.so -o add`, you should see an executable `add` appearing.
+ * Run it, and the output should be:
+ *
+ * ```
+ * 3.000000 3.000000 3.000000 3.000000 3.000000 3.000000
+ * ```
+ * Exactly as it should be.
  */
 
 typedef int64_t INDEX_TYPE;
@@ -197,13 +283,21 @@ int rmrGetDataType(RtMemRef *rmr);
  */
 void rmrSetDataType(RtMemRef *rmr, int dataType);
 
+/* Helper function to get the ONNX data type size in bytes */
+static inline int getDataTypeSize(int dataType) {
+    return dataType < 0 ||
+           dataType >= sizeof(RTMEMREF_DATA_TYPE_SIZE) / sizeof(int)
+           ? 0
+           : RTMEMREF_DATA_TYPE_SIZE[dataType];
+}
+
 /**
  * RtMemRef data buffer size getter
  *
  * @param rmr, pointer to the RtMemRef
  * @return the total size of the data buffer in bytes.
  */
-// int64_t rmrGetDataBufferSize(RtMemRef *rmr);
+ int64_t rmrGetDataBufferSize(RtMemRef *rmr);
 
 /**
  * RtMemRef rank getter
@@ -282,8 +376,16 @@ RtMemRef **rmrListGetPtrToRmrs(RtMemRefList *ormrd);
  */
 int rmrListGetNumRmrs(RtMemRefList *ormrd);
 
+/**
+ * RtMemRefList RtMemRef getter by index
+ *
+ * @param ormrd, pointer to the RtMemRefList
+ * @param index, index of the RtMemRef
+ * @reutrn pointer to the RtMemRef, NULL if not found.
+ */
+RtMemRef *rmrListGetRmrByIndex(RtMemRefList *ormrd, int index);
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __RTMEMREF_H__ */
+#endif /* __ONNX_MLIR_RUNTIME_H__ */

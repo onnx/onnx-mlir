@@ -1,0 +1,25 @@
+add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/add.onnx
+        COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/gen_add_onnx.py
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+add_custom_target(OMGenerateAddModel
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/add.onnx)
+
+add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/add.so
+        COMMAND onnx-mlir ${CMAKE_CURRENT_SOURCE_DIR}/add.onnx
+        DEPENDS OMGenerateAddModel)
+add_custom_target(OMGenerateAddLibrary
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/add.so)
+add_custom_target(OMCopyAndRename
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/add.so
+        ${CMAKE_CURRENT_SOURCE_DIR}/library.so
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/add.so)
+
+add_executable(OMRuntimeTest
+        main.c)
+ADD_LIBRARY(libadd SHARED IMPORTED)
+SET_PROPERTY(TARGET libadd PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/library.so)
+target_link_libraries(OMRuntimeTest
+        ${CMAKE_CURRENT_SOURCE_DIR}/library.so)
+add_dependencies(OMRuntimeTest OMCopyAndRename)
+add_test(NAME OMRuntimeTest
+         COMMAND OMRuntimeTest)

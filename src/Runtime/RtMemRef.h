@@ -146,14 +146,6 @@ static inline INDEX_TYPE getNumOfElems(INDEX_TYPE *dataSizes, int rank) {
 
 #ifdef __cplusplus
 
-/* Helper function to get the ONNX data type size in bytes */
-static inline int getDataTypeSize(int dataType) {
-  return dataType < 0 ||
-                 dataType >= sizeof(RTMEMREF_DATA_TYPE_SIZE) / sizeof(int)
-             ? 0
-             : RTMEMREF_DATA_TYPE_SIZE[dataType];
-}
-
 /* Helper function to compute cartisian product */
 static inline std::vector<std::vector<INDEX_TYPE>> CartProduct(
     const std::vector<std::vector<INDEX_TYPE>> &v) {

@@ -5,7 +5,8 @@ add_subdirectory(jni)
 # such static library in a shared library can cause runtime failure on some architectures,
 # such as z. So we override the default and explicitly compile with -fPIC.
 add_library(cruntime STATIC
-        include/OnnxMlir.h
+        include/OnnxMlirRuntime.h
+        include/OnnxMlirRuntime/OnnxDataType.h
         RtMemRef.c)
 set_target_properties(cruntime PROPERTIES
         LANGUAGE C)
@@ -17,8 +18,8 @@ target_include_directories(cruntime PRIVATE
 
 add_library(RtMemRefUtils
         RtMemRef.cpp
-        DataType.h
-        include/OnnxMlirInternal.h)
+        include/OnnxMlirInternal.h
+        include/OnnxMlirRuntime/OnnxDataType.h)
 set_target_properties(RtMemRefUtils PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 target_compile_definitions(RtMemRefUtils PRIVATE RTMEMREF_INTERNAL_API)
@@ -58,6 +59,11 @@ set_target_properties(EmbeddedDataLoader PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 
 add_dependencies(PyRuntime cruntime)
-install(FILES include/OnnxMlir.h DESTINATION include)
+install(FILES include/OnnxMlirRuntime.h DESTINATION include)
+install(FILES include/OnnxMlirRuntime/OnnxDataType.h DESTINATION include/OnnxMlirRuntime)
+install(FILES include/OnnxMlirRuntime/OnnxDataTypeMetaData.inc DESTINATION include/OnnxMlirRuntime)
+
 install(TARGETS cruntime DESTINATION lib)
 install(TARGETS EmbeddedDataLoader DESTINATION lib)
+
+add_subdirectory(include/Test)

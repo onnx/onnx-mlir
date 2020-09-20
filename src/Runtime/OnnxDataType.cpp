@@ -24,13 +24,15 @@
 enum RTMEMREF_DATA_TYPE {
 #define OM_TYPE_METADATA_DEF(ENUM_NAME, ENUM_VAL, DTYPE_SIZE)                  \
   ENUM_NAME = ENUM_VAL,
-#include "DataTypeMetaData.h"
+#include "OnnxDataTypeMetaData.inc"
+
 #undef OM_TYPE_METADATA_DEF
 };
 
 const int RTMEMREF_DATA_TYPE_SIZE[] = {
 #define OM_TYPE_METADATA_DEF(ENUM_NAME, ENUM_VAL, DTYPE_SIZE) DTYPE_SIZE,
-#include "DataTypeMetaData.h"
+#include "OnnxDataTypeMetaData.inc"
+
 #undef OM_TYPE_METADATA_DEF
 };
 

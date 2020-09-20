@@ -17,6 +17,8 @@
 #include <string>
 #include <typeinfo>
 #include <vector>
+#else
+#include <assert.h>
 #endif
 
 #ifdef __APPLE__
@@ -30,7 +32,6 @@
 
 // clang-format off
 #include "OnnxMlirInternal.h"
-#include "DataType.h"
 #include "RtMemRef.h"
 // clang-format on
 
@@ -123,11 +124,11 @@ void rmrSetDataType(RtMemRef *rmr, int dataType) {
           : dataType;
 }
 
-///* RtMemRef data buffer size getter */
-//int64_t rmrGetDataBufferSize(RtMemRef *rmr) {
-//  return getNumOfElems(rmr->_dataSizes, rmr->_rank) *
-//         getDataTypeSize(rmr->_dataType);
-//}
+/* RtMemRef data buffer size getter */
+int64_t rmrGetDataBufferSize(RtMemRef *rmr) {
+  return getNumOfElems(rmr->_dataSizes, rmr->_rank) *
+         getDataTypeSize(rmr->_dataType);
+}
 
 /* RtMemRef rank getter */
 int rmrGetRank(RtMemRef *rmr) { return rmr->_rank; }
@@ -172,6 +173,13 @@ RtMemRef **rmrListGetPtrToRmrs(RtMemRefList *ormrd) { return ormrd->_rmrs; }
 
 /* RtMemRefList number of RtMemRef getter */
 int rmrListGetNumRmrs(RtMemRefList *ormrd) { return ormrd->_n; }
+
+/* Return RtMemRef at specified index in the RtMemRefList */
+RtMemRef *rmrListGetRmrByIndex(RtMemRefList *rlist, int index) {
+    assert(index >= 0);
+    assert(index < rlist->_n);
+    return rlist->_rmrs[index];
+}
 
 /* ================ C++ API call implementation ================ */
 #ifdef __cplusplus
@@ -345,13 +353,6 @@ inline bool rmrAreTwoRmrsClose(
 /*---------------------------------------------------- */
 /* C++ API for internal only RtMemRefList calls */
 /*---------------------------------------------------- */
-
-/* Return RtMemRef at specified index in the RtMemRefList */
-RtMemRef *rmrListGetRmrByIndex(RtMemRefList *rlist, int index) {
-  assert(index >= 0);
-  assert(index < rlist->_n);
-  return rlist->_rmrs[index];
-}
 
 /* Return RtMemRef of specified name in the RtMemRefList */
 RtMemRef *rmrListGetRmrByName(RtMemRefList *rlist, string name) {
