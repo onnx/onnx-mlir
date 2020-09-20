@@ -54,7 +54,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect>();
+  target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect,
+      shape::ShapeDialect>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
@@ -95,7 +96,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXPadOpPattern(patterns, &getContext());
   populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
   populateLoweringONNXTransposeOpPattern(patterns, &getContext());
+  populateLoweringONNXGatherOpPattern(patterns, &getContext());
   populateLoweringONNXIdentityOpPattern(patterns, &getContext());
+  populateLoweringONNXConstantOfShapeOpPattern(patterns, &getContext());
   populateLoweringONNXConstantOpPattern(patterns, &getContext());
   populateLoweringONNXConcatOpPattern(patterns, &getContext());
   populateLoweringONNXSqueezeOpPattern(patterns, &getContext());

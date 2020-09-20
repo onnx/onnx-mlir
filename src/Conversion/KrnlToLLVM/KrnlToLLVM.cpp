@@ -10,8 +10,9 @@
 
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
+#include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -22,6 +23,7 @@
 #include "onnx/onnx_pb.h"
 #include "llvm/ADT/Sequence.h"
 
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVM.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -306,8 +308,7 @@ public:
           rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
       //  - Copy constant data into the alloca.
       auto memcpyRef = getOrInsertMemcpy(rewriter, module);
-      rewriter.create<CallOp>(loc, memcpyRef,
-          LLVM::LLVMType::getVoidTy(context),
+      rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
           ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
     } else {
       // Some frequently used types.
@@ -400,7 +401,7 @@ public:
         rewriter.getIntegerAttr(rewriter.getIntegerType(1), 0));
 
     // Memcpy call
-    rewriter.create<CallOp>(loc, memcpyRef, LLVM::LLVMType::getVoidTy(context),
+    rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
         ArrayRef<Value>({alignedInt8PtrDstMemory, alignedInt8PtrSrcMemory,
             int64Size, isVolatile}));
 
@@ -670,8 +671,19 @@ private:
   // returned, otherwise return nullptr.
   Value callApi(PatternRewriter &rewriter, Location loc, ApiRegistry registry,
       API apiId, ArrayRef<Value> params) const {
+    // To be used as parameters in LLVM::CallOp, voidTy must be converted
+    // to empty list to avoid emission of an SSA value with voidTy. However,
+    // we still keep using LLVM voidTy (as opposed to empty list) when recording
+    // API function signatures in API registry because when declaring API
+    // functions in LLVM IR, the correct way to indicate an output type for
+    // "void" is still LLVM voidTy. Relevant discussion thread:
+    // https://github.com/onnx/onnx-mlir/issues/255.
+    SmallVector<Type, 1> outputTys;
+    auto outputTy = registry.at(apiId).outputTy;
+    if (!outputTy.isVoidTy())
+      outputTys.emplace_back(outputTy);
     auto returnVals =
-        rewriter.create<LLVM::CallOp>(loc, registry.at(apiId).outputTy,
+        rewriter.create<LLVM::CallOp>(loc, ArrayRef<Type>(outputTys),
             registry.at(apiId).symbolRef, ArrayRef<Value>(params));
     if (returnVals.getNumResults() == 1)
       return returnVals.getResult(0);
@@ -700,7 +712,7 @@ private:
     auto memRefTy = memRefPtrTy.getPointerElementTy();
     auto int64Ty = LLVM::LLVMType::getInt64Ty(context);
 
-    Value memRef = rewriter.create<LLVM::LoadOp>(loc, memRefPtrTy, ptrToMemRef);
+    Value memRef = rewriter.create<LLVM::UndefOp>(loc, memRefTy);
 
     // Set dataPtr and alignedDataPtr;
     auto dataPtr =
@@ -911,22 +923,39 @@ private:
 };
 } // end namespace
 
+void mlir::populateAffineAndKrnlToLLVMConversion(
+    OwningRewritePatternList &patterns, MLIRContext *ctx,
+    LLVMTypeConverter &typeConverter) {
+  populateAffineToStdConversionPatterns(patterns, ctx);
+  populateLoopToStdConversionPatterns(patterns, ctx);
+  populateShapeToStandardConversionPatterns(patterns, ctx);
+  populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
+  populateVectorToLLVMConversionPatterns(typeConverter, patterns);
+  populateStdToLLVMConversionPatterns(typeConverter, patterns);
+
+  patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
+      ctx, typeConverter);
+  patterns.insert<KrnlGetRefOpLowering>(ctx, typeConverter);
+  patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(ctx);
+}
+
 //===----------------------------------------------------------------------===//
-// KRNL + Stadard + Affine dialects lowering to LLVM.
+// KRNL + Standard + Affine dialects lowering to LLVM.
 //===----------------------------------------------------------------------===//
 
 namespace {
-struct ConvertKrlnToLLVMPass
-    : public PassWrapper<ConvertKrlnToLLVMPass, OperationPass<ModuleOp>> {
+struct ConvertKrnlToLLVMPass
+    : public PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>> {
   void runOnOperation() final;
 };
 } // end anonymous namespace
 
-void ConvertKrlnToLLVMPass::runOnOperation() {
+void ConvertKrnlToLLVMPass::runOnOperation() {
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  target.addIllegalOp<LLVM::DialectCastOp>();
 
   // Lower the MemRef types to a representation in LLVM.
   LowerToLLVMOptions options;
@@ -936,17 +965,7 @@ void ConvertKrlnToLLVMPass::runOnOperation() {
   // We have a combination of `krnl`, `affine`, and `std` operations. We
   // lower in stages until all the code is in the LLVM dialect.
   OwningRewritePatternList patterns;
-  populateAffineToStdConversionPatterns(patterns, &getContext());
-  populateLoopToStdConversionPatterns(patterns, &getContext());
-  populateStdToLLVMConversionPatterns(typeConverter, patterns);
-
-  patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
-      &getContext(), typeConverter);
-  patterns.insert<KrnlGetRefOpLowering>(&getContext(), typeConverter);
-
-  // Lower from the `krnl` dialect i.e. the Reshape operation.
-  patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(
-      &getContext());
+  populateAffineAndKrnlToLLVMConversion(patterns, &getContext(), typeConverter);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
@@ -957,5 +976,5 @@ void ConvertKrlnToLLVMPass::runOnOperation() {
 
 /// Create the pass for lowering `Krnl`, `Affine` and `Std` dialects to LLVM.
 std::unique_ptr<mlir::Pass> mlir::createConvertKrnlToLLVMPass() {
-  return std::make_unique<ConvertKrlnToLLVMPass>();
+  return std::make_unique<ConvertKrnlToLLVMPass>();
 }

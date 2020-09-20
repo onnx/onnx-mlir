@@ -19,7 +19,7 @@ seen in the docs folder. The Dockerfile is shown here.
 
 [same-as-file]: <> (docs/docker-example/Dockerfile)
 ```
-FROM onnxmlirczar/onnx-mlir-build:amd64
+FROM onnxmlirczar/onnx-mlir-build:x86
 
 WORKDIR /build
 ENV HOME=/build
@@ -62,7 +62,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 9c94908320549a1a2328c758d6bbb694466021e7 && cd ..
+cd llvm-project && git checkout 1d01fc100bb5bef5f5eaf92520b2e52f64ee1d6e && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -152,7 +152,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 9c94908320549a1a2328c758d6bbb694466021e7 && cd ..
+cd llvm-project && git checkout 1d01fc100bb5bef5f5eaf92520b2e52f64ee1d6e && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -236,11 +236,11 @@ These are frontend options.
 ## Example
 
 For example, to lower an ONNX model (e.g., add.onnx) to ONNX dialect, use the following command:
-```
+```shell
 ./onnx-mlir --EmitONNXIR add.onnx
 ```
 The output should look like:
-```
+```mlir
 module {
   func @main_graph(%arg0: tensor<10x10x10xf32>, %arg1: tensor<10x10x10xf32>) -> tensor<10x10x10xf32> {
     %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10x10xf32>, tensor<10x10x10xf32>) -> tensor<10x10x10xf32>

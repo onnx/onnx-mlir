@@ -24,7 +24,8 @@ set(OMLibs
         OMPackKrnlGlobalConstants
         OMEnableMemoryPool
         OMBundleMemoryPools
-        OMDisconnectKrnlDimFromAlloc)
+        OMDisconnectKrnlDimFromAlloc
+        OMLowerKrnlShape)
 set(OMLibs ${OMLibs} PARENT_SCOPE)
 
 add_subdirectory(Tool)

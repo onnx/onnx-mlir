@@ -10,12 +10,14 @@
 
 #pragma once
 
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/Function.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/StandardTypes.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 #include "KrnlHelper.hpp"
 #include "KrnlTypes.hpp"
@@ -37,11 +39,10 @@ public:
 
   /// Print a type registered to this dialect.
   void printType(Type type, DialectAsmPrinter &os) const override {
-    switch (type.getKind()) {
-    case KrnlTypes::Loop:
+    TypeSwitch<Type>(type).Case<LoopType>([&](Type) {
       os << "loop";
       return;
-    }
+    });
   }
 };
 

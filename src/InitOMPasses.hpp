@@ -81,5 +81,11 @@ void initOMPasses() {
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createDisconnectKrnlDimFromAllocPass();
       });
+
+  mlir::registerPass("lower-krnl-shape",
+      "Lower krnl.shape operation to use Shape dialect operations.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createLowerKrnlShapePass();
+      });
 }
 } // namespace onnx_mlir

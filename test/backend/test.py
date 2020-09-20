@@ -157,6 +157,11 @@ test_to_enable = [
     "test_exp_cpu",
     "test_exp_example_cpu",
 
+    # Gather Op:
+    #"test_gather_0",
+    #"test_gather_1",
+    #"test_gather_negative_indices",
+
     # Gemm Op:
     "test_gemm_all_attributes_cpu",
     "test_gemm_alpha_cpu",
@@ -415,8 +420,22 @@ test_to_enable = [
     "test_split_variable_parts_2d_cpu",
     "test_split_variable_parts_default_axis_cpu",
 
-    # ResNet
+    # ConstantOfShape
+    "test_constantofshape_float_ones_cpu",
+    # Error:
+    #    Items are not equal:
+    #     ACTUAL: dtype('int32')
+    #     DESIRED: dtype('uint8')
+    # In this test, 'int32' was specified for value attribute as in
+    # onnx/onnx/backend/test/case/node/constantofshape.py
+    # and onnx-mlir correctly imported and converted the model.
+    # It is unknown why 'uint8' came from.
+    #"test_constantofshape_int_zeros_cpu",
+
+    # Model
     "test_resnet50_cpu",
+    "test_vgg19_cpu",
+    "test_shufflenet_cpu",
 ]
 
 # Extract name of all test cases.

@@ -1272,13 +1272,13 @@ func @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %arg1 : te
 
   // CHECK-LABEL: test_conv_no_bias_no_pad_w_group
   // CHECK: [[RES:%.+]] = alloc() : memref<1x5x27x58xf32>
-  // CHECK: [[CONST0:%.+]] = constant 1 : index
+  // CHECK: %[[CONST0:.+]] = constant 1 : index
   // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CONST2:%.+]] = constant 3 : index
   // CHECK: [[OUTER_LOOPS:%.+]]:3 = krnl.define_loops 3
 
   // CHECK: krnl.iterate([[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1, [[OUTER_LOOPS]]#2) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 3, [[OUTER_LOOPS]]#2 -> %arg4 = 0 to 1) {
-  // CHECK: %[[ADD1:.+]] = affine.apply #{{.*}}(%arg3, [[CONST0]])[%arg4]
+  // CHECK: %[[ADD1:.+]] = affine.apply #{{.*}}(%arg3, %arg4)[%[[CONST0]]]
   // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
 
   // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg5 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg6 = 0 to 58) {
@@ -1394,6 +1394,35 @@ func @test_batchnorm_testmode_1d(%arg0: tensor<10xf32>, %arg1: tensor<1xf32>, %a
   // CHECK:   affine.store [[SHIFT_SCALE_NORM]], [[RES]][%arg5] : memref<10xf32>
   // CHECK: }
   // CHECK: return [[RES]] : memref<10xf32>
+}
+
+// -----
+
+func @test_batchnorm_testmode_2d(%arg0: tensor<10x3xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>, %arg3: tensor<3xf32>, %arg4: tensor<3xf32>) -> tensor<10x3xf32> {
+  %0 = "onnx.BatchNormalizationTestMode"(%arg0, %arg1, %arg2, %arg3, %arg4) : (tensor<10x3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<10x3xf32>
+  return %0 : tensor<10x3xf32>
+
+  // CHECK-LABEL: test_batchnorm_testmode_2d
+  // CHECK: [[RES:%.+]] = alloc() : memref<10x3xf32>
+  // CHECK: [[EPSILON:%.+]] = constant 9.99999974E-6 : f32
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#1 -> %arg5 = 0 to 3) {
+  // CHECK:   [[SCALE:%.+]] = affine.load %arg1[%arg5] : memref<3xf32>
+  // CHECK:   [[BIAS:%.+]] = affine.load %arg2[%arg5] : memref<3xf32>
+  // CHECK:   [[MEAN:%.+]] = affine.load %arg3[%arg5] : memref<3xf32>
+  // CHECK:   [[VARIANCE:%.+]] = affine.load %arg4[%arg5] : memref<3xf32>
+  // CHECK:   krnl.iterate([[DEF_LOOPS]]#0) with ([[DEF_LOOPS]]#0 -> %arg6 = 0 to 10) {
+  // CHECK:     [[LOADED_VAL:%.+]] = affine.load %arg0[%arg6, %arg5] : memref<10x3xf32>
+  // CHECK:     [[DIVIDEND:%.+]] = subf [[LOADED_VAL]], [[MEAN]] : f32
+  // CHECK:     [[ADJUSTED_VARIANCE:%.+]] = addf [[VARIANCE]], [[EPSILON]] : f32
+  // CHECK:     [[DIVISOR:%.+]] = sqrt [[ADJUSTED_VARIANCE]] : f32
+  // CHECK:     [[NORM:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
+  // CHECK:     [[SCALE_NORM:%.+]] = mulf [[SCALE]], [[NORM]] : f32
+  // CHECK:     [[SHIFT_SCALE_NORM:%.+]] = addf [[SCALE_NORM]], [[BIAS]] : f32
+  // CHECK:     affine.store [[SHIFT_SCALE_NORM]], [[RES]][%arg6, %arg5] : memref<10x3xf32>
+  // CHECK:   }
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<10x3xf32>
 }
 
 // -----
@@ -2103,3 +2132,121 @@ func @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
   // CHECK: affine.store [[FPTRUNC]], [[RES]][%arg1] : memref<10xf32>
   // CHECK: return [[RES]] : memref<10xf32>
 }
+
+// -----
+
+// Test gather along axis 0, first example in ONNX for Gather.
+func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
+  %indices = "onnx.Constant"() {value = dense<[[0, 1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 0} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
+  "std.return"(%0) : (tensor<2x2x2xf32>) -> ()
+
+  // CHECK-LABEL: test_gather_axis0
+  // CHECK: [[ALLOC:%.+]] = alloc() : memref<2x2x2xf32>
+  // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = "{{.*}}", shape = [2, 2], value = dense<{{\[+}}0, 1], [1, 2{{\]+}}> : tensor<2x2xi64>} : () -> memref<2x2xi64>
+  // CHECK: [[LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2) with ([[LOOP]]#0 -> [[ARG1:%.+]] = 0 to 2, [[LOOP]]#1 -> [[ARG2:%.+]] = 0 to 2, [[LOOP]]#2 -> [[ARG3:%.+]] = 0 to 2) {
+  // CHECK: [[AFFINE1:%.+]] = affine.load [[GLOBAL]]{{.}}[[ARG1]], [[ARG2]]{{.}} : memref<2x2xi64>
+  // CHECK: [[AFFINE2:%.+]] = index_cast [[AFFINE1]] : i64 to index
+  // CHECK: [[DATA:%.+]] = load %arg0{{.}}[[AFFINE2]], [[ARG3]]{{.}} : memref<3x2xf32>
+  // CHECK: affine.store [[DATA]], [[ALLOC]]{{.}}[[ARG1]], [[ARG2]], [[ARG3]]{{.}} : memref<2x2x2xf32>
+}
+
+// -----
+
+// Test gather along axis 1, second example in ONNX for Gather.
+func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<1x3x2xf32> {
+  %indices = "onnx.Constant"() {value = dense<[[0, 2]]> : tensor<1x2xi64>} : () -> tensor<1x2xi64>
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 1} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<1x3x2xf32>
+  "std.return"(%0) : (tensor<1x3x2xf32>) -> ()
+
+  // CHECK-LABEL: test_gather_axis1
+  // CHECK: [[ALLOC:%.+]] = alloc() : memref<1x3x2xf32>
+  // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = "constant_0", shape = [1, 2], value = dense<{{\[+}}0, 2{{\]+}}> : tensor<1x2xi64>} : () -> memref<1x2xi64>
+  // CHECK: [[LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2) with ([[LOOP]]#0 -> [[ARG1:%.+]] = 0 to 3, [[LOOP]]#1 -> [[ARG2:%.+]] = 0 to 1, [[LOOP]]#2 -> [[ARG3:%.+]] = 0 to 2) {
+  // CHECK: [[AFFINE1:%.+]] = affine.load [[GLOBAL]]{{.}}[[ARG2]], [[ARG3]]{{.}} : memref<1x2xi64>
+  // CHECK: [[AFFINE2:%.+]] = index_cast [[AFFINE1]] : i64 to index
+  // CHECK: [[DATA:%.+]] = load %arg0{{.}}[[ARG1]], [[AFFINE2]]{{.}} : memref<3x3xf32>
+  // CHECK: affine.store [[DATA]], [[ALLOC]]{{.}}[[ARG1]], [[ARG2]], [[ARG3]]{{.}} : memref<1x3x2xf32>
+}
+
+// -----
+
+// Check the lowering of ConstantOfShape when:
+//   - No value attribute.
+//   - The input is an empty tensor.
+// Expected emitted code:
+//   - No need a Krnl iterate.
+//   - The output is a scalar tensor.
+func @test_constant_of_shape_empty_tensor(%arg0 : tensor<0xi64>) -> tensor<*xf32> {
+  %0 = "onnx.ConstantOfShape"(%arg0) : (tensor<0xi64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape_empty_tensor
+  // CHECK: [[RES:%.+]] = alloc() : memref<f32>
+  // CHECK: [[CST_VALUE:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: affine.store [[CST_VALUE]], [[RES]][] : memref<f32>
+  // CHECK: return [[RES]] : memref<f32>
+}
+
+// -----
+
+// Check the lowering of ConstantOfShape when:
+//   - The input is not a constant tensor.
+// Expected emitted code:
+//   - Emit code to compute output dimensions from the input's dimensions.
+//   - Krnl iterates are used to set values to the output.
+func @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) -> tensor<*xf32> {
+  %0 = "onnx.ConstantOfShape"(%arg0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape_dynamic_dims
+  // CHECK: [[CST0:%.+]] = constant 0 : index
+  // CHECK: [[LOAD_DIM_0:%.+]] = affine.load %arg0{{\[}}[[CST0]]{{\]}} : memref<3xi64>
+  // CHECK: [[DIM_0:%.+]] = index_cast [[LOAD_DIM_0]] : i64 to index
+  // CHECK: [[CST1:%.+]] = constant 1 : index
+  // CHECK: [[LOAD_DIM_1:%.+]] = affine.load %arg0{{\[}}[[CST1]]{{\]}} : memref<3xi64>
+  // CHECK: [[DIM_1:%.+]] = index_cast [[LOAD_DIM_1]] : i64 to index
+  // CHECK: [[CST2:%.+]] = constant 2 : index
+  // CHECK: [[LOAD_DIM_2:%.+]] = affine.load %arg0{{\[}}[[CST2]]{{\]}} : memref<3xi64>
+  // CHECK: [[DIM_2:%.+]] = index_cast [[LOAD_DIM_2]] : i64 to index
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]], [[DIM_1]], [[DIM_2]]) : memref<?x?x?xf32>
+
+  // CHECK: [[CST_VALUE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[LOOP_DEF:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[CST00:%.+]] = constant 0 : index
+  // CHECK: [[RES_DIM_0:%.+]] = dim [[RES]], [[CST00]] : memref<?x?x?xf32>
+  // CHECK: [[CST11:%.+]] = constant 1 : index
+  // CHECK: [[RES_DIM_1:%.+]] = dim [[RES]], [[CST11]] : memref<?x?x?xf32>
+  // CHECK: [[CST22:%.+]] = constant 2 : index
+  // CHECK: [[RES_DIM_2:%.+]] = dim [[RES]], [[CST22]] : memref<?x?x?xf32>
+  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg1 = 0 to [[RES_DIM_0]], [[LOOP_DEF]]#1 -> %arg2 = 0 to [[RES_DIM_1]], [[LOOP_DEF]]#2 -> %arg3 = 0 to [[RES_DIM_2]]) {
+  // CHECK:   affine.store [[CST_VALUE]], [[RES]][%arg1, %arg2, %arg3] : memref<?x?x?xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<?x?x?xf32>
+}
+
+// -----
+
+// Check the lowering of ConstantOfShape when:
+//   - The input is a constant tensor.
+// Expected emitted code:
+//   - Output dimensions are computed during compilation time.
+//   - Krnl iterates are used to set values to the output.
+func @test_constant_of_shape_static_dims() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[3, 4, 5]> : tensor<3xi64> } : () -> tensor<3xi64>
+  %1 = "onnx.ConstantOfShape"(%0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape_static_dims
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x4x5xf32>
+  // CHECK: [[GLOBAL_CST:%.+]] = "krnl.global"() {name = "constant_0", shape = [3], value = dense<[3, 4, 5]> : tensor<3xi64>} : () -> memref<3xi64>
+  // CHECK: [[CST_VALUE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[LOOP_DEF:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg0 = 0 to 3, [[LOOP_DEF]]#1 -> %arg1 = 0 to 4, [[LOOP_DEF]]#2 -> %arg2 = 0 to 5) {
+  // CHECK:   affine.store [[CST_VALUE]], [[RES]][%arg0, %arg1, %arg2] : memref<3x4x5xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x4x5xf32>
+}
+
