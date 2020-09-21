@@ -1,5 +1,5 @@
 
-// RUN: onnx-mlir --EmitMLIR  --preserveLocation %s | FileCheck %s
+// RUN: onnx-mlir --EmitMLIR  --preserveLocations %s | FileCheck %s
 
 module {
   func @main_graph(%arg0: tensor<1x16xf32>, %arg1: tensor<1x16xf32>, %arg2: tensor<1x16xf32>) -> tensor<1x16xf32> attributes {input_names = ["X", "Y", "U"], output_names = ["Z"]} {
