@@ -8,7 +8,6 @@ module {
     return %1 : tensor<1x16xf32>
   }
   "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 1 : i32} : () -> ()
-}
 
 // CHECK: loc("/build/workspace/addop.onnx":1:0)
 // CHECK: loc("/build/workspace/addop.onnx":2:0)
@@ -26,7 +25,6 @@ module {
     return %1 : tensor<1x16xf32>
   }
   "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 1 : i32} : () -> ()
-}
 
 // CHECK-NOT: loc("/build/workspace/addop.onnx":1:0)
 // CHECK-NOT: loc("/build/workspace/addop.onnx":2:0)
