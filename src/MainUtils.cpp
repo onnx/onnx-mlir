@@ -448,24 +448,21 @@ void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
 
 void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
-  // Start a separate process to redirect the model output. I/O redirection
-  // changes will not be visible to the parent process.
   string tempFilename = filename + extension;
-#ifdef _WIN32
   // copy original stderr file number
+#ifdef _WIN32
   int stderrOrigin = _dup(_fileno(stderr));
+#else
+  int stderrOrigin = dup(fileno(stderr));
+#endif
   freopen(tempFilename.c_str(), "w", stderr);
   module->dump();
   fflush(stderr);
   // set modified stderr as original stderr
+#ifdef _WIN32
   _dup2(stderrOrigin, _fileno(stderr));
 #else
-  if (fork() == 0) {
-    freopen(tempFilename.c_str(), "w", stderr);
-    module->dump();
-    fclose(stderr);
-    exit(0);
-  }
+  dup2(stderrOrigin, fileno(stderr));
 #endif
 }
 
