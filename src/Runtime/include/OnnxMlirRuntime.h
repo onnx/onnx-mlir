@@ -131,13 +131,13 @@
  *
  *   // Construct a list of omts as input.
  *   OMTensor *list[2] = {x1, x2};
- *   OMTensorList *input = omtListCreate(list, 2);
+ *   OMTensorList *input = omTensorListCreate(list, 2);
  *
  *   // Call the compiled onnx model function.
  *   OMTensorList *outputList = run_main_graph(input);
  *
  *   // Get the first omt as output.
- *   OMTensor *y = omtListGetOmtByIndex(outputList, 0);
+ *   OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);
  *
  *   // Print its content, should be all 3.
  *   for (int i = 0; i < 6; i++)
@@ -349,7 +349,7 @@ INDEX_TYPE omtGetNumElems(OMTensor *omt);
  * If a OMTensor has a name, in addition to be accessed by its index,
  * the OMTensor can also be accessed by its name.
  */
-OMTensorList *omtListCreate(OMTensor **omts, int n);
+OMTensorList *omTensorListCreate(OMTensor **omts, int n);
 
 /**
  * OMTensorList destroyer
@@ -358,7 +358,7 @@ OMTensorList *omtListCreate(OMTensor **omts, int n);
  *
  * Destroy the OMTensorList struct.
  */
-void omtListDestroy(OMTensorList *list);
+void omTensorListDestroy(OMTensorList *list);
 
 /**
  * OMTensorList OMTensor array getter
@@ -366,7 +366,7 @@ void omtListDestroy(OMTensorList *list);
  * @param list, pointer to the OMTensorList
  * @return pointer to the array of OMTensor pointers.
  */
-OMTensor **omtListGetPtrToOmts(OMTensorList *list);
+OMTensor **omTensorListGetPtrToOmts(OMTensorList *list);
 
 /**
  * OMTensorList number of OMTensors getter
@@ -374,7 +374,7 @@ OMTensor **omtListGetPtrToOmts(OMTensorList *list);
  * @param list, pointer to the OMTensorList
  * @return number of elements in the OMTensor array.
  */
-int omtListGetNumOmts(OMTensorList *list);
+int omTensorListGetNumOmts(OMTensorList *list);
 
 /**
  * OMTensorList OMTensor getter by index
@@ -383,7 +383,7 @@ int omtListGetNumOmts(OMTensorList *list);
  * @param index, index of the OMTensor
  * @reutrn pointer to the OMTensor, NULL if not found.
  */
-OMTensor *omtListGetOmtByIndex(OMTensorList *list, int index);
+OMTensor *omTensorListGetOmtByIndex(OMTensorList *list, int index);
 #ifdef __cplusplus
 }
 #endif

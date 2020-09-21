@@ -41,13 +41,13 @@ std::vector<py::array> PyExecutionSession::pyRun(
     omtSetDataStrides(inputOMTensor, (int64_t *)inputPyArray.strides());
     omts.emplace_back(inputOMTensor);
   }
-  auto *wrappedInput = omtListCreate(&omts[0], omts.size());
+  auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
   std::vector<py::array> outputPyArrays;
-  for (int i = 0; i < omtListGetNumOmts(wrappedOutput); i++) {
-    auto *omt = omtListGetOmtByIndex(wrappedOutput, i);
+  for (int i = 0; i < omTensorListGetNumOmts(wrappedOutput); i++) {
+    auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
     auto shape = std::vector<int64_t>(
         omtGetDataShape(omt), omtGetDataShape(omt) + omtGetRank(omt));
 

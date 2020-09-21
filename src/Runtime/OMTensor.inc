@@ -1,4 +1,4 @@
-//===------------ OMTensor.cpp - OMTensor Implementation -------------===//
+//===------- OMTensor.inc - C/C++ Neutral OMTensor Implementation ----------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -147,11 +147,11 @@ INDEX_TYPE omtGetNumElems(OMTensor *omt) {
 /*---------------------------------------- */
 
 /* OMTensorList creator */
-OMTensorList *omtListCreate(OMTensor **omts, int n) {
-  OMTensorList *omtList = (OMTensorList *)malloc(sizeof(struct OMTensorList));
-  omtList->_omts = omts;
-  omtList->_n = n;
-  return omtList;
+OMTensorList *omTensorListCreate(OMTensor **omts, int n) {
+  OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
+  list->_omts = omts;
+  list->_n = n;
+  return list;
   //  try {
   //    return new OMTensorList(omts, n);
   //  } catch (const invalid_argument &e) {
@@ -160,20 +160,20 @@ OMTensorList *omtListCreate(OMTensor **omts, int n) {
 }
 
 /* OMTensorList destroyer */
-void omtListDestroy(OMTensorList *omtList) {
-  for (int i = 0; i < omtList->_n; i++)
-    free(omtList->_omts[i]);
-  free(omtList);
+void omTensorListDestroy(OMTensorList *list) {
+  for (int i = 0; i < list->_n; i++)
+    free(list->_omts[i]);
+  free(list);
 }
 
 /* OMTensorList OMTensor array getter */
-OMTensor **omtListGetPtrToOmts(OMTensorList *list) { return list->_omts; }
+OMTensor **omTensorListGetPtrToOmts(OMTensorList *list) { return list->_omts; }
 
 /* OMTensorList number of OMTensor getter */
-int omtListGetNumOmts(OMTensorList *list) { return list->_n; }
+int omTensorListGetNumOmts(OMTensorList *list) { return list->_n; }
 
 /* Return OMTensor at specified index in the OMTensorList */
-OMTensor *omtListGetOmtByIndex(OMTensorList *rlist, int index) {
+OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int index) {
   assert(index >= 0);
   assert(index < rlist->_n);
   return rlist->_omts[index];
@@ -353,7 +353,7 @@ inline bool omtAreTwoOmtsClose(
 /*---------------------------------------------------- */
 
 /* Return OMTensor of specified name in the OMTensorList */
-OMTensor *omtListGetOmtByName(OMTensorList *rlist, string name) {
+OMTensor *omTensorListGetOmtByName(OMTensorList *rlist, string name) {
   for (int i = 0; i < rlist->_n; i++)
     if (rlist->_omts[i]->_name == name)
       return rlist->_omts[i];

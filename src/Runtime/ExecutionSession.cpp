@@ -49,15 +49,15 @@ ExecutionSession::run(
   std::vector<OMTensor *> omts;
   for (const auto &inOmt : ins)
     omts.emplace_back(inOmt.get());
-  auto *wrappedInput = omtListCreate(&omts[0], omts.size());
+  auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
   std::vector<std::unique_ptr<OMTensor, decltype(&omtDestroy)>> outs;
 
-  for (size_t i = 0; i < omtListGetNumOmts(wrappedOutput); i++) {
+  for (size_t i = 0; i < omTensorListGetNumOmts(wrappedOutput); i++) {
     outs.emplace_back(std::unique_ptr<OMTensor, decltype(&omtDestroy)>(
-        omtListGetOmtByIndex(wrappedOutput, i), omtDestroy));
+        omTensorListGetOmtByIndex(wrappedOutput, i), omtDestroy));
   }
   return std::move(outs);
 }

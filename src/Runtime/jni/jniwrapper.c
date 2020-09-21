@@ -278,10 +278,10 @@ jobject omt_list_native_to_java(
     JNIEnv *env, jclass cls, OMTensorList *dict, jniapi_t *japi) {
 
   /* Get the OMTensor array in the OMTensorList */
-  LIB_TYPE_VAR_CALL(OMTensor **, jni_omts, omtListGetOmts(dict), NULL, env,
+  LIB_TYPE_VAR_CALL(OMTensor **, jni_omts, omTensorListGetOmts(dict), NULL, env,
       japi->ecpt_cls, "jni_omts=null");
   /* Get the number of OMTensors in the OMTensorList */
-  LIB_TYPE_VAR_CALL(int, jni_nomt, omtListGetNumOfOmts(dict), 0, env,
+  LIB_TYPE_VAR_CALL(int, jni_nomt, omTensorListGetNumOfOmts(dict), 0, env,
       japi->ecpt_cls, "jni_nomt=0");
 
   /* Create OMTensor java object array */

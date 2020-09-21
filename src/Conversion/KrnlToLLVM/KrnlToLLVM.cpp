@@ -419,8 +419,8 @@ public:
   using OpRewritePattern<KrnlEntryPointOp>::OpRewritePattern;
 
   enum class API {
-    CREATE_ORDERED_RTMEMREF_DICT,
-    CREATE_RTMEMREF,
+    CREATE_OMTENSOR_LIST,
+    CREATE_OMTENSOR,
     GET_DATA,
     SET_DATA,
     GET_DATA_SIZES,
@@ -599,7 +599,7 @@ public:
       auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(outMemRefRank));
       auto outOMTensor = callApi(
-          rewriter, loc, apiRegistry, API::CREATE_RTMEMREF, {outMemRefRankVal});
+          rewriter, loc, apiRegistry, API::CREATE_OMTENSOR, {outMemRefRankVal});
       fillOMTensorWithMemRef(
           memRef, outOMTensor, rewriter, loc, apiRegistry, module);
 
@@ -617,7 +617,7 @@ public:
 
     // Create wrapped output.
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
-        API::CREATE_ORDERED_RTMEMREF_DICT, {outOmtPtrsArr, numOutput});
+        API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput});
 
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(
@@ -643,15 +643,15 @@ private:
     // specifying its signature.
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
-        ApiSpec(API::CREATE_ORDERED_RTMEMREF_DICT, "omtListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
-        ApiSpec(API::CREATE_RTMEMREF, "omtCreate", opaquePtrTy, {int32Ty}),
+        ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
+        ApiSpec(API::CREATE_OMTENSOR, "omtCreate", opaquePtrTy, {int32Ty}),
         ApiSpec(API::GET_DATA, "omtGetData", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "omtSetData", voidTy, {opaquePtrTy, opaquePtrTy}),
         ApiSpec(API::GET_DATA_SIZES, "omtGetDataShape", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_STRIDES, "omtGetDataStrides", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_TYPE, "omtGetDataType", int32Ty, {opaquePtrTy}),
         ApiSpec(API::SET_DATA_TYPE, "omtSetDataType", voidTy, {opaquePtrTy, int32Ty}),
-        ApiSpec(API::GET_OMTS, "omtListGetPtrToOmts", opaquePtrPtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_OMTS, "omTensorListGetPtrToOmts", opaquePtrPtrTy, {opaquePtrTy}),
     };
     // clang-format on
 

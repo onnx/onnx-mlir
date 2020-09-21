@@ -143,7 +143,7 @@ bool omtAreTwoOmtsClose(
  *
  * @return pointer to an empty OMTensorList, NULL if creation failed.
  */
-OMTensorList *omtListCreate(void);
+OMTensorList *omTensorListCreate(void);
 
 /**
  * OMTensorList OMTensor getter by name
@@ -152,7 +152,7 @@ OMTensorList *omtListCreate(void);
  * @param name, name of the OMTensor
  * @return pointer to the OMTensor, NULL if not found.
  */
-OMTensor *omtListGetOmtByName(OMTensorList *list, std::string name);
+OMTensor *omTensorListGetOmtByName(OMTensorList *list, std::string name);
 
 #endif
 #endif

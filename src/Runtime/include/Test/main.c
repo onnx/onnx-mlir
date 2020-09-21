@@ -16,13 +16,13 @@ int main() {
 
   // Construct a list of omts as input.
   OMTensor *list[2] = {x1, x2};
-  OMTensorList *input = omtListCreate(list, 2);
+  OMTensorList *input = omTensorListCreate(list, 2);
 
   // Call the compiled onnx model function.
   OMTensorList *outputList = run_main_graph(input);
 
   // Get the first omt as output.
-  OMTensor *y = omtListGetOmtByIndex(outputList, 0);
+  OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);
 
   // Print its content, should be all 3.
   for (int i = 0; i < 6; i++)
