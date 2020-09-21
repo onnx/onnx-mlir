@@ -147,8 +147,8 @@
  * }
  * ```
  *
- * Compile with `gcc main.c add.so -o add`, you should see an executable `add` appearing.
- * Run it, and the output should be:
+ * Compile with `gcc main.c add.so -o add`, you should see an executable `add`
+ *appearing. Run it, and the output should be:
  *
  * ```
  * 3.000000 3.000000 3.000000 3.000000 3.000000 3.000000
@@ -285,10 +285,10 @@ void rmrSetDataType(RtMemRef *rmr, int dataType);
 
 /* Helper function to get the ONNX data type size in bytes */
 static inline int getDataTypeSize(int dataType) {
-    return dataType < 0 ||
-           dataType >= sizeof(RTMEMREF_DATA_TYPE_SIZE) / sizeof(int)
-           ? 0
-           : RTMEMREF_DATA_TYPE_SIZE[dataType];
+  return dataType < 0 ||
+                 dataType >= sizeof(RTMEMREF_DATA_TYPE_SIZE) / sizeof(int)
+             ? 0
+             : RTMEMREF_DATA_TYPE_SIZE[dataType];
 }
 
 /**
@@ -297,7 +297,7 @@ static inline int getDataTypeSize(int dataType) {
  * @param rmr, pointer to the RtMemRef
  * @return the total size of the data buffer in bytes.
  */
- int64_t rmrGetDataBufferSize(RtMemRef *rmr);
+int64_t rmrGetDataBufferSize(RtMemRef *rmr);
 
 /**
  * RtMemRef rank getter

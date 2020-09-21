@@ -55,4 +55,4 @@ const std::map<std::string, int> RTMEMREF_DATA_TYPE_CPP_TO_ONNX = {
 };
 #endif //__cplusplus
 
-#endif //ONNX_MLIR_ONNXDATATYPE_H
+#endif // ONNX_MLIR_ONNXDATATYPE_H
