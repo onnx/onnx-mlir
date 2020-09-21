@@ -253,6 +253,9 @@ void populateLoweringONNXSqueezeOpPattern(
 void populateLoweringONNXSplitOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXSizeOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXTileOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 

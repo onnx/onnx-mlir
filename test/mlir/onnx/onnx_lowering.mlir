@@ -2135,6 +2135,42 @@ func @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
 
 // -----
 
+func @test_size_known(%arg0: tensor<2x2xf32>) -> tensor<i64> {
+  %1 = "onnx.Size"(%arg0) : (tensor<2x2xf32>) -> tensor<i64>
+  "std.return"(%1) : (tensor<i64>) -> ()
+
+  // CHECK-LABEL: test_size_known
+  // CHECK:      [[RES:%.+]] = alloc() : memref<i64>
+  // CHECK-NEXT  [[SIZE:%.+]] = constant 4 : i64
+  // CHECK-NEXT  affine.store [[SIZE]], [[RES]][] : memref<i64>
+  // CHECK-NEXT  return [[RES]] : memref<i64>
+
+}
+
+// -----
+
+func @test_size_unknown(%arg0 : tensor<?x2x?xf32>) -> tensor<i64> {
+
+  // CHECK-LABEL: test_size_unknown
+  // CHECK:       [[RES:%.+]] = alloc() : memref<i64>
+  // CHECK-NEXT:  [[INIT:%.+]] = constant 2 : i64
+  // CHECK-NEXT:  [[IND1:%.+]] = constant 0 : index
+  // CHECK-NEXT:  [[DIM1:%.+]] = dim %arg0, [[IND1]] : memref<?x2x?xf32>
+  // CHECK-NEXT:  [[CAST1:%.+]] = index_cast [[DIM1]] : index to i64
+  // CHECK-NEXT:  [[TMP1:%.+]] = muli [[INIT]], [[CAST1]] : i64
+  // CHECK-NEXT:  [[IND2:%.+]] = constant 2 : index
+  // CHECK-NEXT:  [[DIM2:%.+]] = dim %arg0, [[IND2]] : memref<?x2x?xf32>
+  // CHECK-NEXT:  [[IND3:%.+]] = index_cast [[DIM2]] : index to i64
+  // CHECK-NEXT:  [[SIZE:%.+]] = muli [[TMP1]], [[IND3]] : i64
+  // CHECK-NEXT:  affine.store [[SIZE]], [[RES]][] : memref<i64>
+  // CHECK-NEXT:  return [[RES]] : memref<i64>
+
+  %1 = "onnx.Size"(%arg0)  : (tensor<?x2x?xf32>) -> tensor<i64>
+  "std.return"(%1) : (tensor<i64>) -> ()
+}
+
+// -----
+
 // Test gather along axis 0, first example in ONNX for Gather.
 func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
   %indices = "onnx.Constant"() {value = dense<[[0, 1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
