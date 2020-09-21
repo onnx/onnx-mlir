@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.3)
 cmake_policy(SET CMP0057 NEW)
 project(onnx-mlir)
 
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(APPEND CMAKE_CXX_FLAGS_DEBUG " -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 
 set(ONNX_MLIR_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
