@@ -22,6 +22,9 @@ int main(int argc, char *argv[]) {
       llvm::cl::desc("<input file>"), llvm::cl::init("-"),
       llvm::cl::cat(OnnxMlirOptions));
 
+  llvm::cl::opt<string> outputBaseName("output-base",
+      llvm::cl::desc("Base path for output files, extensions will be added."),
+      llvm::cl::value_desc("path"), llvm::cl::cat(OnnxMlirOptions));
   llvm::cl::opt<EmissionTargetType> emissionTarget(
       llvm::cl::desc("Choose target to emit:"),
       llvm::cl::values(
@@ -47,9 +50,9 @@ int main(int argc, char *argv[]) {
   mlir::OwningModuleRef module;
   processInputFile(inputFilename, emissionTarget, context, module);
 
-  // Input file base name.
-  string outputBaseName =
-      inputFilename.substr(0, inputFilename.find_last_of("."));
+  // Input file base name, replace path if required.
+  if (outputBaseName == "")
+    outputBaseName = inputFilename.substr(0, inputFilename.find_last_of("."));
 
   return compileModule(module, context, outputBaseName, emissionTarget);
 }

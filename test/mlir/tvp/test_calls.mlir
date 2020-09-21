@@ -1,5 +1,5 @@
-// RUN: onnx-mlir --EmitMLIR %s | FileCheck %s
-// XFAIL: *
+// RUN: onnx-mlir --EmitMLIR %s --output-base=%t 
+// RUN: FileCheck %s --input-file %t.onnx.mlir
 
 module {
   func @tvp_1(%3: tensor<1024xf32>) -> tensor<1024xf32> {
