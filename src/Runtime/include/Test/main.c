@@ -6,13 +6,13 @@ OMTensorList *run_main_graph(OMTensorList *);
 int main() {
   // Construct x1 omt filled with 1.
   float x1Data[] = {1., 1., 1., 1., 1., 1.};
-  OMTensor *x1 = omtCreate(2);
-  omtSetData(x1, x1Data);
+  OMTensor *x1 = omTensorCreate(2);
+  omTensorSetData(x1, x1Data);
 
   // Construct x2 omt filled with 2.
   float x2Data[] = {2., 2., 2., 2., 2., 2.};
-  OMTensor *x2 = omtCreate(2);
-  omtSetData(x2, x2Data);
+  OMTensor *x2 = omTensorCreate(2);
+  omTensorSetData(x2, x2Data);
 
   // Construct a list of omts as input.
   OMTensor *list[2] = {x1, x2};
@@ -26,7 +26,7 @@ int main() {
 
   // Print its content, should be all 3.
   for (int i = 0; i < 6; i++)
-    printf("%f ", ((float *)omtGetData(y))[i]);
+    printf("%f ", ((float *)omTensorGetData(y))[i]);
 
   return 0;
 }

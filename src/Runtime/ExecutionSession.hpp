@@ -26,8 +26,8 @@ public:
   ExecutionSession(std::string sharedLibPath, std::string entryPointName);
 
   // Use custom deleter since forward declared OMTensor hides destructor
-  std::vector<std::unique_ptr<OMTensor, decltype(&omtDestroy)>> run(
-      std::vector<std::unique_ptr<OMTensor, decltype(&omtDestroy)>>);
+  std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> run(
+      std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>>);
 
   ~ExecutionSession();
 

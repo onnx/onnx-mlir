@@ -121,13 +121,13 @@
  * int main() {
  *   // Construct x1 omt filled with 1.
  *   float x1Data[] = {1., 1., 1., 1., 1., 1.};
- *   OMTensor *x1 = omtCreate(2);
- *   omtSetData(x1, x1Data);
+ *   OMTensor *x1 = omTensorCreate(2);
+ *   omTensorSetData(x1, x1Data);
  *
  *   // Construct x2 omt filled with 2.
  *   float x2Data[] = {2., 2., 2., 2., 2., 2.};
- *   OMTensor *x2 = omtCreate(2);
- *   omtSetData(x2, x2Data);
+ *   OMTensor *x2 = omTensorCreate(2);
+ *   omTensorSetData(x2, x2Data);
  *
  *   // Construct a list of omts as input.
  *   OMTensor *list[2] = {x1, x2};
@@ -141,7 +141,7 @@
  *
  *   // Print its content, should be all 3.
  *   for (int i = 0; i < 6; i++)
- *     printf("%f ", ((float *)omtGetData(y))[i]);
+ *     printf("%f ", ((float *)omTensorGetData(y))[i]);
  *
  *   return 0;
  * }
@@ -181,7 +181,7 @@ extern "C" {
  * Create a OMTensor with specified rank. Memory for data sizes and
  * strides are allocated.
  */
-OMTensor *omtCreate(int rank);
+OMTensor *omTensorCreate(int rank);
 
 /**
  * OMTensor creator
@@ -196,7 +196,7 @@ OMTensor *omtCreate(int rank);
  * Create a OMTensor with specified rank, name and data ownership. Memory for
  * data sizes and strides are allocated.
  */
-OMTensor *omtCreateWithNameAndOwnership(int rank, char *name, bool owningData);
+OMTensor *omTensorCreateWithNameAndOwnership(int rank, char *name, bool owningData);
 
 /**
  * OMTensor destroyer
@@ -205,7 +205,7 @@ OMTensor *omtCreateWithNameAndOwnership(int rank, char *name, bool owningData);
  *
  * Destroy the OMTensor struct.
  */
-void omtDestroy(OMTensor *omt);
+void omTensorDestroy(OMTensor *omt);
 
 /**
  * OMTensor data getter
@@ -214,7 +214,7 @@ void omtDestroy(OMTensor *omt);
  * @return pointer to the data buffer of the OMTensor,
  *         NULL if the data buffer is not set.
  */
-void *omtGetData(OMTensor *omt);
+void *omTensorGetData(OMTensor *omt);
 
 /**
  * OMTensor data setter
@@ -227,7 +227,7 @@ void *omtGetData(OMTensor *omt);
  * will not free the data buffer. Because we don't know how exactly the
  * data buffer is allocated, e.g., it could have been allocated on the stack.
  */
-void omtSetData(OMTensor *omt, void *data);
+void omTensorSetData(OMTensor *omt, void *data);
 
 /**
  * OMTensor data sizes getter
@@ -235,7 +235,7 @@ void omtSetData(OMTensor *omt, void *data);
  * @param omt, pointer to the OMTensor
  * @return pointer to the data shape array.
  */
-INDEX_TYPE *omtGetDataShape(OMTensor *omt);
+INDEX_TYPE *omTensorGetDataShape(OMTensor *omt);
 
 /**
  * OMTensor data sizes setter
@@ -245,7 +245,7 @@ INDEX_TYPE *omtGetDataShape(OMTensor *omt);
  *
  * Set the data sizes array of the OMTensor to the values in the input array.
  */
-void omtSetDataShape(OMTensor *omt, INDEX_TYPE *dataSizes);
+void omTensorSetDataShape(OMTensor *omt, INDEX_TYPE *dataSizes);
 
 /**
  * OMTensor data strides getter
@@ -253,7 +253,7 @@ void omtSetDataShape(OMTensor *omt, INDEX_TYPE *dataSizes);
  * @param omt, pointer to the OMTensor
  * @return pointer to the data strides array.
  */
-int64_t *omtGetDataStrides(OMTensor *omt);
+int64_t *omTensorGetDataStrides(OMTensor *omt);
 
 /**
  * OMTensor data strides setter
@@ -263,7 +263,7 @@ int64_t *omtGetDataStrides(OMTensor *omt);
  *
  * Set the data strides array of the OMTensor to the values in the input array.
  */
-void omtSetDataStrides(OMTensor *omt, int64_t *dataStrides);
+void omTensorSetDataStrides(OMTensor *omt, int64_t *dataStrides);
 
 /**
  * OMTensor data type getter
@@ -271,7 +271,7 @@ void omtSetDataStrides(OMTensor *omt, int64_t *dataStrides);
  * @param omt, pointer to the OMTensor
  * @return ONNX data type of the data buffer elements.
  */
-int omtGetDataType(OMTensor *omt);
+int omTensorGetDataType(OMTensor *omt);
 
 /**
  * OMTensor data type setter
@@ -281,7 +281,7 @@ int omtGetDataType(OMTensor *omt);
  *
  * Set the ONNX data type of the data buffer elements.
  */
-void omtSetDataType(OMTensor *omt, int dataType);
+void omTensorSetDataType(OMTensor *omt, int dataType);
 
 /* Helper function to get the ONNX data type size in bytes */
 static inline int getDataTypeSize(int dataType) {
@@ -297,7 +297,7 @@ static inline int getDataTypeSize(int dataType) {
  * @param omt, pointer to the OMTensor
  * @return the total size of the data buffer in bytes.
  */
-int64_t omtGetDataBufferSize(OMTensor *omt);
+int64_t omTensorGetDataBufferSize(OMTensor *omt);
 
 /**
  * OMTensor rank getter
@@ -305,7 +305,7 @@ int64_t omtGetDataBufferSize(OMTensor *omt);
  * @param omt, pointer to the OMTensor
  * @return rank of data sizes and strides of the OMTensor.
  */
-int omtGetRank(OMTensor *omt);
+int omTensorGetRank(OMTensor *omt);
 
 /**
  * OMTensor name getter
@@ -314,7 +314,7 @@ int omtGetRank(OMTensor *omt);
  * @return pointer to the name of the OMTensor,
  *         an empty string if the name is not set.
  */
-char *omtGetName(OMTensor *omt);
+char *omTensorGetName(OMTensor *omt);
 
 /**
  * OMTensor name setter
@@ -324,7 +324,7 @@ char *omtGetName(OMTensor *omt);
  *
  * Set the name of the OMTensor.
  */
-void omtSetName(OMTensor *omt, char *name);
+void omTensorSetName(OMTensor *omt, char *name);
 
 /**
  * OMTensor number of elements getter
@@ -332,7 +332,7 @@ void omtSetName(OMTensor *omt, char *name);
  * @param omt, pointer to the OMTensor
  * @return the number of elements in the data buffer.
  */
-INDEX_TYPE omtGetNumElems(OMTensor *omt);
+INDEX_TYPE omTensorGetNumElems(OMTensor *omt);
 
 /*---------------------------------------- */
 /* C/C++ API for OMTensorList calls */

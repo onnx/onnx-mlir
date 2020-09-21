@@ -505,20 +505,21 @@ public:
     SmallVector<Value, 4> staticInputs;
     auto wrappedInput = entryPointEntryBlock.getArgument(0);
 
-    auto omtPtrArr =
+    auto omTensorPtrArr =
         callApi(rewriter, loc, apiRegistry, API::GET_OMTS, {wrappedInput});
     for (size_t i = 0; i < staticEntryPointTy.getFunctionNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(i));
 
-      auto omtPtrAddrTy = opaquePtrTy.getPointerTo();
-      auto omtPtrAddr = rewriter
-                            .create<LLVM::GEPOp>(loc, omtPtrAddrTy, omtPtrArr,
-                                ArrayRef<Value>({idxVal}))
-                            .getResult();
-      auto omtPtr = rewriter.create<LLVM::LoadOp>(loc, opaquePtrTy, omtPtrAddr)
-                        .getResult();
+      auto omTensorPtrAddrTy = opaquePtrTy.getPointerTo();
+      auto omTensorPtrAddr = rewriter
+                                 .create<LLVM::GEPOp>(loc, omTensorPtrAddrTy,
+                                     omTensorPtrArr, ArrayRef<Value>({idxVal}))
+                                 .getResult();
+      auto omTensorPtr =
+          rewriter.create<LLVM::LoadOp>(loc, opaquePtrTy, omTensorPtrAddr)
+              .getResult();
 
       // Create a (static) memref type corresponding to the i-th memref input to
       // the inference function on stack, and load it to memRef.
@@ -530,9 +531,9 @@ public:
           /*alignment=*/0);
 
       // Fill in the memref underlying ptrToMemRef with information extracted
-      // from omtPtr.
+      // from omTensorPtr.
       fillPtrToMemRefWithOMTensor(
-          omtPtr, ptrToMemRef, rewriter, loc, apiRegistry, module);
+          omTensorPtr, ptrToMemRef, rewriter, loc, apiRegistry, module);
 
       // ptrToMemRef will be an input to main computation graph function.
       staticInputs.emplace_back(ptrToMemRef);
@@ -606,13 +607,13 @@ public:
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(i));
 
-      auto omtPtrAddrTy = opaquePtrTy.getPointerTo();
-      auto omtPtrAddr = rewriter
-                            .create<LLVM::GEPOp>(loc, omtPtrAddrTy,
-                                outOmtPtrsArr, ArrayRef<Value>({idxVal}))
-                            .getResult();
+      auto omTensorPtrAddrTy = opaquePtrTy.getPointerTo();
+      auto omTensorPtrAddr = rewriter
+                                 .create<LLVM::GEPOp>(loc, omTensorPtrAddrTy,
+                                     outOmtPtrsArr, ArrayRef<Value>({idxVal}))
+                                 .getResult();
 
-      rewriter.create<LLVM::StoreOp>(loc, outOMTensor, omtPtrAddr);
+      rewriter.create<LLVM::StoreOp>(loc, outOMTensor, omTensorPtrAddr);
     }
 
     // Create wrapped output.
@@ -644,13 +645,13 @@ private:
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
         ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
-        ApiSpec(API::CREATE_OMTENSOR, "omtCreate", opaquePtrTy, {int32Ty}),
-        ApiSpec(API::GET_DATA, "omtGetData", opaquePtrTy, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA, "omtSetData", voidTy, {opaquePtrTy, opaquePtrTy}),
-        ApiSpec(API::GET_DATA_SIZES, "omtGetDataShape", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_DATA_STRIDES, "omtGetDataStrides", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_DATA_TYPE, "omtGetDataType", int32Ty, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA_TYPE, "omtSetDataType", voidTy, {opaquePtrTy, int32Ty}),
+        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreate", opaquePtrTy, {int32Ty}),
+        ApiSpec(API::GET_DATA, "omTensorGetData", opaquePtrTy, {opaquePtrTy}),
+        ApiSpec(API::SET_DATA, "omTensorSetData", voidTy, {opaquePtrTy, opaquePtrTy}),
+        ApiSpec(API::GET_DATA_SIZES, "omTensorGetDataShape", int64PtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_DATA_STRIDES, "omTensorGetDataStrides", int64PtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_DATA_TYPE, "omTensorGetDataType", int32Ty, {opaquePtrTy}),
+        ApiSpec(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int32Ty}),
         ApiSpec(API::GET_OMTS, "omTensorListGetPtrToOmts", opaquePtrPtrTy, {opaquePtrTy}),
     };
     // clang-format on

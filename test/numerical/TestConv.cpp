@@ -92,37 +92,37 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
   onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
 
-  std::vector<unique_ptr<OMTensor, decltype(&omtDestroy)>> inputs;
-  auto xOmt = unique_ptr<OMTensor, decltype(&omtDestroy)>(
-      omtCreateWithRandomData<float>({N, C, H, W}), omtDestroy);
+  std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
+  auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>({N, C, H, W}), omTensorDestroy);
   inputs.emplace_back(move(xOmt));
-  auto wOmt = unique_ptr<OMTensor, decltype(&omtDestroy)>(
-      omtCreateWithRandomData<float>({C, C, kH, kW}), omtDestroy);
+  auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>({C, C, kH, kW}), omTensorDestroy);
   inputs.emplace_back(move(wOmt));
 
-  auto ref = omtCreateWithShape<float>({NOut, COut, HOut, WOut});
+  auto ref = omTensorCreateWithShape<float>({NOut, COut, HOut, WOut});
   auto &img = inputs.at(0);
   auto &filter = inputs.at(1);
   for (int64_t n = 0; n < NOut; n++)
     for (int64_t c = 0; c < COut; c++)
       for (int64_t h = 0; h < HOut; h++)
         for (int64_t w = 0; w < WOut; w++) {
-          omtGetElem<float>(ref, {n, c, h, w}) = 0;
+          omTensorGetElem<float>(ref, {n, c, h, w}) = 0;
           for (int64_t ci = 0; ci < C; ci++)
             for (int64_t kh = 0; kh < kH; kh++)
               for (int64_t kw = 0; kw < kW; kw++)
                 if ((h + kh - pHBegin >= 0 && h + kh - pHBegin < H) &&
                     (w + kw - pWBegin >= 0 && w + kw - pWBegin < W))
-                  omtGetElem<float>(ref, {n, c, h, w}) +=
-                      omtGetElem<float>(img.get(),
+                  omTensorGetElem<float>(ref, {n, c, h, w}) +=
+                      omTensorGetElem<float>(img.get(),
                           {n, ci, h + kh - pHBegin, w + kw - pWBegin}) *
-                      omtGetElem<float>(filter.get(), {c, ci, kh, kw});
+                      omTensorGetElem<float>(filter.get(), {c, ci, kh, kw});
         }
 
   auto outputs = sess.run(move(inputs));
   auto &conv = outputs.at(0);
 
-  return omtAreTwoOmtsClose<float>(conv.get(), ref);
+  return omTensorAreTwoOmtsClose<float>(conv.get(), ref);
 }
 
 int main(int argc, char *argv[]) {

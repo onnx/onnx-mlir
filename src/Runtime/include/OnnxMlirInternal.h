@@ -35,7 +35,7 @@
  * data fields initialized to proper values and data pointers malloc'ed.
  */
 template <typename T>
-OMTensor *omtCreateWithShape(std::vector<INDEX_TYPE> dataSizes);
+OMTensor *omTensorCreateWithShape(std::vector<INDEX_TYPE> dataSizes);
 
 /**
  * OMTensor creator with data sizes, element type and random data
@@ -45,12 +45,12 @@ OMTensor *omtCreateWithShape(std::vector<INDEX_TYPE> dataSizes);
  * @param ubound (optional), upper bound of the random distribution
  * @return pointer to OMTensor created, NULL if creation failed.
  *
- * Create a full OMTensor like what omtCreateWithShape does
+ * Create a full OMTensor like what omTensorCreateWithShape does
  * and also fill the OMTensor data buffer with randomly generated
  * real numbers from a uniform distribution between lbound and ubound.
  */
 template <typename T>
-OMTensor *omtCreateWithRandomData(
+OMTensor *omTensorCreateWithRandomData(
     std::vector<INDEX_TYPE> dataSizes, T lbound = -1.0, T ubound = 1.0);
 
 /**
@@ -60,7 +60,7 @@ OMTensor *omtCreateWithRandomData(
  * @return pointer to the aligned data buffer of the OMTensor,
  *         NULL if the aligned data buffer is not set.
  */
-void *omtGetAlignedData(OMTensor *omt);
+void *omTensorGetAlignedData(OMTensor *omt);
 
 /**
  * OMTensor aligned data setter
@@ -70,7 +70,7 @@ void *omtGetAlignedData(OMTensor *omt);
  *
  * Set the aligned data buffer pointer of the OMTensor.
  */
-void omtSetAlignedData(OMTensor *omt, void *alignedData);
+void omTensorSetAlignedData(OMTensor *omt, void *alignedData);
 
 /**
  * OMTensor data element getter by offset
@@ -80,7 +80,7 @@ void omtSetAlignedData(OMTensor *omt, void *alignedData);
  * @return typed element by reference at the offset computed by the index array.
  */
 template <typename T>
-T &omtGetElem(OMTensor *omt, std::vector<INDEX_TYPE> indexes);
+T &omTensorGetElem(OMTensor *omt, std::vector<INDEX_TYPE> indexes);
 
 /**
  * OMTensor data element getter by index
@@ -90,7 +90,7 @@ T &omtGetElem(OMTensor *omt, std::vector<INDEX_TYPE> indexes);
  * @return typed element by reference at the linear offset.
  */
 template <typename T>
-T &omtGetElemByOffset(OMTensor *omt, INDEX_TYPE index);
+T &omTensorGetElemByOffset(OMTensor *omt, INDEX_TYPE index);
 
 /**
  * OMTensor strides computation
@@ -98,7 +98,7 @@ T &omtGetElemByOffset(OMTensor *omt, INDEX_TYPE index);
  * @param omt, pointer to the OMTensor
  * @return data strides of the OMTensor computed from the data sizes.
  */
-std::vector<int64_t> omtComputeStridesFromShape(OMTensor *omt);
+std::vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt);
 
 /**
  * OMTensor linear offset computation
@@ -107,7 +107,7 @@ std::vector<int64_t> omtComputeStridesFromShape(OMTensor *omt);
  * @param indexes, multi-dimensional index array
  * @return linear offset.
  */
-INDEX_TYPE omtComputeElemOffset(
+INDEX_TYPE omTensorComputeElemOffset(
     OMTensor *omt, std::vector<INDEX_TYPE> &indexes);
 
 /**
@@ -118,7 +118,7 @@ INDEX_TYPE omtComputeElemOffset(
  *         that can be used to access this OMTensor's constituent elements)
  *         for the whole OMTensor.
  */
-std::vector<std::vector<INDEX_TYPE>> omtComputeIndexSet(OMTensor *omt);
+std::vector<std::vector<INDEX_TYPE>> omTensorComputeIndexSet(OMTensor *omt);
 
 /**
  * OMTensor "distance" computation
@@ -131,19 +131,12 @@ std::vector<std::vector<INDEX_TYPE>> omtComputeIndexSet(OMTensor *omt);
  *         specified tolerance, respectively, false otherwise.
  */
 template <typename T>
-bool omtAreTwoOmtsClose(
+bool omTensorAreTwoOmtsClose(
     OMTensor *a, OMTensor *b, float rtol = 1e-5, float atol = 1e-5);
 
 /*---------------------------------------------------- */
 /* C++ API for internal only OMTensorList calls */
 /*---------------------------------------------------- */
-
-/**
- * OMTensorList creator
- *
- * @return pointer to an empty OMTensorList, NULL if creation failed.
- */
-OMTensorList *omTensorListCreate(void);
 
 /**
  * OMTensorList OMTensor getter by name

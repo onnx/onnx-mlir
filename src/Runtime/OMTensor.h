@@ -119,7 +119,7 @@ struct OMTensorList {
     /* Destroy all the OMTensors */
     for (int i = 0; i < _n; i++)
       if (_omts[i])
-        omtDestroy(_omts[i]);
+        omTensorDestroy(_omts[i]);
   };
 #endif
 

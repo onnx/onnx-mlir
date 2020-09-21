@@ -42,9 +42,9 @@ ExecutionSession::ExecutionSession(
   }
 }
 
-std::vector<std::unique_ptr<OMTensor, decltype(&omtDestroy)>>
+std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>>
 ExecutionSession::run(
-    std::vector<std::unique_ptr<OMTensor, decltype(&omtDestroy)>> ins) {
+    std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> ins) {
 
   std::vector<OMTensor *> omts;
   for (const auto &inOmt : ins)
@@ -53,11 +53,11 @@ ExecutionSession::run(
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
-  std::vector<std::unique_ptr<OMTensor, decltype(&omtDestroy)>> outs;
+  std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> outs;
 
   for (size_t i = 0; i < omTensorListGetNumOmts(wrappedOutput); i++) {
-    outs.emplace_back(std::unique_ptr<OMTensor, decltype(&omtDestroy)>(
-        omTensorListGetOmtByIndex(wrappedOutput, i), omtDestroy));
+    outs.emplace_back(std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+        omTensorListGetOmtByIndex(wrappedOutput, i), omTensorDestroy));
   }
   return std::move(outs);
 }
