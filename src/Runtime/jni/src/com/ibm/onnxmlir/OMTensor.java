@@ -9,7 +9,7 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
 
-public class RtMemRef {
+public class OMTensor {
     final ByteOrder endian = ByteOrder.nativeOrder();
     
     /* We can use enum but that creates another class
@@ -63,7 +63,7 @@ public class RtMemRef {
     /**
      * Constructor
      */
-    public RtMemRef(int rank) {
+    public OMTensor(int rank) {
         if (rank <= 0)
             throw new IllegalArgumentException(
                     "invalid rank " + rank);
@@ -386,7 +386,7 @@ public class RtMemRef {
     /**
      * Rank getter
      *
-     * @return rank of the RtMemRef
+     * @return rank of the OMTensor
      */
     public int getRank() {
         return _rank;
@@ -397,7 +397,7 @@ public class RtMemRef {
     /**
      * Name getter
      *
-     * @return name of the RtMemRef
+     * @return name of the OMTensor
      */
     public String getName() {
         return _name;
@@ -406,7 +406,7 @@ public class RtMemRef {
     /**
      * Name setter
      *
-     * @param name name of the RtMemRef
+     * @param name name of the OMTensor
      */
     public void setName(String name) {
         _name = name == null ? "" : name;
@@ -424,9 +424,9 @@ public class RtMemRef {
     }
 
     /**
-     * Check validity of RtMemRef
+     * Check validity of OMTensor
      * 
-     * @return true if RtMemRef is valid, false otherwise
+     * @return true if OMTensor is valid, false otherwise
      */
     public boolean isValidRmr() {
         return (_data != null &&

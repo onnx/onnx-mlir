@@ -4,7 +4,7 @@
 //
 // =============================================================================
 //
-// This file contains declaration of external RtMemRef data structures and
+// This file contains declaration of external OMTensor data structures and
 // helper functions.
 //
 //===----------------------------------------------------------------------===//
@@ -30,9 +30,9 @@
  * shared library using the API's defined in `src/Runtime/include/OnnxMlir.h`.
  *
  * \section Important Data Structures
- * \subsection RtMemRef
+ * \subsection OMTensor
  *
- * `RtMemRef` is the data structure used to describe the runtime information
+ * `OMTensor` is the data structure used to describe the runtime information
  * (rank, shape, data type, etc) associated with a tensor (or `MemRef`, in the
  * context of MLIR). Specifically, it can be described as a struct with the
  * following data members:
@@ -51,8 +51,8 @@
  * memory space refereced by _data upon destruction if and only if it owns it.
  * ```
  *
- * \subsection RtMemRefList
- * `RtMemRefList` is a data structure used to hold a list of RtMemRef pointers.
+ * \subsection OMTensorList
+ * `OMTensorList` is a data structure used to hold a list of OMTensor pointers.
  *
  * \section Inference Function Signature
  *
@@ -60,11 +60,11 @@
  * to:
  *
  * ```c
- * RtMemRefList* run_main_graph(RtMemRefList*);
+ * OMTensorList* run_main_graph(OMTensorList*);
  * ```
  *
  * That is to say, the model inference function consumes a list of input
- * RtMemRefs and produces a list of output RtMemRefs.
+ * OMTensors and produces a list of output OMTensors.
  *
  * \section Invoke the Inference Function with C API
  *
@@ -116,28 +116,28 @@
  * #include <OnnxMlir.h>
  * #include <stdio.h>
  *
- * RtMemRefList *run_main_graph(RtMemRefList *);
+ * OMTensorList *run_main_graph(OMTensorList *);
  *
  * int main() {
  *   // Construct x1 rmr filled with 1.
  *   float x1Data[] = {1., 1., 1., 1., 1., 1.};
- *   RtMemRef *x1 = rmrCreate(2);
+ *   OMTensor *x1 = rmrCreate(2);
  *   rmrSetData(x1, x1Data);
  *
  *   // Construct x2 rmr filled with 2.
  *   float x2Data[] = {2., 2., 2., 2., 2., 2.};
- *   RtMemRef *x2 = rmrCreate(2);
+ *   OMTensor *x2 = rmrCreate(2);
  *   rmrSetData(x2, x2Data);
  *
  *   // Construct a list of rmrs as input.
- *   RtMemRef *list[2] = {x1, x2};
- *   RtMemRefList *input = rmrListCreate(list, 2);
+ *   OMTensor *list[2] = {x1, x2};
+ *   OMTensorList *input = rmrListCreate(list, 2);
  *
  *   // Call the compiled onnx model function.
- *   RtMemRefList *outputList = run_main_graph(input);
+ *   OMTensorList *outputList = run_main_graph(input);
  *
  *   // Get the first rmr as output.
- *   RtMemRef *y = rmrListGetRmrByIndex(outputList, 0);
+ *   OMTensor *y = rmrListGetRmrByIndex(outputList, 0);
  *
  *   // Print its content, should be all 3.
  *   for (int i = 0; i < 6; i++)
@@ -158,130 +158,130 @@
 
 typedef int64_t INDEX_TYPE;
 
-struct RtMemRef;
-typedef struct RtMemRef RtMemRef;
+struct OMTensor;
+typedef struct OMTensor OMTensor;
 
-struct RtMemRefList;
-typedef struct RtMemRefList RtMemRefList;
+struct OMTensorList;
+typedef struct OMTensorList OMTensorList;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /*----------------------------- */
-/* C/C++ API for RtMemRef calls */
+/* C/C++ API for OMTensor calls */
 /*----------------------------- */
 
 /**
- * RtMemRef creator
+ * OMTensor creator
  *
  * @param rank, rank of the data sizes and strides
- * @return pointer to RtMemRef created, NULL if creation failed.
+ * @return pointer to OMTensor created, NULL if creation failed.
  *
- * Create a RtMemRef with specified rank. Memory for data sizes and
+ * Create a OMTensor with specified rank. Memory for data sizes and
  * strides are allocated.
  */
-RtMemRef *rmrCreate(int rank);
+OMTensor *rmrCreate(int rank);
 
 /**
- * RtMemRef creator
+ * OMTensor creator
  *
  * @param rank, rank of the data sizes and strides
  * @param name, (optional) name of the tensor
  * @param owningData, whether the rmr owns the underlying data, if true, data
  * pointer will be released when the corresponding rmr gets released or goes out
  * of scope.
- * @return pointer to RtMemRef created, NULL if creation failed.
+ * @return pointer to OMTensor created, NULL if creation failed.
  *
- * Create a RtMemRef with specified rank, name and data ownership. Memory for
+ * Create a OMTensor with specified rank, name and data ownership. Memory for
  * data sizes and strides are allocated.
  */
-RtMemRef *rmrCreateWithNameAndOwnership(int rank, char *name, bool owningData);
+OMTensor *rmrCreateWithNameAndOwnership(int rank, char *name, bool owningData);
 
 /**
- * RtMemRef destroyer
+ * OMTensor destroyer
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  *
- * Destroy the RtMemRef struct.
+ * Destroy the OMTensor struct.
  */
-void rmrDestroy(RtMemRef *rmr);
+void rmrDestroy(OMTensor *rmr);
 
 /**
- * RtMemRef data getter
+ * OMTensor data getter
  *
- * @param rmr, pointer to the RtMemRef
- * @return pointer to the data buffer of the RtMemRef,
+ * @param rmr, pointer to the OMTensor
+ * @return pointer to the data buffer of the OMTensor,
  *         NULL if the data buffer is not set.
  */
-void *rmrGetData(RtMemRef *rmr);
+void *rmrGetData(OMTensor *rmr);
 
 /**
- * RtMemRef data setter
+ * OMTensor data setter
  *
- * @param rmr, pointer to the RtMemRef
- * @param data, data buffer of the RtMemRef to be set
+ * @param rmr, pointer to the OMTensor
+ * @param data, data buffer of the OMTensor to be set
  *
- * Set the data buffer pointer of the RtMemRef. Note that the data buffer
- * is assumed to be managed by the user, i.e., the RtMemRef destructor
+ * Set the data buffer pointer of the OMTensor. Note that the data buffer
+ * is assumed to be managed by the user, i.e., the OMTensor destructor
  * will not free the data buffer. Because we don't know how exactly the
  * data buffer is allocated, e.g., it could have been allocated on the stack.
  */
-void rmrSetData(RtMemRef *rmr, void *data);
+void rmrSetData(OMTensor *rmr, void *data);
 
 /**
- * RtMemRef data sizes getter
+ * OMTensor data sizes getter
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @return pointer to the data shape array.
  */
-INDEX_TYPE *rmrGetDataShape(RtMemRef *rmr);
+INDEX_TYPE *rmrGetDataShape(OMTensor *rmr);
 
 /**
- * RtMemRef data sizes setter
+ * OMTensor data sizes setter
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @param dataSizes, data sizes array to be set
  *
- * Set the data sizes array of the RtMemRef to the values in the input array.
+ * Set the data sizes array of the OMTensor to the values in the input array.
  */
-void rmrSetDataShape(RtMemRef *rmr, INDEX_TYPE *dataSizes);
+void rmrSetDataShape(OMTensor *rmr, INDEX_TYPE *dataSizes);
 
 /**
- * RtMemRef data strides getter
+ * OMTensor data strides getter
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @return pointer to the data strides array.
  */
-int64_t *rmrGetDataStrides(RtMemRef *rmr);
+int64_t *rmrGetDataStrides(OMTensor *rmr);
 
 /**
- * RtMemRef data strides setter
+ * OMTensor data strides setter
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @param dataStrides, data strides array to be set
  *
- * Set the data strides array of the RtMemRef to the values in the input array.
+ * Set the data strides array of the OMTensor to the values in the input array.
  */
-void rmrSetDataStrides(RtMemRef *rmr, int64_t *dataStrides);
+void rmrSetDataStrides(OMTensor *rmr, int64_t *dataStrides);
 
 /**
- * RtMemRef data type getter
+ * OMTensor data type getter
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @return ONNX data type of the data buffer elements.
  */
-int rmrGetDataType(RtMemRef *rmr);
+int rmrGetDataType(OMTensor *rmr);
 
 /**
- * RtMemRef data type setter
+ * OMTensor data type setter
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @param dataType, ONNX data type to be set
  *
  * Set the ONNX data type of the data buffer elements.
  */
-void rmrSetDataType(RtMemRef *rmr, int dataType);
+void rmrSetDataType(OMTensor *rmr, int dataType);
 
 /* Helper function to get the ONNX data type size in bytes */
 static inline int getDataTypeSize(int dataType) {
@@ -292,98 +292,98 @@ static inline int getDataTypeSize(int dataType) {
 }
 
 /**
- * RtMemRef data buffer size getter
+ * OMTensor data buffer size getter
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @return the total size of the data buffer in bytes.
  */
-int64_t rmrGetDataBufferSize(RtMemRef *rmr);
+int64_t rmrGetDataBufferSize(OMTensor *rmr);
 
 /**
- * RtMemRef rank getter
+ * OMTensor rank getter
  *
- * @param rmr, pointer to the RtMemRef
- * @return rank of data sizes and strides of the RtMemRef.
+ * @param rmr, pointer to the OMTensor
+ * @return rank of data sizes and strides of the OMTensor.
  */
-int rmrGetRank(RtMemRef *rmr);
+int rmrGetRank(OMTensor *rmr);
 
 /**
- * RtMemRef name getter
+ * OMTensor name getter
  *
- * @param rmr, pointer to the RtMemRef
- * @return pointer to the name of the RtMemRef,
+ * @param rmr, pointer to the OMTensor
+ * @return pointer to the name of the OMTensor,
  *         an empty string if the name is not set.
  */
-char *rmrGetName(RtMemRef *rmr);
+char *rmrGetName(OMTensor *rmr);
 
 /**
- * RtMemRef name setter
+ * OMTensor name setter
  *
- * @param rmr, pointer to the RtMemRef
- * @param name, name of the RtMemRef to be set
+ * @param rmr, pointer to the OMTensor
+ * @param name, name of the OMTensor to be set
  *
- * Set the name of the RtMemRef.
+ * Set the name of the OMTensor.
  */
-void rmrSetName(RtMemRef *rmr, char *name);
+void rmrSetName(OMTensor *rmr, char *name);
 
 /**
- * RtMemRef number of elements getter
+ * OMTensor number of elements getter
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @return the number of elements in the data buffer.
  */
-INDEX_TYPE rmrGetNumElems(RtMemRef *rmr);
+INDEX_TYPE rmrGetNumElems(OMTensor *rmr);
 
 /*---------------------------------------- */
-/* C/C++ API for RtMemRefList calls */
+/* C/C++ API for OMTensorList calls */
 /*---------------------------------------- */
 
 /**
- * RtMemRefList creator
+ * OMTensorList creator
  *
- * @param rmrs, array of pointers to RtMemRef
+ * @param rmrs, array of pointers to OMTensor
  * @param n, number of elements in rmrs array
- * @return pointer to the RtMemRefList created, NULL if creation failed.
+ * @return pointer to the OMTensorList created, NULL if creation failed.
  *
- * Create an RtMemRefList with specified RtMemRef array.
- * If a RtMemRef has a name, in addition to be accessed by its index,
- * the RtMemRef can also be accessed by its name.
+ * Create an OMTensorList with specified OMTensor array.
+ * If a OMTensor has a name, in addition to be accessed by its index,
+ * the OMTensor can also be accessed by its name.
  */
-RtMemRefList *rmrListCreate(RtMemRef **rmrs, int n);
+OMTensorList *rmrListCreate(OMTensor **rmrs, int n);
 
 /**
- * RtMemRefList destroyer
+ * OMTensorList destroyer
  *
- * @param ormrd, pointer to the RtMemRefList to be destroyed
+ * @param ormrd, pointer to the OMTensorList to be destroyed
  *
- * Destroy the RtMemRefList struct.
+ * Destroy the OMTensorList struct.
  */
-void rmrListDestroy(RtMemRefList *ormrd);
+void rmrListDestroy(OMTensorList *ormrd);
 
 /**
- * RtMemRefList RtMemRef array getter
+ * OMTensorList OMTensor array getter
  *
- * @param ormrd, pointer to the RtMemRefList
- * @return pointer to the array of RtMemRef pointers.
+ * @param ormrd, pointer to the OMTensorList
+ * @return pointer to the array of OMTensor pointers.
  */
-RtMemRef **rmrListGetPtrToRmrs(RtMemRefList *ormrd);
+OMTensor **rmrListGetPtrToRmrs(OMTensorList *ormrd);
 
 /**
- * RtMemRefList number of RtMemRefs getter
+ * OMTensorList number of OMTensors getter
  *
- * @param ormrd, pointer to the RtMemRefList
- * @return number of elements in the RtMemRef array.
+ * @param ormrd, pointer to the OMTensorList
+ * @return number of elements in the OMTensor array.
  */
-int rmrListGetNumRmrs(RtMemRefList *ormrd);
+int rmrListGetNumRmrs(OMTensorList *ormrd);
 
 /**
- * RtMemRefList RtMemRef getter by index
+ * OMTensorList OMTensor getter by index
  *
- * @param ormrd, pointer to the RtMemRefList
- * @param index, index of the RtMemRef
- * @reutrn pointer to the RtMemRef, NULL if not found.
+ * @param ormrd, pointer to the OMTensorList
+ * @param index, index of the OMTensor
+ * @reutrn pointer to the OMTensor, NULL if not found.
  */
-RtMemRef *rmrListGetRmrByIndex(RtMemRefList *ormrd, int index);
+OMTensor *rmrListGetRmrByIndex(OMTensorList *ormrd, int index);
 #ifdef __cplusplus
 }
 #endif

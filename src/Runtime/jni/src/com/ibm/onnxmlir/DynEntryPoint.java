@@ -56,9 +56,9 @@ public class DynEntryPoint {
         }
     }
 
-    private static native RtMemRefList main_graph_jni(RtMemRefList ormrd);
+    private static native OMTensorList main_graph_jni(OMTensorList ormrd);
     
-    public static RtMemRefList main_graph(RtMemRefList ormrd) {
+    public static OMTensorList main_graph(OMTensorList ormrd) {
         return main_graph_jni(ormrd);
     }
 }

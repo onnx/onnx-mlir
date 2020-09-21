@@ -5,7 +5,7 @@
 // =============================================================================
 //
 // This file contains declaration of ONNX data types and type size mapping.
-// It is provided as a convenience and not used by RtMemRef implementation.
+// It is provided as a convenience and not used by OMTensor implementation.
 //
 //===----------------------------------------------------------------------===//
 

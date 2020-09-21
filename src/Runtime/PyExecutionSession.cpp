@@ -20,26 +20,26 @@ std::vector<py::array> PyExecutionSession::pyRun(
     std::vector<py::array> inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");
 
-  std::vector<RtMemRef *> rmrs;
+  std::vector<OMTensor *> rmrs;
   for (auto inputPyArray : inputsPyArray) {
-    auto *inputRtMemRef = rmrCreate(inputPyArray.ndim());
+    auto *inputOMTensor = rmrCreate(inputPyArray.ndim());
     assert(inputPyArray.flags() && py::array::c_style &&
            "Expect contiguous python array.");
 
     if (inputPyArray.writeable()) {
-      rmrSetData(inputRtMemRef, inputPyArray.mutable_data());
-      rmrSetAlignedData(inputRtMemRef, inputPyArray.mutable_data());
+      rmrSetData(inputOMTensor, inputPyArray.mutable_data());
+      rmrSetAlignedData(inputOMTensor, inputPyArray.mutable_data());
     } else {
       // If data is not writable, copy them to a writable buffer.
       auto *copiedData = (float *)malloc(inputPyArray.nbytes());
       memcpy(copiedData, inputPyArray.data(), inputPyArray.nbytes());
-      rmrSetData(inputRtMemRef, copiedData);
-      rmrSetAlignedData(inputRtMemRef, copiedData);
+      rmrSetData(inputOMTensor, copiedData);
+      rmrSetAlignedData(inputOMTensor, copiedData);
     }
 
-    rmrSetDataShape(inputRtMemRef, (INDEX_TYPE *)inputPyArray.shape());
-    rmrSetDataStrides(inputRtMemRef, (int64_t *)inputPyArray.strides());
-    rmrs.emplace_back(inputRtMemRef);
+    rmrSetDataShape(inputOMTensor, (INDEX_TYPE *)inputPyArray.shape());
+    rmrSetDataStrides(inputOMTensor, (int64_t *)inputPyArray.strides());
+    rmrs.emplace_back(inputOMTensor);
   }
   auto *wrappedInput = rmrListCreate(&rmrs[0], rmrs.size());
 
@@ -79,7 +79,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
     else if (rmrGetDataType(rmr) == onnx::TensorProto::UINT64)
       dtype = py::dtype("uint64");
     else {
-      fprintf(stderr, "Unsupported ONNX type in RtMemRef.");
+      fprintf(stderr, "Unsupported ONNX type in OMTensor.");
       exit(1);
     }
 

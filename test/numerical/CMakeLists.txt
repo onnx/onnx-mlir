@@ -11,5 +11,5 @@ target_link_libraries(TestConv
         rapidcheck
         MainUtils
         ExecutionSession
-        RtMemRefUtils)
+        OMTensorUtils)
 add_test(NAME OMTestConv COMMAND TestConv)

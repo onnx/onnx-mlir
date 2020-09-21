@@ -1,10 +1,10 @@
-//===-------- _RtMemRef.h - Internal RtMemRef C++ API call header --------===//
+//===------ OnnxMlirInternal.h - Internal OnnxMlir Runtime API Decl -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains declaration of internal RtMemRef data structures and
+// This file contains declaration of internal OMTensor data structures and
 // helper functions.
 //
 //===----------------------------------------------------------------------===//
@@ -22,109 +22,109 @@
 /* ================ Internal C++ API call declaration ================ */
 
 /*----------------------------------------- */
-/* C++ API for internal only RtMemRef calls */
+/* C++ API for internal only OMTensor calls */
 /*----------------------------------------- */
 
 /**
- * RtMemRef creator with data sizes and element type
+ * OMTensor creator with data sizes and element type
  *
  * @param dataSizes, data sizes array
- * @return pointer to RtMemRef created, NULL if creation failed.
+ * @return pointer to OMTensor created, NULL if creation failed.
  *
- * Create a full RtMemRef of data type T and shape dataSizes, with all
+ * Create a full OMTensor of data type T and shape dataSizes, with all
  * data fields initialized to proper values and data pointers malloc'ed.
  */
 template <typename T>
-RtMemRef *rmrCreateWithShape(std::vector<INDEX_TYPE> dataSizes);
+OMTensor *rmrCreateWithShape(std::vector<INDEX_TYPE> dataSizes);
 
 /**
- * RtMemRef creator with data sizes, element type and random data
+ * OMTensor creator with data sizes, element type and random data
  *
  * @param dataSizes, data sizes array
  * @param lbound (optional), lower bound of the random distribution
  * @param ubound (optional), upper bound of the random distribution
- * @return pointer to RtMemRef created, NULL if creation failed.
+ * @return pointer to OMTensor created, NULL if creation failed.
  *
- * Create a full RtMemRef like what rmrCreateWithShape does
- * and also fill the RtMemRef data buffer with randomly generated
+ * Create a full OMTensor like what rmrCreateWithShape does
+ * and also fill the OMTensor data buffer with randomly generated
  * real numbers from a uniform distribution between lbound and ubound.
  */
 template <typename T>
-RtMemRef *rmrCreateWithRandomData(
+OMTensor *rmrCreateWithRandomData(
     std::vector<INDEX_TYPE> dataSizes, T lbound = -1.0, T ubound = 1.0);
 
 /**
- * RtMemRef aligned data getter
+ * OMTensor aligned data getter
  *
- * @param rmr, pointer to the RtMemRef
- * @return pointer to the aligned data buffer of the RtMemRef,
+ * @param rmr, pointer to the OMTensor
+ * @return pointer to the aligned data buffer of the OMTensor,
  *         NULL if the aligned data buffer is not set.
  */
-void *rmrGetAlignedData(RtMemRef *rmr);
+void *rmrGetAlignedData(OMTensor *rmr);
 
 /**
- * RtMemRef aligned data setter
+ * OMTensor aligned data setter
  *
- * @param rmr, pointer to the RtMemRef
- * @param alignedData, aligned data buffer of the RtMemRef to be set
+ * @param rmr, pointer to the OMTensor
+ * @param alignedData, aligned data buffer of the OMTensor to be set
  *
- * Set the aligned data buffer pointer of the RtMemRef.
+ * Set the aligned data buffer pointer of the OMTensor.
  */
-void rmrSetAlignedData(RtMemRef *rmr, void *alignedData);
+void rmrSetAlignedData(OMTensor *rmr, void *alignedData);
 
 /**
- * RtMemRef data element getter by offset
+ * OMTensor data element getter by offset
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @param indexes, multi-dimensional index array of the element
  * @return typed element by reference at the offset computed by the index array.
  */
 template <typename T>
-T &rmrGetElem(RtMemRef *rmr, std::vector<INDEX_TYPE> indexes);
+T &rmrGetElem(OMTensor *rmr, std::vector<INDEX_TYPE> indexes);
 
 /**
- * RtMemRef data element getter by index
+ * OMTensor data element getter by index
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @param index, index of the element
  * @return typed element by reference at the linear offset.
  */
 template <typename T>
-T &rmrGetElemByOffset(RtMemRef *rmr, INDEX_TYPE index);
+T &rmrGetElemByOffset(OMTensor *rmr, INDEX_TYPE index);
 
 /**
- * RtMemRef strides computation
+ * OMTensor strides computation
  *
- * @param rmr, pointer to the RtMemRef
- * @return data strides of the RtMemRef computed from the data sizes.
+ * @param rmr, pointer to the OMTensor
+ * @return data strides of the OMTensor computed from the data sizes.
  */
-std::vector<int64_t> rmrComputeStridesFromShape(RtMemRef *rmr);
+std::vector<int64_t> rmrComputeStridesFromShape(OMTensor *rmr);
 
 /**
- * RtMemRef linear offset computation
+ * OMTensor linear offset computation
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @param indexes, multi-dimensional index array
  * @return linear offset.
  */
 INDEX_TYPE rmrComputeElemOffset(
-    RtMemRef *rmr, std::vector<INDEX_TYPE> &indexes);
+    OMTensor *rmr, std::vector<INDEX_TYPE> &indexes);
 
 /**
- * RtMemRef index set computation
+ * OMTensor index set computation
  *
- * @param rmr, pointer to the RtMemRef
+ * @param rmr, pointer to the OMTensor
  * @return index set (i.e., all valid multi-dimensional array indexes
- *         that can be used to access this RtMemRef's constituent elements)
- *         for the whole RtMemRef.
+ *         that can be used to access this OMTensor's constituent elements)
+ *         for the whole OMTensor.
  */
-std::vector<std::vector<INDEX_TYPE>> rmrComputeIndexSet(RtMemRef *rmr);
+std::vector<std::vector<INDEX_TYPE>> rmrComputeIndexSet(OMTensor *rmr);
 
 /**
- * RtMemRef "distance" computation
+ * OMTensor "distance" computation
  *
- * @param a, 1st RtMemRef
- * @param b, 2nd RtMemRef
+ * @param a, 1st OMTensor
+ * @param b, 2nd OMTensor
  * @param rtol (optional), relative difference tolerance
  * @param atol (optional), absolute difference tolerance
  * @return true if both relative and absolute difference are within the
@@ -132,27 +132,27 @@ std::vector<std::vector<INDEX_TYPE>> rmrComputeIndexSet(RtMemRef *rmr);
  */
 template <typename T>
 bool rmrAreTwoRmrsClose(
-    RtMemRef *a, RtMemRef *b, float rtol = 1e-5, float atol = 1e-5);
+    OMTensor *a, OMTensor *b, float rtol = 1e-5, float atol = 1e-5);
 
 /*---------------------------------------------------- */
-/* C++ API for internal only RtMemRefList calls */
+/* C++ API for internal only OMTensorList calls */
 /*---------------------------------------------------- */
 
 /**
- * RtMemRefList creator
+ * OMTensorList creator
  *
- * @return pointer to an empty RtMemRefList, NULL if creation failed.
+ * @return pointer to an empty OMTensorList, NULL if creation failed.
  */
-RtMemRefList *rmrListCreate(void);
+OMTensorList *rmrListCreate(void);
 
 /**
- * RtMemRefList RtMemRef getter by name
+ * OMTensorList OMTensor getter by name
  *
- * @param ormrd, pointer to the RtMemRefList
- * @param name, name of the RtMemRef
- * @return pointer to the RtMemRef, NULL if not found.
+ * @param ormrd, pointer to the OMTensorList
+ * @param name, name of the OMTensor
+ * @return pointer to the OMTensor, NULL if not found.
  */
-RtMemRef *rmrListGetRmrByName(RtMemRefList *ormrd, std::string name);
+OMTensor *rmrListGetRmrByName(OMTensorList *ormrd, std::string name);
 
 #endif
 #endif

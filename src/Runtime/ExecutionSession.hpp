@@ -19,15 +19,15 @@
 
 namespace onnx_mlir {
 
-typedef RtMemRefList *(*entryPointFuncType)(RtMemRefList *);
+typedef OMTensorList *(*entryPointFuncType)(OMTensorList *);
 
 class ExecutionSession {
 public:
   ExecutionSession(std::string sharedLibPath, std::string entryPointName);
 
-  // Use custom deleter since forward declared RtMemRef hides destructor
-  std::vector<std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>> run(
-      std::vector<std::unique_ptr<RtMemRef, decltype(&rmrDestroy)>>);
+  // Use custom deleter since forward declared OMTensor hides destructor
+  std::vector<std::unique_ptr<OMTensor, decltype(&rmrDestroy)>> run(
+      std::vector<std::unique_ptr<OMTensor, decltype(&rmrDestroy)>>);
 
   ~ExecutionSession();
 

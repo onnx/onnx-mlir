@@ -11,7 +11,7 @@ extern "C" {
  * Class:     com_ibm_onnxmlir_DynEntryPoint
  * Method:    main_graph_jni
  * Signature:
- * (Lcom/ibm/onnxmlir/RtMemRefList;)Lcom/ibm/onnxmlir/RtMemRefList;
+ * (Lcom/ibm/onnxmlir/OMTensorList;)Lcom/ibm/onnxmlir/OMTensorList;
  */
 JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_DynEntryPoint_main_1graph_1jni(
     JNIEnv *, jclass, jobject);

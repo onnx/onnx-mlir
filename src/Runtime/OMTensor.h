@@ -1,10 +1,10 @@
-//===-------- RtMemRef.hpp - RtMemRef Implementation header --------===//
+//===-------- OMTensor.hpp - OMTensor Implementation header --------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains declaration of RtMemRef and data structures and
+// This file contains declaration of OMTensor and data structures and
 // helper functions.
 //
 //===----------------------------------------------------------------------===//
@@ -39,17 +39,17 @@
  * We will refer to it as a RMF (Runtime MemRef).
  */
 
-struct RtMemRef {
+struct OMTensor {
 #ifdef __cplusplus
   /**
    * Constructor
    *
    * @param rank, rank of data sizes and strides
    *
-   * Create a RtMemRef with specified rank. Memory for data sizes and strides
+   * Create a OMTensor with specified rank. Memory for data sizes and strides
    * are allocated.
    */
-  RtMemRef(int rank) {
+  OMTensor(int rank) {
     if ((_dataSizes = (INDEX_TYPE *)malloc(rank * sizeof(INDEX_TYPE))) &&
         (_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
       _data = NULL;
@@ -60,18 +60,18 @@ struct RtMemRef {
       _owningData = false;
     } else {
       throw std::runtime_error(
-          "RtMemRef(" + std::to_string(rank) + ") malloc error");
+          "OMTensor(" + std::to_string(rank) + ") malloc error");
     }
   };
 
-  RtMemRef() = default;
+  OMTensor() = default;
 
   /**
    * Destructor
    *
-   * Destroy the RtMemRef struct.
+   * Destroy the OMTensor struct.
    */
-  ~RtMemRef() {
+  ~OMTensor() {
     if (_owningData)
       free(_data);
     free(_dataSizes);
@@ -93,41 +93,41 @@ struct RtMemRef {
                     // if it owns it.
 };
 
-struct RtMemRefList {
+struct OMTensorList {
 #ifdef __cplusplus
   /**
    * Constructor
    *
-   * Create an RtMemRefList with specified RtMemRef pointer array
+   * Create an OMTensorList with specified OMTensor pointer array
    * and the size of the array
    */
-  RtMemRefList(RtMemRef *rmrs[], int n) : _rmrs(rmrs), _n(n){};
+  OMTensorList(OMTensor *rmrs[], int n) : _rmrs(rmrs), _n(n){};
 
   /**
    * Constructor
    *
-   * Create an empty RtMemRefList for internal API calls.
+   * Create an empty OMTensorList for internal API calls.
    */
-  RtMemRefList() = default;
+  OMTensorList() = default;
 
   /**
    * Destructor
    *
-   * Destroy the RtMemRefList struct.
+   * Destroy the OMTensorList struct.
    */
-  ~RtMemRefList() {
-    /* Destroy all the RtMemRefs */
+  ~OMTensorList() {
+    /* Destroy all the OMTensors */
     for (int i = 0; i < _n; i++)
       if (_rmrs[i])
         rmrDestroy(_rmrs[i]);
   };
 #endif
 
-  /* To facilitate user facing API getRmrs, RtMemRefs are kept in a vector
+  /* To facilitate user facing API getRmrs, OMTensors are kept in a vector
    * that can be quickly returned as an array. A name to index map is used
    * to address ReMemRefs by name.
    */
-  RtMemRef **_rmrs; // RtMemRef array
+  OMTensor **_rmrs; // OMTensor array
 
   size_t _n; // Number of elements in _rmrs.
 };
@@ -141,7 +141,7 @@ static inline INDEX_TYPE getNumOfElems(INDEX_TYPE *dataSizes, int rank) {
 }
 
 /*------------------------------------------------------- */
-/* Internal function used by RtMemRef itself, not exposed */
+/* Internal function used by OMTensor itself, not exposed */
 /*------------------------------------------------------- */
 
 #ifdef __cplusplus

@@ -7,7 +7,7 @@ add_subdirectory(jni)
 add_library(cruntime STATIC
         include/OnnxMlirRuntime.h
         include/OnnxMlirRuntime/OnnxDataType.h
-        RtMemRef.c)
+        OMTensor.c)
 set_target_properties(cruntime PROPERTIES
         LANGUAGE C)
 set_target_properties(cruntime PROPERTIES
@@ -16,14 +16,14 @@ target_include_directories(cruntime PRIVATE
         ${ONNX_MLIR_SRC_ROOT}/src/Runtime
         ${ONNX_MLIR_SRC_ROOT}/src/Runtime/include)
 
-add_library(RtMemRefUtils
-        RtMemRef.cpp
+add_library(OMTensorUtils
+        OMTensor.cpp
         include/OnnxMlirInternal.h
         include/OnnxMlirRuntime/OnnxDataType.h)
-set_target_properties(RtMemRefUtils PROPERTIES
+set_target_properties(OMTensorUtils PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
-target_compile_definitions(RtMemRefUtils PRIVATE RTMEMREF_INTERNAL_API)
-target_include_directories(RtMemRefUtils PRIVATE
+target_compile_definitions(OMTensorUtils PRIVATE RTMEMREF_INTERNAL_API)
+target_include_directories(OMTensorUtils PRIVATE
         ${ONNX_MLIR_SRC_ROOT}/src/Runtime
         ${ONNX_MLIR_SRC_ROOT}/src/Runtime/include)
 
@@ -48,7 +48,7 @@ target_include_directories(PyRuntime PRIVATE
 target_link_libraries(PyRuntime PRIVATE
         ${CMAKE_DL_LIBS}
         ExecutionSession
-        RtMemRefUtils
+        OMTensorUtils
         onnx)
 
 # See comments above about libcruntime.a

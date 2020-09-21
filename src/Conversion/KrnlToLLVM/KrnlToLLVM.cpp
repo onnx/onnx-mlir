@@ -531,7 +531,7 @@ public:
 
       // Fill in the memref underlying ptrToMemRef with information extracted
       // from rmrPtr.
-      fillPtrToMemRefWithRtMemRef(
+      fillPtrToMemRefWithOMTensor(
           rmrPtr, ptrToMemRef, rewriter, loc, apiRegistry, module);
 
       // ptrToMemRef will be an input to main computation graph function.
@@ -598,10 +598,10 @@ public:
       auto outMemRefRank = getRankFromMemRefType(outMemRefTy);
       auto outMemRefRankVal = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(outMemRefRank));
-      auto outRtMemRef = callApi(
+      auto outOMTensor = callApi(
           rewriter, loc, apiRegistry, API::CREATE_RTMEMREF, {outMemRefRankVal});
-      fillRtMemRefWithMemRef(
-          memRef, outRtMemRef, rewriter, loc, apiRegistry, module);
+      fillOMTensorWithMemRef(
+          memRef, outOMTensor, rewriter, loc, apiRegistry, module);
 
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(i));
@@ -612,7 +612,7 @@ public:
                                 outRmrPtrsArr, ArrayRef<Value>({idxVal}))
                             .getResult();
 
-      rewriter.create<LLVM::StoreOp>(loc, outRtMemRef, rmrPtrAddr);
+      rewriter.create<LLVM::StoreOp>(loc, outOMTensor, rmrPtrAddr);
     }
 
     // Create wrapped output.
@@ -704,7 +704,7 @@ private:
     return *entryPointEntryBlock;
   }
 
-  void fillPtrToMemRefWithRtMemRef(Value &rtMemRef, Value &ptrToMemRef,
+  void fillPtrToMemRefWithOMTensor(Value &rtMemRef, Value &ptrToMemRef,
       PatternRewriter &rewriter, const Location &loc,
       const std::map<API, ApiSpec> &apiRegistry, ModuleOp &module) const {
     auto *context = module.getContext();
@@ -765,7 +765,7 @@ private:
     rewriter.create<LLVM::StoreOp>(loc, memRef, ptrToMemRef);
   }
 
-  void fillRtMemRefWithMemRef(Value &outMemRef, Value &outRtMemRef,
+  void fillOMTensorWithMemRef(Value &outMemRef, Value &outOMTensor,
       PatternRewriter &rewriter, const Location &loc,
       const std::map<API, ApiSpec> &apiRegistry, ModuleOp &module) const {
     auto *context = module.getContext();
@@ -780,19 +780,19 @@ private:
     outMemRefDataPtr = rewriter.create<LLVM::BitcastOp>(
         loc, LLVM::LLVMType::getInt8PtrTy(context), outMemRefDataPtr);
     callApi(rewriter, loc, apiRegistry, API::SET_DATA,
-        {outRtMemRef, outMemRefDataPtr});
+        {outOMTensor, outMemRefDataPtr});
     auto elemTy = outMemRefTy.getStructElementType(0).getPointerElementTy();
     auto onnxTy = llvmTypeToOnnxType(elemTy);
     auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
         loc, int32Ty, rewriter.getI32IntegerAttr(onnxTy));
     callApi(rewriter, loc, apiRegistry, API::SET_DATA_TYPE,
-        {outRtMemRef, onnxTyVal});
+        {outOMTensor, onnxTyVal});
 
     auto rank = getRankFromMemRefType(outMemRefTy);
     auto sizesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_DATA_SIZES, {outRtMemRef});
+        callApi(rewriter, loc, apiRegistry, API::GET_DATA_SIZES, {outOMTensor});
     auto stridesArrayPtr = callApi(
-        rewriter, loc, apiRegistry, API::GET_DATA_STRIDES, {outRtMemRef});
+        rewriter, loc, apiRegistry, API::GET_DATA_STRIDES, {outOMTensor});
 
     for (decltype(rank) i = 0; i < rank; i++) {
       auto dimIdx = rewriter.create<LLVM::ConstantOp>(

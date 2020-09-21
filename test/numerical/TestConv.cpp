@@ -92,11 +92,11 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
   onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
 
-  std::vector<unique_ptr<RtMemRef, decltype(&rmrDestroy)>> inputs;
-  auto xRmr = unique_ptr<RtMemRef, decltype(&rmrDestroy)>(
+  std::vector<unique_ptr<OMTensor, decltype(&rmrDestroy)>> inputs;
+  auto xRmr = unique_ptr<OMTensor, decltype(&rmrDestroy)>(
       rmrCreateWithRandomData<float>({N, C, H, W}), rmrDestroy);
   inputs.emplace_back(move(xRmr));
-  auto wRmr = unique_ptr<RtMemRef, decltype(&rmrDestroy)>(
+  auto wRmr = unique_ptr<OMTensor, decltype(&rmrDestroy)>(
       rmrCreateWithRandomData<float>({C, C, kH, kW}), rmrDestroy);
   inputs.emplace_back(move(wRmr));
 
