@@ -109,8 +109,8 @@ struct ONNXTileOpLowering : public ConversionPattern {
       if (inputShape[i] == -1)
         inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
       else
-        inputDimSizeVal =
-            emitConstantOp(rewriter, loc, rewriter.getIndexType(), inputShape[i]);
+        inputDimSizeVal = emitConstantOp(
+            rewriter, loc, rewriter.getIndexType(), inputShape[i]);
       auto loopVarVal = iterationBlock.getArguments()[i];
       auto exprVal =
           rewriter.create<UnsignedRemIOp>(loc, loopVarVal, inputDimSizeVal);
@@ -120,7 +120,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // Load the value from input
     // Tried to use affine load when the input has constant shape
     // But got runtime complaint, perhaps due ot RemIOp
-    auto  inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
+    auto inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
     SmallVector<Value, 4> outputMemRefVal(iterationBlock.getArguments().begin(),
         iterationBlock.getArguments().end());
 
@@ -218,12 +218,12 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       if (inputShape[i] == -1)
         inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
       else
-        inputDimSizeVal =
-            emitConstantOp(rewriter, loc, rewriter.getIndexType(), inputShape[i]);
-      auto offsetVal = rewriter.create<MulIOp>(loc, inputDimSizeVal, iterationBlock.getArguments()[i * 2 + 1]);  
-      auto dimExprVal =
-          rewriter.create<AddIOp>(loc, iterationBlock.getArguments()[i * 2],
-              offsetVal);
+        inputDimSizeVal = emitConstantOp(
+            rewriter, loc, rewriter.getIndexType(), inputShape[i]);
+      auto offsetVal = rewriter.create<MulIOp>(
+          loc, inputDimSizeVal, iterationBlock.getArguments()[i * 2 + 1]);
+      auto dimExprVal = rewriter.create<AddIOp>(
+          loc, iterationBlock.getArguments()[i * 2], offsetVal);
       outputMemRefVal.emplace_back(dimExprVal);
     }
 
