@@ -1,8 +1,15 @@
+find_package(PythonInterp 3 REQUIRED)
+
+add_custom_target(OMInstallOnnx
+        COMMAND ${PYTHON_EXECUTABLE} setup.py install --user
+        WORKING_DIRECTORY ${ONNX_MLIR_SRC_ROOT}/third_party/onnx)
+
 add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/add.onnx
-        COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/gen_add_onnx.py
+        COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gen_add_onnx.py
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 add_custom_target(OMGenerateAddModel
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/add.onnx)
+add_dependencies(OMGenerateAddModel OMInstallOnnx)
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/add.so
         COMMAND onnx-mlir ${CMAKE_CURRENT_SOURCE_DIR}/add.onnx
