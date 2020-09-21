@@ -71,16 +71,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
 
-    // Infer value of repeats() from shape of input and output.
-    SmallVector<int64_t, 4> repeatsConst(inputRank, 0);
-    bool repeatsIsConstant = true;
-    for (auto i = 0; i < inputRank; i++) {
-      if (inputShape[i] != -1 && outputMemRefShape[i] != -1)
-        repeatsConst[i] = outputMemRefShape[i] / inputShape[i];
-      else
-        repeatsIsConstant = false;
-    }
-
     bool insertDealloc = checkInsertDealloc(op);
     Value alloc;
     if (hasAllConstantDimensions(outputMemRefType))
@@ -114,29 +104,22 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // But the subscript of store is not contigous, or even not affine.
     // Alternative implementation can be found at the end of this file.
     SmallVector<Value, 4> inputMemRefVal;
-    for (int j = 0; j < outputRank; ++j) {
-      Value repeatsElementVal;
-      if (repeatsConst[j] != 0) {
-        repeatsElementVal = emitConstantOp(
-            rewriter, loc, rewriter.getIndexType(), repeatsConst[j]);
-      } else {
-        auto indexVal =
-            emitConstantOp(rewriter, loc, rewriter.getIndexType(), j);
-        SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
-        auto repeatsLoadVal =
-            rewriter.create<AffineLoadOp>(loc, repeats, repeatsMemRefVal);
-        repeatsElementVal = rewriter.create<IndexCastOp>(
-            loc, repeatsLoadVal, rewriter.getIndexType());
-      }
-      auto loopVarVal = iterationBlock.getArguments()[j];
+    for (int i = 0; i < outputRank; ++i) {
+      Value dimVal;
+      if (inputShape[i] == -1)
+        dimVal = rewriter.create<DimOp>(loc, input, i);
+      else
+        dimVal =
+            emitConstantOp(rewriter, loc, rewriter.getIndexType(), inputShape[i]);
+      auto loopVarVal = iterationBlock.getArguments()[i];
       auto exprVal =
-          rewriter.create<UnsignedRemIOp>(loc, loopVarVal, repeatsElementVal);
+          rewriter.create<UnsignedRemIOp>(loc, loopVarVal, dimVal);
       inputMemRefVal.emplace_back(exprVal);
     }
 
     // Load the value from input
     Value inputVal;
-    if (repeatsIsConstant)
+    if (hasAllConstantDimensions(input.getType().cast<MemRefType>()))
       inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
     else
       inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
@@ -151,11 +134,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
     return success();
   }
 };
-
-void populateLoweringONNXTileOpPattern(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXTileOpLowering>(ctx);
-}
 
 // This is the alternative way of lowering.
 // It is kept here for record in case this implementation is needed
@@ -237,10 +215,17 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     }
 
     SmallVector<Value, 4> outputMemRefVal;
-    for (int j = 0; j < inputRank; ++j) {
+    for (int i = 0; i < inputRank; ++i) {
+      Value dimVal;
+      if (inputShape[i] == -1)
+        dimVal = rewriter.create<DimOp>(loc, input, i);
+      else
+        dimVal =
+            emitConstantOp(rewriter, loc, rewriter.getIndexType(), inputShape[i]);
+      auto offsetVal = rewriter.create<MulIOp>(loc, dimVal, iterationBlock.getArguments()[i * 2 + 1]);  
       auto dimExprVal =
-          rewriter.create<MulIOp>(loc, iterationBlock.getArguments()[j * 2],
-              iterationBlock.getArguments()[j * 2 + 1]);
+          rewriter.create<AddIOp>(loc, iterationBlock.getArguments()[i * 2],
+              offsetVal);
       outputMemRefVal.emplace_back(dimExprVal);
     }
 
@@ -255,3 +240,8 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     return success();
   }
 };
+
+void populateLoweringONNXTileOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx) {
+  patterns.insert<ONNXTileOpLowering>(ctx);
+}
