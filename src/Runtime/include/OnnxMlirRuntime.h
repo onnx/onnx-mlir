@@ -196,7 +196,8 @@ OMTensor *omTensorCreate(int rank);
  * Create a OMTensor with specified rank, name and data ownership. Memory for
  * data sizes and strides are allocated.
  */
-OMTensor *omTensorCreateWithNameAndOwnership(int rank, char *name, bool owningData);
+OMTensor *omTensorCreateWithNameAndOwnership(
+    int rank, char *name, bool owningData);
 
 /**
  * OMTensor destroyer

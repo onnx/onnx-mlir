@@ -1,4 +1,4 @@
-//===------ OnnxMlirInternal.h - Internal OnnxMlir Runtime API Decl -------===//
+//===------ OnnxMlirRuntime.hpp - Internal OnnxMlir Runtime API Decl -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //

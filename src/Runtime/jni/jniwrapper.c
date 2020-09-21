@@ -293,12 +293,13 @@ jobject omt_list_native_to_java(
 
     LIB_TYPE_VAR_CALL(void *, jni_data, omTensorGetData(jni_omts[i]), NULL, env,
         japi->ecpt_cls, "omt[%d]:data=null", i);
-    LIB_TYPE_VAR_CALL(long *, jni_dataSizes, omTensorGetDataSizes(jni_omts[i]), NULL,
-        env, japi->ecpt_cls, "omt[%d]:dataSizes=null", i);
-    LIB_TYPE_VAR_CALL(long *, jni_dataStrides, omTensorGetDataStrides(jni_omts[i]),
-        NULL, env, japi->ecpt_cls, "omt[%d]:dataStrides=null", i);
-    LIB_TYPE_VAR_CALL(int, jni_dataType, omTensorGetDataType(jni_omts[i]), 0, env,
-        japi->ecpt_cls, "omt[%d]:dataType=0", i);
+    LIB_TYPE_VAR_CALL(long *, jni_dataSizes, omTensorGetDataSizes(jni_omts[i]),
+        NULL, env, japi->ecpt_cls, "omt[%d]:dataSizes=null", i);
+    LIB_TYPE_VAR_CALL(long *, jni_dataStrides,
+        omTensorGetDataStrides(jni_omts[i]), NULL, env, japi->ecpt_cls,
+        "omt[%d]:dataStrides=null", i);
+    LIB_TYPE_VAR_CALL(int, jni_dataType, omTensorGetDataType(jni_omts[i]), 0,
+        env, japi->ecpt_cls, "omt[%d]:dataType=0", i);
     LIB_TYPE_VAR_CALL(long, jni_dataBufferSize,
         omt_getDataBufferSize(jni_omts[i]), 0, env, japi->ecpt_cls,
         "omt[%ld]:dataBufferSize=0", i);
@@ -306,8 +307,8 @@ jobject omt_list_native_to_java(
         japi->ecpt_cls, "omt[%d]:rank=0", i);
     LIB_TYPE_VAR_CALL(char *, jni_name, omTensorGetName(jni_omts[i]), NULL, env,
         japi->ecpt_cls, "omt[%d]:name=null", i);
-    LIB_TYPE_VAR_CALL(long, jni_numOfElems, omTensorGetNumOfElems(jni_omts[i]), 0,
-        env, japi->ecpt_cls, "omt[%d]:numOfElems=0", i);
+    LIB_TYPE_VAR_CALL(long, jni_numOfElems, omTensorGetNumOfElems(jni_omts[i]),
+        0, env, japi->ecpt_cls, "omt[%d]:numOfElems=0", i);
 
     /* Print debug info on what we got from the native side */
     OMT_DEBUG(i, jni_numOfElems, jni_data, jni_dataSizes, jni_dataStrides,

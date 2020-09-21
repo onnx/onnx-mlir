@@ -31,7 +31,7 @@
 #include <string.h>
 
 // clang-format off
-#include "OnnxMlirInternal.h"
+#include "OnnxMlirRuntime.hpp"
 #include "OMTensor.h"
 // clang-format on
 

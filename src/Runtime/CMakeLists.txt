@@ -18,7 +18,7 @@ target_include_directories(cruntime PRIVATE
 
 add_library(OMTensorUtils
         OMTensor.cpp
-        include/OnnxMlirInternal.h
+        include/OnnxMlirRuntime.hpp
         include/OnnxMlirRuntime/OnnxDataType.h)
 set_target_properties(OMTensorUtils PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
