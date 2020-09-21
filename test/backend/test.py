@@ -422,6 +422,11 @@ test_to_enable = [
 
     # ConstantOfShape
     "test_constantofshape_float_ones_cpu",
+    
+    # Size
+    "test_size_cpu",
+    "test_size_example_cpu",
+    
     # Error:
     #    Items are not equal:
     #     ACTUAL: dtype('int32')
