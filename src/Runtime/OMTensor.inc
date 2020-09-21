@@ -46,100 +46,100 @@ using namespace std;
 /*----------------------------- */
 
 /* OMTensor creator */
-OMTensor *rmrCreate(int rank) {
-  OMTensor *rmr = (OMTensor *)malloc(sizeof(struct OMTensor));
-  if ((rmr->_dataSizes = (INDEX_TYPE *)malloc(rank * sizeof(INDEX_TYPE))) &&
-      (rmr->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    rmr->_data = NULL;
-    rmr->_alignedData = NULL;
-    rmr->_offset = 0;
-    rmr->_dataType = ONNX_TYPE_UNDEFINED;
-    rmr->_rank = rank;
-    rmr->_name = NULL;
-    rmr->_owningData = false;
+OMTensor *omtCreate(int rank) {
+  OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
+  if ((omt->_dataSizes = (INDEX_TYPE *)malloc(rank * sizeof(INDEX_TYPE))) &&
+      (omt->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+    omt->_data = NULL;
+    omt->_alignedData = NULL;
+    omt->_offset = 0;
+    omt->_dataType = ONNX_TYPE_UNDEFINED;
+    omt->_rank = rank;
+    omt->_name = NULL;
+    omt->_owningData = false;
   }
-  return rmr;
+  return omt;
 }
 
 /* More detailed OMTensor creator */
-OMTensor *rmrCreateWithNameAndOwnership(int rank, char *name, bool ownership) {
-  OMTensor *rmr = (OMTensor *)malloc(sizeof(struct OMTensor));
+OMTensor *omtCreateWithNameAndOwnership(int rank, char *name, bool ownership) {
+  OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
   ;
-  if ((rmr->_dataSizes = (INDEX_TYPE *)malloc(rank * sizeof(INDEX_TYPE))) &&
-      (rmr->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    rmr->_data = NULL;
-    rmr->_alignedData = NULL;
-    rmr->_offset = 0;
-    rmr->_dataType = ONNX_TYPE_UNDEFINED;
-    rmr->_rank = rank;
-    rmr->_name = name;
-    rmr->_owningData = ownership;
+  if ((omt->_dataSizes = (INDEX_TYPE *)malloc(rank * sizeof(INDEX_TYPE))) &&
+      (omt->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+    omt->_data = NULL;
+    omt->_alignedData = NULL;
+    omt->_offset = 0;
+    omt->_dataType = ONNX_TYPE_UNDEFINED;
+    omt->_rank = rank;
+    omt->_name = name;
+    omt->_owningData = ownership;
   }
 }
 
 /* OMTensor destroyer */
 // TODO(tjingrant): properly clean up with respect to ownership.
-void rmrDestroy(OMTensor *rmr) { free(rmr); }
+void omtDestroy(OMTensor *omt) { free(omt); }
 
 /* OMTensor data getter */
-void *rmrGetData(OMTensor *rmr) { return rmr->_data; }
+void *omtGetData(OMTensor *omt) { return omt->_data; }
 
 /* OMTensor data setter */
-void rmrSetData(OMTensor *rmr, void *data) {
+void omtSetData(OMTensor *omt, void *data) {
   /* If we own the data buffer, free it first. */
-  if (rmr->_owningData) {
-    free(rmr->_data);
+  if (omt->_owningData) {
+    free(omt->_data);
   }
-  rmr->_data = data;
+  omt->_data = data;
 }
 
 /* OMTensor data sizes getter */
-INDEX_TYPE *rmrGetDataShape(OMTensor *rmr) { return rmr->_dataSizes; }
+INDEX_TYPE *omtGetDataShape(OMTensor *omt) { return omt->_dataSizes; }
 
 /* OMTensor data sizes setter */
-void rmrSetDataShape(OMTensor *rmr, INDEX_TYPE *dataSizes) {
-  for (int i = 0; i < rmr->_rank; i++)
-    rmr->_dataSizes[i] = dataSizes[i];
+void omtSetDataShape(OMTensor *omt, INDEX_TYPE *dataSizes) {
+  for (int i = 0; i < omt->_rank; i++)
+    omt->_dataSizes[i] = dataSizes[i];
 }
 
 /* OMTensor data strides getter */
-int64_t *rmrGetDataStrides(OMTensor *rmr) { return rmr->_dataStrides; }
+int64_t *omtGetDataStrides(OMTensor *omt) { return omt->_dataStrides; }
 
 /* OMTensor data strides setter */
-void rmrSetDataStrides(OMTensor *rmr, int64_t *dataStrides) {
-  for (int i = 0; i < rmr->_rank; i++)
-    rmr->_dataStrides[i] = dataStrides[i];
+void omtSetDataStrides(OMTensor *omt, int64_t *dataStrides) {
+  for (int i = 0; i < omt->_rank; i++)
+    omt->_dataStrides[i] = dataStrides[i];
 }
 
 /* OMTensor data type getter */
-int rmrGetDataType(OMTensor *rmr) { return rmr->_dataType; }
+int omtGetDataType(OMTensor *omt) { return omt->_dataType; }
 
 /* OMTensor data type setter */
-void rmrSetDataType(OMTensor *rmr, int dataType) {
-  rmr->_dataType =
+void omtSetDataType(OMTensor *omt, int dataType) {
+  omt->_dataType =
       dataType < 0 || dataType >= sizeof(RTMEMREF_DATA_TYPE_SIZE) / sizeof(int)
           ? ONNX_TYPE_UNDEFINED
           : dataType;
 }
 
 /* OMTensor data buffer size getter */
-int64_t rmrGetDataBufferSize(OMTensor *rmr) {
-  return getNumOfElems(rmr->_dataSizes, rmr->_rank) *
-         getDataTypeSize(rmr->_dataType);
+int64_t omtGetDataBufferSize(OMTensor *omt) {
+  return getNumOfElems(omt->_dataSizes, omt->_rank) *
+         getDataTypeSize(omt->_dataType);
 }
 
 /* OMTensor rank getter */
-int rmrGetRank(OMTensor *rmr) { return rmr->_rank; }
+int omtGetRank(OMTensor *omt) { return omt->_rank; }
 
 /* OMTensor name getter */
-char *rmrGetName(OMTensor *rmr) { return rmr->_name; }
+char *omtGetName(OMTensor *omt) { return omt->_name; }
 
 /* OMTensor name setter */
-void rmrSetName(OMTensor *rmr, char *name) { rmr->_name = name; }
+void omtSetName(OMTensor *omt, char *name) { omt->_name = name; }
 
 /* OMTensor number of elements getter */
-INDEX_TYPE rmrGetNumElems(OMTensor *rmr) {
-  return getNumOfElems(rmr->_dataSizes, rmr->_rank);
+INDEX_TYPE omtGetNumElems(OMTensor *omt) {
+  return getNumOfElems(omt->_dataSizes, omt->_rank);
 }
 
 /*---------------------------------------- */
@@ -147,36 +147,36 @@ INDEX_TYPE rmrGetNumElems(OMTensor *rmr) {
 /*---------------------------------------- */
 
 /* OMTensorList creator */
-OMTensorList *rmrListCreate(OMTensor **rmrs, int n) {
-  OMTensorList *rmrList = (OMTensorList *)malloc(sizeof(struct OMTensorList));
-  rmrList->_rmrs = rmrs;
-  rmrList->_n = n;
-  return rmrList;
+OMTensorList *omtListCreate(OMTensor **omts, int n) {
+  OMTensorList *omtList = (OMTensorList *)malloc(sizeof(struct OMTensorList));
+  omtList->_omts = omts;
+  omtList->_n = n;
+  return omtList;
   //  try {
-  //    return new OMTensorList(rmrs, n);
+  //    return new OMTensorList(omts, n);
   //  } catch (const invalid_argument &e) {
   //    return NULL;
   //  }
 }
 
 /* OMTensorList destroyer */
-void rmrListDestroy(OMTensorList *rmrList) {
-  for (int i = 0; i < rmrList->_n; i++)
-    free(rmrList->_rmrs[i]);
-  free(rmrList);
+void omtListDestroy(OMTensorList *omtList) {
+  for (int i = 0; i < omtList->_n; i++)
+    free(omtList->_omts[i]);
+  free(omtList);
 }
 
 /* OMTensorList OMTensor array getter */
-OMTensor **rmrListGetPtrToRmrs(OMTensorList *ormrd) { return ormrd->_rmrs; }
+OMTensor **omtListGetPtrToOmts(OMTensorList *list) { return list->_omts; }
 
 /* OMTensorList number of OMTensor getter */
-int rmrListGetNumRmrs(OMTensorList *ormrd) { return ormrd->_n; }
+int omtListGetNumOmts(OMTensorList *list) { return list->_n; }
 
 /* Return OMTensor at specified index in the OMTensorList */
-OMTensor *rmrListGetRmrByIndex(OMTensorList *rlist, int index) {
+OMTensor *omtListGetOmtByIndex(OMTensorList *rlist, int index) {
   assert(index >= 0);
   assert(index < rlist->_n);
-  return rlist->_rmrs[index];
+  return rlist->_omts[index];
 }
 
 /* ================ C++ API call implementation ================ */
@@ -184,48 +184,48 @@ OMTensor *rmrListGetRmrByIndex(OMTensorList *rlist, int index) {
 
 /* OMTensor creator with data sizes and element type  */
 template <typename T>
-OMTensor *rmrCreateWithShape(vector<INDEX_TYPE> dataSizes) {
+OMTensor *omtCreateWithShape(vector<INDEX_TYPE> dataSizes) {
   /* Create a OMTensor with data sizes and strides allocated */
-  auto rmr = rmrCreate(dataSizes.size());
-  if (rmr == NULL)
+  auto omt = omtCreate(dataSizes.size());
+  if (omt == NULL)
     return NULL;
 
   /* Allocate data buffer */
-  rmr->_rank = dataSizes.size();
-  if ((rmr->_data = malloc(
-           getNumOfElems(dataSizes.data(), rmr->_rank) * sizeof(T))) == NULL) {
-    rmrDestroy(rmr);
+  omt->_rank = dataSizes.size();
+  if ((omt->_data = malloc(
+           getNumOfElems(dataSizes.data(), omt->_rank) * sizeof(T))) == NULL) {
+    omtDestroy(omt);
     return NULL;
   }
 
-  rmr->_alignedData = rmr->_data;
-  rmr->_offset = 0;
+  omt->_alignedData = omt->_data;
+  omt->_offset = 0;
 
-  /* Copy dataSizes, _dataSizes already allocated by rmrCreate */
-  copy(dataSizes.begin(), dataSizes.end(), rmr->_dataSizes);
+  /* Copy dataSizes, _dataSizes already allocated by omtCreate */
+  copy(dataSizes.begin(), dataSizes.end(), omt->_dataSizes);
 
-  /* Compute and copy dataStrides, _dataStrides already allocated by rmrCreate
+  /* Compute and copy dataStrides, _dataStrides already allocated by omtCreate
    */
-  auto computedStrides = computeStridesFromSizes(rmr->_dataSizes, rmr->_rank);
-  copy(computedStrides.begin(), computedStrides.end(), rmr->_dataStrides);
+  auto computedStrides = computeStridesFromSizes(omt->_dataSizes, omt->_rank);
+  copy(computedStrides.begin(), computedStrides.end(), omt->_dataStrides);
 
   /* Convert CPP type to ONNX type */
   try {
-    rmr->_dataType =
+    omt->_dataType =
         RTMEMREF_DATA_TYPE_CPP_TO_ONNX.at(string(typeid(T).name()));
   } catch (const out_of_range &e) {
-    rmr->_dataType = ONNX_TYPE_UNDEFINED;
+    omt->_dataType = ONNX_TYPE_UNDEFINED;
   }
 
   /* Set flag for destructor */
-  rmr->_owningData = true;
+  omt->_owningData = true;
 
-  return rmr;
+  return omt;
 }
 
 /* OMTensor creator with data sizes, element type and random data */
 template <typename T>
-OMTensor *rmrCreateWithRandomData(
+OMTensor *omtCreateWithRandomData(
     vector<INDEX_TYPE> dataSizes, T lbound, T ubound) {
   // Will be used to obtain a seed for the random number engine
   random_device rd;
@@ -233,67 +233,67 @@ OMTensor *rmrCreateWithRandomData(
   mt19937 gen(rd());
   uniform_real_distribution<> dis(lbound, ubound);
 
-  auto rmr = rmrCreateWithShape<T>(dataSizes);
-  if (rmr == NULL)
+  auto omt = omtCreateWithShape<T>(dataSizes);
+  if (omt == NULL)
     return NULL;
 
-  generate((T *)rmr->_data,
-      (T *)rmr->_data + getNumOfElems(rmr->_dataSizes, rmr->_rank),
+  generate((T *)omt->_data,
+      (T *)omt->_data + getNumOfElems(omt->_dataSizes, omt->_rank),
       [&]() { return dis(gen); });
-  return rmr;
+  return omt;
 }
 
 /* OMTensor aligned data getter */
-void *rmrGetAlignedData(OMTensor *rmr) { return rmr->_alignedData; }
+void *omtGetAlignedData(OMTensor *omt) { return omt->_alignedData; }
 
 /* OMTensor aligned data setter */
-void rmrSetAlignedData(OMTensor *rmr, void *alignedData) {
-  rmr->_alignedData = alignedData;
+void omtSetAlignedData(OMTensor *omt, void *alignedData) {
+  omt->_alignedData = alignedData;
 }
 
 /* Access an element (by reference) at offset computed by index array */
 template <typename T>
-T &rmrGetElem(OMTensor *rmr, std::vector<INDEX_TYPE> indexes) {
-  INDEX_TYPE elemOffset = rmrComputeElemOffset(rmr, indexes);
-  return ((T *)rmr->_data)[elemOffset];
+T &omtGetElem(OMTensor *omt, std::vector<INDEX_TYPE> indexes) {
+  INDEX_TYPE elemOffset = omtComputeElemOffset(omt, indexes);
+  return ((T *)omt->_data)[elemOffset];
 }
 
 /* Access an element (by reference) at linear offset */
 template <typename T>
-T &rmrGetElemByOffset(OMTensor *rmr, INDEX_TYPE index) {
-  return ((T *)rmr->_data)[index];
+T &omtGetElemByOffset(OMTensor *omt, INDEX_TYPE index) {
+  return ((T *)omt->_data)[index];
 }
 
 /* Compute strides vector from sizes vector */
-vector<int64_t> rmrComputeStridesFromShape(OMTensor *rmr) {
-  return computeStridesFromSizes(rmr->_dataSizes, rmr->_rank);
+vector<int64_t> omtComputeStridesFromShape(OMTensor *omt) {
+  return computeStridesFromSizes(omt->_dataSizes, omt->_rank);
 }
 
 /* Compute linear element offset from multi-dimensional index array */
-INDEX_TYPE rmrComputeElemOffset(OMTensor *rmr, vector<INDEX_TYPE> &indexes) {
-  return computeElemOffset(rmr->_dataStrides, rmr->_rank, indexes);
+INDEX_TYPE omtComputeElemOffset(OMTensor *omt, vector<INDEX_TYPE> &indexes) {
+  return computeElemOffset(omt->_dataStrides, omt->_rank, indexes);
 }
 
 /* Compute index set for the whole OMTensor */
-vector<vector<INDEX_TYPE>> rmrComputeIndexSet(OMTensor *rmr) {
+vector<vector<INDEX_TYPE>> omtComputeIndexSet(OMTensor *omt) {
   // First, we create index set of each dimension separately.
-  // i.e., for a tensor/RMR of shape (2, 3), its dimWiseIdxSet will be:
+  // i.e., for a tensor/OMT of shape (2, 3), its dimWiseIdxSet will be:
   // {{0,1}, {0,1,2}};
   vector<vector<INDEX_TYPE>> dimWiseIdxSet;
   for (auto dimSize :
-      vector<INDEX_TYPE>(rmr->_dataSizes, rmr->_dataSizes + rmr->_rank)) {
+      vector<INDEX_TYPE>(omt->_dataSizes, omt->_dataSizes + omt->_rank)) {
     vector<INDEX_TYPE> dimIdxSet(dimSize);
     iota(begin(dimIdxSet), end(dimIdxSet), 0);
     dimWiseIdxSet.emplace_back(dimIdxSet);
   }
   // Then, the cartesian product of vectors within dimWiseIdxSet will be the
-  // index set for the whole RMR.
+  // index set for the whole OMT.
   return CartProduct(dimWiseIdxSet);
 }
 
 /* Check whether two OMTensor data are "close" to each other */
 template <typename T>
-inline bool rmrAreTwoRmrsClose(
+inline bool omtAreTwoOmtsClose(
     OMTensor *a, OMTensor *b, float rtol, float atol) {
 
   // Compare shape.
@@ -308,7 +308,7 @@ inline bool rmrAreTwoRmrsClose(
   }
 
   // Compute absolute difference, verify it's within tolerable range.
-  auto anum = rmrGetNumElems(a);
+  auto anum = omtGetNumElems(a);
   vector<T> absoluteDiff(anum);
   transform((T *)a->_data, (T *)a->_data + anum, (T *)b->_data,
       absoluteDiff.begin(), minus<>());
@@ -329,9 +329,9 @@ inline bool rmrAreTwoRmrsClose(
   } else {
     // Figure out where and what went wrong, this can be slow; but hopefully we
     // don't need this often.
-    for (const auto &idx : rmrComputeIndexSet(a)) {
-      T aElem = rmrGetElem<T>(a, idx);
-      T bElem = rmrGetElem<T>(b, idx);
+    for (const auto &idx : omtComputeIndexSet(a)) {
+      T aElem = omtGetElem<T>(a, idx);
+      T bElem = omtGetElem<T>(b, idx);
       auto elmAbsDiff = abs(aElem - bElem);
       auto withinRtol = (elmAbsDiff / aElem < rtol);
       auto withinAtol = (elmAbsDiff < atol);
@@ -353,51 +353,51 @@ inline bool rmrAreTwoRmrsClose(
 /*---------------------------------------------------- */
 
 /* Return OMTensor of specified name in the OMTensorList */
-OMTensor *rmrListGetRmrByName(OMTensorList *rlist, string name) {
+OMTensor *omtListGetOmtByName(OMTensorList *rlist, string name) {
   for (int i = 0; i < rlist->_n; i++)
-    if (rlist->_rmrs[i]->_name == name)
-      return rlist->_rmrs[i];
+    if (rlist->_omts[i]->_name == name)
+      return rlist->_omts[i];
   return NULL;
 }
 
 // Explicit instantiation of all templated API functions.
 
-template OMTensor *rmrCreateWithShape<int32_t>(
+template OMTensor *omtCreateWithShape<int32_t>(
     std::vector<INDEX_TYPE> dataSizes);
-template OMTensor *rmrCreateWithShape<int64_t>(
+template OMTensor *omtCreateWithShape<int64_t>(
     std::vector<INDEX_TYPE> dataSizes);
-template OMTensor *rmrCreateWithShape<float>(std::vector<INDEX_TYPE> dataSizes);
-template OMTensor *rmrCreateWithShape<double>(
+template OMTensor *omtCreateWithShape<float>(std::vector<INDEX_TYPE> dataSizes);
+template OMTensor *omtCreateWithShape<double>(
     std::vector<INDEX_TYPE> dataSizes);
 
-template OMTensor *rmrCreateWithRandomData<int32_t>(
+template OMTensor *omtCreateWithRandomData<int32_t>(
     std::vector<INDEX_TYPE> dataSizes, int32_t lbound, int32_t ubound);
-template OMTensor *rmrCreateWithRandomData<int64_t>(
+template OMTensor *omtCreateWithRandomData<int64_t>(
     std::vector<INDEX_TYPE> dataSizes, int64_t lbound, int64_t ubound);
-template OMTensor *rmrCreateWithRandomData<float>(
+template OMTensor *omtCreateWithRandomData<float>(
     std::vector<INDEX_TYPE> dataSizes, float lbound, float ubound);
-template OMTensor *rmrCreateWithRandomData<double>(
+template OMTensor *omtCreateWithRandomData<double>(
     std::vector<INDEX_TYPE> dataSizes, double lbound, double ubound);
 
-template int32_t &rmrGetElem<int32_t>(
+template int32_t &omtGetElem<int32_t>(
     OMTensor *, std::vector<INDEX_TYPE> indexes);
-template int64_t &rmrGetElem<int64_t>(
+template int64_t &omtGetElem<int64_t>(
     OMTensor *, std::vector<INDEX_TYPE> indexes);
-template float &rmrGetElem<float>(OMTensor *, std::vector<INDEX_TYPE> indexes);
-template double &rmrGetElem<double>(
+template float &omtGetElem<float>(OMTensor *, std::vector<INDEX_TYPE> indexes);
+template double &omtGetElem<double>(
     OMTensor *, std::vector<INDEX_TYPE> indexes);
 
-template int32_t &rmrGetElemByOffset<int32_t>(OMTensor *, INDEX_TYPE index);
-template int64_t &rmrGetElemByOffset<int64_t>(OMTensor *, INDEX_TYPE index);
-template float &rmrGetElemByOffset<float>(OMTensor *, INDEX_TYPE indexs);
-template double &rmrGetElemByOffset<double>(OMTensor *, INDEX_TYPE index);
+template int32_t &omtGetElemByOffset<int32_t>(OMTensor *, INDEX_TYPE index);
+template int64_t &omtGetElemByOffset<int64_t>(OMTensor *, INDEX_TYPE index);
+template float &omtGetElemByOffset<float>(OMTensor *, INDEX_TYPE indexs);
+template double &omtGetElemByOffset<double>(OMTensor *, INDEX_TYPE index);
 
-template bool rmrAreTwoRmrsClose<int32_t>(
+template bool omtAreTwoOmtsClose<int32_t>(
     OMTensor *a, OMTensor *b, float rtol, float atol);
-template bool rmrAreTwoRmrsClose<int64_t>(
+template bool omtAreTwoOmtsClose<int64_t>(
     OMTensor *a, OMTensor *b, float rtol, float atol);
-template bool rmrAreTwoRmrsClose<float>(
+template bool omtAreTwoOmtsClose<float>(
     OMTensor *a, OMTensor *b, float rtol, float atol);
-template bool rmrAreTwoRmrsClose<double>(
+template bool omtAreTwoOmtsClose<double>(
     OMTensor *a, OMTensor *b, float rtol, float atol);
 #endif

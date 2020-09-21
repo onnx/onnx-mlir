@@ -4,29 +4,29 @@ import java.util.HashMap;
 
 public class OMTensorList {
 
-    private OMTensor[] _rmrs;
+    private OMTensor[] _omts;
     private HashMap<String, Integer> _n2i;
     
     /**
      * Constructor
      * 
-     * @param rmrs DynMemRef array
+     * @param omts DynMemRef array
      */
-    public OMTensorList(OMTensor[] rmrs) {
+    public OMTensorList(OMTensor[] omts) {
         /* Go through the OMTensor array, check each for validity,
          * and create name (if not empty) to index mapping.
          */
-        for (int i = 0; i < rmrs.length; i++) {
-            if (rmrs[i] == null || !rmrs[i].isValidRmr())
+        for (int i = 0; i < omts.length; i++) {
+            if (omts[i] == null || !omts[i].isValidOmt())
                 throw new IllegalArgumentException(
                         "OMTensor[" + i + "] is invalid");
-            String name = rmrs[i].getName();
+            String name = omts[i].getName();
             if (!name.isEmpty() && _n2i.put(name, i) != null)
                 throw new IllegalArgumentException(
                         "OMTensor[" + i + "] duplicate name: " + name);
         }
 
-        _rmrs = rmrs;
+        _omts = omts;
     }
 
     /**
@@ -34,7 +34,7 @@ public class OMTensorList {
      * 
      * @return OMTensor array
      */
-    public OMTensor[] getRmrs() {
-        return _rmrs;
+    public OMTensor[] getOmts() {
+        return _omts;
     }
 }

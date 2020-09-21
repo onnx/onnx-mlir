@@ -92,37 +92,37 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
   onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
 
-  std::vector<unique_ptr<OMTensor, decltype(&rmrDestroy)>> inputs;
-  auto xRmr = unique_ptr<OMTensor, decltype(&rmrDestroy)>(
-      rmrCreateWithRandomData<float>({N, C, H, W}), rmrDestroy);
-  inputs.emplace_back(move(xRmr));
-  auto wRmr = unique_ptr<OMTensor, decltype(&rmrDestroy)>(
-      rmrCreateWithRandomData<float>({C, C, kH, kW}), rmrDestroy);
-  inputs.emplace_back(move(wRmr));
+  std::vector<unique_ptr<OMTensor, decltype(&omtDestroy)>> inputs;
+  auto xOmt = unique_ptr<OMTensor, decltype(&omtDestroy)>(
+      omtCreateWithRandomData<float>({N, C, H, W}), omtDestroy);
+  inputs.emplace_back(move(xOmt));
+  auto wOmt = unique_ptr<OMTensor, decltype(&omtDestroy)>(
+      omtCreateWithRandomData<float>({C, C, kH, kW}), omtDestroy);
+  inputs.emplace_back(move(wOmt));
 
-  auto ref = rmrCreateWithShape<float>({NOut, COut, HOut, WOut});
+  auto ref = omtCreateWithShape<float>({NOut, COut, HOut, WOut});
   auto &img = inputs.at(0);
   auto &filter = inputs.at(1);
   for (int64_t n = 0; n < NOut; n++)
     for (int64_t c = 0; c < COut; c++)
       for (int64_t h = 0; h < HOut; h++)
         for (int64_t w = 0; w < WOut; w++) {
-          rmrGetElem<float>(ref, {n, c, h, w}) = 0;
+          omtGetElem<float>(ref, {n, c, h, w}) = 0;
           for (int64_t ci = 0; ci < C; ci++)
             for (int64_t kh = 0; kh < kH; kh++)
               for (int64_t kw = 0; kw < kW; kw++)
                 if ((h + kh - pHBegin >= 0 && h + kh - pHBegin < H) &&
                     (w + kw - pWBegin >= 0 && w + kw - pWBegin < W))
-                  rmrGetElem<float>(ref, {n, c, h, w}) +=
-                      rmrGetElem<float>(img.get(),
+                  omtGetElem<float>(ref, {n, c, h, w}) +=
+                      omtGetElem<float>(img.get(),
                           {n, ci, h + kh - pHBegin, w + kw - pWBegin}) *
-                      rmrGetElem<float>(filter.get(), {c, ci, kh, kw});
+                      omtGetElem<float>(filter.get(), {c, ci, kh, kw});
         }
 
   auto outputs = sess.run(move(inputs));
   auto &conv = outputs.at(0);
 
-  return rmrAreTwoRmrsClose<float>(conv.get(), ref);
+  return omtAreTwoOmtsClose<float>(conv.get(), ref);
 }
 
 int main(int argc, char *argv[]) {

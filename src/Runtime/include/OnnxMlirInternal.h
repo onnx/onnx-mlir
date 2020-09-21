@@ -35,7 +35,7 @@
  * data fields initialized to proper values and data pointers malloc'ed.
  */
 template <typename T>
-OMTensor *rmrCreateWithShape(std::vector<INDEX_TYPE> dataSizes);
+OMTensor *omtCreateWithShape(std::vector<INDEX_TYPE> dataSizes);
 
 /**
  * OMTensor creator with data sizes, element type and random data
@@ -45,80 +45,80 @@ OMTensor *rmrCreateWithShape(std::vector<INDEX_TYPE> dataSizes);
  * @param ubound (optional), upper bound of the random distribution
  * @return pointer to OMTensor created, NULL if creation failed.
  *
- * Create a full OMTensor like what rmrCreateWithShape does
+ * Create a full OMTensor like what omtCreateWithShape does
  * and also fill the OMTensor data buffer with randomly generated
  * real numbers from a uniform distribution between lbound and ubound.
  */
 template <typename T>
-OMTensor *rmrCreateWithRandomData(
+OMTensor *omtCreateWithRandomData(
     std::vector<INDEX_TYPE> dataSizes, T lbound = -1.0, T ubound = 1.0);
 
 /**
  * OMTensor aligned data getter
  *
- * @param rmr, pointer to the OMTensor
+ * @param omt, pointer to the OMTensor
  * @return pointer to the aligned data buffer of the OMTensor,
  *         NULL if the aligned data buffer is not set.
  */
-void *rmrGetAlignedData(OMTensor *rmr);
+void *omtGetAlignedData(OMTensor *omt);
 
 /**
  * OMTensor aligned data setter
  *
- * @param rmr, pointer to the OMTensor
+ * @param omt, pointer to the OMTensor
  * @param alignedData, aligned data buffer of the OMTensor to be set
  *
  * Set the aligned data buffer pointer of the OMTensor.
  */
-void rmrSetAlignedData(OMTensor *rmr, void *alignedData);
+void omtSetAlignedData(OMTensor *omt, void *alignedData);
 
 /**
  * OMTensor data element getter by offset
  *
- * @param rmr, pointer to the OMTensor
+ * @param omt, pointer to the OMTensor
  * @param indexes, multi-dimensional index array of the element
  * @return typed element by reference at the offset computed by the index array.
  */
 template <typename T>
-T &rmrGetElem(OMTensor *rmr, std::vector<INDEX_TYPE> indexes);
+T &omtGetElem(OMTensor *omt, std::vector<INDEX_TYPE> indexes);
 
 /**
  * OMTensor data element getter by index
  *
- * @param rmr, pointer to the OMTensor
+ * @param omt, pointer to the OMTensor
  * @param index, index of the element
  * @return typed element by reference at the linear offset.
  */
 template <typename T>
-T &rmrGetElemByOffset(OMTensor *rmr, INDEX_TYPE index);
+T &omtGetElemByOffset(OMTensor *omt, INDEX_TYPE index);
 
 /**
  * OMTensor strides computation
  *
- * @param rmr, pointer to the OMTensor
+ * @param omt, pointer to the OMTensor
  * @return data strides of the OMTensor computed from the data sizes.
  */
-std::vector<int64_t> rmrComputeStridesFromShape(OMTensor *rmr);
+std::vector<int64_t> omtComputeStridesFromShape(OMTensor *omt);
 
 /**
  * OMTensor linear offset computation
  *
- * @param rmr, pointer to the OMTensor
+ * @param omt, pointer to the OMTensor
  * @param indexes, multi-dimensional index array
  * @return linear offset.
  */
-INDEX_TYPE rmrComputeElemOffset(
-    OMTensor *rmr, std::vector<INDEX_TYPE> &indexes);
+INDEX_TYPE omtComputeElemOffset(
+    OMTensor *omt, std::vector<INDEX_TYPE> &indexes);
 
 /**
  * OMTensor index set computation
  *
- * @param rmr, pointer to the OMTensor
+ * @param omt, pointer to the OMTensor
  * @return index set (i.e., all valid multi-dimensional array indexes
  *         that can be used to access this OMTensor's constituent elements)
  *         for the whole OMTensor.
  */
-std::vector<std::vector<INDEX_TYPE>> rmrComputeIndexSet(OMTensor *rmr);
+std::vector<std::vector<INDEX_TYPE>> omtComputeIndexSet(OMTensor *omt);
 
 /**
  * OMTensor "distance" computation
@@ -131,7 +131,7 @@ std::vector<std::vector<INDEX_TYPE>> rmrComputeIndexSet(OMTensor *rmr);
  *         specified tolerance, respectively, false otherwise.
  */
 template <typename T>
-bool rmrAreTwoRmrsClose(
+bool omtAreTwoOmtsClose(
     OMTensor *a, OMTensor *b, float rtol = 1e-5, float atol = 1e-5);
 
 /*---------------------------------------------------- */
@@ -143,16 +143,16 @@ bool rmrAreTwoRmrsClose(
  *
  * @return pointer to an empty OMTensorList, NULL if creation failed.
  */
-OMTensorList *rmrListCreate(void);
+OMTensorList *omtListCreate(void);
 
 /**
  * OMTensorList OMTensor getter by name
  *
- * @param ormrd, pointer to the OMTensorList
+ * @param list, pointer to the OMTensorList
  * @param name, name of the OMTensor
  * @return pointer to the OMTensor, NULL if not found.
  */
-OMTensor *rmrListGetRmrByName(OMTensorList *ormrd, std::string name);
+OMTensor *omtListGetOmtByName(OMTensorList *list, std::string name);
 
 #endif
 #endif

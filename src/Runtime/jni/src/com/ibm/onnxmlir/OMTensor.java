@@ -428,7 +428,7 @@ public class OMTensor {
      * 
      * @return true if OMTensor is valid, false otherwise
      */
-    public boolean isValidRmr() {
+    public boolean isValidOmt() {
         return (_data != null &&
                 _data.limit() != 0 &&
                 _data.limit() == getNumOfElems() * ONNX_TYPE_SIZE[_dataType]);

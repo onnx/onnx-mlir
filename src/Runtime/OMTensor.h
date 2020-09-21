@@ -80,15 +80,15 @@ struct OMTensor {
 #endif
 
   void *_data;            // data buffer
-  void *_alignedData;     // aligned data buffer that the rmr indexes.
+  void *_alignedData;     // aligned data buffer that the omt indexes.
   INDEX_TYPE _offset;     // offset of 1st element
   INDEX_TYPE *_dataSizes; // sizes array
   int64_t *_dataStrides;  // strides array
   int _dataType;          // ONNX data type
   int _rank;              // rank
   char *_name;            // optional name for named access
-  bool _owningData;       // indicates whether the Rmr owns the memory space
-                    // referenced by _data. Rmr struct will release the memory
+  bool _owningData;       // indicates whether the Omt owns the memory space
+                    // referenced by _data. Omt struct will release the memory
                     // space referred to by _data upon destruction if and only
                     // if it owns it.
 };
@@ -101,7 +101,7 @@ struct OMTensorList {
    * Create an OMTensorList with specified OMTensor pointer array
    * and the size of the array
    */
-  OMTensorList(OMTensor *rmrs[], int n) : _rmrs(rmrs), _n(n){};
+  OMTensorList(OMTensor *omts[], int n) : _omts(omts), _n(n){};
 
   /**
    * Constructor
@@ -118,18 +118,18 @@ struct OMTensorList {
   ~OMTensorList() {
     /* Destroy all the OMTensors */
     for (int i = 0; i < _n; i++)
-      if (_rmrs[i])
-        rmrDestroy(_rmrs[i]);
+      if (_omts[i])
+        omtDestroy(_omts[i]);
   };
 #endif
 
-  /* To facilitate user facing API getRmrs, OMTensors are kept in a vector
+  /* To facilitate user facing API getOmts, OMTensors are kept in a vector
    * that can be quickly returned as an array. A name to index map is used
    * to address ReMemRefs by name.
    */
-  OMTensor **_rmrs; // OMTensor array
+  OMTensor **_omts; // OMTensor array
 
-  size_t _n; // Number of elements in _rmrs.
+  size_t _n; // Number of elements in _omts.
 };
 
 /* Helper function to compute the number of data elements */

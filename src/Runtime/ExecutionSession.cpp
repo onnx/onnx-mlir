@@ -42,22 +42,22 @@ ExecutionSession::ExecutionSession(
   }
 }
 
-std::vector<std::unique_ptr<OMTensor, decltype(&rmrDestroy)>>
+std::vector<std::unique_ptr<OMTensor, decltype(&omtDestroy)>>
 ExecutionSession::run(
-    std::vector<std::unique_ptr<OMTensor, decltype(&rmrDestroy)>> ins) {
+    std::vector<std::unique_ptr<OMTensor, decltype(&omtDestroy)>> ins) {
 
-  std::vector<OMTensor *> rmrs;
-  for (const auto &inRmr : ins)
-    rmrs.emplace_back(inRmr.get());
-  auto *wrappedInput = rmrListCreate(&rmrs[0], rmrs.size());
+  std::vector<OMTensor *> omts;
+  for (const auto &inOmt : ins)
+    omts.emplace_back(inOmt.get());
+  auto *wrappedInput = omtListCreate(&omts[0], omts.size());
 
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
-  std::vector<std::unique_ptr<OMTensor, decltype(&rmrDestroy)>> outs;
+  std::vector<std::unique_ptr<OMTensor, decltype(&omtDestroy)>> outs;
 
-  for (size_t i = 0; i < rmrListGetNumRmrs(wrappedOutput); i++) {
-    outs.emplace_back(std::unique_ptr<OMTensor, decltype(&rmrDestroy)>(
-        rmrListGetRmrByIndex(wrappedOutput, i), rmrDestroy));
+  for (size_t i = 0; i < omtListGetNumOmts(wrappedOutput); i++) {
+    outs.emplace_back(std::unique_ptr<OMTensor, decltype(&omtDestroy)>(
+        omtListGetOmtByIndex(wrappedOutput, i), omtDestroy));
   }
   return std::move(outs);
 }

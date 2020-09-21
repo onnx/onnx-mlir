@@ -427,7 +427,7 @@ public:
     GET_DATA_STRIDES,
     SET_DATA_TYPE,
     GET_DATA_TYPE,
-    GET_RMRS,
+    GET_OMTS,
   };
 
   struct ApiSpec {
@@ -505,19 +505,19 @@ public:
     SmallVector<Value, 4> staticInputs;
     auto wrappedInput = entryPointEntryBlock.getArgument(0);
 
-    auto rmrPtrArr =
-        callApi(rewriter, loc, apiRegistry, API::GET_RMRS, {wrappedInput});
+    auto omtPtrArr =
+        callApi(rewriter, loc, apiRegistry, API::GET_OMTS, {wrappedInput});
     for (size_t i = 0; i < staticEntryPointTy.getFunctionNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(i));
 
-      auto rmrPtrAddrTy = opaquePtrTy.getPointerTo();
-      auto rmrPtrAddr = rewriter
-                            .create<LLVM::GEPOp>(loc, rmrPtrAddrTy, rmrPtrArr,
+      auto omtPtrAddrTy = opaquePtrTy.getPointerTo();
+      auto omtPtrAddr = rewriter
+                            .create<LLVM::GEPOp>(loc, omtPtrAddrTy, omtPtrArr,
                                 ArrayRef<Value>({idxVal}))
                             .getResult();
-      auto rmrPtr = rewriter.create<LLVM::LoadOp>(loc, opaquePtrTy, rmrPtrAddr)
+      auto omtPtr = rewriter.create<LLVM::LoadOp>(loc, opaquePtrTy, omtPtrAddr)
                         .getResult();
 
       // Create a (static) memref type corresponding to the i-th memref input to
@@ -530,9 +530,9 @@ public:
           /*alignment=*/0);
 
       // Fill in the memref underlying ptrToMemRef with information extracted
-      // from rmrPtr.
+      // from omtPtr.
       fillPtrToMemRefWithOMTensor(
-          rmrPtr, ptrToMemRef, rewriter, loc, apiRegistry, module);
+          omtPtr, ptrToMemRef, rewriter, loc, apiRegistry, module);
 
       // ptrToMemRef will be an input to main computation graph function.
       staticInputs.emplace_back(ptrToMemRef);
@@ -574,19 +574,19 @@ public:
     auto mallocSym = getOrInsertMalloc(rewriter, module);
     // TODO(tjingrant): get pointer size from data layout.
     size_t kPtrSize = 8;
-    auto outputRmrPtrsArraySizeInByte = rewriter.create<LLVM::ConstantOp>(loc,
+    auto outputOmtPtrsArraySizeInByte = rewriter.create<LLVM::ConstantOp>(loc,
         int64Ty, rewriter.getI64IntegerAttr(outMemRefList.size() * kPtrSize));
-    auto outRmrPtrsArr =
+    auto outOmtPtrsArr =
         rewriter
             .create<LLVM::CallOp>(loc,
                 LLVM::LLVMType::getInt8PtrTy(module.getContext()), mallocSym,
-                ArrayRef<Value>(outputRmrPtrsArraySizeInByte))
+                ArrayRef<Value>(outputOmtPtrsArraySizeInByte))
             .getResult(0);
-    outRmrPtrsArr = rewriter
+    outOmtPtrsArr = rewriter
                         .create<LLVM::BitcastOp>(loc,
                             LLVM::LLVMType::getInt8PtrTy(module.getContext())
                                 .getPointerTo(0),
-                            outRmrPtrsArr)
+                            outOmtPtrsArr)
                         .getResult();
 
     for (decltype(numOutputs) i = 0; i < outMemRefList.size(); i++) {
@@ -606,18 +606,18 @@ public:
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
           loc, int32Ty, rewriter.getI32IntegerAttr(i));
 
-      auto rmrPtrAddrTy = opaquePtrTy.getPointerTo();
-      auto rmrPtrAddr = rewriter
-                            .create<LLVM::GEPOp>(loc, rmrPtrAddrTy,
-                                outRmrPtrsArr, ArrayRef<Value>({idxVal}))
+      auto omtPtrAddrTy = opaquePtrTy.getPointerTo();
+      auto omtPtrAddr = rewriter
+                            .create<LLVM::GEPOp>(loc, omtPtrAddrTy,
+                                outOmtPtrsArr, ArrayRef<Value>({idxVal}))
                             .getResult();
 
-      rewriter.create<LLVM::StoreOp>(loc, outOMTensor, rmrPtrAddr);
+      rewriter.create<LLVM::StoreOp>(loc, outOMTensor, omtPtrAddr);
     }
 
     // Create wrapped output.
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
-        API::CREATE_ORDERED_RTMEMREF_DICT, {outRmrPtrsArr, numOutput});
+        API::CREATE_ORDERED_RTMEMREF_DICT, {outOmtPtrsArr, numOutput});
 
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(
@@ -643,15 +643,15 @@ private:
     // specifying its signature.
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
-        ApiSpec(API::CREATE_ORDERED_RTMEMREF_DICT, "rmrListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
-        ApiSpec(API::CREATE_RTMEMREF, "rmrCreate", opaquePtrTy, {int32Ty}),
-        ApiSpec(API::GET_DATA, "rmrGetData", opaquePtrTy, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA, "rmrSetData", voidTy, {opaquePtrTy, opaquePtrTy}),
-        ApiSpec(API::GET_DATA_SIZES, "rmrGetDataShape", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_DATA_STRIDES, "rmrGetDataStrides", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_DATA_TYPE, "rmrGetDataType", int32Ty, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA_TYPE, "rmrSetDataType", voidTy, {opaquePtrTy, int32Ty}),
-        ApiSpec(API::GET_RMRS, "rmrListGetPtrToRmrs", opaquePtrPtrTy, {opaquePtrTy}),
+        ApiSpec(API::CREATE_ORDERED_RTMEMREF_DICT, "omtListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
+        ApiSpec(API::CREATE_RTMEMREF, "omtCreate", opaquePtrTy, {int32Ty}),
+        ApiSpec(API::GET_DATA, "omtGetData", opaquePtrTy, {opaquePtrTy}),
+        ApiSpec(API::SET_DATA, "omtSetData", voidTy, {opaquePtrTy, opaquePtrTy}),
+        ApiSpec(API::GET_DATA_SIZES, "omtGetDataShape", int64PtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_DATA_STRIDES, "omtGetDataStrides", int64PtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_DATA_TYPE, "omtGetDataType", int32Ty, {opaquePtrTy}),
+        ApiSpec(API::SET_DATA_TYPE, "omtSetDataType", voidTy, {opaquePtrTy, int32Ty}),
+        ApiSpec(API::GET_OMTS, "omtListGetPtrToOmts", opaquePtrPtrTy, {opaquePtrTy}),
     };
     // clang-format on
 
