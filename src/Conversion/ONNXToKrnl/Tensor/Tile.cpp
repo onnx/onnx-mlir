@@ -105,24 +105,22 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // Alternative implementation can be found at the end of this file.
     SmallVector<Value, 4> inputMemRefVal;
     for (int i = 0; i < outputRank; ++i) {
-      Value dimVal;
+      Value inputDimSizeVal;
       if (inputShape[i] == -1)
-        dimVal = rewriter.create<DimOp>(loc, input, i);
+        inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
       else
-        dimVal =
+        inputDimSizeVal =
             emitConstantOp(rewriter, loc, rewriter.getIndexType(), inputShape[i]);
       auto loopVarVal = iterationBlock.getArguments()[i];
       auto exprVal =
-          rewriter.create<UnsignedRemIOp>(loc, loopVarVal, dimVal);
+          rewriter.create<UnsignedRemIOp>(loc, loopVarVal, inputDimSizeVal);
       inputMemRefVal.emplace_back(exprVal);
     }
 
     // Load the value from input
-    Value inputVal;
-    if (hasAllConstantDimensions(input.getType().cast<MemRefType>()))
-      inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
-    else
-      inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
+    // Tried to use affine load when the input has constant shape
+    // But got runtime complaint, perhaps due ot RemIOp
+    auto  inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
     SmallVector<Value, 4> outputMemRefVal(iterationBlock.getArguments().begin(),
         iterationBlock.getArguments().end());
 
@@ -216,13 +214,13 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
 
     SmallVector<Value, 4> outputMemRefVal;
     for (int i = 0; i < inputRank; ++i) {
-      Value dimVal;
+      Value inputDimSizeVal;
       if (inputShape[i] == -1)
-        dimVal = rewriter.create<DimOp>(loc, input, i);
+        inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
       else
-        dimVal =
+        inputDimSizeVal =
             emitConstantOp(rewriter, loc, rewriter.getIndexType(), inputShape[i]);
-      auto offsetVal = rewriter.create<MulIOp>(loc, dimVal, iterationBlock.getArguments()[i * 2 + 1]);  
+      auto offsetVal = rewriter.create<MulIOp>(loc, inputDimSizeVal, iterationBlock.getArguments()[i * 2 + 1]);  
       auto dimExprVal =
           rewriter.create<AddIOp>(loc, iterationBlock.getArguments()[i * 2],
               offsetVal);
