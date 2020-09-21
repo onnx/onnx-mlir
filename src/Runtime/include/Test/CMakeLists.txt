@@ -27,6 +27,8 @@ ADD_LIBRARY(libadd SHARED IMPORTED)
 SET_PROPERTY(TARGET libadd PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/library.so)
 target_link_libraries(OMRuntimeTest
         ${CMAKE_CURRENT_SOURCE_DIR}/library.so)
+target_include_directories(OMRuntimeTest
+        ${ONNX_MLIR_SRC_ROOT}/src/Runtime/include)
 add_dependencies(OMRuntimeTest OMCopyAndRename)
 add_test(NAME OMRuntimeTest
          COMMAND OMRuntimeTest)
