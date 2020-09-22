@@ -440,7 +440,7 @@ def onnx_attr_type_to_mlir_attr_type(t):
     onnx_attr_type = onnx_attr_type[onnx_attr_type.rfind('.') + 1:].lower()
 
     if onnx_attr_type == 'int':
-        mlir_attr_type = 'I64Attr'
+        mlir_attr_type = 'SI64Attr'
     elif onnx_attr_type == 'float':
         mlir_attr_type = 'F32Attr'
     elif onnx_attr_type == 'ints':
