@@ -497,7 +497,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
   }];
    let builders = [
   OpBuilder<"OpBuilder &builder, OperationState &state, Value input, IntegerAttr to", [{
-   auto toAttr = to.getValue();
+   auto toAttr = to.getValue().getSExtValue();
    auto resultType = mlir::UnrankedTensorType::get(
     convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)));
    build(builder, state, resultType, input, to);
