@@ -488,7 +488,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
     std::vector<mlir::Type> resultTypeInference() {
       std::vector<mlir::Type> resultTypes;
-      auto toAttr = to().getSExtValue();
+      auto toAttr = to();
       auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(
         convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));
@@ -497,7 +497,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
   }];
    let builders = [
   OpBuilder<"OpBuilder &builder, OperationState &state, Value input, IntegerAttr to", [{
-   auto toAttr = to.getValue().getSExtValue();
+   auto toAttr = to.getValue();
    auto resultType = mlir::UnrankedTensorType::get(
     convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)));
    build(builder, state, resultType, input, to);
