@@ -34,7 +34,7 @@ class HasRankOf<int rank> : Constraint<CPred<"$0.getType().isa<ShapedType>() && 
 def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 def HasSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
-          "convertONNXTypeToMLIRType($_builder, static_cast<onnx::TensorProto_DataType>($1.cast<::mlir::IntegerAttr>().getInt())))">,
+          "convertONNXTypeToMLIRType($_builder, static_cast<onnx::TensorProto_DataType>($1.cast<::mlir::IntegerAttr>().getSInt())))">,
     "has same element type">;
 
 //===----------------------------------------------------------------------===//
@@ -43,8 +43,8 @@ def HasSameElementType : Constraint<
 
 def GemmAlpha : NativeCodeCall<"$_builder.getF32FloatAttr(1.0)">;
 def GemmBeta : NativeCodeCall<"$_builder.getF32FloatAttr(1.0)">;
-def GemmTransA : NativeCodeCall<"$_builder.getI64IntegerAttr(0)">;
-def GemmTransB : NativeCodeCall<"$_builder.getI64IntegerAttr(0)">;
+def GemmTransA : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
+def GemmTransB : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
 
 // onnx.add(onnx.matmul(%X, %Y), %Z) = onnx.Gemm(%X, %Y, %Z)
 def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),

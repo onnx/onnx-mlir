@@ -118,7 +118,9 @@ private:
       mlirAttr = builder_.getF32FloatAttr(attr.f());
       break;
     case onnx::AttributeProto::INT:
-      mlirAttr = builder_.getI64IntegerAttr(attr.i());
+      mlirAttr =
+          IntegerAttr::get(builder_.getIntegerType(64, /*isSigned=*/true),
+              APInt(64, /*value=*/attr.i(), /*isSigned=*/true));
       break;
     case onnx::AttributeProto::STRING:
       mlirAttr = builder_.getStringAttr(attr.s());
