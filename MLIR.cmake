@@ -170,7 +170,6 @@ find_mlir_lib(MLIRTransformUtils)
 find_mlir_lib(MLIRSupport)
 find_mlir_lib(MLIRShape)
 find_mlir_lib(MLIRShapeToStandard)
-find_mlir_lib(MLIRShapeToSCF)
 find_mlir_lib(MLIRSideEffectInterfaces)
 find_mlir_lib(MLIROpenMP)
 find_mlir_lib(MLIROptLib)
@@ -266,7 +265,6 @@ set(MLIRLibs
         ${MLIRPresburger}
         ${MLIRShape}
         ${MLIRShapeToStandard}
-        ${MLIRShapeToSCF}
         ${MLIRInferTypeOpInterface}
         # strict order verified
         ${LLVMBitWriter}
@@ -316,8 +314,15 @@ endfunction()
 # the LLVM TableGen command to have the TableGen target so that changes to the
 # table gen utility itself can be detected and cause re-compilation of .td file.
 add_executable(mlir-tblgen IMPORTED)
-set_property(TARGET mlir-tblgen
-        PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BIN}/mlir-tblgen)
+# Specify extension for incremental Windows builds.
+if(MSVC)
+  set_property(TARGET mlir-tblgen
+          PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BIN}/mlir-tblgen.exe)
+else()
+  set_property(TARGET mlir-tblgen
+          PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BIN}/mlir-tblgen)
+endif()
+
 set(MLIR_TABLEGEN_EXE mlir-tblgen)
 
 # Add a dialect used by ONNX MLIR and copy the generated operation

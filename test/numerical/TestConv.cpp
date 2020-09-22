@@ -62,7 +62,10 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
       /*Y=*/yType,
       /*X=*/xVal, /*W=*/wVal, /*B=*/bVal,
       /*auto_pad=*/builder.getStringAttr("NOTSET"),
-      /*dilations=*/dilations, /*group=*/builder.getI64IntegerAttr(1),
+      /*dilations=*/dilations,
+      /*group=*/
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, 1, /*isSigned=*/true)),
       /*kernel_shape=*/kernel_shape, /*pads=*/pads,
       /*strides=*/strides);
 
