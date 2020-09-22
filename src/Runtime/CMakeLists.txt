@@ -8,7 +8,8 @@ add_library(cruntime STATIC
         OMTensor.c
         OMTensor.inc
         OMTensorList.c
-        OMTensorList.inc)
+        OMTensorList.inc
+        OnnxDataType.cpp)
 set_target_properties(cruntime PROPERTIES
         LANGUAGE C)
 set_target_properties(cruntime PROPERTIES
@@ -21,7 +22,8 @@ add_library(OMTensorUtils
         OMTensor.cpp
         OMTensor.inc
         OMTensorList.cpp
-        OMTensorList.inc)
+        OMTensorList.inc
+        OnnxDataType.cpp)
 set_target_properties(OMTensorUtils PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 target_compile_definitions(OMTensorUtils PRIVATE RTMEMREF_INTERNAL_API)

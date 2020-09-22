@@ -94,4 +94,20 @@ int omTensorListGetNumOmts(OMTensorList *list);
  */
 OMTensor *omTensorListGetOmtByIndex(OMTensorList *list, int index);
 
+#ifdef __cplusplus
+/*---------------------------------------------------- */
+/* C++ API for internal only OMTensorList calls */
+/*---------------------------------------------------- */
+
+/**
+ * OMTensorList OMTensor getter by name
+ *
+ * @param list, pointer to the OMTensorList
+ * @param name, name of the OMTensor
+ * @return pointer to the OMTensor, NULL if not found.
+ */
+OMTensor *omTensorListGetOmtByName(OMTensorList *list, std::string name);
+
+#endif
+
 #endif //ONNX_MLIR_OMTENSORLIST_H

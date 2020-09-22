@@ -33,12 +33,7 @@ enum OM_DATA_TYPE {
 typedef enum OM_DATA_TYPE OM_DATA_TYPE;
 #endif
 
-const int OM_DATA_TYPE_SIZE[] = {
-#define OM_TYPE_METADATA_DEF(ENUM_NAME, ENUM_VAL, DTYPE_SIZE) DTYPE_SIZE,
-#include "OnnxDataTypeMetaData.inc"
-
-#undef OM_TYPE_METADATA_DEF
-};
+extern const int OM_DATA_TYPE_SIZE[];
 
 #ifdef __cplusplus
 // Note by design const map has no [] operator since [] creates a default

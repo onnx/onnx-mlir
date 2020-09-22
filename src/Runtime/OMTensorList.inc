@@ -4,6 +4,12 @@
 #include <malloc.h>
 #endif
 
+#ifdef __cplusplus
+#include <cassert>
+#else
+#include <assert.h>
+#endif
+
 #include "onnx-mlir/Runtime/OMTensorList.h"
 
 /* OMTensorList creator */
@@ -38,3 +44,13 @@ OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int index) {
   assert(index < rlist->_n);
   return rlist->_omts[index];
 }
+
+#ifdef __cplusplus
+/* Return OMTensor of specified name in the OMTensorList */
+OMTensor *omTensorListGetOmtByName(OMTensorList *rlist, std::string name) {
+  for (int i = 0; i < rlist->_n; i++)
+    if (rlist->_omts[i]->_name == name)
+      return rlist->_omts[i];
+  return NULL;
+}
+#endif // __cplusplus

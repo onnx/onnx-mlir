@@ -1,1 +1,1 @@
-add_subdirectory(Runtime/DocExampleTest)
+add_subdirectory(Runtime)

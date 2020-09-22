@@ -33,9 +33,8 @@ set_property(TARGET OMRuntimeTestModel
         PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/library.so)
 target_link_libraries(OMRuntimeTest
         ${CMAKE_CURRENT_BINARY_DIR}/library.so)
-message(STATUS ${ONNX_MLIR_SRC_ROOT}/src/Runtime/include)
 target_include_directories(OMRuntimeTest
-        PRIVATE ${ONNX_MLIR_SRC_ROOT}/src/Runtime/include)
+        PRIVATE ${ONNX_MLIR_SRC_ROOT}/include)
 add_dependencies(OMRuntimeTest OMCopyAndRename)
 add_test(NAME OMRuntimeTest
          COMMAND OMRuntimeTest)

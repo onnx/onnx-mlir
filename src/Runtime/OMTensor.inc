@@ -130,10 +130,7 @@ int omTensorGetDataType(OMTensor *omt) { return omt->_dataType; }
 
 /* OMTensor data type setter */
 void omTensorSetDataType(OMTensor *omt, int dataType) {
-  omt->_dataType =
-      dataType < 0 || dataType >= sizeof(OM_DATA_TYPE_SIZE) / sizeof(int)
-          ? ONNX_TYPE_UNDEFINED
-          : dataType;
+  omt->_dataType = dataType;
 }
 
 /* OMTensor data buffer size getter */
@@ -163,7 +160,7 @@ int64_t omTensorGetNumElems(OMTensor *omt) {
 template <typename T>
 OMTensor *omTensorCreateWithShape(vector<int64_t> dataSizes) {
   /* Create a OMTensor with data sizes and strides allocated */
-  auto omt = omTensorCreate(dataSizes.size());
+  auto omt = omTensorCreateEmpty(dataSizes.size());
   if (omt == NULL)
     return NULL;
 
@@ -189,7 +186,7 @@ OMTensor *omTensorCreateWithShape(vector<int64_t> dataSizes) {
   /* Convert CPP type to ONNX type */
   try {
     omt->_dataType =
-        RTMEMREF_DATA_TYPE_CPP_TO_ONNX.at(string(typeid(T).name()));
+        OM_DATA_TYPE_CPP_TO_ONNX.at(string(typeid(T).name()));
   } catch (const out_of_range &e) {
     omt->_dataType = ONNX_TYPE_UNDEFINED;
   }
@@ -323,18 +320,6 @@ inline bool omTensorAreTwoOmtsClose(
     }
     return false;
   }
-}
-
-/*---------------------------------------------------- */
-/* C++ API for internal only OMTensorList calls */
-/*---------------------------------------------------- */
-
-/* Return OMTensor of specified name in the OMTensorList */
-OMTensor *omTensorListGetOmtByName(OMTensorList *rlist, string name) {
-  for (int i = 0; i < rlist->_n; i++)
-    if (rlist->_omts[i]->_name == name)
-      return rlist->_omts[i];
-  return NULL;
 }
 
 // Explicit instantiation of all templated API functions.

@@ -1,17 +1,17 @@
 #include <OnnxMlirRuntime.h>
 #include <stdio.h>
-
+//
 OMTensorList *run_main_graph(OMTensorList *);
-
+//
 int main() {
   // Construct x1 omt filled with 1.
   float x1Data[] = {1., 1., 1., 1., 1., 1.};
-  OMTensor *x1 = omTensorCreate(2);
+  OMTensor *x1 = omTensorCreateEmpty(2);
   omTensorSetData(x1, x1Data);
 
   // Construct x2 omt filled with 2.
   float x2Data[] = {2., 2., 2., 2., 2., 2.};
-  OMTensor *x2 = omTensorCreate(2);
+  OMTensor *x2 = omTensorCreateEmpty(2);
   omTensorSetData(x2, x2Data);
 
   // Construct a list of omts as input.
