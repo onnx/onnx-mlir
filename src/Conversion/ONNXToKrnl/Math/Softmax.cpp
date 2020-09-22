@@ -23,7 +23,7 @@ struct ONNXSoftmaxOpLowering : public ConversionPattern {
     //                    exp_x / sum
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     int64_t rank = memRefType.getRank();
-    int64_t axis = llvm::dyn_cast<ONNXSoftmaxOp>(op).axis().getSExtValue();
+    int64_t axis = llvm::dyn_cast<ONNXSoftmaxOp>(op).axis();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
 
