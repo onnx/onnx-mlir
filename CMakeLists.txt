@@ -37,6 +37,7 @@ add_subdirectory(third_party/rapidcheck)
 set(CMAKE_CXX_STANDARD 14)
 
 add_subdirectory(utils)
+add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(docs)
 add_subdirectory(test)

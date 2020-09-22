@@ -19,12 +19,6 @@
 #include <string>
 #include <vector>
 
-/* ================ Internal C++ API call declaration ================ */
-
-/*----------------------------------------- */
-/* C++ API for internal only OMTensor calls */
-/*----------------------------------------- */
-
 /**
  * OMTensor creator with data sizes and element type
  *
@@ -35,7 +29,7 @@
  * data fields initialized to proper values and data pointers malloc'ed.
  */
 template <typename T>
-OMTensor *omTensorCreateWithShape(std::vector<INDEX_TYPE> dataSizes);
+OMTensor *omTensorCreateWithShape(std::vector<int64_t> dataSizes);
 
 /**
  * OMTensor creator with data sizes, element type and random data
@@ -51,7 +45,7 @@ OMTensor *omTensorCreateWithShape(std::vector<INDEX_TYPE> dataSizes);
  */
 template <typename T>
 OMTensor *omTensorCreateWithRandomData(
-    std::vector<INDEX_TYPE> dataSizes, T lbound = -1.0, T ubound = 1.0);
+    std::vector<int64_t> dataSizes, T lbound = -1.0, T ubound = 1.0);
 
 /**
  * OMTensor aligned data getter
@@ -80,7 +74,7 @@ void omTensorSetAlignedData(OMTensor *omt, void *alignedData);
  * @return typed element by reference at the offset computed by the index array.
  */
 template <typename T>
-T &omTensorGetElem(OMTensor *omt, std::vector<INDEX_TYPE> indexes);
+T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes);
 
 /**
  * OMTensor data element getter by index
@@ -90,7 +84,7 @@ T &omTensorGetElem(OMTensor *omt, std::vector<INDEX_TYPE> indexes);
  * @return typed element by reference at the linear offset.
  */
 template <typename T>
-T &omTensorGetElemByOffset(OMTensor *omt, INDEX_TYPE index);
+T &omTensorGetElemByOffset(OMTensor *omt, int64_t index);
 
 /**
  * OMTensor strides computation
@@ -107,8 +101,8 @@ std::vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt);
  * @param indexes, multi-dimensional index array
  * @return linear offset.
  */
-INDEX_TYPE omTensorComputeElemOffset(
-    OMTensor *omt, std::vector<INDEX_TYPE> &indexes);
+int64_t omTensorComputeElemOffset(
+    OMTensor *omt, std::vector<int64_t> &indexes);
 
 /**
  * OMTensor index set computation
@@ -118,7 +112,7 @@ INDEX_TYPE omTensorComputeElemOffset(
  *         that can be used to access this OMTensor's constituent elements)
  *         for the whole OMTensor.
  */
-std::vector<std::vector<INDEX_TYPE>> omTensorComputeIndexSet(OMTensor *omt);
+std::vector<std::vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt);
 
 /**
  * OMTensor "distance" computation

@@ -9,8 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __DATA_TYPE_H__
-#define __DATA_TYPE_H__
+#ifndef ONNX_MLIR_ONNXDATATYPE_H
+#define ONNX_MLIR_ONNXDATATYPE_H
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -21,7 +21,7 @@
 #include <stdint.h>
 #endif
 
-enum RTMEMREF_DATA_TYPE {
+enum OM_DATA_TYPE {
 #define OM_TYPE_METADATA_DEF(ENUM_NAME, ENUM_VAL, DTYPE_SIZE)                  \
   ENUM_NAME = ENUM_VAL,
 #include "OnnxDataTypeMetaData.inc"
@@ -29,7 +29,11 @@ enum RTMEMREF_DATA_TYPE {
 #undef OM_TYPE_METADATA_DEF
 };
 
-const int RTMEMREF_DATA_TYPE_SIZE[] = {
+#ifndef __cplusplus
+typedef enum OM_DATA_TYPE OM_DATA_TYPE;
+#endif
+
+const int OM_DATA_TYPE_SIZE[] = {
 #define OM_TYPE_METADATA_DEF(ENUM_NAME, ENUM_VAL, DTYPE_SIZE) DTYPE_SIZE,
 #include "OnnxDataTypeMetaData.inc"
 
@@ -39,7 +43,7 @@ const int RTMEMREF_DATA_TYPE_SIZE[] = {
 #ifdef __cplusplus
 // Note by design const map has no [] operator since [] creates a default
 // key value mapping when the key is not found which changes the map
-const std::map<std::string, int> RTMEMREF_DATA_TYPE_CPP_TO_ONNX = {
+const std::map<std::string, int> OM_DATA_TYPE_CPP_TO_ONNX = {
     {"b", ONNX_TYPE_BOOL},   // bool  -> BOOL
     {"c", ONNX_TYPE_INT8},   // char  -> INT8 (platform dependent, can be UINT8)
     {"a", ONNX_TYPE_INT8},   // int8_t   -> INT8
@@ -53,6 +57,6 @@ const std::map<std::string, int> RTMEMREF_DATA_TYPE_CPP_TO_ONNX = {
     {"f", ONNX_TYPE_FLOAT},  // float    -> FLOAT
     {"d", ONNX_TYPE_DOUBLE}, // double   -> DOUBLE
 };
-#endif
+#endif //__cplusplus
 
-#endif
+#endif // ONNX_MLIR_ONNXDATATYPE_H

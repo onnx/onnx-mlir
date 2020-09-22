@@ -30,10 +30,7 @@
 #include <stdio.h>
 #include <string.h>
 
-// clang-format off
-#include "OnnxMlirRuntime.hpp"
-#include "OMTensor.h"
-// clang-format on
+#include "onnx-mlir/Runtime/OMTensor.h"
 
 #ifdef __cplusplus
 using namespace std;
@@ -45,10 +42,28 @@ using namespace std;
 /* C/C++ API for OMTensor calls */
 /*----------------------------- */
 
+OMTensor *omTensorCreate(void* data_ptr, size_t* shape, size_t rank, OM_DATA_TYPE dtype) {
+    OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
+    if ((omt->_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
+        (omt->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+        omt->_data = data_ptr;
+        omt->_alignedData = data_ptr;
+        omt->_rank = rank;
+        omt->_dataType = dtype;
+    }
+    for (size_t i = rank-1; i>=0; i--) {
+        omt->_dataSizes[i] = shape[i];
+        int64_t stride = 1;
+        for (size_t j = i-1; j>=0; j--)
+            stride *= omt->_dataStrides[j];
+        omt->_dataStrides[i] = stride;
+    }
+}
+
 /* OMTensor creator */
-OMTensor *omTensorCreate(int rank) {
+OMTensor *omTensorCreateEmpty(int rank) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
-  if ((omt->_dataSizes = (INDEX_TYPE *)malloc(rank * sizeof(INDEX_TYPE))) &&
+  if ((omt->_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
       (omt->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
     omt->_data = NULL;
     omt->_alignedData = NULL;
@@ -64,8 +79,7 @@ OMTensor *omTensorCreate(int rank) {
 /* More detailed OMTensor creator */
 OMTensor *omTensorCreateWithNameAndOwnership(int rank, char *name, bool ownership) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
-  ;
-  if ((omt->_dataSizes = (INDEX_TYPE *)malloc(rank * sizeof(INDEX_TYPE))) &&
+  if ((omt->_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
       (omt->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
     omt->_data = NULL;
     omt->_alignedData = NULL;
@@ -94,10 +108,10 @@ void omTensorSetData(OMTensor *omt, void *data) {
 }
 
 /* OMTensor data sizes getter */
-INDEX_TYPE *omTensorGetDataShape(OMTensor *omt) { return omt->_dataSizes; }
+int64_t *omTensorGetDataShape(OMTensor *omt) { return omt->_dataSizes; }
 
 /* OMTensor data sizes setter */
-void omTensorSetDataShape(OMTensor *omt, INDEX_TYPE *dataSizes) {
+void omTensorSetDataShape(OMTensor *omt, int64_t *dataSizes) {
   for (int i = 0; i < omt->_rank; i++)
     omt->_dataSizes[i] = dataSizes[i];
 }
@@ -117,7 +131,7 @@ int omTensorGetDataType(OMTensor *omt) { return omt->_dataType; }
 /* OMTensor data type setter */
 void omTensorSetDataType(OMTensor *omt, int dataType) {
   omt->_dataType =
-      dataType < 0 || dataType >= sizeof(RTMEMREF_DATA_TYPE_SIZE) / sizeof(int)
+      dataType < 0 || dataType >= sizeof(OM_DATA_TYPE_SIZE) / sizeof(int)
           ? ONNX_TYPE_UNDEFINED
           : dataType;
 }
@@ -138,45 +152,8 @@ char *omTensorGetName(OMTensor *omt) { return omt->_name; }
 void omTensorSetName(OMTensor *omt, char *name) { omt->_name = name; }
 
 /* OMTensor number of elements getter */
-INDEX_TYPE omTensorGetNumElems(OMTensor *omt) {
+int64_t omTensorGetNumElems(OMTensor *omt) {
   return getNumOfElems(omt->_dataSizes, omt->_rank);
-}
-
-/*---------------------------------------- */
-/* C/C++ API for OMTensorList calls */
-/*---------------------------------------- */
-
-/* OMTensorList creator */
-OMTensorList *omTensorListCreate(OMTensor **omts, int n) {
-  OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
-  list->_omts = omts;
-  list->_n = n;
-  return list;
-  //  try {
-  //    return new OMTensorList(omts, n);
-  //  } catch (const invalid_argument &e) {
-  //    return NULL;
-  //  }
-}
-
-/* OMTensorList destroyer */
-void omTensorListDestroy(OMTensorList *list) {
-  for (int i = 0; i < list->_n; i++)
-    free(list->_omts[i]);
-  free(list);
-}
-
-/* OMTensorList OMTensor array getter */
-OMTensor **omTensorListGetPtrToOmts(OMTensorList *list) { return list->_omts; }
-
-/* OMTensorList number of OMTensor getter */
-int omTensorListGetNumOmts(OMTensorList *list) { return list->_n; }
-
-/* Return OMTensor at specified index in the OMTensorList */
-OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int index) {
-  assert(index >= 0);
-  assert(index < rlist->_n);
-  return rlist->_omts[index];
 }
 
 /* ================ C++ API call implementation ================ */
@@ -184,7 +161,7 @@ OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int index) {
 
 /* OMTensor creator with data sizes and element type  */
 template <typename T>
-OMTensor *omTensorCreateWithShape(vector<INDEX_TYPE> dataSizes) {
+OMTensor *omTensorCreateWithShape(vector<int64_t> dataSizes) {
   /* Create a OMTensor with data sizes and strides allocated */
   auto omt = omTensorCreate(dataSizes.size());
   if (omt == NULL)
@@ -204,7 +181,7 @@ OMTensor *omTensorCreateWithShape(vector<INDEX_TYPE> dataSizes) {
   /* Copy dataSizes, _dataSizes already allocated by omTensorCreate */
   copy(dataSizes.begin(), dataSizes.end(), omt->_dataSizes);
 
-  /* Compute and copy dataStrides, _dataStrides already allocated by omTensorCreate
+  /* Compute and copy dataStrides, _dataStrides already allocated by omTensorCreateEmpty
    */
   auto computedStrides = computeStridesFromSizes(omt->_dataSizes, omt->_rank);
   copy(computedStrides.begin(), computedStrides.end(), omt->_dataStrides);
@@ -226,7 +203,7 @@ OMTensor *omTensorCreateWithShape(vector<INDEX_TYPE> dataSizes) {
 /* OMTensor creator with data sizes, element type and random data */
 template <typename T>
 OMTensor *omTensorCreateWithRandomData(
-    vector<INDEX_TYPE> dataSizes, T lbound, T ubound) {
+    vector<int64_t> dataSizes, T lbound, T ubound) {
   // Will be used to obtain a seed for the random number engine
   random_device rd;
   // Standard mersenne_twister_engine seeded with rd()
@@ -253,14 +230,14 @@ void omTensorSetAlignedData(OMTensor *omt, void *alignedData) {
 
 /* Access an element (by reference) at offset computed by index array */
 template <typename T>
-T &omTensorGetElem(OMTensor *omt, std::vector<INDEX_TYPE> indexes) {
-  INDEX_TYPE elemOffset = omTensorComputeElemOffset(omt, indexes);
+T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes) {
+  int64_t elemOffset = omTensorComputeElemOffset(omt, indexes);
   return ((T *)omt->_data)[elemOffset];
 }
 
 /* Access an element (by reference) at linear offset */
 template <typename T>
-T &omTensorGetElemByOffset(OMTensor *omt, INDEX_TYPE index) {
+T &omTensorGetElemByOffset(OMTensor *omt, int64_t index) {
   return ((T *)omt->_data)[index];
 }
 
@@ -270,19 +247,19 @@ vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt) {
 }
 
 /* Compute linear element offset from multi-dimensional index array */
-INDEX_TYPE omTensorComputeElemOffset(OMTensor *omt, vector<INDEX_TYPE> &indexes) {
+int64_t omTensorComputeElemOffset(OMTensor *omt, vector<int64_t> &indexes) {
   return computeElemOffset(omt->_dataStrides, omt->_rank, indexes);
 }
 
 /* Compute index set for the whole OMTensor */
-vector<vector<INDEX_TYPE>> omTensorComputeIndexSet(OMTensor *omt) {
+vector<vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt) {
   // First, we create index set of each dimension separately.
   // i.e., for a tensor/OMT of shape (2, 3), its dimWiseIdxSet will be:
   // {{0,1}, {0,1,2}};
-  vector<vector<INDEX_TYPE>> dimWiseIdxSet;
+  vector<vector<int64_t>> dimWiseIdxSet;
   for (auto dimSize :
-      vector<INDEX_TYPE>(omt->_dataSizes, omt->_dataSizes + omt->_rank)) {
-    vector<INDEX_TYPE> dimIdxSet(dimSize);
+      vector<int64_t>(omt->_dataSizes, omt->_dataSizes + omt->_rank)) {
+    vector<int64_t> dimIdxSet(dimSize);
     iota(begin(dimIdxSet), end(dimIdxSet), 0);
     dimWiseIdxSet.emplace_back(dimIdxSet);
   }
@@ -297,8 +274,8 @@ inline bool omTensorAreTwoOmtsClose(
     OMTensor *a, OMTensor *b, float rtol, float atol) {
 
   // Compare shape.
-  auto aShape = vector<INDEX_TYPE>(a->_dataSizes, a->_dataSizes + a->_rank);
-  auto bShape = vector<INDEX_TYPE>(b->_dataSizes, b->_dataSizes + b->_rank);
+  auto aShape = vector<int64_t>(a->_dataSizes, a->_dataSizes + a->_rank);
+  auto bShape = vector<int64_t>(b->_dataSizes, b->_dataSizes + b->_rank);
   if (aShape != bShape) {
     cerr << "Shape mismatch ";
     printVector(aShape, ",", cerr);
@@ -363,34 +340,34 @@ OMTensor *omTensorListGetOmtByName(OMTensorList *rlist, string name) {
 // Explicit instantiation of all templated API functions.
 
 template OMTensor *omTensorCreateWithShape<int32_t>(
-    std::vector<INDEX_TYPE> dataSizes);
+    std::vector<int64_t> dataSizes);
 template OMTensor *omTensorCreateWithShape<int64_t>(
-    std::vector<INDEX_TYPE> dataSizes);
-template OMTensor *omTensorCreateWithShape<float>(std::vector<INDEX_TYPE> dataSizes);
+    std::vector<int64_t> dataSizes);
+template OMTensor *omTensorCreateWithShape<float>(std::vector<int64_t> dataSizes);
 template OMTensor *omTensorCreateWithShape<double>(
-    std::vector<INDEX_TYPE> dataSizes);
+    std::vector<int64_t> dataSizes);
 
 template OMTensor *omTensorCreateWithRandomData<int32_t>(
-    std::vector<INDEX_TYPE> dataSizes, int32_t lbound, int32_t ubound);
+    std::vector<int64_t> dataSizes, int32_t lbound, int32_t ubound);
 template OMTensor *omTensorCreateWithRandomData<int64_t>(
-    std::vector<INDEX_TYPE> dataSizes, int64_t lbound, int64_t ubound);
+    std::vector<int64_t> dataSizes, int64_t lbound, int64_t ubound);
 template OMTensor *omTensorCreateWithRandomData<float>(
-    std::vector<INDEX_TYPE> dataSizes, float lbound, float ubound);
+    std::vector<int64_t> dataSizes, float lbound, float ubound);
 template OMTensor *omTensorCreateWithRandomData<double>(
-    std::vector<INDEX_TYPE> dataSizes, double lbound, double ubound);
+    std::vector<int64_t> dataSizes, double lbound, double ubound);
 
 template int32_t &omTensorGetElem<int32_t>(
-    OMTensor *, std::vector<INDEX_TYPE> indexes);
+    OMTensor *, std::vector<int64_t> indexes);
 template int64_t &omTensorGetElem<int64_t>(
-    OMTensor *, std::vector<INDEX_TYPE> indexes);
-template float &omTensorGetElem<float>(OMTensor *, std::vector<INDEX_TYPE> indexes);
+    OMTensor *, std::vector<int64_t> indexes);
+template float &omTensorGetElem<float>(OMTensor *, std::vector<int64_t> indexes);
 template double &omTensorGetElem<double>(
-    OMTensor *, std::vector<INDEX_TYPE> indexes);
+    OMTensor *, std::vector<int64_t> indexes);
 
-template int32_t &omTensorGetElemByOffset<int32_t>(OMTensor *, INDEX_TYPE index);
-template int64_t &omTensorGetElemByOffset<int64_t>(OMTensor *, INDEX_TYPE index);
-template float &omTensorGetElemByOffset<float>(OMTensor *, INDEX_TYPE indexs);
-template double &omTensorGetElemByOffset<double>(OMTensor *, INDEX_TYPE index);
+template int32_t &omTensorGetElemByOffset<int32_t>(OMTensor *, int64_t index);
+template int64_t &omTensorGetElemByOffset<int64_t>(OMTensor *, int64_t index);
+template float &omTensorGetElemByOffset<float>(OMTensor *, int64_t indexs);
+template double &omTensorGetElemByOffset<double>(OMTensor *, int64_t index);
 
 template bool omTensorAreTwoOmtsClose<int32_t>(
     OMTensor *a, OMTensor *b, float rtol, float atol);

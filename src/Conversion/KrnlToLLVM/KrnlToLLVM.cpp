@@ -645,7 +645,7 @@ private:
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
         ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
-        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreate", opaquePtrTy, {int32Ty}),
+        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmpty", opaquePtrTy, {int32Ty}),
         ApiSpec(API::GET_DATA, "omTensorGetData", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "omTensorSetData", voidTy, {opaquePtrTy, opaquePtrTy}),
         ApiSpec(API::GET_DATA_SIZES, "omTensorGetDataShape", int64PtrTy, {opaquePtrTy}),

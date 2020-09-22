@@ -22,7 +22,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
   std::vector<OMTensor *> omts;
   for (auto inputPyArray : inputsPyArray) {
-    auto *inputOMTensor = omTensorCreate(inputPyArray.ndim());
+    auto *inputOMTensor = omTensorCreateEmpty(inputPyArray.ndim());
     assert(inputPyArray.flags() && py::array::c_style &&
            "Expect contiguous python array.");
 
@@ -37,7 +37,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
       omTensorSetAlignedData(inputOMTensor, copiedData);
     }
 
-    omTensorSetDataShape(inputOMTensor, (INDEX_TYPE *)inputPyArray.shape());
+    omTensorSetDataShape(inputOMTensor, (int64_t *)inputPyArray.shape());
     omTensorSetDataStrides(inputOMTensor, (int64_t *)inputPyArray.strides());
     omts.emplace_back(inputOMTensor);
   }

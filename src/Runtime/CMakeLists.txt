@@ -5,34 +5,36 @@ add_subdirectory(jni)
 # such static library in a shared library can cause runtime failure on some architectures,
 # such as z. So we override the default and explicitly compile with -fPIC.
 add_library(cruntime STATIC
-        include/OnnxMlirRuntime.h
-        include/OnnxMlirRuntime/OnnxDataType.h
-        OMTensor.c)
+        OMTensor.c
+        OMTensor.inc
+        OMTensorList.c
+        OMTensorList.inc)
 set_target_properties(cruntime PROPERTIES
         LANGUAGE C)
 set_target_properties(cruntime PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 target_include_directories(cruntime PRIVATE
         ${ONNX_MLIR_SRC_ROOT}/src/Runtime
-        ${ONNX_MLIR_SRC_ROOT}/src/Runtime/include)
+        ${ONNX_MLIR_SRC_ROOT}/include)
 
 add_library(OMTensorUtils
         OMTensor.cpp
-        include/OnnxMlirRuntime.hpp
-        include/OnnxMlirRuntime/OnnxDataType.h)
+        OMTensor.inc
+        OMTensorList.cpp
+        OMTensorList.inc)
 set_target_properties(OMTensorUtils PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 target_compile_definitions(OMTensorUtils PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(OMTensorUtils PRIVATE
         ${ONNX_MLIR_SRC_ROOT}/src/Runtime
-        ${ONNX_MLIR_SRC_ROOT}/src/Runtime/include)
+        ${ONNX_MLIR_SRC_ROOT}/include)
 
 add_library(ExecutionSession
         ExecutionSession.hpp
         ExecutionSession.cpp)
 target_include_directories(ExecutionSession PRIVATE
         ${ONNX_MLIR_SRC_ROOT}/src/Runtime
-        ${ONNX_MLIR_SRC_ROOT}/src/Runtime/include)
+        ${ONNX_MLIR_SRC_ROOT}/include)
 target_link_libraries(ExecutionSession
         ${CMAKE_DL_LIBS})
 set_target_properties(ExecutionSession PROPERTIES
@@ -44,7 +46,7 @@ pybind11_add_module(PyRuntime
 target_include_directories(PyRuntime PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_SRC_ROOT}/src/Runtime
-        ${ONNX_MLIR_SRC_ROOT}/src/Runtime/include)
+        ${ONNX_MLIR_SRC_ROOT}/include)
 target_link_libraries(PyRuntime PRIVATE
         ${CMAKE_DL_LIBS}
         ExecutionSession
@@ -59,11 +61,6 @@ set_target_properties(EmbeddedDataLoader PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 
 add_dependencies(PyRuntime cruntime)
-install(FILES include/OnnxMlirRuntime.h DESTINATION include)
-install(FILES include/OnnxMlirRuntime/OnnxDataType.h DESTINATION include/OnnxMlirRuntime)
-install(FILES include/OnnxMlirRuntime/OnnxDataTypeMetaData.inc DESTINATION include/OnnxMlirRuntime)
 
 install(TARGETS cruntime DESTINATION lib)
 install(TARGETS EmbeddedDataLoader DESTINATION lib)
-
-add_subdirectory(include/Test)
