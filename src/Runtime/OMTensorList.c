@@ -1,4 +1,4 @@
-//===------------- OMTensorList.c - OMTensor C Implementation --------------===//
+//===------------- OMTensorList.c - OMTensor C Implementation -------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //

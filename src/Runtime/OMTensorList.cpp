@@ -1,4 +1,4 @@
-//===------------ OMTensorList.cpp - OMTensor C++ Implementation -----------===//
+//===------------ OMTensorList.cpp - OMTensor C++ Implementation ----------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
