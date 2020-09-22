@@ -67,6 +67,14 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     else
       return emitError(loc, "unsupported dynamic dimensions");
 
+    // Get the size of the "axis"th dimension of data.
+    auto zeroConst = rewriter.create<ConstantOp>(
+        loc, rewriter.getIntegerAttr(rewriter.getIndexType(), 0));
+    auto axisIndexConst = rewriter.create<ConstantOp>(
+        loc, rewriter.getIntegerAttr(rewriter.getIndexType(), axisIndex));
+    auto sizeAxisVal = rewriter.create<DimOp>(
+        loc, rewriter.getIndexType(), data, axisIndexConst);
+
     // Create the loops
     auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
     Block &iterationBlock = iterateOp.bodyRegion().front();
@@ -76,24 +84,32 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(&iterationBlock);
 
     // Handle the operations.
-    // Read first the indices[jj] into indexVal.
+    // Read first the indices[jj] into rawIndexVal.
     SmallVector<Value, 4> indicesMemRefVal;
     for (int j = 0; j < indicesRank; ++j)
       indicesMemRefVal.emplace_back(
           iterationBlock.getArguments()[jIndexStart + j]);
     auto indexValInteger =
         rewriter.create<AffineLoadOp>(loc, indices, indicesMemRefVal);
-    auto indexVal = rewriter.create<IndexCastOp>(
+    auto rawIndexVal = rewriter.create<IndexCastOp>(
         loc, indexValInteger, rewriter.getIndexType());
+    // When raw index value is negative, must add array dimension size to it.
+    auto negativeIndexVal =
+        rewriter.create<AddIOp>(loc, rawIndexVal, sizeAxisVal);
+    // Select value for non-negative or negative case.
+    auto isNegative = rewriter.create<CmpIOp>(
+        loc, CmpIPredicate::slt, rawIndexVal, zeroConst);
+    auto indexVal = rewriter.create<SelectOp>(
+        loc, isNegative, negativeIndexVal, rawIndexVal);
 
     // Then read input data into DataVal: first add ii's.
     SmallVector<Value, 4> dataMemRefVal;
     for (int i = 0; i < axisIndex; ++i)
       dataMemRefVal.emplace_back(
           iterationBlock.getArguments()[iIndexStart + i]);
-    // Then add indices[jj] (indexVal)
+    // Then add indices[jj] (indexVal).
     dataMemRefVal.emplace_back(indexVal);
-    // Then add kk's
+    // Then add kk's.
     for (int k = axisIndex + 1; k < dataRank; ++k)
       dataMemRefVal.emplace_back(
           iterationBlock.getArguments()[kIndexStart + k]);

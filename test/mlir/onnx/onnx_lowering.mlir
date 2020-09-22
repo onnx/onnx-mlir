@@ -2181,10 +2181,16 @@ func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
   // CHECK: [[ALLOC:%.+]] = alloc() : memref<2x2x2xf32>
   // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = "{{.*}}", shape = [2, 2], value = dense<{{\[+}}0, 1], [1, 2{{\]+}}> : tensor<2x2xi64>} : () -> memref<2x2xi64>
   // CHECK: [[LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[ZERO:%.+]] = constant 0 : index
+  // CHECK: [[DIM_INDEX:%.+]] = constant 0 : index
+  // CHECK: [[DIM:%.+]] = dim %arg0, [[DIM_INDEX]] : memref<3x2xf32>
   // CHECK: krnl.iterate([[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2) with ([[LOOP]]#0 -> [[ARG1:%.+]] = 0 to 2, [[LOOP]]#1 -> [[ARG2:%.+]] = 0 to 2, [[LOOP]]#2 -> [[ARG3:%.+]] = 0 to 2) {
   // CHECK: [[AFFINE1:%.+]] = affine.load [[GLOBAL]]{{.}}[[ARG1]], [[ARG2]]{{.}} : memref<2x2xi64>
   // CHECK: [[AFFINE2:%.+]] = index_cast [[AFFINE1]] : i64 to index
-  // CHECK: [[DATA:%.+]] = load %arg0{{.}}[[AFFINE2]], [[ARG3]]{{.}} : memref<3x2xf32>
+  // CHECK: [[AFFINE3:%.+]] = addi [[AFFINE2]], [[DIM]] : index
+  // CHECK: [[CMP:%.+]] = cmpi "slt", [[AFFINE2]], [[ZERO]] : index
+  // CHECK: [[AFFINE4:%.+]] = select [[CMP]], [[AFFINE3]], [[AFFINE2]] : index
+  // CHECK: [[DATA:%.+]] = load %arg0{{.}}[[AFFINE4]], [[ARG3]]{{.}} : memref<3x2xf32>
   // CHECK: affine.store [[DATA]], [[ALLOC]]{{.}}[[ARG1]], [[ARG2]], [[ARG3]]{{.}} : memref<2x2x2xf32>
 }
 
@@ -2200,10 +2206,16 @@ func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<1x3x2xf32> {
   // CHECK: [[ALLOC:%.+]] = alloc() : memref<1x3x2xf32>
   // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = "constant_0", shape = [1, 2], value = dense<{{\[+}}0, 2{{\]+}}> : tensor<1x2xi64>} : () -> memref<1x2xi64>
   // CHECK: [[LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[ZERO:%.+]] = constant 0 : index
+  // CHECK: [[DIM_INDEX:%.+]] = constant 1 : index
+  // CHECK: [[DIM:%.+]] = dim %arg0, [[DIM_INDEX]] : memref<3x3xf32>
   // CHECK: krnl.iterate([[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2) with ([[LOOP]]#0 -> [[ARG1:%.+]] = 0 to 3, [[LOOP]]#1 -> [[ARG2:%.+]] = 0 to 1, [[LOOP]]#2 -> [[ARG3:%.+]] = 0 to 2) {
   // CHECK: [[AFFINE1:%.+]] = affine.load [[GLOBAL]]{{.}}[[ARG2]], [[ARG3]]{{.}} : memref<1x2xi64>
   // CHECK: [[AFFINE2:%.+]] = index_cast [[AFFINE1]] : i64 to index
-  // CHECK: [[DATA:%.+]] = load %arg0{{.}}[[ARG1]], [[AFFINE2]]{{.}} : memref<3x3xf32>
+  // CHECK: [[AFFINE3:%.+]] = addi [[AFFINE2]], [[DIM]] : index
+  // CHECK: [[CMP:%.+]] = cmpi "slt", [[AFFINE2]], [[ZERO]] : index
+  // CHECK: [[AFFINE4:%.+]] = select [[CMP]], [[AFFINE3]], [[AFFINE2]] : index
+  // CHECK: [[DATA:%.+]] = load %arg0{{.}}[[ARG1]], [[AFFINE4]]{{.}} : memref<3x3xf32>
   // CHECK: affine.store [[DATA]], [[ALLOC]]{{.}}[[ARG1]], [[ARG2]], [[ARG3]]{{.}} : memref<1x3x2xf32>
 }
 
