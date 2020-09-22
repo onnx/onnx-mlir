@@ -2302,7 +2302,7 @@ func @test_tile1(%arg0 : tensor<4x8xf32>) -> tensor<*xf32> {
   // CHECK: [[MOD0:%.+]] = remi_unsigned [[ARG1]], [[CONST0]] : index
   // CHECK: [[CONST1:%.+]] = constant 8 : index
   // CHECK: [[MOD1:%.+]] = remi_unsigned [[ARG2]], [[CONST1]] : index
-  // CHECK: [[DATA:%.+]] = affine.load %arg0{{.}}[[MOD0]], [[MOD1]]{{.}} : memref<4x8xf32>
+  // CHECK: [[DATA:%.+]] = load %arg0{{.}}[[MOD0]], [[MOD1]]{{.}} : memref<4x8xf32>
   // CHECK: affine.store [[DATA]], [[ALLOC]]{{.}}[[ARG1]], [[ARG2]]{{.}} : memref<12x16xf32>
 }
 
@@ -2325,7 +2325,7 @@ func @test_tile2(%arg0 : tensor<8xf32>, %arg1 : tensor<1xi64>) -> tensor<*xf32> 
   // CHECK  krnl.iterate(%4) with (%4 -> %arg2 = 0 to %5) {
   // CHECK    %c8_1 = constant 8 : index
   // CHECK    %6 = remi_unsigned %arg2, %c8_1 : index
-  // CHECK    %7 = affine.load %arg0[%6] : memref<8xf32>
+  // CHECK    %7 = load %arg0[%6] : memref<8xf32>
   // CHECK    affine.store %7, %3[%arg2] : memref<?xf32>
 }
 
