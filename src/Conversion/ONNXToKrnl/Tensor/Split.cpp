@@ -21,7 +21,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
     // Gather info.
     auto loc = op->getLoc();
     ONNXSplitOp splitOp = llvm::dyn_cast<ONNXSplitOp>(op);
-    auto axis = splitOp.axis().getSExtValue();
+    auto axis = splitOp.axis();
     auto split = splitOp.split().getValue();
     SmallVector<int64_t, 4> splitOffset;
     int64_t offset = 0;
