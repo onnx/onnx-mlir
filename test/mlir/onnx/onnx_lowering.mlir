@@ -2183,7 +2183,7 @@ func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
   // CHECK: [[LOOP:%.+]]:3 = krnl.define_loops 3
   // CHECK: [[ZERO:%.+]] = constant 0 : index
   // CHECK: [[DIM_INDEX:%.+]] = constant 0 : index
-  // CHECK: [[DIM:%.+]] = dim %arg0, [[DIM_INDEX]] : memref<3x2xf32>
+  // CHECK: [[DIM:%.+]] = "krnl.dim"(%arg0, [[DIM_INDEX]]) : (memref<3x2xf32>, index) -> index
   // CHECK: krnl.iterate([[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2) with ([[LOOP]]#0 -> [[ARG1:%.+]] = 0 to 2, [[LOOP]]#1 -> [[ARG2:%.+]] = 0 to 2, [[LOOP]]#2 -> [[ARG3:%.+]] = 0 to 2) {
   // CHECK: [[AFFINE1:%.+]] = affine.load [[GLOBAL]]{{.}}[[ARG1]], [[ARG2]]{{.}} : memref<2x2xi64>
   // CHECK: [[AFFINE2:%.+]] = index_cast [[AFFINE1]] : i64 to index
@@ -2208,7 +2208,7 @@ func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<1x3x2xf32> {
   // CHECK: [[LOOP:%.+]]:3 = krnl.define_loops 3
   // CHECK: [[ZERO:%.+]] = constant 0 : index
   // CHECK: [[DIM_INDEX:%.+]] = constant 1 : index
-  // CHECK: [[DIM:%.+]] = dim %arg0, [[DIM_INDEX]] : memref<3x3xf32>
+  // CHECK: [[DIM:%.+]] = "krnl.dim"(%arg0, [[DIM_INDEX]]) : (memref<3x3xf32>, index) -> index
   // CHECK: krnl.iterate([[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2) with ([[LOOP]]#0 -> [[ARG1:%.+]] = 0 to 3, [[LOOP]]#1 -> [[ARG2:%.+]] = 0 to 1, [[LOOP]]#2 -> [[ARG3:%.+]] = 0 to 2) {
   // CHECK: [[AFFINE1:%.+]] = affine.load [[GLOBAL]]{{.}}[[ARG2]], [[ARG3]]{{.}} : memref<1x2xi64>
   // CHECK: [[AFFINE2:%.+]] = index_cast [[AFFINE1]] : i64 to index
