@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --disconnect-dims %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --lower-krnl-shape-to-std %s -split-input-file | FileCheck %s
 
 /// Lower krnl.dim when input MemRef does not have an affine map.
 func @test_krnl_dim_lowering(%arg0: memref<?x?xf32>) -> index {

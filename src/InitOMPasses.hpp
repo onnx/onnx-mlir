@@ -77,7 +77,8 @@ void initOMPasses() {
         return mlir::createPackKrnlGlobalConstantsPass();
       });
 
-  mlir::registerPass("disconnect-dims", "Disconnect dims from allocs.",
+  mlir::registerPass("lower-krnl-shape-to-std",
+      "Lowers krnl shape-related operations.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createDisconnectKrnlDimFromAllocPass();
       });
