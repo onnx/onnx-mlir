@@ -172,7 +172,7 @@ void omTensorSetDataStrides(OMTensor *omt, int64_t *dataStrides);
  * @param omt, pointer to the OMTensor
  * @return ONNX data type of the data buffer elements.
  */
-int omTensorGetDataType(OMTensor *omt);
+OM_DATA_TYPE omTensorGetDataType(OMTensor *omt);
 
 /**
  * OMTensor data type setter
@@ -182,7 +182,7 @@ int omTensorGetDataType(OMTensor *omt);
  *
  * Set the ONNX data type of the data buffer elements.
  */
-void omTensorSetDataType(OMTensor *omt, int dataType);
+void omTensorSetDataType(OMTensor *omt, OM_DATA_TYPE dataType);
 
 /* Helper function to get the ONNX data type size in bytes */
 static inline int getDataTypeSize(int dataType) {

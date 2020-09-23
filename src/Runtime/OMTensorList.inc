@@ -18,11 +18,6 @@ OMTensorList *omTensorListCreate(OMTensor **omts, int n) {
   list->_omts = omts;
   list->_n = n;
   return list;
-  //  try {
-  //    return new OMTensorList(omts, n);
-  //  } catch (const invalid_argument &e) {
-  //    return NULL;
-  //  }
 }
 
 /* OMTensorList destroyer */

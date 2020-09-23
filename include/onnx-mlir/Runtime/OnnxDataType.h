@@ -38,7 +38,7 @@ extern const int OM_DATA_TYPE_SIZE[];
 #ifdef __cplusplus
 // Note by design const map has no [] operator since [] creates a default
 // key value mapping when the key is not found which changes the map
-const std::map<std::string, int> OM_DATA_TYPE_CPP_TO_ONNX = {
+const std::map<std::string, OM_DATA_TYPE> OM_DATA_TYPE_CPP_TO_ONNX = {
     {"b", ONNX_TYPE_BOOL},   // bool  -> BOOL
     {"c", ONNX_TYPE_INT8},   // char  -> INT8 (platform dependent, can be UINT8)
     {"a", ONNX_TYPE_INT8},   // int8_t   -> INT8

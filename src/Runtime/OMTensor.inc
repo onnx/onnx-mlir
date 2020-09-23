@@ -184,10 +184,10 @@ void omTensorSetDataStrides(OMTensor *omt, int64_t *dataStrides) {
 }
 
 /* OMTensor data type getter */
-int omTensorGetDataType(OMTensor *omt) { return omt->_dataType; }
+OM_DATA_TYPE omTensorGetDataType(OMTensor *omt) { return omt->_dataType; }
 
 /* OMTensor data type setter */
-void omTensorSetDataType(OMTensor *omt, int dataType) {
+void omTensorSetDataType(OMTensor *omt, OM_DATA_TYPE dataType) {
   omt->_dataType = dataType;
 }
 
