@@ -818,7 +818,9 @@ def parse_type_str(allowedType):
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
 
-    for key, item in onnx_to_mlir_type_dict.items():
+    mapping = list(onnx_to_mlir_type_dict.items())
+    mapping.sort(key=lambda pair:len(pair[0]), reverse=True)
+    for key, item in mapping:
         allowedType = allowedType.replace(key, item)
     return allowedType
 
