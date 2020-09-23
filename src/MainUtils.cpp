@@ -486,7 +486,7 @@ void outputCode(
   }
 #endif
 if (printIR)
-  module->print(llvm::outs, flags);
+  module->print(llvm::outs(), flags);
 }
 
 void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
