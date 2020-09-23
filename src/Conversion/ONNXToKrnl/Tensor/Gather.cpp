@@ -72,7 +72,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
         loc, rewriter.getIntegerAttr(rewriter.getIndexType(), 0));
     auto axisIndexConst = rewriter.create<ConstantOp>(
         loc, rewriter.getIntegerAttr(rewriter.getIndexType(), axisIndex));
-    auto sizeAxisVal = rewriter.create<DimOp>(
+    auto sizeAxisVal = rewriter.create<KrnlDimOp>(
         loc, rewriter.getIndexType(), data, axisIndexConst);
 
     // Create the loops

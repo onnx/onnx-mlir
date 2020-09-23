@@ -408,11 +408,10 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.
-  // TODO: enable here or later to enable lowering of krnl dim.
-  // pm.addPass(createDisconnectKrnlDimFromAllocPass());
   pm.addPass(mlir::createCanonicalizerPass());
 
   // TODO: make this pass optional:
+  pm.addPass(createDisconnectKrnlDimFromAllocPass());
   pm.addPass(mlir::createKrnlEnableMemoryPoolPass());
   pm.addPass(mlir::createKrnlBundleMemoryPoolsPass());
   pm.addPass(mlir::createCanonicalizerPass());
