@@ -46,59 +46,7 @@
  * We will refer to it as a RMF (Runtime MemRef).
  */
 
-struct OMTensor {
-#ifdef __cplusplus
-    /**
-     * Constructor
-     *
-     * @param rank, rank of data sizes and strides
-     *
-     * Create a OMTensor with specified rank. Memory for data sizes and strides
-     * are allocated.
-     */
-    OMTensor(int rank) {
-        if ((_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
-            (_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-            _data = NULL;
-            _alignedData = NULL;
-            _offset = 0;
-            _dataType = ONNX_TYPE_UNDEFINED;
-            _rank = rank;
-            _owningData = false;
-        } else {
-            throw std::runtime_error(
-                    "OMTensor(" + std::to_string(rank) + ") malloc error");
-        }
-    };
-
-    OMTensor() = default;
-
-    /**
-     * Destructor
-     *
-     * Destroy the OMTensor struct.
-     */
-    ~OMTensor() {
-        if (_owningData)
-            free(_data);
-        free(_dataSizes);
-        free(_dataStrides);
-    };
-#endif
-
-    void *_data;            // data buffer
-    void *_alignedData;     // aligned data buffer that the omt indexes.
-    int64_t _offset;     // offset of 1st element
-    int64_t *_dataSizes; // sizes array
-    int64_t *_dataStrides;  // strides array
-    int _dataType;          // ONNX data type
-    int _rank;              // rank
-    char *_name;            // optional name for named access
-    bool _owningData;       // indicates whether the Omt owns the memory space
-    // referenced by _data. Omt struct will release the memory
-    // space referred to by _data upon destruction if and only
-    // if it owns it.
-};
+struct OMTensor;
 
 #ifndef __cplusplus
 typedef struct OMTensor OMTensor;

@@ -1,4 +1,4 @@
-//===------- OMTensor.inc - C/C++ Neutral OMTensor Implementation ----------===//
+//===--------- OMTensor.inc - C/C++ Neutral OMTensor Implementation--------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -36,28 +36,80 @@
 using namespace std;
 #endif
 
-/* ================ External C/C++ API call implementation ================ */
-
-/*----------------------------- */
-/* C/C++ API for OMTensor calls */
-/*----------------------------- */
-
-OMTensor *omTensorCreate(void* data_ptr, size_t* shape, size_t rank, OM_DATA_TYPE dtype) {
-    OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
-    if ((omt->_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
-        (omt->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-        omt->_data = data_ptr;
-        omt->_alignedData = data_ptr;
-        omt->_rank = rank;
-        omt->_dataType = dtype;
+struct OMTensor {
+#ifdef __cplusplus
+  /**
+   * Constructor
+   *
+   * @param rank, rank of data sizes and strides
+   *
+   * Create a OMTensor with specified rank. Memory for data sizes and strides
+   * are allocated.
+   */
+  OMTensor(int rank) {
+    if ((_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
+        (_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+      _data = NULL;
+      _alignedData = NULL;
+      _offset = 0;
+      _dataType = ONNX_TYPE_UNDEFINED;
+      _rank = rank;
+      _owningData = false;
+    } else {
+      throw std::runtime_error(
+          "OMTensor(" + std::to_string(rank) + ") malloc error");
     }
-    for (size_t i = rank-1; i>=0; i--) {
-        omt->_dataSizes[i] = shape[i];
-        int64_t stride = 1;
-        for (size_t j = i-1; j>=0; j--)
-            stride *= omt->_dataStrides[j];
-        omt->_dataStrides[i] = stride;
+  };
+
+  OMTensor() = default;
+
+  /**
+   * Destructor
+   *
+   * Destroy the OMTensor struct.
+   */
+  ~OMTensor() {
+    if (_owningData)
+      free(_data);
+    free(_dataSizes);
+    free(_dataStrides);
+  };
+#endif
+
+  void *_data;           // data buffer
+  void *_alignedData;    // aligned data buffer that the omt indexes.
+  int64_t _offset;       // offset of 1st element
+  int64_t *_dataSizes;   // sizes array
+  int64_t *_dataStrides; // strides array
+  int _dataType;         // ONNX data type
+  int _rank;             // rank
+  char *_name;           // optional name for named access
+  bool _owningData;      // indicates whether the Omt owns the memory space
+  // referenced by _data. Omt struct will release the memory
+  // space referred to by _data upon destruction if and only
+  // if it owns it.
+};
+
+OMTensor *omTensorCreate(
+    void *data_ptr, size_t *shape, size_t rank, OM_DATA_TYPE dtype) {
+  OMTensor *tensor = (OMTensor *)malloc(sizeof(OMTensor));
+  if ((tensor->_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
+      (tensor->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+      tensor->_data = data_ptr;
+      tensor->_alignedData = data_ptr;
+      tensor->_rank = rank;
+      tensor->_dataType = dtype;
+  }
+  // Using signed indices helps detect when index falls below 0.
+  for (int64_t i = 0; i < rank; i++) {
+      tensor->_dataSizes[i] = shape[i];
+    int64_t stride = 1;
+    for (int64_t j = i - 1; j >= 0; j--) {
+      stride *= tensor->_dataSizes[j];
     }
+      tensor->_dataStrides[i] = stride;
+  }
+  return tensor;
 }
 
 /* OMTensor creator */
@@ -77,7 +129,8 @@ OMTensor *omTensorCreateEmpty(int rank) {
 }
 
 /* More detailed OMTensor creator */
-OMTensor *omTensorCreateWithNameAndOwnership(int rank, char *name, bool ownership) {
+OMTensor *omTensorCreateWithNameAndOwnership(
+    int rank, char *name, bool ownership) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
   if ((omt->_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
       (omt->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
@@ -178,15 +231,15 @@ OMTensor *omTensorCreateWithShape(vector<int64_t> dataSizes) {
   /* Copy dataSizes, _dataSizes already allocated by omTensorCreate */
   copy(dataSizes.begin(), dataSizes.end(), omt->_dataSizes);
 
-  /* Compute and copy dataStrides, _dataStrides already allocated by omTensorCreateEmpty
+  /* Compute and copy dataStrides, _dataStrides already allocated by
+   * omTensorCreateEmpty
    */
   auto computedStrides = computeStridesFromSizes(omt->_dataSizes, omt->_rank);
   copy(computedStrides.begin(), computedStrides.end(), omt->_dataStrides);
 
   /* Convert CPP type to ONNX type */
   try {
-    omt->_dataType =
-        OM_DATA_TYPE_CPP_TO_ONNX.at(string(typeid(T).name()));
+    omt->_dataType = OM_DATA_TYPE_CPP_TO_ONNX.at(string(typeid(T).name()));
   } catch (const out_of_range &e) {
     omt->_dataType = ONNX_TYPE_UNDEFINED;
   }
@@ -328,7 +381,8 @@ template OMTensor *omTensorCreateWithShape<int32_t>(
     std::vector<int64_t> dataSizes);
 template OMTensor *omTensorCreateWithShape<int64_t>(
     std::vector<int64_t> dataSizes);
-template OMTensor *omTensorCreateWithShape<float>(std::vector<int64_t> dataSizes);
+template OMTensor *omTensorCreateWithShape<float>(
+    std::vector<int64_t> dataSizes);
 template OMTensor *omTensorCreateWithShape<double>(
     std::vector<int64_t> dataSizes);
 
@@ -345,7 +399,8 @@ template int32_t &omTensorGetElem<int32_t>(
     OMTensor *, std::vector<int64_t> indexes);
 template int64_t &omTensorGetElem<int64_t>(
     OMTensor *, std::vector<int64_t> indexes);
-template float &omTensorGetElem<float>(OMTensor *, std::vector<int64_t> indexes);
+template float &omTensorGetElem<float>(
+    OMTensor *, std::vector<int64_t> indexes);
 template double &omTensorGetElem<double>(
     OMTensor *, std::vector<int64_t> indexes);
 
