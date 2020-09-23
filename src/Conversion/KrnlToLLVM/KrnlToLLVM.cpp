@@ -776,7 +776,7 @@ private:
 
     // Set ownership to true, i.e., free after OMTensor is destroyed.
     Value owning = rewriter.create<LLVM::ConstantOp>(
-              loc, int32Ty, rewriter.getI32IntegerAttr(1));
+        loc, int32Ty, rewriter.getI32IntegerAttr(1));
 
     // Extract the allocated pointer.
     Value outMemRefAllocatedPtr = rewriter.create<LLVM::ExtractValueOp>(loc,

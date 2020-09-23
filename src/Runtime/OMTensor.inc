@@ -212,6 +212,8 @@ int omTensorGetRank(OMTensor *omt) { return omt->_rank; }
 /* OMTensor number of elements getter */
 int64_t omTensorGetNumElems(OMTensor *omt) {
   // Using signed indices helps detect when index falls below 0.
+  // Verify that strides are dense, meaning that there're
+  // no skipping elements.
   for (int64_t i = omt->_rank - 1; i >= 0; i--) {
     int64_t strideIfNotSkipping = 1;
     for (int64_t j = i + 1; j < omt->_rank; j++) {
