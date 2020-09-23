@@ -14,41 +14,41 @@
 
 struct OMTensorList {
 #ifdef __cplusplus
-    /**
-     * Constructor
-     *
-     * Create an OMTensorList with specified OMTensor pointer array
-     * and the size of the array
-     */
-    OMTensorList(OMTensor *omts[], int n) : _omts(omts), _size(n){};
+  /**
+   * Constructor
+   *
+   * Create an OMTensorList with specified OMTensor pointer array
+   * and the size of the array
+   */
+  OMTensorList(OMTensor *omts[], int n) : _omts(omts), _size(n){};
 
-    /**
-     * Constructor
-     *
-     * Create an empty OMTensorList for internal API calls.
-     */
-    OMTensorList() = default;
+  /**
+   * Constructor
+   *
+   * Create an empty OMTensorList for internal API calls.
+   */
+  OMTensorList() = default;
 
-    /**
-     * Destructor
-     *
-     * Destroy the OMTensorList struct.
-     */
-    ~OMTensorList() {
-        /* Destroy all the OMTensors */
-        for (int i = 0; i < _size; i++)
-            if (_omts[i])
-                omTensorDestroy(_omts[i]);
-    };
+  /**
+   * Destructor
+   *
+   * Destroy the OMTensorList struct.
+   */
+  ~OMTensorList() {
+    /* Destroy all the OMTensors */
+    for (int i = 0; i < _size; i++)
+      if (_omts[i])
+        omTensorDestroy(_omts[i]);
+  };
 #endif
 
-    /* To facilitate user facing API getOmts, OMTensors are kept in a vector
-     * that can be quickly returned as an array. A name to index map is used
-     * to address ReMemRefs by name.
-     */
-    OMTensor **_omts; // OMTensor array
+  /* To facilitate user facing API getOmts, OMTensors are kept in a vector
+   * that can be quickly returned as an array. A name to index map is used
+   * to address ReMemRefs by name.
+   */
+  OMTensor **_omts; // OMTensor array
 
-    size_t _size; // Number of elements in _omts.
+  size_t _size; // Number of elements in _omts.
 };
 
 /* OMTensorList creator */

@@ -56,4 +56,4 @@ int omTensorListGetSize(OMTensorList *list);
  */
 OMTensor *omTensorListGetOmtByIndex(OMTensorList *list, size_t index);
 
-#endif //ONNX_MLIR_OMTENSORLIST_H
+#endif // ONNX_MLIR_OMTENSORLIST_H

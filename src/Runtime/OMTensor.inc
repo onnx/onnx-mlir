@@ -150,8 +150,8 @@ OMTensor *omTensorCreateEmpty(
 void omTensorDestroy(OMTensor *tensor) {
   if (tensor->_owning) {
     free(tensor->_allocatedPtr);
-      tensor->_allocatedPtr = NULL;
-      tensor->_alignedPtr = NULL;
+    tensor->_allocatedPtr = NULL;
+    tensor->_alignedPtr = NULL;
   }
   free(tensor);
 }
@@ -161,17 +161,17 @@ void *omTensorGetAlignedPtr(OMTensor *tensor) { return tensor->_alignedPtr; }
 
 /* OMTensor data pointer setter */
 void omTensorSetPtr(
-        OMTensor *tensor, int owning, void *allocatedPtr, void *alignedPtr) {
+    OMTensor *tensor, int owning, void *allocatedPtr, void *alignedPtr) {
   if (tensor->_owning) {
     /* If we own the allocated buffer, free it first. */
     free(tensor->_allocatedPtr);
   }
-    tensor->_owning = owning;
-    tensor->_allocatedPtr = allocatedPtr;
+  tensor->_owning = owning;
+  tensor->_allocatedPtr = allocatedPtr;
   if (alignedPtr)
-      tensor->_alignedPtr = alignedPtr;
+    tensor->_alignedPtr = alignedPtr;
   else
-      tensor->_alignedPtr = allocatedPtr;
+    tensor->_alignedPtr = allocatedPtr;
 }
 
 /* OMTensor data sizes getter */
@@ -180,7 +180,7 @@ int64_t *omTensorGetDataShape(OMTensor *tensor) { return tensor->_shape; }
 /* OMTensor data sizes setter */
 void omTensorSetShape(OMTensor *tensor, int64_t *shape) {
   for (int i = 0; i < tensor->_rank; i++)
-      tensor->_shape[i] = shape[i];
+    tensor->_shape[i] = shape[i];
 }
 
 /* OMTensor data strides getter */
@@ -189,7 +189,7 @@ int64_t *omTensorGetStrides(OMTensor *tensor) { return tensor->_stride; }
 /* OMTensor data strides setter */
 void omTensorSetStrides(OMTensor *tensor, int64_t *strides) {
   for (int i = 0; i < tensor->_rank; i++)
-      tensor->_stride[i] = strides[i];
+    tensor->_stride[i] = strides[i];
 }
 
 /* OMTensor data type getter */
@@ -197,7 +197,7 @@ OM_DATA_TYPE omTensorGetDataType(OMTensor *tensor) { return tensor->_dataType; }
 
 /* OMTensor data type setter */
 void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType) {
-    tensor->_dataType = dataType;
+  tensor->_dataType = dataType;
 }
 
 /* OMTensor data buffer size getter */
@@ -225,7 +225,9 @@ int64_t omTensorGetNumElems(OMTensor *tensor) {
 }
 
 /* OMTensor allocated pointer getter */
-void *omTensorGetAllocatedPtr(OMTensor *tensor) { return tensor->_allocatedPtr; }
+void *omTensorGetAllocatedPtr(OMTensor *tensor) {
+  return tensor->_allocatedPtr;
+}
 
 #ifdef __cplusplus
 /* OMTensor creator with data sizes and element type  */
