@@ -115,7 +115,7 @@ OMTensor *omTensorCreate(
 
 // Create a OMTensor.
 OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
-    int64_t rank, OM_DATA_TYPE dtype, bool owning) {
+    int64_t rank, OM_DATA_TYPE dtype, int owning) {
   OMTensor *tensor = omTensorCreate(data_ptr, shape, rank, dtype);
   tensor->_owning = owning;
   return tensor;
@@ -147,85 +147,85 @@ OMTensor *omTensorCreateEmpty(
 }
 
 /* OMTensor destroyer */
-void omTensorDestroy(OMTensor *omt) {
-  if (omt->_owning) {
-    free(omt->_allocatedPtr);
-    omt->_allocatedPtr = NULL;
-    omt->_alignedPtr = NULL;
+void omTensorDestroy(OMTensor *tensor) {
+  if (tensor->_owning) {
+    free(tensor->_allocatedPtr);
+      tensor->_allocatedPtr = NULL;
+      tensor->_alignedPtr = NULL;
   }
-  free(omt);
+  free(tensor);
 }
 
 /* OMTensor data getter */
-void *omTensorGetAlignedPtr(OMTensor *omt) { return omt->_alignedPtr; }
+void *omTensorGetAlignedPtr(OMTensor *tensor) { return tensor->_alignedPtr; }
 
 /* OMTensor data pointer setter */
 void omTensorSetPtr(
-    OMTensor *omt, int owning, void *allocatedPtr, void *alignedPtr) {
-  if (omt->_owning) {
+        OMTensor *tensor, int owning, void *allocatedPtr, void *alignedPtr) {
+  if (tensor->_owning) {
     /* If we own the allocated buffer, free it first. */
-    free(omt->_allocatedPtr);
+    free(tensor->_allocatedPtr);
   }
-  omt->_owning = owning;
-  omt->_allocatedPtr = allocatedPtr;
+    tensor->_owning = owning;
+    tensor->_allocatedPtr = allocatedPtr;
   if (alignedPtr)
-    omt->_alignedPtr = alignedPtr;
+      tensor->_alignedPtr = alignedPtr;
   else
-    omt->_alignedPtr = allocatedPtr;
+      tensor->_alignedPtr = allocatedPtr;
 }
 
 /* OMTensor data sizes getter */
-int64_t *omTensorGetDataShape(OMTensor *omt) { return omt->_shape; }
+int64_t *omTensorGetDataShape(OMTensor *tensor) { return tensor->_shape; }
 
 /* OMTensor data sizes setter */
-void omTensorSetDataShape(OMTensor *omt, int64_t *dataSizes) {
-  for (int i = 0; i < omt->_rank; i++)
-    omt->_shape[i] = dataSizes[i];
+void omTensorSetShape(OMTensor *tensor, int64_t *shape) {
+  for (int i = 0; i < tensor->_rank; i++)
+      tensor->_shape[i] = shape[i];
 }
 
 /* OMTensor data strides getter */
-int64_t *omTensorGetStrides(OMTensor *omt) { return omt->_stride; }
+int64_t *omTensorGetStrides(OMTensor *tensor) { return tensor->_stride; }
 
 /* OMTensor data strides setter */
-void omTensorSetStrides(OMTensor *omt, int64_t *dataStrides) {
-  for (int i = 0; i < omt->_rank; i++)
-    omt->_stride[i] = dataStrides[i];
+void omTensorSetStrides(OMTensor *tensor, int64_t *strides) {
+  for (int i = 0; i < tensor->_rank; i++)
+      tensor->_stride[i] = strides[i];
 }
 
 /* OMTensor data type getter */
-OM_DATA_TYPE omTensorGetDataType(OMTensor *omt) { return omt->_dataType; }
+OM_DATA_TYPE omTensorGetDataType(OMTensor *tensor) { return tensor->_dataType; }
 
 /* OMTensor data type setter */
-void omTensorSetDataType(OMTensor *omt, OM_DATA_TYPE dataType) {
-  omt->_dataType = dataType;
+void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType) {
+    tensor->_dataType = dataType;
 }
 
 /* OMTensor data buffer size getter */
-int64_t omTensorGetDataBufferSize(OMTensor *omt) {
-  return getNumOfElems(omt->_shape, omt->_rank) *
-         getDataTypeSize(omt->_dataType);
+int64_t omTensorGetDataBufferSize(OMTensor *tensor) {
+  return getNumOfElems(tensor->_shape, tensor->_rank) *
+         getDataTypeSize(tensor->_dataType);
 }
 
 /* OMTensor rank getter */
-int omTensorGetRank(OMTensor *omt) { return omt->_rank; }
+int omTensorGetRank(OMTensor *tensor) { return tensor->_rank; }
 
 /* OMTensor number of elements getter */
-int64_t omTensorGetNumElems(OMTensor *omt) {
+int64_t omTensorGetNumElems(OMTensor *tensor) {
   // Using signed indices helps detect when index falls below 0.
   // Verify that strides are dense, meaning that there're
   // no skipping elements.
-  for (int64_t i = omt->_rank - 1; i >= 0; i--) {
+  for (int64_t i = tensor->_rank - 1; i >= 0; i--) {
     int64_t strideIfNotSkipping = 1;
-    for (int64_t j = i + 1; j < omt->_rank; j++) {
-      strideIfNotSkipping *= omt->_shape[j];
+    for (int64_t j = i + 1; j < tensor->_rank; j++) {
+      strideIfNotSkipping *= tensor->_shape[j];
     }
-    assert(omt->_stride[i] == strideIfNotSkipping);
+    assert(tensor->_stride[i] == strideIfNotSkipping);
   }
-  return getNumOfElems(omt->_shape, omt->_rank);
+  return getNumOfElems(tensor->_shape, tensor->_rank);
 }
 
 /* OMTensor aligned data getter */
-void *omTensorGetAlignedData(OMTensor *omt) { return omt->_alignedPtr; }
+void *omTensorGetAlignedData(OMTensor *tensor) { return tensor->_alignedPtr; }
 
 #ifdef __cplusplus
 /* OMTensor creator with data sizes and element type  */

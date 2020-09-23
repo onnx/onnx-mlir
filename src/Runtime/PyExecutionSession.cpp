@@ -38,7 +38,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
           /*allocatedPtr=*/copiedData, /*alignedPtr=*/copiedData);
     }
 
-    omTensorSetDataShape(inputOMTensor, (int64_t *)inputPyArray.shape());
+    omTensorSetShape(inputOMTensor, (int64_t *)inputPyArray.shape());
     omTensorSetStrides(inputOMTensor, (int64_t *)inputPyArray.strides());
     omts.emplace_back(inputOMTensor);
   }

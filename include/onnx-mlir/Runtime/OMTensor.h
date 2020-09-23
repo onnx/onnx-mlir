@@ -43,7 +43,7 @@
  * as members of this struct so that they can be accessed and modified easily
  * during runtime.
  *
- * We will refer to it as a RMF (Runtime MemRef).
+ * We will refer to it as an OMTensor.
  */
 
 struct OMTensor;
@@ -61,7 +61,7 @@ static inline int64_t getNumOfElems(int64_t *dataSizes, int rank) {
 }
 
 /**
- * Create an OMTensor.
+ * Create a OMTensor with specified data pointer, shape, rank and element type.
  *
  * @param data_ptr pointer to tensor data. By default, caller is responsible for
  * managing the memory this pointer refers to.
@@ -70,25 +70,25 @@ static inline int64_t getNumOfElems(int64_t *dataSizes, int rank) {
  * @param dtype tensor element data type.
  * @return pointer to OMTensor created, NULL if creation failed.
  *
- * Create a OMTensor with specified data pointer, shape, rank and element type.
  */
 OMTensor *omTensorCreate(
     void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
 
 /**
- * Create an OMTensor.
+ * Create an OMTensor with the specified shape, rank and element type,
+ * allocate uninitialized data for the specified shape.
  *
  * @param shape list of integers indicating the tensor shape.
  * @param rank tensor rank.
  * @param dtype tensor element data type.
  * @return pointer to OMTensor created, NULL if creation failed.
  *
- * Create a OMTensor with specified data pointer, shape, rank and element type.
  */
 OMTensor *omTensorCreateEmpty(int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
 
 /**
- * Create an OMTensor.
+ * Create an OMTensor with specified data pointer, shape, rank and element type,
+ * manually setting data ptr ownership.
  *
  * @param data_ptr pointer to tensor data.
  * @param shape list of integers indicating the tensor shape.
@@ -98,119 +98,114 @@ OMTensor *omTensorCreateEmpty(int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
  * release the data_ptr upon destruction.
  * @return pointer to OMTensor created, NULL if creation failed.
  *
- * Create a OMTensor with specified data pointer, shape, rank and element type.
  */
 OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
-    int64_t rank, OM_DATA_TYPE dtype, bool owning);
+    int64_t rank, OM_DATA_TYPE dtype, int owning);
 
 /**
- * Create an empty OMTensor. This constructor returns a partially
- * filled omTensor; prefer using the new omTensorCreateEmpty()
+ * Create an empty OMTensor with specified rank. This constructor returns a
+ * partially filled omTensor; prefer using the new omTensorCreateEmpty()
  * function to fill shape & stride fields automatically.
  *
- * @param rank, rank of the data sizes and strides
+ * @param rank tensor rank
  * @return pointer to OMTensor created, NULL if creation failed.
  *
- * Create a OMTensor with specified rank. Memory for data sizes and
- * strides are allocated.
  */
 OMTensor *omTensorCreateEmptyDeprecated(int rank);
 
 /**
- * OMTensor destroyer
- *
- * @param omt, pointer to the OMTensor
- *
  * Destroy the OMTensor struct.
+ *
+ * @param tensor pointer to the OMTensor
+ *
  */
-void omTensorDestroy(OMTensor *omt);
+void omTensorDestroy(OMTensor *tensor);
 
 /**
- * OMTensor data getter
+ * OMTensor aligned data pointer getter
  *
- * @param omt, pointer to the OMTensor
+ * @param tensor pointer to the OMTensor
  * @return pointer to the data buffer of the OMTensor,
  *         NULL if the data buffer is not set.
  */
-void *omTensorGetAlignedPtr(OMTensor *omt);
+void *omTensorGetAlignedPtr(OMTensor *tensor);
 
 /**
  * OMTensor allocated and aligned pointer setter.
  *
- * @param omt pointer to the OMTensor
- * @param owning whether allocatedPtr should be freed after omt is destroyed.
+ * @param tensor pointer to the OMTensor
+ * @param owning whether allocatedPtr should be freed after tensor is destroyed.
  * @param allocatedPtr allocated pointer to tensor content.
  * @param alignedPtr aligned pointer to tensor content. If NULL will be set to
  * allocatedPtr.
  *
- * Set the allocated and aligned buffer pointer of the OMTensor.
  *
  */
 void omTensorSetPtr(
-    OMTensor *omt, int owning, void *allocatedPtr, void *alignedPtr);
+    OMTensor *tensor, int owning, void *allocatedPtr, void *alignedPtr);
 
 /**
- * OMTensor aligned data getter
+ * OMTensor aligned data getter.
  *
- * @param omt, pointer to the OMTensor
+ * @param tensor pointer to the OMTensor
  * @return pointer to the aligned data buffer of the OMTensor,
  *         NULL if the aligned data buffer is not set.
  */
-void *omTensorGetAlignedData(OMTensor *omt);
+void *omTensorGetAlignedData(OMTensor *tensor);
 
 /**
  * OMTensor data sizes getter
  *
- * @param omt, pointer to the OMTensor
+ * @param tensor pointer to the OMTensor
  * @return pointer to the data shape array.
  */
-int64_t *omTensorGetDataShape(OMTensor *omt);
+int64_t *omTensorGetDataShape(OMTensor *tensor);
 
 /**
  * OMTensor data sizes setter
  *
- * @param omt, pointer to the OMTensor
- * @param dataSizes, data sizes array to be set
+ * @param tensor pointer to the OMTensor
+ * @param shape data sizes array to be set
  *
  * Set the data sizes array of the OMTensor to the values in the input array.
  */
-void omTensorSetDataShape(OMTensor *omt, int64_t *dataSizes);
+void omTensorSetShape(OMTensor *tensor, int64_t *shape);
 
 /**
  * OMTensor data strides getter
  *
- * @param omt, pointer to the OMTensor
+ * @param tensor pointer to the OMTensor
  * @return pointer to the data strides array.
  */
-int64_t *omTensorGetStrides(OMTensor *omt);
+int64_t *omTensorGetStrides(OMTensor *tensor);
 
 /**
  * OMTensor data strides setter
  *
- * @param omt, pointer to the OMTensor
- * @param dataStrides, data strides array to be set
+ * @param tensor pointer to the OMTensor
+ * @param strides tensor strides array to be set.
  *
  * Set the data strides array of the OMTensor to the values in the input array.
  */
-void omTensorSetStrides(OMTensor *omt, int64_t *dataStrides);
+void omTensorSetStrides(OMTensor *tensor, int64_t *strides);
 
 /**
  * OMTensor data type getter
  *
- * @param omt, pointer to the OMTensor
+ * @param tensor pointer to the OMTensor
  * @return ONNX data type of the data buffer elements.
  */
-OM_DATA_TYPE omTensorGetDataType(OMTensor *omt);
+OM_DATA_TYPE omTensorGetDataType(OMTensor *tensor);
 
 /**
  * OMTensor data type setter
  *
- * @param omt, pointer to the OMTensor
- * @param dataType, ONNX data type to be set
+ * @param tensor pointer to the OMTensor
+ * @param dataType ONNX data type to be set
  *
  * Set the ONNX data type of the data buffer elements.
  */
-void omTensorSetDataType(OMTensor *omt, OM_DATA_TYPE dataType);
+void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType);
 
 /* Helper function to get the ONNX data type size in bytes */
 static inline int getDataTypeSize(OM_DATA_TYPE dataType) {
@@ -220,26 +215,26 @@ static inline int getDataTypeSize(OM_DATA_TYPE dataType) {
 /**
  * OMTensor data buffer size getter
  *
- * @param omt, pointer to the OMTensor
+ * @param tensor pointer to the OMTensor
  * @return the total size of the data buffer in bytes.
  */
-int64_t omTensorGetDataBufferSize(OMTensor *omt);
+int64_t omTensorGetDataBufferSize(OMTensor *tensor);
 
 /**
  * OMTensor rank getter
  *
- * @param omt, pointer to the OMTensor
+ * @param tensor, pointer to the OMTensor
  * @return rank of data sizes and strides of the OMTensor.
  */
-int omTensorGetRank(OMTensor *omt);
+int omTensorGetRank(OMTensor *tensor);
 
 /**
  * OMTensor number of elements getter
  *
- * @param omt, pointer to the OMTensor
+ * @param tensor, pointer to the OMTensor
  * @return the number of elements in the data buffer.
  */
-int64_t omTensorGetNumElems(OMTensor *omt);
+int64_t omTensorGetNumElems(OMTensor *tensor);
 
 #ifdef __cplusplus
 
