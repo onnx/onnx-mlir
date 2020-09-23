@@ -1,5 +1,5 @@
 
-// RUN: onnx-mlir --EmitMLIR  --preserveLocations --printIR %s |  FileCheck %s --check-prefixes=PRESENT; rm %p/*.onnx.mlir ; rm %p/*.tmp
+// RUN: onnx-mlir --EmitMLIR  --preserveLocations --printIR %s |  FileCheck %s --checkPrefixes=PRESENT; rm %p/*.onnx.mlir ; rm %p/*.tmp
 // RUN: onnx-mlir --EmitMLIR  --printIR %s | FileCheck %s --checkPrefixes=ABSENT; rm %p/*.onnx.mlir ; rm %p/*.tmp
 
   func @main_graph(%arg0: tensor<1x16xf32>, %arg1: tensor<1x16xf32>) -> tensor<1x16xf32>  {
