@@ -8,8 +8,8 @@
 // helper functions.
 //
 //===----------------------------------------------------------------------===//
-#ifndef __ONNX_MLIR_RUNTIME_H__
-#define __ONNX_MLIR_RUNTIME_H__
+#ifndef ONNX_MLIR_ONNXMLIRRUNTIME_H
+#define ONNX_MLIR_ONNXMLIRRUNTIME_H
 
 #ifdef __cplusplus
 #include <cstdint>
@@ -157,4 +157,4 @@
  * Exactly as it should be.
  */
 
-#endif /* __ONNX_MLIR_RUNTIME_H__ */
+#endif //ONNX_MLIR_ONNXMLIRRUNTIME_H
