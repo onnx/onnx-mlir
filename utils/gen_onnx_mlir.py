@@ -818,6 +818,8 @@ def parse_type_str(allowedType):
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
 
+    # Apply substitutions in decreasing order of key-length, so that float16 is replaced
+    # before float, and uint16 is replaced before int16, etc.
     mapping = list(onnx_to_mlir_type_dict.items())
     mapping.sort(key=lambda pair:len(pair[0]), reverse=True)
     for key, item in mapping:
