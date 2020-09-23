@@ -27,13 +27,37 @@ namespace {
 /*!
  *  RewritePattern that replaces:
  *    %0 = alloc(%d) : memref<?x10x<type>, #map>
- *    %1 = krnl.dim(%0, 0) : memref<?x10x<type>>
- *    %2 = krnl.dim(%0, 1) : memref<?x10x<type>>
+ *    %1 = krnl.dim(%0, 0) : (memref<?x10x<type>, #map>, index) -> index
+ *    %2 = krnl.dim(%0, 1) : (memref<?x10x<type>, #map>, index) -> index
  *    %3 = add %1, %2
  *  with:
  *    %0 = alloc(%d) : memref<?x10x<type>, #map>
  *    %2 = constant 10 : index
  *    %3 = add %d, %2
+ *
+ *  When the first argument of the krnl.dim is an input argument
+ * i.e. it is not the output of an alloc operation, we emit either
+ * the constant or the strandard dim operation depending on whether
+ * the dimension is static or dynamic.
+ *
+ *  function(%arg0 : memref<?x10x<type>>) {
+ *    %0 = krnl.dim(%arg0, 0) : (memref<?x10x<type>>, index) -> index
+ *    %1 = krnl.dim(%arg0, 1) : memref<?x10x<type>>
+ *  }
+ *
+ *
+ *  becomes:
+ *
+ *  function(%arg0 : memref<?x10x<type>>) {
+ *    %0 = dim %arg0, 0 : (memref<?x10x<type>>, index) -> index
+ *    %1 = constant 10 : index
+ *  }
+ *
+ *  The following case is not supported:
+ *
+ *  function(%arg0 : memref<?x10x<type>, #map>) {
+ *    %0 = krnl.dim(%arg0, 0) : (memref<?x10x<type>, #map>, index) -> index
+ *  }
  */
 
 class DisconnectKrnlDimFromAlloc : public OpRewritePattern<KrnlDimOp> {
