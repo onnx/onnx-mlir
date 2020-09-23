@@ -456,6 +456,10 @@ llvm::cl::opt<bool> preserveLocations("preserveLocations",
     llvm::cl::desc("emit location data:"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> printIR("printIR",
+    llvm::cl::desc("print the IR to stdout:"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
 void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
   // Start a separate process to redirect the model output. I/O redirection
@@ -481,6 +485,8 @@ void outputCode(
     exit(0);
   }
 #endif
+if (printIR)
+  module->print(llvm::outs, flags);
 }
 
 void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
