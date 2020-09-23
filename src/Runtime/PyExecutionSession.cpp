@@ -22,23 +22,24 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
   std::vector<OMTensor *> omts;
   for (auto inputPyArray : inputsPyArray) {
-    auto *inputOMTensor = omTensorCreateEmpty(inputPyArray.ndim());
+    auto *inputOMTensor = omTensorCreateEmptyDeprecated(inputPyArray.ndim());
     assert(inputPyArray.flags() && py::array::c_style &&
            "Expect contiguous python array.");
 
     if (inputPyArray.writeable()) {
-      omTensorSetData(inputOMTensor, inputPyArray.mutable_data());
-      omTensorSetAlignedData(inputOMTensor, inputPyArray.mutable_data());
+      omTensorSetPtr(inputOMTensor, /*owning=*/false,
+          /*allocatedPtr=*/inputPyArray.mutable_data(),
+          /*alignedPtr=*/inputPyArray.mutable_data());
     } else {
       // If data is not writable, copy them to a writable buffer.
       auto *copiedData = (float *)malloc(inputPyArray.nbytes());
       memcpy(copiedData, inputPyArray.data(), inputPyArray.nbytes());
-      omTensorSetData(inputOMTensor, copiedData);
-      omTensorSetAlignedData(inputOMTensor, copiedData);
+      omTensorSetPtr(inputOMTensor, /*owning=*/true,
+          /*allocatedPtr=*/copiedData, /*alignedPtr=*/copiedData);
     }
 
     omTensorSetDataShape(inputOMTensor, (int64_t *)inputPyArray.shape());
-    omTensorSetDataStrides(inputOMTensor, (int64_t *)inputPyArray.strides());
+    omTensorSetStrides(inputOMTensor, (int64_t *)inputPyArray.strides());
     omts.emplace_back(inputOMTensor);
   }
   auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
@@ -83,7 +84,8 @@ std::vector<py::array> PyExecutionSession::pyRun(
       exit(1);
     }
 
-    outputPyArrays.emplace_back(py::array(dtype, shape, omTensorGetData(omt)));
+    outputPyArrays.emplace_back(
+        py::array(dtype, shape, omTensorGetAlignedPtr(omt)));
   }
 
   return outputPyArrays;

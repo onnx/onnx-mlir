@@ -645,11 +645,11 @@ private:
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
         ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
-        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmpty", opaquePtrTy, {int32Ty}),
-        ApiSpec(API::GET_DATA, "omTensorGetData", opaquePtrTy, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA, "omTensorSetData", voidTy, {opaquePtrTy, opaquePtrTy}),
+        ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int32Ty}),
+        ApiSpec(API::GET_DATA, "omTensorGetAlignedPtr", opaquePtrTy, {opaquePtrTy}),
+        ApiSpec(API::SET_DATA, "omTensorSetPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
         ApiSpec(API::GET_DATA_SIZES, "omTensorGetDataShape", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_DATA_STRIDES, "omTensorGetDataStrides", int64PtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_DATA_STRIDES, "omTensorGetStrides", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_TYPE, "omTensorGetDataType", int32Ty, {opaquePtrTy}),
         ApiSpec(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int32Ty}),
         ApiSpec(API::GET_OMTS, "omTensorListGetPtrToOmts", opaquePtrPtrTy, {opaquePtrTy}),
@@ -774,14 +774,28 @@ private:
     auto int64Ty = LLVM::LLVMType::getInt64Ty(context);
     auto int32Ty = LLVM::LLVMType::getInt32Ty(context);
 
-    // Extract the data pointer, and record it in dynamic mem ref created.
-    Value outMemRefDataPtr = rewriter.create<LLVM::ExtractValueOp>(loc,
+    // Set ownership to true, i.e., free after OMTensor is destroyed.
+    Value owning = rewriter.create<LLVM::ConstantOp>(
+              loc, int32Ty, rewriter.getI32IntegerAttr(1));
+
+    // Extract the allocated pointer.
+    Value outMemRefAllocatedPtr = rewriter.create<LLVM::ExtractValueOp>(loc,
         outMemRefTy.getStructElementType(0), outMemRef,
         rewriter.getArrayAttr({rewriter.getI64IntegerAttr(0)}));
-    outMemRefDataPtr = rewriter.create<LLVM::BitcastOp>(
-        loc, LLVM::LLVMType::getInt8PtrTy(context), outMemRefDataPtr);
+    outMemRefAllocatedPtr = rewriter.create<LLVM::BitcastOp>(
+        loc, LLVM::LLVMType::getInt8PtrTy(context), outMemRefAllocatedPtr);
+
+    // Extract the aligned pointer.
+    Value outMemRefAlignedPtr = rewriter.create<LLVM::ExtractValueOp>(loc,
+        outMemRefTy.getStructElementType(1), outMemRef,
+        rewriter.getArrayAttr({rewriter.getI64IntegerAttr(1)}));
+    outMemRefAlignedPtr = rewriter.create<LLVM::BitcastOp>(
+        loc, LLVM::LLVMType::getInt8PtrTy(context), outMemRefAlignedPtr);
+
+    // Set ownership, allocated and aligned pointer.
     callApi(rewriter, loc, apiRegistry, API::SET_DATA,
-        {outOMTensor, outMemRefDataPtr});
+        {outOMTensor, owning, outMemRefAllocatedPtr, outMemRefAlignedPtr});
+
     auto elemTy = outMemRefTy.getStructElementType(0).getPointerElementTy();
     auto onnxTy = llvmTypeToOnnxType(elemTy);
     auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(

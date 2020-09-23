@@ -21,140 +21,96 @@
 #include <onnx-mlir/Runtime/OMTensor.h>
 #include <onnx-mlir/Runtime/OMTensorList.h>
 
-/*! \mainpage ONNX-MLIR Model Execution API documentation
+/*! \mainpage ONNX-MLIR Runtime API documentation
  *
  * \section intro_sec Introduction
  *
  * ONNX-MLIR project comes with an executable `onnx-mlir` capable
  * of compiling onnx models to a shared library. In this documentation, we
- * explain and document ways to interact programmatically with the compiled
- * shared library using the API's defined in `src/Runtime/include/OnnxMlir.h`.
+ * demonstrate how to interact programmatically with the compiled
+ * shared library using ONNX-MLIR's Runtime API.
  *
- * \section Important Data Structures
- * \subsection OMTensor
+ * \section c-runtime-api C Runtime API
+ *
+ * \subsection data-structures Data Structures
  *
  * `OMTensor` is the data structure used to describe the runtime information
- * (rank, shape, data type, etc) associated with a tensor (or `MemRef`, in the
- * context of MLIR). Specifically, it can be described as a struct with the
- * following data members:
+ * (rank, shape, data type, etc) associated with a tensor input or output.
  *
- * ```cpp
- * void *_allocatedPtr;            // data buffer
- * void *_alignedPtr;     // aligned data buffer that the omt indexes.
- * int64_t _offset;     // offset of 1st element
- * int64_t *_shape; // sizes array
- * int64_t *_stride;  // strides array
- * int _dataType;          // ONNX data type
- * int _rank;              // rank
- * std::string _name;      // optional name for named access
- * bool _owningPtr;       // indicates whether the Omt owns the memory space
- *                            referenced by _allocatedPtr. Omt struct will release the
- * memory space refereced by _allocatedPtr upon destruction if and only if it owns it.
- * ```
+ * `OMTensorList` is the data structure used to hold a list of pointers to
+ *OMTensor so that they can be passed into and out of the compiled model as
+ *inputs and outputs.
  *
- * \subsection OMTensorList
- * `OMTensorList` is a data structure used to hold a list of OMTensor pointers.
- *
- * \section Inference Function Signature
+ * \subsection model-entry-point-signature Model Entry Point Signature
  *
  * All compiled model will have the same exact C function signature equivalent
- * to:
+ *to:
  *
  * ```c
  * OMTensorList* run_main_graph(OMTensorList*);
  * ```
  *
- * That is to say, the model inference function consumes a list of input
- * OMTensors and produces a list of output OMTensors.
+ * Intuitively, the model takes a list of tensors as input and returns a list of
+ *tensors as output.
  *
- * \section Invoke the Inference Function with C API
+ * \subsection invoke-models-using-c-runtime-api Invoke Models Using C Runtime
+ *API
  *
- * In this section, we will walk through an example using the API functions to
- *run a simple ONNX model consisting of an add operation. To create such an onnx
- *model, use the following python script:
- *
- * ```py
- * import onnx
- * from onnx import helper
- * from onnx import AttributeProto, TensorProto, GraphProto
- *
- * # Create one input (ValueInfoProto)
- * X1 = helper.make_tensor_value_info('X1', TensorProto.FLOAT, [3, 2])
- * X2 = helper.make_tensor_value_info('X2', TensorProto.FLOAT, [3, 2])
- *
- * # Create one output (ValueInfoProto)
- * Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT, [3, 2])
- *
- * # Create a node (NodeProto) - This is based on Pad-11
- * node_def = helper.make_node(
- *     'Add', # node name
- *     ['X1', 'X2'], # inputs
- *     ['Y'], # outputs
- * )
- *
- * # Create the graph (GraphProto)
- * graph_def = helper.make_graph(
- *     [node_def],
- *     'test-model',
- *     [X1, X2],
- *     [Y],
- * )
- *
- * # Create the model (ModelProto)
- * model_def = helper.make_model(graph_def, producer_name='onnx-example')
- *
- * print('The model is:\n{}'.format(model_def))
- * onnx.checker.check_model(model_def)
- * onnx.save(model_def, "add.onnx")
- * print('The model is checked!')
- *```
+ * We demonstrate using the API functions to run a simple ONNX model consisting
+ * of an add operation. To create such an onnx model, use this
+ * <a href="gen_add_onnx.py" target="_blank"><b>python script</b></a>
  *
  * To compile the above model, run `onnx-mlir add.onnx` and a binary library
- *"add.so" should appear. We can use the following C code to call into the
- *compiled function computing the sum of two inputs:
+ * "add.so" should appear. We can use the following C code to call into the
+ * compiled function computing the sum of two inputs:
  *
  * ```c
- * #include <OnnxMlir.h>
+ * #include <OnnxMlirRuntime.h>
  * #include <stdio.h>
  *
  * OMTensorList *run_main_graph(OMTensorList *);
  *
  * int main() {
+ *   // Shared shape & rank.
+ *   int64_t shape[] = {2, 2};
+ *   int64_t rank = 2;
  *   // Construct x1 omt filled with 1.
  *   float x1Data[] = {1., 1., 1., 1., 1., 1.};
- *   OMTensor *x1 = omTensorCreateEmpty(2);
- *   omTensorSetData(x1, x1Data);
- *
+ *   int64_t *x1Shape = {2, 2};
+ *   OMTensor *x1 = omTensorCreate(x1Data, shape, rank, ONNX_TYPE_FLOAT);
  *   // Construct x2 omt filled with 2.
  *   float x2Data[] = {2., 2., 2., 2., 2., 2.};
- *   OMTensor *x2 = omTensorCreateEmpty(2);
- *   omTensorSetData(x2, x2Data);
- *
+ *   int64_t *x2Shape = {2, 2};
+ *   OMTensor *x2 = omTensorCreate(x2Data, shape, rank, ONNX_TYPE_FLOAT);
  *   // Construct a list of omts as input.
  *   OMTensor *list[2] = {x1, x2};
  *   OMTensorList *input = omTensorListCreate(list, 2);
- *
  *   // Call the compiled onnx model function.
  *   OMTensorList *outputList = run_main_graph(input);
- *
  *   // Get the first omt as output.
  *   OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);
- *
+ *   float *outputPtr = (float *)omTensorGetAlignedPtr(y);
  *   // Print its content, should be all 3.
  *   for (int i = 0; i < 6; i++)
- *     printf("%f ", ((float *)omTensorGetData(y))[i]);
- *
+ *     printf("%f ", outputPtr[i]);
  *   return 0;
  * }
  * ```
  *
  * Compile with `gcc main.c add.so -o add`, you should see an executable `add`
- *appearing. Run it, and the output should be:
+ * appearing. Run it, and the output should be:
  *
  * ```
  * 3.000000 3.000000 3.000000 3.000000 3.000000 3.000000
  * ```
  * Exactly as it should be.
+ *
+ * \subsection reference Reference
+ *
+ * For full reference to available C Runtime API, refer to
+ *`include/onnx-mlir/Runtime/OMTensor.h` and
+ * `include/onnx-mlir/Runtime/OMTensorList.h`.
+ *
  */
 
-#endif //ONNX_MLIR_ONNXMLIRRUNTIME_H
+#endif // ONNX_MLIR_ONNXMLIRRUNTIME_H

@@ -54,50 +54,67 @@ typedef struct OMTensor OMTensor;
 
 /* Helper function to compute the number of data elements */
 static inline int64_t getNumOfElems(int64_t *dataSizes, int rank) {
-    int64_t numElem = 1;
-    for (int i = 0; i < rank; i++)
-        numElem *= dataSizes[i];
-    return numElem;
+  int64_t numElem = 1;
+  for (int i = 0; i < rank; i++)
+    numElem *= dataSizes[i];
+  return numElem;
 }
-
 
 /**
  * Create an OMTensor.
  *
+ * @param data_ptr pointer to tensor data. By default, caller is responsible for
+ * managing the memory this pointer refers to.
+ * @param shape list of integers indicating the tensor shape.
+ * @param rank tensor rank.
+ * @param dtype tensor element data type.
+ * @return pointer to OMTensor created, NULL if creation failed.
+ *
+ * Create a OMTensor with specified data pointer, shape, rank and element type.
+ */
+OMTensor *omTensorCreate(
+    void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
+
+/**
+ * Create an OMTensor.
+ *
+ * @param shape list of integers indicating the tensor shape.
+ * @param rank tensor rank.
+ * @param dtype tensor element data type.
+ * @return pointer to OMTensor created, NULL if creation failed.
+ *
+ * Create a OMTensor with specified data pointer, shape, rank and element type.
+ */
+OMTensor *omTensorCreateEmpty(int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
+
+/**
+ * Create an OMTensor.
+ *
+ * @param data_ptr pointer to tensor data.
+ * @param shape list of integers indicating the tensor shape.
+ * @param rank tensor rank.
+ * @param dtype tensor element data type.
+ * @param owning whether OMTensor owns the data, if set to true, OMTensor will
+ * release the data_ptr upon destruction.
+ * @return pointer to OMTensor created, NULL if creation failed.
+ *
+ * Create a OMTensor with specified data pointer, shape, rank and element type.
+ */
+OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
+    int64_t rank, OM_DATA_TYPE dtype, bool owning);
+
+/**
+ * Create an empty OMTensor. This constructor returns a partially
+ * filled omTensor; prefer using the new omTensorCreateEmpty()
+ * function to fill shape & stride fields automatically.
+ *
  * @param rank, rank of the data sizes and strides
  * @return pointer to OMTensor created, NULL if creation failed.
  *
  * Create a OMTensor with specified rank. Memory for data sizes and
  * strides are allocated.
  */
-OMTensor *omTensorCreate(void* data_ptr, int64_t* shape, size_t rank, OM_DATA_TYPE dtype);
-
-/**
- * OMTensor creator
- *
- * @param rank, rank of the data sizes and strides
- * @return pointer to OMTensor created, NULL if creation failed.
- *
- * Create a OMTensor with specified rank. Memory for data sizes and
- * strides are allocated.
- */
-OMTensor *omTensorCreateEmpty(int rank);
-
-/**
- * OMTensor creator
- *
- * @param rank, rank of the data sizes and strides
- * @param name, (optional) name of the tensor
- * @param owningData, whether the omt owns the underlying data, if true, data
- * pointer will be released when the corresponding omt gets released or goes out
- * of scope.
- * @return pointer to OMTensor created, NULL if creation failed.
- *
- * Create a OMTensor with specified rank, name and data ownership. Memory for
- * data sizes and strides are allocated.
- */
-OMTensor *omTensorCreateWithNameAndOwnership(
-        int rank, char *name, bool owningData);
+OMTensor *omTensorCreateEmptyDeprecated(int rank);
 
 /**
  * OMTensor destroyer
@@ -115,20 +132,31 @@ void omTensorDestroy(OMTensor *omt);
  * @return pointer to the data buffer of the OMTensor,
  *         NULL if the data buffer is not set.
  */
-void *omTensorGetData(OMTensor *omt);
+void *omTensorGetAlignedPtr(OMTensor *omt);
 
 /**
- * OMTensor data setter
+ * OMTensor allocated and aligned pointer setter.
+ *
+ * @param omt pointer to the OMTensor
+ * @param owning whether allocatedPtr should be freed after omt is destroyed.
+ * @param allocatedPtr allocated pointer to tensor content.
+ * @param alignedPtr aligned pointer to tensor content. If NULL will be set to
+ * allocatedPtr.
+ *
+ * Set the allocated and aligned buffer pointer of the OMTensor.
+ *
+ */
+void omTensorSetPtr(
+    OMTensor *omt, int owning, void *allocatedPtr, void *alignedPtr);
+
+/**
+ * OMTensor aligned data getter
  *
  * @param omt, pointer to the OMTensor
- * @param data, data buffer of the OMTensor to be set
- *
- * Set the data buffer pointer of the OMTensor. Note that the data buffer
- * is assumed to be managed by the user, i.e., the OMTensor destructor
- * will not free the data buffer. Because we don't know how exactly the
- * data buffer is allocated, e.g., it could have been allocated on the stack.
+ * @return pointer to the aligned data buffer of the OMTensor,
+ *         NULL if the aligned data buffer is not set.
  */
-void omTensorSetData(OMTensor *omt, void *data);
+void *omTensorGetAlignedData(OMTensor *omt);
 
 /**
  * OMTensor data sizes getter
@@ -154,7 +182,7 @@ void omTensorSetDataShape(OMTensor *omt, int64_t *dataSizes);
  * @param omt, pointer to the OMTensor
  * @return pointer to the data strides array.
  */
-int64_t *omTensorGetDataStrides(OMTensor *omt);
+int64_t *omTensorGetStrides(OMTensor *omt);
 
 /**
  * OMTensor data strides setter
@@ -164,7 +192,7 @@ int64_t *omTensorGetDataStrides(OMTensor *omt);
  *
  * Set the data strides array of the OMTensor to the values in the input array.
  */
-void omTensorSetDataStrides(OMTensor *omt, int64_t *dataStrides);
+void omTensorSetStrides(OMTensor *omt, int64_t *dataStrides);
 
 /**
  * OMTensor data type getter
@@ -185,8 +213,8 @@ OM_DATA_TYPE omTensorGetDataType(OMTensor *omt);
 void omTensorSetDataType(OMTensor *omt, OM_DATA_TYPE dataType);
 
 /* Helper function to get the ONNX data type size in bytes */
-static inline int getDataTypeSize(int dataType) {
-    return OM_DATA_TYPE_SIZE[dataType];
+static inline int getDataTypeSize(OM_DATA_TYPE dataType) {
+  return OM_DATA_TYPE_SIZE[dataType];
 }
 
 /**
@@ -206,25 +234,6 @@ int64_t omTensorGetDataBufferSize(OMTensor *omt);
 int omTensorGetRank(OMTensor *omt);
 
 /**
- * OMTensor name getter
- *
- * @param omt, pointer to the OMTensor
- * @return pointer to the name of the OMTensor,
- *         an empty string if the name is not set.
- */
-char *omTensorGetName(OMTensor *omt);
-
-/**
- * OMTensor name setter
- *
- * @param omt, pointer to the OMTensor
- * @param name, name of the OMTensor to be set
- *
- * Set the name of the OMTensor.
- */
-void omTensorSetName(OMTensor *omt, char *name);
-
-/**
  * OMTensor number of elements getter
  *
  * @param omt, pointer to the OMTensor
@@ -236,57 +245,57 @@ int64_t omTensorGetNumElems(OMTensor *omt);
 
 /* Helper function to compute cartisian product */
 static inline std::vector<std::vector<int64_t>> CartProduct(
-        const std::vector<std::vector<int64_t>> &v) {
-    std::vector<std::vector<int64_t>> s = {{}};
-    for (const auto &u : v) {
-        std::vector<std::vector<int64_t>> r;
-        for (const auto &x : s) {
-            for (const auto y : u) {
-                r.push_back(x);
-                r.back().push_back(y);
-            }
-        }
-        s = move(r);
+    const std::vector<std::vector<int64_t>> &v) {
+  std::vector<std::vector<int64_t>> s = {{}};
+  for (const auto &u : v) {
+    std::vector<std::vector<int64_t>> r;
+    for (const auto &x : s) {
+      for (const auto y : u) {
+        r.push_back(x);
+        r.back().push_back(y);
+      }
     }
-    return s;
+    s = move(r);
+  }
+  return s;
 }
 
 /* Helper function to compute data strides from sizes */
 static inline std::vector<int64_t> computeStridesFromSizes(
-        int64_t *dataSizes, int rank) {
-    // Shift dimension sizes one to the left, fill in the vacated rightmost
-    // element with 1; this gets us a vector that'll be more useful for computing
-    // strides of memory access along each dimension using prefix product (aka
-    // partial_sum with a multiply operator below). The intuition is that the size
-    // of the leading dimension does not matter when computing strides.
-    std::vector<int64_t> sizesVec(dataSizes + 1, dataSizes + rank);
-    sizesVec.push_back(1);
+    int64_t *dataSizes, int rank) {
+  // Shift dimension sizes one to the left, fill in the vacated rightmost
+  // element with 1; this gets us a vector that'll be more useful for computing
+  // strides of memory access along each dimension using prefix product (aka
+  // partial_sum with a multiply operator below). The intuition is that the size
+  // of the leading dimension does not matter when computing strides.
+  std::vector<int64_t> sizesVec(dataSizes + 1, dataSizes + rank);
+  sizesVec.push_back(1);
 
-    std::vector<int64_t> dimStrides(rank);
-    partial_sum(sizesVec.rbegin(), sizesVec.rend(), dimStrides.rbegin(),
-                std::multiplies<>());
-    return dimStrides;
+  std::vector<int64_t> dimStrides(rank);
+  partial_sum(sizesVec.rbegin(), sizesVec.rend(), dimStrides.rbegin(),
+      std::multiplies<>());
+  return dimStrides;
 }
 
 /* Helper function to compute linear offset from a multi-dimensional index array
  */
 static inline int64_t computeElemOffset(
-        int64_t *dataStrides, int rank, std::vector<int64_t> &indexes) {
-    auto dimStrides = std::vector<int64_t>(dataStrides, dataStrides + rank);
-    int64_t elemOffset = inner_product(
-            indexes.begin(), indexes.end(), dimStrides.begin(), (int64_t)0);
-    return elemOffset;
+    int64_t *dataStrides, int rank, std::vector<int64_t> &indexes) {
+  auto dimStrides = std::vector<int64_t>(dataStrides, dataStrides + rank);
+  int64_t elemOffset = inner_product(
+      indexes.begin(), indexes.end(), dimStrides.begin(), (int64_t)0);
+  return elemOffset;
 }
 
 /* Helper function to print a vector with delimiter */
 template <typename T>
 static inline void printVector(std::vector<T> vec, std::string _delimiter = ",",
-                               std::ostream &stream = std::cout) {
-    std::string delimiter;
-    for (const auto &elem : vec) {
-        stream << delimiter << elem;
-        delimiter = _delimiter;
-    }
+    std::ostream &stream = std::cout) {
+  std::string delimiter;
+  for (const auto &elem : vec) {
+    stream << delimiter << elem;
+    delimiter = _delimiter;
+  }
 }
 
 /**
@@ -315,26 +324,7 @@ OMTensor *omTensorCreateWithShape(std::vector<int64_t> dataSizes);
  */
 template <typename T>
 OMTensor *omTensorCreateWithRandomData(
-        std::vector<int64_t> dataSizes, T lbound = -1.0, T ubound = 1.0);
-
-/**
- * OMTensor aligned data getter
- *
- * @param omt, pointer to the OMTensor
- * @return pointer to the aligned data buffer of the OMTensor,
- *         NULL if the aligned data buffer is not set.
- */
-void *omTensorGetAlignedData(OMTensor *omt);
-
-/**
- * OMTensor aligned data setter
- *
- * @param omt, pointer to the OMTensor
- * @param alignedData, aligned data buffer of the OMTensor to be set
- *
- * Set the aligned data buffer pointer of the OMTensor.
- */
-void omTensorSetAlignedData(OMTensor *omt, void *alignedData);
+    std::vector<int64_t> dataSizes, T lbound = -1.0, T ubound = 1.0);
 
 /**
  * OMTensor data element getter by offset
@@ -371,8 +361,7 @@ std::vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt);
  * @param indexes, multi-dimensional index array
  * @return linear offset.
  */
-int64_t omTensorComputeElemOffset(
-        OMTensor *omt, std::vector<int64_t> &indexes);
+int64_t omTensorComputeElemOffset(OMTensor *omt, std::vector<int64_t> &indexes);
 
 /**
  * OMTensor index set computation
@@ -396,8 +385,8 @@ std::vector<std::vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt);
  */
 template <typename T>
 bool omTensorAreTwoOmtsClose(
-        OMTensor *a, OMTensor *b, float rtol = 1e-5, float atol = 1e-5);
+    OMTensor *a, OMTensor *b, float rtol = 1e-5, float atol = 1e-5);
 
 #endif
 
-#endif //ONNX_MLIR_OMTENSOR_H
+#endif // ONNX_MLIR_OMTENSOR_H

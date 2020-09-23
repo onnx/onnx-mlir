@@ -24,7 +24,7 @@ void testOMTensorCtor() {
     assert(shape_ptr[0] == 2);
     assert(shape_ptr[1] == 2);
 
-    int64_t* strides_ptr = omTensorGetDataStrides(tensor);
+    int64_t* strides_ptr = omTensorGetStrides(tensor);
     assert(strides_ptr);
     assert(strides_ptr[0] == 1);
     assert(strides_ptr[1] == 2);

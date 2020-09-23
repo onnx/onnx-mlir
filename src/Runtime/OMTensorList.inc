@@ -39,13 +39,3 @@ OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int index) {
   assert(index < rlist->_n);
   return rlist->_omts[index];
 }
-
-#ifdef __cplusplus
-/* Return OMTensor of specified name in the OMTensorList */
-OMTensor *omTensorListGetOmtByName(OMTensorList *rlist, std::string name) {
-  for (int i = 0; i < rlist->_n; i++)
-    if (omTensorGetName(rlist->_omts[i]) == name)
-      return rlist->_omts[i];
-  return NULL;
-}
-#endif // __cplusplus
