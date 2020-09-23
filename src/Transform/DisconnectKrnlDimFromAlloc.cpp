@@ -82,9 +82,11 @@ public:
       result = allocOp.getOperands()[dynDimIdx];
     } else if (memRefType.getAffineMaps().empty()) {
       // Use a standard DimOp since no map is present.
-      result = rewriter.create<DimOp>(loc, krnlDimOp.alloc(), krnlDimOp.index());
+      result =
+          rewriter.create<DimOp>(loc, krnlDimOp.alloc(), krnlDimOp.index());
     } else {
-      llvm_unreachable("dynamic sized MemRef with map must be defined by an AllocOp");
+      llvm_unreachable(
+          "dynamic sized MemRef with map must be defined by an AllocOp");
     }
 
     rewriter.replaceOp(krnlDimOp, result);
