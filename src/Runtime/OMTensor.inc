@@ -103,13 +103,12 @@ OMTensor *omTensorCreate(
     tensor->_owning = false;
   }
   // Using signed indices helps detect when index falls below 0.
-  for (int64_t i = 0; i < rank; i++) {
+  for (int64_t i = rank - 1; i >= 0; i--) {
     tensor->_shape[i] = shape[i];
-    int64_t stride = 1;
-    for (int64_t j = i - 1; j >= 0; j--) {
-      stride *= tensor->_shape[j];
-    }
-    tensor->_stride[i] = stride;
+    if (i == rank - 1)
+      tensor->_stride[i] = 1;
+    else
+      tensor->_stride[i] = tensor->_stride[i + 1] * tensor->_shape[i + 1];
   }
   return tensor;
 }
@@ -212,8 +211,14 @@ int omTensorGetRank(OMTensor *omt) { return omt->_rank; }
 
 /* OMTensor number of elements getter */
 int64_t omTensorGetNumElems(OMTensor *omt) {
-  for (int64_t i = 0; i < omt->_rank; i++)
-    assert(omt->_stride[i] == 1);
+  // Using signed indices helps detect when index falls below 0.
+  for (int64_t i = omt->_rank - 1; i >= 0; i--) {
+    int64_t strideIfNotSkipping = 1;
+    for (int64_t j = i + 1; j < omt->_rank; j++) {
+      strideIfNotSkipping *= omt->_shape[j];
+    }
+    assert(omt->_stride[i] == strideIfNotSkipping);
+  }
   return getNumOfElems(omt->_shape, omt->_rank);
 }
 
