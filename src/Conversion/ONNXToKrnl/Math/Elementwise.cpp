@@ -92,8 +92,8 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
   ONNXCastOp castOp = llvm::dyn_cast<ONNXCastOp>(op);
-  auto mlirtype = convertONNXTypeToMLIRType(rewriter,
-      static_cast<onnx::TensorProto_DataType>(castOp.toAttr().getInt()));
+  auto mlirtype = convertONNXTypeToMLIRType(
+      rewriter, static_cast<onnx::TensorProto_DataType>(castOp.to()));
   Value operand = scalarOperands[0];
   auto origtype = operand.getType();
 

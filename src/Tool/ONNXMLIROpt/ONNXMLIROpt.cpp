@@ -60,13 +60,16 @@ static llvm::cl::opt<bool> allowUnregisteredDialects(
     llvm::cl::init(false));
 
 int main(int argc, char **argv) {
-  mlir::registerDialect<mlir::linalg::LinalgDialect>();
-  mlir::registerDialect<mlir::AffineDialect>();
-  mlir::registerDialect<mlir::LLVM::LLVMDialect>();
-  mlir::registerDialect<mlir::scf::SCFDialect>();
-  mlir::registerDialect<mlir::StandardOpsDialect>();
-  mlir::registerDialect<mlir::vector::VectorDialect>();
-  mlir::registerDialect<mlir::shape::ShapeDialect>();
+  mlir::DialectRegistry registry;
+  registry.insert<mlir::linalg::LinalgDialect>();
+  registry.insert<mlir::AffineDialect>();
+  registry.insert<mlir::LLVM::LLVMDialect>();
+  registry.insert<mlir::scf::SCFDialect>();
+  registry.insert<mlir::StandardOpsDialect>();
+  registry.insert<mlir::vector::VectorDialect>();
+  registry.insert<mlir::shape::ShapeDialect>();
+  registry.insert<mlir::ONNXOpsDialect>();
+  registry.insert<mlir::KrnlOpsDialect>();
 
   registerTransformsPasses();
   registerAffinePasses();
@@ -76,8 +79,6 @@ int main(int argc, char **argv) {
 
   llvm::InitLLVM y(argc, argv);
 
-  mlir::registerDialect<mlir::ONNXOpsDialect>();
-  mlir::registerDialect<mlir::KrnlOpsDialect>();
   initOMPasses();
   initMLIRPasses();
 
@@ -97,7 +98,8 @@ int main(int argc, char **argv) {
   auto output = mlir::openOutputFile(output_filename, &error_message);
   assert(output);
 
+  // TODO(imaihal): Change preloadDialectsInContext to false.
   return failed(mlir::MlirOptMain(output->os(), std::move(file), passPipeline,
-      split_input_file, verify_diagnostics, verify_passes,
-      allowUnregisteredDialects));
+      registry, split_input_file, verify_diagnostics, verify_passes,
+      allowUnregisteredDialects, /*preloadDialectsInContext*/ true));
 }

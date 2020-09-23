@@ -78,8 +78,8 @@ int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
 //===----------------------------------------------------------------------===//
 // Get reduction type
 //===----------------------------------------------------------------------===//
-RankedTensorType getReductionOutputType(
-    RankedTensorType operandTy, Optional<ArrayAttr> axesAttrs, APInt keepdims) {
+RankedTensorType getReductionOutputType(RankedTensorType operandTy,
+    Optional<ArrayAttr> axesAttrs, uint64_t keepdims) {
   int64_t rank = operandTy.getRank();
 
   SmallVector<int64_t, 4> axes;
@@ -378,7 +378,7 @@ static LogicalResult RNNShapeInference(T *op) {
   // Get hidden size from hidden_size attribute.
   int64_t hiddenSize = -1;
   if (op->hidden_size().hasValue()) {
-    hiddenSize = op->hidden_size().getValue().getSExtValue();
+    hiddenSize = op->hidden_size().getValue();
   } else {
     // Infer hidden_size from wShape and rShape if possible.
     if (rShape[2] != -1)
@@ -390,7 +390,10 @@ static LogicalResult RNNShapeInference(T *op) {
     // Update hidden_size attribute.
     if (hiddenSize != -1) {
       auto builder = mlir::Builder(op->getContext());
-      op->hidden_sizeAttr(builder.getI64IntegerAttr(hiddenSize));
+      auto hiddenSizeAttr =
+          IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+              APInt(64, /*value=*/hiddenSize, /*isSigned=*/true));
+      op->hidden_sizeAttr(hiddenSizeAttr);
     }
   }
 
@@ -478,7 +481,7 @@ static void insertConvTransposeSpatialDim(SmallVectorImpl<int64_t> &outputDims,
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
 ONNXOpsDialect::ONNXOpsDialect(mlir::MLIRContext *ctx)
-    : mlir::Dialect(getDialectNamespace(), ctx) {
+    : mlir::Dialect(getDialectNamespace(), ctx, TypeID::get<ONNXOpsDialect>()) {
   addOperations<
 #define GET_OP_LIST
 #include "src/Dialect/ONNX/ONNXOps.cpp.inc"
@@ -512,6 +515,8 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
     if (parser.parseGreater())
       return Type();
     return SeqType::get(elementTypes);
+  } else {
+    llvm_unreachable("Unexpected onnxmlir keyword");
   }
 }
 
@@ -696,6 +701,16 @@ LogicalResult ONNXLeakyReluOp::inferShapes() {
 /// the shape inference interface.
 LogicalResult ONNXSeluOp::inferShapes() {
   getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// PRelu
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXPReluOp. This method is required by
+/// the shape inference interface.
+LogicalResult ONNXPReluOp::inferShapes() {
+  getResult().setType(getOperand(0).getType());
   return success();
 }
 
@@ -1164,14 +1179,13 @@ LogicalResult ONNXBatchNormalizationTestModeOp::inferShapes() {
   // Check whether the shapes of scale, bias, mean and variance are valid.
   // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
   // In case of N, C is assumed to be 1.
+  // 2-D tensors are assumed to be of shape NxC
   // Shapes of scale, bias, mean and variance must be C.
   int64_t c = -1;
   if (inputTensorTy.getShape().size() == 1) {
     c = 1;
-  } else if (inputTensorTy.getShape().size() > 2) {
+  } else if (inputTensorTy.getShape().size() >= 2) {
     c = (inputTensorTy.getShape()[1] != -1) ? inputTensorTy.getShape()[1] : -1;
-  } else {
-    return emitError("Wrong rank for the input");
   }
 
   if (c != -1) {
@@ -1411,16 +1425,19 @@ LogicalResult ONNXConvOp::inferShapes() {
     return emitError("Weight size not compatible with data size");
 
   // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvOp::group().getSExtValue();
+  int64_t group = ONNXConvOp::group();
 
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
-    groupAttr(builder.getI64IntegerAttr(group));
+    groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, group, /*isSigned=*/true)));
 
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (xShape[1] != -1 && weightShape[1] != -1 &&
-      xShape[1] != (weightShape[1] * group))
-    return emitError("Channel dimension mismatch");
+      xShape[1] != (weightShape[1] * group)) {
+    return emitOpError("Channel dimension mismatch")
+           << xTy << " " << weightTy << " " << group;
+  }
 
   // Check the size of bias.
   if (hasBias) {
@@ -1500,7 +1517,7 @@ LogicalResult ONNXConvOp::inferShapes() {
 LogicalResult ONNXConvTransposeOp::inferShapes() {
   // Generic shape for data input X, weight tensor W, and optional bias B
   // X: (N x C x D1 x D2 ... x Dn)
-  // W: (M x C/group x k1 x k2 x ... x kn)
+  // W: (C x M/group x k1 x k2 x ... x kn)
   // B: (M) Optional
 
   bool hasBias = !B().getType().isa<NoneType>();
@@ -1529,16 +1546,22 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
   }
 
   // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvTransposeOp::group().getSExtValue();
+  int64_t group = ONNXConvTransposeOp::group();
 
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
-    groupAttr(builder.getI64IntegerAttr(group));
+    groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, group, /*isSigned=*/true)));
 
-  // Check that the X.shape[1] == (W.shape[0] * group) == C condition holds.
-  if (xShape[1] != -1 && weightShape[0] != -1 &&
-      xShape[1] != (weightShape[0] * group)) {
-    return emitError("Channel dimension mismatch");
+  int64_t inChannels = weightShape[0];
+  int64_t outChannels = weightShape[1] * group;
+
+  // Check that the X.shape[1] == W.shape[0] == C && X.shape[1] % group == 0
+  // condition holds.
+  if (xShape[1] != -1 && inChannels != -1 && xShape[1] != inChannels &&
+      xShape[1] % group != 0) {
+    return emitOpError("Channel dimension mismatch")
+           << xTy << " " << weightTy << " " << group;
   }
 
   // Check the size of bias.
@@ -1548,9 +1571,9 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
     if (bShape.size() != 1) {
       return emitError("bias should be one dimensional");
     }
-    if (bShape[0] != weightShape[1]) {
+    if (bShape[0] != outChannels) {
       return emitError(
-          "bias should have same dimensions as weight's second dimension");
+          "bias should have same dimensions as number of output channels");
     }
   }
 
@@ -1601,8 +1624,9 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
   SmallVector<int64_t, 4> outputDims;
   // Insert batch size.
   outputDims.emplace_back(xShape[0]);
-  // Insert number of filters being applied (number of output channels).
-  outputDims.emplace_back(weightShape[1]);
+  // Insert number of filters being applied (number of output channels *
+  // groups).
+  outputDims.emplace_back(outChannels);
   // Compute and insert spatial dims.
   insertConvTransposeSpatialDim(outputDims, xShape, kernelShape, padsOpt,
       stridesOpt, outputPads, outputShape, dilationsOpt);
@@ -1643,7 +1667,7 @@ LogicalResult ONNXAveragePoolOp::inferShapes() {
         "kernel_shape is a mandatory attribute for which there is no default");
 
   // Ceil mode.
-  auto ceilMode = ceil_mode().getSExtValue();
+  auto ceilMode = ceil_mode();
 
   // Process strides and pads.
   LogicalResult res =
@@ -1696,7 +1720,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes() {
         "kernel_shape is a mandatory attribute for which there is no default");
 
   // Storage order.
-  auto storageOrder = storage_order().getSExtValue();
+  auto storageOrder = storage_order();
   if (storageOrder != 0)
     return emitError("column major storage order not supported at this time");
 
@@ -1707,7 +1731,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes() {
   auto padsOpt = pads();
 
   // Ceil mode.
-  auto ceilMode = ceil_mode().getSExtValue();
+  auto ceilMode = ceil_mode();
 
   SmallVector<int64_t, 4> outputDims;
   // Insert batch size.
@@ -1730,22 +1754,29 @@ LogicalResult ONNXPadOp::inferShapes() {
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Pad: unknown input shape");
 
-  // Cannot infer if the pads is not constant
-  DenseElementsAttr padsAttributes =
-      getAttr("pads").dyn_cast_or_null<mlir::DenseElementsAttr>();
-  if (!padsAttributes)
-    return emitError("Pad: unknown pads");
-
   auto dataTy = data().getType().cast<RankedTensorType>();
   auto dataShape = dataTy.getShape();
   auto dataRank = dataTy.getRank();
   SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
 
   // Get pads from valueAttribute.
+  Attribute padattr = getAttr("pads");
   SmallVector<int64_t, 2> pads(dataRank * 2, -1);
-  auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
-  for (int64_t i = 0; i < dataRank * 2; ++i)
-    pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+  // Sometimes it's an ArrayAttr and sometimes it's a DenseElementsAttr, so
+  // handle both cases.
+  if (ArrayAttr padsAttributes = padattr.dyn_cast_or_null<mlir::ArrayAttr>()) {
+    auto valueIt = padsAttributes.getValue().begin();
+    for (int64_t i = 0; i < dataRank * 2; ++i)
+      pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+  } else if (DenseElementsAttr padsAttributes =
+                 padattr.dyn_cast_or_null<mlir::DenseElementsAttr>()) {
+    auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
+    for (int64_t i = 0; i < dataRank * 2; ++i)
+      pads[i] = (*valueIt++).getInt();
+  } else {
+    // Cannot infer if the pads is not constant
+    return emitError("Pad: unknown pads ") << getAttr("pads");
+  }
 
   // Pads consists of two values for each axis of data.
   // The two values specify the number of elements padded before and after
@@ -1931,7 +1962,7 @@ LogicalResult ONNXCastOp::inferShapes() {
     return UnrankedTensorType::get(elementType);
   };
 
-  int64_t targetType = toAttr().getInt();
+  int64_t targetType = to();
   OpBuilder builder(getContext());
   if (auto elementType = convertONNXTypeToMLIRType(
           builder, static_cast<onnx::TensorProto_DataType>(targetType))) {
@@ -1986,12 +2017,13 @@ LogicalResult ONNXConcatOp::inferShapes() {
   auto commonType = getOperand(0).getType().cast<RankedTensorType>();
   auto commonShape = commonType.getShape();
   auto commonRank = commonShape.size();
-  auto axisIndex = axis().getSExtValue();
+  int64_t axisIndex = axis();
   // Negative axis means values are counted from the opposite side.
   if (axisIndex < 0) {
     axisIndex = commonRank + axisIndex;
     auto builder = mlir::Builder(getContext());
-    axisAttr(builder.getI64IntegerAttr(axisIndex));
+    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
   if (axisIndex >= commonRank)
     return emitError("Concat axis value out of bound");
@@ -2012,9 +2044,11 @@ LogicalResult ONNXConcatOp::inferShapes() {
           return emitError("Concat axis being concatenated is "
                            "expected to be known at compile time for now");
       } else if (currShape[j] != commonShape[j]) {
-        return emitError(
-            "Concat input dimensions must be all identical, "
-            "except for dimension on the axis of the concatenation");
+        return emitError("Concat input dimensions must be all identical, "
+                         "except for dimension on the axis of the "
+                         "concatenation. Expected something compatible with: ")
+               << commonType << " but got " << getOperand(i).getType()
+               << " instead.";
       }
     }
     cummulativeAxisSize += currShape[axisIndex];
@@ -2062,14 +2096,15 @@ LogicalResult ONNXSplitOp::inferShapes() {
   int64_t inputRank = inputShape.size();
 
   // Checking value of axis parameter.
-  auto axisIndex = axis().getSExtValue();
+  int64_t axisIndex = axis();
   if (axisIndex < -inputRank || axisIndex >= inputRank)
     return emitError("Split axis value out of bound");
   // Negative axis means values are counted from the opposite side.
   if (axisIndex < 0) {
     axisIndex = inputRank + axisIndex;
     auto builder = mlir::Builder(getContext());
-    axisAttr(builder.getI64IntegerAttr(axisIndex));
+    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
   // Checking value of split parameter.
@@ -2268,11 +2303,12 @@ LogicalResult ONNXConvIntegerOp::inferShapes() {
   }
 
   // Group is a required attribute and should have default value of 1.
-  int64_t group = ONNXConvIntegerOp::group().getSExtValue();
+  int64_t group = ONNXConvIntegerOp::group();
 
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
-    groupAttr(builder.getI64IntegerAttr(group));
+    groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, 1, /*isSigned=*/true)));
 
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (xShape[1] != -1 && weightShape[1] != -1 &&
@@ -2347,6 +2383,18 @@ LogicalResult ONNXShapeOp::inferShapes() {
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   int64_t rank = data().getType().cast<RankedTensorType>().getRank();
   SmallVector<int64_t, 1> outDims(1, rank);
+  getResult().setType(
+      RankedTensorType::get(outDims, IntegerType::get(64, getContext())));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Size
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXSizeOp::inferShapes() {
+  // Output is scalar of int64 containing the size of the input tensor.
+  SmallVector<int64_t, 1> outDims;
   getResult().setType(
       RankedTensorType::get(outDims, IntegerType::get(64, getContext())));
   return success();
@@ -2437,7 +2485,7 @@ LogicalResult ONNXGatherOp::inferShapes() {
     return emitError("Input tensor must have rank >= 1");
 
   // Read 'axis' attribute.
-  auto axisIndex = axis().getSExtValue();
+  int64_t axisIndex = axis();
   // 'axis' must be in [-rank, rank-1]
   if (axisIndex < -inputRank || axisIndex >= inputRank)
     return emitError("Gather axis value out of bound");
@@ -2445,7 +2493,8 @@ LogicalResult ONNXGatherOp::inferShapes() {
   if (axisIndex < 0) {
     axisIndex += inputRank;
     auto builder = mlir::Builder(getContext());
-    axisAttr(builder.getI64IntegerAttr(axisIndex));
+    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
   // If 'indices' is a constant, check whether its values are valid or not.
@@ -2687,6 +2736,14 @@ LogicalResult ONNXSliceOp::inferShapes() {
     outputDims[axis] = q;
   }
 
+  // Fill in the rest of the dimensions - assume they're untouched.
+  for (int i = 0, e = outputDims.size(); i < e; ++i) {
+    if (llvm::any_of(axesValue, [i](int64_t a) { return a == i; })) {
+      continue;
+    }
+    outputDims[i] = dataShape[i];
+  }
+
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
 }
@@ -2851,7 +2908,7 @@ struct SeqTypeStorage : public mlir::TypeStorage {
 SeqType SeqType::get(llvm::ArrayRef<mlir::Type> elementTypes) {
   assert(!elementTypes.empty() && "expected non-empty seq");
   mlir::MLIRContext *ctx = elementTypes.front().getContext();
-  return Base::get(ctx, ONNXTypes::SEQ, elementTypes);
+  return Base::get(ctx, elementTypes);
 }
 
 llvm::ArrayRef<mlir::Type> SeqType::getElementTypes() {

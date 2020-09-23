@@ -23,8 +23,8 @@ using namespace std;
 bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
     const int W, const int kH, const int kW, const int pHBegin, const int pHEnd,
     const int pWBegin, const int pWEnd) {
-  registerDialects();
   MLIRContext ctx;
+  registerDialects(ctx);
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
@@ -62,7 +62,10 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
       /*Y=*/yType,
       /*X=*/xVal, /*W=*/wVal, /*B=*/bVal,
       /*auto_pad=*/builder.getStringAttr("NOTSET"),
-      /*dilations=*/dilations, /*group=*/builder.getI64IntegerAttr(1),
+      /*dilations=*/dilations,
+      /*group=*/
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, 1, /*isSigned=*/true)),
       /*kernel_shape=*/kernel_shape, /*pads=*/pads,
       /*strides=*/strides);
 

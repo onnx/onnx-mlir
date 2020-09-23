@@ -24,12 +24,17 @@ include "src/Dialect/ONNX/ONNXOps.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+// Usefult code generation invokation.
+def GetNullAttr : NativeCodeCall<"Attribute()">;
+
+def GetUnitAttr: NativeCodeCall<"$_builder.getUnitAttr()">;
+
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 class HasRankOf<int rank> : Constraint<CPred<"$0.getType().isa<ShapedType>() && $0.getType().cast<ShapedType>().getRank() == " # rank>>;
 def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 def HasSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
-          "convertONNXTypeToMLIRType($_builder, static_cast<onnx::TensorProto_DataType>($1.cast<::mlir::IntegerAttr>().getInt())))">,
+          "convertONNXTypeToMLIRType($_builder, static_cast<onnx::TensorProto_DataType>($1.cast<::mlir::IntegerAttr>().getSInt())))">,
     "has same element type">;
 
 //===----------------------------------------------------------------------===//
@@ -38,8 +43,8 @@ def HasSameElementType : Constraint<
 
 def GemmAlpha : NativeCodeCall<"$_builder.getF32FloatAttr(1.0)">;
 def GemmBeta : NativeCodeCall<"$_builder.getF32FloatAttr(1.0)">;
-def GemmTransA : NativeCodeCall<"$_builder.getI64IntegerAttr(0)">;
-def GemmTransB : NativeCodeCall<"$_builder.getI64IntegerAttr(0)">;
+def GemmTransA : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
+def GemmTransB : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 0, /*isSigned=*/true))">;
 
 // onnx.add(onnx.matmul(%X, %Y), %Z) = onnx.Gemm(%X, %Y, %Z)
 def MulAddToGemmOptPattern : Pat<(ONNXAddOp (ONNXMatMulOp:$res $m1, $m2), $m3),
@@ -55,16 +60,42 @@ def FuseGemmFollowedByAddition : Pat<(ONNXAddOp (ONNXGemmOp:$res $m1, $m2, $none
 def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
                                      (replaceWithValue $arg)>;
 
+// y, mask = onnx.Dropout(x) -> y, mask = x, none
+def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $ratio),
+                                        [(replaceWithValue $arg),
+                                         (ONNXConstantOp (GetNullAttr), (GetUnitAttr))]>;
+
 def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $v1, $v2), $m2, $m3),
                              (ONNXPadConstantValuePadOp $m1, $v2, $m2, $m3),
                              [(HasOneUse $res)]>;
-
 
 // ONNX_Op (onnx.Cast (%X, $type)) = ONNX_Op (%X)
 def CastEliminationPattern : Pat<
 	(ONNXCastOp $arg, $type),
 	(replaceWithValue $arg),
   [(HasSameElementType $arg, $type)]>;
+
+// Combine transposes.
+def CreateCombinedTransposedPattern :
+   NativeCodeCall<"CombinedTransposePattern($_builder, $0, $1)">;
+
+def IsIdentityPermuteAttribute :
+  Constraint<CPred<"IsIdentityPermuteVector($_self)">,
+    "has identity permute vector">;
+
+def FuseTransposePattern:  Pat<
+  // Transpose of a transpose.
+  (ONNXTransposeOp (ONNXTransposeOp $v, $p1), $p2),
+  // Transpose with combined pattern.
+  (ONNXTransposeOp $v, (CreateCombinedTransposedPattern $p1, $p2))>;
+
+def RemoveIdentityTransposePattern:  Pat<
+  // Transpose with an identity pattern (e.g. {0, 1, 2, 3}).
+  (ONNXTransposeOp $v, $p),
+  // Remove the transpose.
+  (replaceWithValue $v),
+  // Check that we have indeed a identity transpose pattern.
+  [(IsIdentityPermuteAttribute:$p)]>;
 
 
 #endif // ONNX_COMBINE

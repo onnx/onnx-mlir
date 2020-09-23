@@ -59,7 +59,7 @@ void compileModuleToSharedLibrary(
 void compileModuleToJniJar(
     const mlir::OwningModuleRef &module, std::string outputBaseName);
 
-void registerDialects();
+void registerDialects(mlir::MLIRContext &context);
 
 void addONNXToMLIRPasses(mlir::PassManager &pm);
 
