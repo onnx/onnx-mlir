@@ -47,14 +47,14 @@ struct OMTensor {
    * are allocated.
    */
   OMTensor(int rank) {
-    if ((_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
-        (_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-      _data = NULL;
-      _alignedData = NULL;
+    if ((_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
+        (_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+      _allocatedPtr = NULL;
+      _alignedPtr = NULL;
       _offset = 0;
       _dataType = ONNX_TYPE_UNDEFINED;
       _rank = rank;
-      _owningData = false;
+      _owningPtr = false;
     } else {
       throw std::runtime_error(
           "OMTensor(" + std::to_string(rank) + ") malloc error");
@@ -69,47 +69,50 @@ struct OMTensor {
    * Destroy the OMTensor struct.
    */
   ~OMTensor() {
-    if (_owningData)
-      free(_data);
-    free(_dataSizes);
-    free(_dataStrides);
+    if (_owningPtr)
+      free(_allocatedPtr);
+    free(_shape);
+    free(_stride);
   };
 #endif
   // Fields are named according to:
   // https://mlir.llvm.org/docs/Dialects/SPIR-V/#lowering-memrefs-to-spvarray-and-spvrtarray
 
-  void *_data;           // data buffer
-  void *_alignedData;    // aligned data buffer that the omt indexes.
-  int64_t _offset;       // offset of 1st element
-  int64_t *_dataSizes;   // sizes array
-  int64_t *_dataStrides; // strides array
-  int _dataType;         // ONNX data type
-  int _rank;             // rank
-  char *_name;           // optional name for named access
-  bool _owningData;      // indicates whether the Omt owns the memory space
-  // referenced by _data. Omt struct will release the memory
-  // space referred to by _data upon destruction if and only
-  // if it owns it.
+  void *_allocatedPtr;           // data buffer
+  void *_alignedPtr;             // aligned data buffer that the omt indexes.
+
+  int64_t _offset;               // offset of 1st element
+  int64_t *_shape;               // sizes array
+  int64_t *_stride;              // strides array
+  int64_t _rank;                 // rank
+
+  OM_DATA_TYPE _dataType;        // ONNX data type
+
+  char *_name;                   // optional name for named access
+  bool _owningPtr;               // indicates whether the Omt owns the memory space
+                                 // referenced by _allocatedPtr. Omt struct will release the memory
+                                 // space referred to by _allocatedPtr upon destruction if and only
+                                 // if it owns it.
 };
 
 OMTensor *omTensorCreate(
     void *data_ptr, size_t *shape, size_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor = (OMTensor *)malloc(sizeof(OMTensor));
-  if ((tensor->_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
-      (tensor->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-      tensor->_data = data_ptr;
-      tensor->_alignedData = data_ptr;
+  if ((tensor->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
+      (tensor->_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+      tensor->_allocatedPtr = data_ptr;
+      tensor->_alignedPtr = data_ptr;
       tensor->_rank = rank;
       tensor->_dataType = dtype;
   }
   // Using signed indices helps detect when index falls below 0.
   for (int64_t i = 0; i < rank; i++) {
-      tensor->_dataSizes[i] = shape[i];
+      tensor->_shape[i] = shape[i];
     int64_t stride = 1;
     for (int64_t j = i - 1; j >= 0; j--) {
-      stride *= tensor->_dataSizes[j];
+      stride *= tensor->_shape[j];
     }
-      tensor->_dataStrides[i] = stride;
+      tensor->_stride[i] = stride;
   }
   return tensor;
 }
@@ -117,15 +120,15 @@ OMTensor *omTensorCreate(
 /* OMTensor creator */
 OMTensor *omTensorCreateEmpty(int rank) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
-  if ((omt->_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
-      (omt->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    omt->_data = NULL;
-    omt->_alignedData = NULL;
+  if ((omt->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
+      (omt->_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+    omt->_allocatedPtr = NULL;
+    omt->_alignedPtr = NULL;
     omt->_offset = 0;
     omt->_dataType = ONNX_TYPE_UNDEFINED;
     omt->_rank = rank;
     omt->_name = NULL;
-    omt->_owningData = false;
+    omt->_owningPtr = false;
   }
   return omt;
 }
@@ -134,15 +137,15 @@ OMTensor *omTensorCreateEmpty(int rank) {
 OMTensor *omTensorCreateWithNameAndOwnership(
     int rank, char *name, bool ownership) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
-  if ((omt->_dataSizes = (int64_t *)malloc(rank * sizeof(int64_t))) &&
-      (omt->_dataStrides = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    omt->_data = NULL;
-    omt->_alignedData = NULL;
+  if ((omt->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
+      (omt->_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+    omt->_allocatedPtr = NULL;
+    omt->_alignedPtr = NULL;
     omt->_offset = 0;
     omt->_dataType = ONNX_TYPE_UNDEFINED;
     omt->_rank = rank;
     omt->_name = name;
-    omt->_owningData = ownership;
+    omt->_owningPtr = ownership;
   }
 }
 
@@ -151,33 +154,33 @@ OMTensor *omTensorCreateWithNameAndOwnership(
 void omTensorDestroy(OMTensor *omt) { free(omt); }
 
 /* OMTensor data getter */
-void *omTensorGetData(OMTensor *omt) { return omt->_data; }
+void *omTensorGetData(OMTensor *omt) { return omt->_allocatedPtr; }
 
 /* OMTensor data setter */
 void omTensorSetData(OMTensor *omt, void *data) {
   /* If we own the data buffer, free it first. */
-  if (omt->_owningData) {
-    free(omt->_data);
+  if (omt->_owningPtr) {
+    free(omt->_allocatedPtr);
   }
-  omt->_data = data;
+  omt->_allocatedPtr = data;
 }
 
 /* OMTensor data sizes getter */
-int64_t *omTensorGetDataShape(OMTensor *omt) { return omt->_dataSizes; }
+int64_t *omTensorGetDataShape(OMTensor *omt) { return omt->_shape; }
 
 /* OMTensor data sizes setter */
 void omTensorSetDataShape(OMTensor *omt, int64_t *dataSizes) {
   for (int i = 0; i < omt->_rank; i++)
-    omt->_dataSizes[i] = dataSizes[i];
+    omt->_shape[i] = dataSizes[i];
 }
 
 /* OMTensor data strides getter */
-int64_t *omTensorGetDataStrides(OMTensor *omt) { return omt->_dataStrides; }
+int64_t *omTensorGetDataStrides(OMTensor *omt) { return omt->_stride; }
 
 /* OMTensor data strides setter */
 void omTensorSetDataStrides(OMTensor *omt, int64_t *dataStrides) {
   for (int i = 0; i < omt->_rank; i++)
-    omt->_dataStrides[i] = dataStrides[i];
+    omt->_stride[i] = dataStrides[i];
 }
 
 /* OMTensor data type getter */
@@ -190,7 +193,7 @@ void omTensorSetDataType(OMTensor *omt, int dataType) {
 
 /* OMTensor data buffer size getter */
 int64_t omTensorGetDataBufferSize(OMTensor *omt) {
-  return getNumOfElems(omt->_dataSizes, omt->_rank) *
+  return getNumOfElems(omt->_shape, omt->_rank) *
          getDataTypeSize(omt->_dataType);
 }
 
@@ -205,7 +208,7 @@ void omTensorSetName(OMTensor *omt, char *name) { omt->_name = name; }
 
 /* OMTensor number of elements getter */
 int64_t omTensorGetNumElems(OMTensor *omt) {
-  return getNumOfElems(omt->_dataSizes, omt->_rank);
+  return getNumOfElems(omt->_shape, omt->_rank);
 }
 
 /* ================ C++ API call implementation ================ */
@@ -221,23 +224,23 @@ OMTensor *omTensorCreateWithShape(vector<int64_t> dataSizes) {
 
   /* Allocate data buffer */
   omt->_rank = dataSizes.size();
-  if ((omt->_data = malloc(
+  if ((omt->_allocatedPtr = malloc(
            getNumOfElems(dataSizes.data(), omt->_rank) * sizeof(T))) == NULL) {
     omTensorDestroy(omt);
     return NULL;
   }
 
-  omt->_alignedData = omt->_data;
+  omt->_alignedPtr = omt->_allocatedPtr;
   omt->_offset = 0;
 
-  /* Copy dataSizes, _dataSizes already allocated by omTensorCreate */
-  copy(dataSizes.begin(), dataSizes.end(), omt->_dataSizes);
+  /* Copy dataSizes, _shape already allocated by omTensorCreate */
+  copy(dataSizes.begin(), dataSizes.end(), omt->_shape);
 
-  /* Compute and copy dataStrides, _dataStrides already allocated by
+  /* Compute and copy dataStrides, _stride already allocated by
    * omTensorCreateEmpty
    */
-  auto computedStrides = computeStridesFromSizes(omt->_dataSizes, omt->_rank);
-  copy(computedStrides.begin(), computedStrides.end(), omt->_dataStrides);
+  auto computedStrides = computeStridesFromSizes(omt->_shape, omt->_rank);
+  copy(computedStrides.begin(), computedStrides.end(), omt->_stride);
 
   /* Convert CPP type to ONNX type */
   try {
@@ -247,7 +250,7 @@ OMTensor *omTensorCreateWithShape(vector<int64_t> dataSizes) {
   }
 
   /* Set flag for destructor */
-  omt->_owningData = true;
+  omt->_owningPtr = true;
 
   return omt;
 }
@@ -266,41 +269,41 @@ OMTensor *omTensorCreateWithRandomData(
   if (omt == NULL)
     return NULL;
 
-  generate((T *)omt->_data,
-      (T *)omt->_data + getNumOfElems(omt->_dataSizes, omt->_rank),
+  generate((T *)omt->_allocatedPtr,
+      (T *)omt->_allocatedPtr + getNumOfElems(omt->_shape, omt->_rank),
       [&]() { return dis(gen); });
   return omt;
 }
 
 /* OMTensor aligned data getter */
-void *omTensorGetAlignedData(OMTensor *omt) { return omt->_alignedData; }
+void *omTensorGetAlignedData(OMTensor *omt) { return omt->_alignedPtr; }
 
 /* OMTensor aligned data setter */
 void omTensorSetAlignedData(OMTensor *omt, void *alignedData) {
-  omt->_alignedData = alignedData;
+  omt->_alignedPtr = alignedData;
 }
 
 /* Access an element (by reference) at offset computed by index array */
 template <typename T>
 T &omTensorGetElem(OMTensor *omt, std::vector<int64_t> indexes) {
   int64_t elemOffset = omTensorComputeElemOffset(omt, indexes);
-  return ((T *)omt->_data)[elemOffset];
+  return ((T *)omt->_allocatedPtr)[elemOffset];
 }
 
 /* Access an element (by reference) at linear offset */
 template <typename T>
 T &omTensorGetElemByOffset(OMTensor *omt, int64_t index) {
-  return ((T *)omt->_data)[index];
+  return ((T *)omt->_allocatedPtr)[index];
 }
 
 /* Compute strides vector from sizes vector */
 vector<int64_t> omTensorComputeStridesFromShape(OMTensor *omt) {
-  return computeStridesFromSizes(omt->_dataSizes, omt->_rank);
+  return computeStridesFromSizes(omt->_shape, omt->_rank);
 }
 
 /* Compute linear element offset from multi-dimensional index array */
 int64_t omTensorComputeElemOffset(OMTensor *omt, vector<int64_t> &indexes) {
-  return computeElemOffset(omt->_dataStrides, omt->_rank, indexes);
+  return computeElemOffset(omt->_stride, omt->_rank, indexes);
 }
 
 /* Compute index set for the whole OMTensor */
@@ -310,7 +313,7 @@ vector<vector<int64_t>> omTensorComputeIndexSet(OMTensor *omt) {
   // {{0,1}, {0,1,2}};
   vector<vector<int64_t>> dimWiseIdxSet;
   for (auto dimSize :
-      vector<int64_t>(omt->_dataSizes, omt->_dataSizes + omt->_rank)) {
+      vector<int64_t>(omt->_shape, omt->_shape + omt->_rank)) {
     vector<int64_t> dimIdxSet(dimSize);
     iota(begin(dimIdxSet), end(dimIdxSet), 0);
     dimWiseIdxSet.emplace_back(dimIdxSet);
@@ -326,8 +329,8 @@ inline bool omTensorAreTwoOmtsClose(
     OMTensor *a, OMTensor *b, float rtol, float atol) {
 
   // Compare shape.
-  auto aShape = vector<int64_t>(a->_dataSizes, a->_dataSizes + a->_rank);
-  auto bShape = vector<int64_t>(b->_dataSizes, b->_dataSizes + b->_rank);
+  auto aShape = vector<int64_t>(a->_shape, a->_shape + a->_rank);
+  auto bShape = vector<int64_t>(b->_shape, b->_shape + b->_rank);
   if (aShape != bShape) {
     cerr << "Shape mismatch ";
     printVector(aShape, ",", cerr);
@@ -339,7 +342,7 @@ inline bool omTensorAreTwoOmtsClose(
   // Compute absolute difference, verify it's within tolerable range.
   auto anum = omTensorGetNumElems(a);
   vector<T> absoluteDiff(anum);
-  transform((T *)a->_data, (T *)a->_data + anum, (T *)b->_data,
+  transform((T *)a->_allocatedPtr, (T *)a->_allocatedPtr + anum, (T *)b->_allocatedPtr,
       absoluteDiff.begin(), minus<>());
   transform(absoluteDiff.begin(), absoluteDiff.end(), absoluteDiff.begin(),
       static_cast<T (*)(T)>(&abs));
@@ -348,7 +351,7 @@ inline bool omTensorAreTwoOmtsClose(
 
   // Compute relative difference, verify it's within tolerable range.
   vector<T> relativeDiff(anum);
-  transform(absoluteDiff.begin(), absoluteDiff.end(), (T *)a->_data,
+  transform(absoluteDiff.begin(), absoluteDiff.end(), (T *)a->_allocatedPtr,
       relativeDiff.begin(), divides<>());
   bool rtolSatisfied = all_of(
       relativeDiff.begin(), relativeDiff.end(), [&](T a) { return a < rtol; });

@@ -53,9 +53,9 @@ public class OMTensor {
             2,  /* BFLOAT16   */
     };
 
-    private ByteBuffer _data;
-    private long[] _dataSizes;
-    private long[] _dataStrides;
+    private ByteBuffer _allocatedPtr;
+    private long[] _shape;
+    private long[] _stride;
     private int _dataType;
     private int _rank;
     private String _name;
@@ -67,9 +67,9 @@ public class OMTensor {
         if (rank <= 0)
             throw new IllegalArgumentException(
                     "invalid rank " + rank);
-        _data = null;
-        _dataSizes = new long[rank];
-        _dataStrides = new long[rank];
+        _allocatedPtr = null;
+        _shape = new long[rank];
+        _stride = new long[rank];
         _dataType = ONNX_TYPE_UNDEFINED;
         _rank = rank;
         _name = "";
@@ -85,7 +85,7 @@ public class OMTensor {
      */
     @SuppressWarnings("unused")
     private ByteBuffer getData() {
-        return _data;
+        return _allocatedPtr;
     }
 
     /**
@@ -95,7 +95,7 @@ public class OMTensor {
      */
     @SuppressWarnings("unused")
     private void setData(ByteBuffer data) {
-        _data = data.order(endian);
+        _allocatedPtr = data.order(endian);
     }
     
     /* ---------- Byte data getter and setter ---------- */
@@ -106,14 +106,14 @@ public class OMTensor {
      * @return byte data array
      */
     public byte[] getByteData() {
-        if (_data == null) return null;
+        if (_allocatedPtr == null) return null;
 
         /* asReadOnlyBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getByteData()
          * after get(b).
          */
-        byte[] b = new byte[_data.limit()];
-        _data.asReadOnlyBuffer().get(b);
+        byte[] b = new byte[_allocatedPtr.limit()];
+        _allocatedPtr.asReadOnlyBuffer().get(b);
         return b;
     }
 
@@ -126,8 +126,8 @@ public class OMTensor {
         /* slice() creates a new view so the position of the
          * original data will stay at 0 for getByteData() after put(data).
          */
-        _data = ByteBuffer.allocateDirect(data.length);
-        _data.slice().put(data);
+        _allocatedPtr = ByteBuffer.allocateDirect(data.length);
+        _allocatedPtr.slice().put(data);
         _dataType = ONNX_TYPE_INT8;
     }
 
@@ -139,13 +139,13 @@ public class OMTensor {
      * @return short data array
      */
     public short[] getShortData() {
-        if (_data == null) return null;
+        if (_allocatedPtr == null) return null;
 
         /* asShortBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getShortData()
          * after get(s).
          */
-        ShortBuffer sb = _data.asShortBuffer();
+        ShortBuffer sb = _allocatedPtr.asShortBuffer();
         short[] s = new short[sb.limit()];
         sb.get(s);
         return s;
@@ -160,8 +160,8 @@ public class OMTensor {
         /* asShortBuffer() creates a new view so the position of the
          * original data will stay at 0 for getShortData() after put(data).
          */
-        _data = ByteBuffer.allocateDirect(data.length*2).order(endian);
-        _data.asShortBuffer().put(data);
+        _allocatedPtr = ByteBuffer.allocateDirect(data.length*2).order(endian);
+        _allocatedPtr.asShortBuffer().put(data);
         _dataType = ONNX_TYPE_INT16;
     }
 
@@ -173,13 +173,13 @@ public class OMTensor {
      * @return int data array
      */
     public int[] getIntData() {
-        if (_data == null) return null;
+        if (_allocatedPtr == null) return null;
 
         /* asIntBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getIntData()
          * after get(i).
          */
-        IntBuffer ib = _data.asIntBuffer();
+        IntBuffer ib = _allocatedPtr.asIntBuffer();
         int[] i = new int[ib.limit()];
         ib.get(i);
         return i;
@@ -194,8 +194,8 @@ public class OMTensor {
         /* asIntBuffer() creates a new view so the position of the
          * original data will stay at 0 for getIntData() after put(data).
          */
-        _data = ByteBuffer.allocateDirect(data.length*4).order(endian);
-        _data.asIntBuffer().put(data);
+        _allocatedPtr = ByteBuffer.allocateDirect(data.length*4).order(endian);
+        _allocatedPtr.asIntBuffer().put(data);
         _dataType = ONNX_TYPE_INT32;
     }
 
@@ -207,13 +207,13 @@ public class OMTensor {
      * @return long data array
      */
     public long[] getLongData() {
-        if (_data == null) return null;
+        if (_allocatedPtr == null) return null;
 
         /* asLongBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getLongData()
          * after get(l).
          */
-        LongBuffer lb = _data.asLongBuffer();
+        LongBuffer lb = _allocatedPtr.asLongBuffer();
         long[] l = new long[lb.limit()];
         lb.get(l);
         return l;
@@ -228,8 +228,8 @@ public class OMTensor {
         /* asLongBuffer() creates a new view so the position of the
          * original data will stay at 0 for getLongData() after put(data).
          */
-        _data = ByteBuffer.allocateDirect(data.length*8).order(endian);
-        _data.asLongBuffer().put(data);
+        _allocatedPtr = ByteBuffer.allocateDirect(data.length*8).order(endian);
+        _allocatedPtr.asLongBuffer().put(data);
         _dataType = ONNX_TYPE_INT64;
     }
 
@@ -241,13 +241,13 @@ public class OMTensor {
      * @return float data array
      */
     public float[] getFloatData() {
-        if (_data == null) return null;
+        if (_allocatedPtr == null) return null;
 
         /* asFloatBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getFloatData()
          * after get(f).
          */
-        FloatBuffer fb = _data.asFloatBuffer();
+        FloatBuffer fb = _allocatedPtr.asFloatBuffer();
         float[] f = new float[fb.limit()];
         fb.get(f);
         return f;
@@ -262,8 +262,8 @@ public class OMTensor {
         /* asFloatBuffer() creates a new view so the position of the
          * original data will stay at 0 for getFloatData() after put(data).
          */
-        _data = ByteBuffer.allocateDirect(data.length*4).order(endian);
-        _data.asFloatBuffer().put(data);
+        _allocatedPtr = ByteBuffer.allocateDirect(data.length*4).order(endian);
+        _allocatedPtr.asFloatBuffer().put(data);
         _dataType = ONNX_TYPE_FLOAT;
     }
 
@@ -275,13 +275,13 @@ public class OMTensor {
      * @return double data array
      */
     public double[] getDoubleData() {
-        if (_data == null) return null;
+        if (_allocatedPtr == null) return null;
 
         /* asDoubleBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getDoubleData()
          * after get(d).
          */
-        DoubleBuffer db = _data.asDoubleBuffer();
+        DoubleBuffer db = _allocatedPtr.asDoubleBuffer();
         double[] d = new double[db.limit()];
         db.get(d);
         return d;
@@ -296,8 +296,8 @@ public class OMTensor {
         /* asDoubleBuffer() creates a new view so the position of the
          * original data will stay at 0 for getDoubleData() after put(data).
          */
-        _data = ByteBuffer.allocateDirect(data.length*8).order(endian);
-        _data.asDoubleBuffer().put(data);
+        _allocatedPtr = ByteBuffer.allocateDirect(data.length*8).order(endian);
+        _allocatedPtr.asDoubleBuffer().put(data);
         _dataType = ONNX_TYPE_DOUBLE;
     }
 
@@ -309,7 +309,7 @@ public class OMTensor {
      * @return data sizes array
      */
     public long[] getDataSizes() {
-        return _dataSizes;
+        return _shape;
     }
 
     /**
@@ -321,7 +321,7 @@ public class OMTensor {
         if (dataSizes.length != _rank)
             throw new IllegalArgumentException(
                     "array length " + dataSizes.length + " != rank " + _rank);
-        _dataSizes = dataSizes.clone();
+        _shape = dataSizes.clone();
     }
 
     /* ---------- Data strides getter and setter ---------- */
@@ -332,7 +332,7 @@ public class OMTensor {
      * @return data strides array
      */
     public long[] getDataStrides() {
-        return _dataStrides;
+        return _stride;
     }
 
     /**
@@ -344,7 +344,7 @@ public class OMTensor {
         if (dataStrides.length != _rank)
             throw new IllegalArgumentException(
                     "array length " + dataStrides.length + " != rank " + _rank);
-        _dataStrides = dataStrides.clone();
+        _stride = dataStrides.clone();
     }
 
     /* ---------- Data type getter and setter ---------- */
@@ -378,7 +378,7 @@ public class OMTensor {
      * @return total size of the data buffer in bytes
      */
     public long getDataBufferSize() {
-        return _data == null ? 0 : _data.limit();
+        return _allocatedPtr == null ? 0 : _allocatedPtr.limit();
     }
 
     /* ---------- Rank getter ---------- */
@@ -418,8 +418,8 @@ public class OMTensor {
      * @return number of data elements in the data buffer
      */
     public long getNumOfElems() {
-        long n = _dataSizes[0];
-        for (int i = 1; i < _dataSizes.length; i++) n *= _dataSizes[i];
+        long n = _shape[0];
+        for (int i = 1; i < _shape.length; i++) n *= _shape[i];
         return n;
     }
 
@@ -429,8 +429,8 @@ public class OMTensor {
      * @return true if OMTensor is valid, false otherwise
      */
     public boolean isValidOmt() {
-        return (_data != null &&
-                _data.limit() != 0 &&
-                _data.limit() == getNumOfElems() * ONNX_TYPE_SIZE[_dataType]);
+        return (_allocatedPtr != null &&
+                _allocatedPtr.limit() != 0 &&
+                _allocatedPtr.limit() == getNumOfElems() * ONNX_TYPE_SIZE[_dataType]);
     }
 }

@@ -39,17 +39,17 @@
  * following data members:
  *
  * ```cpp
- * void *_data;            // data buffer
- * void *_alignedData;     // aligned data buffer that the omt indexes.
+ * void *_allocatedPtr;            // data buffer
+ * void *_alignedPtr;     // aligned data buffer that the omt indexes.
  * int64_t _offset;     // offset of 1st element
- * int64_t *_dataSizes; // sizes array
- * int64_t *_dataStrides;  // strides array
+ * int64_t *_shape; // sizes array
+ * int64_t *_stride;  // strides array
  * int _dataType;          // ONNX data type
  * int _rank;              // rank
  * std::string _name;      // optional name for named access
- * bool _owningData;       // indicates whether the Omt owns the memory space
- *                            referenced by _data. Omt struct will release the
- * memory space refereced by _data upon destruction if and only if it owns it.
+ * bool _owningPtr;       // indicates whether the Omt owns the memory space
+ *                            referenced by _allocatedPtr. Omt struct will release the
+ * memory space refereced by _allocatedPtr upon destruction if and only if it owns it.
  * ```
  *
  * \subsection OMTensorList
