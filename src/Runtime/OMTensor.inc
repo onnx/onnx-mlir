@@ -342,17 +342,17 @@ inline bool omTensorAreTwoOmtsClose(
   // Compute absolute difference, verify it's within tolerable range.
   auto anum = omTensorGetNumElems(a);
   std::vector<T> absoluteDiff(anum);
-  transform((T *)a->_allocatedPtr, (T *)a->_allocatedPtr + anum,
+  std::transform((T *)a->_allocatedPtr, (T *)a->_allocatedPtr + anum,
       (T *)b->_allocatedPtr, absoluteDiff.begin(), std::minus<>());
-  transform(absoluteDiff.begin(), absoluteDiff.end(), absoluteDiff.begin(),
-      static_cast<T (*)(T)>(&abs));
-  bool atolSatisfied = all_of(
+  std::transform(absoluteDiff.begin(), absoluteDiff.end(), absoluteDiff.begin(),
+      static_cast<T (*)(T)>(&std::abs));
+  bool atolSatisfied = std::all_of(
       absoluteDiff.begin(), absoluteDiff.end(), [&](T a) { return a < atol; });
 
   // Compute relative difference, verify it's within tolerable range.
   std::vector<T> relativeDiff(anum);
-  transform(absoluteDiff.begin(), absoluteDiff.end(), (T *)a->_allocatedPtr,
-      relativeDiff.begin(), std::divides<>());
+  std::transform(absoluteDiff.begin(), absoluteDiff.end(),
+      (T *)a->_allocatedPtr, relativeDiff.begin(), std::divides<>());
   bool rtolSatisfied = all_of(
       relativeDiff.begin(), relativeDiff.end(), [&](T a) { return a < rtol; });
 
