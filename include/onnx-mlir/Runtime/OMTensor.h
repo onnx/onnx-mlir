@@ -145,13 +145,13 @@ void omTensorSetPtr(
     OMTensor *tensor, int owning, void *allocatedPtr, void *alignedPtr);
 
 /**
- * OMTensor aligned data getter.
+ * OMTensor allocated ptr getter.
  *
  * @param tensor pointer to the OMTensor
- * @return pointer to the aligned data buffer of the OMTensor,
- *         NULL if the aligned data buffer is not set.
+ * @return pointer to the allocated data buffer of the OMTensor,
+ *         NULL if the allocated data buffer is not set.
  */
-void *omTensorGetAlignedData(OMTensor *tensor);
+void *omTensorGetAllocatedPtr(OMTensor *tensor);
 
 /**
  * OMTensor data sizes getter

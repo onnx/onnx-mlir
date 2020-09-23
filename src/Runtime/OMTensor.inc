@@ -224,8 +224,8 @@ int64_t omTensorGetNumElems(OMTensor *tensor) {
   return getNumOfElems(tensor->_shape, tensor->_rank);
 }
 
-/* OMTensor aligned data getter */
-void *omTensorGetAlignedData(OMTensor *tensor) { return tensor->_alignedPtr; }
+/* OMTensor allocated pointer getter */
+void *omTensorGetAllocatedPtr(OMTensor *tensor) { return tensor->_allocatedPtr; }
 
 #ifdef __cplusplus
 /* OMTensor creator with data sizes and element type  */
