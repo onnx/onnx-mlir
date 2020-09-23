@@ -49,7 +49,7 @@ OMTensor *omTensorListGetOmtByIndex(OMTensorList *rlist, int index) {
 /* Return OMTensor of specified name in the OMTensorList */
 OMTensor *omTensorListGetOmtByName(OMTensorList *rlist, std::string name) {
   for (int i = 0; i < rlist->_n; i++)
-    if (rlist->_omts[i]->_name == name)
+    if (omTensorGetName(rlist->_omts[i]) == name)
       return rlist->_omts[i];
   return NULL;
 }

@@ -6,7 +6,7 @@
 #endif
 #include <string.h>
 
-#include "OnnxMlir.h"
+#include "OnnxMlirRuntime.h"
 #include "com_ibm_onnxmlir_DynEntryPoint.h"
 #include "jnilog.h"
 

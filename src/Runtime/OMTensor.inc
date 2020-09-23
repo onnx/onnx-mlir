@@ -75,6 +75,8 @@ struct OMTensor {
     free(_dataStrides);
   };
 #endif
+  // Fields are named according to:
+  // https://mlir.llvm.org/docs/Dialects/SPIR-V/#lowering-memrefs-to-spvarray-and-spvrtarray
 
   void *_data;           // data buffer
   void *_alignedData;    // aligned data buffer that the omt indexes.
