@@ -2161,8 +2161,7 @@ LogicalResult ONNXFlattenOp::inferShapes() {
   auto axisValue = axis();
   auto inputShape = inTy.getShape();
   auto inputRank = inputShape.size();
-  printf("axis %d %d\n", axisValue, inputRank);
-  if (axisValue < -1 * (int64_t)inputRank || axisValue > inputRank) {
+  if (axisValue < -1 * (int64_t)inputRank || axisValue > (int64_t)inputRank) {
     return emitOpError("ONNXFlattenOP: axis() value is out of range");
   }
 
