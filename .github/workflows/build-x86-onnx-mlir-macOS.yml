@@ -21,7 +21,7 @@ jobs:
         cache-name: cache-mlir-directory
       with:
         path: $HOME/work/onnx-mlir/llvm-project
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}
+        key: V1-${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}
     - name: clone & build MLIR
       if: steps.cache-mlir.outputs.cache-hit != 'true'
       run: |
