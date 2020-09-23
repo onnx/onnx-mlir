@@ -53,25 +53,38 @@ public:
     // Get the integer value of the index.
     int64_t index = indexOp.getAttrOfType<IntegerAttr>("value").getInt();
 
-    // Get defining operation for the MemRef argument.
-    AllocOp allocOp = dyn_cast<AllocOp>(krnlDimOp.alloc().getDefiningOp());
-    auto memRefShape =
-        convertToMemRefType(allocOp.getResult().getType()).getShape();
+    // Get the shape of the MemRef argument.
+    auto memRefType = convertToMemRefType(krnlDimOp.alloc().getType());
+    auto memRefShape = memRefType.getShape();
     auto rank = memRefShape.size();
     assert(index >= 0 && index < rank && "Index must be in bounds");
+
+    // Get the defining operation of the first argument of krnl.dim.
+    // If this operation is not an alloc, and the value comes from the
+    // list of input arguments, the support is limited to MemRefs without
+    // maps.
+    auto firstArgDefOp = krnlDimOp.alloc().getDefiningOp();
 
     Value result;
     if (memRefShape[index] > -1) {
       // If dimension is static, then we can just emit the constant value.
       result = rewriter.create<ConstantOp>(loc,
           rewriter.getIntegerAttr(rewriter.getIndexType(), memRefShape[index]));
-    } else {
+    } else if (firstArgDefOp && isa<AllocOp>(firstArgDefOp)) {
+      // Get defining operation for the MemRef argument.
+      AllocOp allocOp = dyn_cast<AllocOp>(krnlDimOp.alloc().getDefiningOp());
+
       // If dimension is dynamic we need to return the input alloc Value which
       // corresponds to it.
       int64_t dynDimIdx = getAllocArgIndex(allocOp, index);
       assert(dynDimIdx >= 0 && dynDimIdx < allocOp.getOperands().size() &&
              "Dynamic index outside range of alloc argument list.");
       result = allocOp.getOperands()[dynDimIdx];
+    } else if (memRefType.getAffineMaps().empty()) {
+      // Use a standard DimOp since no map is present.
+      result = rewriter.create<DimOp>(loc, krnlDimOp.alloc(), krnlDimOp.index());
+    } else {
+      llvm_unreachable("dynamic sized MemRef with map must be defined by an AllocOp");
     }
 
     rewriter.replaceOp(krnlDimOp, result);
