@@ -70,7 +70,7 @@ static inline int64_t getNumOfElems(int64_t *dataSizes, int rank) {
  * Create a OMTensor with specified rank. Memory for data sizes and
  * strides are allocated.
  */
-OMTensor *omTensorCreate(void* data_ptr, size_t* shape, size_t rank, OM_DATA_TYPE dtype);
+OMTensor *omTensorCreate(void* data_ptr, int64_t* shape, size_t rank, OM_DATA_TYPE dtype);
 
 /**
  * OMTensor creator

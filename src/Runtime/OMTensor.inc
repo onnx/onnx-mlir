@@ -96,7 +96,7 @@ struct OMTensor {
 };
 
 OMTensor *omTensorCreate(
-    void *data_ptr, size_t *shape, size_t rank, OM_DATA_TYPE dtype) {
+    void *data_ptr, int64_t *shape, size_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor = (OMTensor *)malloc(sizeof(OMTensor));
   if ((tensor->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
       (tensor->_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
@@ -112,7 +112,7 @@ OMTensor *omTensorCreate(
     for (int64_t j = i - 1; j >= 0; j--) {
       stride *= tensor->_shape[j];
     }
-      tensor->_stride[i] = stride;
+    tensor->_stride[i] = stride;
   }
   return tensor;
 }

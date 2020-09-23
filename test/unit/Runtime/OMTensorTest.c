@@ -15,16 +15,16 @@
 
 void testOMTensorCtor() {
     float data[4] = {1.f, 1.f};
-    size_t shape[2] = {2, 2};
+    int64_t shape[2] = {2, 2};
     OMTensor *tensor = omTensorCreate(data, shape, 2, ONNX_TYPE_FLOAT);
     assert(tensor);
 
-    size_t* shape_ptr = omTensorGetDataShape(tensor);
+    int64_t* shape_ptr = omTensorGetDataShape(tensor);
     assert(shape_ptr);
     assert(shape_ptr[0] == 2);
     assert(shape_ptr[1] == 2);
 
-    size_t* strides_ptr = omTensorGetDataStrides(tensor);
+    int64_t* strides_ptr = omTensorGetDataStrides(tensor);
     assert(strides_ptr);
     assert(strides_ptr[0] == 1);
     assert(strides_ptr[1] == 2);
