@@ -467,8 +467,8 @@ void outputCode(
   if (preserveLocations)
     flags.enableDebugInfo();
 
-  // copy original stderr file number
 #ifdef _WIN32
+  // copy original stderr file number
   int stderrOrigin = _dup(_fileno(stderr));
 #else
   int stderrOrigin = dup(fileno(stderr));
