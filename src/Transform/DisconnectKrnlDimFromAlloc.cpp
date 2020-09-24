@@ -27,13 +27,37 @@ namespace {
 /*!
  *  RewritePattern that replaces:
  *    %0 = alloc(%d) : memref<?x10x<type>, #map>
- *    %1 = krnl.dim(%0, 0) : memref<?x10x<type>>
- *    %2 = krnl.dim(%0, 1) : memref<?x10x<type>>
+ *    %1 = krnl.dim(%0, 0) : (memref<?x10x<type>, #map>, index) -> index
+ *    %2 = krnl.dim(%0, 1) : (memref<?x10x<type>, #map>, index) -> index
  *    %3 = add %1, %2
  *  with:
  *    %0 = alloc(%d) : memref<?x10x<type>, #map>
  *    %2 = constant 10 : index
  *    %3 = add %d, %2
+ *
+ *  When the first argument of the krnl.dim is an input argument
+ * i.e. it is not the output of an alloc operation, we emit either
+ * the constant or the strandard dim operation depending on whether
+ * the dimension is static or dynamic.
+ *
+ *  function(%arg0 : memref<?x10x<type>>) {
+ *    %0 = krnl.dim(%arg0, 0) : (memref<?x10x<type>>, index) -> index
+ *    %1 = krnl.dim(%arg0, 1) : memref<?x10x<type>>
+ *  }
+ *
+ *
+ *  becomes:
+ *
+ *  function(%arg0 : memref<?x10x<type>>) {
+ *    %0 = dim %arg0, 0 : (memref<?x10x<type>>, index) -> index
+ *    %1 = constant 10 : index
+ *  }
+ *
+ *  The following case is not supported:
+ *
+ *  function(%arg0 : memref<?x10x<type>, #map>) {
+ *    %0 = krnl.dim(%arg0, 0) : (memref<?x10x<type>, #map>, index) -> index
+ *  }
  */
 
 class DisconnectKrnlDimFromAlloc : public OpRewritePattern<KrnlDimOp> {
@@ -53,25 +77,40 @@ public:
     // Get the integer value of the index.
     int64_t index = indexOp.getAttrOfType<IntegerAttr>("value").getInt();
 
-    // Get defining operation for the MemRef argument.
-    AllocOp allocOp = dyn_cast<AllocOp>(krnlDimOp.alloc().getDefiningOp());
-    auto memRefShape =
-        convertToMemRefType(allocOp.getResult().getType()).getShape();
+    // Get the shape of the MemRef argument.
+    auto memRefType = convertToMemRefType(krnlDimOp.alloc().getType());
+    auto memRefShape = memRefType.getShape();
     auto rank = memRefShape.size();
     assert(index >= 0 && index < rank && "Index must be in bounds");
+
+    // Get the defining operation of the first argument of krnl.dim.
+    // If this operation is not an alloc, and the value comes from the
+    // list of input arguments, the support is limited to MemRefs without
+    // maps.
+    auto firstArgDefOp = krnlDimOp.alloc().getDefiningOp();
 
     Value result;
     if (memRefShape[index] > -1) {
       // If dimension is static, then we can just emit the constant value.
       result = rewriter.create<ConstantOp>(loc,
           rewriter.getIntegerAttr(rewriter.getIndexType(), memRefShape[index]));
-    } else {
+    } else if (firstArgDefOp && isa<AllocOp>(firstArgDefOp)) {
+      // Get defining operation for the MemRef argument.
+      AllocOp allocOp = dyn_cast<AllocOp>(krnlDimOp.alloc().getDefiningOp());
+
       // If dimension is dynamic we need to return the input alloc Value which
       // corresponds to it.
       int64_t dynDimIdx = getAllocArgIndex(allocOp, index);
       assert(dynDimIdx >= 0 && dynDimIdx < allocOp.getOperands().size() &&
              "Dynamic index outside range of alloc argument list.");
       result = allocOp.getOperands()[dynDimIdx];
+    } else if (memRefType.getAffineMaps().empty()) {
+      // Use a standard DimOp since no map is present.
+      result =
+          rewriter.create<DimOp>(loc, krnlDimOp.alloc(), krnlDimOp.index());
+    } else {
+      llvm_unreachable(
+          "dynamic sized MemRef with map must be defined by an AllocOp");
     }
 
     rewriter.replaceOp(krnlDimOp, result);

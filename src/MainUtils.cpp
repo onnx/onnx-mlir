@@ -446,9 +446,27 @@ void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
   }
 }
 
+// This definition is here rather than in main.cpp because otherwise it's not
+// found probably should be pulled out to a more common location
+// TODO: Find a respectable home for the wain
+llvm::cl::OptionCategory OnnxMlirOptions(
+    "ONNX MLIR Options", "These are frontend options.");
+// the option is used in this file, so defined here
+llvm::cl::opt<bool> preserveLocations("preserveLocations",
+    llvm::cl::desc("emit location data:"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> printIR("printIR",
+    llvm::cl::desc("print the IR to stdout:"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
 void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
   string tempFilename = filename + extension;
+  mlir::OpPrintingFlags flags;
+  if (preserveLocations)
+    flags.enableDebugInfo();
+
   // copy original stderr file number
 #ifdef _WIN32
   int stderrOrigin = _dup(_fileno(stderr));
@@ -456,7 +474,7 @@ void outputCode(
   int stderrOrigin = dup(fileno(stderr));
 #endif
   freopen(tempFilename.c_str(), "w", stderr);
-  module->dump();
+  module->print(llvm::errs(), flags);
   fflush(stderr);
   // set modified stderr as original stderr
 #ifdef _WIN32
@@ -464,6 +482,8 @@ void outputCode(
 #else
   dup2(stderrOrigin, fileno(stderr));
 #endif
+  if (printIR)
+    module->print(llvm::outs(), flags);
 }
 
 void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,

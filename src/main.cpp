@@ -10,14 +10,13 @@
 
 using namespace std;
 using namespace onnx_mlir;
+extern llvm::cl::OptionCategory OnnxMlirOptions;
 
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   mlir::MLIRContext context;
   registerDialects(context);
 
-  llvm::cl::OptionCategory OnnxMlirOptions(
-      "ONNX MLIR Options", "These are frontend options.");
   llvm::cl::opt<string> inputFilename(llvm::cl::Positional,
       llvm::cl::desc("<input file>"), llvm::cl::init("-"),
       llvm::cl::cat(OnnxMlirOptions));
