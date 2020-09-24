@@ -7,6 +7,9 @@ parameters:
 - name: CMakeExternalLIT
   type: string
   default: ''
+- name: CMakePrefixPath
+  type: string
+  default: ''
 - name: GeneratorString
   type: string
   default: 'Ninja'
@@ -29,7 +32,7 @@ steps:
         -DLLVM_ENABLE_PROJECTS=mlir
         -DLLVM_BUILD_EXAMPLES=ON
         -DLLVM_TARGETS_TO_BUILD="host;Apollo"
-        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_BUILD_TYPE=$(CMakeBuildConfiguration)
         -DLLVM_ENABLE_ASSERTIONS=ON
         -DLLVM_ENABLE_RTTI=ON
 
@@ -37,34 +40,35 @@ steps:
     displayName: 'Build LLVM'
     inputs:
       workingDirectory: '$(LLVMBuildDir)'
-      cmakeArgs: '--build . --config Release'
+      cmakeArgs: '--build . --config $(CMakeBuildConfiguration)'
 
   - task: CMake@1
     displayName: 'Check LLVM'
     inputs:
       workingDirectory: '$(LLVMBuildDir)'
-      cmakeArgs: '--build . --config Release --target check-mlir'
+      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-mlir'
 
   - task: CMake@1
     displayName: 'CMake ONNX MLIR'
     inputs:
-      workingDirectory: '$(ONNXMLIRBuildDir)'
+      workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
       cmakeArgs: >-
         -G ${{ parameters.GeneratorString }}
         $(ONNXMLIRSourceDir)
         ${{ parameters.CMakeExternalLIT }}
-        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_BUILD_TYPE=$(CMakeBuildConfiguration)
         -DADO_DOWNLOAD_ONNX_TEST_FILES=ON
         -DPYTHON_EXECUTABLE=${{ parameters.PythonExePath }}
+        -DCMAKE_PREFIX_PATH=${{ parameters.CMakePrefixPath }}
 
   - task: CMake@1
     displayName: 'Build ONNX MLIR'
     inputs:
-      workingDirectory: '$(ONNXMLIRBuildDir)'
-      cmakeArgs: '--build . --config Release --target ${{ parameters.CMakeBuildTarget }}'
+      workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
+      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target ${{ parameters.CMakeBuildTarget }}'
 
   - task: CMake@1
     displayName: 'Check ONNX MLIR'
     inputs:
-      workingDirectory: '$(ONNXMLIRBuildDir)'
-      cmakeArgs: '--build . --config Release --target check-onnx-lit'
+      workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
+      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-onnx-lit'

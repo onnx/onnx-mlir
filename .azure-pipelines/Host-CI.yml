@@ -52,25 +52,40 @@ variables:
 jobs:
 - job: Build_And_Test_ONNX_MLIR_Windows
   displayName: "Build and Test ONNX MLIR (Windows)"
+  strategy:
+    matrix:
+      Release:
+        CMakeBuildConfiguration: 'Release'
+      Debug:
+        CMakeBuildConfiguration: 'Debug'
   pool:
     name: Default
     demands:
     - Agent.OS -equals Windows_NT
+  timeoutInMinutes: 180
   steps:
   - template: BuildOnnxMlir.yml
     parameters:
       CMakeBuildTarget: 'onnx-mlir -- /m'
-      CMakeExternalLIT: '-DLLVM_EXTERNAL_LIT="$(LLVMBuildDir)\Release\bin\llvm-lit.py"'
+      CMakeExternalLIT: '-DLLVM_EXTERNAL_LIT="$(LLVMBuildDir)\$(CMakeBuildConfiguration)\bin\llvm-lit.py"'
+      CMakePrefixPath: '$(Agent.ToolsDirectory)\protobuf\install_$(CMakeBuildConfiguration)'
       GeneratorString: '"Visual Studio 16 2019" -A x64 -T host=x64'
       PythonExePath: '"C:/Program Files (x86)/Microsoft Visual Studio/Shared/Python36_64/python.EXE"'
 
 - job: Build_And_Test_ONNX_MLIR_Ubuntu
   displayName: "Build and Test ONNX MLIR (Ubuntu)"
+  strategy:
+    matrix:
+      Release:
+        CMakeBuildConfiguration: 'Release'
+      Debug:
+        CMakeBuildConfiguration: 'Debug'
   pool:
     name: Default
     demands:
     - Agent.OS -equals Linux
     - CentOS -equals false
+  timeoutInMinutes: 180
   steps:
   - template: BuildOnnxMlir.yml
 
@@ -82,12 +97,12 @@ jobs:
   - task: CMake@1
     displayName: 'End-To-End Test ONNX'
     inputs:
-      workingDirectory: '$(ONNXMLIRBuildDir)'
+      workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
       cmakeArgs: '--build . --config Release --target check-onnx-backend'
 
   - task: CMake@1
     displayName: 'ONNX MLIR Unit Tests'
     inputs:
-      workingDirectory: '$(ONNXMLIRBuildDir)'
+      workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
       cmakeArgs: '--build . --config Release --target test'
 
