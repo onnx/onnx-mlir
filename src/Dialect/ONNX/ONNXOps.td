@@ -118,11 +118,11 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
   }];
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$X,
            DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
-           DefaultValuedAttr<I64Attr, "0">:$ceil_mode,
+           DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
            OptionalAttr<I64ArrayAttr>:$dilations,
            DefaultValuedAttr<I64ArrayAttr, "{}">:$kernel_shape,
            OptionalAttr<I64ArrayAttr>:$pads,
-           DefaultValuedAttr<I64Attr, "0">:$storage_order,
+           DefaultValuedAttr<SI64Attr, "0">:$storage_order,
            OptionalAttr<I64ArrayAttr>:$strides);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$o_Y);
   let extraClassDeclaration = [{

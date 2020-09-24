@@ -253,6 +253,9 @@ void populateLoweringONNXSqueezeOpPattern(
 void populateLoweringONNXSplitOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXSizeOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
 
 int64_t getMemRefSizeInBytes(Value val);
