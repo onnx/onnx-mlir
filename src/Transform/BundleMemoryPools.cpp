@@ -44,6 +44,11 @@ typedef struct ONNXOperandsInitState {
 // Helper data structure for the bundling of dynamic AllocOps.
 std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>> initMap;
 
+typedef struct InitDataStructure {
+  AllocOp staticMemoryPool;
+} InitDataStructure;
+std::map<Block *, std::unique_ptr<InitDataStructure>> blockInitMap;
+
 //===----------------------------------------------------------------------===//
 // Helper functions.
 //===----------------------------------------------------------------------===//
@@ -124,6 +129,9 @@ bool isBlockArgument(Block *block, Value operand) {
 KrnlGetRefOp getUnbundledGetRef(AllocOp *memPool) {
   auto parentBlock = memPool->getOperation()->getBlock();
 
+  parentBlock->dump();
+  printf("\n\n");
+
   KrnlGetRefOp unbundledGetRef = nullptr;
   parentBlock->walk([&unbundledGetRef, memPool](KrnlGetRefOp op) {
     auto result = memPool->getResult();
@@ -153,11 +161,11 @@ KrnlGetRefOp getCurrentAllocGetRef(AllocOp *allocOp) {
 
 /*!
  *  RewritePattern that replaces:
- *    %mem1 = alloc() : memref<<dims1>x<type>>
+ *    %mempool = alloc() : memref<<dims1>x<type>>
  *    %mem2 = alloc() : memref<<dims2>x<type>>
  *    %1 = krnl.getref %mem2 0 : memref<<dims2>x<type>>
  *  =>
- *    %mem1 = alloc() : memref<<dims1 + dims2>x<type>>
+ *    %mempool = alloc() : memref<<dims1 + dims2>x<type>>
  *    %1 = krnl.getref %mem1 <dims1> : memref<<dims2>x<type>>
  *
  *
@@ -171,7 +179,7 @@ KrnlGetRefOp getCurrentAllocGetRef(AllocOp *allocOp) {
  *              operations are part of memory pooling.
  */
 
-class KrnlBundleMemoryPools : public OpRewritePattern<AllocOp> {
+class KrnlBundleStaticMemoryPools : public OpRewritePattern<AllocOp> {
 public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
 
@@ -199,49 +207,82 @@ public:
     if (memRefShape.size() != 1)
       return failure();
 
-    int64_t currentMemPoolSize = memRefShape[0];
+    // Get parent block.
+    Block *parentBlock = allocOp.getOperation()->getBlock();
 
-    // Get a KrnlGetRefOp which does not use the current alloc.
-    if (KrnlGetRefOp unbundledGetRef = getUnbundledGetRef(&allocOp)) {
-      // Make sure that this get ref uses a static alloc.
-      auto unbundledGetRefType =
-          convertToMemRefType(unbundledGetRef.getResult().getType());
-      if (!hasAllConstantDimensions(unbundledGetRefType))
-        return failure();
+    if (blockInitMap.count(parentBlock) == 0) {
+      // Create new entry in the block map.
+      blockInitMap.insert(std::pair<Block *, std::unique_ptr<InitDataStructure>>(
+          parentBlock, std::make_unique<InitDataStructure>()));
 
-      // Current memory pool size is the offset for the newly bundled
-      // internal MemRef. Emit the offset as a constant.
-      auto offset = rewriter.create<ConstantOp>(
-          loc, rewriter.getIntegerAttr(
-                   rewriter.getIntegerType(64), currentMemPoolSize));
+      // Initialize the map with the alloc which will become the static memory
+      // pool. The alloc is moved at the top of the block.
+      std::unique_ptr<InitDataStructure> &initState =
+          blockInitMap.at(parentBlock);
+      initState = std::make_unique<InitDataStructure>();
+      allocOp.getOperation()->moveBefore(&parentBlock->front());
+      initState->staticMemoryPool = allocOp;
 
-      // Size in bytes of the output of the krnl.getref operation.
-      int64_t unbundledTotalSize =
-          getMemRefSizeInBytes(unbundledGetRef.getResult());
-
-      // Compute new size.
-      int64_t bundleTotalSize = unbundledTotalSize + currentMemPoolSize;
-
-      // We need to emit a new alloc which contains the additional MemRef.
-      SmallVector<int64_t, 1> newMemPoolShape;
-      newMemPoolShape.emplace_back(bundleTotalSize);
-      auto bundledMemPoolMemRefType =
-          MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
-      auto bundledAlloc =
-          rewriter.create<AllocOp>(loc, bundledMemPoolMemRefType);
-
-      // The newly bundled MemRef expressed as a KrnlGetRefOp.
-      auto bundledMemRef = rewriter.create<KrnlGetRefOp>(
-          loc, unbundledGetRef.getResult().getType(), bundledAlloc, offset);
-      rewriter.replaceOp(unbundledGetRef, bundledMemRef.getResult());
-
-      // Replace old memory pool with new one.
-      rewriter.replaceOp(allocOp, bundledAlloc.getResult());
-
+      // This is the initial memory pool for this block and it is
+      // trivially bundled hence it's safe to return success.
       return success();
     }
 
-    return failure();
+    // If this parent block has been found present in the map, it means
+    // a static memory bundle already exists. Fetch it.
+    std::unique_ptr<InitDataStructure> &initState =
+        blockInitMap.at(parentBlock);
+    AllocOp MemPoolAllocOp = initState->staticMemoryPool;
+
+    // If this is the alloc representing the memory pool and the function
+    // already has an init block, pattern matching must fail to avoid
+    // processing the dynamic memory pool a second time.
+    if (allocOp == initState->staticMemoryPool)
+      return failure();
+
+    auto staticMemPoolShape =
+        convertToMemRefType(MemPoolAllocOp.getResult().getType()).getShape();
+    int64_t currentMemPoolSize = staticMemPoolShape[0];
+
+    // Get the getref of the current allocOp. There is exactly one such getref.
+    KrnlGetRefOp currentAllocGetRef = getCurrentAllocGetRef(&allocOp);
+    if (!currentAllocGetRef)
+      return failure();
+
+    // Current memory pool size is the offset for the newly bundled
+    // internal MemRef. Emit the offset as a constant.
+    auto offset = rewriter.create<ConstantOp>(
+        loc, rewriter.getIntegerAttr(
+            rewriter.getIntegerType(64), currentMemPoolSize));
+
+    // Size in bytes of the output of the krnl.getref operation.
+    int64_t unbundledTotalSize = memRefShape[0];
+
+    // Compute new size.
+    int64_t bundleTotalSize = unbundledTotalSize + currentMemPoolSize;
+
+    // We need to emit a new alloc which contains the additional MemRef.
+    SmallVector<int64_t, 1> newMemPoolShape;
+    newMemPoolShape.emplace_back(bundleTotalSize);
+    auto bundledMemPoolMemRefType =
+        MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
+    auto newStaticMemPoolAlloc =
+        rewriter.create<AllocOp>(loc, bundledMemPoolMemRefType);
+
+    // The newly bundled MemRef expressed as a KrnlGetRefOp.
+    auto bundledMemRef = rewriter.create<KrnlGetRefOp>(
+        loc, currentAllocGetRef.getResult().getType(), newStaticMemPoolAlloc,
+        offset);
+    rewriter.replaceOp(currentAllocGetRef, bundledMemRef.getResult());
+
+    // Replace old memory pool with new one.
+    rewriter.replaceOp(MemPoolAllocOp, newStaticMemPoolAlloc.getResult());
+
+    // Update data structure to contain the newly constructed static memory
+    // pool.
+    initState->staticMemoryPool = newStaticMemPoolAlloc;
+
+    return success();
   }
 };
 
@@ -448,8 +489,6 @@ class KrnlBundleMemoryPoolsPass
 public:
   void runOnFunction() override {
     auto function = getFunction();
-
-    // ModuleOp module = cast<ModuleOp>(function.getParentOp());
     initMap.insert(std::pair<FuncOp, std::unique_ptr<ONNXOperandsInitState>>(
         function, std::make_unique<ONNXOperandsInitState>()));
 
@@ -459,7 +498,7 @@ public:
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
-    patterns.insert<KrnlBundleMemoryPools, KrnlBundleDynamicMemoryPools>(
+    patterns.insert<KrnlBundleStaticMemoryPools, KrnlBundleDynamicMemoryPools>(
         &getContext());
 
     applyPatternsAndFoldGreedily(function, patterns);
