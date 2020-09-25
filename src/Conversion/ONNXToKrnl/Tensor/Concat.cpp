@@ -23,7 +23,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     ONNXConcatOp concatOp = llvm::dyn_cast<ONNXConcatOp>(op);
-    auto axis = concatOp.axis().getSExtValue();
+    auto axis = concatOp.axis();
     int inputNum = operands.size();
     // Alloc and dealloc.
     auto resultOperand = concatOp.concat_result();

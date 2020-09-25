@@ -111,8 +111,8 @@ ONNX ArgMax operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -139,8 +139,8 @@ ONNX ArgMin operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -285,8 +285,8 @@ ONNX AveragePool operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `auto_pad` | ::mlir::StringAttr | string attribute
-`ceil_mode` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`count_include_pad` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`ceil_mode` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`count_include_pad` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
@@ -457,7 +457,7 @@ ONNX CastMap operation
 | :-------: | :-------: | ----------- |
 `cast_to` | ::mlir::StringAttr | string attribute
 `map_form` | ::mlir::StringAttr | string attribute
-`max_map` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`max_map` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -499,7 +499,7 @@ ONNX Cast operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`to` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`to` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -532,7 +532,7 @@ ONNX CategoryMapper operation
 | :-------: | :-------: | ----------- |
 `cats_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `cats_strings` | ::mlir::ArrayAttr | string array attribute
-`default_int64` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`default_int64` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `default_string` | ::mlir::StringAttr | string attribute
 
 #### Operands:
@@ -602,7 +602,7 @@ ONNX Compress operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -630,8 +630,8 @@ ONNX ConcatFromSequence operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`new_axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`new_axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -655,7 +655,7 @@ ONNX Concat operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -726,7 +726,7 @@ ONNX ConvInteger operation
 | :-------: | :-------: | ----------- |
 `auto_pad` | ::mlir::StringAttr | string attribute
 `dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`group` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`group` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
@@ -759,7 +759,7 @@ ONNX Conv operation
 | :-------: | :-------: | ----------- |
 `auto_pad` | ::mlir::StringAttr | string attribute
 `dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`group` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`group` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
@@ -803,7 +803,7 @@ ONNX ConvTranspose operation
 | :-------: | :-------: | ----------- |
 `auto_pad` | ::mlir::StringAttr | string attribute
 `dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`group` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`group` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `output_padding` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `output_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
@@ -889,8 +889,8 @@ ONNX CumSum operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`exclusive` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`reverse` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`exclusive` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`reverse` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -941,7 +941,7 @@ ONNX DepthToSpace operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`blocksize` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`blocksize` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `mode` | ::mlir::StringAttr | string attribute
 
 #### Operands:
@@ -1262,8 +1262,8 @@ ONNX EyeLike operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`k` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`k` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -1316,7 +1316,7 @@ ONNX Flatten operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -1437,8 +1437,8 @@ ONNX GRU operation
 `activations` | ::mlir::ArrayAttr | string array attribute
 `clip` | ::mlir::FloatAttr | 32-bit float attribute
 `direction` | ::mlir::StringAttr | string attribute
-`hidden_size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`linear_before_reset` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`hidden_size` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`linear_before_reset` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -1522,7 +1522,7 @@ ONNX GatherElements operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -1686,7 +1686,7 @@ ONNX Gather operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -1725,8 +1725,8 @@ ONNX Gemm operation
 | :-------: | :-------: | ----------- |
 `alpha` | ::mlir::FloatAttr | 32-bit float attribute
 `beta` | ::mlir::FloatAttr | 32-bit float attribute
-`transA` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`transB` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`transA` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`transB` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -1774,7 +1774,7 @@ ONNX GlobalLpPool operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`p` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`p` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -1880,7 +1880,7 @@ ONNX Hardmax operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -1957,7 +1957,7 @@ ONNX Imputer operation
 `imputed_value_floats` | ::mlir::ArrayAttr | 32-bit float array attribute
 `imputed_value_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `replaced_value_float` | ::mlir::FloatAttr | 32-bit float attribute
-`replaced_value_int64` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`replaced_value_int64` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -2012,8 +2012,8 @@ ONNX IsInf operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`detect_negative` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`detect_positive` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`detect_negative` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`detect_positive` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -2067,7 +2067,7 @@ ONNX LRN operation
 `alpha` | ::mlir::FloatAttr | 32-bit float attribute
 `beta` | ::mlir::FloatAttr | 32-bit float attribute
 `bias` | ::mlir::FloatAttr | 32-bit float attribute
-`size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`size` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -2176,8 +2176,8 @@ ONNX LSTM operation
 `activations` | ::mlir::ArrayAttr | string array attribute
 `clip` | ::mlir::FloatAttr | 32-bit float attribute
 `direction` | ::mlir::StringAttr | string attribute
-`hidden_size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`input_forget` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`hidden_size` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`input_forget` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -2227,7 +2227,7 @@ ONNX LabelEncoder operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `default_float` | ::mlir::FloatAttr | 32-bit float attribute
-`default_int64` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`default_int64` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `default_string` | ::mlir::StringAttr | string attribute
 `keys_floats` | ::mlir::ArrayAttr | 32-bit float array attribute
 `keys_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
@@ -2310,7 +2310,7 @@ ONNX LinearClassifier operation
 `classlabels_strings` | ::mlir::ArrayAttr | string array attribute
 `coefficients` | ::mlir::ArrayAttr | 32-bit float array attribute
 `intercepts` | ::mlir::ArrayAttr | 32-bit float array attribute
-`multi_class` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`multi_class` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `post_transform` | ::mlir::StringAttr | string attribute
 
 #### Operands:
@@ -2344,7 +2344,7 @@ ONNX LinearRegressor operation
 `coefficients` | ::mlir::ArrayAttr | 32-bit float array attribute
 `intercepts` | ::mlir::ArrayAttr | 32-bit float array attribute
 `post_transform` | ::mlir::StringAttr | string attribute
-`targets` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`targets` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -2399,7 +2399,7 @@ ONNX LogSoftmax operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -2561,8 +2561,8 @@ ONNX LpNormalization operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`p` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`p` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -2592,7 +2592,7 @@ ONNX LpPool operation
 | :-------: | :-------: | ----------- |
 `auto_pad` | ::mlir::StringAttr | string attribute
 `kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`p` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`p` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
@@ -2708,11 +2708,11 @@ ONNX MaxPool operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `auto_pad` | ::mlir::StringAttr | string attribute
-`ceil_mode` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`ceil_mode` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`storage_order` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`storage_order` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
@@ -2740,11 +2740,11 @@ ONNX MaxPool operation with a single output.
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `auto_pad` | ::mlir::StringAttr | string attribute
-`ceil_mode` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`ceil_mode` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`storage_order` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`storage_order` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
@@ -2919,7 +2919,7 @@ ONNX Mod operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`fmod` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`fmod` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -2966,8 +2966,8 @@ ONNX Multinomial operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`sample_size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`sample_size` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `seed` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
@@ -3018,7 +3018,7 @@ ONNX NonMaxSuppression operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`center_point_box` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`center_point_box` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -3127,7 +3127,7 @@ ONNX OneHotEncoder operation
 | :-------: | :-------: | ----------- |
 `cats_int64s` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `cats_strings` | ::mlir::ArrayAttr | string array attribute
-`zeros` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`zeros` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -3169,7 +3169,7 @@ ONNX OneHot operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -3459,7 +3459,7 @@ ONNX QLinearConv operation
 | :-------: | :-------: | ----------- |
 `auto_pad` | ::mlir::StringAttr | string attribute
 `dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`group` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`group` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
@@ -3613,7 +3613,7 @@ ONNX RNN operation
 `activations` | ::mlir::ArrayAttr | string array attribute
 `clip` | ::mlir::FloatAttr | 32-bit float attribute
 `direction` | ::mlir::StringAttr | string attribute
-`hidden_size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`hidden_size` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -3649,7 +3649,7 @@ ONNX RandomNormalLike operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `mean` | ::mlir::FloatAttr | 32-bit float attribute
 `scale` | ::mlir::FloatAttr | 32-bit float attribute
 `seed` | ::mlir::FloatAttr | 32-bit float attribute
@@ -3682,7 +3682,7 @@ ONNX RandomNormal operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `mean` | ::mlir::FloatAttr | 32-bit float attribute
 `scale` | ::mlir::FloatAttr | 32-bit float attribute
 `seed` | ::mlir::FloatAttr | 32-bit float attribute
@@ -3710,7 +3710,7 @@ ONNX RandomUniformLike operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `high` | ::mlir::FloatAttr | 32-bit float attribute
 `low` | ::mlir::FloatAttr | 32-bit float attribute
 `seed` | ::mlir::FloatAttr | 32-bit float attribute
@@ -3742,7 +3742,7 @@ ONNX RandomUniform operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `high` | ::mlir::FloatAttr | 32-bit float attribute
 `low` | ::mlir::FloatAttr | 32-bit float attribute
 `seed` | ::mlir::FloatAttr | 32-bit float attribute
@@ -3834,7 +3834,7 @@ ONNX ReduceL1 operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -3864,7 +3864,7 @@ ONNX ReduceL2 operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -3894,7 +3894,7 @@ ONNX ReduceLogSumExp operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -3924,7 +3924,7 @@ ONNX ReduceLogSum operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -3954,7 +3954,7 @@ ONNX ReduceMax operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -3984,7 +3984,7 @@ ONNX ReduceMean operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -4014,7 +4014,7 @@ ONNX ReduceMin operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -4044,7 +4044,7 @@ ONNX ReduceProd operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -4074,7 +4074,7 @@ ONNX ReduceSum operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -4104,7 +4104,7 @@ ONNX ReduceSumSquare operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -4176,7 +4176,7 @@ ONNX Resize operation
 | :-------: | :-------: | ----------- |
 `coordinate_transformation_mode` | ::mlir::StringAttr | string attribute
 `cubic_coeff_a` | ::mlir::FloatAttr | 32-bit float attribute
-`exclude_outside` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`exclude_outside` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `extrapolation_value` | ::mlir::FloatAttr | 32-bit float attribute
 `mode` | ::mlir::StringAttr | string attribute
 `nearest_mode` | ::mlir::StringAttr | string attribute
@@ -4238,8 +4238,8 @@ ONNX ReverseSequence operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`batch_axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`time_axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`batch_axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`time_axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -4275,9 +4275,9 @@ ONNX RoiAlign operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `mode` | ::mlir::StringAttr | string attribute
-`output_height` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`output_width` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`sampling_ratio` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`output_height` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`output_width` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`sampling_ratio` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `spatial_scale` | ::mlir::FloatAttr | 32-bit float attribute
 
 #### Operands:
@@ -4372,8 +4372,8 @@ ONNX SVMRegressor operation
 `coefficients` | ::mlir::ArrayAttr | 32-bit float array attribute
 `kernel_params` | ::mlir::ArrayAttr | 32-bit float array attribute
 `kernel_type` | ::mlir::StringAttr | string attribute
-`n_supports` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`one_class` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`n_supports` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`one_class` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `post_transform` | ::mlir::StringAttr | string attribute
 `rho` | ::mlir::ArrayAttr | 32-bit float array attribute
 `support_vectors` | ::mlir::ArrayAttr | 32-bit float array attribute
@@ -4546,7 +4546,7 @@ ONNX Scan operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `body` | ::mlir::Attribute | any attribute
-`num_scan_inputs` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`num_scan_inputs` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `scan_input_axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `scan_input_directions` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `scan_output_axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
@@ -4624,7 +4624,7 @@ ONNX ScatterElements operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -4777,7 +4777,7 @@ ONNX Scatter operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -4871,7 +4871,7 @@ ONNX SequenceEmpty operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`dtype` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`dtype` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Results:
 
@@ -5160,7 +5160,7 @@ ONNX Softmax operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -5224,7 +5224,7 @@ ONNX SpaceToDepth operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`blocksize` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`blocksize` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -5250,7 +5250,7 @@ ONNX Split operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `split` | ::mlir::ArrayAttr | 64-bit integer array attribute
 
 #### Operands:
@@ -5284,8 +5284,8 @@ ONNX SplitToSequence operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`keepdims` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`keepdims` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -5366,7 +5366,7 @@ ONNX StringNormalizer operation
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 `case_change_action` | ::mlir::StringAttr | string attribute
-`is_case_sensitive` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`is_case_sensitive` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `locale` | ::mlir::StringAttr | string attribute
 `stopwords` | ::mlir::ArrayAttr | string array attribute
 
@@ -5495,9 +5495,9 @@ ONNX TfIdfVectorizer operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`max_gram_length` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`max_skip_count` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`min_gram_length` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`max_gram_length` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`max_skip_count` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`min_gram_length` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `mode` | ::mlir::StringAttr | string attribute
 `ngram_counts` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `ngram_indexes` | ::mlir::ArrayAttr | 64-bit integer array attribute
@@ -5587,9 +5587,9 @@ ONNX TopK operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`largest` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`sorted` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`largest` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`sorted` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
@@ -5701,7 +5701,7 @@ ONNX TreeEnsembleRegressor operation
 | :-------: | :-------: | ----------- |
 `aggregate_function` | ::mlir::StringAttr | string attribute
 `base_values` | ::mlir::ArrayAttr | 32-bit float array attribute
-`n_targets` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`n_targets` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `nodes_falsenodeids` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `nodes_featureids` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `nodes_hitrates` | ::mlir::ArrayAttr | 32-bit float array attribute
@@ -5813,8 +5813,8 @@ ONNX Unique operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`axis` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-`sorted` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+`axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`sorted` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
