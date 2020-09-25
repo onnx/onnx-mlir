@@ -212,8 +212,9 @@ public:
 
     if (blockInitMap.count(parentBlock) == 0) {
       // Create new entry in the block map.
-      blockInitMap.insert(std::pair<Block *, std::unique_ptr<InitDataStructure>>(
-          parentBlock, std::make_unique<InitDataStructure>()));
+      blockInitMap.insert(
+          std::pair<Block *, std::unique_ptr<InitDataStructure>>(
+              parentBlock, std::make_unique<InitDataStructure>()));
 
       // Initialize the map with the alloc which will become the static memory
       // pool. The alloc is moved at the top of the block.
@@ -253,7 +254,7 @@ public:
     // internal MemRef. Emit the offset as a constant.
     auto offset = rewriter.create<ConstantOp>(
         loc, rewriter.getIntegerAttr(
-            rewriter.getIntegerType(64), currentMemPoolSize));
+                rewriter.getIntegerType(64), currentMemPoolSize));
 
     // Size in bytes of the output of the krnl.getref operation.
     int64_t unbundledTotalSize = memRefShape[0];
@@ -270,8 +271,8 @@ public:
         rewriter.create<AllocOp>(loc, bundledMemPoolMemRefType);
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
-    auto bundledMemRef = rewriter.create<KrnlGetRefOp>(
-        loc, currentAllocGetRef.getResult().getType(), newStaticMemPoolAlloc,
+    auto bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
+        currentAllocGetRef.getResult().getType(), newStaticMemPoolAlloc,
         offset);
     rewriter.replaceOp(currentAllocGetRef, bundledMemRef.getResult());
 
