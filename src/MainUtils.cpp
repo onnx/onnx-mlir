@@ -409,6 +409,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.
   pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(createDisconnectKrnlDimFromAllocPass());
 
   // TODO: make this pass optional:
   pm.addPass(mlir::createKrnlEnableMemoryPoolPass());
