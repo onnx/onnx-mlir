@@ -142,7 +142,7 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   let printer = ?;
 }
 
-def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy"> {
+def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
   let summary = "Krnl memcpy operation";
   let description = [{
     In the KRNL dialect the reshape op
