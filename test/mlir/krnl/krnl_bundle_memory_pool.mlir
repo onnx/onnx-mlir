@@ -341,6 +341,9 @@ func @static_mem_pool_rnn_sub_and_main_block(%arg0: memref<1x3x2xf32>, %arg1: me
   // CHECK: [[C8:%.+]] = constant 8 : i64
   // CHECK: [[C4:%.+]] = constant 4 : i64
   // CHECK: [[RES:%.+]] = alloc() : memref<1x3x4xf32>
+  // CHECK: [[STATIC_MEM_POOL_MAIN:%.+]] = alloc() : memref<12xi8>
+  // CHECK: [[MAIN_REF_0:%.+]] = "krnl.getref"([[STATIC_MEM_POOL_MAIN]], [[C8]]) : (memref<12xi8>, i64) -> memref<f32>
+  // CHECK: [[MAIN_REF_1:%.+]] = "krnl.getref"([[STATIC_MEM_POOL_MAIN]], [[C4]]) : (memref<12xi8>, i64) -> memref<f32>
   // CHECK: krnl.define_loops 1
   // CHECK: krnl.iterate
   // CHECK: krnl.define_loops 2
@@ -356,5 +359,9 @@ func @static_mem_pool_rnn_sub_and_main_block(%arg0: memref<1x3x2xf32>, %arg1: me
   // CHECK: krnl.iterate
   // CHECK: [[REF4:%.+]] = "krnl.getref"([[STATIC_MEM_POOL]], [[C0]]) : (memref<16xi8>, i64) -> memref<f32>
   // CHECK: dealloc [[STATIC_MEM_POOL]] : memref<16xi8>
+  // CHECK: [[MAIN_REF_2:%.+]] = "krnl.getref"([[STATIC_MEM_POOL_MAIN]], [[C0]]) : (memref<12xi8>, i64) -> memref<f32>
+  // CHECK: [[LOAD:%.+]] = affine.load [[MAIN_REF_1]][] : memref<f32>
+  // CHECK: affine.store [[LOAD]], [[MAIN_REF_2]][] : memref<f32>
+  // CHECK: dealloc [[STATIC_MEM_POOL_MAIN]] : memref<12xi8>
   // CHECK: return [[RES]] : memref<1x3x4xf32>
 }
