@@ -254,7 +254,7 @@ public:
     // internal MemRef. Emit the offset as a constant.
     auto offset = rewriter.create<ConstantOp>(
         loc, rewriter.getIntegerAttr(
-                rewriter.getIntegerType(64), currentMemPoolSize));
+                 rewriter.getIntegerType(64), currentMemPoolSize));
 
     // Size in bytes of the output of the krnl.getref operation.
     int64_t unbundledTotalSize = memRefShape[0];
