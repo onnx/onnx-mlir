@@ -2172,7 +2172,7 @@ LogicalResult ONNXFlattenOp::inferShapes() {
     axisValue = inputRank + axisValue + 1;
 
   // Determine the size of the first dimension of output
-  uint64_t firstDim = 1;
+  int64_t firstDim = 1;
   for (auto i = 0; i < axisValue; i++) {
     if (inputShape[i] == -1) {
       firstDim = -1;
@@ -2183,7 +2183,7 @@ LogicalResult ONNXFlattenOp::inferShapes() {
   dims.emplace_back(firstDim);
 
   // Determine the size of the second dimension of output
-  uint64_t secondDim = 1;
+  int64_t secondDim = 1;
   for (auto i = axisValue; i < inputRank; i++) {
     if (inputShape[i] == -1) {
       secondDim = -1;
