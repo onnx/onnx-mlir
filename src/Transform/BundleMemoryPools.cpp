@@ -48,8 +48,7 @@ typedef struct InitDataStructure {
   AllocOp staticMemoryPool;
 } InitDataStructure;
 
-typedef std::map<Block *, std::unique_ptr<InitDataStructure>>
-     BlockToInitStates;
+typedef std::map<Block *, std::unique_ptr<InitDataStructure>> BlockToInitStates;
 std::map<FuncOp, std::unique_ptr<BlockToInitStates>> blockInitMap;
 
 //===----------------------------------------------------------------------===//
