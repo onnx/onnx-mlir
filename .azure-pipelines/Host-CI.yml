@@ -29,8 +29,6 @@ schedules:
 
 # Set up variables for jobs, used across templates
 variables:
-- name: LLVMBuildDir
-  value: '$(Build.BinariesDirectory)/build_llvm'
 - name: LLVMSourceDir
   value: '$(Build.SourcesDirectory)/llvm-project'
 - name: ONNXMLIRBuildDir
@@ -38,8 +36,6 @@ variables:
 - name: ONNXMLIRSourceDir
   value: '$(Build.SourcesDirectory)/onnx-mlir'
 # Environment variables, mostly used by Windows
-- name: LLVM_PROJ_BUILD
-  value: $(LLVMBuildDir)
 - name: LLVM_PROJ_SRC
   value: $(LLVMSourceDir)
 - name: LIT_OPTS
@@ -56,8 +52,12 @@ jobs:
     matrix:
       Release:
         CMakeBuildConfiguration: 'Release'
+        LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm'
+        LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm'
       Debug:
         CMakeBuildConfiguration: 'Debug'
+        LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm'
+        LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm'
   pool:
     name: Default
     demands:
@@ -78,8 +78,13 @@ jobs:
     matrix:
       Release:
         CMakeBuildConfiguration: 'Release'
+        # For Linux split LLVM build directory. This saves time by eliminating builder trashing
+        LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm_Release'
+        LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm_Release'
       Debug:
         CMakeBuildConfiguration: 'Debug'
+        LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm_Debug'
+        LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm_Debug'
   pool:
     name: Default
     demands:
