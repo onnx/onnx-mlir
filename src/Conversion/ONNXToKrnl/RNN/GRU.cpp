@@ -295,7 +295,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
                       /*index=*/constantIndices[i], /*size=*/hiddenDimVal});
           wbZRHIVs.emplace_back(SmallVector<Value, 2>{directionIV, wHiddenIV});
         }
-        // Rb[iofc]
+        // Rb[zrh]
         for (unsigned i = GATES; i < 2 * GATES; ++i) {
           Value rHiddenIV =
               rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
@@ -364,7 +364,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
         Value loadX =
             rewriter.create<AffineLoadOp>(loc, operandAdaptor.X(), xIVs);
         for (unsigned i = 0; i < GATES; ++i) {
-          // Xt * Wzrh
+          // Xt * W[zrh]
           Value loadW = rewriter.create<AffineLoadOp>(
               loc, operandAdaptor.W(), wZRHIVs[i]);
           Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
@@ -373,7 +373,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
           rewriter.create<AffineStoreOp>(
               loc, nextXW, xwZRH[i], ArrayRef<Value>{});
 
-          // Ht-1 * Rzrh
+          // Ht-1 * R[zrh]
           // Only compute Ht-1*(Rh^T) if not linearBeforeReset
           if (!state.linearBeforeReset && (i == GATES - 1))
             continue;
@@ -389,7 +389,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
       rewriter.restoreInsertionPoint(ipReductionLoops);
     }
 
-    // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)"
+    // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
     Value loadXWZ = rewriter.create<AffineLoadOp>(loc, xwZRH[0]);
     Value loadHRZ = rewriter.create<AffineLoadOp>(loc, hrZRH[0]);
     Value zt = rewriter.create<AddFOp>(loc, loadXWZ, loadHRZ);
@@ -403,7 +403,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
     }
     zt = applyActivation(rewriter, loc, activationPack.f, zt);
 
-    // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)"
+    // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)
     Value loadXWR = rewriter.create<AffineLoadOp>(loc, xwZRH[1]);
     Value loadHRR = rewriter.create<AffineLoadOp>(loc, hrZRH[1]);
     Value rt = rewriter.create<AddFOp>(loc, loadXWR, loadHRR);
@@ -455,12 +455,12 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
           Value wHiddenIV = rewriter.create<AffineApplyOp>(loc,
               accessByOffsetMap,
               std::vector<Value>{hiddenIV, constantIndices[2], hiddenDimVal});
-          SmallVector<Value, 3> rHIVs = {directionIV, wHiddenIV, reductionIV};
+          SmallVector<Value, 3> rhIVs = {directionIV, wHiddenIV, reductionIV};
 
           // 'rtHt*(Rh^T)'
           Value loadR =
-              rewriter.create<AffineLoadOp>(loc, operandAdaptor.R(), rHIVs);
-          Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
+              rewriter.create<AffineLoadOp>(loc, operandAdaptor.R(), rhIVs);
+          Value hrVal = rewriter.create<MulFOp>(loc, rtHt, loadR);
           Value loadHR = rewriter.create<AffineLoadOp>(loc, hrZRH[2]);
           Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
           rewriter.create<AffineStoreOp>(
