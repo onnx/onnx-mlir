@@ -463,8 +463,6 @@ llvm::cl::opt<bool> printIR("printIR",
 
 void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {
-  // Start a separate process to redirect the model output. I/O redirection
-  // changes will not be visible to the parent process.
   string tempFilename = filename + extension;
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
@@ -473,18 +471,17 @@ void outputCode(
 #ifdef _WIN32
   // copy original stderr file number
   int stderrOrigin = _dup(_fileno(stderr));
+#else
+  int stderrOrigin = dup(fileno(stderr));
+#endif
   freopen(tempFilename.c_str(), "w", stderr);
   module->print(llvm::errs(), flags);
   fflush(stderr);
   // set modified stderr as original stderr
+#ifdef _WIN32
   _dup2(stderrOrigin, _fileno(stderr));
 #else
-  if (fork() == 0) {
-    freopen(tempFilename.c_str(), "w", stderr);
-    module->print(llvm::errs(), flags);
-    fclose(stderr);
-    exit(0);
-  }
+  dup2(stderrOrigin, fileno(stderr));
 #endif
   if (printIR)
     module->print(llvm::outs(), flags);
