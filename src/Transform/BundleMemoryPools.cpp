@@ -44,12 +44,9 @@ typedef struct ONNXOperandsInitState {
 // Helper data structure for the bundling of dynamic AllocOps.
 std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>> initMap;
 
-typedef struct InitDataStructure {
-  AllocOp staticMemoryPool;
-} InitDataStructure;
-
-typedef std::map<Block *, std::unique_ptr<InitDataStructure>> BlockToInitStates;
-std::map<FuncOp, std::unique_ptr<BlockToInitStates>> blockInitMap;
+// Handling of static memory pool on a block-basis in each function.
+typedef std::map<Block *, AllocOp> BlockToStaticPool;
+std::map<FuncOp, std::unique_ptr<BlockToStaticPool>> staticPoolMap;
 
 //===----------------------------------------------------------------------===//
 // Helper functions.
@@ -211,29 +208,21 @@ public:
 
     FuncOp function = getContainingFunction(allocOp);
 
-    if (blockInitMap.count(function) == 0) {
+    if (staticPoolMap.count(function) == 0) {
       return failure();
     }
 
-    std::unique_ptr<BlockToInitStates> &blockToInitStates =
-        blockInitMap.at(function);
+    std::unique_ptr<BlockToStaticPool> &blockToStaticPool =
+        staticPoolMap.at(function);
 
     // Get parent block.
     Block *parentBlock = allocOp.getOperation()->getBlock();
 
-    if (blockToInitStates->count(parentBlock) == 0) {
-      // Create new entry in the block map.
-      blockToInitStates->insert(
-          std::pair<Block *, std::unique_ptr<InitDataStructure>>(
-              parentBlock, std::make_unique<InitDataStructure>()));
-
-      // Initialize the map with the alloc which will become the static memory
-      // pool. The alloc is moved at the top of the block.
-      std::unique_ptr<InitDataStructure> &initState =
-          blockToInitStates->at(parentBlock);
-      initState = std::make_unique<InitDataStructure>();
+    if (blockToStaticPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
-      initState->staticMemoryPool = allocOp;
+      // Create new entry in the block map.
+      blockToStaticPool->insert(
+          std::pair<Block *, AllocOp>(parentBlock, allocOp));
 
       // This is the initial memory pool for this block and it is
       // trivially bundled hence it's safe to return success.
@@ -242,18 +231,16 @@ public:
 
     // If this parent block has been found present in the map, it means
     // a static memory bundle already exists. Fetch it.
-    std::unique_ptr<InitDataStructure> &initState =
-        blockToInitStates->at(parentBlock);
-    AllocOp MemPoolAllocOp = initState->staticMemoryPool;
+    AllocOp staticMemPoolAlloc = blockToStaticPool->at(parentBlock);
 
     // If this is the alloc representing the memory pool and the function
     // already has an init block, pattern matching must fail to avoid
     // processing the dynamic memory pool a second time.
-    if (allocOp == initState->staticMemoryPool)
+    if (allocOp == staticMemPoolAlloc)
       return failure();
 
-    auto staticMemPoolShape =
-        convertToMemRefType(MemPoolAllocOp.getResult().getType()).getShape();
+    auto staticMemPoolShape = convertToMemRefType(
+        staticMemPoolAlloc.getResult().getType()).getShape();
     int64_t currentMemPoolSize = staticMemPoolShape[0];
 
     // Get the getref of the current allocOp. There is exactly one such getref.
@@ -288,11 +275,13 @@ public:
     rewriter.replaceOp(currentAllocGetRef, bundledMemRef.getResult());
 
     // Replace old memory pool with new one.
-    rewriter.replaceOp(MemPoolAllocOp, newStaticMemPoolAlloc.getResult());
+    rewriter.replaceOp(staticMemPoolAlloc, newStaticMemPoolAlloc.getResult());
 
     // Update data structure to contain the newly constructed static memory
     // pool.
-    initState->staticMemoryPool = newStaticMemPoolAlloc;
+    blockToStaticPool->erase(parentBlock);
+    blockToStaticPool->insert(
+        std::pair<Block *, AllocOp>(parentBlock, newStaticMemPoolAlloc));
 
     return success();
   }
@@ -504,8 +493,8 @@ public:
     initMap.insert(std::pair<FuncOp, std::unique_ptr<ONNXOperandsInitState>>(
         function, std::make_unique<ONNXOperandsInitState>()));
 
-    blockInitMap.insert(std::pair<FuncOp, std::unique_ptr<BlockToInitStates>>(
-        function, std::make_unique<BlockToInitStates>()));
+    staticPoolMap.insert(std::pair<FuncOp, std::unique_ptr<BlockToStaticPool>>(
+        function, std::make_unique<BlockToStaticPool>()));
 
     // Initialize state for this function.
     std::unique_ptr<ONNXOperandsInitState> &initState = initMap.at(function);
@@ -519,7 +508,7 @@ public:
     applyPatternsAndFoldGreedily(function, patterns);
 
     initMap.erase(function);
-    blockInitMap.erase(function);
+    staticPoolMap.erase(function);
   }
 };
 } // namespace
