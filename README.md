@@ -252,3 +252,9 @@ module {
 ## Troubleshooting
 
 If the latest LLVM project fails to work due to the latest changes to the MLIR subproject please consider using a slightly older version of LLVM. One such version, which we use, can be found [here](https://github.com/clang-ykt/llvm-project).
+
+## Backend tests (ONNX)
+
+Backend tests are triggered by `make check-onnx-backend` in the build directory and require a few preliminary steps to run successfully. You will need `pybind11` which may need to be installed (mac: `brew install pybind` for example) and you may need to indicate where to find the software (Mac: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (mac: `pip install -e third_party/onnx`) typed in the top directory.
+
+On Macs, there is currently an issue that arises when installing ONNX. This error is fixed by editing a CMakefile as reported in this PR: `https://github.com/onnx/onnx/pull/2482/files`.
