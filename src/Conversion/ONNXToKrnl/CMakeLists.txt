@@ -11,6 +11,7 @@ add_library(OMONNXToKrnl
         NN/Pooling.cpp
         RNN/RNNBase.cpp
         RNN/RNNBase.hpp
+        RNN/GRU.cpp
         RNN/LSTM.cpp
         Tensor/Identity.cpp
         Tensor/Reshape.cpp
