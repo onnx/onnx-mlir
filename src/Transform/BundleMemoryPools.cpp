@@ -128,9 +128,6 @@ bool isBlockArgument(Block *block, Value operand) {
 KrnlGetRefOp getUnbundledGetRef(AllocOp *memPool) {
   auto parentBlock = memPool->getOperation()->getBlock();
 
-  parentBlock->dump();
-  printf("\n\n");
-
   KrnlGetRefOp unbundledGetRef = nullptr;
   parentBlock->walk([&unbundledGetRef, memPool](KrnlGetRefOp op) {
     auto result = memPool->getResult();
