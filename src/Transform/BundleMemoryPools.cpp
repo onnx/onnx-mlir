@@ -326,7 +326,6 @@ public:
       if (dependentOps.count(&op) > 0)
         orderedDependentOps.emplace_back(&op);
 
-
     // If this is the first valid alloc we can bundle in this block, then we
     // need to move it to the top of the block as it will consitute an
     // insertion point for all other bundle-able AllocOps in the block.
@@ -394,7 +393,7 @@ public:
     // Update MemPool data structure.
     blockToDynamicPool->erase(parentBlock);
     blockToDynamicPool->insert(
-          std::pair<Block *, AllocOp>(parentBlock, bundledAlloc));
+        std::pair<Block *, AllocOp>(parentBlock, bundledAlloc));
 
     return success();
   }
@@ -410,8 +409,9 @@ public:
     auto function = getFunction();
 
     // ModuleOp module = cast<ModuleOp>(function.getParentOp());
-    dynamicPoolMap.insert(std::pair<FuncOp, std::unique_ptr<BlockToDynamicPool>>(
-        function, std::make_unique<BlockToDynamicPool>()));
+    dynamicPoolMap.insert(
+        std::pair<FuncOp, std::unique_ptr<BlockToDynamicPool>>(
+            function, std::make_unique<BlockToDynamicPool>()));
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
