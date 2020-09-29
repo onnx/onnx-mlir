@@ -32,7 +32,7 @@ else()
     if (CMAKE_BUILD_TYPE)
       set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/${CMAKE_BUILD_TYPE}/lib)
     else()
-      set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/release/lib)
+      set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/Release/lib)
     endif()  
   else()
     set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/lib)
@@ -316,7 +316,7 @@ endfunction()
 # the LLVM TableGen command to have the TableGen target so that changes to the
 # table gen utility itself can be detected and cause re-compilation of .td file.
 add_executable(mlir-tblgen IMPORTED)
-### makudrya: specify extension for Windows builds. Otherwise incremental builds do not work
+# Specify extension for incremental Windows builds.
 if(MSVC)
   set_property(TARGET mlir-tblgen
           PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BIN}/mlir-tblgen.exe)

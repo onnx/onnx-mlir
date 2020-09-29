@@ -78,8 +78,8 @@ int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
 //===----------------------------------------------------------------------===//
 // Get reduction type
 //===----------------------------------------------------------------------===//
-RankedTensorType getReductionOutputType(
-    RankedTensorType operandTy, Optional<ArrayAttr> axesAttrs, uint64_t keepdims) {
+RankedTensorType getReductionOutputType(RankedTensorType operandTy,
+    Optional<ArrayAttr> axesAttrs, uint64_t keepdims) {
   int64_t rank = operandTy.getRank();
 
   SmallVector<int64_t, 4> axes;
@@ -390,7 +390,10 @@ static LogicalResult RNNShapeInference(T *op) {
     // Update hidden_size attribute.
     if (hiddenSize != -1) {
       auto builder = mlir::Builder(op->getContext());
-      op->hidden_sizeAttr(builder.getI64IntegerAttr(hiddenSize));
+      auto hiddenSizeAttr =
+          IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+              APInt(64, /*value=*/hiddenSize, /*isSigned=*/true));
+      op->hidden_sizeAttr(hiddenSizeAttr);
     }
   }
 
@@ -512,6 +515,8 @@ mlir::Type ONNXOpsDialect::parseType(mlir::DialectAsmParser &parser) const {
     if (parser.parseGreater())
       return Type();
     return SeqType::get(elementTypes);
+  } else {
+    llvm_unreachable("Unexpected onnxmlir keyword");
   }
 }
 
@@ -1424,7 +1429,8 @@ LogicalResult ONNXConvOp::inferShapes() {
 
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
-    groupAttr(builder.getI64IntegerAttr(group));
+    groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, group, /*isSigned=*/true)));
 
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (xShape[1] != -1 && weightShape[1] != -1 &&
@@ -1544,7 +1550,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
 
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
-    groupAttr(builder.getI64IntegerAttr(group));
+    groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, group, /*isSigned=*/true)));
 
   int64_t inChannels = weightShape[0];
   int64_t outChannels = weightShape[1] * group;
@@ -1955,7 +1962,7 @@ LogicalResult ONNXCastOp::inferShapes() {
     return UnrankedTensorType::get(elementType);
   };
 
-  int64_t targetType = toAttr().getInt();
+  int64_t targetType = to();
   OpBuilder builder(getContext());
   if (auto elementType = convertONNXTypeToMLIRType(
           builder, static_cast<onnx::TensorProto_DataType>(targetType))) {
@@ -2015,7 +2022,8 @@ LogicalResult ONNXConcatOp::inferShapes() {
   if (axisIndex < 0) {
     axisIndex = commonRank + axisIndex;
     auto builder = mlir::Builder(getContext());
-    axisAttr(builder.getI64IntegerAttr(axisIndex));
+    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
   if (axisIndex >= commonRank)
     return emitError("Concat axis value out of bound");
@@ -2095,7 +2103,8 @@ LogicalResult ONNXSplitOp::inferShapes() {
   if (axisIndex < 0) {
     axisIndex = inputRank + axisIndex;
     auto builder = mlir::Builder(getContext());
-    axisAttr(builder.getI64IntegerAttr(axisIndex));
+    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
   // Checking value of split parameter.
@@ -2298,7 +2307,8 @@ LogicalResult ONNXConvIntegerOp::inferShapes() {
 
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
-    groupAttr(builder.getI64IntegerAttr(group));
+    groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, 1, /*isSigned=*/true)));
 
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (xShape[1] != -1 && weightShape[1] != -1 &&
@@ -2373,6 +2383,18 @@ LogicalResult ONNXShapeOp::inferShapes() {
   // Output is an 1D int64 tensor containing the shape of the input tensor.
   int64_t rank = data().getType().cast<RankedTensorType>().getRank();
   SmallVector<int64_t, 1> outDims(1, rank);
+  getResult().setType(
+      RankedTensorType::get(outDims, IntegerType::get(64, getContext())));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Size
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXSizeOp::inferShapes() {
+  // Output is scalar of int64 containing the size of the input tensor.
+  SmallVector<int64_t, 1> outDims;
   getResult().setType(
       RankedTensorType::get(outDims, IntegerType::get(64, getContext())));
   return success();
@@ -2471,7 +2493,8 @@ LogicalResult ONNXGatherOp::inferShapes() {
   if (axisIndex < 0) {
     axisIndex += inputRank;
     auto builder = mlir::Builder(getContext());
-    axisAttr(builder.getI64IntegerAttr(axisIndex));
+    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
 
   // If 'indices' is a constant, check whether its values are valid or not.

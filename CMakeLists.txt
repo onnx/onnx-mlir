@@ -29,7 +29,7 @@ include(MLIR.cmake)
 if (MSVC)
   # Disable warnings that prevent building of dependencies
   # like onnx
-  set(CMAKE_CXX_FLAGS "-wd4244 -wd4267 -wd4530 -wd4624")
+  set(CMAKE_CXX_FLAGS "-wd4244 -wd4267 -wd4530 -wd4624 /bigobj")
 endif()
 add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/googletest)

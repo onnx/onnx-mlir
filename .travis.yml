@@ -50,9 +50,12 @@ script:
   - docker exec build compile-onnx-mlir.sh
   - docker exec build test-onnx-mlir.sh
   - docker commit build onnxmlirczar/onnx-mlir-build:$CPU_ARCH
+
 jobs:
+  fast_finish: true
   allow_failures:
     - env: NIGHTLY=true
+    - arch: ppc64le
   include:
     ##########################################################################################
     #
@@ -110,7 +113,7 @@ jobs:
       arch:
         - ppc64le
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="ubuntu:bionic" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/prereq.ppc64le.Dockerfile --build-arg BASE_IMAGE="ubuntu:focal" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
     - stage: prereq-0
@@ -191,7 +194,6 @@ jobs:
         - docker build -t onnxmlirczar/onnx-mlir-llvmimage:x86 -f docker/prereq.amd64.Dockerfile --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:x86" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage:x86
-
 after_success:
   - if [ $TRAVIS_PULL_REQUEST == false ] && [ $TRAVIS_BRANCH == "master" ] && [ $NIGHTLY == false ]; then
             echo "Pushing new build to docker hub";

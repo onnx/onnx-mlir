@@ -135,8 +135,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
                 /*mIndex=*/rewriter.getAffineDimExpr(1));
         kernel = rewriter.create<AffineApplyOp>(loc, kernelMap,
             ArrayRef<Value>{/*gIndex=*/outerLoops.getInductionVar(gIndex),
-                /*kernelsPerGroupValue=*/kernelsPerGroupValue,
-                /*mIndex=*/outerLoops.getInductionVar(mIndex)});
+                /*mIndex=*/outerLoops.getInductionVar(mIndex),
+                /*kernelsPerGroupValue=*/kernelsPerGroupValue});
       }
 
       // 2.2 Define spatial loops
