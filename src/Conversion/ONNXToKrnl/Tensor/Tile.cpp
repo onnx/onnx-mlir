@@ -105,6 +105,10 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // Alternative implementation can be found at the end of this file.
     SmallVector<Value, 4> inputMemRefVal;
     for (int i = 0; i < outputRank; ++i) {
+      AffineExpr indexAE = rewriter.getAffineDimExpr(0);
+      AffineExpr offsetAE = rewriter.getAffineSymbolExpr(0);
+      AffineMap dimMap = AffineMap::get(1, 1, indexAE % offsetAE);
+
       Value inputDimSizeVal;
       if (inputShape[i] == -1)
         inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
@@ -112,15 +116,15 @@ struct ONNXTileOpLowering : public ConversionPattern {
         inputDimSizeVal = emitConstantOp(
             rewriter, loc, rewriter.getIndexType(), inputShape[i]);
       auto loopVarVal = iterationBlock.getArguments()[i];
-      auto exprVal =
-          rewriter.create<UnsignedRemIOp>(loc, loopVarVal, inputDimSizeVal);
+      auto exprVal = rewriter.create<AffineApplyOp>(loc, dimMap, ArrayRef<Value> {
+                loopVarVal, inputDimSizeVal});  
       inputMemRefVal.emplace_back(exprVal);
     }
 
     // Load the value from input
     // Tried to use affine load when the input has constant shape
     // But got runtime complaint, perhaps due ot RemIOp
-    auto inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
+    auto inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
     SmallVector<Value, 4> outputMemRefVal(iterationBlock.getArguments().begin(),
         iterationBlock.getArguments().end());
 
