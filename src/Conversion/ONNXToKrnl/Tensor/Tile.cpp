@@ -31,12 +31,7 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
         rewriter.create<AffineLoadOp>(loc, repeatsOperand, repeatsMemRefVal);
     auto repeatsElementVal = rewriter.create<IndexCastOp>(
         loc, repeatsLoadVal, rewriter.getIndexType());
-    Value dimVal;
-    if (inputShape[i] == -1)
-      dimVal = rewriter.create<DimOp>(loc, inputOperand, i);
-    else
-      dimVal =
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(), inputShape[i]);
+    auto dimVal = rewriter.create<DimOp>(loc, inputOperand, i);
     Value allocDimVal = rewriter.create<MulIOp>(loc, dimVal, repeatsElementVal);
     allocOperands.emplace_back(allocDimVal);
   }
@@ -109,15 +104,10 @@ struct ONNXTileOpLowering : public ConversionPattern {
       AffineExpr offsetAE = rewriter.getAffineSymbolExpr(0);
       AffineMap dimMap = AffineMap::get(1, 1, indexAE % offsetAE);
 
-      Value inputDimSizeVal;
-      if (inputShape[i] == -1)
-        inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
-      else
-        inputDimSizeVal = emitConstantOp(
-            rewriter, loc, rewriter.getIndexType(), inputShape[i]);
+      auto inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
       auto loopVarVal = iterationBlock.getArguments()[i];
-      auto exprVal = rewriter.create<AffineApplyOp>(loc, dimMap, ArrayRef<Value> {
-                loopVarVal, inputDimSizeVal});  
+      auto exprVal = rewriter.create<AffineApplyOp>(
+          loc, dimMap, ArrayRef<Value>{loopVarVal, inputDimSizeVal});
       inputMemRefVal.emplace_back(exprVal);
     }
 
@@ -160,17 +150,6 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
 
-    // Infer value of repeats() from shape of input and output.
-
-    SmallVector<int64_t, 4> repeatsConst(inputRank, 0);
-    bool repeatsIsConstant = true;
-    for (auto i = 0; i < inputRank; i++) {
-      if (inputShape[i] != -1 && outputMemRefShape[i] != -1)
-        repeatsConst[i] = outputMemRefShape[i] / inputShape[i];
-      else
-        repeatsIsConstant = false;
-    }
-
     bool insertDealloc = checkInsertDealloc(op);
     Value alloc;
     if (hasAllConstantDimensions(outputMemRefType))
@@ -187,18 +166,14 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     for (int ii = 0; ii < outputRank; ++ii) {
       addDimensionToPack(rewriter, loc, pack, input, ii);
       pack.pushConstantBound(0);
-      if (repeatsConst[ii] == 0) {
-        auto indexVal =
-            emitConstantOp(rewriter, loc, rewriter.getIndexType(), ii);
-        SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
-        auto repeatsLoadVal =
-            rewriter.create<AffineLoadOp>(loc, repeats, repeatsMemRefVal);
-        auto repeatsElementVal = rewriter.create<IndexCastOp>(
-            loc, repeatsLoadVal, rewriter.getIndexType());
-        pack.pushOperandBound(repeatsElementVal);
-      } else {
-        pack.pushConstantBound(repeatsConst[ii]);
-      }
+      auto indexVal =
+          emitConstantOp(rewriter, loc, rewriter.getIndexType(), ii);
+      SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
+      auto repeatsLoadVal =
+          rewriter.create<AffineLoadOp>(loc, repeats, repeatsMemRefVal);
+      auto repeatsElementVal = rewriter.create<IndexCastOp>(
+          loc, repeatsLoadVal, rewriter.getIndexType());
+      pack.pushOperandBound(repeatsElementVal);
     }
 
     // Create the loops
@@ -222,18 +197,15 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       AffineExpr inputIndexAE = rewriter.getAffineDimExpr(0);
       AffineExpr repeatsIndexAE = rewriter.getAffineDimExpr(1);
       AffineExpr inputDimAE = rewriter.getAffineSymbolExpr(0);
-     
-      AffineMap dimMap = AffineMap::get(2, 1, inputDimAE * repeatsIndexAE + inputIndexAE);
-    
-      Value inputDimSizeVal;
-      if (inputShape[i] == -1)
-        inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
-      else
-        inputDimSizeVal = emitConstantOp(
-            rewriter, loc, rewriter.getIndexType(), inputShape[i]);
 
-      auto dimExprVal = rewriter.create<AffineApplyOp>(loc, dimMap, ArrayRef<Value> {
-                iterationBlock.getArguments()[2*i], iterationBlock.getArguments()[2*i+1], inputDimSizeVal});  
+      AffineMap dimMap =
+          AffineMap::get(2, 1, inputDimAE * repeatsIndexAE + inputIndexAE);
+
+      auto inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
+
+      auto dimExprVal = rewriter.create<AffineApplyOp>(loc, dimMap,
+          ArrayRef<Value>{iterationBlock.getArguments()[2 * i],
+              iterationBlock.getArguments()[2 * i + 1], inputDimSizeVal});
       outputMemRefVal.emplace_back(dimExprVal);
     }
 
@@ -248,5 +220,5 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
 
 void populateLoweringONNXTileOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXTileOpLoweringAlternative>(ctx);
+  patterns.insert<ONNXTileOpLowering>(ctx);
 }
