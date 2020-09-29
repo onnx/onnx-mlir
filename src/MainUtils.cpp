@@ -424,7 +424,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
   //  pm.addPass(mlir::createLoopFusionPass());
 }
 
-void addKrnlToLLVMPasses(mlir::PassManager &pm) {
+void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
   pm.addPass(mlir::createConvertKrnlToLLVMPass());
@@ -544,6 +544,8 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
   mlir::PassManager pm(&context);
+  auto &tvpModulePM = pm.nest<tvp::TVPModuleOp>();
+
   if (emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm);
   }
@@ -553,8 +555,15 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     addKrnlToAffinePasses(pm);
   }
 
-  if (emissionTarget >= EmitLLVMIR)
+  // For now, perform ALL passes on both nested tvp.module and top level module.
+  // First, add them to the parent module, then add to the nested one.
+  // We have to duplicate number of pass instances as they are passed
+  // via unique_ptrs.
+
+  if (emissionTarget >= EmitLLVMIR) {
     addKrnlToLLVMPasses(pm);
+    addKrnlToLLVMPasses(tvpModulePM);
+  }
 
   if (mlir::failed(pm.run(*module)))
     return 4;
