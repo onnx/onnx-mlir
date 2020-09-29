@@ -208,8 +208,6 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
   if (!isNoneType(operandAdaptor.B()))
     hasBiasForInput = true;
 
-  bool linearBeforeReset = false;
-
   // Prepare dimensions.
   auto batchDimSize = dimAt(operandAdaptor.X(), 1);
   auto inputDimSize = dimAt(operandAdaptor.X(), 2);
@@ -220,7 +218,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
   auto elementType =
       operandAdaptor.X().getType().cast<ShapedType>().getElementType();
 
-  // Prepare AffineMap to access bias, peepholes tensors.
+  // Prepare AffineMap to access the bias tensor.
   AffineMap accessByOffsetMap;
   {
     AffineExpr iv = rewriter.getAffineDimExpr(0);
