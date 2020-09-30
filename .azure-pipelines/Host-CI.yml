@@ -103,11 +103,11 @@ jobs:
     displayName: 'End-To-End Test ONNX'
     inputs:
       workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
-      cmakeArgs: '--build . --config Release --target check-onnx-backend'
+      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-onnx-backend'
 
   - task: CMake@1
     displayName: 'ONNX MLIR Unit Tests'
     inputs:
       workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
-      cmakeArgs: '--build . --config Release --target test'
+      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target test'
 
