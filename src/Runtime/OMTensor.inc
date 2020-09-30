@@ -159,7 +159,19 @@ void omTensorDestroy(OMTensor *tensor) {
 /* OMTensor data getter */
 void *omTensorGetAlignedPtr(OMTensor *tensor) { return tensor->_alignedPtr; }
 
-/* OMTensor data pointer setter */
+/**
+ * OMTensor allocated and aligned pointer setter.
+ * This function is intentionally left out from the header because it is only
+ * used by the wrapper code we emit around inference function that converts
+ * MemRefs to OMTensors for user convenience.
+ *
+ * @param tensor pointer to the OMTensor
+ * @param owning whether allocatedPtr should be freed after tensor is destroyed.
+ * @param allocatedPtr allocated pointer to tensor content.
+ * @param alignedPtr aligned pointer to tensor content. If NULL will be set to
+ * allocatedPtr.
+ *
+ */
 void omTensorSetPtr(
     OMTensor *tensor, int owning, void *allocatedPtr, void *alignedPtr) {
   if (tensor->_owning) {
@@ -224,7 +236,16 @@ int64_t omTensorGetNumElems(OMTensor *tensor) {
   return getNumOfElems(tensor->_shape, tensor->_rank);
 }
 
-/* OMTensor allocated pointer getter */
+/**
+ * OMTensor allocated ptr getter.
+ * Note that this function is intentionally left out from the header
+ * because it is only used by the wrapper code we emit around inference
+ * function that converts OMTensor into MemRefs for user convenience.
+ *
+ * @param tensor pointer to the OMTensor
+ * @return pointer to the allocated data buffer of the OMTensor,
+ *         NULL if the allocated data buffer is not set.
+ */
 void *omTensorGetAllocatedPtr(OMTensor *tensor) {
   return tensor->_allocatedPtr;
 }

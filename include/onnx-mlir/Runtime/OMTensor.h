@@ -131,29 +131,6 @@ void omTensorDestroy(OMTensor *tensor);
 void *omTensorGetAlignedPtr(OMTensor *tensor);
 
 /**
- * OMTensor allocated and aligned pointer setter.
- *
- * @param tensor pointer to the OMTensor
- * @param owning whether allocatedPtr should be freed after tensor is destroyed.
- * @param allocatedPtr allocated pointer to tensor content.
- * @param alignedPtr aligned pointer to tensor content. If NULL will be set to
- * allocatedPtr.
- *
- *
- */
-void omTensorSetPtr(
-    OMTensor *tensor, int owning, void *allocatedPtr, void *alignedPtr);
-
-/**
- * OMTensor allocated ptr getter.
- *
- * @param tensor pointer to the OMTensor
- * @return pointer to the allocated data buffer of the OMTensor,
- *         NULL if the allocated data buffer is not set.
- */
-void *omTensorGetAllocatedPtr(OMTensor *tensor);
-
-/**
  * OMTensor data sizes getter
  *
  * @param tensor pointer to the OMTensor
