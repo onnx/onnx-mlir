@@ -159,6 +159,9 @@ void *omTensorGetDataPtr(OMTensor *tensor);
  * The data shape is returned as a pointer pointing to an array of
  * n 64-bit integers where n is the rank of the tensor.
  *
+ * The shape array is returned without copying, so caller should
+ * not free the returned pointer.
+ *
  * @param tensor pointer to the OMTensor
  * @return pointer to the data shape array.
  */
@@ -169,6 +172,9 @@ int64_t *omTensorGetDataShape(OMTensor *tensor);
  *
  * n int64 elements are copied from the shape array to indicate the shape of the
  * tensor, where n is the rank of the tensor.
+ *
+ * The shape array is copied without being freed, so caller is expected to
+ * manage the shape array oneself.
  *
  * @param tensor pointer to the OMTensor
  * @param shape data sizes array to be set
@@ -183,6 +189,9 @@ void omTensorSetShape(OMTensor *tensor, int64_t *shape);
  * The data strides are returned as a pointer pointing to an array of
  * n 64-bit integers where n is the rank of the tensor.
  *
+ * The strides array is returned without copying, so caller should
+ * not free the returned pointer.
+ *
  * @param tensor pointer to the OMTensor
  * @return pointer to the data strides array.
  */
@@ -191,8 +200,11 @@ int64_t *omTensorGetStrides(OMTensor *tensor);
 /**
  * \brief OMTensor data strides setter
  *
- *   n int64 elements are copied from the strides array to indicate the
+ * n int64 elements are copied from the strides array to indicate the
  * per-dimension stride of the tensor, where n is the rank of the tensor.
+ *
+ * The strides array is copied without being freed, so caller is expected to
+ * manage the strides array oneself.
  *
  * @param tensor pointer to the OMTensor
  * @param strides tensor strides array to be set.
