@@ -64,7 +64,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
     else if (inputPyArray.dtype().is(py::dtype("uint64")))
       dtype = ONNX_TYPE_UINT64;
     else {
-      fprintf(stderr, "Unsupported ONNX type in OMTensor.");
+      std::cerr << "Numpy type not supported: " << inputPyArray.dtype() << "\n";
       exit(1);
     }
 
