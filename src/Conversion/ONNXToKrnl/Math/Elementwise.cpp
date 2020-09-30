@@ -545,9 +545,10 @@ Value emitScalarOpFor<ONNXLessOp>(ConversionPatternRewriter &rewriter,
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
 
-  if (elementType.isa<FloatType>()) {
+  Type inputType = lhs.getType();
+  if (inputType.isa<FloatType>()) {
     return rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
-  } else if (elementType.isa<IntegerType>()) {
+  } else if (inputType.isa<IntegerType>()) {
     rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
   } else {
     llvm_unreachable("unsupported element type");
@@ -683,8 +684,8 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
       rhs = rewriter.create<AffineLoadOp>(loc, operands[1], rhsLoopIVs);
 
     // Apply the element-wise function.
-    Value result = emitScalarOpFor<ElementwiseBinaryOp>(rewriter, loc, op,
-        operands[0].getType().cast<MemRefType>().getElementType(), {lhs, rhs});
+    Value result = emitScalarOpFor<ElementwiseBinaryOp>(
+        rewriter, loc, op, memRefType.getElementType(), {lhs, rhs});
 
     // Store result in the resulting array.
     rewriter.create<AffineStoreOp>(loc, result, alloc, loopIVs);
