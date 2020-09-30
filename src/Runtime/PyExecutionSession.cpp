@@ -66,7 +66,6 @@ std::vector<py::array> PyExecutionSession::pyRun(
       dtype = ONNX_TYPE_UINT64;
     else {
       std::cerr << "Numpy type not supported: " << inputPyArray.dtype() << ".\n";
-      std::cerr << py::isinstance<py::array_t<float>>(inputPyArray) << ".\n";
       exit(1);
     }
 
