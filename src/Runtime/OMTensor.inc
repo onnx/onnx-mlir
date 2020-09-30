@@ -49,6 +49,8 @@ struct OMTensor {
   OMTensor(int rank) {
     if ((_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
         (_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+      assert(_shape);
+      assert(_stride);
       _allocatedPtr = NULL;
       _alignedPtr = NULL;
       _offset = 0;
@@ -107,8 +109,11 @@ struct OMTensor {
 OMTensor *omTensorCreate(
     void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor = (OMTensor *)malloc(sizeof(OMTensor));
+  assert(tensor);
   if ((tensor->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
       (tensor->_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+    assert(tensor->_shape);
+    assert(tensor->_stride);
     tensor->_allocatedPtr = data_ptr;
     tensor->_alignedPtr = data_ptr;
     tensor->_rank = rank;
@@ -137,8 +142,11 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
 // Create a OMTensor.
 OMTensor *omTensorCreateEmptyDeprecated(int rank) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
+  assert(omt);
   if ((omt->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
       (omt->_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
+    assert(omt->_shape);
+    assert(omt->_stride);
     omt->_allocatedPtr = NULL;
     omt->_alignedPtr = NULL;
     omt->_offset = 0;
@@ -154,6 +162,7 @@ OMTensor *omTensorCreateEmpty(
   OMTensor *tensor =
       omTensorCreateWithOwnership(NULL, shape, rank, dtype, true);
   void *dataPtr = malloc(omTensorGetNumElems(tensor) * getDataTypeSize(dtype));
+  assert(dataPtr);
   tensor->_alignedPtr = dataPtr;
   tensor->_allocatedPtr = dataPtr;
   return tensor;
