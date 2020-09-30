@@ -15,7 +15,9 @@ add_library(OMONNXOps
         ONNXOps.cpp
         ONNXOps.hpp
         ONNXOpsHelper.cpp
-        ONNXOpsHelper.hpp)
+        ONNXOpsHelper.hpp
+        ShapeLoweringHelper.hpp
+        ShapeLoweringHelper.cpp)
 
 target_include_directories(OMONNXOps
         PRIVATE
