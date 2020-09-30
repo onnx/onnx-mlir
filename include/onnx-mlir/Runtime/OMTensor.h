@@ -63,6 +63,13 @@ static inline int64_t getNumOfElems(int64_t *dataSizes, int rank) {
 /**
  * Create a OMTensor with specified data pointer, shape, rank and element type.
  *
+ * The call will not create a copy of the data. By default, caller is
+ * responsible for managing the memory this pointer refers to. Namely, the
+ * OMTensor is not the owner of the data. To indicate OMTensor's ownership of
+ * data, use `omTensorCreateWithOwnership`. Ownership determines what happens
+ * with the OMTensor is destroyed. With ownership of the data, the destruction
+ * of the OMTensor will also free the data.
+ *
  * @param data_ptr pointer to tensor data. By default, caller is responsible for
  * managing the memory this pointer refers to.
  * @param shape list of integers indicating the tensor shape.
@@ -78,6 +85,9 @@ OMTensor *omTensorCreate(
  * Create an OMTensor with the specified shape, rank and element type,
  * allocate uninitialized data for the specified shape.
  *
+ * The OMTensor created using this constructor owns the underlying memory
+ * space allocated to the content of the tensor.
+ *
  * @param shape list of integers indicating the tensor shape.
  * @param rank tensor rank.
  * @param dtype tensor element data type.
@@ -88,7 +98,10 @@ OMTensor *omTensorCreateEmpty(int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
 
 /**
  * Create an OMTensor with specified data pointer, shape, rank and element type,
- * manually setting data ptr ownership.
+ * manually setting data ptr ownership. Using this constructor, users can
+ * specify whether OMTensor owns the data, which subsequently determines whether
+ * the memory space underlying the data will be freed or not when OMTensor gets
+ * destroyed.
  *
  * @param data_ptr pointer to tensor data.
  * @param shape list of integers indicating the tensor shape.
@@ -115,6 +128,11 @@ OMTensor *omTensorCreateEmptyDeprecated(int rank);
 
 /**
  * Destroy the OMTensor struct.
+ *
+ * If OMTensor does not own the data, destroying the omTensor does not free up
+ * the memory occupied by the tensor content. If OMTensor owns the data, this
+ * function will free up the memory space underlying the tensor as well. The
+ * documentation of OMTensor constructors clarifies the ownership semantics.
  *
  * @param tensor pointer to the OMTensor
  *
