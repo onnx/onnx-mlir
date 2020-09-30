@@ -12,6 +12,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/MainUtils.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
+#include "src/Runtime/OMTensorHelper.h"
 
 #define SHARED_LIB_BASE string("./TestConv_main_graph")
 
