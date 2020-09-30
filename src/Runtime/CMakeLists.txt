@@ -28,7 +28,7 @@ set_target_properties(OMTensorUtils PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 target_compile_definitions(OMTensorUtils PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(OMTensorUtils PRIVATE
-        ${ONNX_MLIR_SRC_ROOT}/src/Runtime
+        ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_SRC_ROOT}/include)
 
 add_library(ExecutionSession
