@@ -109,11 +109,18 @@ struct OMTensor {
 OMTensor *omTensorCreate(
     void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor = (OMTensor *)malloc(sizeof(OMTensor));
-  assert(tensor);
+  if (!tensor)
+    return NULL;
   if ((tensor->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
       (tensor->_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    assert(tensor->_shape);
-    assert(tensor->_stride);
+    // If malloc for _shape or _stride fails, free them and return NULL.
+    if (!tensor->_shape || !tensor->_stride) {
+      if (tensor->_shape)
+        free(tensor->_shape);
+      if (tensor->_stride)
+        free(tensor->_stride);
+      return NULL;
+    }
     tensor->_allocatedPtr = data_ptr;
     tensor->_alignedPtr = data_ptr;
     tensor->_rank = rank;
@@ -135,6 +142,8 @@ OMTensor *omTensorCreate(
 OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
     int64_t rank, OM_DATA_TYPE dtype, int owning) {
   OMTensor *tensor = omTensorCreate(data_ptr, shape, rank, dtype);
+  if (!tensor)
+    return NULL;
   tensor->_owning = owning;
   return tensor;
 }
@@ -142,11 +151,19 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
 // Create a OMTensor.
 OMTensor *omTensorCreateEmptyDeprecated(int rank) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
-  assert(omt);
+  if (!omt)
+    return NULL;
   if ((omt->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
       (omt->_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    assert(omt->_shape);
-    assert(omt->_stride);
+    // If malloc for _shape or _stride fails, free them and return NULL.
+    if (!omt->_shape || !omt->_stride) {
+      if (omt->_shape)
+        free(omt->_shape);
+      if (omt->_stride)
+        free(omt->_stride);
+      return NULL;
+    }
+
     omt->_allocatedPtr = NULL;
     omt->_alignedPtr = NULL;
     omt->_offset = 0;
@@ -161,8 +178,12 @@ OMTensor *omTensorCreateEmpty(
     int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor =
       omTensorCreateWithOwnership(NULL, shape, rank, dtype, true);
+  // Ctor failed, return null.
+  if (!tensor)
+    return NULL;
   void *dataPtr = malloc(omTensorGetNumElems(tensor) * getDataTypeSize(dtype));
-  assert(dataPtr);
+  if (!dataPtr)
+    return NULL;
   tensor->_alignedPtr = dataPtr;
   tensor->_allocatedPtr = dataPtr;
   return tensor;
