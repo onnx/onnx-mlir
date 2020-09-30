@@ -5,7 +5,7 @@ using namespace mlir;
 
 // Constructors.
 
-ShapeValue::ShapeValue(ShapeValue &a)
+ShapeValue::ShapeValue(const ShapeValue &a)
     : constVal(a.constVal), dynVal(a.dynVal), rewriter(a.rewriter),
       isConst(a.isConst), isAffine(a.isAffine) {}
 
@@ -20,7 +20,7 @@ ShapeValue::ShapeValue(
 
 // Copy.
 
-void ShapeValue::Copy(ShapeValue &a) {
+void ShapeValue::Copy(const ShapeValue &a) {
   Init(a);
   constVal = a.constVal;
   dynVal = a.dynVal;
@@ -43,13 +43,13 @@ void ShapeValue::Init(
   isAffine = affine;
 }
 
-void ShapeValue::Init(ShapeValue &a) {
+void ShapeValue::Init(const ShapeValue &a) {
   rewriter = a.rewriter;
   isConst = a.isConst;
   isAffine = a.isAffine;
 }
 
-void ShapeValue::Init(ShapeValue &a, ShapeValue &b, bool affineIfBConst) {
+void ShapeValue::Init(const ShapeValue &a, const ShapeValue &b, bool affineIfBConst) {
   rewriter = a.rewriter;
   isConst = a.isConst & b.isConst;
   isAffine = a.isAffine & b.isAffine;
@@ -57,14 +57,14 @@ void ShapeValue::Init(ShapeValue &a, ShapeValue &b, bool affineIfBConst) {
     isAffine = false;
 }
 
-void ShapeValue::Init(ShapeValue &a, ShapeValue &b, ShapeValue &c) {
+void ShapeValue::Init(const ShapeValue &a, const ShapeValue &b, const ShapeValue &c) {
   rewriter = a.rewriter;
   isConst = a.isConst & b.isConst & c.isConst;
   isAffine = a.isAffine & b.isAffine & c.isAffine;
 }
 
 void ShapeValue::Init(
-    ShapeValue &a, ShapeValue &b, ShapeValue &c, ShapeValue &d) {
+    const ShapeValue &a, const ShapeValue &b, const ShapeValue &c, const ShapeValue &d) {
   rewriter = a.rewriter;
   isConst = a.isConst & b.isConst & c.isConst & d.isConst;
   isAffine = a.isAffine & b.isAffine & c.isAffine & d.isConst;
@@ -72,7 +72,7 @@ void ShapeValue::Init(
 
 // Getters/Setters.
 
-int64_t ShapeValue::GetConstVal() {
+int64_t ShapeValue::GetConstVal() const {
   assert(IsConst());
   return constVal;
 }
@@ -82,10 +82,13 @@ void ShapeValue::SetConstVal(int64_t val) {
   constVal = val;
 }
 
-Value ShapeValue::GetDynVal(Location loc) {
+Value ShapeValue::GetDynVal(Location loc) const {
   assert(rewriter);
-  MakeDynamic(loc);
-  return dynVal;
+  if (IsDynamic())
+    return dynVal;
+  // Is a constant number; return a value but don't modify the object.
+  return rewriter->create<ConstantOp>(
+      loc, rewriter->getIntegerAttr(rewriter->getIndexType(), constVal));
 }
 
 void ShapeValue::SetDynVal(Value val) {
@@ -93,7 +96,7 @@ void ShapeValue::SetDynVal(Value val) {
   dynVal = val;
 }
 
-ConversionPatternRewriter *ShapeValue::GetRewriter() {
+ConversionPatternRewriter *ShapeValue::GetRewriter() const {
   assert(rewriter);
   return rewriter;
 }
@@ -105,13 +108,12 @@ void ShapeValue::MakeDynamic(Location loc) {
     return;
   isConst = false;
   // Create value from integer.
-  rewriter->create<ConstantOp>(
-      loc, rewriter->getIntegerAttr(rewriter->getIndexType(), 0));
+  dynVal = GetDynVal(loc);
 }
 
 // Operator support.
 
-void ShapeValue::UnaryOp(ShapeValue &a, F1 finteger, F1 fvalue) {
+void ShapeValue::UnaryOp(const ShapeValue &a, F1 finteger, F1 fvalue) {
   // Constant/affine if a is const/afine.
   Init(a);
   // Constant, use constant computations.
@@ -127,7 +129,7 @@ void ShapeValue::UnaryOp(ShapeValue &a, F1 finteger, F1 fvalue) {
 }
 
 void ShapeValue::BinaryOp(
-    ShapeValue &a, ShapeValue &b, F2 finteger, F2 fvalue, bool affineIfBConst) {
+    const ShapeValue &a, const ShapeValue &b, F2 finteger, F2 fvalue, bool affineIfBConst) {
   // Constant if a and b are const.
   // Affine if both a and b are affine (and possibly b is also constant)
   Init(a, b, affineIfBConst);
@@ -144,7 +146,7 @@ void ShapeValue::BinaryOp(
 }
 
 void ShapeValue::TernaryOp(
-    ShapeValue &a, ShapeValue &b, ShapeValue &c, F3 finteger, F3 fvalue) {
+    const ShapeValue &a, const ShapeValue &b, const ShapeValue &c, F3 finteger, F3 fvalue) {
   // Constant if a, b, and c are const.
   // Affine if all are affine
   Init(a, b, c);
@@ -160,8 +162,8 @@ void ShapeValue::TernaryOp(
     assert(IsQuestionmark());
 }
 
-void ShapeValue::QuaternaryOp(ShapeValue &a, ShapeValue &b, ShapeValue &c,
-    ShapeValue &d, F4 finteger, F4 fvalue) {
+void ShapeValue::QuaternaryOp(const ShapeValue &a, const ShapeValue &b, const ShapeValue &c,
+    const ShapeValue &d, F4 finteger, F4 fvalue) {
   // Constant if a, b, and c are const.
   // Affine if all are affine
   Init(a, b, c, d);
@@ -177,8 +179,8 @@ void ShapeValue::QuaternaryOp(ShapeValue &a, ShapeValue &b, ShapeValue &c,
     assert(IsQuestionmark());
 }
 
-void ShapeValue::QuaternarySelectOp(ShapeValue &ca, ShapeValue &cb,
-    ShapeValue &tv, ShapeValue &fv, F4 finteger, F4 fvalue) {
+void ShapeValue::QuaternarySelectOp(const ShapeValue &ca, const ShapeValue &cb,
+    const ShapeValue &tv, const ShapeValue &fv, F4 finteger, F4 fvalue) {
   // Check first if the test (ca & cb) can be evaluated at compile time.
   if (ca.IsConst() && cb.IsConst()) {
     // Init using a & b.
@@ -199,45 +201,45 @@ void ShapeValue::QuaternarySelectOp(ShapeValue &ca, ShapeValue &cb,
 }
 
 // Operators
-void ShapeValue::Add(ShapeValue &a, ShapeValue &b, Location loc) {
-  F2 constAddFct = [](ShapeValue &rr, ShapeValue &aa, ShapeValue &bb) {
+void ShapeValue::Add(const ShapeValue &a, const ShapeValue &b, Location loc) {
+  F2 constAddFct = [](ShapeValue &rr, const ShapeValue &aa, const ShapeValue &bb) {
     rr.SetConstVal(aa.GetConstVal() + bb.GetConstVal());
   };
-  F2 valueAddFct = [&](ShapeValue &rr, ShapeValue &aa, ShapeValue &bb) {
+  F2 valueAddFct = [&](ShapeValue &rr, const ShapeValue &aa, const ShapeValue &bb) {
     rr.SetDynVal(rr.GetRewriter()->create<AddIOp>(
         loc, aa.GetDynVal(loc), bb.GetDynVal(loc)));
   };
   BinaryOp(a, b, constAddFct, valueAddFct);
 }
 
-void ShapeValue::Sub(ShapeValue &a, ShapeValue &b, Location loc) {
-  F2 constSubFct = [](ShapeValue &rr, ShapeValue &aa, ShapeValue &bb) {
+void ShapeValue::Sub(const ShapeValue &a, const ShapeValue &b, Location loc) {
+  F2 constSubFct = [](ShapeValue &rr, const ShapeValue &aa, const ShapeValue &bb) {
     rr.SetConstVal(aa.GetConstVal() - bb.GetConstVal());
   };
-  F2 valueSubFct = [&](ShapeValue &rr, ShapeValue &aa, ShapeValue &bb) {
+  F2 valueSubFct = [&](ShapeValue &rr, const ShapeValue &aa, const ShapeValue &bb) {
     rr.SetDynVal(rr.GetRewriter()->create<SubIOp>(
         loc, aa.GetDynVal(loc), bb.GetDynVal(loc)));
   };
   BinaryOp(a, b, constSubFct, valueSubFct);
 }
 
-void ShapeValue::Inc(ShapeValue &a, Location loc) {
-  // since this += a; make first a copy of "this"
-  ShapeValue selfCopy(*this);
-  Add(selfCopy, a, loc);
+void ShapeValue::Mult(const ShapeValue &a, const ShapeValue &b, Location loc) {
+  F2 constSubFct = [](ShapeValue &rr, const ShapeValue &aa, const ShapeValue &bb) {
+    rr.SetConstVal(aa.GetConstVal() * bb.GetConstVal());
+  };
+  F2 valueSubFct = [&](ShapeValue &rr, const ShapeValue &aa, const ShapeValue &bb) {
+    rr.SetDynVal(rr.GetRewriter()->create<MulIOp>(
+        loc, aa.GetDynVal(loc), bb.GetDynVal(loc)));
+  };
+  BinaryOp(a, b, constSubFct, valueSubFct);
 }
 
-void ShapeValue::Dec(ShapeValue &a, Location loc) {
-  // since this -= a; make first a copy of "this"
-  ShapeValue selfCopy(*this);
-  Sub(selfCopy, a, loc);
-}
 
-void ShapeValue::Select(ShapeValue &condA, ShapeValue &condB,
-    CmpIPredicate comparePred, ShapeValue &trueVal, ShapeValue &falseVal,
+void ShapeValue::Select(const ShapeValue &condA, const ShapeValue &condB,
+    CmpIPredicate comparePred, const ShapeValue &trueVal, const ShapeValue &falseVal,
     Location loc) {
-  F4 constCompareFct = [&](ShapeValue &rr, ShapeValue &ca, ShapeValue &cb,
-                           ShapeValue &tv, ShapeValue &fv) {
+  F4 constCompareFct = [&](ShapeValue &rr, const ShapeValue &ca, const ShapeValue &cb,
+                           const ShapeValue &tv, const ShapeValue &fv) {
     int64_t sca = ca.GetConstVal();
     int64_t scb = cb.GetConstVal();
     uint64_t uca = (uint64_t)sca;
@@ -307,8 +309,8 @@ void ShapeValue::Select(ShapeValue &condA, ShapeValue &condB,
       llvm_unreachable("unknown compare opeartor");
     }
   };
-  F4 dynCompareFct = [&](ShapeValue &rr, ShapeValue &ca, ShapeValue &cb,
-                         ShapeValue &tv, ShapeValue &fv) {
+  F4 dynCompareFct = [&](ShapeValue &rr, const ShapeValue &ca, const ShapeValue &cb,
+                         const ShapeValue &tv, const ShapeValue &fv) {
     auto compareVal = rr.GetRewriter()->create<CmpIOp>(
         loc, comparePred, ca.GetDynVal(loc), cb.GetDynVal(loc));
     auto resVal = rr.rewriter->create<SelectOp>(
@@ -319,19 +321,11 @@ void ShapeValue::Select(ShapeValue &condA, ShapeValue &condB,
       condA, condB, trueVal, falseVal, constCompareFct, constCompareFct);
 }
 
-void ShapeValue::Select(ShapeValue &condA, ShapeValue &condB,
-    CmpIPredicate comparePred, ShapeValue &trueVal, Location loc) {
-  // When there is no false value, we simply recopy the current value on the
-  // false path.
-  ShapeValue falseVal(*this);
-  Select(condA, condB, comparePred, trueVal, falseVal, loc);
-}
-
-void ShapeValue::Clip(ShapeValue &min, ShapeValue &max, int64_t minInc,
-    int64_t maxInc, Location loc) {
+void ShapeValue::Clip(const ShapeValue &val, const ShapeValue &min, const ShapeValue &max,
+    int64_t minInc, int64_t maxInc, Location loc) {
   // Functions below uncoditionally override rr with the clipped value of val.
-  F3 constClipFct = [&](ShapeValue &rr, ShapeValue &val, ShapeValue &min,
-                        ShapeValue &max) {
+  F3 constClipFct = [&](ShapeValue &rr, const ShapeValue &val, const ShapeValue &min,
+                        const ShapeValue &max) {
     // assume signed compares
     int64_t smin = min.GetConstVal() + minInc;
     int64_t smax = max.GetConstVal() + maxInc;
@@ -342,25 +336,23 @@ void ShapeValue::Clip(ShapeValue &min, ShapeValue &max, int64_t minInc,
       sval = smax;
     rr.SetConstVal(sval);
   };
-  F3 dynClipFct = [&](ShapeValue &rr, ShapeValue &val, ShapeValue &min,
-                      ShapeValue &max) {
-    // Copy because don't want to modify the original min.
-    ShapeValue minBound(min); 
+  F3 dynClipFct = [&](ShapeValue &rr, const ShapeValue &val, const ShapeValue &min,
+                      const ShapeValue &max) {
+    ShapeValue minBound(min);
     if (minInc != 0) {
       ShapeValue increment(minInc, rr.GetRewriter());
-      minBound.Inc(increment, loc);
-    }
-    ShapeValue minClipped(val);
-    minClipped.Select(val, minBound, CmpIPredicate::slt, minBound, loc);
+      minBound.Add(min, increment, loc);
+    } 
+    ShapeValue newVal(val);
+    newVal.Select(val, minBound, CmpIPredicate::slt, minBound, val, loc);
     // Copy because don't want to modify the original max.
     ShapeValue maxBound(max);
     if (maxInc != 0) {
       ShapeValue increment(maxInc, rr.GetRewriter());
-      maxBound.Inc(increment, loc);
+      maxBound.Add(max, increment, loc);
     }
-    rr.Select(minClipped, maxBound, CmpIPredicate::slt, maxBound, loc);
+    rr.Select(newVal, maxBound, CmpIPredicate::slt, maxBound, newVal, loc);
   };
-  // Save the original value in a separate ShapeValue
-  ShapeValue val(*this);
   TernaryOp(val, min, max, constClipFct, dynClipFct);
 }
+
