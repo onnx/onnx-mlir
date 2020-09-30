@@ -140,13 +140,13 @@ OMTensor *omTensorCreateEmptyDeprecated(int rank);
 void omTensorDestroy(OMTensor *tensor);
 
 /**
- * OMTensor aligned data pointer getter
+ * OMTensor data pointer getter.
  *
  * @param tensor pointer to the OMTensor
  * @return pointer to the data buffer of the OMTensor,
  *         NULL if the data buffer is not set.
  */
-void *omTensorGetAlignedPtr(OMTensor *tensor);
+void *omTensorGetDataPtr(OMTensor *tensor);
 
 /**
  * OMTensor data sizes getter

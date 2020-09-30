@@ -646,7 +646,7 @@ private:
     std::vector<ApiSpec> apiSpecs = {
         ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
         ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int32Ty}),
-        ApiSpec(API::GET_DATA, "omTensorGetAlignedPtr", opaquePtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "omTensorSetPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
         ApiSpec(API::GET_DATA_SIZES, "omTensorGetDataShape", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_STRIDES, "omTensorGetStrides", int64PtrTy, {opaquePtrTy}),

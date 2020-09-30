@@ -74,6 +74,15 @@ struct OMTensor {
   // Fields are named according to:
   // https://mlir.llvm.org/docs/Dialects/SPIR-V/#lowering-memrefs-to-spvarray-and-spvrtarray
 
+  // On machine without alignment constraints the allocated and aligned pointers
+  // are the same. However, on machines with alignment constraints not supported
+  // by the memory allocation system, the allocated ptr points to the chunk of
+  // memory that is allocated, and the aligned pointer points to a chunk of
+  // memory that is allocated and also satisfy the alignment constraints on the
+  // machine. For example, on a machine for which malloc returns chunks aligned
+  // at 16 byte boundaries, but where tensor must be allocated at 1K boundaries
+  // for performance reason, allocated pointer may return 0x1000f and aligned
+  // pointer may return 0x10400.
   void *_allocatedPtr; // data buffer
   void *_alignedPtr;   // aligned data buffer that the omt indexes.
 
@@ -157,7 +166,7 @@ void omTensorDestroy(OMTensor *tensor) {
 }
 
 /* OMTensor data getter */
-void *omTensorGetAlignedPtr(OMTensor *tensor) { return tensor->_alignedPtr; }
+void *omTensorGetDataPtr(OMTensor *tensor) { return tensor->_alignedPtr; }
 
 /**
  * OMTensor allocated and aligned pointer setter.

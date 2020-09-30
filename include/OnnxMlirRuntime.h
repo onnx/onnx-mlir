@@ -89,7 +89,7 @@
  *   OMTensorList *outputList = run_main_graph(input);
  *   // Get the first omt as output.
  *   OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);
- *   float *outputPtr = (float *)omTensorGetAlignedPtr(y);
+ *   float *outputPtr = (float *)omTensorGetDataPtr(y);
  *   // Print its content, should be all 3.
  *   for (int i = 0; i < 6; i++)
  *     printf("%f ", outputPtr[i]);

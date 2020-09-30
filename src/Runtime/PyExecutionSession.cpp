@@ -42,27 +42,27 @@ std::vector<py::array> PyExecutionSession::pyRun(
     if (inputPyArray.dtype().is(py::dtype("float32")))
       dtype = ONNX_TYPE_FLOAT;
     else if (inputPyArray.dtype().is(py::dtype("uint8")))
-        dtype = ONNX_TYPE_UINT8;
+      dtype = ONNX_TYPE_UINT8;
     else if (inputPyArray.dtype().is(py::dtype("int8")))
-        dtype = ONNX_TYPE_INT8;
+      dtype = ONNX_TYPE_INT8;
     else if (inputPyArray.dtype().is(py::dtype("uint16")))
-        dtype = ONNX_TYPE_UINT16;
+      dtype = ONNX_TYPE_UINT16;
     else if (inputPyArray.dtype().is(py::dtype("int16")))
-        dtype = ONNX_TYPE_INT16;
+      dtype = ONNX_TYPE_INT16;
     else if (inputPyArray.dtype().is(py::dtype("int32")))
-        dtype = ONNX_TYPE_INT32;
+      dtype = ONNX_TYPE_INT32;
     else if (inputPyArray.dtype().is(py::dtype("int64")))
-        dtype = ONNX_TYPE_INT64;
+      dtype = ONNX_TYPE_INT64;
     else if (inputPyArray.dtype().is(py::dtype("bool_")))
-        dtype = ONNX_TYPE_BOOL;
+      dtype = ONNX_TYPE_BOOL;
     else if (inputPyArray.dtype().is(py::dtype("float32")))
-        dtype = ONNX_TYPE_FLOAT;
+      dtype = ONNX_TYPE_FLOAT;
     else if (inputPyArray.dtype().is(py::dtype("float64")))
-        dtype = ONNX_TYPE_DOUBLE;
+      dtype = ONNX_TYPE_DOUBLE;
     else if (inputPyArray.dtype().is(py::dtype("uint32")))
-        dtype = ONNX_TYPE_UINT32;
+      dtype = ONNX_TYPE_UINT32;
     else if (inputPyArray.dtype().is(py::dtype("uint64")))
-        dtype = ONNX_TYPE_UINT64;
+      dtype = ONNX_TYPE_UINT64;
     else {
       fprintf(stderr, "Unsupported ONNX type in OMTensor.");
       exit(1);
@@ -117,7 +117,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
     }
 
     outputPyArrays.emplace_back(
-        py::array(dtype, shape, omTensorGetAlignedPtr(omt)));
+        py::array(dtype, shape, omTensorGetDataPtr(omt)));
   }
 
   return outputPyArrays;
