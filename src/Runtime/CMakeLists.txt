@@ -15,7 +15,7 @@ set_target_properties(cruntime PROPERTIES
 set_target_properties(cruntime PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
 target_include_directories(cruntime PRIVATE
-        ${ONNX_MLIR_SRC_ROOT}/src/Runtime
+        ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_SRC_ROOT}/include)
 
 add_library(OMTensorUtils
