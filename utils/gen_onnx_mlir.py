@@ -275,6 +275,7 @@ OpsWithShapeInference=[
     'Identity',
     'LSTM',
     'LeakyRelu',
+    'Less',
     'Log',
     'MatMul',
     'Max',
