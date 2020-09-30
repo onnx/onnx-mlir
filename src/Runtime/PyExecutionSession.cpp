@@ -56,13 +56,13 @@ std::vector<py::array> PyExecutionSession::pyRun(
     py::dtype dtype;
     if (dynMemRef->onnx_dtype == onnx::TensorProto::FLOAT)
       dtype = py::dtype("float32");
-    else if (dynMemRef->onnx_dtype = onnx::TensorProto::UINT8)
+    else if (dynMemRef->onnx_dtype == onnx::TensorProto::UINT8)
       dtype = py::dtype("uint8");
-    else if (dynMemRef->onnx_dtype = onnx::TensorProto::INT8)
+    else if (dynMemRef->onnx_dtype == onnx::TensorProto::INT8)
       dtype = py::dtype("int8");
-    else if (dynMemRef->onnx_dtype = onnx::TensorProto::UINT16)
+    else if (dynMemRef->onnx_dtype == onnx::TensorProto::UINT16)
       dtype = py::dtype("uint16");
-    else if (dynMemRef->onnx_dtype = onnx::TensorProto::INT16)
+    else if (dynMemRef->onnx_dtype == onnx::TensorProto::INT16)
       dtype = py::dtype("int16");
     else if (dynMemRef->onnx_dtype == onnx::TensorProto::INT32)
       dtype = py::dtype("int32");
