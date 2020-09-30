@@ -1,3 +1,14 @@
+//===---------- OMTensorList.cpp - OMTensor C/C++ Implementation ----------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains C/C++ neutral implementation of OMTensorList data
+// structures and helper functions.
+//
+//===----------------------------------------------------------------------===//
+
 #ifdef __APPLE__
 #include <stdlib.h>
 #else

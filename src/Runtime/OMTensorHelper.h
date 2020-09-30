@@ -1,4 +1,4 @@
-//===----------- OMTensorHelper.h - OMTensor Declaration header -----------===//
+//===----------- OMTensorHelper.h - OMTensor Helper Func header -----------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //

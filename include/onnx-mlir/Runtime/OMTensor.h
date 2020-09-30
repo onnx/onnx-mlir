@@ -4,8 +4,8 @@
 //
 // =============================================================================
 //
-// This file contains declaration of OMTensor and data structures and
-// helper functions.
+// This file contains declaration of OMTensor data structures and
+// API functions.
 //
 //===----------------------------------------------------------------------===//
 

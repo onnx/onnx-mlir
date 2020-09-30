@@ -38,23 +38,23 @@
  * (rank, shape, data type, etc) associated with a tensor input or output.
  *
  * `OMTensorList` is the data structure used to hold a list of pointers to
- *OMTensor so that they can be passed into and out of the compiled model as
- *inputs and outputs.
+ * OMTensor so that they can be passed into and out of the compiled model as
+ * inputs and outputs.
  *
  * \subsection model-entry-point-signature Model Entry Point Signature
  *
  * All compiled model will have the same exact C function signature equivalent
- *to:
+ * to:
  *
  * ```c
  * OMTensorList* run_main_graph(OMTensorList*);
  * ```
  *
  * Intuitively, the model takes a list of tensors as input and returns a list of
- *tensors as output.
+ * ensors as output.
  *
  * \subsection invoke-models-using-c-runtime-api Invoke Models Using C Runtime
- *API
+ * API
  *
  * We demonstrate using the API functions to run a simple ONNX model consisting
  * of an add operation. To create such an onnx model, use this

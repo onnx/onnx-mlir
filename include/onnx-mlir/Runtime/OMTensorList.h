@@ -1,3 +1,15 @@
+//===-------------- OMTensorList.h - OMTensorList Declaration header
+//--------------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains declaration of OMTensorList data structures and
+// API functions.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef ONNX_MLIR_OMTENSORLIST_H
 #define ONNX_MLIR_OMTENSORLIST_H
 
