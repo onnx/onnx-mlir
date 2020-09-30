@@ -41,7 +41,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
     // Borrowed from:
     // https://github.com/pybind/pybind11/issues/563#issuecomment-267835542
     OM_DATA_TYPE dtype;
-    if (py::isinstance<py::array_t<std::float_t>>(inputPyArray))
+    if (py::isinstance<py::array_t<float>>(inputPyArray))
       dtype = ONNX_TYPE_FLOAT;
     else if (py::isinstance<py::array_t<std::uint8_t>>(inputPyArray))
       dtype = ONNX_TYPE_UINT8;
@@ -58,14 +58,15 @@ std::vector<py::array> PyExecutionSession::pyRun(
     else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
     // Missing fp16 support.
-    else if (py::isinstance<py::array_t<std::double_t>>(inputPyArray))
+    else if (py::isinstance<py::array_t<double>>(inputPyArray))
       dtype = ONNX_TYPE_DOUBLE;
     else if (py::isinstance<py::array_t<std::uint32_t>>(inputPyArray))
       dtype = ONNX_TYPE_UINT32;
     else if (py::isinstance<py::array_t<std::uint64_t>>(inputPyArray))
       dtype = ONNX_TYPE_UINT64;
     else {
-      std::cerr << "Numpy type not supported: " << inputPyArray.dtype() << "\n";
+      std::cerr << "Numpy type not supported: " << inputPyArray.dtype() << ".\n";
+      std::cerr << py::isinstance<py::array_t<float>>(inputPyArray) << ".\n";
       exit(1);
     }
 
