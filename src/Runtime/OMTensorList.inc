@@ -54,6 +54,8 @@ struct OMTensorList {
 /* OMTensorList creator */
 OMTensorList *omTensorListCreate(OMTensor **tensors, int n) {
   OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
+  if (!list)
+    return NULL;
   list->_omts = tensors;
   list->_size = n;
   return list;

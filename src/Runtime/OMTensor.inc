@@ -142,6 +142,7 @@ OMTensor *omTensorCreate(
 OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
     int64_t rank, OM_DATA_TYPE dtype, int owning) {
   OMTensor *tensor = omTensorCreate(data_ptr, shape, rank, dtype);
+  // If ctor fails, return NULL.
   if (!tensor)
     return NULL;
   tensor->_owning = owning;
@@ -177,8 +178,8 @@ OMTensor *omTensorCreateEmptyDeprecated(int rank) {
 OMTensor *omTensorCreateEmpty(
     int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor =
-      omTensorCreateWithOwnership(NULL, shape, rank, dtype, true);
-  // Ctor failed, return null.
+      omTensorCreateWithOwnership(NULL, shape, rank, dtype, /*owning=*/true);
+  // If ctor fails, return null.
   if (!tensor)
     return NULL;
   void *dataPtr = malloc(omTensorGetNumElems(tensor) * getDataTypeSize(dtype));
