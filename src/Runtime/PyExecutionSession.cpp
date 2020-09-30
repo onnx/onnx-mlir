@@ -17,33 +17,65 @@
 namespace onnx_mlir {
 
 std::vector<py::array> PyExecutionSession::pyRun(
-    std::vector<py::array> inputsPyArray) {
+    const std::vector<py::array> &inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");
 
   std::vector<OMTensor *> omts;
   for (auto inputPyArray : inputsPyArray) {
-    auto *inputOMTensor = omTensorCreateEmptyDeprecated(inputPyArray.ndim());
     assert(inputPyArray.flags() && py::array::c_style &&
            "Expect contiguous python array.");
 
+    void *dataPtr;
+    int ownData = 0;
     if (inputPyArray.writeable()) {
-      omTensorSetPtr(inputOMTensor, /*owning=*/false,
-          /*allocatedPtr=*/inputPyArray.mutable_data(),
-          /*alignedPtr=*/inputPyArray.mutable_data());
+      dataPtr = inputPyArray.mutable_data();
     } else {
       // If data is not writable, copy them to a writable buffer.
       auto *copiedData = (float *)malloc(inputPyArray.nbytes());
       memcpy(copiedData, inputPyArray.data(), inputPyArray.nbytes());
-      omTensorSetPtr(inputOMTensor, /*owning=*/true,
-          /*allocatedPtr=*/copiedData, /*alignedPtr=*/copiedData);
+      dataPtr = copiedData;
+      // We want OMTensor to free up the memory space upon destruction.
+      ownData = 1;
     }
 
-    omTensorSetShape(inputOMTensor, (int64_t *)inputPyArray.shape());
+    OM_DATA_TYPE dtype;
+    if (inputPyArray.dtype().is(py::dtype("float32")))
+      dtype = ONNX_TYPE_FLOAT;
+    else if (inputPyArray.dtype().is(py::dtype("uint8")))
+        dtype = ONNX_TYPE_UINT8;
+    else if (inputPyArray.dtype().is(py::dtype("int8")))
+        dtype = ONNX_TYPE_INT8;
+    else if (inputPyArray.dtype().is(py::dtype("uint16")))
+        dtype = ONNX_TYPE_UINT16;
+    else if (inputPyArray.dtype().is(py::dtype("int16")))
+        dtype = ONNX_TYPE_INT16;
+    else if (inputPyArray.dtype().is(py::dtype("int32")))
+        dtype = ONNX_TYPE_INT32;
+    else if (inputPyArray.dtype().is(py::dtype("int64")))
+        dtype = ONNX_TYPE_INT64;
+    else if (inputPyArray.dtype().is(py::dtype("bool_")))
+        dtype = ONNX_TYPE_BOOL;
+    else if (inputPyArray.dtype().is(py::dtype("float32")))
+        dtype = ONNX_TYPE_FLOAT;
+    else if (inputPyArray.dtype().is(py::dtype("float64")))
+        dtype = ONNX_TYPE_DOUBLE;
+    else if (inputPyArray.dtype().is(py::dtype("uint32")))
+        dtype = ONNX_TYPE_UINT32;
+    else if (inputPyArray.dtype().is(py::dtype("uint64")))
+        dtype = ONNX_TYPE_UINT64;
+    else {
+      fprintf(stderr, "Unsupported ONNX type in OMTensor.");
+      exit(1);
+    }
+
+    auto *inputOMTensor = omTensorCreateWithOwnership(dataPtr,
+        (int64_t *)inputPyArray.shape(), inputPyArray.ndim(), dtype, ownData);
     omTensorSetStrides(inputOMTensor, (int64_t *)inputPyArray.strides());
+
     omts.emplace_back(inputOMTensor);
   }
-  auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
 
+  auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
   std::vector<py::array> outputPyArrays;
