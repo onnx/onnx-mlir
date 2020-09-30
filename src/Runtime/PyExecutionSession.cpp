@@ -38,30 +38,31 @@ std::vector<py::array> PyExecutionSession::pyRun(
       ownData = 1;
     }
 
+    // Borrowed from:
+    // https://github.com/pybind/pybind11/issues/563#issuecomment-267835542
     OM_DATA_TYPE dtype;
-    if (inputPyArray.dtype().is(py::dtype("float32")))
+    if (py::isinstance<py::array_t<std::float_t>>(inputPyArray))
       dtype = ONNX_TYPE_FLOAT;
-    else if (inputPyArray.dtype().is(py::dtype("uint8")))
+    else if (py::isinstance<py::array_t<std::uint8_t>>(inputPyArray))
       dtype = ONNX_TYPE_UINT8;
-    else if (inputPyArray.dtype().is(py::dtype("int8")))
+    else if (py::isinstance<py::array_t<std::int8_t>>(inputPyArray))
       dtype = ONNX_TYPE_INT8;
-    else if (inputPyArray.dtype().is(py::dtype("uint16")))
+    else if (py::isinstance<py::array_t<std::uint16_t>>(inputPyArray))
       dtype = ONNX_TYPE_UINT16;
-    else if (inputPyArray.dtype().is(py::dtype("int16")))
+    else if (py::isinstance<py::array_t<std::int16_t>>(inputPyArray))
       dtype = ONNX_TYPE_INT16;
-    else if (inputPyArray.dtype().is(py::dtype("int32")))
+    else if (py::isinstance<py::array_t<std::int32_t>>(inputPyArray))
       dtype = ONNX_TYPE_INT32;
-    else if (inputPyArray.dtype().is(py::dtype("int64")))
+    else if (py::isinstance<py::array_t<std::int64_t>>(inputPyArray))
       dtype = ONNX_TYPE_INT64;
-    else if (inputPyArray.dtype().is(py::dtype("bool_")))
+    else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
-    else if (inputPyArray.dtype().is(py::dtype("float32")))
-      dtype = ONNX_TYPE_FLOAT;
-    else if (inputPyArray.dtype().is(py::dtype("float64")))
+    // Missing fp16 support.
+    else if (py::isinstance<py::array_t<std::double_t>>(inputPyArray))
       dtype = ONNX_TYPE_DOUBLE;
-    else if (inputPyArray.dtype().is(py::dtype("uint32")))
+    else if (py::isinstance<py::array_t<std::uint32_t>>(inputPyArray))
       dtype = ONNX_TYPE_UINT32;
-    else if (inputPyArray.dtype().is(py::dtype("uint64")))
+    else if (py::isinstance<py::array_t<std::uint64_t>>(inputPyArray))
       dtype = ONNX_TYPE_UINT64;
     else {
       std::cerr << "Numpy type not supported: " << inputPyArray.dtype() << "\n";
