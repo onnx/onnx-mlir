@@ -25,6 +25,7 @@ add_library(OMONNXToKrnl
         Tensor/Split.cpp
         Tensor/Gather.cpp
         Tensor/Size.cpp
+        Tensor/Flatten.cpp
         ConvertONNXToKrnl.cpp)
 target_link_libraries(OMONNXToKrnl
         onnx)

@@ -28,12 +28,12 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
   auto firstDimVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
   auto secondDimVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
   for (auto i = 0; i < inputRank; i++) {
-    if (i < axisValue) 
-      firstDimVal = rewriter.create<MulIOp>(loc, firstDimVal,
-          rewriter.create<DimOp>(loc, input, i));
-    else 
-      secondDimVal = rewriter.create<MulIOp>(loc, secondDimVal,
-          rewriter.create<DimOp>(loc, input, i));
+    if (i < axisValue)
+      firstDimVal = rewriter.create<MulIOp>(
+          loc, firstDimVal, rewriter.create<DimOp>(loc, input, i));
+    else
+      secondDimVal = rewriter.create<MulIOp>(
+          loc, secondDimVal, rewriter.create<DimOp>(loc, input, i));
   }
   allocOperands.emplace_back(firstDimVal);
   allocOperands.emplace_back(secondDimVal);
@@ -98,13 +98,12 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     SmallVector<Value, 4> inputMemRefVal(iterationBlock.getArguments().begin(),
         iterationBlock.getArguments().end());
     auto inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
-   
+
     // Generate the store for output
     // Define affine map for first dim of output
-    SmallVector<Value, 4> firstMapArgList;
     auto firstIndexAE = rewriter.getAffineConstantExpr(0);
     auto firstAccumulatedDimSizeAE = rewriter.getAffineConstantExpr(1);
-    for (auto i = axisValue-1 ; i >= 0 ; i--) {
+    for (auto i = axisValue - 1; i >= 0; i--) {
       auto dimIndexAE = rewriter.getAffineDimExpr(i);
       firstIndexAE = firstIndexAE + dimIndexAE * firstAccumulatedDimSizeAE;
       auto dimSizeAE = rewriter.getAffineSymbolExpr(i);
@@ -113,39 +112,42 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     AffineMap firstDimMap = AffineMap::get(axisValue, axisValue, firstIndexAE);
 
     // Create the parameter lists for the affine map
-    for (auto i = 0 ; i < axisValue; i++) {
+    SmallVector<Value, 4> firstMapArgList;
+    for (auto i = 0; i < axisValue; i++) {
       firstMapArgList.emplace_back(iterationBlock.getArguments()[i]);
     }
-    for (auto i = 0 ; i < axisValue; i++) {
+    for (auto i = 0; i < axisValue; i++) {
       firstMapArgList.emplace_back(rewriter.create<DimOp>(loc, input, i));
     }
-    auto firstDimVal = rewriter.create<AffineApplyOp>(
-          loc, firstDimMap, firstMapArgList);
+    auto firstDimVal =
+        rewriter.create<AffineApplyOp>(loc, firstDimMap, firstMapArgList);
 
     // Generate index for second dim of output
-    SmallVector<Value, 4> secondMapArgList;
     auto secondIndexAE = rewriter.getAffineConstantExpr(0);
     auto secondAccumulatedDimSizeAE = rewriter.getAffineConstantExpr(1);
-    for (auto i = inputRank-1 ; i >= axisValue ; i--) {
+    // Can not use auto for i here because i may be negative
+    for (int64_t i = inputRank - 1; i >= axisValue; i--) {
       auto idx = i - axisValue;
       auto dimIndexAE = rewriter.getAffineDimExpr(idx);
       secondIndexAE = secondIndexAE + dimIndexAE * secondAccumulatedDimSizeAE;
       auto dimSizeAE = rewriter.getAffineSymbolExpr(idx);
       secondAccumulatedDimSizeAE = dimSizeAE * secondAccumulatedDimSizeAE;
     }
-    AffineMap secondDimMap = AffineMap::get(inputRank-axisValue, inputRank-axisValue, secondIndexAE);
+    AffineMap secondDimMap = AffineMap::get(
+        inputRank - axisValue, inputRank - axisValue, secondIndexAE);
 
     // Create the parameter lists for the affine map
-    for (auto i = axisValue ; i < inputRank; i++) {
+    SmallVector<Value, 4> secondMapArgList;
+    for (auto i = axisValue; i < inputRank; i++) {
       secondMapArgList.emplace_back(iterationBlock.getArguments()[i]);
     }
-    for (auto i = axisValue ; i < inputRank; i++) {
+    for (auto i = axisValue; i < inputRank; i++) {
       secondMapArgList.emplace_back(rewriter.create<DimOp>(loc, input, i));
     }
-    auto secondDimVal = rewriter.create<AffineApplyOp>(
-          loc, secondDimMap, secondMapArgList);
+    auto secondDimVal =
+        rewriter.create<AffineApplyOp>(loc, secondDimMap, secondMapArgList);
 
-    // Create the store 
+    // Create the store
     SmallVector<Value, 2> outputMemRefVal = {firstDimVal, secondDimVal};
     rewriter.create<AffineStoreOp>(loc, inputVal, alloc, outputMemRefVal);
 
