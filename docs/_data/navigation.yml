@@ -11,10 +11,10 @@ toc:
 #    subfolderitems:
 #      - page: Placeholder
 #        url: /piece1.html
-#  - title: How-tos
-#    subfolderitems:
-#      - page: Placeholder
-#        url: /piece1.html
+  - title: How-tos
+    subfolderitems:
+      - page: Using PyRuntime
+        url: /UsingPyRuntime.html
   - title: References
     subfolderitems:
       - page: ONNX Dialect
