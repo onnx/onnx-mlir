@@ -66,7 +66,7 @@ private:
    * @param input onnx input tensor ValueInfoProto.
    * @param arg_types list of mlir types representing types of graph input.
    */
-  mlir::Type ImportInputTensorType(const onnx::ValueInfoProto &input) {
+  mlir::Type ImportTensorType(const onnx::ValueInfoProto &input) {
     std::vector<int64_t> dims;
     auto shape_proto = input.type().tensor_type().shape();
     auto input_tensor_legalized_name = legalize_name(input.name());
@@ -532,6 +532,7 @@ private:
 
     auto tensor_val =
         frontend_symbols_.GetTensorByOnnxName(output_tensor_legalized_name);
+    tensor_val.setType(ImportTensorType(output));
     ret_types.emplace_back(tensor_val.getType());
     ret_vals.push_back(tensor_val);
   }
@@ -560,7 +561,7 @@ private:
     for (const auto &input : graph.input()) {
       if (!initializedTensors.ContainKey(legalize_name(input.name()))) {
         inputNames.push_back(input.name());
-        arg_types.emplace_back(ImportInputTensorType(input));
+        arg_types.emplace_back(ImportTensorType(input));
         // numInputs is the number of graph inputs not contained within the
         // initializer
         ++numInputs;
