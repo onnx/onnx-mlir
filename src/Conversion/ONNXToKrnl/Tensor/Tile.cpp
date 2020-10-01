@@ -100,9 +100,9 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // Alternative implementation can be found at the end of this file.
     SmallVector<Value, 4> inputMemRefVal;
     for (int i = 0; i < outputRank; ++i) {
-      AffineExpr indexAE = rewriter.getAffineDimExpr(0);
-      AffineExpr offsetAE = rewriter.getAffineSymbolExpr(0);
-      AffineMap dimMap = AffineMap::get(1, 1, indexAE % offsetAE);
+      auto indexAE = rewriter.getAffineDimExpr(0);
+      auto offsetAE = rewriter.getAffineSymbolExpr(0);
+      auto dimMap = AffineMap::get(1, 1, indexAE % offsetAE);
 
       auto inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
       auto loopVarVal = iterationBlock.getArguments()[i];
@@ -194,11 +194,11 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     SmallVector<Value, 4> outputMemRefVal;
     for (int i = 0; i < inputRank; ++i) {
 
-      AffineExpr inputIndexAE = rewriter.getAffineDimExpr(0);
-      AffineExpr repeatsIndexAE = rewriter.getAffineDimExpr(1);
-      AffineExpr inputDimAE = rewriter.getAffineSymbolExpr(0);
+      auto inputIndexAE = rewriter.getAffineDimExpr(0);
+      auto repeatsIndexAE = rewriter.getAffineDimExpr(1);
+      auto inputDimAE = rewriter.getAffineSymbolExpr(0);
 
-      AffineMap dimMap =
+      auto dimMap =
           AffineMap::get(2, 1, inputDimAE * repeatsIndexAE + inputIndexAE);
 
       auto inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
