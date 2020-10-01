@@ -61,20 +61,17 @@ private:
   mlir::Location UnknownLoc() { return mlir::UnknownLoc::get(&context_); }
 
   /*!
-   * Import an onnx input tensor type by determining and recording its type
-   * in a list of input tensor mlir types.
-   * @param input onnx input tensor ValueInfoProto.
-   * @param arg_types list of mlir types representing types of graph input.
+   * Import an onnx tensor type by determining and returning its type
+   * @param value_info onnx tensor ValueInfoProto.
    */
-  mlir::Type ImportTensorType(const onnx::ValueInfoProto &input) {
+  mlir::Type ImportTensorType(const onnx::ValueInfoProto &value_info) {
     std::vector<int64_t> dims;
-    auto shape_proto = input.type().tensor_type().shape();
-    auto input_tensor_legalized_name = legalize_name(input.name());
+    auto shape_proto = value_info.type().tensor_type().shape();
     for (int i = 0; i < shape_proto.dim_size(); i++) {
       if (shape_proto.dim()[i].dim_value()) {
         int dim_numeric_size = shape_proto.dim()[i].dim_value();
         assert(dim_numeric_size != 0 &&
-               "Parsed an input tensor with a dimension size of zero");
+               "Parsed an tensor with a dimension size of zero");
         if (dim_numeric_size > 0) {
           dims.push_back(dim_numeric_size);
         } else { // If dim_value < 0, then dim is parametric.
@@ -88,7 +85,7 @@ private:
     }
 
     auto elementOnnxType =
-        (onnx::TensorProto_DataType)input.type().tensor_type().elem_type();
+        (onnx::TensorProto_DataType)value_info.type().tensor_type().elem_type();
     mlir::Type elementType =
         convertONNXTypeToMLIRType(builder_, elementOnnxType);
     llvm::ArrayRef<int64_t> tensor_dims(dims.data(), dims.size());
