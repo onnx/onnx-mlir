@@ -639,6 +639,40 @@ func @test_flatten_1(%arg0 : tensor<5x2x3x4xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : tensor<5x24xf32>
 }
 
+// -----
+
+// Test when axis is 0
+func @test_flatten_2(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Flatten"(%arg0) {axis = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+  // CHECK-LABEL: test_flatten_2
+  // CHECK: [[RES:%.+]] = "onnx.Flatten"(%arg0) {axis = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<1x24xf32>
+  // CHECK: return [[RES]] : tensor<1x24xf32>
+}
+
+// -----
+
+// Test when axis is negative
+func @test_flatten_3(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Flatten"(%arg0) {axis = -1 : si64} : (tensor<2x3x4xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+  // CHECK-LABEL: test_flatten_3
+  // CHECK: [[RES:%.+]] = "onnx.Flatten"(%arg0) {axis = -1 : si64} : (tensor<2x3x4xf32>) -> tensor<24x1xf32>
+  // CHECK: return [[RES]] : tensor<24x1xf32>
+}
+
+// -----
+
+// Test when input is not static shape
+func @test_flatten_4(%arg0 : tensor<2x4x5x?xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<2x4x5x?xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+  // CHECK-LABEL: test_flatten_4
+  // CHECK: [[RES:%.+]] = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<2x4x5x?xf32>) -> tensor<8x?xf32>
+  // CHECK: return [[RES]] : tensor<8x?xf32>
+}
+
+
 //===----------------------------------------------------------------------===//
 /// Test the reshape op inference when concat are present.
 //===----------------------------------------------------------------------===//
