@@ -856,11 +856,13 @@ func @test_reducemean_i32(%arg0 : tensor<3x2x2xi32>) -> tensor<*xi32> {
 }
 
 // -----
-/// Check computing the divisor in ReduceMean when the input has unknown dimensions.
-func @test_reducemean_unknown_dims(%arg0 : tensor<3x?x2xi32>) -> tensor<*xi32> {
+
+/// Check computing the divisor in ReduceMean
+/// when the input has unknown dimensions and is of i32.
+func @test_reducemean_i32_unknown_dims(%arg0 : tensor<3x?x2xi32>) -> tensor<*xi32> {
   %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xi32>)-> tensor<*xi32>
   "std.return"(%0) : (tensor<*xi32>) -> ()
-  // CHECK-LABEL: test_reducemean_unknown_dims
+  // CHECK-LABEL: test_reducemean_i32_unknown_dims
   // CHECK: [[INPUT_SIZE_CONSTANT:%.+]] = constant 6 : i32
   // CHECK: [[ONE:%.+]] = constant 1 : index
   // CHECK: [[DIM:%.+]] = dim %arg0, [[ONE]] : memref<3x?x2xi32>
@@ -868,6 +870,24 @@ func @test_reducemean_unknown_dims(%arg0 : tensor<3x?x2xi32>) -> tensor<*xi32> {
   // CHECK: [[INPUT_SIZE:%.+]] = muli [[INPUT_SIZE_CONSTANT]], [[UNKNOWN_DIM]] : i32
   // CHECK: [[OUTPUT_SIZE:%.+]] = constant 6 : i32
   // CHECK: [[DIVISOR:%.+]] = divi_signed [[INPUT_SIZE]], [[OUTPUT_SIZE]] : i32
+}
+
+// -----
+
+/// Check computing the divisor in ReduceMean
+/// when the input has unknown dimensions and is of f32.
+func @test_reducemean_f32_unknown_dims(%arg0 : tensor<3x?x2xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xf32>)-> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+  // CHECK-LABEL: test_reducemean_f32_unknown_dims
+  // CHECK: [[INPUT_SIZE_CONSTANT:%.+]] = constant 6.000000e+00 : f32
+  // CHECK: [[ONE:%.+]] = constant 1 : index
+  // CHECK: [[DIM:%.+]] = dim %arg0, [[ONE]] : memref<3x?x2xf32>
+  // CHECK: [[UNKNOWN_DIM_i64:%.+]] = index_cast [[DIM]] : index to i64
+  // CHECK: [[UNKNOWN_DIM:%.+]] = uitofp [[UNKNOWN_DIM_i64]] : i64 to f32
+  // CHECK: [[INPUT_SIZE:%.+]] = mulf [[INPUT_SIZE_CONSTANT]], [[UNKNOWN_DIM]] : f32
+  // CHECK: [[OUTPUT_SIZE:%.+]] = constant 6.000000e+00 : f32
+  // CHECK: [[DIVISOR:%.+]] = divf [[INPUT_SIZE]], [[OUTPUT_SIZE]] : f32
 }
 
 // -----

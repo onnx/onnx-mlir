@@ -84,12 +84,15 @@ Value getSizeInType(ConversionPatternRewriter &rewriter, Location loc,
     for (unsigned i = 0; i < shape.size(); i++) {
       if (shape[i] == -1) {
         Value index = rewriter.create<DimOp>(loc, memRef, i);
-        Value dim = rewriter.create<IndexCastOp>(loc, index, elementType);
-        if (elementType.isa<FloatType>())
+        if (elementType.isa<FloatType>()) {
+          Value dim =
+              rewriter.create<IndexCastOp>(loc, index, rewriter.getI64Type());
+          dim = rewriter.create<UIToFPOp>(loc, dim, elementType);
           sizeVal = rewriter.create<MulFOp>(loc, sizeVal, dim);
-        else if (elementType.isa<IntegerType>())
+        } else if (elementType.isa<IntegerType>()) {
+          Value dim = rewriter.create<IndexCastOp>(loc, index, elementType);
           sizeVal = rewriter.create<MulIOp>(loc, sizeVal, dim);
-        else
+        } else
           llvm_unreachable("unsupported element type");
       }
     }
