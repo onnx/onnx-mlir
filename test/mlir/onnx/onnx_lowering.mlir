@@ -2306,19 +2306,19 @@ func @test_flatten0(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
   // CHECK: [[MAP_FIRST:#.+]] = affine_map<() -> (0)>
   // CHECK: [[MAP_SECOND:#.+]] = affine_map<(d0, d1, d2)[s0, s1, s2] -> (d2 + d1 * s2 + d0 * (s1 * s2))>
   // CHECK-LABEL test_flatten0
-  // CHECK:  %0 = alloc() : memref<1x24xf32>
-  // CHECK:  %1:3 = krnl.define_loops 3
-  // CHECK:  krnl.iterate(%1#0, %1#1, %1#2) with (%1#0 -> %arg1 = 0 to 2, %1#1 -> %arg2 = 0 to 3, %1#2 -> %arg3 = 0 to 4) {
-  // CHECK:    %2 = affine.load %arg0[%arg1, %arg2, %arg3] : memref<2x3x4xf32>
-  // CHECK:    %3 = affine.apply [[MAP_FIRST]]()
-  // CHECK:    %c0 = constant 0 : index
-  // CHECK:    %4 = dim %arg0, %c0 : memref<2x3x4xf32>
-  // CHECK:    %c1 = constant 1 : index
-  // CHECK:    %5 = dim %arg0, %c1 : memref<2x3x4xf32>
-  // CHECK:    %c2 = constant 2 : index
-  // CHECK:    %6 = dim %arg0, %c2 : memref<2x3x4xf32>
-  // CHECK:    %7 = affine.apply [[MAP_SECOND]](%arg1, %arg2, %arg3)[%4, %5, %6]
-  // CHECK:    affine.store %2, %0[%3, %7] : memref<1x24xf32>
+  // CHECK:  [[ALLOC:%.+]] = alloc() : memref<1x24xf32>
+  // CHECK:  [[LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK:  krnl.iterate([[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2) with ([[LOOP]]#0 -> [[LOOPARG1:%.+]] = 0 to 2, [[LOOP]]#1 -> [[LOOPARG2:%.+]] = 0 to 3, [[LOOP]]#2 -> [[LOOPARG3:%.+]] = 0 to 4) {
+  // CHECK:    [[LOAD:%.+]] = affine.load %arg0{{\[}}[[LOOPARG1]], [[LOOPARG2]], [[LOOPARG3]]{{\]}} : memref<2x3x4xf32>
+  // CHECK:    [[FIRSTDIM:%.+]] = affine.apply [[MAP_FIRST]]()
+  // CHECK:    [[C0:%.+]] = constant 0 : index
+  // CHECK:    [[R4:%.+]] = dim %arg0, [[C0]] : memref<2x3x4xf32>
+  // CHECK:    [[C1:%.+]] = constant 1 : index
+  // CHECK:    [[R5:%.+]] = dim %arg0, [[C1]] : memref<2x3x4xf32>
+  // CHECK:    [[C2:%.+]] = constant 2 : index
+  // CHECK:    [[R6:%.+]] = dim %arg0, [[C2]] : memref<2x3x4xf32>
+  // CHECK:    [[SECONDDIM:%.+]] = affine.apply [[MAP_SECOND]]([[LOOPARG1]], [[LOOPARG2]], [[LOOPARG3]]){{\[}}[[R4]], [[R5]], [[R6]]{{\]}}
+  // CHECK:    affine.store [[LOAD]], [[ALLOC]]{{\[}}[[FIRSTDIM]], [[SECONDDIM]]{{\]}} : memref<1x24xf32>
 }
 
 
