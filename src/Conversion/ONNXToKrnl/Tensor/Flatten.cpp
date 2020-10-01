@@ -65,7 +65,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     auto inputRank = inputShape.size();
     auto axisValue = flattenOp.axis();
     if (axisValue < 0)
-      axisValue = inputRank + axisValue + 1;
+      axisValue = inputRank + axisValue;
 
     // Insert alloc and dealloc
     bool insertDealloc = checkInsertDealloc(op);

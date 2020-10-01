@@ -2169,7 +2169,7 @@ LogicalResult ONNXFlattenOp::inferShapes() {
 
   // Negative axis is counting dimension from back
   if (axisValue < 0)
-    axisValue = inputRank + axisValue + 1;
+    axisValue = inputRank + axisValue;
 
   // Determine the size of the first dimension of output
   int64_t firstDim = 1;
