@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/StandardTypes.h"
 #include "mlir/Pass/Pass.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -34,7 +35,7 @@ public:
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape.
     f.walk([&](mlir::Operation *op) {
-      if (returnsDynamicShape(op)) {
+      if (isUsedByReturnOp(op) || returnsDynamicShape(op)) {
         if (auto shape_op = dyn_cast<ShapeInference>(op)) {
           if (failed(shape_op.inferShapes())) {
             op->emitError("shape inference failed");
@@ -67,6 +68,15 @@ public:
       f.setType(FunctionType::get(f.getType().getInputs(),
           std::vector<Type>(results.begin(), results.end()), f.getContext()));
     }
+  }
+
+  static bool isUsedByReturnOp(Operation *op) {
+    for (auto *user : op->getUsers()) {
+      if (dyn_cast<ReturnOp>(user)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /*!
