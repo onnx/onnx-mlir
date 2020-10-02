@@ -529,7 +529,11 @@ private:
 
     auto tensor_val =
         frontend_symbols_.GetTensorByOnnxName(output_tensor_legalized_name);
-    tensor_val.setType(ImportTensorType(output));
+    if (output.type().value_case() == onnx::TypeProto::kTensorType) {
+      if (output.type().tensor_type().has_shape()) {
+        tensor_val.setType(ImportTensorType(output));
+      }
+    }
     ret_types.emplace_back(tensor_val.getType());
     ret_vals.push_back(tensor_val);
   }
