@@ -56,7 +56,8 @@ struct ONNXTileOpLowering : public ConversionPattern {
 
     // get input operands, shapes, and rank
     Value input = operandAdaptor.input();
-    auto inputShape = input.getType().cast<MemRefType>().getShape();
+    auto inputMemRefType = input.getType().cast<MemRefType>();
+    auto inputShape = inputMemRefType.getShape();
     int64_t inputRank = inputShape.size();
     Value repeats = operandAdaptor.repeats();
 
@@ -113,8 +114,11 @@ struct ONNXTileOpLowering : public ConversionPattern {
 
     // Load the value from input
     // Tried to use affine load when the input has constant shape
-    // But got runtime complaint, perhaps due ot RemIOp
-    auto inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
+    Value inputVal;
+    if (hasAllConstantDimensions(inputMemRefType)) 
+      inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
+    else
+      inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
     SmallVector<Value, 4> outputMemRefVal(iterationBlock.getArguments().begin(),
         iterationBlock.getArguments().end());
 
@@ -210,7 +214,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
     }
 
     auto inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
-    rewriter.create<AffineStoreOp>(loc, inputVal, alloc, outputMemRefVal);
+    rewriter.create<StoreOp>(loc, inputVal, alloc, outputMemRefVal);
 
     rewriter.replaceOp(op, alloc);
 
