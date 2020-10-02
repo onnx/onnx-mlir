@@ -115,7 +115,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // Load the value from input
     // Tried to use affine load when the input has constant shape
     Value inputVal;
-    if (hasAllConstantDimensions(inputMemRefType)) 
+    if (hasAllConstantDimensions(inputMemRefType))
       inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
     else
       inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
