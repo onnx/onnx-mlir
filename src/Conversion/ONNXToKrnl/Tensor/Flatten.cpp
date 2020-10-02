@@ -25,18 +25,26 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
   auto inputRank = inputShape.size();
 
   SmallVector<Value, 2> allocOperands;
-  auto firstDimVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
-  auto secondDimVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
-  for (auto i = 0; i < inputRank; i++) {
-    if (i < axisValue)
-      firstDimVal = rewriter.create<MulIOp>(
-          loc, firstDimVal, rewriter.create<DimOp>(loc, input, i));
-    else
-      secondDimVal = rewriter.create<MulIOp>(
-          loc, secondDimVal, rewriter.create<DimOp>(loc, input, i));
+ 
+  // Compute size for the first dimension when not constant
+  if (memRefType.getShape()[0] == -1) {
+    auto dimVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
+    for (auto i = 0; i < axisValue; i++) {
+      dimVal = rewriter.create<MulIOp>(
+          loc, dimVal, rewriter.create<DimOp>(loc, input, i));
+    }
+    allocOperands.emplace_back(dimVal);
   }
-  allocOperands.emplace_back(firstDimVal);
-  allocOperands.emplace_back(secondDimVal);
+
+  // Compute size for the second dimension when not constant
+  if (memRefType.getShape()[1] == -1) {
+    auto dimVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
+    for (auto i = axisValue; i < inputRank; i++) {
+      dimVal = rewriter.create<MulIOp>(
+          loc, dimVal, rewriter.create<DimOp>(loc, input, i));
+    }
+    allocOperands.emplace_back(dimVal);
+  }
 
   alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
   if (insertDealloc) {
@@ -149,7 +157,10 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
 
     // Create the store
     SmallVector<Value, 2> outputMemRefVal = {firstDimVal, secondDimVal};
-    rewriter.create<AffineStoreOp>(loc, inputVal, alloc, outputMemRefVal);
+    if (hasAllConstantDimensions(outputMemRefType))
+      rewriter.create<AffineStoreOp>(loc, inputVal, alloc, outputMemRefVal);
+    else
+      rewriter.create<StoreOp>(loc, inputVal, alloc, outputMemRefVal);
 
     rewriter.replaceOp(op, alloc);
     return success();
