@@ -223,6 +223,9 @@ void populateLoweringONNXUnsqueezeOpPattern(
 void populateLoweringONNXTransposeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXGatherOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXPadConstantValuePadOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
@@ -235,6 +238,9 @@ void populateLoweringONNXReshapeOpPattern(
 void populateLoweringONNXIdentityOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXConstantOfShapeOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXConstantOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
@@ -245,6 +251,9 @@ void populateLoweringONNXSqueezeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSplitOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXSizeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);

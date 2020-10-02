@@ -696,7 +696,7 @@ func @test_add_with_broadcasting(%arg0 : tensor<?xf32>, %arg1 : tensor<?x10xf32>
 // -----
 
 func @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceMax"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+  %0 ="onnx.ReduceMax"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reducemax
@@ -720,7 +720,7 @@ func @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 // -----
 
 func @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceMin"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+  %0 ="onnx.ReduceMin"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reducemin
@@ -744,7 +744,7 @@ func @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 // -----
 
 func @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceProd"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+  %0 ="onnx.ReduceProd"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reduceprod
@@ -767,7 +767,7 @@ func @test_reduceprod(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 // -----
 
 func @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceSum"(%arg0) {axes=[1], keepdims = 0 : i64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
+  %0 ="onnx.ReduceSum"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_reducesum
@@ -790,7 +790,7 @@ func @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 // -----
 
 func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Softmax"(%arg0) {axis=1:i64} : (tensor<10x10xf32>) -> tensor<*xf32>
+  %0 = "onnx.Softmax"(%arg0) {axis=1: si64} : (tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_softmax
@@ -835,7 +835,7 @@ func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 // -----
 
 func @test_gemm(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
-  %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 5.0 : f32, transA = 1, transB = 0} : (tensor<5x10xf32>, tensor<5x10xf32>, tensor<10xf32>) -> tensor<*xf32>
+  %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 5.0 : f32, transA = 1 : si64, transB = 0 : si64} : (tensor<5x10xf32>, tensor<5x10xf32>, tensor<10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_gemm
@@ -1191,7 +1191,7 @@ func @test_matmul7(%arg0 : tensor<5xf32>, %arg1 : tensor<5xf32>) -> tensor<*xf32
 
 func @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>) -> tensor<*xf32> {
   %cst = constant unit
-  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : i64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<*xf32>
+  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_no_pad
@@ -1227,7 +1227,7 @@ func @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2
 // -----
 
 func @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>, %arg2 : tensor<5xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 1 : i64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, tensor<5xf32>) -> tensor<*xf32>
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, tensor<5xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_bias_no_pad
@@ -1267,18 +1267,18 @@ func @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x
 
 func @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %arg1 : tensor<5x3x6x7xf32>) -> tensor<*xf32> {
   %cst = constant unit
-  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 3 : i64} : (tensor<1x9x32x64xf32>, tensor<5x3x6x7xf32>, none) -> tensor<*xf32>
+  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 3 : si64} : (tensor<1x9x32x64xf32>, tensor<5x3x6x7xf32>, none) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_no_pad_w_group
   // CHECK: [[RES:%.+]] = alloc() : memref<1x5x27x58xf32>
-  // CHECK: [[CONST0:%.+]] = constant 1 : index
+  // CHECK: %[[CONST0:.+]] = constant 1 : index
   // CHECK: [[CONST1:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CONST2:%.+]] = constant 3 : index
   // CHECK: [[OUTER_LOOPS:%.+]]:3 = krnl.define_loops 3
 
   // CHECK: krnl.iterate([[OUTER_LOOPS]]#0, [[OUTER_LOOPS]]#1, [[OUTER_LOOPS]]#2) with ([[OUTER_LOOPS]]#0 -> %arg2 = 0 to 1, [[OUTER_LOOPS]]#1 -> %arg3 = 0 to 3, [[OUTER_LOOPS]]#2 -> %arg4 = 0 to 1) {
-  // CHECK: %[[ADD1:.+]] = affine.apply #{{.*}}(%arg3, [[CONST0]])[%arg4]
+  // CHECK: %[[ADD1:.+]] = affine.apply #{{.*}}(%arg3, %arg4)[%[[CONST0]]]
   // CHECK: [[SPATIAL_LOOPS:%.+]]:2 = krnl.define_loops 2
 
   // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg5 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg6 = 0 to 58) {
@@ -1306,7 +1306,7 @@ func @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %arg1 : te
 
 func @test_conv_no_bias_no_pad_w_strides(%arg0 : tensor<1x9x32x64xf32>, %arg1 : tensor<5x9x6x7xf32>) -> tensor<*xf32> {
   %cst = constant unit
-  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : i64, strides = [2, 2]} : (tensor<1x9x32x64xf32>, tensor<5x9x6x7xf32>, none) -> tensor<*xf32>
+  %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64, strides = [2, 2]} : (tensor<1x9x32x64xf32>, tensor<5x9x6x7xf32>, none) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_conv_no_bias_no_pad_w_strides
@@ -1520,7 +1520,7 @@ func @test_constant_dense_2d_value(%arg0: tensor<1xf32>) -> tensor<*xf32> {
 // -----
 
 func @test_concat_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<5x5x9x32xf32> {
-  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 2 } : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<5x5x9x32xf32>
+  %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 2 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<5x5x9x32xf32>
   "std.return"(%1) : (tensor<5x5x9x32xf32>) -> ()
 
   // CHECK-LABEL: test_concat_1
@@ -1678,7 +1678,7 @@ func @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*x
 
 func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
   %cst = constant unit
-  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : i64} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
   return %Y_h : tensor<*xf32>
 
   // CHECK-DAG: [[ACCESS_BY_OFFSET_MAP:#.+]] = affine_map<(d0)[s0, s1] -> (d0 + s0 * s1)>
@@ -1901,7 +1901,7 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
 
 func @test_lstm_reverse_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
   %cst = constant unit
-  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : i64, direction = "reverse"} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64, direction = "reverse"} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
   return %Y_h : tensor<*xf32>
 
   // CHECK: [[REVERSE_IV_MAP:#.+]] = affine_map<(d0)[s0] -> (-d0 + s0 - 1)>
@@ -1918,7 +1918,7 @@ func @test_lstm_reverse_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>
 
 func @test_lstm_bidirectional_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
   %cst = constant unit
-  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : i64, direction = "bidirectional"} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64, direction = "bidirectional"} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
   return %Y_h : tensor<*xf32>
 
   // CHECK: [[REVERSE_IV_MAP:#.+]] = affine_map<(d0)[s0] -> (-d0 + s0 - 1)>
@@ -1968,7 +1968,7 @@ func @test_squeeze_unknown_dimensions(%arg0 : tensor<?x1x32x?x64xf32>) -> tensor
 // -----
 
 func @test_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
-  %0, %1 = "onnx.Split"(%arg0) { axis = 0} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %0, %1 = "onnx.Split"(%arg0) { axis = 0 : si64} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
   // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0) -> (d0 + 8)>
@@ -1993,7 +1993,7 @@ func @test_split_equal(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*
 // -----
 
 func @test_split_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
-  %0, %1 = "onnx.Split"(%arg0) { axis = 1, split = [2, 30]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %0, %1 = "onnx.Split"(%arg0) { axis = 1 : si64, split = [2, 30]} : (tensor<16x32x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
   // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0) -> (d0 + 2)>
@@ -2018,7 +2018,7 @@ func @test_split_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tenso
 // -----
 
 func @test_split_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
-  %0, %1 = "onnx.Split"(%arg0) { axis = 1, split = [2, 30]} : (tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  %0, %1 = "onnx.Split"(%arg0) { axis = 1 : si64, split = [2, 30]} : (tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
   "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
 
   // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0) -> (d0 + 2)>
@@ -2051,7 +2051,7 @@ func @test_split_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>
 // -----
 
 func @cast_lowering_sametype(%arg0: tensor<f32>) -> tensor<f32> {
-  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<f32>) -> tensor<f32>
+  %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<f32>) -> tensor<f32>
   "std.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_sametype
@@ -2064,7 +2064,7 @@ func @cast_lowering_sametype(%arg0: tensor<f32>) -> tensor<f32> {
 // -----
 
 func @cast_lowering_intfloat(%arg0: tensor<i64>) -> tensor<f32> {
-  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<i64>) -> tensor<f32>
+  %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<i64>) -> tensor<f32>
   "std.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_intfloat
@@ -2078,7 +2078,7 @@ func @cast_lowering_intfloat(%arg0: tensor<i64>) -> tensor<f32> {
 // -----
 
 func @cast_lowering_floatint(%arg0: tensor<f32>) -> tensor<i64> {
-  %0 = "onnx.Cast"(%arg0) {to = 7 : i64} : (tensor<f32>) -> tensor<i64>
+  %0 = "onnx.Cast"(%arg0) {to = 7 : si64} : (tensor<f32>) -> tensor<i64>
   "std.return"(%0) : (tensor<i64>) -> ()
 
   // CHECK-LABEL: cast_lowering_floatint
@@ -2092,7 +2092,7 @@ func @cast_lowering_floatint(%arg0: tensor<f32>) -> tensor<i64> {
 // -----
 
 func @cast_lowering_f16f32(%arg0: tensor<f16>) -> tensor<f32> {
-  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<f16>) -> tensor<f32>
+  %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<f16>) -> tensor<f32>
   "std.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_f16f32
@@ -2106,7 +2106,7 @@ func @cast_lowering_f16f32(%arg0: tensor<f16>) -> tensor<f32> {
 // -----
 
 func @cast_lowering_f64f32(%arg0: tensor<f64>) -> tensor<f32> {
-  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<f64>) -> tensor<f32>
+  %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<f64>) -> tensor<f32>
   "std.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_f64f32
@@ -2120,7 +2120,7 @@ func @cast_lowering_f64f32(%arg0: tensor<f64>) -> tensor<f32> {
 // -----
 
 func @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
-  %0 = "onnx.Cast"(%arg0) {to = 1 : i64} : (tensor<10xf64>) -> tensor<*xf32>
+  %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<10xf64>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: cast_lowering_f64f32_10
@@ -2131,4 +2131,169 @@ func @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
   // CHECK: [[FPTRUNC:%.+]] = fptrunc [[LOAD1]] : f64 to f32
   // CHECK: affine.store [[FPTRUNC]], [[RES]][%arg1] : memref<10xf32>
   // CHECK: return [[RES]] : memref<10xf32>
+}
+
+// -----
+
+func @test_size_known(%arg0: tensor<2x2xf32>) -> tensor<i64> {
+  %1 = "onnx.Size"(%arg0) : (tensor<2x2xf32>) -> tensor<i64>
+  "std.return"(%1) : (tensor<i64>) -> ()
+
+  // CHECK-LABEL: test_size_known
+  // CHECK:      [[RES:%.+]] = alloc() : memref<i64>
+  // CHECK-NEXT  [[SIZE:%.+]] = constant 4 : i64
+  // CHECK-NEXT  affine.store [[SIZE]], [[RES]][] : memref<i64>
+  // CHECK-NEXT  return [[RES]] : memref<i64>
+
+}
+
+// -----
+
+func @test_size_unknown(%arg0 : tensor<?x2x?xf32>) -> tensor<i64> {
+
+  // CHECK-LABEL: test_size_unknown
+  // CHECK:       [[RES:%.+]] = alloc() : memref<i64>
+  // CHECK-NEXT:  [[INIT:%.+]] = constant 2 : i64
+  // CHECK-NEXT:  [[IND1:%.+]] = constant 0 : index
+  // CHECK-NEXT:  [[DIM1:%.+]] = dim %arg0, [[IND1]] : memref<?x2x?xf32>
+  // CHECK-NEXT:  [[CAST1:%.+]] = index_cast [[DIM1]] : index to i64
+  // CHECK-NEXT:  [[TMP1:%.+]] = muli [[INIT]], [[CAST1]] : i64
+  // CHECK-NEXT:  [[IND2:%.+]] = constant 2 : index
+  // CHECK-NEXT:  [[DIM2:%.+]] = dim %arg0, [[IND2]] : memref<?x2x?xf32>
+  // CHECK-NEXT:  [[IND3:%.+]] = index_cast [[DIM2]] : index to i64
+  // CHECK-NEXT:  [[SIZE:%.+]] = muli [[TMP1]], [[IND3]] : i64
+  // CHECK-NEXT:  affine.store [[SIZE]], [[RES]][] : memref<i64>
+  // CHECK-NEXT:  return [[RES]] : memref<i64>
+
+  %1 = "onnx.Size"(%arg0)  : (tensor<?x2x?xf32>) -> tensor<i64>
+  "std.return"(%1) : (tensor<i64>) -> ()
+}
+
+// -----
+
+// Test gather along axis 0, first example in ONNX for Gather.
+func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
+  %indices = "onnx.Constant"() {value = dense<[[0, 1], [1, 2]]> : tensor<2x2xi64>} : () -> tensor<2x2xi64>
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
+  "std.return"(%0) : (tensor<2x2x2xf32>) -> ()
+
+  // CHECK-LABEL: test_gather_axis0
+  // CHECK: [[ALLOC:%.+]] = alloc() : memref<2x2x2xf32>
+  // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = "{{.*}}", shape = [2, 2], value = dense<{{\[+}}0, 1], [1, 2{{\]+}}> : tensor<2x2xi64>} : () -> memref<2x2xi64>
+  // CHECK: [[LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[ZERO:%.+]] = constant 0 : index
+  // CHECK: [[DIM_INDEX:%.+]] = constant 0 : index
+  // CHECK: [[DIM:%.+]] = "krnl.dim"(%arg0, [[DIM_INDEX]]) : (memref<3x2xf32>, index) -> index
+  // CHECK: krnl.iterate([[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2) with ([[LOOP]]#0 -> [[ARG1:%.+]] = 0 to 2, [[LOOP]]#1 -> [[ARG2:%.+]] = 0 to 2, [[LOOP]]#2 -> [[ARG3:%.+]] = 0 to 2) {
+  // CHECK: [[AFFINE1:%.+]] = affine.load [[GLOBAL]]{{.}}[[ARG1]], [[ARG2]]{{.}} : memref<2x2xi64>
+  // CHECK: [[AFFINE2:%.+]] = index_cast [[AFFINE1]] : i64 to index
+  // CHECK: [[AFFINE3:%.+]] = addi [[AFFINE2]], [[DIM]] : index
+  // CHECK: [[CMP:%.+]] = cmpi "slt", [[AFFINE2]], [[ZERO]] : index
+  // CHECK: [[AFFINE4:%.+]] = select [[CMP]], [[AFFINE3]], [[AFFINE2]] : index
+  // CHECK: [[DATA:%.+]] = load %arg0{{.}}[[AFFINE4]], [[ARG3]]{{.}} : memref<3x2xf32>
+  // CHECK: affine.store [[DATA]], [[ALLOC]]{{.}}[[ARG1]], [[ARG2]], [[ARG3]]{{.}} : memref<2x2x2xf32>
+}
+
+// -----
+
+// Test gather along axis 1, second example in ONNX for Gather.
+func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<1x3x2xf32> {
+  %indices = "onnx.Constant"() {value = dense<[[0, 2]]> : tensor<1x2xi64>} : () -> tensor<1x2xi64>
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<1x3x2xf32>
+  "std.return"(%0) : (tensor<1x3x2xf32>) -> ()
+
+  // CHECK-LABEL: test_gather_axis1
+  // CHECK: [[ALLOC:%.+]] = alloc() : memref<1x3x2xf32>
+  // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = "constant_0", shape = [1, 2], value = dense<{{\[+}}0, 2{{\]+}}> : tensor<1x2xi64>} : () -> memref<1x2xi64>
+  // CHECK: [[LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[ZERO:%.+]] = constant 0 : index
+  // CHECK: [[DIM_INDEX:%.+]] = constant 1 : index
+  // CHECK: [[DIM:%.+]] = "krnl.dim"(%arg0, [[DIM_INDEX]]) : (memref<3x3xf32>, index) -> index
+  // CHECK: krnl.iterate([[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2) with ([[LOOP]]#0 -> [[ARG1:%.+]] = 0 to 3, [[LOOP]]#1 -> [[ARG2:%.+]] = 0 to 1, [[LOOP]]#2 -> [[ARG3:%.+]] = 0 to 2) {
+  // CHECK: [[AFFINE1:%.+]] = affine.load [[GLOBAL]]{{.}}[[ARG2]], [[ARG3]]{{.}} : memref<1x2xi64>
+  // CHECK: [[AFFINE2:%.+]] = index_cast [[AFFINE1]] : i64 to index
+  // CHECK: [[AFFINE3:%.+]] = addi [[AFFINE2]], [[DIM]] : index
+  // CHECK: [[CMP:%.+]] = cmpi "slt", [[AFFINE2]], [[ZERO]] : index
+  // CHECK: [[AFFINE4:%.+]] = select [[CMP]], [[AFFINE3]], [[AFFINE2]] : index
+  // CHECK: [[DATA:%.+]] = load %arg0{{.}}[[ARG1]], [[AFFINE4]]{{.}} : memref<3x3xf32>
+  // CHECK: affine.store [[DATA]], [[ALLOC]]{{.}}[[ARG1]], [[ARG2]], [[ARG3]]{{.}} : memref<1x3x2xf32>
+}
+
+// -----
+
+// Check the lowering of ConstantOfShape when:
+//   - No value attribute.
+//   - The input is an empty tensor.
+// Expected emitted code:
+//   - No need a Krnl iterate.
+//   - The output is a scalar tensor.
+func @test_constant_of_shape_empty_tensor(%arg0 : tensor<0xi64>) -> tensor<*xf32> {
+  %0 = "onnx.ConstantOfShape"(%arg0) : (tensor<0xi64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape_empty_tensor
+  // CHECK: [[RES:%.+]] = alloc() : memref<f32>
+  // CHECK: [[CST_VALUE:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: affine.store [[CST_VALUE]], [[RES]][] : memref<f32>
+  // CHECK: return [[RES]] : memref<f32>
+}
+
+// -----
+
+// Check the lowering of ConstantOfShape when:
+//   - The input is not a constant tensor.
+// Expected emitted code:
+//   - Emit code to compute output dimensions from the input's dimensions.
+//   - Krnl iterates are used to set values to the output.
+func @test_constant_of_shape_dynamic_dims(%arg0 : tensor<3xi64>) -> tensor<*xf32> {
+  %0 = "onnx.ConstantOfShape"(%arg0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape_dynamic_dims
+  // CHECK: [[CST0:%.+]] = constant 0 : index
+  // CHECK: [[LOAD_DIM_0:%.+]] = affine.load %arg0{{\[}}[[CST0]]{{\]}} : memref<3xi64>
+  // CHECK: [[DIM_0:%.+]] = index_cast [[LOAD_DIM_0]] : i64 to index
+  // CHECK: [[CST1:%.+]] = constant 1 : index
+  // CHECK: [[LOAD_DIM_1:%.+]] = affine.load %arg0{{\[}}[[CST1]]{{\]}} : memref<3xi64>
+  // CHECK: [[DIM_1:%.+]] = index_cast [[LOAD_DIM_1]] : i64 to index
+  // CHECK: [[CST2:%.+]] = constant 2 : index
+  // CHECK: [[LOAD_DIM_2:%.+]] = affine.load %arg0{{\[}}[[CST2]]{{\]}} : memref<3xi64>
+  // CHECK: [[DIM_2:%.+]] = index_cast [[LOAD_DIM_2]] : i64 to index
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]], [[DIM_1]], [[DIM_2]]) : memref<?x?x?xf32>
+
+  // CHECK: [[CST_VALUE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[LOOP_DEF:%.+]]:3 = krnl.define_loops 3
+  // CHECK: [[CST00:%.+]] = constant 0 : index
+  // CHECK: [[RES_DIM_0:%.+]] = dim [[RES]], [[CST00]] : memref<?x?x?xf32>
+  // CHECK: [[CST11:%.+]] = constant 1 : index
+  // CHECK: [[RES_DIM_1:%.+]] = dim [[RES]], [[CST11]] : memref<?x?x?xf32>
+  // CHECK: [[CST22:%.+]] = constant 2 : index
+  // CHECK: [[RES_DIM_2:%.+]] = dim [[RES]], [[CST22]] : memref<?x?x?xf32>
+  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg1 = 0 to [[RES_DIM_0]], [[LOOP_DEF]]#1 -> %arg2 = 0 to [[RES_DIM_1]], [[LOOP_DEF]]#2 -> %arg3 = 0 to [[RES_DIM_2]]) {
+  // CHECK:   affine.store [[CST_VALUE]], [[RES]][%arg1, %arg2, %arg3] : memref<?x?x?xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<?x?x?xf32>
+}
+
+// -----
+
+// Check the lowering of ConstantOfShape when:
+//   - The input is a constant tensor.
+// Expected emitted code:
+//   - Output dimensions are computed during compilation time.
+//   - Krnl iterates are used to set values to the output.
+func @test_constant_of_shape_static_dims() -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[3, 4, 5]> : tensor<3xi64> } : () -> tensor<3xi64>
+  %1 = "onnx.ConstantOfShape"(%0) {value = dense<[1.0]> : tensor<1xf32>} : (tensor<3xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_constant_of_shape_static_dims
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x4x5xf32>
+  // CHECK: [[GLOBAL_CST:%.+]] = "krnl.global"() {name = "constant_0", shape = [3], value = dense<[3, 4, 5]> : tensor<3xi64>} : () -> memref<3xi64>
+  // CHECK: [[CST_VALUE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[LOOP_DEF:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[LOOP_DEF]]#0, [[LOOP_DEF]]#1, [[LOOP_DEF]]#2) with ([[LOOP_DEF]]#0 -> %arg0 = 0 to 3, [[LOOP_DEF]]#1 -> %arg1 = 0 to 4, [[LOOP_DEF]]#2 -> %arg2 = 0 to 5) {
+  // CHECK:   affine.store [[CST_VALUE]], [[RES]][%arg0, %arg1, %arg2] : memref<3x4x5xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x4x5xf32>
 }

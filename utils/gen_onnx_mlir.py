@@ -32,7 +32,7 @@ parser.add_argument("--dry-run-op-build-table",
                     action="store_true",
                     default=False)
 parser.add_argument("--check-operation-version",
-                    help="check whether the imported onnx package has new operation or " 
+                    help="check whether the imported onnx package has new operation or "
                          " newer version of operation compared with version stored in  version_dicts",
                     action="store_true",
                     default=False)
@@ -303,6 +303,7 @@ OpsWithShapeInference=[
     'Sign',
     'Sin',
     'Sinh',
+    'Size',
     'Slice',
     'Softmax',
     'Softplus',
@@ -321,7 +322,7 @@ OpsWithShapeInference=[
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast', 'Transpose']
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast', 'Transpose', 'Dropout', 'Shape', 'Size']
 
 # Operations who have operands that, if produced by constant operations, should
 # be promoted to become an attribute (via attribute promotion).
@@ -344,7 +345,7 @@ OpsWithResultTypeInference = {
         resultTypes.push_back(attr.getType());
       }''',
   "Cast":
-    '''auto toAttr = to().getSExtValue();
+    '''auto toAttr = to();
       auto builder = mlir::OpBuilder(getContext());
       resultTypes.push_back(mlir::UnrankedTensorType::get(
         convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));''',
@@ -439,7 +440,7 @@ def onnx_attr_type_to_mlir_attr_type(t):
     onnx_attr_type = onnx_attr_type[onnx_attr_type.rfind('.') + 1:].lower()
 
     if onnx_attr_type == 'int':
-        mlir_attr_type = 'I64Attr'
+        mlir_attr_type = 'SI64Attr'
     elif onnx_attr_type == 'float':
         mlir_attr_type = 'F32Attr'
     elif onnx_attr_type == 'ints':
@@ -496,7 +497,7 @@ def get_tblgen_type_index(type_str):
     return tblgen_types.index(type_str)
 
 #the possible data structures are tensor, map and seq(tensor())
-def get_data_structure_element(allowed_type_str): 
+def get_data_structure_element(allowed_type_str):
     structure_list = ['tensor', 'seq', 'map']
     for structure in structure_list:
         if allowed_type_str.startswith(structure) :
@@ -542,9 +543,9 @@ def get_allowed_elem_types(schema, input):
                     return allowed_structure, None
                 if  not t in allowed_type_list :
                     allowed_tyoe_list = allowed_type_list.append(t)
-    
+
             return allowed_structure,allowed_type_list
-    
+
     return None, None
 
 
@@ -812,22 +813,26 @@ def parse_type_str(allowedType):
         'float16' : 'F16',
         'float' : 'F32',
         'double' : 'F64',
-        'unkown' : 'BF16',  
+        'unkown' : 'BF16',
         'complex64' : 'Complex<F32>',
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
 
-    for key, item in onnx_to_mlir_type_dict.items():
+    # Apply substitutions in decreasing order of key-length, so that float16 is replaced
+    # before float, and uint16 is replaced before int16, etc.
+    mapping = list(onnx_to_mlir_type_dict.items())
+    mapping.sort(key=lambda pair:len(pair[0]), reverse=True)
+    for key, item in mapping:
         allowedType = allowedType.replace(key, item)
     return allowedType
-          
+
 def parse_a_type_constraint(constraint):
     allowedTypes = constraint.allowed_type_strs
     mlirTypes = []
     for allowedType in allowedTypes:
         mlirType = parse_type_str(allowedType)
         mlirTypes.append(mlirType)
-    # Remove redundant and sort. 
+    # Remove redundant and sort.
     # However onnx keeps a consitently meaningful order
     # There is no redundancy as long as each onnx type is mapped uniquely
     # mlirTypes = sorted(list(set(mlirTypes)))
@@ -905,7 +910,7 @@ def gen_op_def(schema):
         (',\n' + inc_indent(indent)).join(outs_strs))
 
     # custom_builder_broadcast_ops_list
-    
+
     # add custom builders
     # use element type of the first operand to construct an UnrankedTensorType for the output.
     if schema.name in custom_builder_ops_list:
@@ -973,7 +978,7 @@ def gen_op_def(schema):
                     '.getType().cast<TensorType>().getElementType();\n';
                 s += indent + indent + 'elementType = UnrankedTensorType::get(elementType);\n'
                 s += indent + '}\n';
-            else:    
+            else:
                 s += indent + 'auto elementType = operands[0].getType().' + \
                     'cast<TensorType>().getElementType();\n'
             s += indent + 'std::vector<mlir::Type> outputTypes;\n'

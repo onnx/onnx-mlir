@@ -90,7 +90,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Before we start the iteration we need to compute the number of
     // unsplit kernels and fetch the number of groups from the attribute
     // list. Group is always a compilation constant.
-    int64_t group = convOp.group().getSExtValue();
+    int64_t group = convOp.group();
     // Compute the number of unsplit kernels. The number of kernels
     // must be a multiple of the number of groups.
     int64_t kernelsPerGroup = floor(kernelShape[0] / group);
@@ -135,8 +135,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
                 /*mIndex=*/rewriter.getAffineDimExpr(1));
         kernel = rewriter.create<AffineApplyOp>(loc, kernelMap,
             ArrayRef<Value>{/*gIndex=*/outerLoops.getInductionVar(gIndex),
-                /*kernelsPerGroupValue=*/kernelsPerGroupValue,
-                /*mIndex=*/outerLoops.getInductionVar(mIndex)});
+                /*mIndex=*/outerLoops.getInductionVar(mIndex),
+                /*kernelsPerGroupValue=*/kernelsPerGroupValue});
       }
 
       // 2.2 Define spatial loops
