@@ -23,7 +23,7 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
   AllocOp alloc;
   auto inputShape = input.getType().cast<MemRefType>().getShape();
   auto inputRank = inputShape.size();
- 
+
   SmallVector<Value, 2> allocOperands;
   // Compute size for the first dimension when not constant
   if (memRefType.getShape()[0] == -1) {
