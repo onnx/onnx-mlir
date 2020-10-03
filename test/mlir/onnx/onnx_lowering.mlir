@@ -2321,4 +2321,38 @@ func @test_flatten0(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
   // CHECK:    affine.store [[LOAD]], [[ALLOC]]{{\[}}[[FIRSTDIM]], [[SECONDDIM]]{{\]}} : memref<1x24xf32>
 }
 
+// -----
+
+// test partially known input shape
+func @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<2x?x4xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+ 
+  // CHECK:  [[MAP1:#.+]] = affine_map<(d0, d1)[s0, s1] -> (d1 + d0 * s1)>
+  // CHECK:  [[MAP2:#.+]] = affine_map<(d0)[s0] -> (d0)>
+  // CHECK-LABEL test_flatten1
+  // CHECK:  [[C1:%.+]] = constant 1 : index
+  // CHECK:  [[C0:%.+]] = constant 0 : index
+  // CHECK:  [[R0:%.+]] = dim %arg0, [[C0]] : memref<2x?x4xf32>
+  // CHECK:  [[R1:%.+]] = muli [[C1]], [[R0]] : index
+  // CHECK:  [[C1_0:%.+]] = constant 1 : index
+  // CHECK:  [[R2:%.+]] = dim %arg0, [[C1_0]] : memref<2x?x4xf32>
+  // CHECK:  [[R3:%.+]] = muli [[R1]], [[R2]] : index
+  // CHECK:  [[R4:%.+]] = alloc([[R3]]) : memref<?x4xf32>
+  // CHECK:  [[R5:%.+]]:3 = krnl.define_loops 3
+  // CHECK:  [[C1_1:%.+]] = constant 1 : index
+  // CHECK:  [[R6:%.+]] = dim %arg0, [[C1_1]] : memref<2x?x4xf32>
+  // CHECK:  krnl.iterate([[R5]]#0, [[R5]]#1, [[R5]]#2) with ([[R5]]#0 -> [[ARG1:%.+]] = 0 to 2, [[R5]]#1 -> [[ARG2:%.+]] = 0 to [[R6]], [[R5]]#2 -> [[ARG3:%.+]] = 0 to 4) {
+  // CHECK:    [[R7:%.+]] = affine.load %arg0{{\[}}[[ARG1]], [[ARG2]], [[ARG3]]{{\]}} : memref<2x?x4xf32>
+  // CHECK:    [[C0_2:%.+]] = constant 0 : index
+  // CHECK:    [[R8:%.+]] = dim %arg0, [[C0_2]] : memref<2x?x4xf32>
+  // CHECK:    [[C1_3:%.+]] = constant 1 : index
+  // CHECK:    [[R9:%.+]] = dim %arg0, [[C1_3]] : memref<2x?x4xf32>
+  // CHECK:    [[R10:%.+]] = affine.apply [[MAP1]]([[ARG1]], [[ARG2]]){{\[}}[[R8]], [[R9]]{{\]}}
+  // CHECK:    [[C2:%.+]] = constant 2 : index
+  // CHECK:    [[R11:%.+]] = dim %arg0, [[C2]] : memref<2x?x4xf32>
+  // CHECK:    [[R12:%.+]] = affine.apply [[MAP2]]([[ARG3]]){{\[}}[[R11]]{{\]}}
+  // CHECK:    store [[R7]], [[R4]]{{\[}}[[R10]], [[R12]]{{\]}} : memref<?x4xf32>
+
+}
 
