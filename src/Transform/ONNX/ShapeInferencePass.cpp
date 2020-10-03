@@ -33,8 +33,12 @@ public:
     auto f = getFunction();
 
     // Iterate on the operations that need shape inference i.e the operations
-    // that return a dynamic shape.
+    // that return a dynamic shape or followed by a return op.
     f.walk([&](mlir::Operation *op) {
+      // The shape of graph output has been imported from onnx protobuf model,
+      // so the ops followed by a return op may not have dynamic shape output.
+      // However, shape inference is still need on these ops
+      // to infer optional attributes.
       if (isUsedByReturnOp(op) || returnsDynamicShape(op)) {
         if (auto shape_op = dyn_cast<ShapeInference>(op)) {
           if (failed(shape_op.inferShapes())) {
