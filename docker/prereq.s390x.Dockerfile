@@ -7,6 +7,7 @@ WORKDIR /build
 
 # install stuff that is needed for compiling LLVM, MLIR and ONNX
 RUN apt-get update
+RUN apt-get -y install default-jdk
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y git cmake ninja-build libprotobuf-dev protobuf-compiler
 RUN DEBIAN_FRONTEND=noninteractive \
     apt-get update && \
