@@ -20,15 +20,15 @@ jobs:
       env:
         cache-name: cache-mlir-directory
       with:
-        path: $HOME/work/onnx-mlir/llvm-project
-        key: V1-${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}
+        path: ~/work/onnx-mlir/llvm-project
+        key: V7-${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}
     - name: clone & build MLIR
       if: steps.cache-mlir.outputs.cache-hit != 'true'
       run: |
-        cd $HOME/work/onnx-mlir
-        sh $HOME/work/onnx-mlir/onnx-mlir/utils/clone-mlir.sh
-        sh $HOME/work/onnx-mlir/onnx-mlir/utils/build-mlir.sh
+        cd ~/work/onnx-mlir
+        sh ~/work/onnx-mlir/onnx-mlir/utils/clone-mlir.sh
+        sh ~/work/onnx-mlir/onnx-mlir/utils/build-mlir.sh
     - name: build onnx-mlir
       run: |
-        cd $HOME/work/onnx-mlir
-        sh $HOME/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
+        cd ~/work/onnx-mlir
+        sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
