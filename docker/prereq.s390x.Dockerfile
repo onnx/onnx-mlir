@@ -4,7 +4,7 @@ ARG BASE_IMAGE
 FROM $BASE_IMAGE
 
 WORKDIR /build
-
+# force prereq build
 # install stuff that is needed for compiling LLVM, MLIR and ONNX
 RUN apt-get update
 RUN apt-get -y install default-jdk
