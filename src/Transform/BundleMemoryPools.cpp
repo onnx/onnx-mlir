@@ -26,23 +26,12 @@ using namespace mlir;
 namespace {
 
 //===----------------------------------------------------------------------===//
-// Insertion point for initialization instructions and the blocks used for
-// inserting the initialization and main code. These blocks will disappear
-// when the first canonicalization is performed because the init block
-// unconditionally branches into the second block. These blocks exist only for
-// the purpose of this optimization.
-// The information is recorded on a per function basis.
+// Data structures for managing memory pools.
 //===----------------------------------------------------------------------===//
 
-typedef struct ONNXOperandsInitState {
-  Block *initBlock;
-  Block *mainBlock;
-  BranchOp branchInit;
-  AllocOp dynamicMemoryPool;
-} ONNXOperandsInitState;
-
-// Helper data structure for the bundling of dynamic AllocOps.
-std::map<FuncOp, std::unique_ptr<ONNXOperandsInitState>> initMap;
+// Data structure for managing dyanmic memory pool.
+typedef std::map<Block *, AllocOp> BlockToDynamicPool;
+std::map<FuncOp, std::unique_ptr<BlockToDynamicPool>> dynamicPoolMap;
 
 // Handling of static memory pool on a block-basis in each function.
 typedef std::map<Block *, AllocOp> BlockToStaticPool;
@@ -63,65 +52,24 @@ FuncOp getContainingFunction(AllocOp op) {
   return cast<FuncOp>(parentFuncOp);
 }
 
-bool hasInitBlock(FuncOp function) {
-  std::unique_ptr<ONNXOperandsInitState> &initState = initMap.at(function);
-  return initState->initBlock != nullptr;
-}
+// Check if this value is an argument of one of the blocks nested
+// around it.
+bool isBlockArgument(AllocOp allocOp, Value operand) {
+  // Parent operation of the current block.
+  Operation *parentBlockOp;
+  Block *currentBlock = allocOp.getOperation()->getBlock();
 
-bool addInitBlock(PatternRewriter &rewriter, Location loc, AllocOp allocOp) {
-  // If this is the first time we encounter an operation in this
-  // function, we create an entry inside the initMap and split the
-  // function body into an init block and a main block.
-  //
-  // function func_name() {
-  //    ... init block ...
-  //    br ^bb1
-  //  ^bb1:  // pred: ^bb0
-  //    ... main block ...
-  //    return
-  // }
-  //
-  // Note: the block ^bb0 being the first block has its label omitted.
-  //
-  FuncOp function = getContainingFunction(allocOp);
-  // If the function does not contain an init block, create one.
-  if (!hasInitBlock(function)) {
-    std::unique_ptr<ONNXOperandsInitState> &initState = initMap.at(function);
-    initState = std::make_unique<ONNXOperandsInitState>();
+  do {
+    // Check the arguments of the current block.
+    for (auto arg : currentBlock->getArguments())
+      if (operand == arg)
+        return true;
 
-    // All input arguments are considered as part of the initialization block
-    // so add them to the operandsInInitBlock set.
-    Block *functionBlock = &function.front();
-    PatternRewriter::InsertionGuard insertGuard(rewriter);
-    rewriter.setInsertionPointToStart(functionBlock);
+    parentBlockOp = currentBlock->getParentOp();
+    currentBlock = parentBlockOp->getBlock();
 
-    initState->initBlock = rewriter.getInsertionBlock();
-    auto currentPoint = rewriter.getInsertionPoint();
-    initState->mainBlock =
-        rewriter.splitBlock(initState->initBlock, currentPoint);
+  } while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp));
 
-    rewriter.setInsertionPointToEnd(initState->initBlock);
-
-    // Insert a branch operation from initBlock to mainBlock. This
-    // ensures the final code contains legal blocks.
-    initState->branchInit =
-        rewriter.create<BranchOp>(loc, initState->mainBlock);
-
-    rewriter.setInsertionPointToStart(initState->mainBlock);
-
-    // Save a reference to the current dynamic memory pool value.
-    initState->dynamicMemoryPool = allocOp;
-
-    return true;
-  }
-
-  return false;
-}
-
-bool isBlockArgument(Block *block, Value operand) {
-  for (auto arg : block->getArguments())
-    if (operand == arg)
-      return true;
   return false;
 }
 
@@ -332,14 +280,17 @@ public:
 
     // Get function.
     FuncOp function = getContainingFunction(allocOp);
-    Block *firstBlock = &function.getBody().front();
 
-    // If this is the alloc representing the memory pool and the function
-    // already has an init block, pattern matching must fail to avoid
-    // processing the dynamic memory pool a second time.
-    if (hasInitBlock(function)) {
-      std::unique_ptr<ONNXOperandsInitState> &initState = initMap.at(function);
-      if (allocOp == initState->dynamicMemoryPool)
+    // Use function to retrieve the list of blocks for this function.
+    std::unique_ptr<BlockToDynamicPool> &blockToDynamicPool =
+        dynamicPoolMap.at(function);
+
+    // If this is not the first time we process an alloc in this block, avoid
+    // processing the current dynamic memory pool again.
+    if (blockToDynamicPool->count(parentBlock) > 0) {
+      std::unique_ptr<BlockToDynamicPool> &blockToDynamicPool =
+          dynamicPoolMap.at(function);
+      if (allocOp == blockToDynamicPool->at(parentBlock))
         return failure();
     }
 
@@ -365,11 +316,10 @@ public:
         dependentOps.insert(definingOperation);
 
         // Add operands to work queue.
-        // printf("Processing the args of the following op:\n");
         for (const auto &operand : definingOperation->getOperands()) {
           // Check operand is not a block argument. If it is skip it, we
           // consider block arguments to be leafs.
-          if (!isBlockArgument(firstBlock, operand)) {
+          if (!isBlockArgument(allocOp, operand)) {
             operandList.emplace_back(operand);
 
             // Check if the current operation is a dim or a load and the
@@ -416,15 +366,23 @@ public:
       if (dependentOps.count(&op) > 0)
         orderedDependentOps.emplace_back(&op);
 
-    // If no dynamic alloc is in the trace of the dependent operations,
-    // emit the size calculation in the init block, if one exists already,
-    // if not, create the init block.
-    bool addedInitBlock = addInitBlock(rewriter, loc, allocOp);
+    // If this is the first valid alloc we can bundle in this block, then we
+    // need to move it to the top of the block as it will consitute an
+    // insertion point for all other bundle-able AllocOps in the block.
+    bool isFirstBundledAllocOp = blockToDynamicPool->count(parentBlock) == 0;
+    if (isFirstBundledAllocOp) {
+      allocOp.getOperation()->moveBefore(&parentBlock->front());
 
-    // Move the ordered dependent size calculation to the init block.
-    std::unique_ptr<ONNXOperandsInitState> &initState = initMap.at(function);
+      // Create new entry in the block map.
+      blockToDynamicPool->insert(
+          std::pair<Block *, AllocOp>(parentBlock, allocOp));
+    }
+
+    // Move the computation instructions at the start of the block.
+    AllocOp oldDynamicMemoryPool = blockToDynamicPool->at(parentBlock);
+    std::reverse(orderedDependentOps.begin(), orderedDependentOps.end());
     for (auto &op : orderedDependentOps)
-      op->moveBefore(initState->branchInit);
+      op->moveBefore(&parentBlock->front());
 
     // Bundle MemRef type: <?xi8>
     SmallVector<int64_t, 1> memPoolShape;
@@ -438,16 +396,16 @@ public:
       return failure();
 
     // Add the current alloc size to the current MemPool size.
-    Value dynamicMemoryPoolSize = initState->dynamicMemoryPool.getOperand(0);
-    if (addedInitBlock) {
+    Value dynamicMemoryPoolSize = oldDynamicMemoryPool.getOperand(0);
+    if (isFirstBundledAllocOp) {
       Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-      zero.getDefiningOp()->moveBefore(initState->branchInit);
+      zero.getDefiningOp()->moveBefore(oldDynamicMemoryPool);
       dynamicMemoryPoolSize = zero;
     }
 
     AddIOp bundledAllocOperand = rewriter.create<AddIOp>(
         loc, dynamicMemoryPoolSize, allocOp.getOperand(0));
-    bundledAllocOperand.getOperation()->moveBefore(initState->branchInit);
+    bundledAllocOperand.getOperation()->moveBefore(oldDynamicMemoryPool);
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
     // Current memory pool size is the offset for the newly bundled
@@ -455,26 +413,27 @@ public:
     Value integerDynamicMemoryPoolSize = rewriter.create<IndexCastOp>(
         loc, dynamicMemoryPoolSize, rewriter.getIntegerType(64));
     integerDynamicMemoryPoolSize.getDefiningOp()->moveBefore(
-        initState->branchInit);
+        oldDynamicMemoryPool);
 
     // We need to emit a new alloc which contains the additional MemRef.
     AllocOp bundledAlloc = rewriter.create<AllocOp>(
         loc, bundledMemPoolMemRefType, bundledAllocOperand.getResult());
-    bundledAlloc.getOperation()->moveBefore(&initState->mainBlock->front());
+    bundledAlloc.getOperation()->moveBefore(oldDynamicMemoryPool);
 
     KrnlGetRefOp bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
         currentAllocGetRef.getResult().getType(), bundledAlloc,
         integerDynamicMemoryPoolSize);
-    bundledMemRef.getOperation()->moveAfter(bundledAlloc);
 
     // Replace old memory pool with new one.
-    rewriter.replaceOp(initState->dynamicMemoryPool, bundledAlloc.getResult());
+    rewriter.replaceOp(oldDynamicMemoryPool, bundledAlloc.getResult());
 
     // Replace old getref with new getref from new memory pool.
     rewriter.replaceOp(currentAllocGetRef, bundledMemRef.getResult());
 
-    // Update MemPool size.
-    initState->dynamicMemoryPool = bundledAlloc;
+    // Update MemPool data structure.
+    blockToDynamicPool->erase(parentBlock);
+    blockToDynamicPool->insert(
+        std::pair<Block *, AllocOp>(parentBlock, bundledAlloc));
 
     return success();
   }
@@ -488,15 +447,13 @@ class KrnlBundleMemoryPoolsPass
 public:
   void runOnFunction() override {
     auto function = getFunction();
-    initMap.insert(std::pair<FuncOp, std::unique_ptr<ONNXOperandsInitState>>(
-        function, std::make_unique<ONNXOperandsInitState>()));
+
+    dynamicPoolMap.insert(
+        std::pair<FuncOp, std::unique_ptr<BlockToDynamicPool>>(
+            function, std::make_unique<BlockToDynamicPool>()));
 
     staticPoolMap.insert(std::pair<FuncOp, std::unique_ptr<BlockToStaticPool>>(
         function, std::make_unique<BlockToStaticPool>()));
-
-    // Initialize state for this function.
-    std::unique_ptr<ONNXOperandsInitState> &initState = initMap.at(function);
-    initState->initBlock = nullptr;
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
@@ -505,7 +462,7 @@ public:
 
     applyPatternsAndFoldGreedily(function, patterns);
 
-    initMap.erase(function);
+    dynamicPoolMap.erase(function);
     staticPoolMap.erase(function);
   }
 };
