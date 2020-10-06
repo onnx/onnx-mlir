@@ -424,7 +424,11 @@ test_to_enable = [
     "test_split_variable_parts_1d_cpu",
     "test_split_variable_parts_2d_cpu",
     "test_split_variable_parts_default_axis_cpu",
-
+    
+    # Tile
+    "test_tile_cpu",
+    "test_tile_precomputed_cpu",
+    
     # ConstantOfShape
     "test_constantofshape_float_ones_cpu",
     
