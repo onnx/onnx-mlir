@@ -67,6 +67,7 @@ jobs:
       arch:
         - s390x
       script:
+        - echo "******** PREREQ-INIT"
         - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/prereq.s390x.Dockerfile --build-arg BASE_IMAGE="ubuntu:focal" ./utils
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
