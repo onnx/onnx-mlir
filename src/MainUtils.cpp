@@ -85,13 +85,14 @@ string getRuntimeDir() {
 // directory where onnx-mlir is run. If they are found, it  means both onnx-mlir
 // and llvm-project have been installed system wide under the same directory,
 // so we get them from that directory (typically /usr/local/bin). Otherwise,
-// at least one of onnx-mlir and llvm-project has not been installed system wide.
-// In this case, getToolPath returns an empty string and we will fallback to
-// llvm-project/build/bin.
+// at least one of onnx-mlir and llvm-project has not been installed system
+// wide. In this case, getToolPath returns an empty string and we will fallback
+// to llvm-project/build/bin.
 //
 // Note that this will not work if both onnx-mlir and llvm-project have been
 // installed system wide but to different places and their sources have been
-// removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of llvm-project.
+// removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
+// llvm-project.
 string getToolPath(string tool) {
   string execDir = llvm::sys::path::parent_path(kExecPath).str();
   llvm::SmallString<8> toolPath(execDir);
@@ -296,7 +297,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
   string optPath = getToolPath("opt");
-  Command optBitcode(/*exePath=*/ !optPath.empty() ? optPath : kOptPath);
+  Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
   optBitcode.appendStr("-O3")
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
@@ -307,7 +308,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
 void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
     string modelObjPath) {
   string llcPath = getToolPath("llc");
-  Command llvmToObj(/*exePath=*/ !llcPath.empty() ? llcPath : kLlcPath);
+  Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
       .appendList({"-o", modelObjPath})
