@@ -1741,7 +1741,7 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
 }
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GlobalAveragePool operation";
   let description = [{
   "GlobalAveragePool consumes an input tensor X and applies average pooling across"
@@ -1764,7 +1764,7 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
 }
 
 def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GlobalLpPool operation";
   let description = [{
   "GlobalLpPool consumes an input tensor X and applies lp pool pooling across"
@@ -1788,7 +1788,7 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
 }
 
 def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GlobalMaxPool operation";
   let description = [{
   "GlobalMaxPool consumes an input tensor X and applies max pooling across"

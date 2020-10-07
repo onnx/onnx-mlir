@@ -1745,6 +1745,56 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes() {
   return success();
 }
 
+// Helper function to infer shapes of global pool operations.
+template <typename PoolingOp>
+static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
+  // Cannot infer shape if no shape exists.
+  if (!op->X().getType().template isa<RankedTensorType>())
+    return op->emitError("Input tensor not ranked");
+
+  auto xTy = op->X().getType().template cast<RankedTensorType>();
+  auto xShape = xTy.getShape();
+  xTy.getRank();
+
+  if (xShape.size() < 3) {
+    return op->emitError("Data input shape must be at least (NxCxD1)");
+  }
+
+  SmallVector<int64_t, 4> outputDims;
+  outputDims.emplace_back(xShape[0]);
+  outputDims.emplace_back(xShape[1]);
+  // Spatial dimensions are reduced to 1.
+  outputDims.insert(outputDims.end(), xTy.getRank() - 2, 1);
+
+  op->getResult().setType(
+      RankedTensorType::get(outputDims, xTy.getElementType()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// GlobalAveragePool
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGlobalAveragePoolOp::inferShapes() {
+  return inferShapesGlobalPool(this);
+}
+
+//===----------------------------------------------------------------------===//
+// GlobalLpPool
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGlobalLpPoolOp::inferShapes() {
+  return inferShapesGlobalPool(this);
+}
+
+//===----------------------------------------------------------------------===//
+// GlobalMaxPool
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGlobalMaxPoolOp::inferShapes() {
+  return inferShapesGlobalPool(this);
+}
+
 //===----------------------------------------------------------------------===//
 // Pad
 //===----------------------------------------------------------------------===//
