@@ -4964,17 +4964,29 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$input,
     DefaultValuedAttr<SI64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value input, IntegerAttr axis", [{
+      auto elementType = input.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), input, axis);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus",

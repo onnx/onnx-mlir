@@ -442,6 +442,15 @@ test_to_enable = [
     # It is unknown why 'uint8' came from.
     #"test_constantofshape_int_zeros_cpu",
 
+    # LogSoftmax
+    "test_logsoftmax_axis_0_cpu",
+    "test_logsoftmax_axis_1_cpu",
+    "test_logsoftmax_axis_2_cpu",
+    "test_logsoftmax_example_1_cpu",
+    "test_logsoftmax_default_axis_cpu",
+    "test_logsoftmax_negative_axis_cpu",
+    "test_logsoftmax_large_number_cpu",
+
     # Model
     "test_resnet50_cpu",
     "test_vgg19_cpu",
