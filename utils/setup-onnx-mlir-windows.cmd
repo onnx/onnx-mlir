@@ -4,7 +4,7 @@ call MiniConda.exe /S /D=%UserProfile%\Miniconda3
 set PATH=%PATH%;%UserProfile%\Miniconda3\Scripts
 set PATH "%UserProfile%\Miniconda3\Scripts;%PATH%" /M
 
-call conda create --yes --quiet --name onnx-mlir -c conda-forge python=3.7 libprotobuf=3.11.4
+call conda create --yes --quiet --name onnx-mlir python=3.7 libprotobuf=3.11.4
 call activate.bat onnx-mlir
 call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
 
