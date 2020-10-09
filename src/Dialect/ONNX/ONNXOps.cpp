@@ -2609,7 +2609,229 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes() {
 // Slice
 //===----------------------------------------------------------------------===//
 
+// May move elsewhere.
+#include "src/Dialect/ONNX/IndexExpr.hpp"
+
+LogicalResult GetIndexExprFromOperandValueAtIndex(
+    Operation *op, Value operand, uint64_t i, IndexExpr &indexExpr) {
+  if (auto constantOp = getONNXConstantOp(operand)) {
+    DenseElementsAttr attrArray =
+        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    if (i >= attrArray.getType().getDimSize(0)) {
+      printf("error 1\n");
+      return op->emitError("operand literal has wrong shape");
+    }
+    auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
+    int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
+    indexExpr.InitAsIntLit(attrInt);
+  } else {
+    // read starts as an array???
+    printf("error 2\n");
+    return op->emitError("unsupported operand value");
+  }
+  return success();
+}
+
+LogicalResult GetIndexExprFromOperandValueAtIndex(Operation *op, Value operand,
+    uint64_t i, int64_t defaultIntLit, IndexExpr &indexExpr) {
+
+  if (operand.getType().isa<NoneType>()) {
+    // Argument undefined, so use the default value.
+    indexExpr.InitAsIntLit(defaultIntLit);
+  } else if (auto constantOp = getONNXConstantOp(operand)) {
+    DenseElementsAttr attrArray =
+        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    if (i > attrArray.getType().getDimSize(0)) {
+      // Not enought attributes for this index, install the default value.
+      indexExpr.InitAsIntLit(defaultIntLit);
+    } else {
+      // We have enought attributes for this index, get the value.
+      auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
+      int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
+      indexExpr.InitAsIntLit(attrInt);
+    }
+  } else {
+    // Read starts as an array???
+    printf("error 2\n");
+    return op->emitError("unsupported operand value");
+  }
+  return success();
+}
+
+LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
+    ONNXSliceOpAdaptor operandAdaptor, ConversionPatternRewriter *rewriter,
+    SmallVectorImpl<IndexExpr> &startIndices,
+    SmallVectorImpl<IndexExpr> &endIndices,
+    SmallVectorImpl<IndexExpr> &stepIndices,
+    SmallVectorImpl<IndexExpr> &outputDims) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  bool isShapeInference = (rewriter != nullptr);
+  Operation *op = reinterpret_cast<Operation *>(sliceOp);
+
+  // Get info about input data operand.
+  Value data = operandAdaptor.data();
+  auto dataType = data.getType().cast<ShapedType>();
+  auto elementType = dataType.getElementType();
+  auto dataShape = dataType.getShape();
+  int64_t dataRank = dataShape.size();
+
+  // Get each of the axes, and save the litteral values in axesIntLit.
+  SmallVector<int64_t, 2> axesIntLit;
+  Value axes = operandAdaptor.axes();
+  if (axes.getType().isa<NoneType>()) {
+    // If `axes` are omitted, they are set to `[0, ..., ndim-1]`."
+    for (int i = 0; i < dataRank; ++i)
+      axesIntLit.emplace_back(i);
+  } else if (auto constantOp = getONNXConstantOp(axes)) {
+    // If `axes` are constants, read them."
+    DenseElementsAttr valueAttribute =
+        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    for (auto value : valueAttribute.getValues<IntegerAttr>()) {
+      int64_t axis = value.cast<IntegerAttr>().getInt();
+      if (axis < 0)
+        axis += dataRank;
+      if (!(axis >= 0 && axis < dataRank))
+        return sliceOp->emitError("Axes contains an out-of-bound index");
+      axesIntLit.emplace_back(axis);
+    }
+  } else {
+    printf("error: Axes must be known at compile time\n\n");
+    return sliceOp->emitError("Axes must be known at compile time");
+  }
+  int sliceRank = axesIntLit.size();
+
+  // Initialize container and results (start & output)
+  IndexExprContainer container(rewriter, sliceOp->getLoc());
+  IndexExpr zeroIE(0);
+  IndexExpr oneIE(1);
+  startIndices.resize(dataRank);
+  stepIndices.resize(dataRank, zeroIE);
+  endIndices.resize(dataRank);
+  outputDims.resize(dataRank);
+
+  // SmallVector<uint64_t, 1> index1D(1, 0);
+  for (uint64_t i = 0; i < sliceRank; i++) {
+    // Get start.
+    IndexExpr startInputIE;
+    Value starts = operandAdaptor.starts();
+    if (failed(
+            GetIndexExprFromOperandValueAtIndex(op, starts, i, startInputIE))) {
+      return sliceOp->emitError("start input parameter could not be processed");
+    }
+    // Get end.
+    IndexExpr endInputIE;
+    Value ends = operandAdaptor.ends();
+    if (failed(GetIndexExprFromOperandValueAtIndex(op, ends, i, endInputIE))) {
+      return sliceOp->emitError("end input parameter could not be processed");
+    }
+    // Get steps.
+    IndexExpr stepInputIE;
+    Value steps = operandAdaptor.steps();
+    if (failed(GetIndexExprFromOperandValueAtIndex(
+            op, steps, i, 1, stepInputIE))) {
+      return sliceOp->emitError("step input parameter could not be processed");
+    }
+    if (stepInputIE.IsIntLit() && stepInputIE.GetIntLiteral() == 0) {
+      return sliceOp->emitError("step input parameter cannot be zero");
+    }
+    // Get dim.
+    IndexExpr dimInputIE(container, data, dataShape, i);
+    dimInputIE.DebugPrint("dim input");
+    // If in shape inference mode and we don't have the constant info, take
+    // early break.
+    if (isShapeInference &&
+        (startInputIE.IsQuestionmark() || endInputIE.IsQuestionmark() ||
+            stepInputIE.IsQuestionmark() || dimInputIE.IsQuestionmark())) {
+      // return failure as we could not find a constant shape
+      return failure();
+    }
+    // Now proceed with the computations for start/end/dim.
+    // Calculation for start: start < 0 ? start + dim : start.
+    IndexExpr startPlusDimIE, startPosIE, startNegClampIE, startPosClampIE,
+        startFinalIE;
+    startPlusDimIE.Add(container, startInputIE, dimInputIE);
+    startPlusDimIE.DebugPrint("start plus dim input");
+    startPosIE.Select(container, startInputIE, CmpIPredicate::slt, zeroIE,
+        startPlusDimIE, startInputIE);
+    startPosIE.DebugPrint("start pos");
+    // Step < 0: clamp(0, start, dim -1) else clamp(0, start, dim)
+    startNegClampIE.Clamp(container, startPosIE, zeroIE, 0, dimInputIE, -1);
+    startNegClampIE.DebugPrint("start clamp neg");
+    startPosClampIE.Clamp(container, startPosIE, zeroIE, 0, dimInputIE, 0);
+    startPosClampIE.DebugPrint("start clamp pos");
+    startFinalIE.Select(container, stepInputIE, CmpIPredicate::slt, zeroIE,
+        startNegClampIE, startPosClampIE);
+    startFinalIE.DebugPrint("start final");
+    // Calculation for end: end <= -inf -> -1;  end >= inf -> dim
+    // otherwise end<0 -> end + dim.
+    IndexExpr posInfinityIE(std::numeric_limits<int32_t>::max());
+    IndexExpr negInfinityIE(std::numeric_limits<int32_t>::min());
+    IndexExpr negOneIE(-1);
+    IndexExpr endPlusDimIE, endPosIE, endWithNegInfIE, endWithPosInfIE,
+        endNegClampIE, endPosClampIE, endFinalIE;
+    endPlusDimIE.Add(container, endInputIE, dimInputIE);
+    endPosIE.Select(container, endInputIE, CmpIPredicate::slt, zeroIE,
+        endPlusDimIE, endInputIE);
+    endWithNegInfIE.Select(container, endInputIE, CmpIPredicate::sle,
+        negInfinityIE, negOneIE, endPosIE);
+    endWithPosInfIE.Select(container, endInputIE, CmpIPredicate::sge,
+        posInfinityIE, zeroIE, endWithNegInfIE);
+    // End: step<0: clamp(-1, end, dim); step>0 clamp(0, end, dim)
+    endNegClampIE.Clamp(container, endWithPosInfIE, negOneIE, 0, dimInputIE, 0);
+    endPosClampIE.Clamp(container, endWithPosInfIE, zeroIE, 0, dimInputIE, 0);
+    endFinalIE.Select(container, stepInputIE, CmpIPredicate::slt, zeroIE,
+        endNegClampIE, endPosClampIE);
+    endFinalIE.DebugPrint("end final");
+
+    // Calculation for output size.
+    IndexExpr dimOutputSubIE, dimOutputCeilIE, dimOutputFinalIE;
+    dimOutputSubIE.Sub(container, endFinalIE, startFinalIE);
+    dimOutputCeilIE.CeilDiv(container, dimOutputSubIE, stepInputIE);
+    // TODO: add min and max.
+    dimOutputFinalIE.Select(container, dimOutputCeilIE, CmpIPredicate::slt,
+        zeroIE, zeroIE, dimOutputCeilIE);
+    dimOutputFinalIE.DebugPrint("output dim final");
+    if (isShapeInference && dimOutputFinalIE.IsQuestionmark()) {
+      // Return failure as we could not find a constant output size.
+      return failure();
+    }
+
+    // Save results
+    startIndices[i] = startFinalIE;
+    stepIndices[i] = stepInputIE;
+    endIndices[i] = endFinalIE;
+    outputDims[i] = dimOutputFinalIE;
+  }
+
+  // Handle the default for the non-axis arrays; they are detected with 0 steps
+  // (illegal value).
+  bool allOutputLit;
+  for (uint64_t i = 0; i < dataRank; ++i) {
+    if (stepIndices[i].IsIntLit() && stepIndices[i].GetIntLiteral() == 0) {
+      // have one unset, put the defaults (start was already at zero, so we are
+      // fine).
+      stepIndices[i] = oneIE;
+      IndexExpr dimInputIE(container, data, dataShape, i);
+      endIndices[i] = dimInputIE;
+      outputDims[i] = dimInputIE;
+      if (isShapeInference && dimInputIE.IsQuestionmark()) {
+        // Return failure as we could not find a constant output size.
+        return failure();
+      }
+    }
+#if 1
+    startIndices[i].DebugPrint("New Dim\n  start");
+    endIndices[i].DebugPrint("  end");
+    stepIndices[i].DebugPrint("  step");
+    outputDims[i].DebugPrint("  output dim");
+#endif
+  }
+  return success();
+}
+
 LogicalResult ONNXSliceOp::inferShapes() {
+  // aee test
+
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
@@ -2618,10 +2840,34 @@ LogicalResult ONNXSliceOp::inferShapes() {
   auto dataShape = data().getType().cast<ShapedType>().getShape();
   int64_t numDims = dataShape.size();
 
+#if 1
+  ONNXSliceOpAdaptor operandAdaptor(*this);
+  SmallVector<IndexExpr, 4> startsIEV;
+  SmallVector<IndexExpr, 4> stepsIEV;
+  SmallVector<IndexExpr, 4> endsIEV;
+  SmallVector<IndexExpr, 4> outputDimsIEV;
+  if (failed(HandleSliceOpParams(this, operandAdaptor, nullptr, startsIEV,
+          endsIEV, stepsIEV, outputDimsIEV))) {
+    // Failed to get constant only output sizes; fail.
+    SmallVector<int64_t, 2> outputDims(numDims, -1);
+    getResult().setType(RankedTensorType::get(outputDims, elementType));
+  } else {
+    // Has constant output dims, use them.
+    SmallVector<int64_t, 2> outputDims;
+    for (auto dimIE : outputDimsIEV) {
+      assert(dimIE.IsIntLit());
+      outputDims.emplace_back(dimIE.GetIntLiteral());
+    }
+    getResult().setType(RankedTensorType::get(outputDims, elementType));
+  }
+  return success();
+#endif
+
   SmallVector<int64_t, 2> outputDims(numDims, -1);
-  // If 'starts', 'ends', 'axes', and 'steps' are constants, check whether their
-  // values are valid or not. If the values are valid, it is possible to infer
-  // shape.
+
+  // If 'starts', 'ends', 'axes', and 'steps' are constants, check whether
+  // their values are valid or not. If the values are valid, it is possible to
+  // infer shape.
   //
   // 'starts', 'ends', and 'steps' are for each axis in the list of axes, so
   // processing 'axes' first.
@@ -2817,7 +3063,8 @@ LogicalResult ONNXExpandOp::inferShapes() {
            "Shape of constant does not match its actual value");
   } else {
     return emitError(
-        "Shape argument of Expand is the output of an unexpected operation: " +
+        "Shape argument of Expand is the output of an unexpected "
+        "operation: " +
         shapeDef->getName().getStringRef() +
         ". Supported operations are: onnx.Constant and onnx.Shape");
   }

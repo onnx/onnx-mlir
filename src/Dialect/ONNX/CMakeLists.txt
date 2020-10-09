@@ -16,8 +16,8 @@ add_library(OMONNXOps
         ONNXOps.hpp
         ONNXOpsHelper.cpp
         ONNXOpsHelper.hpp
-        ShapeLoweringHelper.hpp
-        ShapeLoweringHelper.cpp)
+        IndexExpr.hpp
+        IndexExpr.cpp)
 
 target_include_directories(OMONNXOps
         PRIVATE
