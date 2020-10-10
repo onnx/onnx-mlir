@@ -92,7 +92,7 @@ class DummyBackend(onnx.backend.base.Backend):
         # Call frontend to process temp_model.onnx, bit code will be generated.
         execute_commands([ONNX_MLIR, "temp_model.onnx"])
         return EndiannessAwareExecutionSession("./temp_model.so",
-                                               "_dyn_entry_point_main_graph")
+                                               "run_main_graph")
 
     @classmethod
     def supports_device(cls, device):
@@ -447,7 +447,6 @@ test_to_enable = [
     "test_vgg19_cpu",
     "test_shufflenet_cpu",
 ]
-
 
 # Extract name of all test cases.
 import inspect
