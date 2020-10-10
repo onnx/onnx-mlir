@@ -14,7 +14,8 @@ env:
 # Do not test branch update unless it's mater.
 branches:
   only:
-  - master
+  # change to master
+  - gen-doc-travis
 stages:
   - name: prereq-init
   - name: prereq-0
