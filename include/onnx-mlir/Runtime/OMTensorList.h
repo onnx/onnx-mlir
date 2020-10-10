@@ -1,5 +1,4 @@
-//===-------------- OMTensorList.h - OMTensorList Declaration header
-//--------------===//
+//===-------- OMTensorList.h - OMTensorList Declaration header-------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
