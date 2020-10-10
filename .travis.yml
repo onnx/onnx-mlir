@@ -11,6 +11,12 @@ arch:
 env:
   - NIGHTLY=true
   - NIGHTLY=false
+addons:
+  apt:
+    packages:
+      - doxygen
+      - doxygen-doc
+      - doxygen-latex
 # Do not test branch update unless it's mater.
 branches:
   only:
@@ -53,11 +59,12 @@ script:
   - docker exec build test-onnx-mlir.sh
   - docker commit build onnxmlirczar/onnx-mlir-build:$CPU_ARCH
 # Script to deploy documentations.
+before_deploy:
+  - doxygen
 deploy:
-  before_deploy:
-    - doxygen
   provider: pages
   strategy: git
+  skip_cleanup: true
   cleanup: false
   github_token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
   keep_history: true
