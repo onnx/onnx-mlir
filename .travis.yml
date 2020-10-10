@@ -22,6 +22,7 @@ stages:
   - name: prereq-2
   - name: prereq-final
   - name: test
+  - name: deploy
 script:
   - export CPU_ARCH=$TRAVIS_CPU_ARCH
   - if [ "$CPU_ARCH" == "amd64" ] ; then
@@ -50,7 +51,15 @@ script:
   - docker exec build compile-onnx-mlir.sh
   - docker exec build test-onnx-mlir.sh
   - docker commit build onnxmlirczar/onnx-mlir-build:$CPU_ARCH
-
+# Script to deploy documentations.
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
+  keep_history: true
+  local_dir: docs
+  on:
+    branch: gen-doc-travis # change to master
 jobs:
   fast_finish: true
   allow_failures:
