@@ -54,6 +54,8 @@ script:
   - docker commit build onnxmlirczar/onnx-mlir-build:$CPU_ARCH
 # Script to deploy documentations.
 deploy:
+  before_deploy:
+    - doxygen
   provider: pages
   strategy: git
   cleanup: false
