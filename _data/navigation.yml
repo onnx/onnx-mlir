@@ -1,0 +1,35 @@
+toc:
+# Restore when we have a proper
+# overview & installation page.
+#  - title: First Steps
+#    subfolderitems:
+#      - page: Overview
+#        url: /thing1.html
+#      - page: Installation
+#        url: /thing2.html
+#  - title: Tutorials
+#    subfolderitems:
+#      - page: Placeholder
+#        url: /piece1.html
+  - title: How-tos
+    subfolderitems:
+      - page: Runtime API
+        url: /doxygen_html/index.html
+  - title: References
+    subfolderitems:
+      - page: ONNX Dialect
+        url: /Dialects/onnx.html
+      - page: Generating ONNX Dialect
+        url: /ImportONNXDefs.html
+      - page: About Documentation
+        url: /Documentation.html
+  - title: Discussions
+    subfolderitems:
+      - page: Testing Guidelines
+        url: /Testing.html
+  - title: Tools
+    subfolderitems:
+      - page: debug.py - Debug Numerical Errors
+        url: /DebuggingNumericalError.html
+      - page: DocCheck - Handling Necessary Code Duplication
+        url: /doc_check/
