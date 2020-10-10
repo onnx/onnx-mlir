@@ -7,8 +7,8 @@ jobs:
 
     steps:
       - run:
-          name: Installing GCC, CMake, Ninja, Protobuf
-          command: sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler
+          name: Installing GCC, CMake, Ninja, Protobuf, Cython
+          command: sudo apt-get update && sudo apt-get install -y gcc g++ cmake ninja-build protobuf-compiler && pip install --upgrade -q cython
       - checkout:
           path: onnx-mlir
       - run:
