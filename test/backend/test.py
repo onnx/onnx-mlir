@@ -290,6 +290,16 @@ test_to_enable = [
     "test_reduce_sum_square_negative_axes_keepdims_example_cpu",
     "test_reduce_sum_square_negative_axes_keepdims_random_cpu",
 
+    # ReduceMean
+    "test_reduce_mean_default_axes_keepdims_example_cpu",
+    "test_reduce_mean_default_axes_keepdims_random_cpu",
+    "test_reduce_mean_do_not_keepdims_example_cpu",
+    "test_reduce_mean_do_not_keepdims_random_cpu",
+    "test_reduce_mean_keepdims_example_cpu",
+    "test_reduce_mean_keepdims_random_cpu",
+    "test_reduce_mean_negative_axes_keepdims_example_cpu",
+    "test_reduce_mean_negative_axes_keepdims_random_cpu",
+
     # Selu Op:
     "test_selu_cpu",
     "test_selu_default_cpu",
