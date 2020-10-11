@@ -20,8 +20,7 @@ addons:
 # Do not test branch update unless it's mater.
 branches:
   only:
-  # change to master
-  - gen-doc-travis
+  - master
 stages:
   - name: prereq-init
   - name: prereq-0
@@ -75,8 +74,7 @@ deploy:
   keep_history: true
   local_dir: docs
   on:
-    # change to master
-    branch: gen-doc-travis
+    branch: master
 jobs:
   fast_finish: true
   allow_failures:
