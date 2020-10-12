@@ -271,4 +271,9 @@ BlockArgument &BuildKrnlLoop::getInductionVar(int originalLoopIndex) {
   return iterBlock->getArguments()[originalLoopIndex];
 }
 
+ArrayRef<BlockArgument> BuildKrnlLoop::getAllInductionVar() {
+  return ArrayRef<BlockArgument>(
+      iterBlock->getArguments().begin(), iterBlock->getArguments().end());
+}
+
 } // namespace mlir
