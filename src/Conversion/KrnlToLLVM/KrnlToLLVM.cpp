@@ -49,7 +49,7 @@ static onnx::TensorProto::DataType llvmTypeToOnnxType(
   if (elemType.isSignedInteger(64))
     return onnx::TensorProto::INT64;
   // TODO, wait for Tong's input about how string is represented in MLIR.
-  if (elemType.isInteger(1))
+  if (elemType.isIntegerTy(1))
     return onnx::TensorProto::BOOL;
   if (elemType.isHalfTy())
     return onnx::TensorProto::FLOAT16;
