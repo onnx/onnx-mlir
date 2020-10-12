@@ -217,6 +217,8 @@ void populateLoweringONNXGRUOpPattern(
 
 void populateLoweringONNXLSTMOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
+void populateLoweringONNXRNNOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 // `Tensor` directory methods:
 

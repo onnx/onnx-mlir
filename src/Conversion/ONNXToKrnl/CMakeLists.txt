@@ -13,6 +13,7 @@ add_library(OMONNXToKrnl
         RNN/RNNBase.hpp
         RNN/GRU.cpp
         RNN/LSTM.cpp
+        RNN/RNN.cpp
         Tensor/Identity.cpp
         Tensor/Reshape.cpp
         Tensor/PadConstantValuePad.cpp
