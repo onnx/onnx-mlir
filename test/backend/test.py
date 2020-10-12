@@ -436,7 +436,12 @@ test_to_enable = [
     
     # ConstantOfShape
     "test_constantofshape_float_ones_cpu",
+    "test_constantofshape_int_zeros_cpu",
     
+    # Less
+    "test_less_cpu",
+    "test_less_bcast_cpu",
+
     # Size
     # TODO(tjingrant): fix unit test for size ops.
     # "test_size_cpu",

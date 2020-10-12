@@ -2475,3 +2475,64 @@ func @test_tile3(%arg0 : tensor<?xf32>, %arg1 : tensor<1xi64>) -> tensor<*xf32> 
   // CHECK:    [[R9:%.+]] = load %arg0{{\[}}[[R8]]{{\]}} : memref<?xf32>
   // CHECK:    affine.store [[R9]], [[R4]]{{\[}}[[ARG2]]{{\]}} : memref<?xf32>
 }
+
+// -----
+
+func @test_less(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
+  return %0 : tensor<3x4x5xi1>
+
+  // CHECK-LABEL: test_less
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x4x5xi1>
+  // CHECK: [[DEF_LOOPS]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1, [[DEF_LOOPS]]#2) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 3, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 4, [[DEF_LOOPS]]#2 -> %arg4 = 0 to 5) {
+  // CHECK:   [[LHS:%.+]] = affine.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK:   [[RHS:%.+]] = affine.load %arg1[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK:   [[LESS:%.+]] = cmpf "olt", [[LHS]], [[RHS]] : f32
+  // CHECK:   affine.store [[LESS]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xi1>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x4x5xi1>
+}
+
+// -----
+
+func @test_less_broadcast(%arg0: tensor<3x4x5xf32>, %arg1: tensor<5xf32>) -> tensor<3x4x5xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<5xf32>) -> tensor<3x4x5xi1>
+  return %0 : tensor<3x4x5xi1>
+
+  // CHECK-LABEL: test_less_broadcast
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x4x5xi1>
+  // CHECK: [[DEF_LOOPS]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1, [[DEF_LOOPS]]#2) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 3, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 4, [[DEF_LOOPS]]#2 -> %arg4 = 0 to 5) {
+  // CHECK:   [[LHS:%.+]] = affine.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK:   [[RHS:%.+]] = affine.load %arg1[%arg4] : memref<5xf32>
+  // CHECK:   [[LESS:%.+]] = cmpf "olt", [[LHS]], [[RHS]] : f32
+  // CHECK:   affine.store [[LESS]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xi1>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x4x5xi1>
+}
+
+// -----
+
+func @test_less_unknown_dims(%arg0: tensor<3x4x5xf32>, %arg1: tensor<?x4x5xf32>) -> tensor<3x4x5xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<?x4x5xf32>) -> tensor<3x4x5xi1>
+  return %0 : tensor<3x4x5xi1>
+
+  // CHECK-LABEL: test_less_unknown_dims
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x4x5xi1>
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM0:%.+]] = dim %arg1, [[C0]] : memref<?x4x5xf32>
+  // CHECK: [[C1:%.+]] = constant 1 : index
+  // CHECK: [[LOAD_DIM0:%.+]] = cmpi "eq", [[DIM0]], [[C1]] : index
+  // CHECK: [[DEF_LOOPS:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1, [[DEF_LOOPS]]#2) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 3, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 4, [[DEF_LOOPS]]#2 -> %arg4 = 0 to 5) {
+  // CHECK:   [[LHS:%.+]] = affine.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK:   [[C0_INDEX:%.+]] = constant 0 : index
+  // CHECK:   [[RHS_DIM0:%.+]] = select [[LOAD_DIM0]], [[C0_INDEX]], %arg2 : index
+  // CHECK:   [[RHS:%.+]] = affine.load %arg1{{\[}}[[RHS_DIM0]], %arg3, %arg4] : memref<?x4x5xf32>
+  // CHECK:   [[LESS:%.+]] = cmpf "olt", [[LHS]], [[RHS]] : f32
+  // CHECK:   affine.store [[LESS]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xi1>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x4x5xi1>
+}
+
