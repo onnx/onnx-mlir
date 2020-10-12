@@ -1,10 +1,10 @@
-//===--------- ExecusionSession.hpp - ExecutionSession Declaration --------===//
+//===--------- ExecutionSession.hpp - ExecutionSession Declaration --------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains declarations of ExecusionSession class, which helps C++
+// This file contains declarations of ExecutionSession class, which helps C++
 // programs interact with compiled binary model libraries.
 //
 //===----------------------------------------------------------------------===//
@@ -15,18 +15,19 @@
 #include <dlfcn.h>
 #include <string>
 
-#include "src/Runtime/RtMemRef.h"
+#include "OnnxMlirRuntime.h"
 
 namespace onnx_mlir {
 
-typedef OrderedRtMemRefDict *(*entryPointFuncType)(OrderedRtMemRefDict *);
+typedef OMTensorList *(*entryPointFuncType)(OMTensorList *);
 
 class ExecutionSession {
 public:
   ExecutionSession(std::string sharedLibPath, std::string entryPointName);
 
-  std::vector<std::unique_ptr<RtMemRef>> run(
-      std::vector<std::unique_ptr<RtMemRef>>);
+  // Use custom deleter since forward declared OMTensor hides destructor
+  std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> run(
+      std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>>);
 
   ~ExecutionSession();
 
