@@ -45,7 +45,7 @@ public:
     });
   }
 };
+} // namespace mlir
 
 #define GET_OP_CLASSES
 #include "src/Dialect/Krnl/KrnlOps.hpp.inc"
-} // namespace mlir

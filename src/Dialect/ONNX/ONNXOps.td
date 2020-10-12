@@ -42,7 +42,7 @@ include "src/Interface/ResultTypeInferenceOpInterface.td"
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
-  let cppNamespace = "";
+  let cppNamespace = "::mlir";
 }
 
 // Base class for ONNX dialect operations. This operation inherits from the base

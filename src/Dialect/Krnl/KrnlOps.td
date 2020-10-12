@@ -13,7 +13,7 @@ include "mlir/Dialect/Shape/IR/ShapeBase.td"
 
 def Krnl_Dialect : Dialect {
   let name = "krnl";
-  let cppNamespace = "";
+  let cppNamespace = "::mlir";
 }
 
 // Require regions to have krnl.terminate terminator operation.

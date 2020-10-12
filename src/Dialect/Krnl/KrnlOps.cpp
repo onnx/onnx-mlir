@@ -32,7 +32,6 @@
 
 using namespace mlir;
 
-namespace mlir {
 KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
     : Dialect(getDialectNamespace(), context, TypeID::get<KrnlOpsDialect>()) {
   addOperations<
@@ -41,6 +40,8 @@ KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
       >();
   addTypes<LoopType>();
 }
+
+namespace mlir {
 
 //===----------------------------------------------------------------------===//
 // KrnlDefineLoopsOp
@@ -309,6 +310,7 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
   state.addAttribute(KrnlEntryPointOp::getNumOutputsAttrName(), numOutputs);
 }
 
+} // namespace mlir
+
 #define GET_OP_CLASSES
 #include "src/Dialect/Krnl/KrnlOps.cpp.inc"
-} // namespace mlir
