@@ -413,10 +413,20 @@ test_to_enable = [
     "test_averagepool_2d_strides_cpu",
     "test_averagepool_3d_default_cpu",
 
+    # GRU
+    "test_gru_defaults_cpu",
+    "test_gru_seq_length_cpu",
+    "test_gru_with_initial_bias_cpu",
+
     # LSTM
     "test_lstm_defaults_cpu",
     "test_lstm_with_initial_bias_cpu",
     "test_lstm_with_peepholes_cpu",
+
+    # RNN
+    "test_rnn_seq_length_cpu",
+    "test_simple_rnn_defaults_cpu",
+    "test_simple_rnn_with_initial_bias_cpu",
 
     # Squeeze
     "test_squeeze_cpu",
