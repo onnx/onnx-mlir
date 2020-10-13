@@ -17,6 +17,7 @@
 
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/Program.h>
+#include "mlir/Dialect/Affine/Passes.h"
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <mlir/IR/SymbolTable.h>
 
@@ -422,6 +423,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createConvertKrnlToAffinePass());
   // Fuse loops in Affine dialect.
   //  pm.addPass(mlir::createLoopFusionPass());
+  pm.addPass(mlir::createAffineLoopInvariantCodeMotionPass());
 }
 
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
