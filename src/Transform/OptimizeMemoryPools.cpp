@@ -188,7 +188,7 @@ bool getRefUsesAreDisjoint(
 bool getRefUsesAreMutuallyDisjoint(
     KrnlGetRefOp firstGetRef, KrnlGetRefOp secondGetRef) {
   return getRefUsesAreDisjoint(firstGetRef, secondGetRef) &&
-    getRefUsesAreDisjoint(secondGetRef, firstGetRef);
+      getRefUsesAreDisjoint(secondGetRef, firstGetRef);
 }
 
 //===----------------------------------------------------------------------===//
@@ -212,8 +212,7 @@ public:
     auto staticMemPool = getAllocOfGetRef(&firstGetRef);
 
     // Ensure that the alloc obtained above is static memory pool.
-    auto memPoolType =
-        convertToMemRefType(staticMemPool.getResult().getType());
+    auto memPoolType = convertToMemRefType(staticMemPool.getResult().getType());
     auto memPoolShape = memPoolType.getShape();
 
     // Static memory pool type must be byte.
@@ -247,7 +246,7 @@ public:
       if (candidate && candidate != firstGetRef &&
           getAllocOfGetRef(&candidate) == staticMemPool &&
           getMemRefSizeInBytes(firstGetRef.getResult()) ==
-          getMemRefSizeInBytes(candidate.getResult())) {
+              getMemRefSizeInBytes(candidate.getResult())) {
         secondGetRef = candidate;
       }
     }
@@ -305,7 +304,7 @@ public:
     int64_t usedMemory = getAllocGetRefTotalSize(&allocOp);
 
     assert(usedMemory <= memPoolShape[0] &&
-        "Used memory exceeds allocated memory.");
+           "Used memory exceeds allocated memory.");
 
     // Check if changes to the memory pool are required.
     if (memPoolShape[0] == usedMemory)
@@ -321,8 +320,8 @@ public:
         MemRefType::get(newStaticMemPoolShape, rewriter.getIntegerType(8));
 
     // We need to emit a new alloc of smaller size.
-    AllocOp newStaticMemPool = rewriter.create<AllocOp>(
-        loc, newStaticMemPoolType);
+    AllocOp newStaticMemPool =
+        rewriter.create<AllocOp>(loc, newStaticMemPoolType);
     newStaticMemPool.getOperation()->moveBefore(allocOp);
 
     // Each krnl.getref using the alloc needs to be re-emitted with the new
@@ -330,14 +329,12 @@ public:
     int64_t currentOffset = 0;
     for (auto getRefOp : allGetRefs) {
       // Emit the current offset inside the static memory pool.
-      auto newOffset = rewriter.create<ConstantOp>(
-          loc, rewriter.getIntegerAttr(
-                 rewriter.getIntegerType(64), currentOffset));
+      auto newOffset = rewriter.create<ConstantOp>(loc,
+          rewriter.getIntegerAttr(rewriter.getIntegerType(64), currentOffset));
 
       // Create a new krnl.getref using the new memory pool and new offset.
-      auto newGetRefOp = rewriter.create<KrnlGetRefOp>(loc,
-          getRefOp.getResult().getType(), newStaticMemPool,
-          newOffset);
+      auto newGetRefOp = rewriter.create<KrnlGetRefOp>(
+          loc, getRefOp.getResult().getType(), newStaticMemPool, newOffset);
       newGetRefOp.getOperation()->moveBefore(getRefOp);
 
       // Update offset.
@@ -364,8 +361,8 @@ public:
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
-    patterns.insert<KrnlOptimizeStaticMemoryPools, KrnlCompactStaticMemoryPools>(
-        &getContext());
+    patterns.insert<KrnlOptimizeStaticMemoryPools>(&getContext());
+    patterns.insert<KrnlCompactStaticMemoryPools>(&getContext());
 
     applyPatternsAndFoldGreedily(function, patterns);
   }
