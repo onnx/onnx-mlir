@@ -118,11 +118,11 @@ bool getRefUsesAreDisjoint(
   // Return variable.
   bool refsUseIsDisjoint = true;
 
-  printf("\n\n==============START LOOP=============\n");
-  printf("First:\n");
-  firstGetRef.dump();
-  printf("Second:\n");
-  secondGetRef.dump();
+  // printf("\n\n==============START LOOP=============\n");
+  // printf("First:\n");
+  // firstGetRef.dump();
+  // printf("Second:\n");
+  // secondGetRef.dump();
 
   // Compute all the stores into the second getref.
   std::vector<Operation *> allStores = getGetRefStores(&secondGetRef);
@@ -135,8 +135,8 @@ bool getRefUsesAreDisjoint(
     std::vector<Value> operandList;
     operandList.emplace_back(store->getOperands()[0]);
 
-    printf("Current STORE: \n");
-    store->dump();
+    // printf("Current STORE: \n");
+    // store->dump();
 
     // Construct the list of Values on which the current AllocOp depends on.
     llvm::SetVector<Operation *> dependentOps;
@@ -149,21 +149,21 @@ bool getRefUsesAreDisjoint(
         // Add value to dependent values list.
         dependentOps.insert(definingOperation);
         // TODO: remove debug print.
-        definingOperation->dump();
+        // definingOperation->dump();
 
         if (llvm::dyn_cast<AffineLoadOp>(definingOperation) ||
             llvm::dyn_cast<LoadOp>(definingOperation)) {
           // Check that the MemRef operand of this store operation is
           // not the firstGetRef.
           Value memRefOperand = definingOperation->getOperands()[0];
-          printf("Is block argument = %d\n", isBlockArgument(firstGetRef, memRefOperand));
+          // printf("Is block argument = %d\n", isBlockArgument(firstGetRef, memRefOperand));
           if (!isBlockArgument(firstGetRef, memRefOperand)) {
             Operation *operandDefinition = memRefOperand.getDefiningOp();
             KrnlGetRefOp storeGetRefOperand =
                 llvm::dyn_cast<KrnlGetRefOp>(operandDefinition);
 
-            printf("Defining operation for the 2nd operand of the store:\n");
-            operandDefinition->dump();
+            // printf("Defining operation for the 2nd operand of the store:\n");
+            // operandDefinition->dump();
             if (storeGetRefOperand && firstGetRef == storeGetRefOperand) {
               refsUseIsDisjoint = false;
             }
@@ -180,14 +180,14 @@ bool getRefUsesAreDisjoint(
       operandList.erase(operandList.begin());
     }
 
-    printf("===========================\n");
+    // printf("===========================\n");
 
     // Exit if use is not disjoint.
     if (!refsUseIsDisjoint)
       break;
   }
 
-  printf("==============DONE LOOP=============\n");
+  // printf("==============DONE LOOP=============\n");
   return refsUseIsDisjoint;
 }
 
@@ -270,7 +270,7 @@ public:
     // value stored does not involve a load from the firstGetRef.
     bool refsUseIsDisjoint =
         getRefUsesAreMutuallyDisjoin(firstGetRef, secondGetRef);
-    printf("============== DONE ANALYSIS =============\n");
+    // printf("============== DONE ANALYSIS =============\n");
 
     if (!refsUseIsDisjoint)
       return failure();
