@@ -188,7 +188,7 @@ bool getRefUsesAreDisjoint(
 bool getRefUsesAreMutuallyDisjoint(
     KrnlGetRefOp firstGetRef, KrnlGetRefOp secondGetRef) {
   return getRefUsesAreDisjoint(firstGetRef, secondGetRef) &&
-      getRefUsesAreDisjoint(secondGetRef, firstGetRef);
+         getRefUsesAreDisjoint(secondGetRef, firstGetRef);
 }
 
 //===----------------------------------------------------------------------===//
