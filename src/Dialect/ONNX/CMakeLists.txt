@@ -16,6 +16,8 @@ add_library(OMONNXOps
         ONNXOps.hpp
         ONNXOpsHelper.cpp
         ONNXOpsHelper.hpp
+        ONNXShapeHelper.cpp
+        ONNXShapeHelper.hpp
         IndexExpr.hpp
         IndexExpr.cpp)
 

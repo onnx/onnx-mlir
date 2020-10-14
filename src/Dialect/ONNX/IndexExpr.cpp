@@ -125,10 +125,29 @@ void IndexExpr::Copy(IndexExpr &a) {
 }
 
 //===----------------------------------------------------------------------===//
+// IndexExpr list querries.
+//===----------------------------------------------------------------------===//
+
+  bool IndexExpr::AreAllIntLit(SmallVectorImpl<IndexExpr> &list) {
+    for(auto index : list) {
+      if (!index.IsIntLit()) return false;
+    }
+    return true;
+  }
+
+  bool IndexExpr::AreAllAffine(SmallVectorImpl<IndexExpr> &list){
+    for(auto index : list) {
+      if (!index.IsAffine()) return false;
+    }
+    return true;
+  }
+ 
+
+//===----------------------------------------------------------------------===//
 // IndexExpr Getters / Setters.
 //===----------------------------------------------------------------------===//
 
-int64_t IndexExpr::GetIntLiteral() const {
+int64_t IndexExpr::GetIntLit() const {
   assert(IsIntLit());
   return intLit;
 }
@@ -186,10 +205,10 @@ Value IndexExpr::GetValue(IndexExprContainer &container) {
 }
 
 void IndexExpr::DebugPrint(const std::string &msg) {
-#if 0
+#if 1
   printf("%s:", msg.c_str());
   if (IsIntLit())
-    printf(" val(%lli)", GetIntLiteral());
+    printf(" val(%lli)", GetIntLit());
   if (HasAffineExpr())
     printf(" hasAffine");
   if (HasValue())
@@ -277,7 +296,7 @@ void IndexExpr::QuaternarySelectOp(IndexExprContainer &container,
 
 void IndexExpr::Add(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.SetIntLiteral(aa.GetIntLiteral() + bb.GetIntLiteral());
+    res.SetIntLiteral(aa.GetIntLit() + bb.GetIntLit());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.SetAffineExpr(
@@ -294,7 +313,7 @@ void IndexExpr::Add(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
 
 void IndexExpr::Sub(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.SetIntLiteral(aa.GetIntLiteral() - bb.GetIntLiteral());
+    res.SetIntLiteral(aa.GetIntLit() - bb.GetIntLit());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.SetAffineExpr(
@@ -312,11 +331,11 @@ void IndexExpr::Sub(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
 void IndexExpr::Mult(
     IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.SetIntLiteral(aa.GetIntLiteral() * bb.GetIntLiteral());
+    res.SetIntLiteral(aa.GetIntLit() * bb.GetIntLit());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand aa must be a literal.
-    res.SetAffineExpr(bb.GetAffineExpr(container) * aa.GetIntLiteral());
+    res.SetAffineExpr(bb.GetAffineExpr(container) * aa.GetIntLit());
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.SetValue(
@@ -331,19 +350,19 @@ void IndexExpr::FloorDiv(
     IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     int64_t rval =
-        floor((1.0 * aa.GetIntLiteral()) / (1.0 * bb.GetIntLiteral()));
+        floor((1.0 * aa.GetIntLit()) / (1.0 * bb.GetIntLit()));
     res.SetIntLiteral(rval);
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
-    int64_t bval = bb.GetIntLiteral();
+    int64_t bval = bb.GetIntLit();
     if (bval == 1)
       res.Copy(aa);
     else
       res.SetAffineExpr(aa.GetAffineExpr(container).floorDiv(bval));
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    if (bb.IsIntLit() && bb.GetIntLiteral() == 1)
+    if (bb.IsIntLit() && bb.GetIntLit() == 1)
       res.Copy(aa);
     else
       res.SetValue(
@@ -358,19 +377,19 @@ void IndexExpr::CeilDiv(
     IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     int64_t rval =
-        ceil((1.0 * aa.GetIntLiteral()) / (1.0 * bb.GetIntLiteral()));
+        ceil((1.0 * aa.GetIntLit()) / (1.0 * bb.GetIntLit()));
     res.SetIntLiteral(rval);
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
-    int64_t bval = bb.GetIntLiteral();
+    int64_t bval = bb.GetIntLit();
     if (bval == 1)
       res.Copy(aa);
     else
       res.SetAffineExpr(aa.GetAffineExpr(container).ceilDiv(bval));
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    if (bb.IsIntLit() && bb.GetIntLiteral() == 1) {
+    if (bb.IsIntLit() && bb.GetIntLit() == 1) {
       res.Copy(aa);
     } else {
       llvm_unreachable(
@@ -386,11 +405,11 @@ void IndexExpr::CeilDiv(
 
 void IndexExpr::Mod(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.SetIntLiteral(mod(aa.GetIntLiteral(), bb.GetIntLiteral()));
+    res.SetIntLiteral(mod(aa.GetIntLit(), bb.GetIntLit()));
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
-    res.SetAffineExpr(aa.GetAffineExpr(container) % bb.GetIntLiteral());
+    res.SetAffineExpr(aa.GetAffineExpr(container) % bb.GetIntLit());
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.SetValue(
@@ -407,9 +426,9 @@ void IndexExpr::Clamp(IndexExprContainer &container, IndexExpr &val,
   F3 litFct = [&](IndexExpr &res, IndexExpr &val, IndexExpr &min,
                   IndexExpr &max) {
     // assume signed compares
-    int64_t smin = min.GetIntLiteral() + minInc;
-    int64_t smax = max.GetIntLiteral() + maxInc;
-    int64_t sval = val.GetIntLiteral();
+    int64_t smin = min.GetIntLit() + minInc;
+    int64_t smax = max.GetIntLit() + maxInc;
+    int64_t sval = val.GetIntLit();
     if (sval < smin)
       sval = smin;
     if (sval > smax)
@@ -442,8 +461,8 @@ void IndexExpr::Select(IndexExprContainer &container, IndexExpr &condA,
     IndexExpr &falseVal) {
   F4 litFct = [&](IndexExpr &res, IndexExpr &ca, IndexExpr &cb, IndexExpr &tv,
                   IndexExpr &fv) {
-    int64_t sca = ca.GetIntLiteral();
-    int64_t scb = cb.GetIntLiteral();
+    int64_t sca = ca.GetIntLit();
+    int64_t scb = cb.GetIntLit();
     uint64_t uca = (uint64_t)sca;
     uint64_t ucb = (uint64_t)scb;
     switch (comparePred) {

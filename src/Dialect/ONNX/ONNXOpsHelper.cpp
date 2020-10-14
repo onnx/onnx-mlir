@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "ONNXOpsHelper.hpp"
-
 #include "ONNXOps.hpp"
 
 // Identity affine

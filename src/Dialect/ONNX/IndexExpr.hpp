@@ -34,6 +34,7 @@ public:
   int GetDimSize() const { return dims.size(); }
   int GetSymbolSize() const { return symbols.size(); }
   ConversionPatternRewriter *GetRewriter() const;
+  bool PerformShapeInference() const { return ! rewriter; }
   Location GetLocation() const { return loc; }
 
 private:
@@ -67,8 +68,12 @@ public:
   bool HasAffineExpr() const { assert(isDefined); return !(!affineExpr); }
   bool HasValue() const { assert(isDefined); return !(!value); }
 
+  // Shape inference querries on list of indices.
+  bool static AreAllIntLit(SmallVectorImpl<IndexExpr> &list);
+  bool static AreAllAffine(SmallVectorImpl<IndexExpr> &list);
+
   // Setter and getter.
-  int64_t GetIntLiteral() const;
+  int64_t GetIntLit() const;
   AffineExpr GetAffineExpr(IndexExprContainer &container);
   Value GetValue(IndexExprContainer &container);
   void SetIntLiteral(int64_t val);
@@ -78,10 +83,10 @@ public:
   // Possibly Affine Operations.
   void Add(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
   void Sub(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
-  void Mult(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
-  void FloorDiv(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
-  void CeilDiv(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
-  void Mod(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
+  void Mult(IndexExprContainer &container, IndexExpr &a, IndexExpr &b); // Lit in a.
+  void FloorDiv(IndexExprContainer &container, IndexExpr &a, IndexExpr &b); // lit in b.
+  void CeilDiv(IndexExprContainer &container, IndexExpr &a, IndexExpr &b); // Lit in b.
+  void Mod(IndexExprContainer &container, IndexExpr &a, IndexExpr &b); // Lit in b.
   void Clamp(IndexExprContainer &container, IndexExpr &val, IndexExpr &min,
       int64_t minInc, IndexExpr &max, int64_t maxInc);
   void Select(IndexExprContainer &container, IndexExpr &condA,

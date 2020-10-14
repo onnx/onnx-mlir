@@ -10,7 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType type) {
   auto memRefShape = type.getShape();
@@ -472,10 +472,6 @@ Value emitNegativeInfinityConstantOp(
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
-}
-
-int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
-  return (a.getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
