@@ -34,6 +34,19 @@ add_dependencies(OMEnableMemoryPool
         OMKrnlOps
         OMONNXOps)
 
+add_library(OMOptimizeMemoryPools
+        OptimizeMemoryPools.cpp)
+target_include_directories(OMOptimizeMemoryPools
+        PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+target_link_libraries(OMOptimizeMemoryPools
+        onnx)
+add_dependencies(OMOptimizeMemoryPools
+        OMKrnlOps
+        OMONNXOps)
+
 add_library(OMBundleMemoryPools
         BundleMemoryPools.cpp)
 target_include_directories(OMBundleMemoryPools

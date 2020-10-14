@@ -24,6 +24,7 @@ set(OMLibs
         OMPackKrnlGlobalConstants
         OMEnableMemoryPool
         OMBundleMemoryPools
+        OMOptimizeMemoryPools
         OMDisconnectKrnlDimFromAlloc
         OMLowerKrnlShape)
 set(OMLibs ${OMLibs} PARENT_SCOPE)
