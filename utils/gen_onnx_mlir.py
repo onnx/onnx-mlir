@@ -275,6 +275,7 @@ OpsWithShapeInference=[
     'Identity',
     'LSTM',
     'LeakyRelu',
+    'Less',
     'Log',
     'MatMul',
     'Max',
@@ -818,7 +819,11 @@ def parse_type_str(allowedType):
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
 
-    for key, item in onnx_to_mlir_type_dict.items():
+    # Apply substitutions in decreasing order of key-length, so that float16 is replaced
+    # before float, and uint16 is replaced before int16, etc.
+    mapping = list(onnx_to_mlir_type_dict.items())
+    mapping.sort(key=lambda pair:len(pair[0]), reverse=True)
+    for key, item in mapping:
         allowedType = allowedType.replace(key, item)
     return allowedType
 

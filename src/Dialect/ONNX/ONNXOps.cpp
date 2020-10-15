@@ -2153,32 +2153,48 @@ LogicalResult ONNXSplitOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXFlattenOp::inferShapes() {
-  assert(axis() == 1 && "ONNXFlattenOp can only handle axis=1 for now");
   auto inTy = input().getType().dyn_cast<ShapedType>();
   if (!inTy) {
     return emitOpError("Input is a non-shaped type");
   }
-  auto outTy = output().getType().dyn_cast<ShapedType>();
-  if (!outTy) {
-    return emitOpError("Output is a non-shaped type");
+
+  auto axisValue = axis();
+  auto inputShape = inTy.getShape();
+  auto inputRank = inputShape.size();
+  if (axisValue < -1 * (int64_t)inputRank || axisValue > (int64_t)inputRank) {
+    return emitOpError("ONNXFlattenOP: axis() value is out of range");
   }
 
-  // TODO(tjingrant): Seems like we can also fairly easily support the case
-  //                  where the batch dimension is dynamic
-  if (!outTy.hasStaticShape()) {
-    auto inShape = inTy.getShape();
-    assert(inShape.size() >= 1 && "ONNXFlattenOp inShape.size() should be > 0");
-    uint64_t outDim = 1;
-    for (auto it = inShape.begin() + 1; it < inShape.end(); it++) {
-      outDim *= *it;
+  SmallVector<int64_t, 2> dims;
+
+  // Negative axis is counting dimension from back
+  if (axisValue < 0)
+    axisValue = inputRank + axisValue + 1;
+
+  // Determine the size of the first dimension of output
+  int64_t firstDim = 1;
+  for (auto i = 0; i < axisValue; i++) {
+    if (inputShape[i] == -1) {
+      firstDim = -1;
+      break;
     }
-
-    SmallVector<int64_t, 2> dims;
-    // https://pytorch.org/docs/master/generated/torch.nn.Flatten.html
-    dims.emplace_back(inShape[0]);
-    dims.emplace_back(outDim);
-    getResult().setType(RankedTensorType::get(dims, outTy.getElementType()));
+    firstDim *= inputShape[i];
   }
+  dims.emplace_back(firstDim);
+
+  // Determine the size of the second dimension of output
+  int64_t secondDim = 1;
+  for (auto i = axisValue; i < inputRank; i++) {
+    if (inputShape[i] == -1) {
+      secondDim = -1;
+      break;
+    }
+    secondDim *= inputShape[i];
+  }
+  dims.emplace_back(secondDim);
+
+  // Set the type of output
+  getResult().setType(RankedTensorType::get(dims, inTy.getElementType()));
 
   return success();
 }
@@ -2868,6 +2884,26 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes() {
 
   getResult().setType(
       RankedTensorType::get(dims, FloatType::getF32(getContext())));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Less
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXLessOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXLessOp::inferShapes() {
+  for (int i = 0; i < getNumOperands(); ++i) {
+    if (!getOperand(i).getType().cast<RankedTensorType>())
+      return emitError("Input tensor(s) not ranked");
+  }
+  Type lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  Type rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> dims =
+      getBroadcastedType(lhsTy, rhsTy).cast<RankedTensorType>().getShape();
+
+  getResult().setType(
+      RankedTensorType::get(dims, IntegerType::get(/*width=*/1, getContext())));
   return success();
 }
 

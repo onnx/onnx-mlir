@@ -218,7 +218,7 @@ def KrnlPackedConstantOp : Op<Krnl_Dialect, "packed_const"> {
   let printer = ?;
 }
 
-def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
+def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
   let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
   let description = [{
     Retreieves a MemRef from within another MemRef:
