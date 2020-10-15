@@ -283,6 +283,10 @@ public:
     // Get parent block.
     Block *parentBlock = firstGetRef.getOperation()->getBlock();
 
+    // If this is not the top block fail.
+    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
+      return failure();
+
     // Get a GetRef, other than the current one, that uses the same static
     // memory pool.
     SmallVector<KrnlGetRefOp, 4> getRefCandidates;
@@ -404,6 +408,13 @@ public:
 
     // This is a memory pool if it is used by at least one getref.
     if (getAllocGetRefNum(&allocOp) < 1)
+      return failure();
+
+    // Get parent block.
+    Block *parentBlock = allocOp.getOperation()->getBlock();
+
+    // If this is not the top block, fail.
+    if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
       return failure();
 
     // Compute size of all krnl.getref operations that use this memory pool.
