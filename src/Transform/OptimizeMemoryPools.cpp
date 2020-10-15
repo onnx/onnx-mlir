@@ -131,8 +131,7 @@ SmallVector<KrnlGetRefOp, 4> getAllDistinctGetRefsForAlloc(AllocOp *allocOp) {
     // If a getRef with the same memory pool and offset has
     // already been added, skip it.
     for (auto getRef : getRefs)
-      if (op.mempool() == getRef.mempool() &&
-          op.offset() == op.offset())
+      if (op.mempool() == getRef.mempool() && op.offset() == op.offset())
         return;
 
     if (op.getOperands()[0] == allocOp->getResult())
