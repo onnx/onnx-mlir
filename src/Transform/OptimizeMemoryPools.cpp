@@ -124,8 +124,23 @@ std::vector<KrnlGetRefOp> getAllGetRefsForAlloc(AllocOp *allocOp) {
   return getRefs;
 }
 
+/// Returns a list of krnl.getref operations in the current block
+/// that share the same offset and memory pool.
+std::vector<KrnlGetRefOp> getAllGetRefWithSameOffset(KrnlGetRefOp *getRef) {
+  auto parentBlock = getRef->getOperation()->getBlock();
+  std::vector<KrnlGetRefOp> sameOffsetGetRefs;
+
+  parentBlock->walk([&sameOffsetGetRefs, getRef](KrnlGetRefOp op) {
+    if (op.mempool() == getRef->mempool() && op.offset() == getRef->offset())
+      sameOffsetGetRefs.emplace_back(op);
+  });
+
+  // The list contains at least one entry, the input krnl.getref.
+  return sameOffsetGetRefs;
+}
+
 bool getRefUsesAreDisjoint(
-    KrnlGetRefOp firstGetRef, KrnlGetRefOp secondGetRef) {
+    std::vector<KrnlGetRefOp> firstGetRefList, KrnlGetRefOp secondGetRef) {
   // Return variable.
   bool refsUseIsDisjoint = true;
 
@@ -142,7 +157,7 @@ bool getRefUsesAreDisjoint(
 
     // Construct the list of Values on which the current AllocOp depends on.
     llvm::SetVector<Operation *> dependentOps;
-    while (operandList.size() > 0) {
+    while (operandList.size() > 0 && refsUseIsDisjoint) {
       Value currentElement = operandList[0];
       Operation *definingOperation = currentElement.getDefiningOp();
 
@@ -153,22 +168,29 @@ bool getRefUsesAreDisjoint(
 
         if (llvm::dyn_cast<AffineLoadOp>(definingOperation) ||
             llvm::dyn_cast<LoadOp>(definingOperation)) {
-          // Check that the MemRef operand of this store operation is
-          // not the firstGetRef.
-          Value memRefOperand = definingOperation->getOperands()[0];
-          if (!isBlockArgument(firstGetRef, memRefOperand)) {
-            Operation *operandDefinition = memRefOperand.getDefiningOp();
-            KrnlGetRefOp storeGetRefOperand =
-                llvm::dyn_cast<KrnlGetRefOp>(operandDefinition);
+          // Check that the MemRef operand of this load operation is
+          // not in the firstGetRefList.
+          Value loadOperand = definingOperation->getOperands()[0];
+          if (!isBlockArgument(secondGetRef, loadOperand)) {
+            Operation *loadOperandDefinition = loadOperand.getDefiningOp();
+            KrnlGetRefOp loadGetRefOperand =
+                llvm::dyn_cast<KrnlGetRefOp>(loadOperandDefinition);
 
-            if (storeGetRefOperand && firstGetRef == storeGetRefOperand) {
-              refsUseIsDisjoint = false;
-            }
+            // If the load operand is valid, compare it with all the entries
+            // in the firstGetRefList. If it matches any one of them then the
+            // secondGetRef cannot share the same memory pool slot with the
+            // rest of the getref operations in the firstGetRefList.
+            if (loadGetRefOperand)
+              for (auto firstGetRef : firstGetRefList)
+                if (firstGetRef == loadGetRefOperand) {
+                  refsUseIsDisjoint = false;
+                  break;
+                }
           }
         } else {
           // Add operands to work queue.
           for (const auto &operand : definingOperation->getOperands())
-            if (!isBlockArgument(firstGetRef, operand))
+            if (!isBlockArgument(secondGetRef, operand))
               operandList.emplace_back(operand);
         }
       }
@@ -186,9 +208,19 @@ bool getRefUsesAreDisjoint(
 }
 
 bool getRefUsesAreMutuallyDisjoint(
-    KrnlGetRefOp firstGetRef, KrnlGetRefOp secondGetRef) {
-  return getRefUsesAreDisjoint(firstGetRef, secondGetRef) &&
-         getRefUsesAreDisjoint(secondGetRef, firstGetRef);
+    std::vector<KrnlGetRefOp> firstGetRefList, std::vector<KrnlGetRefOp> secondGetRefList) {
+  for (auto getRef : secondGetRefList) {
+    if (!getRefUsesAreDisjoint(firstGetRefList, getRef)) {
+      return false;
+    }
+  }
+
+  for (auto getRef : firstGetRefList) {
+    if (!getRefUsesAreDisjoint(secondGetRefList, getRef)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
@@ -201,6 +233,7 @@ public:
 
   LogicalResult matchAndRewrite(
       KrnlGetRefOp firstGetRef, PatternRewriter &rewriter) const override {
+    auto loc = firstGetRef.getLoc();
     auto memRefType = convertToMemRefType(firstGetRef.getResult().getType());
     auto memRefShape = memRefType.getShape();
 
@@ -233,7 +266,7 @@ public:
 
     // Get a GetRef, other than the current one, that uses the same static
     // memory pool.
-    KrnlGetRefOp secondGetRef = nullptr;
+    std::vector<KrnlGetRefOp> getRefCandidates;
     for (auto &op :
         llvm::make_range(parentBlock->begin(), std::prev(parentBlock->end()))) {
       KrnlGetRefOp candidate = llvm::dyn_cast_or_null<KrnlGetRefOp>(&op);
@@ -247,27 +280,81 @@ public:
           getAllocOfGetRef(&candidate) == staticMemPool &&
           getMemRefSizeInBytes(firstGetRef.getResult()) ==
               getMemRefSizeInBytes(candidate.getResult())) {
-        secondGetRef = candidate;
+        getRefCandidates.emplace_back(candidate);
       }
     }
 
-    // If no secondGetRef was found, pattern matching failed.
-    if (!secondGetRef)
+    // If no candidate was found, pattern matching failed.
+    if (getRefCandidates.size() < 1)
       return failure();
 
-    // A suitable candidate has been found. The next step is to check that
-    // the usage of the candidate getref is disjoint from the usage of the
-    // first getref. This means that for any store to the secondGetRef, the
-    // value stored does not involve a load from the firstGetRef.
-    bool refsUseIsDisjoint =
-        getRefUsesAreMutuallyDisjoint(firstGetRef, secondGetRef);
+    std::vector<KrnlGetRefOp> validSlotReusers;
+    for (auto secondGetRef : getRefCandidates) {
+      // Check that the current candidate has not already been added as a valid
+      // slot reuser.
+      bool isSlotReuser = false;
+      for (auto slotReuser : validSlotReusers) {
+        if (slotReuser == secondGetRef) {
+          isSlotReuser = true;
+          break;
+        }
+      }
+      if (isSlotReuser)
+        continue;
 
-    if (!refsUseIsDisjoint)
+      // If the second getref has the same offset as the first then the rewrite
+      // rule has already been applied to this getref so there is no work to do.
+      if (firstGetRef.offset() == secondGetRef.offset())
+        continue;
+
+      // Both first and second getRef ops may have already been processed by this
+      // rewrite rule. There could be several krnl.getref with the same offset as
+      // firstGetRef and several krnl.getRef with the same offset as secondGetRef.
+      // In general we have to be able to handle this case.
+      std::vector<KrnlGetRefOp> firstGetRefList =
+          getAllGetRefWithSameOffset(&firstGetRef);
+      std::vector<KrnlGetRefOp> secondGetRefList =
+          getAllGetRefWithSameOffset(&secondGetRef);
+
+      // Add all the currently discovered krnl.getref reusers that have not yet
+      // been actually processed but are now known to be valid reusers of the
+      // same slot. This is done for the purpose of checking validity of the
+      // other remaining candidates which have to consider that there is now
+      // an additional getref that uses the same slot.
+      for (auto validUnemittedReuser : validSlotReusers)
+        firstGetRefList.emplace_back(validUnemittedReuser);
+
+      // Check that the usage of the candidate getrefs is disjoint from the usage
+      // of any of the first getrefs. This means that for any store to a getref
+      // in secondGetRefList, the value stored does not involve a load from a
+      // getref in firstGetRefList (and vice-versa).
+      bool refsUseIsDisjoint =
+          getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList);
+
+      if (!refsUseIsDisjoint)
+        continue;
+
+      printf("Found a match:\n");
+      firstGetRef.dump();
+      secondGetRef.dump();
+
+      for (auto secondGetRef : secondGetRefList)
+        validSlotReusers.emplace_back(secondGetRef);
+    }
+
+    // No valid slot reuse getRefs have been identified.
+    if (validSlotReusers.size() == 0)
       return failure();
 
-    // A suitable replacement has been found, perform replacement, replace
-    // second getref with first getref.
-    rewriter.replaceOp(secondGetRef, firstGetRef.getResult());
+    // A suitable slot can be reused. Convert all secondGetRefList entries to
+    // use the same slot in the memory pool as all the firstGetRefList entries.
+    for (auto secondGetRef : validSlotReusers) {
+      auto newGetRefOp = rewriter.create<KrnlGetRefOp>(loc,
+          secondGetRef.getResult().getType(), staticMemPool,
+                  firstGetRef.offset());
+      newGetRefOp.getOperation()->moveBefore(secondGetRef);
+      rewriter.replaceOp(secondGetRef, newGetRefOp.getResult());
+    }
 
     return success();
   }
