@@ -58,10 +58,22 @@ int64_t getAllocGetRefTotalSize(AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
 
   int64_t totalSize = 0;
-  parentBlock->walk([&totalSize, allocOp](KrnlGetRefOp op) {
+  SmallVector<KrnlGetRefOp, 4> seenGetRefs;
+  parentBlock->walk([&totalSize, &seenGetRefs, allocOp](KrnlGetRefOp op) {
+    // Check that the krnl.getref operation has not already been counted.
+    // We must make sure we count the memory footprint of getref operations
+    // sharing a slot only once.
+    for (auto getRef : seenGetRefs)
+      if (op.offset() == getRef.offset())
+        return;
+
+    // Footprint has not been counter yet. Add it to totalSize.
     auto result = allocOp->getResult();
     if (op.getOperands()[0] == result)
       totalSize += getMemRefSizeInBytes(op.getResult());
+
+    // Act krnl.getref operation as seen.
+    seenGetRefs.emplace_back(op);
   });
 
   return totalSize;
@@ -109,13 +121,20 @@ std::vector<Operation *> getGetRefStores(KrnlGetRefOp *getRef) {
   return stores;
 }
 
-/// Returns a list of krnl.getref operations in the current block
-/// that use the memory pool.
-std::vector<KrnlGetRefOp> getAllGetRefsForAlloc(AllocOp *allocOp) {
+/// Returns a list of distinct krnl.getref operations in the current
+/// block that use the memory pool.
+SmallVector<KrnlGetRefOp, 4> getAllDistinctGetRefsForAlloc(AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
-  std::vector<KrnlGetRefOp> getRefs;
+  SmallVector<KrnlGetRefOp, 4> getRefs;
 
   parentBlock->walk([&getRefs, allocOp](KrnlGetRefOp op) {
+    // If a getRef with the same memory pool and offset has
+    // already been added, skip it.
+    for (auto getRef : getRefs)
+      if (op.mempool() == getRef.mempool() &&
+          op.offset() == op.offset())
+        return;
+
     if (op.getOperands()[0] == allocOp->getResult())
       getRefs.emplace_back(op);
   });
@@ -126,9 +145,9 @@ std::vector<KrnlGetRefOp> getAllGetRefsForAlloc(AllocOp *allocOp) {
 
 /// Returns a list of krnl.getref operations in the current block
 /// that share the same offset and memory pool.
-std::vector<KrnlGetRefOp> getAllGetRefWithSameOffset(KrnlGetRefOp *getRef) {
+SmallVector<KrnlGetRefOp, 4> getAllGetRefWithSameOffset(KrnlGetRefOp *getRef) {
   auto parentBlock = getRef->getOperation()->getBlock();
-  std::vector<KrnlGetRefOp> sameOffsetGetRefs;
+  SmallVector<KrnlGetRefOp, 4> sameOffsetGetRefs;
 
   parentBlock->walk([&sameOffsetGetRefs, getRef](KrnlGetRefOp op) {
     if (op.mempool() == getRef->mempool() && op.offset() == getRef->offset())
@@ -140,7 +159,7 @@ std::vector<KrnlGetRefOp> getAllGetRefWithSameOffset(KrnlGetRefOp *getRef) {
 }
 
 bool getRefUsesAreDisjoint(
-    std::vector<KrnlGetRefOp> firstGetRefList, KrnlGetRefOp secondGetRef) {
+    SmallVector<KrnlGetRefOp, 4> firstGetRefList, KrnlGetRefOp secondGetRef) {
   // Return variable.
   bool refsUseIsDisjoint = true;
 
@@ -207,8 +226,8 @@ bool getRefUsesAreDisjoint(
   return refsUseIsDisjoint;
 }
 
-bool getRefUsesAreMutuallyDisjoint(std::vector<KrnlGetRefOp> firstGetRefList,
-    std::vector<KrnlGetRefOp> secondGetRefList) {
+bool getRefUsesAreMutuallyDisjoint(SmallVector<KrnlGetRefOp, 4> firstGetRefList,
+    SmallVector<KrnlGetRefOp, 4> secondGetRefList) {
   for (auto getRef : secondGetRefList) {
     if (!getRefUsesAreDisjoint(firstGetRefList, getRef)) {
       return false;
@@ -266,7 +285,7 @@ public:
 
     // Get a GetRef, other than the current one, that uses the same static
     // memory pool.
-    std::vector<KrnlGetRefOp> getRefCandidates;
+    SmallVector<KrnlGetRefOp, 4> getRefCandidates;
     for (auto &op :
         llvm::make_range(parentBlock->begin(), std::prev(parentBlock->end()))) {
       KrnlGetRefOp candidate = llvm::dyn_cast_or_null<KrnlGetRefOp>(&op);
@@ -288,7 +307,7 @@ public:
     if (getRefCandidates.size() < 1)
       return failure();
 
-    std::vector<KrnlGetRefOp> validSlotReusers;
+    SmallVector<KrnlGetRefOp, 4> validSlotReusers;
     for (auto secondGetRef : getRefCandidates) {
       // Check that the current candidate has not already been added as a valid
       // slot reuser.
@@ -311,9 +330,9 @@ public:
       // this rewrite rule. There could be several krnl.getref with the same
       // offset as firstGetRef and several krnl.getRef with the same offset as
       // secondGetRef. In general we have to be able to handle this case.
-      std::vector<KrnlGetRefOp> firstGetRefList =
+      SmallVector<KrnlGetRefOp, 4> firstGetRefList =
           getAllGetRefWithSameOffset(&firstGetRef);
-      std::vector<KrnlGetRefOp> secondGetRefList =
+      SmallVector<KrnlGetRefOp, 4> secondGetRefList =
           getAllGetRefWithSameOffset(&secondGetRef);
 
       // Add all the currently discovered krnl.getref reusers that have not yet
@@ -397,9 +416,6 @@ public:
     if (memPoolShape[0] == usedMemory)
       return failure();
 
-    // Changes are required, memory pool needs to be compacted.
-    std::vector<KrnlGetRefOp> allGetRefs = getAllGetRefsForAlloc(&allocOp);
-
     // Compute the shape of the new static memory pool.
     SmallVector<int64_t, 1> newStaticMemPoolShape;
     newStaticMemPoolShape.emplace_back(usedMemory);
@@ -411,25 +427,44 @@ public:
         rewriter.create<AllocOp>(loc, newStaticMemPoolType);
     newStaticMemPool.getOperation()->moveBefore(allocOp);
 
+    // Changes are required, memory pool needs to be compacted.
+    SmallVector<KrnlGetRefOp, 4> distinctGetRefs =
+        getAllDistinctGetRefsForAlloc(&allocOp);
+
     // Each krnl.getref using the alloc needs to be re-emitted with the new
     // static memory pool and the new offset.
     int64_t currentOffset = 0;
-    for (auto getRefOp : allGetRefs) {
+    std::map<KrnlGetRefOp, KrnlGetRefOp> oldToNewGetRef;
+    for (auto getRefOp : distinctGetRefs) {
       // Emit the current offset inside the static memory pool.
       auto newOffset = rewriter.create<ConstantOp>(loc,
           rewriter.getIntegerAttr(rewriter.getIntegerType(64), currentOffset));
 
-      // Create a new krnl.getref using the new memory pool and new offset.
-      auto newGetRefOp = rewriter.create<KrnlGetRefOp>(
-          loc, getRefOp.getResult().getType(), newStaticMemPool, newOffset);
-      newGetRefOp.getOperation()->moveBefore(getRefOp);
+      // Size of current getref.
+      int64_t currentGetRefSize = getMemRefSizeInBytes(getRefOp.getResult());
+
+      // Get all getRefs which share the same memory slot.
+      SmallVector<KrnlGetRefOp, 4> sameSlotGetRefs =
+          getAllGetRefWithSameOffset(&getRefOp);
+
+      // Replace each one with a getref using the new offset in the compacted
+      // memory pool.
+      for (auto oldGetRef : sameSlotGetRefs) {
+        // Create a new krnl.getref using the new memory pool and new offset.
+        auto newGetRefOp = rewriter.create<KrnlGetRefOp>(
+            loc, oldGetRef.getResult().getType(), newStaticMemPool, newOffset);
+        newGetRefOp.getOperation()->moveBefore(oldGetRef);
+
+        oldToNewGetRef.insert(
+            std::pair<KrnlGetRefOp, KrnlGetRefOp>(oldGetRef, newGetRefOp));
+      }
 
       // Update offset.
-      currentOffset += getMemRefSizeInBytes(getRefOp.getResult());
-
-      // Replace old krnl.getref with the new one.
-      rewriter.replaceOp(getRefOp, newGetRefOp.getResult());
+      currentOffset += currentGetRefSize;
     }
+
+    for (auto getRefPair : oldToNewGetRef)
+      rewriter.replaceOp(getRefPair.first, getRefPair.second.getResult());
 
     rewriter.replaceOp(allocOp, newStaticMemPool.getResult());
 
