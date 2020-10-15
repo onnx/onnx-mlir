@@ -571,17 +571,18 @@ private:
     for (const auto &input : graph.input()) {
       if (!initializedTensors.ContainKey(legalize_name(input.name()))) {
         inputNames.push_back(input.name());
-        auto argTy = ImportTensorType(input).cast<mlir::RankedTensorType>();
-
+        auto argTy = ImportTensorType(input);
+        auto shapedTy = argTy.dyn_cast<mlir::RankedTensorType>();
         // Change the first dimension to unknown (-1) for test purpose only
-        if (force_first_dim_unknown_) {
-          auto argShape = argTy.getShape();
+        if (force_first_dim_unknown_ && shapedTy) {
+          auto argShape = shapedTy.getShape();
           SmallVector<int64_t, 4> newDims;
           newDims.push_back(-1);
           for (auto i = 1; i < argShape.size(); i++) {
             newDims.push_back(argShape[i]);
           }
-          argTy = RankedTensorType::get(newDims, argTy.getElementType());
+          argTy =
+              mlir::RankedTensorType::get(newDims, shapedTy.getElementType());
         }
         arg_types.emplace_back(argTy);
 
