@@ -207,8 +207,8 @@ bool getRefUsesAreDisjoint(
   return refsUseIsDisjoint;
 }
 
-bool getRefUsesAreMutuallyDisjoint(
-    std::vector<KrnlGetRefOp> firstGetRefList, std::vector<KrnlGetRefOp> secondGetRefList) {
+bool getRefUsesAreMutuallyDisjoint(std::vector<KrnlGetRefOp> firstGetRefList,
+    std::vector<KrnlGetRefOp> secondGetRefList) {
   for (auto getRef : secondGetRefList) {
     if (!getRefUsesAreDisjoint(firstGetRefList, getRef)) {
       return false;
@@ -307,10 +307,10 @@ public:
       if (firstGetRef.offset() == secondGetRef.offset())
         continue;
 
-      // Both first and second getRef ops may have already been processed by this
-      // rewrite rule. There could be several krnl.getref with the same offset as
-      // firstGetRef and several krnl.getRef with the same offset as secondGetRef.
-      // In general we have to be able to handle this case.
+      // Both first and second getRef ops may have already been processed by
+      // this rewrite rule. There could be several krnl.getref with the same
+      // offset as firstGetRef and several krnl.getRef with the same offset as
+      // secondGetRef. In general we have to be able to handle this case.
       std::vector<KrnlGetRefOp> firstGetRefList =
           getAllGetRefWithSameOffset(&firstGetRef);
       std::vector<KrnlGetRefOp> secondGetRefList =
@@ -324,10 +324,10 @@ public:
       for (auto validUnemittedReuser : validSlotReusers)
         firstGetRefList.emplace_back(validUnemittedReuser);
 
-      // Check that the usage of the candidate getrefs is disjoint from the usage
-      // of any of the first getrefs. This means that for any store to a getref
-      // in secondGetRefList, the value stored does not involve a load from a
-      // getref in firstGetRefList (and vice-versa).
+      // Check that the usage of the candidate getrefs is disjoint from the
+      // usage of any of the first getrefs. This means that for any store to a
+      // getref in secondGetRefList, the value stored does not involve a load
+      // from a getref in firstGetRefList (and vice-versa).
       bool refsUseIsDisjoint =
           getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList);
 
@@ -349,9 +349,9 @@ public:
     // A suitable slot can be reused. Convert all secondGetRefList entries to
     // use the same slot in the memory pool as all the firstGetRefList entries.
     for (auto secondGetRef : validSlotReusers) {
-      auto newGetRefOp = rewriter.create<KrnlGetRefOp>(loc,
-          secondGetRef.getResult().getType(), staticMemPool,
-                  firstGetRef.offset());
+      auto newGetRefOp =
+          rewriter.create<KrnlGetRefOp>(loc, secondGetRef.getResult().getType(),
+              staticMemPool, firstGetRef.offset());
       newGetRefOp.getOperation()->moveBefore(secondGetRef);
       rewriter.replaceOp(secondGetRef, newGetRefOp.getResult());
     }
