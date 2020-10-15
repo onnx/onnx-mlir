@@ -163,76 +163,23 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
   LstmState state;
 
   // Insert allocation and deallocation for the results of this operation.
-  if (!isNoneType(op->Y())) {
-    auto yMemRefType = convertToMemRefType(op->Y().getType());
-    if (hasAllConstantDimensions(yMemRefType))
-      state.allH = insertAllocAndDealloc(yMemRefType, loc, rewriter,
-          checkInsertDealloc(op->getOperation(), 0));
-    else {
-      llvm_unreachable("Unsupported dynamic dimensions.");
-    }
-  } else {
-    state.allH = op->Y();
-  }
-
+  // Y :: [seq_length, num_directions, batch_size, hidden_size]
+  state.allH = allocAllHidden(rewriter, loc, operandAdaptor.X(),
+      operandAdaptor.W(), operandAdaptor.R(), op->Y(),
+      checkInsertDealloc(op->getOperation(), 0));
   // Y_h :: [num_directions, batch_size, hidden_size]
-  if (!isNoneType(op->Y_h())) {
-    auto yhMemRefType = convertToMemRefType(op->Y_h().getType());
-    if (hasAllConstantDimensions(yhMemRefType))
-      state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter,
-          checkInsertDealloc(op->getOperation(), 1));
-    else
-      llvm_unreachable("Unsupported dynamic dimensions.");
-  } else {
-    auto yhMemRefType = MemRefType::get(
-        {dimAt(operandAdaptor.W(), 0), dimAt(operandAdaptor.X(), 1),
-            dimAt(operandAdaptor.R(), 2)},
-        operandAdaptor.X().getType().cast<ShapedType>().getElementType());
-    state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter, true);
-  }
-
+  state.ht = allocHiddenOrCell(rewriter, loc, operandAdaptor.X(),
+      operandAdaptor.W(), operandAdaptor.R(), op->Y_h(),
+      checkInsertDealloc(op->getOperation(), 1));
   // Y_c :: [num_directions, batch_size, hidden_size]
-  if (!isNoneType(op->Y_c())) {
-    auto ycMemRefType = convertToMemRefType(op->Y_c().getType());
-    if (hasAllConstantDimensions(ycMemRefType))
-      state.ct = insertAllocAndDealloc(ycMemRefType, loc, rewriter,
-          checkInsertDealloc(op->getOperation(), 2));
-    else
-      llvm_unreachable("Unsupported dynamic dimensions.");
-  } else {
-    auto ycMemRefType = MemRefType::get(
-        {dimAt(operandAdaptor.W(), 0), dimAt(operandAdaptor.X(), 1),
-            dimAt(operandAdaptor.R(), 2)},
-        operandAdaptor.X().getType().cast<ShapedType>().getElementType());
-    state.ct = insertAllocAndDealloc(ycMemRefType, loc, rewriter, true);
-  }
+  state.ct = allocHiddenOrCell(rewriter, loc, operandAdaptor.X(),
+      operandAdaptor.W(), operandAdaptor.R(), op->Y_c(),
+      checkInsertDealloc(op->getOperation(), 2));
 
   // Initialize ht and ct.
-  Value zero = emitConstantOp(rewriter, loc,
-      operandAdaptor.X().getType().cast<ShapedType>().getElementType(), 0);
-  int nLoops = 3;
-  BuildKrnlLoop initializationLoops(rewriter, loc, nLoops);
-  initializationLoops.createDefineAndIterateOp(state.ht);
-  auto ipInitializationLoops = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointToStart(initializationLoops.getIterateBlock());
-  {
-    SmallVector<Value, 4> IVs;
-    for (int i = 0; i < nLoops; ++i)
-      IVs.emplace_back(initializationLoops.getInductionVar(i));
-
-    Value hiddenVal = zero;
-    if (!isNoneType(operandAdaptor.initial_h()))
-      hiddenVal =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.initial_h(), IVs);
-    rewriter.create<AffineStoreOp>(loc, hiddenVal, state.ht, IVs);
-
-    Value cellVal = zero;
-    if (!isNoneType(operandAdaptor.initial_c()))
-      cellVal =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.initial_c(), IVs);
-    rewriter.create<AffineStoreOp>(loc, cellVal, state.ct, IVs);
-  }
-  rewriter.restoreInsertionPoint(ipInitializationLoops);
+  initializeHiddenAndCell(rewriter, loc, state.ht, state.ct,
+      operandAdaptor.initial_h(), operandAdaptor.initial_c(),
+      operandAdaptor.X().getType().cast<MemRefType>().getElementType(), false);
   return state;
 }
 
