@@ -123,7 +123,8 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
   Value noneValue;
   initializeHiddenAndCell(rewriter, loc, state.ht, noneValue,
       operandAdaptor.initial_h(), noneValue,
-      operandAdaptor.X().getType().cast<MemRefType>().getElementType(), true);
+      operandAdaptor.X().getType().cast<MemRefType>().getElementType(),
+      /*onlyHidden=*/true);
   return state;
 }
 

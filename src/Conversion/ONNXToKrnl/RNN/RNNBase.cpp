@@ -20,16 +20,44 @@ int64_t dimAt(Value val, int index) {
   return val.getType().cast<ShapedType>().getShape()[index];
 }
 
-// Insert Allocate and Deallocate for the all hidden output.
+/// Insert Allocate and Deallocate for the all hidden output.
+/// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value W, Value R, Value output, bool insertDealloc) {
   Value alloc;
   if (!isNoneType(output)) {
-    auto yMemRefType = convertToMemRefType(output.getType());
-    if (hasAllConstantDimensions(yMemRefType))
-      alloc = insertAllocAndDealloc(yMemRefType, loc, rewriter, insertDealloc);
+    auto memRefType = convertToMemRefType(output.getType());
+    if (hasAllConstantDimensions(memRefType))
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else {
-      llvm_unreachable("Unsupported dynamic dimensions.");
+      auto memRefShape = memRefType.getShape();
+      SmallVector<Value, 2> allocOperands;
+      if (memRefShape[0] < 0) {
+        // Get seq_length from X.
+        auto dim = rewriter.create<DimOp>(loc, X, 0);
+        allocOperands.emplace_back(dim);
+      }
+      if (memRefShape[1] < 0) {
+        // Get num_directions from W.
+        auto dim = rewriter.create<DimOp>(loc, W, 0);
+        allocOperands.emplace_back(dim);
+      }
+      if (memRefShape[2] < 0) {
+        // Get batch_size from X.
+        auto dim = rewriter.create<DimOp>(loc, X, 1);
+        allocOperands.emplace_back(dim);
+      }
+      if (memRefShape[3] < 0) {
+        // Get hidden_size from R.
+        auto dim = rewriter.create<DimOp>(loc, R, 2);
+        allocOperands.emplace_back(dim);
+      }
+      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+      if (insertDealloc) {
+        auto *parentBlock = alloc.getDefiningOp()->getBlock();
+        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        dealloc.getOperation()->moveBefore(&parentBlock->back());
+      }
     }
   } else {
     alloc = output;
@@ -37,22 +65,50 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
   return alloc;
 }
 
-// Insert Allocate and Deallocate for the hidden or cell output.
+/// Insert Allocate and Deallocate for the hidden or cell output.
+/// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
     Value X, Value W, Value R, Value output, bool insertDealloc) {
-  Value alloc;
-  if (!isNoneType(output)) {
-    auto yhMemRefType = convertToMemRefType(output.getType());
-    if (hasAllConstantDimensions(yhMemRefType))
-      alloc = insertAllocAndDealloc(yhMemRefType, loc, rewriter, insertDealloc);
-    else
-      llvm_unreachable("Unsupported dynamic dimensions.");
-  } else {
-    auto yhMemRefType = MemRefType::get(
+  MemRefType memRefType;
+  if (!isNoneType(output))
+    memRefType = convertToMemRefType(output.getType());
+  else {
+    memRefType = MemRefType::get(
         {/*num_directions=*/dimAt(W, 0), /*batch_size=*/dimAt(X, 1),
             /*hidden_size=*/dimAt(R, 2)},
         X.getType().cast<ShapedType>().getElementType());
-    alloc = insertAllocAndDealloc(yhMemRefType, loc, rewriter, true);
+    // The hidden or cell is not a return value but a temporary value, so always
+    // dealloc it.
+    insertDealloc = true;
+  }
+
+  Value alloc;
+  if (hasAllConstantDimensions(memRefType))
+    alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+  else {
+    auto memRefShape = memRefType.getShape();
+    SmallVector<Value, 2> allocOperands;
+    if (memRefShape[0] < 0) {
+      // Get num_directions from W.
+      auto dim = rewriter.create<DimOp>(loc, W, 0);
+      allocOperands.emplace_back(dim);
+    }
+    if (memRefShape[1] < 0) {
+      // Get batch_size from X.
+      auto dim = rewriter.create<DimOp>(loc, X, 1);
+      allocOperands.emplace_back(dim);
+    }
+    if (memRefShape[2] < 0) {
+      // Get hidden_size from R.
+      auto dim = rewriter.create<DimOp>(loc, R, 2);
+      allocOperands.emplace_back(dim);
+    }
+    alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+    if (insertDealloc) {
+      auto *parentBlock = alloc.getDefiningOp()->getBlock();
+      auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+      dealloc.getOperation()->moveBefore(&parentBlock->back());
+    }
   }
 
   return alloc;

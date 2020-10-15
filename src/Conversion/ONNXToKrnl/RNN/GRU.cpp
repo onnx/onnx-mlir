@@ -150,7 +150,8 @@ GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
   Value noneValue;
   initializeHiddenAndCell(rewriter, loc, state.ht, noneValue,
       operandAdaptor.initial_h(), noneValue,
-      operandAdaptor.X().getType().cast<MemRefType>().getElementType(), true);
+      operandAdaptor.X().getType().cast<MemRefType>().getElementType(),
+      /*onlyHidden=*/true);
 
   // Obtain the value of 'linear_before_reset' attribute.
   int64_t linearBeforeResetAttr = op->linear_before_reset();

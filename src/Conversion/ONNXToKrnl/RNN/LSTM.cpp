@@ -179,7 +179,8 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
   // Initialize ht and ct.
   initializeHiddenAndCell(rewriter, loc, state.ht, state.ct,
       operandAdaptor.initial_h(), operandAdaptor.initial_c(),
-      operandAdaptor.X().getType().cast<MemRefType>().getElementType(), false);
+      operandAdaptor.X().getType().cast<MemRefType>().getElementType(),
+      /*onlyHidden=*/false);
   return state;
 }
 
