@@ -186,7 +186,7 @@ bool getRefUsesAreDisjoint(
 
         if (definingOperation &&
             (llvm::dyn_cast<AffineLoadOp>(definingOperation) ||
-             llvm::dyn_cast<LoadOp>(definingOperation))) {
+                llvm::dyn_cast<LoadOp>(definingOperation))) {
           // Check that the MemRef operand of this load operation is
           // not in the firstGetRefList.
           Value loadOperand = definingOperation->getOperands()[0];
