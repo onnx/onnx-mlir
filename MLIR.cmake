@@ -137,7 +137,7 @@ function(find_mlir_lib lib)
   endif()
 endfunction(find_mlir_lib)
 
-find_mlir_lib(MLIRAffineOps)
+find_mlir_lib(MLIRAffine)
 find_mlir_lib(MLIRAffineUtils)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAffineTransforms)
@@ -154,7 +154,7 @@ find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
 find_mlir_lib(MLIRSCFToStandard)
 find_mlir_lib(MLIRLoopLikeInterface)
-find_mlir_lib(MLIRLinalgOps)
+find_mlir_lib(MLIRLinalg)
 find_mlir_lib(MLIRLinalgEDSC)
 find_mlir_lib(MLIRLinalgAnalysis)
 find_mlir_lib(MLIRLinalgTransforms)
@@ -165,7 +165,7 @@ find_mlir_lib(MLIRLLVMIRTransforms)
 find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRParser)
 find_mlir_lib(MLIRPass)
-find_mlir_lib(MLIRStandardOps)
+find_mlir_lib(MLIRStandard)
 find_mlir_lib(MLIRStandardOpsTransforms)
 find_mlir_lib(MLIRStandardToLLVM)
 find_mlir_lib(MLIRSideEffectInterfaces)
@@ -213,11 +213,11 @@ find_mlir_lib(LLVMFrontendOpenMP)
 
 set(MLIRLibs
         ${MLIRAffineToStandard}
-        ${MLIRAffineOps}
+        ${MLIRAffine}
         ${MLIRAffineUtils}
         ${MLIRCopyOpInterface}
         ${MLIRLLVMIR}
-        ${MLIRStandardOps}
+        ${MLIRStandard}
         ${MLIRStandardOpsTransforms}
         ${MLIRStandardToLLVM}
         ${MLIRTransforms}
@@ -236,7 +236,7 @@ set(MLIRLibs
         ${MLIRTargetLLVMIRModuleTranslation}
         ${MLIRTransforms}
         ${MLIRTransformUtils}
-        ${MLIRAffineOps}
+        ${MLIRAffine}
         ${MLIRAffineToStandard}
         ${MLIRAffineTransforms}
         ${MLIRAnalysis}
@@ -255,11 +255,11 @@ set(MLIRLibs
         ${MLIROpenMP}
         ${MLIRMlirOptMain}
         ${MLIRSideEffectInterfaces}
-        ${MLIRStandardOps}
+        ${MLIRStandard}
         ${MLIRStandardToLLVM}
         ${MLIRTranslation}
         ${MLIRSupport}
-        ${MLIRLinalgOps}
+        ${MLIRLinalg}
         ${MLIRLinalgEDSC}
         ${MLIRLinalgAnalysis}
         ${MLIRLinalgTransforms}
