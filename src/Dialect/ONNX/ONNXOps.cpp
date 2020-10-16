@@ -3309,7 +3309,6 @@ LogicalResult ONNXZipMapOp::inferShapes() {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-
 //===----------------------------------------------------------------------===//
 // ONNX type related code
 //===----------------------------------------------------------------------===//
