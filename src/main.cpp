@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
       llvm::cl::desc("Choose target to emit:"),
       llvm::cl::values(
           clEnumVal(EmitONNXBasic,
-              "Ingest ONNX and emit the basic ONNX operations without"
+              "Ingest ONNX and emit the basic ONNX operations without "
               "inferred shapes."),
           clEnumVal(
               EmitONNXIR, "Ingest ONNX and emit corresponding ONNX dialect."),
