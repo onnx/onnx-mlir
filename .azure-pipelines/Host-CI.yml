@@ -93,6 +93,8 @@ jobs:
   timeoutInMinutes: 180
   steps:
   - template: BuildOnnxMlir.yml
+    parameters:
+      CMakeBuildTarget: 'onnx-mlir'
 
   # Pulled the following steps out of the template because they are currently Linux specific, until we get upstream fixes
   - script: |
