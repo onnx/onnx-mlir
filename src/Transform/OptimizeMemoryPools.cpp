@@ -271,24 +271,6 @@ Block *getTopBlock(Operation *op) {
   return topBlock;
 }
 
-// Operation *getLiveRangeLastOp(SmallVector<KrnlGetRefOp, 4> getRefList) {
-//   Block *topBlock = getTopBlock(getRefList[0].getOperation());
-
-//   Operation *lastLoadStore = nullptr;
-//   topBlock->walk([&lastLoadStore, getRefList](Operation *op) {
-//     // If op is a Laod/Store, of any kind, from a getRef in getRefList then
-//     // assign it to lastLoadStore.
-//     for (auto getRef : getRefList)
-//       if (isLoadStoreForGetRef(getRef, op))
-//         lastLoadStore = op;
-//   });
-
-//   printf("Last Load/Store: \n");
-//   lastLoadStore->dump();
-
-//   return lastLoadStore;
-// }
-
 Operation *getLiveRangeLastOp(KrnlGetRefOp getRef) {
   Block *topBlock = getTopBlock(getRef.getOperation());
 
@@ -305,21 +287,6 @@ Operation *getLiveRangeLastOp(KrnlGetRefOp getRef) {
   return lastLoadStore;
 }
 
-// Operation *getLiveRangeFirstOp(SmallVector<KrnlGetRefOp, 4> getRefList) {
-//   Block *topBlock = getTopBlock(getRefList[0].getOperation());
-
-//   Operation *firstLoadStore = nullptr;
-//   topBlock->walk([&firstLoadStore, getRefList](Operation *op) {
-//     // If op is a Laod/Store, of any kind, from a getRef in getRefList then
-//     // assign it to lastLoadStore.
-//     for (auto getRef : getRefList)
-//       if (!firstLoadStore && isLoadStoreForGetRef(getRef, op))
-//         firstLoadStore = op;
-//   });
-
-//   return firstLoadStore;
-// }
-
 Operation *getLiveRangeFirstOp(KrnlGetRefOp getRef) {
   Block *topBlock = getTopBlock(getRef.getOperation());
 
@@ -333,44 +300,14 @@ Operation *getLiveRangeFirstOp(KrnlGetRefOp getRef) {
   return firstLoadStore;
 }
 
-bool operationInLiveRange(Operation *operation, std::vector<Operation *> liveRangeOpList) {
+bool operationInLiveRange(
+    Operation *operation, std::vector<Operation *> liveRangeOpList) {
   for (auto &op : liveRangeOpList) {
     if (op == operation)
       return true;
   }
   return false;
 }
-
-// std::vector<Operation *> getLiveRange(SmallVector<KrnlGetRefOp, 4> getRefList) {
-//   std::vector<Operation *> operations;
-
-//   auto topBlock = getTopBlock(getRefList[0].getOperation());
-
-//   // Determine last load/store from a getref in getRefList.
-//   Operation *lastLoadStore = getLiveRangeLastOp(getRefList);
-
-//   printf("Operations in Live Range: \n");
-//   bool operationInLiveRange = false;
-//   topBlock->walk([&operations, &operationInLiveRange, lastLoadStore, getRefList](Operation *op) {
-//     // If op is a Laod/Store, of any kind, from a getRef in getRefList then
-//     // assign it to lastLoadStore.
-//     for (auto getRef : getRefList) {
-//       if (isLoadStoreForGetRef(getRef, op) && !operationInLiveRange)
-//         operationInLiveRange = true;
-
-//       if (operationInLiveRange) {
-//         // op->dump();
-//         operations.emplace_back(op);
-//       }
-
-//       if (op == lastLoadStore)
-//         operationInLiveRange = false;
-//     }
-//   });
-//   printf(" ===== END OF LIVE RANGE ===== \n");
-
-//   return operations;
-// }
 
 std::vector<Operation *> getLiveRange(KrnlGetRefOp getRef) {
   std::vector<Operation *> operations;
@@ -463,7 +400,7 @@ Operation *getOutermostLoop(Operation *op) {
   //   }
   // }
   //
-  while(!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
+  while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
     if (llvm::dyn_cast_or_null<KrnlIterateOp>(parentBlockOp))
       outermostLoop = parentBlockOp;
     parentBlockOp = parentBlockOp->getBlock()->getParentOp();
