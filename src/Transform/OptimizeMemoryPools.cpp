@@ -263,7 +263,7 @@ Block *getTopBlock(Operation *op) {
   Block *topBlock = op->getBlock();
   Operation *parentBlockOp = topBlock->getParentOp();
 
-  while(!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
+  while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
     topBlock = parentBlockOp->getBlock();
     parentBlockOp = topBlock->getParentOp();
   }
@@ -319,7 +319,8 @@ std::vector<Operation *> getLiveRange(KrnlGetRefOp getRef) {
 
   printf("Operations in Live Range: \n");
   bool operationInLiveRange = false;
-  topBlock->walk([&operations, &operationInLiveRange, lastLoadStore, getRef](Operation *op) {
+  topBlock->walk([&operations, &operationInLiveRange, lastLoadStore, getRef](
+                     Operation *op) {
     // If op is a Laod/Store, of any kind, then assign it to lastLoadStore.
     if (isLoadStoreForGetRef(getRef, op) && !operationInLiveRange)
       operationInLiveRange = true;
@@ -342,12 +343,13 @@ std::vector<Operation *> getLiveRange(KrnlGetRefOp getRef) {
 bool opBeforeOp(Block *block, Operation *beforeOp, Operation *afterOp) {
   bool beforeOpIsBefore = true;
   bool beforeOpFound = false;
-  block->walk([&beforeOpIsBefore, &beforeOpFound, beforeOp, afterOp](Operation *op) {
-    if (op == beforeOp)
-      beforeOpFound = true;
-    else if (op == afterOp && !beforeOpFound)
-      beforeOpIsBefore = false;
-  });
+  block->walk(
+      [&beforeOpIsBefore, &beforeOpFound, beforeOp, afterOp](Operation *op) {
+        if (op == beforeOp)
+          beforeOpFound = true;
+        else if (op == afterOp && !beforeOpFound)
+          beforeOpIsBefore = false;
+      });
   return beforeOpIsBefore;
 }
 
@@ -461,7 +463,7 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
   // If both live range extremities are in the top level block then they cannot
   // share a loop nest with the other live range.
   if (firstLROpInTopLevelBlock && lastLROpInTopLevelBlock) {
-    printf("CASE 2: liveRangeFirstOp and liveRangeLastOp are both in top-level block\n");
+    printf("CASE 2: LR first and last op are both in top-level block\n");
     return false;
   }
 
@@ -665,7 +667,7 @@ public:
       bool liveRangesIntersect =
           checkLiveRangesIntersect(firstGetRefList, secondGetRefList);
 
-      printf("Live ranges intersect ===============> %d\n", liveRangesIntersect);
+      printf("Live ranges intersect =====> %d\n", liveRangesIntersect);
       if (liveRangesIntersect)
         continue;
 
