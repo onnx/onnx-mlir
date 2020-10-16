@@ -242,6 +242,367 @@ bool getRefUsesAreMutuallyDisjoint(SmallVector<KrnlGetRefOp, 4> firstGetRefList,
   return true;
 }
 
+bool isLoad(Operation *op) {
+  return llvm::dyn_cast_or_null<LoadOp>(op) ||
+         llvm::dyn_cast_or_null<AffineLoadOp>(op);
+}
+
+bool isStore(Operation *op) {
+  return llvm::dyn_cast_or_null<StoreOp>(op) ||
+         llvm::dyn_cast_or_null<AffineStoreOp>(op);
+}
+
+bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
+  return (isLoad(op) && getRef.getResult() == op->getOperands()[0]) ||
+         (isStore(op) && getRef.getResult() == op->getOperands()[1]);
+}
+
+/// Get top block.
+Block *getTopBlock(Operation *op) {
+  // Get current block as the first top block candidate.
+  Block *topBlock = op->getBlock();
+  Operation *parentBlockOp = topBlock->getParentOp();
+
+  while(!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
+    topBlock = parentBlockOp->getBlock();
+    parentBlockOp = topBlock->getParentOp();
+  }
+
+  return topBlock;
+}
+
+// Operation *getLiveRangeLastOp(SmallVector<KrnlGetRefOp, 4> getRefList) {
+//   Block *topBlock = getTopBlock(getRefList[0].getOperation());
+
+//   Operation *lastLoadStore = nullptr;
+//   topBlock->walk([&lastLoadStore, getRefList](Operation *op) {
+//     // If op is a Laod/Store, of any kind, from a getRef in getRefList then
+//     // assign it to lastLoadStore.
+//     for (auto getRef : getRefList)
+//       if (isLoadStoreForGetRef(getRef, op))
+//         lastLoadStore = op;
+//   });
+
+//   printf("Last Load/Store: \n");
+//   lastLoadStore->dump();
+
+//   return lastLoadStore;
+// }
+
+Operation *getLiveRangeLastOp(KrnlGetRefOp getRef) {
+  Block *topBlock = getTopBlock(getRef.getOperation());
+
+  Operation *lastLoadStore = nullptr;
+  topBlock->walk([&lastLoadStore, getRef](Operation *op) {
+    // If op is a Laod/Store, of any kind then assign it to lastLoadStore.
+    if (isLoadStoreForGetRef(getRef, op))
+      lastLoadStore = op;
+  });
+
+  printf("Last Load/Store: \n");
+  lastLoadStore->dump();
+
+  return lastLoadStore;
+}
+
+// Operation *getLiveRangeFirstOp(SmallVector<KrnlGetRefOp, 4> getRefList) {
+//   Block *topBlock = getTopBlock(getRefList[0].getOperation());
+
+//   Operation *firstLoadStore = nullptr;
+//   topBlock->walk([&firstLoadStore, getRefList](Operation *op) {
+//     // If op is a Laod/Store, of any kind, from a getRef in getRefList then
+//     // assign it to lastLoadStore.
+//     for (auto getRef : getRefList)
+//       if (!firstLoadStore && isLoadStoreForGetRef(getRef, op))
+//         firstLoadStore = op;
+//   });
+
+//   return firstLoadStore;
+// }
+
+Operation *getLiveRangeFirstOp(KrnlGetRefOp getRef) {
+  Block *topBlock = getTopBlock(getRef.getOperation());
+
+  Operation *firstLoadStore = nullptr;
+  topBlock->walk([&firstLoadStore, getRef](Operation *op) {
+    // If op is a Laod/Store, of any kind then assign it to lastLoadStore.
+    if (!firstLoadStore && isLoadStoreForGetRef(getRef, op))
+      firstLoadStore = op;
+  });
+
+  return firstLoadStore;
+}
+
+bool operationInLiveRange(Operation *operation, std::vector<Operation *> liveRangeOpList) {
+  for (auto &op : liveRangeOpList) {
+    if (op == operation)
+      return true;
+  }
+  return false;
+}
+
+// std::vector<Operation *> getLiveRange(SmallVector<KrnlGetRefOp, 4> getRefList) {
+//   std::vector<Operation *> operations;
+
+//   auto topBlock = getTopBlock(getRefList[0].getOperation());
+
+//   // Determine last load/store from a getref in getRefList.
+//   Operation *lastLoadStore = getLiveRangeLastOp(getRefList);
+
+//   printf("Operations in Live Range: \n");
+//   bool operationInLiveRange = false;
+//   topBlock->walk([&operations, &operationInLiveRange, lastLoadStore, getRefList](Operation *op) {
+//     // If op is a Laod/Store, of any kind, from a getRef in getRefList then
+//     // assign it to lastLoadStore.
+//     for (auto getRef : getRefList) {
+//       if (isLoadStoreForGetRef(getRef, op) && !operationInLiveRange)
+//         operationInLiveRange = true;
+
+//       if (operationInLiveRange) {
+//         // op->dump();
+//         operations.emplace_back(op);
+//       }
+
+//       if (op == lastLoadStore)
+//         operationInLiveRange = false;
+//     }
+//   });
+//   printf(" ===== END OF LIVE RANGE ===== \n");
+
+//   return operations;
+// }
+
+std::vector<Operation *> getLiveRange(KrnlGetRefOp getRef) {
+  std::vector<Operation *> operations;
+
+  auto topBlock = getTopBlock(getRef.getOperation());
+
+  // Determine last load/store from getRef.
+  Operation *lastLoadStore = getLiveRangeLastOp(getRef);
+
+  printf("Operations in Live Range: \n");
+  bool operationInLiveRange = false;
+  topBlock->walk([&operations, &operationInLiveRange, lastLoadStore, getRef](Operation *op) {
+    // If op is a Laod/Store, of any kind, then assign it to lastLoadStore.
+    if (isLoadStoreForGetRef(getRef, op) && !operationInLiveRange)
+      operationInLiveRange = true;
+
+    if (operationInLiveRange) {
+      // op->dump();
+      operations.emplace_back(op);
+    }
+
+    if (op == lastLoadStore)
+      operationInLiveRange = false;
+  });
+  printf(" ===== END OF LIVE RANGE ===== \n");
+
+  return operations;
+}
+
+/// This function returns true if `beforeOp` is visited before `op` in a
+/// traversal of the provided block.
+bool opBeforeOp(Block *block, Operation *beforeOp, Operation *afterOp) {
+  bool beforeOpIsBefore = true;
+  bool beforeOpFound = false;
+  block->walk([&beforeOpIsBefore, &beforeOpFound, beforeOp, afterOp](Operation *op) {
+    if (op == beforeOp)
+      beforeOpFound = true;
+    else if (op == afterOp && !beforeOpFound)
+      beforeOpIsBefore = false;
+  });
+  return beforeOpIsBefore;
+}
+
+/// The live range is contained between firstOp and lastOp.
+bool liveRangeIsContained(Operation *firstOp, Operation *lastOp,
+    std::vector<Operation *> liveRangeOpList) {
+  Operation *liveRangeFirstOp = liveRangeOpList[0];
+  assert(liveRangeOpList.size() > 0 &&
+         "Live range empty but must have at least one element.");
+  Operation *liveRangeLastOp = liveRangeOpList[liveRangeOpList.size() - 1];
+
+  Block *topLevelBlock = getTopBlock(firstOp);
+
+  return opBeforeOp(topLevelBlock, firstOp, liveRangeFirstOp) &&
+         opBeforeOp(topLevelBlock, liveRangeLastOp, lastOp);
+}
+
+bool opInTopLevelBlock(Operation *op) {
+  Block *currentBlock = op->getBlock();
+
+  // If the parent operation of the current block is a FuncOp then
+  // this operation is in the top-level block.
+  return llvm::dyn_cast_or_null<FuncOp>(currentBlock->getParentOp());
+}
+
+Operation *getOutermostLoop(Operation *op) {
+  Operation *outermostLoop = nullptr;
+
+  // Get current block.
+  Block *currentBlock = op->getBlock();
+
+  // Current block must exist.
+  assert(currentBlock && "Operation not in a block.");
+
+  // Compute parent operation of the current block. Every block has
+  // a parent operation.
+  Operation *parentBlockOp = currentBlock->getParentOp();
+
+  // This loop will handle the following case:
+  //
+  // func() {
+  //   if {
+  //     krnl.iterate {  <--- Outermost loop.
+  //       krnl.iterate {
+  //         if {
+  //           ... op ...
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
+  //
+  while(!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
+    if (llvm::dyn_cast_or_null<KrnlIterateOp>(parentBlockOp))
+      outermostLoop = parentBlockOp;
+    parentBlockOp = parentBlockOp->getBlock()->getParentOp();
+  }
+
+  return outermostLoop;
+}
+
+bool checkOuterLoopsMatch(Operation *op1, Operation *op2) {
+  // Check if the outer loops of the two operations match.
+  // If one of the operations is not part of a loop (i.e. the returned
+  // operation of the getOutermostLoop is nullptr) then return false.
+  Operation *outerLoop1 = getOutermostLoop(op1);
+
+  if (!outerLoop1)
+    return false;
+
+  Operation *outerLoop2 = getOutermostLoop(op2);
+
+  if (!outerLoop2)
+    return false;
+
+  // If both outer loops are valid, check if they match.
+  printf("Outer Loops match = %d\n", outerLoop1 == outerLoop2);
+  return outerLoop1 == outerLoop2;
+}
+
+bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
+    std::vector<Operation *> liveRangeOpList) {
+  // If any of the firstOp or lastOp are in the top level block of the
+  // function, then they cannot share a loop nest with the last or first
+  // operation in the live range respectively.
+  bool firstOpInTopLevelBlock = opInTopLevelBlock(firstOp);
+  bool lastOpInTopLevelBlock = opInTopLevelBlock(firstOp);
+
+  printf("firstOpInTopLevelBlock = %d\n", firstOpInTopLevelBlock);
+  printf("lastOpInTopLevelBlock = %d\n", lastOpInTopLevelBlock);
+
+  // If both firstOp and lastOp are in the top level block then they cannot
+  // share a loop nest with the live range.
+  if (firstOpInTopLevelBlock && lastOpInTopLevelBlock) {
+    printf("CASE 1: firstOp and lastOp are both in top-level block\n");
+    return false;
+  }
+
+  // Repeat checks for first/last operation in live range.
+  Operation *liveRangeFirstOp = liveRangeOpList[0];
+  assert(liveRangeOpList.size() > 0 &&
+         "Live range empty but must have at least one element.");
+  Operation *liveRangeLastOp = liveRangeOpList[liveRangeOpList.size() - 1];
+
+  bool firstLROpInTopLevelBlock = opInTopLevelBlock(liveRangeFirstOp);
+  bool lastLROpInTopLevelBlock = opInTopLevelBlock(liveRangeLastOp);
+
+  printf("firstLROpInTopLevelBlock = %d\n", firstLROpInTopLevelBlock);
+  printf("lastLROpInTopLevelBlock = %d\n", lastLROpInTopLevelBlock);
+
+  // If both live range extremities are in the top level block then they cannot
+  // share a loop nest with the other live range.
+  if (firstLROpInTopLevelBlock && lastLROpInTopLevelBlock) {
+    printf("CASE 2: liveRangeFirstOp and liveRangeLastOp are both in top-level block\n");
+    return false;
+  }
+
+  // If neither of the lastOp or liveRangeFirstOp are in the top block then
+  // check if the outermost loops that contain them are the same. If they are
+  // the same then they share the same loop nest, return true.
+  if (!lastOpInTopLevelBlock && !firstLROpInTopLevelBlock &&
+      checkOuterLoopsMatch(lastOp, liveRangeFirstOp)) {
+    printf("CASE 3: top extremities in same loop nest!\n");
+    return true;
+  }
+
+  // Now check the other pair of extremities. If they are in the same loop nest
+  // return true.
+  if (!firstOpInTopLevelBlock && !lastLROpInTopLevelBlock &&
+      checkOuterLoopsMatch(firstOp, liveRangeLastOp)) {
+    printf("CASE 4: bottom extremities in same loop nest!\n");
+    return true;
+  }
+
+  // If none of the cases above were met then:
+  // 1. at least one of the extremities in each pair is at top-block level.
+  // or
+  // 2. extremities are in sub-blocks but they do not share a loop nest.
+  // In either case the intersection check must return false.
+  printf("CASE 5: otherwise\n");
+  return false;
+}
+
+bool checkLiveRangesIntersect(SmallVector<KrnlGetRefOp, 4> firstGetRefList,
+    SmallVector<KrnlGetRefOp, 4> secondGetRefList) {
+  // Check that the live range of each individual element in secondGetRefList
+  // is independent from the individual live ranges of the elements
+  // of the firstGetRefList.
+  for (auto firstGetRef : firstGetRefList) {
+    // Fetch the full live range for the first set of getref operations.
+    std::vector<Operation *> liveRangeOpList = getLiveRange(firstGetRef);
+
+    for (auto secondGetRef : secondGetRefList) {
+      printf(" == Comparing live ranges of:\n");
+      firstGetRef.dump();
+      secondGetRef.dump();
+
+      // Get first and last ops for the live range of the second set of
+      // getref operations.
+      Operation *firstOp = getLiveRangeFirstOp(secondGetRef);
+      Operation *lastOp = getLiveRangeLastOp(secondGetRef);
+
+      // Check if either the first or last ops in the second live range are part
+      // of the first live range.
+      bool firstOpInLiveRange = operationInLiveRange(firstOp, liveRangeOpList);
+      bool lastOpInLiveRange = operationInLiveRange(lastOp, liveRangeOpList);
+
+      printf("firstOpInLiveRange = %d\n", firstOpInLiveRange);
+      printf("lastOpInLiveRange = %d\n", lastOpInLiveRange);
+      if (firstOpInLiveRange || lastOpInLiveRange)
+        return true;
+
+      // Since firstOp and lastOp are not part of the live range, check whether
+      // the live range is fully contained between firstOp and lastOp. If it is
+      // return true.
+      if (liveRangeIsContained(firstOp, lastOp, liveRangeOpList))
+        return true;
+
+      // Up to this point, the checks we have done allow for ranges to be
+      // considered disjoint even when their extremities are part of the same
+      // loop nest. This means we have to perform an additional check: if the
+      // extremities of the two live ranges share the same loop nest determiend
+      // by `krnl.iterate` ops. If they do then the live ranges intersect.
+      if (liveRangesInSameLoopNest(firstOp, lastOp, liveRangeOpList))
+        return true;
+    }
+  }
+
+  // If all getRef live ranges are independent then no intersection exists.
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // Rewrite patterns.
 //===----------------------------------------------------------------------===//
@@ -357,12 +718,23 @@ public:
       if (!refsUseIsDisjoint)
         continue;
 
-      printf("Found a match:\n");
+      printf("Found a possible match:\n");
       firstGetRef.dump();
       secondGetRef.dump();
 
+      // Check live ranges don't intersect.
+      // Live range, chain of instructions between the first and last
+      // load/store from/to any krnl.getref in a given list.
+      bool liveRangesIntersect =
+          checkLiveRangesIntersect(firstGetRefList, secondGetRefList);
+
+      printf("Live ranges intersect ===============> %d\n", liveRangesIntersect);
+      if (liveRangesIntersect)
+        continue;
+
       for (auto secondGetRef : secondGetRefList)
         validSlotReusers.emplace_back(secondGetRef);
+      printf("=======> CANDIDATES CAN SHARE THE SLOT!! <=======\n");
     }
 
     // No valid slot reuse getRefs have been identified.
