@@ -625,7 +625,8 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
                 types = ["Variadic<{}>".format(any_type_of(types))]
             else:
                 #TODO handle(variadic, heterogeneous) "
-                sys.stderr.write("warning: (variadic, heterogeneous) for" + schema.name +
+                types = ["Variadic<{}>".format(any_type_of(types))]
+                sys.stderr.write("warning: (variadic, heterogeneous) for " + schema.name +
                       ' ' + value.name + "\n")
 
         # Since output name can coincide with that of an input, we explicitly
