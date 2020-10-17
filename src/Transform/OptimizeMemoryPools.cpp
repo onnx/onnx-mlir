@@ -180,13 +180,12 @@ bool getRefUsesAreDisjoint(
       Operation *definingOperation = currentElement.getDefiningOp();
 
       // If this value has not been seen before, process it.
-      if (dependentOps.count(definingOperation) == 0) {
+      if (definingOperation && dependentOps.count(definingOperation) == 0) {
         // Add value to dependent values list.
         dependentOps.insert(definingOperation);
 
-        if (definingOperation &&
-            (llvm::dyn_cast<AffineLoadOp>(definingOperation) ||
-                llvm::dyn_cast<LoadOp>(definingOperation))) {
+        if (llvm::dyn_cast<AffineLoadOp>(definingOperation) ||
+            llvm::dyn_cast<LoadOp>(definingOperation)) {
           // Check that the MemRef operand of this load operation is
           // not in the firstGetRefList.
           Value loadOperand = definingOperation->getOperands()[0];
