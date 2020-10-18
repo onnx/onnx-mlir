@@ -36,7 +36,7 @@ args = parser.parse_args()
 model_abs_path = os.path.abspath(args.model_lib)
 test_data_dir = os.path.abspath(args.test_data_dir)
 sess = ExecutionSession(model_abs_path,
-                        "_dyn_entry_point_main_graph")
+                        "run_main_graph")
 
 inputs = []
 input_file = os.path.join(test_data_dir, 'input_0.pb')

@@ -113,12 +113,15 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXSqueezeOpPattern(patterns, &getContext());
   populateLoweringONNXSplitOpPattern(patterns, &getContext());
   populateLoweringONNXSizeOpPattern(patterns, &getContext());
+  populateLoweringONNXTileOpPattern(patterns, &getContext());
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, &getContext());
   populateLoweringONNXNormalizationOpPattern(patterns, &getContext());
   populateLoweringONNXPoolingOpPattern(patterns, &getContext());
   // Recurrent neural network
+  populateLoweringONNXGRUOpPattern(patterns, &getContext());
   populateLoweringONNXLSTMOpPattern(patterns, &getContext());
+  populateLoweringONNXRNNOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
 

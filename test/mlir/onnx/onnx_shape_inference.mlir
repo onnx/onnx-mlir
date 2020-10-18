@@ -639,6 +639,40 @@ func @test_flatten_1(%arg0 : tensor<5x2x3x4xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : tensor<5x24xf32>
 }
 
+// -----
+
+// Test when axis is 0
+func @test_flatten_2(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Flatten"(%arg0) {axis = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+  // CHECK-LABEL: test_flatten_2
+  // CHECK: [[RES:%.+]] = "onnx.Flatten"(%arg0) {axis = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<1x24xf32>
+  // CHECK: return [[RES]] : tensor<1x24xf32>
+}
+
+// -----
+
+// Test when axis is negative
+func @test_flatten_3(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Flatten"(%arg0) {axis = -1 : si64} : (tensor<2x3x4xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+  // CHECK-LABEL: test_flatten_3
+  // CHECK: [[RES:%.+]] = "onnx.Flatten"(%arg0) {axis = -1 : si64} : (tensor<2x3x4xf32>) -> tensor<24x1xf32>
+  // CHECK: return [[RES]] : tensor<24x1xf32>
+}
+
+// -----
+
+// Test when input is not static shape
+func @test_flatten_4(%arg0 : tensor<2x4x5x?xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<2x4x5x?xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+  // CHECK-LABEL: test_flatten_4
+  // CHECK: [[RES:%.+]] = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<2x4x5x?xf32>) -> tensor<8x?xf32>
+  // CHECK: return [[RES]] : tensor<8x?xf32>
+}
+
+
 //===----------------------------------------------------------------------===//
 /// Test the reshape op inference when concat are present.
 //===----------------------------------------------------------------------===//
@@ -1576,3 +1610,44 @@ func @test_size(%arg0: tensor<*xf32>) -> tensor<*xi64> {
   // CHECK: [[RES:%.+]] = "onnx.Size"(%arg0) : (tensor<*xf32>) -> tensor<i64>
   // CHECK: return [[RES]] : tensor<i64>
 }
+
+// -----
+
+func @test_less(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
+}
+
+// -----
+
+func @test_less_broadcast(%arg0: tensor<3x4x5xf32>, %arg1: tensor<5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less_broadcast
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<5xf32>) -> tensor<3x4x5xi1>
+}
+
+// -----
+
+func @test_less_unknown_dims_1(%arg0: tensor<3x4x5xf32>, %arg1: tensor<?x4x5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<?x4x5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less_unknown_dims_1
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<?x4x5xf32>) -> tensor<3x4x5xi1>
+}
+
+// -----
+
+func @test_less_unknown_dims_2(%arg0: tensor<?x?x5xf32>, %arg1: tensor<?x4x5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<?x?x5xf32>, tensor<?x4x5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less_unknown_dims_2
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<?x?x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
+}
+
