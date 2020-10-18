@@ -82,6 +82,7 @@ private:
               .create<mlir::ConstantOp>(UnknownLoc(), builder_.getUnitAttr())
               .getResult();
       func2None_.emplace(func, none);
+      return none;
     }
   }
   /*!
