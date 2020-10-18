@@ -49,7 +49,9 @@ private:
   mlir::MLIRContext &context_;
   mlir::ModuleOp module_;
   mlir::OpBuilder builder_;
+
   mlir::Value none_;
+  std::map<mlir::FuncOp, mlir::Value> func2None_;
   // mapping between string name and symbol
   OnnxMlirSymbolMapping frontend_symbols_;
 
@@ -60,6 +62,28 @@ private:
 
   mlir::Location UnknownLoc() { return mlir::UnknownLoc::get(&context_); }
 
+  mlir::Value none() {
+    // Get the enclosing Func Op.
+    auto block = builder_.getInsertionBlock();
+    assert(block && "Builder insertion block must be set.");
+    auto *op = block->getParentOp();
+    mlir::FuncOp func = isa<mlir::FuncOp>(op)
+                            ? dyn_cast<mlir::FuncOp>(op)
+                            : op->getParentOfType<mlir::FuncOp>();
+    assert(func && "Cannot find FuncOp surrounding current insertion point.");
+
+    // Check if there's a none-typed value in the curent Func already, if so,
+    // return it; if not create one.
+    if (func2None_.count(func)) {
+      return func2None_.at(func);
+    } else {
+      auto none =
+          builder_
+              .create<mlir::ConstantOp>(UnknownLoc(), builder_.getUnitAttr())
+              .getResult();
+      func2None_.emplace(func, none);
+    }
+  }
   /*!
    * Import an onnx tensor type by determining and returning its type
    * @param value_info onnx tensor ValueInfoProto.
@@ -140,7 +164,17 @@ private:
       }
       mlirAttr = builder_.getStrArrayAttr(llvm::makeArrayRef(vectorStringRef));
     } break;
+    case onnx::AttributeProto::GRAPH: {
+      auto cachedBlock = builder_.getInsertionBlock();
+      auto cachedIP = builder_.getInsertionPoint();
+      assert(attr.g().has_name() && "Subgraph needs to be named.");
+      ImportGraph(attr.g(), attr.g().name());
+      builder_.setInsertionPoint(cachedBlock, cachedIP);
+      mlirAttr = builder_.getI8IntegerAttr(0);
+      break;
+    }
     default:
+
       llvm_unreachable("datatype for attribute is not implemented");
       break;
     }
@@ -241,10 +275,7 @@ private:
     // Trailing optional inputs.
     if (!variadicIn)
       for (auto i = inputs.size(); i < expectedNumOperands; i++) {
-        if (!none_)
-          none_ = builder_.create<mlir::ConstantOp>(
-              UnknownLoc(), builder_.getUnitAttr());
-        inputs.emplace_back(none_);
+        inputs.emplace_back(none());
       }
 
     std::vector<mlir::Type> outputTypes;
@@ -321,18 +352,13 @@ private:
     int expectedNumResults = T::getNumberOfResults();
     for (const auto &item : node.input())
       if (item.empty()) {
-        // Optional inputs using empty string will be imported as NoneType.
-        if (!none_)
-          none_ = builder_.create<mlir::ConstantOp>(
-              UnknownLoc(), builder_.getUnitAttr());
-        inputs.emplace_back(none_);
+        inputs.emplace_back(none());
       } else if (initializedTensors.ContainKey(legalize_name(item))) {
         inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
             UnknownLoc(), builder_, legalize_name(item)));
       } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
-
     buildOutputAndOperation<T>(
         node, inputs, expectedNumOperands, expectedNumResults);
   }
@@ -447,40 +473,47 @@ private:
         inVals[inputIdx] = constantValue;
       }
     }
-
+    //
     assert(inVals[1] != nullptr && "Slice requires a starts attribute");
     assert(inVals[2] != nullptr && "Slice requires an ends attribute");
-    const auto startsType = inVals[1].getType().dyn_cast<RankedTensorType>();
-    assert(startsType != nullptr && "starts type is not a RankedTensorType");
-    auto startsDim = startsType.getShape()[0];
-
-    // If axes is not specified, default to [0, ..., ndim-1]
-    if (inVals[3] == nullptr) {
-      SmallVector<int64_t, 1> vals = {};
-      for (size_t s = 0; s < startsDim; ++s)
-        vals.emplace_back(s);
-      auto constantDenseAttribute =
-          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
-      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
-          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
-      mlir::Value constantResult = constantOp.output();
-      inVals[3] = constantResult;
-    }
-
-    // If steps is not specified, default to [1, ..., 1]
-    if (inVals[4] == nullptr) {
-      SmallVector<int64_t, 1> vals(startsDim, 1);
-      auto constantDenseAttribute =
-          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
-      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
-          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
-      mlir::Value constantResult = constantOp.output();
-      inVals[4] = constantResult;
-    }
+    inVals[3] = none();
+    inVals[4] = none();
+    //        for (int i = 0; i < 5; i++) inVals[i].dump();
+    //    const auto startsType =
+    //    inVals[1].getType().dyn_cast<RankedTensorType>();
+    //    assert(startsType != nullptr && "starts type is not a
+    //    RankedTensorType"); auto startsDim = startsType.getShape()[0];
+    //
+    //    // If axes is not specified, default to [0, ..., ndim-1]
+    //    if (inVals[3] == nullptr) {
+    //      SmallVector<int64_t, 1> vals = {};
+    //      for (size_t s = 0; s < startsDim; ++s)
+    //        vals.emplace_back(s);
+    //      auto constantDenseAttribute =
+    //          mlir::DenseElementsAttr::get(tensorType,
+    //          llvm::makeArrayRef(vals));
+    //      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+    //          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+    //      mlir::Value constantResult = constantOp.output();
+    //      inVals[3] = constantResult;
+    //    }
+    //
+    //    // If steps is not specified, default to [1, ..., 1]
+    //    if (inVals[4] == nullptr) {
+    //      SmallVector<int64_t, 1> vals(startsDim, 1);
+    //      auto constantDenseAttribute =
+    //          mlir::DenseElementsAttr::get(tensorType,
+    //          llvm::makeArrayRef(vals));
+    //      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+    //          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+    //      mlir::Value constantResult = constantOp.output();
+    //      inVals[4] = constantResult;
+    //    }
 
     int nIn = mlir::ONNXSliceOp::getNumberOfOperands();
     int nOut = mlir::ONNXSliceOp::getNumberOfResults();
     const auto in = std::vector<mlir::Value>(inVals.begin(), inVals.end());
+
     buildOutputAndOperation<mlir::ONNXSliceOp>(node, in, nIn, nOut);
   }
 
@@ -541,9 +574,10 @@ private:
   void ImportGraph(
       const onnx::GraphProto &graph, const std::string &name = "main_graph") {
     // Maintain a mapping between the parameter and its initializer.
-    for (auto initializer : graph.initializer()) {
-      auto name = initializer.name();
-      initializedTensors.AddMapping(legalize_name(name), initializer);
+    for (const auto &initializer : graph.initializer()) {
+      const auto &initializerName = initializer.name();
+      initializedTensors.AddMapping(
+          legalize_name(initializerName), initializer);
     }
 
     // create a function for the graph
