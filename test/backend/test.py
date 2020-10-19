@@ -290,6 +290,16 @@ test_to_enable = [
     "test_reduce_sum_square_negative_axes_keepdims_example_cpu",
     "test_reduce_sum_square_negative_axes_keepdims_random_cpu",
 
+    # ReduceMean
+    "test_reduce_mean_default_axes_keepdims_example_cpu",
+    "test_reduce_mean_default_axes_keepdims_random_cpu",
+    "test_reduce_mean_do_not_keepdims_example_cpu",
+    "test_reduce_mean_do_not_keepdims_random_cpu",
+    "test_reduce_mean_keepdims_example_cpu",
+    "test_reduce_mean_keepdims_random_cpu",
+    "test_reduce_mean_negative_axes_keepdims_example_cpu",
+    "test_reduce_mean_negative_axes_keepdims_random_cpu",
+
     # Selu Op:
     "test_selu_cpu",
     "test_selu_default_cpu",
@@ -403,10 +413,20 @@ test_to_enable = [
     "test_averagepool_2d_strides_cpu",
     "test_averagepool_3d_default_cpu",
 
+    # GRU
+    "test_gru_defaults_cpu",
+    "test_gru_seq_length_cpu",
+    "test_gru_with_initial_bias_cpu",
+
     # LSTM
     "test_lstm_defaults_cpu",
     "test_lstm_with_initial_bias_cpu",
     "test_lstm_with_peepholes_cpu",
+
+    # RNN
+    "test_rnn_seq_length_cpu",
+    "test_simple_rnn_defaults_cpu",
+    "test_simple_rnn_with_initial_bias_cpu",
 
     # Squeeze
     "test_squeeze_cpu",
@@ -426,22 +446,17 @@ test_to_enable = [
     
     # ConstantOfShape
     "test_constantofshape_float_ones_cpu",
+    "test_constantofshape_int_zeros_cpu",
     
+    # Less
+    "test_less_cpu",
+    "test_less_bcast_cpu",
+
     # Size
     # TODO(tjingrant): fix unit test for size ops.
     # "test_size_cpu",
     # "test_size_example_cpu",
     
-    # Error:
-    #    Items are not equal:
-    #     ACTUAL: dtype('int32')
-    #     DESIRED: dtype('uint8')
-    # In this test, 'int32' was specified for value attribute as in
-    # onnx/onnx/backend/test/case/node/constantofshape.py
-    # and onnx-mlir correctly imported and converted the model.
-    # It is unknown why 'uint8' came from.
-    #"test_constantofshape_int_zeros_cpu",
-
     # Model
     "test_resnet50_cpu",
     "test_vgg19_cpu",
