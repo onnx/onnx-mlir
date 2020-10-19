@@ -154,7 +154,8 @@ SmallVector<KrnlGetRefOp, 4> getAllGetRefWithSameOffsetExcept(
   auto parentBlock = getRef->getOperation()->getBlock();
   SmallVector<KrnlGetRefOp, 4> sameOffsetGetRefs;
 
-  parentBlock->walk([&sameOffsetGetRefs, getRef, exceptionList](KrnlGetRefOp op) {
+  parentBlock->walk([&sameOffsetGetRefs, getRef, exceptionList](
+                        KrnlGetRefOp op) {
     for (auto exception : exceptionList)
       if (op == exception)
         return;
@@ -168,17 +169,19 @@ SmallVector<KrnlGetRefOp, 4> getAllGetRefWithSameOffsetExcept(
 }
 
 /// Check if two GetRefs participate in the same krnl.memcpy.
-bool usedBySameKrnlMemcpy(KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef) {
+bool usedBySameKrnlMemcpy(
+    KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef) {
   Block *topBlock = getTopBlock(firstGetRef->getOperation());
 
   bool sameKrnlMemcpy = false;
-  topBlock->walk([&sameKrnlMemcpy, firstGetRef, secondGetRef](KrnlMemcpyOp memcpyOp) {
-    if ((memcpyOp.dest() == firstGetRef->getResult() &&
-         memcpyOp.src() == secondGetRef->getResult()) ||
-        (memcpyOp.dest() == secondGetRef->getResult() &&
-         memcpyOp.src() == firstGetRef->getResult()))
-      sameKrnlMemcpy = true;
-  });
+  topBlock->walk(
+      [&sameKrnlMemcpy, firstGetRef, secondGetRef](KrnlMemcpyOp memcpyOp) {
+        if ((memcpyOp.dest() == firstGetRef->getResult() &&
+                memcpyOp.src() == secondGetRef->getResult()) ||
+            (memcpyOp.dest() == secondGetRef->getResult() &&
+                memcpyOp.src() == firstGetRef->getResult()))
+          sameKrnlMemcpy = true;
+      });
 
   return sameKrnlMemcpy;
 }
@@ -528,8 +531,8 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
 
 /// Check that the live range of the secondGetRef does not intersect with
 /// any of the live ranges of the GetRefs in firstGetRefList.
-bool checkLiveRangesIntersect(SmallVector<KrnlGetRefOp, 4> firstGetRefList,
-    KrnlGetRefOp secondGetRef) {
+bool checkLiveRangesIntersect(
+    SmallVector<KrnlGetRefOp, 4> firstGetRefList, KrnlGetRefOp secondGetRef) {
   // Check that the live range of each individual element in secondGetRefList
   // is independent from the individual live ranges of the elements
   // of the firstGetRefList.
@@ -912,8 +915,7 @@ public:
     rewriter.replaceOp(allocOp, newStaticMemPool.getResult());
 
     // Update compacted flag.
-    blockToStaticPoolFlag->insert(
-        std::pair<Block *, bool>(parentBlock, true));
+    blockToStaticPoolFlag->insert(std::pair<Block *, bool>(parentBlock, true));
 
     return success();
   }
@@ -928,8 +930,9 @@ public:
   void runOnFunction() override {
     auto function = getFunction();
 
-    staticPoolCompacted.insert(std::pair<FuncOp, std::unique_ptr<BlockToCompactedFlag>>(
-        function, std::make_unique<BlockToCompactedFlag>()));
+    staticPoolCompacted.insert(
+        std::pair<FuncOp, std::unique_ptr<BlockToCompactedFlag>>(
+            function, std::make_unique<BlockToCompactedFlag>()));
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
