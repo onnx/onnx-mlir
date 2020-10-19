@@ -306,7 +306,8 @@ bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
   auto result = getRef.getResult();
   return (isLoad(op) && result == op->getOperands()[0]) ||
          (isStore(op) && result == op->getOperands()[1]) ||
-         (isKrnlMemcpy(op) && (result == op->getOperands()[0] || result == op->getOperands()[1]));
+         (isKrnlMemcpy(op) && (result == op->getOperands()[0] ||
+                                  result == op->getOperands()[1]));
 }
 
 /// Returns the last operation in the live range of a getRef.
