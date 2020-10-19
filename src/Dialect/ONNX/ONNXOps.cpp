@@ -33,7 +33,6 @@ using namespace mlir::onnxmlir;
 // ONNX Helper functions
 //===----------------------------------------------------------------------===//
 
-
 // This method substitutes any uses of dimensions and symbols (e.g.
 // dim#0 with dimReplacements[0]) in an affine map, simplifies the modified
 // affine map, and returns an integer constant.
@@ -2602,6 +2601,7 @@ LogicalResult ONNXSliceOp::inferShapes() {
   int64_t numDims = dataShape.size();
 
   ONNXSliceOpAdaptor operandAdaptor(*this);
+  // Null rewriter for shape inference.
   IndexExprContainer container(nullptr, getLoc());
   SmallVector<IndexExpr, 4> startsIEV;
   SmallVector<IndexExpr, 4> stepsIEV;

@@ -33,7 +33,7 @@ public:
   void DimAndSymbolList(SmallVector<Value, 4> &list) const;
   int GetDimSize() const { return dims.size(); }
   int GetSymbolSize() const { return symbols.size(); }
-  ConversionPatternRewriter *GetRewriter() const;
+  ConversionPatternRewriter &GetRewriter() const;
   bool PerformShapeInference() const { return ! rewriter; }
   Location GetLocation() const { return loc; }
 
@@ -52,6 +52,7 @@ public:
       ArrayRef<int64_t> memrefShape, int index); // Dim or Int Lit
 
   // Initalization.
+  void InitAsQuestionmark();
   void InitAsIntLit(int64_t val);
   void InitAsDim(Value val);
   void InitAsSymbol(Value val);
@@ -60,7 +61,7 @@ public:
 
   // Shape inference querries.
   bool IsIntLit() const { assert(isDefined); return isIntLit; }
-  bool IsQuestionmark() const { return !IsIntLit(); }
+  bool IsQuestionmark() const { assert(isDefined); return !IsIntLit(); }
   bool IsAffine() const { assert(isDefined); return isAffine; }
 
   bool IsSymbol() const { assert(isDefined); return isSymbol; }

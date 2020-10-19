@@ -11,6 +11,7 @@
 
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
 
@@ -35,21 +36,20 @@ ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
 }
 
+#if 0
 KrnlGlobalOp getKrnlGlobalOpWithValue(Value value) {
   KrnlGlobalOp globalOp =
       dyn_cast_or_null<mlir::KrnlGlobalOp>(value.getDefiningOp());
   if (!globalOp) {
-    printf(" not a global op\n");
     return nullptr;
   }
   // try to see if the value attribute is defined.
   if (!globalOp.value().hasValue()) {
-    printf(" global op without value \n");
     return nullptr;
   }
-  printf("alex good at global op\n");
   return globalOp;
 }
+#endif
 
 DenseElementsAttr getDenseElementAttributeFromValue(Value value) {
   auto definingOp = value.getDefiningOp();
@@ -65,10 +65,10 @@ DenseElementsAttr getDenseElementAttributeFromValue(Value value) {
 // ONNX Helper for Shape inference
 //===----------------------------------------------------------------------===//
 
-LogicalResult GetIndexExprFromOperandValueAtIndex(
-    Operation *op, Value operand, uint64_t i, IndexExpr &indexExpr) {
-#if 1
+LogicalResult GetIndexExprFromOperandValueAtIndex(Operation *op, Value operand,
+    uint64_t i, IndexExprContainer &container, IndexExpr &indexExpr) {
   if (auto attrArray = getDenseElementAttributeFromValue(operand)) {
+    // Could extract an dense attribute from definition of operand.
     if (i >= attrArray.getType().getDimSize(0)) {
       printf("error 1\n");
       return op->emitError("operand literal has wrong shape");
@@ -76,46 +76,31 @@ LogicalResult GetIndexExprFromOperandValueAtIndex(
     auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
     int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
     indexExpr.InitAsIntLit(attrInt);
-
-#else 
-  if (auto constantOp = getONNXConstantOp(operand)) {
-    DenseElementsAttr attrArray =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (i >= attrArray.getType().getDimSize(0)) {
-      printf("error 1\n");
-      return op->emitError("operand literal has wrong shape");
-    }
-    auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
-    int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
-    indexExpr.InitAsIntLit(attrInt);
-  } else if (auto globalOp = getKrnlGlobalOpWithValue(operand)) {
-    DenseElementsAttr attrArray =
-        globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (i >= attrArray.getType().getDimSize(0)) {
-      printf("error 1\n");
-      return op->emitError("operand literal has wrong shape");
-    }
-    auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
-    int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
-    indexExpr.InitAsIntLit(attrInt);
-#endif
   } else {
-    // read starts as an array???
-    printf("error 2a\n");
-    return op->emitError("unsupported operand value");
+    // Read starts as an array.
+    if (container.IsShapeInferencePass()) {
+      // Not a constant; don't add code.
+      indexExpr.InitAsQuestionmark();
+      return success();
+    }
+    auto indexVal = emitConstantOp(container.GetRewriter(),
+        container.GetLocation(), container.GetRewriter().getIndexType(), i);
+    SmallVector<Value, 1> memrefVal = {indexVal};
+    auto loadVal = container.GetRewriter().create<AffineLoadOp>(
+        container.GetLocation(), operand, memrefVal);
+    indexExpr.InitAsSymbol(loadVal);
   }
   return success();
 }
 
 LogicalResult GetIndexExprFromOperandValueAtIndex(Operation *op, Value operand,
-    uint64_t i, int64_t defaultIntLit, IndexExpr &indexExpr) {
+    uint64_t i, int64_t defaultIntLit, IndexExprContainer &container,
+    IndexExpr &indexExpr) {
 
   if (operand.getType().isa<NoneType>()) {
     // Argument undefined, so use the default value.
     indexExpr.InitAsIntLit(defaultIntLit);
-  } else if (auto constantOp = getONNXConstantOp(operand)) {
-    DenseElementsAttr attrArray =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  } else if (auto attrArray = getDenseElementAttributeFromValue(operand)) {
     if (i > attrArray.getType().getDimSize(0)) {
       // Not enought attributes for this index, install the default value.
       indexExpr.InitAsIntLit(defaultIntLit);
@@ -125,20 +110,19 @@ LogicalResult GetIndexExprFromOperandValueAtIndex(Operation *op, Value operand,
       int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
       indexExpr.InitAsIntLit(attrInt);
     }
-  } else if (auto globalOp = getKrnlGlobalOpWithValue(operand)) {
-    DenseElementsAttr attrArray =
-        globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (i >= attrArray.getType().getDimSize(0)) {
-      printf("error 1\n");
-      return op->emitError("operand literal has wrong shape");
-    }
-    auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
-    int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
-    indexExpr.InitAsIntLit(attrInt);
   } else {
-    // Read starts as an array???
-    printf("error 2b\n");
-    return op->emitError("unsupported operand value");
+    // Read starts as an array.
+    if (container.IsShapeInferencePass()) {
+      // Not a constant; don't add code.
+      indexExpr.InitAsQuestionmark();
+      return success();
+    }
+    auto indexVal = emitConstantOp(container.GetRewriter(),
+        container.GetLocation(), container.GetRewriter().getIndexType(), i);
+    SmallVector<Value, 1> memrefVal = {indexVal};
+    auto loadVal = container.GetRewriter().create<AffineLoadOp>(
+        container.GetLocation(), operand, memrefVal);
+    indexExpr.InitAsSymbol(loadVal);
   }
   return success();
 }
@@ -166,10 +150,8 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     // If `axes` are omitted, they are set to `[0, ..., ndim-1]`."
     for (int i = 0; i < dataRank; ++i)
       axesIntLit.emplace_back(i);
-  } else if (auto constantOp = getONNXConstantOp(axes)) {
+  } else if (auto valueAttribute = getDenseElementAttributeFromValue(axes)) {
     // If `axes` are constants, read them."
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
     for (auto value : valueAttribute.getValues<IntegerAttr>()) {
       int64_t axis = value.cast<IntegerAttr>().getInt();
       if (axis < 0)
@@ -179,7 +161,6 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
       axesIntLit.emplace_back(axis);
     }
   } else {
-    printf("error: Axes must be known at compile time\n\n");
     return sliceOp->emitError("Axes must be known at compile time");
   }
   int sliceRank = axesIntLit.size();
@@ -197,26 +178,30 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     // Get start.
     IndexExpr startInputIE;
     Value starts = operandAdaptor.starts();
-    if (failed(
-            GetIndexExprFromOperandValueAtIndex(op, starts, i, startInputIE))) {
+    if (failed(GetIndexExprFromOperandValueAtIndex(
+            op, starts, i, container, startInputIE))) {
       return sliceOp->emitError("start input parameter could not be processed");
     }
+    startInputIE.DebugPrint("start input");
     // Get end.
     IndexExpr endInputIE;
     Value ends = operandAdaptor.ends();
-    if (failed(GetIndexExprFromOperandValueAtIndex(op, ends, i, endInputIE))) {
+    if (failed(GetIndexExprFromOperandValueAtIndex(
+            op, ends, i, container, endInputIE))) {
       return sliceOp->emitError("end input parameter could not be processed");
     }
+    endInputIE.DebugPrint("end input");
     // Get steps.
     IndexExpr stepInputIE;
     Value steps = operandAdaptor.steps();
     if (failed(GetIndexExprFromOperandValueAtIndex(
-            op, steps, i, 1, stepInputIE))) {
+            op, steps, i, 1, container, stepInputIE))) {
       return sliceOp->emitError("step input parameter could not be processed");
     }
     if (stepInputIE.IsIntLit() && stepInputIE.GetIntLit() == 0) {
       return sliceOp->emitError("step input parameter cannot be zero");
     }
+    stepInputIE.DebugPrint("step input");
     // Get dim.
     IndexExpr dimInputIE(container, data, dataShape, i);
     dimInputIE.DebugPrint("dim input");

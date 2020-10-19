@@ -42,9 +42,9 @@ void IndexExprContainer::DimAndSymbolList(SmallVector<Value, 4> &list) const {
     list.emplace_back(sym);
 }
 
-ConversionPatternRewriter *IndexExprContainer::GetRewriter() const {
+ConversionPatternRewriter &IndexExprContainer::GetRewriter() const {
   assert(rewriter);
-  return rewriter;
+  return *rewriter;
 }
 
 //===----------------------------------------------------------------------===//
@@ -62,6 +62,12 @@ IndexExpr::IndexExpr(int64_t val)
 IndexExpr::IndexExpr(IndexExprContainer &container, Value memref,
     ArrayRef<int64_t> memrefShape, int index) {
   InitAsDimOrIntLit(container, memref, memrefShape, index);
+}
+
+void IndexExpr::InitAsQuestionmark() {
+  Init(/*isIntLit*/ false, /*isAffine*/ true, /*isSymbol*/ false,
+      /*isDim*/ false, /*isDefined*/ true, 0, AffineExpr(nullptr),
+      Value(nullptr));
 }
 
 void IndexExpr::InitAsIntLit(int64_t val) {
@@ -84,7 +90,7 @@ void IndexExpr::InitAsDimOrIntLit(IndexExprContainer &container, Value memref,
     ArrayRef<int64_t> memrefShape, int index) {
   if (memrefShape[index] < 0) {
     // We have a dynamic dimension.
-    Value dynVal = container.GetRewriter()->create<DimOp>(
+    Value dynVal = container.GetRewriter().create<DimOp>(
         container.GetLocation(), memref, index);
     InitAsDim(dynVal);
   } else {
@@ -128,20 +134,21 @@ void IndexExpr::Copy(IndexExpr &a) {
 // IndexExpr list querries.
 //===----------------------------------------------------------------------===//
 
-  bool IndexExpr::AreAllIntLit(SmallVectorImpl<IndexExpr> &list) {
-    for(auto index : list) {
-      if (!index.IsIntLit()) return false;
-    }
-    return true;
+bool IndexExpr::AreAllIntLit(SmallVectorImpl<IndexExpr> &list) {
+  for (auto index : list) {
+    if (!index.IsIntLit())
+      return false;
   }
+  return true;
+}
 
-  bool IndexExpr::AreAllAffine(SmallVectorImpl<IndexExpr> &list){
-    for(auto index : list) {
-      if (!index.IsAffine()) return false;
-    }
-    return true;
+bool IndexExpr::AreAllAffine(SmallVectorImpl<IndexExpr> &list) {
+  for (auto index : list) {
+    if (!index.IsAffine())
+      return false;
   }
- 
+  return true;
+}
 
 //===----------------------------------------------------------------------===//
 // IndexExpr Getters / Setters.
@@ -160,19 +167,19 @@ void IndexExpr::SetIntLiteral(int64_t val) {
 AffineExpr IndexExpr::GetAffineExpr(IndexExprContainer &container) {
   if (IsIntLit()) {
     // Create a literal.
-    affineExpr = container.GetRewriter()->getAffineConstantExpr(intLit);
+    affineExpr = container.GetRewriter().getAffineConstantExpr(intLit);
   } else if (IsSymbol()) {
     // Create a symbol value expr and register its value in the
     // aresay of symbols.
     assert(HasValue());
     int id = container.AddSymbol(value);
-    affineExpr = container.GetRewriter()->getAffineSymbolExpr(id);
+    affineExpr = container.GetRewriter().getAffineSymbolExpr(id);
   } else if (IsDim()) {
     // Create a dim/index value expr and register its value in the
     // aresay of dims/indices.
     assert(HasValue());
     int id = container.AddDim(value);
-    affineExpr = container.GetRewriter()->getAffineDimExpr(id);
+    affineExpr = container.GetRewriter().getAffineDimExpr(id);
   } else {
     assert(HasAffineExpr());
   }
@@ -182,21 +189,21 @@ AffineExpr IndexExpr::GetAffineExpr(IndexExprContainer &container) {
 Value IndexExpr::GetValue(IndexExprContainer &container) {
   if (IsIntLit()) {
     // Create a litteral constant.
-    value = container.GetRewriter()->create<ConstantOp>(container.GetLocation(),
-        container.GetRewriter()->getIntegerAttr(
-            container.GetRewriter()->getIndexType(), intLit));
+    value = container.GetRewriter().create<ConstantOp>(container.GetLocation(),
+        container.GetRewriter().getIntegerAttr(
+            container.GetRewriter().getIndexType(), intLit));
   } else if (HasAffineExpr()) {
     // Has an affine expression: need to build a map, and then perform an
     // affine.apply.
     int dimNum = container.GetDimSize();
     int symNum = container.GetSymbolSize();
     AffineMap map = AffineMap::get(
-        dimNum, symNum, {affineExpr}, container.GetRewriter()->getContext());
+        dimNum, symNum, {affineExpr}, container.GetRewriter().getContext());
     // We need to concatenate the dims and symbol into a single
     // list, and then use the apply.
     SmallVector<Value, 4> list;
     container.DimAndSymbolList(list);
-    value = container.GetRewriter()->create<AffineApplyOp>(
+    value = container.GetRewriter().create<AffineApplyOp>(
         container.GetLocation(), map, list);
   } else {
     assert(HasValue());
@@ -205,7 +212,7 @@ Value IndexExpr::GetValue(IndexExprContainer &container) {
 }
 
 void IndexExpr::DebugPrint(const std::string &msg) {
-#if 1
+#if 0
   printf("%s:", msg.c_str());
   if (IsIntLit())
     printf(" val(%lli)", GetIntLit());
@@ -304,7 +311,7 @@ void IndexExpr::Add(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.SetValue(
-        container.GetRewriter()->create<AddIOp>(container.GetLocation(),
+        container.GetRewriter().create<AddIOp>(container.GetLocation(),
             aa.GetValue(container), bb.GetValue(container)));
   };
   BinaryOp(
@@ -321,7 +328,7 @@ void IndexExpr::Sub(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.SetValue(
-        container.GetRewriter()->create<SubIOp>(container.GetLocation(),
+        container.GetRewriter().create<SubIOp>(container.GetLocation(),
             aa.GetValue(container), bb.GetValue(container)));
   };
   BinaryOp(
@@ -339,7 +346,7 @@ void IndexExpr::Mult(
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.SetValue(
-        container.GetRewriter()->create<MulIOp>(container.GetLocation(),
+        container.GetRewriter().create<MulIOp>(container.GetLocation(),
             aa.GetValue(container), bb.GetValue(container)));
   };
   // Index a must be a literal.
@@ -349,8 +356,7 @@ void IndexExpr::Mult(
 void IndexExpr::FloorDiv(
     IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    int64_t rval =
-        floor((1.0 * aa.GetIntLit()) / (1.0 * bb.GetIntLit()));
+    int64_t rval = floor((1.0 * aa.GetIntLit()) / (1.0 * bb.GetIntLit()));
     res.SetIntLiteral(rval);
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
@@ -366,7 +372,7 @@ void IndexExpr::FloorDiv(
       res.Copy(aa);
     else
       res.SetValue(
-          container.GetRewriter()->create<SignedDivIOp>(container.GetLocation(),
+          container.GetRewriter().create<SignedDivIOp>(container.GetLocation(),
               aa.GetValue(container), bb.GetValue(container)));
   };
   // Index b must be a literal.
@@ -376,8 +382,7 @@ void IndexExpr::FloorDiv(
 void IndexExpr::CeilDiv(
     IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    int64_t rval =
-        ceil((1.0 * aa.GetIntLit()) / (1.0 * bb.GetIntLit()));
+    int64_t rval = ceil((1.0 * aa.GetIntLit()) / (1.0 * bb.GetIntLit()));
     res.SetIntLiteral(rval);
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
@@ -395,7 +400,7 @@ void IndexExpr::CeilDiv(
       llvm_unreachable(
           "not implemented yet, look at mlir's AffineToStandard.cpp");
       res.SetValue(
-          container.GetRewriter()->create<SignedDivIOp>(container.GetLocation(),
+          container.GetRewriter().create<SignedDivIOp>(container.GetLocation(),
               aa.GetValue(container), bb.GetValue(container)));
     }
   };
@@ -413,7 +418,7 @@ void IndexExpr::Mod(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.SetValue(
-        container.GetRewriter()->create<SignedRemIOp>(container.GetLocation(),
+        container.GetRewriter().create<SignedRemIOp>(container.GetLocation(),
             aa.GetValue(container), bb.GetValue(container)));
   };
   // Index b must be a literal.
@@ -533,10 +538,10 @@ void IndexExpr::Select(IndexExprContainer &container, IndexExpr &condA,
   F4 valueFct = [&](IndexExpr &res, IndexExpr &ca, IndexExpr &cb, IndexExpr &tv,
                     IndexExpr &fv) {
     auto compareVal =
-        container.GetRewriter()->create<CmpIOp>(container.GetLocation(),
+        container.GetRewriter().create<CmpIOp>(container.GetLocation(),
             comparePred, ca.GetValue(container), cb.GetValue(container));
     auto resVal =
-        container.GetRewriter()->create<SelectOp>(container.GetLocation(),
+        container.GetRewriter().create<SelectOp>(container.GetLocation(),
             compareVal, tv.GetValue(container), fv.GetValue(container));
     res.SetValue(resVal);
   };
