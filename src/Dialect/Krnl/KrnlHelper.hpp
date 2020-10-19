@@ -186,6 +186,9 @@ public:
   // index. Use the index returned when pushing the bounds.
   BlockArgument &getInductionVar(int originalLoopIndex);
 
+  // Get all of the (original loop) induction variables.
+  ArrayRef<BlockArgument> getAllInductionVar();
+
   // Get a reference to the code region of the optimization operation.
   // This allows us to set the insertion point to the inner block of the
   // loop nest optimization operation.
