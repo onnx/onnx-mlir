@@ -37,6 +37,12 @@ Value getIdentityValue<ONNXReduceSumOp>(
   return emitConstantOp(rewriter, loc, type, 0);
 }
 
+template <>
+Value getIdentityValue<ONNXReduceMeanOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return emitConstantOp(rewriter, loc, type, 0);
+}
+
 // Scalar ops
 template <>
 struct ScalarOp<ONNXReduceProdOp> {
@@ -49,6 +55,50 @@ struct ScalarOp<ONNXReduceSumOp> {
   using FOp = AddFOp;
   using IOp = AddIOp;
 };
+
+template <>
+struct ScalarOp<ONNXReduceMeanOp> {
+  using FOp = AddFOp;
+  using IOp = AddIOp;
+};
+
+/// Helper function to get the size of a MemRef in a given type.
+Value getSizeInType(ConversionPatternRewriter &rewriter, Location loc,
+    Value memRef, Type elementType) {
+  auto shape = memRef.getType().cast<MemRefType>().getShape();
+
+  // We accumulate static dimensions first and then unknown dimensions.
+  int64_t staticNumElement = 1;
+  bool allStaticDimensions = true;
+
+  // 1. Static dimensions.
+  for (unsigned i = 0; i < shape.size(); i++) {
+    if (shape[i] != -1)
+      staticNumElement *= shape[i];
+    else
+      allStaticDimensions = false;
+  }
+  //  2. Unknown dimensions.
+  Value sizeVal = emitConstantOp(rewriter, loc, elementType, staticNumElement);
+  if (!allStaticDimensions) {
+    for (unsigned i = 0; i < shape.size(); i++) {
+      if (shape[i] == -1) {
+        Value index = rewriter.create<DimOp>(loc, memRef, i);
+        if (elementType.isa<FloatType>()) {
+          Value dim =
+              rewriter.create<IndexCastOp>(loc, index, rewriter.getI64Type());
+          dim = rewriter.create<UIToFPOp>(loc, dim, elementType);
+          sizeVal = rewriter.create<MulFOp>(loc, sizeVal, dim);
+        } else if (elementType.isa<IntegerType>()) {
+          Value dim = rewriter.create<IndexCastOp>(loc, index, elementType);
+          sizeVal = rewriter.create<MulIOp>(loc, sizeVal, dim);
+        } else
+          llvm_unreachable("unsupported element type");
+      }
+    }
+  }
+  return sizeVal;
+}
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXReduceMaxOp
@@ -97,8 +147,12 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
 
 template <typename ONNXReductionOp>
 struct ONNXReductionOpLowering : public ConversionPattern {
-  ONNXReductionOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ONNXReductionOp::getOperationName(), 1, ctx) {}
+  bool computeMean = false;
+
+  ONNXReductionOpLowering(MLIRContext *ctx, bool computeMean = false)
+      : ConversionPattern(ONNXReductionOp::getOperationName(), 1, ctx) {
+    this->computeMean = computeMean;
+  }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -123,7 +177,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
      *
      */
     auto loc = op->getLoc();
-    auto memRefInType = operands[0].getType().cast<MemRefType>();
+    auto input = operands[0];
+    auto memRefInType = input.getType().cast<MemRefType>();
     auto memRefInShape = memRefInType.getShape();
     auto memRefOutType = convertToMemRefType(*op->result_type_begin());
     int64_t inRank = memRefInType.getRank();
@@ -165,7 +220,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       SmallVector<Value, 2> allocOperands;
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] < 0) {
-          auto dim = rewriter.create<DimOp>(loc, operands[0], outInDimMap[i]);
+          auto dim = rewriter.create<DimOp>(loc, input, outInDimMap[i]);
           allocOperands.push_back(dim);
         }
       }
@@ -177,11 +232,12 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       }
     }
 
-    // There are two Krnl loops:
-    // - One to initialize the result memref, and
-    // - One to do reduction
+    // There are two required and one optional Krnl loops:
+    // - One to initialize the result memref,
+    // - One to do reduction, and
+    // - One to compute mean (optional).
 
-    // Define loops to initialize the result.
+    // 1. Define loops to initialize the result.
     std::vector<Value> originalLoopsInit;
     defineLoops(rewriter, loc, originalLoopsInit, outRank);
 
@@ -208,14 +264,15 @@ struct ONNXReductionOpLowering : public ConversionPattern {
         getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
     rewriter.create<AffineStoreOp>(loc, identity, alloc, loopIVs);
 
-    // Define an Krnl loop to do reduction.
+    // 2. Define an Krnl loop to do reduction.
     rewriter.setInsertionPointAfter(iterateOpInit);
+    auto ipMainRegion = rewriter.saveInsertionPoint();
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, inRank);
     // Iteration information
     KrnlIterateOperandPack pack(rewriter, originalLoops);
     for (decltype(inRank) i = 0; i < inRank; ++i) {
-      addDimensionToPack(rewriter, loc, pack, operands[0], i);
+      addDimensionToPack(rewriter, loc, pack, input, i);
     }
     auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
     Block &iterationBlock = iterateOp.bodyRegion().front();
@@ -245,11 +302,43 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     }
 
     Value next, accumulated;
-    next = rewriter.create<AffineLoadOp>(loc, operands[0], inLoopIVs);
+    next = rewriter.create<AffineLoadOp>(loc, input, inLoopIVs);
     accumulated = rewriter.create<AffineLoadOp>(loc, alloc, outLoopIVs);
     accumulated = emitScalarOpFor<ONNXReductionOp>(
         rewriter, loc, op, memRefOutType.getElementType(), {accumulated, next});
     rewriter.create<AffineStoreOp>(loc, accumulated, alloc, outLoopIVs);
+
+    // 3. Define an Krnl loop to compute mean (optional).
+    rewriter.restoreInsertionPoint(ipMainRegion);
+    if (computeMean) {
+      Type elementType = memRefOutType.getElementType();
+      // Compute the divisor that is the number of elements participated in
+      // reduction, i.e., 'divisor = size of input / size of output'
+      Value inputSize = getSizeInType(rewriter, loc, input, elementType);
+      Value outputSize = getSizeInType(rewriter, loc, alloc, elementType);
+      Value divisor;
+      if (elementType.isa<FloatType>())
+        divisor = rewriter.create<DivFOp>(loc, inputSize, outputSize);
+      else if (elementType.isa<IntegerType>())
+        divisor = rewriter.create<SignedDivIOp>(loc, inputSize, outputSize);
+      else
+        llvm_unreachable("unsupported element type");
+
+      // Compute mean
+      BuildKrnlLoop meanLoops(rewriter, loc, outRank);
+      meanLoops.createDefineAndIterateOp(alloc);
+      rewriter.setInsertionPointToStart(meanLoops.getIterateBlock());
+      auto meanIVs = meanLoops.getAllInductionVar();
+      auto loadData = rewriter.create<AffineLoadOp>(loc, alloc, meanIVs);
+      Value meanVal;
+      if (elementType.isa<FloatType>())
+        meanVal = rewriter.create<DivFOp>(loc, loadData, divisor);
+      else if (elementType.isa<IntegerType>())
+        meanVal = rewriter.create<SignedDivIOp>(loc, loadData, divisor);
+      else
+        llvm_unreachable("unsupported element type");
+      rewriter.create<AffineStoreOp>(loc, meanVal, alloc, meanIVs);
+    }
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -262,4 +351,6 @@ void populateLoweringONNXReductionOpPattern(
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceProdOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceSumOp>>(ctx);
+  patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
+      ctx, /*computeMean=*/true);
 }

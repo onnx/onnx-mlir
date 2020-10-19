@@ -1641,3 +1641,44 @@ func @test_size(%arg0: tensor<*xf32>) -> tensor<*xi64> {
   // CHECK: [[RES:%.+]] = "onnx.Size"(%arg0) : (tensor<*xf32>) -> tensor<i64>
   // CHECK: return [[RES]] : tensor<i64>
 }
+
+// -----
+
+func @test_less(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
+}
+
+// -----
+
+func @test_less_broadcast(%arg0: tensor<3x4x5xf32>, %arg1: tensor<5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less_broadcast
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<5xf32>) -> tensor<3x4x5xi1>
+}
+
+// -----
+
+func @test_less_unknown_dims_1(%arg0: tensor<3x4x5xf32>, %arg1: tensor<?x4x5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<?x4x5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less_unknown_dims_1
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<?x4x5xf32>) -> tensor<3x4x5xi1>
+}
+
+// -----
+
+func @test_less_unknown_dims_2(%arg0: tensor<?x?x5xf32>, %arg1: tensor<?x4x5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<?x?x5xf32>, tensor<?x4x5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less_unknown_dims_2
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<?x?x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
+}
+

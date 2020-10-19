@@ -67,7 +67,7 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXScalerOp>();
 
   OwningRewritePatternList patterns;
-  populateWithGenerated(context, &patterns);
+  populateWithGenerated(context, patterns);
 
   if (failed(applyPartialConversion(function, target, patterns)))
     signalPassFailure();
