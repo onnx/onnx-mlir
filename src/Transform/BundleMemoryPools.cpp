@@ -41,38 +41,6 @@ std::map<FuncOp, std::unique_ptr<BlockToStaticPool>> staticPoolMap;
 // Helper functions.
 //===----------------------------------------------------------------------===//
 
-/// Retrieve function which contains the current operation.
-FuncOp getContainingFunction(AllocOp op) {
-  Operation *parentFuncOp = op.getParentOp();
-
-  // While parent is not a FuncOp and its cast to a FuncOp is null.
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
-    parentFuncOp = parentFuncOp->getParentOp();
-
-  return cast<FuncOp>(parentFuncOp);
-}
-
-// Check if this value is an argument of one of the blocks nested
-// around it.
-bool isBlockArgument(AllocOp allocOp, Value operand) {
-  // Parent operation of the current block.
-  Operation *parentBlockOp;
-  Block *currentBlock = allocOp.getOperation()->getBlock();
-
-  do {
-    // Check the arguments of the current block.
-    for (auto arg : currentBlock->getArguments())
-      if (operand == arg)
-        return true;
-
-    parentBlockOp = currentBlock->getParentOp();
-    currentBlock = parentBlockOp->getBlock();
-
-  } while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp));
-
-  return false;
-}
-
 KrnlGetRefOp getUnbundledGetRef(AllocOp *memPool) {
   auto parentBlock = memPool->getOperation()->getBlock();
 
@@ -151,7 +119,7 @@ public:
     if (memRefShape.size() != 1)
       return failure();
 
-    FuncOp function = getContainingFunction(allocOp);
+    FuncOp function = getContainingFunction(allocOp.getOperation());
 
     if (staticPoolMap.count(function) == 0) {
       return failure();
@@ -279,7 +247,7 @@ public:
     auto parentBlock = allocOp.getOperation()->getBlock();
 
     // Get function.
-    FuncOp function = getContainingFunction(allocOp);
+    FuncOp function = getContainingFunction(allocOp.getOperation());
 
     // Use function to retrieve the list of blocks for this function.
     std::unique_ptr<BlockToDynamicPool> &blockToDynamicPool =
@@ -319,7 +287,7 @@ public:
         for (const auto &operand : definingOperation->getOperands()) {
           // Check operand is not a block argument. If it is skip it, we
           // consider block arguments to be leafs.
-          if (!isBlockArgument(allocOp, operand)) {
+          if (!isBlockArgument(allocOp.getOperation(), operand)) {
             operandList.emplace_back(operand);
 
             // Check if the current operation is a dim or a load and the

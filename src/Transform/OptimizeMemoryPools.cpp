@@ -24,6 +24,10 @@
 using namespace mlir;
 namespace {
 
+// Handling of static memory pool on a block-basis in each function.
+typedef std::map<Block *, bool> BlockToCompactedFlag;
+std::map<FuncOp, std::unique_ptr<BlockToCompactedFlag>> staticPoolCompacted;
+
 /// Get the AllocOp of the current GetRef.
 AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef) {
   auto parentBlock = getRef->getOperation()->getBlock();
@@ -83,27 +87,6 @@ int64_t getAllocGetRefTotalSize(AllocOp *allocOp) {
   return totalSize;
 }
 
-// Check if this value is an argument of one of the blocks nested
-// around it.
-bool isBlockArgument(Operation *op, Value operand) {
-  // Parent operation of the current block.
-  Operation *parentBlockOp;
-  Block *currentBlock = op->getBlock();
-
-  do {
-    // Check the arguments of the current block.
-    for (auto arg : currentBlock->getArguments())
-      if (operand == arg)
-        return true;
-
-    parentBlockOp = currentBlock->getParentOp();
-    currentBlock = parentBlockOp->getBlock();
-
-  } while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp));
-
-  return false;
-}
-
 /// Returns a list of operations in the current block that use the getref.
 std::vector<Operation *> getGetRefStores(KrnlGetRefOp *getRef) {
   auto parentBlock = getRef->getOperation()->getBlock();
@@ -132,14 +115,16 @@ SmallVector<KrnlGetRefOp, 4> getAllDistinctGetRefsForAlloc(AllocOp *allocOp) {
   SmallVector<KrnlGetRefOp, 4> getRefs;
 
   parentBlock->walk([&getRefs, allocOp](KrnlGetRefOp op) {
+    if (op.mempool() != allocOp->getResult())
+      return;
+
     // If a getRef with the same memory pool and offset has
     // already been added, skip it.
     for (auto getRef : getRefs)
-      if (op.mempool() == getRef.mempool() && op.offset() == getRef.offset())
+      if (op.offset() == getRef.offset())
         return;
 
-    if (op.mempool() == allocOp->getResult())
-      getRefs.emplace_back(op);
+    getRefs.emplace_back(op);
   });
 
   // The list contains at least one use.
@@ -159,6 +144,43 @@ SmallVector<KrnlGetRefOp, 4> getAllGetRefWithSameOffset(KrnlGetRefOp *getRef) {
 
   // The list contains at least one entry, the input krnl.getref.
   return sameOffsetGetRefs;
+}
+
+/// Returns a list of krnl.getref operations in the current block
+/// that share the same offset and memory pool but are not part
+/// of the exception list.
+SmallVector<KrnlGetRefOp, 4> getAllGetRefWithSameOffsetExcept(
+    KrnlGetRefOp *getRef, SmallVector<KrnlGetRefOp, 4> exceptionList) {
+  auto parentBlock = getRef->getOperation()->getBlock();
+  SmallVector<KrnlGetRefOp, 4> sameOffsetGetRefs;
+
+  parentBlock->walk([&sameOffsetGetRefs, getRef, exceptionList](KrnlGetRefOp op) {
+    for (auto exception : exceptionList)
+      if (op == exception)
+        return;
+
+    if (op.mempool() == getRef->mempool() && op.offset() == getRef->offset())
+      sameOffsetGetRefs.emplace_back(op);
+  });
+
+  // The list contains at least one entry, the input krnl.getref.
+  return sameOffsetGetRefs;
+}
+
+/// Check if two GetRefs participate in the same krnl.memcpy.
+bool usedBySameKrnlMemcpy(KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef) {
+  Block *topBlock = getTopBlock(firstGetRef->getOperation());
+
+  bool sameKrnlMemcpy = false;
+  topBlock->walk([&sameKrnlMemcpy, firstGetRef, secondGetRef](KrnlMemcpyOp memcpyOp) {
+    if ((memcpyOp.dest() == firstGetRef->getResult() &&
+         memcpyOp.src() == secondGetRef->getResult()) ||
+        (memcpyOp.dest() == secondGetRef->getResult() &&
+         memcpyOp.src() == firstGetRef->getResult()))
+      sameKrnlMemcpy = true;
+  });
+
+  return sameKrnlMemcpy;
 }
 
 bool getRefUsesAreDisjoint(
@@ -229,6 +251,19 @@ bool getRefUsesAreDisjoint(
   return refsUseIsDisjoint;
 }
 
+/// secondGetRef candidate is checked against every element of firstGetRefList
+/// whether a load/store chain exists between them:
+///
+///    a = load firstGetRef[]
+///    b = f(a)
+///    store b secondGetRef[]
+///
+/// The check must be done both ways:
+///
+///    a = load secondGetRef[]
+///    b = f(a)
+///    store b firstGetRef[]
+///
 bool getRefUsesAreMutuallyDisjoint(SmallVector<KrnlGetRefOp, 4> firstGetRefList,
     SmallVector<KrnlGetRefOp, 4> secondGetRefList) {
   for (auto getRef : secondGetRefList) {
@@ -245,35 +280,25 @@ bool getRefUsesAreMutuallyDisjoint(SmallVector<KrnlGetRefOp, 4> firstGetRefList,
   return true;
 }
 
+/// Op is a LoadOp or AffineLoadOp.
 bool isLoad(Operation *op) {
   return llvm::dyn_cast_or_null<LoadOp>(op) ||
          llvm::dyn_cast_or_null<AffineLoadOp>(op);
 }
 
+/// Op is a StoreOp or AffineStoreOp.
 bool isStore(Operation *op) {
   return llvm::dyn_cast_or_null<StoreOp>(op) ||
          llvm::dyn_cast_or_null<AffineStoreOp>(op);
 }
 
+/// Checks if this operation loads/stores from the result of a specific getRef.
 bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
   return (isLoad(op) && getRef.getResult() == op->getOperands()[0]) ||
          (isStore(op) && getRef.getResult() == op->getOperands()[1]);
 }
 
-/// Get top block.
-Block *getTopBlock(Operation *op) {
-  // Get current block as the first top block candidate.
-  Block *topBlock = op->getBlock();
-  Operation *parentBlockOp = topBlock->getParentOp();
-
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
-    topBlock = parentBlockOp->getBlock();
-    parentBlockOp = topBlock->getParentOp();
-  }
-
-  return topBlock;
-}
-
+/// Returns the last operation in the live range of a getRef.
 Operation *getLiveRangeLastOp(KrnlGetRefOp getRef) {
   Block *topBlock = getTopBlock(getRef.getOperation());
 
@@ -284,12 +309,10 @@ Operation *getLiveRangeLastOp(KrnlGetRefOp getRef) {
       lastLoadStore = op;
   });
 
-  // printf("Last Load/Store: \n");
-  // lastLoadStore->dump();
-
   return lastLoadStore;
 }
 
+/// Returns the first operation in the live range of a getRef.
 Operation *getLiveRangeFirstOp(KrnlGetRefOp getRef) {
   Block *topBlock = getTopBlock(getRef.getOperation());
 
@@ -303,6 +326,7 @@ Operation *getLiveRangeFirstOp(KrnlGetRefOp getRef) {
   return firstLoadStore;
 }
 
+/// Check if an operation is in an existing live range.
 bool operationInLiveRange(
     Operation *operation, std::vector<Operation *> liveRangeOpList) {
   for (auto &op : liveRangeOpList) {
@@ -312,6 +336,10 @@ bool operationInLiveRange(
   return false;
 }
 
+/// Function that returns the live range of a GetRef operation. The live
+/// range consists of all the operations in the in-order traversal of the
+/// source code between the first load/store instruction from that GetRef
+/// and the last load/store instruction from that GetRef.
 std::vector<Operation *> getLiveRange(KrnlGetRefOp getRef) {
   std::vector<Operation *> operations;
 
@@ -366,6 +394,7 @@ bool liveRangeIsContained(Operation *firstOp, Operation *lastOp,
          opBeforeOp(topLevelBlock, liveRangeLastOp, lastOp);
 }
 
+/// Check if an operation is in the top-level block of the function.
 bool opInTopLevelBlock(Operation *op) {
   Block *currentBlock = op->getBlock();
 
@@ -374,6 +403,21 @@ bool opInTopLevelBlock(Operation *op) {
   return llvm::dyn_cast_or_null<FuncOp>(currentBlock->getParentOp());
 }
 
+/// Returns the outermost krnl.iterate that contains this operation.
+/// Example:
+///
+/// func() {
+///   if {
+///     krnl.iterate {  <--- Outermost loop.
+///       krnl.iterate {
+///         if {
+///           ... op ...
+///         }
+///       }
+///     }
+///   }
+/// }
+///
 Operation *getOutermostLoop(Operation *op) {
   Operation *outermostLoop = nullptr;
 
@@ -386,21 +430,6 @@ Operation *getOutermostLoop(Operation *op) {
   // Compute parent operation of the current block. Every block has
   // a parent operation.
   Operation *parentBlockOp = currentBlock->getParentOp();
-
-  // This loop will handle the following case:
-  //
-  // func() {
-  //   if {
-  //     krnl.iterate {  <--- Outermost loop.
-  //       krnl.iterate {
-  //         if {
-  //           ... op ...
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
-  //
   while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
     if (llvm::dyn_cast_or_null<KrnlIterateOp>(parentBlockOp))
       outermostLoop = parentBlockOp;
@@ -410,6 +439,7 @@ Operation *getOutermostLoop(Operation *op) {
   return outermostLoop;
 }
 
+/// Returns true if two operations share the same outermost krnl.iterate.
 bool checkOuterLoopsMatch(Operation *op1, Operation *op2) {
   // Check if the outer loops of the two operations match.
   // If one of the operations is not part of a loop (i.e. the returned
@@ -429,6 +459,10 @@ bool checkOuterLoopsMatch(Operation *op1, Operation *op2) {
   return outerLoop1 == outerLoop2;
 }
 
+/// Returns true if the extremities of the live ranges of two getrefs
+/// share the same outermost krnl.iterate. The live range for one GetRef
+/// is given by the firstOp and lastOp values. The live range of the other
+/// GetRef is given by its full live range.
 bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
     std::vector<Operation *> liveRangeOpList) {
   // If any of the firstOp or lastOp are in the top level block of the
@@ -443,7 +477,7 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
   // If both firstOp and lastOp are in the top level block then they cannot
   // share a loop nest with the live range.
   if (firstOpInTopLevelBlock && lastOpInTopLevelBlock) {
-    printf("CASE 1: firstOp and lastOp are both in top-level block\n");
+    // printf("CASE 1: firstOp and lastOp are both in top-level block\n");
     return false;
   }
 
@@ -462,7 +496,7 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
   // If both live range extremities are in the top level block then they cannot
   // share a loop nest with the other live range.
   if (firstLROpInTopLevelBlock && lastLROpInTopLevelBlock) {
-    printf("CASE 2: LR first and last op are both in top-level block\n");
+    // printf("CASE 2: LR first and last op are both in top-level block\n");
     return false;
   }
 
@@ -471,7 +505,7 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
   // the same then they share the same loop nest, return true.
   if (!lastOpInTopLevelBlock && !firstLROpInTopLevelBlock &&
       checkOuterLoopsMatch(lastOp, liveRangeFirstOp)) {
-    printf("CASE 3: top extremities in same loop nest!\n");
+    // printf("CASE 3: top extremities in same loop nest!\n");
     return true;
   }
 
@@ -479,7 +513,7 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
   // return true.
   if (!firstOpInTopLevelBlock && !lastLROpInTopLevelBlock &&
       checkOuterLoopsMatch(firstOp, liveRangeLastOp)) {
-    printf("CASE 4: bottom extremities in same loop nest!\n");
+    // printf("CASE 4: bottom extremities in same loop nest!\n");
     return true;
   }
 
@@ -488,12 +522,14 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
   // or
   // 2. extremities are in sub-blocks but they do not share a loop nest.
   // In either case the intersection check must return false.
-  printf("CASE 5: otherwise\n");
+  // printf("CASE 5: otherwise\n");
   return false;
 }
 
+/// Check that the live range of the secondGetRef does not intersect with
+/// any of the live ranges of the GetRefs in firstGetRefList.
 bool checkLiveRangesIntersect(SmallVector<KrnlGetRefOp, 4> firstGetRefList,
-    SmallVector<KrnlGetRefOp, 4> secondGetRefList) {
+    KrnlGetRefOp secondGetRef) {
   // Check that the live range of each individual element in secondGetRefList
   // is independent from the individual live ranges of the elements
   // of the firstGetRefList.
@@ -501,40 +537,33 @@ bool checkLiveRangesIntersect(SmallVector<KrnlGetRefOp, 4> firstGetRefList,
     // Fetch the full live range for the first set of getref operations.
     std::vector<Operation *> liveRangeOpList = getLiveRange(firstGetRef);
 
-    for (auto secondGetRef : secondGetRefList) {
-      // printf(" == Comparing live ranges of:\n");
-      // firstGetRef.dump();
-      // secondGetRef.dump();
+    // Get first and last ops for the live range of the secondGetRef.
+    Operation *firstOp = getLiveRangeFirstOp(secondGetRef);
+    Operation *lastOp = getLiveRangeLastOp(secondGetRef);
 
-      // Get first and last ops for the live range of the second set of
-      // getref operations.
-      Operation *firstOp = getLiveRangeFirstOp(secondGetRef);
-      Operation *lastOp = getLiveRangeLastOp(secondGetRef);
+    // Check if either the first or last ops in the second live range are part
+    // of the first live range.
+    bool firstOpInLiveRange = operationInLiveRange(firstOp, liveRangeOpList);
+    bool lastOpInLiveRange = operationInLiveRange(lastOp, liveRangeOpList);
 
-      // Check if either the first or last ops in the second live range are part
-      // of the first live range.
-      bool firstOpInLiveRange = operationInLiveRange(firstOp, liveRangeOpList);
-      bool lastOpInLiveRange = operationInLiveRange(lastOp, liveRangeOpList);
+    // printf("firstOpInLiveRange = %d\n", firstOpInLiveRange);
+    // printf("lastOpInLiveRange = %d\n", lastOpInLiveRange);
+    if (firstOpInLiveRange || lastOpInLiveRange)
+      return true;
 
-      // printf("firstOpInLiveRange = %d\n", firstOpInLiveRange);
-      // printf("lastOpInLiveRange = %d\n", lastOpInLiveRange);
-      if (firstOpInLiveRange || lastOpInLiveRange)
-        return true;
+    // Since firstOp and lastOp are not part of the live range, check whether
+    // the live range is fully contained between firstOp and lastOp. If it is
+    // return true.
+    if (liveRangeIsContained(firstOp, lastOp, liveRangeOpList))
+      return true;
 
-      // Since firstOp and lastOp are not part of the live range, check whether
-      // the live range is fully contained between firstOp and lastOp. If it is
-      // return true.
-      if (liveRangeIsContained(firstOp, lastOp, liveRangeOpList))
-        return true;
-
-      // Up to this point, the checks we have done allow for ranges to be
-      // considered disjoint even when their extremities are part of the same
-      // loop nest. This means we have to perform an additional check: if the
-      // extremities of the two live ranges share the same loop nest determiend
-      // by `krnl.iterate` ops. If they do then the live ranges intersect.
-      if (liveRangesInSameLoopNest(firstOp, lastOp, liveRangeOpList))
-        return true;
-    }
+    // Up to this point, the checks we have done allow for ranges to be
+    // considered disjoint even when their extremities are part of the same
+    // loop nest. This means we have to perform an additional check: if the
+    // extremities of the two live ranges share the same loop nest determiend
+    // by `krnl.iterate` ops. If they do then the live ranges intersect.
+    if (liveRangesInSameLoopNest(firstOp, lastOp, liveRangeOpList))
+      return true;
   }
 
   // If all getRef live ranges are independent then no intersection exists.
@@ -579,12 +608,39 @@ public:
     if (getAllocGetRefNum(&staticMemPool) < 2)
       return failure();
 
+    // Function must be present.
+    FuncOp function = getContainingFunction(firstGetRef.getOperation());
+    if (staticPoolCompacted.count(function) == 0)
+      return failure();
+
     // Get parent block.
     Block *parentBlock = firstGetRef.getOperation()->getBlock();
+
+    std::unique_ptr<BlockToCompactedFlag> &blockToStaticPoolFlag =
+        staticPoolCompacted.at(function);
+
+    // Check if this block has already been compacted. If it has then
+    // skip its optimization.
+    if (blockToStaticPoolFlag->count(parentBlock) > 0 &&
+        blockToStaticPoolFlag->at(parentBlock))
+      return failure();
 
     // If this is not the top block fail.
     if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
       return failure();
+
+    // List of all GetRefs which share the slot with firstGetRefList.
+    SmallVector<KrnlGetRefOp, 4> firstGetRefList =
+        getAllGetRefWithSameOffset(&firstGetRef);
+
+    // // TODO: remove this check. This is for debug only.
+    // bool found = false;
+    // for (auto getRef : firstGetRefList)
+    //   if (getRef == firstGetRef) {
+    //     found = true;
+    //     break;
+    //   }
+    // assert(found && "firstGetRef must be contained in slot sharers list.");
 
     // Get a GetRef, other than the current one, that uses the same static
     // memory pool.
@@ -593,13 +649,24 @@ public:
         llvm::make_range(parentBlock->begin(), std::prev(parentBlock->end()))) {
       KrnlGetRefOp candidate = llvm::dyn_cast_or_null<KrnlGetRefOp>(&op);
 
+      // If not a valid KrnlGetRefOp, continue searching.
+      if (!candidate)
+        continue;
+
+      // If candidate is already sharing a slot with firstGetRef, skip it.
+      bool sharesSlot = false;
+      for (auto getRef : firstGetRefList)
+        if (getRef == candidate) {
+          sharesSlot = true;
+          break;
+        }
+      if (sharesSlot)
+        continue;
+
       // The second krnl.getref properties:
-      // - must be valid;
-      // - cannot be the same krnl.getref as the first;
       // - must use the same static memory pool as the first krnl.getref;
       // - the result must have the same memory footprint as the first.
-      if (candidate && candidate != firstGetRef &&
-          getAllocOfGetRef(&candidate) == staticMemPool &&
+      if (getAllocOfGetRef(&candidate) == staticMemPool &&
           getMemRefSizeInBytes(firstGetRef.getResult()) ==
               getMemRefSizeInBytes(candidate.getResult())) {
         getRefCandidates.emplace_back(candidate);
@@ -609,6 +676,8 @@ public:
     // If no candidate was found, pattern matching failed.
     if (getRefCandidates.size() < 1)
       return failure();
+
+    // printf("Found candidates = %d\n", getRefCandidates.size());
 
     SmallVector<KrnlGetRefOp, 4> validSlotReusers;
     for (auto secondGetRef : getRefCandidates) {
@@ -633,41 +702,65 @@ public:
       // this rewrite rule. There could be several krnl.getref with the same
       // offset as firstGetRef and several krnl.getRef with the same offset as
       // secondGetRef. In general we have to be able to handle this case.
-      SmallVector<KrnlGetRefOp, 4> firstGetRefList =
-          getAllGetRefWithSameOffset(&firstGetRef);
       SmallVector<KrnlGetRefOp, 4> secondGetRefList =
-          getAllGetRefWithSameOffset(&secondGetRef);
+          getAllGetRefWithSameOffsetExcept(&secondGetRef, validSlotReusers);
 
-      // Add all the currently discovered krnl.getref reusers that have not yet
-      // been actually processed but are now known to be valid reusers of the
-      // same slot. This is done for the purpose of checking validity of the
-      // other remaining candidates which have to consider that there is now
-      // an additional getref that uses the same slot.
-      for (auto validUnemittedReuser : validSlotReusers)
-        firstGetRefList.emplace_back(validUnemittedReuser);
+      // // TODO: remove after we are done with debugging:
+      // // Ensure that all secondGetRefList elements are actually in the list
+      // // of candidates.
+      // bool allAreCandidates = true;
+      // for (auto secondSlotReuser : secondGetRefList) {
+      //   bool found = false;
+      //   for (auto candidate : getRefCandidates) {
+      //     if (secondSlotReuser == candidate) {
+      //       found = true;
+      //       break;
+      //     }
+      //   }
+
+      //   if (!found) {
+      //     allAreCandidates = false;
+      //     break;
+      //   }
+      // }
+      // assert(allAreCandidates &&
+      //        "All second slot reusers must be candidates.");
+
+      // Do not merge the secondGetRef if secondGetRef has more reusers than
+      // the firstGetRef.
+      if (firstGetRefList.size() < secondGetRefList.size())
+        continue;
+
+      // Exclude getrefs that are connected via `krnl.mempcy` operations.
+      if (usedBySameKrnlMemcpy(&firstGetRef, &secondGetRef)) {
+        // printf("=====> Candidates linked by krnl.memcpy!\n");
+        continue;
+      }
 
       // Check that the usage of the candidate getrefs is disjoint from the
       // usage of any of the first getrefs. This means that for any store to a
       // getref in secondGetRefList, the value stored does not involve a load
       // from a getref in firstGetRefList (and vice-versa).
-      bool refsUseIsDisjoint =
-          getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList);
-
-      if (!refsUseIsDisjoint)
+      if (!getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList))
         continue;
+      // printf("=====> GetRef uses are mutually disjoint!\n");
 
-      // Check live ranges don't intersect.
+      // Check live ranges do not intersect.
       // Live range, chain of instructions between the first and last
       // load/store from/to any krnl.getref in a given list.
-      bool liveRangesIntersect =
-          checkLiveRangesIntersect(firstGetRefList, secondGetRefList);
-
-      printf("Live ranges intersect =====> %d\n", liveRangesIntersect);
-      if (liveRangesIntersect)
+      if (checkLiveRangesIntersect(firstGetRefList, secondGetRef))
         continue;
+      // printf("=====> Live ranges do not intersect!\n");
 
-      for (auto secondGetRef : secondGetRefList)
-        validSlotReusers.emplace_back(secondGetRef);
+      // Add candidate to list of valid reusers.
+      validSlotReusers.emplace_back(secondGetRef);
+
+      // Add the currently discovered krnl.getref valid reuser to the list of
+      // firstGetRef reusers. This ensures that the rest of the candidates
+      // take into consideration this reuser when analyzing if a new reuse is
+      // valid.
+      firstGetRefList.emplace_back(secondGetRef);
+
       printf("=======> CANDIDATES CAN SHARE THE SLOT!! <=======\n");
       firstGetRef.dump();
       secondGetRef.dump();
@@ -718,8 +811,27 @@ public:
     if (getAllocGetRefNum(&allocOp) < 1)
       return failure();
 
+    // Function must be present.
+    FuncOp function = getContainingFunction(allocOp.getOperation());
+    if (staticPoolCompacted.count(function) == 0)
+      return failure();
+
     // Get parent block.
     Block *parentBlock = allocOp.getOperation()->getBlock();
+
+    // Retrieve block flag.
+    std::unique_ptr<BlockToCompactedFlag> &blockToStaticPoolFlag =
+        staticPoolCompacted.at(function);
+
+    // printf("Block static pool already compacted = %d\n",
+    //     blockToStaticPoolFlag->count(parentBlock) > 0 &&
+    //     blockToStaticPoolFlag->at(parentBlock));
+
+    // Check if this block has already been compacted. If it has then
+    // skip its processing.
+    if (blockToStaticPoolFlag->count(parentBlock) > 0 &&
+        blockToStaticPoolFlag->at(parentBlock))
+      return failure();
 
     // If this is not the top block, fail.
     if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
@@ -750,10 +862,20 @@ public:
     SmallVector<KrnlGetRefOp, 4> distinctGetRefs =
         getAllDistinctGetRefsForAlloc(&allocOp);
 
+    // printf("Distinct get refs: %d\n", distinctGetRefs.size());
+    // Size of all distinct getrefs:
+    int64_t distinctGRSize = 0;
+    for (auto getRefOp : distinctGetRefs) {
+      distinctGRSize += getMemRefSizeInBytes(getRefOp.getResult());
+    }
+
+    printf(" distinctGRSize = %d\n", distinctGRSize);
+    printf(" usedMemory     = %d\n", usedMemory);
+
     // Each krnl.getref using the alloc needs to be re-emitted with the new
     // static memory pool and the new offset.
     int64_t currentOffset = 0;
-    std::map<KrnlGetRefOp, KrnlGetRefOp> oldToNewGetRef;
+    std::vector<std::pair<KrnlGetRefOp, KrnlGetRefOp>> oldToNewGetRef;
     for (auto getRefOp : distinctGetRefs) {
       // Emit the current offset inside the static memory pool.
       auto newOffset = rewriter.create<ConstantOp>(loc,
@@ -774,7 +896,7 @@ public:
             loc, oldGetRef.getResult().getType(), newStaticMemPool, newOffset);
         newGetRefOp.getOperation()->moveBefore(oldGetRef);
 
-        oldToNewGetRef.insert(
+        oldToNewGetRef.emplace_back(
             std::pair<KrnlGetRefOp, KrnlGetRefOp>(oldGetRef, newGetRefOp));
       }
 
@@ -782,10 +904,16 @@ public:
       currentOffset += currentGetRefSize;
     }
 
+    printf(" currentOffset  = %d\n", currentOffset);
+
     for (auto getRefPair : oldToNewGetRef)
       rewriter.replaceOp(getRefPair.first, getRefPair.second.getResult());
 
     rewriter.replaceOp(allocOp, newStaticMemPool.getResult());
+
+    // Update compacted flag.
+    blockToStaticPoolFlag->insert(
+        std::pair<Block *, bool>(parentBlock, true));
 
     return success();
   }
@@ -800,12 +928,17 @@ public:
   void runOnFunction() override {
     auto function = getFunction();
 
+    staticPoolCompacted.insert(std::pair<FuncOp, std::unique_ptr<BlockToCompactedFlag>>(
+        function, std::make_unique<BlockToCompactedFlag>()));
+
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
     patterns.insert<KrnlOptimizeStaticMemoryPools>(&getContext());
     patterns.insert<KrnlCompactStaticMemoryPools>(&getContext());
 
     applyPatternsAndFoldGreedily(function, patterns);
+
+    staticPoolCompacted.erase(function);
   }
 };
 } // namespace

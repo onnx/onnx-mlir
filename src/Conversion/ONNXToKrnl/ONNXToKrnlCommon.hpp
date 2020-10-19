@@ -46,6 +46,13 @@ MemRefType convertToMemRefType(Type type);
 /// Retrieve function which contains the current operation.
 FuncOp getContainingFunction(Operation *op);
 
+/// Retrieve top block of the function containing op.
+Block *getTopBlock(Operation *op);
+
+/// Check if the current operand is a block argument to the current or any
+/// of the ancestor block to operation op.
+bool isBlockArgument(Operation *op, Value operand);
+
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc,

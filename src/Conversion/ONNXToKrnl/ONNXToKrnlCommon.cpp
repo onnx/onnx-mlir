@@ -54,6 +54,40 @@ FuncOp getContainingFunction(Operation *op) {
   return cast<FuncOp>(parentFuncOp);
 }
 
+/// Return the top block.
+Block *getTopBlock(Operation *op) {
+  // Get current block as the first top block candidate.
+  Block *topBlock = op->getBlock();
+  Operation *parentBlockOp = topBlock->getParentOp();
+
+  while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
+    topBlock = parentBlockOp->getBlock();
+    parentBlockOp = topBlock->getParentOp();
+  }
+
+  return topBlock;
+}
+
+/// Check if this value is an argument of one of the blocks nested around it.
+bool isBlockArgument(Operation *op, Value operand) {
+  // Parent operation of the current block.
+  Operation *parentBlockOp;
+  Block *currentBlock = op->getBlock();
+
+  do {
+    // Check the arguments of the current block.
+    for (auto arg : currentBlock->getArguments())
+      if (operand == arg)
+        return true;
+
+    parentBlockOp = currentBlock->getParentOp();
+    currentBlock = parentBlockOp->getBlock();
+
+  } while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp));
+
+  return false;
+}
+
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands,
