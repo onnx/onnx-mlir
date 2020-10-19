@@ -295,10 +295,18 @@ bool isStore(Operation *op) {
          llvm::dyn_cast_or_null<AffineStoreOp>(op);
 }
 
+/// Op is a KrnlMemcpyOp.
+bool isKrnlMemcpy(Operation *op) {
+  return llvm::dyn_cast_or_null<KrnlMemcpyOp>(op);
+}
+
 /// Checks if this operation loads/stores from the result of a specific getRef.
+/// A krnl.memcpy acts as both load and store.
 bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
-  return (isLoad(op) && getRef.getResult() == op->getOperands()[0]) ||
-         (isStore(op) && getRef.getResult() == op->getOperands()[1]);
+  auto result = getRef.getResult();
+  return (isLoad(op) && result == op->getOperands()[0]) ||
+         (isStore(op) && result == op->getOperands()[1]) ||
+         (isKrnlMemcpy(op) && (result == op->getOperands()[0] || result == op->getOperands()[1]));
 }
 
 /// Returns the last operation in the live range of a getRef.
@@ -636,15 +644,6 @@ public:
     SmallVector<KrnlGetRefOp, 4> firstGetRefList =
         getAllGetRefWithSameOffset(&firstGetRef);
 
-    // // TODO: remove this check. This is for debug only.
-    // bool found = false;
-    // for (auto getRef : firstGetRefList)
-    //   if (getRef == firstGetRef) {
-    //     found = true;
-    //     break;
-    //   }
-    // assert(found && "firstGetRef must be contained in slot sharers list.");
-
     // Get a GetRef, other than the current one, that uses the same static
     // memory pool.
     SmallVector<KrnlGetRefOp, 4> getRefCandidates;
@@ -708,37 +707,23 @@ public:
       SmallVector<KrnlGetRefOp, 4> secondGetRefList =
           getAllGetRefWithSameOffsetExcept(&secondGetRef, validSlotReusers);
 
-      // // TODO: remove after we are done with debugging:
-      // // Ensure that all secondGetRefList elements are actually in the list
-      // // of candidates.
-      // bool allAreCandidates = true;
-      // for (auto secondSlotReuser : secondGetRefList) {
-      //   bool found = false;
-      //   for (auto candidate : getRefCandidates) {
-      //     if (secondSlotReuser == candidate) {
-      //       found = true;
-      //       break;
-      //     }
-      //   }
-
-      //   if (!found) {
-      //     allAreCandidates = false;
-      //     break;
-      //   }
-      // }
-      // assert(allAreCandidates &&
-      //        "All second slot reusers must be candidates.");
-
       // Do not merge the secondGetRef if secondGetRef has more reusers than
       // the firstGetRef.
       if (firstGetRefList.size() < secondGetRefList.size())
         continue;
 
+      // The krnl.memcpy operation is equivalent to load + store pair:
+      //
+      // krnl.memcpy(%destGetRef, %srcGetRef)
+      //
+      // equivalent to:
+      //
+      // %value = load %src
+      // store %value, %dest
+      //
       // Exclude getrefs that are connected via `krnl.mempcy` operations.
-      if (usedBySameKrnlMemcpy(&firstGetRef, &secondGetRef)) {
-        // printf("=====> Candidates linked by krnl.memcpy!\n");
+      if (usedBySameKrnlMemcpy(&firstGetRef, &secondGetRef))
         continue;
-      }
 
       // Check that the usage of the candidate getrefs is disjoint from the
       // usage of any of the first getrefs. This means that for any store to a
