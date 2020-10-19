@@ -200,10 +200,18 @@ public:
         loc, llvmOutputElementType.getPointerTo(), outputMemPoolTypePtrAlloc);
 
     // Create llvm MemRef from original MemRef and fill the data pointers.
-    auto llvmMemRef = MemRefDescriptor::fromStaticShape(
-        rewriter, loc, typeConverter, memRefTy, outputTypedPtrAlloc);
+    if (memRefTy.hasStaticShape()) {
+      auto llvmMemRef = MemRefDescriptor::fromStaticShape(
+          rewriter, loc, typeConverter, memRefTy, outputTypedPtrAlloc);
+      rewriter.replaceOp(op, {llvmMemRef});
+    } else {
+      auto llvmMemRef = MemRefDescriptor::undef(
+          rewriter, loc, typeConverter.convertType(memRefTy));
+      llvmMemRef.setAllocatedPtr(rewriter, loc, outputTypedPtrAlloc);
+      llvmMemRef.setAlignedPtr(rewriter, loc, outputTypedPtrAlloc);
+      rewriter.replaceOp(op, {llvmMemRef});
+    }
 
-    rewriter.replaceOp(op, {llvmMemRef});
     return success();
   }
 
