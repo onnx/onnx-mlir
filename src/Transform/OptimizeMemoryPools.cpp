@@ -467,7 +467,6 @@ bool checkOuterLoopsMatch(Operation *op1, Operation *op2) {
     return false;
 
   // If both outer loops are valid, check if they match.
-  // printf("Outer Loops match = %d\n", outerLoop1 == outerLoop2);
   return outerLoop1 == outerLoop2;
 }
 
@@ -483,15 +482,10 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
   bool firstOpInTopLevelBlock = opInTopLevelBlock(firstOp);
   bool lastOpInTopLevelBlock = opInTopLevelBlock(firstOp);
 
-  // printf("firstOpInTopLevelBlock = %d\n", firstOpInTopLevelBlock);
-  // printf("lastOpInTopLevelBlock = %d\n", lastOpInTopLevelBlock);
-
   // If both firstOp and lastOp are in the top level block then they cannot
   // share a loop nest with the live range.
-  if (firstOpInTopLevelBlock && lastOpInTopLevelBlock) {
-    // printf("CASE 1: firstOp and lastOp are both in top-level block\n");
+  if (firstOpInTopLevelBlock && lastOpInTopLevelBlock)
     return false;
-  }
 
   // Repeat checks for first/last operation in live range.
   Operation *liveRangeFirstOp = liveRangeOpList[0];
@@ -502,39 +496,29 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
   bool firstLROpInTopLevelBlock = opInTopLevelBlock(liveRangeFirstOp);
   bool lastLROpInTopLevelBlock = opInTopLevelBlock(liveRangeLastOp);
 
-  // printf("firstLROpInTopLevelBlock = %d\n", firstLROpInTopLevelBlock);
-  // printf("lastLROpInTopLevelBlock = %d\n", lastLROpInTopLevelBlock);
-
   // If both live range extremities are in the top level block then they cannot
   // share a loop nest with the other live range.
-  if (firstLROpInTopLevelBlock && lastLROpInTopLevelBlock) {
-    // printf("CASE 2: LR first and last op are both in top-level block\n");
+  if (firstLROpInTopLevelBlock && lastLROpInTopLevelBlock)
     return false;
-  }
 
   // If neither of the lastOp or liveRangeFirstOp are in the top block then
   // check if the outermost loops that contain them are the same. If they are
   // the same then they share the same loop nest, return true.
   if (!lastOpInTopLevelBlock && !firstLROpInTopLevelBlock &&
-      checkOuterLoopsMatch(lastOp, liveRangeFirstOp)) {
-    // printf("CASE 3: top extremities in same loop nest!\n");
+      checkOuterLoopsMatch(lastOp, liveRangeFirstOp))
     return true;
-  }
 
   // Now check the other pair of extremities. If they are in the same loop nest
   // return true.
   if (!firstOpInTopLevelBlock && !lastLROpInTopLevelBlock &&
-      checkOuterLoopsMatch(firstOp, liveRangeLastOp)) {
-    // printf("CASE 4: bottom extremities in same loop nest!\n");
+      checkOuterLoopsMatch(firstOp, liveRangeLastOp))
     return true;
-  }
 
   // If none of the cases above were met then:
   // 1. at least one of the extremities in each pair is at top-block level.
   // or
   // 2. extremities are in sub-blocks but they do not share a loop nest.
   // In either case the intersection check must return false.
-  // printf("CASE 5: otherwise\n");
   return false;
 }
 
@@ -557,9 +541,6 @@ bool checkLiveRangesIntersect(
     // of the first live range.
     bool firstOpInLiveRange = operationInLiveRange(firstOp, liveRangeOpList);
     bool lastOpInLiveRange = operationInLiveRange(lastOp, liveRangeOpList);
-
-    // printf("firstOpInLiveRange = %d\n", firstOpInLiveRange);
-    // printf("lastOpInLiveRange = %d\n", lastOpInLiveRange);
     if (firstOpInLiveRange || lastOpInLiveRange)
       return true;
 
@@ -680,8 +661,6 @@ public:
     if (getRefCandidates.size() < 1)
       return failure();
 
-    // printf("Found candidates = %d\n", getRefCandidates.size());
-
     SmallVector<KrnlGetRefOp, 4> validSlotReusers;
     for (auto secondGetRef : getRefCandidates) {
       // Check that the current candidate has not already been added as a valid
@@ -732,14 +711,12 @@ public:
       // from a getref in firstGetRefList (and vice-versa).
       if (!getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList))
         continue;
-      // printf("=====> GetRef uses are mutually disjoint!\n");
 
       // Check live ranges do not intersect.
       // Live range, chain of instructions between the first and last
       // load/store from/to any krnl.getref in a given list.
       if (checkLiveRangesIntersect(firstGetRefList, secondGetRef))
         continue;
-      // printf("=====> Live ranges do not intersect!\n");
 
       // Add candidate to list of valid reusers.
       validSlotReusers.emplace_back(secondGetRef);
@@ -749,10 +726,6 @@ public:
       // take into consideration this reuser when analyzing if a new reuse is
       // valid.
       firstGetRefList.emplace_back(secondGetRef);
-
-      // printf("=======> CANDIDATES CAN SHARE THE SLOT!! <=======\n");
-      // firstGetRef.dump();
-      // secondGetRef.dump();
     }
 
     // No valid slot reuse getRefs have been identified.
@@ -812,10 +785,6 @@ public:
     std::unique_ptr<BlockToCompactedFlag> &blockToStaticPoolFlag =
         staticPoolCompacted.at(function);
 
-    // printf("Block static pool already compacted = %d\n",
-    //     blockToStaticPoolFlag->count(parentBlock) > 0 &&
-    //     blockToStaticPoolFlag->at(parentBlock));
-
     // Check if this block has already been compacted. If it has then
     // skip its processing.
     if (blockToStaticPoolFlag->count(parentBlock) > 0 &&
@@ -851,15 +820,13 @@ public:
     SmallVector<KrnlGetRefOp, 4> distinctGetRefs =
         getAllDistinctGetRefsForAlloc(&allocOp);
 
-    // printf("Distinct get refs: %d\n", distinctGetRefs.size());
     // Size of all distinct getrefs:
     int64_t distinctGRSize = 0;
     for (auto getRefOp : distinctGetRefs) {
       distinctGRSize += getMemRefSizeInBytes(getRefOp.getResult());
     }
-
-    printf(" distinctGRSize = %d\n", distinctGRSize);
-    printf(" usedMemory     = %d\n", usedMemory);
+    assert(distinctGRSize == usedMemory &&
+        "Size of all distinct getrefs must match the total used memory");
 
     // Each krnl.getref using the alloc needs to be re-emitted with the new
     // static memory pool and the new offset.
@@ -893,7 +860,8 @@ public:
       currentOffset += currentGetRefSize;
     }
 
-    printf(" currentOffset  = %d\n", currentOffset);
+    assert(currentOffset == usedMemory &&
+        "Size total used memory must match the last offset.");
 
     for (auto getRefPair : oldToNewGetRef)
       rewriter.replaceOp(getRefPair.first, getRefPair.second.getResult());
