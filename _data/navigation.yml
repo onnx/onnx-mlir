@@ -23,7 +23,7 @@ toc:
         url: /doxygen_html/_o_m_tensor_8h.html
       - page: OMTensorList C99 Runtime API
         url: /doxygen_html/_o_m_tensor_list_8h.html
-      - page: Generating ONNX Dialect
+      - page: Generate ONNX Dialect
         url: /ImportONNXDefs.html
       - page: About Documentation
         url: /Documentation.html
