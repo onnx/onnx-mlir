@@ -36,21 +36,6 @@ ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
 }
 
-#if 0
-KrnlGlobalOp getKrnlGlobalOpWithValue(Value value) {
-  KrnlGlobalOp globalOp =
-      dyn_cast_or_null<mlir::KrnlGlobalOp>(value.getDefiningOp());
-  if (!globalOp) {
-    return nullptr;
-  }
-  // try to see if the value attribute is defined.
-  if (!globalOp.value().hasValue()) {
-    return nullptr;
-  }
-  return globalOp;
-}
-#endif
-
 DenseElementsAttr getDenseElementAttributeFromValue(Value value) {
   auto definingOp = value.getDefiningOp();
   if (auto constantOp = dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp))
@@ -127,6 +112,10 @@ LogicalResult GetIndexExprFromOperandValueAtIndex(Operation *op, Value operand,
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// ONNX Helper for Slice
+//===----------------------------------------------------------------------===//
+
 LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     ONNXSliceOpAdaptor operandAdaptor, IndexExprContainer &container,
     SmallVectorImpl<IndexExpr> &startIndices,
@@ -169,12 +158,15 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
   IndexExpr zeroIE(0);
   IndexExpr oneIE(1);
   startIndices.resize(dataRank);
-  stepIndices.resize(dataRank, zeroIE);
+  stepIndices.resize(dataRank);
   endIndices.resize(dataRank);
   outputDims.resize(dataRank);
 
   // SmallVector<uint64_t, 1> index1D(1, 0);
   for (uint64_t i = 0; i < sliceRank; i++) {
+    // i is index in start/step/end/output
+    // ii is logical index in mem/loop bounds
+    int ii = axesIntLit[i];
     // Get start.
     IndexExpr startInputIE;
     Value starts = operandAdaptor.starts();
@@ -203,7 +195,7 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     }
     stepInputIE.DebugPrint("step input");
     // Get dim.
-    IndexExpr dimInputIE(container, data, dataShape, i);
+    IndexExpr dimInputIE(container, data, dataShape, ii);
     dimInputIE.DebugPrint("dim input");
     // If in shape inference mode and we don't have the constant info, take
     // early break.
@@ -266,19 +258,20 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     }
 
     // Save results
-    startIndices[i] = startFinalIE;
-    stepIndices[i] = stepInputIE;
-    endIndices[i] = endFinalIE;
-    outputDims[i] = dimOutputFinalIE;
+    startIndices[ii] = startFinalIE;
+    stepIndices[ii] = stepInputIE;
+    endIndices[ii] = endFinalIE;
+    outputDims[ii] = dimOutputFinalIE;
   }
 
   // Handle the default for the non-axis arrays; they are detected with 0 steps
   // (illegal value).
   bool allOutputLit;
   for (uint64_t i = 0; i < dataRank; ++i) {
-    if (stepIndices[i].IsIntLit() && stepIndices[i].GetIntLit() == 0) {
+    if (!stepIndices[i].IsDefined()) {
       // have one unset, put the defaults (start was already at zero, so we are
       // fine).
+      startIndices[i] = zeroIE;
       stepIndices[i] = oneIE;
       IndexExpr dimInputIE(container, data, dataShape, i);
       endIndices[i] = dimInputIE;

@@ -9,6 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#define DEBUG 1
+
 #include "IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -212,7 +214,7 @@ Value IndexExpr::GetValue(IndexExprContainer &container) {
 }
 
 void IndexExpr::DebugPrint(const std::string &msg) {
-#if 0
+#if DEBUG
   printf("%s:", msg.c_str());
   if (IsIntLit())
     printf(" val(%lli)", GetIntLit());
@@ -372,7 +374,7 @@ void IndexExpr::FloorDiv(
       res.Copy(aa);
     else
       res.SetValue(
-          container.GetRewriter().create<SignedDivIOp>(container.GetLocation(),
+          container.GetRewriter().create<SignedFloorDivIOp>(container.GetLocation(),
               aa.GetValue(container), bb.GetValue(container)));
   };
   // Index b must be a literal.
@@ -400,7 +402,7 @@ void IndexExpr::CeilDiv(
       llvm_unreachable(
           "not implemented yet, look at mlir's AffineToStandard.cpp");
       res.SetValue(
-          container.GetRewriter().create<SignedDivIOp>(container.GetLocation(),
+          container.GetRewriter().create<SignedCeilDivIOp>(container.GetLocation(),
               aa.GetValue(container), bb.GetValue(container)));
     }
   };

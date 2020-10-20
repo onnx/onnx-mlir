@@ -341,7 +341,7 @@ test_to_enable = [
     "test_reciprocal_example_cpu",
 
     # Slice
-    "test_slice_cpu",
+    #"test_slice_cpu",
     
     # SoftplusOp:
     "test_softplus_cpu",

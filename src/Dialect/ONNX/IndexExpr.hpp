@@ -60,14 +60,15 @@ public:
       ArrayRef<int64_t> memrefShape, int index);
 
   // Shape inference querries.
-  bool IsIntLit() const { assert(isDefined); return isIntLit; }
-  bool IsQuestionmark() const { assert(isDefined); return !IsIntLit(); }
-  bool IsAffine() const { assert(isDefined); return isAffine; }
+  bool IsDefined() const { return isDefined; }
+  bool IsIntLit() const { assert(IsDefined()); return isIntLit; }
+  bool IsQuestionmark() const { assert(IsDefined()); return !IsIntLit(); }
+  bool IsAffine() const { assert(IsDefined()); return isAffine; }
 
-  bool IsSymbol() const { assert(isDefined); return isSymbol; }
-  bool IsDim() const { assert(isDefined); return isDim; }
-  bool HasAffineExpr() const { assert(isDefined); return !(!affineExpr); }
-  bool HasValue() const { assert(isDefined); return !(!value); }
+  bool IsSymbol() const { assert(IsDefined()); return isSymbol; }
+  bool IsDim() const { assert(IsDefined()); return isDim; }
+  bool HasAffineExpr() const { assert(IsDefined()); return !(!affineExpr); }
+  bool HasValue() const { assert(IsDefined()); return !(!value); }
 
   // Shape inference querries on list of indices.
   bool static AreAllIntLit(SmallVectorImpl<IndexExpr> &list);
