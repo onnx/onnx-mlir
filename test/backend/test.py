@@ -92,7 +92,7 @@ class DummyBackend(onnx.backend.base.Backend):
         # Call frontend to process temp_model.onnx, bit code will be generated.
         execute_commands([ONNX_MLIR, "temp_model.onnx"])
         return EndiannessAwareExecutionSession("./temp_model.so",
-                                               "_dyn_entry_point_main_graph")
+                                               "run_main_graph")
 
     @classmethod
     def supports_device(cls, device):
@@ -290,6 +290,16 @@ test_to_enable = [
     "test_reduce_sum_square_negative_axes_keepdims_example_cpu",
     "test_reduce_sum_square_negative_axes_keepdims_random_cpu",
 
+    # ReduceMean
+    "test_reduce_mean_default_axes_keepdims_example_cpu",
+    "test_reduce_mean_default_axes_keepdims_random_cpu",
+    "test_reduce_mean_do_not_keepdims_example_cpu",
+    "test_reduce_mean_do_not_keepdims_random_cpu",
+    "test_reduce_mean_keepdims_example_cpu",
+    "test_reduce_mean_keepdims_random_cpu",
+    "test_reduce_mean_negative_axes_keepdims_example_cpu",
+    "test_reduce_mean_negative_axes_keepdims_random_cpu",
+
     # Selu Op:
     "test_selu_cpu",
     "test_selu_default_cpu",
@@ -403,10 +413,20 @@ test_to_enable = [
     "test_averagepool_2d_strides_cpu",
     "test_averagepool_3d_default_cpu",
 
+    # GRU
+    "test_gru_defaults_cpu",
+    "test_gru_seq_length_cpu",
+    "test_gru_with_initial_bias_cpu",
+
     # LSTM
     "test_lstm_defaults_cpu",
     "test_lstm_with_initial_bias_cpu",
     "test_lstm_with_peepholes_cpu",
+
+    # RNN
+    "test_rnn_seq_length_cpu",
+    "test_simple_rnn_defaults_cpu",
+    "test_simple_rnn_with_initial_bias_cpu",
 
     # Squeeze
     "test_squeeze_cpu",
@@ -419,10 +439,19 @@ test_to_enable = [
     "test_split_variable_parts_1d_cpu",
     "test_split_variable_parts_2d_cpu",
     "test_split_variable_parts_default_axis_cpu",
-
+    
+    # Tile
+    "test_tile_cpu",
+    "test_tile_precomputed_cpu",
+    
     # ConstantOfShape
     "test_constantofshape_float_ones_cpu",
+    "test_constantofshape_int_zeros_cpu",
     
+    # Less
+    "test_less_cpu",
+    "test_less_bcast_cpu",
+
     # Size
     # TODO(tjingrant): fix unit test for size ops.
     # "test_size_cpu",
@@ -438,12 +467,20 @@ test_to_enable = [
     # It is unknown why 'uint8' came from.
     #"test_constantofshape_int_zeros_cpu",
 
+    # LogSoftmax
+    "test_logsoftmax_axis_0_cpu",
+    "test_logsoftmax_axis_1_cpu",
+    "test_logsoftmax_axis_2_cpu",
+    "test_logsoftmax_example_1_cpu",
+    "test_logsoftmax_default_axis_cpu",
+    "test_logsoftmax_negative_axis_cpu",
+    "test_logsoftmax_large_number_cpu",
+
     # Model
     "test_resnet50_cpu",
     "test_vgg19_cpu",
     "test_shufflenet_cpu",
 ]
-
 
 # Extract name of all test cases.
 import inspect

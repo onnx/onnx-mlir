@@ -6,17 +6,20 @@
 #endif
 #include <string.h>
 
-#include "RtMemRef.h"
+#include "OnnxMlirRuntime.h"
 #include "com_ibm_onnxmlir_DynEntryPoint.h"
 #include "jnilog.h"
 
-/* Declare type var, make call and assign to var, check against val */
+/* Declare type var, make call and assign to var, check against val.
+ * It's assumed that a Java exception has already been thrown so
+ * this call simply returns NULL.
+ */
 #define CHECK_CALL(type, var, call, val)                                       \
   type var = call;                                                             \
   if (var == val)                                                              \
   return NULL
 
-/* Make a JNI call and throw Java exception if the call failed */
+/* Make a JNI call,  log error and throw Java exception if the call failed */
 #define JNI_CALL(env, stmt)                                                    \
   stmt;                                                                        \
   do {                                                                         \
@@ -29,332 +32,354 @@
   } while (0)
 
 /* Make a JNI call and assign return value to var,
- * throw Java exception if the call failed
+ * log error and throw Java exception if the call failed
  */
 #define JNI_VAR_CALL(env, var, call) JNI_CALL(env, var = call)
 
 /* Declare type var, make a JNI call and assign return value to var,
- * throw Java exception if the call failed
+ * log error and throw Java exception if the call failed
  */
 #define JNI_TYPE_VAR_CALL(env, type, var, call) JNI_CALL(env, type var = call);
 
-/* If cond is true (native code failed), log error and throw Java exception */
-#define JNI_COND(type, var, call, val, env, cls, ...)                          \
-  type var = call;                                                             \
+/* Make a native library call, if cond is true (native code failed),
+ * log error and throw Java exception
+ */
+#define LIB_CALL(stmt, check, env, cls, ...)                                   \
+  stmt;                                                                        \
   do {                                                                         \
-    if (var == val) {                                                          \
+    if (check) {                                                               \
       LOG_PRINTF(LOG_ERROR, __VA_ARGS__);                                      \
       (*env)->ThrowNew(env, cls, "native code error");                         \
       return NULL;                                                             \
     }                                                                          \
   } while (0)
 
-/* Debug output of RtMemRef fields */
-#define RMR_DEBUG(i, type, rank, sizes, strides, data, datasize)               \
+/* Make a native library call and assign return value to var,
+ * log error and throw Java exception if the call failed
+ */
+#define LIB_VAR_CALL(var, call, val, env, cls, ...)                            \
+  LIB_CALL(var = call, var == val, env, cls, __VA_ARGS__);
+
+/* Declare type var, make a native library call and assign return value to var,
+ * log error and throw Java exception if the call failed
+ */
+#define LIB_TYPE_VAR_CALL(type, var, call, val, env, cls, ...)                 \
+  LIB_CALL(type var = call, var == val, env, cls, __VA_ARGS__);
+
+/* Debug output of OMTensor fields */
+#define OMT_DEBUG(                                                             \
+    i, n, data, dataSizes, dataStrides, dataType, dataBufferSize, rank, name)  \
   do {                                                                         \
     char tmp[1024];                                                            \
-    LOG_PRINTF(LOG_DEBUG, "rmr[%d]:type=%d", i, type);                         \
-    LOG_PRINTF(LOG_DEBUG, "rmr[%d]:rank=%d", i, rank);                         \
-    LOG_LONG_BUF(tmp, sizes, rank);                                            \
-    LOG_PRINTF(LOG_DEBUG, "rmr[%d]:sizes=[%s]", i, tmp);                       \
-    LOG_LONG_BUF(tmp, strides, rank);                                          \
-    LOG_PRINTF(LOG_DEBUG, "rmr[%d]:strides=[%s]", i, tmp);                     \
-    LOG_TYPE_BUF(type, tmp, data, datasize);                                   \
-    LOG_PRINTF(LOG_DEBUG, "rmr[%d]:data=[%s]", i, tmp);                        \
+    LOG_TYPE_BUF(dataType, tmp, data, n);                                      \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:data=[%s]", i, tmp);                        \
+    LOG_LONG_BUF(tmp, dataSizes, rank);                                        \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:dataSizes=[%s]", i, tmp);                   \
+    LOG_LONG_BUF(tmp, dataStrides, rank);                                      \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:dataStrides=[%s]", i, tmp);                 \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:dataType=%d", i, dataType);                 \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:dataBufferSize=%ld", i, dataBufferSize);    \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:rank=%d", i, rank);                         \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:name=%s", i, name);                         \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:numOfElems=%ld", i, n);                     \
   } while (0)
 
 /* Model shared library entry point */
-extern OrderedRtMemRefDict *_dyn_entry_point_main_graph(OrderedRtMemRefDict *);
-
-/* ONNX type to size (number of bytes) mapping */
-int onnx_type_size[] = {
-    0,  /* UNDEFINED  = 0  */
-    4,  /* FLOAT      = 1  */
-    1,  /* UINT8      = 2  */
-    1,  /* INT8       = 3  */
-    2,  /* UINT16     = 4  */
-    2,  /* INT16      = 5  */
-    4,  /* INT32      = 6  */
-    8,  /* INT64      = 7  */
-    0,  /* STRING     = 8  */
-    1,  /* BOOL       = 9  */
-    2,  /* FLOAT16    = 10 */
-    8,  /* DOUBLE     = 11 */
-    4,  /* UINT32     = 12 */
-    8,  /* UINT64     = 13 */
-    8,  /* COMPLEX64  = 14 */
-    16, /* COMPLEX128 = 15 */
-    2,  /* BFLOAT16   = 16 */
-};
+extern OMTensorList *_dyn_entry_point_main_graph(OMTensorList *);
 
 /* Java classes and methods needed for making various JNI API calls */
 typedef struct {
-  jclass ecpt_cls;   /* java/lang/Exception class                  */
-  jclass long_cls;   /* java/lang/Long class                       */
-  jclass string_cls; /* java/lang/String class                     */
-  jclass ormrd_cls;  /* com/ibm/onnxmlir/OrderedRtMemRefDict class */
-  jclass rmr_cls;    /* com/ibm/onnxmlir/RtMemRef class            */
+  jclass ecpt_cls;     /* java/lang/Exception class                  */
+  jclass long_cls;     /* java/lang/Long class                       */
+  jclass string_cls;   /* java/lang/String class                     */
+  jclass omt_cls;      /* com/ibm/onnxmlir/OMTensor class            */
+  jclass omt_list_cls; /* com/ibm/onnxmlir/OMTensorList class */
 
-  jmethodID ormrd_constructor; /* OrderedRtMemRefDict constructor            */
-  jmethodID ormrd_getRmrs;     /* OrderedRtMemRefDict getRmrs method         */
-  jmethodID ormrd_getNames;    /* OrderedRtMemRefDict getNames method        */
+  jmethodID omt_constructor;       /* OMTensor constructor              */
+  jmethodID omt_getData;           /* OMTensor getData method           */
+  jmethodID omt_setData;           /* OMTensor setData method           */
+  jmethodID omt_getDataSizes;      /* OMTensor getDataSizes method      */
+  jmethodID omt_setDataSizes;      /* OMTensor setDataSizes method      */
+  jmethodID omt_getDataStrides;    /* OMTensor getDataStrides method    */
+  jmethodID omt_setDataStrides;    /* OMTensor setDataStrides method    */
+  jmethodID omt_getDataType;       /* OMTensor getDataType method       */
+  jmethodID omt_setDataType;       /* OMTensor setDataType method       */
+  jmethodID omt_getDataBufferSize; /* OMTensor getDataBufferSize method */
+  jmethodID omt_getRank;           /* OMTensor getRank method           */
+  jmethodID omt_getName;           /* OMTensor getName method           */
+  jmethodID omt_setName;           /* OMTensor setName method           */
+  jmethodID omt_getNumOfElems;     /* OMTensor getNumOfElems method     */
 
-  jmethodID rmr_constructor; /* RtMemRef constructor                       */
-  jmethodID rmr_getType;     /* RtMemRef getType method                    */
-  jmethodID rmr_setType;     /* RtMemRef setType method                    */
-  jmethodID rmr_getRank;     /* RtMemRef getRank method                    */
-  jmethodID rmr_getData;     /* RtMemRef getData method                    */
-  jmethodID rmr_setData;     /* RtMemRef setData method                    */
-  jmethodID rmr_getSizes;    /* RtMemRef getSizes method                   */
-  jmethodID rmr_setSizes;    /* RtMemRef setSizes method                   */
-  jmethodID rmr_getStrides;  /* RtMemRef getStrides method                 */
-  jmethodID rmr_setStrides;  /* RtMemRef setStrides method                 */
-  jmethodID rmr_getDataSize; /* RtMemRef getDataSize method                */
+  jmethodID omt_list_constructor; /* OMTensorList constructor    */
+  jmethodID omt_list_getOmts;     /* OMTensorList getOmts method */
 } jniapi_t;
 
 jniapi_t jniapi;
 
 /* Fill in struct jniapi */
 jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
-  /* Get Java Exception, Long, String, OrderedRtMemRefDict, and RtMemRef classes
+  /* Get Java Exception, Long, String, OMTensor, and OMTensorList classes
    */
   JNI_VAR_CALL(
       env, japi->ecpt_cls, (*env)->FindClass(env, "java/lang/Exception"));
   JNI_VAR_CALL(env, japi->long_cls, (*env)->FindClass(env, "java/lang/Long"));
   JNI_VAR_CALL(
       env, japi->string_cls, (*env)->FindClass(env, "java/lang/String"));
-  JNI_VAR_CALL(env, japi->ormrd_cls,
-      (*env)->FindClass(env, "com/ibm/onnxmlir/OrderedRtMemRefDict"));
   JNI_VAR_CALL(
-      env, japi->rmr_cls, (*env)->FindClass(env, "com/ibm/onnxmlir/RtMemRef"));
+      env, japi->omt_cls, (*env)->FindClass(env, "com/ibm/onnxmlir/OMTensor"));
+  JNI_VAR_CALL(env, japi->omt_list_cls,
+      (*env)->FindClass(env, "com/ibm/onnxmlir/OMTensorList"));
 
-  /* Get method ID of constructor and various methods in OrderedRtMemRefDict */
-  JNI_VAR_CALL(env, japi->ormrd_constructor,
+  /* Get method ID of constructor and various methods in OMTensor */
+  JNI_VAR_CALL(env, japi->omt_constructor,
+      (*env)->GetMethodID(env, japi->omt_cls, "<init>", "(I)V"));
+  JNI_VAR_CALL(env, japi->omt_getData,
       (*env)->GetMethodID(
-          env, japi->ormrd_cls, "<init>", "([Lcom/ibm/onnxmlir/RtMemRef;)V"));
-  JNI_VAR_CALL(env, japi->ormrd_getRmrs,
+          env, japi->omt_cls, "getData", "()Ljava/nio/ByteBuffer;"));
+  JNI_VAR_CALL(env, japi->omt_setData,
       (*env)->GetMethodID(
-          env, japi->ormrd_cls, "getRmrs", "()[Lcom/ibm/onnxmlir/RtMemRef;"));
-  JNI_VAR_CALL(env, japi->ormrd_getNames,
+          env, japi->omt_cls, "setData", "(Ljava/nio/ByteBuffer;)V"));
+  JNI_VAR_CALL(env, japi->omt_getDataSizes,
+      (*env)->GetMethodID(env, japi->omt_cls, "getDataSizes", "()[J"));
+  JNI_VAR_CALL(env, japi->omt_setDataSizes,
+      (*env)->GetMethodID(env, japi->omt_cls, "setDataSizes", "([J)V"));
+  JNI_VAR_CALL(env, japi->omt_getDataStrides,
+      (*env)->GetMethodID(env, japi->omt_cls, "getDataStrides", "()[J"));
+  JNI_VAR_CALL(env, japi->omt_setDataStrides,
+      (*env)->GetMethodID(env, japi->omt_cls, "setDataStrides", "([J)V"));
+  JNI_VAR_CALL(env, japi->omt_getDataType,
+      (*env)->GetMethodID(env, japi->omt_cls, "getDataType", "()I"));
+  JNI_VAR_CALL(env, japi->omt_setDataType,
+      (*env)->GetMethodID(env, japi->omt_cls, "setDataType", "(I)V"));
+  JNI_VAR_CALL(env, japi->omt_getDataBufferSize,
+      (*env)->GetMethodID(env, japi->omt_cls, "getDataBufferSize", "()J"));
+  JNI_VAR_CALL(env, japi->omt_getRank,
+      (*env)->GetMethodID(env, japi->omt_cls, "getRank", "()I"));
+  JNI_VAR_CALL(env, japi->omt_getName,
       (*env)->GetMethodID(
-          env, japi->ormrd_cls, "getNames", "()[Ljava/lang/String;"));
+          env, japi->omt_cls, "getName", "()Ljava/lang/String;"));
+  JNI_VAR_CALL(env, japi->omt_setName,
+      (*env)->GetMethodID(
+          env, japi->omt_cls, "setName", "(Ljava/lang/String;)V"));
+  JNI_VAR_CALL(env, japi->omt_getNumOfElems,
+      (*env)->GetMethodID(env, japi->omt_cls, "getNumOfElems", "()J"));
 
-  /* Get method ID of constructor and various methods in RtMemRef */
-  JNI_VAR_CALL(env, japi->rmr_constructor,
-      (*env)->GetMethodID(env, japi->rmr_cls, "<init>", "(I)V"));
-  JNI_VAR_CALL(env, japi->rmr_getType,
-      (*env)->GetMethodID(env, japi->rmr_cls, "getType", "()I"));
-  JNI_VAR_CALL(env, japi->rmr_setType,
-      (*env)->GetMethodID(env, japi->rmr_cls, "setType", "(I)V"));
-  JNI_VAR_CALL(env, japi->rmr_getRank,
-      (*env)->GetMethodID(env, japi->rmr_cls, "getRank", "()I"));
-  JNI_VAR_CALL(env, japi->rmr_getData,
-      (*env)->GetMethodID(
-          env, japi->rmr_cls, "getData", "()Ljava/nio/ByteBuffer;"));
-  JNI_VAR_CALL(env, japi->rmr_setData,
-      (*env)->GetMethodID(
-          env, japi->rmr_cls, "setData", "(Ljava/nio/ByteBuffer;)V"));
-  JNI_VAR_CALL(env, japi->rmr_getSizes,
-      (*env)->GetMethodID(env, japi->rmr_cls, "getSizes", "()[J"));
-  JNI_VAR_CALL(env, japi->rmr_setSizes,
-      (*env)->GetMethodID(env, japi->rmr_cls, "setSizes", "([J)V"));
-  JNI_VAR_CALL(env, japi->rmr_getStrides,
-      (*env)->GetMethodID(env, japi->rmr_cls, "getStrides", "()[J"));
-  JNI_VAR_CALL(env, japi->rmr_setStrides,
-      (*env)->GetMethodID(env, japi->rmr_cls, "setStrides", "([J)V"));
-  JNI_VAR_CALL(env, japi->rmr_getDataSize,
-      (*env)->GetMethodID(env, japi->rmr_cls, "getDataSize", "()J"));
+  /* Get method ID of constructor and various methods in OMTensorList */
+  JNI_VAR_CALL(env, japi->omt_list_constructor,
+      (*env)->GetMethodID(env, japi->omt_list_cls, "<init>",
+          "([Lcom/ibm/onnxmlir/OMTensor;)V"));
+  JNI_VAR_CALL(env, japi->omt_list_getOmts,
+      (*env)->GetMethodID(env, japi->omt_list_cls, "getOmts",
+          "()[Lcom/ibm/onnxmlir/OMTensor;"));
 
   return japi;
 }
 
 /* Convert Java object to native data structure */
-OrderedRtMemRefDict *ormrd_java_to_native(
+OMTensorList *omt_list_java_to_native(
     JNIEnv *env, jclass cls, jobject obj, jniapi_t *japi) {
-  /* Get object array "rmrs" and "names" in OrderedRtMemRefDict */
-  JNI_TYPE_VAR_CALL(env, jobjectArray, ormrd_rmrs,
-      (*env)->CallObjectMethod(env, obj, japi->ormrd_getRmrs));
-  JNI_TYPE_VAR_CALL(env, jobjectArray, ormrd_names,
-      (*env)->CallObjectMethod(env, obj, japi->ormrd_getNames));
 
-  /* Get length of object array "rmrs" and "names" in OrderedRtMemRefDict */
-  JNI_TYPE_VAR_CALL(
-      env, jsize, ormrd_rmrs_len, (*env)->GetArrayLength(env, ormrd_rmrs));
-  JNI_TYPE_VAR_CALL(
-      env, jsize, ormrd_names_len, (*env)->GetArrayLength(env, ormrd_names));
+  /* Get OMTensor array Java object in OMTensorList */
+  JNI_TYPE_VAR_CALL(env, jobjectArray, omt_list_omts,
+      (*env)->CallObjectMethod(env, obj, japi->omt_list_getOmts));
 
-  /* Allocate memory for holding each Java rmr object and name string,
-   * and RtMemRef and char pointers for constructing native RtMemRef and name
-   * array
+  /* Get the number of OMTensors in the array */
+  JNI_TYPE_VAR_CALL(
+      env, jsize, omt_list_nomt, (*env)->GetArrayLength(env, omt_list_omts));
+
+  /* Allocate memory for holding each Java omt object and OMTensor pointers
+   * for constructing native OMTensor array
    */
-  JNI_COND(jobject *, obj_rmr, malloc(ormrd_rmrs_len * sizeof(jobject)), NULL,
-      env, japi->ecpt_cls, "obj_rmr=null");
-  JNI_COND(jstring *, obj_name, malloc(ormrd_names_len * sizeof(jstring)), NULL,
-      env, japi->ecpt_cls, "obj_name=null");
-  JNI_COND(RtMemRef **, jni_rmr, malloc(ormrd_rmrs_len * sizeof(RtMemRef *)),
-      NULL, env, japi->ecpt_cls, "jni_rmr=null");
-  JNI_COND(const char **, jni_name,
-      malloc(ormrd_names_len * sizeof(const char *)), NULL, env, japi->ecpt_cls,
-      "jni_name=null");
+  LIB_TYPE_VAR_CALL(jobject *, obj_omts,
+      malloc(omt_list_nomt * sizeof(jobject)), NULL, env, japi->ecpt_cls,
+      "obj_omts=null");
+  LIB_TYPE_VAR_CALL(OMTensor **, jni_omts,
+      malloc(omt_list_nomt * sizeof(OMTensor *)), NULL, env, japi->ecpt_cls,
+      "jni_omts=null");
 
-  /* Create OrderedRtMemRefDict to be constructed and passed to the model shared
-   * library */
-  JNI_COND(OrderedRtMemRefDict *, ormrd, createOrderedRtMemRefDict(), NULL, env,
-      japi->ecpt_cls, "ormrd=null");
-
-  /* Loop through all the ormrd_rmrs and ormrd_names */
-  for (int i = 0; i < ormrd_rmrs_len; i++) {
+  /* Loop through all the omt_list_omts  */
+  for (int i = 0; i < omt_list_nomt; i++) {
     JNI_VAR_CALL(
-        env, obj_rmr[i], (*env)->GetObjectArrayElement(env, ormrd_rmrs, i));
-    JNI_VAR_CALL(
-        env, obj_name[i], (*env)->GetObjectArrayElement(env, ormrd_names, i));
+        env, obj_omts[i], (*env)->GetObjectArrayElement(env, omt_list_omts, i));
 
-    /* Get type, rank, data, sizes, and strides by calling corresponding methods
+    /* Get data, dataSizes, dataStrides, dataType, rank, name and
+     * dataBufferSize by calling corresponding methods
      */
-    JNI_TYPE_VAR_CALL(env, jint, rmr_type,
-        (*env)->CallIntMethod(env, obj_rmr[i], japi->rmr_getType));
-    JNI_TYPE_VAR_CALL(env, jint, rmr_rank,
-        (*env)->CallIntMethod(env, obj_rmr[i], japi->rmr_getRank));
-    JNI_TYPE_VAR_CALL(env, jlong, rmr_datasize,
-        (*env)->CallLongMethod(env, obj_rmr[i], japi->rmr_getDataSize));
-    JNI_TYPE_VAR_CALL(env, jobject, rmr_data,
-        (*env)->CallObjectMethod(env, obj_rmr[i], japi->rmr_getData));
-    JNI_TYPE_VAR_CALL(env, jobject, rmr_sizes,
-        (*env)->CallObjectMethod(env, obj_rmr[i], japi->rmr_getSizes));
-    JNI_TYPE_VAR_CALL(env, jobject, rmr_strides,
-        (*env)->CallObjectMethod(env, obj_rmr[i], japi->rmr_getStrides));
-
-    /* Primitive type int and long can be directly used */
-    int jni_type = rmr_type, jni_rank = rmr_rank;
-    long jni_datasize = rmr_datasize;
+    JNI_TYPE_VAR_CALL(env, jobject, omt_data,
+        (*env)->CallObjectMethod(env, obj_omts[i], japi->omt_getData));
+    JNI_TYPE_VAR_CALL(env, jobject, omt_dataSizes,
+        (*env)->CallObjectMethod(env, obj_omts[i], japi->omt_getDataSizes));
+    JNI_TYPE_VAR_CALL(env, jobject, omt_dataStrides,
+        (*env)->CallObjectMethod(env, obj_omts[i], japi->omt_getDataStrides));
+    JNI_TYPE_VAR_CALL(env, jint, omt_dataType,
+        (*env)->CallIntMethod(env, obj_omts[i], japi->omt_getDataType));
+    JNI_TYPE_VAR_CALL(env, jlong, omt_dataBufferSize,
+        (*env)->CallLongMethod(env, obj_omts[i], japi->omt_getDataBufferSize));
+    JNI_TYPE_VAR_CALL(env, jint, omt_rank,
+        (*env)->CallIntMethod(env, obj_omts[i], japi->omt_getRank));
+    JNI_TYPE_VAR_CALL(env, jstring, omt_name,
+        (*env)->CallObjectMethod(env, obj_omts[i], japi->omt_getName));
+    JNI_TYPE_VAR_CALL(env, jlong, omt_numOfElems,
+        (*env)->CallLongMethod(env, obj_omts[i], japi->omt_getNumOfElems));
 
     /* Get direct buffer associated with data */
     JNI_TYPE_VAR_CALL(
-        env, void *, jni_data, (*env)->GetDirectBufferAddress(env, rmr_data));
+        env, void *, jni_data, (*env)->GetDirectBufferAddress(env, omt_data));
 
-    /* Get long array associated with sizes and strides */
-    JNI_TYPE_VAR_CALL(env, long *, jni_sizes,
-        (*env)->GetLongArrayElements(env, rmr_sizes, NULL));
-    JNI_TYPE_VAR_CALL(env, long *, jni_strides,
-        (*env)->GetLongArrayElements(env, rmr_strides, NULL));
+    /* Get long array associated with data sizes and strides */
+    JNI_TYPE_VAR_CALL(env, long *, jni_dataSizes,
+        (*env)->GetLongArrayElements(env, omt_dataSizes, NULL));
+    JNI_TYPE_VAR_CALL(env, long *, jni_dataStrides,
+        (*env)->GetLongArrayElements(env, omt_dataStrides, NULL));
+
+    /* Primitive type int and long can be directly used */
+    int jni_dataType = omt_dataType;
+    long jni_dataBufferSize = omt_dataBufferSize;
+    int jni_rank = omt_rank;
+    long jni_numOfElems = omt_numOfElems;
+
+    /* Get name string */
+    JNI_TYPE_VAR_CALL(env, char *, jni_name,
+        (char *)(*env)->GetStringUTFChars(env, omt_name, NULL));
 
     /* Print debug info on what we got from the Java side */
-    RMR_DEBUG(
-        i, jni_type, jni_rank, jni_sizes, jni_strides, jni_data, jni_datasize);
+    OMT_DEBUG(i, jni_numOfElems, jni_data, jni_dataSizes, jni_dataStrides,
+        jni_dataType, jni_dataBufferSize, jni_rank, jni_name);
 
-    /* Create native RtMemRef struct and fill in its fields */
-    jni_rmr[i] = createRtMemRef(jni_rank);
-    setDType(jni_rmr[i], jni_type);
-    setData(jni_rmr[i], jni_data);
-    setSizes(jni_rmr[i], jni_sizes);
-    setStrides(jni_rmr[i], jni_strides);
-
-    /*jni_name[i] = (*env)->GetStringUTFChars(env, obj_name[i], NULL);
-      printf("jni_name=%s\n", jni_name[i]);*/
-
-    /* Install RtMemRef into OrderedRtMemRefDict */
-    setRtMemRef(ormrd, i, jni_rmr[i]);
+    /* Create native OMTensor struct and fill in its fields */
+    LIB_VAR_CALL(jni_omts[i], omt_create(jni_rank), NULL, env, japi->ecpt_cls,
+        "jni_omts[%d]=null", i);
+    omt_setData(jni_omts[i], jni_data);
+    omt_setDataSizes(jni_omts[i], jni_dataSizes);
+    omt_setDataStrides(jni_omts[i], jni_dataStrides);
+    omt_setDataType(jni_omts[i], jni_dataType);
+    omt_setName(jni_omts[i], jni_name);
 
     /* Release reference to the java objects */
-    JNI_CALL(
-        env, (*env)->ReleaseLongArrayElements(env, rmr_sizes, jni_sizes, 0));
     JNI_CALL(env,
-        (*env)->ReleaseLongArrayElements(env, rmr_strides, jni_strides, 0));
+        (*env)->ReleaseLongArrayElements(env, omt_dataSizes, jni_dataSizes, 0));
+    JNI_CALL(env, (*env)->ReleaseLongArrayElements(
+                      env, omt_dataStrides, jni_dataStrides, 0));
+    JNI_CALL(env, (*env)->ReleaseStringUTFChars(env, omt_name, jni_name));
   }
 
-  /* setRtMemRef(ormrd, jni_rmr, jni_name); */
-  return ormrd;
+  /* Create OMTensorList to be constructed and passed to the
+   * model shared library
+   */
+  LIB_TYPE_VAR_CALL(OMTensorList *, list,
+      omt_list_create(jni_omts, omt_list_nomt), NULL, env, japi->ecpt_cls,
+      "list=null");
+
+  return list;
 }
 
 /* Convert native data structure to Java object */
-jobject ormrd_native_to_java(
-    JNIEnv *env, jclass cls, OrderedRtMemRefDict *dict, jniapi_t *japi) {
-  JNI_COND(int, nrmr, numRtMemRefs(dict), 0, env, japi->ecpt_cls, "nrmr=0");
+jobject omt_list_native_to_java(
+    JNIEnv *env, jclass cls, OMTensorList *dict, jniapi_t *japi) {
 
-  /* Create RtMemRef java object array */
-  JNI_TYPE_VAR_CALL(env, jobjectArray, rmrs,
-      (*env)->NewObjectArray(env, nrmr, japi->rmr_cls, NULL));
+  /* Get the OMTensor array in the OMTensorList */
+  LIB_TYPE_VAR_CALL(OMTensor **, jni_omts, omTensorListGetOmts(dict), NULL, env,
+      japi->ecpt_cls, "jni_omts=null");
+  /* Get the number of OMTensors in the OMTensorList */
+  LIB_TYPE_VAR_CALL(int, jni_nomt, omTensorListGetNumOfOmts(dict), 0, env,
+      japi->ecpt_cls, "jni_nomt=0");
 
-  /* Loop through the native RtMemRef structs */
-  for (int i = 0; i < nrmr; i++) {
-    JNI_COND(RtMemRef *, rmr, getRtMemRef(dict, i), NULL, env, japi->ecpt_cls,
-        "rmr[%d]=null", i);
+  /* Create OMTensor java object array */
+  JNI_TYPE_VAR_CALL(env, jobjectArray, obj_omts,
+      (*env)->NewObjectArray(env, jni_nomt, japi->omt_cls, NULL));
 
-    JNI_COND(int, jni_type, getDType(rmr), 0, env, japi->ecpt_cls,
-        "rmr[%d]:type=0", i);
-    JNI_COND(int, jni_rank, getRank(rmr), 0, env, japi->ecpt_cls,
-        "rmr[%d]:rank=0", i);
-    JNI_COND(long, jni_datasize, getDataSize(rmr), 0, env, japi->ecpt_cls,
-        "rmr[%d]:datasize=0", i);
-    JNI_COND(void *, jni_data, getData(rmr), NULL, env, japi->ecpt_cls,
-        "rmr[%d]:data=null", i);
-    JNI_COND(long *, jni_sizes, getSizes(rmr), NULL, env, japi->ecpt_cls,
-        "rmr[%d]:sizes=null", i);
-    JNI_COND(long *, jni_strides, getStrides(rmr), NULL, env, japi->ecpt_cls,
-        "rmr[%d]:strides=null", i);
+  /* Loop through the native OMTensor structs */
+  for (int i = 0; i < jni_nomt; i++) {
+
+    LIB_TYPE_VAR_CALL(void *, jni_data, omTensorGetData(jni_omts[i]), NULL, env,
+        japi->ecpt_cls, "omt[%d]:data=null", i);
+    LIB_TYPE_VAR_CALL(long *, jni_dataSizes, omTensorGetDataSizes(jni_omts[i]),
+        NULL, env, japi->ecpt_cls, "omt[%d]:dataSizes=null", i);
+    LIB_TYPE_VAR_CALL(long *, jni_dataStrides,
+        omTensorGetDataStrides(jni_omts[i]), NULL, env, japi->ecpt_cls,
+        "omt[%d]:dataStrides=null", i);
+    LIB_TYPE_VAR_CALL(int, jni_dataType, omTensorGetDataType(jni_omts[i]), 0,
+        env, japi->ecpt_cls, "omt[%d]:dataType=0", i);
+    LIB_TYPE_VAR_CALL(long, jni_dataBufferSize,
+        omt_getDataBufferSize(jni_omts[i]), 0, env, japi->ecpt_cls,
+        "omt[%ld]:dataBufferSize=0", i);
+    LIB_TYPE_VAR_CALL(int, jni_rank, omTensorGetRank(jni_omts[i]), 0, env,
+        japi->ecpt_cls, "omt[%d]:rank=0", i);
+    LIB_TYPE_VAR_CALL(char *, jni_name, omTensorGetName(jni_omts[i]), NULL, env,
+        japi->ecpt_cls, "omt[%d]:name=null", i);
+    LIB_TYPE_VAR_CALL(long, jni_numOfElems, omTensorGetNumOfElems(jni_omts[i]),
+        0, env, japi->ecpt_cls, "omt[%d]:numOfElems=0", i);
 
     /* Print debug info on what we got from the native side */
-    RMR_DEBUG(
-        i, jni_type, jni_rank, jni_sizes, jni_strides, jni_data, jni_datasize);
+    OMT_DEBUG(i, jni_numOfElems, jni_data, jni_dataSizes, jni_dataStrides,
+        jni_dataType, jni_dataBufferSize, jni_rank, jni_name);
 
-    /* create the following Java objects:
-     *   - RtMemRef
-     *   - DirectByteBuffer (from native buffers)
-     *   - long array for sizes and strides
+    /* Create the OMTensor Java object */
+    JNI_TYPE_VAR_CALL(env, jobject, obj_omt,
+        (*env)->NewObject(env, japi->omt_cls, japi->omt_constructor, jni_rank));
+
+    /* Create direct byte buffer Java object from native data buffer, and
+     * call setData method
      */
-    JNI_TYPE_VAR_CALL(env, jobject, obj_rmr,
-        (*env)->NewObject(env, japi->rmr_cls, japi->rmr_constructor, jni_rank));
-    JNI_TYPE_VAR_CALL(env, jobject, rmr_data,
-        (*env)->NewDirectByteBuffer(
-            env, jni_data, jni_datasize * onnx_type_size[jni_type]));
+    JNI_TYPE_VAR_CALL(env, jobject, omt_data,
+        (*env)->NewDirectByteBuffer(env, jni_data, jni_dataBufferSize));
+    JNI_CALL(env,
+        (*env)->CallObjectMethod(env, obj_omt, japi->omt_setData, omt_data));
+
+    /* Create data sizes array Java object, fill in from native array, and
+     * call setDataSizes method
+     */
     JNI_TYPE_VAR_CALL(
-        env, jlongArray, rmr_sizes, (*env)->NewLongArray(env, jni_rank));
-    JNI_TYPE_VAR_CALL(
-        env, jlongArray, rmr_strides, (*env)->NewLongArray(env, jni_rank));
-
-    /* Call setType method */
-    JNI_CALL(env,
-        (*env)->CallObjectMethod(env, obj_rmr, japi->rmr_setType, jni_type));
-
-    /* Call setData method */
-    JNI_CALL(env,
-        (*env)->CallObjectMethod(env, obj_rmr, japi->rmr_setData, rmr_data));
-
-    /* Fill in sizes array from native array and call setSizes method */
-    JNI_CALL(env,
-        (*env)->SetLongArrayRegion(env, rmr_sizes, 0, jni_rank, jni_sizes));
-    JNI_CALL(env,
-        (*env)->CallObjectMethod(env, obj_rmr, japi->rmr_setSizes, rmr_sizes));
-
-    /* Fill in strides array from native array and call setStrides method */
-    JNI_CALL(env,
-        (*env)->SetLongArrayRegion(env, rmr_strides, 0, jni_rank, jni_strides));
+        env, jlongArray, omt_dataSizes, (*env)->NewLongArray(env, jni_rank));
+    JNI_CALL(env, (*env)->SetLongArrayRegion(
+                      env, omt_dataSizes, 0, jni_rank, jni_dataSizes));
     JNI_CALL(env, (*env)->CallObjectMethod(
-                      env, obj_rmr, japi->rmr_setStrides, rmr_strides));
+                      env, obj_omt, japi->omt_setDataSizes, omt_dataSizes));
 
-    /* Set DynMemRef object in the object array */
-    JNI_CALL(env, (*env)->SetObjectArrayElement(env, rmrs, i, obj_rmr));
+    /* Create data strides array Java object, fill in from native array, and
+     * call setStrides method
+     */
+    JNI_TYPE_VAR_CALL(
+        env, jlongArray, omt_dataStrides, (*env)->NewLongArray(env, jni_rank));
+    JNI_CALL(env, (*env)->SetLongArrayRegion(
+                      env, omt_dataStrides, 0, jni_rank, jni_dataStrides));
+    JNI_CALL(env, (*env)->CallObjectMethod(
+                      env, obj_omt, japi->omt_setDataStrides, omt_dataStrides));
+
+    /* Primitive type int can be directly used. Call setDataType method */
+    JNI_CALL(env, (*env)->CallIntMethod(
+                      env, obj_omt, japi->omt_setDataType, (jint)jni_dataType));
+
+    /* Create string Java object from native char * and call setName method */
+    JNI_TYPE_VAR_CALL(
+        env, jstring, omt_name, (*env)->NewStringUTF(env, jni_name));
+    JNI_CALL(env,
+        (*env)->CallObjectMethod(env, obj_omt, japi->omt_setName, omt_name));
+
+    /* Set OMTensor object in the object array */
+    JNI_CALL(env, (*env)->SetObjectArrayElement(env, obj_omts, i, obj_omt));
   }
 
-  /* Create the OrderedRtMemRefDict java object */
-  JNI_TYPE_VAR_CALL(env, jobject, ormrd,
-      (*env)->NewObject(env, japi->ormrd_cls, japi->ormrd_constructor, rmrs));
+  /* Create the OMTensorList java object */
+  JNI_TYPE_VAR_CALL(env, jobject, list,
+      (*env)->NewObject(
+          env, japi->omt_list_cls, japi->omt_list_constructor, obj_omts));
 
-  return ormrd;
+  return list;
 }
 
 JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_DynEntryPoint_main_1graph_1jni(
     JNIEnv *env, jclass cls, jobject obj) {
   CHECK_CALL(jniapi_t *, japi, fill_jniapi(env, &jniapi), NULL);
 
-  CHECK_CALL(OrderedRtMemRefDict *, input_ormrd,
-      ormrd_java_to_native(env, cls, obj, japi), NULL);
-
-  CHECK_CALL(OrderedRtMemRefDict *, dict,
-      _dyn_entry_point_main_graph(input_ormrd), NULL);
+  CHECK_CALL(OMTensorList *, input_list,
+      omt_list_java_to_native(env, cls, obj, japi), NULL);
 
   CHECK_CALL(
-      jobject, output_ormrd, ormrd_native_to_java(env, cls, dict, japi), NULL);
+      OMTensorList *, dict, _dyn_entry_point_main_graph(input_list), NULL);
 
-  return output_ormrd;
+  CHECK_CALL(jobject, output_list,
+      omt_list_native_to_java(env, cls, dict, japi), NULL);
+
+  return output_list;
 }

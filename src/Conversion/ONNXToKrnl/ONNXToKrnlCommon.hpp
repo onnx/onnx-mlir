@@ -212,7 +212,12 @@ void populateLoweringONNXPoolingOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 // `RNN` directory methods:
+void populateLoweringONNXGRUOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXLSTMOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+void populateLoweringONNXRNNOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 // `Tensor` directory methods:
@@ -254,6 +259,9 @@ void populateLoweringONNXSplitOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSizeOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXTileOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);

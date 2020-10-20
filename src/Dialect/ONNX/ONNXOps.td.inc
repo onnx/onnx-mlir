@@ -1741,7 +1741,7 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
 }
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GlobalAveragePool operation";
   let description = [{
   "GlobalAveragePool consumes an input tensor X and applies average pooling across"
@@ -2215,7 +2215,7 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
 }
 
 def ONNXLessOp:ONNX_Op<"Less",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Less operation";
   let description = [{
   "Returns the tensor resulted from performing the `less` logical operation"
@@ -3286,7 +3286,7 @@ def ONNXPowOp:ONNX_Op<"Pow",
 }
 
 def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX QLinearConv operation";
   let description = [{
   "The convolution operator consumes a quantized input tensor, its scale and zero point,"
@@ -3325,7 +3325,7 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
 }
 
 def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX QLinearMatMul operation";
   let description = [{
   "Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html."
@@ -4964,17 +4964,29 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$input,
     DefaultValuedAttr<SI64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value input, IntegerAttr axis", [{
+      auto elementType = input.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), input, axis);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus",
