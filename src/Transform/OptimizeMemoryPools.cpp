@@ -826,7 +826,7 @@ public:
       distinctGRSize += getMemRefSizeInBytes(getRefOp.getResult());
     }
     assert(distinctGRSize == usedMemory &&
-        "Size of all distinct getrefs must match the total used memory");
+           "Size of all distinct getrefs must match the total used memory");
 
     // Each krnl.getref using the alloc needs to be re-emitted with the new
     // static memory pool and the new offset.
