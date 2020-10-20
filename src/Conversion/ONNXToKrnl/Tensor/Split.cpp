@@ -71,7 +71,6 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       // Create loop.
       BuildKrnlLoop outputLoops(rewriter, loc, rank);
       outputLoops.createDefineAndIterateOp(allocs[i]);
-      outputLoops.createIterateOp();
       rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
       // Indices for the read and write.
       SmallVector<Value, 4> readIndices;

@@ -96,6 +96,22 @@ struct TransformValueToONNXData<int64_t> {
   }
 };
 
+template <>
+struct TransformValueToONNXData<uint8_t> {
+  static const google::protobuf::RepeatedField<int32_t> data(
+      onnx::TensorProto initializer) {
+    return initializer.int32_data();
+  }
+};
+
+template <>
+struct TransformValueToONNXData<int8_t> {
+  static const google::protobuf::RepeatedField<int32_t> data(
+      onnx::TensorProto initializer) {
+    return initializer.int32_data();
+  }
+};
+
 // Helper method for constructing an array attribute from a model input.
 template <typename T>
 static std::vector<T> CreateArrayAttribute(onnx::TensorProto initializer) {
@@ -177,7 +193,7 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
   }
   case (onnx::TensorProto::INT8): {
     const auto &arrayAttrInitializer =
-        CreateArrayAttribute<int32_t>(initializer);
+        CreateArrayAttribute<int8_t>(initializer);
     auto elmType = builder.getIntegerType(8);
     auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
     denseElmAttr = mlir::DenseElementsAttr::get(
@@ -186,7 +202,7 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
   }
   case (onnx::TensorProto::UINT8): {
     const auto &arrayAttrInitializer =
-        CreateArrayAttribute<int32_t>(initializer);
+        CreateArrayAttribute<uint8_t>(initializer);
     auto elmType = builder.getIntegerType(8, false);
     auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
     denseElmAttr = mlir::DenseElementsAttr::get(
