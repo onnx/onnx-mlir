@@ -1120,6 +1120,137 @@ LogicalResult ONNXMatMulOp::inferShapes() {
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// QLinearMatMul
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXQLinearMatMulOp::inferShapes() {
+  // Cannot infer shape if no shape exists.
+  if (!a().getType().isa<RankedTensorType>() ||
+      !b().getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  auto lhsTy = a().getType().cast<RankedTensorType>();
+  auto rhsTy = b().getType().cast<RankedTensorType>();
+
+  SmallVector<int64_t, 2> dims;
+  auto lhsShape = lhsTy.getShape();
+  auto rhsShape = rhsTy.getShape();
+
+  if (lhsShape.size() < 1 && rhsShape.size() < 1) {
+    // Multiplication by scalars is not allowed.
+    return emitError("Multiplication by scalar arguments not allowed");
+  } else if (lhsShape.size() == 1 && rhsShape.size() == 1) {
+    // Special case when both arrays are 1-dimensional and according to
+    // numpy rules the types need to be extended to 1xN and Nx1. Helper sizes
+    // need to be removed after the multiplication but cannot be removed if all
+    // sizes are 1.
+    if (lhsShape[0] != -1 && rhsShape[0] != -1 && lhsShape[0] != rhsShape[0])
+      return emitError("Attempt to multiply incompatible matrices");
+    dims.emplace_back(1);
+  } else if (lhsShape.size() == 1 && rhsShape.size() >= 2) {
+    // If the first argument is 1-D, it is promoted to a matrix by prepending a
+    // 1 to its dimensions. After matrix multiplication the prepended 1 is
+    // removed.
+    //
+    // N MATMUL (s1 x s2 x... x sK x N x P)
+    // =>
+    // (s1 x s2 x... x sK x P)
+
+    // Check legality of matrix multiplication.
+    unsigned rhsRank = rhsShape.size();
+    if (lhsShape[0] != -1 && rhsShape[rhsRank - 2] != -1 &&
+        lhsShape[0] != rhsShape[rhsRank - 2])
+      return emitError("Attempt to multiply incompatible matrices");
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
+      dims.emplace_back(rhsShape[i]);
+    dims.emplace_back(rhsShape[rhsRank - 1]);
+  } else if (lhsShape.size() >= 2 && rhsShape.size() == 1) {
+    // If the second argument is 1-D, it is promoted to a matrix by appending a
+    // 1 to its dimensions. After matrix multiplication the appended 1 is
+    // removed.
+    //
+    // (s1 x s2 x... x sK x M x N) MATMUL N
+    // =>
+    // (s1 x s2 x... x sK x M)
+
+    // Check legality of matrix multiplication.
+    unsigned lhsRank = lhsShape.size();
+    if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
+        lhsShape[lhsRank - 1] != rhsShape[0])
+      return emitError("Attempt to multiply incompatible matrices");
+    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
+      dims.emplace_back(lhsShape[i]);
+    dims.emplace_back(lhsShape[lhsRank - 2]);
+  } else if (lhsShape.size() > 2 && rhsShape.size() == 2) {
+    // (s1 x s2 x... x sK x M x N) MATMUL (N x P)
+    // =>
+    // (s1 x s2 x... x sK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned lhsRank = lhsShape.size();
+    if (lhsShape[lhsRank - 1] != -1 && rhsShape[0] != -1 &&
+        lhsShape[lhsRank - 1] != rhsShape[0])
+      return emitError("Attempt to multiply incompatible matrices");
+    for (decltype(lhsRank) i = 0; i < lhsRank - 1; ++i)
+      dims.emplace_back(lhsShape[i]);
+    dims.emplace_back(rhsShape[1]);
+  } else if (lhsShape.size() == 2 && rhsShape.size() > 2) {
+    // (M x N) MATMUL (s1 x s2 x... x sK x N x P)
+    // =>
+    // (s1 x s2 x... x sK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned rhsRank = rhsShape.size();
+    if (lhsShape[1] != -1 && rhsShape[rhsRank - 2] != -1 &&
+        lhsShape[1] != rhsShape[rhsRank - 2])
+      return emitError("Attempt to multiply incompatible matrices");
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
+      dims.emplace_back(rhsShape[i]);
+    dims.emplace_back(lhsShape[0]);
+    dims.emplace_back(rhsShape[rhsRank - 1]);
+  } else if (lhsShape.size() > 2 && rhsShape.size() > 2) {
+    // (s1 x s2 x... x sK x M x N) MATMUL (t1 x t2 x... x tK x N x P)
+    // =>
+    // (u1 x u2 x... x uK x M x P)
+
+    // Check legality of matrix multiplication.
+    unsigned lhsRank = lhsShape.size();
+    unsigned rhsRank = rhsShape.size();
+    if (lhsShape[lhsRank - 1] != -1 && rhsShape[rhsRank - 2] != -1 &&
+        lhsShape[lhsRank - 1] != rhsShape[rhsRank - 2])
+      return emitError("Attempt to multiply incompatible matrices");
+    // Check and perform broadcasting for the shapes.
+    SmallVector<int64_t, 2> lhsBcastShape;
+    for (decltype(lhsRank) i = 0; i < lhsRank - 2; ++i)
+      lhsBcastShape.emplace_back(lhsShape[i]);
+    SmallVector<int64_t, 2> rhsBcastShape;
+    for (decltype(rhsRank) i = 0; i < rhsRank - 2; ++i)
+      rhsBcastShape.emplace_back(rhsShape[i]);
+    if (!getBroadcastedShape(lhsBcastShape, rhsBcastShape, dims))
+      return emitError("Broadcasted dimensions are incompatible");
+    dims.emplace_back(lhsShape[lhsRank - 2]);
+    dims.emplace_back(rhsShape[rhsRank - 1]);
+  } else {
+    // This case covers all remaining combinations of 1 and 2-D matrices.
+    int64_t lhsDim = lhsShape[0];
+    int64_t rhsDim = rhsShape[0];
+    if (lhsShape.size() > 1) {
+      lhsDim = lhsShape[1];
+      dims.emplace_back(lhsShape[0]);
+    }
+
+    // Check legality of matrix multiplication.
+    if (lhsDim != -1 && rhsDim != -1 && lhsDim != rhsDim)
+      return emitError("Attempt to multiply incompatible matrices");
+    if (rhsShape.size() > 1)
+      dims.emplace_back(rhsShape[1]);
+  }
+
+  getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
+  return success();
+}
+
 // Gemm
 LogicalResult ONNXGemmOp::inferShapes() {
   bool hasBias = !C().getType().isa<NoneType>();
@@ -1641,6 +1772,112 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
+// QLinearConv
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXQLinearConvOp::inferShapes() {
+  // Generic shape for data input X, weight tensor W, and optional bias B
+  // X: (N x C x D1 x D2 ... x Dn)
+  // W: (M x C/group x k1 x k2 x ... x kn)
+  // B: (M) Optional
+
+  bool hasBias = !B().getType().isa<NoneType>();
+
+  // Cannot infer shape if no shape exists.
+  if (!x().getType().isa<RankedTensorType>() ||
+      !w().getType().isa<RankedTensorType>() ||
+      (hasBias && !B().getType().isa<RankedTensorType>()))
+    return emitError("Input tensor not ranked");
+
+  auto xTy = x().getType().cast<RankedTensorType>();
+  auto xShape = xTy.getShape();
+  auto weightTy = w().getType().cast<RankedTensorType>();
+  auto weightShape = weightTy.getShape();
+  auto builder = mlir::Builder(this->getContext());
+
+  // Lowest supported convolution is a one dimensional convolution.
+  if (xShape.size() < 3)
+    return emitError("Data input shape must be at least (NxCxD1)");
+
+  // Check that shape of weight and data have same length.
+  if (xShape.size() != weightShape.size())
+    return emitError("Weight size not compatible with data size");
+
+  // Group is a required attribute and should have default value of 1.
+  int64_t group = ONNXQLinearConvOp::group();
+
+  // Check if the attribute actually exists. If it does not then add it.
+  if (!groupAttr())
+    groupAttr(builder.getI64IntegerAttr(group));
+
+  // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
+  if (xShape[1] != -1 && weightShape[1] != -1 &&
+      xShape[1] != (weightShape[1] * group))
+    return emitError("Channel dimension mismatch");
+
+  // Check the size of bias.
+  if (hasBias) {
+    auto bTx = B().getType().cast<RankedTensorType>();
+    auto bShape = bTx.getShape();
+    if (bShape.size() != 1)
+      return emitError("bias should be one dimensional");
+    if (bShape[0] != weightShape[0])
+      return emitError("bias should have same dimensions "
+                       "as weight's first dimension");
+  }
+
+  // Note: the value of the group attribut only impacts the way the
+  // computation is carried out and not the actual output size.
+
+  // Number of spatial dimensions.
+  auto spatialOffset = 2;
+  int32_t spatialRank = xShape.size() - spatialOffset;
+
+  // Use kernel_shape attribute if present otherwise use size from weight
+  // argument.
+  auto kernelShape = kernel_shape();
+  if (kernelShape.hasValue()) {
+    if (ArrayAttrSize(kernelShape) != spatialRank)
+      return emitError(
+          "kernel_shape length incompatible with spatial dimensions");
+    // Have the right number of values, check them.
+    for (int i = 0; i < spatialRank; ++i)
+      if (ArrayAttrIntVal(kernelShape, i) < 1)
+        return emitError("bad kernel_shape value");
+  } else {
+    // Deduce shape from weight input.
+    SmallVector<int64_t, 2> defaultVals;
+    for (int i = 0; i < spatialRank; ++i)
+      defaultVals.emplace_back(weightShape[spatialOffset + i]);
+    // Convert to ArrayRef, then build attribute, then store attribute.
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    auto builder = mlir::Builder(getContext());
+    kernel_shapeAttr(builder.getI64ArrayAttr(defaultRefs));
+    kernelShape = kernel_shape();
+  }
+
+  // Process strides, dilations, and pads.
+  processConvTypeParams<>(this, x());
+  auto dilationsOpt = dilations();
+  auto stridesOpt = strides();
+  auto padsOpt = pads();
+
+  // First two output dimensions consist of the number of batches and the
+  // number of kernels being applied.
+  SmallVector<int64_t, 4> outputDims;
+  // Insert batch size.
+  outputDims.emplace_back(xShape[0]);
+  // Insert number of filters being applied (number of output channels).
+  outputDims.emplace_back(weightShape[0]);
+  // Compute and insert spatial dims.
+  insertConvSpatialDim(&outputDims, builder, xShape, kernelShape, padsOpt,
+      stridesOpt, dilationsOpt);
+
+  getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // AveragePool
 //===----------------------------------------------------------------------===//
 
@@ -1690,6 +1927,31 @@ LogicalResult ONNXAveragePoolOp::inferShapes() {
       stridesOpt, llvm::None, ceilMode);
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Global Average Pool
+//===----------------------------------------------------------------------===//
+LogicalResult ONNXGlobalAveragePoolOp::inferShapes() {
+
+  // Cannot infer shape if no shape exists.
+  if (!X().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto builder = mlir::Builder(getContext());
+
+  // Get shape of input.
+  auto xTy = X().getType().cast<RankedTensorType>();
+
+  // Assumes NCHW format.
+  auto xShape = xTy.getShape();
+
+  // Global Average Pool maintains NC and collapses the spacial dimensions.
+  llvm::SmallVector<int64_t, 4> outShape = {xShape[0], xShape[1], 1, 1};
+
+  getResult().setType(RankedTensorType::get(
+      llvm::makeArrayRef(outShape), xTy.getElementType()));
   return success();
 }
 
@@ -2884,6 +3146,26 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes() {
 
   getResult().setType(
       RankedTensorType::get(dims, FloatType::getF32(getContext())));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Less
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXLessOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXLessOp::inferShapes() {
+  for (int i = 0; i < getNumOperands(); ++i) {
+    if (!getOperand(i).getType().cast<RankedTensorType>())
+      return emitError("Input tensor(s) not ranked");
+  }
+  Type lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  Type rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  ArrayRef<int64_t> dims =
+      getBroadcastedType(lhsTy, rhsTy).cast<RankedTensorType>().getShape();
+
+  getResult().setType(
+      RankedTensorType::get(dims, IntegerType::get(/*width=*/1, getContext())));
   return success();
 }
 

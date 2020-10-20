@@ -11,6 +11,12 @@ arch:
 env:
   - NIGHTLY=true
   - NIGHTLY=false
+addons:
+  apt:
+    packages:
+      - doxygen
+      - doxygen-doc
+      - doxygen-latex
 # Do not test branch update unless it's mater.
 branches:
   only:
@@ -22,6 +28,7 @@ stages:
   - name: prereq-2
   - name: prereq-final
   - name: test
+  - name: deploy
 script:
   - export CPU_ARCH=$TRAVIS_CPU_ARCH
   - if [ "$CPU_ARCH" == "amd64" ] ; then
@@ -50,7 +57,24 @@ script:
   - docker exec build compile-onnx-mlir.sh
   - docker exec build test-onnx-mlir.sh
   - docker commit build onnxmlirczar/onnx-mlir-build:$CPU_ARCH
-
+# Script to deploy documentations.
+before_deploy:
+  - cd $TRAVIS_BUILD_DIR
+  - doxygen
+deploy:
+  arch:
+    - amd64
+  env:
+    - NIGHTLY=false
+  provider: pages
+  strategy: git
+  skip_cleanup: true
+  cleanup: false
+  github_token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
+  keep_history: true
+  local_dir: docs
+  on:
+    branch: master
 jobs:
   fast_finish: true
   allow_failures:
