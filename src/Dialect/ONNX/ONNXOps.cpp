@@ -3172,7 +3172,7 @@ LogicalResult ONNXLessOp::inferShapes() {
 // Operations for which shape inference has not been implemented yet
 // If you add the implementation for one op, move it out of this section
 // Also please add test case in test/mlir/onnx/onnx_shape_inference.mlir
-// Followed by the implementation of lowering to Krnl and 
+// Followed by the implementation of lowering to Krnl and
 // Enable the corresponding node test in check-onnx-backend
 
 #define NOT_IMPLEMENTED_MESSAGE                                                \
