@@ -750,9 +750,9 @@ public:
       // valid.
       firstGetRefList.emplace_back(secondGetRef);
 
-      printf("=======> CANDIDATES CAN SHARE THE SLOT!! <=======\n");
-      firstGetRef.dump();
-      secondGetRef.dump();
+      // printf("=======> CANDIDATES CAN SHARE THE SLOT!! <=======\n");
+      // firstGetRef.dump();
+      // secondGetRef.dump();
     }
 
     // No valid slot reuse getRefs have been identified.
