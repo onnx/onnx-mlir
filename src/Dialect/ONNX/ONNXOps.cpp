@@ -3259,10 +3259,6 @@ LogicalResult ONNXGatherNDOp::inferShapes() {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXGlobalAveragePoolOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
 LogicalResult ONNXGlobalLpPoolOp::inferShapes() {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
@@ -3360,14 +3356,6 @@ LogicalResult ONNXNotOp::inferShapes() {
 }
 
 LogicalResult ONNXOneHotOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXQLinearConvOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXQLinearMatMulOp::inferShapes() {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
