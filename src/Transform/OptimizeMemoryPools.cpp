@@ -861,7 +861,7 @@ public:
     }
 
     assert(currentOffset == usedMemory &&
-        "Size total used memory must match the last offset.");
+           "Size total used memory must match the last offset.");
 
     for (auto getRefPair : oldToNewGetRef)
       rewriter.replaceOp(getRefPair.first, getRefPair.second.getResult());
