@@ -87,11 +87,19 @@ class DummyBackend(onnx.backend.base.Backend):
     @classmethod
     def prepare(cls, model, device='CPU', **kwargs):
         super(DummyBackend, cls).prepare(model, device, **kwargs)
+        name = model.graph.name
+        model_name = name+".onnx"
+        exec_name = name + ".so"
+        # Clean the temporary files in case
+        os.system("rm -f " + model_name)
+        os.system("rm -f " + exec_name)
         # Save model to disk as temp_model.onnx.
-        onnx.save(model, "temp_model.onnx")
+        onnx.save(model, model_name)
         # Call frontend to process temp_model.onnx, bit code will be generated.
-        execute_commands([ONNX_MLIR, "temp_model.onnx"])
-        return EndiannessAwareExecutionSession("./temp_model.so",
+        execute_commands([ONNX_MLIR, model_name])
+        if not os.path.exists(exec_name) :
+            print("Failed ONNX_MLIR: "+ name)
+        return EndiannessAwareExecutionSession("./"+exec_name,
                                                "run_main_graph")
 
     @classmethod
@@ -492,6 +500,11 @@ test_to_enable = [
     "test_vgg19_cpu",
     "test_shufflenet_cpu",
 ]
+
+# User case specify one test case with BCKEND_TEST env
+test_case = os.environ.get("BACKEND_TEST")
+if test_case is not None and test_case != "" :
+    test_to_enable = [test_case]
 
 # Extract name of all test cases.
 import inspect
