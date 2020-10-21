@@ -157,6 +157,17 @@ test_to_enable = [
     "test_exp_cpu",
     "test_exp_example_cpu",
 
+    # Flatten Ops:
+    "test_flatten_axis0_cpu",
+    "test_flatten_axis1_cpu",
+    "test_flatten_axis2_cpu",
+    "test_flatten_axis3_cpu",
+    "test_flatten_default_axis_cpu",
+    "test_flatten_negative_axis1_cpu",
+    "test_flatten_negative_axis2_cpu",
+    "test_flatten_negative_axis3_cpu",
+    "test_flatten_negative_axis4_cpu",
+
     # Gather Op:
     "test_gather_0_cpu",
     "test_gather_1_cpu",
@@ -460,6 +471,25 @@ test_to_enable = [
     # "test_size_cpu",
     # "test_size_example_cpu",
     
+    # Error:
+    #    Items are not equal:
+    #     ACTUAL: dtype('int32')
+    #     DESIRED: dtype('uint8')
+    # In this test, 'int32' was specified for value attribute as in
+    # onnx/onnx/backend/test/case/node/constantofshape.py
+    # and onnx-mlir correctly imported and converted the model.
+    # It is unknown why 'uint8' came from.
+    #"test_constantofshape_int_zeros_cpu",
+
+    # LogSoftmax
+    "test_logsoftmax_axis_0_cpu",
+    "test_logsoftmax_axis_1_cpu",
+    "test_logsoftmax_axis_2_cpu",
+    "test_logsoftmax_example_1_cpu",
+    "test_logsoftmax_default_axis_cpu",
+    "test_logsoftmax_negative_axis_cpu",
+    "test_logsoftmax_large_number_cpu",
+
     # Model
     "test_resnet50_cpu",
     "test_vgg19_cpu",
