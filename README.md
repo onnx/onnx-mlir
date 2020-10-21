@@ -253,3 +253,13 @@ module {
 ## Troubleshooting
 
 If the latest LLVM project fails to work due to the latest changes to the MLIR subproject please consider using a slightly older version of LLVM. One such version, which we use, can be found [here](https://github.com/clang-ykt/llvm-project).
+
+## Installing `third_party ONNX` for Backend Tests or Rebuilding ONNX Operations
+
+Backend tests are triggered by `make check-onnx-backend` in the build directory and require a few preliminary steps to run successfully. Similarily, rebuilding the ONNX operations in ONNX-MLIR from their ONNX descriptions is triggered by `make OMONNXOpsIncTranslation`.
+
+You will need to install python 3.x if its not default in your environment, and possibly set the cmake `PYTHON_EXECUTABLE` varialbe in your top cmake file.
+
+You will also need `pybind11` which may need to be installed (mac: `brew install pybind` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install -e third_party/onnx`) typed in the top directory.
+
+On Macs/POWER and possibly other platforms, there is currently an issue that arises when installing ONNX. If you get an error during the build, try a fix where you edit the top CMakefile as reported in this PR: `https://github.com/onnx/onnx/pull/2482/files`.
