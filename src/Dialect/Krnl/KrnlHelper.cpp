@@ -200,6 +200,15 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
   return pushCount++;
 }
 
+int BuildKrnlLoop::pushBounds(
+    IndexExprContainer &container, int64_t lowerBound, IndexExpr upperBound) {
+  if (upperBound.IsIntLit()) {
+    pushBounds(0, upperBound.GetIntLit());
+  } else {
+    outputLoops.pushBounds(0, upperBound.GetValue(container));
+  }
+}
+
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, AffineMap upperBound,
     ArrayRef<Value> operandsForUpperBoundMap) {
   pack->pushConstantBound(lowerBound);

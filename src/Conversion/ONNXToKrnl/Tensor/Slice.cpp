@@ -49,13 +49,8 @@ struct ONNXSliceOpLowering : public ConversionPattern {
 
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    for (int ii = 0; ii < outputRank; ++ii) {
-      if (outputDimsIEV[ii].IsIntLit()) {
-        outputLoops.pushBounds(0, outputDimsIEV[ii].GetIntLit());
-      } else {
-        outputLoops.pushBounds(0, outputDimsIEV[ii].GetValue(container));
-      }
-    }
+    for (int ii = 0; ii < outputRank; ++ii) 
+      outputLoops.pushBounds(container, 0, outputDimsIEV[ii]);
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 

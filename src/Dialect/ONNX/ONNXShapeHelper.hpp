@@ -11,9 +11,9 @@
 
 #pragma once
 
-#include "mlir/IR/Operation.h"
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/Attributes.h"
+#include "mlir/IR/Operation.h"
 #include "mlir/IR/StandardTypes.h"
 #include "mlir/IR/Value.h"
 #include "mlir/Support/LogicalResult.h"
@@ -28,7 +28,7 @@ size_t ArrayAttrSize(Optional<ArrayAttr> a);
 int64_t ArrayAttrIntVal(ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
 // Returns the ConstantOp which defines an MLIR Value or null.
-ONNXConstantOp getONNXConstantOp(Value value); 
+ONNXConstantOp getONNXConstantOp(Value value);
 
 LogicalResult GetIndexExprFromOperandValueAtIndex(
     Operation *op, Value operand, uint64_t i, IndexExpr &indexExpr);
@@ -39,11 +39,8 @@ LogicalResult GetIndexExprFromOperandValueAtIndex(Operation *op, Value operand,
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
 
 LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
-    ONNXSliceOpAdaptor operandAdaptor, 
-    IndexExprContainer &container,
+    ONNXSliceOpAdaptor operandAdaptor, IndexExprContainer &container,
     SmallVectorImpl<IndexExpr> &startIndices,
     SmallVectorImpl<IndexExpr> &endIndices,
     SmallVectorImpl<IndexExpr> &stepIndices,
     SmallVectorImpl<IndexExpr> &outputDims);
-
-

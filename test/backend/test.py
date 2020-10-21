@@ -351,9 +351,9 @@ test_to_enable = [
     "test_reciprocal_cpu",
     "test_reciprocal_example_cpu",
 
-    # Slice
+    # Slice, deactivated as axis is unsuported as runtime param.
     #"test_slice_cpu",
-    
+
     # SoftplusOp:
     "test_softplus_cpu",
     "test_softplus_example_cpu",

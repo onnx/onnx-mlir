@@ -19,6 +19,7 @@
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/StandardTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
 
 namespace onnx_mlir {
 
@@ -164,6 +165,8 @@ public:
   // must be of MemRef type.
   int pushBounds(int64_t lowerBound, int64_t upperBound);
   int pushBounds(int64_t lowerBound, Value upperBound);
+  int pushBounds(
+      IndexExprContainer &container, int64_t lowerBound, IndexExpr upperBound);
   int pushBounds(int64_t lowerBound, AffineMap upperBound,
       ArrayRef<Value> operandsForUpperBoundMap);
   int pushBounds(Value lowerBound, Value upperBound);
