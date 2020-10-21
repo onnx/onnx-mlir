@@ -19,7 +19,7 @@
 #include "mlir/Support/LogicalResult.h"
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
 
@@ -35,6 +35,8 @@ LogicalResult GetIndexExprFromOperandValueAtIndex(
 
 LogicalResult GetIndexExprFromOperandValueAtIndex(Operation *op, Value operand,
     uint64_t i, int64_t defaultIntLit, IndexExpr &indexExpr);
+
+bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
 
 LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     ONNXSliceOpAdaptor operandAdaptor, 

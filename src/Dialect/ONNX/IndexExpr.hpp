@@ -9,6 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/AffineExpr.h"
@@ -30,11 +32,11 @@ public:
   bool IsShapeInferencePass() const { return !rewriter; }
   int AddDim(Value value);
   int AddSymbol(Value value);
-  void DimAndSymbolList(SmallVector<Value, 4> &list) const;
+  void DimAndSymbolList(SmallVectorImpl<Value> &list) const;
   int GetDimSize() const { return dims.size(); }
   int GetSymbolSize() const { return symbols.size(); }
   ConversionPatternRewriter &GetRewriter() const;
-  bool PerformShapeInference() const { return ! rewriter; }
+  bool PerformShapeInference() const { return !rewriter; }
   Location GetLocation() const { return loc; }
 
 private:
@@ -52,24 +54,24 @@ public:
       ArrayRef<int64_t> memrefShape, int index); // Dim or Int Lit
 
   // Initalization.
+  void InitAsUndefined();
   void InitAsQuestionmark();
   void InitAsIntLit(int64_t val);
-  void InitAsDim(Value val);
-  void InitAsSymbol(Value val);
-  void InitAsDimOrIntLit(IndexExprContainer &container, Value memref,
+  void InitAsSymbol(IndexExprContainer &container, Value val);
+  void InitAsDim(IndexExprContainer &container, Value val);
+  void InitAsDim(IndexExprContainer &container, Value memref,
       ArrayRef<int64_t> memrefShape, int index);
+  void InitAsValue(IndexExprContainer &container, Value val);
 
   // Shape inference querries.
-  bool IsDefined() const { return isDefined; }
-  bool IsIntLit() const { assert(IsDefined()); return isIntLit; }
-  bool IsQuestionmark() const { assert(IsDefined()); return !IsIntLit(); }
-  bool IsAffine() const { assert(IsDefined()); return isAffine; }
-
-  bool IsSymbol() const { assert(IsDefined()); return isSymbol; }
-  bool IsDim() const { assert(IsDefined()); return isDim; }
-  bool HasAffineExpr() const { assert(IsDefined()); return !(!affineExpr); }
-  bool HasValue() const { assert(IsDefined()); return !(!value); }
-
+  bool IsDefined() const;
+  bool IsIntLit() const;
+  bool IsQuestionmark() const;
+  bool IsAffine() const;
+  bool IsSymbol() const;
+  bool IsDim() const;
+  bool HasAffineExpr() const;
+  bool HasValue() const;
   // Shape inference querries on list of indices.
   bool static AreAllIntLit(SmallVectorImpl<IndexExpr> &list);
   bool static AreAllAffine(SmallVectorImpl<IndexExpr> &list);
@@ -82,24 +84,29 @@ public:
   void SetAffineExpr(AffineExpr expr) { affineExpr = expr; }
   void SetValue(Value val) { value = val; }
 
-  // Possibly Affine Operations.
+  // Possibly Affine Operations. For Mult, place lit in a position if possible.
   void Add(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
   void Sub(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
-  void Mult(IndexExprContainer &container, IndexExpr &a, IndexExpr &b); // Lit in a.
-  void FloorDiv(IndexExprContainer &container, IndexExpr &a, IndexExpr &b); // lit in b.
-  void CeilDiv(IndexExprContainer &container, IndexExpr &a, IndexExpr &b); // Lit in b.
-  void Mod(IndexExprContainer &container, IndexExpr &a, IndexExpr &b); // Lit in b.
+  void Mult(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
+  void FloorDiv(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
+  void CeilDiv(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
+  void Mod(IndexExprContainer &container, IndexExpr &a, IndexExpr &b);
   void Clamp(IndexExprContainer &container, IndexExpr &val, IndexExpr &min,
       int64_t minInc, IndexExpr &max, int64_t maxInc);
   void Select(IndexExprContainer &container, IndexExpr &condA,
       CmpIPredicate comparePred, IndexExpr &condB, IndexExpr &trueVal,
       IndexExpr &falseVal);
+  void Min(IndexExprContainer &container, SmallVectorImpl<IndexExpr> &vals);
+  void Max(IndexExprContainer &container, SmallVectorImpl<IndexExpr> &vals);
   void DebugPrint(const std::string &msg);
 
 private:
-  void Init(bool newIsIntLit, bool newIsAffine, bool newIsSymbol, bool newIsDim, bool newIsDefined, 
-      int newIntLit, AffineExpr newAffineExpr, Value newValue);
+  void Init(bool newIsIntLit, bool newIsAffine, bool newIsSymbol, bool newIsDim,
+      bool newIsDefined, int newIntLit, AffineExpr newAffineExpr,
+      Value newValue);
   void Init(bool isIntLit, bool isAffine);
+  void InitAsValueOrIntLit(IndexExprContainer &container, Value val,
+      bool isAffine, bool isSymbol, bool isDim);
 
   void Copy(IndexExpr &a);
   typedef std::function<void(IndexExpr &, IndexExpr &, IndexExpr &)> F2;
@@ -111,13 +118,16 @@ private:
       F3;
   void TernaryOp(IndexExprContainer &container, IndexExpr &a, IndexExpr &b,
       IndexExpr &c, F3 litFct, F3 valueFct);
-
   typedef std::function<void(
       IndexExpr &, IndexExpr &, IndexExpr &, IndexExpr &, IndexExpr &)>
       F4;
   void QuaternarySelectOp(IndexExprContainer &container, IndexExpr &compA,
       IndexExpr &compB, IndexExpr &trueVal, IndexExpr &falseVal, F4 litFct,
       F4 valueFct);
+  typedef std::function<void(IndexExpr &, SmallVectorImpl<IndexExpr> &)> Flist;
+  void ReductionOp(IndexExprContainer &container,
+      SmallVectorImpl<IndexExpr> &vals, F2 litRed, Flist affineRed,
+      F2 valueRed);
 
   bool isIntLit, isAffine, isSymbol, isDim;
   bool isDefined; // For debug only.

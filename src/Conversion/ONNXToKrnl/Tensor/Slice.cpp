@@ -66,7 +66,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     for (int ii = 0; ii < outputRank; ++ii) {
       Value loopIndex = outputLoops.getInductionVar(ii);
       IndexExpr loopIndexIE, multIE, addIE;
-      loopIndexIE.InitAsDim(loopIndex);
+      loopIndexIE.InitAsDim(container, loopIndex);
       if (stepsIEV[ii].IsIntLit() && startsIEV[ii].IsAffine()) {
         // affine, can reuse the same affine container
         multIE.Mult(container, stepsIEV[ii], loopIndexIE);
@@ -76,8 +76,8 @@ struct ONNXSliceOpLowering : public ConversionPattern {
         loadIsAffine = false;
         IndexExprContainer newContainer(&rewriter, loc);
         IndexExpr stepIE, startIE;
-        startIE.InitAsSymbol(startsIEV[ii].GetValue(container));
-        stepIE.InitAsSymbol(stepsIEV[ii].GetValue(container));
+        startIE.InitAsSymbol(newContainer, startsIEV[ii].GetValue(container));
+        stepIE.InitAsSymbol(newContainer, stepsIEV[ii].GetValue(container));
         multIE.Mult(newContainer, stepIE, loopIndexIE);
         addIE.Add(newContainer, multIE, startIE);
         loadIndices.emplace_back(addIE.GetValue(newContainer));

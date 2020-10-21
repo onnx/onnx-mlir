@@ -9,12 +9,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG 1
+// both debug variables will be removed once debugging is complete.
+#define DEBUG 0
+#define CEIL_FLOOR_IN_STD 1
 
-#include "IndexExpr.hpp"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 
@@ -36,7 +43,7 @@ int IndexExprContainer::AddSymbol(Value value) {
   return symbols.size() - 1;
 }
 
-void IndexExprContainer::DimAndSymbolList(SmallVector<Value, 4> &list) const {
+void IndexExprContainer::DimAndSymbolList(SmallVectorImpl<Value> &list) const {
   list.clear();
   for (auto dim : dims)
     list.emplace_back(dim);
@@ -63,7 +70,13 @@ IndexExpr::IndexExpr(int64_t val)
 
 IndexExpr::IndexExpr(IndexExprContainer &container, Value memref,
     ArrayRef<int64_t> memrefShape, int index) {
-  InitAsDimOrIntLit(container, memref, memrefShape, index);
+  InitAsDim(container, memref, memrefShape, index);
+}
+
+void IndexExpr::InitAsUndefined() {
+  Init(/*isIntLit*/ false, /*isAffine*/ false, /*isSymbol*/ false,
+      /*isDim*/ false, /*isDefined*/ false, 0, AffineExpr(nullptr),
+      Value(nullptr));
 }
 
 void IndexExpr::InitAsQuestionmark() {
@@ -78,28 +91,33 @@ void IndexExpr::InitAsIntLit(int64_t val) {
       Value(nullptr));
 }
 
-void IndexExpr::InitAsDim(Value val) {
-  Init(/*isIntLit*/ false, /*isAffine*/ true, /*isSymbol*/ false,
-      /*isDim*/ true, /*isDefined*/ true, 0, AffineExpr(nullptr), val);
+void IndexExpr::InitAsDim(IndexExprContainer &container, Value val) {
+  InitAsValueOrIntLit(container, val, /*isAffine*/ true, /*isSymbol*/ false,
+      /*isDim*/ true);
 }
 
-void IndexExpr::InitAsSymbol(Value val) {
-  Init(/*isIntLit*/ false, /*isAffine*/ true, /*isSymbol*/ true,
-      /*isDim*/ false, /*isDefined*/ true, 0, AffineExpr(nullptr), val);
+void IndexExpr::InitAsSymbol(IndexExprContainer &container, Value val) {
+  InitAsValueOrIntLit(container, val, /*isAffine*/ true, /*isSymbol*/ true,
+      /*isDim*/ false);
 }
 
-void IndexExpr::InitAsDimOrIntLit(IndexExprContainer &container, Value memref,
+void IndexExpr::InitAsDim(IndexExprContainer &container, Value memref,
     ArrayRef<int64_t> memrefShape, int index) {
   if (memrefShape[index] < 0) {
     // We have a dynamic dimension.
     Value dynVal = container.GetRewriter().create<DimOp>(
         container.GetLocation(), memref, index);
-    InitAsDim(dynVal);
+    InitAsDim(container, dynVal);
   } else {
     // We have a consant dimension.
     int64_t intVal = memrefShape[index];
     InitAsIntLit(intVal);
   }
+}
+
+void IndexExpr::InitAsValue(IndexExprContainer &container, Value val) {
+  InitAsValueOrIntLit(container, val, /*isAffine*/ false, /*isSymbol*/ false,
+      /*isDim*/ false);
 }
 
 // Private inits.
@@ -126,6 +144,34 @@ void IndexExpr::Init(bool newIsIntLit, bool newIsAffine) {
       AffineExpr(nullptr), Value(nullptr));
 }
 
+void IndexExpr::InitAsValueOrIntLit(IndexExprContainer &container, Value val,
+    bool newIsAfine, bool newIsSymbol, bool newIsDim) {
+  // Do we have a literal integer, if we do, handle it now.
+  int64_t valIntLit;
+  if (getIntegerLiteralFromValue(val, valIntLit)) {
+    // We have an integer. No need for symbol or dim. It is by default affine.
+    printf("init symbol as an integer");
+    InitAsIntLit(valIntLit);
+    return;
+  }
+  // We have a value, check if it is of the right type.
+  auto type = val.getType();
+  if (type.isa<IntegerType>()) {
+    printf("add an int symbol, convert to index\n");
+    // We need to convert the int into an index, since we are dealing with index
+    // expressions.
+    val = container.GetRewriter().create<IndexCastOp>(
+        container.GetLocation(), container.GetRewriter().getIndexType(), val);
+  } else if (!type.isa<IndexType>()) {
+    llvm_unreachable("unsupported element type");
+  }
+  // Now record the value.
+  assert(!(newIsDim && newIsSymbol) &&
+         "cannot have dim and symbol at the same time");
+  Init(/*isIntLit*/ false, /*isAffine*/ newIsAfine, /*isSymbol*/ newIsSymbol,
+      /*isDim*/ newIsDim, /*isDefined*/ true, 0, AffineExpr(nullptr), val);
+}
+
 void IndexExpr::Copy(IndexExpr &a) {
   // If we go to a model like Values & AffineExpr with a pointer to the actual
   // data, we should just make the indirection here. Copy info in the meanwhile.
@@ -135,6 +181,37 @@ void IndexExpr::Copy(IndexExpr &a) {
 //===----------------------------------------------------------------------===//
 // IndexExpr list querries.
 //===----------------------------------------------------------------------===//
+
+bool IndexExpr::IsDefined() const { return isDefined; }
+bool IndexExpr::IsIntLit() const {
+  assert(IsDefined());
+  return isIntLit;
+}
+bool IndexExpr::IsQuestionmark() const {
+  assert(IsDefined());
+  return !IsIntLit();
+}
+bool IndexExpr::IsAffine() const {
+  assert(IsDefined());
+  return isAffine;
+}
+
+bool IndexExpr::IsSymbol() const {
+  assert(IsDefined());
+  return isSymbol;
+}
+bool IndexExpr::IsDim() const {
+  assert(IsDefined());
+  return isDim;
+}
+bool IndexExpr::HasAffineExpr() const {
+  assert(IsDefined());
+  return !(!affineExpr);
+}
+bool IndexExpr::HasValue() const {
+  assert(IsDefined());
+  return !(!value);
+}
 
 bool IndexExpr::AreAllIntLit(SmallVectorImpl<IndexExpr> &list) {
   for (auto index : list) {
@@ -191,9 +268,8 @@ AffineExpr IndexExpr::GetAffineExpr(IndexExprContainer &container) {
 Value IndexExpr::GetValue(IndexExprContainer &container) {
   if (IsIntLit()) {
     // Create a litteral constant.
-    value = container.GetRewriter().create<ConstantOp>(container.GetLocation(),
-        container.GetRewriter().getIntegerAttr(
-            container.GetRewriter().getIndexType(), intLit));
+    value = container.GetRewriter().create<ConstantIndexOp>(
+        container.GetLocation(), intLit);
   } else if (HasAffineExpr()) {
     // Has an affine expression: need to build a map, and then perform an
     // affine.apply.
@@ -299,6 +375,32 @@ void IndexExpr::QuaternarySelectOp(IndexExprContainer &container,
   }
 }
 
+void IndexExpr::ReductionOp(IndexExprContainer &container,
+    SmallVectorImpl<IndexExpr> &vals, F2 litRed, Flist affineRed, F2 valueRed) {
+  auto size = vals.size();
+  if (size == 0) {
+    InitAsUndefined();
+    return;
+  }
+  // Set the output to the first value.
+  Copy(vals[0]);
+  // If list has one element, we are done.
+  if (vals.size() == 1)
+    return;
+  // process int literals
+  if (AreAllIntLit(vals)) {
+    for (int i = 1; i < size; ++i) {
+      litRed(*this, vals[i], *this);
+    }
+  } else if (AreAllAffine(vals)) {
+    affineRed(*this, vals);
+  } else {
+    for (int i = 1; i < size; ++i) {
+      valueRed(*this, vals[i], *this);
+    }
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExpr Ops.
 //===----------------------------------------------------------------------===//
@@ -312,9 +414,8 @@ void IndexExpr::Add(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
         aa.GetAffineExpr(container) + bb.GetAffineExpr(container));
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.SetValue(
-        container.GetRewriter().create<AddIOp>(container.GetLocation(),
-            aa.GetValue(container), bb.GetValue(container)));
+    res.SetValue(container.GetRewriter().create<AddIOp>(container.GetLocation(),
+        aa.GetValue(container), bb.GetValue(container)));
   };
   BinaryOp(
       container, a, b, false, false, true, litFct, affineExprFct, valueFct);
@@ -329,9 +430,8 @@ void IndexExpr::Sub(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
         aa.GetAffineExpr(container) - bb.GetAffineExpr(container));
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.SetValue(
-        container.GetRewriter().create<SubIOp>(container.GetLocation(),
-            aa.GetValue(container), bb.GetValue(container)));
+    res.SetValue(container.GetRewriter().create<SubIOp>(container.GetLocation(),
+        aa.GetValue(container), bb.GetValue(container)));
   };
   BinaryOp(
       container, a, b, false, false, true, litFct, affineExprFct, valueFct);
@@ -347,9 +447,8 @@ void IndexExpr::Mult(
     res.SetAffineExpr(bb.GetAffineExpr(container) * aa.GetIntLit());
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.SetValue(
-        container.GetRewriter().create<MulIOp>(container.GetLocation(),
-            aa.GetValue(container), bb.GetValue(container)));
+    res.SetValue(container.GetRewriter().create<MulIOp>(container.GetLocation(),
+        aa.GetValue(container), bb.GetValue(container)));
   };
   // Index a must be a literal.
   BinaryOp(container, a, b, true, false, true, litFct, affineExprFct, valueFct);
@@ -373,9 +472,14 @@ void IndexExpr::FloorDiv(
     if (bb.IsIntLit() && bb.GetIntLit() == 1)
       res.Copy(aa);
     else
-      res.SetValue(
-          container.GetRewriter().create<SignedFloorDivIOp>(container.GetLocation(),
-              aa.GetValue(container), bb.GetValue(container)));
+#if CEIL_FLOOR_IN_STD
+      res.SetValue(container.GetRewriter().create<SignedFloorDivIOp>(
+          container.GetLocation(), aa.GetValue(container),
+          bb.GetValue(container)));
+#else
+      llvm_unreachable(
+          "not implemented yet, wait for the new LLVM/MLIR support in std");
+#endif
   };
   // Index b must be a literal.
   BinaryOp(container, a, b, false, true, true, litFct, affineExprFct, valueFct);
@@ -399,11 +503,14 @@ void IndexExpr::CeilDiv(
     if (bb.IsIntLit() && bb.GetIntLit() == 1) {
       res.Copy(aa);
     } else {
+#if CEIL_FLOOR_IN_STD
+      res.SetValue(container.GetRewriter().create<SignedCeilDivIOp>(
+          container.GetLocation(), aa.GetValue(container),
+          bb.GetValue(container)));
+#else
       llvm_unreachable(
-          "not implemented yet, look at mlir's AffineToStandard.cpp");
-      res.SetValue(
-          container.GetRewriter().create<SignedCeilDivIOp>(container.GetLocation(),
-              aa.GetValue(container), bb.GetValue(container)));
+          "not implemented yet, wait for the new LLVM/MLIR support in std");
+#endif
     }
   };
   // Index b must be a literal.
@@ -549,4 +656,76 @@ void IndexExpr::Select(IndexExprContainer &container, IndexExpr &condA,
   };
   QuaternarySelectOp(
       container, condA, condB, trueVal, falseVal, litFct, valueFct);
+}
+
+void IndexExpr::Min(
+    IndexExprContainer &container, SmallVectorImpl<IndexExpr> &vals) {
+  F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
+    auto aaa = aa.GetIntLit();
+    auto bbb = bb.GetIntLit();
+    res.SetIntLiteral((aaa < bbb) ? aaa : bbb);
+  };
+  Flist affineExprFct = [&](IndexExpr &res, SmallVectorImpl<IndexExpr> &vvals) {
+    // Create a list of affine expression
+    SmallVector<AffineExpr, 4> affineExprs;
+    for (auto vv : vvals) {
+      affineExprs.emplace_back(vv.GetAffineExpr(container));
+    }
+    int dimNum = container.GetDimSize();
+    int symNum = container.GetSymbolSize();
+    auto context = container.GetRewriter().getContext();
+
+    AffineMap map = AffineMap::get(dimNum, symNum, affineExprs, context);
+    SmallVector<Value, 4> dimAndSymList;
+    container.DimAndSymbolList(dimAndSymList);
+    Value minVal = container.GetRewriter().create<AffineMinOp>(
+        container.GetLocation(), map, dimAndSymList);
+    res.InitAsValue(container, minVal);
+  };
+  F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
+    auto compareVal =
+        container.GetRewriter().create<CmpIOp>(container.GetLocation(),
+            CmpIPredicate::slt, aa.GetValue(container), bb.GetValue(container));
+    auto resVal =
+        container.GetRewriter().create<SelectOp>(container.GetLocation(),
+            compareVal, aa.GetValue(container), bb.GetValue(container));
+    res.SetValue(resVal);
+  };
+  ReductionOp(container, vals, litFct, affineExprFct, valueFct);
+}
+
+void IndexExpr::Max(
+    IndexExprContainer &container, SmallVectorImpl<IndexExpr> &vals) {
+  F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
+    auto aaa = aa.GetIntLit();
+    auto bbb = bb.GetIntLit();
+    res.SetIntLiteral((aaa > bbb) ? aaa : bbb);
+  };
+  Flist affineExprFct = [&](IndexExpr &res, SmallVectorImpl<IndexExpr> &vvals) {
+    // Create a list of affine expression
+    SmallVector<AffineExpr, 4> affineExprs;
+    for (auto vv : vvals) {
+      affineExprs.emplace_back(vv.GetAffineExpr(container));
+    }
+    int dimNum = container.GetDimSize();
+    int symNum = container.GetSymbolSize();
+    auto context = container.GetRewriter().getContext();
+
+    AffineMap map = AffineMap::get(dimNum, symNum, affineExprs, context);
+    SmallVector<Value, 4> dimAndSymList;
+    container.DimAndSymbolList(dimAndSymList);
+    Value minVal = container.GetRewriter().create<AffineMaxOp>(
+        container.GetLocation(), map, dimAndSymList);
+    res.InitAsValue(container, minVal);
+  };
+  F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
+    auto compareVal =
+        container.GetRewriter().create<CmpIOp>(container.GetLocation(),
+            CmpIPredicate::sgt, aa.GetValue(container), bb.GetValue(container));
+    auto resVal =
+        container.GetRewriter().create<SelectOp>(container.GetLocation(),
+            compareVal, aa.GetValue(container), bb.GetValue(container));
+    res.SetValue(resVal);
+  };
+  ReductionOp(container, vals, litFct, affineExprFct, valueFct);
 }

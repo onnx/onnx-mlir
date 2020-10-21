@@ -46,6 +46,22 @@ DenseElementsAttr getDenseElementAttributeFromValue(Value value) {
   return nullptr;
 }
 
+bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
+  // From lib/Dialect/LinAlg/Transform/Promotion.cpp
+  if (auto constantOp = value.getDefiningOp<ConstantOp>()) {
+    if (constantOp.getType().isa<IndexType>())
+      intLit = constantOp.value().cast<IntegerAttr>().getSInt();
+      return true;
+  }
+  // Since ConsantIndexOp is a subclass of ConstantOp, not sure if this one is useful.
+  if (auto constantOp = value.getDefiningOp<ConstantIndexOp>()) {
+    if (constantOp.getType().isa<IndexType>())
+      intLit = constantOp.value().cast<IntegerAttr>().getSInt();
+      return true;
+  }
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Helper for Shape inference
 //===----------------------------------------------------------------------===//
@@ -73,7 +89,7 @@ LogicalResult GetIndexExprFromOperandValueAtIndex(Operation *op, Value operand,
     SmallVector<Value, 1> memrefVal = {indexVal};
     auto loadVal = container.GetRewriter().create<AffineLoadOp>(
         container.GetLocation(), operand, memrefVal);
-    indexExpr.InitAsSymbol(loadVal);
+    indexExpr.InitAsSymbol(container, loadVal);
   }
   return success();
 }
@@ -107,7 +123,7 @@ LogicalResult GetIndexExprFromOperandValueAtIndex(Operation *op, Value operand,
     SmallVector<Value, 1> memrefVal = {indexVal};
     auto loadVal = container.GetRewriter().create<AffineLoadOp>(
         container.GetLocation(), operand, memrefVal);
-    indexExpr.InitAsSymbol(loadVal);
+    indexExpr.InitAsSymbol(container, loadVal);
   }
   return success();
 }
