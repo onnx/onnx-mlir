@@ -3287,14 +3287,6 @@ LogicalResult ONNXGatherNDOp::inferShapes() {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXGlobalLpPoolOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXGlobalMaxPoolOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
 LogicalResult ONNXGreaterOp::inferShapes() {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
