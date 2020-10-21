@@ -15,7 +15,7 @@ add_custom_target(check-onnx-backend
         COMMAND ${PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_BINARY_DIR}/test.py)
 
-add_custom_target(clean-test-onnx-backend
+add_custom_target(clean-onnx-backend
         COMMAND ${CMAKE_COMMAND} -E remove
         ${CMAKE_CURRENT_BINARY_DIR}/*.onnx
         ${CMAKE_CURRENT_BINARY_DIR}/*.so

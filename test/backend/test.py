@@ -95,6 +95,9 @@ class DummyBackend(onnx.backend.base.Backend):
         os.system("rm -f " + exec_name)
         # Save model to disk as temp_model.onnx.
         onnx.save(model, model_name)
+        if not os.path.exists(model_name) :
+            print("Failed save model: "+ name)
+
         # Call frontend to process temp_model.onnx, bit code will be generated.
         execute_commands([ONNX_MLIR, model_name])
         if not os.path.exists(exec_name) :
