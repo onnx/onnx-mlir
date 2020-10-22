@@ -11,7 +11,7 @@
 
 // both debug variables will be removed once debugging is complete.
 #define DEBUG 0
-#define CEIL_FLOOR_IN_STD 1
+#define CEIL_FLOOR_IN_STD 0
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
