@@ -22,18 +22,21 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
   AllocOp alloc;
   auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
   auto inputRank = inputShape.size();
+  auto outputShape = memRefType.getShape();
 
   SmallVector<Value, 4> allocOperands;
   for (int i = 0; i < inputRank; ++i) {
-    auto indexVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-    SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
-    auto repeatsLoadVal =
-        rewriter.create<AffineLoadOp>(loc, repeatsOperand, repeatsMemRefVal);
-    auto repeatsElementVal = rewriter.create<IndexCastOp>(
-        loc, repeatsLoadVal, rewriter.getIndexType());
-    auto dimVal = rewriter.create<DimOp>(loc, inputOperand, i);
-    Value allocDimVal = rewriter.create<MulIOp>(loc, dimVal, repeatsElementVal);
-    allocOperands.emplace_back(allocDimVal);
+    if ( outputShape[i] == -1) {
+      auto indexVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
+      SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
+      auto repeatsLoadVal =
+          rewriter.create<AffineLoadOp>(loc, repeatsOperand, repeatsMemRefVal);
+      auto repeatsElementVal = rewriter.create<IndexCastOp>(
+          loc, repeatsLoadVal, rewriter.getIndexType());
+      auto dimVal = rewriter.create<DimOp>(loc, inputOperand, i);
+      Value allocDimVal = rewriter.create<MulIOp>(loc, dimVal, repeatsElementVal);
+      allocOperands.emplace_back(allocDimVal);
+    }
   }
   alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
   if (insertDealloc) {

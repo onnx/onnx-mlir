@@ -2700,12 +2700,10 @@ LogicalResult ONNXTileOp::inferShapes() {
 
   // 'repeats' tensor must have constant shape.
   int64_t repeatsLength = repeatsTensorTy.getShape()[0];
-  if (repeatsLength < 0)
-    return emitError("Repeats tensor must have constant shape");
 
   // Check the 1D repeats tensor length.
   int64_t inputRank = inputTensorTy.getShape().size();
-  if (inputRank != repeatsLength)
+  if (repeatsLength != -1 && inputRank != repeatsLength)
     return emitError("Repeats tensor must have the same length as the input's "
                      "dimension number.");
 
@@ -2729,9 +2727,13 @@ LogicalResult ONNXTileOp::inferShapes() {
       return emitError("DenseElementsAttr expected");
     // Get repeat values from valueAttribute.
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
-    for (int i = 0; i < inputRank; ++i)
+    for (int i = 0; i < inputRank; ++i) {
       if (dims[i] != -1)
-        dims[i] *= (*valueIt++).cast<IntegerAttr>().getInt();
+        dims[i] *= (*valueIt).cast<IntegerAttr>().getInt();
+      else
+        dims[i] = -1;
+      valueIt++;
+    }
 
     if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
       return emitError("Constant value must have same length as output's rank");
