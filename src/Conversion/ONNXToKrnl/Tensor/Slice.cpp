@@ -37,19 +37,38 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
     assert(outputRank == outputDimsIEV.size());
-    // Insert an allocation and deallocation for the output of this operation.
+// Insert an allocation and deallocation for the output of this operation.
+#if 1
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, container, op, outputMemRefType, loc, outputDimsIEV);
+#else
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
     if (hasAllConstantDimensions(outputMemRefType))
       alloc =
           insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);
     else {
-      llvm_unreachable("not there yet");
+      SmallVector<Value, 2> allocOperands;
+      for (int i = 0; i < outputRank; ++i) {
+        if (outputMemRefShape[i] < 0) {
+          // have dyn shape
+          allocOperands.emplace_back(outputDimsIEV[i].GetValue(container));
+        }
+      }
+      AllocOp allocOp =
+          rewriter.create<AllocOp>(loc, outputMemRefType, allocOperands);
+      if (insertDealloc) {
+        auto *parentBlock = allocOp.getOperation()->getBlock();
+        auto dealloc = rewriter.create<DeallocOp>(loc, allocOp);
+        dealloc.getOperation()->moveBefore(&parentBlock->back());
+      }
+      alloc = allocOp;
     }
+#endif
 
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    for (int ii = 0; ii < outputRank; ++ii) 
+    for (int ii = 0; ii < outputRank; ++ii)
       outputLoops.pushBounds(container, 0, outputDimsIEV[ii]);
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
@@ -60,22 +79,24 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     bool loadIsAffine = true;
     for (int ii = 0; ii < outputRank; ++ii) {
       Value loopIndex = outputLoops.getInductionVar(ii);
-      IndexExpr loopIndexIE, multIE, addIE;
-      loopIndexIE.InitAsDim(container, loopIndex);
       if (stepsIEV[ii].IsIntLit() && startsIEV[ii].IsAffine()) {
         // affine, can reuse the same affine container
+        IndexExpr loopIndexIE, multIE, addIE;
+        loopIndexIE.InitAsDim(container, loopIndex);
         multIE.Mult(container, stepsIEV[ii], loopIndexIE);
         addIE.Add(container, multIE, startsIEV[ii]);
         loadIndices.emplace_back(addIE.GetValue(container));
       } else {
-        loadIsAffine = false;
         IndexExprContainer newContainer(&rewriter, loc);
-        IndexExpr stepIE, startIE;
+        IndexExpr loopIndexIE, stepIE, startIE, multIE, addIE;
+        loopIndexIE.InitAsDim(container, loopIndex);
         startIE.InitAsSymbol(newContainer, startsIEV[ii].GetValue(container));
         stepIE.InitAsSymbol(newContainer, stepsIEV[ii].GetValue(container));
         multIE.Mult(newContainer, stepIE, loopIndexIE);
         addIE.Add(newContainer, multIE, startIE);
         loadIndices.emplace_back(addIE.GetValue(newContainer));
+        if (!addIE.IsAffine())
+          loadIsAffine = false;
       }
     }
     // Load data.

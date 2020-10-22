@@ -33,6 +33,7 @@ IndexExprContainer::IndexExprContainer(
     ConversionPatternRewriter *rewriter, Location loc)
     : rewriter(rewriter), loc(loc), dims(), symbols() {}
 
+
 int IndexExprContainer::AddDim(Value value) {
   dims.emplace_back(value);
   return dims.size() - 1;
@@ -150,14 +151,12 @@ void IndexExpr::InitAsValueOrIntLit(IndexExprContainer &container, Value val,
   int64_t valIntLit;
   if (getIntegerLiteralFromValue(val, valIntLit)) {
     // We have an integer. No need for symbol or dim. It is by default affine.
-    printf("init symbol as an integer");
     InitAsIntLit(valIntLit);
     return;
   }
   // We have a value, check if it is of the right type.
   auto type = val.getType();
   if (type.isa<IntegerType>()) {
-    printf("add an int symbol, convert to index\n");
     // We need to convert the int into an index, since we are dealing with index
     // expressions.
     val = container.GetRewriter().create<IndexCastOp>(
@@ -238,7 +237,7 @@ int64_t IndexExpr::GetIntLit() const {
   return intLit;
 }
 
-void IndexExpr::SetIntLiteral(int64_t val) {
+void IndexExpr::SetIntLit(int64_t val) {
   assert(IsIntLit()); // Should have been set properly by Init.
   intLit = val;
 }
@@ -308,12 +307,13 @@ void IndexExpr::DebugPrint(const std::string &msg) {
 // IndexExpr Op Support.
 //===----------------------------------------------------------------------===//
 
+// Used for Add/Sub/Mult/CeilDiv/FloorDiv
 void IndexExpr::BinaryOp(IndexExprContainer &container, IndexExpr &a,
-    IndexExpr &b, bool affineWithLitA, bool affineWithLitB,
-    bool affineExprCompatible, F2 litFct, F2 affineExprFct, F2 valueFct) {
-  // Literal integer if a and b are literals. Affine if both a and b are affine
-  // (and possibly b is also constant)
-  Init(a.IsIntLit() && b.IsIntLit(), affineExprCompatible && a.IsAffine() &&
+    IndexExpr &b, bool affineWithLitA, bool affineWithLitB, bool canBeAffine,
+    F2 litFct, F2 affineExprFct, F2 valueFct) {
+  // Literal integer if a and b are literals. Affine if canBeAffine is true,
+  // both a and b are affine, and possibly a and/or b are also constant.
+  Init(a.IsIntLit() && b.IsIntLit(), canBeAffine && a.IsAffine() &&
                                          b.IsAffine() &&
                                          (!affineWithLitA || a.IsIntLit()) &&
                                          (!affineWithLitB || b.IsIntLit()));
@@ -337,8 +337,8 @@ void IndexExpr::BinaryOp(IndexExprContainer &container, IndexExpr &a,
 
 void IndexExpr::TernaryOp(IndexExprContainer &container, IndexExpr &a,
     IndexExpr &b, IndexExpr &c, F3 litFct, F3 valueFct) {
-  // Literal integer if a and b are literals. Affine if both a and b are affine
-  // (and possibly b is also constant)
+  // Literal integer if a, b, and c are literals. Output is not affine (unless
+  // all 3 are literals).
   Init(a.IsIntLit() && b.IsIntLit() && c.IsIntLit(), false);
   // We use now use the result of the above determination on whether the new
   // index is literal and/or affine.
@@ -375,6 +375,8 @@ void IndexExpr::QuaternarySelectOp(IndexExprContainer &container,
   }
 }
 
+// The affine reduction labda function processes the whole list and must init
+// the result.
 void IndexExpr::ReductionOp(IndexExprContainer &container,
     SmallVectorImpl<IndexExpr> &vals, F2 litRed, Flist affineRed, F2 valueRed) {
   auto size = vals.size();
@@ -384,17 +386,21 @@ void IndexExpr::ReductionOp(IndexExprContainer &container,
   }
   // Set the output to the first value.
   Copy(vals[0]);
-  // If list has one element, we are done.
+  // If list has one element, we are done. Literal/Affine... will be the same as
+  // this single element.
   if (vals.size() == 1)
     return;
-  // process int literals
   if (AreAllIntLit(vals)) {
+    // Process int literals, if we only have literal values.
+    // Result was set to first element, which by default is literal/affine. This
+    // will be the correct result for the output.
     for (int i = 1; i < size; ++i) {
       litRed(*this, vals[i], *this);
     }
   } else if (AreAllAffine(vals)) {
     affineRed(*this, vals);
   } else {
+    Init(/*lit*/ false, /*affine*/ false);
     for (int i = 1; i < size; ++i) {
       valueRed(*this, vals[i], *this);
     }
@@ -407,7 +413,7 @@ void IndexExpr::ReductionOp(IndexExprContainer &container,
 
 void IndexExpr::Add(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.SetIntLiteral(aa.GetIntLit() + bb.GetIntLit());
+    res.SetIntLit(aa.GetIntLit() + bb.GetIntLit());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.SetAffineExpr(
@@ -423,7 +429,7 @@ void IndexExpr::Add(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
 
 void IndexExpr::Sub(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.SetIntLiteral(aa.GetIntLit() - bb.GetIntLit());
+    res.SetIntLit(aa.GetIntLit() - bb.GetIntLit());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.SetAffineExpr(
@@ -440,7 +446,7 @@ void IndexExpr::Sub(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
 void IndexExpr::Mult(
     IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.SetIntLiteral(aa.GetIntLit() * bb.GetIntLit());
+    res.SetIntLit(aa.GetIntLit() * bb.GetIntLit());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand aa must be a literal.
@@ -458,7 +464,7 @@ void IndexExpr::FloorDiv(
     IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     int64_t rval = floor((1.0 * aa.GetIntLit()) / (1.0 * bb.GetIntLit()));
-    res.SetIntLiteral(rval);
+    res.SetIntLit(rval);
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
@@ -489,7 +495,7 @@ void IndexExpr::CeilDiv(
     IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     int64_t rval = ceil((1.0 * aa.GetIntLit()) / (1.0 * bb.GetIntLit()));
-    res.SetIntLiteral(rval);
+    res.SetIntLit(rval);
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
@@ -519,7 +525,7 @@ void IndexExpr::CeilDiv(
 
 void IndexExpr::Mod(IndexExprContainer &container, IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.SetIntLiteral(mod(aa.GetIntLit(), bb.GetIntLit()));
+    res.SetIntLit(mod(aa.GetIntLit(), bb.GetIntLit()));
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
@@ -547,7 +553,7 @@ void IndexExpr::Clamp(IndexExprContainer &container, IndexExpr &val,
       sval = smin;
     if (sval > smax)
       sval = smax;
-    res.SetIntLiteral(sval);
+    res.SetIntLit(sval);
   };
   F3 valueFct = [&](IndexExpr &res, IndexExpr &val, IndexExpr &min,
                     IndexExpr &max) {
@@ -663,7 +669,7 @@ void IndexExpr::Min(
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     auto aaa = aa.GetIntLit();
     auto bbb = bb.GetIntLit();
-    res.SetIntLiteral((aaa < bbb) ? aaa : bbb);
+    res.SetIntLit((aaa < bbb) ? aaa : bbb);
   };
   Flist affineExprFct = [&](IndexExpr &res, SmallVectorImpl<IndexExpr> &vvals) {
     // Create a list of affine expression
@@ -699,7 +705,7 @@ void IndexExpr::Max(
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     auto aaa = aa.GetIntLit();
     auto bbb = bb.GetIntLit();
-    res.SetIntLiteral((aaa > bbb) ? aaa : bbb);
+    res.SetIntLit((aaa > bbb) ? aaa : bbb);
   };
   Flist affineExprFct = [&](IndexExpr &res, SmallVectorImpl<IndexExpr> &vvals) {
     // Create a list of affine expression

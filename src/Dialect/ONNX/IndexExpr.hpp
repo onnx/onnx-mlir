@@ -27,8 +27,10 @@ class IndexExpr;
 
 class IndexExprContainer {
 public:
+  // Normal constructor.
   IndexExprContainer(ConversionPatternRewriter *rewriter, Location loc);
-  friend class IndexExpr;
+  // Constructor used before a loop, where the previous index values are
+  // becoming symbols.
   bool IsShapeInferencePass() const { return !rewriter; }
   int AddDim(Value value);
   int AddSymbol(Value value);
@@ -80,7 +82,7 @@ public:
   int64_t GetIntLit() const;
   AffineExpr GetAffineExpr(IndexExprContainer &container);
   Value GetValue(IndexExprContainer &container);
-  void SetIntLiteral(int64_t val);
+  void SetIntLit(int64_t val);
   void SetAffineExpr(AffineExpr expr) { affineExpr = expr; }
   void SetValue(Value val) { value = val; }
 

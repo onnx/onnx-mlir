@@ -3064,3 +3064,239 @@ func @test_less_unknown_dims(%arg0: tensor<3x4x5xf32>, %arg1: tensor<?x4x5xf32>)
   // CHECK: return [[RES]] : memref<3x4x5xi1>
 }
 
+// -----
+
+// Slice where all the parameters are constant.
+func @test_slice_constant_default_axes(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
+  %axes = constant unit
+  %starts = "onnx.Constant"() {value = dense<[1, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %steps = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, none, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:   func @test_slice_constant_default_axes
+// CHECK-SAME: ([[VAR_arg0:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
+// CHECK-NEXT:     [[ALLOC:%.+]] = alloc() : memref<1x2xf32>
+// CHECK-NEXT:     [[VAR_cst:%.+]] = constant unit
+// CHECK-NEXT:     [[VAR_1:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[1, 0]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK-NEXT:     [[VAR_2:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[2, 3]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK-NEXT:     [[VAR_3:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<[1, 2]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK-NEXT:     [[IND:%.+]]:2 = krnl.define_loops 2
+// CHECK-NEXT:     krnl.iterate([[IND]]#0, [[IND]]#1) with ([[IND]]#0 -> [[VAR_arg1:%.+]] = 0 to 1, [[IND]]#1 -> [[VAR_arg2:%.+]] = 0 to 2) {
+// CHECK-NEXT:       [[DIM0:%.+]] = affine.apply #map0([[VAR_arg1]])
+// CHECK-NEXT:       [[DIM2:%.+]] = affine.apply #map1([[VAR_arg1]], [[VAR_arg2]])
+// CHECK-NEXT:       [[RES:%.+]] = affine.load [[VAR_arg0]]{{.}}[[DIM0]], [[DIM2]]{{.}} : memref<2x4xf32>
+// CHECK-NEXT:       affine.store [[RES]], [[ALLOC]]{{.}}[[VAR_arg1]], [[VAR_arg2]]{{.}} : memref<1x2xf32>
+// CHECK-NEXT:     }
+// CHECK-NEXT:     return [[ALLOC]] : memref<1x2xf32>
+// CHECK-NEXT:   }
+// CHECK-NEXT: }
+}
+
+// -----
+
+// Slice with negative steps.
+func @test_slice_all_constant_negative_steps(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
+  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %starts = "onnx.Constant"() {value = dense<[1, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[2, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %steps = "onnx.Constant"() {value = dense<[1, -2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:   func @test_slice_all_constant_negative_steps
+// CHECK-SAME:     ([[DATA:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
+// CHECK-NEXT:     [[ALLOC:%.+]] = alloc() : memref<1x2xf32>
+// CHECK-NEXT:     [[VAR_1:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[0, 1]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK-NEXT:     [[VAR_2:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[1, 3]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK-NEXT:     [[VAR_3:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<[2, 0]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK-NEXT:     [[VAR_4:%.+]] = "krnl.global"() {name = "constant_3", shape = [2], value = dense<[1, -2]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK-NEXT:     [[ITER:%.+]]:2 = krnl.define_loops 2
+// CHECK-NEXT:     krnl.iterate([[ITER]]#0, [[ITER]]#1) with ([[ITER]]#0 -> [[VAR_arg1:%.+]] = 0 to 1, [[ITER]]#1 -> [[VAR_arg2:%.+]] = 0 to 2) {
+// CHECK-NEXT:       [[INDEX0:%.+]] = affine.apply #map0([[VAR_arg1]])
+// CHECK-NEXT:       [[INDEX1:%.+]] = affine.apply #map1([[VAR_arg1]], [[VAR_arg2]])
+// CHECK-NEXT:       [[VAL:%.+]] = affine.load [[DATA]]{{.}}[[INDEX0]], [[INDEX1]]{{.}} : memref<2x4xf32>
+// CHECK-NEXT:       affine.store [[VAL]], [[ALLOC]]{{.}}[[VAR_arg1]], [[VAR_arg2]]{{.}} : memref<1x2xf32>
+// CHECK-NEXT:     }
+// CHECK-NEXT:     return [[ALLOC]] : memref<1x2xf32>
+// CHECK-NEXT:   }
+// CHECK-NEXT: }
+}
+
+// -----
+
+// Slice where all the params are runtime, except the axes.
+// Arg0 is data, arg1 is start, arg2 is end, arg3 is steps.
+func @test_slice_all_runtime(%arg0 : tensor<2x4xf32>, %arg1: tensor<2xi64>, %arg2: tensor<2xi64>, %arg3: tensor<2xi64>) -> tensor<*xf32> {
+  %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = "onnx.Slice"(%arg0, %arg1, %arg2, %axes, %arg3) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:   func @test_slice_all_runtime
+// CHECK-SAME: ([[DATA:%.+]]: memref<2x4xf32>, [[START:%.+]]: memref<2xi64>, [[END:%.+]]: memref<2xi64>, [[STEP:%.+]]: memref<2xi64>) -> memref<?x?xf32> {
+// CHECK-NEXT:     [[AXIS:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[0, 1]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK-NEXT:     [[VAR_c0:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_1:%.+]] = affine.load [[START]]{{.}}[[VAR_c0]]{{.}} : memref<2xi64>
+// CHECK-NEXT:     [[VAR_2:%.+]] = index_cast [[VAR_1]] : i64 to index
+// CHECK-NEXT:     [[VAR_c0_0:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_3:%.+]] = affine.load [[END]]{{.}}[[VAR_c0_0]]{{.}} : memref<2xi64>
+// CHECK-NEXT:     [[VAR_4:%.+]] = index_cast [[VAR_3]] : i64 to index
+// CHECK-NEXT:     [[VAR_c0_1:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_5:%.+]] = affine.load [[STEP]]{{.}}[[VAR_c0_1]]{{.}} : memref<2xi64>
+// CHECK-NEXT:     [[VAR_6:%.+]] = index_cast [[VAR_5]] : i64 to index
+// CHECK-NEXT:     [[VAR_7:%.+]] = affine.apply #map1(){{.}}[[VAR_2]]{{.}}
+// CHECK-NEXT:     [[VAR_c0_2:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_8:%.+]] = cmpi "slt", [[VAR_7]], [[VAR_c0_2]] : index
+// CHECK-NEXT:     [[VAR_9:%.+]] = affine.apply #map2(){{.}}[[VAR_2]]{{.}}
+// CHECK-NEXT:     [[VAR_10:%.+]] = affine.apply #map1(){{.}}[[VAR_2]]{{.}}
+// CHECK-NEXT:     [[VAR_11:%.+]] = select [[VAR_8]], [[VAR_9]], [[VAR_10]] : index
+// CHECK-NEXT:     [[VAR_c0_3:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_12:%.+]] = cmpi "slt", [[VAR_11]], [[VAR_c0_3]] : index
+// CHECK-NEXT:     [[VAR_c0_4:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_13:%.+]] = select [[VAR_12]], [[VAR_c0_4]], [[VAR_11]] : index
+// CHECK-NEXT:     [[VAR_c1:%.+]] = constant 1 : index
+// CHECK-NEXT:     [[VAR_14:%.+]] = cmpi "sgt", [[VAR_13]], [[VAR_c1]] : index
+// CHECK-NEXT:     [[VAR_c1_5:%.+]] = constant 1 : index
+// CHECK-NEXT:     [[VAR_15:%.+]] = select [[VAR_14]], [[VAR_c1_5]], [[VAR_13]] : index
+// CHECK-NEXT:     [[VAR_c0_6:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_16:%.+]] = cmpi "slt", [[VAR_11]], [[VAR_c0_6]] : index
+// CHECK-NEXT:     [[VAR_c0_7:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_17:%.+]] = select [[VAR_16]], [[VAR_c0_7]], [[VAR_11]] : index
+// CHECK-NEXT:     [[VAR_c2:%.+]] = constant 2 : index
+// CHECK-NEXT:     [[VAR_18:%.+]] = cmpi "sgt", [[VAR_17]], [[VAR_c2]] : index
+// CHECK-NEXT:     [[VAR_c2_8:%.+]] = constant 2 : index
+// CHECK-NEXT:     [[VAR_19:%.+]] = select [[VAR_18]], [[VAR_c2_8]], [[VAR_17]] : index
+// CHECK-NEXT:     [[VAR_c0_9:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_20:%.+]] = cmpi "slt", [[VAR_6]], [[VAR_c0_9]] : index
+// CHECK-NEXT:     [[VAR_21:%.+]] = select [[VAR_20]], [[VAR_15]], [[VAR_19]] : index
+// CHECK-NEXT:     [[VAR_22:%.+]] = affine.apply #map3(){{.}}[[VAR_2]], [[VAR_4]]{{.}}
+// CHECK-NEXT:     [[VAR_c0_10:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_23:%.+]] = cmpi "slt", [[VAR_22]], [[VAR_c0_10]] : index
+// CHECK-NEXT:     [[VAR_24:%.+]] = affine.apply #map4(){{.}}[[VAR_2]], [[VAR_4]]{{.}}
+// CHECK-NEXT:     [[VAR_25:%.+]] = affine.apply #map3(){{.}}[[VAR_2]], [[VAR_4]]{{.}}
+// CHECK-NEXT:     [[VAR_26:%.+]] = select [[VAR_23]], [[VAR_24]], [[VAR_25]] : index
+// CHECK-NEXT:     [[VAR_27:%.+]] = affine.apply #map3(){{.}}[[VAR_2]], [[VAR_4]]{{.}}
+// CHECK-NEXT:     [[VAR_c_min_2147483648:%.+]] = constant -2147483648 : index
+// CHECK-NEXT:     [[VAR_28:%.+]] = cmpi "sle", [[VAR_27]], [[VAR_c_min_2147483648]] : index
+// CHECK-NEXT:     [[VAR_c_min_1:%.+]] = constant -1 : index
+// CHECK-NEXT:     [[VAR_29:%.+]] = select [[VAR_28]], [[VAR_c_min_1]], [[VAR_26]] : index
+// CHECK-NEXT:     [[VAR_30:%.+]] = affine.apply #map3(){{.}}[[VAR_2]], [[VAR_4]]{{.}}
+// CHECK-NEXT:     [[VAR_c2147483647:%.+]] = constant 2147483647 : index
+// CHECK-NEXT:     [[VAR_31:%.+]] = cmpi "sge", [[VAR_30]], [[VAR_c2147483647]] : index
+// CHECK-NEXT:     [[VAR_c0_11:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_32:%.+]] = select [[VAR_31]], [[VAR_c0_11]], [[VAR_29]] : index
+// CHECK-NEXT:     [[VAR_c_min_1_12:%.+]] = constant -1 : index
+// CHECK-NEXT:     [[VAR_33:%.+]] = cmpi "slt", [[VAR_32]], [[VAR_c_min_1_12]] : index
+// CHECK-NEXT:     [[VAR_c_min_1_13:%.+]] = constant -1 : index
+// CHECK-NEXT:     [[VAR_34:%.+]] = select [[VAR_33]], [[VAR_c_min_1_13]], [[VAR_32]] : index
+// CHECK-NEXT:     [[VAR_c2_14:%.+]] = constant 2 : index
+// CHECK-NEXT:     [[VAR_35:%.+]] = cmpi "sgt", [[VAR_34]], [[VAR_c2_14]] : index
+// CHECK-NEXT:     [[VAR_c2_15:%.+]] = constant 2 : index
+// CHECK-NEXT:     [[VAR_36:%.+]] = select [[VAR_35]], [[VAR_c2_15]], [[VAR_34]] : index
+// CHECK-NEXT:     [[VAR_c0_16:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_37:%.+]] = cmpi "slt", [[VAR_32]], [[VAR_c0_16]] : index
+// CHECK-NEXT:     [[VAR_c0_17:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_38:%.+]] = select [[VAR_37]], [[VAR_c0_17]], [[VAR_32]] : index
+// CHECK-NEXT:     [[VAR_c2_18:%.+]] = constant 2 : index
+// CHECK-NEXT:     [[VAR_39:%.+]] = cmpi "sgt", [[VAR_38]], [[VAR_c2_18]] : index
+// CHECK-NEXT:     [[VAR_c2_19:%.+]] = constant 2 : index
+// CHECK-NEXT:     [[VAR_40:%.+]] = select [[VAR_39]], [[VAR_c2_19]], [[VAR_38]] : index
+// CHECK-NEXT:     [[VAR_c0_20:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_41:%.+]] = cmpi "slt", [[VAR_6]], [[VAR_c0_20]] : index
+// CHECK-NEXT:     [[VAR_42:%.+]] = select [[VAR_41]], [[VAR_36]], [[VAR_40]] : index
+// CHECK-NEXT:     [[VAR_43:%.+]] = subi [[VAR_42]], [[VAR_21]] : index
+// CHECK-NEXT:     [[VAR_44:%.+]] = ceildivi_signed [[VAR_43]], [[VAR_6]] : index
+// CHECK-NEXT:     [[VAR_c0_21:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_45:%.+]] = cmpi "slt", [[VAR_44]], [[VAR_c0_21]] : index
+// CHECK-NEXT:     [[VAR_c0_22:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_46:%.+]] = select [[VAR_45]], [[VAR_c0_22]], [[VAR_44]] : index
+// CHECK-NEXT:     [[VAR_c1_23:%.+]] = constant 1 : index
+// CHECK-NEXT:     [[VAR_47:%.+]] = affine.load [[START]]{{.}}[[VAR_c1_23]]{{.}} : memref<2xi64>
+// CHECK-NEXT:     [[VAR_48:%.+]] = index_cast [[VAR_47]] : i64 to index
+// CHECK-NEXT:     [[VAR_c1_24:%.+]] = constant 1 : index
+// CHECK-NEXT:     [[VAR_49:%.+]] = affine.load [[END]]{{.}}[[VAR_c1_24]]{{.}} : memref<2xi64>
+// CHECK-NEXT:     [[VAR_50:%.+]] = index_cast [[VAR_49]] : i64 to index
+// CHECK-NEXT:     [[VAR_c1_25:%.+]] = constant 1 : index
+// CHECK-NEXT:     [[VAR_51:%.+]] = affine.load [[STEP]]{{.}}[[VAR_c1_25]]{{.}} : memref<2xi64>
+// CHECK-NEXT:     [[VAR_52:%.+]] = index_cast [[VAR_51]] : i64 to index
+// CHECK-NEXT:     [[VAR_53:%.+]] = affine.apply #map5(){{.}}[[VAR_2]], [[VAR_4]], [[VAR_48]]{{.}}
+// CHECK-NEXT:     [[VAR_c0_26:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_54:%.+]] = cmpi "slt", [[VAR_53]], [[VAR_c0_26]] : index
+// CHECK-NEXT:     [[VAR_55:%.+]] = affine.apply #map6(){{.}}[[VAR_2]], [[VAR_4]], [[VAR_48]]{{.}}
+// CHECK-NEXT:     [[VAR_56:%.+]] = affine.apply #map5(){{.}}[[VAR_2]], [[VAR_4]], [[VAR_48]]{{.}}
+// CHECK-NEXT:     [[VAR_57:%.+]] = select [[VAR_54]], [[VAR_55]], [[VAR_56]] : index
+// CHECK-NEXT:     [[VAR_c0_27:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_58:%.+]] = cmpi "slt", [[VAR_57]], [[VAR_c0_27]] : index
+// CHECK-NEXT:     [[VAR_c0_28:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_59:%.+]] = select [[VAR_58]], [[VAR_c0_28]], [[VAR_57]] : index
+// CHECK-NEXT:     [[VAR_c3:%.+]] = constant 3 : index
+// CHECK-NEXT:     [[VAR_60:%.+]] = cmpi "sgt", [[VAR_59]], [[VAR_c3]] : index
+// CHECK-NEXT:     [[VAR_c3_29:%.+]] = constant 3 : index
+// CHECK-NEXT:     [[VAR_61:%.+]] = select [[VAR_60]], [[VAR_c3_29]], [[VAR_59]] : index
+// CHECK-NEXT:     [[VAR_c0_30:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_62:%.+]] = cmpi "slt", [[VAR_57]], [[VAR_c0_30]] : index
+// CHECK-NEXT:     [[VAR_c0_31:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_63:%.+]] = select [[VAR_62]], [[VAR_c0_31]], [[VAR_57]] : index
+// CHECK-NEXT:     [[VAR_c4:%.+]] = constant 4 : index
+// CHECK-NEXT:     [[VAR_64:%.+]] = cmpi "sgt", [[VAR_63]], [[VAR_c4]] : index
+// CHECK-NEXT:     [[VAR_c4_32:%.+]] = constant 4 : index
+// CHECK-NEXT:     [[VAR_65:%.+]] = select [[VAR_64]], [[VAR_c4_32]], [[VAR_63]] : index
+// CHECK-NEXT:     [[VAR_c0_33:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_66:%.+]] = cmpi "slt", [[VAR_52]], [[VAR_c0_33]] : index
+// CHECK-NEXT:     [[VAR_67:%.+]] = select [[VAR_66]], [[VAR_61]], [[VAR_65]] : index
+// CHECK-NEXT:     [[VAR_68:%.+]] = affine.apply #map7(){{.}}[[VAR_2]], [[VAR_4]], [[VAR_48]], [[VAR_50]]{{.}}
+// CHECK-NEXT:     [[VAR_c0_34:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_69:%.+]] = cmpi "slt", [[VAR_68]], [[VAR_c0_34]] : index
+// CHECK-NEXT:     [[VAR_70:%.+]] = affine.apply #map8(){{.}}[[VAR_2]], [[VAR_4]], [[VAR_48]], [[VAR_50]]{{.}}
+// CHECK-NEXT:     [[VAR_71:%.+]] = affine.apply #map7(){{.}}[[VAR_2]], [[VAR_4]], [[VAR_48]], [[VAR_50]]{{.}}
+// CHECK-NEXT:     [[VAR_72:%.+]] = select [[VAR_69]], [[VAR_70]], [[VAR_71]] : index
+// CHECK-NEXT:     [[VAR_73:%.+]] = affine.apply #map7(){{.}}[[VAR_2]], [[VAR_4]], [[VAR_48]], [[VAR_50]]{{.}}
+// CHECK-NEXT:     [[VAR_c_min_2147483648_35:%.+]] = constant -2147483648 : index
+// CHECK-NEXT:     [[VAR_74:%.+]] = cmpi "sle", [[VAR_73]], [[VAR_c_min_2147483648_35]] : index
+// CHECK-NEXT:     [[VAR_c_min_1_36:%.+]] = constant -1 : index
+// CHECK-NEXT:     [[VAR_75:%.+]] = select [[VAR_74]], [[VAR_c_min_1_36]], [[VAR_72]] : index
+// CHECK-NEXT:     [[VAR_76:%.+]] = affine.apply #map7(){{.}}[[VAR_2]], [[VAR_4]], [[VAR_48]], [[VAR_50]]{{.}}
+// CHECK-NEXT:     [[VAR_c2147483647_37:%.+]] = constant 2147483647 : index
+// CHECK-NEXT:     [[VAR_77:%.+]] = cmpi "sge", [[VAR_76]], [[VAR_c2147483647_37]] : index
+// CHECK-NEXT:     [[VAR_c0_38:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_78:%.+]] = select [[VAR_77]], [[VAR_c0_38]], [[VAR_75]] : index
+// CHECK-NEXT:     [[VAR_c_min_1_39:%.+]] = constant -1 : index
+// CHECK-NEXT:     [[VAR_79:%.+]] = cmpi "slt", [[VAR_78]], [[VAR_c_min_1_39]] : index
+// CHECK-NEXT:     [[VAR_c_min_1_40:%.+]] = constant -1 : index
+// CHECK-NEXT:     [[VAR_80:%.+]] = select [[VAR_79]], [[VAR_c_min_1_40]], [[VAR_78]] : index
+// CHECK-NEXT:     [[VAR_c4_41:%.+]] = constant 4 : index
+// CHECK-NEXT:     [[VAR_81:%.+]] = cmpi "sgt", [[VAR_80]], [[VAR_c4_41]] : index
+// CHECK-NEXT:     [[VAR_c4_42:%.+]] = constant 4 : index
+// CHECK-NEXT:     [[VAR_82:%.+]] = select [[VAR_81]], [[VAR_c4_42]], [[VAR_80]] : index
+// CHECK-NEXT:     [[VAR_c0_43:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_83:%.+]] = cmpi "slt", [[VAR_78]], [[VAR_c0_43]] : index
+// CHECK-NEXT:     [[VAR_c0_44:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_84:%.+]] = select [[VAR_83]], [[VAR_c0_44]], [[VAR_78]] : index
+// CHECK-NEXT:     [[VAR_c4_45:%.+]] = constant 4 : index
+// CHECK-NEXT:     [[VAR_85:%.+]] = cmpi "sgt", [[VAR_84]], [[VAR_c4_45]] : index
+// CHECK-NEXT:     [[VAR_c4_46:%.+]] = constant 4 : index
+// CHECK-NEXT:     [[VAR_86:%.+]] = select [[VAR_85]], [[VAR_c4_46]], [[VAR_84]] : index
+// CHECK-NEXT:     [[VAR_c0_47:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_87:%.+]] = cmpi "slt", [[VAR_52]], [[VAR_c0_47]] : index
+// CHECK-NEXT:     [[VAR_88:%.+]] = select [[VAR_87]], [[VAR_82]], [[VAR_86]] : index
+// CHECK-NEXT:     [[VAR_89:%.+]] = subi [[VAR_88]], [[VAR_67]] : index
+// CHECK-NEXT:     [[VAR_90:%.+]] = ceildivi_signed [[VAR_89]], [[VAR_52]] : index
+// CHECK-NEXT:     [[VAR_c0_48:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_91:%.+]] = cmpi "slt", [[VAR_90]], [[VAR_c0_48]] : index
+// CHECK-NEXT:     [[VAR_c0_49:%.+]] = constant 0 : index
+// CHECK-NEXT:     [[VAR_92:%.+]] = select [[VAR_91]], [[VAR_c0_49]], [[VAR_90]] : index
+// CHECK-NEXT:     [[ALLOC:%.+]] = alloc([[VAR_46]], [[VAR_92]]) : memref<?x?xf32>
+// CHECK-NEXT:     [[INDICES:%.+]]:2 = krnl.define_loops 2
+// CHECK-NEXT:     krnl.iterate([[INDICES]]#0, [[INDICES]]#1) with ([[INDICES]]#0 -> [[VAR_arg4:%.+]] = 0 to [[VAR_46]], [[INDICES]]#1 -> [[VAR_arg5:%.+]] = 0 to [[VAR_92]]) {
+// CHECK-NEXT:       [[VAR_95:%.+]] = muli [[VAR_6]], [[VAR_arg4]] : index
+// CHECK-NEXT:       [[LOAD_IND0:%.+]] = addi [[VAR_95]], [[VAR_21]] : index
+// CHECK-NEXT:       [[VAR_97:%.+]] = muli [[VAR_52]], [[VAR_arg5]] : index
+// CHECK-NEXT:       [[LOAD_IND1:%.+]] = addi [[VAR_97]], [[VAR_67]] : index
+// CHECK-NEXT:       [[VAL:%.+]] = load [[DATA]]{{.}}[[LOAD_IND0]], [[LOAD_IND1]]{{.}} : memref<2x4xf32>
+// CHECK-NEXT:       affine.store [[VAL]], [[ALLOC]]{{.}}[[VAR_arg4]], [[VAR_arg5]]{{.}} : memref<?x?xf32>
+// CHECK-NEXT:     }
+// CHECK-NEXT:     return [[ALLOC]] : memref<?x?xf32>
+// CHECK-NEXT:   }
+// CHECK-NEXT: }
+}
