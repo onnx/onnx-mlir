@@ -139,9 +139,8 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // or additional operands (to be studied and added as needed). For unknown
 // dimensions, it uses the index expressions to retrieve the corresponding
 // values.
-Value insertAllocAndDeallocSimple(PatternRewriter &rewriter,
-    Operation *op, MemRefType type, Location loc,
-    SmallVectorImpl<IndexExpr> &outputDims) {
+Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
+    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims) {
 
   bool insertDealloc = checkInsertDealloc(op);
 

@@ -25,7 +25,6 @@
 
 using namespace mlir;
 
-
 //===----------------------------------------------------------------------===//
 // IndexExprContainer utils.
 //===----------------------------------------------------------------------===//
@@ -74,7 +73,8 @@ int IndexExprContainer::AddSymbol(Value value) {
   return symbols.size() - 1;
 }
 
-void IndexExprContainer::GetDimAndSymbolList(SmallVectorImpl<Value> &list) const {
+void IndexExprContainer::GetDimAndSymbolList(
+    SmallVectorImpl<Value> &list) const {
   list.clear();
   for (auto dim : dims)
     list.emplace_back(dim);
@@ -794,7 +794,8 @@ IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
 IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
     int64_t condB, int64_t trueVal, IndexExpr &falseVal) {
   IndexExpr condBIndex = condA.GetContainer()->CreateLiteralIndexExpr(condB);
-  IndexExpr trueValIndex = condA.GetContainer()->CreateLiteralIndexExpr(trueVal);
+  IndexExpr trueValIndex =
+      condA.GetContainer()->CreateLiteralIndexExpr(trueVal);
   return Select(condA, comparePred, condBIndex, trueValIndex, falseVal);
 }
 
