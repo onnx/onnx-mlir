@@ -192,14 +192,23 @@ public:
   // Possibly Affine Operations.
   IndexExpr &Add(IndexExpr &a, IndexExpr &b);
   IndexExpr &Add(IndexExpr &a, int64_t b);
+  IndexExpr &IncBy(IndexExpr &b);
+  IndexExpr &IncBy(int64_t b);
   IndexExpr &Sub(IndexExpr &a, IndexExpr &b);
   IndexExpr &Sub(IndexExpr &a, int64_t b);
   IndexExpr &Sub(int64_t a, IndexExpr &b);
-  IndexExpr &Mult(IndexExpr &a, IndexExpr &b); // Place literal in a, if any.
-  IndexExpr &Mult(int64_t a, IndexExpr &b);
+  IndexExpr &DecBy(IndexExpr &b);
+  IndexExpr &DecBy(int64_t b);
+  IndexExpr &Mult(IndexExpr &a, IndexExpr &b);
+  IndexExpr &Mult(IndexExpr &a, int64_t b);
+  IndexExpr &MultBy(IndexExpr &b);
+  IndexExpr &MultBy(int64_t b);
   IndexExpr &FloorDiv(IndexExpr &a, IndexExpr &b);
+  IndexExpr &FloorDivBy(IndexExpr &a);
   IndexExpr &CeilDiv(IndexExpr &a, IndexExpr &b);
+  IndexExpr &CeilDivBy(IndexExpr &a);
   IndexExpr &Mod(IndexExpr &a, IndexExpr &b);
+  IndexExpr &ModBy(IndexExpr &a);
   IndexExpr &Clamp(IndexExpr &val, IndexExpr &min, IndexExpr &max);
   IndexExpr &Clamp(IndexExpr &val, int64_t min, IndexExpr &max);
   IndexExpr &Select(IndexExpr &condA, CmpIPredicate comparePred,
@@ -208,6 +217,10 @@ public:
       IndexExpr &trueVal, IndexExpr &falseVal);
   IndexExpr &Select(IndexExpr &condA, CmpIPredicate comparePred, int64_t condB,
       int64_t trueVal, IndexExpr &falseVal);
+  IndexExpr &AssignIf(IndexExpr &condA, CmpIPredicate comparePred, int64_t condB,
+      IndexExpr &trueVal);
+  IndexExpr &AssignIf(IndexExpr &condA, CmpIPredicate comparePred, int64_t condB,
+      int64_t trueVal);
   IndexExpr &Min(SmallVectorImpl<IndexExpr> &vals);
   IndexExpr &Max(SmallVectorImpl<IndexExpr> &vals);
   void DebugPrint(const std::string &msg);
@@ -233,9 +246,8 @@ private:
   IndexExpr &Copy(IndexExpr &a);
   // Support for Operations.
   typedef std::function<void(IndexExpr &, IndexExpr &, IndexExpr &)> F2;
-  IndexExpr &BinaryOp(IndexExpr &a, IndexExpr &b, bool affineWithLitA,
-      bool affineWithLitB, bool affineExprCompatible, F2 finteger, F2 faffine,
-      F2 fvalue);
+  IndexExpr &BinaryOp(IndexExpr &a, IndexExpr &b, bool affineWithLitB,
+      bool affineExprCompatible, F2 finteger, F2 faffine, F2 fvalue);
   typedef std::function<void(
       IndexExpr &, IndexExpr &, IndexExpr &, IndexExpr &)>
       F3;

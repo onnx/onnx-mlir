@@ -361,15 +361,13 @@ void IndexExpr::DebugPrint(const std::string &msg) {
 //===----------------------------------------------------------------------===//
 
 // Used for Add/Sub/Mult/CeilDiv/FloorDiv
-IndexExpr &IndexExpr::BinaryOp(IndexExpr &a, IndexExpr &b, bool affineWithLitA,
-    bool affineWithLitB, bool canBeAffine, F2 litFct, F2 affineExprFct,
-    F2 valueFct) {
+IndexExpr &IndexExpr::BinaryOp(IndexExpr &a, IndexExpr &b, bool affineWithLitB,
+    bool canBeAffine, F2 litFct, F2 affineExprFct, F2 valueFct) {
   assert(a.GetContainer() == b.GetContainer() && "incompatible containers");
   // Literal integer if a and b are literals. Affine if canBeAffine is true,
   // both a and b are affine, and possibly a and/or b are also constant.
   bool resIsLit = a.IsLiteral() && b.IsLiteral();
   bool resIsAffine = resIsLit || (canBeAffine && a.IsAffine() && b.IsAffine() &&
-                                     (!affineWithLitA || a.IsLiteral()) &&
                                      (!affineWithLitB || b.IsLiteral()));
 
   // We use now use the result of the above determination on whether the new
@@ -501,12 +499,7 @@ IndexExpr &IndexExpr::Add(IndexExpr &a, IndexExpr &b) {
         aa.GetContainer(), aa.GetContainer()->GetRewriter().create<AddIOp>(
                                aa.GetLocation(), aa.GetValue(), bb.GetValue()));
   };
-  return BinaryOp(a, b, false, false, true, litFct, affineExprFct, valueFct);
-}
-
-IndexExpr &IndexExpr::Add(IndexExpr &a, int64_t b) {
-  IndexExpr bIndex = a.GetContainer()->CreateLiteralIndexExpr(b);
-  return Add(a, bIndex);
+  return BinaryOp(a, b, false, true, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr &IndexExpr::Sub(IndexExpr &a, IndexExpr &b) {
@@ -522,33 +515,22 @@ IndexExpr &IndexExpr::Sub(IndexExpr &a, IndexExpr &b) {
         aa.GetContainer(), aa.GetContainer()->GetRewriter().create<SubIOp>(
                                aa.GetLocation(), aa.GetValue(), bb.GetValue()));
   };
-  return BinaryOp(a, b, false, false, true, litFct, affineExprFct, valueFct);
+  return BinaryOp(a, b, false, true, litFct, affineExprFct, valueFct);
 }
 
-IndexExpr &IndexExpr::Sub(IndexExpr &a, int64_t b) {
-  IndexExpr bIndex = a.GetContainer()->CreateLiteralIndexExpr(b);
-  return Sub(a, bIndex);
-}
-
-IndexExpr &IndexExpr::Sub(int64_t a, IndexExpr &b) {
-  IndexExpr aIndex = b.GetContainer()->CreateLiteralIndexExpr(a);
-  return Sub(aIndex, b);
-}
-
-// If one input is possibly a literal, place it in the first position (a).
 IndexExpr &IndexExpr::Mult(IndexExpr &a, IndexExpr &b) {
+  // In the lambda function below, if one is literal, it is assumed that it is
+  // in the second position (b).
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.InitAsIntLit(aa.GetContainer(), aa.GetLiteral() * bb.GetLiteral());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand aa must be a literal.
     res.InitAsAffineExpr(
-        aa.GetContainer(), bb.GetAffineExpr() * aa.GetLiteral());
+        aa.GetContainer(), aa.GetAffineExpr() * bb.GetLiteral());
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    if (aa.IsLiteral() && aa.GetLiteral() == 1) {
-      res.Copy(bb);
-    } else if (bb.IsLiteral() && bb.GetLiteral() == 1) {
+    if (bb.IsLiteral() && bb.GetLiteral() == 1) {
       res.Copy(aa);
     } else {
       res.InitAsValue(aa.GetContainer(),
@@ -556,13 +538,10 @@ IndexExpr &IndexExpr::Mult(IndexExpr &a, IndexExpr &b) {
               aa.GetLocation(), aa.GetValue(), bb.GetValue()));
     }
   };
-  // Index a must be a literal.
-  return BinaryOp(a, b, true, false, true, litFct, affineExprFct, valueFct);
-}
-
-IndexExpr &IndexExpr::Mult(int64_t a, IndexExpr &b) {
-  IndexExpr aIndex = b.GetContainer()->CreateLiteralIndexExpr(a);
-  return Mult(aIndex, b);
+  // Literal should be place in second argument; do so if a is a lit.
+  if (a.IsLiteral())
+    return BinaryOp(b, a, true, true, litFct, affineExprFct, valueFct);
+  return BinaryOp(a, b, true, true, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr &IndexExpr::FloorDiv(IndexExpr &a, IndexExpr &b) {
@@ -604,7 +583,7 @@ IndexExpr &IndexExpr::FloorDiv(IndexExpr &a, IndexExpr &b) {
     }
   };
   // Index b must be a literal.
-  return BinaryOp(a, b, false, true, true, litFct, affineExprFct, valueFct);
+  return BinaryOp(a, b, true, true, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr &IndexExpr::CeilDiv(IndexExpr &a, IndexExpr &b) {
@@ -645,7 +624,7 @@ IndexExpr &IndexExpr::CeilDiv(IndexExpr &a, IndexExpr &b) {
     }
   };
   // Index b must be a literal.
-  return BinaryOp(a, b, false, true, true, litFct, affineExprFct, valueFct);
+  return BinaryOp(a, b, true, true, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr &IndexExpr::Mod(IndexExpr &a, IndexExpr &b) {
@@ -669,7 +648,7 @@ IndexExpr &IndexExpr::Mod(IndexExpr &a, IndexExpr &b) {
             aa.GetLocation(), aa.GetValue(), bb.GetValue()));
   };
   // Index b must be a literal.
-  return BinaryOp(a, b, false, true, true, litFct, affineExprFct, valueFct);
+  return BinaryOp(a, b, true, true, litFct, affineExprFct, valueFct);
 }
 
 IndexExpr &IndexExpr::Clamp(IndexExpr &val, IndexExpr &min, IndexExpr &max) {
@@ -694,11 +673,6 @@ IndexExpr &IndexExpr::Clamp(IndexExpr &val, IndexExpr &min, IndexExpr &max) {
     res.Select(newVal, CmpIPredicate::sgt, maxBound, maxBound, newVal);
   };
   return TernaryOp(val, min, max, litFct, valueFct);
-}
-
-IndexExpr &IndexExpr::Clamp(IndexExpr &val, int64_t min, IndexExpr &max) {
-  IndexExpr minIndex = val.GetContainer()->CreateLiteralIndexExpr(min);
-  return Clamp(val, minIndex, max);
 }
 
 IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
@@ -785,20 +759,6 @@ IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
   return QuaternarySelectOp(condA, condB, trueVal, falseVal, litFct, valueFct);
 }
 
-IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
-    int64_t condB, IndexExpr &trueVal, IndexExpr &falseVal) {
-  IndexExpr condBIndex = condA.GetContainer()->CreateLiteralIndexExpr(condB);
-  return Select(condA, comparePred, condBIndex, trueVal, falseVal);
-}
-
-IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
-    int64_t condB, int64_t trueVal, IndexExpr &falseVal) {
-  IndexExpr condBIndex = condA.GetContainer()->CreateLiteralIndexExpr(condB);
-  IndexExpr trueValIndex =
-      condA.GetContainer()->CreateLiteralIndexExpr(trueVal);
-  return Select(condA, comparePred, condBIndex, trueValIndex, falseVal);
-}
-
 IndexExpr &IndexExpr::Min(SmallVectorImpl<IndexExpr> &vals) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     auto aaa = aa.GetLiteral();
@@ -869,4 +829,69 @@ IndexExpr &IndexExpr::Max(SmallVectorImpl<IndexExpr> &vals) {
     res.InitAsValue(aa.GetContainer(), resVal);
   };
   return ReductionOp(vals, litFct, affineExprFct, valueFct);
+}
+
+//===----------------------------------------------------------------------===//
+// IndexExpr Ops Derivatives
+//===----------------------------------------------------------------------===//
+
+IndexExpr &IndexExpr::Add(IndexExpr &a, int64_t b) {
+  IndexExpr bIndex = a.GetContainer()->CreateLiteralIndexExpr(b);
+  return Add(a, bIndex);
+}
+
+IndexExpr &IndexExpr::IncBy(IndexExpr &b) { return Add(*this, b); }
+
+IndexExpr &IndexExpr::IncBy(int64_t b) { return Add(*this, b); }
+
+IndexExpr &IndexExpr::Sub(IndexExpr &a, int64_t b) {
+  IndexExpr bIndex = a.GetContainer()->CreateLiteralIndexExpr(b);
+  return Sub(a, bIndex);
+}
+
+IndexExpr &IndexExpr::Sub(int64_t a, IndexExpr &b) {
+  IndexExpr aIndex = b.GetContainer()->CreateLiteralIndexExpr(a);
+  return Sub(aIndex, b);
+}
+
+IndexExpr &IndexExpr::DecBy(IndexExpr &b) { return Sub(*this, b); }
+
+IndexExpr &IndexExpr::DecBy(int64_t b) { return Sub(*this, b); }
+
+IndexExpr &IndexExpr::Mult(IndexExpr &a, int64_t b) {
+  IndexExpr bIndex = a.GetContainer()->CreateLiteralIndexExpr(b);
+  return Mult(a, bIndex);
+}
+
+IndexExpr &IndexExpr::MultBy(IndexExpr &b) { return Mult(*this, b); }
+
+IndexExpr &IndexExpr::MultBy(int64_t b) { return Mult(*this, b); }
+
+IndexExpr &IndexExpr::Clamp(IndexExpr &val, int64_t min, IndexExpr &max) {
+  IndexExpr minIndex = val.GetContainer()->CreateLiteralIndexExpr(min);
+  return Clamp(val, minIndex, max);
+}
+
+IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
+    int64_t condB, IndexExpr &trueVal, IndexExpr &falseVal) {
+  IndexExpr condBIndex = condA.GetContainer()->CreateLiteralIndexExpr(condB);
+  return Select(condA, comparePred, condBIndex, trueVal, falseVal);
+}
+
+IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
+    int64_t condB, int64_t trueVal, IndexExpr &falseVal) {
+  IndexExpr condBIndex = condA.GetContainer()->CreateLiteralIndexExpr(condB);
+  IndexExpr trueValIndex =
+      condA.GetContainer()->CreateLiteralIndexExpr(trueVal);
+  return Select(condA, comparePred, condBIndex, trueValIndex, falseVal);
+}
+
+IndexExpr &IndexExpr::AssignIf(IndexExpr &condA, CmpIPredicate comparePred,
+    int64_t condB, IndexExpr &trueVal) {
+  return Select(condA, comparePred, condB, trueVal, *this);
+}
+
+IndexExpr &IndexExpr::AssignIf(IndexExpr &condA, CmpIPredicate comparePred,
+    int64_t condB, int64_t trueVal) {
+  return Select(condA, comparePred, condB, trueVal, *this);
 }
