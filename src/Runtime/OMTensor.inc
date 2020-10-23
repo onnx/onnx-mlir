@@ -222,11 +222,10 @@ OMTensor *omTensorCreateEmpty(
 
 /* OMTensor destroyer */
 void omTensorDestroy(OMTensor *tensor) {
-  if (tensor->_owning) {
+  if (tensor->_owning)
     free(tensor->_allocatedPtr);
-    tensor->_allocatedPtr = NULL;
-    tensor->_alignedPtr = NULL;
-  }
+  free(tensor->_shape);
+  free(tensor->_stride);
   free(tensor);
 }
 
