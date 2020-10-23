@@ -49,8 +49,6 @@ struct OMTensor {
   OMTensor(int rank) {
     if ((_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
         (_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-      assert(_shape);
-      assert(_stride);
       _allocatedPtr = NULL;
       _alignedPtr = NULL;
       _offset = 0;
@@ -58,6 +56,8 @@ struct OMTensor {
       _rank = rank;
       _owning = false;
     } else {
+      if (_shape)
+        free(_shape);
       throw std::runtime_error(
           "OMTensor(" + std::to_string(rank) + ") malloc error");
     }
@@ -105,6 +105,14 @@ struct OMTensor {
                // and only if it owns it.
 };
 
+/* Helper function to compute the number of data elements */
+static inline int64_t getNumOfElems(int64_t *dataSizes, int rank) {
+  int64_t numElem = 1;
+  for (int i = 0; i < rank; i++)
+    numElem *= dataSizes[i];
+  return numElem;
+}
+
 // Create a OMTensor.
 OMTensor *omTensorCreate(
     void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
@@ -113,20 +121,17 @@ OMTensor *omTensorCreate(
     return NULL;
   if ((tensor->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
       (tensor->_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    // If malloc for _shape or _stride fails, free them and return NULL.
-    if (!tensor->_shape || !tensor->_stride) {
-      if (tensor->_shape)
-        free(tensor->_shape);
-      if (tensor->_stride)
-        free(tensor->_stride);
-      return NULL;
-    }
     tensor->_allocatedPtr = data_ptr;
     tensor->_alignedPtr = data_ptr;
     tensor->_rank = rank;
     tensor->_dataType = dtype;
     tensor->_owning = false;
+  } else {
+    if (tensor->_shape)
+      free(tensor->_shape);
+    return NULL;
   }
+
   // Using signed indices helps detect when index falls below 0.
   for (int64_t i = rank - 1; i >= 0; i--) {
     tensor->_shape[i] = shape[i];
@@ -138,7 +143,7 @@ OMTensor *omTensorCreate(
   return tensor;
 }
 
-// Create a OMTensor.
+// Create a OMTensor with specified ownership.
 OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
     int64_t rank, OM_DATA_TYPE dtype, int owning) {
   OMTensor *tensor = omTensorCreate(data_ptr, shape, rank, dtype);
@@ -149,32 +154,57 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
   return tensor;
 }
 
-// Create a OMTensor.
+/**
+ * Create an empty OMTensor with specified rank.
+ * This function is intentionally left out from the header because it is only
+ * used by the wrapper code we emit around inference function that converts
+ * MemRefs to OMTensors for user convenience.
+ *
+ * This constructor returns a
+ * partially filled omTensor; prefer using the new omTensorCreateEmpty()
+ * function to fill shape & stride fields automatically.
+ *
+ * @param rank tensor rank
+ * @return pointer to OMTensor created, NULL if creation failed.
+ *
+ */
 OMTensor *omTensorCreateEmptyDeprecated(int rank) {
   OMTensor *omt = (OMTensor *)malloc(sizeof(struct OMTensor));
   if (!omt)
     return NULL;
   if ((omt->_shape = (int64_t *)malloc(rank * sizeof(int64_t))) &&
       (omt->_stride = (int64_t *)malloc(rank * sizeof(int64_t)))) {
-    // If malloc for _shape or _stride fails, free them and return NULL.
-    if (!omt->_shape || !omt->_stride) {
-      if (omt->_shape)
-        free(omt->_shape);
-      if (omt->_stride)
-        free(omt->_stride);
-      return NULL;
-    }
-
     omt->_allocatedPtr = NULL;
     omt->_alignedPtr = NULL;
     omt->_offset = 0;
     omt->_dataType = ONNX_TYPE_UNDEFINED;
     omt->_rank = rank;
     omt->_owning = false;
+  } else {
+    if (omt->_shape)
+      free(omt->_shape);
+    return NULL;
   }
+
   return omt;
 }
 
+/**
+ * Create an OMTensor with the specified shape, rank and element type,
+ * allocate uninitialized data for the specified shape.
+ * This function is intentionally left out from the header because it is only
+ * used by the wrapper code we emit around inference function that converts
+ * MemRefs to OMTensors for user convenience.
+ *
+ * The OMTensor created using this constructor owns the underlying memory
+ * space allocated to the content of the tensor.
+ *
+ * @param shape list of integers indicating the tensor shape.
+ * @param rank tensor rank.
+ * @param dtype tensor element data type.
+ * @return pointer to OMTensor created, NULL if creation failed.
+ *
+ */
 OMTensor *omTensorCreateEmpty(
     int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor =
@@ -216,7 +246,7 @@ void *omTensorGetDataPtr(OMTensor *tensor) { return tensor->_alignedPtr; }
  * allocatedPtr.
  *
  */
-void omTensorSetPtr(
+void omTensorSetDataPtr(
     OMTensor *tensor, int owning, void *allocatedPtr, void *alignedPtr) {
   if (tensor->_owning) {
     /* If we own the allocated buffer, free it first. */
