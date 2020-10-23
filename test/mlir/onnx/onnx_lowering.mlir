@@ -3123,3 +3123,37 @@ func @test_slice_all_constant_negative_steps(%arg0 : tensor<2x4xf32>) -> tensor<
 // CHECK:          }
 // CHECK:        }
 }
+
+// -----
+
+// Slice with constant param and one axis (first one) untouched.
+func @test_slice_first_dim_unchanged() {
+  %data = "onnx.Constant"() {value = dense<[ [ [ 0, 1, 2, 3, 4 ], [ 10, 11, 12, 13, 14 ], [ 20, 21, 22, 23, 24 ], [ 30, 31, 32, 33, 34 ] ], [ [ 100, 101, 102, 103, 104 ], [ 110, 111, 112, 113, 114 ], [ 120, 121, 122, 123, 124 ], [ 130, 131, 132, 133, 134 ] ], [ [ 200, 201, 202, 203, 204 ], [ 210, 211, 212, 213, 214 ], [ 220, 221, 222, 223, 224 ], [ 230, 231, 232, 233, 234 ] ] ] > : tensor<3x4x5xi64> } : () -> tensor<3x4x5xi64>
+  %axes = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %starts = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[3, 5]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %steps = "onnx.Constant"() {value = dense<[1, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %A323 = "onnx.Slice"(%data, %starts, %ends, %axes, %steps) : (tensor<3x4x5xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>, tensor<2xi64>) -> tensor<3x2x3xi64>
+  return
+// CHECK-LABEL:   func @test_slice_first_dim_unchanged
+// CHECK-SAME:     () {
+// CHECK:           [[VAR_0:%.+]] = alloc() : memref<3x2x3xi64>
+// CHECK:           [[VAR_1:%.+]] = "krnl.global"() {name = "constant_0", shape = [3, 4, 5], value = dense<{{.}}{{.}}[0, 1, 2, 3, 4], [10, 11, 12, 13, 14], [20, 21, 22, 23, 24], [30, 31, 32, 33, 34]{{.}}, {{.}}[100, 101, 102, 103, 104], [110, 111, 112, 113, 114], [120, 121, 122, 123, 124], [130, 131, 132, 133, 134{{.}}], [{{.}}200, 201, 202, 203, 204], [210, 211, 212, 213, 214], [220, 221, 222, 223, 224], [230, 231, 232, 233, 234{{.}}{{.}}]> : tensor<3x4x5xi64>} : () -> memref<3x4x5xi64>
+// CHECK:           [[VAR_2:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[1, 2]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK:           [[VAR_3:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<[1, 2]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK:           [[VAR_4:%.+]] = "krnl.global"() {name = "constant_3", shape = [2], value = dense<[3, 5]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK:           [[VAR_5:%.+]] = "krnl.global"() {name = "constant_4", shape = [2], value = dense<1> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK:           [[VAR_6:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[VAR_6]]#0, [[VAR_6]]#1, [[VAR_6]]#2) with ([[VAR_6]]#0 -> [[VAR_arg0:%.+]] = 0 to 3, [[VAR_6]]#1 -> [[VAR_arg1:%.+]] = 0 to 2, [[VAR_6]]#2 -> [[VAR_arg2:%.+]] = 0 to 3) {
+// CHECK:             [[VAR_7:%.+]] = affine.apply #map0([[VAR_arg0]])
+// CHECK:             [[VAR_8:%.+]] = affine.apply #map1([[VAR_arg0]], [[VAR_arg1]])
+// CHECK:             [[VAR_9:%.+]] = affine.apply #map2([[VAR_arg0]], [[VAR_arg1]], [[VAR_arg2]])
+// CHECK:             [[VAR_10:%.+]] = affine.load [[VAR_1]]{{.}}[[VAR_7]], [[VAR_8]], [[VAR_9]]{{.}} : memref<3x4x5xi64>
+// CHECK:             affine.store [[VAR_10]], [[VAR_0]]{{.}}[[VAR_arg0]], [[VAR_arg1]], [[VAR_arg2]]{{.}} : memref<3x2x3xi64>
+// CHECK:           }
+// CHECK:           dealloc [[VAR_0]] : memref<3x2x3xi64>
+// CHECK:           return
+// CHECK:         }
+// CHECK:       }
+
+}

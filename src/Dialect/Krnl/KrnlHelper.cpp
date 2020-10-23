@@ -205,7 +205,7 @@ int BuildKrnlLoop::pushBounds(
   if (upperBound.IsIntLit()) {
     return pushBounds(0, upperBound.GetIntLit());
   }
-  return pushBounds(0, upperBound.GetValue(container));
+  return pushBounds(0, upperBound.GetValue());
 }
 
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, AffineMap upperBound,

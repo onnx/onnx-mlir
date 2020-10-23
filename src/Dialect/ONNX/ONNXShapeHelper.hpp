@@ -30,11 +30,14 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
 // Returns the ConstantOp which defines an MLIR Value or null.
 ONNXConstantOp getONNXConstantOp(Value value);
 
-LogicalResult GetIndexExprFromOperandValueAtIndex(
-    Operation *op, Value operand, uint64_t i, IndexExpr &indexExpr);
-
-LogicalResult GetIndexExprFromOperandValueAtIndex(Operation *op, Value operand,
-    uint64_t i, int64_t defaultIntLit, IndexExpr &indexExpr);
+// Create an index from reading from an array defined by operand. Get a literal
+// value if we can, otherwise create the code to read the array. Returns
+// Undefined IndexExpression on failure. Second call returns a default value
+// when no actual value was found.
+IndexExpr GetIndexExprFromArrayAt(
+    IndexExprContainer &container, Operation *op, Value operand, uint64_t i);
+IndexExpr GetIndexExprFromArrayAt(IndexExprContainer &container, Operation *op,
+    Value operand, uint64_t i, int64_t defaultIntLit);
 
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
 

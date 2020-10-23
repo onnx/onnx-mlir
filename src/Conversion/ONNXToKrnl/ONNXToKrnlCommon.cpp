@@ -140,7 +140,7 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
 // dimensions, it uses the index expressions to retrieve the corresponding
 // values.
 Value insertAllocAndDeallocSimple(PatternRewriter &rewriter,
-    IndexExprContainer &container, Operation *op, MemRefType type, Location loc,
+    Operation *op, MemRefType type, Location loc,
     SmallVectorImpl<IndexExpr> &outputDims) {
 
   bool insertDealloc = checkInsertDealloc(op);
@@ -156,7 +156,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter,
   for (int i = 0; i < rank; ++i) {
     if (memRefShape[i] < 0) {
       // have dyn shape
-      allocOperands.emplace_back(outputDims[i].GetValue(container));
+      allocOperands.emplace_back(outputDims[i].GetValue());
     }
   }
   AllocOp allocOp = rewriter.create<AllocOp>(loc, type, allocOperands);
