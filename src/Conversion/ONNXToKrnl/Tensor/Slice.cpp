@@ -56,7 +56,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
       Value loopVal = outputLoops.getInductionVar(ii);
       IndexExpr loopIndex, start, step, actualIndex;
       IndexExprContainer newContainer(&rewriter, loc);
-      if (stepsIEV[ii].IsIntLit() && startsIEV[ii].IsAffine()) {
+      if (stepsIEV[ii].IsLiteral() && startsIEV[ii].IsAffine()) {
         loopIndex = container.CreateDimIndexExpr(loopVal);
         start = startsIEV[ii];
         step = stepsIEV[ii];

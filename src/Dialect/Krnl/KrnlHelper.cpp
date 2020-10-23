@@ -202,8 +202,8 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
 
 int BuildKrnlLoop::pushBounds(
     IndexExprContainer &container, int64_t lowerBound, IndexExpr upperBound) {
-  if (upperBound.IsIntLit()) {
-    return pushBounds(0, upperBound.GetIntLit());
+  if (upperBound.IsLiteral()) {
+    return pushBounds(0, upperBound.GetLiteral());
   }
   return pushBounds(0, upperBound.GetValue());
 }

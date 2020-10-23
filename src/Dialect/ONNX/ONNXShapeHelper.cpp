@@ -78,7 +78,7 @@ IndexExpr GetIndexExprFromArrayAt(
     }
     auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
     int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
-    return container.CreateIntLitIndexExpr(attrInt);
+    return container.CreateLiteralIndexExpr(attrInt);
   }
   // We must read value from an array.
   if (container.IsShapeInferencePass()) {
@@ -99,18 +99,18 @@ IndexExpr GetIndexExprFromArrayAt(IndexExprContainer &container, Operation *op,
   // Check if we have an operand.
   if (operand.getType().isa<NoneType>()) {
     // Operand undefined, we use the default value.
-    return container.CreateIntLitIndexExpr(defaultIntLit);
+    return container.CreateLiteralIndexExpr(defaultIntLit);
   }
   if (auto attrArray = getDenseElementAttributeFromValue(operand)) {
     // We extracted an dense attribute from definition of operand.
     if (i > attrArray.getType().getDimSize(0)) {
       // Not enought attributes for this index, return the default value.
-      return container.CreateIntLitIndexExpr(defaultIntLit);
+      return container.CreateLiteralIndexExpr(defaultIntLit);
     }
     // We have enought attributes for this index, get the value.
     Attribute attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
     int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
-    return container.CreateIntLitIndexExpr(attrInt);
+    return container.CreateLiteralIndexExpr(attrInt);
   }
   // Read the value from an array.
   if (container.IsShapeInferencePass()) {
@@ -197,7 +197,7 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
         GetIndexExprFromArrayAt(container, op, operandAdaptor.steps(), i, 1);
     if (stepInput.IsUndefined())
       return sliceOp->emitError("step input parameter could not be processed");
-    if (stepInput.IsIntLit() && stepInput.GetIntLit() == 0)
+    if (stepInput.IsLiteral() && stepInput.GetLiteral() == 0)
       return sliceOp->emitError("step input parameter cannot be zero");
     stepInput.DebugPrint("step input");
     // Get dim.
@@ -212,14 +212,9 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
             stepInput.IsQuestionmark() || dimInput.IsQuestionmark()))
       return failure();
 
-    // Helper and temp values.
-    IndexExpr neg, pos, negOne, zero;
-    negOne = container.CreateIntLitIndexExpr(-1);
-    zero = container.CreateIntLitIndexExpr(0);
-
     // Now proceed with the computations for start/end/dim.
     // Calculation for start: start < 0 ? start + dim : start.
-    IndexExpr startPlusDim, startPos, startFinal;
+    IndexExpr startPlusDim, startPos, startFinal, neg, pos;
     startPlusDim.Add(startInput, dimInput);
     startPos.Select(
         startInput, CmpIPredicate::slt, 0, startPlusDim, startInput);
@@ -277,8 +272,8 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     if (stepIndices[i].IsUndefined()) {
       // have one unset, put the defaults (start was already at zero, so we are
       // fine).
-      startIndices[i] = container.CreateIntLitIndexExpr(0);
-      stepIndices[i] = container.CreateIntLitIndexExpr(1);
+      startIndices[i] = container.CreateLiteralIndexExpr(0);
+      stepIndices[i] = container.CreateLiteralIndexExpr(1);
       IndexExpr dimInput = container.CreateDimIndexExpr(data, dataShape, i);
       endIndices[i] = dimInput;
       outputDims[i] = dimInput;

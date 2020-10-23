@@ -25,6 +25,7 @@
 
 using namespace mlir;
 
+
 //===----------------------------------------------------------------------===//
 // IndexExprContainer utils.
 //===----------------------------------------------------------------------===//
@@ -43,7 +44,7 @@ IndexExpr IndexExprContainer::CreateQuestionmarkIndexExpr() {
   return res.InitAsQuestionmark(this);
 }
 
-IndexExpr IndexExprContainer::CreateIntLitIndexExpr(int64_t val) {
+IndexExpr IndexExprContainer::CreateLiteralIndexExpr(int64_t val) {
   IndexExpr res;
   return res.InitAsIntLit(this, val);
 }
@@ -73,7 +74,7 @@ int IndexExprContainer::AddSymbol(Value value) {
   return symbols.size() - 1;
 }
 
-void IndexExprContainer::DimAndSymbolList(SmallVectorImpl<Value> &list) const {
+void IndexExprContainer::GetDimAndSymbolList(SmallVectorImpl<Value> &list) const {
   list.clear();
   for (auto dim : dims)
     list.emplace_back(dim);
@@ -151,7 +152,6 @@ IndexExpr &IndexExpr::InitAsDim(IndexExprContainer *newContainer, Value memref,
   return InitAsIntLit(newContainer, intVal);
 }
 
-// Private inits.
 IndexExpr &IndexExpr::Init(IndexExprContainer *newContainer, bool newIsDefined,
     bool newIsIntLit, bool newIsAffine, bool newIsSymbol, bool newIsDim,
     int newIntLit, AffineExpr newAffineExpr, Value newValue) {
@@ -214,14 +214,14 @@ bool IndexExpr::IsDefined() const {
   return isDefined;
 }
 
-bool IndexExpr::IsIntLit() const {
+bool IndexExpr::IsLiteral() const {
   assert(IsDefined());
   return isIntLit;
 }
 
 bool IndexExpr::IsQuestionmark() const {
   assert(IsDefined());
-  return !IsIntLit();
+  return !IsLiteral();
 }
 
 bool IndexExpr::IsAffine() const {
@@ -256,9 +256,9 @@ bool IndexExpr::HasValue() const {
   return !(!value);
 }
 
-bool IndexExpr::AreAllIntLit(SmallVectorImpl<IndexExpr> &list) {
+bool IndexExpr::AreAllLiteral(SmallVectorImpl<IndexExpr> &list) {
   for (auto index : list) {
-    if (!index.IsIntLit())
+    if (!index.IsLiteral())
       return false;
   }
   return true;
@@ -273,22 +273,17 @@ bool IndexExpr::AreAllAffine(SmallVectorImpl<IndexExpr> &list) {
 }
 
 //===----------------------------------------------------------------------===//
-// IndexExpr Getters / Setters.
+// IndexExpr Getters.
 //===----------------------------------------------------------------------===//
 
-int64_t IndexExpr::GetIntLit() const {
-  assert(IsIntLit());
+int64_t IndexExpr::GetLiteral() const {
+  assert(IsLiteral());
   return intLit;
-}
-
-void IndexExpr::SetIntLit(int64_t val) {
-  assert(IsIntLit()); // Should have been set properly by Init.
-  intLit = val;
 }
 
 AffineExpr IndexExpr::GetAffineExpr() {
   assert(!IsShapeInferencePass() && "cannot get affine during shape inference");
-  if (IsIntLit()) {
+  if (IsLiteral()) {
     // Create a literal.
     affineExpr = container->GetRewriter().getAffineConstantExpr(intLit);
   } else if (IsSymbol()) {
@@ -314,7 +309,7 @@ AffineExpr IndexExpr::GetAffineExpr() {
 
 Value IndexExpr::GetValue() {
   assert(!IsShapeInferencePass() && "cannot get affine during shape inference");
-  if (IsIntLit()) {
+  if (IsLiteral()) {
     // Create a litteral constant.
     value = container->GetRewriter().create<ConstantIndexOp>(
         container->GetLocation(), intLit);
@@ -328,7 +323,7 @@ Value IndexExpr::GetValue() {
     // We need to concatenate the dims and symbol into a single
     // list, and then use the apply.
     SmallVector<Value, 4> list;
-    container->DimAndSymbolList(list);
+    container->GetDimAndSymbolList(list);
     value = container->GetRewriter().create<AffineApplyOp>(
         container->GetLocation(), map, list);
   } else {
@@ -372,10 +367,10 @@ IndexExpr &IndexExpr::BinaryOp(IndexExpr &a, IndexExpr &b, bool affineWithLitA,
   assert(a.GetContainer() == b.GetContainer() && "incompatible containers");
   // Literal integer if a and b are literals. Affine if canBeAffine is true,
   // both a and b are affine, and possibly a and/or b are also constant.
-  bool resIsLit = a.IsIntLit() && b.IsIntLit();
+  bool resIsLit = a.IsLiteral() && b.IsLiteral();
   bool resIsAffine = resIsLit || (canBeAffine && a.IsAffine() && b.IsAffine() &&
-                                     (!affineWithLitA || a.IsIntLit()) &&
-                                     (!affineWithLitB || b.IsIntLit()));
+                                     (!affineWithLitA || a.IsLiteral()) &&
+                                     (!affineWithLitB || b.IsLiteral()));
 
   // We use now use the result of the above determination on whether the new
   // index is literal and/or affine.
@@ -403,7 +398,7 @@ IndexExpr &IndexExpr::TernaryOp(
          a.GetContainer() == c.GetContainer() && "incompatible containers");
   // Literal integer if a, b, and c are literals. Output is not affine (unless
   // all 3 are literals).
-  bool resIsLit = a.IsIntLit() && b.IsIntLit() && c.IsIntLit();
+  bool resIsLit = a.IsLiteral() && b.IsLiteral() && c.IsLiteral();
   // We use now use the result of the above determination on whether the new
   // index is literal and/or affine.
   if (resIsLit) {
@@ -427,7 +422,7 @@ IndexExpr &IndexExpr::QuaternarySelectOp(IndexExpr &compA, IndexExpr &compB,
          compA.GetContainer() == falseVal.GetContainer() &&
          "incompatible containers");
   // Check first if the test (ca & cb) can be evaluated at compile time.
-  if (compA.IsIntLit() && compB.IsIntLit()) {
+  if (compA.IsLiteral() && compB.IsLiteral()) {
     // Comparison will set the right const/affine depending on the input
     // selected, as the compare can be evaluated at compile time.
     litFct(*this, compA, compB, trueVal, falseVal);
@@ -450,19 +445,19 @@ IndexExpr &IndexExpr::ReductionOp(
   int size = vals.size();
   if (size == 0) {
     InitAsUndefined();
-    return;
+    return *this;
   }
   // Set the output to the first value.
   Copy(vals[0]);
   // If list has one element, we are done. Literal/Affine... will be the same as
   // this single element.
   if (vals.size() == 1)
-    return;
+    return *this;
   // Have multiple values, need to do some checks.
   bool resIsLit = true;
   bool resIsAffine = true;
   for (int i = 0; i < size; ++i) {
-    if (!vals[i].IsIntLit())
+    if (!vals[i].IsLiteral())
       resIsLit = false;
     if (!vals[i].IsAffine())
       resIsAffine = false;
@@ -495,7 +490,7 @@ IndexExpr &IndexExpr::ReductionOp(
 
 IndexExpr &IndexExpr::Add(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.InitAsIntLit(aa.GetContainer(), aa.GetIntLit() + bb.GetIntLit());
+    res.InitAsIntLit(aa.GetContainer(), aa.GetLiteral() + bb.GetLiteral());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.InitAsAffineExpr(
@@ -510,13 +505,13 @@ IndexExpr &IndexExpr::Add(IndexExpr &a, IndexExpr &b) {
 }
 
 IndexExpr &IndexExpr::Add(IndexExpr &a, int64_t b) {
-  IndexExpr bIndex = a.GetContainer()->CreateIntLitIndexExpr(b);
+  IndexExpr bIndex = a.GetContainer()->CreateLiteralIndexExpr(b);
   return Add(a, bIndex);
 }
 
 IndexExpr &IndexExpr::Sub(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.InitAsIntLit(aa.GetContainer(), aa.GetIntLit() - bb.GetIntLit());
+    res.InitAsIntLit(aa.GetContainer(), aa.GetLiteral() - bb.GetLiteral());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.InitAsAffineExpr(
@@ -531,26 +526,29 @@ IndexExpr &IndexExpr::Sub(IndexExpr &a, IndexExpr &b) {
 }
 
 IndexExpr &IndexExpr::Sub(IndexExpr &a, int64_t b) {
-  IndexExpr bIndex = a.GetContainer()->CreateIntLitIndexExpr(b);
+  IndexExpr bIndex = a.GetContainer()->CreateLiteralIndexExpr(b);
   return Sub(a, bIndex);
 }
 
 IndexExpr &IndexExpr::Sub(int64_t a, IndexExpr &b) {
-  IndexExpr aIndex = b.GetContainer()->CreateIntLitIndexExpr(a);
+  IndexExpr aIndex = b.GetContainer()->CreateLiteralIndexExpr(a);
   return Sub(aIndex, b);
 }
 
+// If one input is possibly a literal, place it in the first position (a).
 IndexExpr &IndexExpr::Mult(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.InitAsIntLit(aa.GetContainer(), aa.GetIntLit() * bb.GetIntLit());
+    res.InitAsIntLit(aa.GetContainer(), aa.GetLiteral() * bb.GetLiteral());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand aa must be a literal.
     res.InitAsAffineExpr(
-        aa.GetContainer(), bb.GetAffineExpr() * aa.GetIntLit());
+        aa.GetContainer(), bb.GetAffineExpr() * aa.GetLiteral());
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    if (bb.IsIntLit() && bb.GetIntLit() == 1) {
+    if (aa.IsLiteral() && aa.GetLiteral() == 1) {
+      res.Copy(bb);
+    } else if (bb.IsLiteral() && bb.GetLiteral() == 1) {
       res.Copy(aa);
     } else {
       res.InitAsValue(aa.GetContainer(),
@@ -562,19 +560,19 @@ IndexExpr &IndexExpr::Mult(IndexExpr &a, IndexExpr &b) {
   return BinaryOp(a, b, true, false, true, litFct, affineExprFct, valueFct);
 }
 
-IndexExpr &IndexExpr::Mult(IndexExpr &a, int64_t b) {
-  IndexExpr bIndex = a.GetContainer()->CreateIntLitIndexExpr(b);
-  return Mult(a, bIndex);
+IndexExpr &IndexExpr::Mult(int64_t a, IndexExpr &b) {
+  IndexExpr aIndex = b.GetContainer()->CreateLiteralIndexExpr(a);
+  return Mult(aIndex, b);
 }
 
 IndexExpr &IndexExpr::FloorDiv(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    int64_t rval = floor((1.0 * aa.GetIntLit()) / (1.0 * bb.GetIntLit()));
+    int64_t rval = floor((1.0 * aa.GetLiteral()) / (1.0 * bb.GetLiteral()));
     res.InitAsIntLit(aa.GetContainer(), rval);
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
-    int64_t bval = bb.GetIntLit();
+    int64_t bval = bb.GetLiteral();
     if (bval == 1) {
       res.Copy(aa);
     } else if (bval > 1) {
@@ -592,7 +590,7 @@ IndexExpr &IndexExpr::FloorDiv(IndexExpr &a, IndexExpr &b) {
     }
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    if (bb.IsIntLit() && bb.GetIntLit() == 1) {
+    if (bb.IsLiteral() && bb.GetLiteral() == 1) {
       res.Copy(aa);
     } else {
 #if CEIL_FLOOR_IN_STD
@@ -611,12 +609,12 @@ IndexExpr &IndexExpr::FloorDiv(IndexExpr &a, IndexExpr &b) {
 
 IndexExpr &IndexExpr::CeilDiv(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    int64_t rval = ceil((1.0 * aa.GetIntLit()) / (1.0 * bb.GetIntLit()));
+    int64_t rval = ceil((1.0 * aa.GetLiteral()) / (1.0 * bb.GetLiteral()));
     res.InitAsIntLit(aa.GetContainer(), rval);
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
-    int64_t bval = bb.GetIntLit();
+    int64_t bval = bb.GetLiteral();
     if (bval == 1) {
       res.Copy(aa);
     } else if (bval > 1) {
@@ -633,7 +631,7 @@ IndexExpr &IndexExpr::CeilDiv(IndexExpr &a, IndexExpr &b) {
     }
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    if (bb.IsIntLit() && bb.GetIntLit() == 1) {
+    if (bb.IsLiteral() && bb.GetLiteral() == 1) {
       res.Copy(aa);
     } else {
 #if CEIL_FLOOR_IN_STD
@@ -652,11 +650,11 @@ IndexExpr &IndexExpr::CeilDiv(IndexExpr &a, IndexExpr &b) {
 
 IndexExpr &IndexExpr::Mod(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.InitAsIntLit(aa.GetContainer(), mod(aa.GetIntLit(), bb.GetIntLit()));
+    res.InitAsIntLit(aa.GetContainer(), mod(aa.GetLiteral(), bb.GetLiteral()));
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
-    int64_t bval = bb.GetIntLit();
+    int64_t bval = bb.GetLiteral();
     if (bval >= 0) {
       res.InitAsAffineExpr(aa.GetContainer(), aa.GetAffineExpr() % bval);
     } else {
@@ -679,9 +677,9 @@ IndexExpr &IndexExpr::Clamp(IndexExpr &val, IndexExpr &min, IndexExpr &max) {
   F3 litFct = [&](IndexExpr &res, IndexExpr &val, IndexExpr &min,
                   IndexExpr &max) {
     // assume signed compares
-    int64_t smin = min.GetIntLit();
-    int64_t smax = max.GetIntLit();
-    int64_t sval = val.GetIntLit();
+    int64_t smin = min.GetLiteral();
+    int64_t smax = max.GetLiteral();
+    int64_t sval = val.GetLiteral();
     if (sval < smin)
       sval = smin;
     if (sval > smax)
@@ -699,7 +697,7 @@ IndexExpr &IndexExpr::Clamp(IndexExpr &val, IndexExpr &min, IndexExpr &max) {
 }
 
 IndexExpr &IndexExpr::Clamp(IndexExpr &val, int64_t min, IndexExpr &max) {
-  IndexExpr minIndex = val.GetContainer()->CreateIntLitIndexExpr(min);
+  IndexExpr minIndex = val.GetContainer()->CreateLiteralIndexExpr(min);
   return Clamp(val, minIndex, max);
 }
 
@@ -707,8 +705,8 @@ IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
     IndexExpr &condB, IndexExpr &trueVal, IndexExpr &falseVal) {
   F4 litFct = [&](IndexExpr &res, IndexExpr &ca, IndexExpr &cb, IndexExpr &tv,
                   IndexExpr &fv) {
-    int64_t sca = ca.GetIntLit();
-    int64_t scb = cb.GetIntLit();
+    int64_t sca = ca.GetLiteral();
+    int64_t scb = cb.GetLiteral();
     uint64_t uca = (uint64_t)sca;
     uint64_t ucb = (uint64_t)scb;
     switch (comparePred) {
@@ -789,26 +787,26 @@ IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
 
 IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
     int64_t condB, IndexExpr &trueVal, IndexExpr &falseVal) {
-  IndexExpr condBIndex = condA.GetContainer()->CreateIntLitIndexExpr(condB);
+  IndexExpr condBIndex = condA.GetContainer()->CreateLiteralIndexExpr(condB);
   return Select(condA, comparePred, condBIndex, trueVal, falseVal);
 }
 
 IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
     int64_t condB, int64_t trueVal, IndexExpr &falseVal) {
-  IndexExpr condBIndex = condA.GetContainer()->CreateIntLitIndexExpr(condB);
-  IndexExpr trueValIndex = condA.GetContainer()->CreateIntLitIndexExpr(trueVal);
+  IndexExpr condBIndex = condA.GetContainer()->CreateLiteralIndexExpr(condB);
+  IndexExpr trueValIndex = condA.GetContainer()->CreateLiteralIndexExpr(trueVal);
   return Select(condA, comparePred, condBIndex, trueValIndex, falseVal);
 }
 
-IndexExpr & IndexExpr::Min(SmallVectorImpl<IndexExpr> &vals) {
+IndexExpr &IndexExpr::Min(SmallVectorImpl<IndexExpr> &vals) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    auto aaa = aa.GetIntLit();
-    auto bbb = bb.GetIntLit();
+    auto aaa = aa.GetLiteral();
+    auto bbb = bb.GetLiteral();
     res.InitAsIntLit(aa.GetContainer(), (aaa < bbb) ? aaa : bbb);
   };
   Flist affineExprFct = [&](IndexExpr &res, SmallVectorImpl<IndexExpr> &vvals) {
     // Create a list of affine expression
-    assert(vvals.size()>1 && "come here only with 2 or more values");
+    assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
     for (IndexExpr &vv : vvals) {
       affineExprs.emplace_back(vv.GetAffineExpr());
@@ -821,32 +819,30 @@ IndexExpr & IndexExpr::Min(SmallVectorImpl<IndexExpr> &vals) {
     AffineMap map = AffineMap::get(dimNum, symNum, affineExprs, context);
     // Compute the min value out of this map.
     SmallVector<Value, 4> dimAndSymList;
-    currContainer->DimAndSymbolList(dimAndSymList);
+    currContainer->GetDimAndSymbolList(dimAndSymList);
     Value minVal = currContainer->GetRewriter().create<AffineMinOp>(
         vvals[0].GetLocation(), map, dimAndSymList);
     res.InitAsValue(container, minVal);
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    Value compareVal =
-        aa.GetContainer()->GetRewriter().create<CmpIOp>(aa.GetLocation(),
-            CmpIPredicate::slt, aa.GetValue(), bb.GetValue());
-    Value resVal =
-        aa.GetContainer()->GetRewriter().create<SelectOp>(aa.GetLocation(),
-            compareVal, aa.GetValue(), bb.GetValue());
+    Value compareVal = aa.GetContainer()->GetRewriter().create<CmpIOp>(
+        aa.GetLocation(), CmpIPredicate::slt, aa.GetValue(), bb.GetValue());
+    Value resVal = aa.GetContainer()->GetRewriter().create<SelectOp>(
+        aa.GetLocation(), compareVal, aa.GetValue(), bb.GetValue());
     res.InitAsValue(aa.GetContainer(), resVal);
   };
   return ReductionOp(vals, litFct, affineExprFct, valueFct);
 }
 
-IndexExpr & IndexExpr::Max(SmallVectorImpl<IndexExpr> &vals) {
+IndexExpr &IndexExpr::Max(SmallVectorImpl<IndexExpr> &vals) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    auto aaa = aa.GetIntLit();
-    auto bbb = bb.GetIntLit();
+    auto aaa = aa.GetLiteral();
+    auto bbb = bb.GetLiteral();
     res.InitAsIntLit(aa.GetContainer(), (aaa > bbb) ? aaa : bbb);
   };
   Flist affineExprFct = [&](IndexExpr &res, SmallVectorImpl<IndexExpr> &vvals) {
     // Create a list of affine expression
-    assert(vvals.size()>1 && "come here only with 2 or more values");
+    assert(vvals.size() > 1 && "come here only with 2 or more values");
     SmallVector<AffineExpr, 4> affineExprs;
     for (IndexExpr &vv : vvals) {
       affineExprs.emplace_back(vv.GetAffineExpr());
@@ -859,18 +855,16 @@ IndexExpr & IndexExpr::Max(SmallVectorImpl<IndexExpr> &vals) {
     AffineMap map = AffineMap::get(dimNum, symNum, affineExprs, context);
     // Compute the min value out of this map.
     SmallVector<Value, 4> dimAndSymList;
-    currContainer->DimAndSymbolList(dimAndSymList);
+    currContainer->GetDimAndSymbolList(dimAndSymList);
     Value minVal = currContainer->GetRewriter().create<AffineMaxOp>(
         vvals[0].GetLocation(), map, dimAndSymList);
     res.InitAsValue(container, minVal);
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    Value compareVal =
-        aa.GetContainer()->GetRewriter().create<CmpIOp>(aa.GetLocation(),
-            CmpIPredicate::sgt, aa.GetValue(), bb.GetValue());
-    Value resVal =
-        aa.GetContainer()->GetRewriter().create<SelectOp>(aa.GetLocation(),
-            compareVal, aa.GetValue(), bb.GetValue());
+    Value compareVal = aa.GetContainer()->GetRewriter().create<CmpIOp>(
+        aa.GetLocation(), CmpIPredicate::sgt, aa.GetValue(), bb.GetValue());
+    Value resVal = aa.GetContainer()->GetRewriter().create<SelectOp>(
+        aa.GetLocation(), compareVal, aa.GetValue(), bb.GetValue());
     res.InitAsValue(aa.GetContainer(), resVal);
   };
   return ReductionOp(vals, litFct, affineExprFct, valueFct);

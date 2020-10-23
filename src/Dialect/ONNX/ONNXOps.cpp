@@ -2878,8 +2878,8 @@ LogicalResult ONNXSliceOp::inferShapes() {
     // Has constant output dims, use them.
     SmallVector<int64_t, 2> outputDims;
     for (auto dimIE : outputDimsIEV) {
-      assert(dimIE.IsIntLit());
-      outputDims.emplace_back(dimIE.GetIntLit());
+      assert(dimIE.IsLiteral());
+      outputDims.emplace_back(dimIE.GetLiteral());
     }
     getResult().setType(RankedTensorType::get(outputDims, elementType));
   }
