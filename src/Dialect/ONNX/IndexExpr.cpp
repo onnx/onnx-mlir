@@ -11,13 +11,14 @@
 
 // both debug variables will be removed once debugging is complete.
 #define DEBUG 0
-#define CEIL_FLOOR_IN_STD 0
+#define CEIL_FLOOR_IN_STD 1
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
@@ -59,49 +60,64 @@ IndexExprContext::IndexExprContext(
 // IndexExprContext builder for IndexExpr.
 //===----------------------------------------------------------------------===//
 
-IndexExpr IndexExprContext::CreateUndefinedIndexExpr() {
+IndexExpr IndexExprContext::CreateUndefinedIndex() {
   IndexExpr res;
   return res.InitAsUndefined();
 }
 
-IndexExpr IndexExprContext::CreateQuestionmarkIndexExpr() {
+IndexExpr IndexExprContext::CreateQuestionmarkIndex() {
   IndexExpr res;
-  return res.InitAsQuestionmark(this);
+  return res.InitAsQuestionmark(*this);
 }
 
-IndexExpr IndexExprContext::CreateLiteralIndexExpr(int64_t val) {
+IndexExpr IndexExprContext::CreateLiteralIndex(int64_t val) {
   IndexExpr res;
-  return res.InitAsIntLit(this, val);
+  return res.InitAsLiteral(*this, val);
 }
 
-IndexExpr IndexExprContext::CreateDimIndexExpr(Value val) {
+IndexExpr IndexExprContext::CreateDimIndex(Value val) {
   IndexExpr res;
-  return res.InitAsDim(this, val);
+  return res.InitAsDim(*this, val);
 }
 
-IndexExpr IndexExprContext::CreateDimIndexExpr(
+IndexExpr IndexExprContext::CreateDimIndexFromMemref(
     Value memref, ArrayRef<int64_t> memrefShape, int index) {
   IndexExpr res;
-  return res.InitAsDim(this, memref, memrefShape, index);
+  return res.InitAsDimFromMemref(*this, memref, memrefShape, index);
 }
 
-IndexExpr IndexExprContext::CreateSymbolIndexExpr(Value val) {
+IndexExpr IndexExprContext::CreateSymbolIndexFromArrayAtIndex(
+    Operation *op, Value arrayOperand, uint64_t index) {
   IndexExpr res;
-  return res.InitAsSymbol(this, val);
+  return res.InitAsSymbolFromArrayAtIndex(*this, op, arrayOperand, index);
+}
+
+IndexExpr IndexExprContext::CreateSymbolIndexFromArrayAtIndex(
+    Operation *op, Value arrayOperand, uint64_t index, int64_t defaultLiteral) {
+  IndexExpr res;
+  return res.InitAsSymbolFromArrayAtIndex(
+      *this, op, arrayOperand, index, defaultLiteral);
+}
+
+IndexExpr IndexExprContext::CreateSymbolIndex(Value val) {
+  IndexExpr res;
+  return res.InitAsSymbol(*this, val);
 }
 
 // Additional builder for repurposing IndexExpr from parent context.
-IndexExpr IndexExprContext::CreateSymbolFromParentContext(
+IndexExpr IndexExprContext::CreateSymbolIndexFromParentContext(
     IndexExpr &parentIndexExpr) {
   if (!IsReusingParentContext()) {
     // We are not reusing the parent context; we wil just extract the value from
     // the parent index expression and inject it here as a symbol. By creating
     // it using the normal CreateSymbolIndexExpr, it will get associated with
     // the child's context.
-    return CreateSymbolIndexExpr(parentIndexExpr.GetValue());
+    return CreateSymbolIndex(parentIndexExpr.GetValue());
   }
   // We are now reusing the parent IndexExpr, but we must reset it's context to
   // the child's one.
+  assert(parentIndexExpr.GetContextPtr() == parentContext &&
+         "parent index is not from the parent's context");
   IndexExpr childIndexExpr(parentIndexExpr);
   childIndexExpr.SetContext(*this);
   return childIndexExpr;
@@ -139,7 +155,7 @@ ConversionPatternRewriter &IndexExprContext::GetRewriter() const {
 }
 
 //===----------------------------------------------------------------------===//
-// IndexExpr constructors, initializers, and copy.
+// IndexExpr constructors, initializers
 //===----------------------------------------------------------------------===//
 
 IndexExpr::IndexExpr()
@@ -153,59 +169,43 @@ IndexExpr &IndexExpr::InitAsUndefined() {
       AffineExpr(nullptr), Value(nullptr));
 }
 
-IndexExpr &IndexExpr::InitAsQuestionmark(IndexExprContext *newContext) {
-  return Init(newContext, /*isDefined*/ true, /*isIntLit*/ false,
+IndexExpr &IndexExpr::InitAsQuestionmark(IndexExprContext &newContext) {
+  return Init(&newContext, /*isDefined*/ true, /*isIntLit*/ false,
       /*isAffine*/ true, /*isSymbol*/ false, /*isDim*/ false, 0,
       AffineExpr(nullptr), Value(nullptr));
 }
 
-IndexExpr &IndexExpr::InitAsIntLit(IndexExprContext *newContext, int64_t val) {
-  return Init(newContext, /*isDefined*/ true, /*isIntLit*/ true,
+IndexExpr &IndexExpr::InitAsLiteral(IndexExprContext &newContext, int64_t val) {
+  return Init(&newContext, /*isDefined*/ true, /*isIntLit*/ true,
       /*isAffine*/ true, /*isSymbol*/ false, /*isDim*/ false, val,
       AffineExpr(nullptr), Value(nullptr));
 }
 
-IndexExpr &IndexExpr::InitAsDim(IndexExprContext *newContext, Value val) {
-  return InitAsValueOrIntLit(
+IndexExpr &IndexExpr::InitAsDim(IndexExprContext &newContext, Value val) {
+  return InitAsLitQuestionmarkOrValue(
       newContext, val, /*isAffine*/ true, /*isSymbol*/ false, /*isDim*/ true);
 }
 
-IndexExpr &IndexExpr::InitAsSymbol(IndexExprContext *newContext, Value val) {
-  return InitAsValueOrIntLit(
+IndexExpr &IndexExpr::InitAsSymbol(IndexExprContext &newContext, Value val) {
+  return InitAsLitQuestionmarkOrValue(
       newContext, val, /*isAffine*/ true, /*isSymbol*/ true, /*isDim*/ false);
 }
 
-IndexExpr &IndexExpr::InitAsAffineExpr(
-    IndexExprContext *newContext, AffineExpr val) {
-  return Init(newContext, /*isDefined*/ true, /*isIntLit*/ false,
-      /*isAffine*/ true, /*isSymbol*/ false, /*isDim*/ false, 0,
-      AffineExpr(val), Value(nullptr));
-}
-
-IndexExpr &IndexExpr::InitAsValue(IndexExprContext *newContext, Value val) {
-  return InitAsValueOrIntLit(newContext, val, /*isAffine*/ false,
+IndexExpr &IndexExpr::InitAsValue(IndexExprContext &newContext, Value val) {
+  return InitAsLitQuestionmarkOrValue(newContext, val, /*isAffine*/ false,
       /*isSymbol*/ false, /*isDim*/ false);
 }
 
-IndexExpr &IndexExpr::InitAsDim(IndexExprContext *newContext, Value memref,
-    ArrayRef<int64_t> memrefShape, int index) {
-  if (memrefShape[index] < 0) {
-    // We have a dynamic dimension.
-    assert(newContext && "expected a context");
-    Value dynVal = newContext->GetRewriter().create<DimOp>(
-        newContext->GetLocation(), memref, index);
-    return InitAsDim(newContext, dynVal);
-  }
-  // We have a constant dimension.
-  int64_t intVal = memrefShape[index];
-  return InitAsIntLit(newContext, intVal);
+IndexExpr &IndexExpr::InitAsAffineExpr(
+    IndexExprContext &newContext, AffineExpr val) {
+  return Init(&newContext, /*isDefined*/ true, /*isIntLit*/ false,
+      /*isAffine*/ true, /*isSymbol*/ false, /*isDim*/ false, 0,
+      AffineExpr(val), Value(nullptr));
 }
 
 IndexExpr &IndexExpr::Init(IndexExprContext *newContext, bool newIsDefined,
     bool newIsIntLit, bool newIsAffine, bool newIsSymbol, bool newIsDim,
     int newIntLit, AffineExpr newAffineExpr, Value newValue) {
-  if (newIsDefined)
-    assert(newContext && "defined expressions need a context");
   context = newContext;
   isDefined = newIsDefined;
   isIntLit = newIsIntLit;
@@ -218,23 +218,25 @@ IndexExpr &IndexExpr::Init(IndexExprContext *newContext, bool newIsDefined,
   return *this;
 }
 
-IndexExpr &IndexExpr::InitAsValueOrIntLit(IndexExprContext *newContext,
+IndexExpr &IndexExpr::InitAsLitQuestionmarkOrValue(IndexExprContext &newContext,
     Value val, bool newIsAfine, bool newIsSymbol, bool newIsDim) {
   // Do we have a literal integer, if we do, handle it now.
   int64_t valIntLit;
   if (getIntegerLiteralFromValue(val, valIntLit)) {
     // We have an integer. No need for symbol or dim. It is by default affine.
-    return InitAsIntLit(newContext, valIntLit);
+    return InitAsLiteral(newContext, valIntLit);
   }
-  // We have a value, check if it is of the right type.
+  // We have a value that is not a literal.
+  if (newContext.IsShapeInferencePass()) {
+    return InitAsQuestionmark(newContext);
+  }
+  // Check that the value is of the right type.
   auto type = val.getType();
   if (type.isa<IntegerType>()) {
     // We need to convert the int into an index, since we are dealing with index
     // expressions.
-    assert(newContext && "defined expressions need a context");
-    val =
-        newContext->GetRewriter().create<IndexCastOp>(newContext->GetLocation(),
-            newContext->GetRewriter().getIndexType(), val);
+    val = newContext.GetRewriter().create<IndexCastOp>(
+        newContext.GetLocation(), newContext.GetRewriter().getIndexType(), val);
   } else {
     assert(type.isa<IndexType>() && "unsupported element type");
   }
@@ -242,9 +244,88 @@ IndexExpr &IndexExpr::InitAsValueOrIntLit(IndexExprContext *newContext,
   // GetAffineExpr.
   assert(!(newIsDim && newIsSymbol) &&
          "cannot have dim and symbol at the same time");
-  return Init(newContext, /*isDefined*/ true, /*isIntLit*/ false,
+  return Init(&newContext, /*isDefined*/ true, /*isIntLit*/ false,
       /*isAffine*/ newIsAfine, /*isSymbol*/ newIsSymbol, /*isDim*/ newIsDim, 0,
       AffineExpr(nullptr), val);
+}
+
+//===----------------------------------------------------------------------===//
+// IndexExpr initializers that extract info
+//===----------------------------------------------------------------------===//
+
+IndexExpr &IndexExpr::InitAsDimFromMemref(IndexExprContext &newContext,
+    Value memref, ArrayRef<int64_t> memrefShape, int index) {
+  if (memrefShape[index] >= 0) {
+    // We have a constant dimension.
+    int64_t intVal = memrefShape[index];
+    return InitAsLiteral(newContext, intVal);
+  }
+  // We have a dynamic dimension.
+  if (newContext.IsShapeInferencePass()) {
+    return InitAsQuestionmark(newContext);
+  }
+  Value dynVal = newContext.GetRewriter().create<DimOp>(
+      newContext.GetLocation(), memref, index);
+  return InitAsDim(newContext, dynVal);
+}
+
+IndexExpr &IndexExpr::InitAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
+    Operation *op, Value arrayOperand, uint64_t i) {
+  if (auto attrArray = getDenseElementAttributeFromValue(arrayOperand)) {
+    // We extracted an dense attribute from definition of operand.
+    if (i >= attrArray.getType().getDimSize(0)) {
+      printf("error 1\n");
+      op->emitError("operand literal has wrong shape");
+      return InitAsUndefined();
+    }
+    auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
+    int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
+    return InitAsLiteral(newContext, attrInt);
+  }
+  // We must read value from an array.
+  if (newContext.IsShapeInferencePass()) {
+    // Not a constant; don't add code.
+    return InitAsQuestionmark(newContext);
+  }
+  // Emit code to rad array.
+  Value indexVal = emitConstantOp(newContext.GetRewriter(),
+      newContext.GetLocation(), newContext.GetRewriter().getIndexType(), i);
+  SmallVector<Value, 1> memrefVal = {indexVal};
+  Value loadVal = newContext.GetRewriter().create<AffineLoadOp>(
+      newContext.GetLocation(), arrayOperand, memrefVal);
+  return InitAsSymbol(newContext, loadVal);
+}
+
+IndexExpr &IndexExpr::InitAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
+    Operation *op, Value arrayOperand, uint64_t i, int64_t defaultLiteral) {
+  // Check if we have an operand.
+  if (arrayOperand.getType().isa<NoneType>()) {
+    // Operand undefined, we use the default value.
+    return InitAsLiteral(newContext, defaultLiteral);
+  }
+  if (auto attrArray = getDenseElementAttributeFromValue(arrayOperand)) {
+    // We extracted an dense attribute from definition of operand.
+    if (i > attrArray.getType().getDimSize(0)) {
+      // Not enought attributes for this index, return the default value.
+      return InitAsLiteral(newContext, defaultLiteral);
+    }
+    // We have enought attributes for this index, get the value.
+    Attribute attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
+    int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
+    return InitAsLiteral(newContext, attrInt);
+  }
+  // Read the value from an array.
+  if (newContext.IsShapeInferencePass()) {
+    // Not a constant; don't add code.
+    return InitAsQuestionmark(newContext);
+  }
+  // Emit the code to read array.
+  Value indexVal = emitConstantOp(newContext.GetRewriter(),
+      newContext.GetLocation(), newContext.GetRewriter().getIndexType(), i);
+  SmallVector<Value, 1> memrefVal = {indexVal};
+  Value loadVal = newContext.GetRewriter().create<AffineLoadOp>(
+      newContext.GetLocation(), arrayOperand, memrefVal);
+  return InitAsSymbol(newContext, loadVal);
 }
 
 //===----------------------------------------------------------------------===//
@@ -389,12 +470,17 @@ Value IndexExpr::GetValue() {
   return value;
 }
 
-IndexExprContext *IndexExpr::GetContext() const {
+IndexExprContext &IndexExpr::GetContext() const {
+  assert(HasContext());
+  return *context;
+}
+
+IndexExprContext *IndexExpr::GetContextPtr() const {
   assert(HasContext());
   return context;
 }
 
-Location IndexExpr::GetLocation() const { return GetContext()->GetLocation(); }
+Location IndexExpr::GetLocation() const { return GetContext().GetLocation(); }
 
 void IndexExpr::DebugPrint(const std::string &msg) {
 #if DEBUG
@@ -418,7 +504,7 @@ void IndexExpr::DebugPrint(const std::string &msg) {
 // Used for Add/Sub/Mult/CeilDiv/FloorDiv
 IndexExpr &IndexExpr::BinaryOp(IndexExpr &a, IndexExpr &b, bool affineWithLitB,
     bool canBeAffine, F2 litFct, F2 affineExprFct, F2 valueFct) {
-  assert(a.GetContext() == b.GetContext() && "incompatible contexts");
+  assert(a.GetContextPtr() == b.GetContextPtr() && "incompatible contexts");
   // Literal integer if a and b are literals. Affine if canBeAffine is true,
   // both a and b are affine, and possibly a and/or b are also constant.
   bool resIsLit = a.IsLiteral() && b.IsLiteral();
@@ -447,8 +533,8 @@ IndexExpr &IndexExpr::BinaryOp(IndexExpr &a, IndexExpr &b, bool affineWithLitB,
 // Used for Clamp.
 IndexExpr &IndexExpr::TernaryOp(
     IndexExpr &a, IndexExpr &b, IndexExpr &c, F3 litFct, F3 valueFct) {
-  assert(a.GetContext() == b.GetContext() && a.GetContext() == c.GetContext() &&
-         "incompatible contexts");
+  assert(a.GetContextPtr() == b.GetContextPtr() &&
+         a.GetContextPtr() == c.GetContextPtr() && "incompatible contexts");
   // Literal integer if a, b, and c are literals. Output is not affine (unless
   // all 3 are literals).
   bool resIsLit = a.IsLiteral() && b.IsLiteral() && c.IsLiteral();
@@ -470,9 +556,9 @@ IndexExpr &IndexExpr::TernaryOp(
 
 IndexExpr &IndexExpr::QuaternarySelectOp(IndexExpr &compA, IndexExpr &compB,
     IndexExpr &trueVal, IndexExpr &falseVal, F4 litFct, F4 valueFct) {
-  assert(compA.GetContext() == compB.GetContext() &&
-         compA.GetContext() == trueVal.GetContext() &&
-         compA.GetContext() == falseVal.GetContext() &&
+  assert(compA.GetContextPtr() == compB.GetContextPtr() &&
+         compA.GetContextPtr() == trueVal.GetContextPtr() &&
+         compA.GetContextPtr() == falseVal.GetContextPtr() &&
          "incompatible contexts");
   // Check first if the test (ca & cb) can be evaluated at compile time.
   if (compA.IsLiteral() && compB.IsLiteral()) {
@@ -514,7 +600,7 @@ IndexExpr &IndexExpr::ReductionOp(
       resIsLit = false;
     if (!vals[i].IsAffine())
       resIsAffine = false;
-    assert(vals[0].GetContext() == vals[i].GetContext() &&
+    assert(vals[0].GetContextPtr() == vals[i].GetContextPtr() &&
            "incompatible contexts");
   }
   if (resIsLit) {
@@ -543,7 +629,7 @@ IndexExpr &IndexExpr::ReductionOp(
 
 IndexExpr &IndexExpr::Add(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.InitAsIntLit(aa.GetContext(), aa.GetLiteral() + bb.GetLiteral());
+    res.InitAsLiteral(aa.GetContext(), aa.GetLiteral() + bb.GetLiteral());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.InitAsAffineExpr(
@@ -551,7 +637,7 @@ IndexExpr &IndexExpr::Add(IndexExpr &a, IndexExpr &b) {
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.InitAsValue(
-        aa.GetContext(), aa.GetContext()->GetRewriter().create<AddIOp>(
+        aa.GetContext(), aa.GetContext().GetRewriter().create<AddIOp>(
                              aa.GetLocation(), aa.GetValue(), bb.GetValue()));
   };
   return BinaryOp(a, b, false, true, litFct, affineExprFct, valueFct);
@@ -559,7 +645,7 @@ IndexExpr &IndexExpr::Add(IndexExpr &a, IndexExpr &b) {
 
 IndexExpr &IndexExpr::Sub(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.InitAsIntLit(aa.GetContext(), aa.GetLiteral() - bb.GetLiteral());
+    res.InitAsLiteral(aa.GetContext(), aa.GetLiteral() - bb.GetLiteral());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.InitAsAffineExpr(
@@ -567,7 +653,7 @@ IndexExpr &IndexExpr::Sub(IndexExpr &a, IndexExpr &b) {
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.InitAsValue(
-        aa.GetContext(), aa.GetContext()->GetRewriter().create<SubIOp>(
+        aa.GetContext(), aa.GetContext().GetRewriter().create<SubIOp>(
                              aa.GetLocation(), aa.GetValue(), bb.GetValue()));
   };
   return BinaryOp(a, b, false, true, litFct, affineExprFct, valueFct);
@@ -577,7 +663,7 @@ IndexExpr &IndexExpr::Mult(IndexExpr &a, IndexExpr &b) {
   // In the lambda function below, if one is literal, it is assumed that it is
   // in the second position (b).
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.InitAsIntLit(aa.GetContext(), aa.GetLiteral() * bb.GetLiteral());
+    res.InitAsLiteral(aa.GetContext(), aa.GetLiteral() * bb.GetLiteral());
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand aa must be a literal.
@@ -588,7 +674,7 @@ IndexExpr &IndexExpr::Mult(IndexExpr &a, IndexExpr &b) {
       res.Copy(aa);
     } else {
       res.InitAsValue(
-          aa.GetContext(), aa.GetContext()->GetRewriter().create<MulIOp>(
+          aa.GetContext(), aa.GetContext().GetRewriter().create<MulIOp>(
                                aa.GetLocation(), aa.GetValue(), bb.GetValue()));
     }
   };
@@ -601,7 +687,7 @@ IndexExpr &IndexExpr::Mult(IndexExpr &a, IndexExpr &b) {
 IndexExpr &IndexExpr::FloorDiv(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     int64_t rval = floor((1.0 * aa.GetLiteral()) / (1.0 * bb.GetLiteral()));
-    res.InitAsIntLit(aa.GetContext(), rval);
+    res.InitAsLiteral(aa.GetContext(), rval);
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
@@ -613,7 +699,7 @@ IndexExpr &IndexExpr::FloorDiv(IndexExpr &a, IndexExpr &b) {
     } else {
 #if CEIL_FLOOR_IN_STD
       res.InitAsValue(aa.GetContext(),
-          aa.GetContext()->GetRewriter().create<SignedFloorDivIOp>(
+          aa.GetContext().GetRewriter().create<SignedFloorDivIOp>(
               aa.GetLocation(), aa.GetValue(), bb.GetValue()));
 #else
       llvm_unreachable("not implemented yet, wait for the new LLVM/MLIR "
@@ -627,7 +713,7 @@ IndexExpr &IndexExpr::FloorDiv(IndexExpr &a, IndexExpr &b) {
     } else {
 #if CEIL_FLOOR_IN_STD
       res.InitAsValue(aa.GetContext(),
-          aa.GetContext()->GetRewriter().create<SignedFloorDivIOp>(
+          aa.GetContext().GetRewriter().create<SignedFloorDivIOp>(
               aa.GetLocation(), aa.GetValue(), bb.GetValue()));
 #else
       llvm_unreachable("not implemented yet, wait for the new LLVM/MLIR "
@@ -642,7 +728,7 @@ IndexExpr &IndexExpr::FloorDiv(IndexExpr &a, IndexExpr &b) {
 IndexExpr &IndexExpr::CeilDiv(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     int64_t rval = ceil((1.0 * aa.GetLiteral()) / (1.0 * bb.GetLiteral()));
-    res.InitAsIntLit(aa.GetContext(), rval);
+    res.InitAsLiteral(aa.GetContext(), rval);
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
@@ -654,7 +740,7 @@ IndexExpr &IndexExpr::CeilDiv(IndexExpr &a, IndexExpr &b) {
     } else {
 #if CEIL_FLOOR_IN_STD
       res.InitAsValue(aa.GetContext(),
-          aa.GetContext()->GetRewriter().create<SignedCeilDivIOp>(
+          aa.GetContext().GetRewriter().create<SignedCeilDivIOp>(
               aa.GetLocation(), aa.GetValue(), bb.GetValue()));
 #else
       llvm_unreachable(
@@ -668,7 +754,7 @@ IndexExpr &IndexExpr::CeilDiv(IndexExpr &a, IndexExpr &b) {
     } else {
 #if CEIL_FLOOR_IN_STD
       res.InitAsValue(aa.GetContext(),
-          aa.GetContext()->GetRewriter().create<SignedCeilDivIOp>(
+          aa.GetContext().GetRewriter().create<SignedCeilDivIOp>(
               aa.GetLocation(), aa.GetValue(), bb.GetValue()));
 #else
       llvm_unreachable(
@@ -682,7 +768,7 @@ IndexExpr &IndexExpr::CeilDiv(IndexExpr &a, IndexExpr &b) {
 
 IndexExpr &IndexExpr::Mod(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.InitAsIntLit(aa.GetContext(), mod(aa.GetLiteral(), bb.GetLiteral()));
+    res.InitAsLiteral(aa.GetContext(), mod(aa.GetLiteral(), bb.GetLiteral()));
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
@@ -691,13 +777,13 @@ IndexExpr &IndexExpr::Mod(IndexExpr &a, IndexExpr &b) {
       res.InitAsAffineExpr(aa.GetContext(), aa.GetAffineExpr() % bval);
     } else {
       res.InitAsValue(
-          aa.GetContext(), aa.GetContext()->GetRewriter().create<SignedRemIOp>(
+          aa.GetContext(), aa.GetContext().GetRewriter().create<SignedRemIOp>(
                                aa.GetLocation(), aa.GetValue(), bb.GetValue()));
     }
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     res.InitAsValue(
-        aa.GetContext(), aa.GetContext()->GetRewriter().create<SignedRemIOp>(
+        aa.GetContext(), aa.GetContext().GetRewriter().create<SignedRemIOp>(
                              aa.GetLocation(), aa.GetValue(), bb.GetValue()));
   };
   // Index b must be a literal.
@@ -716,7 +802,7 @@ IndexExpr &IndexExpr::Clamp(IndexExpr &val, IndexExpr &min, IndexExpr &max) {
       sval = smin;
     if (sval > smax)
       sval = smax;
-    res.InitAsIntLit(val.GetContext(), sval);
+    res.InitAsLiteral(val.GetContext(), sval);
   };
   F3 valueFct = [&](IndexExpr &res, IndexExpr &val, IndexExpr &min,
                     IndexExpr &max) {
@@ -803,9 +889,9 @@ IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
   };
   F4 valueFct = [&](IndexExpr &res, IndexExpr &ca, IndexExpr &cb, IndexExpr &tv,
                     IndexExpr &fv) {
-    Value compare = ca.GetContext()->GetRewriter().create<CmpIOp>(
+    Value compare = ca.GetContext().GetRewriter().create<CmpIOp>(
         ca.GetLocation(), comparePred, ca.GetValue(), cb.GetValue());
-    Value results = ca.GetContext()->GetRewriter().create<SelectOp>(
+    Value results = ca.GetContext().GetRewriter().create<SelectOp>(
         ca.GetLocation(), compare, tv.GetValue(), fv.GetValue());
     res.InitAsValue(ca.GetContext(), results);
   };
@@ -816,7 +902,7 @@ IndexExpr &IndexExpr::Min(SmallVectorImpl<IndexExpr> &vals) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     auto aaa = aa.GetLiteral();
     auto bbb = bb.GetLiteral();
-    res.InitAsIntLit(aa.GetContext(), (aaa < bbb) ? aaa : bbb);
+    res.InitAsLiteral(aa.GetContext(), (aaa < bbb) ? aaa : bbb);
   };
   Flist affineExprFct = [&](IndexExpr &res, SmallVectorImpl<IndexExpr> &vvals) {
     // Create a list of affine expression
@@ -826,22 +912,22 @@ IndexExpr &IndexExpr::Min(SmallVectorImpl<IndexExpr> &vals) {
       affineExprs.emplace_back(vv.GetAffineExpr());
     }
     // Compute a map including the list of affine expressions.
-    IndexExprContext *currContext = vvals[0].GetContext();
-    int dimNum = currContext->GetDimSize();
-    int symNum = currContext->GetSymbolSize();
-    auto mapContext = currContext->GetRewriter().getContext();
+    IndexExprContext &currContext = vvals[0].GetContext();
+    int dimNum = currContext.GetDimSize();
+    int symNum = currContext.GetSymbolSize();
+    auto mapContext = currContext.GetRewriter().getContext();
     AffineMap map = AffineMap::get(dimNum, symNum, affineExprs, mapContext);
     // Compute the min value out of this map.
     SmallVector<Value, 4> dimAndSymList;
-    currContext->GetDimAndSymbolList(dimAndSymList);
-    Value minVal = currContext->GetRewriter().create<AffineMinOp>(
+    currContext.GetDimAndSymbolList(dimAndSymList);
+    Value minVal = currContext.GetRewriter().create<AffineMinOp>(
         vvals[0].GetLocation(), map, dimAndSymList);
-    res.InitAsValue(context, minVal);
+    res.InitAsValue(currContext, minVal);
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    Value compareVal = aa.GetContext()->GetRewriter().create<CmpIOp>(
+    Value compareVal = aa.GetContext().GetRewriter().create<CmpIOp>(
         aa.GetLocation(), CmpIPredicate::slt, aa.GetValue(), bb.GetValue());
-    Value resVal = aa.GetContext()->GetRewriter().create<SelectOp>(
+    Value resVal = aa.GetContext().GetRewriter().create<SelectOp>(
         aa.GetLocation(), compareVal, aa.GetValue(), bb.GetValue());
     res.InitAsValue(aa.GetContext(), resVal);
   };
@@ -852,7 +938,7 @@ IndexExpr &IndexExpr::Max(SmallVectorImpl<IndexExpr> &vals) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     auto aaa = aa.GetLiteral();
     auto bbb = bb.GetLiteral();
-    res.InitAsIntLit(aa.GetContext(), (aaa > bbb) ? aaa : bbb);
+    res.InitAsLiteral(aa.GetContext(), (aaa > bbb) ? aaa : bbb);
   };
   Flist affineExprFct = [&](IndexExpr &res, SmallVectorImpl<IndexExpr> &vvals) {
     // Create a list of affine expression
@@ -862,22 +948,22 @@ IndexExpr &IndexExpr::Max(SmallVectorImpl<IndexExpr> &vals) {
       affineExprs.emplace_back(vv.GetAffineExpr());
     }
     // Compute a map including the list of affine expressions.
-    IndexExprContext *currContext = vvals[0].GetContext();
-    int dimNum = currContext->GetDimSize();
-    int symNum = currContext->GetSymbolSize();
-    auto mapContext = currContext->GetRewriter().getContext();
+    IndexExprContext &currContext = vvals[0].GetContext();
+    int dimNum = currContext.GetDimSize();
+    int symNum = currContext.GetSymbolSize();
+    auto mapContext = currContext.GetRewriter().getContext();
     AffineMap map = AffineMap::get(dimNum, symNum, affineExprs, mapContext);
     // Compute the min value out of this map.
     SmallVector<Value, 4> dimAndSymList;
-    currContext->GetDimAndSymbolList(dimAndSymList);
-    Value minVal = currContext->GetRewriter().create<AffineMaxOp>(
+    currContext.GetDimAndSymbolList(dimAndSymList);
+    Value minVal = currContext.GetRewriter().create<AffineMaxOp>(
         vvals[0].GetLocation(), map, dimAndSymList);
-    res.InitAsValue(context, minVal);
+    res.InitAsValue(currContext, minVal);
   };
   F2 valueFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    Value compareVal = aa.GetContext()->GetRewriter().create<CmpIOp>(
+    Value compareVal = aa.GetContext().GetRewriter().create<CmpIOp>(
         aa.GetLocation(), CmpIPredicate::sgt, aa.GetValue(), bb.GetValue());
-    Value resVal = aa.GetContext()->GetRewriter().create<SelectOp>(
+    Value resVal = aa.GetContext().GetRewriter().create<SelectOp>(
         aa.GetLocation(), compareVal, aa.GetValue(), bb.GetValue());
     res.InitAsValue(aa.GetContext(), resVal);
   };
@@ -889,7 +975,7 @@ IndexExpr &IndexExpr::Max(SmallVectorImpl<IndexExpr> &vals) {
 //===----------------------------------------------------------------------===//
 
 IndexExpr &IndexExpr::Add(IndexExpr &a, int64_t b) {
-  IndexExpr bIndex = a.GetContext()->CreateLiteralIndexExpr(b);
+  IndexExpr bIndex = a.GetContext().CreateLiteralIndex(b);
   return Add(a, bIndex);
 }
 
@@ -898,12 +984,12 @@ IndexExpr &IndexExpr::IncBy(IndexExpr &b) { return Add(*this, b); }
 IndexExpr &IndexExpr::IncBy(int64_t b) { return Add(*this, b); }
 
 IndexExpr &IndexExpr::Sub(IndexExpr &a, int64_t b) {
-  IndexExpr bIndex = a.GetContext()->CreateLiteralIndexExpr(b);
+  IndexExpr bIndex = a.GetContext().CreateLiteralIndex(b);
   return Sub(a, bIndex);
 }
 
 IndexExpr &IndexExpr::Sub(int64_t a, IndexExpr &b) {
-  IndexExpr aIndex = b.GetContext()->CreateLiteralIndexExpr(a);
+  IndexExpr aIndex = b.GetContext().CreateLiteralIndex(a);
   return Sub(aIndex, b);
 }
 
@@ -912,7 +998,7 @@ IndexExpr &IndexExpr::DecBy(IndexExpr &b) { return Sub(*this, b); }
 IndexExpr &IndexExpr::DecBy(int64_t b) { return Sub(*this, b); }
 
 IndexExpr &IndexExpr::Mult(IndexExpr &a, int64_t b) {
-  IndexExpr bIndex = a.GetContext()->CreateLiteralIndexExpr(b);
+  IndexExpr bIndex = a.GetContext().CreateLiteralIndex(b);
   return Mult(a, bIndex);
 }
 
@@ -921,7 +1007,7 @@ IndexExpr &IndexExpr::MultBy(IndexExpr &b) { return Mult(*this, b); }
 IndexExpr &IndexExpr::MultBy(int64_t b) { return Mult(*this, b); }
 
 IndexExpr &IndexExpr::Clamp(IndexExpr &val, int64_t min, IndexExpr &max) {
-  IndexExpr minIndex = val.GetContext()->CreateLiteralIndexExpr(min);
+  IndexExpr minIndex = val.GetContext().CreateLiteralIndex(min);
   return Clamp(val, minIndex, max);
 }
 
@@ -930,14 +1016,14 @@ IndexExpr &IndexExpr::CeilDivBy(IndexExpr &b) { return CeilDiv(*this, b); }
 
 IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
     int64_t condB, IndexExpr &trueVal, IndexExpr &falseVal) {
-  IndexExpr condBIndex = condA.GetContext()->CreateLiteralIndexExpr(condB);
+  IndexExpr condBIndex = condA.GetContext().CreateLiteralIndex(condB);
   return Select(condA, comparePred, condBIndex, trueVal, falseVal);
 }
 
 IndexExpr &IndexExpr::Select(IndexExpr &condA, CmpIPredicate comparePred,
     int64_t condB, int64_t trueVal, IndexExpr &falseVal) {
-  IndexExpr condBIndex = condA.GetContext()->CreateLiteralIndexExpr(condB);
-  IndexExpr trueValIndex = condA.GetContext()->CreateLiteralIndexExpr(trueVal);
+  IndexExpr condBIndex = condA.GetContext().CreateLiteralIndex(condB);
+  IndexExpr trueValIndex = condA.GetContext().CreateLiteralIndex(trueVal);
   return Select(condA, comparePred, condBIndex, trueValIndex, falseVal);
 }
 

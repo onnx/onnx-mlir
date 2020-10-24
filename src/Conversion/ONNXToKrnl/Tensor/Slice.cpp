@@ -60,9 +60,9 @@ struct ONNXSliceOpLowering : public ConversionPattern {
       bool mayReuseParentContext =
           steps[ii].IsLiteral() && starts[ii].IsAffine();
       IndexExprContext childContext(outerloopContex, mayReuseParentContext);
-      loopIndex = childContext.CreateDimIndexExpr(loopVal);
-      start = childContext.CreateSymbolFromParentContext(starts[ii]);
-      step = childContext.CreateSymbolFromParentContext(steps[ii]);
+      loopIndex = childContext.CreateDimIndex(loopVal);
+      start = childContext.CreateSymbolIndexFromParentContext(starts[ii]);
+      step = childContext.CreateSymbolIndexFromParentContext(steps[ii]);
       loopIndex.DebugPrint("loop index");
       step.DebugPrint("  steps");
       start.DebugPrint("  start");

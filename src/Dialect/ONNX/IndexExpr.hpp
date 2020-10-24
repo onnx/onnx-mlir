@@ -14,7 +14,7 @@
 1) IndexExpr
 =============
 
-IndexExpr is a single data structure that holds either an ineger, an affine
+IndexExpr is a single data structure that holds either an integer, an affine
 expression or a Value. It is used to compute shape inference, loop bounds, and
 index expressions in memory accesses. The main purpose of this data structure is
 to use a single function to either determine shape inference or the actual
@@ -24,7 +24,7 @@ During Shape inference, no code is generated; the IndexExpr will only be used to
 eitehr determine the actual constant size or a questionmark (signifying unknown
 at compile time).
 
-During lowering, code can be generated, and if fact it must, do fill in the
+During lowering, code can be generated, and if fact it must, to fill in the
 information that might be missing at compile time. The same IndexExpression
 computation are actually used to determine the sizes, indices, and access
 functions. Because AffineExpr have several advantages over more generic Value
@@ -129,20 +129,28 @@ class IndexExprContext {
 public:
   // Constructor for a top level context.
   IndexExprContext(ConversionPatternRewriter *rewriter, Location loc);
-  // Constructor for a direct child context.
+  // Constructor for a child context.
   IndexExprContext(IndexExprContext &parentContext, bool mayReuseContext);
 
-  // IndexExpr builders.
-  IndexExpr CreateUndefinedIndexExpr();
-  IndexExpr CreateQuestionmarkIndexExpr();
-  IndexExpr CreateLiteralIndexExpr(int64_t val);
-  IndexExpr CreateDimIndexExpr(Value val);
-  IndexExpr CreateDimIndexExpr(
+  // IndexExpr basic builders.
+  IndexExpr CreateUndefinedIndex();
+  IndexExpr CreateQuestionmarkIndex();
+  IndexExpr CreateLiteralIndex(int64_t val);
+  IndexExpr CreateDimIndex(Value val);
+  IndexExpr CreateSymbolIndex(Value val);
+
+  // Scan a memref shape at index to generate an IndexExpr, typically used for
+  // dimensions. If the memref
+  // will be generated if the memref is a constant.
+  IndexExpr CreateDimIndexFromMemref(
       Value memref, ArrayRef<int64_t> memrefShape, int index);
-  IndexExpr CreateSymbolIndexExpr(Value val);
+  IndexExpr CreateSymbolIndexFromArrayAtIndex(
+      Operation *op, Value arrayOperand, uint64_t index);
+  IndexExpr CreateSymbolIndexFromArrayAtIndex(Operation *op, Value arrayOperand,
+      uint64_t index, int64_t defaultLiteral);
 
   // Additional builder for repurposing IndexExpr from parent context.
-  IndexExpr CreateSymbolFromParentContext(IndexExpr &parentIndexExpr);
+  IndexExpr CreateSymbolIndexFromParentContext(IndexExpr &parentIndexExpr);
 
   // Actions for AffineExpr.
   int AddDim(Value value);
@@ -193,7 +201,8 @@ public:
   int64_t GetLiteral() const;
   AffineExpr GetAffineExpr();
   Value GetValue();
-  IndexExprContext *GetContext() const;
+  IndexExprContext &GetContext() const;
+  IndexExprContext *GetContextPtr() const;
   Location GetLocation() const;
 
   // Possibly Affine Operations.
@@ -233,21 +242,26 @@ public:
   void DebugPrint(const std::string &msg);
 
 private:
-  // Higher-level initalization calls.
+  // Higher-level basic initalization calls.
   IndexExpr &InitAsUndefined();
-  IndexExpr &InitAsQuestionmark(IndexExprContext *context);
-  IndexExpr &InitAsIntLit(IndexExprContext *context, int64_t val);
-  IndexExpr &InitAsSymbol(IndexExprContext *context, Value val);
-  IndexExpr &InitAsDim(IndexExprContext *context, Value val);
-  IndexExpr &InitAsDim(IndexExprContext *context, Value memref,
+  IndexExpr &InitAsQuestionmark(IndexExprContext &context);
+  IndexExpr &InitAsLiteral(IndexExprContext &context, int64_t val);
+  IndexExpr &InitAsSymbol(IndexExprContext &context, Value val);
+  IndexExpr &InitAsDim(IndexExprContext &context, Value val);
+  IndexExpr &InitAsValue(IndexExprContext &context, Value val);
+  IndexExpr &InitAsAffineExpr(IndexExprContext &context, AffineExpr val);
+  // Higher-level initiation calls that extract info
+  IndexExpr &InitAsDimFromMemref(IndexExprContext &context, Value memref,
       ArrayRef<int64_t> memrefShape, int index);
-  IndexExpr &InitAsAffineExpr(IndexExprContext *context, AffineExpr val);
+  IndexExpr &InitAsSymbolFromArrayAtIndex(
+      IndexExprContext &context, Operation *op, Value arrayOperand, uint64_t i);
+  IndexExpr &InitAsSymbolFromArrayAtIndex(IndexExprContext &context,
+      Operation *op, Value arrayOperand, uint64_t i, int64_t defaultLiteral);
   // Lower-level initialization calls.
-  IndexExpr &InitAsValue(IndexExprContext *context, Value val);
   IndexExpr &Init(IndexExprContext *context, bool newIsDefined,
       bool newIsIntLit, bool newIsAffine, bool newIsSymbol, bool newIsDim,
       int newIntLit, AffineExpr newAffineExpr, Value newValue);
-  IndexExpr &InitAsValueOrIntLit(IndexExprContext *context, Value val,
+  IndexExpr &InitAsLitQuestionmarkOrValue(IndexExprContext &context, Value val,
       bool isAffine, bool isSymbol, bool isDim);
   // Copy / private setters.
   IndexExpr &Copy(IndexExpr &a);
