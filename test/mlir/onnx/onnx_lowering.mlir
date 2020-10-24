@@ -3075,21 +3075,21 @@ func @test_slice_constant_default_axes(%arg0 : tensor<2x4xf32>) -> tensor<*xf32>
   %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x4xf32>, tensor<2xi64>, tensor<2xi64>, none, tensor<2xi64>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 
-// CHECK-LABEL:   func @test_slice_constant_default_axes
-// CHECK-SAME: ([[VAR_arg0:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
-// CHECK:           [[ALLOC:%.+]] = alloc() : memref<1x2xf32>
+// CHECK-LABEL:       func @test_slice_constant_default_axes
+// CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<2x4xf32>) -> memref<1x2xf32> {
+// CHECK:           [[VAR_0:%.+]] = alloc() : memref<1x2xf32>
 // CHECK:           [[VAR_cst:%.+]] = constant unit
-// CHECK:           [[VAR_1:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[1, 0]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK:           [[VAR_2:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[2, 3]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK:           [[VAR_3:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<[1, 2]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK:           [[IND:%.+]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate([[IND]]#0, [[IND]]#1) with ([[IND]]#0 -> [[VAR_arg1:%.+]] = 0 to 1, [[IND]]#1 -> [[VAR_arg2:%.+]] = 0 to 2) {
+// CHECK:           [[STARTS:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[1, 0]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK:           [[ENDS:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[2, 3]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK:           [[STEPS:%.+]] = "krnl.global"() {name = "constant_2", shape = [2], value = dense<[1, 2]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK:           [[ITERS:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[ITERS]]#0, [[ITERS]]#1) with ([[ITERS]]#0 -> [[VAR_arg1:%.+]] = 0 to 1, [[ITERS]]#1 -> [[VAR_arg2:%.+]] = 0 to 2) {
 // CHECK:             [[DIM0:%.+]] = affine.apply #map0([[VAR_arg1]])
-// CHECK:             [[DIM2:%.+]] = affine.apply #map1([[VAR_arg1]], [[VAR_arg2]])
-// CHECK:             [[RES:%.+]] = affine.load [[VAR_arg0]]{{.}}[[DIM0]], [[DIM2]]{{.}} : memref<2x4xf32>
-// CHECK:             affine.store [[RES]], [[ALLOC]]{{.}}[[VAR_arg1]], [[VAR_arg2]]{{.}} : memref<1x2xf32>
+// CHECK:             [[DIM1:%.+]] = affine.apply #map1([[VAR_arg2]])
+// CHECK:             [[VAL:%.+]] = affine.load [[VAR_arg0]]{{.}}[[DIM0]], [[DIM1]]{{.}} : memref<2x4xf32>
+// CHECK:             affine.store [[VAL]], [[VAR_0]]{{.}}[[VAR_arg1]], [[VAR_arg2]]{{.}} : memref<1x2xf32>
 // CHECK:           }
-// CHECK:           return [[ALLOC]] : memref<1x2xf32>
+// CHECK:           return [[VAR_0]] : memref<1x2xf32>
 // CHECK:         }
 // CHECK:       }
 }
@@ -3115,7 +3115,7 @@ func @test_slice_all_constant_negative_steps(%arg0 : tensor<2x4xf32>) -> tensor<
 // CHECK:            [[ITER:%.+]]:2 = krnl.define_loops 2
 // CHECK:            krnl.iterate([[ITER]]#0, [[ITER]]#1) with ([[ITER]]#0 -> [[VAR_arg1:%.+]] = 0 to 1, [[ITER]]#1 -> [[VAR_arg2:%.+]] = 0 to 2) {
 // CHECK:              [[INDEX0:%.+]] = affine.apply #map0([[VAR_arg1]])
-// CHECK:              [[INDEX1:%.+]] = affine.apply #map1([[VAR_arg1]], [[VAR_arg2]])
+// CHECK:              [[INDEX1:%.+]] = affine.apply #map1([[VAR_arg2]])
 // CHECK:              [[VAL:%.+]] = affine.load [[DATA]]{{.}}[[INDEX0]], [[INDEX1]]{{.}} : memref<2x4xf32>
 // CHECK:              affine.store [[VAL]], [[ALLOC]]{{.}}[[VAR_arg1]], [[VAR_arg2]]{{.}} : memref<1x2xf32>
 // CHECK:            }
@@ -3146,8 +3146,8 @@ func @test_slice_first_dim_unchanged() {
 // CHECK:           [[VAR_6:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[VAR_6]]#0, [[VAR_6]]#1, [[VAR_6]]#2) with ([[VAR_6]]#0 -> [[VAR_arg0:%.+]] = 0 to 3, [[VAR_6]]#1 -> [[VAR_arg1:%.+]] = 0 to 2, [[VAR_6]]#2 -> [[VAR_arg2:%.+]] = 0 to 3) {
 // CHECK:             [[VAR_7:%.+]] = affine.apply #map0([[VAR_arg0]])
-// CHECK:             [[VAR_8:%.+]] = affine.apply #map1([[VAR_arg0]], [[VAR_arg1]])
-// CHECK:             [[VAR_9:%.+]] = affine.apply #map2([[VAR_arg0]], [[VAR_arg1]], [[VAR_arg2]])
+// CHECK:             [[VAR_8:%.+]] = affine.apply #map1([[VAR_arg1]])
+// CHECK:             [[VAR_9:%.+]] = affine.apply #map2([[VAR_arg2]])
 // CHECK:             [[VAR_10:%.+]] = affine.load [[VAR_1]]{{.}}[[VAR_7]], [[VAR_8]], [[VAR_9]]{{.}} : memref<3x4x5xi64>
 // CHECK:             affine.store [[VAR_10]], [[VAR_0]]{{.}}[[VAR_arg0]], [[VAR_arg1]], [[VAR_arg2]]{{.}} : memref<3x2x3xi64>
 // CHECK:           }

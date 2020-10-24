@@ -2864,12 +2864,12 @@ LogicalResult ONNXSliceOp::inferShapes() {
 
   ONNXSliceOpAdaptor operandAdaptor(*this);
   // Null rewriter for shape inference.
-  IndexExprContainer container(nullptr, getLoc());
+  IndexExprContext context(nullptr, getLoc());
   SmallVector<IndexExpr, 4> startsIEV;
   SmallVector<IndexExpr, 4> stepsIEV;
   SmallVector<IndexExpr, 4> endsIEV;
   SmallVector<IndexExpr, 4> outputDimsIEV;
-  if (failed(HandleSliceOpParams(this, operandAdaptor, container, startsIEV,
+  if (failed(HandleSliceOpParams(this, operandAdaptor, context, startsIEV,
           endsIEV, stepsIEV, outputDimsIEV))) {
     // Failed to get constant only output sizes; fail.
     SmallVector<int64_t, 2> outputDims(numDims, -1);

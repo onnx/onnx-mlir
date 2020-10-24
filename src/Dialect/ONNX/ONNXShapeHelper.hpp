@@ -35,14 +35,14 @@ ONNXConstantOp getONNXConstantOp(Value value);
 // Undefined IndexExpression on failure. Second call returns a default value
 // when no actual value was found.
 IndexExpr GetIndexExprFromArrayAt(
-    IndexExprContainer &container, Operation *op, Value operand, uint64_t i);
-IndexExpr GetIndexExprFromArrayAt(IndexExprContainer &container, Operation *op,
+    IndexExprContext &context, Operation *op, Value operand, uint64_t i);
+IndexExpr GetIndexExprFromArrayAt(IndexExprContext &context, Operation *op,
     Value operand, uint64_t i, int64_t defaultIntLit);
 
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
 
 LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
-    ONNXSliceOpAdaptor operandAdaptor, IndexExprContainer &container,
+    ONNXSliceOpAdaptor operandAdaptor, IndexExprContext &context,
     SmallVectorImpl<IndexExpr> &startIndices,
     SmallVectorImpl<IndexExpr> &endIndices,
     SmallVectorImpl<IndexExpr> &stepIndices,

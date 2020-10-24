@@ -166,7 +166,7 @@ public:
   int pushBounds(int64_t lowerBound, int64_t upperBound);
   int pushBounds(int64_t lowerBound, Value upperBound);
   int pushBounds(
-      IndexExprContainer &container, int64_t lowerBound, IndexExpr upperBound);
+      IndexExprContext &context, int64_t lowerBound, IndexExpr upperBound);
   int pushBounds(int64_t lowerBound, AffineMap upperBound,
       ArrayRef<Value> operandsForUpperBoundMap);
   int pushBounds(Value lowerBound, Value upperBound);

@@ -23,28 +23,28 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     ONNXSliceOp sliceOp = llvm::cast<ONNXSliceOp>(op);
     auto loc = op->getLoc();
 
-    IndexExprContainer container(&rewriter, sliceOp.getLoc());
-    SmallVector<IndexExpr, 4> startsIEV;
-    SmallVector<IndexExpr, 4> stepsIEV;
-    SmallVector<IndexExpr, 4> endsIEV;
-    SmallVector<IndexExpr, 4> outputDimsIEV;
-    if (failed(HandleSliceOpParams(&sliceOp, operandAdaptor, container,
-            startsIEV, endsIEV, stepsIEV, outputDimsIEV))) {
+    IndexExprContext outerloopContex(&rewriter, sliceOp.getLoc());
+    SmallVector<IndexExpr, 4> starts;
+    SmallVector<IndexExpr, 4> steps;
+    SmallVector<IndexExpr, 4> ends;
+    SmallVector<IndexExpr, 4> outputDims;
+    if (failed(HandleSliceOpParams(&sliceOp, operandAdaptor, outerloopContex,
+            starts, ends, steps, outputDims))) {
       // Failed to slice parameters.
       return sliceOp.emitError("failure to get Slice parameters");
     }
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
-    assert(outputRank == outputDimsIEV.size());
+    assert(outputRank == outputDims.size());
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, outputDimsIEV);
+        rewriter, op, outputMemRefType, loc, outputDims);
 
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
     for (int ii = 0; ii < outputRank; ++ii)
-      outputLoops.pushBounds(container, 0, outputDimsIEV[ii]);
+      outputLoops.pushBounds(outerloopContex, 0, outputDims[ii]);
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
@@ -55,21 +55,18 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     for (int ii = 0; ii < outputRank; ++ii) {
       Value loopVal = outputLoops.getInductionVar(ii);
       IndexExpr loopIndex, start, step, actualIndex;
-      IndexExprContainer newContainer(&rewriter, loc);
-      if (stepsIEV[ii].IsLiteral() && startsIEV[ii].IsAffine()) {
-        loopIndex = container.CreateDimIndexExpr(loopVal);
-        start = startsIEV[ii];
-        step = stepsIEV[ii];
-      } else {
-        loopIndex = newContainer.CreateDimIndexExpr(loopVal);
-        start = newContainer.CreateSymbolIndexExpr(startsIEV[ii].GetValue());
-        step = newContainer.CreateSymbolIndexExpr(stepsIEV[ii].GetValue());
-      }
+      // Decide here if we can reuse the parent outerloopContex: can do so if
+      // start is afine and steps are literals.
+      bool mayReuseParentContext =
+          steps[ii].IsLiteral() && starts[ii].IsAffine();
+      IndexExprContext childContext(outerloopContex, mayReuseParentContext);
+      loopIndex = childContext.CreateDimIndexExpr(loopVal);
+      start = childContext.CreateSymbolFromParentContext(starts[ii]);
+      step = childContext.CreateSymbolFromParentContext(steps[ii]);
       loopIndex.DebugPrint("loop index");
       step.DebugPrint("  steps");
       start.DebugPrint("  start");
-      actualIndex.Mult(step, loopIndex);
-      actualIndex.Add(actualIndex, start);
+      actualIndex.Mult(step, loopIndex).IncBy(start);
       loadIndices.emplace_back(actualIndex.GetValue());
       if (!actualIndex.IsAffine())
         loadIsAffine = false;

@@ -68,62 +68,62 @@ bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
 //===----------------------------------------------------------------------===//
 
 IndexExpr GetIndexExprFromArrayAt(
-    IndexExprContainer &container, Operation *op, Value operand, uint64_t i) {
+    IndexExprContext &context, Operation *op, Value operand, uint64_t i) {
   if (auto attrArray = getDenseElementAttributeFromValue(operand)) {
     // We extracted an dense attribute from definition of operand.
     if (i >= attrArray.getType().getDimSize(0)) {
       printf("error 1\n");
       op->emitError("operand literal has wrong shape");
-      return container.CreateUndefinedIndexExpr();
+      return context.CreateUndefinedIndexExpr();
     }
     auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
     int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
-    return container.CreateLiteralIndexExpr(attrInt);
+    return context.CreateLiteralIndexExpr(attrInt);
   }
   // We must read value from an array.
-  if (container.IsShapeInferencePass()) {
+  if (context.IsShapeInferencePass()) {
     // Not a constant; don't add code.
-    return container.CreateQuestionmarkIndexExpr();
+    return context.CreateQuestionmarkIndexExpr();
   }
   // Emit code to rad array.
-  Value indexVal = emitConstantOp(container.GetRewriter(),
-      container.GetLocation(), container.GetRewriter().getIndexType(), i);
+  Value indexVal = emitConstantOp(context.GetRewriter(), context.GetLocation(),
+      context.GetRewriter().getIndexType(), i);
   SmallVector<Value, 1> memrefVal = {indexVal};
-  Value loadVal = container.GetRewriter().create<AffineLoadOp>(
-      container.GetLocation(), operand, memrefVal);
-  return container.CreateSymbolIndexExpr(loadVal);
+  Value loadVal = context.GetRewriter().create<AffineLoadOp>(
+      context.GetLocation(), operand, memrefVal);
+  return context.CreateSymbolIndexExpr(loadVal);
 }
 
-IndexExpr GetIndexExprFromArrayAt(IndexExprContainer &container, Operation *op,
+IndexExpr GetIndexExprFromArrayAt(IndexExprContext &context, Operation *op,
     Value operand, uint64_t i, int64_t defaultIntLit) {
   // Check if we have an operand.
   if (operand.getType().isa<NoneType>()) {
     // Operand undefined, we use the default value.
-    return container.CreateLiteralIndexExpr(defaultIntLit);
+    return context.CreateLiteralIndexExpr(defaultIntLit);
   }
   if (auto attrArray = getDenseElementAttributeFromValue(operand)) {
     // We extracted an dense attribute from definition of operand.
     if (i > attrArray.getType().getDimSize(0)) {
       // Not enought attributes for this index, return the default value.
-      return container.CreateLiteralIndexExpr(defaultIntLit);
+      return context.CreateLiteralIndexExpr(defaultIntLit);
     }
     // We have enought attributes for this index, get the value.
     Attribute attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
     int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
-    return container.CreateLiteralIndexExpr(attrInt);
+    return context.CreateLiteralIndexExpr(attrInt);
   }
   // Read the value from an array.
-  if (container.IsShapeInferencePass()) {
+  if (context.IsShapeInferencePass()) {
     // Not a constant; don't add code.
-    return container.CreateQuestionmarkIndexExpr();
+    return context.CreateQuestionmarkIndexExpr();
   }
   // Emit the code to read array.
-  Value indexVal = emitConstantOp(container.GetRewriter(),
-      container.GetLocation(), container.GetRewriter().getIndexType(), i);
+  Value indexVal = emitConstantOp(context.GetRewriter(), context.GetLocation(),
+      context.GetRewriter().getIndexType(), i);
   SmallVector<Value, 1> memrefVal = {indexVal};
-  Value loadVal = container.GetRewriter().create<AffineLoadOp>(
-      container.GetLocation(), operand, memrefVal);
-  return container.CreateSymbolIndexExpr(loadVal);
+  Value loadVal = context.GetRewriter().create<AffineLoadOp>(
+      context.GetLocation(), operand, memrefVal);
+  return context.CreateSymbolIndexExpr(loadVal);
 }
 
 //===----------------------------------------------------------------------===//
@@ -131,7 +131,7 @@ IndexExpr GetIndexExprFromArrayAt(IndexExprContainer &container, Operation *op,
 //===----------------------------------------------------------------------===//
 
 LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
-    ONNXSliceOpAdaptor operandAdaptor, IndexExprContainer &container,
+    ONNXSliceOpAdaptor operandAdaptor, IndexExprContext &context,
     SmallVectorImpl<IndexExpr> &startIndices,
     SmallVectorImpl<IndexExpr> &endIndices,
     SmallVectorImpl<IndexExpr> &stepIndices,
@@ -168,7 +168,7 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
   }
   int sliceRank = axesIntLit.size();
 
-  // Initialize container and results (start & output)
+  // Initialize context and results (start & output)
   startIndices.resize(dataRank);
   stepIndices.resize(dataRank);
   endIndices.resize(dataRank);
@@ -183,31 +183,31 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     IndexExpr startInput, endInput, stepInput, dimInput, dimMinOneInput;
     // Get start.
     startInput =
-        GetIndexExprFromArrayAt(container, op, operandAdaptor.starts(), i);
+        GetIndexExprFromArrayAt(context, op, operandAdaptor.starts(), i);
     if (startInput.IsUndefined())
       return sliceOp->emitError("start input parameter could not be processed");
     startInput.DebugPrint("start input");
     // Get end.
-    endInput = GetIndexExprFromArrayAt(container, op, operandAdaptor.ends(), i);
+    endInput = GetIndexExprFromArrayAt(context, op, operandAdaptor.ends(), i);
     if (endInput.IsUndefined())
       return sliceOp->emitError("end input parameter could not be processed");
     endInput.DebugPrint("end input");
     // Get step.
     stepInput =
-        GetIndexExprFromArrayAt(container, op, operandAdaptor.steps(), i, 1);
+        GetIndexExprFromArrayAt(context, op, operandAdaptor.steps(), i, 1);
     if (stepInput.IsUndefined())
       return sliceOp->emitError("step input parameter could not be processed");
     if (stepInput.IsLiteral() && stepInput.GetLiteral() == 0)
       return sliceOp->emitError("step input parameter cannot be zero");
     stepInput.DebugPrint("step input");
     // Get dim.
-    dimInput = container.CreateDimIndexExpr(data, dataShape, ii);
+    dimInput = context.CreateDimIndexExpr(data, dataShape, ii);
     dimInput.DebugPrint("dim input");
     dimMinOneInput.Sub(dimInput, 1);
 
     // If in shape inference mode and we don't have the constant info, take
     // early break.
-    if (container.IsShapeInferencePass() &&
+    if (context.IsShapeInferencePass() &&
         (startInput.IsQuestionmark() || endInput.IsQuestionmark() ||
             stepInput.IsQuestionmark() || dimInput.IsQuestionmark()))
       return failure();
@@ -222,10 +222,6 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     neg.Clamp(startPos, 0, dimMinOneInput);
     pos.Clamp(startPos, 0, dimInput);
     startFinal.Select(stepInput, CmpIPredicate::slt, 0, neg, pos);
-    startPlusDim.DebugPrint("start plus dim input");
-    startPos.DebugPrint("start pos");
-    neg.DebugPrint("start clamp neg");
-    pos.DebugPrint("start clamp pos");
     startFinal.DebugPrint("start final");
 
     // Calculation for end: end<0 -> end + dim else -> end;
@@ -235,9 +231,8 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     IndexExpr endPlusDim, endPos, endFinal;
     endPlusDim.Add(endInput, dimInput);
     endPos.Select(endInput, CmpIPredicate::slt, 0, endPlusDim, endInput);
-    endPos.Select(endInput, CmpIPredicate::sle, negInf, -1, endPos);
-    endPos.Select(endInput, CmpIPredicate::sge, posInf, dimInput, endPos);
-
+    endPos.AssignIf(endInput, CmpIPredicate::sle, negInf, -1);
+    endPos.AssignIf(endInput, CmpIPredicate::sge, posInf, dimInput);
     // End: step<0: clamp(-1, end, dim); step>0 clamp(0, end, dim)
     neg.Clamp(endPos, -1, dimInput);
     pos.Clamp(endPos, 0, dimInput);
@@ -246,14 +241,12 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
 
     // Calculation for output size.
     IndexExpr dimOutputFinal;
-    dimOutputFinal.Sub(endFinal, startFinal);
-    dimOutputFinal.CeilDiv(dimOutputFinal, stepInput);
+    dimOutputFinal.Sub(endFinal, startFinal).CeilDivBy(stepInput);
     // should use a max
-    dimOutputFinal.Select(
-        dimOutputFinal, CmpIPredicate::slt, 0, 0, dimOutputFinal);
+    dimOutputFinal.AssignIf(dimOutputFinal, CmpIPredicate::slt, 0, 0);
     dimOutputFinal.DebugPrint("output dim final");
 
-    if (container.IsShapeInferencePass() && dimOutputFinal.IsQuestionmark()) {
+    if (context.IsShapeInferencePass() && dimOutputFinal.IsQuestionmark()) {
       // Return failure as we could not find a constant output size.
       return failure();
     }
@@ -272,12 +265,12 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     if (stepIndices[i].IsUndefined()) {
       // have one unset, put the defaults (start was already at zero, so we are
       // fine).
-      startIndices[i] = container.CreateLiteralIndexExpr(0);
-      stepIndices[i] = container.CreateLiteralIndexExpr(1);
-      IndexExpr dimInput = container.CreateDimIndexExpr(data, dataShape, i);
+      startIndices[i] = context.CreateLiteralIndexExpr(0);
+      stepIndices[i] = context.CreateLiteralIndexExpr(1);
+      IndexExpr dimInput = context.CreateDimIndexExpr(data, dataShape, i);
       endIndices[i] = dimInput;
       outputDims[i] = dimInput;
-      if (container.IsShapeInferencePass() && dimInput.IsQuestionmark()) {
+      if (context.IsShapeInferencePass() && dimInput.IsQuestionmark()) {
         // Return failure as we could not find a constant output size.
         return failure();
       }
