@@ -251,7 +251,6 @@ IndexExpr &IndexExpr::InitAsValueOrIntLit(IndexExprContext *newContext,
 // IndexExpr copy and setters.
 //===----------------------------------------------------------------------===//
 
-
 IndexExpr &IndexExpr::Copy(IndexExpr &a) {
   // If we go to a model like Values & AffineExpr with a pointer to the actual
   // data, we should just make the indirection here. Copy info in the meanwhile.
