@@ -166,16 +166,21 @@ private:
       mlirAttr = builder_.getStrArrayAttr(llvm::makeArrayRef(vectorStringRef));
     } break;
     case onnx::AttributeProto::GRAPH: {
+      // Cache current insertion point, as we will proceed to insert into the
+      // function corresponding to the graph being imported.
       auto cachedBlock = builder_.getInsertionBlock();
       auto cachedIP = builder_.getInsertionPoint();
+
       assert(attr.g().has_name() && "Subgraph needs to be named.");
-      ImportGraph(attr.g(), attr.g().name());
+      mlir::FuncOp func = ImportGraph(attr.g(), attr.g().name());
+      mlirAttr = builder_.getSymbolRefAttr(func);
+
+      // Restore insertion points.
       builder_.setInsertionPoint(cachedBlock, cachedIP);
-      mlirAttr = builder_.getI8IntegerAttr(0);
+
       break;
     }
     default:
-
       llvm_unreachable("datatype for attribute is not implemented");
       break;
     }
@@ -474,42 +479,11 @@ private:
         inVals[inputIdx] = constantValue;
       }
     }
-    //
+
     assert(inVals[1] != nullptr && "Slice requires a starts attribute");
     assert(inVals[2] != nullptr && "Slice requires an ends attribute");
-    inVals[3] = none();
-    inVals[4] = none();
-    //        for (int i = 0; i < 5; i++) inVals[i].dump();
-    //    const auto startsType =
-    //    inVals[1].getType().dyn_cast<RankedTensorType>();
-    //    assert(startsType != nullptr && "starts type is not a
-    //    RankedTensorType"); auto startsDim = startsType.getShape()[0];
-    //
-    //    // If axes is not specified, default to [0, ..., ndim-1]
-    //    if (inVals[3] == nullptr) {
-    //      SmallVector<int64_t, 1> vals = {};
-    //      for (size_t s = 0; s < startsDim; ++s)
-    //        vals.emplace_back(s);
-    //      auto constantDenseAttribute =
-    //          mlir::DenseElementsAttr::get(tensorType,
-    //          llvm::makeArrayRef(vals));
-    //      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
-    //          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
-    //      mlir::Value constantResult = constantOp.output();
-    //      inVals[3] = constantResult;
-    //    }
-    //
-    //    // If steps is not specified, default to [1, ..., 1]
-    //    if (inVals[4] == nullptr) {
-    //      SmallVector<int64_t, 1> vals(startsDim, 1);
-    //      auto constantDenseAttribute =
-    //          mlir::DenseElementsAttr::get(tensorType,
-    //          llvm::makeArrayRef(vals));
-    //      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
-    //          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
-    //      mlir::Value constantResult = constantOp.output();
-    //      inVals[4] = constantResult;
-    //    }
+    inVals[3] = inVals[3] == nullptr ? none() : inVals[3];
+    inVals[4] = inVals[4] == nullptr ? none() : inVals[4];
 
     int nIn = mlir::ONNXSliceOp::getNumberOfOperands();
     int nOut = mlir::ONNXSliceOp::getNumberOfResults();
@@ -572,7 +546,7 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
-  void ImportGraph(
+  mlir::FuncOp ImportGraph(
       const onnx::GraphProto &graph, const std::string &name = "main_graph") {
     // Maintain a mapping between the parameter and its initializer.
     for (const auto &initializer : graph.initializer()) {
@@ -618,19 +592,21 @@ private:
     auto mainFunc = mlir::FuncOp::create(UnknownLoc(), name, funcType,
         /* attrs = */ llvm::makeArrayRef(funcAttrs));
 
-    // Emit the entry point operation which specifies the number of user
-    // inputs and outputs.
-    auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
-        /*numInputs=*/numInputs,
-        /*numOutputs=*/graph.output().size());
-
     // Get the entru block inside the main function and set the insertion point
     // to it.
     auto &entryBlock = *mainFunc.addEntryBlock();
     builder_.setInsertionPointToStart(&entryBlock);
 
     module_.push_back(mainFunc);
-    module_.push_back(entryPoint);
+
+    if (name == "main_graph") {
+      // Emit the entry point operation which specifies the number of user
+      // inputs and outputs.
+      auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
+          /*numInputs=*/numInputs,
+          /*numOutputs=*/graph.output().size());
+      module_.push_back(entryPoint);
+    }
 
     // Map graph inputs to entry block arguments.
     // Counter of un-initialized tensors. This counter is used to index the
@@ -663,6 +639,8 @@ private:
     // output tensors.
     funcType = builder_.getFunctionType(arg_types, ret_types);
     mainFunc.setType(funcType);
+
+    return mainFunc;
   }
 }; // FrontendGenImpl class
 } // namespace detail

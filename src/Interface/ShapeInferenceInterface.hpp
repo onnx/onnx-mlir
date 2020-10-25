@@ -12,6 +12,7 @@
 #pragma once
 
 #include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/Function.h"
 
 namespace mlir {
 

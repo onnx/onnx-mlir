@@ -25,7 +25,8 @@ def ShapeInferenceOpInterface : OpInterface<"ShapeInference"> {
 
   let methods = [
     InterfaceMethod<"Infer and set the output shape for the current operation.",
-                    "LogicalResult", "inferShapes">
+                    "LogicalResult", "inferShapes",
+                    (ins "std::function<void(mlir::FuncOp)>":$shapeInferenceFunc)>
   ];
 }
 

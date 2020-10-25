@@ -320,6 +320,7 @@ OpsWithShapeInference=[
     'Transpose',
     'Unsqueeze',
     'Xor',
+    'Loop',
 ]
 
 # Operations supporting canonicalization.

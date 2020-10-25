@@ -560,7 +560,8 @@ ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
 // Exp
 /// Infer the output shape of the ONNXExpOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXExpOp::inferShapes() {
+LogicalResult ONNXExpOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -570,7 +571,8 @@ LogicalResult ONNXExpOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXAtanOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXAtanOp::inferShapes() {
+LogicalResult ONNXAtanOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -580,7 +582,8 @@ LogicalResult ONNXAtanOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXTanOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXTanOp::inferShapes() {
+LogicalResult ONNXTanOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -589,7 +592,8 @@ LogicalResult ONNXTanOp::inferShapes() {
 // Tanh
 /// Infer the output shape of the ONNXTanhOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXTanhOp::inferShapes() {
+LogicalResult ONNXTanhOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -599,7 +603,8 @@ LogicalResult ONNXTanhOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSinOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXSinOp::inferShapes() {
+LogicalResult ONNXSinOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -609,7 +614,8 @@ LogicalResult ONNXSinOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSinhOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXSinhOp::inferShapes() {
+LogicalResult ONNXSinhOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -619,7 +625,8 @@ LogicalResult ONNXSinhOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXCoshOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXCoshOp::inferShapes() {
+LogicalResult ONNXCoshOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -629,7 +636,8 @@ LogicalResult ONNXCoshOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXCosOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXCosOp::inferShapes() {
+LogicalResult ONNXCosOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -639,7 +647,8 @@ LogicalResult ONNXCosOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXLogOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXLogOp::inferShapes() {
+LogicalResult ONNXLogOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -649,7 +658,8 @@ LogicalResult ONNXLogOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXHardSigmoidOp. This method is required by
 /// the shape inference interface.
-LogicalResult ONNXHardSigmoidOp::inferShapes() {
+LogicalResult ONNXHardSigmoidOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -659,7 +669,8 @@ LogicalResult ONNXHardSigmoidOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSigmoidOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXSigmoidOp::inferShapes() {
+LogicalResult ONNXSigmoidOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -669,7 +680,8 @@ LogicalResult ONNXSigmoidOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXEluOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXEluOp::inferShapes() {
+LogicalResult ONNXEluOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -679,7 +691,8 @@ LogicalResult ONNXEluOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXReluOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXReluOp::inferShapes() {
+LogicalResult ONNXReluOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -689,7 +702,8 @@ LogicalResult ONNXReluOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXLeakyReluOp. This method is required by
 /// the shape inference interface.
-LogicalResult ONNXLeakyReluOp::inferShapes() {
+LogicalResult ONNXLeakyReluOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -699,7 +713,8 @@ LogicalResult ONNXLeakyReluOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSeluOp. This method is required by
 /// the shape inference interface.
-LogicalResult ONNXSeluOp::inferShapes() {
+LogicalResult ONNXSeluOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -709,7 +724,8 @@ LogicalResult ONNXSeluOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXPReluOp. This method is required by
 /// the shape inference interface.
-LogicalResult ONNXPReluOp::inferShapes() {
+LogicalResult ONNXPReluOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand(0).getType());
   return success();
 }
@@ -719,7 +735,8 @@ LogicalResult ONNXPReluOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXReciprocalOp. This method is required by
 /// the shape inference interface.
-LogicalResult ONNXReciprocalOp::inferShapes() {
+LogicalResult ONNXReciprocalOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -729,7 +746,8 @@ LogicalResult ONNXReciprocalOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSoftmaxOp. This method is required by
 /// the shape inference interface.
-LogicalResult ONNXSoftmaxOp::inferShapes() {
+LogicalResult ONNXSoftmaxOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -739,7 +757,8 @@ LogicalResult ONNXSoftmaxOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSoftplusOp. This method is required by
 /// the shape inference interface.
-LogicalResult ONNXSoftplusOp::inferShapes() {
+LogicalResult ONNXSoftplusOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -749,7 +768,8 @@ LogicalResult ONNXSoftplusOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSoftsignOp. This method is required by
 /// the shape inference interface.
-LogicalResult ONNXSoftsignOp::inferShapes() {
+LogicalResult ONNXSoftsignOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -759,7 +779,8 @@ LogicalResult ONNXSoftsignOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSqrtOp. This method is required by
 /// the shape inference interface.
-LogicalResult ONNXSqrtOp::inferShapes() {
+LogicalResult ONNXSqrtOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -769,7 +790,8 @@ LogicalResult ONNXSqrtOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSignOp. This method is required by
 /// the shape inference interface.
-LogicalResult ONNXSignOp::inferShapes() {
+LogicalResult ONNXSignOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -779,7 +801,8 @@ LogicalResult ONNXSignOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXAbsOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXAbsOp::inferShapes() {
+LogicalResult ONNXAbsOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -788,7 +811,8 @@ LogicalResult ONNXAbsOp::inferShapes() {
 // Erf
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXErfOp::inferShapes() {
+LogicalResult ONNXErfOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -797,7 +821,8 @@ LogicalResult ONNXErfOp::inferShapes() {
 // Pow
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXPowOp::inferShapes() {
+LogicalResult ONNXPowOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
@@ -812,7 +837,8 @@ LogicalResult ONNXPowOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXAddOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXAddOp::inferShapes() {
+LogicalResult ONNXAddOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
@@ -827,7 +853,8 @@ LogicalResult ONNXAddOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXMulOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXMulOp::inferShapes() {
+LogicalResult ONNXMulOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
@@ -842,7 +869,8 @@ LogicalResult ONNXMulOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXDivOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXDivOp::inferShapes() {
+LogicalResult ONNXDivOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
@@ -857,7 +885,8 @@ LogicalResult ONNXDivOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSubOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXSubOp::inferShapes() {
+LogicalResult ONNXSubOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
@@ -872,7 +901,8 @@ LogicalResult ONNXSubOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXAndOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXAndOp::inferShapes() {
+LogicalResult ONNXAndOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
@@ -887,7 +917,8 @@ LogicalResult ONNXAndOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXOrOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXOrOp::inferShapes() {
+LogicalResult ONNXOrOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
@@ -902,7 +933,8 @@ LogicalResult ONNXOrOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXXorOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXXorOp::inferShapes() {
+LogicalResult ONNXXorOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
@@ -917,7 +949,8 @@ LogicalResult ONNXXorOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXSumOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXSumOp::inferShapes() {
+LogicalResult ONNXSumOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   for (int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
       return emitError("Input tensor(s) not ranked");
@@ -936,7 +969,8 @@ LogicalResult ONNXSumOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXMaxOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXMaxOp::inferShapes() {
+LogicalResult ONNXMaxOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   for (int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
       return emitError("Input tensor(s) not ranked");
@@ -955,7 +989,8 @@ LogicalResult ONNXMaxOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXMinOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXMinOp::inferShapes() {
+LogicalResult ONNXMinOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   for (int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
       return emitError("Input tensor(s) not ranked");
@@ -974,7 +1009,8 @@ LogicalResult ONNXMinOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXNegOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXNegOp::inferShapes() {
+LogicalResult ONNXNegOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -984,7 +1020,8 @@ LogicalResult ONNXNegOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXIdentityOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXIdentityOp::inferShapes() {
+LogicalResult ONNXIdentityOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   getResult().setType(getOperand().getType());
   return success();
 }
@@ -993,7 +1030,8 @@ LogicalResult ONNXIdentityOp::inferShapes() {
 // MatMul
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXMatMulOp::inferShapes() {
+LogicalResult ONNXMatMulOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape exists.
   if (!A().getType().isa<RankedTensorType>() ||
       !B().getType().isa<RankedTensorType>())
@@ -1121,7 +1159,8 @@ LogicalResult ONNXMatMulOp::inferShapes() {
 }
 
 // Gemm
-LogicalResult ONNXGemmOp::inferShapes() {
+LogicalResult ONNXGemmOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   bool hasBias = !C().getType().isa<NoneType>();
   // Cannot infer shape if no shape exists.
   if (!A().getType().isa<RankedTensorType>() ||
@@ -1161,7 +1200,8 @@ LogicalResult ONNXGemmOp::inferShapes() {
 }
 
 /// BatchNormalizationTestMode
-LogicalResult ONNXBatchNormalizationTestModeOp::inferShapes() {
+LogicalResult ONNXBatchNormalizationTestModeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>() ||
       !scale().getType().isa<RankedTensorType>() ||
@@ -1217,7 +1257,8 @@ LogicalResult ONNXBatchNormalizationTestModeOp::inferShapes() {
 // Reshape
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXReshapeOp::inferShapes() {
+LogicalResult ONNXReshapeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape tensor is specified.
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input data tensor not ranked");
@@ -1289,7 +1330,8 @@ LogicalResult ONNXReshapeOp::inferShapes() {
 
 // Transpose
 
-LogicalResult ONNXTransposeOp::inferShapes() {
+LogicalResult ONNXTransposeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
@@ -1322,7 +1364,8 @@ LogicalResult ONNXTransposeOp::inferShapes() {
 // ReduceMax
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXReduceMaxOp::inferShapes() {
+LogicalResult ONNXReduceMaxOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -1335,7 +1378,8 @@ LogicalResult ONNXReduceMaxOp::inferShapes() {
 // ReduceMean
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXReduceMeanOp::inferShapes() {
+LogicalResult ONNXReduceMeanOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -1348,7 +1392,8 @@ LogicalResult ONNXReduceMeanOp::inferShapes() {
 // ReduceMin
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXReduceMinOp::inferShapes() {
+LogicalResult ONNXReduceMinOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -1361,7 +1406,8 @@ LogicalResult ONNXReduceMinOp::inferShapes() {
 // ReduceProd
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXReduceProdOp::inferShapes() {
+LogicalResult ONNXReduceProdOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -1374,7 +1420,8 @@ LogicalResult ONNXReduceProdOp::inferShapes() {
 // ReduceSum
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXReduceSumOp::inferShapes() {
+LogicalResult ONNXReduceSumOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -1396,7 +1443,8 @@ LogicalResult ONNXReduceSumOp::inferShapes() {
 //   -  kernelShape: inferred from weight matrix if not defined by user;
 //   -  pads: set to proper value, 0 if not defined by user.
 
-LogicalResult ONNXConvOp::inferShapes() {
+LogicalResult ONNXConvOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Generic shape for data input X, weight tensor W, and optional bias B
   // X: (N x C x D1 x D2 ... x Dn)
   // W: (M x C/group x k1 x k2 x ... x kn)
@@ -1514,7 +1562,8 @@ LogicalResult ONNXConvOp::inferShapes() {
 //   -  kernelShape: inferred from weight matrix if not defined by user;
 //   -  pads: set to proper value, 0 if not defined by user.
 
-LogicalResult ONNXConvTransposeOp::inferShapes() {
+LogicalResult ONNXConvTransposeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Generic shape for data input X, weight tensor W, and optional bias B
   // X: (N x C x D1 x D2 ... x Dn)
   // W: (C x M/group x k1 x k2 x ... x kn)
@@ -1649,7 +1698,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
 //   -  strides: set to 1 if not defined by user;
 //   -  pads: set to proper value, 0 if not defined by user.
 
-LogicalResult ONNXAveragePoolOp::inferShapes() {
+LogicalResult ONNXAveragePoolOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
@@ -1702,7 +1752,8 @@ LogicalResult ONNXAveragePoolOp::inferShapes() {
 //   -  dilations, strides: set to 1 if not defined by user;
 //   -  pads: set to proper value, 0 if not defined by user.
 
-LogicalResult ONNXMaxPoolSingleOutOp::inferShapes() {
+LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape exists.
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
@@ -1749,7 +1800,8 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes() {
 // Pad
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXPadOp::inferShapes() {
+LogicalResult ONNXPadOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Pad: unknown input shape");
@@ -1829,7 +1881,8 @@ static Type padShapeInferenceHelper(Value data, ArrayAttr padsOpt) {
 // PadConstantPad
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXPadConstantPadOp::inferShapes() {
+LogicalResult ONNXPadConstantPadOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   auto outputType = padShapeInferenceHelper(data(), pads());
   if (!outputType)
     return emitError("missing output");
@@ -1841,7 +1894,8 @@ LogicalResult ONNXPadConstantPadOp::inferShapes() {
 // PadConstantValuePad
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXPadConstantValuePadOp::inferShapes() {
+LogicalResult ONNXPadConstantValuePadOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   auto outputType = padShapeInferenceHelper(data(), pads());
   if (!outputType)
     return emitError("missing output");
@@ -1863,7 +1917,8 @@ void ONNXPadConstantValuePadOp::build(OpBuilder &builder, OperationState &state,
 // Unsqueeze
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXUnsqueezeOp::inferShapes() {
+LogicalResult ONNXUnsqueezeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -1904,7 +1959,8 @@ LogicalResult ONNXUnsqueezeOp::inferShapes() {
 
 // Squeeze
 
-LogicalResult ONNXSqueezeOp::inferShapes() {
+LogicalResult ONNXSqueezeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -1949,7 +2005,8 @@ LogicalResult ONNXSqueezeOp::inferShapes() {
 // Cast
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXCastOp::inferShapes() {
+LogicalResult ONNXCastOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   ShapedType inputType = input().getType().dyn_cast<ShapedType>();
   if (!inputType) {
     return emitError("Non-shaped input type");
@@ -1978,7 +2035,8 @@ LogicalResult ONNXCastOp::inferShapes() {
 // Scaler
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXScalerOp::inferShapes() {
+LogicalResult ONNXScalerOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   ShapedType inputType = X().getType().dyn_cast<ShapedType>();
   getResult().setType(RankedTensorType::get(
       inputType.getShape(), FloatType::getF32(getContext())));
@@ -1989,7 +2047,8 @@ LogicalResult ONNXScalerOp::inferShapes() {
 // Constant
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXConstantOp::inferShapes() {
+LogicalResult ONNXConstantOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if ((sparse_value().hasValue() && value().hasValue()) ||
       (!sparse_value().hasValue() && !value().hasValue()))
     return emitError("Require exactly one of the two attributes, "
@@ -2007,7 +2066,8 @@ LogicalResult ONNXConstantOp::inferShapes() {
 // Concat
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXConcatOp::inferShapes() {
+LogicalResult ONNXConcatOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   int inputNum = getNumOperands();
   for (int i = 0; i < inputNum; ++i) {
     if (!getOperand(i).getType().isa<RankedTensorType>())
@@ -2068,25 +2128,35 @@ LogicalResult ONNXConcatOp::inferShapes() {
 // RNN
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXRNNOp::inferShapes() { return RNNShapeInference<>(this); }
+LogicalResult ONNXRNNOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
+  return RNNShapeInference<>(this);
+}
 
 //===----------------------------------------------------------------------===//
 // LSTM
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXLSTMOp::inferShapes() { return RNNShapeInference<>(this); }
+LogicalResult ONNXLSTMOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
+  return RNNShapeInference<>(this);
+}
 
 //===----------------------------------------------------------------------===//
 // GRU
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXGRUOp::inferShapes() { return RNNShapeInference<>(this); }
+LogicalResult ONNXGRUOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
+  return RNNShapeInference<>(this);
+}
 
 //===----------------------------------------------------------------------===//
 // Split
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXSplitOp::inferShapes() {
+LogicalResult ONNXSplitOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!getOperand().getType().cast<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -2152,7 +2222,8 @@ LogicalResult ONNXSplitOp::inferShapes() {
 // Flatten
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXFlattenOp::inferShapes() {
+LogicalResult ONNXFlattenOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   auto inTy = input().getType().dyn_cast<ShapedType>();
   if (!inTy) {
     return emitOpError("Input is a non-shaped type");
@@ -2203,7 +2274,8 @@ LogicalResult ONNXFlattenOp::inferShapes() {
 // DynamicQuantizeLinear
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes() {
+LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();
   if (!inTy || !inTy.hasStaticShape()) {
     return emitOpError("Input is not a statically-shaped type");
@@ -2241,7 +2313,8 @@ LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes() {
 // QuantizeLinear
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXQuantizeLinearOp::inferShapes() {
+LogicalResult ONNXQuantizeLinearOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();
   if (!inTy || !inTy.hasStaticShape()) {
     return emitOpError("Input is not a statically-shaped type");
@@ -2264,7 +2337,8 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes() {
 // DequantizeLinear
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXDequantizeLinearOp::inferShapes() {
+LogicalResult ONNXDequantizeLinearOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   auto inTy = x().getType().dyn_cast<RankedTensorType>();
   if (!inTy || !inTy.hasStaticShape()) {
     return emitOpError("Input is not a statically-shaped type");
@@ -2285,7 +2359,8 @@ LogicalResult ONNXDequantizeLinearOp::inferShapes() {
 // ConvInteger - copied almost exactly from Conv (X -> x, W -> w, no bias)
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXConvIntegerOp::inferShapes() {
+LogicalResult ONNXConvIntegerOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Generic shape for data input X, weight tensor W
   // X: (N x C x D1 x D2 ... x Dn)
   // W: (M x C/group x k1 x k2 x ... x kn)
@@ -2391,7 +2466,8 @@ LogicalResult ONNXConvIntegerOp::inferShapes() {
 // Shape
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXShapeOp::inferShapes() {
+LogicalResult ONNXShapeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
@@ -2408,7 +2484,8 @@ LogicalResult ONNXShapeOp::inferShapes() {
 // Size
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXSizeOp::inferShapes() {
+LogicalResult ONNXSizeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Output is scalar of int64 containing the size of the input tensor.
   SmallVector<int64_t, 1> outDims;
   getResult().setType(
@@ -2420,7 +2497,8 @@ LogicalResult ONNXSizeOp::inferShapes() {
 // Tile
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXTileOp::inferShapes() {
+LogicalResult ONNXTileOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape exists.
   if (!input().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
@@ -2485,7 +2563,8 @@ LogicalResult ONNXTileOp::inferShapes() {
 // Gather
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXGatherOp::inferShapes() {
+LogicalResult ONNXGatherOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
@@ -2548,7 +2627,8 @@ LogicalResult ONNXGatherOp::inferShapes() {
 // ConstantOfShape
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXConstantOfShapeOp::inferShapes() {
+LogicalResult ONNXConstantOfShapeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   Type elementType;
 
   // 'value' attribute is a one-element tensor whose value and datatype are used
@@ -2609,10 +2689,47 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes() {
 // Slice
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXSliceOp::inferShapes() {
+LogicalResult ONNXSliceOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape exists.
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
+
+  const auto startsType =
+      this->getOperand(1).getType().dyn_cast<RankedTensorType>();
+  assert(startsType != nullptr && "starts type is not a RankedTensorType");
+  auto startsDim = startsType.getShape()[0];
+  {
+    OpBuilder builder(this->getContext());
+    const auto elementType = builder.getIntegerType(64);
+    const auto tensorType = mlir::RankedTensorType::get({1}, elementType);
+
+    // If axes is not specified, default to [0, ..., ndim-1]
+    if (this->getOperand(3).getType().isa<NoneType>()) {
+      SmallVector<int64_t, 1> vals = {};
+      for (size_t s = 0; s < startsDim; ++s)
+        vals.emplace_back(s);
+      auto constantDenseAttribute =
+          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
+      builder.setInsertionPoint(*this);
+      auto constantOp = builder.create<mlir::ONNXConstantOp>(
+          this->getLoc(), mlir::Attribute(), constantDenseAttribute);
+      mlir::Value constantResult = constantOp.output();
+      this->setOperand(3, constantResult);
+    }
+
+    // If steps is not specified, default to [1, ..., 1]
+    if (this->getOperand(4).getType().isa<NoneType>()) {
+      SmallVector<int64_t, 1> vals(startsDim, 1);
+      auto constantDenseAttribute =
+          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
+      builder.setInsertionPoint(*this);
+      auto constantOp = builder.create<mlir::ONNXConstantOp>(
+          this->getLoc(), mlir::Attribute(), constantDenseAttribute);
+      mlir::Value constantResult = constantOp.output();
+      this->setOperand(4, constantResult);
+    }
+  }
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
   auto dataShape = data().getType().cast<ShapedType>().getShape();
@@ -2768,7 +2885,8 @@ LogicalResult ONNXSliceOp::inferShapes() {
 // Expand
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXExpandOp::inferShapes() {
+LogicalResult ONNXExpandOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!input().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -2835,7 +2953,8 @@ LogicalResult ONNXExpandOp::inferShapes() {
 // Dropout
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXDropoutOp::inferShapes() {
+LogicalResult ONNXDropoutOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
@@ -2852,7 +2971,8 @@ LogicalResult ONNXDropoutOp::inferShapes() {
 // OneHotEncoder
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXOneHotEncoderOp::inferShapes() {
+LogicalResult ONNXOneHotEncoderOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   ShapedType inputType = X().getType().dyn_cast<ShapedType>();
   if (!inputType)
     return emitError("Non-shaped input type");
@@ -2892,7 +3012,8 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXLessOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXLessOp::inferShapes() {
+LogicalResult ONNXLessOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   for (int i = 0; i < getNumOperands(); ++i) {
     if (!getOperand(i).getType().cast<RankedTensorType>())
       return emitError("Input tensor(s) not ranked");
@@ -2904,6 +3025,67 @@ LogicalResult ONNXLessOp::inferShapes() {
 
   getResult().setType(
       RankedTensorType::get(dims, IntegerType::get(/*width=*/1, getContext())));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Loop
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXLoopOp.
+LogicalResult ONNXLoopOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
+  auto module = this->getParentOfType<mlir::ModuleOp>();
+  auto symbolName = this->body().cast<SymbolRefAttr>().getLeafReference();
+  auto func = dyn_cast<mlir::FuncOp>(module.lookupSymbol(symbolName));
+  shapeInferenceFunc(func);
+
+  auto &loopBody = func.getBody();
+  auto numLoopVars = loopBody.getNumArguments() - 2;
+  assert(numLoopVars >= 0 && "Loop body must take at least 2 inputs.");
+
+  getResult(0).setType(
+      RankedTensorType::get({}, IntegerType::get(/*width=*/64, getContext())));
+  getResult(1).setType(
+      RankedTensorType::get({}, IntegerType::get(/*width=*/1, getContext())));
+
+  // Output loop variables should have the same type as their input
+  // counterparts.
+  for (int64_t i = numLoopVars - 1; i >= 0; i--) {
+    auto inType = loopBody.getArgument(i + 2).getType();
+    getResult(i).setType(inType);
+  }
+
+  // For scan output of the loop operation, they should have the same type as
+  // the corresponding loop body output from which they were concatenated into,
+  // except for one additional leading dimension with extent equal to the
+  // **actual** loop trip count.
+
+  // Minus one because loop body output does not contain iteration_num.
+  auto scanStartIdx = loopBody.getNumArguments() - 1;
+  auto scanEndIdx = func.getNumResults();
+  for (auto i = scanStartIdx; i < scanEndIdx; i++) {
+    auto loopBodyScanOutType = func.getType().getResult(i);
+    if (loopBodyScanOutType.isa<RankedTensorType>()) {
+      auto rankedLoopBodyScanOutType =
+          loopBodyScanOutType.cast<RankedTensorType>();
+      auto shape = rankedLoopBodyScanOutType.getShape();
+      SmallVector<int64_t, 4> unsqueezedShape(shape.begin(), shape.end());
+      // Note that we may know the extent of the scan output leading dimension,
+      // which is very likely just the trip count specified as an input to Loop
+      // operation, but we need to eliminate the possibility of early
+      // termination to be sure.
+      unsqueezedShape.insert(unsqueezedShape.begin(), -1);
+      auto loopOpScanOutType = RankedTensorType::get(
+          unsqueezedShape, rankedLoopBodyScanOutType.getElementType());
+      // Note that translating index position from loop body output to loop
+      // operation output involves substration by one, because loop operation
+      // output does not contain the loop condition variable.
+      getResult(i - 1).setType(loopOpScanOutType);
+    } else {
+      getResult(i - 1).setType(loopBodyScanOutType);
+    }
+  }
+
   return success();
 }
 

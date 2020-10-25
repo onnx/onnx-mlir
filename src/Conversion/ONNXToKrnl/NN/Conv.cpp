@@ -269,7 +269,60 @@ struct ONNXConvOpLowering : public ConversionPattern {
   }
 };
 
+struct ONNXLoopOpLowering : public OpRewritePattern<mlir::ONNXLoopOp> {
+  explicit ONNXLoopOpLowering(MLIRContext *ctx)
+      : OpRewritePattern<mlir::ONNXLoopOp>(ctx) {}
+
+  LogicalResult matchAndRewrite(
+      mlir::ONNXLoopOp op, PatternRewriter &rewriter) const override {
+    auto loc = op.getLoc();
+
+    auto module = op.getParentOfType<mlir::ModuleOp>();
+    auto symbolName = op.body().cast<SymbolRefAttr>().getLeafReference();
+    auto func = dyn_cast<mlir::FuncOp>(module.lookupSymbol(symbolName));
+    auto &loopBody = func.getBody();
+
+    auto opScanOutputIter = llvm::make_range(
+        op.v_final_and_scan_outputs().begin() + op.v_initial().size(),
+        op.v_final_and_scan_outputs().end());
+    auto vInitIter = op.v_initial();
+    for (const auto &ioPair : llvm::zip(vInitIter, opScanOutputIter)) {
+      auto vInit = std::get<0>(ioPair);
+      auto opScanOutput = std::get<1>(ioPair);
+
+      auto memRefType = convertToMemRefType(opScanOutput.getType());
+      Value alloc;
+      bool shouldDealloc = checkInsertDealloc(op);
+      if (hasAllConstantDimensions(memRefType))
+        alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
+      else {
+        auto rankedScanOutTy = opScanOutput.getType().cast<RankedTensorType>();
+        SmallVector<mlir::Value, 4> allocParams;
+
+        for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
+          if (rankedScanOutTy.getShape()[i] == -1) {
+            if (i == 0) {
+              // TODO(tjingrant): Not exactly right, due to possibility of early
+              // termination.
+              assert(!op.M().getType().isa<NoneType>());
+              allocParams.emplace_back(op.M());
+            } else {
+              allocParams.emplace_back(
+                  rewriter.create<DimOp>(loc, vInit, i - 1).getResult());
+            }
+          }
+        }
+        alloc = rewriter.create<AllocOp>(loc, rankedScanOutTy, allocParams);
+      }
+    }
+
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
 void populateLoweringONNXConvOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXConvOpLowering>(ctx);
+  patterns.insert<ONNXLoopOpLowering>(ctx);
 }
