@@ -228,10 +228,11 @@ ONNX MLIR Options:
 These are frontend options.
 
   Choose target to emit:
-      --EmitONNXIR - Ingest ONNX and emit corresponding ONNX dialect.
-      --EmitMLIR   - Lower model to MLIR built-in transformation dialect.
-      --EmitLLVMIR - Lower model to LLVM IR (LLVM dialect).
-      --EmitLLVMBC - Lower model to LLVM IR and emit (to file) LLVM bitcode for model.
+      --EmitONNXBasic - Ingest ONNX and emit the basic ONNX operations without inferred shapes.
+      --EmitONNXIR    - Ingest ONNX and emit corresponding ONNX dialect.
+      --EmitMLIR      - Lower model to MLIR built-in transformation dialect.
+      --EmitLLVMIR    - Lower model to LLVM IR (LLVM dialect).
+      --EmitLib       - Lower model to LLVM IR, emit (to file) LLVM bitcode for model, compile and link it to a shared library.
 ```
 
 ## Example
