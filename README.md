@@ -6,6 +6,7 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 | x86-Linux   | [![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)             |
 | s390-Linux  | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Linux-s390x-Build)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Linux-s390x-Build/)             |
 | x86-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
+| x86-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
 
 ## Prebuilt Container
 An easy way to get started with ONNX-MLIR is to use a prebuilt docker image. These images are created as a result of a successful merge build on the trunk.
@@ -227,10 +228,11 @@ ONNX MLIR Options:
 These are frontend options.
 
   Choose target to emit:
-      --EmitONNXIR - Ingest ONNX and emit corresponding ONNX dialect.
-      --EmitMLIR   - Lower model to MLIR built-in transformation dialect.
-      --EmitLLVMIR - Lower model to LLVM IR (LLVM dialect).
-      --EmitLLVMBC - Lower model to LLVM IR and emit (to file) LLVM bitcode for model.
+      --EmitONNXBasic - Ingest ONNX and emit the basic ONNX operations without inferred shapes.
+      --EmitONNXIR    - Ingest ONNX and emit corresponding ONNX dialect.
+      --EmitMLIR      - Lower model to MLIR built-in transformation dialect.
+      --EmitLLVMIR    - Lower model to LLVM IR (LLVM dialect).
+      --EmitLib       - Lower model to LLVM IR, emit (to file) LLVM bitcode for model, compile and link it to a shared library.
 ```
 
 ## Example
