@@ -140,12 +140,18 @@ public:
   IndexExpr CreateSymbolIndex(Value val);
 
   // Scan a memref shape at index to generate an IndexExpr, typically used for
-  // dimensions. If the memref
-  // will be generated if the memref is a constant.
+  // dimensions. Generate a literal when the memref dimension is known at
+  // compile time.
   IndexExpr CreateDimIndexFromMemref(
       Value memref, ArrayRef<int64_t> memrefShape, int index);
+  // Consider an op with operand "arrayOperand". We find this operand's defining
+  // op: if it contains a literal at position "index", we generate an literal
+  // IndexExpr; if its a tensor/memref, we load this value. If the index is out
+  // of bound, we return an undefine IndexExpr.
   IndexExpr CreateSymbolIndexFromArrayAtIndex(
       Operation *op, Value arrayOperand, uint64_t index);
+  // Same as above, but return "defaultLitteral" when there are no defining op
+  // or the index is out of bound.
   IndexExpr CreateSymbolIndexFromArrayAtIndex(Operation *op, Value arrayOperand,
       uint64_t index, int64_t defaultLiteral);
 
@@ -166,6 +172,12 @@ public:
   int GetSymbolSize() const { return symbols.size(); }
   ConversionPatternRewriter &GetRewriter() const;
   Location GetLocation() const { return loc; }
+
+  // Static helper functions.
+  bool static AreAllLiteral(SmallVectorImpl<IndexExpr> &list);
+  bool static AreAllAffine(SmallVectorImpl<IndexExpr> &list);
+  void static GetOutputDimsForType(SmallVectorImpl<IndexExpr> &outputIndices,
+      SmallVectorImpl<int64_t> &outputDims);
 
 private:
   SmallVector<Value, 4> dims;
@@ -193,9 +205,6 @@ public:
   bool HasContext() const;
   bool HasAffineExpr() const;
   bool HasValue() const;
-  // Shape inference querries on list of indices.
-  bool static AreAllLiteral(SmallVectorImpl<IndexExpr> &list);
-  bool static AreAllAffine(SmallVectorImpl<IndexExpr> &list);
 
   // Getters.
   int64_t GetLiteral() const;

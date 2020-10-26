@@ -155,6 +155,37 @@ ConversionPatternRewriter &IndexExprContext::GetRewriter() const {
 }
 
 //===----------------------------------------------------------------------===//
+// IndexExprContext static helper functions.
+//===----------------------------------------------------------------------===//
+
+bool IndexExprContext::AreAllLiteral(SmallVectorImpl<IndexExpr> &list) {
+  for (auto index : list) {
+    if (!index.IsLiteral())
+      return false;
+  }
+  return true;
+}
+
+bool IndexExprContext::AreAllAffine(SmallVectorImpl<IndexExpr> &list) {
+  for (auto index : list) {
+    if (!index.IsAffine())
+      return false;
+  }
+  return true;
+}
+
+void IndexExprContext::GetOutputDimsForType(SmallVectorImpl<IndexExpr> &outputIndices,
+    SmallVectorImpl<int64_t> &outputDims) {
+  outputDims.clear();
+  for (IndexExpr &outputIndex : outputIndices) {
+    if (outputIndex.IsLiteral())
+      outputDims.emplace_back(outputIndex.GetLiteral());
+    else
+      outputDims.emplace_back(-1);
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // IndexExpr constructors, initializers
 //===----------------------------------------------------------------------===//
 
@@ -287,7 +318,7 @@ IndexExpr &IndexExpr::InitAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
     // Not a constant; don't add code.
     return InitAsQuestionmark(newContext);
   }
-  // Emit code to rad array.
+  // Emit code to read array.
   Value indexVal = emitConstantOp(newContext.GetRewriter(),
       newContext.GetLocation(), newContext.GetRewriter().getIndexType(), i);
   SmallVector<Value, 1> memrefVal = {indexVal};
@@ -392,22 +423,6 @@ bool IndexExpr::HasAffineExpr() const {
 bool IndexExpr::HasValue() const {
   assert(IsDefined());
   return !(!value);
-}
-
-bool IndexExpr::AreAllLiteral(SmallVectorImpl<IndexExpr> &list) {
-  for (auto index : list) {
-    if (!index.IsLiteral())
-      return false;
-  }
-  return true;
-}
-
-bool IndexExpr::AreAllAffine(SmallVectorImpl<IndexExpr> &list) {
-  for (auto index : list) {
-    if (!index.IsAffine())
-      return false;
-  }
-  return true;
 }
 
 //===----------------------------------------------------------------------===//

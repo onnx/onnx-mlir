@@ -2890,24 +2890,17 @@ LogicalResult ONNXSliceOp::inferShapes() {
   ONNXSliceOpAdaptor operandAdaptor(*this);
   // Null rewriter for shape inference.
   IndexExprContext context(nullptr, getLoc());
-  SmallVector<IndexExpr, 4> startsIEV;
-  SmallVector<IndexExpr, 4> stepsIEV;
-  SmallVector<IndexExpr, 4> endsIEV;
-  SmallVector<IndexExpr, 4> outputDimsIEV;
-  if (failed(HandleSliceOpParams(this, operandAdaptor, context, startsIEV,
-          endsIEV, stepsIEV, outputDimsIEV))) {
-    // Failed to get constant only output sizes; fail.
-    SmallVector<int64_t, 2> outputDims(numDims, -1);
-    getResult().setType(RankedTensorType::get(outputDims, elementType));
-  } else {
-    // Has constant output dims, use them.
-    SmallVector<int64_t, 2> outputDims;
-    for (auto dimIE : outputDimsIEV) {
-      assert(dimIE.IsLiteral());
-      outputDims.emplace_back(dimIE.GetLiteral());
-    }
-    getResult().setType(RankedTensorType::get(outputDims, elementType));
-  }
+  SmallVector<IndexExpr, 4> startIndices;
+  SmallVector<IndexExpr, 4> stepIndices;
+  SmallVector<IndexExpr, 4> endIndices;
+  SmallVector<IndexExpr, 4> outputDimIndices;
+  if (failed(HandleSliceOpParams(this, operandAdaptor, context, startIndices, endIndices,
+          stepIndices, outputDimIndices)))
+    return emitError("Failed to scan Silce parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::GetOutputDimsForType(outputDimIndices, outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
 }
 

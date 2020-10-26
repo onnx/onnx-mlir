@@ -1354,6 +1354,26 @@ func @test_slice_constant_default_axes(%arg0 : tensor<2x4xf32>) -> tensor<*xf32>
 
 // -----
 
+// first dim is fully defined, second is runtime
+func @test_slice_constant_default_axes_some_rt_dim(%arg0 : tensor<2x?xf32>) -> tensor<*xf32> {
+  %axes = constant unit
+  %starts = "onnx.Constant"() {value = dense<[1, 0]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %ends = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %steps = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64> } : () -> tensor<2xi64>
+  %1 = "onnx.Slice"(%arg0, %starts, %ends, %axes, %steps) : (tensor<2x?xf32>, tensor<2xi64>, tensor<2xi64>, none, tensor<2xi64>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_slice_constant_default_axes
+  // CHECK: [[AXES:%.+]] = constant unit
+  // CHECK: [[STARTS:%.+]] = "onnx.Constant"() {value = dense<[1, 0]> : tensor<2xi64>} : () -> tensor<2xi64> 
+  // CHECK: [[ENDS:%.+]] = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  // CHECK: [[STEPS:%.+]] = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  // CHECK: [[RES:%.+]] = "onnx.Slice"(%arg0, [[STARTS]], [[ENDS]], [[AXES]], [[STEPS]]) : (tensor<2x?xf32>, tensor<2xi64>, tensor<2xi64>, none, tensor<2xi64>) -> tensor<1x?xf32>
+  // CHECK: return [[RES]] : tensor<1x?xf32>
+}
+
+// -----
+
 func @test_slice_constant_default_steps(%arg0 : tensor<2x4xf32>) -> tensor<*xf32> {
   %axes = "onnx.Constant"() {value = dense<[0, 1]> : tensor<2xi64> } : () -> tensor<2xi64>
   %starts = "onnx.Constant"() {value = dense<[1, 0]> : tensor<2xi64> } : () -> tensor<2xi64>

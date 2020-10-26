@@ -146,13 +146,6 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     dimInput = context.CreateDimIndexFromMemref(data, dataShape, ii);
     dimInput.DebugPrint("dim input");
 
-    // If in shape inference mode and we don't have the constant info, take
-    // early break.
-    if (context.IsShapeInferencePass() &&
-        (startInput.IsQuestionmark() || endInput.IsQuestionmark() ||
-            stepInput.IsQuestionmark() || dimInput.IsQuestionmark()))
-      return failure();
-
     // Now proceed with the computations for start/end/dim.
     // Calculation for start: start < 0 ? start + dim : start.
     IndexExpr startPlusDim, startPos, startFinal, neg, pos;
@@ -188,11 +181,6 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
     dimOutputFinal.AssignIf(dimOutputFinal, CmpIPredicate::slt, 0, 0);
     dimOutputFinal.DebugPrint("output dim final");
 
-    if (context.IsShapeInferencePass() && dimOutputFinal.IsQuestionmark()) {
-      // Return failure as we could not find a constant output size.
-      return failure();
-    }
-
     // Save results
     startIndices[ii] = startFinal;
     stepIndices[ii] = stepInput;
@@ -212,10 +200,6 @@ LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
       IndexExpr dimInput = context.CreateDimIndexFromMemref(data, dataShape, i);
       endIndices[i] = dimInput;
       outputDims[i] = dimInput;
-      if (context.IsShapeInferencePass() && dimInput.IsQuestionmark()) {
-        // Return failure as we could not find a constant output size.
-        return failure();
-      }
     }
 #if 1
     startIndices[i].DebugPrint("New Dim\n  start");
