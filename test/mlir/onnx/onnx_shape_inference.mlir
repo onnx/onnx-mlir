@@ -575,6 +575,37 @@ func @test_default_averagepool_strides_nonunifpad_ceil(%arg0 : tensor<5x5x30x32x
 
 // -----
 
+func @test_global_averagepool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_global_averagepool
+  // CHECK: [[RES:%.+]] = "onnx.GlobalAveragePool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<5x5x1x1xf32>
+  // CHECK: return [[RES]] : tensor<5x5x1x1xf32>
+}
+
+// -----
+
+func @test_global_lppool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GlobalLpPool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_global_lppool
+  // CHECK: [[RES:%.+]] = "onnx.GlobalLpPool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<5x5x1x1xf32>
+  // CHECK: return [[RES]] : tensor<5x5x1x1xf32>
+}
+
+// -----
+
+func @test_global_maxpool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_global_maxpool
+  // CHECK: [[RES:%.+]] = "onnx.GlobalMaxPool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<5x5x1x1xf32>
+  // CHECK: return [[RES]] : tensor<5x5x1x1xf32>
+}
+
 //===----------------------------------------------------------------------===//
 /// Test the reshape op inference when constants are present.
 //===----------------------------------------------------------------------===//
