@@ -13,8 +13,17 @@ import onnx.backend.test
 from onnx.backend.base import Device, DeviceType
 import subprocess
 import test_config
+import tempfile
 
 VERBOSE = bool(os.environ.get("VERBOSE"))
+
+test_case = os.environ.get("BACKEND_TEST")
+if test_case is not None and test_case != "" :
+    result_dir = "./"
+else :
+    tempdir = tempfile.TemporaryDirectory()
+    result_dir = tempdir.name+"/"
+print("temporary results are in dir "+result_dir)
 
 CXX = test_config.CXX_PATH
 ONNX_MLIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "bin/onnx-mlir")
@@ -88,11 +97,9 @@ class DummyBackend(onnx.backend.base.Backend):
     def prepare(cls, model, device='CPU', **kwargs):
         super(DummyBackend, cls).prepare(model, device, **kwargs)
         name = model.graph.name
-        model_name = name+".onnx"
-        exec_name = name + ".so"
+        model_name = result_dir+name+".onnx"
+        exec_name = result_dir+name + ".so"
         # Clean the temporary files in case
-        os.system("rm -f " + model_name)
-        os.system("rm -f " + exec_name)
         # Save model to disk as temp_model.onnx.
         onnx.save(model, model_name)
         if not os.path.exists(model_name) :
@@ -102,7 +109,7 @@ class DummyBackend(onnx.backend.base.Backend):
         execute_commands([ONNX_MLIR, model_name])
         if not os.path.exists(exec_name) :
             print("Failed ONNX_MLIR: "+ name)
-        return EndiannessAwareExecutionSession("./"+exec_name,
+        return EndiannessAwareExecutionSession(exec_name,
                                                "run_main_graph")
 
     @classmethod
@@ -505,7 +512,6 @@ test_to_enable = [
 ]
 
 # User case specify one test case with BCKEND_TEST env
-test_case = os.environ.get("BACKEND_TEST")
 if test_case is not None and test_case != "" :
     test_to_enable = [test_case]
 
