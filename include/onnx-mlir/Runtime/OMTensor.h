@@ -52,14 +52,6 @@ struct OMTensor;
 typedef struct OMTensor OMTensor;
 #endif
 
-/* Helper function to compute the number of data elements */
-static inline int64_t getNumOfElems(int64_t *dataSizes, int rank) {
-  int64_t numElem = 1;
-  for (int i = 0; i < rank; i++)
-    numElem *= dataSizes[i];
-  return numElem;
-}
-
 /**
  * \brief Create a OMTensor with specified data pointer, shape, rank and element
  * type.
@@ -83,21 +75,6 @@ OMTensor *omTensorCreate(
     void *data_ptr, int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
 
 /**
- * \brief Create an OMTensor with the specified shape, rank and element type,
- * allocate uninitialized data for the specified shape.
- *
- * The OMTensor created using this constructor owns the underlying memory
- * space allocated to the content of the tensor.
- *
- * @param shape list of integers indicating the tensor shape.
- * @param rank tensor rank.
- * @param dtype tensor element data type.
- * @return pointer to OMTensor created, NULL if creation failed.
- *
- */
-OMTensor *omTensorCreateEmpty(int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
-
-/**
  * \brief Create an OMTensor with specified data pointer, shape, rank and
  * element type, manually setting data ptr ownership.
  *
@@ -117,19 +94,6 @@ OMTensor *omTensorCreateEmpty(int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
  */
 OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
     int64_t rank, OM_DATA_TYPE dtype, int owning);
-
-/**
- * \brief Create an empty OMTensor with specified rank.
- *
- * This constructor returns a
- * partially filled omTensor; prefer using the new omTensorCreateEmpty()
- * function to fill shape & stride fields automatically.
- *
- * @param rank tensor rank
- * @return pointer to OMTensor created, NULL if creation failed.
- *
- */
-OMTensor *omTensorCreateEmptyDeprecated(int rank);
 
 /**
  * \brief Destroy the OMTensor struct.
