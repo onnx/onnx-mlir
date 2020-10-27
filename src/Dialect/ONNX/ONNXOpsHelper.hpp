@@ -11,6 +11,7 @@
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/Value.h"
 #include "mlir/IR/StandardTypes.h"
 
 #include "onnx/onnx_pb.h"
@@ -37,3 +38,12 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode);
 
 mlir::Type convertONNXTypeToMLIRType(
     mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
+
+// Helper functions to get values from attribute arrays.
+size_t ArrayAttrSize(ArrayAttr a);
+size_t ArrayAttrSize(Optional<ArrayAttr> a);
+int64_t ArrayAttrIntVal(ArrayAttr a, int i);
+int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
+
+DenseElementsAttr getDenseElementAttributeFromValue(Value value);
+bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
