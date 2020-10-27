@@ -869,8 +869,11 @@ def gen_op_def(schema):
 
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
-    if schema.name in OpsWithShapeInference:
-        traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
+    # OpsWithShapeInference:
+    # Now the ShapeInference traits are added to all operation
+    # Dummy implementations are added to ONNXOps.cpp
+    # Error will be report if these operations are encountered at runtime
+    traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
     if schema.name in OpsWithPromotableConstOperands.keys():
         traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
     if schema.name in OpsWithResultTypeInference.keys():
