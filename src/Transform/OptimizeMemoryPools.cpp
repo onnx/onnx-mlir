@@ -150,11 +150,11 @@ SmallVector<KrnlGetRefOp, 4> getAllGetRefWithSameOffset(KrnlGetRefOp *getRef) {
 /// that share the same offset and memory pool but are not part
 /// of the exception list.
 SmallVector<KrnlGetRefOp, 4> getAllGetRefWithSameOffsetExcept(
-    KrnlGetRefOp *getRef, SmallVector<KrnlGetRefOp, 4> exceptionList) {
+    KrnlGetRefOp *getRef, SmallVectorImpl<KrnlGetRefOp> &exceptionList) {
   auto parentBlock = getRef->getOperation()->getBlock();
   SmallVector<KrnlGetRefOp, 4> sameOffsetGetRefs;
 
-  parentBlock->walk([&sameOffsetGetRefs, getRef, exceptionList](
+  parentBlock->walk([&sameOffsetGetRefs, getRef, &exceptionList](
                         KrnlGetRefOp op) {
     for (auto exception : exceptionList)
       if (op == exception)
@@ -187,7 +187,7 @@ bool usedBySameKrnlMemcpy(
 }
 
 bool getRefUsesAreDisjoint(
-    SmallVector<KrnlGetRefOp, 4> firstGetRefList, KrnlGetRefOp secondGetRef) {
+    SmallVectorImpl<KrnlGetRefOp> &firstGetRefList, KrnlGetRefOp secondGetRef) {
   // Return variable.
   bool refsUseIsDisjoint = true;
 
@@ -267,8 +267,8 @@ bool getRefUsesAreDisjoint(
 ///    b = f(a)
 ///    store b firstGetRef[]
 ///
-bool getRefUsesAreMutuallyDisjoint(SmallVector<KrnlGetRefOp, 4> firstGetRefList,
-    SmallVector<KrnlGetRefOp, 4> secondGetRefList) {
+bool getRefUsesAreMutuallyDisjoint(SmallVectorImpl<KrnlGetRefOp> &firstGetRefList,
+    SmallVectorImpl<KrnlGetRefOp> &secondGetRefList) {
   for (auto getRef : secondGetRefList) {
     if (!getRefUsesAreDisjoint(firstGetRefList, getRef)) {
       return false;
@@ -525,7 +525,7 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
 /// Check that the live range of the secondGetRef does not intersect with
 /// any of the live ranges of the GetRefs in firstGetRefList.
 bool checkLiveRangesIntersect(
-    SmallVector<KrnlGetRefOp, 4> firstGetRefList, KrnlGetRefOp secondGetRef) {
+    SmallVectorImpl<KrnlGetRefOp> &firstGetRefList, KrnlGetRefOp secondGetRef) {
   // Check that the live range of each individual element in secondGetRefList
   // is independent from the individual live ranges of the elements
   // of the firstGetRefList.
@@ -618,6 +618,7 @@ public:
         blockToStaticPoolFlag->at(parentBlock))
       return failure();
 
+    // TODO: relax this condition.
     // If this is not the top block fail.
     if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
       return failure();
