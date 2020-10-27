@@ -88,30 +88,35 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
     // https://numpy.org/devdocs/user/basics.types.html
     py::dtype dtype;
-    if (omTensorGetDataType(omt) == onnx::TensorProto::FLOAT)
+    if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::FLOAT)
       dtype = py::dtype("float32");
-    else if (omTensorGetDataType(omt) == onnx::TensorProto::UINT8)
+    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::UINT8)
       dtype = py::dtype("uint8");
-    else if (omTensorGetDataType(omt) == onnx::TensorProto::INT8)
+    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT8)
       dtype = py::dtype("int8");
-    else if (omTensorGetDataType(omt) == onnx::TensorProto::UINT16)
+    else if (omTensorGetDataType(omt) ==
+             (OM_DATA_TYPE)onnx::TensorProto::UINT16)
       dtype = py::dtype("uint16");
-    else if (omTensorGetDataType(omt) == onnx::TensorProto::INT16)
+    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT16)
       dtype = py::dtype("int16");
-    else if (omTensorGetDataType(omt) == onnx::TensorProto::INT32)
+    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT32)
       dtype = py::dtype("int32");
-    else if (omTensorGetDataType(omt) == onnx::TensorProto::INT64)
+    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::INT64)
       dtype = py::dtype("int64");
     // TODO(tjingrant) wait for Tong's input for how to represent string.
-    else if (omTensorGetDataType(omt) == onnx::TensorProto::BOOL)
+    else if (omTensorGetDataType(omt) == (OM_DATA_TYPE)onnx::TensorProto::BOOL)
       dtype = py::dtype("bool_");
-    else if (omTensorGetDataType(omt) == onnx::TensorProto::FLOAT16)
+    else if (omTensorGetDataType(omt) ==
+             (OM_DATA_TYPE)onnx::TensorProto::FLOAT16)
       dtype = py::dtype("float32");
-    else if (omTensorGetDataType(omt) == onnx::TensorProto::DOUBLE)
+    else if (omTensorGetDataType(omt) ==
+             (OM_DATA_TYPE)onnx::TensorProto::DOUBLE)
       dtype = py::dtype("float64");
-    else if (omTensorGetDataType(omt) == onnx::TensorProto::UINT32)
+    else if (omTensorGetDataType(omt) ==
+             (OM_DATA_TYPE)onnx::TensorProto::UINT32)
       dtype = py::dtype("uint32");
-    else if (omTensorGetDataType(omt) == onnx::TensorProto::UINT64)
+    else if (omTensorGetDataType(omt) ==
+             (OM_DATA_TYPE)onnx::TensorProto::UINT64)
       dtype = py::dtype("uint64");
     else {
       fprintf(stderr, "Unsupported ONNX type in OMTensor.");
