@@ -567,6 +567,33 @@ bool checkLiveRangesIntersect(
 // Rewrite patterns.
 //===----------------------------------------------------------------------===//
 
+// This pattern transforms an existing static memory pool into a more compact
+// version of itself. This means allowing more than one krnl.getref to use
+// the same slot inside the memory pool. A slot is any contiguous chunk of
+// of memory used by a given getref.
+//
+// Example:
+//
+// Unoptimized:
+//  %1 = alloc() : memref<2000xi8>
+//  %2 = "krnl.getref"(%1, 1600)
+//  %3 = "krnl.getref"(%1, 1200)
+//  %4 = "krnl.getref"(%1, 800)
+//  %5 = "krnl.getref"(%1, 400)
+//  %6 = "krnl.getref"(%1, 0)
+//
+// Optimized:
+//  %1 = alloc() : memref<2000xi8>
+//  %2 = "krnl.getref"(%1, 1600)
+//  %3 = "krnl.getref"(%1, 400)
+//  %4 = "krnl.getref"(%1, 1600)
+//  %5 = "krnl.getref"(%1, 400)
+//  %6 = "krnl.getref"(%1, 400)
+//
+// Note: this rule does not actually alter the total size of the memory
+// pool, it just reuses slots where possible. The compaction of the memory
+// pool is performed by the KrnlCompactStaticMemoryPools rule.
+//
 class KrnlOptimizeStaticMemoryPools : public OpRewritePattern<KrnlGetRefOp> {
 public:
   using OpRewritePattern<KrnlGetRefOp>::OpRewritePattern;
@@ -747,6 +774,28 @@ public:
   }
 };
 
+// This pattern will compact the memory pool after the optimization pattern is
+// run. This means that after this rule is applied there are no slots in the
+// mempool that are not used at least once.
+//
+// Example:
+//
+// Optimized memory pool:
+//  %1 = alloc() : memref<2000xi8>
+//  %2 = "krnl.getref"(%1, 1600)
+//  %3 = "krnl.getref"(%1, 400)
+//  %4 = "krnl.getref"(%1, 1600)
+//  %5 = "krnl.getref"(%1, 400)
+//  %6 = "krnl.getref"(%1, 400)
+//
+// Compacted optimized memory pool:
+//  %1 = alloc() : memref<800xi8>
+//  %2 = "krnl.getref"(%1, 400)
+//  %3 = "krnl.getref"(%1, 0)
+//  %4 = "krnl.getref"(%1, 400)
+//  %5 = "krnl.getref"(%1, 0)
+//  %6 = "krnl.getref"(%1, 0)
+//
 class KrnlCompactStaticMemoryPools : public OpRewritePattern<AllocOp> {
 public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
