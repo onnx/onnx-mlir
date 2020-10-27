@@ -63,7 +63,7 @@ jobs:
     #
     ##########################################################################################
     - stage: prereq-init
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - s390x
       script:
@@ -72,7 +72,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
     - stage: prereq-0
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - s390x
       script:
@@ -80,7 +80,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
     - stage: prereq-1
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - s390x
       script:
@@ -88,7 +88,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
     - stage: prereq-2
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - s390x
       script:
@@ -96,7 +96,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
     - stage: prereq-final
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - s390x
       script:
@@ -110,7 +110,7 @@ jobs:
     #
     ##########################################################################################
     - stage: prereq-init
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - ppc64le
       script:
@@ -118,7 +118,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
     - stage: prereq-0
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - ppc64le
       script:
@@ -126,7 +126,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
     - stage: prereq-1
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - ppc64le
       script:
@@ -134,7 +134,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
     - stage: prereq-2
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - ppc64le
       script:
@@ -142,7 +142,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
     - stage: prereq-final
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - ppc64le
       script:
@@ -156,7 +156,7 @@ jobs:
     #
     ##########################################################################################
     - stage: prereq-init
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - amd64
       script:
@@ -164,7 +164,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:x86
     - stage: prereq-0
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - amd64
       script:
@@ -172,7 +172,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:x86
     - stage: prereq-1
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - amd64
       script:
@@ -180,7 +180,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:x86
     - stage: prereq-2
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - amd64
       script:
@@ -188,7 +188,7 @@ jobs:
         - docker login -u onnxmlirczar -p "$DOCKER_HUB_TOKEN"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:x86
     - stage: prereq-final
-      if: commit_message = "Rebuild prereq docker."
+      if: commit_message =~ /Rebuild prereq docker/
       arch:
         - amd64
       script:
