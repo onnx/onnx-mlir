@@ -267,7 +267,8 @@ bool getRefUsesAreDisjoint(
 ///    b = f(a)
 ///    store b firstGetRef[]
 ///
-bool getRefUsesAreMutuallyDisjoint(SmallVectorImpl<KrnlGetRefOp> &firstGetRefList,
+bool getRefUsesAreMutuallyDisjoint(
+    SmallVectorImpl<KrnlGetRefOp> &firstGetRefList,
     SmallVectorImpl<KrnlGetRefOp> &secondGetRefList) {
   for (auto getRef : secondGetRefList) {
     if (!getRefUsesAreDisjoint(firstGetRefList, getRef)) {
