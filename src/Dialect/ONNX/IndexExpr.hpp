@@ -106,7 +106,8 @@ the same context.
 // Perform calculations.
 
     startPlusDim.Add(startInput, dimInput);
-    startPos.Select(startInput, CmpIPredicate::slt, 0, startPlusDim, startInput);
+    startPos.Select(startInput, CmpIPredicate::slt, 0, startPlusDim,
+      startInput);
     // Step < 0: clamp(0, start, dim -1) else clamp(0, start, dim)
     dimMinOneInput.Sub(dimInput, 1);
     neg.Clamp(startPos, 0, dimMinOneInput);
