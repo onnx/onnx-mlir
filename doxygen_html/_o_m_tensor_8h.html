@@ -85,15 +85,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ae7465303dcf4e6b090f6ef7bf16bbe6a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#ae7465303dcf4e6b090f6ef7bf16bbe6a">omTensorCreate</a> (void *data_ptr, int64_t *shape, int64_t rank, <a class="el" href="_onnx_data_type_8h.html#aa7315491c4b1be4c29023499fbe0530a">OM_DATA_TYPE</a> dtype)</td></tr>
 <tr class="memdesc:ae7465303dcf4e6b090f6ef7bf16bbe6a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a OMTensor with specified data pointer, shape, rank and element type.  <a href="#ae7465303dcf4e6b090f6ef7bf16bbe6a">More...</a><br /></td></tr>
 <tr class="separator:ae7465303dcf4e6b090f6ef7bf16bbe6a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a5e7b452b053fcdcbbb0d85deed59a314"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a5e7b452b053fcdcbbb0d85deed59a314">omTensorCreateEmpty</a> (int64_t *shape, int64_t rank, <a class="el" href="_onnx_data_type_8h.html#aa7315491c4b1be4c29023499fbe0530a">OM_DATA_TYPE</a> dtype)</td></tr>
-<tr class="memdesc:a5e7b452b053fcdcbbb0d85deed59a314"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create an OMTensor with the specified shape, rank and element type, allocate uninitialized data for the specified shape.  <a href="#a5e7b452b053fcdcbbb0d85deed59a314">More...</a><br /></td></tr>
-<tr class="separator:a5e7b452b053fcdcbbb0d85deed59a314"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a91ae8bbc685f94d70b9ed2f64ea76e15"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a91ae8bbc685f94d70b9ed2f64ea76e15">omTensorCreateWithOwnership</a> (void *data_ptr, int64_t *shape, int64_t rank, <a class="el" href="_onnx_data_type_8h.html#aa7315491c4b1be4c29023499fbe0530a">OM_DATA_TYPE</a> dtype, int owning)</td></tr>
 <tr class="memdesc:a91ae8bbc685f94d70b9ed2f64ea76e15"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create an OMTensor with specified data pointer, shape, rank and element type, manually setting data ptr ownership.  <a href="#a91ae8bbc685f94d70b9ed2f64ea76e15">More...</a><br /></td></tr>
 <tr class="separator:a91ae8bbc685f94d70b9ed2f64ea76e15"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a82d9a4731f295e1c4e56a3106b69b19a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a82d9a4731f295e1c4e56a3106b69b19a">omTensorCreateEmptyDeprecated</a> (int rank)</td></tr>
-<tr class="memdesc:a82d9a4731f295e1c4e56a3106b69b19a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create an empty OMTensor with specified rank.  <a href="#a82d9a4731f295e1c4e56a3106b69b19a">More...</a><br /></td></tr>
-<tr class="separator:a82d9a4731f295e1c4e56a3106b69b19a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a425a838c94082f3c6287c80a658e5d31"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a425a838c94082f3c6287c80a658e5d31">omTensorDestroy</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
 <tr class="memdesc:a425a838c94082f3c6287c80a658e5d31"><td class="mdescLeft">&#160;</td><td class="mdescRight">Destroy the OMTensor struct.  <a href="#a425a838c94082f3c6287c80a658e5d31">More...</a><br /></td></tr>
 <tr class="separator:a425a838c94082f3c6287c80a658e5d31"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -190,80 +184,6 @@ Functions</h2></td></tr>
     <tr><td class="paramname">shape</td><td>list of integers indicating the tensor shape. </td></tr>
     <tr><td class="paramname">rank</td><td>tensor rank. </td></tr>
     <tr><td class="paramname">dtype</td><td>tensor element data type. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>pointer to OMTensor created, NULL if creation failed. </dd></dl>
-
-</div>
-</div>
-<a id="a5e7b452b053fcdcbbb0d85deed59a314"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5e7b452b053fcdcbbb0d85deed59a314">&#9670;&nbsp;</a></span>omTensorCreateEmpty()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a>* omTensorCreateEmpty </td>
-          <td>(</td>
-          <td class="paramtype">int64_t *&#160;</td>
-          <td class="paramname"><em>shape</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">int64_t&#160;</td>
-          <td class="paramname"><em>rank</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype"><a class="el" href="_onnx_data_type_8h.html#aa7315491c4b1be4c29023499fbe0530a">OM_DATA_TYPE</a>&#160;</td>
-          <td class="paramname"><em>dtype</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Create an OMTensor with the specified shape, rank and element type, allocate uninitialized data for the specified shape. </p>
-<p>The OMTensor created using this constructor owns the underlying memory space allocated to the content of the tensor.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">shape</td><td>list of integers indicating the tensor shape. </td></tr>
-    <tr><td class="paramname">rank</td><td>tensor rank. </td></tr>
-    <tr><td class="paramname">dtype</td><td>tensor element data type. </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>pointer to OMTensor created, NULL if creation failed. </dd></dl>
-
-</div>
-</div>
-<a id="a82d9a4731f295e1c4e56a3106b69b19a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a82d9a4731f295e1c4e56a3106b69b19a">&#9670;&nbsp;</a></span>omTensorCreateEmptyDeprecated()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a>* omTensorCreateEmptyDeprecated </td>
-          <td>(</td>
-          <td class="paramtype">int&#160;</td>
-          <td class="paramname"><em>rank</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Create an empty OMTensor with specified rank. </p>
-<p>This constructor returns a partially filled omTensor; prefer using the new <a class="el" href="_o_m_tensor_8h.html#a5e7b452b053fcdcbbb0d85deed59a314" title="Create an OMTensor with the specified shape, rank and element type, allocate uninitialized data for t...">omTensorCreateEmpty()</a> function to fill shape &amp; stride fields automatically.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">rank</td><td>tensor rank </td></tr>
   </table>
   </dd>
 </dl>
