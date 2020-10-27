@@ -143,4 +143,10 @@ def ScalerPattern2 : Pat<
   [],
   (addBenefit 0)>;
 
+// Express LogSoftmax using Log and Softmax.
+def LogSoftmaxPattern : Pat<
+  (ONNXLogSoftmaxOp $x, $axis),
+  (ONNXLogOp (ONNXSoftmaxOp $x, $axis))
+>;
+
 #endif // ONNX_DECOMPOSE

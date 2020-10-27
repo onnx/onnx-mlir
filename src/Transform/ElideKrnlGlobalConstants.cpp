@@ -58,7 +58,8 @@ public:
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
-    patterns.insert<KrnlConstGlobalValueElision>(&getContext());
+    patterns.insert<KrnlConstGlobalValueElision>(
+        &getContext(), KrnlConstGlobalValueElision::kDefaultElisionThreshold);
 
     applyPatternsAndFoldGreedily(function, patterns);
   }

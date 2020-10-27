@@ -6,6 +6,7 @@ The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mli
 | x86-Linux   | [![CircleCI](https://circleci.com/gh/onnx/onnx-mlir/tree/master.svg?style=svg)](https://circleci.com/gh/onnx/onnx-mlir/tree/master)             |
 | s390-Linux  | [![Build Status](https://yktpandb.watson.ibm.com/jenkins/buildStatus/icon?job=ONNX-MLIR-Linux-s390x-Build)](https://yktpandb.watson.ibm.com/jenkins/job/ONNX-MLIR-Linux-s390x-Build/)             |
 | x86-Windows | [![Build Status](https://dev.azure.com/onnx-pipelines/onnx/_apis/build/status/MLIR-Windows-CI?branchName=master)](https://dev.azure.com/onnx-pipelines/onnx/_build/latest?definitionId=9&branchName=master)             |
+| x86-macOS   | [![Build Status](https://github.com/onnx/onnx-mlir/workflows/Build%20x86%20onnx-mlir%20on%20macOS/badge.svg)](https://github.com/onnx/onnx-mlir/actions?query=workflow%3A%22Build+x86+onnx-mlir+on+macOS%22)             |
 
 ## Prebuilt Container
 An easy way to get started with ONNX-MLIR is to use a prebuilt docker image. These images are created as a result of a successful merge build on the trunk.
@@ -62,7 +63,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 91671e13efbc5dbd17b832d7973401350d0a6ee6 && cd ..
+cd llvm-project && git checkout b3b4cda104068e92b77f18c4e3fc0e0b8f3650e0 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -152,7 +153,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 91671e13efbc5dbd17b832d7973401350d0a6ee6 && cd ..
+cd llvm-project && git checkout b3b4cda104068e92b77f18c4e3fc0e0b8f3650e0 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -227,10 +228,11 @@ ONNX MLIR Options:
 These are frontend options.
 
   Choose target to emit:
-      --EmitONNXIR - Ingest ONNX and emit corresponding ONNX dialect.
-      --EmitMLIR   - Lower model to MLIR built-in transformation dialect.
-      --EmitLLVMIR - Lower model to LLVM IR (LLVM dialect).
-      --EmitLLVMBC - Lower model to LLVM IR and emit (to file) LLVM bitcode for model.
+      --EmitONNXBasic - Ingest ONNX and emit the basic ONNX operations without inferred shapes.
+      --EmitONNXIR    - Ingest ONNX and emit corresponding ONNX dialect.
+      --EmitMLIR      - Lower model to MLIR built-in transformation dialect.
+      --EmitLLVMIR    - Lower model to LLVM IR (LLVM dialect).
+      --EmitLib       - Lower model to LLVM IR, emit (to file) LLVM bitcode for model, compile and link it to a shared library.
 ```
 
 ## Example
@@ -252,3 +254,13 @@ module {
 ## Troubleshooting
 
 If the latest LLVM project fails to work due to the latest changes to the MLIR subproject please consider using a slightly older version of LLVM. One such version, which we use, can be found [here](https://github.com/clang-ykt/llvm-project).
+
+## Installing `third_party ONNX` for Backend Tests or Rebuilding ONNX Operations
+
+Backend tests are triggered by `make check-onnx-backend` in the build directory and require a few preliminary steps to run successfully. Similarily, rebuilding the ONNX operations in ONNX-MLIR from their ONNX descriptions is triggered by `make OMONNXOpsIncTranslation`.
+
+You will need to install python 3.x if its not default in your environment, and possibly set the cmake `PYTHON_EXECUTABLE` varialbe in your top cmake file.
+
+You will also need `pybind11` which may need to be installed (mac: `brew install pybind` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install -e third_party/onnx`) typed in the top directory.
+
+On Macs/POWER and possibly other platforms, there is currently an issue that arises when installing ONNX. If you get an error during the build, try a fix where you edit the top CMakefile as reported in this PR: `https://github.com/onnx/onnx/pull/2482/files`.

@@ -575,6 +575,37 @@ func @test_default_averagepool_strides_nonunifpad_ceil(%arg0 : tensor<5x5x30x32x
 
 // -----
 
+func @test_global_averagepool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_global_averagepool
+  // CHECK: [[RES:%.+]] = "onnx.GlobalAveragePool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<5x5x1x1xf32>
+  // CHECK: return [[RES]] : tensor<5x5x1x1xf32>
+}
+
+// -----
+
+func @test_global_lppool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GlobalLpPool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_global_lppool
+  // CHECK: [[RES:%.+]] = "onnx.GlobalLpPool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<5x5x1x1xf32>
+  // CHECK: return [[RES]] : tensor<5x5x1x1xf32>
+}
+
+// -----
+
+func @test_global_maxpool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_global_maxpool
+  // CHECK: [[RES:%.+]] = "onnx.GlobalMaxPool"(%arg0) : (tensor<5x5x32x32xf32>) -> tensor<5x5x1x1xf32>
+  // CHECK: return [[RES]] : tensor<5x5x1x1xf32>
+}
+
 //===----------------------------------------------------------------------===//
 /// Test the reshape op inference when constants are present.
 //===----------------------------------------------------------------------===//
@@ -657,8 +688,8 @@ func @test_flatten_3(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
   %1 = "onnx.Flatten"(%arg0) {axis = -1 : si64} : (tensor<2x3x4xf32>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
   // CHECK-LABEL: test_flatten_3
-  // CHECK: [[RES:%.+]] = "onnx.Flatten"(%arg0) {axis = -1 : si64} : (tensor<2x3x4xf32>) -> tensor<24x1xf32>
-  // CHECK: return [[RES]] : tensor<24x1xf32>
+  // CHECK: [[RES:%.+]] = "onnx.Flatten"(%arg0) {axis = -1 : si64} : (tensor<2x3x4xf32>) -> tensor<6x4xf32>
+  // CHECK: return [[RES]] : tensor<6x4xf32>
 }
 
 // -----
@@ -1610,3 +1641,44 @@ func @test_size(%arg0: tensor<*xf32>) -> tensor<*xi64> {
   // CHECK: [[RES:%.+]] = "onnx.Size"(%arg0) : (tensor<*xf32>) -> tensor<i64>
   // CHECK: return [[RES]] : tensor<i64>
 }
+
+// -----
+
+func @test_less(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
+}
+
+// -----
+
+func @test_less_broadcast(%arg0: tensor<3x4x5xf32>, %arg1: tensor<5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less_broadcast
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<5xf32>) -> tensor<3x4x5xi1>
+}
+
+// -----
+
+func @test_less_unknown_dims_1(%arg0: tensor<3x4x5xf32>, %arg1: tensor<?x4x5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<?x4x5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less_unknown_dims_1
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<?x4x5xf32>) -> tensor<3x4x5xi1>
+}
+
+// -----
+
+func @test_less_unknown_dims_2(%arg0: tensor<?x?x5xf32>, %arg1: tensor<?x4x5xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<?x?x5xf32>, tensor<?x4x5xf32>) -> tensor<*xi1>
+  return %0 : tensor<*xi1>
+
+  // CHECK-LABEL: test_less_unknown_dims_2
+  // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<?x?x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
+}
+
