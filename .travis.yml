@@ -11,10 +11,10 @@ arch:
 env:
   - NIGHTLY=true
   - NIGHTLY=false
-# Do not test branch update unless it's mater.
-branches:
-  only:
-  - master
+# Do not test branch update unless it's master.
+#branches:
+#  only:
+#  - master
 stages:
   - name: prereq-init
   - name: prereq-0
