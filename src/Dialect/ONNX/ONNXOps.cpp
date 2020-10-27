@@ -2894,8 +2894,8 @@ LogicalResult ONNXSliceOp::inferShapes() {
   SmallVector<IndexExpr, 4> stepIndices;
   SmallVector<IndexExpr, 4> endIndices;
   SmallVector<IndexExpr, 4> outputDimIndices;
-  if (failed(HandleSliceOpParams(this, operandAdaptor, context, startIndices, endIndices,
-          stepIndices, outputDimIndices)))
+  if (failed(HandleSliceOpParams(this, operandAdaptor, context, startIndices,
+          endIndices, stepIndices, outputDimIndices)))
     return emitError("Failed to scan Silce parameters successfully");
 
   SmallVector<int64_t, 4> outputDims;

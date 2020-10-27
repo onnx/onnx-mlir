@@ -11,8 +11,8 @@
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/Value.h"
 #include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/Value.h"
 
 #include "onnx/onnx_pb.h"
 

@@ -48,6 +48,8 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
+    IndexExprContext childContext(outerloopContex);
+
     // proceed with the load data["i * step + start} for all dim]
     Value loadVal;
     SmallVector<Value, 4> loadIndices;
@@ -57,9 +59,6 @@ struct ONNXSliceOpLowering : public ConversionPattern {
       IndexExpr loopIndex, start, step, actualIndex;
       // Decide here if we can reuse the parent outerloopContex: can do so if
       // start is afine and steps are literals.
-      bool mayReuseParentContext =
-          steps[ii].IsLiteral() && starts[ii].IsAffine();
-      IndexExprContext childContext(outerloopContex, mayReuseParentContext);
       loopIndex = childContext.CreateDimIndex(loopVal);
       start = childContext.CreateSymbolIndexFromParentContext(starts[ii]);
       step = childContext.CreateSymbolIndexFromParentContext(steps[ii]);

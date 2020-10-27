@@ -9,8 +9,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 // Identity affine
 using namespace mlir;

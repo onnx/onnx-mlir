@@ -81,31 +81,76 @@ the same context.
 3) Code Sample
 ==============
 
-3a) Scan parameters (typically arrays). Check ONNXShapeHelper.cpp
+3a) Create a context:
 
-// Look at operation parameter "start" and extract an IndexExpr at location i.
+// During shape inference: no rewriter.
 
-startInput =
-  GetIndexExprFromArrayAt(context, op, operandAdaptor.starts(), i);
-if (startInput.IsUndefined())
-  return sliceOp->emitError("start input parameter could not be processed");
+  IndexExprContext context(nullptr, getLoc());
 
-// Scan a dim input (can be compile time or runtime)
+// During lowering.
 
-dimInput = context.CreateDimIndexExpr(data, dataShape, ii);
+    IndexExprContext outerloopContex(&rewriter, sliceOp.getLoc());
 
-// Perform some computations
+3b) Computations on IndexExpr
 
-startPlusDim.Add(startInput, dimInput);
-startPos.Select(
-startInput, CmpIPredicate::slt, 0, startPlusDim, startInput);
-// Step < 0: clamp(0, start, dim -1) else clamp(0, start, dim)
-neg.Clamp(startPos, 0, dimMinOneInput);
-pos.Clamp(startPos, 0, dimInput);
-startFinal.Select(stepInput, CmpIPredicate::slt, 0, neg, pos);
+// IN ONNXShapeHelper.cpp
+
+// Get a value from an input operand (either a constant or a value to load).
+
+    startInput = context.CreateSymbolIndexFromArrayAtIndex(
+        op, operandAdaptor.starts(), i);
+
+// Get a dimension from a memref.
+    dimInput = context.CreateDimIndexFromMemref(data, dataShape, ii);
+
+// Perform calculations.
+
+    startPlusDim.Add(startInput, dimInput);
+    startPos.Select(startInput, CmpIPredicate::slt, 0, startPlusDim, startInput);
+    // Step < 0: clamp(0, start, dim -1) else clamp(0, start, dim)
+    dimMinOneInput.Sub(dimInput, 1);
+    neg.Clamp(startPos, 0, dimMinOneInput);
+    pos.Clamp(startPos, 0, dimInput);
+    startFinal.Select(stepInput, CmpIPredicate::slt, 0, neg, pos);
 
 3b) Look at Slice in ONNXOps.cpp on how to use IndexExpr for shape inferences.
+
+// Extract the shape of the output.
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::GetOutputDimsForType(outputDimIndices, outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+
 3c) Look at Slice.cpp on how to use IndexExpr for lowering.
+
+// Create an alloc using dimensions as indices.
+
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, outputDims);
+
+// Use indices to set loop sizes.
+
+outputLoops(rewriter, loc, outputRank);
+    outputLoops.createDefineOp();
+    for (int ii = 0; ii < outputRank; ++ii)
+      outputLoops.pushBounds(outerloopContex, 0, outputDims[ii]);
+    outputLoops.createIterateOp();
+    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
+
+// Create a sub-context for computations inside the loop iteration.
+    IndexExprContext childContext(outerloopContex);
+
+// Create indices with computations for a load.
+
+    for (int ii = 0; ii < outputRank; ++ii) {
+      Value loopVal = outputLoops.getInductionVar(ii);
+      IndexExpr loopIndex, start, step, actualIndex;
+      loopIndex = childContext.CreateDimIndex(loopVal);
+      start = childContext.CreateSymbolIndexFromParentContext(starts[ii]);
+      step = childContext.CreateSymbolIndexFromParentContext(steps[ii]);
+      actualIndex.Mult(step, loopIndex).IncBy(start);
+      loadIndices.emplace_back(actualIndex.GetValue());
+    }
 
 */
 
@@ -130,7 +175,7 @@ public:
   // Constructor for a top level context.
   IndexExprContext(ConversionPatternRewriter *rewriter, Location loc);
   // Constructor for a child context.
-  IndexExprContext(IndexExprContext &parentContext, bool mayReuseContext);
+  IndexExprContext(IndexExprContext &parentContext);
 
   // IndexExpr basic builders.
   IndexExpr CreateUndefinedIndex();
@@ -164,7 +209,6 @@ public:
 
   // Querries.
   bool IsShapeInferencePass() const { return !rewriter; }
-  bool IsReusingParentContext() const { return parentContext != nullptr; }
 
   // Getters.
   void GetDimAndSymbolList(SmallVectorImpl<Value> &list) const;

@@ -11,7 +11,7 @@
 
 // both debug variables will be removed once debugging is complete.
 #define DEBUG 0
-#define CEIL_FLOOR_IN_STD 1
+#define CEIL_FLOOR_IN_STD 0
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -34,15 +34,10 @@ IndexExprContext::IndexExprContext(
     ConversionPatternRewriter *rewriter, Location loc)
     : rewriter(rewriter), loc(loc), dims(), symbols(), parentContext(nullptr) {}
 
-IndexExprContext::IndexExprContext(
-    IndexExprContext &newParentContext, bool mayReuseContext)
+IndexExprContext::IndexExprContext(IndexExprContext &newParentContext)
     : rewriter(newParentContext.rewriter), loc(newParentContext.loc), dims(),
       symbols(), parentContext(nullptr) {
-  // When we cannot reuse the parent context, then there is nothing to do but
-  // reusing the same rewriter and code location. We are done.
-  if (!mayReuseContext)
-    return;
-  // Otherwise, we can resue the parent context, and in particuliar its affine
+  // We resue the parent context, and in particuliar its affine
   // functions. Now because the affine functions of the parent context have
   // "ids" embedded in the AffineExpr, we must reuse the same mix of Dims and
   // Symbols here. I don't believe there is any sideeffects in considering a Dim
@@ -107,20 +102,23 @@ IndexExpr IndexExprContext::CreateSymbolIndex(Value val) {
 // Additional builder for repurposing IndexExpr from parent context.
 IndexExpr IndexExprContext::CreateSymbolIndexFromParentContext(
     IndexExpr &parentIndexExpr) {
-  if (!IsReusingParentContext()) {
-    // We are not reusing the parent context; we wil just extract the value from
-    // the parent index expression and inject it here as a symbol. By creating
-    // it using the normal CreateSymbolIndexExpr, it will get associated with
-    // the child's context.
-    return CreateSymbolIndex(parentIndexExpr.GetValue());
-  }
-  // We are now reusing the parent IndexExpr, but we must reset it's context to
-  // the child's one.
+  // Make sure that we are using the propper parent context
   assert(parentIndexExpr.GetContextPtr() == parentContext &&
          "parent index is not from the parent's context");
-  IndexExpr childIndexExpr(parentIndexExpr);
-  childIndexExpr.SetContext(*this);
-  return childIndexExpr;
+  // When the parent expression is already affine in the outer context, it will
+  // remain afine in the child's context as wee. So we keep it as such, to get
+  // as exprssive affine expressions as possible. We could retrict reuse for
+  // literal only.
+  if (parentIndexExpr.IsAffine()) {
+    // Reuse affine expression.
+    parentIndexExpr.DebugPrint("Reuse parent");
+    IndexExpr childIndexExpr(parentIndexExpr);
+    childIndexExpr.SetContext(*this);
+    return childIndexExpr;
+  }
+  // Non affine, create a symbol.
+  parentIndexExpr.DebugPrint("Create symbol out of parent");
+  return CreateSymbolIndex(parentIndexExpr.GetValue());
 }
 
 //===----------------------------------------------------------------------===//
@@ -174,7 +172,8 @@ bool IndexExprContext::AreAllAffine(SmallVectorImpl<IndexExpr> &list) {
   return true;
 }
 
-void IndexExprContext::GetOutputDimsForType(SmallVectorImpl<IndexExpr> &outputIndices,
+void IndexExprContext::GetOutputDimsForType(
+    SmallVectorImpl<IndexExpr> &outputIndices,
     SmallVectorImpl<int64_t> &outputDims) {
   outputDims.clear();
   for (IndexExpr &outputIndex : outputIndices) {
@@ -500,8 +499,8 @@ Location IndexExpr::GetLocation() const { return GetContext().GetLocation(); }
 void IndexExpr::DebugPrint(const std::string &msg) {
 #if DEBUG
   printf("%s:", msg.c_str());
-  if (IsIntLit())
-    printf(" val(%lli)", GetIntLit());
+  if (IsLiteral())
+    printf(" literal(%lli)", GetLiteral());
   if (HasAffineExpr())
     printf(" hasAffine");
   if (HasValue())
