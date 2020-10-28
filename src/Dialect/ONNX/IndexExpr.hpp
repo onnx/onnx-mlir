@@ -114,7 +114,7 @@ the same context.
     pos.Clamp(startPos, 0, dimInput);
     startFinal.Select(stepInput, CmpIPredicate::slt, 0, neg, pos);
 
-3b) Look at Slice in ONNXOps.cpp on how to use IndexExpr for shape inferences.
+3c) Look at Slice in ONNXOps.cpp on how to use IndexExpr for shape inferences.
 
 // Extract the shape of the output.
 
@@ -122,7 +122,7 @@ the same context.
   IndexExprContext::GetOutputDimsForType(outputDimIndices, outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
-3c) Look at Slice.cpp on how to use IndexExpr for lowering.
+3d) Look at Slice.cpp on how to use IndexExpr for lowering.
 
 // Create an alloc using dimensions as indices.
 
