@@ -181,3 +181,17 @@ func @test_scaler_constant(%arg0: tensor<3xf32>) -> tensor<3xf32> {
   // CHECK-NEXT: %3 = "onnx.Mul"(%1, %2) : (tensor<3xf32>, tensor<1xf32>) -> tensor<3xf32>
   // CHECK-NEXT: return %3 : tensor<3xf32>
 }
+
+// -----
+
+// Rewrite LogSoftmax using Log and Softmax.
+func @test_logsoftmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.LogSoftmax"(%arg0) {axis=1: si64} : (tensor<10x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_logsoftmax
+  // CHECK: [[SOFTMAX:%.+]] = "onnx.Softmax"(%arg0) {axis = 1 : si64} : (tensor<10x10xf32>) -> tensor<*xf32>
+  // CHECK: [[RES:%.+]] = "onnx.Log"([[SOFTMAX]]) : (tensor<*xf32>) -> tensor<*xf32>
+  // CHECK: return [[RES]] : tensor<*xf32>
+}
+

@@ -272,6 +272,8 @@ OpsWithShapeInference=[
     'Gather',
     'Gemm',
     'GlobalAveragePool',
+    'GlobalLpPool',
+    'GlobalMaxPool',
     'HardSigmoid',
     'Identity',
     'LSTM',
@@ -372,7 +374,7 @@ OpsWithResultTypeInference = {
 #  - one with operands and attributes having a separate parameter, and
 #  - one with operands and attributes having aggregated parameters.
 custom_builder_unranked_ops_list = ['Abs', 'Exp', 'ReduceSum', 'ReduceSumSquare',
-                                    'Pad', 'Sqrt', 'Neg', 'Unsqueeze']
+                                    'Pad', 'Sqrt', 'Neg', 'Unsqueeze', 'Softmax']
 # Custom builder op list for operations with broadcast; we can deduce the right
 # output type, no need to leave it undef as in the above list.
 # Ops must have two operands, not one, not three... And there shall be two.
@@ -869,8 +871,11 @@ def gen_op_def(schema):
 
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
-    if schema.name in OpsWithShapeInference:
-        traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
+    # OpsWithShapeInference:
+    # Now the ShapeInference traits are added to all operation
+    # Dummy implementations are added to ONNXOps.cpp
+    # Error will be report if these operations are encountered at runtime
+    traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
     if schema.name in OpsWithPromotableConstOperands.keys():
         traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
     if schema.name in OpsWithResultTypeInference.keys():

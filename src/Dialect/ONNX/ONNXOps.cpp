@@ -1931,31 +1931,6 @@ LogicalResult ONNXAveragePoolOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
-// Global Average Pool
-//===----------------------------------------------------------------------===//
-LogicalResult ONNXGlobalAveragePoolOp::inferShapes() {
-
-  // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
-
-  auto builder = mlir::Builder(getContext());
-
-  // Get shape of input.
-  auto xTy = X().getType().cast<RankedTensorType>();
-
-  // Assumes NCHW format.
-  auto xShape = xTy.getShape();
-
-  // Global Average Pool maintains NC and collapses the spacial dimensions.
-  llvm::SmallVector<int64_t, 4> outShape = {xShape[0], xShape[1], 1, 1};
-
-  getResult().setType(RankedTensorType::get(
-      llvm::makeArrayRef(outShape), xTy.getElementType()));
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // MaxPoolSingleOut
 //===----------------------------------------------------------------------===//
 
@@ -2005,6 +1980,56 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes() {
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
+}
+
+// Helper function to infer shapes of global pool operations.
+template <typename PoolingOp>
+static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
+  // Cannot infer shape if no shape exists.
+  if (!op->X().getType().template isa<RankedTensorType>())
+    return op->emitError("Input tensor not ranked");
+
+  auto xTy = op->X().getType().template cast<RankedTensorType>();
+  auto xShape = xTy.getShape();
+  xTy.getRank();
+
+  if (xShape.size() < 3) {
+    return op->emitError("Data input shape must be at least (NxCxD1)");
+  }
+
+  SmallVector<int64_t, 4> outputDims;
+  outputDims.emplace_back(xShape[0]);
+  outputDims.emplace_back(xShape[1]);
+  // Spatial dimensions are reduced to 1.
+  outputDims.insert(outputDims.end(), xTy.getRank() - 2, 1);
+
+  op->getResult().setType(
+      RankedTensorType::get(outputDims, xTy.getElementType()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// GlobalAveragePool
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGlobalAveragePoolOp::inferShapes() {
+  return inferShapesGlobalPool(this);
+}
+
+//===----------------------------------------------------------------------===//
+// GlobalLpPool
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGlobalLpPoolOp::inferShapes() {
+  return inferShapesGlobalPool(this);
+}
+
+//===----------------------------------------------------------------------===//
+// GlobalMaxPool
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGlobalMaxPoolOp::inferShapes() {
+  return inferShapesGlobalPool(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2431,7 +2456,7 @@ LogicalResult ONNXFlattenOp::inferShapes() {
 
   // Negative axis is counting dimension from back
   if (axisValue < 0)
-    axisValue = inputRank + axisValue + 1;
+    axisValue = inputRank + axisValue;
 
   // Determine the size of the first dimension of output
   int64_t firstDim = 1;
@@ -3167,6 +3192,391 @@ LogicalResult ONNXLessOp::inferShapes() {
   getResult().setType(
       RankedTensorType::get(dims, IntegerType::get(/*width=*/1, getContext())));
   return success();
+}
+
+// Operations for which shape inference has not been implemented yet
+// If you add the implementation for one op, move it out of this section
+// Also please add test case in test/mlir/onnx/onnx_shape_inference.mlir
+// Followed by the implementation of lowering to Krnl and
+// Enable the corresponding node test in check-onnx-backend
+
+#define NOT_IMPLEMENTED_MESSAGE                                                \
+  (getOperationName() + ": inferShapes() not implemented")
+
+LogicalResult ONNXAcosOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXAcoshOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXArgMaxOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXArgMinOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXAsinOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXAsinhOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXAtanhOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXBatchNormalizationOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXBitShiftOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXCeilOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXClipOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXCompressOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXConcatFromSequenceOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXCumSumOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXDepthToSpaceOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXDetOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXEqualOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXEyeLikeOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXFloorOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXGatherElementsOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXGatherNDOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXGreaterOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXHardmaxOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXIfOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXInstanceNormalizationOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXIsInfOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXIsNaNOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXLRNOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXLogSoftmaxOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXLoopOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXLpNormalizationOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXLpPoolOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXMatMulIntegerOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXMaxPoolOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXMaxRoiPoolOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXMaxUnpoolOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXMeanOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXModOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXMultinomialOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXNonMaxSuppressionOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXNonZeroOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXNotOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXOneHotOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXRandomNormalOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXRandomNormalLikeOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXRandomUniformOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXRandomUniformLikeOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXRangeOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXReduceL1Op::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXReduceL2Op::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXReduceLogSumOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXReduceLogSumExpOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXReduceSumSquareOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXResizeOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXReverseSequenceOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXRoiAlignOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXRoundOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXScanOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXScatterOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXScatterElementsOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXScatterNDOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXSequenceAtOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXSequenceConstructOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXSequenceEmptyOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXSequenceEraseOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXSequenceInsertOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXSequenceLengthOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXShrinkOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXSpaceToDepthOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXSplitToSequenceOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXStringNormalizerOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXTfIdfVectorizerOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXThresholdedReluOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXTopKOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXUniqueOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXUpsampleOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXWhereOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXArrayFeatureExtractorOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXBinarizerOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXCastMapOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXCategoryMapperOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXDictVectorizerOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXFeatureVectorizerOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXImputerOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXLabelEncoderOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXLinearClassifierOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXLinearRegressorOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXNormalizerOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXSVMClassifierOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXSVMRegressorOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXTreeEnsembleClassifierOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXTreeEnsembleRegressorOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
+}
+
+LogicalResult ONNXZipMapOp::inferShapes() {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
 //===----------------------------------------------------------------------===//
