@@ -243,45 +243,78 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
   //   ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh)
   // Ht = (1 - zt) (.) ht + zt (.) Ht-1"
   //
-
+  // Shape information:
+  // Xt : [seq_length, batch_size, input_size]
+  // W[zrh] : [num_directions, hidden_size, input_size]
+  // R[zrh] : [num_directions, hidden_size, hidden_size]
+  // Ht : [num_directions, batch_size, hidden_size]
+  // Wb[zrh] : [num_directions, hidden_size]
+  // Rb[zrh] : [num_directions, hidden_size]
+  //
   // The following code will emit loops as follows:
-  // for b in 0 .. BatchDimSize
-  //   for h in 0 .. HiddenDimSize {
-  //     for i in 0 .. InputDimSize {
-  //       compute Xt*(Wz^T), Ht-1*(Rz^T),
-  //               Xt*(Wr^T), Ht-1*(Rr^T),
-  //               Xt*(Wh^T),
-  //       if (linearBeforeReset)
-  //         Ht-1*(Rh^T)
-  //     }
-  //     compute zt, rt
-  //     if (!linearBeforeReset)
-  //       compute RHt = (rt (.) Ht-1)
-  //       for i in 0 .. InputDimSize {
-  //         compute (RHt)*(Rh^T)
-  //     compute ht
-  //   }
+  //     for b in 0 .. BatchDimSize
+  //       for h in 0 .. HiddenDimSize {
+  //         for i in 0 .. InputDimSize
+  //           compute Xt*(Wz^T), Xt*(Wr^T), Xt*(Wh^T)
+  //         for i in 0 .. HiddenDimSize {
+  //           compute Ht-1*(Rz^T), Ht-1*(Rr^T),
+  //           if (linearBeforeReset)
+  //             Ht-1*(Rh^T)
+  //         }
+  //         compute zt, rt
+  //         if (!linearBeforeReset)
+  //           compute RHt = (rt (.) Ht-1)
+  //           for i in 0 .. InputDimSize {
+  //             compute (RHt)*(Rh^T)
+  //         compute ht
+  //       }
+  //     for b in 0 .. BatchDimSize
+  //       for h in 0 .. HiddenDimSize {
+  //         compute Ht
+  //         update the hidden state with the new state Ht.
+  //
+  // The reason to have two loops at the top level is to avoid updating any
+  // element of the hidden state while computing Ht-1*(R[zrh]^T).
 
-  BuildKrnlLoop stateLoops(rewriter, loc, 2);
-  stateLoops.createDefineOp();
-  stateLoops.pushBounds(0, batchDimSize);
-  stateLoops.pushBounds(0, hiddenDimSize);
-  stateLoops.createIterateOp();
+  // Create temporary buffers for ht and zt.
+  // These tensors have shape of [num_directions, batch_size, hidden_size],
+  // similar to the shape of the hidden state. Thus, we use the shape of the
+  // hidden state to allocate these buffers.
+  auto htMemRefType = state.ht.getType().cast<MemRefType>();
+  bool staticDimensions = hasAllConstantDimensions(htMemRefType);
+  Value htMemRef, ztMemRef;
+  if (staticDimensions) {
+    htMemRef = insertAllocAndDealloc(htMemRefType, loc, rewriter, false);
+    ztMemRef = insertAllocAndDealloc(htMemRefType, loc, rewriter, false);
+  } else {
+    htMemRef =
+        insertAllocAndDealloc(htMemRefType, loc, rewriter, false, {state.ht});
+    ztMemRef =
+        insertAllocAndDealloc(htMemRefType, loc, rewriter, false, {state.ht});
+  }
 
-  rewriter.setInsertionPointToStart(stateLoops.getIterateBlock());
+  // Emit instructions for computing ht and zt.
+  BuildKrnlLoop matrixLoops(rewriter, loc, 2);
+  matrixLoops.createDefineOp();
+  matrixLoops.pushBounds(0, batchDimSize);
+  matrixLoops.pushBounds(0, hiddenDimSize);
+  matrixLoops.createIterateOp();
+  auto ipMatrixLoops = rewriter.saveInsertionPoint();
+  rewriter.setInsertionPointToStart(matrixLoops.getIterateBlock());
   {
-    auto batchIV = stateLoops.getInductionVar(0);
-    auto hiddenIV = stateLoops.getInductionVar(1);
+    auto batchIV = matrixLoops.getInductionVar(0);
+    auto hiddenIV = matrixLoops.getInductionVar(1);
 
     // IVs to access tensors.
     // IVs for the hidden state tensor.
-    SmallVector<Value, 3> hIVs, cIVs;
+    SmallVector<Value, 3> hIVs, zIVs;
     // IVs for the bias tensors for W and R.
     SmallVector<SmallVector<Value, 2>, GATES> wbZRHIVs, rbZRHIVs;
 
     { // Compute IVs.
       // H :: [num_directions, batch_size, hidden_size]
       hIVs = {directionIV, batchIV, hiddenIV};
+      zIVs = {directionIV, batchIV, hiddenIV};
 
       // Bias [Wb[zrh], Rb[zrh]] :: [num_directions, 2*GATES*hidden_size]
       if (hasBiasForInput) {
@@ -304,8 +337,6 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
       }
     }
 
-    Value loadH = rewriter.create<AffineLoadOp>(loc, state.ht, hIVs);
-
     // Emit instructions for matrix multiplications:
     //   Xt*(Wz^T), Ht-1*(Rz^T),
     //   Xt*(Wr^T), Ht-1*(Rr^T),
@@ -326,7 +357,8 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
       hrZRH.emplace_back(hrAlloc);
     }
 
-    { // Emit instructions for matrix multiplications.
+    { // Emit instructions for matrix multiplications
+      // - Xt*(Wz^T), Xt*(Wr^T), Xt*(Wh^T)
       // input_size is the reduction dimension.
       BuildKrnlLoop reductionLoops(rewriter, loc, 1);
       reductionLoops.createDefineOp();
@@ -339,24 +371,20 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
         auto reductionIV = reductionLoops.getInductionVar(0);
         // Prepare IVs for accessing the input tensor and parameters.
         SmallVector<Value, 3> xIVs;
-        SmallVector<SmallVector<Value, 3>, GATES> wZRHIVs, rZRHIVs;
+        SmallVector<SmallVector<Value, 3>, GATES> wZRHIVs;
 
         // X :: [seq_length, batch_size, input_size]
         xIVs = {sequenceIV, batchIV, reductionIV};
 
         // W[zrh] :: [num_directions, GATES*hidden_size, input_size]
-        // R[zrh] :: [num_directions, GATES*hidden_size, input_size]
         for (unsigned i = 0; i < GATES; ++i) {
-          SmallVector<Value, 3> wIVs, rIVs;
+          SmallVector<Value, 3> wIVs;
           Value wHiddenIV = rewriter.create<AffineApplyOp>(loc,
               accessByOffsetMap,
               std::vector<Value>{hiddenIV, constantIndices[i], hiddenDimVal});
 
           wIVs = {directionIV, wHiddenIV, reductionIV};
           wZRHIVs.emplace_back(wIVs);
-
-          rIVs = {directionIV, wHiddenIV, reductionIV};
-          rZRHIVs.emplace_back(rIVs);
         }
 
         Value loadX =
@@ -370,8 +398,43 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
           Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
           rewriter.create<AffineStoreOp>(
               loc, nextXW, xwZRH[i], ArrayRef<Value>{});
+        }
+      }
+      rewriter.restoreInsertionPoint(ipReductionLoops);
+    }
 
-          // Ht-1 * R[zrh]
+    { // Emit instructions for matrix multiplications
+      // - Ht-1*(Rz^T), Ht-1*(Rr^T), and Ht-1 * R[zrh]
+      // hidden_size is the reduction dimension.
+      BuildKrnlLoop reductionLoops(rewriter, loc, 1);
+      reductionLoops.createDefineOp();
+      reductionLoops.pushBounds(0, hiddenDimSize);
+      reductionLoops.createIterateOp();
+
+      auto ipReductionLoops = rewriter.saveInsertionPoint();
+      rewriter.setInsertionPointToStart(reductionLoops.getIterateBlock());
+      {
+        auto reductionIV = reductionLoops.getInductionVar(0);
+        // Prepare IVs for accessing the input tensor and parameters.
+        SmallVector<Value, 3> hIVs;
+        SmallVector<SmallVector<Value, 3>, GATES> rZRHIVs;
+
+        // H :: [num_directions, batch_size, hidden_size]
+        hIVs = {directionIV, batchIV, reductionIV};
+
+        // R[zrh] :: [num_directions, GATES*hidden_size, hidden_size]
+        for (unsigned i = 0; i < GATES; ++i) {
+          SmallVector<Value, 3> rIVs;
+          Value rHiddenIV = rewriter.create<AffineApplyOp>(loc,
+              accessByOffsetMap,
+              std::vector<Value>{hiddenIV, constantIndices[i], hiddenDimVal});
+          rIVs = {directionIV, rHiddenIV, reductionIV};
+          rZRHIVs.emplace_back(rIVs);
+        }
+
+        // Ht-1 * R[zrh]
+        Value loadH = rewriter.create<AffineLoadOp>(loc, state.ht, hIVs);
+        for (unsigned i = 0; i < GATES; ++i) {
           // Only compute Ht-1*(Rh^T) if not linearBeforeReset
           if (!state.linearBeforeReset && (i == GATES - 1))
             continue;
@@ -400,6 +463,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
       zt = rewriter.create<AddFOp>(loc, zt, loadRB);
     }
     zt = applyActivation(rewriter, loc, activationPack.f, zt);
+    rewriter.create<AffineStoreOp>(loc, zt, ztMemRef, zIVs);
 
     // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)
     Value loadXWR = rewriter.create<AffineLoadOp>(loc, xwZRH[1]);
@@ -436,6 +500,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
       }
     } else {
       // rtHt = rt (.) Ht-1)
+      Value loadH = rewriter.create<AffineLoadOp>(loc, state.ht, hIVs);
       Value rtHt = rewriter.create<MulFOp>(loc, rt, loadH);
       {
         // Emit instructions for 'rtHt*(Rh^T)'.
@@ -479,20 +544,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
       }
     }
     ht = applyActivation(rewriter, loc, activationPack.g, ht);
-
-    // Ht = (1 - zt) (.) ht + zt (.) Ht-1
-    Value one = emitConstantOp(rewriter, loc, elementType, 1);
-    Value subZt = rewriter.create<SubFOp>(loc, one, zt);
-    Value mulHt = rewriter.create<MulFOp>(loc, subZt, ht);
-    Value mulH = rewriter.create<MulFOp>(loc, zt, loadH);
-    Value Ht = rewriter.create<AddFOp>(loc, mulHt, mulH);
-    rewriter.create<AffineStoreOp>(loc, Ht, state.ht, hIVs);
-
-    // Store the current Ht if required.
-    if (!isNoneType(state.allH)) {
-      SmallVector<Value, 4> allHIVs{sequenceIV, directionIV, batchIV, hiddenIV};
-      rewriter.create<AffineStoreOp>(loc, Ht, state.allH, allHIVs);
-    }
+    rewriter.create<AffineStoreOp>(loc, ht, htMemRef, zIVs);
 
     // Deallocate the temporary results of matrix multiplications.
     for (Value v : xwZRH)
@@ -500,6 +552,42 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
     for (Value v : hrZRH)
       rewriter.create<DeallocOp>(loc, v);
   }
+  rewriter.restoreInsertionPoint(ipMatrixLoops);
+
+  // Emit instructions for computing Ht.
+  BuildKrnlLoop stateLoops(rewriter, loc, 2);
+  stateLoops.createDefineOp();
+  stateLoops.pushBounds(0, batchDimSize);
+  stateLoops.pushBounds(0, hiddenDimSize);
+  stateLoops.createIterateOp();
+  auto ipStateLoops = rewriter.saveInsertionPoint();
+  rewriter.setInsertionPointToStart(stateLoops.getIterateBlock());
+  {
+    auto batchIV = stateLoops.getInductionVar(0);
+    auto hiddenIV = stateLoops.getInductionVar(1);
+    SmallVector<Value, 3> IVs = {directionIV, batchIV, hiddenIV};
+
+    // Ht = (1 - zt) (.) ht + zt (.) Ht-1
+    Value zt = rewriter.create<AffineLoadOp>(loc, ztMemRef, IVs);
+    Value ht = rewriter.create<AffineLoadOp>(loc, htMemRef, IVs);
+    Value loadH = rewriter.create<AffineLoadOp>(loc, state.ht, IVs);
+    Value one = emitConstantOp(rewriter, loc, elementType, 1);
+    Value subZt = rewriter.create<SubFOp>(loc, one, zt);
+    Value mulHt = rewriter.create<MulFOp>(loc, subZt, ht);
+    Value mulH = rewriter.create<MulFOp>(loc, zt, loadH);
+    Value Ht = rewriter.create<AddFOp>(loc, mulHt, mulH);
+    rewriter.create<AffineStoreOp>(loc, Ht, state.ht, IVs);
+
+    // Store the current Ht if required.
+    if (!isNoneType(state.allH)) {
+      SmallVector<Value, 4> allHIVs{sequenceIV, directionIV, batchIV, hiddenIV};
+      rewriter.create<AffineStoreOp>(loc, Ht, state.allH, allHIVs);
+    }
+  }
+  rewriter.restoreInsertionPoint(ipStateLoops);
+  // Deallocate the temporary results.
+  rewriter.create<DeallocOp>(loc, htMemRef);
+  rewriter.create<DeallocOp>(loc, ztMemRef);
 }
 
 template <>
