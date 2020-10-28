@@ -43,51 +43,6 @@ MemRefType convertToMemRefType(Type type) {
   return memRefType;
 }
 
-/// Retrieve function which contains the current operation.
-FuncOp getContainingFunction(Operation *op) {
-  Operation *parentFuncOp = op->getParentOp();
-
-  // While parent is not a FuncOp and its cast to a FuncOp is null.
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
-    parentFuncOp = parentFuncOp->getParentOp();
-
-  return cast<FuncOp>(parentFuncOp);
-}
-
-/// Return the top block.
-Block *getTopBlock(Operation *op) {
-  // Get current block as the first top block candidate.
-  Block *topBlock = op->getBlock();
-  Operation *parentBlockOp = topBlock->getParentOp();
-
-  while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp)) {
-    topBlock = parentBlockOp->getBlock();
-    parentBlockOp = topBlock->getParentOp();
-  }
-
-  return topBlock;
-}
-
-/// Check if this value is an argument of one of the blocks nested around it.
-bool isBlockArgument(Operation *op, Value operand) {
-  // Parent operation of the current block.
-  Operation *parentBlockOp;
-  Block *currentBlock = op->getBlock();
-
-  do {
-    // Check the arguments of the current block.
-    for (auto arg : currentBlock->getArguments())
-      if (operand == arg)
-        return true;
-
-    parentBlockOp = currentBlock->getParentOp();
-    currentBlock = parentBlockOp->getBlock();
-
-  } while (!llvm::dyn_cast_or_null<FuncOp>(parentBlockOp));
-
-  return false;
-}
-
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands,
@@ -510,20 +465,6 @@ Value emitNegativeInfinityConstantOp(
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
   return (a.getValue()[i]).cast<IntegerAttr>().getInt();
-}
-
-bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
-  FuncOp function = getContainingFunction(allocOp->getOperation());
-
-  bool opIsUsedInGetRef = false;
-  function.walk([&opIsUsedInGetRef, allocOp](KrnlGetRefOp op) {
-    auto result = allocOp->getResult();
-    for (const auto &operand : op.getOperands())
-      if (operand == result)
-        opIsUsedInGetRef = true;
-  });
-
-  return opIsUsedInGetRef;
 }
 
 // TODO: support dynamic sizes.

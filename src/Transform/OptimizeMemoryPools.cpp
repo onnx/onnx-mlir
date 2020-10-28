@@ -20,6 +20,7 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
 namespace {
@@ -27,34 +28,6 @@ namespace {
 // Handling of static memory pool on a block-basis in each function.
 typedef std::map<Block *, bool> BlockToCompactedFlag;
 std::map<FuncOp, std::unique_ptr<BlockToCompactedFlag>> staticPoolCompacted;
-
-/// Get the AllocOp of the current GetRef.
-AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef) {
-  auto parentBlock = getRef->getOperation()->getBlock();
-
-  AllocOp alloc = nullptr;
-  parentBlock->walk([&alloc, getRef](AllocOp op) {
-    auto getRefAlloc = getRef->getOperands()[0];
-    if (op.getResult() == getRefAlloc)
-      alloc = op;
-  });
-
-  return alloc;
-}
-
-/// Get the number of GetRef ops associated with this AllocOp.
-int64_t getAllocGetRefNum(AllocOp *allocOp) {
-  auto parentBlock = allocOp->getOperation()->getBlock();
-
-  int64_t numGetRefs = 0;
-  parentBlock->walk([&numGetRefs, allocOp](KrnlGetRefOp op) {
-    auto result = allocOp->getResult();
-    if (op.getOperands()[0] == result)
-      numGetRefs++;
-  });
-
-  return numGetRefs;
-}
 
 /// Get the total size in bytes used by the getref operations associated
 /// with a given memory pool.
@@ -168,24 +141,6 @@ SmallVector<KrnlGetRefOp, 4> getAllGetRefWithSameOffsetExcept(
   return sameOffsetGetRefs;
 }
 
-/// Check if two GetRefs participate in the same krnl.memcpy.
-bool usedBySameKrnlMemcpy(
-    KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef) {
-  Block *topBlock = getTopBlock(firstGetRef->getOperation());
-
-  bool sameKrnlMemcpy = false;
-  topBlock->walk(
-      [&sameKrnlMemcpy, firstGetRef, secondGetRef](KrnlMemcpyOp memcpyOp) {
-        if ((memcpyOp.dest() == firstGetRef->getResult() &&
-                memcpyOp.src() == secondGetRef->getResult()) ||
-            (memcpyOp.dest() == secondGetRef->getResult() &&
-                memcpyOp.src() == firstGetRef->getResult()))
-          sameKrnlMemcpy = true;
-      });
-
-  return sameKrnlMemcpy;
-}
-
 bool getRefUsesAreDisjoint(
     SmallVectorImpl<KrnlGetRefOp> &firstGetRefList, KrnlGetRefOp secondGetRef) {
   // Return variable.
@@ -284,23 +239,6 @@ bool getRefUsesAreMutuallyDisjoint(
   return true;
 }
 
-/// Op is a LoadOp or AffineLoadOp.
-bool isLoad(Operation *op) {
-  return llvm::dyn_cast_or_null<LoadOp>(op) ||
-         llvm::dyn_cast_or_null<AffineLoadOp>(op);
-}
-
-/// Op is a StoreOp or AffineStoreOp.
-bool isStore(Operation *op) {
-  return llvm::dyn_cast_or_null<StoreOp>(op) ||
-         llvm::dyn_cast_or_null<AffineStoreOp>(op);
-}
-
-/// Op is a KrnlMemcpyOp.
-bool isKrnlMemcpy(Operation *op) {
-  return llvm::dyn_cast_or_null<KrnlMemcpyOp>(op);
-}
-
 /// Checks if this operation loads/stores from the result of a specific getRef.
 /// A krnl.memcpy acts as both load and store.
 bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
@@ -309,111 +247,6 @@ bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
          (isStore(op) && result == op->getOperands()[1]) ||
          (isKrnlMemcpy(op) && (result == op->getOperands()[0] ||
                                   result == op->getOperands()[1]));
-}
-
-/// Returns the last operation in the live range of a getRef.
-Operation *getLiveRangeLastOp(KrnlGetRefOp getRef) {
-  Block *topBlock = getTopBlock(getRef.getOperation());
-
-  Operation *lastLoadStore = nullptr;
-  topBlock->walk([&lastLoadStore, getRef](Operation *op) {
-    // If op is a Laod/Store, of any kind then assign it to lastLoadStore.
-    if (isLoadStoreForGetRef(getRef, op))
-      lastLoadStore = op;
-  });
-
-  return lastLoadStore;
-}
-
-/// Returns the first operation in the live range of a getRef.
-Operation *getLiveRangeFirstOp(KrnlGetRefOp getRef) {
-  Block *topBlock = getTopBlock(getRef.getOperation());
-
-  Operation *firstLoadStore = nullptr;
-  topBlock->walk([&firstLoadStore, getRef](Operation *op) {
-    // If op is a Laod/Store, of any kind then assign it to lastLoadStore.
-    if (!firstLoadStore && isLoadStoreForGetRef(getRef, op))
-      firstLoadStore = op;
-  });
-
-  return firstLoadStore;
-}
-
-/// Check if an operation is in an existing live range.
-bool operationInLiveRange(
-    Operation *operation, std::vector<Operation *> liveRangeOpList) {
-  for (auto &op : liveRangeOpList) {
-    if (op == operation)
-      return true;
-  }
-  return false;
-}
-
-/// Function that returns the live range of a GetRef operation. The live
-/// range consists of all the operations in the in-order traversal of the
-/// source code between the first load/store instruction from that GetRef
-/// and the last load/store instruction from that GetRef.
-std::vector<Operation *> getLiveRange(KrnlGetRefOp getRef) {
-  std::vector<Operation *> operations;
-
-  auto topBlock = getTopBlock(getRef.getOperation());
-
-  // Determine last load/store from getRef.
-  Operation *lastLoadStore = getLiveRangeLastOp(getRef);
-
-  bool operationInLiveRange = false;
-  topBlock->walk([&operations, &operationInLiveRange, lastLoadStore, getRef](
-                     Operation *op) {
-    // If op is a Laod/Store, of any kind, then assign it to lastLoadStore.
-    if (isLoadStoreForGetRef(getRef, op) && !operationInLiveRange)
-      operationInLiveRange = true;
-
-    if (operationInLiveRange)
-      operations.emplace_back(op);
-
-    if (op == lastLoadStore)
-      operationInLiveRange = false;
-  });
-
-  return operations;
-}
-
-/// This function returns true if `beforeOp` is visited before `op` in a
-/// traversal of the provided block.
-bool opBeforeOp(Block *block, Operation *beforeOp, Operation *afterOp) {
-  bool beforeOpIsBefore = true;
-  bool beforeOpFound = false;
-  block->walk(
-      [&beforeOpIsBefore, &beforeOpFound, beforeOp, afterOp](Operation *op) {
-        if (op == beforeOp)
-          beforeOpFound = true;
-        else if (op == afterOp && !beforeOpFound)
-          beforeOpIsBefore = false;
-      });
-  return beforeOpIsBefore;
-}
-
-/// The live range is contained between firstOp and lastOp.
-bool liveRangeIsContained(Operation *firstOp, Operation *lastOp,
-    std::vector<Operation *> liveRangeOpList) {
-  Operation *liveRangeFirstOp = liveRangeOpList[0];
-  assert(liveRangeOpList.size() > 0 &&
-         "Live range empty but must have at least one element.");
-  Operation *liveRangeLastOp = liveRangeOpList[liveRangeOpList.size() - 1];
-
-  Block *topLevelBlock = getTopBlock(firstOp);
-
-  return opBeforeOp(topLevelBlock, firstOp, liveRangeFirstOp) &&
-         opBeforeOp(topLevelBlock, liveRangeLastOp, lastOp);
-}
-
-/// Check if an operation is in the top-level block of the function.
-bool opInTopLevelBlock(Operation *op) {
-  Block *currentBlock = op->getBlock();
-
-  // If the parent operation of the current block is a FuncOp then
-  // this operation is in the top-level block.
-  return llvm::dyn_cast_or_null<FuncOp>(currentBlock->getParentOp());
 }
 
 /// Returns the outermost krnl.iterate that contains this operation.
