@@ -13,6 +13,8 @@ toc:
 #        url: /piece1.html
   - title: How-tos
     subfolderitems:
+      - page: Using PyRuntime
+        url: /UsingPyRuntime.html
       - page: Perform Inference Using ONNX-MLIR Runtime API
         url: /doxygen_html/index.html
   - title: References

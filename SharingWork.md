@@ -27,6 +27,9 @@ Update as you push code to the master branch.
 | Exp            |                 | v  | v | v |    |       |
 | Expand         |                 | v  | v |   |    |       |
 | Gemm           |                 | v  | v | v |    | U     |
+| GlobalAvgPool  |                 | v  | v |   |    |       |
+| GlobalLpPool   |                 | v  | v |   |    |       |
+| GlobalMaxPool  |                 | v  | v |   |    |       |
 | HardSigmoid    |                 | v  | v | v |    |       |
 | Identity       |                 | v  | v | v |    |       |
 | LeakyRelu      |                 | v  | v | v |    |       |
@@ -118,9 +121,6 @@ And add literal tests at each step, and end to end tests once completed.
 | GRU            |                 |    |   |   |    |       |
 | GatherElements |                 |    |   |   |    |       |
 | GatherND       |                 |    |   |   |    |       |
-| GlobalAvgPool  |                 |    |   |   |    |       |
-| GlobalLpPool   |                 |    |   |   |    |       |
-| GlobalMaxPool  |                 |    |   |   |    |       |
 | Greater        |                 |    |   |   |    | M     |
 | GreaterOrEq    |                 |    |   |   |    | M     |
 | HardMax        |                 |    |   |   |    |       |
