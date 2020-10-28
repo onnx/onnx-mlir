@@ -282,29 +282,185 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
   //
+  // Shape information:
+  // Xt : [seq_length, batch_size, input_size]
+  // W[iofc] : [num_directions, hidden_size, input_size]
+  // R[iofc] : [num_directions, hidden_size, hidden_size]
+  // Ht, Ct, it, ot, ft, ct: [num_directions, batch_size, hidden_size]
+  // Wb[iofc] : [num_directions, hidden_size]
+  // Rb[iofc] : [num_directions, hidden_size]
+  //
   // The following code will emit loops as follows:
-  // for b in 0 .. BatchDimSize
-  //   for h in 0 .. HiddenDimSize
-  //     for i in 0 .. InputDimSize {
-  //       compute Xt*(Wi^T), Xt*(Wo^T), Xt*(Wf^t), Xt*(Wc^T),
-  //               Ht-1*(Ri^T), Ht-1*(Ro^T), Ht-1*(Rf^t), Ht-1*(Rc^T)
-  //     }
-  //     compute it, ft, ct, Ct, ot, Ht
+  //     for b in 0 .. BatchDimSize
+  //       for h in 0 .. HiddenDimSize
+  //         for i in 0 .. InputDimSize
+  //           compute Xt*(Wi^T), Xt*(Wo^T), Xt*(Wf^t), Xt*(Wc^T),
+  //         for i in 0 .. HiddenDimSize
+  //            compute Ht-1*(Ri^T), Ht-1*(Ro^T), Ht-1*(Rf^t), Ht-1*(Rc^T)
+  //     for b in 0 .. BatchDimSize
+  //       for h in 0 .. HiddenDimSize
+  //         compute it, ft, ct, Ct, ot, Ht
+  //         update the hidden state with the new state Ht.
+  //         update the cell state with the new state Ct.
+  //
+  // The reason to have two loops at the top level is to avoid updating any
+  // element of the hidden state while computing Ht-1*(Ri^T), Ht-1*(Ro^T),
+  // Ht-1*(Rf^t), Ht-1*(Rc^T)
 
+  // Create temporary buffers for
+  //   - Xt*(Wi^T), Xt*(Wo^T), Xt*(Wf^t), Xt*(Wc^T),
+  //   - Ht-1*(Ri^T), Ht-1*(Ro^T), Ht-1*(Rf^t), Ht-1*(Rc^T)
+  // These tensors have shape of [num_directions, batch_size, hidden_size],
+  // similar to the shape of the hidden state. Thus, we use the shape of the
+  // hidden state to allocate these buffers.
+  auto htMemRefType = state.ht.getType().cast<MemRefType>();
+  bool staticDimensions = hasAllConstantDimensions(htMemRefType);
+  SmallVector<Value, 4> xwIOFC, hrIOFC;
+  for (unsigned i = 0; i < 4; ++i) {
+    Value xwAlloc, hrAlloc;
+    if (staticDimensions) {
+      xwAlloc = insertAllocAndDealloc(htMemRefType, loc, rewriter, false);
+      hrAlloc = insertAllocAndDealloc(htMemRefType, loc, rewriter, false);
+    } else {
+      xwAlloc =
+          insertAllocAndDealloc(htMemRefType, loc, rewriter, false, {state.ht});
+      hrAlloc =
+          insertAllocAndDealloc(htMemRefType, loc, rewriter, false, {state.ht});
+    }
+    xwIOFC.emplace_back(xwAlloc);
+    hrIOFC.emplace_back(hrAlloc);
+  }
+
+  // Emit instructions for matrix multiplications:
+  //   Xt*(Wi^T), Xt*(Wo^T), Xt*(Wf^t), Xt*(Wc^T)
+  //   Ht-1*(Ri^T), Ht-1*(Ro^T), Ht-1*(Rf^t), Ht-1*(Rc^T)
+  BuildKrnlLoop matrixLoops(rewriter, loc, 2);
+  matrixLoops.createDefineOp();
+  matrixLoops.pushBounds(0, batchDimSize);
+  matrixLoops.pushBounds(0, hiddenDimSize);
+  matrixLoops.createIterateOp();
+  auto ipMatrixLoops = rewriter.saveInsertionPoint();
+  rewriter.setInsertionPointToStart(matrixLoops.getIterateBlock());
+  {
+    auto batchIV = matrixLoops.getInductionVar(0);
+    auto hiddenIV = matrixLoops.getInductionVar(1);
+
+    // IVs to access tensors.
+    // [num_directions, batch_size, hidden_size]
+    SmallVector<Value, 4> IVs = {directionIV, batchIV, hiddenIV};
+
+    // Initialize matrix multiplication result.
+    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+    for (unsigned i = 0; i < 4; ++i) {
+      rewriter.create<AffineStoreOp>(loc, zero, xwIOFC[i], IVs);
+      rewriter.create<AffineStoreOp>(loc, zero, hrIOFC[i], IVs);
+    }
+
+    { // Emit instructions for matrix multiplications.
+      //   Xt*(Wi^T), Xt*(Wo^T), Xt*(Wf^t), Xt*(Wc^T)
+      // input_size is the reduction dimension.
+      BuildKrnlLoop reductionLoops(rewriter, loc, 1);
+      reductionLoops.createDefineOp();
+      reductionLoops.pushBounds(0, inputDimSize);
+      reductionLoops.createIterateOp();
+
+      auto ipReductionLoops = rewriter.saveInsertionPoint();
+      rewriter.setInsertionPointToStart(reductionLoops.getIterateBlock());
+      {
+        auto reductionIV = reductionLoops.getInductionVar(0);
+        // Prepare IVs for accessing the input tensor and parameters.
+        SmallVector<Value, 4> xIVs;
+        SmallVector<SmallVector<Value, 4>, 4> wIOFCIVs;
+
+        // X :: [seq_length, batch_size, input_size]
+        xIVs = {sequenceIV, batchIV, reductionIV};
+
+        // W[iofc] :: [num_directions, 4*hidden_size, input_size]
+        for (unsigned i = 0; i < 4; ++i) {
+          SmallVector<Value, 4> wIVs, rIVs;
+          Value wHiddenIV = rewriter.create<AffineApplyOp>(loc,
+              accessByOffsetMap,
+              std::vector<Value>{hiddenIV, constantIndices[i], hiddenDimVal});
+
+          wIVs = {directionIV, wHiddenIV, reductionIV};
+          wIOFCIVs.emplace_back(wIVs);
+        }
+
+        Value loadX =
+            rewriter.create<AffineLoadOp>(loc, operandAdaptor.X(), xIVs);
+        for (unsigned i = 0; i < 4; ++i) {
+          // Xt * Wiofc
+          Value loadW = rewriter.create<AffineLoadOp>(
+              loc, operandAdaptor.W(), wIOFCIVs[i]);
+          Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
+          Value loadXW = rewriter.create<AffineLoadOp>(loc, xwIOFC[i], IVs);
+          Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
+          rewriter.create<AffineStoreOp>(loc, nextXW, xwIOFC[i], IVs);
+        }
+      }
+      rewriter.restoreInsertionPoint(ipReductionLoops);
+    }
+
+    { // Emit instructions for matrix multiplications.
+      //   Ht-1*(Ri^T), Ht-1*(Ro^T), Ht-1*(Rf^t), Ht-1*(Rc^T)
+      // hidden_size is the reduction dimension.
+      BuildKrnlLoop reductionLoops(rewriter, loc, 1);
+      reductionLoops.createDefineOp();
+      reductionLoops.pushBounds(0, hiddenDimSize);
+      reductionLoops.createIterateOp();
+
+      auto ipReductionLoops = rewriter.saveInsertionPoint();
+      rewriter.setInsertionPointToStart(reductionLoops.getIterateBlock());
+      {
+        auto reductionIV = reductionLoops.getInductionVar(0);
+        // Prepare IVs for accessing the input tensor and parameters.
+        SmallVector<Value, 4> hIVs;
+        SmallVector<SmallVector<Value, 4>, 4> rIOFCIVs;
+
+        // H :: [num_directions, batch_size, hidden_size]
+        hIVs = {directionIV, batchIV, reductionIV};
+
+        // R[iofc] :: [num_directions, 4*hidden_size, hidden_size]
+        for (unsigned i = 0; i < 4; ++i) {
+          SmallVector<Value, 4> rIVs;
+          Value rHiddenIV = rewriter.create<AffineApplyOp>(loc,
+              accessByOffsetMap,
+              std::vector<Value>{hiddenIV, constantIndices[i], hiddenDimVal});
+          rIVs = {directionIV, rHiddenIV, reductionIV};
+          rIOFCIVs.emplace_back(rIVs);
+        }
+
+        Value loadH = rewriter.create<AffineLoadOp>(loc, state.ht, hIVs);
+        for (unsigned i = 0; i < 4; ++i) {
+          // Ht-1 * Riofc
+          Value loadR = rewriter.create<AffineLoadOp>(
+              loc, operandAdaptor.R(), rIOFCIVs[i]);
+          Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
+          Value loadHR = rewriter.create<AffineLoadOp>(loc, hrIOFC[i], IVs);
+          Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
+          rewriter.create<AffineStoreOp>(loc, nextHR, hrIOFC[i], IVs);
+        }
+      }
+      rewriter.restoreInsertionPoint(ipReductionLoops);
+    }
+  }
+  rewriter.restoreInsertionPoint(ipMatrixLoops);
+
+  // Emit instructions for computing gate outputs.
   BuildKrnlLoop stateLoops(rewriter, loc, 2);
   stateLoops.createDefineOp();
   stateLoops.pushBounds(0, batchDimSize);
   stateLoops.pushBounds(0, hiddenDimSize);
   stateLoops.createIterateOp();
-
+  auto ipStateLoops = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(stateLoops.getIterateBlock());
   {
     auto batchIV = stateLoops.getInductionVar(0);
     auto hiddenIV = stateLoops.getInductionVar(1);
 
     // IVs to access tensors.
-    // IVs for the hidden and cell state tensors.
-    SmallVector<Value, 4> hIVs, cIVs;
+    // IVs for the hidden and cell states, and matrix multiplication results.
+    SmallVector<Value, 4> hIVs, cIVs, mIVs;
     // IVs for the bias tensors for W and R.
     SmallVector<SmallVector<Value, 4>, 4> wbIOFCIVs, rbIOFCIVs;
     // IVs for the peepholes.
@@ -315,6 +471,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
       hIVs = {directionIV, batchIV, hiddenIV};
       // C :: [num_directions, batch_size, hidden_size]
       cIVs = {directionIV, batchIV, hiddenIV};
+      // M :: [num_directions, batch_size, hidden_size] for matmul
+      mIVs = {directionIV, batchIV, hiddenIV};
 
       // Bias [Wb[iofc], Rb[iofc]] :: [num_directions, 8*hidden_size]
       if (hasBiasForInput) {
@@ -349,86 +507,10 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
       }
     }
 
-    Value loadH = rewriter.create<AffineLoadOp>(loc, state.ht, hIVs);
-    Value loadC = rewriter.create<AffineLoadOp>(loc, state.ct, cIVs);
-
-    // Emit instructions for matrix multiplications:
-    //   Xt*(Wi^T), Xt*(Wo^T), Xt*(Wf^t), Xt*(Wc^T)
-    //   Ht-1*(Ri^T), Ht-1*(Ro^T), Ht-1*(Rf^t), Ht-1*(Rc^T)
-
-    // Allocate memory for storing matrix multiplication results.
-    SmallVector<Value, 4> xwIOFC, hrIOFC;
-    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-    MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-    for (unsigned i = 0; i < 4; ++i) {
-      Value xwAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-      rewriter.create<AffineStoreOp>(loc, zero, xwAlloc, ArrayRef<Value>{});
-      Value hrAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-      rewriter.create<AffineStoreOp>(loc, zero, hrAlloc, ArrayRef<Value>{});
-      xwIOFC.emplace_back(xwAlloc);
-      hrIOFC.emplace_back(hrAlloc);
-    }
-
-    { // Emit instructions for matrix multiplications.
-      // input_size is the reduction dimension.
-      BuildKrnlLoop reductionLoops(rewriter, loc, 1);
-      reductionLoops.createDefineOp();
-      reductionLoops.pushBounds(0, inputDimSize);
-      reductionLoops.createIterateOp();
-
-      auto ipReductionLoops = rewriter.saveInsertionPoint();
-      rewriter.setInsertionPointToStart(reductionLoops.getIterateBlock());
-      {
-        auto reductionIV = reductionLoops.getInductionVar(0);
-        // Prepare IVs for accessing the input tensor and parameters.
-        SmallVector<Value, 4> xIVs;
-        SmallVector<SmallVector<Value, 4>, 4> wIOFCIVs, rIOFCIVs;
-
-        // X :: [seq_length, batch_size, input_size]
-        xIVs = {sequenceIV, batchIV, reductionIV};
-
-        // W[iofc] :: [num_directions, 4*hidden_size, input_size]
-        // R[iofc] :: [num_directions, 4*hidden_size, input_size]
-        for (unsigned i = 0; i < 4; ++i) {
-          SmallVector<Value, 4> wIVs, rIVs;
-          Value wHiddenIV = rewriter.create<AffineApplyOp>(loc,
-              accessByOffsetMap,
-              std::vector<Value>{hiddenIV, constantIndices[i], hiddenDimVal});
-
-          wIVs = {directionIV, wHiddenIV, reductionIV};
-          wIOFCIVs.emplace_back(wIVs);
-
-          rIVs = {directionIV, wHiddenIV, reductionIV};
-          rIOFCIVs.emplace_back(rIVs);
-        }
-
-        Value loadX =
-            rewriter.create<AffineLoadOp>(loc, operandAdaptor.X(), xIVs);
-        for (unsigned i = 0; i < 4; ++i) {
-          // Xt * Wiofc
-          Value loadW = rewriter.create<AffineLoadOp>(
-              loc, operandAdaptor.W(), wIOFCIVs[i]);
-          Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
-          Value loadXW = rewriter.create<AffineLoadOp>(loc, xwIOFC[i]);
-          Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
-          rewriter.create<AffineStoreOp>(
-              loc, nextXW, xwIOFC[i], ArrayRef<Value>{});
-          // Ht-1 * Riofc
-          Value loadR = rewriter.create<AffineLoadOp>(
-              loc, operandAdaptor.R(), rIOFCIVs[i]);
-          Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
-          Value loadHR = rewriter.create<AffineLoadOp>(loc, hrIOFC[i]);
-          Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
-          rewriter.create<AffineStoreOp>(
-              loc, nextHR, hrIOFC[i], ArrayRef<Value>{});
-        }
-      }
-      rewriter.restoreInsertionPoint(ipReductionLoops);
-    }
-
     // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
-    Value loadXWI = rewriter.create<AffineLoadOp>(loc, xwIOFC[0]);
-    Value loadHRI = rewriter.create<AffineLoadOp>(loc, hrIOFC[0]);
+    Value loadC = rewriter.create<AffineLoadOp>(loc, state.ct, cIVs);
+    Value loadXWI = rewriter.create<AffineLoadOp>(loc, xwIOFC[0], mIVs);
+    Value loadHRI = rewriter.create<AffineLoadOp>(loc, hrIOFC[0], mIVs);
     Value it = rewriter.create<AddFOp>(loc, loadXWI, loadHRI);
     if (hasPeepholes) {
       Value loadP =
@@ -447,8 +529,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     it = applyActivation(rewriter, loc, activationPack.f, it);
 
     // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
-    Value loadXWF = rewriter.create<AffineLoadOp>(loc, xwIOFC[2]);
-    Value loadHRF = rewriter.create<AffineLoadOp>(loc, hrIOFC[2]);
+    Value loadXWF = rewriter.create<AffineLoadOp>(loc, xwIOFC[2], mIVs);
+    Value loadHRF = rewriter.create<AffineLoadOp>(loc, hrIOFC[2], mIVs);
     Value ft = rewriter.create<AddFOp>(loc, loadXWF, loadHRF);
     if (hasPeepholes) {
       Value loadP =
@@ -467,8 +549,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     ft = applyActivation(rewriter, loc, activationPack.f, ft);
 
     // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
-    Value loadXWC = rewriter.create<AffineLoadOp>(loc, xwIOFC[3]);
-    Value loadHRC = rewriter.create<AffineLoadOp>(loc, hrIOFC[3]);
+    Value loadXWC = rewriter.create<AffineLoadOp>(loc, xwIOFC[3], mIVs);
+    Value loadHRC = rewriter.create<AffineLoadOp>(loc, hrIOFC[3], mIVs);
     Value ct = rewriter.create<AddFOp>(loc, loadXWC, loadHRC);
     if (hasBiasForInput) {
       Value loadWB =
@@ -487,8 +569,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     rewriter.create<AffineStoreOp>(loc, Ct, state.ct, cIVs);
 
     // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
-    Value loadXWO = rewriter.create<AffineLoadOp>(loc, xwIOFC[1]);
-    Value loadHRO = rewriter.create<AffineLoadOp>(loc, hrIOFC[1]);
+    Value loadXWO = rewriter.create<AffineLoadOp>(loc, xwIOFC[1], mIVs);
+    Value loadHRO = rewriter.create<AffineLoadOp>(loc, hrIOFC[1], mIVs);
     Value ot = rewriter.create<AddFOp>(loc, loadXWO, loadHRO);
     if (hasPeepholes) {
       Value loadP =
@@ -516,13 +598,13 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
       SmallVector<Value, 4> allHIVs{sequenceIV, directionIV, batchIV, hiddenIV};
       rewriter.create<AffineStoreOp>(loc, Ht, state.allH, allHIVs);
     }
-
-    // Deallocate the temporary results of matrix multiplications.
-    for (Value v : xwIOFC)
-      rewriter.create<DeallocOp>(loc, v);
-    for (Value v : hrIOFC)
-      rewriter.create<DeallocOp>(loc, v);
   }
+  rewriter.restoreInsertionPoint(ipStateLoops);
+  // Deallocate the temporary results of matrix multiplications.
+  for (Value v : xwIOFC)
+    rewriter.create<DeallocOp>(loc, v);
+  for (Value v : hrIOFC)
+    rewriter.create<DeallocOp>(loc, v);
 }
 
 template <>
