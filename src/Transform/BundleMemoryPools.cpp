@@ -184,9 +184,10 @@ public:
     if (allocOp == staticMemPoolAlloc)
       return failure();
 
-    auto staticMemPoolShape =
-        staticMemPoolAlloc.getResult().getType().dyn_cast<MemRefType>()
-            .getShape();
+    auto staticMemPoolShape = staticMemPoolAlloc.getResult()
+                                  .getType()
+                                  .dyn_cast<MemRefType>()
+                                  .getShape();
     int64_t currentMemPoolSize = staticMemPoolShape[0];
 
     // Get the getref of the current allocOp. There is exactly one such getref.

@@ -435,7 +435,8 @@ public:
     auto staticMemPool = getAllocOfGetRef(&firstGetRef);
 
     // Ensure that the alloc obtained above is static memory pool.
-    auto memPoolType = staticMemPool.getResult().getType().dyn_cast<MemRefType>();
+    auto memPoolType =
+        staticMemPool.getResult().getType().dyn_cast<MemRefType>();
     auto memPoolShape = memPoolType.getShape();
 
     // Static memory pool type must be byte.
