@@ -1,3 +1,5 @@
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 set(LLVM_LIT ${LLVM_PROJ_SRC}/utils/lit/lit.py)
 set(LLVM_DEFAULT_EXTERNAL_LIT ${LLVM_PROJ_BUILD}/bin/llvm-lit)
 
