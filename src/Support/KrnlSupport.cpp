@@ -53,6 +53,34 @@ FuncOp getContainingFunction(Operation *op) {
   return cast<FuncOp>(parentFuncOp);
 }
 
+/// Emit constant operation.
+Value emitConstantOp(
+    PatternRewriter &rewriter, Location loc, Type type, double value) {
+  Attribute constantAttr;
+
+  TypeSwitch<Type>(type)
+      .Case<Float16Type>(
+          [&](Type) { constantAttr = rewriter.getF16FloatAttr((float)value); })
+      .Case<Float32Type>(
+          [&](Type) { constantAttr = rewriter.getF32FloatAttr((float)value); })
+      .Case<Float64Type>(
+          [&](Type) { constantAttr = rewriter.getF64FloatAttr((float)value); })
+      .Case<IntegerType>([&](Type) {
+        auto width = type.cast<IntegerType>().getWidth();
+        if (width == 1) {
+          constantAttr = rewriter.getBoolAttr(false);
+        } else {
+          constantAttr =
+              rewriter.getIntegerAttr(type, APInt(width, (int64_t)value));
+        }
+      })
+      .Case<IndexType>([&](Type) {
+        constantAttr = rewriter.getIntegerAttr(type, (int64_t)value);
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+  return rewriter.create<ConstantOp>(loc, constantAttr);
+}
+
 //===----------------------------------------------------------------------===//
 // Perform checks or get statistics about Krnl-level operations.
 //===----------------------------------------------------------------------===//
@@ -72,6 +100,16 @@ bool isStore(Operation *op) {
 /// Operation is a KrnlMemcpyOp.
 bool isKrnlMemcpy(Operation *op) {
   return llvm::dyn_cast_or_null<KrnlMemcpyOp>(op);
+}
+
+/// Checks if this operation loads/stores from the result of a specific getRef.
+/// A krnl.memcpy acts as both load and store.
+bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
+  auto result = getRef.getResult();
+  return (isLoad(op) && result == op->getOperands()[0]) ||
+         (isStore(op) && result == op->getOperands()[1]) ||
+         (isKrnlMemcpy(op) && (result == op->getOperands()[0] ||
+                                  result == op->getOperands()[1]));
 }
 
 /// Check if this value is an argument of one of the blocks nested around it.
@@ -163,6 +201,70 @@ bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
   });
 
   return opIsUsedInGetRef;
+}
+
+/// Check is all dimensions are known at compile time.
+bool hasAllConstantDimensions(MemRefType memRefType) {
+  auto memRefShape = memRefType.getShape();
+  for (int i = 0; i < memRefShape.size(); ++i)
+    if (memRefShape[i] < 0)
+      return false;
+  return true;
+}
+
+/// Get the MemRef element size in bytes.
+unsigned getMemRefEltSizeInBytes(MemRefType memRefType) {
+  auto elementType = memRefType.getElementType();
+
+  unsigned sizeInBits;
+  if (elementType.isIntOrFloat()) {
+    sizeInBits = elementType.getIntOrFloatBitWidth();
+  } else {
+    auto vectorType = elementType.cast<VectorType>();
+    sizeInBits =
+        vectorType.getElementTypeBitWidth() * vectorType.getNumElements();
+  }
+  return llvm::divideCeil(sizeInBits, 8);
+}
+
+/// Get the size of a static MemRef in bytes.
+int64_t getMemRefSizeInBytes(Value value) {
+  MemRefType memRefType = value.getType().dyn_cast<MemRefType>();
+  auto memRefShape = memRefType.getShape();
+  int64_t size = 1;
+  for (int i = 0; i < memRefShape.size(); i++)
+    size *= memRefShape[i];
+  size *= getMemRefEltSizeInBytes(memRefType);
+  return size;
+}
+
+/// Get the size of a dynamic MemRef in bytes.
+Value getDynamicMemRefSizeInBytes(
+    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp) {
+  // Initialize the size variable with the size in bytes of the type.
+  int64_t typeSize = getMemRefEltSizeInBytes(type);
+  Value result =
+      emitConstantOp(rewriter, loc, rewriter.getIndexType(), typeSize);
+
+  // Multiply all dimensions (constant and dynamic).
+  auto memRefShape = type.getShape();
+  auto rank = memRefShape.size();
+  int dynDimIdx = 0;
+  for (int idx = 0; idx < rank; ++idx) {
+    if (memRefShape[idx] < 0) {
+      // Dyanmic size.
+      auto dynamicDim = allocOp.getOperands()[dynDimIdx];
+      dynDimIdx++;
+      result = rewriter.create<MulIOp>(loc, result, dynamicDim);
+    } else {
+      // Static size.
+      auto staticDim = emitConstantOp(
+          rewriter, loc, rewriter.getIndexType(), memRefShape[idx]);
+      result = rewriter.create<MulIOp>(loc, result, staticDim);
+    }
+  }
+
+  return result;
 }
 
 //===----------------------------------------------------------------------===//

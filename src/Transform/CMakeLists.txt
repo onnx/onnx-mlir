@@ -29,8 +29,10 @@ target_include_directories(OMEnableMemoryPool
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(OMEnableMemoryPool
+        OMSupport
         onnx)
 add_dependencies(OMEnableMemoryPool
+        OMSupport
         OMKrnlOps
         OMONNXOps)
 
@@ -42,8 +44,10 @@ target_include_directories(OMOptimizeMemoryPools
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(OMOptimizeMemoryPools
+        OMSupport
         onnx)
 add_dependencies(OMOptimizeMemoryPools
+        OMSupport
         OMKrnlOps
         OMONNXOps)
 
@@ -55,8 +59,10 @@ target_include_directories(OMBundleMemoryPools
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(OMBundleMemoryPools
+        OMSupport
         onnx)
 add_dependencies(OMBundleMemoryPools
+        OMSupport
         OMKrnlOps
         OMONNXOps)
 

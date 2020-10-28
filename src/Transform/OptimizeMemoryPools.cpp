@@ -17,7 +17,6 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/SetVector.h"
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
@@ -239,16 +238,6 @@ bool getRefUsesAreMutuallyDisjoint(
   return true;
 }
 
-/// Checks if this operation loads/stores from the result of a specific getRef.
-/// A krnl.memcpy acts as both load and store.
-bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
-  auto result = getRef.getResult();
-  return (isLoad(op) && result == op->getOperands()[0]) ||
-         (isStore(op) && result == op->getOperands()[1]) ||
-         (isKrnlMemcpy(op) && (result == op->getOperands()[0] ||
-                                  result == op->getOperands()[1]));
-}
-
 /// Returns the outermost krnl.iterate that contains this operation.
 /// Example:
 ///
@@ -435,7 +424,7 @@ public:
   LogicalResult matchAndRewrite(
       KrnlGetRefOp firstGetRef, PatternRewriter &rewriter) const override {
     auto loc = firstGetRef.getLoc();
-    auto memRefType = convertToMemRefType(firstGetRef.getResult().getType());
+    auto memRefType = firstGetRef.getResult().getType().dyn_cast<MemRefType>();
     auto memRefShape = memRefType.getShape();
 
     // Only handle krnl.getref ops that return a constant shaped MemRef.
@@ -446,7 +435,7 @@ public:
     auto staticMemPool = getAllocOfGetRef(&firstGetRef);
 
     // Ensure that the alloc obtained above is static memory pool.
-    auto memPoolType = convertToMemRefType(staticMemPool.getResult().getType());
+    auto memPoolType = staticMemPool.getResult().getType().dyn_cast<MemRefType>();
     auto memPoolShape = memPoolType.getShape();
 
     // Static memory pool type must be byte.
@@ -638,7 +627,7 @@ public:
       AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
 
-    auto memPoolType = convertToMemRefType(allocOp.getResult().getType());
+    auto memPoolType = allocOp.getResult().getType().dyn_cast<MemRefType>();
     auto memPoolShape = memPoolType.getShape();
 
     // Only handle alloc ops that return a constant shaped MemRef.

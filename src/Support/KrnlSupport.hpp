@@ -10,6 +10,11 @@
 
 #pragma once
 
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/Sequence.h"
+
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -29,6 +34,12 @@ Block *getTopBlock(Operation *op);
 /// Retrieve function which contains the current operation.
 FuncOp getContainingFunction(Operation *op);
 
+// Emit a constant of a specific type.
+// Use this function for small values only to avoid unexpected loss in type
+// casting.
+Value emitConstantOp(
+    PatternRewriter &rewriter, Location loc, Type type, double value);
+
 //===----------------------------------------------------------------------===//
 // Perform checks or get statistics about Krnl-level operations.
 //===----------------------------------------------------------------------===//
@@ -41,6 +52,10 @@ bool isStore(Operation *op);
 
 /// Operation is a KrnlMemcpyOp.
 bool isKrnlMemcpy(Operation *op);
+
+/// Checks if this operation loads/stores from the result of a specific getRef.
+/// A krnl.memcpy acts as both load and store.
+bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op);
 
 /// Check if this value is an argument of one of the blocks nested around it.
 bool isBlockArgument(Operation *op, Value operand);
@@ -61,6 +76,19 @@ bool opBeforeOp(Block *block, Operation *beforeOp, Operation *afterOp);
 
 /// Check Alloc operation result is used by a krnl.getref.
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
+
+/// Check is all dimensions are known at compile time.
+bool hasAllConstantDimensions(MemRefType memRefType);
+
+/// Get the MemRef element size in bytes.
+unsigned getMemRefEltSizeInBytes(MemRefType memRefType);
+
+/// Get the size of a MemRef in bytes.
+int64_t getMemRefSizeInBytes(Value value);
+
+/// Get the size of a dynamic MemRef in bytes.
+Value getDynamicMemRefSizeInBytes(
+    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp);
 
 //===----------------------------------------------------------------------===//
 // Live range analysis support.
