@@ -267,6 +267,30 @@ Value getDynamicMemRefSizeInBytes(
   return result;
 }
 
+/// Get the order number of the dynamic index passed as input.
+/// Example for the following shape:
+///   <1x2x?x3x?x4xf32>
+///
+/// getAllocArgIndex(<1x2x?x3x?x4xf32>, 2) will return 0.
+/// getAllocArgIndex(<1x2x?x3x?x4xf32>, 4) will return 1.
+///
+int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
+  auto memRefShape =
+      allocOp.getResult().getType().dyn_cast<MemRefType>().getShape();
+  auto rank = memRefShape.size();
+
+  int dynDimIdx = 0;
+  for (int idx = 0; idx < rank; ++idx) {
+    if (memRefShape[idx] < 0) {
+      if (idx == index)
+        return dynDimIdx;
+      dynDimIdx++;
+    }
+  }
+
+  return -1;
+}
+
 //===----------------------------------------------------------------------===//
 // Live range analysis support.
 //===----------------------------------------------------------------------===//

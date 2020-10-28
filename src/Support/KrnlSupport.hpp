@@ -90,6 +90,9 @@ int64_t getMemRefSizeInBytes(Value value);
 Value getDynamicMemRefSizeInBytes(
     MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp);
 
+/// Get order number of dynamic index.
+int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);
+
 //===----------------------------------------------------------------------===//
 // Live range analysis support.
 //===----------------------------------------------------------------------===//

@@ -416,20 +416,3 @@ Value emitNegativeInfinityConstantOp(
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
   return (a.getValue()[i]).cast<IntegerAttr>().getInt();
 }
-
-int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
-  auto memRefShape =
-      convertToMemRefType(allocOp.getResult().getType()).getShape();
-  auto rank = memRefShape.size();
-
-  int dynDimIdx = 0;
-  for (int idx = 0; idx < rank; ++idx) {
-    if (memRefShape[idx] < 0) {
-      if (idx == index)
-        return dynDimIdx;
-      dynDimIdx++;
-    }
-  }
-
-  return -1;
-}
