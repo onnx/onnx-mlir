@@ -788,7 +788,8 @@ IndexExpr &IndexExpr::ceilDiv(IndexExpr &a, IndexExpr &b) {
 
 IndexExpr &IndexExpr::mod(IndexExpr &a, IndexExpr &b) {
   F2 litFct = [](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
-    res.initAsLiteral(aa.getContext(), mlir::mod(aa.getLiteral(), bb.getLiteral()));
+    res.initAsLiteral(
+        aa.getContext(), mlir::mod(aa.getLiteral(), bb.getLiteral()));
   };
   F2 affineExprFct = [&](IndexExpr &res, IndexExpr &aa, IndexExpr &bb) {
     // Operand bb must be a literal.
