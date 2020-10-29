@@ -49,7 +49,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     IndexExpr i1 = outerloopContex.CreateSymbolIndex(ind0);
     IndexExpr t1;
     t1.Sub(i1, i1);
-    t1.DebugPrint("index loop i -i");
+    t1.debugPrint("index loop i -i");
 #endif
 
     // Proceed with the load data["i * step + start} for all dim].
@@ -64,10 +64,10 @@ struct ONNXSliceOpLowering : public ConversionPattern {
           shapeHelper.starts[ii]);
       step = childContext.createSymbolIndexFromParentContext(
           shapeHelper.steps[ii]);
-      loopIndex.DebugPrint("loop index");
-      step.DebugPrint("  steps");
-      start.DebugPrint("  start");
-      actualIndex.Mult(step, loopIndex).IncBy(start);
+      loopIndex.debugPrint("loop index");
+      step.debugPrint("  steps");
+      start.debugPrint("  start");
+      actualIndex.mult(step, loopIndex).incBy(start);
       loadIndices.emplace_back(actualIndex.getValue());
       if (!actualIndex.isAffine())
         loadIsAffine = false;

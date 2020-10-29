@@ -260,66 +260,66 @@ public:
   Location getLoc() const;
 
   // Possibly Affine Operations.
-  IndexExpr &Add(IndexExpr &a, IndexExpr &b);
-  IndexExpr &Add(IndexExpr &a, int64_t b);
-  IndexExpr &IncBy(IndexExpr &b);
-  IndexExpr &IncBy(int64_t b);
-  IndexExpr &Sub(IndexExpr &a, IndexExpr &b);
-  IndexExpr &Sub(IndexExpr &a, int64_t b);
-  IndexExpr &Sub(int64_t a, IndexExpr &b);
-  IndexExpr &DecBy(IndexExpr &b);
-  IndexExpr &DecBy(int64_t b);
-  IndexExpr &Mult(IndexExpr &a, IndexExpr &b);
-  IndexExpr &Mult(IndexExpr &a, int64_t b);
-  IndexExpr &MultBy(IndexExpr &b);
-  IndexExpr &MultBy(int64_t b);
-  IndexExpr &FloorDiv(IndexExpr &a, IndexExpr &b);
-  IndexExpr &FloorDivBy(IndexExpr &b);
-  IndexExpr &CeilDiv(IndexExpr &a, IndexExpr &b);
-  IndexExpr &CeilDivBy(IndexExpr &b);
-  IndexExpr &Mod(IndexExpr &a, IndexExpr &b);
-  IndexExpr &ModBy(IndexExpr &a);
-  IndexExpr &Clamp(IndexExpr &val, IndexExpr &min, IndexExpr &max);
-  IndexExpr &Clamp(IndexExpr &val, int64_t min, IndexExpr &max);
-  IndexExpr &Select(IndexExpr &condA, CmpIPredicate comparePred,
+  IndexExpr &add(IndexExpr &a, IndexExpr &b);
+  IndexExpr &add(IndexExpr &a, int64_t b);
+  IndexExpr &incBy(IndexExpr &b);
+  IndexExpr &incBy(int64_t b);
+  IndexExpr &sub(IndexExpr &a, IndexExpr &b);
+  IndexExpr &sub(IndexExpr &a, int64_t b);
+  IndexExpr &sub(int64_t a, IndexExpr &b);
+  IndexExpr &decBy(IndexExpr &b);
+  IndexExpr &decBy(int64_t b);
+  IndexExpr &mult(IndexExpr &a, IndexExpr &b);
+  IndexExpr &mult(IndexExpr &a, int64_t b);
+  IndexExpr &multBy(IndexExpr &b);
+  IndexExpr &multBy(int64_t b);
+  IndexExpr &floorDiv(IndexExpr &a, IndexExpr &b);
+  IndexExpr &floorDivBy(IndexExpr &b);
+  IndexExpr &ceilDiv(IndexExpr &a, IndexExpr &b);
+  IndexExpr &ceilDivBy(IndexExpr &b);
+  IndexExpr &mod(IndexExpr &a, IndexExpr &b);
+  IndexExpr &modBy(IndexExpr &a);
+  IndexExpr &clamp(IndexExpr &val, IndexExpr &min, IndexExpr &max);
+  IndexExpr &clamp(IndexExpr &val, int64_t min, IndexExpr &max);
+  IndexExpr &select(IndexExpr &condA, CmpIPredicate comparePred,
       IndexExpr &condB, IndexExpr &trueVal, IndexExpr &falseVal);
-  IndexExpr &Select(IndexExpr &condA, CmpIPredicate comparePred, int64_t condB,
+  IndexExpr &select(IndexExpr &condA, CmpIPredicate comparePred, int64_t condB,
       IndexExpr &trueVal, IndexExpr &falseVal);
-  IndexExpr &Select(IndexExpr &condA, CmpIPredicate comparePred, int64_t condB,
+  IndexExpr &select(IndexExpr &condA, CmpIPredicate comparePred, int64_t condB,
       int64_t trueVal, IndexExpr &falseVal);
-  IndexExpr &AssignIf(IndexExpr &condA, CmpIPredicate comparePred,
+  IndexExpr &assignIf(IndexExpr &condA, CmpIPredicate comparePred,
       int64_t condB, IndexExpr &trueVal);
-  IndexExpr &AssignIf(IndexExpr &condA, CmpIPredicate comparePred,
+  IndexExpr &assignIf(IndexExpr &condA, CmpIPredicate comparePred,
       int64_t condB, int64_t trueVal);
-  IndexExpr &Min(SmallVectorImpl<IndexExpr> &vals);
-  IndexExpr &Max(SmallVectorImpl<IndexExpr> &vals);
-  void DebugPrint(const std::string &msg);
+  IndexExpr &min(SmallVectorImpl<IndexExpr> &vals);
+  IndexExpr &max(SmallVectorImpl<IndexExpr> &vals);
+  void debugPrint(const std::string &msg);
 
 private:
   // Higher-level basic initalization calls.
-  IndexExpr &InitAsUndefined();
-  IndexExpr &InitAsQuestionmark(IndexExprContext &context);
-  IndexExpr &InitAsLiteral(IndexExprContext &context, int64_t val);
-  IndexExpr &InitAsSymbol(IndexExprContext &context, Value val);
-  IndexExpr &InitAsDim(IndexExprContext &context, Value val);
-  IndexExpr &InitAsValue(IndexExprContext &context, Value val);
-  IndexExpr &InitAsAffineExpr(IndexExprContext &context, AffineExpr val);
+  IndexExpr &initAsUndefined();
+  IndexExpr &initAsQuestionmark(IndexExprContext &context);
+  IndexExpr &initAsLiteral(IndexExprContext &context, int64_t val);
+  IndexExpr &initAsSymbol(IndexExprContext &context, Value val);
+  IndexExpr &initAsDim(IndexExprContext &context, Value val);
+  IndexExpr &initAsValue(IndexExprContext &context, Value val);
+  IndexExpr &initAsAffineExpr(IndexExprContext &context, AffineExpr val);
   // Higher-level initiation calls that extract info
-  IndexExpr &InitAsDimFromMemref(IndexExprContext &context, Value memref,
+  IndexExpr &initAsDimFromMemref(IndexExprContext &context, Value memref,
       ArrayRef<int64_t> memrefShape, int index);
-  IndexExpr &InitAsSymbolFromArrayAtIndex(
+  IndexExpr &initAsSymbolFromArrayAtIndex(
       IndexExprContext &context, Operation *op, Value arrayOperand, uint64_t i);
-  IndexExpr &InitAsSymbolFromArrayAtIndex(IndexExprContext &context,
+  IndexExpr &initAsSymbolFromArrayAtIndex(IndexExprContext &context,
       Operation *op, Value arrayOperand, uint64_t i, int64_t defaultLiteral);
   // Lower-level initialization calls.
-  IndexExpr &Init(IndexExprContext *context, bool newIsDefined,
+  IndexExpr &init(IndexExprContext *context, bool newIsDefined,
       bool newIsIntLit, bool newIsAffine, bool newIsSymbol, bool newIsDim,
       int newIntLit, AffineExpr newAffineExpr, Value newValue);
-  IndexExpr &InitAsLitQuestionmarkOrValue(IndexExprContext &context, Value val,
+  IndexExpr &initAsLitQuestionmarkOrValue(IndexExprContext &context, Value val,
       bool isAffine, bool symbol, bool dim);
   // Copy / private setters.
-  IndexExpr &Copy(IndexExpr &a);
-  void SetContext(IndexExprContext &context);
+  IndexExpr &copy(IndexExpr &a);
+  void setContext(IndexExprContext &context);
   // Support for Operations.
   typedef std::function<void(IndexExpr &, IndexExpr &, IndexExpr &)> F2;
   IndexExpr &BinaryOp(IndexExpr &a, IndexExpr &b, bool affineWithLitB,
@@ -335,7 +335,7 @@ private:
   IndexExpr &QuaternarySelectOp(IndexExpr &compA, IndexExpr &compB,
       IndexExpr &trueVal, IndexExpr &falseVal, F4 litFct, F4 valueFct);
   typedef std::function<void(IndexExpr &, SmallVectorImpl<IndexExpr> &)> Flist;
-  IndexExpr &ReductionOp(SmallVectorImpl<IndexExpr> &vals, F2 litRed,
+  IndexExpr &reductionOp(SmallVectorImpl<IndexExpr> &vals, F2 litRed,
       Flist affineRed, F2 valueRed);
 
   IndexExprContext *context;

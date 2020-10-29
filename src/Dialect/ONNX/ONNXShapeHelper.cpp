@@ -32,7 +32,6 @@ ONNXConstantOp getONNXConstantOp(Value value) {
 // ONNX Helper for Slice
 //===----------------------------------------------------------------------===//
 
-
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
@@ -103,13 +102,13 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
         genericOp, operandAdaptor.starts(), i);
     if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
-    startInput.DebugPrint("start input");
+    startInput.debugPrint("start input");
     // Get end.
     endInput = context.createSymbolIndexFromArrayAtIndex(
         genericOp, operandAdaptor.ends(), i);
     if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
-    endInput.DebugPrint("end input");
+    endInput.debugPrint("end input");
     // Get step.
     stepInput = context.createSymbolIndexFromArrayAtIndex(
         genericOp, operandAdaptor.steps(), i, 1);
@@ -117,45 +116,45 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       return op->emitError("step input parameter could not be processed");
     if (stepInput.isLiteral() && stepInput.getLiteral() == 0)
       return op->emitError("step input parameter cannot be zero");
-    stepInput.DebugPrint("step input");
+    stepInput.debugPrint("step input");
     // Get dim.
     dimInput = context.createDimIndexFromMemref(data, dataShape, ii);
-    dimInput.DebugPrint("dim input");
+    dimInput.debugPrint("dim input");
 
     // Now proceed with the computations for start/end/dim.
     // Calculation for start: start < 0 ? start + dim : start.
     IndexExpr startPlusDim, startPos, startFinal, neg, pos;
-    startPlusDim.Add(startInput, dimInput);
-    startPos.Select(
+    startPlusDim.add(startInput, dimInput);
+    startPos.select(
         startInput, CmpIPredicate::slt, 0, startPlusDim, startInput);
     // Step < 0: clamp(0, start, dim -1) else clamp(0, start, dim)
-    dimMinOneInput.Sub(dimInput, 1);
-    neg.Clamp(startPos, 0, dimMinOneInput);
-    pos.Clamp(startPos, 0, dimInput);
-    startFinal.Select(stepInput, CmpIPredicate::slt, 0, neg, pos);
-    startFinal.DebugPrint("start final");
+    dimMinOneInput.sub(dimInput, 1);
+    neg.clamp(startPos, 0, dimMinOneInput);
+    pos.clamp(startPos, 0, dimInput);
+    startFinal.select(stepInput, CmpIPredicate::slt, 0, neg, pos);
+    startFinal.debugPrint("start final");
 
     // Calculation for end: end<0 -> end + dim else -> end;
     // special case end <= -inf -> -1;  end >= inf -> dim;
     int64_t negInf = std::numeric_limits<int32_t>::min();
     int64_t posInf = std::numeric_limits<int32_t>::max();
     IndexExpr endPlusDim, endPos, endFinal;
-    endPlusDim.Add(endInput, dimInput);
-    endPos.Select(endInput, CmpIPredicate::slt, 0, endPlusDim, endInput);
-    endPos.AssignIf(endInput, CmpIPredicate::sle, negInf, -1);
-    endPos.AssignIf(endInput, CmpIPredicate::sge, posInf, dimInput);
+    endPlusDim.add(endInput, dimInput);
+    endPos.select(endInput, CmpIPredicate::slt, 0, endPlusDim, endInput);
+    endPos.assignIf(endInput, CmpIPredicate::sle, negInf, -1);
+    endPos.assignIf(endInput, CmpIPredicate::sge, posInf, dimInput);
     // End: step<0: clamp(-1, end, dim); step>0 clamp(0, end, dim)
-    neg.Clamp(endPos, -1, dimInput);
-    pos.Clamp(endPos, 0, dimInput);
-    endFinal.Select(stepInput, CmpIPredicate::slt, 0, neg, pos);
-    endFinal.DebugPrint("end final");
+    neg.clamp(endPos, -1, dimInput);
+    pos.clamp(endPos, 0, dimInput);
+    endFinal.select(stepInput, CmpIPredicate::slt, 0, neg, pos);
+    endFinal.debugPrint("end final");
 
     // Calculation for output size.
     IndexExpr dimOutputFinal;
-    dimOutputFinal.Sub(endFinal, startFinal).CeilDivBy(stepInput);
+    dimOutputFinal.sub(endFinal, startFinal).ceilDivBy(stepInput);
     // should use a max
-    dimOutputFinal.AssignIf(dimOutputFinal, CmpIPredicate::slt, 0, 0);
-    dimOutputFinal.DebugPrint("output dim final");
+    dimOutputFinal.assignIf(dimOutputFinal, CmpIPredicate::slt, 0, 0);
+    dimOutputFinal.debugPrint("output dim final");
 
     // Save results
     starts[ii] = startFinal;
@@ -178,10 +177,10 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       outputDims[i] = dimInput;
     }
 #if 1
-    starts[i].DebugPrint("New Dim\n  start");
-    ends[i].DebugPrint("  end");
-    steps[i].DebugPrint("  step");
-    outputDims[i].DebugPrint("  output dim");
+    starts[i].debugPrint("New Dim\n  start");
+    ends[i].debugPrint("  end");
+    steps[i].debugPrint("  step");
+    outputDims[i].debugPrint("  output dim");
 #endif
   }
   return success();
