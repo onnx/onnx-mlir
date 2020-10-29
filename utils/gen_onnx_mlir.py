@@ -272,6 +272,8 @@ OpsWithShapeInference=[
     'Gather',
     'Gemm',
     'GlobalAveragePool',
+    'GlobalLpPool',
+    'GlobalMaxPool',
     'HardSigmoid',
     'Identity',
     'LSTM',
