@@ -203,7 +203,7 @@ bool checkOpResultIsUsedByGetRef(AllocOp *allocOp) {
   return opIsUsedInGetRef;
 }
 
-/// Check is all dimensions are known at compile time.
+/// Check if all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType memRefType) {
   auto memRefShape = memRefType.getShape();
   for (int i = 0; i < memRefShape.size(); ++i)
