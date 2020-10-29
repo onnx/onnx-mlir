@@ -202,10 +202,10 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
 
 int BuildKrnlLoop::pushBounds(
     IndexExprContext &context, int64_t lowerBound, IndexExpr upperBound) {
-  if (upperBound.IsLiteral()) {
-    return pushBounds(0, upperBound.GetLiteral());
+  if (upperBound.isLiteral()) {
+    return pushBounds(0, upperBound.getLiteral());
   }
-  return pushBounds(0, upperBound.GetValue());
+  return pushBounds(0, upperBound.getValue());
 }
 
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, AffineMap upperBound,

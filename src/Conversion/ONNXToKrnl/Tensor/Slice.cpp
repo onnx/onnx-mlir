@@ -59,17 +59,17 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     for (int ii = 0; ii < outputRank; ++ii) {
       Value loopVal = outputLoops.getInductionVar(ii);
       IndexExpr loopIndex, start, step, actualIndex;
-      loopIndex = childContext.CreateDimIndex(loopVal);
-      start = childContext.CreateSymbolIndexFromParentContext(
+      loopIndex = childContext.createDimIndex(loopVal);
+      start = childContext.createSymbolIndexFromParentContext(
           shapeHelper.starts[ii]);
-      step = childContext.CreateSymbolIndexFromParentContext(
+      step = childContext.createSymbolIndexFromParentContext(
           shapeHelper.steps[ii]);
       loopIndex.DebugPrint("loop index");
       step.DebugPrint("  steps");
       start.DebugPrint("  start");
       actualIndex.Mult(step, loopIndex).IncBy(start);
-      loadIndices.emplace_back(actualIndex.GetValue());
-      if (!actualIndex.IsAffine())
+      loadIndices.emplace_back(actualIndex.getValue());
+      if (!actualIndex.isAffine())
         loadIsAffine = false;
     }
     // Load data.

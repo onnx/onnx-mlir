@@ -99,27 +99,27 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     // Get start, end, step, and dim index expressions.
     IndexExpr startInput, endInput, stepInput, dimInput, dimMinOneInput;
     // Get start.
-    startInput = context.CreateSymbolIndexFromArrayAtIndex(
+    startInput = context.createSymbolIndexFromArrayAtIndex(
         genericOp, operandAdaptor.starts(), i);
-    if (startInput.IsUndefined())
+    if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
     startInput.DebugPrint("start input");
     // Get end.
-    endInput = context.CreateSymbolIndexFromArrayAtIndex(
+    endInput = context.createSymbolIndexFromArrayAtIndex(
         genericOp, operandAdaptor.ends(), i);
-    if (endInput.IsUndefined())
+    if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
     endInput.DebugPrint("end input");
     // Get step.
-    stepInput = context.CreateSymbolIndexFromArrayAtIndex(
+    stepInput = context.createSymbolIndexFromArrayAtIndex(
         genericOp, operandAdaptor.steps(), i, 1);
-    if (stepInput.IsUndefined())
+    if (stepInput.isUndefined())
       return op->emitError("step input parameter could not be processed");
-    if (stepInput.IsLiteral() && stepInput.GetLiteral() == 0)
+    if (stepInput.isLiteral() && stepInput.getLiteral() == 0)
       return op->emitError("step input parameter cannot be zero");
     stepInput.DebugPrint("step input");
     // Get dim.
-    dimInput = context.CreateDimIndexFromMemref(data, dataShape, ii);
+    dimInput = context.createDimIndexFromMemref(data, dataShape, ii);
     dimInput.DebugPrint("dim input");
 
     // Now proceed with the computations for start/end/dim.
@@ -168,12 +168,12 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   // (illegal value).
   bool allOutputLit;
   for (uint64_t i = 0; i < dataRank; ++i) {
-    if (steps[i].IsUndefined()) {
+    if (steps[i].isUndefined()) {
       // have one unset, put the defaults (start was already at zero, so we are
       // fine).
-      starts[i] = context.CreateLiteralIndex(0);
-      steps[i] = context.CreateLiteralIndex(1);
-      IndexExpr dimInput = context.CreateDimIndexFromMemref(data, dataShape, i);
+      starts[i] = context.createLiteralIndex(0);
+      steps[i] = context.createLiteralIndex(1);
+      IndexExpr dimInput = context.createDimIndexFromMemref(data, dataShape, i);
       ends[i] = dimInput;
       outputDims[i] = dimInput;
     }

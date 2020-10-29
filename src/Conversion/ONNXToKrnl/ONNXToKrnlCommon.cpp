@@ -155,7 +155,7 @@ Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
   for (int i = 0; i < rank; ++i) {
     if (memRefShape[i] < 0) {
       // have dyn shape
-      allocOperands.emplace_back(outputDims[i].GetValue());
+      allocOperands.emplace_back(outputDims[i].getValue());
     }
   }
   AllocOp allocOp = rewriter.create<AllocOp>(loc, type, allocOperands);

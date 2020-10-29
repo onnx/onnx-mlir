@@ -179,49 +179,49 @@ public:
   IndexExprContext(IndexExprContext &parentContext);
 
   // IndexExpr basic builders.
-  IndexExpr CreateUndefinedIndex();
-  IndexExpr CreateQuestionmarkIndex();
-  IndexExpr CreateLiteralIndex(int64_t val);
-  IndexExpr CreateDimIndex(Value val);
-  IndexExpr CreateSymbolIndex(Value val);
+  IndexExpr createUndefinedIndex();
+  IndexExpr createQuestionmarkIndex();
+  IndexExpr createLiteralIndex(int64_t val);
+  IndexExpr createDimIndex(Value val);
+  IndexExpr createSymbolIndex(Value val);
 
   // Scan a memref shape at index to generate an IndexExpr, typically used for
   // dimensions. Generate a literal when the memref dimension is known at
   // compile time.
-  IndexExpr CreateDimIndexFromMemref(
+  IndexExpr createDimIndexFromMemref(
       Value memref, ArrayRef<int64_t> memrefShape, int index);
   // Consider an op with operand "arrayOperand". We find this operand's defining
   // op: if it contains a literal at position "index", we generate an literal
   // IndexExpr; if its a tensor/memref, we load this value. If the index is out
   // of bound, we return an undefine IndexExpr.
-  IndexExpr CreateSymbolIndexFromArrayAtIndex(
+  IndexExpr createSymbolIndexFromArrayAtIndex(
       Operation *op, Value arrayOperand, uint64_t index);
   // Same as above, but return "defaultLitteral" when there are no defining op
   // or the index is out of bound.
-  IndexExpr CreateSymbolIndexFromArrayAtIndex(Operation *op, Value arrayOperand,
+  IndexExpr createSymbolIndexFromArrayAtIndex(Operation *op, Value arrayOperand,
       uint64_t index, int64_t defaultLiteral);
 
   // Additional builder for repurposing IndexExpr from parent context.
-  IndexExpr CreateSymbolIndexFromParentContext(IndexExpr &parentIndexExpr);
+  IndexExpr createSymbolIndexFromParentContext(IndexExpr &parentIndexExpr);
 
   // Actions for AffineExpr.
-  int AddDim(Value value);
-  int AddSymbol(Value value);
+  int addDim(Value value);
+  int addSymbol(Value value);
 
   // Querries.
-  bool IsShapeInferencePass() const { return !rewriter; }
+  bool isShapeInferencePass() const { return !rewriter; }
 
   // Getters.
-  void GetDimAndSymbolList(SmallVectorImpl<Value> &list) const;
-  int GetDimSize() const { return dims.size(); }
-  int GetSymbolSize() const { return symbols.size(); }
+  void getDimAndSymbolList(SmallVectorImpl<Value> &list) const;
+  int getNumDims() const { return dims.size(); }
+  int getNumSymbols() const { return symbols.size(); }
   ConversionPatternRewriter &GetRewriter() const;
   Location GetLocation() const { return loc; }
 
   // Static helper functions.
-  bool static AreAllLiteral(SmallVectorImpl<IndexExpr> &list);
-  bool static AreAllAffine(SmallVectorImpl<IndexExpr> &list);
-  void static GetOutputDimsForType(SmallVectorImpl<IndexExpr> &outputIndices,
+  bool static areAllLiteral(SmallVectorImpl<IndexExpr> &list);
+  bool static areAllAffine(SmallVectorImpl<IndexExpr> &list);
+  void static getOutputDimsForType(SmallVectorImpl<IndexExpr> &outputIndices,
       SmallVectorImpl<int64_t> &outputDims);
 
 private:
@@ -239,25 +239,25 @@ public:
   IndexExpr();
 
   // Shape inference querries.
-  bool IsDefined() const;
-  bool IsUndefined() const { return !IsDefined(); }
-  bool IsLiteral() const;
-  bool IsQuestionmark() const;
-  bool IsAffine() const;
-  bool IsSymbol() const;
-  bool IsDim() const;
-  bool IsShapeInferencePass() const;
-  bool HasContext() const;
-  bool HasAffineExpr() const;
-  bool HasValue() const;
+  bool isDefined() const;
+  bool isUndefined() const { return !isDefined(); }
+  bool isLiteral() const;
+  bool isQuestionmark() const;
+  bool isAffine() const;
+  bool isSymbol() const;
+  bool isDim() const;
+  bool isShapeInferencePass() const;
+  bool hasContext() const;
+  bool hasAffineExpr() const;
+  bool hasValue() const;
 
   // Getters.
-  int64_t GetLiteral() const;
-  AffineExpr GetAffineExpr();
-  Value GetValue();
-  IndexExprContext &GetContext() const;
-  IndexExprContext *GetContextPtr() const;
-  Location GetLocation() const;
+  int64_t getLiteral() const;
+  AffineExpr getAffineExpr();
+  Value getValue();
+  IndexExprContext &getContext() const;
+  IndexExprContext *getContextPtr() const;
+  Location getLoc() const;
 
   // Possibly Affine Operations.
   IndexExpr &Add(IndexExpr &a, IndexExpr &b);
@@ -316,7 +316,7 @@ private:
       bool newIsIntLit, bool newIsAffine, bool newIsSymbol, bool newIsDim,
       int newIntLit, AffineExpr newAffineExpr, Value newValue);
   IndexExpr &InitAsLitQuestionmarkOrValue(IndexExprContext &context, Value val,
-      bool isAffine, bool isSymbol, bool isDim);
+      bool isAffine, bool symbol, bool dim);
   // Copy / private setters.
   IndexExpr &Copy(IndexExpr &a);
   void SetContext(IndexExprContext &context);
@@ -339,7 +339,7 @@ private:
       Flist affineRed, F2 valueRed);
 
   IndexExprContext *context;
-  bool isDefined, isIntLit, isAffine, isSymbol, isDim;
+  bool defined, litteral, affine, symbol, dim;
   int64_t intLit;
   AffineExpr affineExpr;
   Value value;
