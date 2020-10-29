@@ -232,7 +232,6 @@ IndexExpr &IndexExpr::initAsAffineExpr(
       val, newContext.getNumDims(), newContext.getNumSymbols());
   AffineConstantExpr constAffineExpr = simpleVal.dyn_cast<AffineConstantExpr>();
   if (constAffineExpr) {
-    printf("alex, converted an affine function into a lit, youpee\n");
     return initAsLiteral(newContext, constAffineExpr.getValue());
   }
   return init(&newContext, /*isDefined*/ true, /*litteral*/ false,

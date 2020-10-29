@@ -23,15 +23,28 @@
 
 using namespace mlir;
 
-
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
+/// When defining support for a new op, add one such stuct which must minimally
+/// compute the outputDims present in the parent class. Computation should be
+/// performed using a `Compute` function. Return success on successful
+/// computation of all the IndexExpr. During shape inference, object is built
+/// using a null-ptr rewriter; during lowering, the rewriter is nonnull and will
+/// be used to generate code.
 template <class OP>
 struct ONNXOpShapeHelper {
   ONNXOpShapeHelper(OP *newOp, ConversionPatternRewriter *rewriter);
 
+  // Define in every children.
+  LogicalResult Compute(ONNXSliceOpAdaptor operandAdaptor) {
+    llvm_unreachable("implement in child structs");
+  }
+
+  // Data that must be present for every ShapeHelper operation. Op and context
+  // are initialized in the constructor, and outputDims is computed by the
+  // child's struct `Compute` function.
   OP *op;
   IndexExprContext context;
   SmallVector<IndexExpr, 4> outputDims;
@@ -43,6 +56,7 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
 
   LogicalResult Compute(ONNXSliceOpAdaptor operandAdaptor);
 
+  // Additional data for SliceOp.
   SmallVector<IndexExpr, 4> starts;
   SmallVector<IndexExpr, 4> ends;
   SmallVector<IndexExpr, 4> steps;
