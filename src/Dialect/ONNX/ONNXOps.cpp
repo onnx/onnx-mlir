@@ -2884,23 +2884,15 @@ LogicalResult ONNXSliceOp::inferShapes() {
     return emitError("Input tensor not ranked");
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
-  auto dataShape = data().getType().cast<ShapedType>().getShape();
-  int64_t numDims = dataShape.size();
 
   ONNXSliceOpAdaptor operandAdaptor(*this);
-  // Null rewriter for shape inference.
-  IndexExprContext context(nullptr, getLoc());
-  SmallVector<IndexExpr, 4> startIndices;
-  SmallVector<IndexExpr, 4> stepIndices;
-  SmallVector<IndexExpr, 4> endIndices;
-  SmallVector<IndexExpr, 4> outputDimIndices;
-  if (failed(HandleSliceOpParams(this, operandAdaptor, context, startIndices,
-          endIndices, stepIndices, outputDimIndices)))
-    return emitError("Failed to scan Silce parameters successfully");
-
+  ONNXSliceOpShapeHelper shapeHelper(this, nullptr);
+  if (failed(shapeHelper.Compute(operandAdaptor))) 
+      return emitError("Failed to scan Silce parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::GetOutputDimsForType(outputDimIndices, outputDims);
+  IndexExprContext::GetOutputDimsForType(shapeHelper.outputDims, outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
+
   return success();
 }
 

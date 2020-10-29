@@ -34,9 +34,26 @@ DenseElementsAttr getDenseElementAttributeFromValue(Value value);
 
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
 
-LogicalResult HandleSliceOpParams(ONNXSliceOp *sliceOp,
-    ONNXSliceOpAdaptor operandAdaptor, IndexExprContext &context,
-    SmallVectorImpl<IndexExpr> &startIndices,
-    SmallVectorImpl<IndexExpr> &endIndices,
-    SmallVectorImpl<IndexExpr> &stepIndices,
-    SmallVectorImpl<IndexExpr> &outputDims);
+//===----------------------------------------------------------------------===//
+// ONNX Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+template <class OP>
+struct ONNXOpShapeHelper {
+  ONNXOpShapeHelper(OP *newOp, ConversionPatternRewriter *rewriter);
+
+  OP *op;
+  IndexExprContext context;
+  SmallVector<IndexExpr, 4> outputDims;
+};
+
+struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
+  ONNXSliceOpShapeHelper(
+      ONNXSliceOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXSliceOpAdaptor operandAdaptor);
+
+  SmallVector<IndexExpr, 4> starts;
+  SmallVector<IndexExpr, 4> ends;
+  SmallVector<IndexExpr, 4> steps;
+};

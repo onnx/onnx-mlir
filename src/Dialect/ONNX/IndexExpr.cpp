@@ -10,8 +10,8 @@
 //===----------------------------------------------------------------------===//
 
 // both debug variables will be removed once debugging is complete.
-#define DEBUG 0
-#define CEIL_FLOOR_IN_STD 0
+#define DEBUG 1
+#define CEIL_FLOOR_IN_STD 1
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -228,6 +228,13 @@ IndexExpr &IndexExpr::InitAsValue(IndexExprContext &newContext, Value val) {
 
 IndexExpr &IndexExpr::InitAsAffineExpr(
     IndexExprContext &newContext, AffineExpr val) {
+  // Check if the affine expression is reduced to a constant expr.
+  AffineExpr simpleVal = simplifyAffineExpr(val, newContext.GetDimSize(), newContext.GetSymbolSize());
+  AffineConstantExpr constAffineExpr = simpleVal.dyn_cast<AffineConstantExpr>();
+  if (constAffineExpr) {
+    printf("alex, converted an affine function into a lit, youpee\n");
+    return InitAsLiteral(newContext, constAffineExpr.getValue());
+  }
   return Init(&newContext, /*isDefined*/ true, /*isIntLit*/ false,
       /*isAffine*/ true, /*isSymbol*/ false, /*isDim*/ false, 0,
       AffineExpr(val), Value(nullptr));

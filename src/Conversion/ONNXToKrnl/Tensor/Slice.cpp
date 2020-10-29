@@ -23,32 +23,34 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     ONNXSliceOp sliceOp = llvm::cast<ONNXSliceOp>(op);
     auto loc = op->getLoc();
 
-    IndexExprContext outerloopContex(&rewriter, sliceOp.getLoc());
-    SmallVector<IndexExpr, 4> starts;
-    SmallVector<IndexExpr, 4> steps;
-    SmallVector<IndexExpr, 4> ends;
-    SmallVector<IndexExpr, 4> outputDims;
-    if (failed(HandleSliceOpParams(&sliceOp, operandAdaptor, outerloopContex,
-            starts, ends, steps, outputDims))) {
-      // Failed to slice parameters.
-      return sliceOp.emitError("failure to get Slice parameters");
-    }
+    ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter);
+    if (failed(shapeHelper.Compute(operandAdaptor)))
+      return op->emitError("Failed to scan Silce parameters successfully");
+
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto outputMemRefShape = outputMemRefType.getShape();
-    int64_t outputRank = outputMemRefShape.size();
-    assert(outputRank == outputDims.size());
+    int64_t outputRank = outputMemRefType.getShape().size();
+    assert(outputRank == shapeHelper.outputDims.size());
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, outputDims);
+        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
 
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
     for (int ii = 0; ii < outputRank; ++ii)
-      outputLoops.pushBounds(outerloopContex, 0, outputDims[ii]);
+      outputLoops.pushBounds(
+          shapeHelper.context, 0, shapeHelper.outputDims[ii]);
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-    IndexExprContext childContext(outerloopContex);
+    IndexExprContext childContext(shapeHelper.context);
+#if 0
+    printf("\nalex, make a test for affine\n");
+    Value ind0 = outputLoops.getInductionVar(0);
+    IndexExpr i1 = outerloopContex.CreateSymbolIndex(ind0);
+    IndexExpr t1;
+    t1.Sub(i1, i1);
+    t1.DebugPrint("index loop i -i");
+#endif
 
     // Proceed with the load data["i * step + start} for all dim].
     Value loadVal;
@@ -58,8 +60,10 @@ struct ONNXSliceOpLowering : public ConversionPattern {
       Value loopVal = outputLoops.getInductionVar(ii);
       IndexExpr loopIndex, start, step, actualIndex;
       loopIndex = childContext.CreateDimIndex(loopVal);
-      start = childContext.CreateSymbolIndexFromParentContext(starts[ii]);
-      step = childContext.CreateSymbolIndexFromParentContext(steps[ii]);
+      start = childContext.CreateSymbolIndexFromParentContext(
+          shapeHelper.starts[ii]);
+      step = childContext.CreateSymbolIndexFromParentContext(
+          shapeHelper.steps[ii]);
       loopIndex.DebugPrint("loop index");
       step.DebugPrint("  steps");
       start.DebugPrint("  start");
