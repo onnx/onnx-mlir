@@ -23,16 +23,6 @@
 
 using namespace mlir;
 
-size_t ArrayAttrSize(ArrayAttr a);
-size_t ArrayAttrSize(Optional<ArrayAttr> a);
-int64_t ArrayAttrIntVal(ArrayAttr a, int i);
-int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
-// Returns the ConstantOp which defines an MLIR Value or null.
-ONNXConstantOp getONNXConstantOp(Value value);
-
-DenseElementsAttr getDenseElementAttributeFromValue(Value value);
-
-bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
 
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
@@ -57,3 +47,18 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
   SmallVector<IndexExpr, 4> ends;
   SmallVector<IndexExpr, 4> steps;
 };
+
+//===----------------------------------------------------------------------===//
+// Low Level Helpers
+//===----------------------------------------------------------------------===//
+
+size_t ArrayAttrSize(ArrayAttr a);
+size_t ArrayAttrSize(Optional<ArrayAttr> a);
+int64_t ArrayAttrIntVal(ArrayAttr a, int i);
+int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
+// Returns the ConstantOp which defines an MLIR Value or null.
+ONNXConstantOp getONNXConstantOp(Value value);
+
+DenseElementsAttr getDenseElementAttributeFromValue(Value value);
+
+bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
