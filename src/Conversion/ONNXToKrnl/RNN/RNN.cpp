@@ -222,7 +222,7 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
   //         update the hidden state with the new state Ht.
   //
   // The reason to have two loops at the top level is to avoid updating any
-  // element of the hidden state while computing Ht-1*(Ri^T). 
+  // element of the hidden state while computing Ht-1*(Ri^T).
 
   // Create temporary buffers for
   //   - Xt*(Wi^T), Ht-1*(Ri^T)
@@ -353,7 +353,7 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
       rbiIVs = {directionIV, rHiddenIV};
     }
     // IVs for the matrix multiplication results.
-    // M :: [num_directions, batch_size, hidden_size] for matmul 
+    // M :: [num_directions, batch_size, hidden_size] for matmul
     SmallVector<Value, 3> mIVs = {directionIV, batchIV, hiddenIV};
 
     // Emit instructions for 'Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)'
