@@ -2887,8 +2887,8 @@ LogicalResult ONNXSliceOp::inferShapes() {
 
   ONNXSliceOpAdaptor operandAdaptor(*this);
   ONNXSliceOpShapeHelper shapeHelper(this, nullptr);
-  if (failed(shapeHelper.Compute(operandAdaptor))) 
-      return emitError("Failed to scan Silce parameters successfully");
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Silce parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));

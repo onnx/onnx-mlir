@@ -195,11 +195,11 @@ public:
   // IndexExpr; if its a tensor/memref, we load this value. If the index is out
   // of bound, we return an undefine IndexExpr.
   IndexExpr createSymbolIndexFromArrayAtIndex(
-      Operation *op, Value arrayOperand, uint64_t index);
+      Operation *op, Value array, uint64_t indexInArray);
   // Same as above, but return "defaultLitteral" when there are no defining op
   // or the index is out of bound.
-  IndexExpr createSymbolIndexFromArrayAtIndex(Operation *op, Value arrayOperand,
-      uint64_t index, int64_t defaultLiteral);
+  IndexExpr createSymbolIndexFromArrayAtIndex(Operation *op, Value array,
+      uint64_t indexInArray, int64_t defaultLiteral);
 
   // Additional builder for repurposing IndexExpr from parent context.
   IndexExpr createSymbolIndexFromParentContext(IndexExpr &parentIndexExpr);
@@ -307,10 +307,11 @@ private:
   // Higher-level initiation calls that extract info
   IndexExpr &initAsDimFromMemref(IndexExprContext &context, Value memref,
       ArrayRef<int64_t> memrefShape, int index);
-  IndexExpr &initAsSymbolFromArrayAtIndex(
-      IndexExprContext &context, Operation *op, Value arrayOperand, uint64_t i);
   IndexExpr &initAsSymbolFromArrayAtIndex(IndexExprContext &context,
-      Operation *op, Value arrayOperand, uint64_t i, int64_t defaultLiteral);
+      Operation *op, Value array, uint64_t indexInArray);
+  IndexExpr &initAsSymbolFromArrayAtIndex(IndexExprContext &context,
+      Operation *op, Value array, uint64_t indexInArray,
+      int64_t defaultLiteral);
   // Lower-level initialization calls.
   IndexExpr &init(IndexExprContext *context, bool newIsDefined,
       bool newIsIntLit, bool newIsAffine, bool newIsSymbol, bool newIsDim,

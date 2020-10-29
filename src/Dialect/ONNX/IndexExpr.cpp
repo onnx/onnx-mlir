@@ -10,8 +10,8 @@
 //===----------------------------------------------------------------------===//
 
 // both debug variables will be removed once debugging is complete.
-#define DEBUG 1
-#define CEIL_FLOOR_IN_STD 1
+#define DEBUG 0
+#define CEIL_FLOOR_IN_STD 0
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -82,16 +82,16 @@ IndexExpr IndexExprContext::createDimIndexFromMemref(
 }
 
 IndexExpr IndexExprContext::createSymbolIndexFromArrayAtIndex(
-    Operation *op, Value arrayOperand, uint64_t index) {
+    Operation *op, Value array, uint64_t indexInArray) {
   IndexExpr res;
-  return res.initAsSymbolFromArrayAtIndex(*this, op, arrayOperand, index);
+  return res.initAsSymbolFromArrayAtIndex(*this, op, array, indexInArray);
 }
 
 IndexExpr IndexExprContext::createSymbolIndexFromArrayAtIndex(
-    Operation *op, Value arrayOperand, uint64_t index, int64_t defaultLiteral) {
+    Operation *op, Value array, uint64_t indexInArray, int64_t defaultLiteral) {
   IndexExpr res;
   return res.initAsSymbolFromArrayAtIndex(
-      *this, op, arrayOperand, index, defaultLiteral);
+      *this, op, array, indexInArray, defaultLiteral);
 }
 
 IndexExpr IndexExprContext::createSymbolIndex(Value val) {
@@ -306,15 +306,15 @@ IndexExpr &IndexExpr::initAsDimFromMemref(IndexExprContext &newContext,
 }
 
 IndexExpr &IndexExpr::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
-    Operation *op, Value arrayOperand, uint64_t i) {
-  if (auto attrArray = getDenseElementAttributeFromValue(arrayOperand)) {
+    Operation *op, Value array, uint64_t indexInArray) {
+  if (auto attrArray = getDenseElementAttributeFromValue(array)) {
     // We extracted an dense attribute from definition of operand.
-    if (i >= attrArray.getType().getDimSize(0)) {
+    if (indexInArray >= attrArray.getType().getDimSize(0)) {
       printf("error 1\n");
       op->emitError("operand literal has wrong shape");
       return initAsUndefined();
     }
-    auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
+    auto attrVal = attrArray.getValue(ArrayRef<uint64_t>({indexInArray}));
     int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
     return initAsLiteral(newContext, attrInt);
   }
@@ -324,29 +324,30 @@ IndexExpr &IndexExpr::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
     return initAsQuestionmark(newContext);
   }
   // Emit code to read array.
-  Value indexVal = emitConstantOp(newContext.GetRewriter(),
-      newContext.GetLocation(), newContext.GetRewriter().getIndexType(), i);
+  Value indexVal =
+      emitConstantOp(newContext.GetRewriter(), newContext.GetLocation(),
+          newContext.GetRewriter().getIndexType(), indexInArray);
   SmallVector<Value, 1> memrefVal = {indexVal};
   Value loadVal = newContext.GetRewriter().create<AffineLoadOp>(
-      newContext.GetLocation(), arrayOperand, memrefVal);
+      newContext.GetLocation(), array, memrefVal);
   return initAsSymbol(newContext, loadVal);
 }
 
 IndexExpr &IndexExpr::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
-    Operation *op, Value arrayOperand, uint64_t i, int64_t defaultLiteral) {
+    Operation *op, Value array, uint64_t indexInArray, int64_t defaultLiteral) {
   // Check if we have an operand.
-  if (arrayOperand.getType().isa<NoneType>()) {
+  if (array.getType().isa<NoneType>()) {
     // Operand undefined, we use the default value.
     return initAsLiteral(newContext, defaultLiteral);
   }
-  if (auto attrArray = getDenseElementAttributeFromValue(arrayOperand)) {
+  if (auto attrArray = getDenseElementAttributeFromValue(array)) {
     // We extracted an dense attribute from definition of operand.
-    if (i > attrArray.getType().getDimSize(0)) {
+    if (indexInArray > attrArray.getType().getDimSize(0)) {
       // Not enought attributes for this index, return the default value.
       return initAsLiteral(newContext, defaultLiteral);
     }
     // We have enought attributes for this index, get the value.
-    Attribute attrVal = attrArray.getValue(ArrayRef<uint64_t>({i}));
+    Attribute attrVal = attrArray.getValue(ArrayRef<uint64_t>({indexInArray}));
     int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
     return initAsLiteral(newContext, attrInt);
   }
@@ -356,11 +357,12 @@ IndexExpr &IndexExpr::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
     return initAsQuestionmark(newContext);
   }
   // Emit the code to read array.
-  Value indexVal = emitConstantOp(newContext.GetRewriter(),
-      newContext.GetLocation(), newContext.GetRewriter().getIndexType(), i);
+  Value indexVal =
+      emitConstantOp(newContext.GetRewriter(), newContext.GetLocation(),
+          newContext.GetRewriter().getIndexType(), indexInArray);
   SmallVector<Value, 1> memrefVal = {indexVal};
   Value loadVal = newContext.GetRewriter().create<AffineLoadOp>(
-      newContext.GetLocation(), arrayOperand, memrefVal);
+      newContext.GetLocation(), array, memrefVal);
   return initAsSymbol(newContext, loadVal);
 }
 
