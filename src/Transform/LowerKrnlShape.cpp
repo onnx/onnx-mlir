@@ -45,6 +45,12 @@ public:
     auto rank =
         convertToMemRefType(krnlShapeOp.alloc().getType()).getShape().size();
 
+    // Create MemRef to hold shape information.
+    SmallVector<int64_t, 1> memRefShape;
+    memRefShape.emplace_back(rank);
+    auto memRefType =  MemRefType::get(memRefShape, rewriter.getIndexType());
+    auto newMemRefAlloc = rewriter.create<AllocOp>(loc, memRefType);
+
     SmallVector<mlir::Value, 4> fromExtentsOpOperands;
     for (int idx = 0; idx < rank; idx++) {
       auto index = rewriter.create<ConstantOp>(
@@ -52,11 +58,15 @@ public:
       auto operand = rewriter.create<KrnlDimOp>(
           loc, rewriter.getIndexType(), krnlShapeOp.alloc(), index);
       fromExtentsOpOperands.emplace_back(operand);
+
+      // Store value in the new MemRef.
+      auto idxValue =
+          emitConstantOp(rewriter, loc, rewriter.getIndexType(), idx);
+      SmallVector<Value, 1> indexArg = {idxValue};
+      rewriter.create<StoreOp>(loc, operand, newMemRefAlloc, indexArg);
     }
 
-    auto fromExtentsOp = rewriter.create<mlir::shape::FromExtentsOp>(
-        loc, rewriter.getType<mlir::shape::ShapeType>(), fromExtentsOpOperands);
-    rewriter.replaceOp(krnlShapeOp, fromExtentsOp.getResult());
+    rewriter.replaceOp(krnlShapeOp, newMemRefAlloc.getResult());
 
     return success();
   }
