@@ -208,6 +208,20 @@ bool getRefUsesAreDisjoint(
   return refsUseIsDisjoint;
 }
 
+/// Check that the incoming secondGetRef is not in any operation with existing
+/// slot reusers.
+bool getRefUsesAreNotUsedBySameOp(
+    SmallVectorImpl<KrnlGetRefOp> &firstGetRefList, KrnlGetRefOp secondGetRef) {
+  bool usedBySameOperation = false;
+  for (auto firstGetRef : firstGetRefList)
+    if (usedBySameOp(&firstGetRef, &secondGetRef)) {
+      usedBySameOperation = true;
+      break;
+    }
+
+  return usedBySameOperation;
+}
+
 /// secondGetRef candidate is checked against every element of firstGetRefList
 /// whether a load/store chain exists between them:
 ///
@@ -544,17 +558,15 @@ public:
       if (firstGetRefList.size() < secondGetRefList.size())
         continue;
 
-      // The krnl.memcpy operation is equivalent to load + store pair:
-      //
-      // krnl.memcpy(%destGetRef, %srcGetRef)
-      //
-      // equivalent to:
-      //
-      // %value = load %src
-      // store %value, %dest
-      //
-      // Exclude getrefs that are connected via `krnl.mempcy` operations.
-      if (usedBySameKrnlMemcpy(&firstGetRef, &secondGetRef))
+      firstGetRef.dump();
+      secondGetRef.dump();
+
+      // If the two getRefs are used by the same operation which we know
+      // nothing about, then we assume the worst case semantics i.e. that
+      // the operation acts as a function which can modify the content of
+      // one of the getRefs based on the other. This implies that the two
+      // getRefs cannot share the same memory pool slot.
+      if (getRefUsesAreNotUsedBySameOp(firstGetRefList, secondGetRef))
         continue;
 
       // Check that the usage of the candidate getrefs is disjoint from the
