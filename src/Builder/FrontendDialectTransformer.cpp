@@ -40,7 +40,7 @@ public:
     InitHandlerMap();
   }
 
-  mlir::ModuleOp ImportONNXModel(const onnx::ModelProto& model) {
+  mlir::ModuleOp ImportONNXModel(const onnx::ModelProto &model) {
     ImportGraph(model.graph());
     return module_;
   }
