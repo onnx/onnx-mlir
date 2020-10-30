@@ -14,9 +14,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
 
@@ -43,7 +43,7 @@ public:
       KrnlShapeOp krnlShapeOp, PatternRewriter &rewriter) const override {
     auto loc = krnlShapeOp.getLoc();
     int64_t rank =
-        convertToMemRefType(krnlShapeOp.alloc().getType()).getShape().size();
+        krnlShapeOp.alloc().getType().dyn_cast<MemRefType>().getShape().size();
 
     // Create MemRef to hold shape information.
     auto memRefType = MemRefType::get({rank}, rewriter.getIndexType());
