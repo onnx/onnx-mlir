@@ -42,13 +42,11 @@ public:
   LogicalResult matchAndRewrite(
       KrnlShapeOp krnlShapeOp, PatternRewriter &rewriter) const override {
     auto loc = krnlShapeOp.getLoc();
-    auto rank =
+    int64_t rank =
         convertToMemRefType(krnlShapeOp.alloc().getType()).getShape().size();
 
     // Create MemRef to hold shape information.
-    SmallVector<int64_t, 1> memRefShape;
-    memRefShape.emplace_back(rank);
-    auto memRefType = MemRefType::get(memRefShape, rewriter.getIndexType());
+    auto memRefType = MemRefType::get({rank}, rewriter.getIndexType());
     auto newMemRefAlloc = rewriter.create<AllocOp>(loc, memRefType);
 
     SmallVector<mlir::Value, 4> fromExtentsOpOperands;
