@@ -58,7 +58,7 @@ public:
       fromExtentsOpOperands.emplace_back(operand);
 
       // Store value in the new MemRef.
-      auto idxValue =
+      Value idxValue =
           emitConstantOp(rewriter, loc, rewriter.getIndexType(), idx);
       SmallVector<Value, 1> indexArg = {idxValue};
       rewriter.create<AffineStoreOp>(loc, operand, newMemRefAlloc, indexArg);
