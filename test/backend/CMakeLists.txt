@@ -1,3 +1,4 @@
+set (ONNX_MLIR_BACKEND "onnx-mlir")
 configure_file(test.py test.py COPYONLY)
 configure_file(test_config.py.in test_config.py)
 

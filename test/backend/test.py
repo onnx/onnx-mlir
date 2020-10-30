@@ -17,7 +17,7 @@ import test_config
 VERBOSE = bool(os.environ.get("VERBOSE"))
 
 CXX = test_config.CXX_PATH
-ONNX_MLIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "bin/onnx-mlir")
+ONNX_MLIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "bin", test_config.ONNX_MLIR_COMMAND)
 LLC = os.path.join(test_config.LLVM_PROJ_BUILD_PATH, "bin/llc")
 
 # Make lib folder under build directory visible in PYTHONPATH
