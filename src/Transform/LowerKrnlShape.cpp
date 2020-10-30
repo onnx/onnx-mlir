@@ -61,7 +61,7 @@ public:
       auto idxValue =
           emitConstantOp(rewriter, loc, rewriter.getIndexType(), idx);
       SmallVector<Value, 1> indexArg = {idxValue};
-      rewriter.create<StoreOp>(loc, operand, newMemRefAlloc, indexArg);
+      rewriter.create<AffineStoreOp>(loc, operand, newMemRefAlloc, indexArg);
     }
 
     rewriter.replaceOp(krnlShapeOp, newMemRefAlloc.getResult());
