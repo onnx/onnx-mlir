@@ -268,4 +268,3 @@ void populateLoweringONNXFlattenOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
-
