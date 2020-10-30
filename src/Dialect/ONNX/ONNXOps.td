@@ -76,6 +76,7 @@ class ONNX_Op<string mnemonic, list<OpTrait> traits = []> :
 
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Dialect/ONNX/ONNXOps.td.inc"
+include "src/Dialect/ONNX/AdditionalONNXOps.td.inc"
 
 // Indicate entry point functions of ONNX graph.
 def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
