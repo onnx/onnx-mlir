@@ -163,10 +163,8 @@ bool usedBySameOp(KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef) {
 
     if (firstUsed)
       for (const auto &operand : op->getOperands())
-        if (operand == secondGetRef->getResult()) {
-          op->dump();
+        if (operand == secondGetRef->getResult())
           sameOp = true;
-        }
   });
   return sameOp;
 }

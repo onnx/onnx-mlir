@@ -558,9 +558,6 @@ public:
       if (firstGetRefList.size() < secondGetRefList.size())
         continue;
 
-      firstGetRef.dump();
-      secondGetRef.dump();
-
       // If the two getRefs are used by the same operation which we know
       // nothing about, then we assume the worst case semantics i.e. that
       // the operation acts as a function which can modify the content of
