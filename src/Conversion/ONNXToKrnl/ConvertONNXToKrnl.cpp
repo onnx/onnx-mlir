@@ -116,11 +116,37 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
 
-  // With the target and rewrite patterns defined, we can now attempt the
-  // conversion. The conversion will signal failure if any of our `illegal`
-  // operations were not converted successfully.
-  if (failed(applyPartialConversion(module, target, patterns)))
-    signalPassFailure();
+  SmallVector<mlir::FuncOp, 4> funcToLower;
+  auto areAllFuncLegal = [&](ModuleOp module) {
+    bool allFuncLegal = true;
+    module.walk([&](FuncOp func) {
+      allFuncLegal &=
+          tensor_to_memref_converter.isSignatureLegal(func.getType());
+      func.getType().dump();
+    });
+    return allFuncLegal;
+  };
+
+    // With the target and rewrite patterns defined, we can now attempt the
+    // conversion. The conversion will signal failure if any of our `illegal`
+    // operations were not converted successfully.
+  while (!areAllFuncLegal(module)) {
+    module.walk([&](FuncOp func) {
+      bool dependenciesSatisfied = true;
+      func.walk([&](ONNXLoopOp loop) {
+        auto module = loop.getParentOfType<mlir::ModuleOp>();
+        auto symbolName = loop.body().cast<SymbolRefAttr>().getLeafReference();
+        auto func = dyn_cast<mlir::FuncOp>(module.lookupSymbol(symbolName));
+        // The Loop operation remains legal if and only if the body function has
+        // illegal signature.
+        dependenciesSatisfied &=
+            tensor_to_memref_converter.isSignatureLegal(func.getType());
+      });
+      if (dependenciesSatisfied)
+        if (failed(applyPartialConversion(func, target, patterns)))
+          signalPassFailure();
+    });
+  };
 }
 
 std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {

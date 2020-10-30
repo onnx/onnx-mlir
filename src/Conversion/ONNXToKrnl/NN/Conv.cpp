@@ -268,24 +268,38 @@ struct ONNXConvOpLowering : public ConversionPattern {
     return success();
   }
 };
+//
+// struct ONNXLoopOpLowering : public OpRewritePattern<mlir::ONNXLoopOp> {
+//  explicit ONNXLoopOpLowering(MLIRContext *ctx)
+//      : OpRewritePattern<mlir::ONNXLoopOp>(ctx) {}
+//
+//  LogicalResult matchAndRewrite(
+//      mlir::ONNXLoopOp op, PatternRewriter &rewriter) const override {
 
-struct ONNXLoopOpLowering : public OpRewritePattern<mlir::ONNXLoopOp> {
-  explicit ONNXLoopOpLowering(MLIRContext *ctx)
-      : OpRewritePattern<mlir::ONNXLoopOp>(ctx) {}
+struct ONNXLoopOpLowering : public ConversionPattern {
+  ONNXLoopOpLowering(MLIRContext *ctx)
+      : ConversionPattern(mlir::ONNXLoopOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult matchAndRewrite(
-      mlir::ONNXLoopOp op, PatternRewriter &rewriter) const override {
-    auto loc = op.getLoc();
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    auto loc = op->getLoc();
+    ONNXLoopOpAdaptor loopOpAdapter(operands, op->getAttrDictionary());
 
-    auto module = op.getParentOfType<mlir::ModuleOp>();
-    auto symbolName = op.body().cast<SymbolRefAttr>().getLeafReference();
+    auto module = op->getParentOfType<mlir::ModuleOp>();
+    auto symbolName =
+        loopOpAdapter.body().cast<SymbolRefAttr>().getLeafReference();
     auto func = dyn_cast<mlir::FuncOp>(module.lookupSymbol(symbolName));
     auto &loopBody = func.getBody();
 
+    auto vFinalAndScanOutputs = op->getOpResults();
     auto opScanOutputIter = llvm::make_range(
-        op.v_final_and_scan_outputs().begin() + op.v_initial().size(),
-        op.v_final_and_scan_outputs().end());
-    auto vInitIter = op.v_initial();
+        vFinalAndScanOutputs.begin() + loopOpAdapter.v_initial().size(),
+        vFinalAndScanOutputs.end());
+    auto vInitIter = loopOpAdapter.v_initial();
+
+    // TODO(tjingrant): correct, remove debug code.
+    SmallVector<Value, 4> outputs = vInitIter;
+
     for (const auto &ioPair : llvm::zip(vInitIter, opScanOutputIter)) {
       auto vInit = std::get<0>(ioPair);
       auto opScanOutput = std::get<1>(ioPair);
@@ -296,16 +310,21 @@ struct ONNXLoopOpLowering : public OpRewritePattern<mlir::ONNXLoopOp> {
       if (hasAllConstantDimensions(memRefType))
         alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
       else {
-        auto rankedScanOutTy = opScanOutput.getType().cast<RankedTensorType>();
+        auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
 
         for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
           if (rankedScanOutTy.getShape()[i] == -1) {
             if (i == 0) {
-              // TODO(tjingrant): Not exactly right, due to possibility of early
+              // TODO(tjingrant): in general, it is not correct to expect
+              // loop operation scan output to have the leading dimension extent
+              // equal to the trip count, due to the possibility of early
               // termination.
-              assert(!op.M().getType().isa<NoneType>());
-              allocParams.emplace_back(op.M());
+              assert(!loopOpAdapter.M().getType().isa<NoneType>());
+              Value maxTripCount =
+                  rewriter.create<LoadOp>(loc, loopOpAdapter.M()).getResult();
+              allocParams.emplace_back(rewriter.create<IndexCastOp>(
+                  loc, maxTripCount, rewriter.getIndexType()));
             } else {
               allocParams.emplace_back(
                   rewriter.create<DimOp>(loc, vInit, i - 1).getResult());
@@ -314,9 +333,39 @@ struct ONNXLoopOpLowering : public OpRewritePattern<mlir::ONNXLoopOp> {
         }
         alloc = rewriter.create<AllocOp>(loc, rankedScanOutTy, allocParams);
       }
+      outputs.emplace_back(alloc);
     }
 
-    rewriter.eraseOp(op);
+    BuildKrnlLoop loop(rewriter, loc, 1);
+    loop.createDefineOp();
+    Value maxTripCount =
+        rewriter.create<LoadOp>(loc, loopOpAdapter.M()).getResult();
+    maxTripCount = rewriter.create<IndexCastOp>(
+        loc, maxTripCount, rewriter.getIndexType());
+    loop.pushBounds(0, maxTripCount);
+    loop.createIterateOp();
+    rewriter.setInsertionPointToStart(loop.getIterateBlock());
+
+    // Create a scalar tensor out of iv, as the first argument passed to the
+    // body graph function.
+    Value iv = loop.getInductionVar(0);
+    iv = rewriter.create<IndexCastOp>(loc, iv, rewriter.getI64Type())
+             .getResult();
+    Value ivMemRef =
+        rewriter
+            .create<AllocOp>(loc, MemRefType::get({}, rewriter.getI64Type()))
+            .getResult();
+    rewriter.create<StoreOp>(loc, iv, ivMemRef);
+
+    // TODO(tjingrant): use loop carried version of cond.
+    SmallVector<Value, 4> params = {ivMemRef, loopOpAdapter.cond()};
+    for (auto value : loopOpAdapter.v_initial())
+      params.emplace_back(value);
+
+    auto callOp = rewriter.create<CallOp>(loc, func, params);
+
+    rewriter.replaceOp(op, outputs);
+
     return success();
   }
 };
