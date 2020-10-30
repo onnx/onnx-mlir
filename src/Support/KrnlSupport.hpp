@@ -65,8 +65,7 @@ bool usedBySameKrnlMemcpy(
     KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef);
 
 /// Check if two GetRefs participate in the same operation.
-bool usedBySameOp(
-    KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef);
+bool usedBySameOp(KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef);
 
 /// Get the number of GetRef ops associated with this AllocOp.
 int64_t getAllocGetRefNum(AllocOp *allocOp);

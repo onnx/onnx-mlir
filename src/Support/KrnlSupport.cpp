@@ -151,26 +151,23 @@ bool usedBySameKrnlMemcpy(
 }
 
 /// Check if two GetRefs participate in the same operation.
-bool usedBySameOp(
-    KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef) {
+bool usedBySameOp(KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef) {
   Block *topBlock = getTopBlock(firstGetRef->getOperation());
 
   bool sameOp = false;
-  topBlock->walk(
-      [&sameOp, firstGetRef, secondGetRef](Operation *op) {
-        bool firstUsed = false;
-        for (const auto &operand : op->getOperands())
-          if (operand == firstGetRef->getResult())
-            firstUsed = true;
+  topBlock->walk([&sameOp, firstGetRef, secondGetRef](Operation *op) {
+    bool firstUsed = false;
+    for (const auto &operand : op->getOperands())
+      if (operand == firstGetRef->getResult())
+        firstUsed = true;
 
-        if (firstUsed)
-          for (const auto &operand : op->getOperands())
-            if (operand == secondGetRef->getResult()) {
-              op->dump();
-              sameOp = true;
-            }
-      });
-
+    if (firstUsed)
+      for (const auto &operand : op->getOperands())
+        if (operand == secondGetRef->getResult()) {
+          op->dump();
+          sameOp = true;
+        }
+  });
   return sameOp;
 }
 
