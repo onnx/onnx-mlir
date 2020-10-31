@@ -78,7 +78,7 @@ public:
     if (auto terminator_op = f.getBody().back().getTerminator()) {
       auto results = terminator_op->getOperandTypes();
       f.setType(FunctionType::get(f.getType().getInputs(),
-          std::__1::vector<Type>(results.begin(), results.end()),
+          std::vector<Type>(results.begin(), results.end()),
           f.getContext()));
     }
   }
