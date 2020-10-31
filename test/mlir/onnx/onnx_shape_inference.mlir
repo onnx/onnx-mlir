@@ -18,6 +18,22 @@ func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
 
 // -----
 
+//===----------------------------------------------------------------------===//
+/// Test shape inference for Clip.
+//===----------------------------------------------------------------------===//
+
+func @test_clip(%arg0 : tensor<1x32x112x112xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %0 = "onnx.Clip"(%arg0, %cst, %cst) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<1x32x112x112xf32>, none, none) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_clip
+  // CHECK: [[RES:%.+]] = "onnx.Clip"(%arg0, %cst, %cst) {max = 6.000000e+00 : f32, min = 0.000000e+00 : f32} : (tensor<1x32x112x112xf32>, none, none) -> tensor<1x32x112x112xf32>
+  // CHECK: return [[RES]] : tensor<1x32x112x112xf32>
+}
+
+// -----
+
 /// Test shape inference for transposition when perm attribute is specified.
 
 func @test_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {

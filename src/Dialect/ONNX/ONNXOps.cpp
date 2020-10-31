@@ -3244,7 +3244,16 @@ LogicalResult ONNXCeilOp::inferShapes() {
 }
 
 LogicalResult ONNXClipOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!input().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  auto inputTy = input().getType().cast<RankedTensorType>();
+
+  auto elementType = inputTy.getElementType();
+  auto inputShape = inputTy.getShape();
+
+  getResult().setType(RankedTensorType::get(inputShape, elementType));
+  return success();
 }
 
 LogicalResult ONNXCompressOp::inferShapes() {
