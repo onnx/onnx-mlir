@@ -3043,11 +3043,6 @@ LogicalResult ONNXLoopOp::inferShapes(
   auto numLoopVars = loopBody.getNumArguments() - 2;
   assert(numLoopVars >= 0 && "Loop body must take at least 2 inputs.");
 
-  getResult(0).setType(
-      RankedTensorType::get({}, IntegerType::get(/*width=*/64, getContext())));
-  getResult(1).setType(
-      RankedTensorType::get({}, IntegerType::get(/*width=*/1, getContext())));
-
   // Output loop variables should have the same type as their input
   // counterparts.
   for (int64_t i = numLoopVars - 1; i >= 0; i--) {

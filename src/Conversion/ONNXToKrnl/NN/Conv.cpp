@@ -268,38 +268,47 @@ struct ONNXConvOpLowering : public ConversionPattern {
     return success();
   }
 };
-//
-// struct ONNXLoopOpLowering : public OpRewritePattern<mlir::ONNXLoopOp> {
-//  explicit ONNXLoopOpLowering(MLIRContext *ctx)
-//      : OpRewritePattern<mlir::ONNXLoopOp>(ctx) {}
-//
-//  LogicalResult matchAndRewrite(
-//      mlir::ONNXLoopOp op, PatternRewriter &rewriter) const override {
 
 struct ONNXLoopOpLowering : public ConversionPattern {
   ONNXLoopOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXLoopOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
-    ONNXLoopOpAdaptor loopOpAdapter(operands, op->getAttrDictionary());
+  void allocateMemoryForVFinal(mlir::Location loc,
+      ConversionPatternRewriter &rewriter, Operation *op,
+      ONNXLoopOpAdaptor loopOpAdapter,
+      SmallVectorImpl<mlir::Value> &outputs) const {
+    auto vFinalAndScanOutputs = op->getOpResults();
+    auto opVFinalOutputs = llvm::make_range(vFinalAndScanOutputs.begin(),
+        vFinalAndScanOutputs.begin() + loopOpAdapter.v_initial().size());
+    auto vInitIter = loopOpAdapter.v_initial();
 
-    auto module = op->getParentOfType<mlir::ModuleOp>();
-    auto symbolName =
-        loopOpAdapter.body().cast<SymbolRefAttr>().getLeafReference();
-    auto func = dyn_cast<mlir::FuncOp>(module.lookupSymbol(symbolName));
-    auto &loopBody = func.getBody();
+    for (const auto &ioPair : llvm::zip(vInitIter, opVFinalOutputs)) {
+      auto vInit = std::get<0>(ioPair);
+      auto vFinal = std::get<1>(ioPair);
 
+      auto memRefType = convertToMemRefType(vFinal.getType());
+      Value alloc;
+      bool shouldDealloc = checkInsertDealloc(op);
+      if (hasAllConstantDimensions(memRefType))
+        alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
+      else
+        alloc = insertAllocAndDealloc(
+            memRefType, loc, rewriter, shouldDealloc, {vInit});
+      outputs.emplace_back(alloc);
+    }
+  }
+
+  void allocateMemoryForScanOutput(mlir::Location loc,
+      ConversionPatternRewriter &rewriter, Operation *op,
+      ONNXLoopOpAdaptor loopOpAdapter,
+      SmallVectorImpl<mlir::Value> &outputs) const {
     auto vFinalAndScanOutputs = op->getOpResults();
     auto opScanOutputIter = llvm::make_range(
         vFinalAndScanOutputs.begin() + loopOpAdapter.v_initial().size(),
         vFinalAndScanOutputs.end());
     auto vInitIter = loopOpAdapter.v_initial();
 
-    // TODO(tjingrant): correct, remove debug code.
-    SmallVector<Value, 4> outputs = vInitIter;
-
+    // Are the correspondence guaranteed?
     for (const auto &ioPair : llvm::zip(vInitIter, opScanOutputIter)) {
       auto vInit = std::get<0>(ioPair);
       auto opScanOutput = std::get<1>(ioPair);
@@ -326,14 +335,44 @@ struct ONNXLoopOpLowering : public ConversionPattern {
               allocParams.emplace_back(rewriter.create<IndexCastOp>(
                   loc, maxTripCount, rewriter.getIndexType()));
             } else {
-              allocParams.emplace_back(
-                  rewriter.create<DimOp>(loc, vInit, i - 1).getResult());
+              //              allocParams.emplace_back(
+              //                  rewriter.create<DimOp>(loc, vInit, i -
+              //                  1).getResult());
+              llvm_unreachable("Error.");
             }
           }
         }
         alloc = rewriter.create<AllocOp>(loc, rankedScanOutTy, allocParams);
       }
       outputs.emplace_back(alloc);
+    }
+  }
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    auto loc = op->getLoc();
+    ONNXLoopOpAdaptor loopOpAdapter(operands, op->getAttrDictionary());
+
+    auto module = op->getParentOfType<mlir::ModuleOp>();
+    auto symbolName =
+        loopOpAdapter.body().cast<SymbolRefAttr>().getLeafReference();
+    auto func = dyn_cast<mlir::FuncOp>(module.lookupSymbol(symbolName));
+    auto &loopBody = func.getBody();
+
+    // Allocate memory for two kinds of outputs:
+    // - final values of loop dependent variables, and
+    // - scan output (all intermediate values of) loop dependent variables.
+    SmallVector<Value, 4> outputs;
+    allocateMemoryForVFinal(loc, rewriter, op, loopOpAdapter, outputs);
+    allocateMemoryForScanOutput(loc, rewriter, op, loopOpAdapter, outputs);
+
+    // Copy content of vInit to vFinal, which is used to host intermediate
+    // values produced by loop body function invocation.
+    for (const auto &vInitAndFinal :
+        llvm::zip(loopOpAdapter.v_initial(), outputs)) {
+      const auto &vInit = std::get<0>(vInitAndFinal);
+      const auto &vFinal = std::get<1>(vInitAndFinal);
+      EmitCopy(rewriter, loc, vInit, vFinal);
     }
 
     BuildKrnlLoop loop(rewriter, loc, 1);
@@ -357,16 +396,55 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             .getResult();
     rewriter.create<StoreOp>(loc, iv, ivMemRef);
 
-    // TODO(tjingrant): use loop carried version of cond.
+    // Make the call to loop body function.
     SmallVector<Value, 4> params = {ivMemRef, loopOpAdapter.cond()};
-    for (auto value : loopOpAdapter.v_initial())
+    for (auto value : llvm::make_range(outputs.begin(),
+             outputs.begin() + loopOpAdapter.v_initial().size()))
       params.emplace_back(value);
 
     auto callOp = rewriter.create<CallOp>(loc, func, params);
 
-    rewriter.replaceOp(op, outputs);
+    // Post values from loop body function.
+    auto resultsRange = callOp.getResults();
+    SmallVector<Value, 4> bodyOutputs(resultsRange.begin(), resultsRange.end());
 
+    for (int i = 0; i < bodyOutputs.size(); i++) {
+      auto output = bodyOutputs[i];
+      assert(output.getType().isa<TensorType>() ||
+             output.getType().isa<MemRefType>() &&
+                 "Expecting loop body function output to consist of "
+                 "tensors/memrefs.");
+      auto outputTy = output.getType().cast<ShapedType>();
+      bodyOutputs[i] = rewriter
+                           .create<KrnlDummyCastOp>(loc, output,
+                               MemRefType::get(outputTy.getShape(),
+                                   outputTy.getElementType()))
+                           .getResult();
+    }
+
+    auto vIntermediate = llvm::make_range(bodyOutputs.begin() + 1,
+        bodyOutputs.begin() + 1 + loopOpAdapter.v_initial().size());
+    for (auto vIntermediateToFinal : llvm::zip(vIntermediate, outputs))
+      EmitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
+          std::get<1>(vIntermediateToFinal));
+
+    rewriter.replaceOp(op, outputs);
     return success();
+  }
+
+  void EmitCopy(ConversionPatternRewriter &rewriter, const Location &loc,
+      const Value &vInit, const Value &vFinal) const {
+    OpBuilder::InsertionGuard insertGuard(rewriter);
+    auto vInitTy = vInit.getType().cast<MemRefType>();
+    BuildKrnlLoop loop(rewriter, loc, vInitTy.getRank());
+    loop.createDefineOp();
+    for (int i = 0; i < vInitTy.getRank(); i++)
+      loop.pushBounds(0, vInit, i);
+    loop.createIterateOp();
+    rewriter.setInsertionPointToStart(loop.getIterateBlock());
+    auto allIV = loop.getAllInductionVar();
+    auto v = rewriter.create<AffineLoadOp>(loc, vInit, allIV).getResult();
+    rewriter.create<AffineStoreOp>(loc, v, vFinal, allIV);
   }
 };
 
