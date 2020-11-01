@@ -1162,7 +1162,8 @@ LogicalResult ONNXMatMulOp::inferShapes(
 // QLinearMatMul
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXQLinearMatMulOp::inferShapes() {
+LogicalResult ONNXQLinearMatMulOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Cannot infer shape if no shape exists.
   if (!a().getType().isa<RankedTensorType>() ||
       !b().getType().isa<RankedTensorType>())
@@ -1824,7 +1825,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
 // QLinearConv
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXQLinearConvOp::inferShapes() {
+LogicalResult ONNXQLinearConvOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   // Generic shape for data input X, weight tensor W, and optional bias B
   // X: (N x C x D1 x D2 ... x Dn)
   // W: (M x C/group x k1 x k2 x ... x kn)
@@ -2063,7 +2065,8 @@ static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
 // GlobalAveragePool
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXGlobalAveragePoolOp::inferShapes() {
+LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return inferShapesGlobalPool(this);
 }
 
@@ -2071,7 +2074,8 @@ LogicalResult ONNXGlobalAveragePoolOp::inferShapes() {
 // GlobalLpPool
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXGlobalLpPoolOp::inferShapes() {
+LogicalResult ONNXGlobalLpPoolOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return inferShapesGlobalPool(this);
 }
 
@@ -2079,7 +2083,8 @@ LogicalResult ONNXGlobalLpPoolOp::inferShapes() {
 // GlobalMaxPool
 //===----------------------------------------------------------------------===//
 
-LogicalResult ONNXGlobalMaxPoolOp::inferShapes() {
+LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return inferShapesGlobalPool(this);
 }
 
@@ -3324,379 +3329,468 @@ LogicalResult ONNXLessOp::inferShapes(
 #define NOT_IMPLEMENTED_MESSAGE                                                \
   (getOperationName() + ": inferShapes() not implemented")
 
-LogicalResult ONNXAcosOp::inferShapes() {
+LogicalResult ONNXAcosOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXAcoshOp::inferShapes() {
+LogicalResult ONNXAcoshOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXArgMaxOp::inferShapes() {
+LogicalResult ONNXArgMaxOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXArgMinOp::inferShapes() {
+LogicalResult ONNXArgMinOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXAsinOp::inferShapes() {
+LogicalResult ONNXAsinOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXAsinhOp::inferShapes() {
+LogicalResult ONNXAsinhOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXAtanhOp::inferShapes() {
+LogicalResult ONNXAtanhOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXBatchNormalizationOp::inferShapes() {
+LogicalResult ONNXBatchNormalizationOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXBitShiftOp::inferShapes() {
+LogicalResult ONNXBitShiftOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXCeilOp::inferShapes() {
+LogicalResult ONNXCeilOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXClipOp::inferShapes() {
+LogicalResult ONNXClipOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXCompressOp::inferShapes() {
+LogicalResult ONNXCompressOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXConcatFromSequenceOp::inferShapes() {
+LogicalResult ONNXConcatFromSequenceOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXCumSumOp::inferShapes() {
+LogicalResult ONNXCumSumOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXDepthToSpaceOp::inferShapes() {
+LogicalResult ONNXDepthToSpaceOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXDetOp::inferShapes() {
+LogicalResult ONNXDetOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXEqualOp::inferShapes() {
+LogicalResult ONNXEqualOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXEyeLikeOp::inferShapes() {
+LogicalResult ONNXEyeLikeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXFloorOp::inferShapes() {
+LogicalResult ONNXFloorOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXGatherElementsOp::inferShapes() {
+LogicalResult ONNXGatherElementsOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXGatherNDOp::inferShapes() {
+LogicalResult ONNXGatherNDOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXGreaterOp::inferShapes() {
+LogicalResult ONNXGreaterOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXHardmaxOp::inferShapes() {
+LogicalResult ONNXHardmaxOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXIfOp::inferShapes() {
+LogicalResult ONNXIfOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXInstanceNormalizationOp::inferShapes() {
+LogicalResult ONNXInstanceNormalizationOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXIsInfOp::inferShapes() {
+LogicalResult ONNXIsInfOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXIsNaNOp::inferShapes() {
+LogicalResult ONNXIsNaNOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXLRNOp::inferShapes() {
+LogicalResult ONNXLRNOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXLogSoftmaxOp::inferShapes() {
+LogicalResult ONNXLogSoftmaxOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXLoopOp::inferShapes() {
+LogicalResult ONNXLpNormalizationOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXLpNormalizationOp::inferShapes() {
+LogicalResult ONNXLpPoolOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXLpPoolOp::inferShapes() {
+LogicalResult ONNXMatMulIntegerOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXMatMulIntegerOp::inferShapes() {
+LogicalResult ONNXMaxPoolOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXMaxPoolOp::inferShapes() {
+LogicalResult ONNXMaxRoiPoolOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXMaxRoiPoolOp::inferShapes() {
+LogicalResult ONNXMaxUnpoolOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXMaxUnpoolOp::inferShapes() {
+LogicalResult ONNXMeanOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXMeanOp::inferShapes() {
+LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes() {
+LogicalResult ONNXModOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXModOp::inferShapes() {
+LogicalResult ONNXMultinomialOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXMultinomialOp::inferShapes() {
+LogicalResult ONNXNonMaxSuppressionOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXNonMaxSuppressionOp::inferShapes() {
+LogicalResult ONNXNonZeroOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXNonZeroOp::inferShapes() {
+LogicalResult ONNXNotOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXNotOp::inferShapes() {
+LogicalResult ONNXOneHotOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXOneHotOp::inferShapes() {
+LogicalResult ONNXRandomNormalOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXRandomNormalOp::inferShapes() {
+LogicalResult ONNXRandomNormalLikeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXRandomNormalLikeOp::inferShapes() {
+LogicalResult ONNXRandomUniformOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXRandomUniformOp::inferShapes() {
+LogicalResult ONNXRandomUniformLikeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXRandomUniformLikeOp::inferShapes() {
+LogicalResult ONNXRangeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXRangeOp::inferShapes() {
+LogicalResult ONNXReduceL1Op::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXReduceL1Op::inferShapes() {
+LogicalResult ONNXReduceL2Op::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXReduceL2Op::inferShapes() {
+LogicalResult ONNXReduceLogSumOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXReduceLogSumOp::inferShapes() {
+LogicalResult ONNXReduceLogSumExpOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXReduceLogSumExpOp::inferShapes() {
+LogicalResult ONNXReduceSumSquareOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXReduceSumSquareOp::inferShapes() {
+LogicalResult ONNXResizeOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXResizeOp::inferShapes() {
+LogicalResult ONNXReverseSequenceOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXReverseSequenceOp::inferShapes() {
+LogicalResult ONNXRoiAlignOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXRoiAlignOp::inferShapes() {
+LogicalResult ONNXRoundOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXRoundOp::inferShapes() {
+LogicalResult ONNXScanOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXScanOp::inferShapes() {
+LogicalResult ONNXScatterOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXScatterOp::inferShapes() {
+LogicalResult ONNXScatterElementsOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXScatterElementsOp::inferShapes() {
+LogicalResult ONNXScatterNDOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXScatterNDOp::inferShapes() {
+LogicalResult ONNXSequenceAtOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXSequenceAtOp::inferShapes() {
+LogicalResult ONNXSequenceConstructOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXSequenceConstructOp::inferShapes() {
+LogicalResult ONNXSequenceEmptyOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXSequenceEmptyOp::inferShapes() {
+LogicalResult ONNXSequenceEraseOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXSequenceEraseOp::inferShapes() {
+LogicalResult ONNXSequenceInsertOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXSequenceInsertOp::inferShapes() {
+LogicalResult ONNXSequenceLengthOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXSequenceLengthOp::inferShapes() {
+LogicalResult ONNXShrinkOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXShrinkOp::inferShapes() {
+LogicalResult ONNXSpaceToDepthOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXSpaceToDepthOp::inferShapes() {
+LogicalResult ONNXSplitToSequenceOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXSplitToSequenceOp::inferShapes() {
+LogicalResult ONNXStringNormalizerOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXStringNormalizerOp::inferShapes() {
+LogicalResult ONNXTfIdfVectorizerOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXTfIdfVectorizerOp::inferShapes() {
+LogicalResult ONNXThresholdedReluOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXThresholdedReluOp::inferShapes() {
+LogicalResult ONNXTopKOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXTopKOp::inferShapes() {
+LogicalResult ONNXUniqueOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXUniqueOp::inferShapes() {
+LogicalResult ONNXUpsampleOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXUpsampleOp::inferShapes() {
+LogicalResult ONNXWhereOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXWhereOp::inferShapes() {
+LogicalResult ONNXArrayFeatureExtractorOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXArrayFeatureExtractorOp::inferShapes() {
+LogicalResult ONNXBinarizerOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXBinarizerOp::inferShapes() {
+LogicalResult ONNXCastMapOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXCastMapOp::inferShapes() {
+LogicalResult ONNXCategoryMapperOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXCategoryMapperOp::inferShapes() {
+LogicalResult ONNXDictVectorizerOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXDictVectorizerOp::inferShapes() {
+LogicalResult ONNXFeatureVectorizerOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXFeatureVectorizerOp::inferShapes() {
+LogicalResult ONNXImputerOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXImputerOp::inferShapes() {
+LogicalResult ONNXLabelEncoderOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXLabelEncoderOp::inferShapes() {
+LogicalResult ONNXLinearClassifierOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXLinearClassifierOp::inferShapes() {
+LogicalResult ONNXLinearRegressorOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXLinearRegressorOp::inferShapes() {
+LogicalResult ONNXNormalizerOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXNormalizerOp::inferShapes() {
+LogicalResult ONNXSVMClassifierOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXSVMClassifierOp::inferShapes() {
+LogicalResult ONNXSVMRegressorOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXSVMRegressorOp::inferShapes() {
+LogicalResult ONNXTreeEnsembleClassifierOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXTreeEnsembleClassifierOp::inferShapes() {
+LogicalResult ONNXTreeEnsembleRegressorOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXTreeEnsembleRegressorOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXZipMapOp::inferShapes() {
+LogicalResult ONNXZipMapOp::inferShapes(
+    std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
