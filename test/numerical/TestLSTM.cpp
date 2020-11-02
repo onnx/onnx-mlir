@@ -165,8 +165,8 @@ bool isOMLSTMTheSameAsNaiveImplFor(
       }
 
   // Main computation. 
-  for (int d = 0; d < D; ++d) {
-    for (int s = 0; s < S; ++s) {
+  for (int d = 0; d < DOut; ++d) {
+    for (int s = 0; s < SOut; ++s) {
       auto XtWi = omTensorCreateWithShape<float>({BOut, HOut});
       auto XtWo = omTensorCreateWithShape<float>({BOut, HOut});
       auto XtWf = omTensorCreateWithShape<float>({BOut, HOut});
@@ -245,7 +245,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(
           // Ht = ot (.) h(Ct)
           float Ht = ot * tanh(Ct);
           omTensorGetElem<float>(refYh, {d, b, h}) = Ht;
-          if (d == 1)
+          if (d == 0)
             // forward
             omTensorGetElem<float>(refY, {s, d, b, h}) = Ht;
           else
