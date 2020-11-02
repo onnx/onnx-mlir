@@ -164,9 +164,13 @@ bool isOMLSTMTheSameAsNaiveImplFor(
         omTensorGetElem<float>(refYc, {d, b, h}) = 0;
       }
 
-  // Main computation. 
+  // Main computation.
   for (int d = 0; d < DOut; ++d) {
     for (int s = 0; s < SOut; ++s) {
+      int seq = s;
+      if (d == 1)
+        // backward
+        seq = S - s - 1;
       auto XtWi = omTensorCreateWithShape<float>({BOut, HOut});
       auto XtWo = omTensorCreateWithShape<float>({BOut, HOut});
       auto XtWf = omTensorCreateWithShape<float>({BOut, HOut});
@@ -182,7 +186,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(
           omTensorGetElem<float>(XtWf, {b, h}) = 0;
           omTensorGetElem<float>(XtWc, {b, h}) = 0;
           for (int64_t k = 0; k < I; k++) {
-            float xt = omTensorGetElem<float>(input.get(), {d, b, k});
+            float xt = omTensorGetElem<float>(input.get(), {seq, d, b, k});
             omTensorGetElem<float>(XtWi, {b, h}) +=
                 xt * omTensorGetElem<float>(weight.get(), {d, h, k});
             omTensorGetElem<float>(XtWo, {b, h}) +=
@@ -245,12 +249,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(
           // Ht = ot (.) h(Ct)
           float Ht = ot * tanh(Ct);
           omTensorGetElem<float>(refYh, {d, b, h}) = Ht;
-          if (d == 0)
-            // forward
-            omTensorGetElem<float>(refY, {s, d, b, h}) = Ht;
-          else
-            // backward
-            omTensorGetElem<float>(refY, {S - s - 1, d, b, h}) = Ht;
+          omTensorGetElem<float>(refY, {seq, d, b, h}) = Ht;
         }
       }
     }
