@@ -25,26 +25,33 @@ float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 // naive implementation of LSTM for a specific set of LSTM
 // parameters/configuration.
 bool isOMLSTMTheSameAsNaiveImplFor(
-    const int S, const int B, const int I, const int H, const int D) {
+    const int D, const int S, const int B, const int I, const int H) {
   MLIRContext ctx;
   registerDialects(ctx);
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
-  llvm::SmallVector<int64_t, 4> xShape = {S, B, I};
-  llvm::SmallVector<int64_t, 1> wShape = {D, 4 * H, I};
-  llvm::SmallVector<int64_t, 1> rShape = {D, 4 * H, H};
-  llvm::SmallVector<int64_t, 1> bShape = {D, 8 * H};
+  llvm::SmallVector<int64_t, 3> xShape = {S, B, I};
+  llvm::SmallVector<int64_t, 3> wShape = {D, 4 * H, I};
+  llvm::SmallVector<int64_t, 3> rShape = {D, 4 * H, H};
+  llvm::SmallVector<int64_t, 2> bShape = {D, 8 * H};
+  llvm::SmallVector<int64_t, 3> hShape = {D, B, H};
+  llvm::SmallVector<int64_t, 3> cShape = {D, B, H};
+  llvm::SmallVector<int64_t, 2> pShape = {D, 3 * H};
 
   auto xType = RankedTensorType::get(xShape, builder.getF32Type());
   auto wType = RankedTensorType::get(wShape, builder.getF32Type());
   auto rType = RankedTensorType::get(rShape, builder.getF32Type());
   auto bType = RankedTensorType::get(bShape, builder.getF32Type());
+  auto hType = RankedTensorType::get(hShape, builder.getF32Type());
+  auto cType = RankedTensorType::get(cShape, builder.getF32Type());
+  auto pType = RankedTensorType::get(pShape, builder.getF32Type());
   auto yType = UnrankedTensorType::get(builder.getF32Type());
   auto yHType = UnrankedTensorType::get(builder.getF32Type());
   auto yCType = UnrankedTensorType::get(builder.getF32Type());
 
-  llvm::SmallVector<Type, 4> inputsType{xType, wType, rType, bType};
+  llvm::SmallVector<Type, 7> inputsType{
+      xType, wType, rType, bType, hType, cType, pType};
   llvm::SmallVector<Type, 3> outputsType{yType, yHType, yCType};
 
   auto funcType = builder.getFunctionType(inputsType, outputsType);
@@ -64,10 +71,10 @@ bool isOMLSTMTheSameAsNaiveImplFor(
   auto wVal = entryBlock->getArgument(1);
   auto rVal = entryBlock->getArgument(2);
   auto bVal = entryBlock->getArgument(3);
-  auto sequenceLength = noneVal;
-  auto initialH = noneVal;
-  auto initialC = noneVal;
-  auto peepholes = noneVal;
+  auto sVal = noneVal;
+  auto hVal = entryBlock->getArgument(4);
+  auto cVal = entryBlock->getArgument(5);
+  auto pVal = entryBlock->getArgument(6);
 
   StringAttr directionAttr;
   if (D == 1)
@@ -86,8 +93,8 @@ bool isOMLSTMTheSameAsNaiveImplFor(
   auto lstmOp = builder.create<ONNXLSTMOp>(UnknownLoc::get(&ctx),
       /*Y=*/yType, /*Y_h=*/yHType, /*Y_c=*/yCType,
       /*X=*/xVal, /*W=*/wVal, /*R=*/rVal, /*B=*/bVal,
-      /*sequence_lens=*/sequenceLength, /*initial_h=*/initialH,
-      /*initial_c=*/initialC, /*P=*/peepholes,
+      /*sequence_lens=*/sVal, /*initial_h=*/hVal,
+      /*initial_c=*/cVal, /*P=*/pVal,
       /*activation_alpha=*/ArrayAttr(), /*activation_beta=*/ArrayAttr(),
       /*activations=*/ArrayAttr(), /*clip=*/FloatAttr(),
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
@@ -112,7 +119,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(
   // Emit the entry point operation which specifies the number of user
   // inputs and outputs.
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
-      /*numInputs=*/4,
+      /*numInputs=*/7,
       /*numOutputs=*/3);
   module.push_back(entryPoint);
 
@@ -138,6 +145,18 @@ bool isOMLSTMTheSameAsNaiveImplFor(
       omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape)),
       omTensorDestroy);
   inputs.emplace_back(move(bOmt));
+  auto hOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape)),
+      omTensorDestroy);
+  inputs.emplace_back(move(hOmt));
+  auto cOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape)),
+      omTensorDestroy);
+  inputs.emplace_back(move(cOmt));
+  auto pOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape)),
+      omTensorDestroy);
+  inputs.emplace_back(move(pOmt));
 
   auto refY = omTensorCreateWithShape<float>({SOut, DOut, BOut, HOut});
   auto refYh = omTensorCreateWithShape<float>({DOut, BOut, HOut});
@@ -155,19 +174,24 @@ bool isOMLSTMTheSameAsNaiveImplFor(
   auto &weight = inputs.at(1);
   auto &recurr = inputs.at(2);
   auto &bias = inputs.at(3);
+  auto &initialH = inputs.at(4);
+  auto &initialC = inputs.at(5);
+  auto &peepholes = inputs.at(6);
 
   // Initialize refYh and refYc.
   for (int64_t d = 0; d < DOut; d++)
     for (int64_t b = 0; b < BOut; b++)
       for (int64_t h = 0; h < HOut; h++) {
-        omTensorGetElem<float>(refYh, {d, b, h}) = 0;
-        omTensorGetElem<float>(refYc, {d, b, h}) = 0;
+        omTensorGetElem<float>(refYh, {d, b, h}) =
+            omTensorGetElem<float>(initialH.get(), {d, b, h});
+        omTensorGetElem<float>(refYc, {d, b, h}) =
+            omTensorGetElem<float>(initialC.get(), {d, b, h});
       }
 
   // Main computation.
-  for (int d = 0; d < DOut; ++d) {
-    for (int s = 0; s < SOut; ++s) {
-      int seq = s;
+  for (int64_t d = 0; d < DOut; ++d) {
+    for (int64_t s = 0; s < SOut; ++s) {
+      int64_t seq = s;
       if (d == 1)
         // backward
         seq = S - s - 1;
@@ -186,7 +210,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(
           omTensorGetElem<float>(XtWf, {b, h}) = 0;
           omTensorGetElem<float>(XtWc, {b, h}) = 0;
           for (int64_t k = 0; k < I; k++) {
-            float xt = omTensorGetElem<float>(input.get(), {seq, d, b, k});
+            float xt = omTensorGetElem<float>(input.get(), {seq, b, k});
             omTensorGetElem<float>(XtWi, {b, h}) +=
                 xt * omTensorGetElem<float>(weight.get(), {d, h, k});
             omTensorGetElem<float>(XtWo, {b, h}) +=
@@ -220,18 +244,20 @@ bool isOMLSTMTheSameAsNaiveImplFor(
         for (int64_t h = 0; h < HOut; h++) {
           float previousCt = omTensorGetElem<float>(refYc, {d, b, h});
           // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
-          float it =
-              sigmoid(omTensorGetElem<float>(XtWi, {b, h}) +
-                      omTensorGetElem<float>(HtRi, {b, h}) +
-                      omTensorGetElem<float>(bias.get(), {d, h}) +
-                      omTensorGetElem<float>(bias.get(), {d, h + 4 * H}));
-          // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 +
-          // Wbf + Rbf)
+          float it = sigmoid(
+              omTensorGetElem<float>(XtWi, {b, h}) +
+              omTensorGetElem<float>(HtRi, {b, h}) +
+              omTensorGetElem<float>(peepholes.get(), {d, h}) * previousCt +
+              omTensorGetElem<float>(bias.get(), {d, h}) +
+              omTensorGetElem<float>(bias.get(), {d, h + 4 * H}));
+          // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
           float ft =
               sigmoid(omTensorGetElem<float>(XtWf, {b, h}) +
                       omTensorGetElem<float>(HtRf, {b, h}) +
-                      omTensorGetElem<float>(bias.get(), {d, h + 1 * H}) +
-                      omTensorGetElem<float>(bias.get(), {d, h + 5 * H}));
+                      omTensorGetElem<float>(peepholes.get(), {d, h + 2 * H}) *
+                          previousCt +
+                      omTensorGetElem<float>(bias.get(), {d, h + 2 * H}) +
+                      omTensorGetElem<float>(bias.get(), {d, h + 6 * H}));
           // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
           float ct = tanh(omTensorGetElem<float>(XtWc, {b, h}) +
                           omTensorGetElem<float>(HtRc, {b, h}) +
@@ -240,12 +266,13 @@ bool isOMLSTMTheSameAsNaiveImplFor(
           // Ct = ft (.) Ct-1 + it (.) ct
           float Ct = ft * previousCt + it * ct;
           omTensorGetElem<float>(refYc, {d, b, h}) = Ct;
-          // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo
-          float ot =
-              sigmoid(omTensorGetElem<float>(XtWo, {b, h}) +
-                      omTensorGetElem<float>(HtRo, {b, h}) +
-                      omTensorGetElem<float>(bias.get(), {d, h + 2 * H}) +
-                      omTensorGetElem<float>(bias.get(), {d, h + 6 * H}));
+          // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
+          float ot = sigmoid(
+              omTensorGetElem<float>(XtWo, {b, h}) +
+              omTensorGetElem<float>(HtRo, {b, h}) +
+              omTensorGetElem<float>(peepholes.get(), {d, h + 1 * H}) * Ct +
+              omTensorGetElem<float>(bias.get(), {d, h + 1 * H}) +
+              omTensorGetElem<float>(bias.get(), {d, h + 5 * H}));
           // Ht = ot (.) h(Ct)
           float Ht = ot * tanh(Ct);
           omTensorGetElem<float>(refYh, {d, b, h}) = Ht;
@@ -261,9 +288,9 @@ bool isOMLSTMTheSameAsNaiveImplFor(
   auto &lstmYh = outputs.at(1);
   auto &lstmYc = outputs.at(2);
 
-  return omTensorAreTwoOmtsClose<float>(lstmY.get(), refY) &&
-         omTensorAreTwoOmtsClose<float>(lstmYh.get(), refYh) &&
-         omTensorAreTwoOmtsClose<float>(lstmYc.get(), refYc);
+  return (omTensorAreTwoOmtsClose<float>(lstmY.get(), refY) &&
+          omTensorAreTwoOmtsClose<float>(lstmYh.get(), refYh) &&
+          omTensorAreTwoOmtsClose<float>(lstmYc.get(), refYc));
 }
 
 int main(int argc, char *argv[]) {
@@ -273,20 +300,18 @@ int main(int argc, char *argv[]) {
   // RapidCheck test case generation.
   rc::check("LSTM implementation correctness", []() {
     // Sequence length.
-    const auto S = *rc::gen::inRange(1, 5);
+    const auto S = *rc::gen::inRange(1, 20);
     // Batch size.
-    const auto B = *rc::gen::inRange(1, 10);
+    const auto B = *rc::gen::inRange(1, 200);
     // Input size.
-    const auto I = *rc::gen::inRange(1, 10);
+    const auto I = *rc::gen::inRange(1, 100);
     // Hidden size.
-    const auto H = *rc::gen::inRange(1, 20);
-    // Number of directions: 1 or 2.
-    const auto D = *rc::gen::inRange(1, 3);
+    const auto H = *rc::gen::inRange(1, 100);
 
-    // Make sure the number of directions is 1 or 2
-    RC_PRE((D == 1) || (D == 2));
-
-    RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(S, B, I, H, D));
+    // forward
+    RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(1, S, B, I, H));
+    // bidirectional
+    RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(2, S, B, I, H));
   });
 
   return 0;
