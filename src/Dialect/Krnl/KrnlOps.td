@@ -368,7 +368,7 @@ def KrnlShapeOp : Op<Krnl_Dialect, "shape"> {
   }];
 
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc);
-  let results = (outs Shape_ShapeType:$shape);
+  let results = (outs AnyTypeOf<[AnyMemRef]>:$shape);
 
   let parser = ?;
   let printer = ?;
