@@ -96,21 +96,20 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     // ii is logical index in mem/loop bounds
     int ii = axesIntLit[i];
     // Get start, end, step, and dim index expressions.
-    IndexExpr startInput, endInput, stepInput, dimInput, dimMinOneInput;
     // Get start.
-    startInput = context.createSymbolIndexFromArrayAtIndex(
+    IndexExpr startInput = context.createSymbolIndexFromArrayAtIndex(
         genericOp, operandAdaptor.starts(), i);
     if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
     startInput.debugPrint("start input");
     // Get end.
-    endInput = context.createSymbolIndexFromArrayAtIndex(
+    IndexExpr endInput = context.createSymbolIndexFromArrayAtIndex(
         genericOp, operandAdaptor.ends(), i);
     if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
     endInput.debugPrint("end input");
     // Get step.
-    stepInput = context.createSymbolIndexFromArrayAtIndex(
+    IndexExpr stepInput = context.createSymbolIndexFromArrayAtIndex(
         genericOp, operandAdaptor.steps(), i, 1);
     if (stepInput.isUndefined())
       return op->emitError("step input parameter could not be processed");
@@ -118,42 +117,42 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       return op->emitError("step input parameter cannot be zero");
     stepInput.debugPrint("step input");
     // Get dim.
-    dimInput = context.createDimIndexFromMemref(data, dataShape, ii);
+    IndexExpr dimInput = context.createDimIndexFromMemref(data, dataShape, ii);
     dimInput.debugPrint("dim input");
 
     // Now proceed with the computations for start/end/dim.
     // Calculation for start: start < 0 ? start + dim : start.
-    IndexExpr startPlusDim, startPos, startFinal, neg, pos;
-    startPlusDim.add(startInput, dimInput);
-    startPos.select(
+    IndexExpr startPlusDim = startInput + dimInput;
+    IndexExpr startPos = IndexExpr::select(
         startInput, CmpIPredicate::slt, 0, startPlusDim, startInput);
     // Step < 0: clamp(0, start, dim -1) else clamp(0, start, dim)
-    dimMinOneInput.sub(dimInput, 1);
-    neg.clamp(startPos, 0, dimMinOneInput);
-    pos.clamp(startPos, 0, dimInput);
-    startFinal.select(stepInput, CmpIPredicate::slt, 0, neg, pos);
+    IndexExpr dimMinOneInput = dimInput - 1;
+    IndexExpr neg = startPos.clamp(0, dimMinOneInput);
+    IndexExpr pos = startPos.clamp(0, dimInput);
+    IndexExpr startFinal =
+        IndexExpr::select(stepInput, CmpIPredicate::slt, 0, neg, pos);
     startFinal.debugPrint("start final");
 
     // Calculation for end: end<0 -> end + dim else -> end;
     // special case end <= -inf -> -1;  end >= inf -> dim;
     int64_t negInf = std::numeric_limits<int32_t>::min();
     int64_t posInf = std::numeric_limits<int32_t>::max();
-    IndexExpr endPlusDim, endPos, endFinal;
-    endPlusDim.add(endInput, dimInput);
-    endPos.select(endInput, CmpIPredicate::slt, 0, endPlusDim, endInput);
-    endPos.assignIf(endInput, CmpIPredicate::sle, negInf, -1);
-    endPos.assignIf(endInput, CmpIPredicate::sge, posInf, dimInput);
+    IndexExpr endPlusDim = endInput + dimInput;
+    IndexExpr endPos = IndexExpr::select(
+        endInput, CmpIPredicate::slt, 0, endPlusDim, endInput);
+    endPos.setIf(endInput, CmpIPredicate::sle, negInf, -1);
+    endPos.setIf(endInput, CmpIPredicate::sge, posInf, dimInput);
     // End: step<0: clamp(-1, end, dim); step>0 clamp(0, end, dim)
-    neg.clamp(endPos, -1, dimInput);
-    pos.clamp(endPos, 0, dimInput);
-    endFinal.select(stepInput, CmpIPredicate::slt, 0, neg, pos);
+    neg = endPos.clamp(-1, dimInput);
+    pos = endPos.clamp(0, dimInput);
+    IndexExpr endFinal =
+        IndexExpr::select(stepInput, CmpIPredicate::slt, 0, neg, pos);
     endFinal.debugPrint("end final");
 
     // Calculation for output size.
-    IndexExpr dimOutputFinal;
-    dimOutputFinal.sub(endFinal, startFinal).ceilDivBy(stepInput);
+    IndexExpr dimOutputFinal = (endFinal - startFinal).ceilDiv(stepInput);
     // should use a max
-    dimOutputFinal.assignIf(dimOutputFinal, CmpIPredicate::slt, 0, 0);
+    dimOutputFinal.setIf(dimOutputFinal, CmpIPredicate::slt, 0, 0);
     dimOutputFinal.debugPrint("output dim final");
 
     // Save results
