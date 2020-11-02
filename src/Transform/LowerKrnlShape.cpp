@@ -14,9 +14,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
 
@@ -42,8 +42,12 @@ public:
   LogicalResult matchAndRewrite(
       KrnlShapeOp krnlShapeOp, PatternRewriter &rewriter) const override {
     auto loc = krnlShapeOp.getLoc();
-    auto rank =
-        convertToMemRefType(krnlShapeOp.alloc().getType()).getShape().size();
+    int64_t rank =
+        krnlShapeOp.alloc().getType().dyn_cast<MemRefType>().getShape().size();
+
+    // Create MemRef to hold shape information.
+    auto memRefType = MemRefType::get({rank}, rewriter.getIndexType());
+    auto newMemRefAlloc = rewriter.create<AllocOp>(loc, memRefType);
 
     SmallVector<mlir::Value, 4> fromExtentsOpOperands;
     for (int idx = 0; idx < rank; idx++) {
@@ -52,11 +56,15 @@ public:
       auto operand = rewriter.create<KrnlDimOp>(
           loc, rewriter.getIndexType(), krnlShapeOp.alloc(), index);
       fromExtentsOpOperands.emplace_back(operand);
+
+      // Store value in the new MemRef.
+      Value idxValue =
+          emitConstantOp(rewriter, loc, rewriter.getIndexType(), idx);
+      SmallVector<Value, 1> indexArg = {idxValue};
+      rewriter.create<AffineStoreOp>(loc, operand, newMemRefAlloc, indexArg);
     }
 
-    auto fromExtentsOp = rewriter.create<mlir::shape::FromExtentsOp>(
-        loc, rewriter.getType<mlir::shape::ShapeType>(), fromExtentsOpOperands);
-    rewriter.replaceOp(krnlShapeOp, fromExtentsOp.getResult());
+    rewriter.replaceOp(krnlShapeOp, newMemRefAlloc.getResult());
 
     return success();
   }
