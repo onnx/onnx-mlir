@@ -16,9 +16,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
 
@@ -78,7 +78,7 @@ public:
     int64_t index = indexOp.getAttrOfType<IntegerAttr>("value").getInt();
 
     // Get the shape of the MemRef argument.
-    auto memRefType = convertToMemRefType(krnlDimOp.alloc().getType());
+    auto memRefType = krnlDimOp.alloc().getType().dyn_cast<MemRefType>();
     auto memRefShape = memRefType.getShape();
     auto rank = memRefShape.size();
     assert(index >= 0 && index < rank && "Index must be in bounds");
