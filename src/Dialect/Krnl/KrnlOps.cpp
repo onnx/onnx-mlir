@@ -313,9 +313,10 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
 // KrnlIterateOp
 //===----------------------------------------------------------------------===//
 
-void KrnlDummyCastOp::build(OpBuilder &builder, OperationState &state, Value in, Type outType) {
-    state.operands.emplace_back(in);
-    state.types.emplace_back(outType);
+void KrnlDummyCastOp::build(
+    OpBuilder &builder, OperationState &state, Value in, Type outType) {
+  state.operands.emplace_back(in);
+  state.types.emplace_back(outType);
 }
 
 #define GET_OP_CLASSES
