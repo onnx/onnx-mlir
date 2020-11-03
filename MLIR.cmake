@@ -188,6 +188,7 @@ find_mlir_lib(MLIRAffineEDSC)
 find_mlir_lib(MLIRLinalgEDSC)
 find_mlir_lib(MLIRViewLikeInterface)
 find_mlir_lib(MLIRPresburger)
+find_mlir_lib(MLIRRewrite)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -243,7 +244,7 @@ set(MLIRLibs
         ${MLIREDSC}
         ${MLIRExecutionEngine}
         ${MLIRIR}
-        ${MLIRLLVMIRTransforms}        
+        ${MLIRLLVMIRTransforms}
         ${MLIRSCFToStandard}
         ${MLIRSCF}
         ${MLIRSCFTransforms}
@@ -265,6 +266,7 @@ set(MLIRLibs
         ${MLIRLinalgEDSC}
         ${MLIRViewLikeInterface}
         ${MLIRPresburger}
+        ${MLIRRewrite}
         ${MLIRShape}
         ${MLIRShapeToStandard}
         ${MLIRInferTypeOpInterface}
@@ -291,8 +293,8 @@ set(MLIRLibs
         ${LLVMSupport}
         ${LLVMDemangle}
         ${CMAKE_THREAD_LIBS_INIT}
-	      ${CURSES_LIBRARIES}
-	      ${ZLIB_LIBRARIES})
+        ${CURSES_LIBRARIES}
+        ${ZLIB_LIBRARIES})
 
 set(LLVM_CMAKE_DIR
         "${LLVM_PROJ_BUILD}/lib/cmake/llvm"

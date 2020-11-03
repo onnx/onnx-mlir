@@ -17,6 +17,7 @@
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/FileSystem.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -65,7 +66,7 @@ public:
         &getContext(), elisionThreshold);
     // Apply constant value elision.
     module.walk(
-        [&](FuncOp func) { applyPatternsAndFoldGreedily(func, patterns); });
+        [&](FuncOp func) { applyPatternsAndFoldGreedily(func, std::move(patterns)); });
 
     bool isLE = llvm::support::endian::system_endianness() ==
                 llvm::support::endianness::little;

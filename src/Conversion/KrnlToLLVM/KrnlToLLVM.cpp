@@ -992,7 +992,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
-  if (failed(applyFullConversion(getOperation(), target, patterns))) {
+  if (failed(applyFullConversion(getOperation(), target, std::move(patterns)))) {
     signalPassFailure();
   }
 }

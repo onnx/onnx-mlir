@@ -17,6 +17,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -421,7 +422,7 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   OwningRewritePatternList patterns;
   populateWithGenerated(context, patterns);
 
-  applyPatternsAndFoldGreedily(function, patterns);
+  applyPatternsAndFoldGreedily(function, std::move(patterns));
 } // end anonymous namespace
 
 /*!

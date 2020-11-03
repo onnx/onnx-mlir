@@ -14,7 +14,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/SetVector.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -460,7 +460,7 @@ public:
     patterns.insert<KrnlBundleStaticMemoryPools, KrnlBundleDynamicMemoryPools>(
         &getContext());
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    applyPatternsAndFoldGreedily(function, std::move(patterns));
 
     dynamicPoolMap.erase(function);
     staticPoolMap.erase(function);

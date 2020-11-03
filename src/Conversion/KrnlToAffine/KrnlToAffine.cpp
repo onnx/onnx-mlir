@@ -240,7 +240,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   patterns.insert<KrnlTerminatorLowering>(&getContext());
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
-          getFunction(), target, patterns, &unconverted)))
+          getFunction(), target, std::move(patterns), &unconverted)))
     signalPassFailure();
 }
 } // namespace

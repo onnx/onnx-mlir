@@ -13,6 +13,7 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
@@ -90,7 +91,7 @@ public:
     OwningRewritePatternList patterns;
     auto *context = &getContext();
     ConstantOp::getCanonicalizationPatterns(patterns, context);
-    applyPatternsAndFoldGreedily(f, patterns);
+    applyPatternsAndFoldGreedily(f, std::move(patterns));
   }
 };
 } // end anonymous namespace

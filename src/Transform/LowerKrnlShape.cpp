@@ -12,7 +12,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -75,7 +75,7 @@ public:
     OwningRewritePatternList patterns;
     patterns.insert<LowerKrnlShape>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
 };
 } // namespace
