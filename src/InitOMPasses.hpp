@@ -88,5 +88,11 @@ void initOMPasses() {
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createLowerKrnlShapePass();
       });
+
+  mlir::registerPass("lower-krnl-global",
+      "Lower krnl.global operation to std.constant operations.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createLowerKrnlGlobalPass();
+      });
 }
 } // namespace onnx_mlir

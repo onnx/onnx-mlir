@@ -73,4 +73,22 @@ add_dependencies(OMLowerKrnlShape
         OMKrnlOps
         OMONNXOps)
 
+add_library(OMLowerKrnlGlobal
+        LowerKrnlGlobal.cpp)
+target_include_directories(OMLowerKrnlGlobal
+        PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+target_link_libraries(OMLowerKrnlGlobal
+        onnx)
+# Header dependencies
+add_dependencies(OMLowerKrnlGlobal OMKrnlOpsInc)
+# Linking dependencies
+add_dependencies(OMLowerKrnlGlobal
+        OMKrnlOps
+        OMONNXOps)
+
+
+
 add_subdirectory(ONNX)
