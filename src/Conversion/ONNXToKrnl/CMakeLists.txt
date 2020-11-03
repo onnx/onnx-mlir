@@ -32,6 +32,7 @@ add_library(OMONNXToKrnl
         Tensor/Tile.cpp
         ConvertONNXToKrnl.cpp)
 target_link_libraries(OMONNXToKrnl
+        OMSupport
         onnx)
 target_include_directories(OMONNXToKrnl
         PRIVATE

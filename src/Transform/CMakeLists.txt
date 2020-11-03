@@ -29,10 +29,23 @@ target_include_directories(OMEnableMemoryPool
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(OMEnableMemoryPool
-        onnx)
+        OMSupport)
 add_dependencies(OMEnableMemoryPool
-        OMKrnlOps
-        OMONNXOps)
+        OMSupport
+        OMKrnlOps)
+
+add_library(OMOptimizeMemoryPools
+        OptimizeMemoryPools.cpp)
+target_include_directories(OMOptimizeMemoryPools
+        PRIVATE
+        ${ONNX_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+target_link_libraries(OMOptimizeMemoryPools
+        OMSupport)
+add_dependencies(OMOptimizeMemoryPools
+        OMSupport
+        OMKrnlOps)
 
 add_library(OMBundleMemoryPools
         BundleMemoryPools.cpp)
@@ -42,10 +55,10 @@ target_include_directories(OMBundleMemoryPools
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(OMBundleMemoryPools
-        onnx)
+        OMSupport)
 add_dependencies(OMBundleMemoryPools
-        OMKrnlOps
-        OMONNXOps)
+        OMSupport
+        OMKrnlOps)
 
 add_library(OMDisconnectKrnlDimFromAlloc
         DisconnectKrnlDimFromAlloc.cpp)
@@ -55,10 +68,10 @@ target_include_directories(OMDisconnectKrnlDimFromAlloc
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 target_link_libraries(OMDisconnectKrnlDimFromAlloc
-        onnx)
+        OMSupport)
 add_dependencies(OMDisconnectKrnlDimFromAlloc
-        OMKrnlOps
-        OMONNXOps)
+        OMSupport
+        OMKrnlOps)
 
 add_library(OMLowerKrnlShape
         LowerKrnlShape.cpp)
@@ -67,10 +80,8 @@ target_include_directories(OMLowerKrnlShape
         ${ONNX_MLIR_SRC_ROOT}
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
-target_link_libraries(OMLowerKrnlShape
-        onnx)
+target_link_libraries(OMLowerKrnlShape)
 add_dependencies(OMLowerKrnlShape
-        OMKrnlOps
-        OMONNXOps)
+        OMKrnlOps)
 
 add_subdirectory(ONNX)

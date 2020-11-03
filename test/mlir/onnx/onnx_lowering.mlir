@@ -2157,6 +2157,25 @@ func @test_gru_with_bias(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2xf32>, %ar
 
 // -----
 
+// Check handling unknown dimensions for GRU by checking the 
+// correctness of allocating and deallocating memory.
+func @test_gru_unkown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x9x?xf32>, %arg2: tensor<1x9x3xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<?x?x?xf32>, tensor<1x9x?xf32>, tensor<1x9x3xf32>, none, none, none) -> (none, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+  // CHECK-LABEL: @test_gru_unkown_dims_allocation
+
+  // allocate memory for Hidden (Y_h).
+  // CHECK: [[C1_0:%.+]] = constant 1 : index
+  // CHECK: [[BATCH_SIZE:%.+]] = dim %arg0, [[C1_0]] : memref<?x?x?xf32>
+  // CHECK: [[Y_h:%.+]] = alloc([[BATCH_SIZE]]) : memref<1x?x3xf32>
+
+  // CHECK: return [[Y_h]] : memref<1x?x3xf32>
+}
+
+// -----
+
 func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
   %cst = constant unit
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
@@ -2418,6 +2437,41 @@ func @test_lstm_bidirectional_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x
 
 // -----
 
+// Check handling unknown dimensions for LSTM by checking the 
+// correctness of allocating and deallocating memory.
+func @test_lstm_unkown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x12x?xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<?x?x?xf32>, tensor<1x12x?xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (tensor<*xf32>, tensor<*xf32>, none)
+  return %Y_h : tensor<*xf32>
+
+  // CHECK-LABEL: @test_lstm_unkown_dims_allocation
+
+  // allocate memory for all Hidden (Y).
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[SEQUENCE_LENGTH:%.+]] = dim %arg0, [[C0]] : memref<?x?x?xf32>
+  // CHECK: [[C1:%.+]] = constant 1 : index
+  // CHECK: [[BATCH_SIZE:%.+]] = dim %arg0, [[C1]] : memref<?x?x?xf32>
+  // CHECK: [[Y:%.+]] = alloc([[SEQUENCE_LENGTH]], [[BATCH_SIZE]]) : memref<?x1x?x3xf32>
+
+  // allocate memory for Hidden (Y_h).
+  // CHECK: [[C1_0:%.+]] = constant 1 : index
+  // CHECK: [[BATCH_SIZE:%.+]] = dim %arg0, [[C1_0]] : memref<?x?x?xf32>
+  // CHECK: [[Y_h:%.+]] = alloc([[BATCH_SIZE]]) : memref<1x?x3xf32>
+
+  // allocate memory for Cell (Y_c).
+  // CHECK: [[C1_1:%.+]] = constant 1 : index
+  // CHECK: [[BATCH_SIZE:%.+]] = dim %arg0, [[C1_1]] : memref<?x?x?xf32>
+  // CHECK: [[Y_c:%.+]] = alloc([[BATCH_SIZE]]) : memref<1x?x3xf32>
+
+  // deallocate Y since there is no operation consuming it. 
+  // CHECK: dealloc [[Y]] : memref<?x1x?x3xf32>
+  // deallocate Y_c since it is not a return value.
+  // CHECK: dealloc [[Y_c]] : memref<1x?x3xf32>
+  // CHECK: return [[Y_h]] : memref<1x?x3xf32>
+}
+
+// -----
+
 /// Check RNN with three required inputs (X, W, R). The optional inputs are default.
 func @test_rnn_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf32>, %arg2: tensor<1x3x3xf32>) -> tensor<*xf32> {
   %cst = constant unit
@@ -2507,6 +2561,26 @@ func @test_rnn_with_bias(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf32>, %ar
   // CHECK: [[LOAD_R_BIAS:%.+]] = affine.load %arg3[{{.*}}, {{.*}}] : memref<1x6xf32>
   // CHECK: {{.*}} = addf {{.*}}, [[LOAD_R_BIAS]] : f32
 }
+
+// -----
+
+// Check handling unknown dimensions for RNN by checking the 
+// correctness of allocating and deallocating memory.
+func @test_rnn_unkown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x3x?xf32>, %arg2: tensor<1x3x3xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<?x?x?xf32>, tensor<1x3x?xf32>, tensor<1x3x3xf32>, none, none, none) -> (none, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+  // CHECK-LABEL: @test_rnn_unkown_dims_allocation
+
+  // allocate memory for Hidden (Y_h).
+  // CHECK: [[C1_0:%.+]] = constant 1 : index
+  // CHECK: [[BATCH_SIZE:%.+]] = dim %arg0, [[C1_0]] : memref<?x?x?xf32>
+  // CHECK: [[Y_h:%.+]] = alloc([[BATCH_SIZE]]) : memref<1x?x3xf32>
+
+  // CHECK: return [[Y_h]] : memref<1x?x3xf32>
+}
+
 
 // -----
 

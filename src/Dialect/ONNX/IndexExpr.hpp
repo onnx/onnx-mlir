@@ -130,7 +130,7 @@ the same context.
 
 // Use indices to set loop sizes.
 
-outputLoops(rewriter, loc, outputRank);
+  outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
     for (int ii = 0; ii < outputRank; ++ii)
       outputLoops.pushBounds(outerloopContex, 0, outputDims[ii]);
@@ -138,6 +138,7 @@ outputLoops(rewriter, loc, outputRank);
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
 // Create a sub-context for computations inside the loop iteration.
+
     IndexExprContext childContext(outerloopContex);
 
 // Create indices with computations for a load.
@@ -172,13 +173,16 @@ namespace mlir {
 class IndexExpr;
 class IndexExprImpl;
 
+// Data structure to hold all the IndexExpr in a given context. A context define
+// a scope during which each of the dynamic dimensions are defined and all of
+// the symbols hold constant in that scope.
 class IndexExprContext {
 public:
   // Constructor for a top level context.
   IndexExprContext(ConversionPatternRewriter *rewriter, Location loc);
   // Constructor for a child context.
   IndexExprContext(IndexExprContext &parentContext);
-  // Destructor will also release all IndexExpr associated with this context.
+  // Destructor which release all IndexExpr associated with this context.
   ~IndexExprContext();
 
   // IndexExpr builders.
@@ -263,7 +267,13 @@ private:
   IndexExprImpl *zero, *one, *minusOne;
 };
 
+// Implementation of the IndexExpr. In nearly all cases, the value described by
+// this data structure is constant. Sole exception is during the reduction
+// operations. IndexExpr are simply a pointer to this data structure. This data
+// structure is allocated in dynamic memory and resides in the context. It will
+// be automaticlly destroyed at the same time as the context.
 struct IndexExprImpl {
+  // Public constructor.
   IndexExprImpl(IndexExprContext *indexExprContext);
 
   // Higher-level basic initalization calls.
@@ -323,9 +333,12 @@ struct IndexExprImpl {
   Value value;
 
 private:
+  // default constructor is illegal.
   IndexExprImpl() { llvm_unreachable("illegal"); }
 };
 
+// Data structure that is the public interface for IndexExpr. It is a shallow
+// data structure that is simply a pointer to the actual data (IndexExprImpl).
 class IndexExpr {
 public:
   friend class IndexExprContext;
@@ -369,7 +382,8 @@ public:
   IndexExpr floorDiv(IndexExpr const b) const;
   IndexExpr ceilDiv(IndexExpr const b) const;
   IndexExpr operator%(IndexExpr const b) const;
-  // Compare operations
+  // Compare operations, return a new IndexExpr that is either a literal or a
+  // value expression of type predType.
   IndexExpr operator==(IndexExpr const b) const;
   IndexExpr operator==(int64_t const b) const;
   IndexExpr operator!=(IndexExpr const b) const;
@@ -387,7 +401,8 @@ public:
   IndexExpr clamp(IndexExpr const min, IndexExpr const max) const;
   IndexExpr clamp(int64_t const min, IndexExpr const max);
 
-  // Conditional setting of values: result = cond ? trueVal : falseVal
+  // Return an IndexExpr that is conditionally selected from two "true" and
+  // "false" input value, namely: "result = cond ? trueVal : falseVal".
   static IndexExpr select(IndexExpr const compare, IndexExpr const trueVal,
       IndexExpr const falseVal);
   static IndexExpr select(
@@ -396,11 +411,14 @@ public:
       IndexExpr const compare, IndexExpr const trueVal, int64_t const falseVal);
   static IndexExpr select(
       IndexExpr const compare, int64_t const trueVal, int64_t const falseVal);
-  // Conditional setting of value: result = cond ? trueVal : *this
+  // Return an IndexExpr that is conditionally selected from the "true" input
+  // value, and the "this" value when the test is falsee: namely "result = cond
+  // ? trueVal : *this".
   IndexExpr selectOrSelf(
       IndexExpr const compare, IndexExpr const trueVal) const;
   IndexExpr selectOrSelf(IndexExpr const compare, int64_t const trueVal) const;
 
+  // Return min or max of a list of IndexExpr.
   static IndexExpr min(SmallVectorImpl<IndexExpr> &vals);
   static IndexExpr max(SmallVectorImpl<IndexExpr> &vals);
   void debugPrint(const std::string &msg) const;
@@ -428,7 +446,7 @@ private:
   IndexExprImpl *indexExprObj;
 };
 
-// Additional operators with integer first.
+// Additional operators with integer values in first position.
 inline IndexExpr operator+(int64_t const a, const IndexExpr b) { return b + a; }
 inline IndexExpr operator*(int64_t const a, const IndexExpr b) { return b * a; }
 inline IndexExpr operator-(int64_t const a, const IndexExpr b) {
