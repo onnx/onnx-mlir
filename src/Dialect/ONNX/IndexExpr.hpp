@@ -105,13 +105,13 @@ the same context.
 
 // Perform calculations.
 
-    IndexExpr startPos = IndexExpr::select(
-        startInput, CmpIPredicate::slt, 0, startInput + dimInput, startInput);
+    // Calculation for start: start < 0 ? start + dim : start.
+    IndexExpr startPos =
+        IndexExpr::select(startInput < 0, startInput + dimInput, startInput);
     // Step < 0: clamp(0, start, dim -1) else clamp(0, start, dim)
     IndexExpr neg = startPos.clamp(0, dimInput - 1);
     IndexExpr pos = startPos.clamp(0, dimInput);
-    IndexExpr startFinal =
-        IndexExpr::select(stepInput, CmpIPredicate::slt, 0, neg, pos);
+    IndexExpr startFinal = IndexExpr::select(stepInput < 0, neg, pos);
 
 3c) Look at Slice in ONNXOps.cpp on how to use IndexExpr for shape inferences.
 
@@ -144,12 +144,13 @@ outputLoops(rewriter, loc, outputRank);
 
     for (int ii = 0; ii < outputRank; ++ii) {
       Value loopVal = outputLoops.getInductionVar(ii);
-      IndexExpr loopIndex, start, step, actualIndex;
-      loopIndex = childContext.CreateDimIndex(loopVal);
-      start = childContext.CreateSymbolIndexFromParentContext(starts[ii]);
-      step = childContext.CreateSymbolIndexFromParentContext(steps[ii]);
-      actualIndex.Mult(step, loopIndex).IncBy(start);
-      loadIndices.emplace_back(actualIndex.GetValue());
+      IndexExpr loopIndex = childContext.createLoopIterIndex(loopVal);
+      IndexExpr start = childContext.createSymbolIndexFromParentContext(
+          shapeHelper.starts[ii]);
+      IndexExpr step = childContext.createSymbolIndexFromParentContext(
+          shapeHelper.steps[ii]);
+      IndexExpr actualIndex = (step * loopIndex) + start;
+      loadIndices.emplace_back(actualIndex.getValue());
     }
 
 */
@@ -177,24 +178,31 @@ public:
   IndexExprContext(ConversionPatternRewriter *rewriter, Location loc);
   // Constructor for a child context.
   IndexExprContext(IndexExprContext &parentContext);
-  // Destructor, release all inxex expression implementation associated with
-  // context.
+  // Destructor will also release all IndexExpr associated with this context.
   ~IndexExprContext();
 
-  // IndexExpr basic builders.
-  IndexExpr createIndex(IndexExpr other);
+  // IndexExpr builders.
+  // Create a copy of the given index (deep copy).
+  IndexExpr createIndex(IndexExpr const other);
+  // Create an undefined index. Used to indicate undefined results.
   IndexExpr createUndefinedIndex();
+  // Create a `?`, which indicates a runtime results during shape inference.
   IndexExpr createQuestionmarkIndex();
-  IndexExpr createLiteralIndex(int64_t val);
-  IndexExpr createDimIndex(Value val);
-  IndexExpr createLoopIterIndex(Value val);
-  IndexExpr createSymbolIndex(Value val);
-  IndexExpr createAffineIndex(AffineExpr val);
-  IndexExpr createValueIndex(Value val);
-
-  // Scan a memref shape at index to generate an IndexExpr, typically used for
+  // Create a literal index. Note that all integers are signed in IndexExpr.
+  IndexExpr createLiteralIndex(int64_t const val);
+  // Create a dimension index, typically associated with a dynamic memsize.
+  IndexExpr createDimIndex(Value const val);
+  // Create a loop iteration index, typically associated with a loop index.
+  IndexExpr createLoopIterIndex(Value const val);
+  // Create a symbol index, symbols must be constant in their of the contxt.
+  IndexExpr createSymbolIndex(Value const val);
+  // Create an index associated with an affine calculation.
+  IndexExpr createAffineIndex(AffineExpr const val);
+  // Create an index associated with a value (non affine/constant) calculation.
+  IndexExpr createValueIndex(Value const val);
+  // Scan a memref_shape[index] to generate an IndexExpr, typically used for
   // dimensions. Generate a literal when the memref dimension is known at
-  // compile time.
+  // compile time, and otherwise a Dim Index.
   IndexExpr createDimIndexFromMemref(
       Value memref, ArrayRef<int64_t> memrefShape, int index);
   // Consider an op with operand "arrayOperand". We find this operand's defining
@@ -207,18 +215,17 @@ public:
   // or the index is out of bound.
   IndexExpr createSymbolIndexFromArrayAtIndex(Operation *op, Value array,
       uint64_t indexInArray, int64_t defaultLiteral);
+  // Create an symbol index in the present context from the parent index in its
+  // parent context. The parent index may be a dim/loop iteration index as long
+  // as it is contant in the present context.
+  IndexExpr createSymbolIndexFromParentContext(IndexExpr const parentIndexExpr);
 
-  // Additional builder for repurposing IndexExpr from parent context.
-  IndexExpr createSymbolIndexFromParentContext(IndexExpr parentIndexExpr);
+  // Suppor functions for AffineExpr.
+  int addDim(Value const value);
+  int addSymbol(Value const value);
 
-  // Actions for AffineExpr.
-  int addDim(Value value);
-  int addSymbol(Value value);
-
-  // Querries.
+  // Querries and getters.
   bool isShapeInferencePass() const { return !rewriter; }
-
-  // Getters.
   void getDimAndSymbolList(SmallVectorImpl<Value> &list) const;
   int getNumDims() const { return dims.size(); }
   int getNumSymbols() const { return symbols.size(); }
@@ -226,12 +233,17 @@ public:
   Location getLoc() const { return loc; }
 
   // Static helper functions.
+  // Return true if all IndexExpr in the list are literals.
   bool static areAllLiteral(SmallVectorImpl<IndexExpr> &list);
+  // Return true if all IndexExpr in the list are affine.
   bool static areAllAffine(SmallVectorImpl<IndexExpr> &list);
+  // Transforms index into literal or -1 for, respectively, literal postive
+  // values or runtime values.
   void static getOutputDimsForType(SmallVectorImpl<IndexExpr> &outputIndices,
       SmallVectorImpl<int64_t> &outputDims);
 
 private:
+  // Create a new IndexExprImpl and record it in the context's container.
   IndexExprImpl *createIndexExprImpl();
   // Dim and symbol mapping from index to value.
   SmallVector<Value, 4> dims;
@@ -245,37 +257,38 @@ private:
   // Container of all index expr implementation records, to simplify
   // live range analysis. ALl will be deleted upon context destruction.
   SmallVector<IndexExprImpl *, 20> container;
+  // Enable reuse of constant literals.
+  IndexExprImpl *zero, *one, *minusOne;
 };
 
 struct IndexExprImpl {
   IndexExprImpl(IndexExprContext *indexExprContext);
 
-  // Initializers.
   // Higher-level basic initalization calls.
-  IndexExprImpl &initAsUndefined();
-  IndexExprImpl &initAsQuestionmark(IndexExprContext &context);
-  IndexExprImpl &initAsLiteral(IndexExprContext &context, int64_t val);
-  IndexExprImpl &initAsSymbol(IndexExprContext &context, Value val);
-  IndexExprImpl &initAsDim(IndexExprContext &context, Value val);
-  IndexExprImpl &initAsValue(IndexExprContext &context, Value val);
-  IndexExprImpl &initAsAffineExpr(IndexExprContext &context, AffineExpr val);
-  // Higher-level initiation calls that extract info
-  IndexExprImpl &initAsDimFromMemref(IndexExprContext &context, Value memref,
+  void initAsUndefined();
+  void initAsQuestionmark(IndexExprContext &context);
+  void initAsLiteral(IndexExprContext &context, int64_t const val);
+  void initAsSymbol(IndexExprContext &context, Value const val);
+  void initAsDim(IndexExprContext &context, Value const val);
+  void initAsValue(IndexExprContext &context, Value const val);
+  void initAsAffineExpr(IndexExprContext &context, AffineExpr const val);
+  // Higher-level initiation calls that extract info.
+  void initAsDimFromMemref(IndexExprContext &context, Value memref,
       ArrayRef<int64_t> memrefShape, int index);
-  IndexExprImpl &initAsSymbolFromArrayAtIndex(IndexExprContext &context,
-      Operation *op, Value array, uint64_t indexInArray);
-  IndexExprImpl &initAsSymbolFromArrayAtIndex(IndexExprContext &context,
-      Operation *op, Value array, uint64_t indexInArray,
-      int64_t defaultLiteral);
+  void initAsSymbolFromArrayAtIndex(IndexExprContext &context, Operation *op,
+      Value array, uint64_t indexInArray);
+  void initAsSymbolFromArrayAtIndex(IndexExprContext &context, Operation *op,
+      Value array, uint64_t indexInArray, int64_t defaultLiteral);
   // Lower-level initialization calls.
-  IndexExprImpl &init(IndexExprContext *context, bool newIsDefined,
-      bool newIsIntLit, bool newIsAffine, bool newIsSymbol, bool newIsDim,
-      int newIntLit, AffineExpr newAffineExpr, Value newValue);
-  IndexExprImpl &initAsLitQuestionmarkOrValue(IndexExprContext &context,
-      Value val, bool isAffine, bool symbol, bool dim);
+  void init(IndexExprContext *context, bool newIsDefined, bool newIsIntLit,
+      bool newIsAffine, bool newIsSymbol, bool newIsDim,
+      int64_t const newIntLit, AffineExpr const newAffineExpr,
+      Value const newValue);
+  void initAsLitQuestionmarkOrValue(IndexExprContext &context, Value const val,
+      bool isAffine, bool symbol, bool dim);
 
   // Copy.
-  void copy(IndexExprImpl *other);
+  void copy(IndexExprImpl const *other);
 
   // Data.
   IndexExprContext *context;
@@ -292,8 +305,10 @@ class IndexExpr {
 public:
   friend class IndexExprContext;
 
-  IndexExpr() : indexExprObj(nullptr){};
-  IndexExpr(IndexExprImpl *obj) : indexExprObj(obj){};
+  // Contructors for undefined expressions.
+  IndexExpr() : indexExprObj(nullptr) {}
+  // Constructor that wraps an IndexExprObj. This is not a deep copy.
+  IndexExpr(IndexExprImpl *obj) : indexExprObj(obj) {}
 
   // Shape inference querries.
   bool isDefined() const;
@@ -310,70 +325,85 @@ public:
 
   // Getters.
   int64_t getLiteral() const;
-  AffineExpr getAffineExpr();
-  Value getValue();
+  AffineExpr getAffineExpr() const;
+  Value getValue() const;
   IndexExprContext &getContext() const;
   IndexExprContext *getContextPtr() const;
   ConversionPatternRewriter &getRewriter() const;
   Location getLoc() const;
 
-  // Possibly Affine Operations.
-  IndexExpr operator+(IndexExpr b);
-  IndexExpr operator+(int64_t b);
-  IndexExpr operator-(IndexExpr b);
-  IndexExpr operator-(int64_t b);
-  IndexExpr operator*(IndexExpr b);
-  IndexExpr operator*(int64_t b);
-  IndexExpr floorDiv(IndexExpr b);
-  IndexExpr ceilDiv(IndexExpr b);
+  // Possibly Affine Operations. Return a new IndexExpr
+  IndexExpr operator+(IndexExpr const b) const;
+  IndexExpr operator+(int64_t const b) const;
+  IndexExpr operator-(IndexExpr const b) const;
+  IndexExpr operator-(int64_t const b) const;
+  IndexExpr operator*(IndexExpr const b) const;
+  IndexExpr operator*(int64_t const b) const;
+  IndexExpr floorDiv(IndexExpr const b) const;
+  IndexExpr ceilDiv(IndexExpr const b) const;
+  IndexExpr operator%(IndexExpr const b) const;
+  // Compare operations
+  IndexExpr operator==(IndexExpr const b) const;
+  IndexExpr operator==(int64_t const b) const;
+  IndexExpr operator!=(IndexExpr const b) const;
+  IndexExpr operator!=(int64_t const b) const;
+  IndexExpr operator<=(IndexExpr const b) const;
+  IndexExpr operator<=(int64_t const b) const;
+  IndexExpr operator<(IndexExpr const b) const;
+  IndexExpr operator<(int64_t const b) const;
+  IndexExpr operator>=(IndexExpr const b) const;
+  IndexExpr operator>=(int64_t const b) const;
+  IndexExpr operator>(IndexExpr const b) const;
+  IndexExpr operator>(int64_t const b) const;
 
-  IndexExpr operator%(IndexExpr b);
-  // return a new expression that has the value of the object, clipped at min
-  // and max.
-  IndexExpr clamp(IndexExpr min, IndexExpr max);
-  IndexExpr clamp(int64_t min, IndexExpr max);
+  // Return a new IndexExpr in the range min/max inclusively.
+  IndexExpr clamp(IndexExpr const min, IndexExpr const max) const;
+  IndexExpr clamp(int64_t const min, IndexExpr const max);
 
-  static IndexExpr select(IndexExpr condA, CmpIPredicate comparePred,
-      IndexExpr condB, IndexExpr trueVal, IndexExpr falseVal);
-  static IndexExpr select(IndexExpr condA, CmpIPredicate comparePred,
-      int64_t condB, IndexExpr trueVal, IndexExpr falseVal);
-  static IndexExpr select(IndexExpr condA, CmpIPredicate comparePred,
-      int64_t condB, int64_t trueVal, IndexExpr falseVal);
+  // Conditional setting of values.
+  static IndexExpr select(IndexExpr const compare, IndexExpr const trueVal,
+      IndexExpr const falseVal);
+  static IndexExpr select(
+      IndexExpr const compare, int64_t const trueVal, IndexExpr const falseVal);
+  static IndexExpr select(
+      IndexExpr const compare, IndexExpr const trueVal, int64_t const falseVal);
+  static IndexExpr select(
+      IndexExpr const compare, int64_t const trueVal, int64_t const falseVal);
+  IndexExpr setIf(IndexExpr const compare, IndexExpr const trueVal) const;
+  IndexExpr setIf(IndexExpr const compare, int64_t const trueVal) const;
 
-  IndexExpr setIf(IndexExpr condA, CmpIPredicate comparePred, int64_t condB,
-      IndexExpr trueVal);
-  IndexExpr setIf(IndexExpr condA, CmpIPredicate comparePred, int64_t condB,
-      int64_t trueVal);
   static IndexExpr min(SmallVectorImpl<IndexExpr> &vals);
   static IndexExpr max(SmallVectorImpl<IndexExpr> &vals);
-  void debugPrint(const std::string &msg);
+  void debugPrint(const std::string &msg) const;
 
 private:
   // Copy / private setters.
   IndexExprImpl &getObj() const;
   IndexExprImpl *getObjPtr() const;
   IndexExpr deepCopy() const;
-  // Support for Operations.
-  typedef std::function<IndexExpr(IndexExpr, IndexExpr)> F2;
-  IndexExpr BinaryOp(IndexExpr b, bool affineWithLitB,
-      bool affineExprCompatible, F2 finteger, F2 faffine, F2 fvalue);
-  typedef std::function<IndexExpr(IndexExpr, IndexExpr, IndexExpr)> F3;
-  IndexExpr TernaryOp(IndexExpr b, IndexExpr c, F3 litFct, F3 valueFct);
-  typedef std::function<IndexExpr(IndexExpr, IndexExpr, IndexExpr, IndexExpr)>
-      F4;
-  static IndexExpr QuaternarySelectOp(IndexExpr compA, IndexExpr compB,
-      IndexExpr trueVal, IndexExpr falseVal, F4 litFct, F4 valueFct);
+  // Support for operations: lambda function types.
+  typedef std::function<IndexExpr(IndexExpr const, IndexExpr const)> F2;
+  typedef std::function<IndexExpr(IndexExpr, IndexExpr const)> F2Self;
   typedef std::function<IndexExpr(IndexExpr, SmallVectorImpl<IndexExpr> &)>
       Flist;
-  static IndexExpr reductionOp(SmallVectorImpl<IndexExpr> &vals, F2 litRed,
-      Flist affineRed, F2 valueRed);
+  typedef std::function<IndexExpr(
+      IndexExpr const, IndexExpr const, IndexExpr const)>
+      F3;
+  // Support for operations: common handling for multiple operations.
+  IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB,
+      bool affineExprCompatible, F2 finteger, F2 faffine, F2 fvalue) const;
+  IndexExpr compareOp(CmpIPredicate comparePred, IndexExpr const b) const;
+  static IndexExpr reductionOp(SmallVectorImpl<IndexExpr> &vals, F2Self litRed,
+      Flist affineRed, F2Self valueRed);
   // Data: pointer to implemented object.
   IndexExprImpl *indexExprObj;
 };
 
 // Additional operators with integer first.
-inline IndexExpr operator+(int64_t a, IndexExpr b) { return b + a; }
-inline IndexExpr operator*(int64_t a, IndexExpr b) { return b * a; }
-inline IndexExpr operator-(int64_t a, IndexExpr b) { return b * (-1) + a; }
+inline IndexExpr operator+(int64_t const a, const IndexExpr b) { return b + a; }
+inline IndexExpr operator*(int64_t const a, const IndexExpr b) { return b * a; }
+inline IndexExpr operator-(int64_t const a, const IndexExpr b) {
+  return b.getContext().createLiteralIndex(a) - b;
+}
 
 } // namespace mlir

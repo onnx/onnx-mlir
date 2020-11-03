@@ -114,34 +114,32 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
 
     // Now proceed with the computations for start/end/dim.
     // Calculation for start: start < 0 ? start + dim : start.
-    IndexExpr startPos = IndexExpr::select(
-        startInput, CmpIPredicate::slt, 0, startInput + dimInput, startInput);
+    IndexExpr startPos =
+        IndexExpr::select(startInput < 0, startInput + dimInput, startInput);
     // Step < 0: clamp(0, start, dim -1) else clamp(0, start, dim)
     IndexExpr neg = startPos.clamp(0, dimInput - 1);
     IndexExpr pos = startPos.clamp(0, dimInput);
-    IndexExpr startFinal =
-        IndexExpr::select(stepInput, CmpIPredicate::slt, 0, neg, pos);
+    IndexExpr startFinal = IndexExpr::select(stepInput < 0, neg, pos);
     startFinal.debugPrint("start final");
 
     // Calculation for end: end<0 -> end + dim else -> end;
     // special case end <= -inf -> -1;  end >= inf -> dim;
     int64_t negInf = std::numeric_limits<int32_t>::min();
     int64_t posInf = std::numeric_limits<int32_t>::max();
-    IndexExpr endPos = IndexExpr::select(
-        endInput, CmpIPredicate::slt, 0, endInput + dimInput, endInput);
-    endPos.setIf(endInput, CmpIPredicate::sle, negInf, -1);
-    endPos.setIf(endInput, CmpIPredicate::sge, posInf, dimInput);
+    IndexExpr endPos =
+        IndexExpr::select(endInput < 0, endInput + dimInput, endInput);
+    endPos.setIf(endInput <= negInf, -1);
+    endPos.setIf(endInput >= posInf, dimInput);
     // End: step<0: clamp(-1, end, dim); step>0 clamp(0, end, dim)
     neg = endPos.clamp(-1, dimInput);
     pos = endPos.clamp(0, dimInput);
-    IndexExpr endFinal =
-        IndexExpr::select(stepInput, CmpIPredicate::slt, 0, neg, pos);
+    IndexExpr endFinal = IndexExpr::select(stepInput < 0, neg, pos);
     endFinal.debugPrint("end final");
 
     // Calculation for output size.
     IndexExpr dimOutputFinal = (endFinal - startFinal).ceilDiv(stepInput);
     // should use a max
-    dimOutputFinal.setIf(dimOutputFinal, CmpIPredicate::slt, 0, 0);
+    dimOutputFinal.setIf(dimOutputFinal < 0, 0);
     dimOutputFinal.debugPrint("output dim final");
 
     // Save results
