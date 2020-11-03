@@ -31,15 +31,19 @@ class ShapeInferencePass : public mlir::PassWrapper<ShapeInferencePass,
 public:
   void runOnOperation() override {
     auto module = getOperation();
-    auto f = module.lookupSymbol("main_graph");
-    runShapeInferenceOn(dyn_cast<mlir::FuncOp>(f));
+    if (auto f = module.lookupSymbol("main_graph")) {
+      runShapeInferenceOn(dyn_cast<mlir::FuncOp>(f));
+    } else {
+      module.walk([&](FuncOp funcOp) { runShapeInferenceOn(funcOp); });
+    }
   }
 
   static void runShapeInferenceOn(mlir::FuncOp f) {
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape or followed by a return op.
     f.walk([&](Operation *op) {
-        std::function<void(mlir::FuncOp)> shapeInferenceFunc = &ShapeInferencePass::runShapeInferenceOn;
+      std::function<void(mlir::FuncOp)> shapeInferenceFunc =
+          &ShapeInferencePass::runShapeInferenceOn;
       // The shape of graph output has been imported from onnx protobuf model,
       // so the ops followed by a return op may not have dynamic shape output.
       // However, shape inference is still need on these ops
@@ -49,13 +53,13 @@ public:
           if (failed(shape_op.inferShapes(shapeInferenceFunc))) {
             op->emitError("shape inference failed");
             return;
-//            return signalPassFailure();
+            //            return signalPassFailure();
           }
         } else {
           op->emitError("unable to infer shape of operation without shape "
                         "inference interface");
           return;
-//          return signalPassFailure();
+          //          return signalPassFailure();
         }
       }
     });
@@ -72,15 +76,18 @@ public:
       f.emitError("Shape inference failed, ")
           << dynamicOperations << " operations couldn't be inferred\n";
       return;
-//      return signalPassFailure();
+      //      return signalPassFailure();
     }
 
-    if (auto terminator_op = f.getBody().back().getTerminator()) {
-      auto results = terminator_op->getOperandTypes();
-      f.setType(FunctionType::get(f.getType().getInputs(),
-          std::vector<Type>(results.begin(), results.end()),
-          f.getContext()));
-    }
+    auto &funcBody = f.getBody();
+    // Check if a terminator op exists for function.
+    if (!funcBody.empty() && !funcBody.back().empty() &&
+        funcBody.back().back().isKnownTerminator())
+      if (auto returnOp = f.getBody().back().getTerminator()) {
+        auto results = returnOp->getOperandTypes();
+        f.setType(FunctionType::get(f.getType().getInputs(),
+            std::vector<Type>(results.begin(), results.end()), f.getContext()));
+      }
   }
 
   static bool isUsedByReturnOp(Operation *op) {

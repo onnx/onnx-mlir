@@ -2994,7 +2994,8 @@ LogicalResult ONNXSliceOp::inferShapes(
   {
     OpBuilder builder(this->getContext());
     const auto elementType = builder.getIntegerType(64);
-    const auto tensorType = mlir::RankedTensorType::get({1}, elementType);
+    const auto tensorType =
+        mlir::RankedTensorType::get({startsDim}, elementType);
 
     // If axes is not specified, default to [0, ..., ndim-1]
     if (this->getOperand(3).getType().isa<NoneType>()) {
