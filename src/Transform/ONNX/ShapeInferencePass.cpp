@@ -32,16 +32,21 @@ public:
   void runOnOperation() override {
     auto module = getOperation();
     if (auto f = module.lookupSymbol("main_graph")) {
-      runShapeInferenceOn(dyn_cast<mlir::FuncOp>(f));
+      if (failed(runShapeInferenceOn(dyn_cast<mlir::FuncOp>(f))))
+        signalPassFailure();
     } else {
-      module.walk([&](FuncOp funcOp) { runShapeInferenceOn(funcOp); });
+      auto result = module.walk([&](FuncOp funcOp) -> WalkResult {
+        return runShapeInferenceOn(funcOp);
+      });
+      if (result.wasInterrupted())
+        signalPassFailure();
     }
   }
 
-  static void runShapeInferenceOn(mlir::FuncOp f) {
+  static LogicalResult runShapeInferenceOn(mlir::FuncOp f) {
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape or followed by a return op.
-    f.walk([&](Operation *op) {
+    auto result = f.walk([&](Operation *op) -> WalkResult {
       std::function<void(mlir::FuncOp)> shapeInferenceFunc =
           &ShapeInferencePass::runShapeInferenceOn;
       // The shape of graph output has been imported from onnx protobuf model,
@@ -52,17 +57,19 @@ public:
         if (auto shape_op = llvm::dyn_cast<ShapeInference>(op)) {
           if (failed(shape_op.inferShapes(shapeInferenceFunc))) {
             op->emitError("shape inference failed");
-            return;
-            //            return signalPassFailure();
+            return failure();
           }
         } else {
           op->emitError("unable to infer shape of operation without shape "
                         "inference interface");
-          return;
-          //          return signalPassFailure();
+          return failure();
         }
       }
+      return success();
     });
+
+    if (result.wasInterrupted())
+      return failure();
 
     int64_t dynamicOperations = 0;
     f.walk([&](Operation *op) {
@@ -75,8 +82,7 @@ public:
     if (dynamicOperations != 0) {
       f.emitError("Shape inference failed, ")
           << dynamicOperations << " operations couldn't be inferred\n";
-      return;
-      //      return signalPassFailure();
+      return failure();
     }
 
     auto &funcBody = f.getBody();
@@ -88,6 +94,7 @@ public:
         f.setType(FunctionType::get(f.getType().getInputs(),
             std::vector<Type>(results.begin(), results.end()), f.getContext()));
       }
+    return success();
   }
 
   static bool isUsedByReturnOp(Operation *op) {
