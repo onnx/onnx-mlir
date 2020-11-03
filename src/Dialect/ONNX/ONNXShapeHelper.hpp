@@ -27,7 +27,7 @@ using namespace mlir;
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-/// When defining support for a new op, add one such stuct which must minimally
+/// When defining support for a new op, add one such stuct which mÍÎust minimally
 /// compute the outputDims present in the parent class. Computation should be
 /// performed using a `Compute` function. Return success on successful
 /// computation of all the IndexExpr. During shape inference, object is built

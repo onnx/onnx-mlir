@@ -68,6 +68,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
       start.debugPrint("  start");
       IndexExpr actualIndex = (step * loopIndex) + start;
       loadIndices.emplace_back(actualIndex.getValue());
+
       if (!actualIndex.isAffine())
         loadIsAffine = false;
     }
@@ -87,6 +88,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     rewriter.create<AffineStoreOp>(loc, loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
+    printf("done alex\n\n");
     return success();
   }
 };

@@ -128,8 +128,8 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     int64_t posInf = std::numeric_limits<int32_t>::max();
     IndexExpr endPos =
         IndexExpr::select(endInput < 0, endInput + dimInput, endInput);
-    endPos.setIf(endInput <= negInf, -1);
-    endPos.setIf(endInput >= posInf, dimInput);
+    endPos = endPos.selectOrSelf(endInput <= negInf, -1);
+    endPos = endPos.selectOrSelf(endInput >= posInf, dimInput);
     // End: step<0: clamp(-1, end, dim); step>0 clamp(0, end, dim)
     neg = endPos.clamp(-1, dimInput);
     pos = endPos.clamp(0, dimInput);
@@ -139,7 +139,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     // Calculation for output size.
     IndexExpr dimOutputFinal = (endFinal - startFinal).ceilDiv(stepInput);
     // should use a max
-    dimOutputFinal.setIf(dimOutputFinal < 0, 0);
+    dimOutputFinal = dimOutputFinal.selectOrSelf(dimOutputFinal < 0, 0);
     dimOutputFinal.debugPrint("output dim final");
 
     // Save results

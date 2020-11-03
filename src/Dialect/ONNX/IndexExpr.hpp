@@ -200,6 +200,8 @@ public:
   IndexExpr createAffineIndex(AffineExpr const val);
   // Create an index associated with a value (non affine/constant) calculation.
   IndexExpr createValueIndex(Value const val);
+  // Create an index associated with a predicate value .
+  IndexExpr createPredicateValueIndex(Value const val);
   // Scan a memref_shape[index] to generate an IndexExpr, typically used for
   // dimensions. Generate a literal when the memref dimension is known at
   // compile time, and otherwise a Dim Index.
@@ -271,6 +273,7 @@ struct IndexExprImpl {
   void initAsSymbol(IndexExprContext &context, Value const val);
   void initAsDim(IndexExprContext &context, Value const val);
   void initAsValue(IndexExprContext &context, Value const val);
+  void initAsPredicateValue(IndexExprContext &context, Value const val);
   void initAsAffineExpr(IndexExprContext &context, AffineExpr const val);
   // Higher-level initiation calls that extract info.
   void initAsDimFromMemref(IndexExprContext &context, Value memref,
@@ -282,19 +285,41 @@ struct IndexExprImpl {
   // Lower-level initialization calls.
   void init(IndexExprContext *context, bool newIsDefined, bool newIsIntLit,
       bool newIsAffine, bool newIsSymbol, bool newIsDim,
-      int64_t const newIntLit, AffineExpr const newAffineExpr,
-      Value const newValue);
+      bool newIsPredicateType, int64_t const newIntLit,
+      AffineExpr const newAffineExpr, Value const newValue);
   void initAsLitQuestionmarkOrValue(IndexExprContext &context, Value const val,
-      bool isAffine, bool symbol, bool dim);
+      bool isAffine, bool symbol, bool dim, bool predicateType);
 
   // Copy.
   void copy(IndexExprImpl const *other);
 
   // Data.
   IndexExprContext *context;
-  bool defined, litteral, affine, symbol, dim;
+  // Defined implies having a valid intLit, affineExpr, or value expression.
+  bool defined;
+  // Literal implies having a valid intLit; may also have an affineExpr or
+  // value.
+  bool litteral;
+  // Affine indicate that IndedExpr represent an affine expr, which is by
+  // definition true for integer literals.
+  bool affine;
+  // Symbol indicates an IndexExpr representing a symbol; symbols are
+  // expressions known to be constant in the context of an AffineExpr.
+  bool symbol;
+  // Dim indicates an IndexExpr representing a dim in an AffineExpr. Dim's
+  // AffineExpr are used to represent tensor/memrefs runtime dimensions or loop
+  // iterations, depending on the context in which they are used.
+  bool dim;
+  // IndexExpr always have an mlir::index type, except when representing the
+  // output of a compare, in which case it is an int:1. Result of compares are
+  // indicated by the "predicateType" boolean.
+  bool predType;
+  // Integer value, valid when "litteral" is true.
   int64_t intLit;
+  // Affine expression, may be defined for literal, symbols, dims, or affine
+  // expr.
   AffineExpr affineExpr;
+  // Value expression, may be defined whenever the IndexExpr is defined.
   Value value;
 
 private:
@@ -312,12 +337,14 @@ public:
 
   // Shape inference querries.
   bool isDefined() const;
-  bool isUndefined() const { return !isDefined(); }
+  bool isUndefined() const;
   bool isLiteral() const;
   bool isQuestionmark() const;
   bool isAffine() const;
   bool isSymbol() const;
   bool isDim() const;
+  bool isPredType() const;
+  bool isIndexType() const { return !isPredType(); }
   bool isShapeInferencePass() const;
   bool hasContext() const;
   bool hasAffineExpr() const;
@@ -327,10 +354,10 @@ public:
   int64_t getLiteral() const;
   AffineExpr getAffineExpr() const;
   Value getValue() const;
-  IndexExprContext &getContext() const;
+  IndexExprContext &getContext() const { return *getContextPtr(); }
   IndexExprContext *getContextPtr() const;
   ConversionPatternRewriter &getRewriter() const;
-  Location getLoc() const;
+  Location getLoc() const { return getContext().getLoc(); }
 
   // Possibly Affine Operations. Return a new IndexExpr
   IndexExpr operator+(IndexExpr const b) const;
@@ -360,7 +387,7 @@ public:
   IndexExpr clamp(IndexExpr const min, IndexExpr const max) const;
   IndexExpr clamp(int64_t const min, IndexExpr const max);
 
-  // Conditional setting of values.
+  // Conditional setting of values: result = cond ? trueVal : falseVal
   static IndexExpr select(IndexExpr const compare, IndexExpr const trueVal,
       IndexExpr const falseVal);
   static IndexExpr select(
@@ -369,8 +396,10 @@ public:
       IndexExpr const compare, IndexExpr const trueVal, int64_t const falseVal);
   static IndexExpr select(
       IndexExpr const compare, int64_t const trueVal, int64_t const falseVal);
-  IndexExpr setIf(IndexExpr const compare, IndexExpr const trueVal) const;
-  IndexExpr setIf(IndexExpr const compare, int64_t const trueVal) const;
+  // Conditional setting of value: result = cond ? trueVal : *this
+  IndexExpr selectOrSelf(
+      IndexExpr const compare, IndexExpr const trueVal) const;
+  IndexExpr selectOrSelf(IndexExpr const compare, int64_t const trueVal) const;
 
   static IndexExpr min(SmallVectorImpl<IndexExpr> &vals);
   static IndexExpr max(SmallVectorImpl<IndexExpr> &vals);
