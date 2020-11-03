@@ -444,4 +444,3 @@ Value emitNegativeInfinityConstantOp(
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
 }
-
