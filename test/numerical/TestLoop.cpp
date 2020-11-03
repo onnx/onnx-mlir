@@ -33,10 +33,12 @@ bool isOMLoopTheSameAsNaiveImplFor(const int tripCount) {
       RankedTensorType::get({}, builder.getI64Type()),
       RankedTensorType::get({}, builder.getI1Type()),
       RankedTensorType::get({1}, builder.getI64Type())};
-  llvm::SmallVector<Type, 1> outputsType{
-      RankedTensorType::get({1}, builder.getI64Type())};
-  llvm::SmallVector<Type, 2> bodyOutputTypes{
+  llvm::SmallVector<Type, 2> outputsType{
+      RankedTensorType::get({1}, builder.getI64Type()),
+      RankedTensorType::get({-1, 1}, builder.getI64Type())};
+  llvm::SmallVector<Type, 3> bodyOutputTypes{
       RankedTensorType::get({}, builder.getI1Type()),
+      RankedTensorType::get({1}, builder.getI64Type()),
       RankedTensorType::get({1}, builder.getI64Type())};
   auto bodyFuncTy = builder.getFunctionType(inputsType, bodyOutputTypes);
   auto bodyFuncOp = builder.create<FuncOp>(loc, "loop_body", bodyFuncTy);
@@ -52,7 +54,7 @@ bool isOMLoopTheSameAsNaiveImplFor(const int tripCount) {
     cond =
         builder.create<ONNXIdentityOp>(loc, cond.getType(), cond).getResult();
     auto y = builder.create<ONNXAddOp>(loc, iv, yInit);
-    builder.create<ReturnOp>(loc, ValueRange({cond, y}));
+    builder.create<ReturnOp>(loc, ValueRange({cond, y, y}));
   }
   module.push_back(bodyFuncOp);
 
@@ -69,7 +71,8 @@ bool isOMLoopTheSameAsNaiveImplFor(const int tripCount) {
     auto yInit = entryBlock->getArgument(2);
 
     auto vFinalsTy =
-        SmallVector<Type, 4>{RankedTensorType::get({1}, builder.getI64Type())};
+        SmallVector<Type, 2>{RankedTensorType::get({1}, builder.getI64Type()),
+            RankedTensorType::get({-1, 1}, builder.getI64Type())};
     auto loopOutput =
         builder
             .create<ONNXLoopOp>(loc, vFinalsTy, maxTripCount, cond,
@@ -83,8 +86,10 @@ bool isOMLoopTheSameAsNaiveImplFor(const int tripCount) {
   // inputs and outputs.
   auto entryPoint = ONNXEntryPointOp::create(loc, funcOp,
       /*numInputs=*/3,
-      /*numOutputs=*/1);
+      /*numOutputs=*/2);
   module.push_back(entryPoint);
+
+  module.dump();
 
   OwningModuleRef moduleRef(module);
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
@@ -114,8 +119,13 @@ bool isOMLoopTheSameAsNaiveImplFor(const int tripCount) {
 
   auto outputs = sess.run(move(inputs));
   auto &conv = outputs.at(0);
-  int64_t *data = (int64_t *)omTensorGetDataPtr(conv.get());
-  printf("out=%d\n", data[0]);
+  auto &scan = outputs.at(1);
+  auto *data = (int64_t *)omTensorGetDataPtr(conv.get());
+  auto *scanData = (int64_t *)omTensorGetDataPtr(scan.get());
+
+  printf("out=%lld\n", data[0]);
+  for (int i = 0; i < 10; i++)
+    printf("scan_out=%lld\n", scanData[i]);
 
   //
   //    return omTensorAreTwoOmtsClose<float>(conv.get(), ref);

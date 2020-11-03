@@ -49,11 +49,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         vFinalAndScanOutputs.end());
     auto vInitIter = loopOpAdapter.v_initial();
 
-    // Are the correspondence guaranteed?
-    for (const auto &ioPair : llvm::zip(vInitIter, opScanOutputIter)) {
-      auto vInit = std::get<0>(ioPair);
-      auto opScanOutput = std::get<1>(ioPair);
-
+    for (const auto &opScanOutput : opScanOutputIter) {
       auto memRefType = convertToMemRefType(opScanOutput.getType());
       Value alloc;
       bool shouldDealloc = checkInsertDealloc(op);
@@ -62,7 +58,6 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       else {
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
-
         for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
           if (rankedScanOutTy.getShape()[i] == -1) {
             if (i == 0) {
@@ -76,9 +71,6 @@ struct ONNXLoopOpLowering : public ConversionPattern {
               allocParams.emplace_back(rewriter.create<IndexCastOp>(
                   loc, maxTripCount, rewriter.getIndexType()));
             } else {
-              //              allocParams.emplace_back(
-              //                  rewriter.create<DimOp>(loc, vInit, i -
-              //                  1).getResult());
               llvm_unreachable("Error.");
             }
           }
@@ -128,9 +120,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
     // Create a scalar tensor out of iv, as the first argument passed to the
     // body graph function.
-    Value iv = loop.getInductionVar(0);
-    iv = rewriter.create<IndexCastOp>(loc, iv, rewriter.getI64Type())
-             .getResult();
+    Value origIV = loop.getInductionVar(0);
+    auto iv = rewriter.create<IndexCastOp>(loc, origIV, rewriter.getI64Type())
+                  .getResult();
     Value ivMemRef =
         rewriter
             .create<AllocOp>(loc, MemRefType::get({}, rewriter.getI64Type()))
@@ -169,12 +161,22 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       EmitCopy(rewriter, loc, std::get<0>(vIntermediateToFinal),
           std::get<1>(vIntermediateToFinal));
 
+    auto scanIntermediate =
+        llvm::make_range(vIntermediate.end(), bodyOutputs.end());
+    auto scanOutputs = llvm::make_range(
+        outputs.begin() + loopOpAdapter.v_initial().size(), outputs.end());
+    for (auto scanIntermediateToFinal :
+        llvm::zip(scanIntermediate, scanOutputs))
+      EmitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
+          std::get<1>(scanIntermediateToFinal), {origIV});
+
     rewriter.replaceOp(op, outputs);
     return success();
   }
 
   void EmitCopy(ConversionPatternRewriter &rewriter, const Location &loc,
-      const Value &vInit, const Value &vFinal) const {
+      const Value &vInit, const Value &vFinal,
+      std::vector<Value> writePrefix = {}) const {
     OpBuilder::InsertionGuard insertGuard(rewriter);
     auto vInitTy = vInit.getType().cast<MemRefType>();
     BuildKrnlLoop loop(rewriter, loc, vInitTy.getRank());
@@ -183,9 +185,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       loop.pushBounds(0, vInit, i);
     loop.createIterateOp();
     rewriter.setInsertionPointToStart(loop.getIterateBlock());
-    auto allIV = loop.getAllInductionVar();
-    auto v = rewriter.create<AffineLoadOp>(loc, vInit, allIV).getResult();
-    rewriter.create<AffineStoreOp>(loc, v, vFinal, allIV);
+    SmallVector<Value, 4> writeIV(writePrefix.begin(), writePrefix.end());
+    auto readIV = loop.getAllInductionVar();
+    writeIV.insert(writeIV.end(), readIV.begin(), readIV.end());
+    auto v = rewriter.create<AffineLoadOp>(loc, vInit, readIV).getResult();
+    rewriter.create<AffineStoreOp>(loc, v, vFinal, writeIV);
   }
 };
 

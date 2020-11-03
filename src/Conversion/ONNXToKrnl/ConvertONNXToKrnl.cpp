@@ -93,6 +93,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
       patterns, &getContext(), tensorToMemRefConverter);
 
   // Frontend operation lowering.
+  // ControlFlow
+  populateLoweringONNXLoopOpPattern(patterns, &getContext());
   // Math
   populateLoweringONNXElementwiseOpPattern(patterns, &getContext());
   populateLoweringONNXGemmOpPattern(patterns, &getContext());
