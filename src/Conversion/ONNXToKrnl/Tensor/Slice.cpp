@@ -58,7 +58,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     bool loadIsAffine = true;
     for (int ii = 0; ii < outputRank; ++ii) {
       Value loopVal = outputLoops.getInductionVar(ii);
-      IndexExpr loopIndex = childContext.createDimIndex(loopVal);
+      IndexExpr loopIndex = childContext.createLoopIterIndex(loopVal);
       IndexExpr start = childContext.createSymbolIndexFromParentContext(
           shapeHelper.starts[ii]);
       IndexExpr step = childContext.createSymbolIndexFromParentContext(

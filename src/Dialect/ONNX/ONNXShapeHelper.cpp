@@ -25,14 +25,6 @@ ONNXConstantOp getONNXConstantOp(Value value) {
 }
 
 //===----------------------------------------------------------------------===//
-// ONNX Helper for Shape inference
-//===----------------------------------------------------------------------===//
-
-//===----------------------------------------------------------------------===//
-// ONNX Helper for Slice
-//===----------------------------------------------------------------------===//
-
-//===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
@@ -122,11 +114,9 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
 
     // Now proceed with the computations for start/end/dim.
     // Calculation for start: start < 0 ? start + dim : start.
-    IndexExpr startPlusDim = startInput + dimInput;
     IndexExpr startPos = IndexExpr::select(
-        startInput, CmpIPredicate::slt, 0, startPlusDim, startInput);
+        startInput, CmpIPredicate::slt, 0, startInput + dimInput, startInput);
     // Step < 0: clamp(0, start, dim -1) else clamp(0, start, dim)
-    // IndexExpr dimMinOneInput = dimInput - 1;
     IndexExpr neg = startPos.clamp(0, dimInput - 1);
     IndexExpr pos = startPos.clamp(0, dimInput);
     IndexExpr startFinal =
@@ -137,7 +127,6 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     // special case end <= -inf -> -1;  end >= inf -> dim;
     int64_t negInf = std::numeric_limits<int32_t>::min();
     int64_t posInf = std::numeric_limits<int32_t>::max();
-    // IndexExpr endPlusDim = endInput + dimInput;
     IndexExpr endPos = IndexExpr::select(
         endInput, CmpIPredicate::slt, 0, endInput + dimInput, endInput);
     endPos.setIf(endInput, CmpIPredicate::sle, negInf, -1);

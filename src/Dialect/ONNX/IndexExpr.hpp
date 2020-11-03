@@ -105,14 +105,13 @@ the same context.
 
 // Perform calculations.
 
-    startPlusDim.Add(startInput, dimInput);
-    startPos.Select(startInput, CmpIPredicate::slt, 0, startPlusDim,
-      startInput);
+    IndexExpr startPos = IndexExpr::select(
+        startInput, CmpIPredicate::slt, 0, startInput + dimInput, startInput);
     // Step < 0: clamp(0, start, dim -1) else clamp(0, start, dim)
-    dimMinOneInput.Sub(dimInput, 1);
-    neg.Clamp(startPos, 0, dimMinOneInput);
-    pos.Clamp(startPos, 0, dimInput);
-    startFinal.Select(stepInput, CmpIPredicate::slt, 0, neg, pos);
+    IndexExpr neg = startPos.clamp(0, dimInput - 1);
+    IndexExpr pos = startPos.clamp(0, dimInput);
+    IndexExpr startFinal =
+        IndexExpr::select(stepInput, CmpIPredicate::slt, 0, neg, pos);
 
 3c) Look at Slice in ONNXOps.cpp on how to use IndexExpr for shape inferences.
 
@@ -188,6 +187,7 @@ public:
   IndexExpr createQuestionmarkIndex();
   IndexExpr createLiteralIndex(int64_t val);
   IndexExpr createDimIndex(Value val);
+  IndexExpr createLoopIterIndex(Value val);
   IndexExpr createSymbolIndex(Value val);
   IndexExpr createAffineIndex(AffineExpr val);
   IndexExpr createValueIndex(Value val);
@@ -353,7 +353,6 @@ private:
   IndexExprImpl &getObj() const;
   IndexExprImpl *getObjPtr() const;
   IndexExpr deepCopy() const;
-  // aee void setContext(IndexExprContext &context);
   // Support for Operations.
   typedef std::function<IndexExpr(IndexExpr, IndexExpr)> F2;
   IndexExpr BinaryOp(IndexExpr b, bool affineWithLitB,

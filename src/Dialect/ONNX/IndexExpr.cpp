@@ -102,6 +102,12 @@ IndexExpr IndexExprContext::createDimIndex(Value val) {
   return IndexExpr(obj);
 }
 
+IndexExpr IndexExprContext::createLoopIterIndex(Value val) {
+  IndexExprImpl *obj = createIndexExprImpl();
+  obj->initAsDim(*this, val);
+  return IndexExpr(obj);
+}
+
 IndexExpr IndexExprContext::createAffineIndex(AffineExpr val) {
   IndexExprImpl *obj = createIndexExprImpl();
   obj->initAsAffineExpr(*this, val);
@@ -431,12 +437,6 @@ IndexExpr IndexExpr::deepCopy() const {
   // data, we should just make the indirection here. copy info in the meanwhile.
   return getContext().createIndex(*this);
 }
-
-/*
-void IndexExpr::setContext(IndexExprContext &newContext) {
-  getObj().context = &newContext;
-}
-*/
 
 //===----------------------------------------------------------------------===//
 // IndexExpr list querries.
@@ -1034,7 +1034,7 @@ IndexExpr IndexExpr::clamp(IndexExpr min, IndexExpr max) {
         vvals[0].getLoc(), map, dimAndSymList);
     res.getObj().initAsValue(context, minVal);
     return res;
-   };
+  };
   // Res is already defined, we are reducing into it.
   F2 valueFct = [](IndexExpr res, IndexExpr aa) {
     Value compareVal = res.getRewriter().create<CmpIOp>(
