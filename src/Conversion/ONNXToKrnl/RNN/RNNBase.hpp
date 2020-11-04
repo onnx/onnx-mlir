@@ -29,6 +29,19 @@ bool isNoneType(Value val);
 // Get a dimension of the tensor's shape.
 int64_t dimAt(Value val, int index);
 
+// Insert Allocate and Deallocate for the all hidden output.
+Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
+    Value W, Value R, Value output, bool insertDealloc = false);
+
+// Insert Allocate and Deallocate for the hidden or cell output.
+Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
+    Value X, Value W, Value R, Value output, bool insertDealloc = false);
+
+// Initialize the hidden and cell states.
+void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
+    Value ht, Value ct, Value initialH, Value initialC, Type elementType,
+    bool onlyHidden = false);
+
 // Apply an activation function on a given scalar operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value scalarOperand);

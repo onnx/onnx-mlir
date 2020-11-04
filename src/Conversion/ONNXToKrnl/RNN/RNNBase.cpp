@@ -20,6 +20,130 @@ int64_t dimAt(Value val, int index) {
   return val.getType().cast<ShapedType>().getShape()[index];
 }
 
+/// Insert Allocate and Deallocate for the all hidden output.
+/// Shape :: [seq_length, num_directions, batch_size, hidden_size]
+Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
+    Value W, Value R, Value output, bool insertDealloc) {
+  Value alloc;
+  if (!isNoneType(output)) {
+    auto memRefType = convertToMemRefType(output.getType());
+    if (hasAllConstantDimensions(memRefType))
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+    else {
+      auto memRefShape = memRefType.getShape();
+      SmallVector<Value, 2> allocOperands;
+      if (memRefShape[0] < 0) {
+        // Get seq_length from X.
+        auto dim = rewriter.create<DimOp>(loc, X, 0);
+        allocOperands.emplace_back(dim);
+      }
+      if (memRefShape[1] < 0) {
+        // Get num_directions from W.
+        auto dim = rewriter.create<DimOp>(loc, W, 0);
+        allocOperands.emplace_back(dim);
+      }
+      if (memRefShape[2] < 0) {
+        // Get batch_size from X.
+        auto dim = rewriter.create<DimOp>(loc, X, 1);
+        allocOperands.emplace_back(dim);
+      }
+      if (memRefShape[3] < 0) {
+        // Get hidden_size from R.
+        auto dim = rewriter.create<DimOp>(loc, R, 2);
+        allocOperands.emplace_back(dim);
+      }
+      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+      if (insertDealloc) {
+        auto *parentBlock = alloc.getDefiningOp()->getBlock();
+        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        dealloc.getOperation()->moveBefore(&parentBlock->back());
+      }
+    }
+  } else {
+    alloc = output;
+  }
+  return alloc;
+}
+
+/// Insert Allocate and Deallocate for the hidden or cell output.
+/// Shape :: [num_directions, batch_size, hidden_size]
+Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
+    Value X, Value W, Value R, Value output, bool insertDealloc) {
+  MemRefType memRefType;
+  if (!isNoneType(output))
+    memRefType = convertToMemRefType(output.getType());
+  else {
+    memRefType = MemRefType::get(
+        {/*num_directions=*/dimAt(W, 0), /*batch_size=*/dimAt(X, 1),
+            /*hidden_size=*/dimAt(R, 2)},
+        X.getType().cast<ShapedType>().getElementType());
+    // The hidden or cell is not a return value but a temporary value, so always
+    // dealloc it.
+    insertDealloc = true;
+  }
+
+  Value alloc;
+  if (hasAllConstantDimensions(memRefType))
+    alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+  else {
+    auto memRefShape = memRefType.getShape();
+    SmallVector<Value, 2> allocOperands;
+    if (memRefShape[0] < 0) {
+      // Get num_directions from W.
+      auto dim = rewriter.create<DimOp>(loc, W, 0);
+      allocOperands.emplace_back(dim);
+    }
+    if (memRefShape[1] < 0) {
+      // Get batch_size from X.
+      auto dim = rewriter.create<DimOp>(loc, X, 1);
+      allocOperands.emplace_back(dim);
+    }
+    if (memRefShape[2] < 0) {
+      // Get hidden_size from R.
+      auto dim = rewriter.create<DimOp>(loc, R, 2);
+      allocOperands.emplace_back(dim);
+    }
+    alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+    if (insertDealloc) {
+      auto *parentBlock = alloc.getDefiningOp()->getBlock();
+      auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+      dealloc.getOperation()->moveBefore(&parentBlock->back());
+    }
+  }
+
+  return alloc;
+}
+
+// Initialize the hidden and cell states.
+void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
+    Value ht, Value ct, Value initialH, Value initialC, Type elementType,
+    bool onlyHidden) {
+  Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+  int nLoops = 3;
+  BuildKrnlLoop initializationLoops(rewriter, loc, nLoops);
+  initializationLoops.createDefineAndIterateOp(ht);
+  auto ipInitializationLoops = rewriter.saveInsertionPoint();
+  rewriter.setInsertionPointToStart(initializationLoops.getIterateBlock());
+  {
+    SmallVector<Value, 4> IVs;
+    for (int i = 0; i < nLoops; ++i)
+      IVs.emplace_back(initializationLoops.getInductionVar(i));
+
+    Value hiddenVal = zero;
+    if (!isNoneType(initialH))
+      hiddenVal = rewriter.create<AffineLoadOp>(loc, initialH, IVs);
+    rewriter.create<AffineStoreOp>(loc, hiddenVal, ht, IVs);
+
+    if (!onlyHidden) {
+      Value cellVal = zero;
+      if (!isNoneType(initialC))
+        cellVal = rewriter.create<AffineLoadOp>(loc, initialC, IVs);
+      rewriter.create<AffineStoreOp>(loc, cellVal, ct, IVs);
+    }
+  }
+  rewriter.restoreInsertionPoint(ipInitializationLoops);
+}
+
 // Apply an activation function on a given scalar operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value scalarOperand) {

@@ -137,54 +137,21 @@ GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
   GruState state;
 
   // Insert allocation and deallocation for the results of this operation.
-  if (!isNoneType(op->Y())) {
-    auto yMemRefType = convertToMemRefType(op->Y().getType());
-    if (hasAllConstantDimensions(yMemRefType))
-      state.allH = insertAllocAndDealloc(yMemRefType, loc, rewriter,
-          checkInsertDealloc(op->getOperation(), 0));
-    else {
-      llvm_unreachable("Unsupported dynamic dimensions.");
-    }
-  } else {
-    state.allH = op->Y();
-  }
-
+  // Y :: [seq_length, num_directions, batch_size, hidden_size]
+  state.allH = allocAllHidden(rewriter, loc, operandAdaptor.X(),
+      operandAdaptor.W(), operandAdaptor.R(), op->Y(),
+      checkInsertDealloc(op->getOperation(), 0));
   // Y_h :: [num_directions, batch_size, hidden_size]
-  if (!isNoneType(op->Y_h())) {
-    auto yhMemRefType = convertToMemRefType(op->Y_h().getType());
-    if (hasAllConstantDimensions(yhMemRefType))
-      state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter,
-          checkInsertDealloc(op->getOperation(), 1));
-    else
-      llvm_unreachable("Unsupported dynamic dimensions.");
-  } else {
-    auto yhMemRefType = MemRefType::get(
-        {dimAt(operandAdaptor.W(), 0), dimAt(operandAdaptor.X(), 1),
-            dimAt(operandAdaptor.R(), 2)},
-        operandAdaptor.X().getType().cast<ShapedType>().getElementType());
-    state.ht = insertAllocAndDealloc(yhMemRefType, loc, rewriter, true);
-  }
+  state.ht = allocHiddenOrCell(rewriter, loc, operandAdaptor.X(),
+      operandAdaptor.W(), operandAdaptor.R(), op->Y_h(),
+      checkInsertDealloc(op->getOperation(), 1));
 
   // Initialize ht.
-  Value zero = emitConstantOp(rewriter, loc,
-      operandAdaptor.X().getType().cast<ShapedType>().getElementType(), 0);
-  int nLoops = 3;
-  BuildKrnlLoop initializationLoops(rewriter, loc, nLoops);
-  initializationLoops.createDefineAndIterateOp(state.ht);
-  auto ipInitializationLoops = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointToStart(initializationLoops.getIterateBlock());
-  {
-    SmallVector<Value, 4> IVs;
-    for (int i = 0; i < nLoops; ++i)
-      IVs.emplace_back(initializationLoops.getInductionVar(i));
-
-    Value hiddenVal = zero;
-    if (!isNoneType(operandAdaptor.initial_h()))
-      hiddenVal =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.initial_h(), IVs);
-    rewriter.create<AffineStoreOp>(loc, hiddenVal, state.ht, IVs);
-  }
-  rewriter.restoreInsertionPoint(ipInitializationLoops);
+  Value noneValue;
+  initializeHiddenAndCell(rewriter, loc, state.ht, noneValue,
+      operandAdaptor.initial_h(), noneValue,
+      operandAdaptor.X().getType().cast<MemRefType>().getElementType(),
+      /*onlyHidden=*/true);
 
   // Obtain the value of 'linear_before_reset' attribute.
   int64_t linearBeforeResetAttr = op->linear_before_reset();
