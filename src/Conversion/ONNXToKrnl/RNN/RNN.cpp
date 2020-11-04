@@ -139,8 +139,6 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
     hasBiasForInput = true;
 
   // Prepare dimensions.
-  auto batchDimSize = dimAt(operandAdaptor.X(), 1);
-  auto inputDimSize = dimAt(operandAdaptor.X(), 2);
   auto hiddenDimSize = dimAt(operandAdaptor.R(), 2);
   Value hiddenDimVal =
       emitConstantOp(rewriter, loc, rewriter.getIndexType(), hiddenDimSize);
@@ -209,7 +207,9 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
   // Emit instructions for matrix multiplications: Xt*(Wi^T) and Ht-1*(Ri^T)
   BuildKrnlLoop matrixLoops(rewriter, loc, 2);
   matrixLoops.createDefineOp();
-  matrixLoops.pushBounds(0, batchDimSize);
+  // Batch size dim.
+  matrixLoops.pushBounds(0, operandAdaptor.X(), 1);
+  // Hidden size dim.
   matrixLoops.pushBounds(0, hiddenDimSize);
   matrixLoops.createIterateOp();
   auto ipMatrixLoops = rewriter.saveInsertionPoint();
@@ -231,7 +231,8 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
       // input_size is the reduction dimension.
       BuildKrnlLoop reductionLoops(rewriter, loc, 1);
       reductionLoops.createDefineOp();
-      reductionLoops.pushBounds(0, inputDimSize);
+      // Input size dim.
+      reductionLoops.pushBounds(0, operandAdaptor.X(), 2);
       reductionLoops.createIterateOp();
 
       auto ipReductionLoops = rewriter.saveInsertionPoint();
@@ -291,7 +292,9 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
   // Emit instructions for computing gate outputs.
   BuildKrnlLoop stateLoops(rewriter, loc, 2);
   stateLoops.createDefineOp();
-  stateLoops.pushBounds(0, batchDimSize);
+  // Batch size dim.
+  stateLoops.pushBounds(0, operandAdaptor.X(), 1);
+  // Hidden size dim.
   stateLoops.pushBounds(0, hiddenDimSize);
   stateLoops.createIterateOp();
   auto ipStateLoops = rewriter.saveInsertionPoint();

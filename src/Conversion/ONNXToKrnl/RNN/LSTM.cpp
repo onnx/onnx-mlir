@@ -197,8 +197,6 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     hasPeepholes = true;
 
   // Prepare dimensions.
-  auto batchDimSize = dimAt(operandAdaptor.X(), 1);
-  auto inputDimSize = dimAt(operandAdaptor.X(), 2);
   auto hiddenDimSize = dimAt(operandAdaptor.R(), 2);
   Value hiddenDimVal =
       emitConstantOp(rewriter, loc, rewriter.getIndexType(), hiddenDimSize);
@@ -284,7 +282,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
   //   Ht-1*(Ri^T), Ht-1*(Ro^T), Ht-1*(Rf^t), Ht-1*(Rc^T)
   BuildKrnlLoop matrixLoops(rewriter, loc, 2);
   matrixLoops.createDefineOp();
-  matrixLoops.pushBounds(0, batchDimSize);
+  // Batch size dim.
+  matrixLoops.pushBounds(0, operandAdaptor.X(), 1);
+  // Hidden size dim.
   matrixLoops.pushBounds(0, hiddenDimSize);
   matrixLoops.createIterateOp();
   auto ipMatrixLoops = rewriter.saveInsertionPoint();
@@ -309,7 +309,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
       // input_size is the reduction dimension.
       BuildKrnlLoop reductionLoops(rewriter, loc, 1);
       reductionLoops.createDefineOp();
-      reductionLoops.pushBounds(0, inputDimSize);
+      // Input size dim.
+      reductionLoops.pushBounds(0, operandAdaptor.X(), 2);
       reductionLoops.createIterateOp();
 
       auto ipReductionLoops = rewriter.saveInsertionPoint();
@@ -397,7 +398,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
   // Emit instructions for computing gate outputs.
   BuildKrnlLoop stateLoops(rewriter, loc, 2);
   stateLoops.createDefineOp();
-  stateLoops.pushBounds(0, batchDimSize);
+  // Batch size dim.
+  stateLoops.pushBounds(0, operandAdaptor.X(), 1);
+  // Hidden size dim.
   stateLoops.pushBounds(0, hiddenDimSize);
   stateLoops.createIterateOp();
   auto ipStateLoops = rewriter.saveInsertionPoint();
