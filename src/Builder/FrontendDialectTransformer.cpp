@@ -44,7 +44,7 @@ public:
       force_first_dim_unknown_ = false;
   }
 
-  mlir::ModuleOp ImportONNXModel(onnx::ModelProto model) {
+  mlir::ModuleOp ImportONNXModel(const onnx::ModelProto &model) {
     ImportGraph(model.graph());
     return module_;
   }

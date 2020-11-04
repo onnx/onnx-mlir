@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --bundle-memory-pools --canonicalize %s | FileCheck %s
+// RUN: onnx-mlir-opt --bundle-memory-pools --canonicalize %s -split-input-file | FileCheck %s
 
 func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> memref<10x20xf32> {
   %c0_i64 = constant 0 : i64
@@ -51,6 +51,8 @@ func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> 
   // CHECK: dealloc [[MEMPOOL]] : memref<3200xi8>
   // CHECK: return [[RES]] : memref<10x20xf32>
 }
+
+// -----
 
 func @test_dynamic_pool_bundling(%arg0: memref<?x?xf32>) -> memref<?x10xf32> {
   %c1 = constant 1 : index
@@ -106,6 +108,8 @@ func @test_dynamic_pool_bundling(%arg0: memref<?x?xf32>) -> memref<?x10xf32> {
   // CHECK: dealloc [[DYN_MEMPOOL]] : memref<?xi8>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 func @test_dynamic_and_static_pool_bundling(%arg0: memref<?x?xf32>, %arg1: memref<10x10xf32>) -> memref<?x10xf32> {
   %c1 = constant 1 : index
@@ -183,6 +187,8 @@ func @test_dynamic_and_static_pool_bundling(%arg0: memref<?x?xf32>, %arg1: memre
   // CHECK: dealloc [[STATIC_MEMPOOL]] : memref<2800xi8>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
+
+// -----
 
 /// Test bundling inside a sub-block.
 func @static_mem_pool_rnn_subblock(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2xf32>, %arg2: memref<1x4x4xf32>) -> memref<1x3x4xf32> attributes {input_names = ["X", "W", "R"], output_names = ["Y"]} {
@@ -264,6 +270,8 @@ func @static_mem_pool_rnn_subblock(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2
   // CHECK: dealloc [[STATIC_MEM_POOL]] : memref<16xi8>
   // CHECK: return [[RES]] : memref<1x3x4xf32>
 }
+
+// -----
 
 /// Test bundling inside a sub-block and in the main block.
 func @static_mem_pool_rnn_sub_and_main_block(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2xf32>, %arg2: memref<1x4x4xf32>) -> memref<1x3x4xf32> attributes {input_names = ["X", "W", "R"], output_names = ["Y"]} {
@@ -365,6 +373,8 @@ func @static_mem_pool_rnn_sub_and_main_block(%arg0: memref<1x3x2xf32>, %arg1: me
   // CHECK: dealloc [[STATIC_MEM_POOL_MAIN]] : memref<12xi8>
   // CHECK: return [[RES]] : memref<1x3x4xf32>
 }
+
+// -----
 
 /// Test dynamic pooling in sub-block.
 func @test_dynamic_pool_rnn(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2xf32>, %arg2: memref<1x?x?xf32>) -> memref<1x3x?xf32> attributes {input_names = ["X", "W", "R"], output_names = ["Y"]} {
