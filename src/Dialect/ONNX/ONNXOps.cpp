@@ -1931,31 +1931,6 @@ LogicalResult ONNXAveragePoolOp::inferShapes() {
 }
 
 //===----------------------------------------------------------------------===//
-// Global Average Pool
-//===----------------------------------------------------------------------===//
-LogicalResult ONNXGlobalAveragePoolOp::inferShapes() {
-
-  // Cannot infer shape if no shape exists.
-  if (!X().getType().isa<RankedTensorType>())
-    return emitError("Input tensor not ranked");
-
-  auto builder = mlir::Builder(getContext());
-
-  // Get shape of input.
-  auto xTy = X().getType().cast<RankedTensorType>();
-
-  // Assumes NCHW format.
-  auto xShape = xTy.getShape();
-
-  // Global Average Pool maintains NC and collapses the spacial dimensions.
-  llvm::SmallVector<int64_t, 4> outShape = {xShape[0], xShape[1], 1, 1};
-
-  getResult().setType(RankedTensorType::get(
-      llvm::makeArrayRef(outShape), xTy.getElementType()));
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // MaxPoolSingleOut
 //===----------------------------------------------------------------------===//
 
@@ -2005,6 +1980,56 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes() {
 
   getResult().setType(RankedTensorType::get(outputDims, xTy.getElementType()));
   return success();
+}
+
+// Helper function to infer shapes of global pool operations.
+template <typename PoolingOp>
+static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
+  // Cannot infer shape if no shape exists.
+  if (!op->X().getType().template isa<RankedTensorType>())
+    return op->emitError("Input tensor not ranked");
+
+  auto xTy = op->X().getType().template cast<RankedTensorType>();
+  auto xShape = xTy.getShape();
+  xTy.getRank();
+
+  if (xShape.size() < 3) {
+    return op->emitError("Data input shape must be at least (NxCxD1)");
+  }
+
+  SmallVector<int64_t, 4> outputDims;
+  outputDims.emplace_back(xShape[0]);
+  outputDims.emplace_back(xShape[1]);
+  // Spatial dimensions are reduced to 1.
+  outputDims.insert(outputDims.end(), xTy.getRank() - 2, 1);
+
+  op->getResult().setType(
+      RankedTensorType::get(outputDims, xTy.getElementType()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// GlobalAveragePool
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGlobalAveragePoolOp::inferShapes() {
+  return inferShapesGlobalPool(this);
+}
+
+//===----------------------------------------------------------------------===//
+// GlobalLpPool
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGlobalLpPoolOp::inferShapes() {
+  return inferShapesGlobalPool(this);
+}
+
+//===----------------------------------------------------------------------===//
+// GlobalMaxPool
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGlobalMaxPoolOp::inferShapes() {
+  return inferShapesGlobalPool(this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -3261,14 +3286,6 @@ LogicalResult ONNXGatherElementsOp::inferShapes() {
 }
 
 LogicalResult ONNXGatherNDOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXGlobalLpPoolOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXGlobalMaxPoolOp::inferShapes() {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 

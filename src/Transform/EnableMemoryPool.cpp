@@ -15,9 +15,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
 
@@ -55,7 +55,7 @@ public:
       AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
 
-    auto memRefType = convertToMemRefType(allocOp.getResult().getType());
+    auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
 
     // For now we only support constant tensors.
     // TODO: Enable this pass for MemRef with dyanmic shapes.
