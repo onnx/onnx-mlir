@@ -130,31 +130,31 @@ bool isOMLSTMTheSameAsNaiveImplFor(
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto xOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape)),
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(xShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(xOmt));
   auto wOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape)),
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(wShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(wOmt));
   auto rOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape)),
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(rShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(rOmt));
   auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape)),
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(bOmt));
   auto hOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape)),
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(hShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(hOmt));
   auto cOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape)),
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(cShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(cOmt));
   auto pOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape)),
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(pShape), 0, 1),
       omTensorDestroy);
   inputs.emplace_back(move(pOmt));
 
@@ -299,20 +299,26 @@ int main(int argc, char *argv[]) {
 
   // RapidCheck test case generation.
   rc::check("LSTM implementation correctness", []() {
+    // The number of directions.
+    const auto D = *rc::gen::element(1, 2);
     // Sequence length.
-    const auto S = *rc::gen::inRange(1, 20);
+    const auto S = *rc::gen::inRange(1, 5);
     // Batch size.
-    const auto B = *rc::gen::inRange(1, 200);
+    const auto B = *rc::gen::inRange(5, 20);
     // Input size.
-    const auto I = *rc::gen::inRange(1, 100);
+    const auto I = *rc::gen::inRange(20, 30);
     // Hidden size.
-    const auto H = *rc::gen::inRange(1, 100);
+    const auto H = *rc::gen::inRange(30, 40);
 
-    // forward
-    RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(1, S, B, I, H));
-    // bidirectional
-    RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(2, S, B, I, H));
+    RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H));
   });
 
+  // Exhaustive test case generation.
+  for (int64_t d = 1; d < 3; d++)
+    for (int64_t s = 1; s < 5; s++)
+      for (int64_t b = 1; b < 5; b++)
+        for (int64_t i = 1; i < 5; i++)
+          for (int64_t h = 1; h < 5; h++)
+            assert(isOMLSTMTheSameAsNaiveImplFor(d, s, b, i, h));
   return 0;
 }
