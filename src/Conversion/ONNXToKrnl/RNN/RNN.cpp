@@ -190,18 +190,22 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
 
   // Create temporary buffers for
   //   - Xt*(Wi^T), Ht-1*(Ri^T)
-  // These tensors have shape of [num_directions, batch_size, hidden_size],
-  // similar to the shape of the hidden state. Thus, we use the shape of the
-  // hidden state to allocate these buffers.
-  auto htMemRefType = state.ht.getType().cast<MemRefType>();
-  bool staticDimensions = hasAllConstantDimensions(htMemRefType);
+  // These tensors have shape of [batch_size, hidden_size],
+  MemRefType bufMemRefType = MemRefType::get(
+      {dimAt(operandAdaptor.X(), 1), hiddenDimSize}, elementType);
+  bool staticDimensions = hasAllConstantDimensions(bufMemRefType);
   Value xwI, hrI;
   if (staticDimensions) {
-    xwI = insertAllocAndDealloc(htMemRefType, loc, rewriter, false);
-    hrI = insertAllocAndDealloc(htMemRefType, loc, rewriter, false);
+    xwI = insertAllocAndDealloc(bufMemRefType, loc, rewriter, false);
+    hrI = insertAllocAndDealloc(bufMemRefType, loc, rewriter, false);
   } else {
-    xwI = insertAllocAndDealloc(htMemRefType, loc, rewriter, false, {state.ht});
-    hrI = insertAllocAndDealloc(htMemRefType, loc, rewriter, false, {state.ht});
+    // Hidden size is a constant, so the batch size must be unknown here.
+    Value batchSizeDim =
+        rewriter.create<DimOp>(loc, operandAdaptor.X(), 1).getResult();
+    xwI = rewriter.create<AllocOp>(
+        loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
+    hrI = rewriter.create<AllocOp>(
+        loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
   }
 
   // Emit instructions for matrix multiplications: Xt*(Wi^T) and Ht-1*(Ri^T)
@@ -221,11 +225,12 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
     // IVs to access tensors.
     // [num_directions, batch_size, hidden_size]
     SmallVector<Value, 3> IVs = {directionIV, batchIV, hiddenIV};
+    SmallVector<Value, 2> mIVs = {batchIV, hiddenIV};
 
     // Initialize matrix multiplication result.
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-    rewriter.create<AffineStoreOp>(loc, zero, xwI, IVs);
-    rewriter.create<AffineStoreOp>(loc, zero, hrI, IVs);
+    rewriter.create<AffineStoreOp>(loc, zero, xwI, mIVs);
+    rewriter.create<AffineStoreOp>(loc, zero, hrI, mIVs);
 
     { // Emit instructions for matrix multiplication Xt*(Wi^T).
       // input_size is the reduction dimension.
@@ -251,9 +256,9 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
         Value loadW =
             rewriter.create<AffineLoadOp>(loc, operandAdaptor.W(), wIIVs);
         Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
-        Value loadXW = rewriter.create<AffineLoadOp>(loc, xwI, IVs);
+        Value loadXW = rewriter.create<AffineLoadOp>(loc, xwI, mIVs);
         Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
-        rewriter.create<AffineStoreOp>(loc, nextXW, xwI, IVs);
+        rewriter.create<AffineStoreOp>(loc, nextXW, xwI, mIVs);
       }
       rewriter.restoreInsertionPoint(ipReductionLoops);
     }
@@ -280,9 +285,9 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
         Value loadR =
             rewriter.create<AffineLoadOp>(loc, operandAdaptor.R(), rIIVs);
         Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
-        Value loadHR = rewriter.create<AffineLoadOp>(loc, hrI, IVs);
+        Value loadHR = rewriter.create<AffineLoadOp>(loc, hrI, mIVs);
         Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
-        rewriter.create<AffineStoreOp>(loc, nextHR, hrI, IVs);
+        rewriter.create<AffineStoreOp>(loc, nextHR, hrI, mIVs);
       }
       rewriter.restoreInsertionPoint(ipReductionLoops);
     }
@@ -322,8 +327,8 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
       rbiIVs = {directionIV, rHiddenIV};
     }
     // IVs for the matrix multiplication results.
-    // M :: [num_directions, batch_size, hidden_size] for matmul
-    SmallVector<Value, 3> mIVs = {directionIV, batchIV, hiddenIV};
+    // M :: [batch_size, hidden_size] for matmul
+    SmallVector<Value, 2> mIVs = {batchIV, hiddenIV};
 
     // Emit instructions for 'Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)'
     Value loadXWI = rewriter.create<AffineLoadOp>(loc, xwI, mIVs);

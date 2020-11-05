@@ -256,22 +256,24 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
   // Create temporary buffers for
   //   - Xt*(Wi^T), Xt*(Wo^T), Xt*(Wf^t), Xt*(Wc^T),
   //   - Ht-1*(Ri^T), Ht-1*(Ro^T), Ht-1*(Rf^t), Ht-1*(Rc^T)
-  // These tensors have shape of [num_directions, batch_size, hidden_size],
-  // similar to the shape of the hidden state. Thus, we use the shape of the
-  // hidden state to allocate these buffers.
-  auto htMemRefType = state.ht.getType().cast<MemRefType>();
-  bool staticDimensions = hasAllConstantDimensions(htMemRefType);
+  // These tensors have shape of [batch_size, hidden_size],
+  MemRefType bufMemRefType = MemRefType::get(
+      {dimAt(operandAdaptor.X(), 1), hiddenDimSize}, elementType);
+  bool staticDimensions = hasAllConstantDimensions(bufMemRefType);
   SmallVector<Value, 4> xwIOFC, hrIOFC;
   for (unsigned i = 0; i < 4; ++i) {
     Value xwAlloc, hrAlloc;
     if (staticDimensions) {
-      xwAlloc = insertAllocAndDealloc(htMemRefType, loc, rewriter, false);
-      hrAlloc = insertAllocAndDealloc(htMemRefType, loc, rewriter, false);
+      xwAlloc = insertAllocAndDealloc(bufMemRefType, loc, rewriter, false);
+      hrAlloc = insertAllocAndDealloc(bufMemRefType, loc, rewriter, false);
     } else {
-      xwAlloc =
-          insertAllocAndDealloc(htMemRefType, loc, rewriter, false, {state.ht});
-      hrAlloc =
-          insertAllocAndDealloc(htMemRefType, loc, rewriter, false, {state.ht});
+      // Hidden size is a constant, so the batch size must be unknown here.
+      Value batchSizeDim =
+          rewriter.create<DimOp>(loc, operandAdaptor.X(), 1).getResult();
+      xwAlloc = rewriter.create<AllocOp>(
+          loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
+      hrAlloc = rewriter.create<AllocOp>(
+          loc, bufMemRefType, llvm::makeArrayRef({batchSizeDim}));
     }
     xwIOFC.emplace_back(xwAlloc);
     hrIOFC.emplace_back(hrAlloc);
@@ -296,12 +298,13 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     // IVs to access tensors.
     // [num_directions, batch_size, hidden_size]
     SmallVector<Value, 4> IVs = {directionIV, batchIV, hiddenIV};
+    SmallVector<Value, 4> mIVs = {batchIV, hiddenIV};
 
     // Initialize matrix multiplication result.
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
     for (unsigned i = 0; i < 4; ++i) {
-      rewriter.create<AffineStoreOp>(loc, zero, xwIOFC[i], IVs);
-      rewriter.create<AffineStoreOp>(loc, zero, hrIOFC[i], IVs);
+      rewriter.create<AffineStoreOp>(loc, zero, xwIOFC[i], mIVs);
+      rewriter.create<AffineStoreOp>(loc, zero, hrIOFC[i], mIVs);
     }
 
     { // Emit instructions for matrix multiplications.
@@ -342,9 +345,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
           Value loadW = rewriter.create<AffineLoadOp>(
               loc, operandAdaptor.W(), wIOFCIVs[i]);
           Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
-          Value loadXW = rewriter.create<AffineLoadOp>(loc, xwIOFC[i], IVs);
+          Value loadXW = rewriter.create<AffineLoadOp>(loc, xwIOFC[i], mIVs);
           Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
-          rewriter.create<AffineStoreOp>(loc, nextXW, xwIOFC[i], IVs);
+          rewriter.create<AffineStoreOp>(loc, nextXW, xwIOFC[i], mIVs);
         }
       }
       rewriter.restoreInsertionPoint(ipReductionLoops);
@@ -385,9 +388,9 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
           Value loadR = rewriter.create<AffineLoadOp>(
               loc, operandAdaptor.R(), rIOFCIVs[i]);
           Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
-          Value loadHR = rewriter.create<AffineLoadOp>(loc, hrIOFC[i], IVs);
+          Value loadHR = rewriter.create<AffineLoadOp>(loc, hrIOFC[i], mIVs);
           Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
-          rewriter.create<AffineStoreOp>(loc, nextHR, hrIOFC[i], IVs);
+          rewriter.create<AffineStoreOp>(loc, nextHR, hrIOFC[i], mIVs);
         }
       }
       rewriter.restoreInsertionPoint(ipReductionLoops);
@@ -422,8 +425,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
       hIVs = {directionIV, batchIV, hiddenIV};
       // C :: [num_directions, batch_size, hidden_size]
       cIVs = {directionIV, batchIV, hiddenIV};
-      // M :: [num_directions, batch_size, hidden_size] for matmul
-      mIVs = {directionIV, batchIV, hiddenIV};
+      // M :: [batch_size, hidden_size] for matmul
+      mIVs = {batchIV, hiddenIV};
 
       // Bias [Wb[iofc], Rb[iofc]] :: [num_directions, 8*hidden_size]
       if (hasBiasForInput) {
