@@ -144,10 +144,10 @@ IndexExpr IndexExprContext::createPredicateValueIndex(Value const val) {
   return IndexExpr(obj);
 }
 
-IndexExpr IndexExprContext::createDimIndexFromMemref(
-    Value memref, ArrayRef<int64_t> memrefShape, int index) {
+IndexExpr IndexExprContext::createDimIndexFromShapedType(
+    Value tensorOrMemref, int index) {
   IndexExprImpl *obj = createIndexExprImpl();
-  obj->initAsDimFromMemref(*this, memref, memrefShape, index);
+  obj->initAsDimFromShapedType(*this, tensorOrMemref, index);
   return IndexExpr(obj);
 }
 
@@ -192,6 +192,60 @@ IndexExpr IndexExprContext::createSymbolIndexFromParentContext(
   // Non affine, create a symbol.
   parentIndexExpr.debugPrint("Create symbol out of parent");
   return createSymbolIndex(parentIndexExpr.getValue());
+}
+
+//===----------------------------------------------------------------------===//
+// IndexExprContext builder for lists of IndexExpr.
+//===----------------------------------------------------------------------===//
+
+bool IndexExprContext::createDimIndicesFromShapedType(
+    Value tensorOrMemref, SmallVectorImpl<IndexExpr> &dimIndices) {
+  // Clear output.
+  dimIndices.clear();
+  // Scan type and shape, bail if incompatible.
+  ShapedType type = tensorOrMemref.getType().cast<ShapedType>();
+  int size = type.getShape().size();
+  // Scan tensor or memref.
+  bool successful = true;
+  for (int i = 0; i < size; ++i) {
+    IndexExpr index = createDimIndexFromShapedType(tensorOrMemref, i);
+    if (index.isUndefined())
+      successful = false;
+    dimIndices.emplace_back(index);
+  }
+  return successful;
+}
+
+bool IndexExprContext::createSymbolIndicesFromArray(Operation *op, Value array,
+    int arraySize, SmallVectorImpl<IndexExpr> &symbolIndices) {
+  // Clear output.
+  symbolIndices.clear();
+  // createSymbolIndexFromArrayAtIndex();
+  bool successful = true;
+  for (int i = 0; i < arraySize; ++i) {
+    IndexExpr index = createSymbolIndexFromArrayAtIndex(op, array, i);
+    if (index.isUndefined())
+      successful = false;
+    symbolIndices.emplace_back(index);
+  }
+  return successful;
+}
+
+bool IndexExprContext::createSymbolIndicesFromArray(Operation *op, Value array,
+    int arraySize, int64_t defaultLiteral,
+    SmallVectorImpl<IndexExpr> &symbolIndices) {
+  // Clear output.
+  symbolIndices.clear();
+  // createSymbolIndexFromArrayAtIndex();
+  bool successful = true;
+  for (int i = 0; i < arraySize; ++i) {
+    IndexExpr index =
+        createSymbolIndexFromArrayAtIndex(op, array, i, defaultLiteral);
+    if (index.isUndefined())
+      successful = false;
+    symbolIndices.emplace_back(index);
+  }
+  return successful;
 }
 
 //===----------------------------------------------------------------------===//
@@ -394,11 +448,14 @@ void IndexExprImpl::initAsLitQuestionmarkOrValue(IndexExprContext &newContext,
 // IndexExprImpl initializers that extract info
 //===----------------------------------------------------------------------===//
 
-void IndexExprImpl::initAsDimFromMemref(IndexExprContext &newContext,
-    Value memref, ArrayRef<int64_t> memrefShape, int index) {
-  if (memrefShape[index] >= 0) {
+void IndexExprImpl::initAsDimFromShapedType(
+    IndexExprContext &newContext, Value tensorOrMemref, int index) {
+  // Get shape from tensor or memref value.
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  if (shape[index] >= 0) {
     // We have a constant dimension.
-    int64_t intVal = memrefShape[index];
+    int64_t intVal = shape[index];
     initAsLiteral(newContext, intVal);
     return;
   }
@@ -407,7 +464,7 @@ void IndexExprImpl::initAsDimFromMemref(IndexExprContext &newContext,
     initAsQuestionmark(newContext);
   } else {
     Value dynVal = newContext.getRewriter().create<DimOp>(
-        newContext.getLoc(), memref, index);
+        newContext.getLoc(), tensorOrMemref, index);
     initAsDim(newContext, dynVal);
   }
 }
