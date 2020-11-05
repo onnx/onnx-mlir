@@ -20,8 +20,16 @@ With BACKEND_TEST specified, the intermedia result, the .onnx file and .so file,
 
 When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
 
-There is a special backend test for unknown input tensor. When the environment variable, OM_FORCE_FIRST_DIM_UNKNOWN, is set, the frontend import will turn the first dimension of every input tensor of the model into -1. For example, `@test_add(%arg0 : tensor<2x4xf32>, %arg1 : tensor<4xf32>)` will become  `@test_add(%arg0 : tensor<?x4xf32>, %arg1 : tensor<?xf32>)`.
- 
+The onnx node tests usually have known dimension size for input tensors. To test tensor with unknown dimension, the model importer (Build/FrontendONNXTransformer.cpp) provides a functionality to generate such cases. When the environment variable, `OM_FORCE_FIRST_DIM_UNKNOWN`, is set, the frontend import will turn the first dimension of every input tensor of the model into -1. For example:
+
+ `@test_add(%arg0 : tensor<2x4xf32>, %arg1 : tensor<4xf32>)`
+
+ will become
+
+  `@test_add(%arg0 : tensor<?x4xf32>, %arg1 : tensor<?xf32>)`.
+
+This is a way to use existing node test for dynamic tensors.
+
 ## LLVM FileCheck Tests
 
 TODO.
