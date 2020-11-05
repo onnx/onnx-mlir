@@ -16,5 +16,11 @@ add_custom_target(check-onnx-backend
         COMMAND ${PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_BINARY_DIR}/test.py)
 
+add_custom_target(clean-onnx-backend
+        COMMAND ${CMAKE_COMMAND} -E remove
+        ${CMAKE_CURRENT_BINARY_DIR}/*.onnx
+        ${CMAKE_CURRENT_BINARY_DIR}/*.so
+        )
+
 add_dependencies(check-onnx-backend onnx-mlir)
 add_dependencies(check-onnx-backend PyRuntime)

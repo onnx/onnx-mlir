@@ -4,8 +4,21 @@ In onnx-mlir, there are three types of tests to ensure correctness of implementa
 
 ## ONNX Backend Tests
 
-TODO.
+Backend tests are end-to-end tests for onnx-mlir based on onnx node tests.
+To invoke the test, use the following command:
 
+```
+cmake --build . --config Release --target check-onnx-backend
+``` 
+Packages, such as third_party/onnx and ssl, needs to be installed to run the backend test.
+
+The node tests in onnx that will be run by check-onnx-backend is defined by variable test_to_enable in test/backend/test.py. User can test one test case by environment variable BACKEND_TEST. For example,
+```
+BACKEND_TEST=selected_test_name cmake --build . --config Release --target check-onnx-backend
+```
+With BACKEND_TEST specified, the intermedia result, the .onnx file and .so file, are kept in build/test/backend for debugging.
+
+When the conversion of an operator to Krnl is added, the corresponding backend tests should be added. Please note to add suffix `_cpu` to the onnx test name. 
 ## LLVM FileCheck Tests
 
 TODO.
