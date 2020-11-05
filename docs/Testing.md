@@ -18,7 +18,10 @@ BACKEND_TEST=selected_test_name cmake --build . --config Release --target check-
 ```
 With BACKEND_TEST specified, the intermedia result, the .onnx file and .so file, are kept in build/test/backend for debugging.
 
-When the conversion of an operator to Krnl is added, the corresponding backend tests should be added. Please note to add suffix `_cpu` to the onnx test name. 
+When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
+
+There is a special backend test for unknown input tensor. When the environment variable, OM_FORCE_FIRST_DIM_UNKNOWN, is set, the frontend import will turn the first dimension of every input tensor of the model into -1. For example, `@test_add(%arg0 : tensor<2x4xf32>, %arg1 : tensor<4xf32>)` will become  `@test_add(%arg0 : tensor<?x4xf32>, %arg1 : tensor<?xf32>)`.
+ 
 ## LLVM FileCheck Tests
 
 TODO.
