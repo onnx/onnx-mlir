@@ -317,10 +317,10 @@ int main(int argc, char *argv[]) {
   });
 
   // Exhaustive test case generation.
-  for (int64_t s = 1; s < 5; s++)
-    for (int64_t b = 1; b < 5; b++)
-      for (int64_t i = 1; i < 5; i++)
-        for (int64_t h = 1; h < 5; h++) {
+  for (int64_t s = 2; s < 5; s++)
+    for (int64_t b = 2; b < 5; b++)
+      for (int64_t i = 2; i < 5; i++)
+        for (int64_t h = 2; h < 5; h++) {
           // forward
           assert(isOMLSTMTheSameAsNaiveImplFor(1, s, b, i, h));
           // reverse
