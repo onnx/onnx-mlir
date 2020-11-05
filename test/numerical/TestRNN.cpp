@@ -22,9 +22,11 @@ using namespace std;
 // naive implementation of RNN for a specific set of RNN
 // parameters/configuration.
 bool isOMRNNTheSameAsNaiveImplFor(
-    const int D, const int S, const int B, const int I, const int H) {
+    const int direction, const int S, const int B, const int I, const int H) {
   MLIRContext ctx;
   registerDialects(ctx);
+
+  int D = abs(direction);
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
@@ -66,9 +68,9 @@ bool isOMRNNTheSameAsNaiveImplFor(
   auto hVal = entryBlock->getArgument(4);
 
   StringAttr directionAttr;
-  if (D == 1)
+  if (direction == 1)
     directionAttr = builder.getStringAttr("forward");
-  else if (D == 2)
+  else if (direction == 2)
     directionAttr = builder.getStringAttr("bidirectional");
   else
     directionAttr = builder.getStringAttr("reverse");
@@ -156,8 +158,8 @@ bool isOMRNNTheSameAsNaiveImplFor(
   for (int64_t d = 0; d < DOut; ++d) {
     for (int64_t s = 0; s < SOut; ++s) {
       int64_t seq = s;
-      if (d == 1)
-        // backward
+      if (d == 1 || direction == -1)
+        // reverse
         seq = S - s - 1;
       auto XtWi = omTensorCreateWithShape<float>({BOut, HOut});
       auto HtRi = omTensorCreateWithShape<float>({BOut, HOut});
@@ -207,7 +209,8 @@ int main(int argc, char *argv[]) {
   // RapidCheck test case generation.
   rc::check("RNN implementation correctness", []() {
     // The number of directions.
-    const auto D = *rc::gen::element(1, 2);
+    // 1: forward, -1: reverse, 2: bidirectional
+    const auto D = *rc::gen::element(1, -1, 2);
     // Sequence length.
     const auto S = *rc::gen::inRange(1, 5);
     // Batch size.
@@ -221,11 +224,16 @@ int main(int argc, char *argv[]) {
   });
 
   // Exhaustive test case generation.
-  for (int64_t d = 1; d < 3; d++)
-    for (int64_t s = 1; s < 5; s++)
-      for (int64_t b = 1; b < 5; b++)
-        for (int64_t i = 1; i < 5; i++)
-          for (int64_t h = 1; h < 5; h++)
-            assert(isOMRNNTheSameAsNaiveImplFor(d, s, b, i, h));
+  for (int64_t s = 1; s < 5; s++)
+    for (int64_t b = 1; b < 5; b++)
+      for (int64_t i = 1; i < 5; i++)
+        for (int64_t h = 1; h < 5; h++) {
+          // forward
+          assert(isOMRNNTheSameAsNaiveImplFor(1, s, b, i, h));
+          // reverse
+          assert(isOMRNNTheSameAsNaiveImplFor(-1, s, b, i, h));
+          // bidirectional
+          assert(isOMRNNTheSameAsNaiveImplFor(2, s, b, i, h));
+        }
   return 0;
 }
