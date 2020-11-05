@@ -51,7 +51,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   Value data = operandAdaptor.data();
   int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
 
-  // Get each of the axes, and save the litteral values in axesIntLit.
+  // Get each of the axes, and save the literal values in axesIntLit.
   SmallVector<int64_t, 2> axesIntLit;
   Value axes = operandAdaptor.axes();
   if (axes.getType().isa<NoneType>()) {
