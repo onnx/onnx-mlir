@@ -1241,6 +1241,7 @@ LogicalResult ONNXGemmOp::inferShapes() {
       !B().getType().isa<RankedTensorType>() ||
       (hasBias && !C().getType().isa<RankedTensorType>()))
     return emitError("Input tensor(s) not ranked");
+
   auto lhsTy = A().getType().cast<RankedTensorType>();
   auto rhsTy = B().getType().cast<RankedTensorType>();
 
@@ -2884,7 +2885,6 @@ LogicalResult ONNXSliceOp::inferShapes() {
     return emitError("Input tensor not ranked");
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
-
   ONNXSliceOpAdaptor operandAdaptor(*this);
   ONNXSliceOpShapeHelper shapeHelper(this, nullptr);
   if (failed(shapeHelper.Compute(operandAdaptor)))

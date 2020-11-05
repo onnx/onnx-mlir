@@ -37,7 +37,8 @@ template <class OP>
 struct ONNXOpShapeHelper {
   ONNXOpShapeHelper(OP *newOp, ConversionPatternRewriter *rewriter);
 
-  // Define in every children.
+  // Define in every children. Use op to get attributes, and operandAdaptor
+  // to get the input/output parameters.
   LogicalResult Compute(ONNXSliceOpAdaptor operandAdaptor) {
     llvm_unreachable("implement in child structs");
   }

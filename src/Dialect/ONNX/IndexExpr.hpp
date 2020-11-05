@@ -185,7 +185,8 @@ public:
   // Destructor which release all IndexExpr associated with this context.
   ~IndexExprContext();
 
-  // IndexExpr builders.
+  // Individual IndexExpr builders.
+
   // Create a copy of the given index (deep copy).
   IndexExpr createIndex(IndexExpr const other);
   // Create an undefined index. Used to indicate undefined results.
@@ -209,12 +210,12 @@ public:
   // Scan a memref_shape[index] to generate an IndexExpr, typically used for
   // dimensions. Generate a literal when the memref dimension is known at
   // compile time, and otherwise a Dim Index.
-  IndexExpr createDimIndexFromMemref(
-      Value memref, ArrayRef<int64_t> memrefShape, int index);
+  IndexExpr createDimIndexFromShapedType(Value tensorOrMemref, int index);
   // Consider an op with operand "arrayOperand". We find this operand's defining
   // op: if it contains a literal at position "index", we generate an literal
-  // IndexExpr; if its a tensor/memref, we load this value. If the index is out
-  // of bound, we return an undefine IndexExpr.
+  // IndexExpr; if its a tensor/memref, we issue a question mark during shape
+  // inference, and if not, we load this value. If the index is out of bound, we
+  // return an undefine IndexExpr.
   IndexExpr createSymbolIndexFromArrayAtIndex(
       Operation *op, Value array, uint64_t indexInArray);
   // Same as above, but return "defaultLitteral" when there are no defining op
@@ -225,6 +226,24 @@ public:
   // parent context. The parent index may be a dim/loop iteration index as long
   // as it is contant in the present context.
   IndexExpr createSymbolIndexFromParentContext(IndexExpr const parentIndexExpr);
+
+  // Builder for lists of IndexExpr.
+
+  // Scan a memref_shape to generate a list of IndexExpr, typically used for
+  // dimensions. Generate a literal when the memref dimension is known at
+  // compile time, and otherwise a Dim Index. Return true if every entry could
+  // be successfully processed, false otherwise.
+  bool createDimIndicesFromShapedType(
+      Value tensorOrMemref, SmallVectorImpl<IndexExpr> &dimIndices);
+  // Consider an op with operand "arrayOperand". We find this operand's defining
+  // op. For each of its value,  if it contains a literal, we generate an
+  // literal IndexExpr; if its a tensor/memref, we issue a question mark during
+  // shape inference, and if not, we load this value. Return true if every entry
+  // could be successfully processed, false otherwise.
+  bool createSymbolIndicesFromArray(Operation *op, Value array, int arraySize,
+      SmallVectorImpl<IndexExpr> &symbolIndices);
+  bool createSymbolIndicesFromArray(Operation *op, Value array, int arraySize,
+      int64_t defaultLiteral, SmallVectorImpl<IndexExpr> &symbolIndices);
 
   // Suppor functions for AffineExpr.
   int addDim(Value const value);
@@ -286,8 +305,8 @@ struct IndexExprImpl {
   void initAsPredicateValue(IndexExprContext &context, Value const val);
   void initAsAffineExpr(IndexExprContext &context, AffineExpr const val);
   // Higher-level initiation calls that extract info.
-  void initAsDimFromMemref(IndexExprContext &context, Value memref,
-      ArrayRef<int64_t> memrefShape, int index);
+  void initAsDimFromShapedType(
+      IndexExprContext &context, Value tensorOrMemref, int index);
   void initAsSymbolFromArrayAtIndex(IndexExprContext &context, Operation *op,
       Value array, uint64_t indexInArray);
   void initAsSymbolFromArrayAtIndex(IndexExprContext &context, Operation *op,

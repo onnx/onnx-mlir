@@ -49,10 +49,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
 
   // Get info about input data operand.
   Value data = operandAdaptor.data();
-  auto dataType = data.getType().cast<ShapedType>();
-  auto elementType = dataType.getElementType();
-  auto dataShape = dataType.getShape();
-  int64_t dataRank = dataShape.size();
+  int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
 
   // Get each of the axes, and save the litteral values in axesIntLit.
   SmallVector<int64_t, 2> axesIntLit;
@@ -109,7 +106,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       return op->emitError("step input parameter cannot be zero");
     stepInput.debugPrint("step input");
     // Get dim.
-    IndexExpr dimInput = context.createDimIndexFromMemref(data, dataShape, ii);
+    IndexExpr dimInput = context.createDimIndexFromShapedType(data, ii);
     dimInput.debugPrint("dim input");
 
     // Now proceed with the computations for start/end/dim.
@@ -158,7 +155,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       // fine).
       starts[i] = context.createLiteralIndex(0);
       steps[i] = context.createLiteralIndex(1);
-      IndexExpr dimInput = context.createDimIndexFromMemref(data, dataShape, i);
+      IndexExpr dimInput = context.createDimIndexFromShapedType(data, i);
       ends[i] = dimInput;
       outputDims[i] = dimInput;
     }
