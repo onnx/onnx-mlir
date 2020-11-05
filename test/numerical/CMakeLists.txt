@@ -43,7 +43,23 @@ target_link_libraries(TestRNN
         ExecutionSession
         OMTensorUtils)
 
+add_executable(TestGRU TestGRU.cpp)
+target_compile_definitions(TestGRU PRIVATE RTMEMREF_INTERNAL_API)
+target_include_directories(TestGRU
+        PRIVATE
+        ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT}/include)
+target_link_libraries(TestGRU
+        ${OMLibs}
+        ${MLIRLibs}
+        ${CMAKE_DL_LIBS}
+        rapidcheck
+        MainUtils
+        ExecutionSession
+        OMTensorUtils)
+
 
 add_test(NAME OMTestConv COMMAND TestConv)
+add_test(NAME OMTestGRU COMMAND TestGRU)
 add_test(NAME OMTestLSTM COMMAND TestLSTM)
 add_test(NAME OMTestRNN COMMAND TestRNN)
