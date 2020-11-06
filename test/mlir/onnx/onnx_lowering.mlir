@@ -3137,4 +3137,3 @@ func @test_less_unknown_dims(%arg0: tensor<3x4x5xf32>, %arg1: tensor<?x4x5xf32>)
   // CHECK: }
   // CHECK: return [[RES]] : memref<3x4x5xi1>
 }
-
