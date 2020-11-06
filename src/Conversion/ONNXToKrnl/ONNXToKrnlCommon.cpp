@@ -115,6 +115,38 @@ Value insertAllocAndDealloc(MemRefType type, Location loc,
   return alloc;
 }
 
+// Simple version of insert alloc and dealloc that does not handle alignment
+// or additional operands (to be studied and added as needed). For unknown
+// dimensions, it uses the index expressions to retrieve the corresponding
+// values.
+Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
+    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims) {
+
+  bool insertDealloc = checkInsertDealloc(op);
+
+  // Constant, use the normal insert with no additional operands or alignment.
+  if (hasAllConstantDimensions(type))
+    return insertAllocAndDealloc(type, loc, rewriter, insertDealloc);
+  // Otherwise, take the unkown operands from the output dim IndexExpressions
+  SmallVector<Value, 2> allocOperands;
+  auto memRefShape = type.getShape();
+  auto rank = memRefShape.size();
+
+  for (int i = 0; i < rank; ++i) {
+    if (memRefShape[i] < 0) {
+      // have dyn shape
+      allocOperands.emplace_back(outputDims[i].getValue());
+    }
+  }
+  AllocOp allocOp = rewriter.create<AllocOp>(loc, type, allocOperands);
+  if (insertDealloc) {
+    auto *parentBlock = allocOp.getOperation()->getBlock();
+    auto dealloc = rewriter.create<DeallocOp>(loc, allocOp);
+    dealloc.getOperation()->moveBefore(&parentBlock->back());
+  }
+  return allocOp;
+}
+
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
 // inserted.
@@ -411,8 +443,4 @@ Value emitNegativeInfinityConstantOp(
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
-}
-
-int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
-  return (a.getValue()[i]).cast<IntegerAttr>().getInt();
 }
