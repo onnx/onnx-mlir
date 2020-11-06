@@ -549,7 +549,7 @@ Value emitScalarOpFor<ONNXLessOp>(ConversionPatternRewriter &rewriter,
   if (inputType.isa<FloatType>()) {
     return rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
   } else if (inputType.isa<IntegerType>()) {
-    rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
+    return rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
   } else {
     llvm_unreachable("unsupported element type");
   }

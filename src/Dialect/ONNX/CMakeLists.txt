@@ -15,7 +15,11 @@ add_library(OMONNXOps
         ONNXOps.cpp
         ONNXOps.hpp
         ONNXOpsHelper.cpp
-        ONNXOpsHelper.hpp)
+        ONNXOpsHelper.hpp
+        ONNXShapeHelper.cpp
+        ONNXShapeHelper.hpp
+        IndexExpr.hpp
+        IndexExpr.cpp)
 
 target_include_directories(OMONNXOps
         PRIVATE
@@ -23,7 +27,7 @@ target_include_directories(OMONNXOps
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 
-add_dependencies(OMONNXOps OMONNXOpsIncGen)
+add_dependencies(OMONNXOps OMONNXOpsIncGen OMKrnlOpsInc)
 target_link_libraries(OMONNXOps
         onnx)
 # Linking dependencies:
