@@ -150,6 +150,25 @@ bool usedBySameKrnlMemcpy(
   return sameKrnlMemcpy;
 }
 
+/// Check if two GetRefs participate in the same operation.
+bool usedBySameOp(KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef) {
+  Block *topBlock = getTopBlock(firstGetRef->getOperation());
+
+  bool sameOp = false;
+  topBlock->walk([&sameOp, firstGetRef, secondGetRef](Operation *op) {
+    bool firstUsed = false;
+    for (const auto &operand : op->getOperands())
+      if (operand == firstGetRef->getResult())
+        firstUsed = true;
+
+    if (firstUsed)
+      for (const auto &operand : op->getOperands())
+        if (operand == secondGetRef->getResult())
+          sameOp = true;
+  });
+  return sameOp;
+}
+
 /// Get the number of GetRef ops associated with this AllocOp.
 int64_t getAllocGetRefNum(AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
