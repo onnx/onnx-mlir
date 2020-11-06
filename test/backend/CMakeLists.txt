@@ -1,3 +1,11 @@
+# Set TEST_DRIVER_BUILD_PATH to the directory of the test driver.
+# It is expected to have two sub-directories:
+# - 'bin' containing executable files, and
+# - 'lib' containing necessary libraries for runtime execution.
+set (TEST_DRIVER_BUILD_PATH ${CMAKE_BINARY_DIR})
+# Set TEST_DRIVER_COMMAND to the command used to compile models.
+# The command is expected to be found in the 'bin' directory of ${TEST_DRIVER_BUILD_PATH}
+set (TEST_DRIVER_COMMAND "onnx-mlir")
 configure_file(test.py test.py COPYONLY)
 configure_file(test_config.py.in test_config.py)
 
