@@ -13,16 +13,26 @@ import onnx.backend.test
 from onnx.backend.base import Device, DeviceType
 import subprocess
 import test_config
+import tempfile
 
 VERBOSE = bool(os.environ.get("VERBOSE"))
 
+test_case = os.environ.get("BACKEND_TEST")
+if test_case is not None and test_case != "" :
+    result_dir = "./"
+else :
+    tempdir = tempfile.TemporaryDirectory()
+    result_dir = tempdir.name+"/"
+print("temporary results are in dir "+result_dir)
+
 CXX = test_config.CXX_PATH
-ONNX_MLIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "bin/onnx-mlir")
+TEST_DRIVER = os.path.join(test_config.TEST_DRIVER_BUILD_PATH, "bin",
+                           test_config.TEST_DRIVER_COMMAND)
 LLC = os.path.join(test_config.LLVM_PROJ_BUILD_PATH, "bin/llc")
 
 # Make lib folder under build directory visible in PYTHONPATH
 doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
-RUNTIME_DIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "lib")
+RUNTIME_DIR = os.path.join(test_config.TEST_DRIVER_BUILD_PATH, "lib")
 sys.path.append(RUNTIME_DIR)
 from PyRuntime import ExecutionSession
 
@@ -87,11 +97,20 @@ class DummyBackend(onnx.backend.base.Backend):
     @classmethod
     def prepare(cls, model, device='CPU', **kwargs):
         super(DummyBackend, cls).prepare(model, device, **kwargs)
+        name = model.graph.name
+        model_name = result_dir+name+".onnx"
+        exec_name = result_dir+name + ".so"
+        # Clean the temporary files in case
         # Save model to disk as temp_model.onnx.
-        onnx.save(model, "temp_model.onnx")
+        onnx.save(model, model_name)
+        if not os.path.exists(model_name) :
+            print("Failed save model: "+ name)
+
         # Call frontend to process temp_model.onnx, bit code will be generated.
-        execute_commands([ONNX_MLIR, "temp_model.onnx"])
-        return EndiannessAwareExecutionSession("./temp_model.so",
+        execute_commands([TEST_DRIVER, model_name])
+        if not os.path.exists(exec_name) :
+            print("Failed " + test_config.TEST_DRIVER_COMMAND + ": " + name)
+        return EndiannessAwareExecutionSession(exec_name,
                                                "run_main_graph")
 
     @classmethod
@@ -468,16 +487,6 @@ test_to_enable = [
     # "test_size_cpu",
     # "test_size_example_cpu",
     
-    # Error:
-    #    Items are not equal:
-    #     ACTUAL: dtype('int32')
-    #     DESIRED: dtype('uint8')
-    # In this test, 'int32' was specified for value attribute as in
-    # onnx/onnx/backend/test/case/node/constantofshape.py
-    # and onnx-mlir correctly imported and converted the model.
-    # It is unknown why 'uint8' came from.
-    #"test_constantofshape_int_zeros_cpu",
-
     # LogSoftmax
     "test_logsoftmax_axis_0_cpu",
     "test_logsoftmax_axis_1_cpu",
@@ -492,6 +501,10 @@ test_to_enable = [
     "test_vgg19_cpu",
     "test_shufflenet_cpu",
 ]
+
+# User case specify one test case with BCKEND_TEST env
+if test_case is not None and test_case != "" :
+    test_to_enable = [test_case]
 
 # Extract name of all test cases.
 import inspect

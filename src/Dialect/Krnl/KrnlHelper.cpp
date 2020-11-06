@@ -200,6 +200,14 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
   return pushCount++;
 }
 
+int BuildKrnlLoop::pushBounds(
+    IndexExprContext &context, int64_t lowerBound, IndexExpr upperBound) {
+  if (upperBound.isLiteral()) {
+    return pushBounds(0, upperBound.getLiteral());
+  }
+  return pushBounds(0, upperBound.getValue());
+}
+
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, AffineMap upperBound,
     ArrayRef<Value> operandsForUpperBoundMap) {
   pack->pushConstantBound(lowerBound);
