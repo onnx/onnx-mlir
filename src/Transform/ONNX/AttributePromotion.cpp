@@ -90,7 +90,7 @@ public:
     OwningRewritePatternList patterns;
     auto *context = &getContext();
     ConstantOp::getCanonicalizationPatterns(patterns, context);
-    applyPatternsAndFoldGreedily(f, patterns);
+    applyPatternsAndFoldGreedily(f, std::move(patterns));
   }
 };
 } // end anonymous namespace

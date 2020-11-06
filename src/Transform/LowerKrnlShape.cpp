@@ -83,7 +83,7 @@ public:
     OwningRewritePatternList patterns;
     patterns.insert<LowerKrnlShape>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
 };
 } // namespace

@@ -320,25 +320,25 @@ ConversionPatternRewriter &IndexExprContext::getRewriter() const {
 //===----------------------------------------------------------------------===//
 
 IndexExprImpl::IndexExprImpl(IndexExprContext *indexExprContext)
-    : defined(false), litteral(false), affine(false), symbol(false), dim(false),
+    : defined(false), literal(false), affine(false), symbol(false), dim(false),
       intLit(0), affineExpr(nullptr), value(nullptr),
       context(indexExprContext) {}
 
 void IndexExprImpl::initAsUndefined() {
-  init(/*context*/ nullptr, /*isDefined*/ false, /*litteral*/ false,
+  init(/*context*/ nullptr, /*isDefined*/ false, /*literal*/ false,
       /*affine*/ false, /*symbol*/ false, /*dim*/ false, /*predType*/ false, 0,
       AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsQuestionmark(IndexExprContext &newContext) {
-  init(&newContext, /*isDefined*/ true, /*litteral*/ false,
+  init(&newContext, /*isDefined*/ true, /*literal*/ false,
       /*affine*/ true, /*symbol*/ false, /*dim*/ false, /*predType*/ false, 0,
       AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsLiteral(
     IndexExprContext &newContext, int64_t const val) {
-  init(&newContext, /*isDefined*/ true, /*litteral*/ true,
+  init(&newContext, /*isDefined*/ true, /*literal*/ true,
       /*affine*/ true, /*symbol*/ false, /*dim*/ false, /*predType*/ false, val,
       AffineExpr(nullptr), Value(nullptr));
 }
@@ -374,7 +374,7 @@ void IndexExprImpl::initAsAffineExpr(
   if (constAffineExpr) {
     initAsLiteral(newContext, constAffineExpr.getValue());
   } else {
-    init(&newContext, /*isDefined*/ true, /*litteral*/ false,
+    init(&newContext, /*isDefined*/ true, /*literal*/ false,
         /*affine*/ true, /*symbol*/ false, /*dim*/ false, /*predType*/ false, 0,
         AffineExpr(val), Value(nullptr));
   }
@@ -386,7 +386,7 @@ void IndexExprImpl::init(IndexExprContext *newContext, bool newIsDefined,
     Value const newValue) {
   context = newContext;
   defined = newIsDefined;
-  litteral = newIsIntLit;
+  literal = newIsIntLit;
   affine = newIsAffine;
   symbol = newIsSymbol;
   dim = newIsDim;
@@ -440,7 +440,7 @@ void IndexExprImpl::initAsLitQuestionmarkOrValue(IndexExprContext &newContext,
   // getAffineExpr.
   assert(!(newIsDim && newIsSymbol) &&
          "cannot have dim and symbol at the same time");
-  init(&newContext, /*isDefined*/ true, /*litteral*/ false, newIsAfine,
+  init(&newContext, /*isDefined*/ true, /*literal*/ false, newIsAfine,
       newIsSymbol, newIsDim, newIsPredType, 0, AffineExpr(nullptr), newVal);
 }
 
@@ -538,7 +538,7 @@ void IndexExprImpl::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
 void IndexExprImpl::copy(IndexExprImpl const *other) {
   assert(context && "all index expr must have a defined context");
   // Preserve this's context, copy the remaining attributes from other.
-  init(context, other->defined, other->litteral, other->affine, other->symbol,
+  init(context, other->defined, other->literal, other->affine, other->symbol,
       other->dim, other->predType, other->intLit, other->affineExpr,
       other->value);
 }
@@ -568,7 +568,7 @@ bool IndexExpr::isUndefined() const {
 
 bool IndexExpr::isLiteral() const {
   assert(isDefined());
-  return getObj().litteral;
+  return getObj().literal;
 }
 
 bool IndexExpr::isQuestionmark() const {
@@ -651,7 +651,7 @@ AffineExpr IndexExpr::getAffineExpr() const {
 Value IndexExpr::getValue() const {
   assert(!isShapeInferencePass() && "cannot get affine during shape inference");
   if (isLiteral()) {
-    // Create a litteral constant. Litteral pred type should be used directly to
+    // Create a literal constant. Literal pred type should be used directly to
     // eliminate the comparison, so we don't intend to support them here.
     assert(!isPredType() && "literal does not support affine expressions");
     getObj().value =

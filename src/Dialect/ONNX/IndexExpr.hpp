@@ -218,7 +218,7 @@ public:
   // return an undefine IndexExpr.
   IndexExpr createSymbolIndexFromArrayAtIndex(
       Operation *op, Value array, uint64_t indexInArray);
-  // Same as above, but return "defaultLitteral" when there are no defining op
+  // Same as above, but return "defaultLiteral" when there are no defining op
   // or the index is out of bound.
   IndexExpr createSymbolIndexFromArrayAtIndex(Operation *op, Value array,
       uint64_t indexInArray, int64_t defaultLiteral);
@@ -328,7 +328,7 @@ struct IndexExprImpl {
   bool defined;
   // Literal implies having a valid intLit; may also have an affineExpr or
   // value.
-  bool litteral;
+  bool literal;
   // Affine indicate that IndedExpr represent an affine expr, which is by
   // definition true for integer literals.
   bool affine;
@@ -343,7 +343,7 @@ struct IndexExprImpl {
   // output of a compare, in which case it is an int:1. Result of compares are
   // indicated by the "predicateType" boolean.
   bool predType;
-  // Integer value, valid when "litteral" is true.
+  // Integer value, valid when "literal" is true.
   int64_t intLit;
   // Affine expression, may be defined for literal, symbols, dims, or affine
   // expr.
