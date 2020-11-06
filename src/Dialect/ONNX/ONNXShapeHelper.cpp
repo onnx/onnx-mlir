@@ -168,3 +168,103 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   }
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// ONNX Gemm Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(
+    ONNXGemmOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXGemmOp>(newOp, rewriter), aDims(), bDims(),
+      cDims() {}
+
+LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+  // Get info.
+  Value A = operandAdaptor.A();
+  Value B = operandAdaptor.B();
+  Value C = operandAdaptor.C();
+  bool hasBias = !C.getType().isa<NoneType>();
+
+  // Test ranks.
+  if (A.getType().cast<ShapedType>().getShape().size() != 2)
+    return op->emitError("Gemm with A should be a 2D tensor");
+  if (B.getType().cast<ShapedType>().getShape().size() != 2)
+    return op->emitError("Gemm with B should be a 2D tensor");
+  int cRank = 0;
+  if (hasBias) {
+    cRank = C.getType().cast<ShapedType>().getShape().size();
+    if (cRank > 2)
+      return op->emitError("Gemm with C should be a 1D or 2D tensor");
+  }
+  // Scan dimensions of A with/without transpose.
+  if (op->transA() == 0) {
+    aDims.emplace_back(context.createDimIndexFromShapedType(A, 0));
+    aDims.emplace_back(context.createDimIndexFromShapedType(A, 1));
+  } else {
+    aDims.emplace_back(context.createDimIndexFromShapedType(A, 1));
+    aDims.emplace_back(context.createDimIndexFromShapedType(A, 0));
+  }
+  aDims[0].debugPrint("a0");
+  aDims[1].debugPrint("a1");
+  // Scan dimensions of B with/without transpose.
+  if (op->transB() == 0) {
+    bDims.emplace_back(context.createDimIndexFromShapedType(B, 0));
+    bDims.emplace_back(context.createDimIndexFromShapedType(B, 1));
+  } else {
+    bDims.emplace_back(context.createDimIndexFromShapedType(B, 1));
+    bDims.emplace_back(context.createDimIndexFromShapedType(B, 0));
+  }
+  bDims[0].debugPrint("b0");
+  bDims[1].debugPrint("b1");
+  // Set output dims of result, creating a copy of it to be safe.
+  outputDims.emplace_back(context.createIndex(aDims[0]));
+  outputDims.emplace_back(context.createIndex(bDims[1]));
+  outputDims[0].debugPrint("out0");
+  outputDims[1].debugPrint("out1");
+  // Bias C can be a (unidirectional) broadcast.
+  if (hasBias) {
+    if (cRank == 0) {
+      // Broadcast for scalar: both dims are 1.
+      cDims.emplace_back(context.createLiteralIndex(1));
+      cDims.emplace_back(context.createLiteralIndex(1));
+    } else if (cRank == 1) {
+      // First dim is the one padded.
+      cDims.emplace_back(context.createLiteralIndex(1));
+      cDims.emplace_back(context.createDimIndexFromShapedType(C, 0));
+    } else {
+      assert(cRank == 2 && "illegal path");
+      cDims.emplace_back(context.createDimIndexFromShapedType(C, 0));
+      cDims.emplace_back(context.createDimIndexFromShapedType(C, 1));
+    }
+    cDims[0].debugPrint("c0");
+    cDims[1].debugPrint("c1");
+  }
+  // Check static dimensions, if we can.
+  if (aDims[1].isLiteral() && bDims[0].isLiteral() &&
+      aDims[1].getLiteral() != bDims[0].getLiteral()) {
+    return op->emitError("Gemm 2nd dim of A is different than 1st dim of B");
+  }
+  if (hasBias) {
+    // Check first dim.
+    if (outputDims[0].isLiteral() && cDims[0].isLiteral()) {
+      if (cDims[0].getLiteral() == 1 ||
+          cDims[0].getLiteral() == outputDims[0].getLiteral()) {
+        // We are fine.
+      } else {
+        return op->emitError("bias add has bad dimension on first dim");
+      }
+    }
+    // Check second dim.
+    if (outputDims[1].isLiteral() && cDims[1].isLiteral()) {
+      if (cDims[1].getLiteral() == 1 ||
+          cDims[1].getLiteral() == outputDims[1].getLiteral()) {
+        // We are fine.
+      } else {
+        return op->emitError("bias add has bad dimension on second dim");
+      }
+    }
+  }
+  return success();
+}

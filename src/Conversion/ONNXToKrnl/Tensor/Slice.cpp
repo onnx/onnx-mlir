@@ -36,13 +36,12 @@ struct ONNXSliceOpLowering : public ConversionPattern {
 
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    for (int ii = 0; ii < outputRank; ++ii)
-      outputLoops.pushBounds(
-          shapeHelper.context, 0, shapeHelper.outputDims[ii]);
+    outputLoops.pushAllBounds(shapeHelper.outputDims);
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     IndexExprContext childContext(shapeHelper.context);
+
 #if 0
     printf("\nalex, make a test for affine\n");
     Value ind0 = outputLoops.getInductionVar(0);
@@ -52,10 +51,11 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     t1.debugPrint("index loop i -i");
 #endif
 
-    // Proceed with the load data["i * step + start} for all dim].
-    Value loadVal;
-    SmallVector<Value, 4> loadIndices;
-    bool loadIsAffine = true;
+    // Compute indices for the load and store op.
+    // Load: "i * step + start" for all dim.
+    // Store: "i".
+    SmallVector<IndexExpr, 4> loadIndices;
+    SmallVector<IndexExpr, 4> storeIndices;
     for (int ii = 0; ii < outputRank; ++ii) {
       Value loopVal = outputLoops.getInductionVar(ii);
       IndexExpr loopIndex = childContext.createLoopIterIndex(loopVal);
@@ -66,26 +66,13 @@ struct ONNXSliceOpLowering : public ConversionPattern {
       loopIndex.debugPrint("loop index");
       step.debugPrint("  steps");
       start.debugPrint("  start");
-      IndexExpr actualIndex = (step * loopIndex) + start;
-      loadIndices.emplace_back(actualIndex.getValue());
-
-      if (!actualIndex.isAffine())
-        loadIsAffine = false;
+      loadIndices.emplace_back((step * loopIndex) + start);
+      storeIndices.emplace_back(loopIndex);
     }
-    // Load data.
-    if (loadIsAffine) {
-      loadVal = rewriter.create<AffineLoadOp>(
-          loc, operandAdaptor.data(), loadIndices);
-    } else {
-      loadVal =
-          rewriter.create<LoadOp>(loc, operandAdaptor.data(), loadIndices);
-    }
-    // Store data
-    SmallVector<Value, 4> storeIndices;
-    for (int ii = 0; ii < outputRank; ++ii) {
-      storeIndices.emplace_back(outputLoops.getInductionVar(ii));
-    }
-    rewriter.create<AffineStoreOp>(loc, loadVal, alloc, storeIndices);
+    // Load data and store in alloc data.
+    Value loadVal =
+        childContext.createLoadOp(operandAdaptor.data(), loadIndices);
+    childContext.createStoreOp(loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
     printf("done alex\n\n");
