@@ -23,6 +23,7 @@
 #include "llvm/Support/FormatVariadic.h"
 
 #include "ONNXOps.hpp"
+#include "ONNXShapeHelper.hpp"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -31,25 +32,6 @@ using namespace mlir::onnxmlir;
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
 //===----------------------------------------------------------------------===//
-
-static size_t ArrayAttrSize(ArrayAttr a) { return a.size(); }
-
-static size_t ArrayAttrSize(Optional<ArrayAttr> a) {
-  return a.getValue().size();
-}
-
-static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
-  return (a.getValue()[i]).cast<IntegerAttr>().getInt();
-}
-
-static int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
-  return (a.getValue().getValue()[i]).cast<IntegerAttr>().getInt();
-}
-
-// Returns the ConstantOp which defines an MLIR Value or null.
-static mlir::ONNXConstantOp getONNXConstantOp(Value value) {
-  return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
-}
 
 // This method substitutes any uses of dimensions and symbols (e.g.
 // dim#0 with dimReplacements[0]) in an affine map, simplifies the modified
@@ -1259,6 +1241,7 @@ LogicalResult ONNXGemmOp::inferShapes() {
       !B().getType().isa<RankedTensorType>() ||
       (hasBias && !C().getType().isa<RankedTensorType>()))
     return emitError("Input tensor(s) not ranked");
+
   auto lhsTy = A().getType().cast<RankedTensorType>();
   auto rhsTy = B().getType().cast<RankedTensorType>();
 
@@ -2904,152 +2887,14 @@ LogicalResult ONNXSliceOp::inferShapes() {
     return emitError("Input tensor not ranked");
 
   auto elementType = data().getType().cast<ShapedType>().getElementType();
-  auto dataShape = data().getType().cast<ShapedType>().getShape();
-  int64_t numDims = dataShape.size();
-
-  SmallVector<int64_t, 2> outputDims(numDims, -1);
-  // If 'starts', 'ends', 'axes', and 'steps' are constants, check whether their
-  // values are valid or not. If the values are valid, it is possible to infer
-  // shape.
-  //
-  // 'starts', 'ends', and 'steps' are for each axis in the list of axes, so
-  // processing 'axes' first.
-
-  // Check and get 'axes' tensor.
-  SmallVector<int64_t, 2> axesValue;
-  if (axes().getType().isa<NoneType>()) {
-    // If `axes` are omitted, they are set to `[0, ..., ndim-1]`."
-    for (int i = 0; i < numDims; ++i)
-      axesValue.emplace_back(i);
-  } else if (auto constantOp = getONNXConstantOp(axes())) {
-    // If `axes` are constants, read them."
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    for (auto value : valueAttribute.getValues<IntegerAttr>()) {
-      int64_t axis = value.cast<IntegerAttr>().getInt();
-      if (axis < -numDims || axis >= numDims)
-        return emitError("Axes contains an out-of-bound index");
-      if (axis < 0)
-        axis += numDims;
-      if (dataShape[axis] == -1) {
-        // It is unsafe to infer shape for an axis with an unknown dimension,
-        // since we can not validate 'start' and 'end' values from this
-        // dimension.
-        getResult().setType(RankedTensorType::get(outputDims, elementType));
-        return success();
-      }
-      axesValue.emplace_back(axis);
-    }
-  } else {
-    // Cannot infer a static shape.
-    getResult().setType(RankedTensorType::get(outputDims, elementType));
-    return success();
-  }
-
-  // Check 'starts' tensor.
-  SmallVector<int64_t, 2> startsValue;
-  if (auto constantOp = getONNXConstantOp(starts())) {
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    int i = 0;
-    for (auto value : valueAttribute.getValues<IntegerAttr>()) {
-      int64_t axis = axesValue[i];
-      int64_t index = value.cast<IntegerAttr>().getInt();
-      if (index < -dataShape[axis])
-        index = 0;
-      else if (index > dataShape[axis])
-        index = dataShape[axis];
-      else if (index < 0)
-        index += dataShape[axis];
-      startsValue.emplace_back(index);
-      i++;
-    }
-    if (i != axesValue.size())
-      emitError("starts and axes tensors must have the same length");
-  } else {
-    // Cannot infer a static shape.
-    getResult().setType(RankedTensorType::get(outputDims, elementType));
-    return success();
-  }
-
-  // Check 'ends' tensor.
-  SmallVector<int64_t, 2> endsValue;
-  if (auto constantOp = getONNXConstantOp(ends())) {
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    int i = 0;
-    for (auto value : valueAttribute.getValues<IntegerAttr>()) {
-      int64_t axis = axesValue[i];
-      int64_t index = value.cast<IntegerAttr>().getInt();
-      if (index < -dataShape[axis])
-        index = 0;
-      else if (index > dataShape[axis])
-        index = dataShape[axis];
-      else if (index < 0)
-        index += dataShape[axis];
-      endsValue.emplace_back(index);
-      i++;
-    }
-    if (i != axesValue.size())
-      emitError("ends and axes tensors must have the same length");
-  } else {
-    // Cannot infer a static shape.
-    getResult().setType(RankedTensorType::get(outputDims, elementType));
-    return success();
-  }
-
-  // Check and get 'steps' tensor.
-  SmallVector<int64_t, 2> stepsValue;
-  if (steps().getType().isa<NoneType>()) {
-    // If `steps` are omitted, they are set to `[1, ..., 1]` of len(starts)."
-    for (int i = 0; i < startsValue.size(); ++i)
-      stepsValue.emplace_back(1);
-  } else if (auto constantOp = getONNXConstantOp(steps())) {
-    // If `steps` are constants, read them."
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    int i = 0;
-    for (auto value : valueAttribute.getValues<IntegerAttr>()) {
-      int64_t index = value.cast<IntegerAttr>().getInt();
-      if (index == 0)
-        emitError("step cannot be zero");
-      stepsValue.emplace_back(index);
-      i++;
-    }
-    if (i != axesValue.size())
-      emitError("steps and axes tensors must have the same length");
-  } else {
-    // Cannot infer a static shape.
-    getResult().setType(RankedTensorType::get(outputDims, elementType));
-    return success();
-  }
-
-  // All 'starts', 'ends', 'steps' values are valid. Now calculate output
-  // dimensions for axes in 'axes'.
-  for (int i = 0; i < axesValue.size(); i++) {
-    int64_t axis = axesValue[i];
-    int64_t start = startsValue[i];
-    int64_t end = endsValue[i];
-    int64_t step = stepsValue[i];
-    if (step < 0)
-      step = -step;
-
-    int64_t q = (end - start) / step;
-    int64_t r = (end - start) % step;
-    if (r != 0)
-      q += 1;
-    outputDims[axis] = q;
-  }
-
-  // Fill in the rest of the dimensions - assume they're untouched.
-  for (int i = 0, e = outputDims.size(); i < e; ++i) {
-    if (llvm::any_of(axesValue, [i](int64_t a) { return a == i; })) {
-      continue;
-    }
-    outputDims[i] = dataShape[i];
-  }
-
+  ONNXSliceOpAdaptor operandAdaptor(*this);
+  ONNXSliceOpShapeHelper shapeHelper(this, nullptr);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Silce parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
+
   return success();
 }
 
@@ -3106,7 +2951,8 @@ LogicalResult ONNXExpandOp::inferShapes() {
            "Shape of constant does not match its actual value");
   } else {
     return emitError(
-        "Shape argument of Expand is the output of an unexpected operation: " +
+        "Shape argument of Expand is the output of an unexpected "
+        "operation: " +
         shapeDef->getName().getStringRef() +
         ". Supported operations are: onnx.Constant and onnx.Shape");
   }
