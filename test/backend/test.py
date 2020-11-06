@@ -26,12 +26,13 @@ else :
 print("temporary results are in dir "+result_dir)
 
 CXX = test_config.CXX_PATH
-ONNX_MLIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "bin", test_config.ONNX_MLIR_COMMAND)
+TEST_DRIVER = os.path.join(test_config.TEST_DRIVER_BUILD_PATH, "bin",
+                           test_config.TEST_DRIVER_COMMAND)
 LLC = os.path.join(test_config.LLVM_PROJ_BUILD_PATH, "bin/llc")
 
 # Make lib folder under build directory visible in PYTHONPATH
 doc_check_base_dir = os.path.dirname(os.path.realpath(__file__))
-RUNTIME_DIR = os.path.join(test_config.ONNX_MLIR_BUILD_PATH, "lib")
+RUNTIME_DIR = os.path.join(test_config.TEST_DRIVER_BUILD_PATH, "lib")
 sys.path.append(RUNTIME_DIR)
 from PyRuntime import ExecutionSession
 
@@ -106,9 +107,9 @@ class DummyBackend(onnx.backend.base.Backend):
             print("Failed save model: "+ name)
 
         # Call frontend to process temp_model.onnx, bit code will be generated.
-        execute_commands([ONNX_MLIR, model_name])
+        execute_commands([TEST_DRIVER, model_name])
         if not os.path.exists(exec_name) :
-            print("Failed ONNX_MLIR: "+ name)
+            print("Failed " + test_config.TEST_DRIVER_COMMAND + ": " + name)
         return EndiannessAwareExecutionSession(exec_name,
                                                "run_main_graph")
 
@@ -486,16 +487,6 @@ test_to_enable = [
     # "test_size_cpu",
     # "test_size_example_cpu",
     
-    # Error:
-    #    Items are not equal:
-    #     ACTUAL: dtype('int32')
-    #     DESIRED: dtype('uint8')
-    # In this test, 'int32' was specified for value attribute as in
-    # onnx/onnx/backend/test/case/node/constantofshape.py
-    # and onnx-mlir correctly imported and converted the model.
-    # It is unknown why 'uint8' came from.
-    #"test_constantofshape_int_zeros_cpu",
-
     # LogSoftmax
     "test_logsoftmax_axis_0_cpu",
     "test_logsoftmax_axis_1_cpu",
