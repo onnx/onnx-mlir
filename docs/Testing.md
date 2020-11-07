@@ -20,7 +20,7 @@ With BACKEND_TEST specified, the intermedia result, the .onnx file and .so file,
 
 When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
 
-The onnx node tests usually have known dimension size for input tensors. To test tensor with unknown dimension, the model importer (Build/FrontendONNXTransformer.cpp) provides a functionality to generate such cases. When the environment variable, `OM_FORCE_FIRST_DIM_UNKNOWN`, is set, the frontend import will turn the first dimension of every input tensor of the model into -1. For example:
+The onnx node tests usually have known dimension size for input tensors. To test tensor with unknown dimension, the model importer (Build/FrontendONNXTransformer.cpp) provides a functionality to generate such cases. When the environment variable, `IMPORTER_FORCE_DYNAMIC`, is set, the frontend import will turn the first dimension of every input tensor of the model into -1. For example:
 
  `@test_add(%arg0 : tensor<2x4xf32>, %arg1 : tensor<4xf32>)`
 
@@ -28,7 +28,7 @@ The onnx node tests usually have known dimension size for input tensors. To test
 
   `@test_add(%arg0 : tensor<?x4xf32>, %arg1 : tensor<?xf32>)`.
 
-This is a way to use existing node test for dynamic tensors.
+This is a way to use existing node test for dynamic tensors. Since not all test case can pass with dynamic tensor, there is a list in test/backend/test.py, test_not_for_dynamic, to specify which test can not pass with IMPORTER_FORCE_DYNAMIC is defined.
 
 ## LLVM FileCheck Tests
 
