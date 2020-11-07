@@ -3093,10 +3093,10 @@ LogicalResult ONNXClipOp::inferShapes() {
   if (!input().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  auto inputTy = input().getType().cast<RankedTensorType>();
+  RankedTensorType inputTy = input().getType().cast<RankedTensorType>();
 
-  auto elementType = inputTy.getElementType();
-  auto inputShape = inputTy.getShape();
+  Type elementType = inputTy.getElementType();
+  ArrayRef<int64_t> inputShape = inputTy.getShape();
 
   getResult().setType(RankedTensorType::get(inputShape, elementType));
   return success();
