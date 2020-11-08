@@ -38,6 +38,10 @@ public:
       : context_(context), builder_(&context) {
     module_ = mlir::ModuleOp::create(mlir::UnknownLoc::get(&context));
     InitHandlerMap();
+    if (const char *envVerbose = std::getenv("OM_FORCE_FIRST_DIM_UNKNOWN"))
+      force_first_dim_unknown_ = true;
+    else
+      force_first_dim_unknown_ = false;
   }
 
   mlir::ModuleOp ImportONNXModel(const onnx::ModelProto &model) {
@@ -54,6 +58,11 @@ private:
   std::map<mlir::FuncOp, mlir::Value> func2None_;
   // mapping between string name and symbol
   OnnxMlirSymbolMapping frontend_symbols_;
+
+  // Flag to change the arguments of function to unknown dimension
+  // Temporarily added to use the test cases with static shape to test
+  // The value is set by enviroment variable OM_FORCE_FIRST_DIM_UNKNOWN
+  bool force_first_dim_unknown_;
 
   typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
       const onnx::NodeProto &);
@@ -571,7 +580,21 @@ private:
     for (const auto &input : graph.input()) {
       if (!initializedTensors.ContainKey(legalize_name(input.name()))) {
         inputNames.push_back(input.name());
-        arg_types.emplace_back(ImportTensorType(input));
+        auto argTy = ImportTensorType(input);
+        auto shapedTy = argTy.dyn_cast<mlir::RankedTensorType>();
+        // Change the first dimension to unknown (-1) for test purpose only
+        if (force_first_dim_unknown_ && shapedTy) {
+          auto argShape = shapedTy.getShape();
+          SmallVector<int64_t, 4> newDims;
+          newDims.push_back(-1);
+          for (auto i = 1; i < argShape.size(); i++) {
+            newDims.push_back(argShape[i]);
+          }
+          argTy =
+              mlir::RankedTensorType::get(newDims, shapedTy.getElementType());
+        }
+        arg_types.emplace_back(argTy);
+
         // numInputs is the number of graph inputs not contained within the
         // initializer
         ++numInputs;

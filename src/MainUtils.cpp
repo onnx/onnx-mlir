@@ -418,18 +418,16 @@ void registerDialects(mlir::MLIRContext &context) {
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
-  pm.addPass(mlir::createDecomposeONNXToONNXPass());
-  pm.addPass(mlir::createConstPropONNXToONNXPass());
-  pm.addPass(mlir::createShapeInferencePass());
-  pm.addPass(mlir::createConstPropONNXToONNXPass());
-  pm.addPass(mlir::createShapeInferencePass());
+  pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
+  pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<FuncOp>(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(mlir::createAttributePromotionPass());
-  pm.addPass(mlir::createShapeInferencePass());
-  pm.addPass(mlir::createAttributePromotionPass());
+  pm.addNestedPass<FuncOp>(mlir::createAttributePromotionPass());
+  pm.addNestedPass<FuncOp>(mlir::createShapeInferencePass());
+  pm.addNestedPass<FuncOp>(mlir::createAttributePromotionPass());
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
-  pm.addPass(mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
 }
@@ -441,18 +439,18 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.
   pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(createDisconnectKrnlDimFromAllocPass());
+  pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
 
   // TODO: make this pass optional:
-  pm.addPass(mlir::createKrnlEnableMemoryPoolPass());
-  pm.addPass(mlir::createKrnlBundleMemoryPoolsPass());
+  pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
+  pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
   pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(mlir::createKrnlOptimizeMemoryPoolsPass());
+  pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
-  pm.addPass(mlir::createConvertKrnlToAffinePass());
+  pm.addNestedPass<FuncOp>(mlir::createConvertKrnlToAffinePass());
   // Fuse loops in Affine dialect.
   //  pm.addPass(mlir::createLoopFusionPass());
 }
@@ -558,7 +556,8 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
       cleanSourcePM.addPass(mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
-      cleanSourcePM.addPass(mlir::createElideConstGlobalValuePass());
+      cleanSourcePM.addNestedPass<FuncOp>(
+          mlir::createElideConstGlobalValuePass());
 
     if (emissionTarget == EmitONNXBasic || emissionTarget == EmitONNXIR ||
         emissionTarget == EmitMLIR) {
