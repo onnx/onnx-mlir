@@ -21,6 +21,7 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/KrnlSupport.hpp"
 
 #include "ElideKrnlGlobalConstants.hpp"
 
@@ -61,7 +62,7 @@ public:
     patterns.insert<KrnlConstGlobalValueElision>(
         &getContext(), KrnlConstGlobalValueElision::kDefaultElisionThreshold);
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
 };
 
