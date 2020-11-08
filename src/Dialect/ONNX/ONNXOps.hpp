@@ -81,7 +81,4 @@ public:
 };
 
 } // end namespace onnxmlir
-
 } // end namespace mlir
-
-namespace onnx_mlir {}

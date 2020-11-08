@@ -3801,9 +3801,7 @@ LogicalResult ONNXZipMapOp::inferShapes(
 /// Infer the output shape of the ONNXLoopOp.
 LogicalResult ONNXLoopOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
-  auto module = this->getParentOfType<mlir::ModuleOp>();
-  auto symbolName = this->body().cast<SymbolRefAttr>().getLeafReference();
-  auto func = dyn_cast<mlir::FuncOp>(module.lookupSymbol(symbolName));
+  auto func = getLoopBodyFunc();
   shapeInferenceFunc(func);
 
   auto &loopBody = func.getBody();
@@ -3849,6 +3847,12 @@ LogicalResult ONNXLoopOp::inferShapes(
   }
 
   return success();
+}
+
+mlir::FuncOp ONNXLoopOp::getLoopBodyFunc() {
+  auto module = this->getParentOfType<mlir::ModuleOp>();
+  auto symbolName = this->body().cast<SymbolRefAttr>().getLeafReference();
+  return dyn_cast<mlir::FuncOp>(module.lookupSymbol(symbolName));
 }
 
 //===----------------------------------------------------------------------===//

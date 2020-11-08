@@ -89,8 +89,6 @@ bool isOMLoopTheSameAsNaiveImplFor(const int tripCount) {
       /*numOutputs=*/2);
   module.push_back(entryPoint);
 
-  module.dump();
-
   OwningModuleRef moduleRef(module);
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
   onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");

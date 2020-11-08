@@ -2474,7 +2474,9 @@ def ONNXLoopOp:ONNX_Op<"Loop",
     static std::vector<int> getTypeMap() {
       return {22};
     }
-  }];
+
+  mlir::FuncOp getLoopBodyFunc();
+    }];
 }
 
 def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
