@@ -139,7 +139,7 @@ public:
     patterns.insert<KrnlEnableMemoryPool>(&getContext());
     patterns.insert<KrnlEliminateOldDealloc>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
 };
 } // namespace
