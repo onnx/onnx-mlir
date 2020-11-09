@@ -461,7 +461,7 @@ public:
     patterns.insert<KrnlBundleStaticMemoryPools, KrnlBundleDynamicMemoryPools>(
         &getContext());
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    applyPatternsAndFoldGreedily(function, std::move(patterns));
 
     dynamicPoolMap.erase(function);
     staticPoolMap.erase(function);
