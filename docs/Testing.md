@@ -18,7 +18,7 @@ BACKEND_TEST=selected_test_name cmake --build . --config Release --target check-
 ```
 With BACKEND_TEST specified, the intermedia result, the .onnx file and .so file, are kept in build/test/backend for debugging.
 
-When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
+When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/backend/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
 
 The onnx node tests usually have known dimension size for input tensors. To test tensor with unknown dimension, the model importer (Build/FrontendONNXTransformer.cpp) provides a functionality to generate such cases. When the environment variable, `IMPORTER_FORCE_DYNAMIC`, is set, the frontend import will turn the first dimension of every input tensor of the model into -1. For example:
 
