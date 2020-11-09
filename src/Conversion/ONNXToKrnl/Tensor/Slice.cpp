@@ -40,15 +40,6 @@ struct ONNXSliceOpLowering : public ConversionPattern {
 
     IndexExprContext childContext(shapeHelper.context);
 
-#if 0
-    printf("\nalex, make a test for affine\n");
-    Value ind0 = outputLoops.getInductionVar(0);
-    IndexExpr i1 = outerloopContex.CreateSymbolIndex(ind0);
-    IndexExpr t1;
-    t1.Sub(i1, i1);
-    t1.debugPrint("index loop i -i");
-#endif
-
     // Compute indices for the load and store op.
     // Load: "i * step + start" for all dim.
     // Store: "i" for all dims.
@@ -73,7 +64,6 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     childContext.createStoreOp(loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
-    printf("done alex\n\n");
     return success();
   }
 };
