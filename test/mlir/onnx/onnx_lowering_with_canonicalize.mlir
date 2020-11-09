@@ -175,9 +175,11 @@ func @test_gemm(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tenso
 // CHECK-SAME:     ([[A:%.+]]: memref<5x10xf32>, [[B:%.+]]: memref<5x10xf32>, [[C:%.+]]: memref<10xf32>) -> memref<10x10xf32> {
 // CHECK:           [[ALPHA:%.+]] = constant 1.000000e+00 : f32
 // CHECK:           [[BETA:%.+]] = constant 5.000000e+00 : f32
+// CHECK:           [[ZERO:%.+]] = constant 0.000000e+00 : f32
 // CHECK:           [[RES:%.+]] = alloc() : memref<10x10xf32>
 // CHECK:           [[VAR_1:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[VAR_1]]#0, [[VAR_1]]#1) with ([[VAR_1]]#0 -> [[VAR_arg3:%.+]] = 0 to 10, [[VAR_1]]#1 -> [[VAR_arg4:%.+]] = 0 to 10) {
+// CHECK:             affine.store [[ZERO]], [[RES]][symbol([[VAR_arg3]]), symbol([[VAR_arg4]])] : memref<10x10xf32>
 // CHECK:             [[VAR_2:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[VAR_2]]) with ([[VAR_2]] -> [[VAR_arg5:%.+]] = 0 to 5) {
 // CHECK:               [[AA:%.+]] = affine.load [[A]][symbol([[VAR_arg5]]), symbol([[VAR_arg3]])] : memref<5x10xf32>
@@ -209,6 +211,7 @@ func @test_gemm_all_dyn(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?x?xf32>, %arg2:
 // CHECK-SAME:     ([[A:%.+]]: memref<?x?xf32>, [[B:%.+]]: memref<?x?xf32>, [[C:%.+]]: memref<?xf32>) -> memref<?x?xf32> {
 // CHECK:           [[VAR_cst_:%.+]] = constant 1.000000e+00 : f32
 // CHECK:           [[VAR_cst_0_:%.+]] = constant 5.000000e+00 : f32
+// CHECK:           [[FZERO:%.+]] = constant 0.000000e+00 : f32
 // CHECK:           [[ONE:%.+]] = constant 1 : index
 // CHECK:           [[ZERO:%.+]] = constant 0 : index
 // CHECK:           [[DIM_A0:%.+]] = dim [[A]], [[ONE]] : memref<?x?xf32>
@@ -218,6 +221,7 @@ func @test_gemm_all_dyn(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?x?xf32>, %arg2:
 // CHECK:           [[RES:%.+]] = alloc([[DIM_A0]], [[DIM_B1]]) : memref<?x?xf32>
 // CHECK:           [[VAR_5_:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[VAR_5_]]#0, [[VAR_5_]]#1) with ([[VAR_5_]]#0 -> [[VAR_arg3_:%.+]] = 0 to [[DIM_A0]], [[VAR_5_]]#1 -> [[VAR_arg4_:%.+]] = 0 to [[DIM_B1]]) {
+// CHECK:             affine.store [[FZERO]], [[RES]][symbol([[VAR_arg3_]]), symbol([[VAR_arg4_]])] : memref<?x?xf32>
 // CHECK:             [[VAR_6_:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[VAR_6_]]) with ([[VAR_6_]] -> [[VAR_arg5_:%.+]] = 0 to [[DIM_A1]]) {
 // CHECK:               [[VAR_14_:%.+]] = affine.load [[A]][symbol([[VAR_arg5_]]), symbol([[VAR_arg3_]])] : memref<?x?xf32>
@@ -252,10 +256,12 @@ func @test_gemm_k_dyn(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>, %arg2:
 // CHECK:           [[VAR_c0:%.+]] = constant 0 : index
 // CHECK:           [[VAR_cst:%.+]] = constant 1.000000e+00 : f32
 // CHECK:           [[VAR_cst_0:%.+]] = constant 5.000000e+00 : f32
+// CHECK:           [[ZERO:%.+]] = constant 0.000000e+00 : f32
 // CHECK:           [[RES:%.+]] = alloc() : memref<10x10xf32>
 // CHECK:           [[DIM_K:%.+]] = dim [[A]], [[VAR_c0]] : memref<?x10xf32>
 // CHECK:           [[VAR_2:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[VAR_2]]#0, [[VAR_2]]#1) with ([[VAR_2]]#0 -> [[VAR_arg3:%.+]] = 0 to 10, [[VAR_2]]#1 -> [[VAR_arg4:%.+]] = 0 to 10) {
+// CHECK:             affine.store [[ZERO]], [[RES]][symbol([[VAR_arg3]]), symbol([[VAR_arg4]])] : memref<10x10xf32>
 // CHECK:             [[VAR_3:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[VAR_3]]) with ([[VAR_3]] -> [[VAR_arg5:%.+]] = 0 to [[DIM_K]]) {
 // CHECK:               [[VAR_9:%.+]] = affine.load [[A]][symbol([[VAR_arg5]]), symbol([[VAR_arg3]])] : memref<?x10xf32>
@@ -287,12 +293,14 @@ func @test_gemm_c_dyn(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2:
 // CHECK-SAME:     ([[A:%.+]]: memref<5x10xf32>, [[B:%.+]]: memref<5x10xf32>, [[C:%.+]]: memref<?xf32>) -> memref<10x10xf32> {
 // CHECK:           [[VAR_cst:%.+]] = constant 1.000000e+00 : f32
 // CHECK:           [[VAR_cst_0:%.+]] = constant 5.000000e+00 : f32
+// CHECK:           [[ZERO:%.+]] = constant 0.000000e+00 : f32
 // CHECK:           [[VAR_c1:%.+]] = constant 1 : index
 // CHECK:           [[VAR_c0:%.+]] = constant 0 : index
 // CHECK:           [[RES:%.+]] = alloc() : memref<10x10xf32>
 // CHECK:           [[VAR_1:%.+]] = dim [[C]], [[VAR_c0]] : memref<?xf32>
 // CHECK:           [[VAR_2:%.+]]:2 = krnl.define_loops 2
 // CHECK:           krnl.iterate([[VAR_2]]#0, [[VAR_2]]#1) with ([[VAR_2]]#0 -> [[VAR_arg3:%.+]] = 0 to 10, [[VAR_2]]#1 -> [[VAR_arg4:%.+]] = 0 to 10) {
+// CHECK:             affine.store [[ZERO]], [[RES]][symbol([[VAR_arg3]]), symbol([[VAR_arg4]])] : memref<10x10xf32>
 // CHECK:             [[VAR_3:%.+]] = krnl.define_loops 1
 // CHECK:             krnl.iterate([[VAR_3]]) with ([[VAR_3]] -> [[VAR_arg5:%.+]] = 0 to 5) {
 // CHECK:               [[VAR_11:%.+]] = affine.load [[A]][symbol([[VAR_arg5]]), symbol([[VAR_arg3]])] : memref<5x10xf32>
