@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --optimize-memory-pools --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -allow-unregistered-dialect --optimize-memory-pools --canonicalize %s -split-input-file | FileCheck %s
 
 /// 1. Base case where we have a single-chain workflow.
 func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {
@@ -404,6 +404,8 @@ func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C600]]) : (memref<800xi8>, i64) -> memref<10x5xf32>
 }
 
+// -----
+
 /// 5. Test for MemRefs which share a krnl.iterate outermost loop. These MemRefs cannot
 /// share the same slot.
 ///    %4 and %2 have disjoint live ranges.
@@ -509,4 +511,101 @@ func @multiple_shaped_memrefs(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<600xi8>, i64) -> memref<5x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C200]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
+}
+
+// -----
+
+/// 6. Test for MemRefs which are used by the same operation, in this case an unknown operation.
+/// The outcome of this is that by augmenting Test 1 above with an unknown operation, we see a
+/// new slot being used increasing the memory usage from 800 to 1200 bytes.
+/// Value %4 does not share a slot with %2 and %6 anymore.
+func @unknown_op_reuse(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> memref<10x10xf32> {
+  %cst = constant 0.000000e+00 : f32
+  %c0_i64 = constant 0 : i64
+  %c1600_i64 = constant 1600 : i64
+  %c1200_i64 = constant 1200 : i64
+  %c800_i64 = constant 800 : i64
+  %c400_i64 = constant 400 : i64
+  %0 = alloc() : memref<10x10xf32>
+  %1 = alloc() : memref<2000xi8>
+  %2 = "krnl.getref"(%1, %c1600_i64) : (memref<2000xi8>, i64) -> memref<10x10xf32>
+  %3 = "krnl.getref"(%1, %c1200_i64) : (memref<2000xi8>, i64) -> memref<10x10xf32>
+  %4 = "krnl.getref"(%1, %c800_i64) : (memref<2000xi8>, i64) -> memref<10x10xf32>
+  %5 = "krnl.getref"(%1, %c400_i64) : (memref<2000xi8>, i64) -> memref<10x10xf32>
+  %6 = "krnl.getref"(%1, %c0_i64) : (memref<2000xi8>, i64) -> memref<10x10xf32>
+  %7:2 = krnl.define_loops 2
+  krnl.iterate(%7#0, %7#1) with (%7#0 -> %arg2 = 0 to 10, %7#1 -> %arg3 = 0 to 10) {
+    affine.store %cst, %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %13 = krnl.define_loops 1
+    krnl.iterate(%13) with (%13 -> %arg4 = 0 to 10) {
+      %14 = affine.load %arg0[symbol(%arg2), symbol(%arg4)] : memref<10x10xf32>
+      %15 = affine.load %arg1[symbol(%arg4), symbol(%arg3)] : memref<10x10xf32>
+      %16 = affine.load %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      %17 = mulf %14, %15 : f32
+      %18 = addf %16, %17 : f32
+      affine.store %18, %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    }
+  }
+  %8:2 = krnl.define_loops 2
+  krnl.iterate(%8#0, %8#1) with (%8#0 -> %arg2 = 0 to 10, %8#1 -> %arg3 = 0 to 10) {
+    %13 = affine.load %arg0[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %14 = affine.load %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %15 = addf %13, %14 : f32
+    affine.store %15, %5[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+  }
+  %9:2 = krnl.define_loops 2
+  krnl.iterate(%9#0, %9#1) with (%9#0 -> %arg2 = 0 to 10, %9#1 -> %arg3 = 0 to 10) {
+    affine.store %cst, %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %13 = krnl.define_loops 1
+    krnl.iterate(%13) with (%13 -> %arg4 = 0 to 10) {
+      %14 = affine.load %arg0[symbol(%arg2), symbol(%arg4)] : memref<10x10xf32>
+      %15 = affine.load %5[symbol(%arg4), symbol(%arg3)] : memref<10x10xf32>
+      %16 = affine.load %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      %17 = mulf %14, %15 : f32
+      %18 = addf %16, %17 : f32
+      affine.store %18, %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    }
+  }
+  /// Newly added operation, unknown dialect and semantics.
+  "unknown.newOp"(%4, %6) : (memref<10x10xf32>, memref<10x10xf32>) -> ()
+  %10:2 = krnl.define_loops 2
+  krnl.iterate(%10#0, %10#1) with (%10#0 -> %arg2 = 0 to 10, %10#1 -> %arg3 = 0 to 10) {
+    %13 = affine.load %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %14 = affine.load %arg1[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %15 = addf %13, %14 : f32
+    affine.store %15, %3[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+  }
+  %11:2 = krnl.define_loops 2
+  krnl.iterate(%11#0, %11#1) with (%11#0 -> %arg2 = 0 to 10, %11#1 -> %arg3 = 0 to 10) {
+    affine.store %cst, %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %13 = krnl.define_loops 1
+    krnl.iterate(%13) with (%13 -> %arg4 = 0 to 10) {
+      %14 = affine.load %arg0[symbol(%arg2), symbol(%arg4)] : memref<10x10xf32>
+      %15 = affine.load %3[symbol(%arg4), symbol(%arg3)] : memref<10x10xf32>
+      %16 = affine.load %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      %17 = mulf %14, %15 : f32
+      %18 = addf %16, %17 : f32
+      affine.store %18, %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    }
+  }
+  %12:2 = krnl.define_loops 2
+  krnl.iterate(%12#0, %12#1) with (%12#0 -> %arg2 = 0 to 10, %12#1 -> %arg3 = 0 to 10) {
+    %13 = affine.load %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %14 = affine.load %arg1[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %15 = addf %13, %14 : f32
+    affine.store %15, %0[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+  }
+  dealloc %1 : memref<2000xi8>
+  return %0 : memref<10x10xf32>
+
+  // CHECK-LABEL: unknown_op_reuse
+  // CHECK: [[C0:%.+]] = constant 0 : i64
+  // CHECK: [[C400:%.+]] = constant 400 : i64
+  // CHECK: [[C800:%.+]] = constant 800 : i64
+  // CHECK: [[MEMPOOL:%.+]] = alloc() : memref<1200xi8>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C800]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
 }

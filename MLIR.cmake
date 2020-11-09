@@ -165,6 +165,7 @@ find_mlir_lib(MLIRLLVMIRTransforms)
 find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRParser)
 find_mlir_lib(MLIRPass)
+find_mlir_lib(MLIRRewrite)
 find_mlir_lib(MLIRStandard)
 find_mlir_lib(MLIRStandardOpsTransforms)
 find_mlir_lib(MLIRStandardToLLVM)
@@ -271,6 +272,7 @@ set(MLIRLibs
         ${MLIRShape}
         ${MLIRShapeToStandard}
         ${MLIRInferTypeOpInterface}
+        ${MLIRRewrite}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}

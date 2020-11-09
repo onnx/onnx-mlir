@@ -132,7 +132,7 @@ public:
     OwningRewritePatternList patterns;
     patterns.insert<DisconnectKrnlDimFromAlloc>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
 };
 } // namespace
