@@ -421,7 +421,7 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   OwningRewritePatternList patterns;
   populateWithGenerated(context, patterns);
 
-  applyPatternsAndFoldGreedily(function, patterns);
+  applyPatternsAndFoldGreedily(function, std::move(patterns));
 } // end anonymous namespace
 
 /*!

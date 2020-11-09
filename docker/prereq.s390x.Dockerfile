@@ -51,7 +51,9 @@ RUN if [ ! -f "/build/llvm-project/build/CMakeCache.txt" ]; then \
        -DLLVM_ENABLE_RTTI=ON; \
     fi
 
-# Build for 30 minutes:
+ENV MAKEFLAGS=-j2
+# Build for 30 minutes, regardless of build outcome, don't run tests
+# because not all tests are supported on S390x currently.
 RUN timeout 30m cmake --build . --target -- ${MAKEFLAGS} || true
 
 # RUN cmake --build . --target check-mlir
