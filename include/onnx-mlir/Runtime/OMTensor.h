@@ -52,6 +52,10 @@ struct OMTensor;
 typedef struct OMTensor OMTensor;
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * \brief Create a OMTensor with specified data pointer, shape, rank and element
  * type.
@@ -129,7 +133,7 @@ void *omTensorGetDataPtr(OMTensor *tensor);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data shape array.
  */
-int64_t *omTensorGetDataShape(OMTensor *tensor);
+int64_t *omTensorGetShape(OMTensor *tensor);
 
 /**
  * \brief OMTensor data shape setter.
@@ -159,7 +163,7 @@ void omTensorSetShape(OMTensor *tensor, int64_t *shape);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data strides array.
  */
-int64_t *omTensorGetStrides(OMTensor *tensor);
+int64_t *omTensorGetStride(OMTensor *tensor);
 
 /**
  * \brief OMTensor data strides setter
@@ -175,7 +179,7 @@ int64_t *omTensorGetStrides(OMTensor *tensor);
  *
  * Set the data strides array of the OMTensor to the values in the input array.
  */
-void omTensorSetStrides(OMTensor *tensor, int64_t *strides);
+void omTensorSetStride(OMTensor *tensor, int64_t *stride);
 
 /**
  * \brief OMTensor data type getter
@@ -206,7 +210,7 @@ static inline int getDataTypeSize(OM_DATA_TYPE dataType) {
  * @param tensor pointer to the OMTensor
  * @return the total size of the data buffer in bytes.
  */
-int64_t omTensorGetDataBufferSize(OMTensor *tensor);
+int64_t omTensorGetDataSize(OMTensor *tensor);
 
 /**
  * \brief OMTensor rank getter
@@ -223,5 +227,16 @@ int omTensorGetRank(OMTensor *tensor);
  * @return the number of elements in the data buffer.
  */
 int64_t omTensorGetNumElems(OMTensor *tensor);
+
+/**
+ * \brief OMTensor owning flag getter
+ *
+ * @return owning flag of the OMTensor.
+ */
+int omTensorGetOwning(OMTensor *tensor);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // ONNX_MLIR_OMTENSOR_H

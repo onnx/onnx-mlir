@@ -72,7 +72,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
     auto *inputOMTensor = omTensorCreateWithOwnership(dataPtr,
         (int64_t *)inputPyArray.shape(), inputPyArray.ndim(), dtype, ownData);
-    omTensorSetStrides(inputOMTensor, (int64_t *)inputPyArray.strides());
+    omTensorSetStride(inputOMTensor, (int64_t *)inputPyArray.strides());
 
     omts.emplace_back(inputOMTensor);
   }
@@ -83,8 +83,8 @@ std::vector<py::array> PyExecutionSession::pyRun(
   std::vector<py::array> outputPyArrays;
   for (int i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
-    auto shape = std::vector<int64_t>(omTensorGetDataShape(omt),
-        omTensorGetDataShape(omt) + omTensorGetRank(omt));
+    auto shape = std::vector<int64_t>(omTensorGetShape(omt),
+        omTensorGetShape(omt) + omTensorGetRank(omt));
 
     // https://numpy.org/devdocs/user/basics.types.html
     py::dtype dtype;

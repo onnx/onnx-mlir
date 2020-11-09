@@ -108,9 +108,19 @@
  * \subsection reference Reference
  *
  * For full reference to available C Runtime API, refer to
- *`include/onnx-mlir/Runtime/OMTensor.h` and
+ * `include/onnx-mlir/Runtime/OMTensor.h` and
  * `include/onnx-mlir/Runtime/OMTensorList.h`.
  *
  */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern OMTensorList* run_main_graph(OMTensorList*);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // ONNX_MLIR_ONNXMLIRRUNTIME_H

@@ -106,10 +106,10 @@ struct OMTensor {
 };
 
 /* Helper function to compute the number of data elements */
-static inline int64_t getNumOfElems(int64_t *dataSizes, int rank) {
+static inline int64_t getNumElems(int64_t *shape, int rank) {
   int64_t numElem = 1;
   for (int i = 0; i < rank; i++)
-    numElem *= dataSizes[i];
+    numElem *= shape[i];
   return numElem;
 }
 
@@ -260,7 +260,7 @@ void omTensorSetDataPtr(
 }
 
 /* OMTensor data sizes getter */
-int64_t *omTensorGetDataShape(OMTensor *tensor) { return tensor->_shape; }
+int64_t *omTensorGetShape(OMTensor *tensor) { return tensor->_shape; }
 
 /* OMTensor data sizes setter */
 void omTensorSetShape(OMTensor *tensor, int64_t *shape) {
@@ -269,12 +269,12 @@ void omTensorSetShape(OMTensor *tensor, int64_t *shape) {
 }
 
 /* OMTensor data strides getter */
-int64_t *omTensorGetStrides(OMTensor *tensor) { return tensor->_stride; }
+int64_t *omTensorGetStride(OMTensor *tensor) { return tensor->_stride; }
 
 /* OMTensor data strides setter */
-void omTensorSetStrides(OMTensor *tensor, int64_t *strides) {
+void omTensorSetStride(OMTensor *tensor, int64_t *stride) {
   for (int i = 0; i < tensor->_rank; i++)
-    tensor->_stride[i] = strides[i];
+    tensor->_stride[i] = stride[i];
 }
 
 /* OMTensor data type getter */
@@ -286,8 +286,8 @@ void omTensorSetDataType(OMTensor *tensor, OM_DATA_TYPE dataType) {
 }
 
 /* OMTensor data buffer size getter */
-int64_t omTensorGetDataBufferSize(OMTensor *tensor) {
-  return getNumOfElems(tensor->_shape, tensor->_rank) *
+int64_t omTensorGetDataSize(OMTensor *tensor) {
+  return getNumElems(tensor->_shape, tensor->_rank) *
          getDataTypeSize(tensor->_dataType);
 }
 
@@ -306,8 +306,15 @@ int64_t omTensorGetNumElems(OMTensor *tensor) {
     }
     assert(tensor->_stride[i] == strideIfNotSkipping);
   }
-  return getNumOfElems(tensor->_shape, tensor->_rank);
+  return getNumElems(tensor->_shape, tensor->_rank);
 }
+
+/**
+ * OMTensor owning flag getter.
+ *
+ * @return owning flag of the OMTensor.
+ */
+int omTensorGetOwning(OMTensor *tensor) { return tensor->_owning; }
 
 /**
  * OMTensor allocated ptr getter.
@@ -326,16 +333,16 @@ void *omTensorGetAllocatedPtr(OMTensor *tensor) {
 #ifdef __cplusplus
 /* OMTensor creator with data sizes and element type  */
 template <typename T>
-OMTensor *omTensorCreateWithShape(std::vector<int64_t> dataSizes) {
+OMTensor *omTensorCreateWithShape(std::vector<int64_t> shape) {
   /* Create a OMTensor with data sizes and strides allocated */
-  auto omt = omTensorCreateEmptyDeprecated(dataSizes.size());
+  auto omt = omTensorCreateEmptyDeprecated(shape.size());
   if (omt == NULL)
     return NULL;
 
   /* Allocate data buffer */
-  omt->_rank = dataSizes.size();
+  omt->_rank = shape.size();
   if ((omt->_allocatedPtr = malloc(
-           getNumOfElems(dataSizes.data(), omt->_rank) * sizeof(T))) == NULL) {
+           getNumElems(shape.data(), omt->_rank) * sizeof(T))) == NULL) {
     omTensorDestroy(omt);
     return NULL;
   }
@@ -343,8 +350,8 @@ OMTensor *omTensorCreateWithShape(std::vector<int64_t> dataSizes) {
   omt->_alignedPtr = omt->_allocatedPtr;
   omt->_offset = 0;
 
-  /* Copy dataSizes, _shape already allocated by omTensorCreate */
-  copy(dataSizes.begin(), dataSizes.end(), omt->_shape);
+  /* Copy shape, _shape already allocated by omTensorCreate */
+  copy(shape.begin(), shape.end(), omt->_shape);
 
   /* Compute and copy dataStrides, _stride already allocated by
    * omTensorCreateEmptyDeprecated
@@ -368,19 +375,19 @@ OMTensor *omTensorCreateWithShape(std::vector<int64_t> dataSizes) {
 /* OMTensor creator with data sizes, element type and random data */
 template <typename T>
 OMTensor *omTensorCreateWithRandomData(
-    std::vector<int64_t> dataSizes, T lbound, T ubound) {
+    std::vector<int64_t> shape, T lbound, T ubound) {
   // Will be used to obtain a seed for the random number engine
   std::random_device rd;
   // Standard mersenne_twister_engine seeded with rd()
   std::mt19937 gen(rd());
   std::uniform_real_distribution<> dis(lbound, ubound);
 
-  auto omt = omTensorCreateWithShape<T>(dataSizes);
+  auto omt = omTensorCreateWithShape<T>(shape);
   if (omt == NULL)
     return NULL;
 
   std::generate((T *)omt->_allocatedPtr,
-      (T *)omt->_allocatedPtr + getNumOfElems(omt->_shape, omt->_rank),
+      (T *)omt->_allocatedPtr + getNumElems(omt->_shape, omt->_rank),
       [&]() { return dis(gen); });
   return omt;
 }
@@ -485,23 +492,19 @@ inline bool omTensorAreTwoOmtsClose(
 
 // Explicit instantiation of all templated API functions.
 
-template OMTensor *omTensorCreateWithShape<int32_t>(
-    std::vector<int64_t> dataSizes);
-template OMTensor *omTensorCreateWithShape<int64_t>(
-    std::vector<int64_t> dataSizes);
-template OMTensor *omTensorCreateWithShape<float>(
-    std::vector<int64_t> dataSizes);
-template OMTensor *omTensorCreateWithShape<double>(
-    std::vector<int64_t> dataSizes);
+template OMTensor *omTensorCreateWithShape<int32_t>(std::vector<int64_t> shape);
+template OMTensor *omTensorCreateWithShape<int64_t>(std::vector<int64_t> shape);
+template OMTensor *omTensorCreateWithShape<float>(std::vector<int64_t> shape);
+template OMTensor *omTensorCreateWithShape<double>(std::vector<int64_t> shape);
 
 template OMTensor *omTensorCreateWithRandomData<int32_t>(
-    std::vector<int64_t> dataSizes, int32_t lbound, int32_t ubound);
+    std::vector<int64_t> shape, int32_t lbound, int32_t ubound);
 template OMTensor *omTensorCreateWithRandomData<int64_t>(
-    std::vector<int64_t> dataSizes, int64_t lbound, int64_t ubound);
+    std::vector<int64_t> shape, int64_t lbound, int64_t ubound);
 template OMTensor *omTensorCreateWithRandomData<float>(
-    std::vector<int64_t> dataSizes, float lbound, float ubound);
+    std::vector<int64_t> shape, float lbound, float ubound);
 template OMTensor *omTensorCreateWithRandomData<double>(
-    std::vector<int64_t> dataSizes, double lbound, double ubound);
+    std::vector<int64_t> shape, double lbound, double ubound);
 
 template int32_t &omTensorGetElem<int32_t>(
     OMTensor *, std::vector<int64_t> indexes);

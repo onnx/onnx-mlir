@@ -1,6 +1,5 @@
 package com.ibm.onnxmlir;
 
-import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.DoubleBuffer;
@@ -10,7 +9,8 @@ import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
 
 public class OMTensor {
-    final ByteOrder endian = ByteOrder.nativeOrder();
+
+    private final ByteOrder nativeEndian = ByteOrder.nativeOrder();
     
     /* We can use enum but that creates another class
      * which complicates things for JNI.
@@ -53,51 +53,46 @@ public class OMTensor {
             2,  /* BFLOAT16   */
     };
 
-    private ByteBuffer _allocatedPtr;
+    private ByteBuffer _data;
     private long[] _shape;
     private long[] _stride;
     private int _dataType;
     private int _rank;
-    private String _name;
-    
+
     /**
      * Constructor
      */
-    public OMTensor(int rank) {
-        if (rank <= 0)
-            throw new IllegalArgumentException(
-                    "invalid rank " + rank);
-        _allocatedPtr = null;
-        _shape = new long[rank];
-        _stride = new long[rank];
-        _dataType = ONNX_TYPE_UNDEFINED;
-        _rank = rank;
-        _name = "";
+    public OMTensor(byte[] data, long[] shape) {
+        setByteData(data);
+        putShape(shape);
     }
 
-    /* ---------- Raw data getter and setter ---------- */
-    /* For JNI wrapper only. Not intended for end user. */
-
-    /**
-     * Raw data getter
-     * 
-     * @return raw data
-     */
-    @SuppressWarnings("unused")
-    private ByteBuffer getData() {
-        return _allocatedPtr;
+    public OMTensor(short[] data, long[] shape) {
+        setShortData(data);
+        putShape(shape);
     }
 
-    /**
-     * Raw data setter
-     * 
-     * @param data raw data to be set
-     */
-    @SuppressWarnings("unused")
-    private void setData(ByteBuffer data) {
-        _allocatedPtr = data.order(endian);
+    public OMTensor(int[] data, long[] shape) {
+        setIntData(data);
+        putShape(shape);
     }
-    
+
+    public OMTensor(long[] data, long[] shape) {
+        setLongData(data);
+        putShape(shape);
+    }
+
+    public OMTensor(float[] data, long[] shape) {
+        setFloatData(data);
+        putShape(shape);
+    }
+
+    public OMTensor(double[] data, long[] shape) {
+        setDoubleData(data);
+        putShape(shape);
+    }
+
+
     /* ---------- Byte data getter and setter ---------- */
 
     /**
@@ -106,14 +101,14 @@ public class OMTensor {
      * @return byte data array
      */
     public byte[] getByteData() {
-        if (_allocatedPtr == null) return null;
+        if (_data == null) return null;
 
         /* asReadOnlyBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getByteData()
          * after get(b).
          */
-        byte[] b = new byte[_allocatedPtr.limit()];
-        _allocatedPtr.asReadOnlyBuffer().get(b);
+        byte[] b = new byte[_data.limit()];
+        _data.asReadOnlyBuffer().get(b);
         return b;
     }
 
@@ -126,8 +121,8 @@ public class OMTensor {
         /* slice() creates a new view so the position of the
          * original data will stay at 0 for getByteData() after put(data).
          */
-        _allocatedPtr = ByteBuffer.allocateDirect(data.length);
-        _allocatedPtr.slice().put(data);
+        _data = ByteBuffer.allocateDirect(data.length);
+        _data.slice().put(data);
         _dataType = ONNX_TYPE_INT8;
     }
 
@@ -139,13 +134,13 @@ public class OMTensor {
      * @return short data array
      */
     public short[] getShortData() {
-        if (_allocatedPtr == null) return null;
+        if (_data == null) return null;
 
         /* asShortBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getShortData()
          * after get(s).
          */
-        ShortBuffer sb = _allocatedPtr.asShortBuffer();
+        ShortBuffer sb = _data.asShortBuffer();
         short[] s = new short[sb.limit()];
         sb.get(s);
         return s;
@@ -160,8 +155,8 @@ public class OMTensor {
         /* asShortBuffer() creates a new view so the position of the
          * original data will stay at 0 for getShortData() after put(data).
          */
-        _allocatedPtr = ByteBuffer.allocateDirect(data.length*2).order(endian);
-        _allocatedPtr.asShortBuffer().put(data);
+        _data = ByteBuffer.allocateDirect(data.length*2).order(nativeEndian);
+        _data.asShortBuffer().put(data);
         _dataType = ONNX_TYPE_INT16;
     }
 
@@ -169,17 +164,17 @@ public class OMTensor {
 
     /**
      * Int data getter
-     * 
+     *
      * @return int data array
      */
     public int[] getIntData() {
-        if (_allocatedPtr == null) return null;
+        if (_data == null) return null;
 
         /* asIntBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getIntData()
          * after get(i).
          */
-        IntBuffer ib = _allocatedPtr.asIntBuffer();
+        IntBuffer ib = _data.asIntBuffer();
         int[] i = new int[ib.limit()];
         ib.get(i);
         return i;
@@ -194,8 +189,8 @@ public class OMTensor {
         /* asIntBuffer() creates a new view so the position of the
          * original data will stay at 0 for getIntData() after put(data).
          */
-        _allocatedPtr = ByteBuffer.allocateDirect(data.length*4).order(endian);
-        _allocatedPtr.asIntBuffer().put(data);
+        _data = ByteBuffer.allocateDirect(data.length*4).order(nativeEndian);
+        _data.asIntBuffer().put(data);
         _dataType = ONNX_TYPE_INT32;
     }
 
@@ -207,13 +202,13 @@ public class OMTensor {
      * @return long data array
      */
     public long[] getLongData() {
-        if (_allocatedPtr == null) return null;
+        if (_data == null) return null;
 
         /* asLongBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getLongData()
          * after get(l).
          */
-        LongBuffer lb = _allocatedPtr.asLongBuffer();
+        LongBuffer lb = _data.asLongBuffer();
         long[] l = new long[lb.limit()];
         lb.get(l);
         return l;
@@ -228,8 +223,8 @@ public class OMTensor {
         /* asLongBuffer() creates a new view so the position of the
          * original data will stay at 0 for getLongData() after put(data).
          */
-        _allocatedPtr = ByteBuffer.allocateDirect(data.length*8).order(endian);
-        _allocatedPtr.asLongBuffer().put(data);
+        _data = ByteBuffer.allocateDirect(data.length*8).order(nativeEndian);
+        _data.asLongBuffer().put(data);
         _dataType = ONNX_TYPE_INT64;
     }
 
@@ -241,13 +236,13 @@ public class OMTensor {
      * @return float data array
      */
     public float[] getFloatData() {
-        if (_allocatedPtr == null) return null;
+        if (_data == null) return null;
 
         /* asFloatBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getFloatData()
          * after get(f).
          */
-        FloatBuffer fb = _allocatedPtr.asFloatBuffer();
+        FloatBuffer fb = _data.asFloatBuffer();
         float[] f = new float[fb.limit()];
         fb.get(f);
         return f;
@@ -262,8 +257,8 @@ public class OMTensor {
         /* asFloatBuffer() creates a new view so the position of the
          * original data will stay at 0 for getFloatData() after put(data).
          */
-        _allocatedPtr = ByteBuffer.allocateDirect(data.length*4).order(endian);
-        _allocatedPtr.asFloatBuffer().put(data);
+        _data = ByteBuffer.allocateDirect(data.length*4).order(nativeEndian);
+        _data.asFloatBuffer().put(data);
         _dataType = ONNX_TYPE_FLOAT;
     }
 
@@ -275,13 +270,13 @@ public class OMTensor {
      * @return double data array
      */
     public double[] getDoubleData() {
-        if (_allocatedPtr == null) return null;
+        if (_data == null) return null;
 
         /* asDoubleBuffer() creates a new view so the position of the
          * original data will stay at 0 for subsequent getDoubleData()
          * after get(d).
          */
-        DoubleBuffer db = _allocatedPtr.asDoubleBuffer();
+        DoubleBuffer db = _data.asDoubleBuffer();
         double[] d = new double[db.limit()];
         db.get(d);
         return d;
@@ -296,55 +291,55 @@ public class OMTensor {
         /* asDoubleBuffer() creates a new view so the position of the
          * original data will stay at 0 for getDoubleData() after put(data).
          */
-        _allocatedPtr = ByteBuffer.allocateDirect(data.length*8).order(endian);
-        _allocatedPtr.asDoubleBuffer().put(data);
+        _data = ByteBuffer.allocateDirect(data.length*8).order(nativeEndian);
+        _data.asDoubleBuffer().put(data);
         _dataType = ONNX_TYPE_DOUBLE;
     }
 
-    /* ---------- Data sizes getter and setter ---------- */
+    /* ---------- Data shape getter and setter ---------- */
 
     /**
-     * Data sizes getter
+     * Data shape getter
      *
-     * @return data sizes array
+     * @return data shape array
      */
-    public long[] getDataSizes() {
+    public long[] getShape() {
         return _shape;
     }
 
     /**
-     * Data sizes setter
+     * Data shape setter
      *
-     * @param dataSizes data sizes array to be set
+     * @param shape data shape array to be set
      */
-    public void setDataSizes(long[] dataSizes) {
-        if (dataSizes.length != _rank)
+    public void setShape(long[] shape) {
+        if (shape.length != _rank)
             throw new IllegalArgumentException(
-                    "array length " + dataSizes.length + " != rank " + _rank);
-        _shape = dataSizes.clone();
+                    "array length " + shape.length + " != rank " + _rank);
+        _shape = shape;
     }
 
-    /* ---------- Data strides getter and setter ---------- */
+    /* ---------- Data stride getter and setter ---------- */
 
     /**
-     * Data strides getter
+     * Data stride getter
      * 
-     * @return data strides array
+     * @return data stride array
      */
-    public long[] getDataStrides() {
+    public long[] getStride() {
         return _stride;
     }
 
     /**
-     * Data strides setter
+     * Data stride setter
      * 
-     * @param dataStrides data strides array to be set
+     * @param stride data stride array to be set
      */
-    public void setDataStrides(long[] dataStrides) {
-        if (dataStrides.length != _rank)
+    public void setStride(long[] stride) {
+        if (stride.length != _rank)
             throw new IllegalArgumentException(
-                    "array length " + dataStrides.length + " != rank " + _rank);
-        _stride = dataStrides.clone();
+                    "array length " + stride.length + " != rank " + _rank);
+        _stride = stride;
     }
 
     /* ---------- Data type getter and setter ---------- */
@@ -377,8 +372,8 @@ public class OMTensor {
      * 
      * @return total size of the data buffer in bytes
      */
-    public long getDataBufferSize() {
-        return _allocatedPtr == null ? 0 : _allocatedPtr.limit();
+    public long getDataSize() {
+        return _data == null ? 0 : _data.limit();
     }
 
     /* ---------- Rank getter ---------- */
@@ -392,45 +387,81 @@ public class OMTensor {
         return _rank;
     }
 
-    /* ---------- Name getter and setter ---------- */
-
-    /**
-     * Name getter
-     *
-     * @return name of the OMTensor
-     */
-    public String getName() {
-        return _name;
-    }
-
-    /**
-     * Name setter
-     *
-     * @param name name of the OMTensor
-     */
-    public void setName(String name) {
-        _name = name == null ? "" : name;
-    }
+    /* ---------- Number of elements getter ---------- */
 
     /**
      * Number of elements getter
      * 
      * @return number of data elements in the data buffer
      */
-    public long getNumOfElems() {
+    public long getNumElems() {
         long n = _shape[0];
         for (int i = 1; i < _shape.length; i++) n *= _shape[i];
         return n;
     }
 
+    /* ---------- End of public methods ---------- */
+
+
+    /* Called by public constructors to initialize rank, shape, and stride */
+    private void putShape(long[] shape) {
+        _rank = shape.length;
+        _shape = new long[_rank];
+        _stride = new long[_rank];
+                
+        /* Using signed indices helps detect when index falls below 0. */
+        for (int i = _rank - 1; i >= 0; i--) {
+          _shape[i] = shape[i];
+          if (i == _rank - 1)
+            _stride[i] = 1;
+          else
+            _stride[i] = _stride[i+1] * _shape[i+1];
+        }
+    }
+
+    /* For JNI wrapper only. Not intended for end user. */
     /**
-     * Check validity of OMTensor
+     * Constructor
      * 
-     * @return true if OMTensor is valid, false otherwise
+     * @param data data buffer
+     * @param shape data shape
+     * @param stride data stride
+     * @param dataType data type
      */
-    public boolean isValidOmt() {
-        return (_allocatedPtr != null &&
-                _allocatedPtr.limit() != 0 &&
-                _allocatedPtr.limit() == getNumOfElems() * ONNX_TYPE_SIZE[_dataType]);
+    @SuppressWarnings("unused")
+    private OMTensor(ByteBuffer data, long[] shape, long[] stride, int dataType) {
+        if (shape.length != stride.length)
+            throw new IllegalArgumentException(
+                    "shape.length (" + shape.length + ") != stride.length (" + stride.length + ")");
+        if (dataType < 0 || dataType > ONNX_TYPE_BFLOAT16)
+            throw new IllegalArgumentException(
+                    "data type " + dataType + " unknown");
+        _data = data.order(nativeEndian);
+        _dataType = dataType;
+        _rank = shape.length;
+        _shape = shape;
+        _stride = stride;
+    }
+
+    /* For JNI wrapper only. Not intended for end user. */
+    /**
+     * Raw data getter
+     * 
+     * @return raw data
+     */
+    @SuppressWarnings("unused")
+    private ByteBuffer getData() {
+        return _data;
+    }
+
+    /* For JNI wrapper only. Not intended for end user. */
+    /**
+     * Raw data setter
+     * 
+     * @param data raw data to be set
+     */
+    @SuppressWarnings("unused")
+    private void setData(ByteBuffer data) {
+        _data = data.order(nativeEndian);
     }
 }
