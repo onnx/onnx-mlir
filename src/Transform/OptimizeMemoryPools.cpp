@@ -776,7 +776,7 @@ public:
     patterns.insert<KrnlOptimizeStaticMemoryPools>(&getContext());
     patterns.insert<KrnlCompactStaticMemoryPools>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    applyPatternsAndFoldGreedily(function, std::move(patterns));
 
     staticPoolCompacted.erase(function);
   }
