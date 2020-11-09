@@ -43,14 +43,6 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     IndexExprContext childContext(shapeHelper.context);
-#if 0
-    printf("\nalex, make a test for affine\n");
-    Value ind0 = outputLoops.getInductionVar(0);
-    IndexExpr i1 = outerloopContex.CreateSymbolIndex(ind0);
-    IndexExpr t1;
-    t1.Sub(i1, i1);
-    t1.debugPrint("index loop i -i");
-#endif
 
     // Proceed with the load data["i * step + start} for all dim].
     Value loadVal;
@@ -88,7 +80,6 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     rewriter.create<AffineStoreOp>(loc, loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
-    printf("done alex\n\n");
     return success();
   }
 };

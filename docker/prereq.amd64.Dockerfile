@@ -51,6 +51,7 @@ RUN if [ ! -f "/build/llvm-project/build/CMakeCache.txt" ]; then \
        -DLLVM_ENABLE_RTTI=ON; \
     fi
 
+ENV MAKEFLAGS=-j2
 RUN if timeout 30m cmake --build . --target -- ${MAKEFLAGS} ; then \
       cmake --build . --target check-mlir; \
     fi
