@@ -185,14 +185,14 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   Value A = operandAdaptor.A();
   Value B = operandAdaptor.B();
   Value C = operandAdaptor.C();
-  bool hasBias = !C.getType().isa<NoneType>();
+  hasBias = !C.getType().isa<NoneType>();
 
   // Test ranks.
   if (A.getType().cast<ShapedType>().getShape().size() != 2)
     return op->emitError("Gemm with A should be a 2D tensor");
   if (B.getType().cast<ShapedType>().getShape().size() != 2)
     return op->emitError("Gemm with B should be a 2D tensor");
-  int cRank = 0;
+  cRank = 0;
   if (hasBias) {
     cRank = C.getType().cast<ShapedType>().getShape().size();
     if (cRank > 2)

@@ -75,6 +75,8 @@ struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<ONNXGemmOp> {
   SmallVector<IndexExpr, 4> aDims; // Dim of A, after applying transpose.
   SmallVector<IndexExpr, 4> bDims; // Dim of B, after applying transpose.
   SmallVector<IndexExpr, 4> cDims; // Dim of C, padding "1" when broadcast.
+  bool hasBias; // Whether ther eis a bias (aka C exists).
+  int cRank; // Dim of the original C (not padding dims by 1).
 };
 
 //===----------------------------------------------------------------------===//

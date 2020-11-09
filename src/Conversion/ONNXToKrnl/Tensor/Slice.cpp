@@ -24,12 +24,10 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter);
-    if (failed(shapeHelper.Compute(operandAdaptor)))
-      return op->emitError("Failed to scan Silce parameters successfully");
+    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
 
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     int64_t outputRank = outputMemRefType.getShape().size();
-    assert(outputRank == shapeHelper.outputDims.size());
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
@@ -53,21 +51,21 @@ struct ONNXSliceOpLowering : public ConversionPattern {
 
     // Compute indices for the load and store op.
     // Load: "i * step + start" for all dim.
-    // Store: "i".
+    // Store: "i" for all dims.
     SmallVector<IndexExpr, 4> loadIndices;
     SmallVector<IndexExpr, 4> storeIndices;
     for (int ii = 0; ii < outputRank; ++ii) {
-      Value loopVal = outputLoops.getInductionVar(ii);
-      IndexExpr loopIndex = childContext.createLoopIterIndex(loopVal);
+      Value inductionVal = outputLoops.getInductionVar(ii);
+      IndexExpr inductionIndex = childContext.createLoopIterIndex(inductionVal);
       IndexExpr start = childContext.createSymbolIndexFromParentContext(
           shapeHelper.starts[ii]);
       IndexExpr step = childContext.createSymbolIndexFromParentContext(
           shapeHelper.steps[ii]);
-      loopIndex.debugPrint("loop index");
+      inductionIndex.debugPrint("induction index");
       step.debugPrint("  steps");
       start.debugPrint("  start");
-      loadIndices.emplace_back((step * loopIndex) + start);
-      storeIndices.emplace_back(loopIndex);
+      loadIndices.emplace_back((step * inductionIndex) + start);
+      storeIndices.emplace_back(inductionIndex);
     }
     // Load data and store in alloc data.
     Value loadVal =
