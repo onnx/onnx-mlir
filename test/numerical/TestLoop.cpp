@@ -21,7 +21,8 @@ using namespace std;
 // Returns whether onnx-mlir compiled convolution is producing the same results
 // as a naive implementation of convolution for a specific set of convolution
 // parameters/configuration.
-bool isOMLoopTheSameAsNaiveImplFor(const int tripCount) {
+bool isOMLoopTheSameAsNaiveImplFor(
+    const int64_t tripCount, const int64_t yInit) {
   MLIRContext ctx;
   registerDialects(ctx);
 
@@ -44,14 +45,12 @@ bool isOMLoopTheSameAsNaiveImplFor(const int tripCount) {
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
   onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
 
-  int64_t tripCountLiteral = 10;
   char cond = 1;
-  int64_t yInit = 0;
   int64_t yInitShape[1] = {1};
-
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto tripCountTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreate(&tripCountLiteral, NULL, 0, OM_DATA_TYPE::ONNX_TYPE_INT64),
+      omTensorCreate(
+          (void *)&tripCount, NULL, 0, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
   inputs.emplace_back(move(tripCountTensor));
 
@@ -61,30 +60,32 @@ bool isOMLoopTheSameAsNaiveImplFor(const int tripCount) {
   inputs.emplace_back(move(condTensor));
 
   auto yInitTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreate(&yInit, &yInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
+      omTensorCreate(
+          (void *)&yInit, &yInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
   inputs.emplace_back(move(yInitTensor));
 
   auto outputs = sess.run(move(inputs));
-  auto &conv = outputs.at(0);
-  auto &scan = outputs.at(1);
-  auto *data = (int64_t *)omTensorGetDataPtr(conv.get());
-  auto *scanData = (int64_t *)omTensorGetDataPtr(scan.get());
 
-  printf("out=%lld\n", data[0]);
-  for (int i = 0; i < 10; i++)
-    printf("scan_out=%lld\n", scanData[i]);
+  auto vFinalRef = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
+      omTensorCreateEmpty(&yInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
+      omTensorDestroy);
 
-  //
-  //    return omTensorAreTwoOmtsClose<float>(conv.get(), ref);
-  return true;
+  omTensorGetElem<int64_t>(vFinalRef.get(), {0}) = yInit;
+  for (int i = 0; i < tripCount; i++)
+    omTensorGetElem<int64_t>(vFinalRef.get(), {0}) += i;
+
+  auto &vFinal = outputs.at(0);
+  return omTensorAreTwoOmtsClose<float>(vFinal.get(), vFinalRef.get());
 }
 
 int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
-  isOMLoopTheSameAsNaiveImplFor(10);
+  assert(isOMLoopTheSameAsNaiveImplFor(0, 42));
+  assert(isOMLoopTheSameAsNaiveImplFor(1, 42));
+  assert(isOMLoopTheSameAsNaiveImplFor(10, 42));
 
   return 0;
 }

@@ -189,22 +189,6 @@ OMTensor *omTensorCreateEmptyDeprecated(int rank) {
   return omt;
 }
 
-/**
- * Create an OMTensor with the specified shape, rank and element type,
- * allocate uninitialized data for the specified shape.
- * This function is intentionally left out from the header because it is only
- * used by the wrapper code we emit around inference function that converts
- * MemRefs to OMTensors for user convenience.
- *
- * The OMTensor created using this constructor owns the underlying memory
- * space allocated to the content of the tensor.
- *
- * @param shape list of integers indicating the tensor shape.
- * @param rank tensor rank.
- * @param dtype tensor element data type.
- * @return pointer to OMTensor created, NULL if creation failed.
- *
- */
 OMTensor *omTensorCreateEmpty(
     int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor =
