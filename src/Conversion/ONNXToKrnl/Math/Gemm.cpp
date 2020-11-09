@@ -51,9 +51,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // Compute the access functions for res[n,m].
-    Value n = outputLoops.getInductionVar(0);
-    Value m = outputLoops.getInductionVar(1);
-    SmallVector<Value, 4> resAccessFct({n, m});
+    IndexExpr n =
+        outerContext.createLoopIterIndex(outputLoops.getInductionVar(0));
+    IndexExpr m =
+        outerContext.createLoopIterIndex(outputLoops.getInductionVar(1));
+    SmallVector<IndexExpr, 4> resAccessFct({n, m});
 
     // Insert res[n,m] = 0.
     // rewriter.create<AffineStoreOp>(loc, zero, alloc, resAccessFct);
@@ -72,47 +74,44 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         // If dim > 1, use loop index, otherwise broadcast on 0's element.
         IndexExpr dim = outerContext.createSymbolIndexFromParentContext(
             shapeHelper.cDims[x]);
-        IndexExpr index = outerContext.createLoopIterIndex(resAccessFct[x]);
-        cAccessFct.emplace_back(IndexExpr::select(dim > 1, index, 0));
+        cAccessFct.emplace_back(IndexExpr::select(dim > 1, resAccessFct[x], 0));
       }
     }
 
     // Calculate reduction(AB)*alpha.
-    Value loadedAB = rewriter.create<AffineLoadOp>(loc, alloc, resAccessFct);
+    Value loadedAB = outerContext.createLoadOp(alloc, resAccessFct);
     Value alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
     if (shapeHelper.hasBias) {
       // Res = AB*alpha + beta * C.
       Value loadedC = outerContext.createLoadOp(operandAdaptor.C(), cAccessFct);
       auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
       auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-      rewriter.create<AffineStoreOp>(loc, Y, alloc, resAccessFct);
+      outerContext.createStoreOp(Y, alloc, resAccessFct);
     } else {
       // No bias, just store alphaAB into res.
-      rewriter.create<AffineStoreOp>(loc, alphaAB, alloc, resAccessFct);
+      outerContext.createStoreOp(alphaAB, alloc, resAccessFct);
     }
 
     // Now start writing code inside the inner loop: get A & B access functions.
     rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
-    Value k = innerLoops.getInductionVar(0);
-    SmallVector<Value, 4> aAccessFct, bAccessFct;
+    IndexExpr k =
+        outerContext.createLoopIterIndex(innerLoops.getInductionVar(0));
+    SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
     if (gemmOp.transA() != 0)
       aAccessFct = {k, n};
     else
       aAccessFct = {n, k};
-    if (gemmOp.transB() != 0) 
+    if (gemmOp.transB() != 0)
       bAccessFct = {m, k};
-     else 
+    else
       bAccessFct = {k, m};
     // Add mat mul operation.
-    Value loadedA =
-        rewriter.create<AffineLoadOp>(loc, operandAdaptor.A(), aAccessFct);
-    Value loadedB =
-        rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), bAccessFct);
-    Value loadedY = rewriter.create<AffineLoadOp>(loc, alloc, resAccessFct);
+    Value loadedA = outerContext.createLoadOp(operandAdaptor.A(), aAccessFct);
+    Value loadedB = outerContext.createLoadOp(operandAdaptor.B(), bAccessFct);
+    Value loadedY = outerContext.createLoadOp(alloc, resAccessFct);
     Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
     Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, resAccessFct);
-
+    outerContext.createStoreOp(accumulated, alloc, resAccessFct);
 
     rewriter.replaceOp(op, alloc);
 
