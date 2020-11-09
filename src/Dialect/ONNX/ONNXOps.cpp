@@ -3649,11 +3649,8 @@ LogicalResult ONNXLoopOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   auto builder = mlir::Builder(getContext());
   auto func = getLoopBodyFunc();
-
   auto &loopBody = func.getBody();
-
-  auto numLoopVars = loopBody.getNumArguments() - 2;
-  assert(numLoopVars >= 0 && "Loop body must take at least 2 inputs.");
+  assert(loopBody.getNumArguments() >= 2 && "Loop body must take at least 2 inputs.");
 
   // We proceed to set types for loop body function inputs.
   // Set type for iteration number (trip count):
@@ -3699,6 +3696,9 @@ LogicalResult ONNXLoopOp::inferShapes(
     std::get<0>(vFinalValToTy).setType(std::get<1>(vFinalValToTy));
   }
 
+  // For scan outputs, we set their shape to be the shape of the return values of
+  // the loop body function corresponding to scan outputs, but with an extra leading
+  // dimension.
   for (auto vScanOutputValToTy : llvm::zip(scan_outputs(), bodyResScanTys)) {
     auto rankedScanTy =
         std::get<1>(vScanOutputValToTy).cast<RankedTensorType>();

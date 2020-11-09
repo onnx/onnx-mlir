@@ -25,71 +25,22 @@ bool isOMLoopTheSameAsNaiveImplFor(const int tripCount) {
   MLIRContext ctx;
   registerDialects(ctx);
 
-  auto module = ModuleOp::create(UnknownLoc::get(&ctx));
-  OpBuilder builder(&ctx);
-  auto loc = UnknownLoc::get(&ctx);
+  std::string moduleIR = R"(
+    module {
+      func @loop_body(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<i1>, tensor<1xi64>, tensor<1xi64>) {
+          %0 = "onnx.Identity"(%arg1) : (tensor<i1>) -> tensor<i1>
+          %1 = "onnx.Add"(%arg0, %arg2) : (tensor<i64>, tensor<1xi64>) -> tensor<1xi64>
+          return %0, %1, %1 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
+      }
+      func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) {
+          %0:2 = "onnx.Loop"(%arg0, %arg1, %arg2) {body = @loop_body} : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
+          return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
+      }
+      "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32} : () -> ()
+    })";
 
-  llvm::SmallVector<Type, 3> inputsType{
-      RankedTensorType::get({}, builder.getI64Type()),
-      RankedTensorType::get({}, builder.getI1Type()),
-      RankedTensorType::get({1}, builder.getI64Type())};
-  llvm::SmallVector<Type, 2> outputsType{
-      RankedTensorType::get({1}, builder.getI64Type()),
-      RankedTensorType::get({-1, 1}, builder.getI64Type())};
-  llvm::SmallVector<Type, 3> bodyOutputTypes{
-      RankedTensorType::get({}, builder.getI1Type()),
-      RankedTensorType::get({1}, builder.getI64Type()),
-      RankedTensorType::get({1}, builder.getI64Type())};
-  auto bodyFuncTy = builder.getFunctionType(inputsType, bodyOutputTypes);
-  auto bodyFuncOp = builder.create<FuncOp>(loc, "loop_body", bodyFuncTy);
-
-  {
-    OpBuilder::InsertionGuard guard(builder);
-    auto bodyEntryBlock = bodyFuncOp.addEntryBlock();
-    Value iv = bodyEntryBlock->getArgument(0);
-    Value cond = bodyEntryBlock->getArgument(1);
-    Value yInit = bodyEntryBlock->getArgument(2);
-
-    builder.setInsertionPointToStart(bodyEntryBlock);
-    cond =
-        builder.create<ONNXIdentityOp>(loc, cond.getType(), cond).getResult();
-    auto y = builder.create<ONNXAddOp>(loc, iv, yInit);
-    builder.create<ReturnOp>(loc, ValueRange({cond, y, y}));
-  }
-  module.push_back(bodyFuncOp);
-
-  auto funcType = builder.getFunctionType(inputsType, outputsType);
-  string funcName = "main_graph";
-  auto funcOp = builder.create<FuncOp>(loc, funcName, funcType);
-
-  auto entryBlock = funcOp.addEntryBlock();
-  builder.setInsertionPointToStart(entryBlock);
-  {
-    OpBuilder::InsertionGuard guard(builder);
-    auto maxTripCount = entryBlock->getArgument(0);
-    auto cond = entryBlock->getArgument(1);
-    auto yInit = entryBlock->getArgument(2);
-
-    auto vFinalsTy =
-        SmallVector<Type, 2>{RankedTensorType::get({1}, builder.getI64Type()),
-            RankedTensorType::get({-1, 1}, builder.getI64Type())};
-    auto loopOutput =
-        builder
-            .create<ONNXLoopOp>(loc, vFinalsTy, maxTripCount, cond,
-                ValueRange{yInit}, builder.getSymbolRefAttr(bodyFuncOp))
-            .getResults();
-    builder.create<ReturnOp>(loc, loopOutput);
-  }
-  module.push_back(funcOp);
-
-  // Emit the entry point operation which specifies the number of user
-  // inputs and outputs.
-  auto entryPoint = ONNXEntryPointOp::create(loc, funcOp,
-      /*numInputs=*/3,
-      /*numOutputs=*/2);
-  module.push_back(entryPoint);
-
-  OwningModuleRef moduleRef(module);
+  auto module = mlir::parseSourceString(moduleIR, &ctx);
+  OwningModuleRef moduleRef(std::move(module));
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
   onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
 
@@ -99,7 +50,6 @@ bool isOMLoopTheSameAsNaiveImplFor(const int tripCount) {
   int64_t yInitShape[1] = {1};
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
-
   auto tripCountTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreate(&tripCountLiteral, NULL, 0, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
