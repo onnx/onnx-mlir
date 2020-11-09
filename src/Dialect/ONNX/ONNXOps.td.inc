@@ -2476,6 +2476,9 @@ def ONNXLoopOp:ONNX_Op<"Loop",
     }
 
   mlir::FuncOp getLoopBodyFunc();
+  mlir::Operation::result_range v_final();
+  mlir::Operation::result_range scan_outputs();
+  
     }];
 }
 

@@ -8,6 +8,7 @@
 // shapes through function specialization.
 //
 //===----------------------------------------------------------------------===//
+#include <regex>
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/StandardTypes.h"
@@ -21,6 +22,16 @@
 using namespace mlir;
 
 namespace {
+
+static SmallVector<mlir::FuncOp, 4> lookUpFuncsMatching(
+    mlir::ModuleOp module, std::regex pattern) {
+  SmallVector<mlir::FuncOp, 4> matchedFuncs;
+  module.walk([&](FuncOp funcOp) {
+    if (std::regex_search(funcOp.getName().str(), pattern))
+      matchedFuncs.emplace_back(funcOp);
+  });
+  return matchedFuncs;
+}
 /*!
  *  FunctionPass that performs shape inference by iterating over a list of
  *  candidate operations and propagating the shape information until the list
@@ -31,9 +42,11 @@ class ShapeInferencePass : public mlir::PassWrapper<ShapeInferencePass,
 public:
   void runOnOperation() override {
     auto module = getOperation();
-    if (auto f = module.lookupSymbol("main_graph")) {
-      if (failed(runShapeInferenceOn(dyn_cast<mlir::FuncOp>(f))))
-        signalPassFailure();
+    auto matchedFuncs =
+        lookUpFuncsMatching(module, std::regex("[a-zA-Z0-9_]*main_graph"));
+    if (!matchedFuncs.empty()) {
+      for (auto func : matchedFuncs)
+        runShapeInferenceOn(func);
     } else {
       auto result = module.walk([&](FuncOp funcOp) -> WalkResult {
         return runShapeInferenceOn(funcOp);

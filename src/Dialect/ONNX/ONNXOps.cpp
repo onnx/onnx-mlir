@@ -3647,58 +3647,96 @@ LogicalResult ONNXZipMapOp::inferShapes(
 /// Infer the output shape of the ONNXLoopOp.
 LogicalResult ONNXLoopOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
+  auto builder = mlir::Builder(getContext());
   auto func = getLoopBodyFunc();
-  shapeInferenceFunc(func);
 
   auto &loopBody = func.getBody();
+
   auto numLoopVars = loopBody.getNumArguments() - 2;
   assert(numLoopVars >= 0 && "Loop body must take at least 2 inputs.");
 
-  // Output loop variables should have the same type as their input
-  // counterparts.
-  for (int64_t i = numLoopVars - 1; i >= 0; i--) {
-    auto inType = loopBody.getArgument(i + 2).getType();
-    getResult(i).setType(inType);
+  // We proceed to set types for loop body function inputs.
+  // Set type for iteration number (trip count):
+  func.getBody().getArgument(0).setType(
+      RankedTensorType::get({}, builder.getI64Type()));
+  // Set type for termination condition:
+  func.getBody().getArgument(1).setType(
+      RankedTensorType::get({}, builder.getI1Type()));
+
+  // Set types for loop carried dependencies (i.e., set these loop carried
+  // depdencies that appear in the body function input signature to have the
+  // same type as their counterpart in LoopOp inputs).
+  auto bodyInputs = func.getBody().getArguments();
+  auto bodyVRange = llvm::make_range(bodyInputs.begin() + 2, bodyInputs.end());
+  for (auto opVToBodyVTy : llvm::zip(v_initial(), bodyVRange)) {
+    auto opVTy = std::get<0>(opVToBodyVTy).getType();
+    std::get<1>(opVToBodyVTy).setType(opVTy);
   }
 
-  // For scan output of the loop operation, they should have the same type as
-  // the corresponding loop body output from which they were concatenated into,
-  // except for one additional leading dimension with extent equal to the
-  // **actual** loop trip count.
+  // Update function signature according to new entry block argument types.
+  func.setType(FunctionType::get(func.getBody().getArgumentTypes(),
+      func.getType().getResults(), getContext()));
 
-  // Minus one because loop body output does not contain iteration_num.
-  auto scanStartIdx = loopBody.getNumArguments() - 1;
-  auto scanEndIdx = func.getNumResults();
-  for (auto i = scanStartIdx; i < scanEndIdx; i++) {
-    auto loopBodyScanOutType = func.getType().getResult(i);
-    if (loopBodyScanOutType.isa<RankedTensorType>()) {
-      auto rankedLoopBodyScanOutType =
-          loopBodyScanOutType.cast<RankedTensorType>();
-      auto shape = rankedLoopBodyScanOutType.getShape();
-      SmallVector<int64_t, 4> unsqueezedShape(shape.begin(), shape.end());
-      // Note that we may know the extent of the scan output leading dimension,
-      // which is very likely just the trip count specified as an input to Loop
-      // operation, but we need to eliminate the possibility of early
-      // termination to be sure.
-      unsqueezedShape.insert(unsqueezedShape.begin(), -1);
-      auto loopOpScanOutType = RankedTensorType::get(
-          unsqueezedShape, rankedLoopBodyScanOutType.getElementType());
-      // Note that translating index position from loop body output to loop
-      // operation output involves substration by one, because loop operation
-      // output does not contain the loop condition variable.
-      getResult(i - 1).setType(loopOpScanOutType);
-    } else {
-      getResult(i - 1).setType(loopBodyScanOutType);
-    }
+  // Now we have modified loop body function input signatures according to
+  // the knowledge we have on the inputs we pass to this function. Dispatch
+  // shape inference to obtain body function output types.
+  shapeInferenceFunc(func);
+
+  // Output loop variables should have the same type as their input
+  // counterparts.
+  auto bodyResultTys = func.getType().getResults();
+  // Compute the type range corresponding to the final values of loop-carried
+  // dependencies/scan outputs in the body function output types.
+  auto bodyResVFinalTys = llvm::make_range(bodyResultTys.begin() + 1,
+      bodyResultTys.begin() + 1 + v_initial().size());
+  auto bodyResScanTys = llvm::make_range(
+      bodyResultTys.begin() + 1 + v_initial().size(), bodyResultTys.end());
+
+  // Set shape for loop operation outputs corresponding to the final values of
+  // loop-carried dependencies to be shape of their counterparts in the body
+  // function output.
+  for (auto vFinalValToTy : llvm::zip(v_final(), bodyResVFinalTys)) {
+    std::get<0>(vFinalValToTy).setType(std::get<1>(vFinalValToTy));
+  }
+
+  for (auto vScanOutputValToTy : llvm::zip(scan_outputs(), bodyResScanTys)) {
+    auto rankedScanTy =
+        std::get<1>(vScanOutputValToTy).cast<RankedTensorType>();
+    auto shape = rankedScanTy.getShape();
+    SmallVector<int64_t, 4> unsqueezedShape(shape.begin(), shape.end());
+    // Note that we may know the extent of the scan output leading
+    // dimension, which is very likely just the trip count specified as an input
+    // to Loop operation, but we need to eliminate the possibility of early
+    // termination to be sure.
+    unsqueezedShape.insert(unsqueezedShape.begin(), -1);
+    std::get<0>(vScanOutputValToTy)
+        .setType(RankedTensorType::get(
+            unsqueezedShape, rankedScanTy.getElementType()));
   }
 
   return success();
 }
 
+// Helper function to obtain the loop body function associated with a Loop op.
 mlir::FuncOp ONNXLoopOp::getLoopBodyFunc() {
   auto module = this->getParentOfType<mlir::ModuleOp>();
   auto symbolName = this->body().cast<SymbolRefAttr>().getLeafReference();
   return dyn_cast<mlir::FuncOp>(module.lookupSymbol(symbolName));
+}
+
+// Helper function to obtain subset of op results corresponding to the final
+// value of loop carried dependencies.
+mlir::Operation::result_range ONNXLoopOp::v_final() {
+  auto results = getResults();
+  return llvm::make_range(
+      results.begin(), results.begin() + v_initial().size());
+}
+
+// Helper function to obtain subset of op results corresponding to the scan
+// outputs.
+mlir::Operation::result_range ONNXLoopOp::scan_outputs() {
+  auto results = getResults();
+  return llvm::make_range(results.begin() + v_initial().size(), results.end());
 }
 
 //===----------------------------------------------------------------------===//

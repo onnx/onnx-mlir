@@ -344,6 +344,9 @@ OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
 OpsWithHelpers = {
   "Loop": """
   mlir::FuncOp getLoopBodyFunc();
+  mlir::Operation::result_range v_final();
+  mlir::Operation::result_range scan_outputs();
+  
   """,
 }
 # Interface for special handling of type inference
