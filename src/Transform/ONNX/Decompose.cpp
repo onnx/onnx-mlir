@@ -23,8 +23,6 @@
 
 using namespace mlir;
 
-namespace {
-
 // Create an DenseElementsAttr of ArrayAttr.
 // This function is used to get Value Type of an EXISTING ArrayAttr for Scaler
 // function.
@@ -43,6 +41,8 @@ DenseElementsAttr createDenseArrayAttr(
 
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXDecompose.inc"
+
+namespace {
 
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, FunctionPass> {
@@ -70,7 +70,7 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   OwningRewritePatternList patterns;
   populateWithGenerated(context, patterns);
 
-  if (failed(applyPartialConversion(function, target, patterns)))
+  if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
 } // end anonymous namespace
 
