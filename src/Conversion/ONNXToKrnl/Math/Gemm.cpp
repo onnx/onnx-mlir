@@ -58,7 +58,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> resAccessFct({n, m});
 
     // Insert res[n,m] = 0.
-    // rewriter.create<AffineStoreOp>(loc, zero, alloc, resAccessFct);
+    outerContext.createStoreOp(zero, alloc, resAccessFct);
 
     // Create the inner loop
     BuildKrnlLoop innerLoops(rewriter, loc, 1);
