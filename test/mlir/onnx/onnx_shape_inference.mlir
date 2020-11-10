@@ -1610,3 +1610,33 @@ func @loop_body(%arg0: tensor<*xi64>, %arg1: tensor<*xi1>, %arg2: tensor<*xi64>)
   // CHECK:           return [[COND_NEXT]], [[VAR_FINAL]], [[SCAN_OUT]] : tensor<i1>, tensor<1xi64>, tensor<1xi64>
   // CHECK:         }
 }
+
+// -----
+
+func @test_loop_multi_scan_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>, %arg3: tensor<1xf32>) -> (tensor<*xi64>, tensor<*xf32>, tensor<*xi64>, tensor<*xf32>) {
+  %0:4 = "onnx.Loop"(%arg0, %arg1, %arg2, %arg3) {body = @loop_body} : (tensor<i64>, tensor<i1>, tensor<1xi64>, tensor<1xf32>) -> (tensor<*xi64>, tensor<*xf32>, tensor<*xi64>, tensor<*xf32>)
+  return %0#0, %0#1, %0#2, %0#3 : tensor<*xi64>, tensor<*xf32>, tensor<*xi64>, tensor<*xf32>
+  // CHECK-LABEL:   func @test_loop_multi_scan_main_graph
+  // CHECK-SAME:     ([[MAX_TRIP_COUNT:%.+]]: tensor<i64>, [[COND:%.+]]: tensor<i1>, [[Y1_INIT:%.+]]: tensor<1xi64>, [[Y2_INIT:%.+]]: tensor<1xf32>) -> (tensor<1xi64>, tensor<1xf32>, tensor<?x1xi64>, tensor<?x1xf32>) {
+  // CHECK:           [[LOOP:%.+]]:4 = "onnx.Loop"([[MAX_TRIP_COUNT]], [[COND]], [[Y1_INIT]], [[Y2_INIT]]) {body = @loop_body} : (tensor<i64>, tensor<i1>, tensor<1xi64>, tensor<1xf32>) -> (tensor<1xi64>, tensor<1xf32>, tensor<?x1xi64>, tensor<?x1xf32>)
+  // CHECK:           return [[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2, [[LOOP]]#3 : tensor<1xi64>, tensor<1xf32>, tensor<?x1xi64>, tensor<?x1xf32>
+  // CHECK:         }
+}
+
+func @loop_body(%arg0: tensor<*xi64>, %arg1: tensor<*xi1>, %arg2: tensor<*xi64>, %arg3: tensor<*xf32>) -> (tensor<*xi1>, tensor<*xi64>, tensor<*xf32>, tensor<*xi64>, tensor<*xf32>) {
+  %0 = "onnx.Identity"(%arg1) : (tensor<*xi1>) -> tensor<*xi1>
+  %1 = "onnx.Add"(%arg2, %arg0) : (tensor<*xi64>, tensor<*xi64>) -> tensor<*xi64>
+  %2 = "onnx.Identity"(%1) : (tensor<*xi64>) -> tensor<*xi64>
+  %3 = "onnx.Add"(%arg3, %arg3) : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+  %4 = "onnx.Identity"(%3) : (tensor<*xf32>) -> tensor<*xf32>
+  return %0, %1, %3, %2, %4 : tensor<*xi1>, tensor<*xi64>, tensor<*xf32>, tensor<*xi64>, tensor<*xf32>
+  // CHECK-LABEL:   func @loop_body
+  // CHECK-SAME:     ([[ITER_NUM:%.+]]: tensor<i64>, [[COND:%.+]]: tensor<i1>, [[Y1_PREV:%.+]]: tensor<1xi64>, [[Y2_PREV:%.+]]: tensor<1xf32>) -> (tensor<i1>, tensor<1xi64>, tensor<1xf32>, tensor<1xi64>, tensor<1xf32>) {
+  // CHECK:           [[COND_NEXT:%.+]] = "onnx.Identity"([[COND]]) : (tensor<i1>) -> tensor<i1>
+  // CHECK:           [[Y1_NEXT:%.+]] = "onnx.Add"([[Y1_PREV]], [[ITER_NUM]]) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
+  // CHECK:           [[Y1_SCAN:%.+]] = "onnx.Identity"([[Y1_NEXT]]) : (tensor<1xi64>) -> tensor<1xi64>
+  // CHECK:           [[Y2_NEXT:%.+]] = "onnx.Add"([[Y2_PREV]], [[Y2_PREV]]) : (tensor<1xf32>, tensor<1xf32>) -> tensor<1xf32>
+  // CHECK:           [[Y2_SCAN:%.+]] = "onnx.Identity"([[Y2_NEXT]]) : (tensor<1xf32>) -> tensor<1xf32>
+  // CHECK:           return [[COND_NEXT]], [[Y1_NEXT]], [[Y2_NEXT]], [[Y1_SCAN]], [[Y2_SCAN]] : tensor<i1>, tensor<1xi64>, tensor<1xf32>, tensor<1xi64>, tensor<1xf32>
+  // CHECK:         }
+}
