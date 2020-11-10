@@ -50,12 +50,12 @@ bool isOMLoopTheSameAsNaiveImplFor(
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto tripCountTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreate(
-          (void *)&tripCount, NULL, 0, OM_DATA_TYPE::ONNX_TYPE_INT64),
+          (void *)&tripCount, nullptr, 0, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
   inputs.emplace_back(move(tripCountTensor));
 
   auto condTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreate(&cond, NULL, 0, OM_DATA_TYPE::ONNX_TYPE_BOOL),
+      omTensorCreate(&cond, nullptr, 0, OM_DATA_TYPE::ONNX_TYPE_BOOL),
       omTensorDestroy);
   inputs.emplace_back(move(condTensor));
 
