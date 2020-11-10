@@ -38,7 +38,7 @@ public:
       : context_(context), builder_(&context) {
     module_ = mlir::ModuleOp::create(mlir::UnknownLoc::get(&context));
     InitHandlerMap();
-    if (const char *envVerbose = std::getenv("OM_FORCE_FIRST_DIM_UNKNOWN"))
+    if (const char *envVerbose = std::getenv("IMPORTER_FORCE_DYNAMIC"))
       force_first_dim_unknown_ = true;
     else
       force_first_dim_unknown_ = false;
