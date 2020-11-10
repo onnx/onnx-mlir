@@ -46,7 +46,7 @@ bool isOMLoopTheSameAsNaiveImplFor(
   onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
 
   char cond = 1;
-  int64_t yInitShape[1] = {1};
+  int64_t yInitShape[1] = {1}, yRefInitShape[1] = {1};
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto tripCountTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreate(
@@ -68,7 +68,7 @@ bool isOMLoopTheSameAsNaiveImplFor(
   auto outputs = sess.run(move(inputs));
 
   auto vFinalRef = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateEmpty(&yInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
+      omTensorCreateEmpty(&yRefInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
 
   omTensorGetElem<int64_t>(vFinalRef.get(), {0}) = yInit;
