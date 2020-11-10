@@ -1390,8 +1390,8 @@ func @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %arg1 : te
 
   // CHECK: krnl.iterate([[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg7 = 0 to 3, [[INNER_LOOPS]]#1 -> %arg8 = 0 to 6, [[INNER_LOOPS]]#2 -> %arg9 = 0 to 7) {
   // CHECK: [[ADD2:%.+]] = affine.apply #{{.*}}(%arg3, %arg7)[%c3]
-  // CHECK: [[R1PLUSK1:%.+]] = affine.apply #{{.*}}(%arg5, %arg8) 
-  // CHECK: [[R2PLUSK2:%.+]] = affine.apply #{{.*}}(%arg6, %arg9) 
+  // CHECK: [[R1PLUSK1:%.+]] = affine.apply #{{.*}}(%arg5, %arg8)
+  // CHECK: [[R2PLUSK2:%.+]] = affine.apply #{{.*}}(%arg6, %arg9)
   // CHECK: [[DATA:%.+]] = affine.load %arg0[%arg2, [[ADD2]], [[R1PLUSK1]], [[R2PLUSK2]]] : memref<1x9x32x64xf32>
   // CHECK: [[KERNEL:%.+]] = affine.load %arg1[%[[ADD1]], %arg7, %arg8, %arg9] : memref<5x3x6x7xf32>
   // CHECK: [[ACC_RES:%.+]] = affine.load %0[%arg2, %[[ADD1]], %arg5, %arg6] : memref<1x5x27x58xf32>
@@ -2157,7 +2157,7 @@ func @test_gru_with_bias(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2xf32>, %ar
 
 // -----
 
-// Check handling unknown dimensions for GRU by checking the 
+// Check handling unknown dimensions for GRU by checking the
 // correctness of allocating and deallocating memory.
 func @test_gru_unkown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x9x?xf32>, %arg2: tensor<1x9x3xf32>) -> tensor<*xf32> {
   %cst = constant unit
@@ -2437,7 +2437,7 @@ func @test_lstm_bidirectional_mode(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x
 
 // -----
 
-// Check handling unknown dimensions for LSTM by checking the 
+// Check handling unknown dimensions for LSTM by checking the
 // correctness of allocating and deallocating memory.
 func @test_lstm_unkown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x12x?xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
   %cst = constant unit
@@ -2463,7 +2463,7 @@ func @test_lstm_unkown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1
   // CHECK: [[BATCH_SIZE:%.+]] = dim %arg0, [[C1_1]] : memref<?x?x?xf32>
   // CHECK: [[Y_c:%.+]] = alloc([[BATCH_SIZE]]) : memref<1x?x3xf32>
 
-  // deallocate Y since there is no operation consuming it. 
+  // deallocate Y since there is no operation consuming it.
   // CHECK: dealloc [[Y]] : memref<?x1x?x3xf32>
   // deallocate Y_c since it is not a return value.
   // CHECK: dealloc [[Y_c]] : memref<1x?x3xf32>
@@ -2564,7 +2564,7 @@ func @test_rnn_with_bias(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf32>, %ar
 
 // -----
 
-// Check handling unknown dimensions for RNN by checking the 
+// Check handling unknown dimensions for RNN by checking the
 // correctness of allocating and deallocating memory.
 func @test_rnn_unkown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x3x?xf32>, %arg2: tensor<1x3x3xf32>) -> tensor<*xf32> {
   %cst = constant unit
@@ -3023,7 +3023,7 @@ func @test_flatten0(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
 func @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
   %1 = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<2x?x4xf32>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
- 
+
   // CHECK:  [[MAP1:#.+]] = affine_map<(d0, d1)[s0, s1] -> (d1 + d0 * s1)>
   // CHECK:  [[MAP2:#.+]] = affine_map<(d0)[s0] -> (d0)>
   // CHECK-LABEL test_flatten1
@@ -3054,7 +3054,7 @@ func @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
 
 // -----
 
-// Test Tile with 1D unknown input 
+// Test Tile with 1D unknown input
 func @test_tile3(%arg0 : tensor<?xf32>, %arg1 : tensor<1xi64>) -> tensor<*xf32> {
   %1 = "onnx.Tile"(%arg0, %arg1) : (tensor<?xf32>, tensor<1xi64>) -> tensor<*xf32>
   return %1 : tensor<*xf32>
@@ -3137,3 +3137,60 @@ func @test_less_unknown_dims(%arg0: tensor<3x4x5xf32>, %arg1: tensor<?x4x5xf32>)
   // CHECK: }
   // CHECK: return [[RES]] : memref<3x4x5xi1>
 }
+
+// -----
+
+  func @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> tensor<1xi64> {
+    %0 = "onnx.Loop"(%arg0, %arg1, %arg2) {body = @loop_body} : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> tensor<1xi64>
+    return %0 : tensor<1xi64>
+    // CHECK:       #map0 = affine_map<(d0) -> (d0)>
+    // CHECK:       #map1 = affine_map<() -> (0)>
+    // CHECK:       #map2 = affine_map<() -> (1)>
+    // CHECK:       #map3 = affine_map<()[s0] -> (s0)>
+    // CHECK:       #map4 = affine_map<() -> ()>
+    // CHECK:       module {
+    // CHECK-LABEL:       func @test_loop_simple_main_graph
+    // CHECK-SAME:     ([[MAX_TRIP_COUNT:%.+]]: memref<i64>, [[COND:%.+]]: memref<i1>, [[Y_INIT:%.+]]: memref<1xi64>) -> memref<1xi64> {
+    // CHECK:           [[Y:%.+]] = alloc() : memref<1xi64>
+    // CHECK:           [[LOOP_REF:%.+]] = krnl.define_loops 1
+    // CHECK:           krnl.iterate([[LOOP_REF]]) with ([[LOOP_REF]] -> [[IV:%.+]] = 0 to 1) {
+    // CHECK:             [[Y_REG:%.+]] = affine.load [[Y_INIT]]{{.}}[[IV]]{{.}} : memref<1xi64>
+    // CHECK:             affine.store [[Y_REG]], [[Y]]{{.}}[[IV]]{{.}} : memref<1xi64>
+    // CHECK:           }
+    // CHECK:           [[LOOP_REF2:%.+]] = krnl.define_loops 1
+    // CHECK:           [[MAX_TRIP_COUNT_REG:%.+]] = load [[MAX_TRIP_COUNT]][] : memref<i64>
+    // CHECK:           [[MAX_TRIP_COUNT_IDX:%.+]] = index_cast [[MAX_TRIP_COUNT_REG]] : i64 to index
+    // CHECK:           krnl.iterate([[LOOP_REF2]]) with ([[LOOP_REF2]] -> [[IV2:%.+]] = 0 to [[MAX_TRIP_COUNT_IDX]]) {
+    // CHECK:             [[IV_I64:%.+]] = index_cast [[IV2]] : index to i64
+    // CHECK:             [[IV_TENSOR:%.+]] = alloc() : memref<i64>
+    // CHECK:             store [[IV_I64]], [[IV_TENSOR]][] : memref<i64>
+    // CHECK:             [[LOOP_OUTS:%.+]]:2 = call @loop_body([[IV_TENSOR]], [[COND]], [[Y]]) : (memref<i64>, memref<i1>, memref<1xi64>) -> (memref<i1>, memref<1xi64>)
+    // CHECK:             [[COND:%.+]] = krnl.dummy_cast [[LOOP_OUTS]]#0 : (memref<i1>) -> memref<i1>
+    // CHECK:             [[Y_CURRENT:%.+]] = krnl.dummy_cast [[LOOP_OUTS]]#1 : (memref<1xi64>) -> memref<1xi64>
+    // CHECK:             [[LOOP_REF3:%.+]] = krnl.define_loops 1
+    // CHECK:             krnl.iterate([[LOOP_REF3]]) with ([[LOOP_REF3]] -> [[IV3:%.+]] = 0 to 1) {
+    // CHECK:               [[Y_REG2:%.+]] = affine.load [[Y_CURRENT]]{{.}}[[IV3]]{{.}} : memref<1xi64>
+    // CHECK:               affine.store [[Y_REG2]], [[Y]]{{.}}[[IV3]]{{.}} : memref<1xi64>
+    // CHECK:             }
+    // CHECK:           }
+    // CHECK:           return [[Y]] : memref<1xi64>
+    // CHECK:         }
+  }
+  func @loop_body(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<i1>, tensor<1xi64>) {
+    %0 = "onnx.Identity"(%arg1) : (tensor<i1>) -> tensor<i1>
+    %1 = "onnx.Add"(%arg2, %arg0) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
+    return %0, %1 : tensor<i1>, tensor<1xi64>
+    // CHECK-LABEL:       func @loop_body
+    // CHECK-SAME:     ([[ITER_NUM:%.+]]: memref<i64>, [[COND:%.+]]: memref<i1>, [[Y_PREV:%.+]]: memref<1xi64>) -> (memref<i1>, memref<1xi64>) {
+    // CHECK:           [[ADD_OUT:%.+]] = alloc() : memref<1xi64>
+    // CHECK:           [[LOOP_REF:%.+]] = krnl.define_loops 1
+    // CHECK:           krnl.iterate([[LOOP_REF]]) with ([[LOOP_REF]] -> [[IV:%.+]] = 0 to 1) {
+    // CHECK:             [[ZERO:%.+]] = constant 0 : index
+    // CHECK:             [[ADD_LHS:%.+]] = affine.load [[Y_PREV]]{{.}}[[ZERO]]{{.}} : memref<1xi64>
+    // CHECK:             [[ADD_RHS:%.+]] = affine.load [[ITER_NUM]][] : memref<i64>
+    // CHECK:             [[SUM:%.+]] = addi [[ADD_LHS]], [[ADD_RHS]] : i64
+    // CHECK:             affine.store [[SUM]], [[ADD_OUT]]{{.}}[[IV]]{{.}} : memref<1xi64>
+    // CHECK:           }
+    // CHECK:           return [[COND]], [[ADD_OUT]] : memref<i1>, memref<1xi64>
+    // CHECK:         }
+  }

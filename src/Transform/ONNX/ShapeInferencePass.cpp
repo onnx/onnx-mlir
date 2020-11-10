@@ -36,6 +36,19 @@ static SmallVector<mlir::FuncOp, 4> lookUpFuncsMatching(
  *  FunctionPass that performs shape inference by iterating over a list of
  *  candidate operations and propagating the shape information until the list
  *  of operations is empty [credit MLIR authors].
+ *
+ * Shape inference proceeds recursively, starting with the entry point function
+ * corresponding to the main computation graph. This is because sometimes an
+ * operation is associated with a different (sub) computation graph in the forms
+ * of mlir functions, and the operation's output shape and type depends on the
+ * shape and type of that (sub) graph outputs. In such scenarios, operations can
+ * initiate shape inference on its dependent (sub) graph, and resume infering
+ * its output shape only after shape inference completes for the associated
+ * (sub) graph.
+ *
+ * In the abscence of a main computation graph, we will treat every mlir
+ * function as a main computation graph; this is mostly just for testing
+ * purposes.
  */
 class ShapeInferencePass : public mlir::PassWrapper<ShapeInferencePass,
                                OperationPass<mlir::ModuleOp>> {
