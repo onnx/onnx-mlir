@@ -579,7 +579,8 @@ private:
         auto argTy = ImportTensorType(input);
         auto shapedTy = argTy.dyn_cast<mlir::RankedTensorType>();
         // Change the first dimension to unknown (-1) for test purpose only
-        if (shapedTy && force_dim_dynamic_enabled_ && (forced_input_ == -1 || forced_input_ == numInputs)) {
+        if (shapedTy && force_dim_dynamic_enabled_ &&
+            (forced_input_ == -1 || forced_input_ == numInputs)) {
           auto argShape = shapedTy.getShape();
           SmallVector<int64_t, 4> newDims;
           newDims.push_back(-1);
