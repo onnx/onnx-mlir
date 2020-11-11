@@ -937,37 +937,6 @@ func @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @test_gemm(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2: tensor<10xf32>) -> tensor<*xf32> {
-  %0 ="onnx.Gemm"(%arg0, %arg1, %arg2) {alpha = 1.0 : f32, beta = 5.0 : f32, transA = 1 : si64, transB = 0 : si64} : (tensor<5x10xf32>, tensor<5x10xf32>, tensor<10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_gemm
-  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
-  // CHECK: [[ALPHA:%.+]] = constant 1.000000e+00 : f32
-  // CHECK: [[BETA:%.+]] = constant 5.000000e+00 : f32
-  // CHECK: [[DEF_LOOPS:%.+]]:3 = krnl.define_loops 3
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg3 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg4 = 0 to 10) {
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#2) with ([[DEF_LOOPS]]#2 -> %arg5 = 0 to 5) {
-  // CHECK: [[A:%.+]] = affine.load %arg0[%arg5, %arg3] : memref<5x10xf32>
-  // CHECK: [[B:%.+]] = affine.load %arg1[%arg5, %arg4] : memref<5x10xf32>
-  // CHECK: [[Y:%.+]] = affine.load [[RES]][%arg3, %arg4] : memref<10x10xf32>
-  // CHECK: [[AB:%.+]] = mulf [[A]], [[B]] : f32
-  // CHECK: [[SUM:%.+]] = addf [[Y]], [[AB]] : f32
-  // CHECK: affine.store [[SUM]], [[RES]][%arg3, %arg4] : memref<10x10xf32>
-  // CHECK: }
-  // CHECK: [[LOAD_Y:%.+]] = affine.load [[RES]][%arg3, %arg4] : memref<10x10xf32>
-  // CHECK: [[ALPHA_AB:%.+]] = mulf [[ALPHA]], [[LOAD_Y]] : f32
-  // CHECK: [[C:%.+]] = affine.load %arg2[%arg4] : memref<10xf32>
-  // CHECK: [[BETA_C:%.+]] = mulf [[BETA]], [[C]] : f32
-  // CHECK: [[Y_RES:%.+]] = addf [[ALPHA_AB]], [[BETA_C]] : f32
-  // CHECK: affine.store [[Y_RES]], [[RES]][%arg3, %arg4] : memref<10x10xf32>
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<10x10xf32>
-  // CHECK: }
-}
-
-// -----
-
 func @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sqrt"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
