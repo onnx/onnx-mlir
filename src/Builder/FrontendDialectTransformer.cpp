@@ -38,10 +38,12 @@ public:
       : context_(context), builder_(&context) {
     module_ = mlir::ModuleOp::create(mlir::UnknownLoc::get(&context));
     InitHandlerMap();
-    if (const char *envVerbose = std::getenv("IMPORTER_FORCE_DYNAMIC"))
-      force_first_dim_unknown_ = true;
-    else
-      force_first_dim_unknown_ = false;
+    if (const char *envDimString = std::getenv("IMPORTER_FORCE_DYNAMIC")) {
+      force_dim_dynamic_enabled_ = true;
+      forced_input_ = atoi(envDimString);
+    } else {
+      force_dim_dynamic_enabled_ = false;
+    }
   }
 
   mlir::ModuleOp ImportONNXModel(const onnx::ModelProto &model) {
@@ -57,10 +59,13 @@ private:
   // mapping between string name and symbol
   OnnxMlirSymbolMapping frontend_symbols_;
 
-  // Flag to change the arguments of function to unknown dimension
+  // Flag to change the inputs of function to unknown dimension
   // Temporarily added to use the test cases with static shape to test
-  // The value is set by enviroment variable OM_FORCE_FIRST_DIM_UNKNOWN
-  bool force_first_dim_unknown_;
+  // The value is set by enviroment variable IMPORTER_FORCE_DYNAMIC
+  // Variable forced_input records which inputs to be changed, starting from 0.
+  // When all the inputs are to be changed, set IMPORTER_FORCE_DYNAMIC=-1
+  bool force_dim_dynamic_enabled_;
+  int forced_input_;
 
   typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
       const onnx::NodeProto &);
@@ -574,7 +579,7 @@ private:
         auto argTy = ImportTensorType(input);
         auto shapedTy = argTy.dyn_cast<mlir::RankedTensorType>();
         // Change the first dimension to unknown (-1) for test purpose only
-        if (force_first_dim_unknown_ && shapedTy) {
+        if (shapedTy && force_dim_dynamic_enabled_ && (forced_input_ == -1 || forced_input_ == numInputs)) {
           auto argShape = shapedTy.getShape();
           SmallVector<int64_t, 4> newDims;
           newDims.push_back(-1);
