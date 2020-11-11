@@ -13,6 +13,8 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
+#include <algorithm>
+
 using namespace mlir;
 
 //===----------------------------------------------------------------------===//
@@ -175,8 +177,8 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
 
 ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(
     ONNXGemmOp *newOp, ConversionPatternRewriter *rewriter)
-    : ONNXOpShapeHelper<ONNXGemmOp>(newOp, rewriter), aDims(), bDims(),
-      cDims() {}
+    : ONNXOpShapeHelper<ONNXGemmOp>(newOp, rewriter), aDims(), bDims(), cDims(),
+      hasBias(false), cRank(-1) {}
 
 LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
@@ -265,6 +267,123 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
         return op->emitError("bias add has bad dimension on second dim");
       }
     }
+  }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX MatMul Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(
+    ONNXMatMulOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXMatMulOp>(newOp, rewriter), aDims(), bDims(),
+      aPadDims(), bPadDims() {}
+
+LogicalResult ONNXMatMulOpShapeHelper::Compute(
+    ONNXMatMulOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+  // Get info.
+  Value A = operandAdaptor.A();
+  Value B = operandAdaptor.B();
+  int aRank = A.getType().cast<ShapedType>().getShape().size();
+  int bRank = B.getType().cast<ShapedType>().getShape().size();
+
+  // Size all the arrays to padded length.
+  int paddedRank = std::max(aRank, bRank);
+  paddedRank = std::max(paddedRank, 2);
+  aDims.resize(paddedRank);
+  bDims.resize(paddedRank);
+  aPadDims.resize(paddedRank, false);
+  bPadDims.resize(paddedRank, false);
+  // Add the dims of A. All of the aDim[0]...adim[arank-1] are in the rightmost
+  // positions, prepended by 1s to fit the paddedRankSize.
+  // (1,1,1... 1, aDim[0]...adim[aRank-1])
+  IndexExpr one = context.createLiteralIndex(1);
+  int aOffset = paddedRank - aRank;
+  for (int i = 0; i < aOffset; ++i) {
+    aDims[i] = one;
+    aPadDims[i] = true;
+  }
+  for (int i = 0; i < aRank; ++i) {
+    aDims[i + aOffset] = context.createDimIndexFromShapedType(A, i);
+    aPadDims[i + aOffset] = false; // Pad false evein if dim is sized 1.
+  }
+  // for B: two cases. If bRank = 1, we pad the rightmost position. Namely we
+  // get (1...,1, bDim[0], 1). We use one padding credit for the rightmost
+  // position. Otherwise, when bRank>1, we only padd the leading positions.
+  // Namely we get (1,1,1...,1, bDim[0],.... bDim[bRank-1])
+  int bOffset = paddedRank - bRank;
+  if (bRank == 1) {
+    bDims[paddedRank - 1] = one;
+    bPadDims[paddedRank - 1] = true;
+    bOffset--;
+  }
+  for (int i = 0; i < bOffset; ++i) {
+    bDims[i] = one;
+    bPadDims[i] = true;
+  }
+  for (int i = 0; i < bRank; ++i) {
+    bDims[i + bOffset] = context.createDimIndexFromShapedType(B, i);
+    bPadDims[i + bOffset] = false; // Pad false evein if dim is sized 1.
+  }
+  assert(aDims.size() == bDims.size() && "padded A&B must have same size");
+
+  // Fill in the output dimensions, start with the non-matmul dims.
+  for (int i = 0; i < paddedRank - 2; ++i) {
+    // Check for broadcast, then literals, then runtime for both.
+    if (aDims[i].isLiteralAndIdenticalTo(1)) {
+      // A is broadcast, use B dim.
+      outputDims.emplace_back(bDims[i]);
+    } else if (bDims[i].isLiteralAndIdenticalTo(1)) {
+      // B is a broadcast, use A dim.
+      outputDims.emplace_back(aDims[i]);
+    } else if (aDims[i].isLiteral() && bDims[i].isLiteral()) {
+      // No broadcast, both literals, make sure they have the same value.
+      if (aDims[i].getLiteral() != bDims[i].getLiteral())
+        return op->emitError("Incompatible size detected");
+      outputDims.emplace_back(aDims[i]);
+    } else if (aDims[i].isLiteral()) {
+      // A dim is a literal; use it here for output and b, since b
+      // is guaranteed not to be a broadcast (earlier tests).
+      outputDims.emplace_back(aDims[i]);
+      bDims[i] = aDims[i]; // Add runtime check if desired.
+    } else if (bDims[i].isLiteral()) {
+      // A dim is a literal; use it here for output and a, since a
+      // is guaranteed not to be a broadcast (earlier tests).
+      outputDims.emplace_back(bDims[i]);
+      aDims[i] = bDims[i]; // Add runtime check if desired.
+    } else {
+      // Have no broadcast or literal, just pick a for output; add runtime check
+      // if desired.
+      outputDims.emplace_back(aDims[i]);
+    }
+  }
+  // We now check get the last two dimensions: NxK times KxM.
+  int aN = paddedRank - 2;
+  int aK = paddedRank - 1;
+  int bK = paddedRank - 2;
+  int bM = paddedRank - 1;
+  // And test the K dimensions.
+  if (aDims[aK].isLiteral() && bDims[bK].isLiteral()) {
+    if (aDims[aK].getLiteral() != bDims[bK].getLiteral())
+      return op->emitError("reduction dimension must be the same");
+  } else if (aDims[aK].isLiteral()) {
+    // Save aK dims into bK dims, in case bK dims was runtime
+    bDims[bK] = aDims[aK];
+  } else if (bDims[bK].isLiteral()) {
+    // Save bK dims into aK dims, in case aK dims was runtime
+    aDims[aK] = bDims[bK];
+  }
+  // Add lower N x M dimensions if they are not padded dimensions.
+  if (!aPadDims[aN])
+    outputDims.emplace_back(aDims[aN]);
+  if (!bPadDims[bM])
+    outputDims.emplace_back(bDims[bM]);
+  // For the case where both aRank == bRank == 1
+  if (aRank == 1 && bRank == 1) {
+    outputDims.emplace_back(one);
   }
   return success();
 }

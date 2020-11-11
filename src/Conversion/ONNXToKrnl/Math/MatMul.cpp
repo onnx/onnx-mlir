@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -18,6 +19,75 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
+
+#if 1
+    // Get shape.
+    ONNXMatMulOpAdaptor operandAdaptor(operands);
+    ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
+    Location loc = op->getLoc();
+    ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter);
+    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
+    IndexExprContext outerContext(shapeHelper.context);
+
+    // Insert an allocation and deallocation for the output of this operation.
+    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    Type elementType = outputMemRefType.getElementType();
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
+
+    // Get the constants: zero.
+    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+
+    // Non-reduction loop iterations: output-rank.
+    int outerloopNum = shapeHelper.outputDims.size();
+    BuildKrnlLoop outputLoops(rewriter, loc, outerloopNum);
+    outputLoops.createDefineOp();
+    outputLoops.pushAllBounds(shapeHelper.outputDims);
+    outputLoops.createIterateOp();
+    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
+
+    // Access function for the output, and set it to zero.
+    SmallVector<IndexExpr, 4> resAccessFct;
+    for (int i = 0; i < outerloopNum; ++i)
+      resAccessFct.emplace_back(
+          outerContext.createLoopIterIndex(outputLoops.getInductionVar(i)));
+    // Insert res[...] = 0.
+    outerContext.createStoreOp(zero, alloc, resAccessFct);
+
+    // Create the inner reduction loop; trip count is last dim of A.
+    BuildKrnlLoop innerLoops(rewriter, loc, 1);
+    innerLoops.createDefineOp();
+    int aRank = shapeHelper.aDims.size();
+    int bRank = aRank; // Add for better readability.
+    innerLoops.pushBounds(0, shapeHelper.aDims[aRank - 1]);
+    innerLoops.createIterateOp();
+
+    // Now start writing code inside the inner loop: get A & B access functions.
+    rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
+    IndexExpr k =
+        outerContext.createLoopIterIndex(innerLoops.getInductionVar(0));
+    SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
+    for (int i = 0; i < aRank; ++i) {
+      // For A, reduction index is last; for B, second to last.
+      IndexExpr aIndex = (i == aRank - 1) ? k : resAccessFct[i];
+      IndexExpr bIndex = (i == bRank - 2) ? k : resAccessFct[i];
+      // Add index if dim is not a padded dimension.
+      if (!shapeHelper.aPadDims[i])
+        aAccessFct.emplace_back(aIndex);
+      if (!shapeHelper.bPadDims[i])
+        bAccessFct.emplace_back(bIndex);
+    }
+
+    // Add mat mul operation.
+    Value loadedA = outerContext.createLoadOp(operandAdaptor.A(), aAccessFct);
+    Value loadedB = outerContext.createLoadOp(operandAdaptor.B(), bAccessFct);
+    Value loadedY = outerContext.createLoadOp(alloc, resAccessFct);
+    Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
+    Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
+    outerContext.createStoreOp(accumulated, alloc, resAccessFct);
+
+#else
+
     auto loc = op->getLoc();
 
     ONNXMatMulOpAdaptor operandAdaptor(operands);
@@ -290,6 +360,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       // No scalar matrix multiplication.
       llvm_unreachable("Unsupported scalar matrix multiplication.");
     }
+#endif
 
     rewriter.replaceOp(op, alloc);
 

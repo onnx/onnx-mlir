@@ -981,6 +981,17 @@ LogicalResult ONNXMatMulOp::inferShapes() {
       !B().getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
 
+  auto elementType = A().getType().cast<ShapedType>().getElementType();
+  ONNXMatMulOpAdaptor operandAdaptor(*this);
+  ONNXMatMulOpShapeHelper shapeHelper(this, nullptr);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Silce parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+
+#if 1
+#else
   auto lhsTy = A().getType().cast<RankedTensorType>();
   auto rhsTy = B().getType().cast<RankedTensorType>();
 
@@ -1099,6 +1110,7 @@ LogicalResult ONNXMatMulOp::inferShapes() {
   }
 
   getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
+  #endif
   return success();
 }
 

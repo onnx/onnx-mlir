@@ -647,6 +647,40 @@ bool IndexExpr::hasValue() const {
   return !(!getObj().value);
 }
 
+bool IndexExpr::isLiteralAndIdenticalTo(int64_t b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral())
+    return false;
+  // We have a literal, now make sure they are the same
+  return getLiteral() == b;
+}
+
+bool IndexExpr::isLiteralAndDifferentThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral())
+    return false;
+  // We have a literal, now make sure they are different
+  return getLiteral() != b;
+}
+
+bool IndexExpr::isLiteralAndIdenticalTo(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral() ||  !b.isLiteral())
+    return false;
+  // We have literals, now make sure they are the same
+  return getLiteral() == b.getLiteral();
+}
+
+bool IndexExpr::isLiteralAndDifferentThan(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral() ||  !b.isLiteral())
+    return false;
+  // We have literals, now make sure they are different
+  return getLiteral() != b.getLiteral();
+}
+
+
+
 //===----------------------------------------------------------------------===//
 // IndexExpr Getters.
 //===----------------------------------------------------------------------===//
