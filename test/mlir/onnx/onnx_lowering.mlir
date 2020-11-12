@@ -2952,20 +2952,17 @@ func @test_tile1(%arg0 : tensor<4x8xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() { value = dense<[3, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
   %1 = "onnx.Tile"(%arg0, %0) : (tensor<4x8xf32>, tensor<2xi64>) -> tensor<*xf32>
   return %1 : tensor<*xf32>
-  // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0)[s0] -> (d0 mod s0)>
+  // CHECK: [[INDEX_MAP0:#.+]] = affine_map<(d0) -> (d0 mod 4)>
+  // CHECK: [[INDEX_MAP1:#.+]] = affine_map<(d0) -> (d0 mod 8)>
   // CHECK-LABEL: test_tile1
   // CHECK:  [[R0:%.+]] = alloc() : memref<12x16xf32>
   // CHECK:  [[R1:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[3, 2]> : tensor<2xi64>} : () -> memref<2xi64>
   // CHECK:  [[R2:%.+]]:2 = krnl.define_loops 2
   // CHECK:  krnl.iterate([[R2]]#0, [[R2]]#1) with ([[R2]]#0 -> [[ARG1:%.+]] = 0 to 12, [[R2]]#1 -> [[ARG2:%.+]] = 0 to 16) {
-  // CHECK:    [[C0:%.+]] = constant 0 : index
-  // CHECK:    [[R3:%.+]] = dim %arg0, [[C0]] : memref<4x8xf32>
-  // CHECK:    [[R4:%.+]] = affine.apply [[INDEX_MAP]]([[ARG1]]){{\[}}[[R3]]{{\]}}
-  // CHECK:    [[C1:%.+]] = constant 1 : index
-  // CHECK:    [[R5:%.+]] = dim %arg0, [[C1]] : memref<4x8xf32>
-  // CHECK:    [[R6:%.+]] = affine.apply [[INDEX_MAP]]([[ARG2]]){{\[}}[[R5]]{{\]}}
-  // CHECK:    [[R7:%.+]] = affine.load %arg0{{\[}}[[R4]], [[R6]]{{\]}} : memref<4x8xf32>
-  // CHECK:    affine.store [[R7]], %0{{\[}}[[ARG1]], [[ARG2]]{{\]}} : memref<12x16xf32>
+  // CHECK:    [[R3:%.+]] = affine.apply [[INDEX_MAP0]]([[ARG1]])
+  // CHECK:    [[R4:%.+]] = affine.apply [[INDEX_MAP1]]([[ARG2]])
+  // CHECK:    [[R5:%.+]] = affine.load %arg0{{\[}}[[R3]], [[R4]]{{\]}} : memref<4x8xf32>
+  // CHECK:    affine.store [[R5]], %0{{\[}}[[ARG1]], [[ARG2]]{{\]}} : memref<12x16xf32>
 }
 
 // -----
@@ -2974,24 +2971,21 @@ func @test_tile1(%arg0 : tensor<4x8xf32>) -> tensor<*xf32> {
 func @test_tile2(%arg0 : tensor<8xf32>, %arg1 : tensor<1xi64>) -> tensor<*xf32> {
   %1 = "onnx.Tile"(%arg0, %arg1) : (tensor<8xf32>, tensor<1xi64>) -> tensor<*xf32>
   return %1 : tensor<*xf32>
-  // CHECK: [[INDEX_MAP:#.+]] = affine_map<(d0)[s0] -> (d0 mod s0)>
+
+  // CHECK: [[INDEX_MAP1:#.+]] = affine_map<(){{\[}}s0{{\]}} -> (s0 * 8)>
+  // CHECK: [[INDEX_MAP2:#.+]] = affine_map<(d0) -> (d0 mod 8)>
   // CHECK-LABEL test_tile2
   // CHECK:  [[C0:%.+]] = constant 0 : index
   // CHECK:  [[R0:%.+]] = affine.load %arg1{{\[}}[[C0]]{{\]}} : memref<1xi64>
   // CHECK:  [[R1:%.+]] = index_cast [[R0]] : i64 to index
-  // CHECK:  [[C0_0:%.+]] = constant 0 : index
-  // CHECK:  [[R2:%.+]] = dim %arg0, [[C0_0]] : memref<8xf32>
-  // CHECK:  [[R3:%.+]] = muli [[R2]], [[R1]] : index
-  // CHECK:  [[R4:%.+]] = alloc([[R3]]) : memref<?xf32>
-  // CHECK:  [[R5:%.+]] = krnl.define_loops 1
-  // CHECK:  [[C0_1:%.+]] = constant 0 : index
-  // CHECK:  [[R6:%.+]] = dim [[R4]], [[C0_1]] : memref<?xf32>
-  // CHECK:  krnl.iterate([[R5]]) with ([[R5]] -> [[ARG2:%.+]] = 0 to [[R6]]) {
-  // CHECK:    [[C0_2:%.+]] = constant 0 : index
-  // CHECK:    [[R7:%.+]] = dim %arg0, [[C0_2]] : memref<8xf32>
-  // CHECK:    [[R8:%.+]] = affine.apply [[INDEX_MAP]]([[ARG2]]){{\[}}[[R7]]{{\]}}
-  // CHECK:    [[R9:%.+]] = affine.load %arg0{{\[}}[[R8]]{{\]}} : memref<8xf32>
-  // CHECK:    affine.store [[R9]], [[R4]]{{\[}}[[ARG2]]{{\]}} : memref<?xf32>
+  // CHECK:  [[R2:%.+]] = affine.apply [[INDEX_MAP1]](){{\[}}[[R1]]{{\]}}
+  // CHECK:  [[R3:%.+]] = alloc([[R2]]) : memref<?xf32>
+  // CHECK:  [[R4:%.+]] = krnl.define_loops 1
+  // CHECK:  [[R5:%.+]] = affine.apply [[INDEX_MAP1]](){{\[}}[[R1]]{{\]}}
+  // CHECK:  krnl.iterate([[R4]]) with ([[R4]] -> [[ARG2:%.+]] = 0 to [[R5]]) {
+  // CHECK:    [[R6:%.+]] = affine.apply [[INDEX_MAP2]]([[ARG2]])
+  // CHECK:    [[R7:%.+]] = affine.load %arg0{{\[}}[[R6]]{{\]}} : memref<8xf32>
+  // CHECK:    affine.store [[R7]], [[R3]]{{\[}}[[ARG2]]{{\]}} : memref<?xf32>
 }
 
 // -----
