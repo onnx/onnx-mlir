@@ -29,6 +29,19 @@ bool isNoneType(Value val);
 // Get a dimension of the tensor's shape.
 int64_t dimAt(Value val, int index);
 
+// Insert Allocate and Deallocate for the all hidden output.
+Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc, Value X,
+    Value W, Value R, Value output, bool insertDealloc = false);
+
+// Insert Allocate and Deallocate for the hidden or cell output.
+Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
+    Value X, Value W, Value R, Value output, bool insertDealloc = false);
+
+// Initialize the hidden and cell states.
+void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
+    Value ht, Value ct, Value initialH, Value initialC, Type elementType,
+    bool onlyHidden = false);
+
 // Apply an activation function on a given scalar operand.
 Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
     RNNActivation activation, Value scalarOperand);
@@ -94,7 +107,11 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
       sequenceLoops.createDefineOp();
-      sequenceLoops.pushBounds(0, sequenceDimSize);
+      if (sequenceDimSize != -1)
+        sequenceLoops.pushBounds(0, sequenceDimSize);
+      else
+        sequenceLoops.pushBounds(
+            0, rewriter.create<DimOp>(loc, rnnOp.X(), 0).getResult());
       sequenceLoops.createIterateOp();
 
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
@@ -113,7 +130,11 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
       BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
       sequenceLoops.createDefineOp();
-      sequenceLoops.pushBounds(0, sequenceDimSize);
+      if (sequenceDimSize != -1)
+        sequenceLoops.pushBounds(0, sequenceDimSize);
+      else
+        sequenceLoops.pushBounds(
+            0, rewriter.create<DimOp>(loc, rnnOp.X(), 0).getResult());
       sequenceLoops.createIterateOp();
 
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
@@ -124,11 +145,16 @@ struct ONNXRNNOpLowering : public ConversionPattern {
 
         Value directionIV = emitConstantOp(rewriter, loc,
             rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
-        Value reverseSequenceIV =
-            rewriter.create<AffineApplyOp>(loc, reverseIVMap,
-                std::vector<Value>{sequenceLoops.getInductionVar(0),
-                    emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-                        sequenceDimSize)});
+        Value sequenceSize;
+        if (sequenceDimSize != -1)
+          sequenceSize = emitConstantOp(
+              rewriter, loc, rewriter.getIndexType(), sequenceDimSize);
+        else
+          sequenceSize = rewriter.create<DimOp>(loc, rnnOp.X(), 0).getResult();
+
+        Value reverseSequenceIV = rewriter.create<AffineApplyOp>(loc,
+            reverseIVMap,
+            std::vector<Value>{sequenceLoops.getInductionVar(0), sequenceSize});
         // Emit calculation for one RNN step.
         calculateState<RNNOp, S, A>(rewriter, loc, operandAdaptor, state,
             activationReverse, directionIV, reverseSequenceIV);

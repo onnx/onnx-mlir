@@ -4,7 +4,31 @@ In onnx-mlir, there are three types of tests to ensure correctness of implementa
 
 ## ONNX Backend Tests
 
-TODO.
+Backend tests are end-to-end tests for onnx-mlir based on onnx node tests.
+To invoke the test, use the following command:
+
+```
+cmake --build . --config Release --target check-onnx-backend
+``` 
+Packages, such as third_party/onnx and ssl, needs to be installed to run the backend test.
+
+The node tests in onnx that will be run by check-onnx-backend is defined by variable test_to_enable in test/backend/test.py. User can test one test case by environment variable BACKEND_TEST. For example,
+```
+BACKEND_TEST=selected_test_name cmake --build . --config Release --target check-onnx-backend
+```
+With BACKEND_TEST specified, the intermedia result, the .onnx file and .so file, are kept in build/test/backend for debugging.
+
+When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/backend/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
+
+The onnx node tests usually have known dimension size for input tensors. To test tensor with unknown dimension, the model importer (Build/FrontendONNXTransformer.cpp) provides a functionality to generate such cases. When the environment variable, `IMPORTER_FORCE_DYNAMIC`, is set, the frontend import will turn the first dimension of every input tensor of the model into -1. For example:
+
+ `@test_add(%arg0 : tensor<2x4xf32>, %arg1 : tensor<4xf32>)`
+
+ will become
+
+  `@test_add(%arg0 : tensor<?x4xf32>, %arg1 : tensor<?xf32>)`.
+
+This is a way to use existing node test for dynamic tensors. Since not all test case can pass with dynamic tensor, there is a list in test/backend/test.py, test_not_for_dynamic, to specify which test can not pass with IMPORTER_FORCE_DYNAMIC is defined.
 
 ## LLVM FileCheck Tests
 

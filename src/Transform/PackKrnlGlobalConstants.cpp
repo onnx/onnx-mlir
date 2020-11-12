@@ -21,6 +21,7 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/KrnlSupport.hpp"
 #include "src/Transform/ElideKrnlGlobalConstants.hpp"
 
 using namespace mlir;
@@ -64,8 +65,9 @@ public:
     patterns.insert<KrnlConstGlobalValueElision>(
         &getContext(), elisionThreshold);
     // Apply constant value elision.
-    module.walk(
-        [&](FuncOp func) { applyPatternsAndFoldGreedily(func, patterns); });
+    module.walk([&](FuncOp func) {
+      applyPatternsAndFoldGreedily(func, std::move(patterns));
+    });
 
     bool isLE = llvm::support::endian::system_endianness() ==
                 llvm::support::endianness::little;

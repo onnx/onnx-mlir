@@ -12,6 +12,7 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 
@@ -63,6 +64,9 @@ bool isBlockArgument(Operation *op, Value operand);
 /// Check if two GetRefs participate in the same krnl.memcpy.
 bool usedBySameKrnlMemcpy(
     KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef);
+
+/// Check if two GetRefs participate in the same operation.
+bool usedBySameOp(KrnlGetRefOp *firstGetRef, KrnlGetRefOp *secondGetRef);
 
 /// Get the number of GetRef ops associated with this AllocOp.
 int64_t getAllocGetRefNum(AllocOp *allocOp);
