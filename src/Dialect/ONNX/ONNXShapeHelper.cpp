@@ -179,8 +179,7 @@ ONNXTileOpShapeHelper::ONNXTileOpShapeHelper(
     ONNXTileOp *newOp, ConversionPatternRewriter *rewriter)
     : ONNXOpShapeHelper<ONNXTileOp>(newOp, rewriter) {}
 
-LogicalResult ONNXTileOpShapeHelper::Compute(
-    ONNXTileOpAdaptor operandAdaptor) {
+LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
 
@@ -192,10 +191,10 @@ LogicalResult ONNXTileOpShapeHelper::Compute(
 
   // Compute outputDims
   outputDims.resize(inputRank);
-  for (auto i=0; i < inputRank; i++) {
+  for (auto i = 0; i < inputRank; i++) {
     IndexExpr dimInput = context.createDimIndexFromShapedType(input, i);
-    IndexExpr repeatsValue = context.createSymbolIndexFromArrayAtIndex(
-        genericOp, repeats, i);
+    IndexExpr repeatsValue =
+        context.createSymbolIndexFromArrayAtIndex(genericOp, repeats, i);
     IndexExpr dimOutput = dimInput * repeatsValue;
     outputDims[i] = dimOutput;
   }

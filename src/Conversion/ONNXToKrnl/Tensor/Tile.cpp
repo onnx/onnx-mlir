@@ -78,9 +78,6 @@ struct ONNXTileOpLowering : public ConversionPattern {
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
     outputLoops.pushAllBounds(shapeHelper.outputDims);
-    //for (int i = 0; i < outputRank; i++) {
-     // outputLoops.pushBounds(0, shapeHelper.outputDims[i]);
-    //}
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
