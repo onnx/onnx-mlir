@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include "llvm/ADT/BitVector.h"
+
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Operation.h"
@@ -76,6 +78,20 @@ struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<ONNXGemmOp> {
   SmallVector<IndexExpr, 4> cDims; // Dim of C, padding "1" when broadcast.
   bool hasBias;                    // Whether ther eis a bias (aka C exists).
   int cRank; // Dim of the original C (not padding dims by 1).
+};
+
+// Shape for MatMulOp.
+struct ONNXMatMulOpShapeHelper : public ONNXOpShapeHelper<ONNXMatMulOp> {
+  ONNXMatMulOpShapeHelper(
+      ONNXMatMulOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXMatMulOpAdaptor operandAdaptor);
+
+  // Additional data for MatMulOp: output = a * b.
+  SmallVector<IndexExpr, 4> aDims; // Dim of A, after applying padding.
+  SmallVector<IndexExpr, 4> bDims; // Dim of B, after applying padding.
+  llvm::BitVector aPadDims;        // When true, that dim was padded.
+  llvm::BitVector bPadDims;        // When true, that dim was padded.
 };
 
 //===----------------------------------------------------------------------===//
