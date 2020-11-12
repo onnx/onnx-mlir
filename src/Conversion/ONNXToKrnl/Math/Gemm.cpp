@@ -43,7 +43,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    // loop iterations N=0 & M-1 going over each of the res[n, m] values.
+    // Loop iterations N=0 & M-1 going over each of the res[n, m] values.
     BuildKrnlLoop outputLoops(rewriter, loc, 2);
     outputLoops.createDefineOp();
     outputLoops.pushAllBounds(shapeHelper.outputDims);
@@ -60,7 +60,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Insert res[n,m] = 0.
     outerContext.createStoreOp(zero, alloc, resAccessFct);
 
-    // Create the inner loop
+    // Create the inner reduction loop.
     BuildKrnlLoop innerLoops(rewriter, loc, 1);
     innerLoops.createDefineOp();
     innerLoops.pushBounds(0, shapeHelper.aDims[1]);

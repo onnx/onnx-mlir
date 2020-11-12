@@ -788,9 +788,9 @@ test_not_for_dynamic = [
     #"test_sign_cpu",
 
     # MatmulOp
-    "test_matmul_2d_cpu",
-    "test_matmul_3d_cpu",
-    "test_matmul_4d_cpu",
+    #"test_matmul_2d_cpu",
+    #"test_matmul_3d_cpu",
+    #"test_matmul_4d_cpu",
 
     # BatchNormalization (test mode)
     #"test_batchnorm_epsilon_cpu",
