@@ -183,13 +183,11 @@ IndexExpr IndexExprContext::createSymbolIndexFromParentContext(
   // literal only.
   if (parentIndexExpr.isAffine()) {
     // Reuse affine expression.
-    parentIndexExpr.debugPrint("Reuse parent");
     IndexExprImpl *obj = createIndexExprImpl();
     obj->copy(parentIndexExpr.getObjPtr());
     return IndexExpr(obj);
   }
   // Non affine, create a symbol.
-  parentIndexExpr.debugPrint("Create symbol out of parent");
   return createSymbolIndex(parentIndexExpr.getValue());
 }
 
