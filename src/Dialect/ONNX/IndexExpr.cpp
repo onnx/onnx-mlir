@@ -249,6 +249,41 @@ bool IndexExprContext::createSymbolIndicesFromArray(Operation *op, Value array,
 }
 
 //===----------------------------------------------------------------------===//
+// IndexExprContext support for creating possibly affine load and store ops.
+//===----------------------------------------------------------------------===//
+
+Value IndexExprContext::createLoadOp(
+    Value memref, SmallVectorImpl<IndexExpr> &indices) {
+  bool affineIndices = true;
+  SmallVector<Value, 4> loadIndices;
+  for (IndexExpr ie : indices) {
+    if (!ie.isAffine())
+      affineIndices = false;
+    loadIndices.emplace_back(ie.getValue());
+  }
+  if (affineIndices)
+    return getRewriter().create<AffineLoadOp>(getLoc(), memref, loadIndices);
+  // Not affine, use regular load.
+  return getRewriter().create<LoadOp>(getLoc(), memref, loadIndices);
+}
+
+void IndexExprContext::createStoreOp(
+    Value val, Value memref, SmallVectorImpl<IndexExpr> &indices) {
+  bool affineIndices = true;
+  SmallVector<Value, 4> storeIndices;
+  for (IndexExpr ie : indices) {
+    if (!ie.isAffine())
+      affineIndices = false;
+    storeIndices.emplace_back(ie.getValue());
+  }
+  if (affineIndices) {
+    getRewriter().create<AffineStoreOp>(getLoc(), val, memref, storeIndices);
+  } else { // Not affine, use regular load.
+    getRewriter().create<StoreOp>(getLoc(), val, memref, storeIndices);
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // IndexExprContext support for dim and symbol lists in affine exprs.
 //===----------------------------------------------------------------------===//
 
@@ -610,6 +645,38 @@ bool IndexExpr::hasAffineExpr() const {
 bool IndexExpr::hasValue() const {
   assert(isDefined());
   return !(!getObj().value);
+}
+
+bool IndexExpr::isLiteralAndIdenticalTo(int64_t b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral())
+    return false;
+  // We have a literal, now make sure they are the same
+  return getLiteral() == b;
+}
+
+bool IndexExpr::isLiteralAndDifferentThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral())
+    return false;
+  // We have a literal, now make sure they are different
+  return getLiteral() != b;
+}
+
+bool IndexExpr::isLiteralAndIdenticalTo(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral() || !b.isLiteral())
+    return false;
+  // We have literals, now make sure they are the same
+  return getLiteral() == b.getLiteral();
+}
+
+bool IndexExpr::isLiteralAndDifferentThan(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral() || !b.isLiteral())
+    return false;
+  // We have literals, now make sure they are different
+  return getLiteral() != b.getLiteral();
 }
 
 //===----------------------------------------------------------------------===//
