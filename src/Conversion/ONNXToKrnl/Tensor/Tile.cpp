@@ -60,7 +60,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     ONNXTileOpShapeHelper shapeHelper(&tileOp, &rewriter);
-   
+
     if (failed(shapeHelper.Compute(operandAdaptor)))
       return op->emitError("Failed to scan Tile parameters successfully");
 
@@ -78,12 +78,11 @@ struct ONNXTileOpLowering : public ConversionPattern {
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
     for (int i = 0; i < outputRank; i++) {
+      //  Why the shapeHelper.context is needed here?
       outputLoops.pushBounds(shapeHelper.context, 0, shapeHelper.outputDims[i]);
     }
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
-
-    IndexExprContext childContext(shapeHelper.context);
 
     SmallVector<Value, 4> loadIndices;
     bool isAffineLoad = true;
@@ -96,16 +95,17 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // Alternative implementation can be found at the end of this file.
 
     for (int i = 0; i < outputRank; i++) {
-      // ToFIX: merge the two step into one?
+      // Context is created for each dimension because they are independent
+      IndexExprContext IEContext(&rewriter, loc);
       Value loopVal = outputLoops.getInductionVar(i);
-      IndexExpr index = childContext.createLoopIterIndex(loopVal);
-      IndexExpr dimSize = childContext.createDimIndexFromShapedType(input, i);
+      IndexExpr index = IEContext.createLoopIterIndex(loopVal);
+      IndexExpr dimSize = IEContext.createDimIndexFromShapedType(input, i);
       IndexExpr exprVal = index % dimSize;
       if (!exprVal.isAffine()) {
         isAffineLoad = false;
       }
       loadIndices.emplace_back(exprVal.getValue());
-    } 
+    }
 
     Value loadVal;
     if (isAffineLoad)
