@@ -51,6 +51,7 @@ struct ONNXOpShapeHelper {
   SmallVector<IndexExpr, 4> outputDims;
 };
 
+// Shape for SliceOp.
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
   ONNXSliceOpShapeHelper(
       ONNXSliceOp *newOp, ConversionPatternRewriter *rewriter);
@@ -61,6 +62,20 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
   SmallVector<IndexExpr, 4> starts;
   SmallVector<IndexExpr, 4> ends;
   SmallVector<IndexExpr, 4> steps;
+};
+
+// Shape for GemmOp.
+struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<ONNXGemmOp> {
+  ONNXGemmOpShapeHelper(ONNXGemmOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXGemmOpAdaptor operandAdaptor);
+
+  // Additional data for GemmOp: output = a * b.
+  SmallVector<IndexExpr, 4> aDims; // Dim of A, after applying transpose.
+  SmallVector<IndexExpr, 4> bDims; // Dim of B, after applying transpose.
+  SmallVector<IndexExpr, 4> cDims; // Dim of C, padding "1" when broadcast.
+  bool hasBias;                    // Whether ther eis a bias (aka C exists).
+  int cRank; // Dim of the original C (not padding dims by 1).
 };
 
 //===----------------------------------------------------------------------===//
