@@ -77,10 +77,10 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // Define loops and iteration trip counts (equivalent to size of output)
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    for (int i = 0; i < outputRank; i++) {
-      //  Why the shapeHelper.context is needed here?
-      outputLoops.pushBounds(shapeHelper.context, 0, shapeHelper.outputDims[i]);
-    }
+    outputLoops.pushAllBounds(shapeHelper.outputDims);
+    //for (int i = 0; i < outputRank; i++) {
+     // outputLoops.pushBounds(0, shapeHelper.outputDims[i]);
+    //}
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
