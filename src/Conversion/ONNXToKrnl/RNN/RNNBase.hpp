@@ -107,7 +107,11 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
       sequenceLoops.createDefineOp();
-      sequenceLoops.pushBounds(0, sequenceDimSize);
+      if (sequenceDimSize != -1)
+        sequenceLoops.pushBounds(0, sequenceDimSize);
+      else
+        sequenceLoops.pushBounds(
+            0, rewriter.create<DimOp>(loc, rnnOp.X(), 0).getResult());
       sequenceLoops.createIterateOp();
 
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
@@ -126,7 +130,11 @@ struct ONNXRNNOpLowering : public ConversionPattern {
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
       BuildKrnlLoop sequenceLoops(rewriter, loc, 1);
       sequenceLoops.createDefineOp();
-      sequenceLoops.pushBounds(0, sequenceDimSize);
+      if (sequenceDimSize != -1)
+        sequenceLoops.pushBounds(0, sequenceDimSize);
+      else
+        sequenceLoops.pushBounds(
+            0, rewriter.create<DimOp>(loc, rnnOp.X(), 0).getResult());
       sequenceLoops.createIterateOp();
 
       auto ipSequenceLoops = rewriter.saveInsertionPoint();
@@ -137,11 +145,16 @@ struct ONNXRNNOpLowering : public ConversionPattern {
 
         Value directionIV = emitConstantOp(rewriter, loc,
             rewriter.getIndexType(), (direction == REVERSE) ? 0 : 1);
-        Value reverseSequenceIV =
-            rewriter.create<AffineApplyOp>(loc, reverseIVMap,
-                std::vector<Value>{sequenceLoops.getInductionVar(0),
-                    emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-                        sequenceDimSize)});
+        Value sequenceSize;
+        if (sequenceDimSize != -1)
+          sequenceSize = emitConstantOp(
+              rewriter, loc, rewriter.getIndexType(), sequenceDimSize);
+        else
+          sequenceSize = rewriter.create<DimOp>(loc, rnnOp.X(), 0).getResult();
+
+        Value reverseSequenceIV = rewriter.create<AffineApplyOp>(loc,
+            reverseIVMap,
+            std::vector<Value>{sequenceLoops.getInductionVar(0), sequenceSize});
         // Emit calculation for one RNN step.
         calculateState<RNNOp, S, A>(rewriter, loc, operandAdaptor, state,
             activationReverse, directionIV, reverseSequenceIV);

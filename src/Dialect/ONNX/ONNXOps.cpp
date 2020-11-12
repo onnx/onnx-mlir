@@ -1282,35 +1282,14 @@ LogicalResult ONNXGemmOp::inferShapes(
       (hasBias && !C().getType().isa<RankedTensorType>()))
     return emitError("Input tensor(s) not ranked");
 
-  auto lhsTy = A().getType().cast<RankedTensorType>();
-  auto rhsTy = B().getType().cast<RankedTensorType>();
-
-  int64_t M, N, K_A, K_B;
-  M = (transA() == 0) ? lhsTy.getShape()[0] : lhsTy.getShape()[1];
-  K_A = (transA() == 0) ? lhsTy.getShape()[1] : lhsTy.getShape()[0];
-  N = (transB() == 0) ? rhsTy.getShape()[1] : rhsTy.getShape()[0];
-  K_B = (transB() == 0) ? rhsTy.getShape()[0] : rhsTy.getShape()[1];
-
-  if ((K_A != -1) && (K_B != -1) && (K_A != K_B))
-    return emitError("Tensor shapes mismatched");
-
-  if (hasBias) {
-    // Check whether bias is unidirectional broadcasting or not.
-    auto biasTy = C().getType().cast<RankedTensorType>();
-    auto shape = biasTy.getShape();
-    int rank = shape.size();
-    if ((rank > 2) ||
-        (rank >= 1 && shape[rank - 1] != -1 && N != -1 &&
-            N != shape[rank - 1] && shape[rank - 1] != 1) ||
-        (rank == 2 && shape[rank - 2] != -1 && M != -1 &&
-            M != shape[rank - 2] && shape[rank - 2] != 1))
-      return emitError("Bias shape mismatched");
-  }
-
-  SmallVector<int64_t, 2> dims;
-  dims.emplace_back(M);
-  dims.emplace_back(N);
-  getResult().setType(RankedTensorType::get(dims, lhsTy.getElementType()));
+  ONNXGemmOpAdaptor operandAdaptor(*this);
+  ONNXGemmOpShapeHelper shapeHelper(this, nullptr);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Silce parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  Type elementType = A().getType().cast<ShapedType>().getElementType();
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
 }
 
@@ -2791,12 +2770,10 @@ LogicalResult ONNXTileOp::inferShapes(
 
   // 'repeats' tensor must have constant shape.
   int64_t repeatsLength = repeatsTensorTy.getShape()[0];
-  if (repeatsLength < 0)
-    return emitError("Repeats tensor must have constant shape");
 
   // Check the 1D repeats tensor length.
   int64_t inputRank = inputTensorTy.getShape().size();
-  if (inputRank != repeatsLength)
+  if (repeatsLength != -1 && inputRank != repeatsLength)
     return emitError("Repeats tensor must have the same length as the input's "
                      "dimension number.");
 
@@ -2820,9 +2797,13 @@ LogicalResult ONNXTileOp::inferShapes(
       return emitError("DenseElementsAttr expected");
     // Get repeat values from valueAttribute.
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
-    for (int i = 0; i < inputRank; ++i)
+    for (int i = 0; i < inputRank; ++i) {
       if (dims[i] != -1)
-        dims[i] *= (*valueIt++).cast<IntegerAttr>().getInt();
+        dims[i] *= (*valueIt).cast<IntegerAttr>().getInt();
+      else
+        dims[i] = -1;
+      valueIt++;
+    }
 
     if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
       return emitError("Constant value must have same length as output's rank");

@@ -575,17 +575,17 @@ test_not_for_dynamic = [
     "test_gather_negative_indices_cpu",
 
     # Gemm Op:
-    "test_gemm_all_attributes_cpu",
-    "test_gemm_alpha_cpu",
-    "test_gemm_beta_cpu",
-    "test_gemm_default_matrix_bias_cpu",
-    "test_gemm_default_no_bias_cpu",
-    "test_gemm_default_scalar_bias_cpu",
-    "test_gemm_default_single_elem_vector_bias_cpu",
-    "test_gemm_default_vector_bias_cpu",
-    "test_gemm_default_zero_bias_cpu",
-    "test_gemm_transposeA_cpu",
-    "test_gemm_transposeB_cpu",
+    #"test_gemm_all_attributes_cpu",
+    #"test_gemm_alpha_cpu",
+    #"test_gemm_beta_cpu",
+    #"test_gemm_default_matrix_bias_cpu",
+    #"test_gemm_default_no_bias_cpu",
+    #"test_gemm_default_scalar_bias_cpu",
+    #"test_gemm_default_single_elem_vector_bias_cpu",
+    #"test_gemm_default_vector_bias_cpu",
+    #"test_gemm_default_zero_bias_cpu",
+    #"test_gemm_transposeA_cpu",
+    #"test_gemm_transposeB_cpu",
 
     # Hard Sigmoid Op:
     #"test_hardsigmoid_cpu",
