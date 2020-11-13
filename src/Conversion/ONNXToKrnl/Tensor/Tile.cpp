@@ -61,8 +61,8 @@ struct ONNXTileOpLowering : public ConversionPattern {
 
     ONNXTileOpShapeHelper shapeHelper(&tileOp, &rewriter);
 
-    if (failed(shapeHelper.Compute(operandAdaptor)))
-      return op->emitError("Failed to scan Tile parameters successfully");
+    assert(
+        !failed(shapeHelper.Compute(operandAdaptor)) && "expected to succeed");
 
     auto resultOperand = tileOp.output();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
