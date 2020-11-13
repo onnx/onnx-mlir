@@ -1,5 +1,17 @@
 #!/usr/local/bin/python3
 
+##################### mlir2FileCheck.py ########################################
+#
+# Copyright 2020 The IBM Research Authors.
+#
+################################################################################
+#
+# This file convert .mlir from stdin into a FileCheck file format. It also
+# performs renaming of variables for better readability. In debug mode, it
+# can be used to simply better read mlir files as variables have more
+# comprehensive names
+################################################################################
+
 import sys
 import getopt
 import fileinput
@@ -7,29 +19,34 @@ import re
 import json
 import subprocess
 
-####################################################################
+################################################################################
 # Usage.
+
 
 def print_usage():
     print('Translate mlir format from stdin to a suitable FileCheck format.')
     print('mlir2FileCheck [-cdh] [-a <arg arrays>] [-d <dict>]')
     print('  -a,--args <array>: Rename function arguments using a json array,')
-    print('                     such as \'["A", "B", "C"] for 1st, 2nd, & 3rd args.\'.')
+    print(
+        '                     such as \'["A", "B", "C"] for 1st, 2nd, & 3rd args.\'.')
     print('  -c,--check       : Run FileCheck on output, to verify that the ouput is good.')
     print('  -d,-debug        : Rename for easier debugging of code, disable FileCheck format.')
     print('  -h,--help        : Print help.')
     print('  -n,--names <dict>: Rename variables using a json dictionary')
-    print('                     such as \'{"cst": "ZERO"}\' to rename cst to ZERO.')
+    print(
+        '                     such as \'{"cst": "ZERO"}\' to rename cst to ZERO.')
     sys.exit()
 
-    
-####################################################################
+
+################################################################################
 # Handling of names: global dictionaries.
 
 name_dict = {}  # orig_name -> new_name (with ref count)
 refcount_dict = {}  # new_name (without ref count) -> definition count
 
 # Prepare name for def, for mapping given by the user.
+
+
 def prepare_name_def(orig_name, new_name):
     if orig_name in name_dict.keys():
         print("multiple definitions of original name:", orig_name)
@@ -37,6 +54,8 @@ def prepare_name_def(orig_name, new_name):
     name_dict[orig_name] = new_name
 
 # Process name and make it a legit def for FileCheck.
+
+
 def def_string(name, num):
     if debug:
         return name + "_" + num
@@ -44,6 +63,8 @@ def def_string(name, num):
 
 # Record an original name/number, with a suggested new name. Append_str is
 # added at the end (to match the string looked for and to be substituted).
+
+
 def record_name_def(orig_name, orig_num, new_name, append_str, num_for_zero):
     # original name: what we found in the text
     # new_name: if something was prepared for it, use the prepared name. But
@@ -75,6 +96,8 @@ def record_name_def(orig_name, orig_num, new_name, append_str, num_for_zero):
     return def_string(curr_name, orig_num) + append_str
 
 # Translate a FileCheck use of a pattern.
+
+
 def translate_use_name(orig_name, orig_num, append_str):
     if orig_name in name_dict.keys():
         # Mapping found, return this.
@@ -85,11 +108,13 @@ def translate_use_name(orig_name, orig_num, append_str):
 
 # Pattern that we are substituting from. To is either obtained by
 # record_name_def or translate_use_name
+
+
 def use_name(orig_name, orig_num, append_str):
     return "%" + orig_name + orig_num + append_str
 
 
-####################################################################
+################################################################################
 # process a line
 
 # Process the substitution for a whole line for the given pattern.
@@ -103,6 +128,8 @@ def process_name(new_line, pattern, default_name, append_str, num_for_zero):
     return new_line
 
 # Drive the processing of the current line.
+
+
 def process_line(line):
     # print("Process:", line)
     def_arg_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)():')
@@ -131,7 +158,8 @@ def process_line(line):
         mem = res.group(1)
         if mem in name_dict.keys():
             mem = name_dict[mem]
-        new_line = process_name(new_line, def_qual_pat, "LOAD_"+mem+"_MEM", " =", 0)
+        new_line = process_name(new_line, def_qual_pat,
+                                "LOAD_"+mem+"_MEM", " =", 0)
     elif re.search(r'\sconstant\s', line) is not None:
         res = re.search(r'\sconstant\s(-?[0-9\.]+)', line)
         num = res.group(1)
@@ -153,26 +181,29 @@ def process_line(line):
         y = translate_use_name(name, num, "")
         new_line = new_line.replace(x, y)
         # print("use ", x, " to ", y, " using u", u)
-    
+
     if debug:
         print(new_line)
     else:
-      # Avoid [[[ and ]]] and others text that are reserved by FileCheck.
-      new_line = re.sub(r'\[\[\[', '{{.}}[[', new_line) # get rid of [[[
-      new_line = re.sub(r'\]\]\]', ']]{{.}}', new_line) # get rid of ]]]
-      new_line = re.sub(r'\[\[\s*(\d)', '{{.}}[\g<1>', new_line) # change [[1 -> *[1
-      new_line = re.sub(r'\[\[\s*-\s*(\d)', '{{.}}[-\g<1>', new_line) # change [[-1 -> *[-1
-      new_line = re.sub(r'(\d)\s*\]\]', '\g<1>]{{.}}', new_line) # change a]] -> 1]*
-      if re.match(r'\s+func', line) is not None:
-          # Split function line into 2 lines.
-          new_line = re.sub(
-            r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'//CHECK-LABEL:\1\2\n//CHECK-SAME: \1\3', new_line)
-          print(new_line)
-      else:
-          print("//CHECK:      ", new_line)
+        # Avoid [[[ and ]]] and others text that are reserved by FileCheck.
+        new_line = re.sub(r'\[\[\[', '{{.}}[[', new_line)  # get rid of [[[
+        new_line = re.sub(r'\]\]\]', ']]{{.}}', new_line)  # get rid of ]]]
+        # change [[1 -> *[1
+        new_line = re.sub(r'\[\[\s*(\d)', '{{.}}[\g<1>', new_line)
+        # change [[-1 -> *[-1
+        new_line = re.sub(r'\[\[\s*-\s*(\d)', '{{.}}[-\g<1>', new_line)
+        # change a]] -> 1]*
+        new_line = re.sub(r'(\d)\s*\]\]', '\g<1>]{{.}}', new_line)
+        if re.match(r'\s+func', line) is not None:
+            # Split function line into 2 lines.
+            new_line = re.sub(
+                r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'//CHECK-LABEL:\1\2\n//CHECK-SAME: \1\3', new_line)
+            print(new_line)
+        else:
+            print("//CHECK:      ", new_line)
 
-          
-####################################################################
+
+################################################################################
 # main
 
 def main(argv):
@@ -180,7 +211,8 @@ def main(argv):
     debug = 0
     check = 0
     try:
-        opts, args = getopt.getopt(argv, "hdca:n:", ["help", "debug", "check", "args=", "dict="])
+        opts, args = getopt.getopt(
+            argv, "hdca:n:", ["help", "debug", "check", "args=", "dict="])
     except getopt.GetoptError:
         print_usage()
     for opt, arg in opts:
@@ -188,12 +220,12 @@ def main(argv):
             print_usage()
         elif opt in ('-d', "--debug"):
             if check:
-                print("cannot use check and debug at the same time");
+                print("cannot use check and debug at the same time")
                 return
             debug = 1
         elif opt in ('-c', "--check"):
             if debug:
-                print("cannot use check and debug at the same time");
+                print("cannot use check and debug at the same time")
                 return
             check = 1
         elif opt in ("-a", "--args"):
@@ -214,11 +246,11 @@ def main(argv):
         for line in sys.stdin:
             process_line(line.rstrip())
         return
-    
+
     # Copy input, process output, then pipe it all to FileCheck.
     orig_stdout = sys.stdout
     tmpfile = 'tmp.m2fc'
-    print('>> gen test file in "', tmpfile, '"') 
+    print('>> gen test file in "', tmpfile, '"')
     sys.stdout = open(tmpfile, 'w')
     lines = []
     # Print the original.
@@ -231,10 +263,10 @@ def main(argv):
         process_line(line)
     sys.stdout = orig_stdout
     print('>> done writing print file, now check')
-    res = subprocess.run(['FileCheck', '--input-file='+tmpfile, tmpfile], capture_output=True, text=True).stderr
+    res = subprocess.run(['FileCheck', '--input-file='+tmpfile,
+                          tmpfile], capture_output=True, text=True).stderr
     print(res)
     print('>> check completed (empty line is success)')
-    
 
 
 if __name__ == "__main__":
