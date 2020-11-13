@@ -98,8 +98,15 @@ public:
     // Get reference to local MemRef.
     auto zero = rewriter.create<ConstantOp>(
         loc, rewriter.getIntegerAttr(rewriter.getIntegerType(64), 0));
-    auto poolMemRef =
-        rewriter.create<KrnlGetRefOp>(loc, memRefType, newAlloc, zero);
+    KrnlGetRefOp poolMemRef;
+    if (hasAllConstantDimensions(memRefType)) {
+      poolMemRef =
+          rewriter.create<KrnlGetRefOp>(loc, memRefType, newAlloc, zero);
+    } else {
+      poolMemRef =
+          rewriter.create<KrnlGetRefOp>(loc, memRefType, newAlloc, zero,
+          allocOp.getDynamicSizes());
+    }
 
     rewriter.replaceOp(allocOp, poolMemRef.getResult());
 
