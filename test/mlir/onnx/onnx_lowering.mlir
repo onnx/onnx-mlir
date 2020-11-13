@@ -3089,35 +3089,6 @@ func @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
 
 }
 
-// -----
-
-// Test Tile with 1D unknown input 
-func @test_tile3(%arg0 : tensor<?xf32>, %arg1 : tensor<1xi64>) -> tensor<*xf32> {
-  %1 = "onnx.Tile"(%arg0, %arg1) : (tensor<?xf32>, tensor<1xi64>) -> tensor<*xf32>
-  return %1 : tensor<*xf32>
-// CHECK-LABEL:       func @test_tile3       
-// CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<?xf32>, [[VAR_arg1:%.+]]: memref<1xi64>) -> memref<?xf32> {
-// CHECK:           [[VAR_c0:%.+]] = constant 0 : index
-// CHECK:           [[VAR_0:%.+]] = affine.load [[VAR_arg1]]{{.}}[[VAR_c0]]{{.}} : memref<1xi64>
-// CHECK:           [[VAR_1:%.+]] = index_cast [[VAR_0]] : i64 to index
-// CHECK:           [[VAR_c0_0:%.+]] = constant 0 : index
-// CHECK:           [[VAR_2:%.+]] = dim [[VAR_arg0]], [[VAR_c0_0]] : memref<?xf32>
-// CHECK:           [[VAR_3:%.+]] = muli [[VAR_2]], [[VAR_1]] : index
-// CHECK:           [[VAR_4:%.+]] = alloc([[VAR_3]]) : memref<?xf32>
-// CHECK:           [[VAR_5:%.+]] = krnl.define_loops 1
-// CHECK:           [[VAR_c0_1:%.+]] = constant 0 : index
-// CHECK:           [[VAR_6:%.+]] = dim [[VAR_4]], [[VAR_c0_1]] : memref<?xf32>
-// CHECK:           krnl.iterate([[VAR_5]]) with ([[VAR_5]] -> [[VAR_arg2:%.+]] = 0 to [[VAR_6]]) {
-// CHECK:             [[VAR_c0_2:%.+]] = constant 0 : index
-// CHECK:             [[VAR_7:%.+]] = dim [[VAR_arg0]], [[VAR_c0_2]] : memref<?xf32>
-// CHECK:             [[VAR_8:%.+]] = remi_unsigned [[VAR_arg2]], [[VAR_7]] : index
-// CHECK:             [[VAR_9:%.+]] = load [[VAR_arg0]]{{.}}[[VAR_8]]{{.}} : memref<?xf32>
-// CHECK:             affine.store [[VAR_9]], [[VAR_4]]{{.}}[[VAR_arg2]]{{.}} : memref<?xf32>
-// CHECK:           }
-// CHECK:           return [[VAR_4]] : memref<?xf32>
-// CHECK:         }
-// CHECK:       }
-}
 
 // -----
 
