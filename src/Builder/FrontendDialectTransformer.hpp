@@ -43,8 +43,8 @@ void ImportFrontendModelFile(std::string model_fname,
  *  @param model the onnx model protobuf.
  *  @return MLIR::module generated for the ONNX model.
  */
-void ImportFrontendModel(const onnx::ModelProto &model, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module);
+void ImportFrontendModel(const onnx::ModelProto &model,
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module);
 
 /*!
  *  TODO: Import models into other extension dialects that cover the

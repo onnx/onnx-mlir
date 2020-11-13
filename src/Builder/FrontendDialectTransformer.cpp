@@ -826,8 +826,8 @@ void ImportFrontendModelFile(std::string model_fname,
   module = myONNXGen.ImportONNXModel(model);
 }
 
-void ImportFrontendModel(const onnx::ModelProto &model, mlir::MLIRContext &context,
-    mlir::OwningModuleRef &module) {
+void ImportFrontendModel(const onnx::ModelProto &model,
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
 
   detail::FrontendGenImpl myONNXGen(context);
   module = myONNXGen.ImportONNXModel(model);
