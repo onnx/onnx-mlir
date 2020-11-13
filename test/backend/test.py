@@ -845,12 +845,12 @@ test_not_for_dynamic = [
     #"test_squeeze_negative_axes_cpu",
 
     # Split
-    "test_split_equal_parts_1d_cpu",
-    "test_split_equal_parts_2d_cpu",
-    "test_split_equal_parts_default_axis_cpu",
-    "test_split_variable_parts_1d_cpu",
-    "test_split_variable_parts_2d_cpu",
-    "test_split_variable_parts_default_axis_cpu",
+    #"test_split_equal_parts_1d_cpu",
+    #"test_split_equal_parts_2d_cpu",
+    #"test_split_equal_parts_default_axis_cpu",
+    #"test_split_variable_parts_1d_cpu",
+    #"test_split_variable_parts_2d_cpu",
+    #"test_split_variable_parts_default_axis_cpu",
     
     # Tile
     "test_tile_cpu",
