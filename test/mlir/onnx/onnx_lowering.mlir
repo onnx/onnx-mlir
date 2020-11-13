@@ -2763,7 +2763,7 @@ func @test_split_unknown_dimension_equal_split(%arg0 : tensor<?x?x64xf32>) -> (t
   // CHECK: [[RES_1:%.+]] = alloc([[DIM_0]], [[DIM_SPLIT_1]]) : memref<?x?x64xf32>
   // CHECK: [[DEF_LOOP_0:%.+]]:3 = krnl.define_loops 3
   // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = dim [[RES_0]], [[C0_2]] : memref<?x?x64xf32>
+  // CHECK: [[DIM_0:%.+]] = dim [[RES_0]], [[C0]] : memref<?x?x64xf32>
   // CHECK: [[C1:%.+]] = constant 1 : index
   // CHECK: [[DIM_1:%.+]] = dim [[RES_0]], [[C1]] : memref<?x?x64xf32>
   // CHECK: krnl.iterate([[DEF_LOOP_0]]#0, [[DEF_LOOP_0]]#1, [[DEF_LOOP_0]]#2) with ([[DEF_LOOP_0]]#0 -> %arg1 = 0 to [[DIM_0]], [[DEF_LOOP_0]]#1 -> %arg2 = 0 to [[DIM_1]], [[DEF_LOOP_0]]#2 -> %arg3 = 0 to 64) {
@@ -2772,7 +2772,7 @@ func @test_split_unknown_dimension_equal_split(%arg0 : tensor<?x?x64xf32>) -> (t
   // CHECK: }
   // CHECK: [[DEF_LOOP_1:%.+]]:3 = krnl.define_loops 3
   // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = dim [[RES_1]], [[C0_3]] : memref<?x?x64xf32>
+  // CHECK: [[DIM_0:%.+]] = dim [[RES_1]], [[C0]] : memref<?x?x64xf32>
   // CHECK: [[C1:%.+]] = constant 1 : index
   // CHECK: [[DIM_1:%.+]] = dim [[RES_1]], [[C1]] : memref<?x?x64xf32>
   // CHECK: krnl.iterate([[DEF_LOOP_1]]#0, [[DEF_LOOP_1]]#1, [[DEF_LOOP_1]]#2) with ([[DEF_LOOP_1]]#0 -> %arg1 = 0 to [[DIM_0]], [[DEF_LOOP_1]]#1 -> %arg2 = 0 to [[DIM_1]], [[DEF_LOOP_1]]#2 -> %arg3 = 0 to 64) {
