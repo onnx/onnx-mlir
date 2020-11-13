@@ -2256,16 +2256,17 @@ LogicalResult ONNXSplitOp::inferShapes() {
       splitLengths.emplace_back(ArrayAttrIntVal(splitAttribute, i));
 
   } else {
-    if (inputShape[axisIndex] <= 0)
-      return emitError("The dimension at the split axis is "
-                       "expected to be known at compile time");
-    if (inputShape[axisIndex] % numOfResults != 0)
+    if (inputShape[axisIndex] != -1 &&
+        inputShape[axisIndex] % numOfResults != 0)
       return emitError("The dimension at the split axis is "
                        "expected to be divisible by the number of results");
     // If split parameter is not specified, the dimension is split to
     // equal-sized parts.
     for (int i = 0; i < numOfResults; ++i)
-      splitLengths.emplace_back(inputShape[axisIndex] / numOfResults);
+      if (inputShape[axisIndex] <= 0)
+        splitLengths.emplace_back(-1);
+      else
+        splitLengths.emplace_back(inputShape[axisIndex] / numOfResults);
     // Build attribute and store attribute.
     auto builder = mlir::Builder(getContext());
     splitAttr(builder.getI64ArrayAttr(llvm::makeArrayRef(splitLengths)));
