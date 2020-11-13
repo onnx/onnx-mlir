@@ -20,8 +20,8 @@
 #include <mpark/variant.hpp>
 namespace bstd = mpark;
 
-#include "onnx/defs/schema.h"
 #include "mlir/Ir/Module.h"
+#include "onnx/defs/schema.h"
 
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 
@@ -131,10 +131,6 @@ private:
       }
     }
 
-    auto elementOnnxType =
-        (onnx::TensorProto_DataType)value_info.type().tensor_type().elem_type();
-    mlir::Type elementType =
-        convertONNXTypeToMLIRType(builder_, elementOnnxType);
     llvm::ArrayRef<int64_t> tensor_dims(dims.data(), dims.size());
     return mlir::RankedTensorType::get(tensor_dims, elementType);
   }
@@ -580,7 +576,7 @@ private:
     for (auto &v : node.output()) {
       if (v.empty())
         return false;
-      auto &resultType = ImportInputTensorType(value_info_map[v]);
+      auto &resultType = ImportTensorType(value_info_map[v]);
       resultTypes.push_back(resultType);
     }
 
@@ -590,7 +586,12 @@ private:
     const onnx::FunctionProto *pFunctionProto = schema->GetFunction();
     if (!pFunctionProto) {
       // Check if op is a context-dependent function and build function-body
+#ifdef ONNX_FUNCTION_TYPE_CONTEXT
       onnx::FunctionBodyBuildContextImpl onnxFunContext(node, operandOnnxTypes);
+#else
+      onnx::NodeProto node_copy(node);
+      onnx::FunctionBodyBuildContextImpl onnxFunContext(node_copy);
+#endif
       if (schema->HasContextDependentFunction() &&
           (schema->BuildContextDependentFunction(
               onnxFunContext, functionProto)))
@@ -824,4 +825,12 @@ void ImportFrontendModelFile(std::string model_fname,
   detail::FrontendGenImpl myONNXGen(context);
   module = myONNXGen.ImportONNXModel(model);
 }
+
+void ImportFrontendModel(const onnx::ModelProto &model, mlir::MLIRContext &context,
+    mlir::OwningModuleRef &module) {
+
+  detail::FrontendGenImpl myONNXGen(context);
+  module = myONNXGen.ImportONNXModel(model);
+}
+
 } // namespace onnx_mlir

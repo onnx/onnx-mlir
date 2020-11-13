@@ -34,24 +34,26 @@ void RegisterFunSchema() {
   (void)unused;
 }
 
-void registerDialects() {
-  mlir::registerDialect<mlir::StandardOpsDialect>();
-  mlir::registerDialect<mlir::ONNXOpsDialect>();
+void registerDialects(mlir::MLIRContext &context) {
+  // mlir::DialectRegistry registry;
+  // registry.insert<mlir::StandardOpsDialect>();
+  // registry.insert<mlir::ONNXOpsDialect>();
+  context.getOrLoadDialect<mlir::StandardOpsDialect>();
+  context.getOrLoadDialect<mlir::ONNXOpsDialect>();
 }
 
 void check(ModelProto &model) {
   mlir::MLIRContext context;
+  registerDialects(context);
   mlir::OwningModuleRef module;
 
-  onnx_mlir::ImportFrontendModelFile(model, context, module);
+  onnx_mlir::ImportFrontendModel(model, context, module);
 
   module->verify();
   module->dump();
 }
 
 int main(int argc, char *argv[]) {
-
-  registerDialects();
 
   RegisterFunSchema();
 

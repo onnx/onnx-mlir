@@ -2,7 +2,7 @@ add_executable(CustomFnTest CustomFnTest.cpp)
 
 target_link_libraries(CustomFnTest
         OMBuilder OMONNXOps OMPromotableConstOperandsOpInterface OMResultTypeInferenceOpInterface OMShapeInferenceOpInterface
-        OMAttributePromotion OMONNXRewrite ${MLIRLibs} onnx)
+        OMAttributePromotion ${OMLibs} ${MLIRLibs} onnx)
 
 target_include_directories(CustomFnTest
         PRIVATE
