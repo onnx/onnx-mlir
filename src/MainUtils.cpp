@@ -523,7 +523,7 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
         (outputBaseName + ".onnx.mlir").c_str());
 
     // Apply specific passes to clean up the code where necessary.
-    mlir::PassManager cleanSourcePM(&context);
+    mlir::PassManager cleanSourcePM(&context, mlir::OpPassManager::Nesting::Implicit);
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
       cleanSourcePM.addPass(mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
@@ -545,7 +545,7 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
 
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType emissionTarget) {
-  mlir::PassManager pm(&context);
+  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
   auto &tvpModulePM = pm.nest<tvp::TVPModuleOp>();
 
   if (emissionTarget >= EmitONNXIR) {

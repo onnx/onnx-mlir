@@ -56,9 +56,9 @@ func @tiling3d() {
   // CHECK-NEXT:  affine.for [[I_BLOCK_IV:%.+]] = 0 to 1024 step 4 {
   // CHECK-NEXT:    affine.for [[J_BLOCK_IV:%.+]] = 0 to 2048 step 4 {
   // CHECK-NEXT:      affine.for [[K_BLOCK_IV:%.+]] = 0 to 4096 step 4 {
-  // CHECK-NEXT:        affine.for [[I_INNER_IV:%.+]] = #map0([[I_BLOCK_IV]]) to #map1([[I_BLOCK_IV]]) {
-  // CHECK-NEXT:          affine.for [[J_INNER_IV:%.+]] = #map0([[J_BLOCK_IV]]) to #map1([[J_BLOCK_IV]]) {
-  // CHECK-NEXT:            affine.for [[K_INNER_IV:%.+]] = #map0([[K_BLOCK_IV]]) to #map1([[K_BLOCK_IV]]) {
+  // CHECK-NEXT:        affine.for [[I_INNER_IV:%.+]] = #map0([[I_BLOCK_IV]]) to #map2([[I_BLOCK_IV]]) {
+  // CHECK-NEXT:          affine.for [[J_INNER_IV:%.+]] = #map0([[J_BLOCK_IV]]) to #map2([[J_BLOCK_IV]]) {
+  // CHECK-NEXT:            affine.for [[K_INNER_IV:%.+]] = #map0([[K_BLOCK_IV]]) to #map2([[K_BLOCK_IV]]) {
   // CHECK-NEXT:            }
   // CHECK-NEXT:          }
   // CHECK-NEXT:        }
