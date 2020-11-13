@@ -323,3 +323,47 @@ func @test_gemm_c_dyn(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>, %arg2:
 // CHECK:         }
 }
 
+// -----
+
+// Test tile with constant repeats
+func @test_tile1(%arg0 : tensor<4x8xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() { value = dense<[3, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.Tile"(%arg0, %0) : (tensor<4x8xf32>, tensor<2xi64>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+// CHECK-LABEL:       func @test_tile1
+// CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<4x8xf32>) -> memref<12x16xf32> {
+// CHECK:           [[VAR_0:%.+]] = alloc() : memref<12x16xf32>
+// CHECK:           [[VAR_1:%.+]] = "krnl.global"() {name = "constant_0", shape = [2], value = dense<[3, 2]> : tensor<2xi64>} : () -> memref<2xi64>
+// CHECK:           [[VAR_2:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[VAR_2]]#0, [[VAR_2]]#1) with ([[VAR_2]]#0 -> [[VAR_arg1:%.+]] = 0 to 12, [[VAR_2]]#1 -> [[VAR_arg2:%.+]] = 0 to 16) {
+// CHECK:             [[VAR_3:%.+]] = affine.load [[VAR_arg0]][symbol([[VAR_arg1]]) mod 4, symbol([[VAR_arg2]]) mod 8] : memref<4x8xf32>
+// CHECK:             affine.store [[VAR_3]], [[VAR_0]][symbol([[VAR_arg1]]), symbol([[VAR_arg2]])] : memref<12x16xf32>
+// CHECK:           }
+// CHECK:           return [[VAR_0]] : memref<12x16xf32>
+// CHECK:         }
+// CHECK:       }
+}
+
+// -----
+
+// Test tile without constant repeats
+func @test_tile2(%arg0 : tensor<8xf32>, %arg1 : tensor<1xi64>) -> tensor<*xf32> {
+  %1 = "onnx.Tile"(%arg0, %arg1) : (tensor<8xf32>, tensor<1xi64>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+// CHECK-LABEL:       func @test_tile2
+// CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<8xf32>, [[VAR_arg1:%.+]]: memref<1xi64>) -> memref<?xf32> {
+// CHECK:           [[VAR_0:%.+]] = affine.load [[VAR_arg1]][0] : memref<1xi64>
+// CHECK:           [[VAR_1:%.+]] = index_cast [[VAR_0]] : i64 to index
+// CHECK:           [[VAR_2:%.+]] = affine.apply #map1(){{.}}[[VAR_1]]{{.}}
+// CHECK:           [[VAR_3:%.+]] = alloc([[VAR_2]]) : memref<?xf32>
+// CHECK:           [[VAR_4:%.+]] = krnl.define_loops 1
+// CHECK:           [[VAR_5:%.+]] = affine.apply #map1(){{.}}[[VAR_1]]{{.}}
+// CHECK:           krnl.iterate([[VAR_4]]) with ([[VAR_4]] -> [[VAR_arg2:%.+]] = 0 to [[VAR_5]]) {
+// CHECK:             [[VAR_6:%.+]] = affine.load [[VAR_arg0]][symbol([[VAR_arg2]]) mod 8] : memref<8xf32>
+// CHECK:             affine.store [[VAR_6]], [[VAR_3]][symbol([[VAR_arg2]])] : memref<?xf32>
+// CHECK:           }
+// CHECK:           return [[VAR_3]] : memref<?xf32>
+// CHECK:         }
+}
+
+
