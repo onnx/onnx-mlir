@@ -141,18 +141,25 @@ def process_line(line):
     if re.match(r'\s+', line) is None:
         return
     new_line = line
-    # Process defintions, with custom handlng for func, iterates, define_loops,
-    # alloc, dim.
+
+    # Process definition of variables.
+    # Special handling of function header.
     if re.match(r'\s+func', line) is not None:
         new_line = process_name(new_line, def_arg_pat, "PARAM", ":", 1)
-    elif re.match(r'\s+krnl\.iterate', line) is not None:
+    # Special handling of loop iterations.
+    elif re.match(r'\s+(\w+\.)for', line) is not None:
         new_line = process_name(new_line, def_pat, "I", " =", 1)
     elif re.search(r'krnl\.define_loops', line) is not None:
         new_line = process_name(new_line, def_qual_pat, "LOOP", " =", 1)
+    elif re.match(r'\s+(\w+\.)iterate', line) is not None:
+        new_line = process_name(new_line, def_pat, "I", " =", 1)
+    # Special handling for alloc.
     elif re.search(r'=\s+alloc', line) is not None:
         new_line = process_name(new_line, def_pat, "RES", " =", 0)
+    # Special handling for dim.
     elif re.search(r'=\s+dim', line) is not None:
         new_line = process_name(new_line, def_pat, "DIM", " =", 1)
+    # Special handling for memory operations.
     elif re.search(r'(\w+\.)load\s+', line) is not None:
         res = re.search(r'load\s+%([a-zA-Z0-9][a-zA-Z0-9_\-]*)', line)
         mem = res.group(1)
@@ -160,6 +167,7 @@ def process_line(line):
             mem = name_dict[mem]
         new_line = process_name(new_line, def_qual_pat,
                                 "LOAD_"+mem+"_MEM", " =", 0)
+    # Special handling for constant operations.
     elif re.search(r'\sconstant\s', line) is not None:
         res = re.search(r'\sconstant\s(-?[0-9\.]+)', line)
         num = res.group(1)
@@ -173,6 +181,7 @@ def process_line(line):
             x = use_name(name, num, " =")
             y = record_name_def(name, num, "VAR_"+name, " =", 0)
             new_line = new_line.replace(x, y)
+
     # Process uses.
     uses = use_qual_pat.findall(new_line)
     for u in uses:
@@ -180,27 +189,29 @@ def process_line(line):
         x = use_name(name, num, "")
         y = translate_use_name(name, num, "")
         new_line = new_line.replace(x, y)
-        # print("use ", x, " to ", y, " using u", u)
 
+    # In debug mode, no need to perform FileCheck specific changes.
     if debug:
         print(new_line)
+        return
+
+    # Process output for FileCheck.
+    # Avoid [[[ and ]]] and others text that are reserved by FileCheck.
+    new_line = re.sub(r'\[\[\[', '{{.}}[[', new_line)  # get rid of [[[
+    new_line = re.sub(r'\]\]\]', ']]{{.}}', new_line)  # get rid of ]]]
+    # change [[1 -> *[1
+    new_line = re.sub(r'\[\[\s*(\d)', '{{.}}[\g<1>', new_line)
+    # change [[-1 -> *[-1
+    new_line = re.sub(r'\[\[\s*-\s*(\d)', '{{.}}[-\g<1>', new_line)
+    # change a]] -> 1]*
+    new_line = re.sub(r'(\d)\s*\]\]', '\g<1>]{{.}}', new_line)
+    if re.match(r'\s+func', line) is not None:
+        # Split function line into 2 lines.
+        new_line = re.sub(
+            r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'//CHECK-LABEL:\1\2\n//CHECK-SAME: \1\3', new_line)
+        print(new_line)
     else:
-        # Avoid [[[ and ]]] and others text that are reserved by FileCheck.
-        new_line = re.sub(r'\[\[\[', '{{.}}[[', new_line)  # get rid of [[[
-        new_line = re.sub(r'\]\]\]', ']]{{.}}', new_line)  # get rid of ]]]
-        # change [[1 -> *[1
-        new_line = re.sub(r'\[\[\s*(\d)', '{{.}}[\g<1>', new_line)
-        # change [[-1 -> *[-1
-        new_line = re.sub(r'\[\[\s*-\s*(\d)', '{{.}}[-\g<1>', new_line)
-        # change a]] -> 1]*
-        new_line = re.sub(r'(\d)\s*\]\]', '\g<1>]{{.}}', new_line)
-        if re.match(r'\s+func', line) is not None:
-            # Split function line into 2 lines.
-            new_line = re.sub(
-                r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'//CHECK-LABEL:\1\2\n//CHECK-SAME: \1\3', new_line)
-            print(new_line)
-        else:
-            print("//CHECK:      ", new_line)
+        print("//CHECK:      ", new_line)
 
 
 ################################################################################
