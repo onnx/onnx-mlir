@@ -67,8 +67,7 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
 };
 
 struct ONNXTileOpShapeHelper : public ONNXOpShapeHelper<ONNXTileOp> {
-  ONNXTileOpShapeHelper(
-      ONNXTileOp *newOp, ConversionPatternRewriter *rewriter);
+  ONNXTileOpShapeHelper( ONNXTileOp *newOp, ConversionPatternRewriter *rewriter);
 
   LogicalResult Compute(ONNXTileOpAdaptor operandAdaptor);
 };
