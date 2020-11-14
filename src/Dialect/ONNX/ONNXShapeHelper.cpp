@@ -92,13 +92,11 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
         genericOp, operandAdaptor.starts(), i);
     if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
-    startInput.debugPrint("start input");
     // Get end.
     IndexExpr endInput = context.createSymbolIndexFromArrayAtIndex(
         genericOp, operandAdaptor.ends(), i);
     if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
-    endInput.debugPrint("end input");
     // Get step.
     IndexExpr stepInput = context.createSymbolIndexFromArrayAtIndex(
         genericOp, operandAdaptor.steps(), i, 1);
@@ -106,10 +104,8 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       return op->emitError("step input parameter could not be processed");
     if (stepInput.isLiteral() && stepInput.getLiteral() == 0)
       return op->emitError("step input parameter cannot be zero");
-    stepInput.debugPrint("step input");
     // Get dim.
     IndexExpr dimInput = context.createDimIndexFromShapedType(data, ii);
-    dimInput.debugPrint("dim input");
 
     // Now proceed with the computations for start/end/dim.
     // Calculation for start: start < 0 ? start + dim : start.
@@ -119,7 +115,6 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     IndexExpr neg = startPos.clamp(0, dimInput - 1);
     IndexExpr pos = startPos.clamp(0, dimInput);
     IndexExpr startFinal = IndexExpr::select(stepInput < 0, neg, pos);
-    startFinal.debugPrint("start final");
 
     // Calculation for end: end<0 -> end + dim else -> end;
     // special case end <= -inf -> -1;  end >= inf -> dim;
@@ -133,13 +128,11 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     neg = endPos.clamp(-1, dimInput);
     pos = endPos.clamp(0, dimInput);
     IndexExpr endFinal = IndexExpr::select(stepInput < 0, neg, pos);
-    endFinal.debugPrint("end final");
 
     // Calculation for output size.
     IndexExpr dimOutputFinal = (endFinal - startFinal).ceilDiv(stepInput);
     // should use a max
     dimOutputFinal = dimOutputFinal.selectOrSelf(dimOutputFinal < 0, 0);
-    dimOutputFinal.debugPrint("output dim final");
 
     // Save results
     starts[ii] = startFinal;
@@ -161,12 +154,6 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       ends[i] = dimInput;
       outputDims[i] = dimInput;
     }
-#if 1
-    starts[i].debugPrint("New Dim\n  start");
-    ends[i].debugPrint("  end");
-    steps[i].debugPrint("  step");
-    outputDims[i].debugPrint("  output dim");
-#endif
   }
   return success();
 }
@@ -208,8 +195,6 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
     aDims.emplace_back(context.createDimIndexFromShapedType(A, 1));
     aDims.emplace_back(context.createDimIndexFromShapedType(A, 0));
   }
-  aDims[0].debugPrint("a0");
-  aDims[1].debugPrint("a1");
   // Scan dimensions of B with/without transpose.
   if (op->transB() == 0) {
     bDims.emplace_back(context.createDimIndexFromShapedType(B, 0));
@@ -218,13 +203,9 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
     bDims.emplace_back(context.createDimIndexFromShapedType(B, 1));
     bDims.emplace_back(context.createDimIndexFromShapedType(B, 0));
   }
-  bDims[0].debugPrint("b0");
-  bDims[1].debugPrint("b1");
   // Set output dims of result, creating a copy of it to be safe.
   outputDims.emplace_back(context.createIndex(aDims[0]));
   outputDims.emplace_back(context.createIndex(bDims[1]));
-  outputDims[0].debugPrint("out0");
-  outputDims[1].debugPrint("out1");
   // Bias C can be a (unidirectional) broadcast.
   if (hasBias) {
     if (cRank == 0) {
@@ -240,8 +221,6 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
       cDims.emplace_back(context.createDimIndexFromShapedType(C, 0));
       cDims.emplace_back(context.createDimIndexFromShapedType(C, 1));
     }
-    cDims[0].debugPrint("c0");
-    cDims[1].debugPrint("c1");
   }
   // Check static dimensions, if we can.
   if (aDims[1].isLiteral() && bDims[0].isLiteral() &&
