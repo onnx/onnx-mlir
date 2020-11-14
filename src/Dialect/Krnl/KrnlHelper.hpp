@@ -165,13 +165,14 @@ public:
   // must be of MemRef type.
   int pushBounds(int64_t lowerBound, int64_t upperBound);
   int pushBounds(int64_t lowerBound, Value upperBound);
-  int pushBounds(
-      IndexExprContext &context, int64_t lowerBound, IndexExpr upperBound);
+  int pushBounds(int64_t lowerBound, IndexExpr upperBound);
   int pushBounds(int64_t lowerBound, AffineMap upperBound,
       ArrayRef<Value> operandsForUpperBoundMap);
   int pushBounds(Value lowerBound, Value upperBound);
   int pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
       int upperBoundMemRefIndex, bool upperBoundMustBeConstant = false);
+  // for each index expression i in upperBounds, push 0..upperBound[i].
+  void pushAllBounds(SmallVectorImpl<IndexExpr> &upperBounds);
 
   // Create the KrnlIterateOp assiciated with this loop nest. The loops
   // iteration will be created if the definition and the optimization
