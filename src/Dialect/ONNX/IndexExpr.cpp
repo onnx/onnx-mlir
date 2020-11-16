@@ -4,7 +4,7 @@
 //
 // =============================================================================
 //
-// This file handle index expressions using indices and calcualtions using
+// This file handle index expressions using indices and calculation using
 // literals, affine expressions, and values.
 //
 //===----------------------------------------------------------------------===//
@@ -39,7 +39,7 @@ IndexExprContext::IndexExprContext(IndexExprContext &newParentContext)
     : rewriter(newParentContext.rewriter), loc(newParentContext.loc), dims(),
       symbols(), parentContext(nullptr), zero(nullptr), one(nullptr),
       minusOne(nullptr) {
-  // We resue the parent context, and in particuliar its affine
+  // We reuse the parent context, and in particuliar its affine
   // functions. Now because the affine functions of the parent context have
   // "ids" embedded in the AffineExpr, we must reuse the same mix of Dims and
   // Symbols here. I don't believe there is any sideeffects in considering a Dim
@@ -172,15 +172,15 @@ IndexExpr IndexExprContext::createSymbolIndex(Value val) {
   return IndexExpr(obj);
 }
 
-// Additional builder for repurposing IndexExpr from parent context.
+// Additional builder for re-purposing IndexExpr from parent context.
 IndexExpr IndexExprContext::createSymbolIndexFromParentContext(
     IndexExpr const parentIndexExpr) {
   // Make sure that we are using the propper parent context
   assert(parentIndexExpr.getContextPtr() == parentContext &&
          "parent index is not from the parent's context");
   // When the parent expression is already affine in the outer context, it will
-  // remain afine in the child's context as wee. So we keep it as such, to get
-  // as exprssive affine expressions as possible. We could retrict reuse for
+  // remain affine in the child's context as wee. So we keep it as such, to get
+  // as expressive affine expressions as possible. We could restrict reuse for
   // literal only.
   if (parentIndexExpr.isAffine()) {
     // Reuse affine expression.
@@ -545,11 +545,11 @@ void IndexExprImpl::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
   if (auto attrArray = getDenseElementAttributeFromValue(array)) {
     // We extracted an dense attribute from definition of operand.
     if (indexInArray > attrArray.getType().getDimSize(0)) {
-      // Not enought attributes for this index, return the default value.
+      // Not enough attributes for this index, return the default value.
       initAsLiteral(newContext, defaultLiteral);
       return;
     }
-    // We have enought attributes for this index, get the value.
+    // We have enough attributes for this index, get the value.
     Attribute attrVal = attrArray.getValue(ArrayRef<uint64_t>({indexInArray}));
     int64_t attrInt = attrVal.cast<IntegerAttr>().getInt();
     initAsLiteral(newContext, attrInt);
@@ -572,7 +572,7 @@ void IndexExprImpl::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
 
 void IndexExprImpl::copy(IndexExprImpl const *other) {
   assert(context && "all index expr must have a defined context");
-  // Preserve this's context, copy the remaining attributes from other.
+  // Preserve this context, copy the remaining attributes from other.
   init(context, other->defined, other->literal, other->affine, other->symbol,
       other->dim, other->predType, other->intLit, other->affineExpr,
       other->value);
@@ -589,7 +589,7 @@ IndexExpr IndexExpr::deepCopy() const {
 }
 
 //===----------------------------------------------------------------------===//
-// IndexExpr list querries.
+// IndexExpr list queries.
 //===----------------------------------------------------------------------===//
 bool IndexExpr::isDefined() const {
   assert(!getObj().defined || hasContext());
@@ -648,7 +648,7 @@ bool IndexExpr::hasValue() const {
 }
 
 bool IndexExpr::isLiteralAndIdenticalTo(int64_t b) const {
-  // When dealing with non-literal, don't test and return true.
+  // When dealing with non-literal, don't test and return false.
   if (!isLiteral())
     return false;
   // We have a literal, now make sure they are the same
@@ -656,7 +656,7 @@ bool IndexExpr::isLiteralAndIdenticalTo(int64_t b) const {
 }
 
 bool IndexExpr::isLiteralAndDifferentThan(int64_t b) const {
-  // When dealing with non-literal, don't test and return true.
+  // When dealing with non-literal, don't test and return false.
   if (!isLiteral())
     return false;
   // We have a literal, now make sure they are different
@@ -664,7 +664,7 @@ bool IndexExpr::isLiteralAndDifferentThan(int64_t b) const {
 }
 
 bool IndexExpr::isLiteralAndIdenticalTo(IndexExpr const b) const {
-  // When dealing with non-literal, don't test and return true.
+  // When dealing with non-literal, don't test and return false.
   if (!isLiteral() || !b.isLiteral())
     return false;
   // We have literals, now make sure they are the same
@@ -672,7 +672,7 @@ bool IndexExpr::isLiteralAndIdenticalTo(IndexExpr const b) const {
 }
 
 bool IndexExpr::isLiteralAndDifferentThan(IndexExpr const b) const {
-  // When dealing with non-literal, don't test and return true.
+  // When dealing with non-literal, don't test and return false.
   if (!isLiteral() || !b.isLiteral())
     return false;
   // We have literals, now make sure they are different
@@ -834,7 +834,7 @@ IndexExpr IndexExpr::compareOp(
         return aa.getContext().createLiteralIndex(1);
       break;
     default:
-      llvm_unreachable("unknown or illegal (unsigned) compare opeartor");
+      llvm_unreachable("unknown or illegal (unsigned) compare operator");
     }
     return aa.getContext().createLiteralIndex(0);
   };
@@ -847,7 +847,7 @@ IndexExpr IndexExpr::compareOp(
   return binaryOp(b, false, false, litFct, nullptr, valueFct);
 }
 
-// The affine reduction labda function processes the whole list and must init
+// The affine reduction lambda function processes the whole list and must init
 // the result. Literal and Values treat one operation at a time
 /* static*/ IndexExpr IndexExpr::reductionOp(SmallVectorImpl<IndexExpr> &vals,
     F2Self litRed, Flist affineRed, F2Self valueRed) {

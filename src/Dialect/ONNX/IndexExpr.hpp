@@ -4,7 +4,7 @@
 //
 // =============================================================================
 //
-// This file handle index expressions using indices and calcualtions using
+// This file handle index expressions using indices and calculations using
 // literals, affine expressions, and values.
 //
 //===----------------------------------------------------------------------===//
@@ -21,7 +21,7 @@ to use a single function to either determine shape inference or the actual
 shapes when allocating/looping during the lowering.
 
 During Shape inference, no code is generated; the IndexExpr will only be used to
-eitehr determine the actual constant size or a questionmark (signifying unknown
+either determine the actual constant size or a questionmark (signifying unknown
 at compile time).
 
 During lowering, code can be generated, and if fact it must, to fill in the
@@ -34,7 +34,7 @@ as such in the IndexExpr, but if the denominator was in fact another symbol or
 computation, such as "dim / shape[3]", then the same IndexExpr would lower
 its representation to a Value computation.
 
-IndexExpr can be querried to determine if they are represented at any times
+IndexExpr can be queried to determine if they are represented at any times
 as an Integer Literal, an AffineExpr, or a generic Value. IndexExpr can be
 operated on with operations typically found in index computations, namely.
 
@@ -45,7 +45,7 @@ exclusively max. Clamp can use AffineMaxOp but the result is affine only when
 all inputs are integer literals.
 
 Select(compA, compareOperator, compB, trueVal, falseVal) which corresponds to
-"compA operator compb ? trueVal : falseVal". The result can be statically
+"compA operator compB ? trueVal : falseVal". The result can be statically
 determined when the compare can be evaluated at compile time.
 
 2) IndexExprContext
@@ -53,7 +53,7 @@ determined when the compare can be evaluated at compile time.
 
 Each IndexExpr must be part of a single context which holds all of the symbols
 and Dim associated with them. Symbols are variables that are guaranteed to be
-constant during the scope of the IndexExpre. Dim are typically runtime
+constant during the scope of the IndexExprex. Dim are typically runtime
 dimensions of memrefs/tensors during computations to determine the shape of a
 memref/tensor; or dims are typically the dynamic loop indices inside loop
 structures.
@@ -235,7 +235,7 @@ public:
   // be successfully processed, false otherwise.
   bool createDimIndicesFromShapedType(
       Value tensorOrMemref, SmallVectorImpl<IndexExpr> &dimIndices);
-  // Consider an op with operand "arrayOperand". We find this operand's defining
+  // Consider an op with operand "array". We find this operand's defining
   // op. For each of its value,  if it contains a literal, we generate an
   // literal IndexExpr; if its a tensor/memref, we issue a question mark during
   // shape inference, and if not, we load this value. Return true if every entry
@@ -254,11 +254,11 @@ public:
   void createStoreOp(
       Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
 
-  // Suppor functions for AffineExpr.
+  // Support functions for AffineExpr.
   int addDim(Value const value);
   int addSymbol(Value const value);
 
-  // Querries and getters.
+  // Queries and getters.
   bool isShapeInferencePass() const { return !rewriter; }
   void getDimAndSymbolList(SmallVectorImpl<Value> &list) const;
   int getNumDims() const { return dims.size(); }
@@ -271,7 +271,7 @@ public:
   bool static areAllLiteral(SmallVectorImpl<IndexExpr> &list);
   // Return true if all IndexExpr in the list are affine.
   bool static areAllAffine(SmallVectorImpl<IndexExpr> &list);
-  // Transforms index into literal or -1 for, respectively, literal postive
+  // Transforms index into literal or -1 for, respectively, literal positive
   // values or runtime values.
   void static getOutputDimsForType(SmallVectorImpl<IndexExpr> &outputIndices,
       SmallVectorImpl<int64_t> &outputDims);
@@ -299,12 +299,12 @@ private:
 // this data structure is constant. Sole exception is during the reduction
 // operations. IndexExpr are simply a pointer to this data structure. This data
 // structure is allocated in dynamic memory and resides in the context. It will
-// be automaticlly destroyed at the same time as the context.
+// be automaticaly destroyed at the same time as the context.
 struct IndexExprImpl {
   // Public constructor.
   IndexExprImpl(IndexExprContext *indexExprContext);
 
-  // Higher-level basic initalization calls.
+  // Higher-level basic initialization calls.
   void initAsUndefined();
   void initAsQuestionmark(IndexExprContext &context);
   void initAsLiteral(IndexExprContext &context, int64_t const val);
@@ -338,7 +338,7 @@ struct IndexExprImpl {
   // Literal implies having a valid intLit; may also have an affineExpr or
   // value.
   bool literal;
-  // Affine indicate that IndedExpr represent an affine expr, which is by
+  // Affine indicate that IndexExpr represent an affine expr, which is by
   // definition true for integer literals.
   bool affine;
   // Symbol indicates an IndexExpr representing a symbol; symbols are
@@ -376,7 +376,7 @@ public:
   // Constructor that wraps an IndexExprObj. This is not a deep copy.
   IndexExpr(IndexExprImpl *obj) : indexExprObj(obj) {}
 
-  // Shape inference querries.
+  // Shape inference queries.
   bool isDefined() const;
   bool isUndefined() const;
   bool isLiteral() const;
@@ -390,7 +390,7 @@ public:
   bool hasContext() const;
   bool hasAffineExpr() const;
   bool hasValue() const;
-  // Next calls: value/values has/have to be litteral and satisfy the test.
+  // Next calls: value/values has/have to be literal and satisfy the test.
   bool isLiteralAndIdenticalTo(int64_t b) const;           // Values equal.
   bool isLiteralAndIdenticalTo(IndexExpr const b) const;   // Values equal.
   bool isLiteralAndDifferentThan(int64_t b) const;         // Values unequal.
@@ -445,7 +445,7 @@ public:
   static IndexExpr select(
       IndexExpr const compare, int64_t const trueVal, int64_t const falseVal);
   // Return an IndexExpr that is conditionally selected from the "true" input
-  // value, and the "this" value when the test is falsee: namely "result = cond
+  // value, and the "this" value when the test is false: namely "result = cond
   // ? trueVal : *this".
   IndexExpr selectOrSelf(
       IndexExpr const compare, IndexExpr const trueVal) const;
@@ -471,7 +471,7 @@ private:
       F3;
   // Support for operations: common handling for multiple operations.
   IndexExpr binaryOp(IndexExpr const b, bool affineWithLitB,
-      bool affineExprCompatible, F2 finteger, F2 faffine, F2 fvalue) const;
+      bool affineExprCompatible, F2 fInteger, F2 fAffine, F2 fValue) const;
   IndexExpr compareOp(CmpIPredicate comparePred, IndexExpr const b) const;
   static IndexExpr reductionOp(SmallVectorImpl<IndexExpr> &vals, F2Self litRed,
       Flist affineRed, F2Self valueRed);

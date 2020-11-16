@@ -57,7 +57,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   SmallVector<int64_t, 2> axesIntLit;
   Value axes = operandAdaptor.axes();
   if (axes.getType().isa<NoneType>()) {
-    // If `axes` are omitted, they are set to `[0, ..., ndim-1]`."
+    // If `axes` are omitted, they are set to `[0, ..., nDim-1]`."
     for (int i = 0; i < dataRank; ++i)
       axesIntLit.emplace_back(i);
   } else if (auto valueAttribute = getDenseElementAttributeFromValue(axes)) {
@@ -297,9 +297,9 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   bDims.resize(paddedRank);
   aPadDims.resize(paddedRank, false);
   bPadDims.resize(paddedRank, false);
-  // Add the dims of A. All of the aDim[0]...adim[arank-1] are in the rightmost
+  // Add the dims of A. All of the aDim[0]...aDim[aRank-1] are in the rightmost
   // positions, prepended by 1s to fit the paddedRankSize.
-  // (1,1,1... 1, aDim[0]...adim[aRank-1])
+  // (1,1,1... 1, aDim[0]...aDim[aRank-1])
   IndexExpr one = context.createLiteralIndex(1);
   int aOffset = paddedRank - aRank;
   for (int i = 0; i < aOffset; ++i) {
@@ -308,11 +308,11 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   }
   for (int i = 0; i < aRank; ++i) {
     aDims[i + aOffset] = context.createDimIndexFromShapedType(A, i);
-    aPadDims[i + aOffset] = false; // Pad false evein if dim is sized 1.
+    aPadDims[i + aOffset] = false; // Pad false even if dim is sized 1.
   }
   // for B: two cases. If bRank = 1, we pad the rightmost position. Namely we
   // get (1...,1, bDim[0], 1). We use one padding credit for the rightmost
-  // position. Otherwise, when bRank>1, we only padd the leading positions.
+  // position. Otherwise, when bRank>1, we only pad the leading positions.
   // Namely we get (1,1,1...,1, bDim[0],.... bDim[bRank-1])
   int bOffset = paddedRank - bRank;
   if (bRank == 1) {
@@ -326,7 +326,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   }
   for (int i = 0; i < bRank; ++i) {
     bDims[i + bOffset] = context.createDimIndexFromShapedType(B, i);
-    bPadDims[i + bOffset] = false; // Pad false evein if dim is sized 1.
+    bPadDims[i + bOffset] = false; // Pad false even if dim is sized 1.
   }
   assert(aDims.size() == bDims.size() && "padded A&B must have same size");
 
