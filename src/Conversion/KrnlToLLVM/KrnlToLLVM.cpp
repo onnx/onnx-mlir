@@ -218,7 +218,8 @@ public:
     // Compute strides and offset based on MemRef type.
     int64_t alignmentOffset;
     SmallVector<int64_t, 4> strides;
-    auto successStrides = getStridesAndOffset(memRefTy, strides, alignmentOffset);
+    auto successStrides =
+        getStridesAndOffset(memRefTy, strides, alignmentOffset);
     (void)successStrides;
     assert(succeeded(successStrides) && "unexpected non-strided memref");
 
@@ -235,8 +236,8 @@ public:
 
     // Offset in aligned pointer.
     // TODO: support non-zero here in the aligned case.
-    memRefDescriptor.setOffset(rewriter, loc,
-        createIndexConstant(rewriter, loc, 0));
+    memRefDescriptor.setOffset(
+        rewriter, loc, createIndexConstant(rewriter, loc, 0));
 
     if (memRefTy.getRank() != 0) {
       // Prepare sizes.
@@ -257,7 +258,8 @@ public:
       for (unsigned i = 0; i < nStrides; ++i) {
         int64_t index = nStrides - 1 - i;
         if (strides[index] == MemRefType::getDynamicStrideOrOffset())
-          // Identity layout map is enforced in the match function, so we compute:
+          // Identity layout map is enforced in the match function, so we
+          // compute:
           //   `runningStride *= sizes[index + 1]`
           runningStride = runningStride ? rewriter.create<LLVM::MulOp>(loc,
                                               runningStride, sizes[index + 1])

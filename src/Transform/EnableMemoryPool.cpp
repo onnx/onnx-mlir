@@ -103,9 +103,8 @@ public:
       poolMemRef =
           rewriter.create<KrnlGetRefOp>(loc, memRefType, newAlloc, zero);
     } else {
-      poolMemRef =
-          rewriter.create<KrnlGetRefOp>(loc, memRefType, newAlloc, zero,
-          allocOp.getDynamicSizes());
+      poolMemRef = rewriter.create<KrnlGetRefOp>(
+          loc, memRefType, newAlloc, zero, allocOp.getDynamicSizes());
     }
 
     rewriter.replaceOp(allocOp, poolMemRef.getResult());
