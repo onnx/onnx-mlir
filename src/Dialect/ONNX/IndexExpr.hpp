@@ -245,6 +245,15 @@ public:
   bool createSymbolIndicesFromArray(Operation *op, Value array, int arraySize,
       int64_t defaultLiteral, SmallVectorImpl<IndexExpr> &symbolIndices);
 
+  // Code Create for possibly affine load and store. Memref shape is expected to
+  // be of the same dimension than the indices array size. Each index expression
+  // will be transformed to a value to be used as indices to the memref. When
+  // all index expressions are affine, then an affine memory operation is
+  // generated. Otherwise, a standard memory operation is generated.
+  Value createLoadOp(Value memref, SmallVectorImpl<IndexExpr> &indices);
+  void createStoreOp(
+      Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
+
   // Suppor functions for AffineExpr.
   int addDim(Value const value);
   int addSymbol(Value const value);
@@ -381,6 +390,11 @@ public:
   bool hasContext() const;
   bool hasAffineExpr() const;
   bool hasValue() const;
+  // Next calls: value/values has/have to be litteral and satisfy the test.
+  bool isLiteralAndIdenticalTo(int64_t b) const;           // Values equal.
+  bool isLiteralAndIdenticalTo(IndexExpr const b) const;   // Values equal.
+  bool isLiteralAndDifferentThan(int64_t b) const;         // Values unequal.
+  bool isLiteralAndDifferentThan(IndexExpr const b) const; // Values unequal.
 
   // Getters.
   int64_t getLiteral() const;
