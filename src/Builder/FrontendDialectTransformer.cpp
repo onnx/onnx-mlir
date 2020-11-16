@@ -70,15 +70,21 @@ private:
       const onnx::NodeProto &);
 
   std::map<std::string, ImportHandlerType> import_handler_map_;
-  std::map<std::string, int64_t> opset_map_;
-  std::map<std::string, onnx::ValueInfoProto> value_info_map;
 
   mlir::Location UnknownLoc() { return mlir::UnknownLoc::get(&context_); }
+
+  // value_info_map is a map from ONNX symbolic names to the corresponding
+  // ValueInfoProto (used primarily to get the corresponding ONNX TypeProto).
+  std::map<std::string, onnx::ValueInfoProto> value_info_map;
 
   void AddValueInfo(const onnx::ValueInfoProto &vi) {
     value_info_map[vi.name()] = vi;
   }
 
+  // opset_map_ is the internal (map) representation of ModelProto::opset_import
+  // It maps each domain (e.g., "onnx.ai") to the specific version of that opset
+  // used by this model.
+  std::map<std::string, int64_t> opset_map_;
   void SetOpSetImport(const onnx::ModelProto &model) {
     opset_map_.clear();
     for (auto &binding : model.opset_import()) {
@@ -86,7 +92,7 @@ private:
     }
   }
 
-  // TODO: Update ImportInputTensorSymbol to call this
+  // TODO: Update ImportTensorSymbol to call this
   void BindOnnxName(const std::string &onnx_name, mlir::Value symbol) {
     auto input_tensor_legalized_name = legalize_name(onnx_name);
     assert(!frontend_symbols_.ContainKey(input_tensor_legalized_name) &&
@@ -144,10 +150,7 @@ private:
    */
   void ImportInputTensorSymbol(
       const onnx::ValueInfoProto &input, mlir::Value symbol) {
-    auto input_tensor_legalized_name = legalize_name(input.name());
-    assert(!frontend_symbols_.ContainKey(input_tensor_legalized_name) &&
-           "Found duplicate legalized input tensor names.");
-    frontend_symbols_.AddMapping(input_tensor_legalized_name, symbol);
+    BindOnnxName(input.name(), symbol);
   }
 
   mlir::NamedAttribute convertOnnxAttributeProtoToMlirNamedAttribute(
