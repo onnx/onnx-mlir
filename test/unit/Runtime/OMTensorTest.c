@@ -1,4 +1,5 @@
-//===----------------- OMTensorTest.h - OMTensor Unit Test -----------------===//
+//===----------------- OMTensorTest.h - OMTensor Unit Test
+//-----------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -14,23 +15,23 @@
 #include "OnnxMlirRuntime.h"
 
 void testOMTensorCtor() {
-    float data[4] = {1.f, 1.f};
-    int64_t shape[2] = {2, 2};
-    OMTensor *tensor = omTensorCreate(data, shape, 2, ONNX_TYPE_FLOAT);
-    assert(tensor);
+  float data[4] = {1.f, 1.f};
+  int64_t shape[2] = {2, 2};
+  OMTensor *tensor = omTensorCreate(data, shape, 2, ONNX_TYPE_FLOAT);
+  assert(tensor);
 
-    int64_t* shape_ptr = omTensorGetShape(tensor);
-    assert(shape_ptr);
-    assert(shape_ptr[0] == 2);
-    assert(shape_ptr[1] == 2);
+  int64_t *shape_ptr = omTensorGetShape(tensor);
+  assert(shape_ptr);
+  assert(shape_ptr[0] == 2);
+  assert(shape_ptr[1] == 2);
 
-    int64_t* strides_ptr = omTensorGetStride(tensor);
-    assert(strides_ptr);
-    assert(strides_ptr[0] == 2);
-    assert(strides_ptr[1] == 1);
+  int64_t *strides_ptr = omTensorGetStrides(tensor);
+  assert(strides_ptr);
+  assert(strides_ptr[0] == 2);
+  assert(strides_ptr[1] == 1);
 }
 
 int main() {
-    testOMTensorCtor();
-    return 0;
+  testOMTensorCtor();
+  return 0;
 }

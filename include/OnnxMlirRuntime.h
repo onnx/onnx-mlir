@@ -113,14 +113,4 @@
  *
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern OMTensorList* run_main_graph(OMTensorList*);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif // ONNX_MLIR_ONNXMLIRRUNTIME_H

@@ -10,6 +10,8 @@
 #include "com_ibm_onnxmlir_DynEntryPoint.h"
 #include "jnilog.h"
 
+extern OMTensorList *run_main_graph(OMTensorList *);
+
 /* Declare type var, make call and assign to var, check against val.
  * It's assumed that a Java exception has already been thrown so
  * this call simply returns NULL.
@@ -67,17 +69,18 @@
   LIB_CALL(type var = call, var == val, env, cls, __VA_ARGS__);
 
 /* Debug output of OMTensor fields */
-#define OMT_DEBUG(i, n, data, shape, stride, dataType, dataSize, rank, owning) \
+#define OMT_DEBUG(                                                             \
+    i, n, data, shape, strides, dataType, bufferSize, rank, owning)            \
   do {                                                                         \
     char tmp[1024];                                                            \
     LOG_TYPE_BUF(dataType, tmp, data, n);                                      \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:data=[%s]", i, tmp);                        \
     LOG_LONG_BUF(tmp, shape, rank);                                            \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:shape=[%s]", i, tmp);                       \
-    LOG_LONG_BUF(tmp, stride, rank);                                           \
-    LOG_PRINTF(LOG_DEBUG, "omt[%d]:stride=[%s]", i, tmp);                      \
+    LOG_LONG_BUF(tmp, strides, rank);                                          \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:strides=[%s]", i, tmp);                     \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:dataType=%d", i, dataType);                 \
-    LOG_PRINTF(LOG_DEBUG, "omt[%d]:dataSize=%ld", i, dataSize);                \
+    LOG_PRINTF(LOG_DEBUG, "omt[%d]:bufferSize=%ld", i, bufferSize);            \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:rank=%d", i, rank);                         \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:owning=%d", i, owning);                     \
     LOG_PRINTF(LOG_DEBUG, "omt[%d]:numElems=%ld", i, n);                       \
@@ -91,18 +94,18 @@ typedef struct {
   jclass jomt_cls;    /* com/ibm/onnxmlir/OMTensor class          */
   jclass jomtl_cls;   /* com/ibm/onnxmlir/OMTensorList class      */
 
-  jmethodID jomt_constructor; /* OMTensor constructor             */
-  jmethodID jomt_getData;     /* OMTensor getData method          */
-  jmethodID jomt_setData;     /* OMTensor setData method          */
-  jmethodID jomt_getShape;    /* OMTensor getShape method         */
-  jmethodID jomt_setShape;    /* OMTensor setShape method         */
-  jmethodID jomt_getStride;   /* OMTensor getStride method        */
-  jmethodID jomt_setStride;   /* OMTensor setStride method        */
-  jmethodID jomt_getDataType; /* OMTensor getType method          */
-  jmethodID jomt_setDataType; /* OMTensor setType method          */
-  jmethodID jomt_getDataSize; /* OMTensor getDataSize method      */
-  jmethodID jomt_getRank;     /* OMTensor getRank method          */
-  jmethodID jomt_getNumElems; /* OMTensor getNumOfElems method    */
+  jmethodID jomt_constructor;   /* OMTensor constructor           */
+  jmethodID jomt_getData;       /* OMTensor getData method        */
+  jmethodID jomt_setData;       /* OMTensor setData method        */
+  jmethodID jomt_getShape;      /* OMTensor getShape method       */
+  jmethodID jomt_setShape;      /* OMTensor setShape method       */
+  jmethodID jomt_getStrides;    /* OMTensor getStrides method     */
+  jmethodID jomt_setStrides;    /* OMTensor setStrides method     */
+  jmethodID jomt_getDataType;   /* OMTensor getType method        */
+  jmethodID jomt_setDataType;   /* OMTensor setType method        */
+  jmethodID jomt_getBufferSize; /* OMTensor getBufferSize method  */
+  jmethodID jomt_getRank;       /* OMTensor getRank method        */
+  jmethodID jomt_getNumElems;   /* OMTensor getNumOfElems method  */
 
   jmethodID jomtl_constructor; /* OMTensorList constructor        */
   jmethodID jomtl_getOmtArray; /* OMTensorList getOmtArray method */
@@ -138,16 +141,16 @@ jniapi_t *fill_jniapi(JNIEnv *env, jniapi_t *japi) {
       (*env)->GetMethodID(env, japi->jomt_cls, "getShape", "()[J"));
   JNI_VAR_CALL(env, japi->jomt_setShape,
       (*env)->GetMethodID(env, japi->jomt_cls, "setShape", "([J)V"));
-  JNI_VAR_CALL(env, japi->jomt_getStride,
-      (*env)->GetMethodID(env, japi->jomt_cls, "getStride", "()[J"));
-  JNI_VAR_CALL(env, japi->jomt_setStride,
-      (*env)->GetMethodID(env, japi->jomt_cls, "setStride", "([J)V"));
+  JNI_VAR_CALL(env, japi->jomt_getStrides,
+      (*env)->GetMethodID(env, japi->jomt_cls, "getStrides", "()[J"));
+  JNI_VAR_CALL(env, japi->jomt_setStrides,
+      (*env)->GetMethodID(env, japi->jomt_cls, "setStrides", "([J)V"));
   JNI_VAR_CALL(env, japi->jomt_getDataType,
       (*env)->GetMethodID(env, japi->jomt_cls, "getDataType", "()I"));
   JNI_VAR_CALL(env, japi->jomt_setDataType,
       (*env)->GetMethodID(env, japi->jomt_cls, "setDataType", "(I)V"));
-  JNI_VAR_CALL(env, japi->jomt_getDataSize,
-      (*env)->GetMethodID(env, japi->jomt_cls, "getDataSize", "()J"));
+  JNI_VAR_CALL(env, japi->jomt_getBufferSize,
+      (*env)->GetMethodID(env, japi->jomt_cls, "getBufferSize", "()J"));
   JNI_VAR_CALL(env, japi->jomt_getRank,
       (*env)->GetMethodID(env, japi->jomt_cls, "getRank", "()I"));
   JNI_VAR_CALL(env, japi->jomt_getNumElems,
@@ -190,19 +193,19 @@ OMTensorList *omtl_java_to_native(
     JNI_VAR_CALL(
         env, jobj_omts[i], (*env)->GetObjectArrayElement(env, jomtl_omts, i));
 
-    /* Get data, shape, stride, dataType, rank, and dataSize by calling
+    /* Get data, shape, strides, dataType, rank, and bufferSize by calling
      * corresponding methods
      */
     JNI_TYPE_VAR_CALL(env, jobject, jomt_data,
         (*env)->CallObjectMethod(env, jobj_omts[i], japi->jomt_getData));
     JNI_TYPE_VAR_CALL(env, jobject, jomt_shape,
         (*env)->CallObjectMethod(env, jobj_omts[i], japi->jomt_getShape));
-    JNI_TYPE_VAR_CALL(env, jobject, jomt_stride,
-        (*env)->CallObjectMethod(env, jobj_omts[i], japi->jomt_getStride));
+    JNI_TYPE_VAR_CALL(env, jobject, jomt_strides,
+        (*env)->CallObjectMethod(env, jobj_omts[i], japi->jomt_getStrides));
     JNI_TYPE_VAR_CALL(env, jint, jomt_dataType,
         (*env)->CallIntMethod(env, jobj_omts[i], japi->jomt_getDataType));
-    JNI_TYPE_VAR_CALL(env, jlong, jomt_dataSize,
-        (*env)->CallLongMethod(env, jobj_omts[i], japi->jomt_getDataSize));
+    JNI_TYPE_VAR_CALL(env, jlong, jomt_bufferSize,
+        (*env)->CallLongMethod(env, jobj_omts[i], japi->jomt_getBufferSize));
     JNI_TYPE_VAR_CALL(env, jint, jomt_rank,
         (*env)->CallIntMethod(env, jobj_omts[i], japi->jomt_getRank));
     JNI_TYPE_VAR_CALL(env, jlong, jomt_numElems,
@@ -212,21 +215,21 @@ OMTensorList *omtl_java_to_native(
     JNI_TYPE_VAR_CALL(
         env, void *, jni_data, (*env)->GetDirectBufferAddress(env, jomt_data));
 
-    /* Get long array associated with data shape and stride */
+    /* Get long array associated with data shape and strides */
     JNI_TYPE_VAR_CALL(env, long *, jni_shape,
         (*env)->GetLongArrayElements(env, jomt_shape, NULL));
-    JNI_TYPE_VAR_CALL(env, long *, jni_stride,
-        (*env)->GetLongArrayElements(env, jomt_stride, NULL));
+    JNI_TYPE_VAR_CALL(env, long *, jni_strides,
+        (*env)->GetLongArrayElements(env, jomt_strides, NULL));
 
     /* Primitive type int and long can be directly used */
     int jni_dataType = jomt_dataType;
-    long jni_dataSize = jomt_dataSize;
+    long jni_bufferSize = jomt_bufferSize;
     int jni_rank = jomt_rank;
     long jni_numElems = jomt_numElems;
 
     /* Print debug info on what we got from the Java side */
-    OMT_DEBUG(i, jni_numElems, jni_data, jni_shape, jni_stride, jni_dataType,
-        jni_dataSize, jni_rank, 0);
+    OMT_DEBUG(i, jni_numElems, jni_data, jni_shape, jni_strides, jni_dataType,
+        jni_bufferSize, jni_rank, 0);
 
     /* Create native OMTensor struct. Note jni_data is owned by the
      * Java ByteBuffer object. So here the OMTensor is created with
@@ -242,8 +245,8 @@ OMTensorList *omtl_java_to_native(
     /* Release reference to the java objects */
     JNI_CALL(
         env, (*env)->ReleaseLongArrayElements(env, jomt_shape, jni_shape, 0));
-    JNI_CALL(
-        env, (*env)->ReleaseLongArrayElements(env, jomt_stride, jni_stride, 0));
+    JNI_CALL(env,
+        (*env)->ReleaseLongArrayElements(env, jomt_strides, jni_strides, 0));
   }
 
   /* Create OMTensorList to be constructed and passed to the
@@ -278,12 +281,12 @@ jobject omtl_native_to_java(
         env, japi->jecpt_cls, "omt[%d]:data=null", i);
     LIB_TYPE_VAR_CALL(long *, jni_shape, omTensorGetShape(jni_omts[i]), NULL,
         env, japi->jecpt_cls, "omt[%d]:shape=null", i);
-    LIB_TYPE_VAR_CALL(long *, jni_stride, omTensorGetStride(jni_omts[i]), NULL,
-        env, japi->jecpt_cls, "omt[%d]:stride=null", i);
+    LIB_TYPE_VAR_CALL(long *, jni_strides, omTensorGetStrides(jni_omts[i]),
+        NULL, env, japi->jecpt_cls, "omt[%d]:strides=null", i);
     LIB_TYPE_VAR_CALL(int, jni_dataType, omTensorGetDataType(jni_omts[i]), 0,
         env, japi->jecpt_cls, "omt[%d]:dataType=0", i);
-    LIB_TYPE_VAR_CALL(long, jni_dataSize, omTensorGetDataSize(jni_omts[i]), 0,
-        env, japi->jecpt_cls, "omt[%ld]:dataSize=0", i);
+    LIB_TYPE_VAR_CALL(long, jni_bufferSize, omTensorGetBufferSize(jni_omts[i]),
+        0, env, japi->jecpt_cls, "omt[%ld]:bufferSize=0", i);
     LIB_TYPE_VAR_CALL(int, jni_rank, omTensorGetRank(jni_omts[i]), 0, env,
         japi->jecpt_cls, "omt[%d]:rank=0", i);
     LIB_TYPE_VAR_CALL(int, jni_owning, omTensorGetOwning(jni_omts[i]), -1, env,
@@ -292,8 +295,8 @@ jobject omtl_native_to_java(
         env, japi->jecpt_cls, "omt[%d]:numElems=0", i);
 
     /* Print debug info on what we got from the native side */
-    OMT_DEBUG(i, jni_numElems, jni_data, jni_shape, jni_stride, jni_dataType,
-        jni_dataSize, jni_rank, jni_owning);
+    OMT_DEBUG(i, jni_numElems, jni_data, jni_shape, jni_strides, jni_dataType,
+        jni_bufferSize, jni_rank, jni_owning);
 
     /* Create direct byte buffer Java object from native data buffer.
      * If data buffer is owned by the native code, we should make a
@@ -304,12 +307,12 @@ jobject omtl_native_to_java(
      */
     void *unowned_data = jni_data;
     if (jni_owning) {
-      LIB_VAR_CALL(unowned_data, malloc(jni_dataSize), NULL, env,
+      LIB_VAR_CALL(unowned_data, malloc(jni_bufferSize), NULL, env,
           japi->jecpt_cls, "unowned_data=null");
-      memcpy(unowned_data, jni_data, jni_dataSize);
+      memcpy(unowned_data, jni_data, jni_bufferSize);
     }
     JNI_TYPE_VAR_CALL(env, jobject, jomt_data,
-        (*env)->NewDirectByteBuffer(env, unowned_data, jni_dataSize));
+        (*env)->NewDirectByteBuffer(env, unowned_data, jni_bufferSize));
 
     /* Create data shape array Java object, fill in from native array */
     JNI_TYPE_VAR_CALL(
@@ -317,11 +320,11 @@ jobject omtl_native_to_java(
     JNI_CALL(env,
         (*env)->SetLongArrayRegion(env, jomt_shape, 0, jni_rank, jni_shape));
 
-    /* Create data stride array Java object, fill in from native array */
+    /* Create data strides array Java object, fill in from native array */
     JNI_TYPE_VAR_CALL(
-        env, jlongArray, jomt_stride, (*env)->NewLongArray(env, jni_rank));
-    JNI_CALL(env,
-        (*env)->SetLongArrayRegion(env, jomt_stride, 0, jni_rank, jni_stride));
+        env, jlongArray, jomt_strides, (*env)->NewLongArray(env, jni_rank));
+    JNI_CALL(env, (*env)->SetLongArrayRegion(
+                      env, jomt_strides, 0, jni_rank, jni_strides));
 
     /* Primitive type int can be directly used. Call setDataType method */
     int jomt_dataType = jni_dataType;
@@ -329,7 +332,7 @@ jobject omtl_native_to_java(
     /* Create the OMTensor Java object */
     JNI_TYPE_VAR_CALL(env, jobject, jobj_omt,
         (*env)->NewObject(env, japi->jomt_cls, japi->jomt_constructor,
-            jomt_data, jomt_shape, jomt_stride, jomt_dataType));
+            jomt_data, jomt_shape, jomt_strides, jomt_dataType));
 
     /* Set the OMTensor object in the object array */
     JNI_CALL(env, (*env)->SetObjectArrayElement(env, jobj_omts, i, jobj_omt));

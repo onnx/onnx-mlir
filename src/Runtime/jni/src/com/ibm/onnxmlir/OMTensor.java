@@ -55,7 +55,7 @@ public class OMTensor {
 
     private ByteBuffer _data;
     private long[] _shape;
-    private long[] _stride;
+    private long[] _strides;
     private int _dataType;
     private int _rank;
 
@@ -319,27 +319,27 @@ public class OMTensor {
         _shape = shape;
     }
 
-    /* ---------- Data stride getter and setter ---------- */
+    /* ---------- Data strides getter and setter ---------- */
 
     /**
-     * Data stride getter
+     * Data strides getter
      * 
-     * @return data stride array
+     * @return data strides array
      */
-    public long[] getStride() {
-        return _stride;
+    public long[] getStrides() {
+        return _strides;
     }
 
     /**
-     * Data stride setter
+     * Data strides setter
      * 
-     * @param stride data stride array to be set
+     * @param strides data strides array to be set
      */
-    public void setStride(long[] stride) {
-        if (stride.length != _rank)
+    public void setStrides(long[] strides) {
+        if (strides.length != _rank)
             throw new IllegalArgumentException(
-                    "array length " + stride.length + " != rank " + _rank);
-        _stride = stride;
+                    "array length " + strides.length + " != rank " + _rank);
+        _strides = strides;
     }
 
     /* ---------- Data type getter and setter ---------- */
@@ -372,7 +372,7 @@ public class OMTensor {
      * 
      * @return total size of the data buffer in bytes
      */
-    public long getDataSize() {
+    public long getBufferSize() {
         return _data == null ? 0 : _data.limit();
     }
 
@@ -407,15 +407,15 @@ public class OMTensor {
     private void putShape(long[] shape) {
         _rank = shape.length;
         _shape = new long[_rank];
-        _stride = new long[_rank];
+        _strides = new long[_rank];
                 
         /* Using signed indices helps detect when index falls below 0. */
         for (int i = _rank - 1; i >= 0; i--) {
           _shape[i] = shape[i];
           if (i == _rank - 1)
-            _stride[i] = 1;
+            _strides[i] = 1;
           else
-            _stride[i] = _stride[i+1] * _shape[i+1];
+            _strides[i] = _strides[i+1] * _shape[i+1];
         }
     }
 
@@ -425,14 +425,14 @@ public class OMTensor {
      * 
      * @param data data buffer
      * @param shape data shape
-     * @param stride data stride
+     * @param strides data stride
      * @param dataType data type
      */
     @SuppressWarnings("unused")
-    private OMTensor(ByteBuffer data, long[] shape, long[] stride, int dataType) {
-        if (shape.length != stride.length)
+    private OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType) {
+        if (shape.length != strides.length)
             throw new IllegalArgumentException(
-                    "shape.length (" + shape.length + ") != stride.length (" + stride.length + ")");
+                    "shape.length (" + shape.length + ") != stride.length (" + strides.length + ")");
         if (dataType < 0 || dataType > ONNX_TYPE_BFLOAT16)
             throw new IllegalArgumentException(
                     "data type " + dataType + " unknown");
@@ -440,7 +440,7 @@ public class OMTensor {
         _dataType = dataType;
         _rank = shape.length;
         _shape = shape;
-        _stride = stride;
+        _strides = strides;
     }
 
     /* For JNI wrapper only. Not intended for end user. */

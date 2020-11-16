@@ -145,9 +145,9 @@ int64_t *omTensorGetShape(OMTensor *tensor);
  * manage the shape array oneself.
  *
  * @param tensor pointer to the OMTensor
- * @param shape data sizes array to be set
+ * @param shape data shape array to be set
  *
- * Set the data sizes array of the OMTensor to the values in the input array.
+ * Set the data shape array of the OMTensor to the values in the input array.
  */
 void omTensorSetShape(OMTensor *tensor, int64_t *shape);
 
@@ -163,7 +163,7 @@ void omTensorSetShape(OMTensor *tensor, int64_t *shape);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data strides array.
  */
-int64_t *omTensorGetStride(OMTensor *tensor);
+int64_t *omTensorGetStrides(OMTensor *tensor);
 
 /**
  * \brief OMTensor data strides setter
@@ -179,7 +179,7 @@ int64_t *omTensorGetStride(OMTensor *tensor);
  *
  * Set the data strides array of the OMTensor to the values in the input array.
  */
-void omTensorSetStride(OMTensor *tensor, int64_t *stride);
+void omTensorSetStrides(OMTensor *tensor, int64_t *stride);
 
 /**
  * \brief OMTensor data type getter
@@ -210,13 +210,13 @@ static inline int getDataTypeSize(OM_DATA_TYPE dataType) {
  * @param tensor pointer to the OMTensor
  * @return the total size of the data buffer in bytes.
  */
-int64_t omTensorGetDataSize(OMTensor *tensor);
+int64_t omTensorGetBufferSize(OMTensor *tensor);
 
 /**
  * \brief OMTensor rank getter
  *
  * @param tensor, pointer to the OMTensor
- * @return rank of data sizes and strides of the OMTensor.
+ * @return rank of data shape and strides of the OMTensor.
  */
 int omTensorGetRank(OMTensor *tensor);
 

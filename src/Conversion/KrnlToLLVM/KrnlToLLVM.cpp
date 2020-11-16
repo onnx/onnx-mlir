@@ -425,7 +425,7 @@ public:
     GET_DATA,
     SET_DATA,
     GET_DATA_SHAPE,
-    GET_DATA_STRIDE,
+    GET_DATA_STRIDES,
     SET_DATA_TYPE,
     GET_DATA_TYPE,
     GET_OMT_ARRAY,
@@ -650,7 +650,7 @@ private:
         ApiSpec(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
         ApiSpec(API::GET_DATA_SHAPE, "omTensorGetShape", int64PtrTy, {opaquePtrTy}),
-        ApiSpec(API::GET_DATA_STRIDE, "omTensorGetStride", int64PtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_DATA_STRIDES, "omTensorGetStrides", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_TYPE, "omTensorGetDataType", int32Ty, {opaquePtrTy}),
         ApiSpec(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int32Ty}),
         ApiSpec(API::GET_OMT_ARRAY, "omTensorListGetOmtArray", opaquePtrPtrTy, {opaquePtrTy}),
@@ -737,7 +737,7 @@ private:
     auto sizesArrayPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_DATA_SHAPE, {rtMemRef});
     auto stridesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_DATA_STRIDE, {rtMemRef});
+        callApi(rewriter, loc, apiRegistry, API::GET_DATA_STRIDES, {rtMemRef});
 
     for (decltype(rank) i = 0; i < rank; i++) {
       auto dimIdx = rewriter.create<LLVM::ConstantOp>(
@@ -808,7 +808,7 @@ private:
     auto sizesArrayPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_DATA_SHAPE, {outOMTensor});
     auto stridesArrayPtr = callApi(
-        rewriter, loc, apiRegistry, API::GET_DATA_STRIDE, {outOMTensor});
+        rewriter, loc, apiRegistry, API::GET_DATA_STRIDES, {outOMTensor});
 
     for (decltype(rank) i = 0; i < rank; i++) {
       auto dimIdx = rewriter.create<LLVM::ConstantOp>(
