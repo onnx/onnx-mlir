@@ -23,6 +23,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
     ONNXSplitOp splitOp = llvm::dyn_cast<ONNXSplitOp>(op);
     auto axis = splitOp.axis();
     auto split = splitOp.split().getValue();
+    auto partitionCounts = ArrayAttrSize(split);
     SmallVector<int64_t, 4> splitOffset;
     int64_t offset = 0;
     for (int i = 0; i < split.size(); ++i) {
@@ -49,7 +50,12 @@ struct ONNXSplitOpLowering : public ConversionPattern {
             Value dim;
             if (r != axis)
               dim = rewriter.create<DimOp>(loc, operands[0], r);
-            else
+            else if (ArrayAttrIntVal(split, i) == -1) {
+              dim = rewriter.create<DimOp>(loc, operands[0], r);
+              dim = rewriter.create<UnsignedDivIOp>(loc, dim,
+                  emitConstantOp(
+                      rewriter, loc, rewriter.getIndexType(), partitionCounts));
+            } else
               dim = emitConstantOp(rewriter, loc, rewriter.getIndexType(),
                   ArrayAttrIntVal(split, i));
             allocOperands.push_back(dim);
@@ -83,10 +89,22 @@ struct ONNXSplitOpLowering : public ConversionPattern {
           readIndices.emplace_back(outputLoops.getInductionVar(r));
         } else {
           auto index = rewriter.getAffineDimExpr(0);
-          auto indexMap = AffineMap::get(1, 0, index + splitOffset[i]);
-          auto indexWithOffset = rewriter.create<AffineApplyOp>(loc, indexMap,
-              ArrayRef<Value>{/*index=*/outputLoops.getInductionVar(r)});
-          readIndices.emplace_back(indexWithOffset);
+          AffineMap indexMap;
+          if (ArrayAttrIntVal(split, i) == -1) {
+            auto dimSize = rewriter.getAffineDimExpr(1);
+            indexMap = AffineMap::get(
+                2, 0, index + dimSize.ceilDiv(partitionCounts) * i);
+            auto dim = rewriter.create<DimOp>(loc, operands[0], r);
+            auto indexWithOffset = rewriter.create<AffineApplyOp>(loc, indexMap,
+                ArrayRef<Value>{
+                    /*index=*/outputLoops.getInductionVar(r), /*dimSize=*/dim});
+            readIndices.emplace_back(indexWithOffset);
+          } else {
+            indexMap = AffineMap::get(1, 0, index + splitOffset[i]);
+            auto indexWithOffset = rewriter.create<AffineApplyOp>(loc, indexMap,
+                ArrayRef<Value>{/*index=*/outputLoops.getInductionVar(r)});
+            readIndices.emplace_back(indexWithOffset);
+          }
         }
         writeIndices.emplace_back(outputLoops.getInductionVar(r));
       }
