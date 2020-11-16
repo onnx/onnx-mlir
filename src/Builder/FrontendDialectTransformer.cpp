@@ -20,7 +20,7 @@
 #include <mpark/variant.hpp>
 namespace bstd = mpark;
 
-#include "mlir/Ir/Module.h"
+#include "mlir/IR/Module.h"
 #include "onnx/defs/schema.h"
 
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
@@ -531,7 +531,7 @@ private:
     auto &domain = node.domain();
     auto version_it = opset_map_.find(domain);
     if (version_it == opset_map_.end())
-      return false;
+      return nullptr;
     auto version = version_it->second;
     return onnx::OpSchemaRegistry::Schema(node.op_type(), version, domain);
   }
@@ -576,7 +576,7 @@ private:
     for (auto &v : node.output()) {
       if (v.empty())
         return false;
-      auto &resultType = ImportTensorType(value_info_map[v]);
+      auto resultType = ImportTensorType(value_info_map[v]);
       resultTypes.push_back(resultType);
     }
 
