@@ -34,7 +34,7 @@ template <class OP>
 ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
     OP *newOp, ConversionPatternRewriter *rewriter)
     : op(newOp), context(rewriter, newOp->getLoc()), outputsDims() {
-  setNumberOfOutputs(newOp->getOperation()->getNumResults());
+  setNumberOfOutputs(op->getOperation()->getNumResults());
 }
 
 //===----------------------------------------------------------------------===//
