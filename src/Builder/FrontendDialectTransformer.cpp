@@ -38,11 +38,16 @@ public:
       : context_(context), builder_(&context) {
     module_ = mlir::ModuleOp::create(mlir::UnknownLoc::get(&context));
     InitHandlerMap();
-    if (const char *envDimString = std::getenv("IMPORTER_FORCE_DYNAMIC")) {
+    force_dim_dynamic_enabled_ = false;
+    forced_input_ = 0;
+    forced_dim_ = 0;
+    if (const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC")) {
       force_dim_dynamic_enabled_ = true;
-      forced_input_ = atoi(envDimString);
-    } else {
-      force_dim_dynamic_enabled_ = false;
+      forced_input_ = atoi(envInputString);
+    }
+    if (const char *envDimString = std::getenv("IMPORTER_FORCE_DYNAMIC_DIM")) {
+      force_dim_dynamic_enabled_ = true;
+      forced_dim_ = atoi(envDimString);
     }
   }
 
@@ -65,7 +70,12 @@ private:
   // Variable forced_input records which inputs to be changed, starting from 0.
   // When all the inputs are to be changed, set IMPORTER_FORCE_DYNAMIC=-1
   bool force_dim_dynamic_enabled_;
+  // Which input to be changed to dynamic
+  // Default value is 0, first input
   int forced_input_;
+  // Which dimension to be changed to dynamic
+  // Default value is 0, first dimension
+  int forced_dim_;
 
   typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
       const onnx::NodeProto &);
@@ -583,9 +593,12 @@ private:
             (forced_input_ == -1 || forced_input_ == numInputs)) {
           auto argShape = shapedTy.getShape();
           SmallVector<int64_t, 4> newDims;
-          newDims.push_back(-1);
-          for (auto i = 1; i < argShape.size(); i++) {
-            newDims.push_back(argShape[i]);
+          for (auto i = 0; i < argShape.size(); i++) {
+            if (forced_dim_ == -1 || forced_dim_ == i) {
+              newDims.push_back(-1);
+            } else {
+              newDims.push_back(argShape[i]);
+            }
           }
           argTy =
               mlir::RankedTensorType::get(newDims, shapedTy.getElementType());
