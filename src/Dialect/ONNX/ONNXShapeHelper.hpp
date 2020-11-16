@@ -46,11 +46,11 @@ struct ONNXOpShapeHelper {
   }
 
   // Data that must be present for every ShapeHelper operation. Op and context
-  // are initialized in the constructor, and outputDims is computed by the
+  // are initialized in the constructor, and outputsDims is computed by the
   // child's struct `Compute` function.
   OP *op;
   IndexExprContext context;
-  SmallVector<SmallVector<IndexExpr, 4>, 2> outputsDims;
+  SmallVector<SmallVector<IndexExpr, 4>, 1> outputsDims;
 };
 
 // Shape for SliceOp.
@@ -92,6 +92,14 @@ struct ONNXMatMulOpShapeHelper : public ONNXOpShapeHelper<ONNXMatMulOp> {
   SmallVector<IndexExpr, 4> bDims; // Dim of B, after applying padding.
   llvm::BitVector aPadDims;        // When true, that dim was padded.
   llvm::BitVector bPadDims;        // When true, that dim was padded.
+};
+
+// Shape for SplitOp.
+struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
+  ONNXSplitOpShapeHelper(
+      ONNXSplitOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXSplitOpAdaptor operandAdaptor);
 };
 
 //===----------------------------------------------------------------------===//

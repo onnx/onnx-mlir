@@ -386,3 +386,76 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// ONNX Split Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(
+    ONNXSplitOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter) {}
+
+LogicalResult ONNXSplitOpShapeHelper::Compute(
+    ONNXSplitOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Get info about input and output data.
+  int numOfResults = op->getNumResults();
+  auto rank = operandAdaptor.input().getType().cast<ShapedType>().getRank();
+
+  // Set output dims of results.
+  //outputsDims.resize(numOfResults);
+
+  // Checking value of axis parameter.
+  int64_t axisIndex = op->axis();
+  if (axisIndex < -rank || axisIndex >= rank)
+    return op->emitError("Split axis value out of bound");
+  // Negative axis means values are counted from the opposite side.
+  if (axisIndex < 0)
+    axisIndex = rank + axisIndex;
+
+  // Checking value of split parameter.
+  auto splitAttribute = op->split();
+  SmallVector<IndexExpr, 4> splitDims;
+  if (splitAttribute.hasValue()) {
+    if (ArrayAttrSize(splitAttribute) != numOfResults)
+      return op->emitError("Split size not equal to the number of results");
+    for (int i = 0; i < numOfResults; ++i) {
+      IndexExpr dim =
+          context.createLiteralIndex(ArrayAttrIntVal(splitAttribute, i));
+      splitDims.emplace_back(dim);
+    }
+  } else {
+    // If split parameter is not specified, the dimension is split to
+    // equal-sized parts.
+    IndexExpr splitInputDim =
+        context.createDimIndexFromShapedType(operandAdaptor.input(), axisIndex);
+    IndexExpr numOfPartitions = context.createLiteralIndex(numOfResults);
+    if (splitInputDim.isLiteral() &&
+        (splitInputDim.getLiteral() % numOfResults != 0))
+      return op->emitError("The dimension at the split axis is "
+                           "expected to be divisible by the number of results");
+    for (int i = 0; i < numOfResults; ++i) {
+      IndexExpr splitDim = splitInputDim.ceilDiv(numOfPartitions);
+      splitDims.emplace_back(splitDim);
+    }
+  }
+
+  // Build result types.
+  for (int i = 0; i < numOfResults; ++i) {
+    SmallVector<IndexExpr, 4> outputDims;
+    outputDims.resize(rank);
+    for (int j = 0; j < rank; ++j) {
+      if (j == axisIndex) {
+        outputDims[j] = splitDims[i];
+      } else {
+        IndexExpr dim =
+            context.createDimIndexFromShapedType(operandAdaptor.input(), j);
+        dim.debugPrint("dim ");
+        outputDims[j] = dim;
+      }
+    }
+    outputsDims.emplace_back(outputDims);
+  }
+  return success();
+}
