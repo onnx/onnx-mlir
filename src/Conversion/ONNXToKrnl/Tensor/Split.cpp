@@ -25,13 +25,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
     ONNXSplitOp splitOp = llvm::dyn_cast<ONNXSplitOp>(op);
     auto rank = splitOp.input().getType().cast<ShapedType>().getRank();
     auto outputNum = splitOp.getNumResults();
-
     auto axis = splitOp.axis();
-    if (axis < -rank || axis >= rank)
-      return op->emitError("Split axis value out of bound");
-    // Negative axis means values are counted from the opposite side.
-    if (axis < 0)
-      axis += rank;
 
     // Get a shape helper.
     ONNXSplitOpShapeHelper shapeHelper(&splitOp, &rewriter);

@@ -410,8 +410,12 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
   if (axisIndex < -rank || axisIndex >= rank)
     return op->emitError("Split axis value out of bound");
   // Negative axis means values are counted from the opposite side.
-  if (axisIndex < 0)
+  if (axisIndex < 0) {
     axisIndex = rank + axisIndex;
+    auto builder = mlir::Builder(op->getContext());
+    op->axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
+  }
 
   // Checking value of split parameter.
   auto splitAttribute = op->split();
@@ -450,7 +454,6 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
       } else {
         IndexExpr dim =
             context.createDimIndexFromShapedType(operandAdaptor.input(), j);
-        dim.debugPrint("dim ");
         outputDims[j] = dim;
       }
     }

@@ -973,7 +973,7 @@ func @test_split_2(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_split_2
-  // CHECK: [[RES:%.+]]:2 = "onnx.Split"(%arg0) {axis = -2 : si64} : (tensor<16x32x64xf32>) -> (tensor<16x16x64xf32>, tensor<16x16x64xf32>)
+  // CHECK: [[RES:%.+]]:2 = "onnx.Split"(%arg0) {axis = 1 : si64} : (tensor<16x32x64xf32>) -> (tensor<16x16x64xf32>, tensor<16x16x64xf32>)
   // CHECK: return [[RES]]#0 : tensor<16x16x64xf32>
 }
 
