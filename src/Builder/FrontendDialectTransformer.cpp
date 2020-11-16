@@ -82,7 +82,7 @@ private:
   }
 
   // opset_map_ is the internal (map) representation of ModelProto::opset_import
-  // It maps each domain (e.g., "onnx.ai") to the specific version of that opset
+  // It maps each domain (e.g., "ai.onnx") to the specific version of that opset
   // used by this model.
   std::map<std::string, int64_t> opset_map_;
   void SetOpSetImport(const onnx::ModelProto &model) {
@@ -92,7 +92,6 @@ private:
     }
   }
 
-  // TODO: Update ImportTensorSymbol to call this
   void BindOnnxName(const std::string &onnx_name, mlir::Value symbol) {
     auto input_tensor_legalized_name = legalize_name(onnx_name);
     assert(!frontend_symbols_.ContainKey(input_tensor_legalized_name) &&
