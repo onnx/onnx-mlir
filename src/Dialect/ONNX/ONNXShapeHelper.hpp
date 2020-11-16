@@ -66,6 +66,12 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
   SmallVector<IndexExpr, 4> steps;
 };
 
+struct ONNXTileOpShapeHelper : public ONNXOpShapeHelper<ONNXTileOp> {
+  ONNXTileOpShapeHelper(ONNXTileOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXTileOpAdaptor operandAdaptor);
+};
+
 // Shape for GemmOp.
 struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<ONNXGemmOp> {
   ONNXGemmOpShapeHelper(ONNXGemmOp *newOp, ConversionPatternRewriter *rewriter);
