@@ -50,7 +50,7 @@ struct ONNXOpShapeHelper {
   // child's struct `Compute` function.
   OP *op;
   IndexExprContext context;
-  SmallVector<IndexExpr, 4> outputDims;
+  SmallVector<SmallVector<IndexExpr, 4>, 2> outputsDims;
 };
 
 // Shape for SliceOp.

@@ -33,7 +33,7 @@ ONNXConstantOp getONNXConstantOp(Value value) {
 template <class OP>
 ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
     OP *newOp, ConversionPatternRewriter *rewriter)
-    : op(newOp), context(rewriter, newOp->getLoc()), outputDims() {}
+    : op(newOp), context(rewriter, newOp->getLoc()), outputsDims() {}
 
 //===----------------------------------------------------------------------===//
 // ONNX Slice Op Shape Helper
@@ -48,6 +48,9 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     ONNXSliceOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of results.
+  SmallVector<IndexExpr, 4> outputDims;
 
   // Get info about input data operand.
   Value data = operandAdaptor.data();
@@ -155,6 +158,10 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       outputDims[i] = dimInput;
     }
   }
+
+  // Save the final result.
+  outputsDims.emplace_back(outputDims);
+
   return success();
 }
 
@@ -170,6 +177,10 @@ ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(
 LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of result.
+  SmallVector<IndexExpr, 4> outputDims;
+
   // Get info.
   Value A = operandAdaptor.A();
   Value B = operandAdaptor.B();
@@ -247,6 +258,8 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
       }
     }
   }
+  // Save the final result.
+  outputsDims.emplace_back(outputDims);
   return success();
 }
 
@@ -263,6 +276,10 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
     ONNXMatMulOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of result.
+  SmallVector<IndexExpr, 4> outputDims;
+
   // Get info.
   Value A = operandAdaptor.A();
   Value B = operandAdaptor.B();
@@ -364,5 +381,8 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   if (aRank == 1 && bRank == 1) {
     outputDims.emplace_back(one);
   }
+  // Save the final result.
+  outputsDims.emplace_back(outputDims);
   return success();
 }
+

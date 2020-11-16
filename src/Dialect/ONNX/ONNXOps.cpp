@@ -987,7 +987,8 @@ LogicalResult ONNXMatMulOp::inferShapes() {
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Silce parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.outputsDims[0], outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
 }
@@ -1137,7 +1138,8 @@ LogicalResult ONNXGemmOp::inferShapes() {
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Silce parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.outputsDims[0], outputDims);
   Type elementType = A().getType().cast<ShapedType>().getElementType();
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
@@ -2762,7 +2764,8 @@ LogicalResult ONNXSliceOp::inferShapes() {
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Silce parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.outputsDims[0], outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
