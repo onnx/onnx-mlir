@@ -554,7 +554,7 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     // Apply specific passes to clean up the code where necessary.
     mlir::PassManager cleanSourcePM(&context);
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
-      cleanSourcePM.addPass(mlir::createElideConstantValuePass());
+      cleanSourcePM.addNestedPass<FuncOp>(mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
       cleanSourcePM.addNestedPass<FuncOp>(
           mlir::createElideConstGlobalValuePass());
