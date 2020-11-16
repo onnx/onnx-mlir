@@ -576,17 +576,17 @@ test_not_for_dynamic = [
     "test_gather_negative_indices_cpu",
 
     # Gemm Op:
-    "test_gemm_all_attributes_cpu",
-    "test_gemm_alpha_cpu",
-    "test_gemm_beta_cpu",
-    "test_gemm_default_matrix_bias_cpu",
-    "test_gemm_default_no_bias_cpu",
-    "test_gemm_default_scalar_bias_cpu",
-    "test_gemm_default_single_elem_vector_bias_cpu",
-    "test_gemm_default_vector_bias_cpu",
-    "test_gemm_default_zero_bias_cpu",
-    "test_gemm_transposeA_cpu",
-    "test_gemm_transposeB_cpu",
+    #"test_gemm_all_attributes_cpu",
+    #"test_gemm_alpha_cpu",
+    #"test_gemm_beta_cpu",
+    #"test_gemm_default_matrix_bias_cpu",
+    #"test_gemm_default_no_bias_cpu",
+    #"test_gemm_default_scalar_bias_cpu",
+    #"test_gemm_default_single_elem_vector_bias_cpu",
+    #"test_gemm_default_vector_bias_cpu",
+    #"test_gemm_default_zero_bias_cpu",
+    #"test_gemm_transposeA_cpu",
+    #"test_gemm_transposeB_cpu",
 
     # Hard Sigmoid Op:
     #"test_hardsigmoid_cpu",
@@ -789,9 +789,9 @@ test_not_for_dynamic = [
     #"test_sign_cpu",
 
     # MatmulOp
-    "test_matmul_2d_cpu",
-    "test_matmul_3d_cpu",
-    "test_matmul_4d_cpu",
+    #"test_matmul_2d_cpu",
+    #"test_matmul_3d_cpu",
+    #"test_matmul_4d_cpu",
 
     # BatchNormalization (test mode)
     #"test_batchnorm_epsilon_cpu",
@@ -846,12 +846,12 @@ test_not_for_dynamic = [
     #"test_squeeze_negative_axes_cpu",
 
     # Split
-    "test_split_equal_parts_1d_cpu",
-    "test_split_equal_parts_2d_cpu",
-    "test_split_equal_parts_default_axis_cpu",
-    "test_split_variable_parts_1d_cpu",
-    "test_split_variable_parts_2d_cpu",
-    "test_split_variable_parts_default_axis_cpu",
+    #"test_split_equal_parts_1d_cpu",
+    #"test_split_equal_parts_2d_cpu",
+    #"test_split_equal_parts_default_axis_cpu",
+    #"test_split_variable_parts_1d_cpu",
+    #"test_split_variable_parts_2d_cpu",
+    #"test_split_variable_parts_default_axis_cpu",
     
     # Tile
     "test_tile_cpu",
