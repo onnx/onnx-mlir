@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -58,44 +59,30 @@ struct ONNXTileOpLowering : public ConversionPattern {
     ONNXTileOp tileOp = llvm::cast<ONNXTileOp>(op);
     auto loc = op->getLoc();
 
-    // get input operands, shapes, and rank
-    Value input = operandAdaptor.input();
-    auto inputMemRefType = input.getType().cast<MemRefType>();
-    auto inputShape = inputMemRefType.getShape();
-    int64_t inputRank = inputShape.size();
-    Value repeats = operandAdaptor.repeats();
+    ONNXTileOpShapeHelper shapeHelper(&tileOp, &rewriter);
 
-    // get output info
+    assert(
+        !failed(shapeHelper.Compute(operandAdaptor)) && "expected to succeed");
+
     auto resultOperand = tileOp.output();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
 
-    bool insertDealloc = checkInsertDealloc(op);
-    Value alloc;
-    if (hasAllConstantDimensions(outputMemRefType))
-      alloc =
-          insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDeallocForTile(
-          outputMemRefType, loc, rewriter, insertDealloc, input, repeats);
+    Value input = operandAdaptor.input();
+
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
 
     // Define loops and iteration trip counts (equivalent to size of output)
-    std::vector<Value> originalLoops;
-    defineLoops(rewriter, loc, originalLoops, outputRank);
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
-    for (int ii = 0; ii < outputRank; ++ii)
-      addDimensionToPack(rewriter, loc, pack, alloc, ii);
+    BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
+    outputLoops.createDefineOp();
+    outputLoops.pushAllBounds(shapeHelper.outputDims);
+    outputLoops.createIterateOp();
+    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-    // Create the loops
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
-    Block &iterationBlock = iterateOp.bodyRegion().front();
-
-    // Now perform the insertions into the body of the just generated loops.
-    // Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operations.
+    SmallVector<Value, 4> loadIndices;
+    bool isAffineLoad = true;
 
     // This implementation is to iterate the output tensor.
     // The store has simple affine subscript expression.
@@ -103,39 +90,31 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // The load of elements in input tensor can be reused explicitly.
     // But the subscript of store is not contigous, or even not affine.
     // Alternative implementation can be found at the end of this file.
-    SmallVector<Value, 4> inputMemRefVal;
-    for (int i = 0; i < outputRank; ++i) {
-      if (inputShape[i] != -1) {
-        auto indexAE = rewriter.getAffineDimExpr(0);
-        auto offsetAE = rewriter.getAffineSymbolExpr(0);
-        auto dimMap = AffineMap::get(1, 1, indexAE % offsetAE);
 
-        auto inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
-        auto loopVarVal = iterationBlock.getArguments()[i];
-        auto exprVal = rewriter.create<AffineApplyOp>(
-            loc, dimMap, ArrayRef<Value>{loopVarVal, inputDimSizeVal});
-        inputMemRefVal.emplace_back(exprVal);
-      } else {
-        auto indexExpr = iterationBlock.getArguments()[i];
-        auto inputDim = rewriter.create<DimOp>(loc, input, i);
-        auto exprVal =
-            rewriter.create<UnsignedRemIOp>(loc, indexExpr, inputDim);
-        inputMemRefVal.emplace_back(exprVal);
+    for (int i = 0; i < outputRank; i++) {
+      // Context is created for each dimension because they are independent
+      IndexExprContext IEContext(&rewriter, loc);
+      Value loopVal = outputLoops.getInductionVar(i);
+      IndexExpr index = IEContext.createLoopIterIndex(loopVal);
+      IndexExpr dimSize = IEContext.createDimIndexFromShapedType(input, i);
+      IndexExpr exprVal = index % dimSize;
+      if (!exprVal.isAffine()) {
+        isAffineLoad = false;
       }
+      loadIndices.emplace_back(exprVal.getValue());
     }
 
-    // Load the value from input
-    // Tried to use affine load when the input has constant shape
-    Value inputVal;
-    if (hasAllConstantDimensions(inputMemRefType))
-      inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
+    Value loadVal;
+    if (isAffineLoad)
+      loadVal = rewriter.create<AffineLoadOp>(loc, input, loadIndices);
     else
-      inputVal = rewriter.create<LoadOp>(loc, input, inputMemRefVal);
-    SmallVector<Value, 4> outputMemRefVal(iterationBlock.getArguments().begin(),
-        iterationBlock.getArguments().end());
+      loadVal = rewriter.create<LoadOp>(loc, input, loadIndices);
 
-    // Then store the value in the output.
-    rewriter.create<AffineStoreOp>(loc, inputVal, alloc, outputMemRefVal);
+    SmallVector<Value, 4> storeIndices;
+    for (int i = 0; i < outputRank; ++i) {
+      storeIndices.emplace_back(outputLoops.getInductionVar(i));
+    }
+    rewriter.create<AffineStoreOp>(loc, loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
 
