@@ -32,16 +32,16 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputsDims[0]);
+        rewriter, op, outputMemRefType, loc, shapeHelper.getDimsForOutput(0));
 
     // Get the constants: zero.
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
     // Non-reduction loop iterations: output-rank.
-    int outerloopNum = shapeHelper.outputsDims[0].size();
+    int outerloopNum = shapeHelper.getDimsForOutput(0).size();
     BuildKrnlLoop outputLoops(rewriter, loc, outerloopNum);
     outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.outputsDims[0]);
+    outputLoops.pushAllBounds(shapeHelper.getDimsForOutput(0));
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 

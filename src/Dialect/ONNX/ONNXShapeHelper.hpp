@@ -29,6 +29,8 @@ using namespace mlir;
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
+typedef SmallVector<IndexExpr, 4> DimsExpr;
+
 /// When defining support for a new op, add one such stuct which mÍÎust
 /// minimally compute the outputDims present in the parent class. Computation
 /// should be performed using a `Compute` function. Return success on successful
@@ -45,12 +47,24 @@ struct ONNXOpShapeHelper {
     llvm_unreachable("implement in child structs");
   }
 
+  // Return output dims for the N-th output.
+  DimsExpr &getDimsForOutput(int n) {
+    if (n < 0 || n > outputsDims.size())
+      op->emitError("Invalid range of outputs");
+    return outputsDims[n];
+  }
+
+  // Set the number of outputs.
+  void setNumberOfOutputs(int n) { outputsDims.resize(n); }
+
   // Data that must be present for every ShapeHelper operation. Op and context
   // are initialized in the constructor, and outputsDims is computed by the
   // child's struct `Compute` function.
   OP *op;
   IndexExprContext context;
-  SmallVector<SmallVector<IndexExpr, 4>, 1> outputsDims;
+
+private:
+  SmallVector<DimsExpr, 1> outputsDims;
 };
 
 // Shape for SliceOp.

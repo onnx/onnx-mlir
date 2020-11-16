@@ -43,7 +43,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       bool insertDealloc = checkInsertDealloc(op, i);
       auto memRefType = convertToMemRefType(splitOp.outputs()[i].getType());
       Value alloc = insertAllocAndDeallocSimple(
-          rewriter, op, memRefType, loc, shapeHelper.outputsDims[i]);
+          rewriter, op, memRefType, loc, shapeHelper.getDimsForOutput(i));
       allocs.emplace_back(alloc);
     }
 
@@ -70,7 +70,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
           for (int k = 0; k < i; ++k) {
             IndexExpr splitDim =
                 childContext.createSymbolIndexFromParentContext(
-                    shapeHelper.outputsDims[k][r]);
+                    shapeHelper.getDimsForOutput(k)[r]);
             readIndex = readIndex + splitDim;
           }
         }

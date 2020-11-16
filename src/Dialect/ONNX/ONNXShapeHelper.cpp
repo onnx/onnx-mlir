@@ -33,7 +33,9 @@ ONNXConstantOp getONNXConstantOp(Value value) {
 template <class OP>
 ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
     OP *newOp, ConversionPatternRewriter *rewriter)
-    : op(newOp), context(rewriter, newOp->getLoc()), outputsDims() {}
+    : op(newOp), context(rewriter, newOp->getLoc()), outputsDims() {
+  setNumberOfOutputs(newOp->getOperation()->getNumResults());
+}
 
 //===----------------------------------------------------------------------===//
 // ONNX Slice Op Shape Helper
@@ -50,7 +52,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   Operation *genericOp = reinterpret_cast<Operation *>(op);
 
   // Output dims of results.
-  SmallVector<IndexExpr, 4> outputDims;
+  DimsExpr outputDims;
 
   // Get info about input data operand.
   Value data = operandAdaptor.data();
@@ -160,7 +162,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   }
 
   // Save the final result.
-  outputsDims.emplace_back(outputDims);
+  getDimsForOutput(0) = outputDims;
 
   return success();
 }
@@ -179,7 +181,7 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   Operation *genericOp = reinterpret_cast<Operation *>(op);
 
   // Output dims of result.
-  SmallVector<IndexExpr, 4> outputDims;
+  DimsExpr outputDims;
 
   // Get info.
   Value A = operandAdaptor.A();
@@ -259,7 +261,7 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
     }
   }
   // Save the final result.
-  outputsDims.emplace_back(outputDims);
+  getDimsForOutput(0) = outputDims;
   return success();
 }
 
@@ -278,7 +280,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   Operation *genericOp = reinterpret_cast<Operation *>(op);
 
   // Output dims of result.
-  SmallVector<IndexExpr, 4> outputDims;
+  DimsExpr outputDims;
 
   // Get info.
   Value A = operandAdaptor.A();
@@ -382,7 +384,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
     outputDims.emplace_back(one);
   }
   // Save the final result.
-  outputsDims.emplace_back(outputDims);
+  getDimsForOutput(0) = outputDims;
   return success();
 }
 
@@ -402,9 +404,6 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
   // Get info about input and output data.
   int numOfResults = op->getNumResults();
   auto rank = operandAdaptor.input().getType().cast<ShapedType>().getRank();
-
-  // Set output dims of results.
-  //outputsDims.resize(numOfResults);
 
   // Checking value of axis parameter.
   int64_t axisIndex = op->axis();
@@ -443,7 +442,7 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
 
   // Build result types.
   for (int i = 0; i < numOfResults; ++i) {
-    SmallVector<IndexExpr, 4> outputDims;
+    DimsExpr outputDims;
     outputDims.resize(rank);
     for (int j = 0; j < rank; ++j) {
       if (j == axisIndex) {
@@ -455,7 +454,7 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
         outputDims[j] = dim;
       }
     }
-    outputsDims.emplace_back(outputDims);
+    getDimsForOutput(i) = outputDims;
   }
   return success();
 }

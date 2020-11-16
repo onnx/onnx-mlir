@@ -30,11 +30,11 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     int64_t outputRank = outputMemRefType.getShape().size();
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputsDims[0]);
+        rewriter, op, outputMemRefType, loc, shapeHelper.getDimsForOutput(0));
 
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.outputsDims[0]);
+    outputLoops.pushAllBounds(shapeHelper.getDimsForOutput(0));
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 

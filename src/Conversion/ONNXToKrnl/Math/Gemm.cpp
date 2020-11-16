@@ -34,7 +34,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputsDims[0]);
+        rewriter, op, outputMemRefType, loc, shapeHelper.getDimsForOutput(0));
 
     // Get the constants: zero, alpha,and beta.
     float alphaLit = gemmOp.alpha().convertToFloat();
@@ -46,7 +46,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Loop iterations N=0 & M-1 going over each of the res[n, m] values.
     BuildKrnlLoop outputLoops(rewriter, loc, 2);
     outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.outputsDims[0]);
+    outputLoops.pushAllBounds(shapeHelper.getDimsForOutput(0));
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
