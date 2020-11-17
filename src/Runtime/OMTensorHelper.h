@@ -31,7 +31,7 @@ static inline std::vector<std::vector<int64_t>> CartProduct(
 }
 
 /* Helper function to compute data strides from sizes */
-static inline std::vector<int64_t> computeStridesFromSizes(
+static inline std::vector<int64_t> computeStridesFromShape(
     int64_t *dataSizes, int rank) {
   // Shift dimension sizes one to the left, fill in the vacated rightmost
   // element with 1; this gets us a vector that'll be more useful for computing
