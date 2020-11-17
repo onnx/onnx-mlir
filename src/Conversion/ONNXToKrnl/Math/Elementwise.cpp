@@ -667,7 +667,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     // Obtain the first operand.
     std::vector<Value> lhsLoopIVs = getLoopIVsForBroadcasting(
         loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
-    if (!hasAllConstantDimensions(memRefType))
+    if (!hasAllConstantDimensions(operands[0].getType().cast<MemRefType>()))
       // In case of unknown dimensions, use std.load since
       // 'getLoopIVsForBroadcasting' has not supported affine map so far.
       lhs = rewriter.create<LoadOp>(loc, operands[0], lhsLoopIVs);
@@ -676,7 +676,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     // Obtain the second operand.
     std::vector<Value> rhsLoopIVs = getLoopIVsForBroadcasting(
         loc, rewriter, loopIVs, operands[1], broadcastedDimInfo[1]);
-    if (!hasAllConstantDimensions(memRefType))
+    if (!hasAllConstantDimensions(operands[1].getType().cast<MemRefType>()))
       // In case of unknown dimensions, use std.load since
       // 'getLoopIVsForBroadcasting' has not supported affine map so far.
       rhs = rewriter.create<LoadOp>(loc, operands[1], rhsLoopIVs);
