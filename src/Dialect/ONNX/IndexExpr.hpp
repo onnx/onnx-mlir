@@ -173,6 +173,28 @@ namespace mlir {
 class IndexExpr;
 class IndexExprImpl;
 
+// Types that an dynamic (i.e. non constant, non literal) IndexExpr can be into.
+enum class IndexExprType {
+  // A dynamic value that is not affine (index type).
+  NonAffine = 0x00,
+  // A dynamic value during shape-inference pass (index type).
+  QuestionMark = 0x01,
+  // A dynamic value that is the result of a compare (1 bit int).
+  Predicate = 0x02,
+  // A dynamic value that is affine and represented by an AffineExpr.
+  Affine = 0x10,
+  // A dynamic dimensional identifier for AffineExpr representing a dimension.
+  // There are no differences between the Dim and LoopInduction types, used for
+  // readability.
+  Dim = 0x11,
+  // A dynamic dimensional identifier for an AffineExpr for a loop induction
+  // variable.  There are no differences between the Dim and LoopInduction
+  // types, used for readability.
+  LoopInduction = 0x11,
+  // A symbol identifier for an AffineExpr.
+  Symbol = 0x12
+};
+
 // Data structure to hold all the IndexExpr in a given context. A context define
 // a scope during which each of the dynamic dimensions are defined and all of
 // the symbols hold constant in that scope.
@@ -187,26 +209,30 @@ public:
 
   // Individual IndexExpr builders.
 
-  // Create a copy of the given index (deep copy).
-  IndexExpr createIndex(IndexExpr const other);
-  // Create an undefined index. Used to indicate undefined results.
+  // Create an undefined index, which indicates undefined results.
   IndexExpr createUndefinedIndex();
-  // Create a `?`, which indicates a runtime results during shape inference.
+  // Create an questionmark index, which indicates dynamic results during shape
+  // inference.
   IndexExpr createQuestionmarkIndex();
   // Create a literal index. Note that all integers are signed in IndexExpr.
   IndexExpr createLiteralIndex(int64_t const val);
-  // Create a dimension index, typically associated with a dynamic memsize.
-  IndexExpr createDimIndex(Value const val);
-  // Create a loop iteration index, typically associated with a loop index.
-  IndexExpr createLoopIterIndex(Value const val);
-  // Create a symbol index, symbols must be constant in their of the contxt.
-  IndexExpr createSymbolIndex(Value const val);
-  // Create an index associated with an affine calculation.
+  // Create an index of type Affine, possibly reduced to a literal.
   IndexExpr createAffineIndex(AffineExpr const val);
-  // Create an index associated with a value (non affine/constant) calculation.
-  IndexExpr createValueIndex(Value const val);
-  // Create an index associated with a predicate value .
-  IndexExpr createPredicateValueIndex(Value const val);
+  // Create an index of type Dim, possibly reduced to a literal.
+  IndexExpr createDimIndex(Value const val);
+  // Create an index of type Loop Iteration, possibly reduced to a literal.
+  IndexExpr createLoopInductionIndex(Value const val);
+  // Create an index of type Symbol, possibly reduced to a literal.
+  IndexExpr createSymbolIndex(Value const val);
+  // Create an index of type Non Affine, possibly reduced to a literal.
+  IndexExpr createNonAffineIndex(Value const val);
+  // Create an index of type Predicate, possibly reduced to a literal.
+  IndexExpr createPredicateIndex(Value const val);
+  // Create a copy of the given index (deep copy).
+  IndexExpr createIndex(IndexExpr const other);
+
+  // Builder that scan values to derive their IndexExpr.
+
   // Scan a memref_shape[index] to generate an IndexExpr, typically used for
   // dimensions. Generate a literal when the memref dimension is known at
   // compile time, and otherwise a Dim Index.
@@ -216,11 +242,11 @@ public:
   // IndexExpr; if its a tensor/memref, we issue a question mark during shape
   // inference, and if not, we load this value. If the index is out of bound, we
   // return an undefine IndexExpr.
-  IndexExpr createSymbolIndexFromArrayAtIndex(
+  IndexExpr createSymbolIndexFromArrayValueAtIndex(
       Operation *op, Value array, uint64_t indexInArray);
   // Same as above, but return "defaultLiteral" when there are no defining op
   // or the index is out of bound.
-  IndexExpr createSymbolIndexFromArrayAtIndex(Operation *op, Value array,
+  IndexExpr createSymbolIndexFromArrayValueAtIndex(Operation *op, Value array,
       uint64_t indexInArray, int64_t defaultLiteral);
   // Create an symbol index in the present context from the parent index in its
   // parent context. The parent index may be a dim/loop iteration index as long
@@ -240,10 +266,15 @@ public:
   // literal IndexExpr; if its a tensor/memref, we issue a question mark during
   // shape inference, and if not, we load this value. Return true if every entry
   // could be successfully processed, false otherwise.
-  bool createSymbolIndicesFromArray(Operation *op, Value array, int arraySize,
+  bool createSymbolIndicesFromArrayValues(Operation *op, Value array,
+      int arraySize, SmallVectorImpl<IndexExpr> &symbolIndices);
+  bool createSymbolIndicesFromArrayValues(Operation *op, Value array,
+      int arraySize, int64_t defaultLiteral,
       SmallVectorImpl<IndexExpr> &symbolIndices);
-  bool createSymbolIndicesFromArray(Operation *op, Value array, int arraySize,
-      int64_t defaultLiteral, SmallVectorImpl<IndexExpr> &symbolIndices);
+  // Create loop induction indices for each of hte block arguments.
+  void createLoopInductionIndicesFromArrayValues(
+      ArrayRef<BlockArgument> inductionVarArray,
+      SmallVectorImpl<IndexExpr> &loopInductionIndices);
 
   // Code Create for possibly affine load and store. Memref shape is expected to
   // be of the same dimension than the indices array size. Each index expression
@@ -267,6 +298,7 @@ public:
   Location getLoc() const { return loc; }
 
   // Static helper functions.
+
   // Return true if all IndexExpr in the list are literals.
   bool static areAllLiteral(SmallVectorImpl<IndexExpr> &list);
   // Return true if all IndexExpr in the list are affine.
@@ -308,11 +340,10 @@ struct IndexExprImpl {
   void initAsUndefined();
   void initAsQuestionmark(IndexExprContext &context);
   void initAsLiteral(IndexExprContext &context, int64_t const val);
-  void initAsSymbol(IndexExprContext &context, Value const val);
-  void initAsDim(IndexExprContext &context, Value const val);
-  void initAsValue(IndexExprContext &context, Value const val);
-  void initAsPredicateValue(IndexExprContext &context, Value const val);
-  void initAsAffineExpr(IndexExprContext &context, AffineExpr const val);
+  void initAsType(
+      IndexExprContext &context, Value const val, IndexExprType type);
+  void initAsAffineExpr(IndexExprContext &newContext, AffineExpr const val);
+
   // Higher-level initiation calls that extract info.
   void initAsDimFromShapedType(
       IndexExprContext &context, Value tensorOrMemref, int index);
@@ -320,13 +351,6 @@ struct IndexExprImpl {
       Value array, uint64_t indexInArray);
   void initAsSymbolFromArrayAtIndex(IndexExprContext &context, Operation *op,
       Value array, uint64_t indexInArray, int64_t defaultLiteral);
-  // Lower-level initialization calls.
-  void init(IndexExprContext *context, bool newIsDefined, bool newIsIntLit,
-      bool newIsAffine, bool newIsSymbol, bool newIsDim,
-      bool newIsPredicateType, int64_t const newIntLit,
-      AffineExpr const newAffineExpr, Value const newValue);
-  void initAsLitQuestionmarkOrValue(IndexExprContext &context, Value const val,
-      bool isAffine, bool symbol, bool dim, bool predicateType);
 
   // Copy.
   void copy(IndexExprImpl const *other);
@@ -338,20 +362,8 @@ struct IndexExprImpl {
   // Literal implies having a valid intLit; may also have an affineExpr or
   // value.
   bool literal;
-  // Affine indicate that IndexExpr represent an affine expr, which is by
-  // definition true for integer literals.
-  bool affine;
-  // Symbol indicates an IndexExpr representing a symbol; symbols are
-  // expressions known to be constant in the context of an AffineExpr.
-  bool symbol;
-  // Dim indicates an IndexExpr representing a dim in an AffineExpr. Dim's
-  // AffineExpr are used to represent tensor/memrefs runtime dimensions or loop
-  // iterations, depending on the context in which they are used.
-  bool dim;
-  // IndexExpr always have an mlir::index type, except when representing the
-  // output of a compare, in which case it is an int:1. Result of compares are
-  // indicated by the "predicateType" boolean.
-  bool predType;
+  // Type of IndexExpr. Literal are by default affine.
+  IndexExprType type;
   // Integer value, valid when "literal" is true.
   int64_t intLit;
   // Affine expression, may be defined for literal, symbols, dims, or affine
@@ -361,7 +373,11 @@ struct IndexExprImpl {
   Value value;
 
 private:
-  // default constructor is illegal.
+  // Init for internal use only.
+  void init(IndexExprContext *context, bool isDefined, bool isIntLit,
+      IndexExprType type, int64_t const intLit, AffineExpr const affineExpr,
+      Value const value);
+  // Default constructor is illegal to make sure context is always defined.
   IndexExprImpl() { llvm_unreachable("illegal"); }
 };
 

@@ -66,6 +66,7 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
   SmallVector<IndexExpr, 4> steps;
 };
 
+// Shape for Tile.
 struct ONNXTileOpShapeHelper : public ONNXOpShapeHelper<ONNXTileOp> {
   ONNXTileOpShapeHelper(ONNXTileOp *newOp, ConversionPatternRewriter *rewriter);
 
@@ -98,6 +99,18 @@ struct ONNXMatMulOpShapeHelper : public ONNXOpShapeHelper<ONNXMatMulOp> {
   SmallVector<IndexExpr, 4> bDims; // Dim of B, after applying padding.
   llvm::BitVector aPadDims;        // When true, that dim was padded.
   llvm::BitVector bPadDims;        // When true, that dim was padded.
+};
+
+// Shape for Gather.
+struct ONNXGatherOpShapeHelper : public ONNXOpShapeHelper<ONNXGatherOp> {
+  ONNXGatherOpShapeHelper(
+      ONNXGatherOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXGatherOpAdaptor operandAdaptor);
+
+  SmallVector<IndexExpr, 4> dataDims;    // Dim of data.
+  SmallVector<IndexExpr, 4> indicesDims; // Dim of indices.
+  bool positiveConstantIndices; // True when all indices are positive consants.
 };
 
 //===----------------------------------------------------------------------===//

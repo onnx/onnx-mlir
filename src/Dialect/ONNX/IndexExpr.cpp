@@ -73,15 +73,8 @@ IndexExprImpl *IndexExprContext::createIndexExprImpl() {
   return obj;
 }
 
-IndexExpr IndexExprContext::createIndex(IndexExpr const other) {
-  IndexExprImpl *obj = createIndexExprImpl();
-  obj->copy(other.getObjPtr());
-  return IndexExpr(obj);
-}
-
 IndexExpr IndexExprContext::createUndefinedIndex() {
   IndexExprImpl *obj = createIndexExprImpl();
-  obj->initAsUndefined();
   return IndexExpr(obj);
 }
 
@@ -113,33 +106,45 @@ IndexExpr IndexExprContext::createLiteralIndex(int64_t const val) {
   return IndexExpr(obj);
 }
 
-IndexExpr IndexExprContext::createDimIndex(Value const val) {
-  IndexExprImpl *obj = createIndexExprImpl();
-  obj->initAsDim(*this, val);
-  return IndexExpr(obj);
-}
-
-IndexExpr IndexExprContext::createLoopIterIndex(Value const val) {
-  IndexExprImpl *obj = createIndexExprImpl();
-  obj->initAsDim(*this, val);
-  return IndexExpr(obj);
-}
-
 IndexExpr IndexExprContext::createAffineIndex(AffineExpr const val) {
   IndexExprImpl *obj = createIndexExprImpl();
   obj->initAsAffineExpr(*this, val);
   return IndexExpr(obj);
 }
 
-IndexExpr IndexExprContext::createValueIndex(Value const val) {
+IndexExpr IndexExprContext::createDimIndex(Value const val) {
   IndexExprImpl *obj = createIndexExprImpl();
-  obj->initAsValue(*this, val);
+  obj->initAsType(*this, val, IndexExprType::Dim);
   return IndexExpr(obj);
 }
 
-IndexExpr IndexExprContext::createPredicateValueIndex(Value const val) {
+IndexExpr IndexExprContext::createLoopInductionIndex(Value const val) {
   IndexExprImpl *obj = createIndexExprImpl();
-  obj->initAsPredicateValue(*this, val);
+  obj->initAsType(*this, val, IndexExprType::LoopInduction);
+  return IndexExpr(obj);
+}
+
+IndexExpr IndexExprContext::createSymbolIndex(Value const val) {
+  IndexExprImpl *obj = createIndexExprImpl();
+  obj->initAsType(*this, val, IndexExprType::Symbol);
+  return IndexExpr(obj);
+}
+
+IndexExpr IndexExprContext::createNonAffineIndex(Value const val) {
+  IndexExprImpl *obj = createIndexExprImpl();
+  obj->initAsType(*this, val, IndexExprType::NonAffine);
+  return IndexExpr(obj);
+}
+
+IndexExpr IndexExprContext::createPredicateIndex(Value const val) {
+  IndexExprImpl *obj = createIndexExprImpl();
+  obj->initAsType(*this, val, IndexExprType::Predicate);
+  return IndexExpr(obj);
+}
+
+IndexExpr IndexExprContext::createIndex(IndexExpr const other) {
+  IndexExprImpl *obj = createIndexExprImpl();
+  obj->copy(other.getObjPtr());
   return IndexExpr(obj);
 }
 
@@ -150,24 +155,18 @@ IndexExpr IndexExprContext::createDimIndexFromShapedType(
   return IndexExpr(obj);
 }
 
-IndexExpr IndexExprContext::createSymbolIndexFromArrayAtIndex(
+IndexExpr IndexExprContext::createSymbolIndexFromArrayValueAtIndex(
     Operation *op, Value array, uint64_t indexInArray) {
   IndexExprImpl *obj = createIndexExprImpl();
   obj->initAsSymbolFromArrayAtIndex(*this, op, array, indexInArray);
   return IndexExpr(obj);
 }
 
-IndexExpr IndexExprContext::createSymbolIndexFromArrayAtIndex(
+IndexExpr IndexExprContext::createSymbolIndexFromArrayValueAtIndex(
     Operation *op, Value array, uint64_t indexInArray, int64_t defaultLiteral) {
   IndexExprImpl *obj = createIndexExprImpl();
   obj->initAsSymbolFromArrayAtIndex(
       *this, op, array, indexInArray, defaultLiteral);
-  return IndexExpr(obj);
-}
-
-IndexExpr IndexExprContext::createSymbolIndex(Value val) {
-  IndexExprImpl *obj = createIndexExprImpl();
-  obj->initAsSymbol(*this, val);
   return IndexExpr(obj);
 }
 
@@ -177,10 +176,18 @@ IndexExpr IndexExprContext::createSymbolIndexFromParentContext(
   // Make sure that we are using the propper parent context
   assert(parentIndexExpr.getContextPtr() == parentContext &&
          "parent index is not from the parent's context");
-  // When the parent expression is already affine in the outer context, it will
-  // remain affine in the child's context as wee. So we keep it as such, to get
-  // as expressive affine expressions as possible. We could restrict reuse for
-  // literal only.
+  // Make sure that the parent index expr is defined and not question mark
+  assert(parentIndexExpr.isDefined() &&
+         "expected defined parent index expression here");
+  assert(!parentIndexExpr.isQuestionmark() &&
+         "expected defined parent index expression here");
+  // Do not expect predicate expression here either
+  assert(!parentIndexExpr.isPredType() &&
+         "expect non-predicate index expressions here");
+  // When the parent expression is already affine in the outer context, it
+  // will remain affine in the child's context as wee. So we keep it as
+  // such, to get as expressive affine expressions as possible. We could
+  // restrict reuse for literal only.
   if (parentIndexExpr.isAffine()) {
     // Reuse affine expression.
     IndexExprImpl *obj = createIndexExprImpl();
@@ -213,14 +220,13 @@ bool IndexExprContext::createDimIndicesFromShapedType(
   return successful;
 }
 
-bool IndexExprContext::createSymbolIndicesFromArray(Operation *op, Value array,
-    int arraySize, SmallVectorImpl<IndexExpr> &symbolIndices) {
+bool IndexExprContext::createSymbolIndicesFromArrayValues(Operation *op,
+    Value array, int arraySize, SmallVectorImpl<IndexExpr> &symbolIndices) {
   // Clear output.
   symbolIndices.clear();
-  // createSymbolIndexFromArrayAtIndex();
   bool successful = true;
   for (int i = 0; i < arraySize; ++i) {
-    IndexExpr index = createSymbolIndexFromArrayAtIndex(op, array, i);
+    IndexExpr index = createSymbolIndexFromArrayValueAtIndex(op, array, i);
     if (index.isUndefined())
       successful = false;
     symbolIndices.emplace_back(index);
@@ -228,21 +234,29 @@ bool IndexExprContext::createSymbolIndicesFromArray(Operation *op, Value array,
   return successful;
 }
 
-bool IndexExprContext::createSymbolIndicesFromArray(Operation *op, Value array,
-    int arraySize, int64_t defaultLiteral,
+bool IndexExprContext::createSymbolIndicesFromArrayValues(Operation *op,
+    Value array, int arraySize, int64_t defaultLiteral,
     SmallVectorImpl<IndexExpr> &symbolIndices) {
   // Clear output.
   symbolIndices.clear();
-  // createSymbolIndexFromArrayAtIndex();
   bool successful = true;
   for (int i = 0; i < arraySize; ++i) {
     IndexExpr index =
-        createSymbolIndexFromArrayAtIndex(op, array, i, defaultLiteral);
+        createSymbolIndexFromArrayValueAtIndex(op, array, i, defaultLiteral);
     if (index.isUndefined())
       successful = false;
     symbolIndices.emplace_back(index);
   }
   return successful;
+}
+
+void IndexExprContext::createLoopInductionIndicesFromArrayValues(
+    ArrayRef<BlockArgument> inductionVarArray,
+    SmallVectorImpl<IndexExpr> &loopInductionIndices) {
+  // Clear output.
+  loopInductionIndices.clear();
+  for (BlockArgument b : inductionVarArray)
+    loopInductionIndices.emplace_back(createLoopInductionIndex(b));
 }
 
 //===----------------------------------------------------------------------===//
@@ -352,85 +366,34 @@ ConversionPatternRewriter &IndexExprContext::getRewriter() const {
 //===----------------------------------------------------------------------===//
 
 IndexExprImpl::IndexExprImpl(IndexExprContext *indexExprContext)
-    : defined(false), literal(false), affine(false), symbol(false), dim(false),
-      intLit(0), affineExpr(nullptr), value(nullptr),
-      context(indexExprContext) {}
+    : defined(false), literal(false), type(IndexExprType::NonAffine), intLit(0),
+      affineExpr(nullptr), value(nullptr), context(indexExprContext) {}
 
 void IndexExprImpl::initAsUndefined() {
   init(/*context*/ nullptr, /*isDefined*/ false, /*literal*/ false,
-      /*affine*/ false, /*symbol*/ false, /*dim*/ false, /*predType*/ false, 0,
-      AffineExpr(nullptr), Value(nullptr));
+      IndexExprType::NonAffine, 0, AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsQuestionmark(IndexExprContext &newContext) {
   init(&newContext, /*isDefined*/ true, /*literal*/ false,
-      /*affine*/ true, /*symbol*/ false, /*dim*/ false, /*predType*/ false, 0,
-      AffineExpr(nullptr), Value(nullptr));
+      IndexExprType::QuestionMark, 0, AffineExpr(nullptr), Value(nullptr));
 }
 
 void IndexExprImpl::initAsLiteral(
     IndexExprContext &newContext, int64_t const val) {
-  init(&newContext, /*isDefined*/ true, /*literal*/ true,
-      /*affine*/ true, /*symbol*/ false, /*dim*/ false, /*predType*/ false, val,
-      AffineExpr(nullptr), Value(nullptr));
+  init(&newContext, /*isDefined*/ true, /*literal*/ true, IndexExprType::Affine,
+      val, AffineExpr(nullptr), Value(nullptr));
 }
 
-void IndexExprImpl::initAsDim(IndexExprContext &newContext, Value const val) {
-  initAsLitQuestionmarkOrValue(newContext, val, /*affine*/ true,
-      /*symbol*/ false, /*dim*/ true, /*predType*/ false);
-}
-
-void IndexExprImpl::initAsSymbol(
-    IndexExprContext &newContext, Value const val) {
-  initAsLitQuestionmarkOrValue(newContext, val, /*affine*/ true,
-      /*symbol*/ true, /*dim*/ false, /*predType*/ false);
-}
-
-void IndexExprImpl::initAsValue(IndexExprContext &newContext, Value const val) {
-  initAsLitQuestionmarkOrValue(newContext, val, /*affine*/ false,
-      /*symbol*/ false, /*dim*/ false, /*predType*/ false);
-}
-
-void IndexExprImpl::initAsPredicateValue(
-    IndexExprContext &newContext, Value const val) {
-  initAsLitQuestionmarkOrValue(newContext, val, /*affine*/ false,
-      /*symbol*/ false, /*dim*/ false, /*predType*/ true);
-}
-
-void IndexExprImpl::initAsAffineExpr(
-    IndexExprContext &newContext, AffineExpr const val) {
-  // Check if the affine expression is reduced to a constant expr.
-  AffineExpr simpleVal = simplifyAffineExpr(
-      val, newContext.getNumDims(), newContext.getNumSymbols());
-  AffineConstantExpr constAffineExpr = simpleVal.dyn_cast<AffineConstantExpr>();
-  if (constAffineExpr) {
-    initAsLiteral(newContext, constAffineExpr.getValue());
-  } else {
-    init(&newContext, /*isDefined*/ true, /*literal*/ false,
-        /*affine*/ true, /*symbol*/ false, /*dim*/ false, /*predType*/ false, 0,
-        AffineExpr(val), Value(nullptr));
+void IndexExprImpl::initAsType(
+    IndexExprContext &newContext, Value const val, IndexExprType newType) {
+  if (newType == IndexExprType::QuestionMark) {
+    initAsQuestionmark(newContext);
+    return;
   }
-}
+  // Val should exist, because we come here only when passing an actual val, but
+  // we might consider checking.
 
-void IndexExprImpl::init(IndexExprContext *newContext, bool newIsDefined,
-    bool newIsIntLit, bool newIsAffine, bool newIsSymbol, bool newIsDim,
-    bool newIsPredType, int64_t const newIntLit, AffineExpr const newAffineExpr,
-    Value const newValue) {
-  context = newContext;
-  defined = newIsDefined;
-  literal = newIsIntLit;
-  affine = newIsAffine;
-  symbol = newIsSymbol;
-  dim = newIsDim;
-  predType = newIsPredType;
-  intLit = newIntLit;
-  affineExpr = newAffineExpr;
-  value = newValue;
-}
-
-void IndexExprImpl::initAsLitQuestionmarkOrValue(IndexExprContext &newContext,
-    Value const val, bool newIsAfine, bool newIsSymbol, bool newIsDim,
-    bool newIsPredType) {
   // Do we have a literal integer, if we do, handle it now.
   int64_t valIntLit;
   if (getIntegerLiteralFromValue(val, valIntLit)) {
@@ -448,32 +411,53 @@ void IndexExprImpl::initAsLitQuestionmarkOrValue(IndexExprContext &newContext,
   auto type = val.getType();
   Value newVal = val;
   if (type.isa<IntegerType>()) {
-    if (!newIsPredType) {
+    if (newType != IndexExprType::Predicate) {
       // We need to convert the int into an index, since we are dealing with
       // index expressions.
       newVal = newContext.getRewriter().create<IndexCastOp>(
           newContext.getLoc(), newContext.getRewriter().getIndexType(), newVal);
-    } else {
-      // We have an integer for predicate types, all good.
     }
   } else if (type.isa<IndexType>()) {
-    if (newIsPredType) {
+    if (newType == IndexExprType::Predicate) {
       // We need to convert the int into an index, since we are dealing with
       // index expressions.
       newVal = newContext.getRewriter().create<IndexCastOp>(
           newContext.getLoc(), newContext.getRewriter().getI1Type(), newVal);
-    } else {
-      // have an index type for a non-predicate type, all good.
     }
   } else {
     llvm_unreachable("unsupported element type");
   }
   // Now record the value. Affine Expr will be created on demand by
   // getAffineExpr.
-  assert(!(newIsDim && newIsSymbol) &&
-         "cannot have dim and symbol at the same time");
-  init(&newContext, /*isDefined*/ true, /*literal*/ false, newIsAfine,
-      newIsSymbol, newIsDim, newIsPredType, 0, AffineExpr(nullptr), newVal);
+  init(&newContext, /*isDefined*/ true, /*literal*/ false, newType, 0,
+      AffineExpr(nullptr), newVal);
+}
+
+void IndexExprImpl::initAsAffineExpr(
+    IndexExprContext &newContext, AffineExpr const val) {
+  // TODO: check that val exists.
+  // Check if the affine expression is reduced to a constant expr.
+  AffineExpr simpleVal = simplifyAffineExpr(
+      val, newContext.getNumDims(), newContext.getNumSymbols());
+  AffineConstantExpr constAffineExpr = simpleVal.dyn_cast<AffineConstantExpr>();
+  if (constAffineExpr) {
+    initAsLiteral(newContext, constAffineExpr.getValue());
+  } else {
+    init(&newContext, /*isDefined*/ true, /*literal*/ false,
+        IndexExprType::Affine, 0, AffineExpr(val), Value(nullptr));
+  }
+}
+
+void IndexExprImpl::init(IndexExprContext *newContext, bool newIsDefined,
+    bool newIsIntLit, IndexExprType newType, int64_t const newIntLit,
+    AffineExpr const newAffineExpr, Value const newValue) {
+  context = newContext;
+  defined = newIsDefined;
+  literal = newIsIntLit;
+  type = newType;
+  intLit = newIntLit;
+  affineExpr = newAffineExpr;
+  value = newValue;
 }
 
 //===----------------------------------------------------------------------===//
@@ -497,7 +481,7 @@ void IndexExprImpl::initAsDimFromShapedType(
   } else {
     Value dynVal = newContext.getRewriter().create<DimOp>(
         newContext.getLoc(), tensorOrMemref, index);
-    initAsDim(newContext, dynVal);
+    initAsType(newContext, dynVal, IndexExprType::Dim);
   }
 }
 
@@ -528,7 +512,7 @@ void IndexExprImpl::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
   SmallVector<Value, 1> memrefVal = {indexVal};
   Value loadVal = newContext.getRewriter().create<AffineLoadOp>(
       newContext.getLoc(), array, memrefVal);
-  initAsSymbol(newContext, loadVal);
+  initAsType(newContext, loadVal, IndexExprType::Symbol);
 }
 
 void IndexExprImpl::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
@@ -564,15 +548,14 @@ void IndexExprImpl::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
   SmallVector<Value, 1> memrefVal = {indexVal};
   Value loadVal = newContext.getRewriter().create<AffineLoadOp>(
       newContext.getLoc(), array, memrefVal);
-  initAsSymbol(newContext, loadVal);
+  initAsType(newContext, loadVal, IndexExprType::Symbol);
 }
 
 void IndexExprImpl::copy(IndexExprImpl const *other) {
   assert(context && "all index expr must have a defined context");
   // Preserve this context, copy the remaining attributes from other.
-  init(context, other->defined, other->literal, other->affine, other->symbol,
-      other->dim, other->predType, other->intLit, other->affineExpr,
-      other->value);
+  init(context, other->defined, other->literal, other->type, other->intLit,
+      other->affineExpr, other->value);
 }
 
 //===----------------------------------------------------------------------===//
@@ -581,7 +564,8 @@ void IndexExprImpl::copy(IndexExprImpl const *other) {
 
 IndexExpr IndexExpr::deepCopy() const {
   // If we go to a model like Values & AffineExpr with a pointer to the actual
-  // data, we should just make the indirection here. copy info in the meanwhile.
+  // data, we should just make the indirection here. copy info in the
+  // meanwhile.
   return getContext().createIndex(*this);
 }
 
@@ -605,27 +589,28 @@ bool IndexExpr::isLiteral() const {
 
 bool IndexExpr::isQuestionmark() const {
   assert(isDefined());
-  return !isLiteral();
+  return getObj().type == IndexExprType::QuestionMark;
 }
 
 bool IndexExpr::isAffine() const {
   assert(isDefined());
-  return getObj().affine;
+  // Note that we do bitvector and to check affine properties.
+  return (int)getObj().type & (int)IndexExprType::Affine;
 }
 
 bool IndexExpr::isSymbol() const {
   assert(isDefined());
-  return getObj().symbol;
+  return getObj().type == IndexExprType::Symbol;
 }
 
 bool IndexExpr::isDim() const {
   assert(isDefined());
-  return getObj().dim;
+  return getObj().type == IndexExprType::Dim;
 }
 
 bool IndexExpr::isPredType() const {
   assert(isDefined());
-  return getObj().predType;
+  return getObj().type == IndexExprType::Predicate;
 }
 
 bool IndexExpr::isShapeInferencePass() const {
@@ -790,8 +775,8 @@ IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
     // Constant, use constant computations.
     return litFct(*this, b);
   if (isShapeInferencePass())
-    // In shape analysis, if not constant: do noting, aka leave Values & Affine
-    // expr undefined.
+    // In shape analysis, if not constant: do noting, aka leave Values &
+    // Affine expr undefined.
     return getContext().createQuestionmarkIndex();
   if (resIsAffine)
     // Use affine values.
@@ -838,7 +823,7 @@ IndexExpr IndexExpr::compareOp(
   F2 valueFct = [&](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     Value compare = aa.getRewriter().create<CmpIOp>(
         aa.getLoc(), comparePred, aa.getValue(), bb.getValue());
-    return aa.getContext().createPredicateValueIndex(compare);
+    return aa.getContext().createPredicateIndex(compare);
   };
   // Cannot have affine results, disable and pass null lambda function.
   return binaryOp(b, false, false, litFct, nullptr, valueFct);
@@ -855,8 +840,8 @@ IndexExpr IndexExpr::compareOp(
   }
   // Set the output to the first value.
   IndexExpr res = vals[0].deepCopy();
-  // If list has one element, we are done. Literal/Affine... will be the same as
-  // this single element.
+  // If list has one element, we are done. Literal/Affine... will be the same
+  // as this single element.
   if (vals.size() == 1)
     return res;
   // Have multiple values, need to do some checks.
@@ -872,8 +857,8 @@ IndexExpr IndexExpr::compareOp(
   }
   if (resIsLit) {
     // Process int literals, if we only have literal values.
-    // Result was set to first element, which by default is literal/affine. This
-    // will be the correct result for the output.
+    // Result was set to first element, which by default is literal/affine.
+    // This will be the correct result for the output.
     for (int i = 1; i < size; ++i) {
       litRed(res, vals[i]);
     }
@@ -909,7 +894,7 @@ IndexExpr IndexExpr::operator+(IndexExpr const b) const {
         aa.getAffineExpr() + bb.getAffineExpr());
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return aa.getContext().createValueIndex(aa.getRewriter().create<AddIOp>(
+    return aa.getContext().createNonAffineIndex(aa.getRewriter().create<AddIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   return binaryOp(b, false, true, litFct, affineExprFct, valueFct);
@@ -925,7 +910,7 @@ IndexExpr IndexExpr::operator-(IndexExpr const b) const {
         aa.getAffineExpr() - bb.getAffineExpr());
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
-    return aa.getContext().createValueIndex(aa.getRewriter().create<SubIOp>(
+    return aa.getContext().createNonAffineIndex(aa.getRewriter().create<SubIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   return binaryOp(b, false, true, litFct, affineExprFct, valueFct);
@@ -943,7 +928,7 @@ IndexExpr IndexExpr::operator*(IndexExpr const b) const {
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     if (bb.isLiteral() && bb.getLiteral() == 1)
       return aa.deepCopy();
-    return aa.getContext().createValueIndex(aa.getRewriter().create<MulIOp>(
+    return aa.getContext().createNonAffineIndex(aa.getRewriter().create<MulIOp>(
         aa.getLoc(), aa.getValue(), bb.getValue()));
   };
   // Literal should be place in second argument; do so if a is a lit.
@@ -965,7 +950,7 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
     if (bval > 1)
       return aa.getContext().createAffineIndex(
           aa.getAffineExpr().floorDiv(bval));
-    return aa.getContext().createValueIndex(
+    return aa.getContext().createNonAffineIndex(
         aa.getRewriter().create<SignedFloorDivIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
   };
@@ -973,7 +958,7 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
     if (bb.isLiteral() && bb.getLiteral() == 1) {
       return aa.deepCopy();
     }
-    return aa.getContext().createValueIndex(
+    return aa.getContext().createNonAffineIndex(
         aa.getRewriter().create<SignedFloorDivIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
   };
@@ -994,7 +979,7 @@ IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
     if (bval > 1)
       return aa.getContext().createAffineIndex(
           aa.getAffineExpr().ceilDiv(bval));
-    return aa.getContext().createValueIndex(
+    return aa.getContext().createNonAffineIndex(
         aa.getRewriter().create<SignedCeilDivIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
   };
@@ -1002,7 +987,7 @@ IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
     if (bb.isLiteral() && bb.getLiteral() == 1) {
       return aa.deepCopy();
     }
-    return aa.getContext().createValueIndex(
+    return aa.getContext().createNonAffineIndex(
         aa.getRewriter().create<SignedCeilDivIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
   };
@@ -1020,7 +1005,7 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
     int64_t bval = bb.getLiteral();
     if (bval >= 0)
       return aa.getContext().createAffineIndex(aa.getAffineExpr() % bval);
-    return aa.getContext().createValueIndex(
+    return aa.getContext().createNonAffineIndex(
         aa.getRewriter().create<SignedRemIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
   };
@@ -1028,7 +1013,7 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
     if (bb.isLiteral() && bb.getLiteral() == 1) {
       return aa.deepCopy();
     }
-    return aa.getContext().createValueIndex(
+    return aa.getContext().createNonAffineIndex(
         aa.getRewriter().create<SignedRemIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
   };
@@ -1068,8 +1053,8 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     // Constant, use constant computations.
     return litFct(*this, min, max);
   if (isShapeInferencePass())
-    // In shape analysis, if not constant: do noting, aka leave Values & Affine
-    // expr undefined.
+    // In shape analysis, if not constant: do noting, aka leave Values &
+    // Affine expr undefined.
     return getContext().createQuestionmarkIndex();
   // Use values.
   return valueFct(*this, min, max);
@@ -1092,7 +1077,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   // Generate code for the select.
   Value results = compare.getRewriter().create<SelectOp>(compare.getLoc(),
       compare.getValue(), trueVal.getValue(), falseVal.getValue());
-  return compare.getContext().createValueIndex(results);
+  return compare.getContext().createNonAffineIndex(results);
 }
 
 /*static*/ IndexExpr IndexExpr::min(SmallVectorImpl<IndexExpr> &vals) {
@@ -1123,7 +1108,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     context.getDimAndSymbolList(dimAndSymList);
     Value minVal = context.getRewriter().create<AffineMinOp>(
         vvals[0].getLoc(), map, dimAndSymList);
-    res.getObj().initAsValue(context, minVal);
+    res.getObj().initAsType(context, minVal, IndexExprType::NonAffine);
     return res;
   };
   // Res is already defined, we are reducing into it.
@@ -1132,7 +1117,8 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
         aa.getLoc(), CmpIPredicate::slt, aa.getValue(), res.getValue());
     Value resVal = aa.getContext().getRewriter().create<SelectOp>(
         aa.getLoc(), compareVal, aa.getValue(), res.getValue());
-    res.getObj().initAsValue(res.getContext(), res.getValue());
+    res.getObj().initAsType(
+        res.getContext(), res.getValue(), IndexExprType::NonAffine);
     return res;
   };
   return reductionOp(vals, litFct, affineExprFct, valueFct);
@@ -1166,7 +1152,7 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     context.getDimAndSymbolList(dimAndSymList);
     Value minVal = context.getRewriter().create<AffineMaxOp>(
         vvals[0].getLoc(), map, dimAndSymList);
-    res.getObj().initAsValue(context, minVal);
+    res.getObj().initAsType(context, minVal, IndexExprType::NonAffine);
     return res;
   };
   // Res is already defined, we are reducing into it.
@@ -1175,7 +1161,8 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
         aa.getLoc(), CmpIPredicate::sgt, aa.getValue(), res.getValue());
     Value resVal = aa.getContext().getRewriter().create<SelectOp>(
         aa.getLoc(), compareVal, aa.getValue(), res.getValue());
-    res.getObj().initAsValue(res.getContext(), res.getValue());
+    res.getObj().initAsType(
+        res.getContext(), res.getValue(), IndexExprType::NonAffine);
     return res;
   };
   return reductionOp(vals, litFct, affineExprFct, valueFct);

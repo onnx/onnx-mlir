@@ -88,17 +88,17 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     int ii = axesIntLit[i];
     // Get start, end, step, and dim index expressions.
     // Get start.
-    IndexExpr startInput = context.createSymbolIndexFromArrayAtIndex(
+    IndexExpr startInput = context.createSymbolIndexFromArrayValueAtIndex(
         genericOp, operandAdaptor.starts(), i);
     if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
     // Get end.
-    IndexExpr endInput = context.createSymbolIndexFromArrayAtIndex(
+    IndexExpr endInput = context.createSymbolIndexFromArrayValueAtIndex(
         genericOp, operandAdaptor.ends(), i);
     if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
     // Get step.
-    IndexExpr stepInput = context.createSymbolIndexFromArrayAtIndex(
+    IndexExpr stepInput = context.createSymbolIndexFromArrayValueAtIndex(
         genericOp, operandAdaptor.steps(), i, 1);
     if (stepInput.isUndefined())
       return op->emitError("step input parameter could not be processed");
@@ -181,7 +181,7 @@ LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
   for (auto i = 0; i < inputRank; i++) {
     IndexExpr dimInput = context.createDimIndexFromShapedType(input, i);
     IndexExpr repeatsValue =
-        context.createSymbolIndexFromArrayAtIndex(genericOp, repeats, i);
+        context.createSymbolIndexFromArrayValueAtIndex(genericOp, repeats, i);
     IndexExpr dimOutput = dimInput * repeatsValue;
     outputDims[i] = dimOutput;
   }
@@ -394,5 +394,70 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   if (aRank == 1 && bRank == 1) {
     outputDims.emplace_back(one);
   }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Gather Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(
+    ONNXGatherOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXGatherOp>(newOp, rewriter), dataDims(),
+      indicesDims(), positiveConstantIndices(false) {}
+
+LogicalResult ONNXGatherOpShapeHelper::Compute(
+    ONNXGatherOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Read data and indices shapes as dim indices.
+  context.createDimIndicesFromShapedType(operandAdaptor.data(), dataDims);
+  context.createDimIndicesFromShapedType(operandAdaptor.indices(), indicesDims);
+
+  // Read constant 'axis' attribute and normalize when negative.
+  int64_t axisIndex = op->axis();
+  // The 'axis' value must be in [-rank, rank-1].
+  int dataRank = dataDims.size();
+  if (axisIndex < -dataRank || axisIndex >= dataRank)
+    return op->emitError("Gather axis value out of bound");
+  // Convert a negative axis to a positive axis.
+  if (axisIndex < 0) {
+    axisIndex += dataRank;
+    auto builder = mlir::Builder(op->getContext());
+    op->axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
+  }
+
+  // If 'indices' is a constant tensor, check whether its values are valid.
+  if (dataDims[axisIndex].isLiteral()) {
+    auto valueAttribute =
+        getDenseElementAttributeFromValue(operandAdaptor.indices());
+    if (valueAttribute) {
+      int64_t dataDimAtAxis = dataDims[axisIndex].getLiteral();
+      positiveConstantIndices = true;
+      for (auto value : valueAttribute.getValues<IntegerAttr>()) {
+        auto index = value.cast<IntegerAttr>().getInt();
+        if (index < -dataDimAtAxis || index >= dataDimAtAxis)
+          return op->emitError("Indices tensor contains an out-of-bound index");
+        if (index < 0)
+          // TODO: make the negative consant number positive.
+          positiveConstantIndices = false;
+      }
+      printf("alex: value positive is %d\n", positiveConstantIndices);
+    }
+  }
+
+  // Output has rank of 'indicesRank + (dataRank - 1).
+  // Output shape is constructed from 'input' by:
+  //    replacing the dimension at 'axis' in 'input' by the shape of 'indices'.
+  for (int i = 0; i < dataRank; ++i) {
+    if (i == axisIndex)
+      for (IndexExpr d : indicesDims)
+        outputDims.emplace_back(d);
+    else
+      outputDims.emplace_back(dataDims[i]);
+  }
+
   return success();
 }

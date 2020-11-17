@@ -47,7 +47,8 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> storeIndices;
     for (int ii = 0; ii < outputRank; ++ii) {
       Value inductionVal = outputLoops.getInductionVar(ii);
-      IndexExpr inductionIndex = childContext.createLoopIterIndex(inductionVal);
+      IndexExpr inductionIndex =
+          childContext.createLoopInductionIndex(inductionVal);
       IndexExpr start = childContext.createSymbolIndexFromParentContext(
           shapeHelper.starts[ii]);
       IndexExpr step = childContext.createSymbolIndexFromParentContext(
