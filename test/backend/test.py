@@ -816,15 +816,15 @@ test_not_for_dynamic = [
     #"test_softsign_example_cpu",
 
     # ReshapeOp:
-    "test_reshape_extended_dims_cpu",
-    "test_reshape_negative_dim_cpu",
-    "test_reshape_negative_extended_dims_cpu",
-    "test_reshape_one_dim_cpu",
-    "test_reshape_reduced_dims_cpu",
-    "test_reshape_reordered_all_dims_cpu",
-    "test_reshape_reordered_last_dims_cpu",
-    "test_reshape_zero_and_negative_dim_cpu",
-    "test_reshape_zero_dim_cpu",
+    #"test_reshape_extended_dims_cpu",
+    #"test_reshape_negative_dim_cpu",
+    #"test_reshape_negative_extended_dims_cpu",
+    #"test_reshape_one_dim_cpu",
+    #"test_reshape_reduced_dims_cpu",
+    #"test_reshape_reordered_all_dims_cpu",
+    #"test_reshape_reordered_last_dims_cpu",
+    #"test_reshape_zero_and_negative_dim_cpu",
+    #"test_reshape_zero_dim_cpu",
 
     # Transpose
     "test_transpose_default_cpu",
@@ -836,8 +836,8 @@ test_not_for_dynamic = [
     "test_transpose_all_permutations_5_cpu",
 
     # Conv
-    "test_basic_conv_without_padding_cpu",
-    "test_conv_with_strides_no_padding_cpu",
+    #"test_basic_conv_without_padding_cpu",
+    #"test_conv_with_strides_no_padding_cpu",
 
     # Sign Op:
     #"test_sign_cpu",
@@ -908,8 +908,8 @@ test_not_for_dynamic = [
     #"test_split_variable_parts_default_axis_cpu",
     
     # Tile
-    "test_tile_cpu",
-    "test_tile_precomputed_cpu",
+    #"test_tile_cpu",
+    #"test_tile_precomputed_cpu",
     
     # ConstantOfShape
     "test_constantofshape_float_ones_cpu",
