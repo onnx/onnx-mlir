@@ -16,7 +16,8 @@ import test_config
 import tempfile
 
 VERBOSE = bool(os.environ.get("VERBOSE"))
-TEST_DYNAMIC = bool(os.environ.get("IMPORTER_FORCE_DYNAMIC"))
+TEST_DYNAMIC = os.environ.get("IMPORTER_FORCE_DYNAMIC")
+    
 
 TEST_CASE_BY_USER = os.environ.get("BACKEND_TEST")
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
@@ -885,7 +886,7 @@ test_not_for_dynamic = [
 ]
 
 if TEST_DYNAMIC :
-    print("test dynamic shape ...")
+    print("test dynamic shape with IMPORTER_FORCE_DYNAMIC = "+TEST_DYNAMIC)
     test_to_enable = [case for case in test_to_enable if case not in test_not_for_dynamic]
     
 
