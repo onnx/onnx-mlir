@@ -2256,16 +2256,17 @@ LogicalResult ONNXSplitOp::inferShapes() {
       splitLengths.emplace_back(ArrayAttrIntVal(splitAttribute, i));
 
   } else {
-    if (inputShape[axisIndex] <= 0)
-      return emitError("The dimension at the split axis is "
-                       "expected to be known at compile time");
-    if (inputShape[axisIndex] % numOfResults != 0)
+    if (inputShape[axisIndex] != -1 &&
+        inputShape[axisIndex] % numOfResults != 0)
       return emitError("The dimension at the split axis is "
                        "expected to be divisible by the number of results");
     // If split parameter is not specified, the dimension is split to
     // equal-sized parts.
     for (int i = 0; i < numOfResults; ++i)
-      splitLengths.emplace_back(inputShape[axisIndex] / numOfResults);
+      if (inputShape[axisIndex] <= 0)
+        splitLengths.emplace_back(-1);
+      else
+        splitLengths.emplace_back(inputShape[axisIndex] / numOfResults);
     // Build attribute and store attribute.
     auto builder = mlir::Builder(getContext());
     splitAttr(builder.getI64ArrayAttr(llvm::makeArrayRef(splitLengths)));
@@ -2575,49 +2576,14 @@ LogicalResult ONNXTileOp::inferShapes() {
   if (repeatsTensorTy.getShape().size() != 1)
     return emitError("Repeats tensor must have rank one");
 
-  // 'repeats' tensor must have constant shape.
-  int64_t repeatsLength = repeatsTensorTy.getShape()[0];
-
-  // Check the 1D repeats tensor length.
-  int64_t inputRank = inputTensorTy.getShape().size();
-  if (repeatsLength != -1 && inputRank != repeatsLength)
-    return emitError("Repeats tensor must have the same length as the input's "
-                     "dimension number.");
-
-  // Check if second argument of TileOp is a constant.
-  auto constantOp = getONNXConstantOp(repeats());
-
-  // Compute output's dimensions: output_dim[i] = input_dim[i] * repeats[i]
-  SmallVector<int64_t, 2> dims(inputRank, -1);
-  if (constantOp) {
-    // 1. Initialize output_dim with values from 'input'.
-    //   output_dim[i] = input[i]
-    for (decltype(inputRank) i = 0; i < inputRank; ++i)
-      dims[i] = inputTensorTy.getShape()[i];
-
-    // 2. Update output_dim using values from 'repeats'.
-    // Do this only for static 'input_dim[i]'.
-    //   if (output_dim[i] != -1) output_dim[i] *= repeats[i]
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (!valueAttribute)
-      return emitError("DenseElementsAttr expected");
-    // Get repeat values from valueAttribute.
-    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
-    for (int i = 0; i < inputRank; ++i) {
-      if (dims[i] != -1)
-        dims[i] *= (*valueIt).cast<IntegerAttr>().getInt();
-      else
-        dims[i] = -1;
-      valueIt++;
-    }
-
-    if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
-      return emitError("Constant value must have same length as output's rank");
-  }
-
-  getResult().setType(
-      RankedTensorType::get(dims, inputTensorTy.getElementType()));
+  auto elementType = input().getType().cast<ShapedType>().getElementType();
+  ONNXTileOpAdaptor operandAdaptor(*this);
+  ONNXTileOpShapeHelper shapeHelper(this, nullptr);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Tile parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
 }

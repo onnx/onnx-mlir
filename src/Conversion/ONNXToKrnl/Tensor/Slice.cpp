@@ -52,9 +52,6 @@ struct ONNXSliceOpLowering : public ConversionPattern {
           shapeHelper.starts[ii]);
       IndexExpr step = childContext.createSymbolIndexFromParentContext(
           shapeHelper.steps[ii]);
-      inductionIndex.debugPrint("induction index");
-      step.debugPrint("  steps");
-      start.debugPrint("  start");
       loadIndices.emplace_back((step * inductionIndex) + start);
       storeIndices.emplace_back(inductionIndex);
     }

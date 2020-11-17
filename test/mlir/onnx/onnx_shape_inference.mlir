@@ -990,6 +990,28 @@ func @test_split_3(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
 
 // -----
 
+func @test_split_4(%arg0 : tensor<16x?x64xf32>) -> tensor<*xf32> {
+  %0, %1 = "onnx.Split"(%arg0) {axis = 1 : si64, split = [2, 30]} : (tensor<16x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_split_4
+  // CHECK: [[RES:%.+]]:2 = "onnx.Split"(%arg0) {axis = 1 : si64, split = [2, 30]} : (tensor<16x?x64xf32>) -> (tensor<16x2x64xf32>, tensor<16x30x64xf32>)
+  // CHECK: return [[RES]]#0 : tensor<16x2x64xf32>
+}
+
+// -----
+
+func @test_split_5(%arg0 : tensor<16x?x64xf32>) -> tensor<*xf32> {
+  %0, %1 = "onnx.Split"(%arg0) {axis = 1 : si64} : (tensor<16x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_split_5
+  // CHECK: [[RES:%.+]]:2 = "onnx.Split"(%arg0) {axis = 1 : si64, split = [-1, -1]} : (tensor<16x?x64xf32>) -> (tensor<16x?x64xf32>, tensor<16x?x64xf32>)
+  // CHECK: return [[RES]]#0 : tensor<16x?x64xf32>
+}
+
+// -----
+
 func @test_squeeze(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
   %0 = "onnx.Squeeze"(%arg0) { axes = [1]} : (tensor<16x1x32x1x64xf32>) -> (tensor<*xf32>)
   "std.return"(%0) : (tensor<*xf32>) -> ()
