@@ -444,7 +444,6 @@ LogicalResult ONNXGatherOpShapeHelper::Compute(
           // TODO: make the negative consant number positive.
           positiveConstantIndices = false;
       }
-      printf("alex: value positive is %d\n", positiveConstantIndices);
     }
   }
 
