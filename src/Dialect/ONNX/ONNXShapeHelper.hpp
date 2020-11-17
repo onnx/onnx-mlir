@@ -48,9 +48,7 @@ struct ONNXOpShapeHelper {
   }
 
   // Return output dims for the N-th output.
-  DimsExpr &getDimsForOutput(int n) {
-    if (n < 0 || n >= outputsDims.size())
-      op->emitError("Invalid output index");
+  DimsExpr &dimsForOutput(int n) {
     return outputsDims[n];
   }
 

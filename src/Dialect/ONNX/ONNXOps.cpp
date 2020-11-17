@@ -988,7 +988,7 @@ LogicalResult ONNXMatMulOp::inferShapes() {
     return emitError("Failed to scan Silce parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExprContext::getOutputDimsForType(
-      shapeHelper.getDimsForOutput(0), outputDims);
+      shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
 }
@@ -1139,7 +1139,7 @@ LogicalResult ONNXGemmOp::inferShapes() {
     return emitError("Failed to scan Silce parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExprContext::getOutputDimsForType(
-      shapeHelper.getDimsForOutput(0), outputDims);
+      shapeHelper.dimsForOutput(0), outputDims);
   Type elementType = A().getType().cast<ShapedType>().getElementType();
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
@@ -2239,7 +2239,7 @@ LogicalResult ONNXSplitOp::inferShapes() {
   for (int i = 0; i < getNumResults(); ++i) {
     SmallVector<int64_t, 4> outputDims;
     IndexExprContext::getOutputDimsForType(
-        shapeHelper.getDimsForOutput(i), outputDims);
+        shapeHelper.dimsForOutput(i), outputDims);
     getResults()[i].setType(RankedTensorType::get(outputDims, elementType));
   }
 
@@ -2540,7 +2540,8 @@ LogicalResult ONNXTileOp::inferShapes() {
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
@@ -2686,7 +2687,7 @@ LogicalResult ONNXSliceOp::inferShapes() {
     return emitError("Failed to scan Silce parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExprContext::getOutputDimsForType(
-      shapeHelper.getDimsForOutput(0), outputDims);
+      shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();

@@ -162,7 +162,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   }
 
   // Save the final result.
-  getDimsForOutput(0) = outputDims;
+  dimsForOutput(0) = outputDims;
 
   return success();
 }
@@ -186,6 +186,7 @@ LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
   Value repeats = operandAdaptor.repeats();
 
   // Compute outputDims
+  DimsExpr outputDims;
   outputDims.resize(inputRank);
   for (auto i = 0; i < inputRank; i++) {
     IndexExpr dimInput = context.createDimIndexFromShapedType(input, i);
@@ -194,6 +195,7 @@ LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
     IndexExpr dimOutput = dimInput * repeatsValue;
     outputDims[i] = dimOutput;
   }
+  dimsForOutput(0) = outputDims;
   return success();
 }
 
@@ -291,7 +293,7 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
     }
   }
   // Save the final result.
-  getDimsForOutput(0) = outputDims;
+  dimsForOutput(0) = outputDims;
   return success();
 }
 
@@ -414,7 +416,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
     outputDims.emplace_back(one);
   }
   // Save the final result.
-  getDimsForOutput(0) = outputDims;
+  dimsForOutput(0) = outputDims;
   return success();
 }
 
@@ -487,7 +489,7 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
         outputDims[j] = dim;
       }
     }
-    getDimsForOutput(i) = outputDims;
+    dimsForOutput(i) = outputDims;
   }
   return success();
 }
