@@ -390,6 +390,11 @@ public:
   bool hasContext() const;
   bool hasAffineExpr() const;
   bool hasValue() const;
+  // Next calls: value/values has/have to be litteral and satisfy the test.
+  bool isLiteralAndIdenticalTo(int64_t b) const;           // Values equal.
+  bool isLiteralAndIdenticalTo(IndexExpr const b) const;   // Values equal.
+  bool isLiteralAndDifferentThan(int64_t b) const;         // Values unequal.
+  bool isLiteralAndDifferentThan(IndexExpr const b) const; // Values unequal.
 
   // Getters.
   int64_t getLiteral() const;

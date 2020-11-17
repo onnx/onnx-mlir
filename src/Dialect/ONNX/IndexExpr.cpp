@@ -11,7 +11,6 @@
 
 // both debug variables will be removed once debugging is complete.
 #define DEBUG 0
-#define CEIL_FLOOR_IN_STD 0
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -184,13 +183,11 @@ IndexExpr IndexExprContext::createSymbolIndexFromParentContext(
   // literal only.
   if (parentIndexExpr.isAffine()) {
     // Reuse affine expression.
-    parentIndexExpr.debugPrint("Reuse parent");
     IndexExprImpl *obj = createIndexExprImpl();
     obj->copy(parentIndexExpr.getObjPtr());
     return IndexExpr(obj);
   }
   // Non affine, create a symbol.
-  parentIndexExpr.debugPrint("Create symbol out of parent");
   return createSymbolIndex(parentIndexExpr.getValue());
 }
 
@@ -647,6 +644,38 @@ bool IndexExpr::hasValue() const {
   return !(!getObj().value);
 }
 
+bool IndexExpr::isLiteralAndIdenticalTo(int64_t b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral())
+    return false;
+  // We have a literal, now make sure they are the same
+  return getLiteral() == b;
+}
+
+bool IndexExpr::isLiteralAndDifferentThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral())
+    return false;
+  // We have a literal, now make sure they are different
+  return getLiteral() != b;
+}
+
+bool IndexExpr::isLiteralAndIdenticalTo(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral() || !b.isLiteral())
+    return false;
+  // We have literals, now make sure they are the same
+  return getLiteral() == b.getLiteral();
+}
+
+bool IndexExpr::isLiteralAndDifferentThan(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return true.
+  if (!isLiteral() || !b.isLiteral())
+    return false;
+  // We have literals, now make sure they are different
+  return getLiteral() != b.getLiteral();
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExpr Getters.
 //===----------------------------------------------------------------------===//
@@ -936,27 +965,17 @@ IndexExpr IndexExpr::floorDiv(IndexExpr const b) const {
     if (bval > 1)
       return aa.getContext().createAffineIndex(
           aa.getAffineExpr().floorDiv(bval));
-#if CEIL_FLOOR_IN_STD
     return aa.getContext().createValueIndex(
         aa.getRewriter().create<SignedFloorDivIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
-#else
-    llvm_unreachable("not implemented yet, wait for the new LLVM/MLIR "
-                     "support in std");
-#endif
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     if (bb.isLiteral() && bb.getLiteral() == 1) {
       return aa.deepCopy();
     }
-#if CEIL_FLOOR_IN_STD
     return aa.getContext().createValueIndex(
         aa.getRewriter().create<SignedFloorDivIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
-#else
-    llvm_unreachable("not implemented yet, wait for the new LLVM/MLIR "
-                     "support in std");
-#endif
   };
   // Index b must be a literal.
   return binaryOp(b, true, true, litFct, affineExprFct, valueFct);
@@ -975,27 +994,17 @@ IndexExpr IndexExpr::ceilDiv(IndexExpr const b) const {
     if (bval > 1)
       return aa.getContext().createAffineIndex(
           aa.getAffineExpr().ceilDiv(bval));
-#if CEIL_FLOOR_IN_STD
     return aa.getContext().createValueIndex(
         aa.getRewriter().create<SignedCeilDivIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
-#else
-    llvm_unreachable("not implemented yet, wait for the new LLVM/MLIR "
-                     "support in std");
-#endif
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     if (bb.isLiteral() && bb.getLiteral() == 1) {
       return aa.deepCopy();
     }
-#if CEIL_FLOOR_IN_STD
     return aa.getContext().createValueIndex(
         aa.getRewriter().create<SignedCeilDivIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
-#else
-    llvm_unreachable("not implemented yet, wait for the new LLVM/MLIR "
-                     "support in std");
-#endif
   };
   // Index b must be a literal.
   return binaryOp(b, true, true, litFct, affineExprFct, valueFct);
@@ -1011,27 +1020,17 @@ IndexExpr IndexExpr::operator%(IndexExpr const b) const {
     int64_t bval = bb.getLiteral();
     if (bval >= 0)
       return aa.getContext().createAffineIndex(aa.getAffineExpr() % bval);
-#if CEIL_FLOOR_IN_STD
     return aa.getContext().createValueIndex(
         aa.getRewriter().create<SignedRemIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
-#else
-    llvm_unreachable("not implemented yet, wait for the new LLVM/MLIR "
-                     "support in std");
-#endif
   };
   F2 valueFct = [](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     if (bb.isLiteral() && bb.getLiteral() == 1) {
       return aa.deepCopy();
     }
-#if CEIL_FLOOR_IN_STD
     return aa.getContext().createValueIndex(
         aa.getRewriter().create<SignedRemIOp>(
             aa.getLoc(), aa.getValue(), bb.getValue()));
-#else
-    llvm_unreachable("not implemented yet, wait for the new LLVM/MLIR "
-                     "support in std");
-#endif
   };
   // Index b must be a literal.
   return binaryOp(b, true, true, litFct, affineExprFct, valueFct);

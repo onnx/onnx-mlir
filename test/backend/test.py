@@ -16,7 +16,8 @@ import test_config
 import tempfile
 
 VERBOSE = bool(os.environ.get("VERBOSE"))
-TEST_DYNAMIC = bool(os.environ.get("IMPORTER_FORCE_DYNAMIC"))
+TEST_DYNAMIC = os.environ.get("IMPORTER_FORCE_DYNAMIC")
+    
 
 TEST_CASE_BY_USER = os.environ.get("BACKEND_TEST")
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
@@ -788,9 +789,9 @@ test_not_for_dynamic = [
     #"test_sign_cpu",
 
     # MatmulOp
-    "test_matmul_2d_cpu",
-    "test_matmul_3d_cpu",
-    "test_matmul_4d_cpu",
+    #"test_matmul_2d_cpu",
+    #"test_matmul_3d_cpu",
+    #"test_matmul_4d_cpu",
 
     # BatchNormalization (test mode)
     #"test_batchnorm_epsilon_cpu",
@@ -845,12 +846,12 @@ test_not_for_dynamic = [
     #"test_squeeze_negative_axes_cpu",
 
     # Split
-    "test_split_equal_parts_1d_cpu",
-    "test_split_equal_parts_2d_cpu",
-    "test_split_equal_parts_default_axis_cpu",
-    "test_split_variable_parts_1d_cpu",
-    "test_split_variable_parts_2d_cpu",
-    "test_split_variable_parts_default_axis_cpu",
+    #"test_split_equal_parts_1d_cpu",
+    #"test_split_equal_parts_2d_cpu",
+    #"test_split_equal_parts_default_axis_cpu",
+    #"test_split_variable_parts_1d_cpu",
+    #"test_split_variable_parts_2d_cpu",
+    #"test_split_variable_parts_default_axis_cpu",
     
     # Tile
     "test_tile_cpu",
@@ -885,7 +886,7 @@ test_not_for_dynamic = [
 ]
 
 if TEST_DYNAMIC :
-    print("test dynamic shape ...")
+    print("test dynamic shape with IMPORTER_FORCE_DYNAMIC = "+TEST_DYNAMIC)
     test_to_enable = [case for case in test_to_enable if case not in test_not_for_dynamic]
     
 
