@@ -86,9 +86,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a4cd7c20b955da9999f33f64e016f24fb"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_list_8h.html#a4cd7c20b955da9999f33f64e016f24fb">omTensorListDestroy</a> (<a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *list)</td></tr>
 <tr class="memdesc:a4cd7c20b955da9999f33f64e016f24fb"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensorList destroyer.  <a href="#a4cd7c20b955da9999f33f64e016f24fb">More...</a><br /></td></tr>
 <tr class="separator:a4cd7c20b955da9999f33f64e016f24fb"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a4199a5db50c776a69548a949479110bd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> **&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_list_8h.html#a4199a5db50c776a69548a949479110bd">omTensorListGetPtrToOmts</a> (<a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *list)</td></tr>
-<tr class="memdesc:a4199a5db50c776a69548a949479110bd"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensorList OMTensor array getter.  <a href="#a4199a5db50c776a69548a949479110bd">More...</a><br /></td></tr>
-<tr class="separator:a4199a5db50c776a69548a949479110bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acaf1d0aed6751928d641555a8d4293fd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> **&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_list_8h.html#acaf1d0aed6751928d641555a8d4293fd">omTensorListGetOmtArray</a> (<a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *list)</td></tr>
+<tr class="memdesc:acaf1d0aed6751928d641555a8d4293fd"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensorList OMTensor array getter.  <a href="#acaf1d0aed6751928d641555a8d4293fd">More...</a><br /></td></tr>
+<tr class="separator:acaf1d0aed6751928d641555a8d4293fd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a06ceb4a9d2eacd093eac37e3634e6c26"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_list_8h.html#a06ceb4a9d2eacd093eac37e3634e6c26">omTensorListGetSize</a> (<a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *list)</td></tr>
 <tr class="memdesc:a06ceb4a9d2eacd093eac37e3634e6c26"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensorList size getter.  <a href="#a06ceb4a9d2eacd093eac37e3634e6c26">More...</a><br /></td></tr>
 <tr class="separator:a06ceb4a9d2eacd093eac37e3634e6c26"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -178,6 +178,34 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="acaf1d0aed6751928d641555a8d4293fd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acaf1d0aed6751928d641555a8d4293fd">&#9670;&nbsp;</a></span>omTensorListGetOmtArray()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a>** omTensorListGetOmtArray </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *&#160;</td>
+          <td class="paramname"><em>list</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>OMTensorList OMTensor array getter. </p>
+<p>The pointer to OMTensor pointers are returned without copying, so caller should not free the returned pointer.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">list</td><td>pointer to the OMTensorList </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>pointer to the array of OMTensor pointers. </dd></dl>
+
+</div>
+</div>
 <a id="a9b397f84c36c33d9468b510a01db49f7"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9b397f84c36c33d9468b510a01db49f7">&#9670;&nbsp;</a></span>omTensorListGetOmtByIndex()</h2>
 
@@ -212,34 +240,6 @@ Functions</h2></td></tr>
   </table>
   </dd>
 </dl>
-
-</div>
-</div>
-<a id="a4199a5db50c776a69548a949479110bd"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4199a5db50c776a69548a949479110bd">&#9670;&nbsp;</a></span>omTensorListGetPtrToOmts()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a>** omTensorListGetPtrToOmts </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="_o_m_tensor_list_8h.html#a87970f36c1838a5c43f43ec7dd0aec3a">OMTensorList</a> *&#160;</td>
-          <td class="paramname"><em>list</em></td><td>)</td>
-          <td></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>OMTensorList OMTensor array getter. </p>
-<p>The pointer to OMTensor pointers are returned without copying, so caller should not free the returned pointer.</p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">list</td><td>pointer to the OMTensorList </td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>pointer to the array of OMTensor pointers. </dd></dl>
 
 </div>
 </div>
