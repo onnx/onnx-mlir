@@ -22,9 +22,9 @@ TEST_DYNAMIC = os.environ.get("IMPORTER_FORCE_DYNAMIC")
 parser = argparse.ArgumentParser(description='with dynamic shape or not.')
 parser.add_argument('--dynamic', action='store_true',
     help='enable dynamic (default: false)')
+parser.add_argument('unittest_args', nargs='*')
 args = parser.parse_args()
-
-args.dynamic = True
+sys.argv[1:] = args.unittest_args
 
 TEST_CASE_BY_USER = os.environ.get("BACKEND_TEST")
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
@@ -163,7 +163,6 @@ class DummyBackend(onnx.backend.base.Backend):
 
         # Call frontend to process temp_model.onnx, bit code will be generated.
         my_input, my_dim = determine_dynamic_parameters(name)
-        print("parameters: ", my_input, my_dim)
         execute_commands([TEST_DRIVER, model_name], my_input, my_dim)
         if not os.path.exists(exec_name) :
             print("Failed " + test_config.TEST_DRIVER_COMMAND + ": " + name)
