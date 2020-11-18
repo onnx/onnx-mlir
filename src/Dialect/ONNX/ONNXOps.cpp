@@ -2173,6 +2173,7 @@ LogicalResult ONNXConcatOp::inferShapes() {
 
   // Compute the cummlative size with all of the other ones, and make sure
   // that the other sizes are all alike.
+  bool isUnknown = false;
   for (int i = 1; i < inputNum; ++i) {
     auto currShape =
         getOperand(i).getType().cast<RankedTensorType>().getShape();
@@ -2180,10 +2181,8 @@ LogicalResult ONNXConcatOp::inferShapes() {
       return emitError("Concat input must all have the same rank");
     for (int j = 0; j < commonRank; ++j) {
       if (j == axisIndex) {
-        // Check that the value is positive.
-        if (currShape[j] <= 0)
-          return emitError("Concat axis being concatenated is "
-                           "expected to be known at compile time for now");
+        // Known dim size is OK
+        isUnknown = true;
       } else if (currShape[j] != commonShape[j]) {
         return emitError("Concat input dimensions must be all identical, "
                          "except for dimension on the axis of the "
@@ -2194,6 +2193,8 @@ LogicalResult ONNXConcatOp::inferShapes() {
     }
     cummulativeAxisSize += currShape[axisIndex];
   }
+  if (isUnknown) 
+    cummulativeAxisSize = -1;
 
   // Set output size and type
   SmallVector<int64_t, 4> outputDims;
