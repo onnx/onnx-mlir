@@ -526,9 +526,9 @@ func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 
 //CHECK-LABEL:  func @test_gather_axis0
 //CHECK-SAME:   ([[DATA_:%.+]]: memref<3x2xf32>) -> memref<2x2x2xf32> {
-//CHECK:           [[RES_:%.+]] = alloc() : memref<2x2x2xf32>
-//CHECK:           [[INDICES_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2, 2], value = dense<{{.}}[0, 1], [1, 2]{{.}}> : tensor<2x2xi64>} : () -> memref<2x2xi64>
-//CHECK:           [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+//CHECK-DAG:       [[RES_:%.+]] = alloc() : memref<2x2x2xf32>
+//CHECK-DAG:       [[INDICES_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2, 2], value = dense<{{.}}[0, 1], [1, 2]{{.}}> : tensor<2x2xi64>} : () -> memref<2x2xi64>
+//CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 //CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 2) {
 //CHECK:             [[LOAD_INDICES_MEM_:%.+]] = affine.load [[INDICES_]][symbol([[I_0_]]), symbol([[I_1_]])] : memref<2x2xi64>
 //CHECK:             [[VAR_4_:%.+]] = index_cast [[LOAD_INDICES_MEM_]] : i64 to index
@@ -549,16 +549,16 @@ func @test_gather_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 
 //CHECK-LABEL:  func @test_gather_axis0neg
 //CHECK-SAME:   ([[DATA_:%.+]]: memref<3x2xf32>) -> memref<2x2x2xf32> {
-//CHECK:           [[CST_0_:%.+]] = constant 0 : index
-//CHECK:           [[CST_3_:%.+]] = constant 3 : index
-//CHECK:           [[RES_:%.+]] = alloc() : memref<2x2x2xf32>
-//CHECK:           [[INDICES_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2, 2], value = dense<{{.}}[0, -1], [1, 2]{{.}}> : tensor<2x2xi64>} : () -> memref<2x2xi64>
-//CHECK:           [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+//CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+//CHECK-DAG:       [[CST_3_:%.+]] = constant 3 : index
+//CHECK-DAG:       [[RES_:%.+]] = alloc() : memref<2x2x2xf32>
+//CHECK-DAG:       [[INDICES_:%.+]] = "krnl.global"() {name = "constant_0", shape = [2, 2], value = dense<{{.}}[0, -1], [1, 2]{{.}}> : tensor<2x2xi64>} : () -> memref<2x2xi64>
+//CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 //CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 2) {
 //CHECK:             [[LOAD_INDICES_MEM_:%.+]] = affine.load [[INDICES_]][symbol([[I_0_]]), symbol([[I_1_]])] : memref<2x2xi64>
 //CHECK:             [[VAR_4_:%.+]] = index_cast [[LOAD_INDICES_MEM_]] : i64 to index
-//CHECK:             [[VAR_5_:%.+]] = cmpi "slt", [[VAR_4_]], [[CST_0_]] : index
-//CHECK:             [[VAR_6_:%.+]] = addi [[VAR_4_]], [[CST_3_]] : index
+//CHECK-DAG:         [[VAR_5_:%.+]] = cmpi "slt", [[VAR_4_]], [[CST_0_]] : index
+//CHECK-DAG:         [[VAR_6_:%.+]] = addi [[VAR_4_]], [[CST_3_]] : index
 //CHECK:             [[VAR_7_:%.+]] = select [[VAR_5_]], [[VAR_6_]], [[VAR_4_]] : index
 //CHECK:             [[VAR_8_:%.+]] = load [[DATA_]]{{.}}[[VAR_7_]], [[I_2_]]{{.}} : memref<3x2xf32>
 //CHECK:             affine.store [[VAR_8_]], [[RES_]][symbol([[I_0_]]), symbol([[I_1_]]), symbol([[I_2_]])] : memref<2x2x2xf32>
@@ -577,9 +577,9 @@ func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<3x1x2xf32> {
 
 //CHECK-LABEL:  func @test_gather_axis1
 //CHECK-SAME:   ([[DATA_:%.+]]: memref<3x3xf32>) -> memref<3x1x2xf32> {
-//CHECK:           [[RES_:%.+]] = alloc() : memref<3x1x2xf32>
-//CHECK:           [[INDICES_:%.+]] = "krnl.global"() {name = "constant_0", shape = [1, 2], value = dense<{{.}}[0, 2]{{.}}> : tensor<1x2xi64>} : () -> memref<1x2xi64>
-//CHECK:           [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+//CHECK-DAG:       [[RES_:%.+]] = alloc() : memref<3x1x2xf32>
+//CHECK-DAG:       [[INDICES_:%.+]] = "krnl.global"() {name = "constant_0", shape = [1, 2], value = dense<{{.}}[0, 2]{{.}}> : tensor<1x2xi64>} : () -> memref<1x2xi64>
+//CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 //CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 2) {
 //CHECK:             [[LOAD_INDICES_MEM_:%.+]] = affine.load [[INDICES_]][symbol([[I_1_]]), symbol([[I_2_]])] : memref<1x2xi64>
 //CHECK:             [[VAR_4_:%.+]] = index_cast [[LOAD_INDICES_MEM_]] : i64 to index
