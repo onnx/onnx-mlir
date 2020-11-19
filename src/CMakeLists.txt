@@ -11,6 +11,7 @@ set(OMLibs
         OMKrnlOps
         OMONNXOps
         OMKrnlToAffine
+        OMKrnlToStandard
         OMKrnlToLLVM
         OMONNXToKrnl
         OMONNXRewrite
@@ -25,8 +26,7 @@ set(OMLibs
         OMEnableMemoryPool
         OMBundleMemoryPools
         OMDisconnectKrnlDimFromAlloc
-        OMLowerKrnlShape
-        OMLowerKrnlGlobal)
+        OMLowerKrnlShape)
 set(OMLibs ${OMLibs} PARENT_SCOPE)
 
 add_subdirectory(Tool)

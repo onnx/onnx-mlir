@@ -53,6 +53,11 @@ void initOMPasses() {
         return mlir::createConvertKrnlToAffinePass();
       });
 
+  mlir::registerPass("convert-krnl-to-std", "Lower Krnl constant to standard operations.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createConvertKrnlToStandardPass();
+      });
+
   mlir::registerPass("convert-onnx-to-krnl",
       "Lower frontend ops to Krnl dialect.",
       []() -> std::unique_ptr<mlir::Pass> {
@@ -87,12 +92,6 @@ void initOMPasses() {
       "Lower krnl.shape operation to use Shape dialect operations.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createLowerKrnlShapePass();
-      });
-
-  mlir::registerPass("lower-krnl-global",
-      "Lower krnl.global operation to std.constant operations.",
-      []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createLowerKrnlGlobalPass();
       });
 }
 } // namespace onnx_mlir
