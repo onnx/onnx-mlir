@@ -195,11 +195,11 @@ def process_line(i, line):
         print("/// reset dict with dic", name_dict, "refcount", refcount_dict)
         new_line = process_name(new_line, def_arg_pat, "PARAM", ":", 1)
     # Special handling of loop iterations.
-    elif re.match(r'\s+(\w+\.)for', line) is not None:
+    elif re.match(r'\s+(\w+\.)?for', line) is not None:
         new_line = process_name(new_line, def_pat, "I", " =", 1)
     elif re.search(r'krnl\.define_loops', line) is not None:
         new_line = process_name(new_line, def_qual_pat, "LOOP", " =", 1)
-    elif re.match(r'\s+(\w+\.)iterate', line) is not None:
+    elif re.match(r'\s+(\w+\.)?iterate', line) is not None:
         new_line = process_name(new_line, def_pat, "I", " =", 1)
     # Special handling for alloc.
     elif re.search(r'=\s+alloc', line) is not None:
@@ -208,7 +208,7 @@ def process_line(i, line):
     elif re.search(r'=\s+dim', line) is not None:
         new_line = process_name(new_line, def_pat, "DIM", " =", 1)
     # Special handling for memory operations.
-    elif re.search(r'(\w+\.)load\s+', line) is not None:
+    elif re.search(r'(\w+\.)?load\s+', line) is not None:
         res = re.search(r'load\s+%([a-zA-Z0-9][a-zA-Z0-9_\-]*)', line)
         mem = res.group(1)
         if mem in name_dict.keys():
@@ -256,24 +256,24 @@ def process_line(i, line):
     if re.match(r'\s+func', line) is not None:
         # Split function line into 2 lines.
         new_line = re.sub(
-            r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'\n//CHECK-LABEL:\1\2\n//CHECK-SAME: \1\3', new_line)
+            r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'\n// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\3', new_line)
         print(new_line)
     else:
         if line_color[i] == curr_parallel_color:
             # This line is in an established parallel region
-            print("//CHECK-DAG:  ", new_line)
+            print("// CHECK-DAG:  ", new_line)
         elif line_color[i] == line_color[i+1]:
             # This line starts a parallel region, check if this break a parallel region.
             if curr_parallel_color != -1:
                 # Previous lines were also part of a parallel region.
                 # Need to separate them.
-                print("//CHECK-NOT: separator of consecutive DAGs")
+                print("// CHECK-NOT: separator of consecutive DAGs")
             curr_parallel_color = line_color[i]
-            print("//CHECK-DAG:  ", new_line)
+            print("// CHECK-DAG:  ", new_line)
         else:
             # No parallel region, set the color to undefined
             curr_parallel_color = -1
-            print("//CHECK:      ", new_line)
+            print("// CHECK:      ", new_line)
 
 
 ################################################################################
