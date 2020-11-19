@@ -72,12 +72,12 @@ struct ONNXTileOpLowering : public ConversionPattern {
     Value input = operandAdaptor.input();
 
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     // Define loops and iteration trip counts (equivalent to size of output)
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.outputDims);
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 

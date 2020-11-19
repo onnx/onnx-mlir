@@ -29,6 +29,8 @@ using namespace mlir;
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
+typedef SmallVector<IndexExpr, 4> DimsExpr;
+
 /// When defining support for a new op, add one such stuct which must
 /// minimally compute the outputDims present in the parent class. Computation
 /// should be performed using a `Compute` function. Return success on successful
@@ -45,12 +47,20 @@ struct ONNXOpShapeHelper {
     llvm_unreachable("implement in child structs");
   }
 
+  // Return output dims for the N-th output.
+  DimsExpr &dimsForOutput(int n) { return outputsDims[n]; }
+
+  // Set the number of outputs.
+  void setNumberOfOutputs(int n) { outputsDims.resize(n); }
+
   // Data that must be present for every ShapeHelper operation. Op and context
-  // are initialized in the constructor, and outputDims is computed by the
+  // are initialized in the constructor, and outputsDims is computed by the
   // child's struct `Compute` function.
   OP *op;
   IndexExprContext context;
-  SmallVector<IndexExpr, 4> outputDims;
+
+private:
+  SmallVector<DimsExpr, 1> outputsDims;
 };
 
 // Shape for SliceOp.
@@ -111,6 +121,14 @@ struct ONNXGatherOpShapeHelper : public ONNXOpShapeHelper<ONNXGatherOp> {
   SmallVector<IndexExpr, 4> dataDims;    // Dim of data.
   SmallVector<IndexExpr, 4> indicesDims; // Dim of indices.
   bool positiveConstantIndices; // True when all indices are positive consants.
+};
+
+// Shape for SplitOp.
+struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
+  ONNXSplitOpShapeHelper(
+      ONNXSplitOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXSplitOpAdaptor operandAdaptor);
 };
 
 //===----------------------------------------------------------------------===//

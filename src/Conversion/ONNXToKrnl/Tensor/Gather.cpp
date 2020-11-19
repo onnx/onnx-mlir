@@ -31,13 +31,13 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     // Save axis and rank info.
     int64_t axisLit = gatherOp.axis();
     int64_t dataRank = shapeHelper.dataDims.size();
     int64_t indicesRank = shapeHelper.indicesDims.size();
-    int64_t outputRank = shapeHelper.outputDims.size();
+    int64_t outputRank = shapeHelper.dimsForOutput(0).size();
 
     /*
       The pattern that we are using is that of numpy.take.
@@ -52,7 +52,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Define loops and iteration trip counts (equivalent to size of output)
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.outputDims);
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
     outputLoops.createIterateOp();
     int iIndexStart = 0;
     int jIndexStart = iIndexStart + axisLit;

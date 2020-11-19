@@ -590,3 +590,63 @@ func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<3x1x2xf32> {
 //CHECK:         }
 }
 
+// -----
+
+// COM: test split with unknown dimensions and explicit split.
+func @test_split_unknown_dimension(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
+  %0, %1 = "onnx.Split"(%arg0) { axis = 1 : si64, split = [2, 30]} : (tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+
+//CHECK-LABEL:  func @test_split_unknown_dimension
+//CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x64xf32>) -> (memref<?x2x64xf32>, memref<?x30x64xf32>) {
+//CHECK:           [[CST_0_:%.+]] = constant 0 : index
+//CHECK:           [[DIM_0_:%.+]] = dim [[PARAM_0_]], [[CST_0_]] : memref<?x?x64xf32>
+//CHECK:           [[DIM_1_:%.+]] = dim [[PARAM_0_]], [[CST_0_]] : memref<?x?x64xf32>
+//CHECK:           [[RES_:%.+]] = alloc([[DIM_0_]]) : memref<?x2x64xf32>
+//CHECK:           [[RES_1_:%.+]] = alloc([[DIM_1_]]) : memref<?x30x64xf32>
+//CHECK:           [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+//CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[DIM_0_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 64) {
+//CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = affine.load [[PARAM_0_]][symbol([[I_0_]]), symbol([[I_1_]]), symbol([[I_2_]])] : memref<?x?x64xf32>
+//CHECK:             affine.store [[LOAD_PARAM_0_MEM_]], [[RES_]][symbol([[I_0_]]), symbol([[I_1_]]), symbol([[I_2_]])] : memref<?x2x64xf32>
+//CHECK:           }
+//CHECK:           [[LOOP_1_:%.+]]:3 = krnl.define_loops 3
+//CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) with ([[LOOP_1_]]#0 -> [[I_3_:%.+]] = 0 to [[DIM_1_]], [[LOOP_1_]]#1 -> [[I_4_:%.+]] = 0 to 30, [[LOOP_1_]]#2 -> [[I_5_:%.+]] = 0 to 64) {
+//CHECK:             [[LOAD_PARAM_0_MEM_1_:%.+]] = affine.load [[PARAM_0_]][symbol([[I_3_]]), symbol([[I_4_]]) + 2, symbol([[I_5_]])] : memref<?x?x64xf32>
+//CHECK:             affine.store [[LOAD_PARAM_0_MEM_1_]], [[RES_1_]][symbol([[I_3_]]), symbol([[I_4_]]), symbol([[I_5_]])] : memref<?x30x64xf32>
+//CHECK:           }
+//CHECK:           return [[RES_]], [[RES_1_]] : memref<?x2x64xf32>, memref<?x30x64xf32>
+//CHECK:         }
+}
+
+// -----
+
+// COM: test split with unknown dimensions and default split.
+func @test_split_unknown_dimension_equal_split(%arg0 : tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
+  %0, %1 = "onnx.Split"(%arg0) { axis = 1 : si64 } : (tensor<?x?x64xf32>) -> (tensor<*xf32>, tensor<*xf32>)
+  "std.return"(%0, %1) : (tensor<*xf32>, tensor<*xf32>) -> ()
+
+//CHECK-LABEL:  func @test_split_unknown_dimension_equal_split
+//CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x64xf32>) -> (memref<?x?x64xf32>, memref<?x?x64xf32>) {
+//CHECK:           [[CST_1_:%.+]] = constant 1 : index
+//CHECK:           [[CST_0_:%.+]] = constant 0 : index
+//CHECK:           [[DIM_0_:%.+]] = dim [[PARAM_0_]], [[CST_1_]] : memref<?x?x64xf32>
+//CHECK:           [[DIM_1_:%.+]] = dim [[PARAM_0_]], [[CST_0_]] : memref<?x?x64xf32>
+//CHECK:           [[DIM_2_:%.+]] = dim [[PARAM_0_]], [[CST_0_]] : memref<?x?x64xf32>
+//CHECK:           [[VAR_3_:%.+]] = affine.apply #map0(){{.}}[[DIM_0_]]{{.}}
+//CHECK:           [[RES_:%.+]] = alloc([[DIM_1_]], [[VAR_3_]]) : memref<?x?x64xf32>
+//CHECK:           [[VAR_5_:%.+]] = affine.apply #map0(){{.}}[[DIM_0_]]{{.}}
+//CHECK:           [[RES_1_:%.+]] = alloc([[DIM_2_]], [[VAR_5_]]) : memref<?x?x64xf32>
+//CHECK:           [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+//CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[DIM_1_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[VAR_3_]], [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 64) {
+//CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = affine.load [[PARAM_0_]][symbol([[I_0_]]), symbol([[I_1_]]), symbol([[I_2_]])] : memref<?x?x64xf32>
+//CHECK:             affine.store [[LOAD_PARAM_0_MEM_]], [[RES_]][symbol([[I_0_]]), symbol([[I_1_]]), symbol([[I_2_]])] : memref<?x?x64xf32>
+//CHECK:           }
+//CHECK:           [[LOOP_1_:%.+]]:3 = krnl.define_loops 3
+//CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) with ([[LOOP_1_]]#0 -> [[I_3_:%.+]] = 0 to [[DIM_2_]], [[LOOP_1_]]#1 -> [[I_4_:%.+]] = 0 to [[VAR_5_]], [[LOOP_1_]]#2 -> [[I_5_:%.+]] = 0 to 64) {
+//CHECK:             [[LOAD_PARAM_0_MEM_1_:%.+]] = affine.load [[PARAM_0_]][symbol([[I_3_]]), symbol([[I_4_]]) + symbol([[DIM_0_]]) ceildiv 2, symbol([[I_5_]])] : memref<?x?x64xf32>
+//CHECK:             affine.store [[LOAD_PARAM_0_MEM_1_]], [[RES_1_]][symbol([[I_3_]]), symbol([[I_4_]]), symbol([[I_5_]])] : memref<?x?x64xf32>
+//CHECK:           }
+//CHECK:           return [[RES_]], [[RES_1_]] : memref<?x?x64xf32>, memref<?x?x64xf32>
+//CHECK:         }
+}
+

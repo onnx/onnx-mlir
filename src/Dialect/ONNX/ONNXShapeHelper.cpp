@@ -33,7 +33,9 @@ ONNXConstantOp getONNXConstantOp(Value value) {
 template <class OP>
 ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
     OP *newOp, ConversionPatternRewriter *rewriter)
-    : op(newOp), context(rewriter, newOp->getLoc()), outputDims() {}
+    : op(newOp), context(rewriter, newOp->getLoc()), outputsDims() {
+  setNumberOfOutputs(op->getOperation()->getNumResults());
+}
 
 //===----------------------------------------------------------------------===//
 // ONNX Slice Op Shape Helper
@@ -48,6 +50,9 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     ONNXSliceOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of results.
+  DimsExpr outputDims;
 
   // Get info about input data operand.
   Value data = operandAdaptor.data();
@@ -155,6 +160,10 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       outputDims[i] = dimInput;
     }
   }
+
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+
   return success();
 }
 
@@ -177,6 +186,7 @@ LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
   Value repeats = operandAdaptor.repeats();
 
   // Compute outputDims
+  DimsExpr outputDims;
   outputDims.resize(inputRank);
   for (auto i = 0; i < inputRank; i++) {
     IndexExpr dimInput = context.createDimIndexFromShapedType(input, i);
@@ -185,6 +195,7 @@ LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
     IndexExpr dimOutput = dimInput * repeatsValue;
     outputDims[i] = dimOutput;
   }
+  dimsForOutput(0) = outputDims;
   return success();
 }
 
@@ -200,6 +211,10 @@ ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(
 LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of result.
+  DimsExpr outputDims;
+
   // Get info.
   Value A = operandAdaptor.A();
   Value B = operandAdaptor.B();
@@ -277,6 +292,8 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
       }
     }
   }
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
   return success();
 }
 
@@ -293,6 +310,10 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
     ONNXMatMulOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of result.
+  DimsExpr outputDims;
+
   // Get info.
   Value A = operandAdaptor.A();
   Value B = operandAdaptor.B();
@@ -394,6 +415,82 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   if (aRank == 1 && bRank == 1) {
     outputDims.emplace_back(one);
   }
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Split Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(
+    ONNXSplitOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter) {}
+
+LogicalResult ONNXSplitOpShapeHelper::Compute(
+    ONNXSplitOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Get info about input and output data.
+  int numOfResults = op->getNumResults();
+  auto rank = operandAdaptor.input().getType().cast<ShapedType>().getRank();
+
+  // Checking value of axis parameter.
+  int64_t axisIndex = op->axis();
+  if (axisIndex < -rank || axisIndex >= rank)
+    return op->emitError("Split axis value out of bound");
+  // Negative axis means values are counted from the opposite side.
+  if (axisIndex < 0) {
+    axisIndex = rank + axisIndex;
+    auto builder = mlir::Builder(op->getContext());
+    op->axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
+  }
+
+  // Checking value of split parameter.
+  auto splitAttribute = op->split();
+  SmallVector<IndexExpr, 4> splitDims;
+  if (splitAttribute.hasValue()) {
+    if (ArrayAttrSize(splitAttribute) != numOfResults)
+      return op->emitError("Split size not equal to the number of results");
+    for (int i = 0; i < numOfResults; ++i) {
+      IndexExpr dim =
+          context.createLiteralIndex(ArrayAttrIntVal(splitAttribute, i));
+      splitDims.emplace_back(dim);
+    }
+  } else {
+    // If split parameter is not specified, the dimension is split to
+    // equal-sized parts.
+    IndexExpr splitInputDim =
+        context.createDimIndexFromShapedType(operandAdaptor.input(), axisIndex);
+    IndexExpr numOfPartitions = context.createLiteralIndex(numOfResults);
+    if (splitInputDim.isLiteral() &&
+        (splitInputDim.getLiteral() % numOfResults != 0))
+      return op->emitError("The dimension at the split axis is "
+                           "expected to be divisible by the number of results");
+    for (int i = 0; i < numOfResults; ++i) {
+      IndexExpr splitDim = splitInputDim.ceilDiv(numOfPartitions);
+      splitDims.emplace_back(splitDim);
+    }
+  }
+
+  // Build result types.
+  for (int i = 0; i < numOfResults; ++i) {
+    DimsExpr outputDims;
+    outputDims.resize(rank);
+    for (int j = 0; j < rank; ++j) {
+      if (j == axisIndex) {
+        outputDims[j] = splitDims[i];
+      } else {
+        IndexExpr dim =
+            context.createDimIndexFromShapedType(operandAdaptor.input(), j);
+        outputDims[j] = dim;
+      }
+    }
+    dimsForOutput(i) = outputDims;
+  }
   return success();
 }
 
@@ -453,9 +550,9 @@ LogicalResult ONNXGatherOpShapeHelper::Compute(
   for (int i = 0; i < dataRank; ++i) {
     if (i == axisIndex)
       for (IndexExpr d : indicesDims)
-        outputDims.emplace_back(d);
+        dimsForOutput(0).emplace_back(d);
     else
-      outputDims.emplace_back(dataDims[i]);
+      dimsForOutput(0).emplace_back(dataDims[i]);
   }
 
   return success();

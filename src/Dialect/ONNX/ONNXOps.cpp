@@ -987,7 +987,8 @@ LogicalResult ONNXMatMulOp::inferShapes() {
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Silce parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
 }
@@ -1137,7 +1138,8 @@ LogicalResult ONNXGemmOp::inferShapes() {
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Silce parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
   Type elementType = A().getType().cast<ShapedType>().getElementType();
   getResult().setType(RankedTensorType::get(outputDims, elementType));
   return success();
@@ -2229,62 +2231,18 @@ LogicalResult ONNXSplitOp::inferShapes() {
   if (!getOperand().getType().cast<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  int numOfResults = getNumResults();
-  auto inputType = getOperand().getType().cast<RankedTensorType>();
-  auto inputShape = inputType.getShape();
-  int64_t inputRank = inputShape.size();
-
-  // Checking value of axis parameter.
-  int64_t axisIndex = axis();
-  if (axisIndex < -inputRank || axisIndex >= inputRank)
-    return emitError("Split axis value out of bound");
-  // Negative axis means values are counted from the opposite side.
-  if (axisIndex < 0) {
-    axisIndex = inputRank + axisIndex;
-    auto builder = mlir::Builder(getContext());
-    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
+  auto elementType = input().getType().cast<ShapedType>().getElementType();
+  ONNXSplitOpAdaptor operandAdaptor(*this);
+  ONNXSplitOpShapeHelper shapeHelper(this, nullptr);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Split parameters successfully");
+  for (int i = 0; i < getNumResults(); ++i) {
+    SmallVector<int64_t, 4> outputDims;
+    IndexExprContext::getOutputDimsForType(
+        shapeHelper.dimsForOutput(i), outputDims);
+    getResults()[i].setType(RankedTensorType::get(outputDims, elementType));
   }
 
-  // Checking value of split parameter.
-  auto splitAttribute = split();
-  SmallVector<int64_t, 4> splitLengths;
-  if (splitAttribute.hasValue()) {
-    if (ArrayAttrSize(splitAttribute) != numOfResults)
-      return emitError("Split size not equal to the number of results");
-    for (int i = 0; i < numOfResults; ++i)
-      splitLengths.emplace_back(ArrayAttrIntVal(splitAttribute, i));
-
-  } else {
-    if (inputShape[axisIndex] != -1 &&
-        inputShape[axisIndex] % numOfResults != 0)
-      return emitError("The dimension at the split axis is "
-                       "expected to be divisible by the number of results");
-    // If split parameter is not specified, the dimension is split to
-    // equal-sized parts.
-    for (int i = 0; i < numOfResults; ++i)
-      if (inputShape[axisIndex] <= 0)
-        splitLengths.emplace_back(-1);
-      else
-        splitLengths.emplace_back(inputShape[axisIndex] / numOfResults);
-    // Build attribute and store attribute.
-    auto builder = mlir::Builder(getContext());
-    splitAttr(builder.getI64ArrayAttr(llvm::makeArrayRef(splitLengths)));
-  }
-
-  // Build result types.
-  for (int i = 0; i < numOfResults; ++i) {
-    SmallVector<int64_t, 3> resultShape;
-    for (int j = 0; j < inputRank; ++j) {
-      if (j == axisIndex) {
-        resultShape.emplace_back(splitLengths[i]);
-      } else {
-        resultShape.emplace_back(inputShape[j]);
-      }
-    }
-    getResults()[i].setType(
-        RankedTensorType::get(resultShape, inputType.getElementType()));
-  }
   return success();
 }
 
@@ -2582,7 +2540,8 @@ LogicalResult ONNXTileOp::inferShapes() {
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
@@ -2604,7 +2563,7 @@ LogicalResult ONNXGatherOp::inferShapes() {
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Gather parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  IndexExprContext::getOutputDimsForType(shapeHelper.dimsForOutput(0), outputDims);
   Type elementType = data().getType().cast<RankedTensorType>().getElementType();
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
@@ -2687,7 +2646,8 @@ LogicalResult ONNXSliceOp::inferShapes() {
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Silce parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
