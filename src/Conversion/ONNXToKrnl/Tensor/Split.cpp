@@ -57,8 +57,8 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       for (int r = 0; r < rank; ++r) {
         Value readVal = outputLoops.getInductionVar(r);
         // If not the split axis, same index for read and write
-        IndexExpr readIndex = childContext.createLoopIterIndex(readVal);
-        IndexExpr writeIndex = childContext.createLoopIterIndex(readVal);
+        IndexExpr readIndex = childContext.createLoopInductionIndex(readVal);
+        IndexExpr writeIndex = childContext.createLoopInductionIndex(readVal);
         // If the split axis, compute read index for the split axis.
         if (r == axis) {
           for (int k = 0; k < i; ++k) {
