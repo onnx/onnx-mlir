@@ -424,11 +424,11 @@ public:
     CREATE_OMTENSOR,
     GET_DATA,
     SET_DATA,
-    GET_DATA_SIZES,
+    GET_DATA_SHAPE,
     GET_DATA_STRIDES,
     SET_DATA_TYPE,
     GET_DATA_TYPE,
-    GET_OMTS,
+    GET_OMT_ARRAY,
   };
 
   struct ApiSpec {
@@ -507,7 +507,7 @@ public:
     auto wrappedInput = entryPointEntryBlock.getArgument(0);
 
     auto omTensorPtrArr =
-        callApi(rewriter, loc, apiRegistry, API::GET_OMTS, {wrappedInput});
+        callApi(rewriter, loc, apiRegistry, API::GET_OMT_ARRAY, {wrappedInput});
     for (size_t i = 0; i < staticEntryPointTy.getFunctionNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
@@ -649,11 +649,11 @@ private:
         ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int32Ty}),
         ApiSpec(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
-        ApiSpec(API::GET_DATA_SIZES, "omTensorGetDataShape", int64PtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_DATA_SHAPE, "omTensorGetShape", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_STRIDES, "omTensorGetStrides", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_TYPE, "omTensorGetDataType", int32Ty, {opaquePtrTy}),
         ApiSpec(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int32Ty}),
-        ApiSpec(API::GET_OMTS, "omTensorListGetPtrToOmts", opaquePtrPtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_OMT_ARRAY, "omTensorListGetOmtArray", opaquePtrPtrTy, {opaquePtrTy}),
     };
     // clang-format on
 
@@ -735,7 +735,7 @@ private:
     // Get rank, sizes array ptr and strides array ptr.
     auto rank = getRankFromMemRefType(memRefTy);
     auto sizesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_DATA_SIZES, {rtMemRef});
+        callApi(rewriter, loc, apiRegistry, API::GET_DATA_SHAPE, {rtMemRef});
     auto stridesArrayPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_DATA_STRIDES, {rtMemRef});
 
@@ -806,7 +806,7 @@ private:
 
     auto rank = getRankFromMemRefType(outMemRefTy);
     auto sizesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_DATA_SIZES, {outOMTensor});
+        callApi(rewriter, loc, apiRegistry, API::GET_DATA_SHAPE, {outOMTensor});
     auto stridesArrayPtr = callApi(
         rewriter, loc, apiRegistry, API::GET_DATA_STRIDES, {outOMTensor});
 
