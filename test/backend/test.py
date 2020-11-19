@@ -14,10 +14,17 @@ from onnx.backend.base import Device, DeviceType
 import subprocess
 import test_config
 import tempfile
+import argparse
 
 VERBOSE = bool(os.environ.get("VERBOSE"))
 TEST_DYNAMIC = os.environ.get("IMPORTER_FORCE_DYNAMIC")
     
+parser = argparse.ArgumentParser(description='with dynamic shape or not.')
+parser.add_argument('--dynamic', action='store_true',
+    help='enable dynamic (default: false)')
+parser.add_argument('unittest_args', nargs='*')
+args = parser.parse_args()
+sys.argv[1:] = args.unittest_args
 
 TEST_CASE_BY_USER = os.environ.get("BACKEND_TEST")
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
@@ -38,11 +45,57 @@ RUNTIME_DIR = os.path.join(test_config.TEST_DRIVER_BUILD_PATH, "lib")
 sys.path.append(RUNTIME_DIR)
 from PyRuntime import ExecutionSession
 
+dynamic_input_dict = {
+    "test_reshape_extended_dims":0,
+    "test_reshape_negative_dim":0,
+    "test_reshape_negative_extended_dims":0,
+    "test_reshape_one_dim":0,
+    "test_reshape_reduced_dims":0,
+    "test_reshape_reordered_all_dims":0,
+    "test_reshape_reordered_last_dims":0,
+    "test_reshape_zero_and_negative_dim":0,
+    "test_reshape_zero_dim":0,
+    "test_basic_conv_without_padding":0,
+    "test_conv_with_strides_no_padding":0,
+}
 
-def execute_commands(cmds):
+dynamic_dim_dict = {
+    "test_concat_1d_axis_0":0,
+    "test_concat_2d_axis_0":0,
+    "test_concat_2d_axis_1":1,
+    "test_concat_3d_axis_0":0,
+    "test_concat_3d_axis_1":1,
+    "test_concat_3d_axis_2":2,
+    "test_concat_1d_axis_negative_1":0,
+    "test_concat_2d_axis_negative_1":1,
+    "test_concat_2d_axis_negative_2":0,
+    "test_concat_3d_axis_negative_1":2,
+    "test_concat_3d_axis_negative_2":1,
+    "test_concat_3d_axis_negative_3":0,
+}
+
+# determine the dynamic input and dim
+def determine_dynamic_parameters(test_name):
+    if not args.dynamic :
+        return [None, None]
+    # set default value
+    selected_input = -1
+    selected_dim = 0
+    if test_name in dynamic_input_dict :
+        selected_input = dynamic_input_dict[test_name]
+    if test_name in dynamic_dim_dict :
+        selected_dim = dynamic_dim_dict[test_name]
+    return [selected_input, selected_dim]
+
+def execute_commands(cmds, dynamic_input, dynamic_dim):
     if (VERBOSE):
         print(" ".join(cmds))
-    subprocess.run(cmds)
+    my_env = os.environ.copy();
+    if dynamic_input is not None:
+        my_env["IMPORTER_FORCE_DYNAMIC"] = str(dynamic_input) 
+    if dynamic_dim is not None:
+        my_env["IMPORTER_FORCE_DYNAMIC_DIM"] = str(dynamic_dim) 
+    subprocess.run(cmds, env=my_env)
 
 
 # There are two issues, which necessitates the adoption of this endianness
@@ -109,7 +162,8 @@ class DummyBackend(onnx.backend.base.Backend):
             print("Failed save model: "+ name)
 
         # Call frontend to process temp_model.onnx, bit code will be generated.
-        execute_commands([TEST_DRIVER, model_name])
+        my_input, my_dim = determine_dynamic_parameters(name)
+        execute_commands([TEST_DRIVER, model_name], my_input, my_dim)
         if not os.path.exists(exec_name) :
             print("Failed " + test_config.TEST_DRIVER_COMMAND + ": " + name)
         return EndiannessAwareExecutionSession(exec_name,
@@ -762,15 +816,15 @@ test_not_for_dynamic = [
     #"test_softsign_example_cpu",
 
     # ReshapeOp:
-    "test_reshape_extended_dims_cpu",
-    "test_reshape_negative_dim_cpu",
-    "test_reshape_negative_extended_dims_cpu",
-    "test_reshape_one_dim_cpu",
-    "test_reshape_reduced_dims_cpu",
-    "test_reshape_reordered_all_dims_cpu",
-    "test_reshape_reordered_last_dims_cpu",
-    "test_reshape_zero_and_negative_dim_cpu",
-    "test_reshape_zero_dim_cpu",
+    #"test_reshape_extended_dims_cpu",
+    #"test_reshape_negative_dim_cpu",
+    #"test_reshape_negative_extended_dims_cpu",
+    #"test_reshape_one_dim_cpu",
+    #"test_reshape_reduced_dims_cpu",
+    #"test_reshape_reordered_all_dims_cpu",
+    #"test_reshape_reordered_last_dims_cpu",
+    #"test_reshape_zero_and_negative_dim_cpu",
+    #"test_reshape_zero_dim_cpu",
 
     # Transpose
     "test_transpose_default_cpu",
@@ -782,8 +836,8 @@ test_not_for_dynamic = [
     "test_transpose_all_permutations_5_cpu",
 
     # Conv
-    "test_basic_conv_without_padding_cpu",
-    "test_conv_with_strides_no_padding_cpu",
+    #"test_basic_conv_without_padding_cpu",
+    #"test_conv_with_strides_no_padding_cpu",
 
     # Sign Op:
     #"test_sign_cpu",
@@ -854,8 +908,8 @@ test_not_for_dynamic = [
     #"test_split_variable_parts_default_axis_cpu",
     
     # Tile
-    "test_tile_cpu",
-    "test_tile_precomputed_cpu",
+    #"test_tile_cpu",
+    #"test_tile_precomputed_cpu",
     
     # ConstantOfShape
     "test_constantofshape_float_ones_cpu",
@@ -885,8 +939,8 @@ test_not_for_dynamic = [
     "test_shufflenet_cpu",
 ]
 
-if TEST_DYNAMIC :
-    print("test dynamic shape with IMPORTER_FORCE_DYNAMIC = "+TEST_DYNAMIC)
+if args.dynamic :
+    print("dynamic shape is enabled")
     test_to_enable = [case for case in test_to_enable if case not in test_not_for_dynamic]
     
 
@@ -914,4 +968,5 @@ for test_name in test_to_enable:
 globals().update(backend_test.test_cases)
 
 if __name__ == '__main__':
+
     unittest.main()
