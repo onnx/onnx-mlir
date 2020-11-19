@@ -29,7 +29,7 @@ def print_usage():
     print('  -a,--args <array>: Rename function arguments using a json array,')
     print(
         '                     such as \'["A", "B", "C"] for 1st, 2nd, & 3rd args.\'.')
-    print('  -c,--check       : Run FileCheck on output, to verify that the ouput is good.')
+    print('  -c,--check       : Run FileCheck on output, to verify that the output is good.')
     print('  -d,-debug        : Rename for easier debugging of code, disable FileCheck format.')
     print('  -h,--help        : Print help.')
     print('  -n,--names <dict>: Rename variables using a json dictionary')
@@ -42,16 +42,16 @@ def print_usage():
 # Process a def-use chain.
 
 def process_def_use_chains(line):
-    global def_set, line_color, current_color
+    global def_set, line_color, curr_color
     def_qual_pat = re.compile(r'\s+%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?\s+=')
     definition = def_qual_pat.match(line)
     if not definition:
         # Do not have a "x = ...", disable DAG.
         def_set = []
-        current_color += 1
-        line_color.append(current_color)
-        #print(current_color, ":", line, "// no def, no DAG")
-        current_color += 1
+        curr_color += 1
+        line_color.append(curr_color)
+        #print(curr_color, ":", line, "// no def, no DAG")
+        curr_color += 1
         return
     # Has a def, add to def set.
     curr_def = definition.group(1)
@@ -62,18 +62,20 @@ def process_def_use_chains(line):
         if u[0] in def_set:
             # Use found in def set, disable DAG
             def_set = [curr_def]
-            current_color += 1
-            line_color.append(current_color)
-            #print(current_color, ":", line, "// found use", u[0], "in defs")
+            curr_color += 1
+            line_color.append(curr_color)
+            #print(curr_color, ":", line, "// found use", u[0], "in defs")
             return
     def_set.append(curr_def)
-    line_color.append(current_color)
-    #print(current_color, ":", line, "// all good")
+    line_color.append(curr_color)
+    #print(curr_color, ":", line, "// all good")
     return
 
 ################################################################################
 # Handling of names: global dictionaries.
 
+
+prepare_name_dict = {}  # orig_name -> new_name (with ref count)
 name_dict = {}  # orig_name -> new_name (with ref count)
 refcount_dict = {}  # new_name (without ref count) -> definition count
 
@@ -81,10 +83,11 @@ refcount_dict = {}  # new_name (without ref count) -> definition count
 
 
 def prepare_name_def(orig_name, new_name):
-    if orig_name in name_dict.keys():
-        print("multiple definitions of original name:", orig_name)
+    global prepare_name_dict
+    if orig_name in prepare_name_dict.keys():
+        print("multiple definitions of original name in prepare:", orig_name)
         exit()
-    name_dict[orig_name] = new_name
+    prepare_name_dict[orig_name] = new_name
 
 # Process name and make it a legit def for FileCheck.
 
@@ -98,19 +101,23 @@ def def_string(name, num):
 # added at the end (to match the string looked for and to be substituted).
 
 
-def record_name_def(orig_name, orig_num, new_name, append_str, num_for_zero):
+def record_name_def(orig_name, orig_num, new_name, append_str, num_for_zero, line):
+    global name_dict, refcount_dict
     # original name: what we found in the text
     # new_name: if something was prepared for it, use the prepared name. But
     # that is not the case, use the new name.
     if orig_name in name_dict.keys():
         # When prepare, we add "orig_name -> new_name".
-        if new_name in refcount_dict.keys():
-            print("multiple definitions of original name:", orig_name)
-            exit()
-        # A name is already associated, but without a refcount; it was a prepare.
-        # We will use the pre-associated name.
-        new_name = name_dict[orig_name]
-        num_for_zero = 0
+        if not new_name in refcount_dict.keys():
+            # A name is already associated, but without a refcount; it was a prepare.
+            # We will use the pre-associated name.
+            new_name = name_dict[orig_name]
+            num_for_zero = 0
+        #else:
+            # A name is already associated, with a refcount; it was a 
+            # normal use; do nothing special.
+            #print("/// warning: name", orig_name, "is redefined at line", line)
+
     if new_name in refcount_dict.keys():
         # It is, increment the count.
         refcount = refcount_dict[new_name]
@@ -132,6 +139,7 @@ def record_name_def(orig_name, orig_num, new_name, append_str, num_for_zero):
 
 
 def translate_use_name(orig_name, orig_num, append_str):
+    global name_dict, refcount_dict
     if orig_name in name_dict.keys():
         # Mapping found, return this.
         orig_name = name_dict[orig_name]
@@ -158,16 +166,16 @@ def process_name(new_line, pattern, default_name, append_str, num_for_zero):
     for d in definitions:
         (name, num) = d
         x = use_name(name, num, append_str)
-        y = record_name_def(name, num, default_name, append_str, num_for_zero)
+        y = record_name_def(name, num, default_name,
+                            append_str, num_for_zero, new_line)
         new_line = new_line.replace(x, y)
     return new_line
 
 
 # Drive the processing of the current line.
 def process_line(i, line):
-    global debug, check
+    global debug, check, prepare_name_dict, name_dict, refcount_dict
     global line_color, curr_parallel_color
-    # print("Process:", line)
     def_arg_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)():')
     def_qual_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?\s+=')
     def_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)()\s+=')
@@ -181,6 +189,10 @@ def process_line(i, line):
     # Process definition of variables.
     # Special handling of function header.
     if re.match(r'\s+func', line) is not None:
+        # Have a function: reset dictionary and ref counts
+        name_dict = prepare_name_dict.copy()
+        refcount_dict.clear()
+        print("/// reset dict with dic", name_dict, "refcount", refcount_dict)
         new_line = process_name(new_line, def_arg_pat, "PARAM", ":", 1)
     # Special handling of loop iterations.
     elif re.match(r'\s+(\w+\.)for', line) is not None:
@@ -215,7 +227,7 @@ def process_line(i, line):
         for d in definitions:
             (name, num) = d
             x = use_name(name, num, " =")
-            y = record_name_def(name, num, "VAR_"+name, " =", 0)
+            y = record_name_def(name, num, "VAR_"+name, " =", 0, new_line)
             new_line = new_line.replace(x, y)
 
     # Process uses.
@@ -244,7 +256,7 @@ def process_line(i, line):
     if re.match(r'\s+func', line) is not None:
         # Split function line into 2 lines.
         new_line = re.sub(
-            r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'//CHECK-LABEL:\1\2\n//CHECK-SAME: \1\3', new_line)
+            r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'\n//CHECK-LABEL:\1\2\n//CHECK-SAME: \1\3', new_line)
         print(new_line)
     else:
         if line_color[i] == curr_parallel_color:
@@ -269,7 +281,7 @@ def process_line(i, line):
 
 def main(argv):
     global debug, check
-    global def_set, line_color, current_color, curr_parallel_color
+    global def_set, line_color, curr_color, curr_parallel_color
     debug = 0
     check = 0
     try:
@@ -319,7 +331,7 @@ def main(argv):
     def_set = []  # Current set of defined variable in current parallel set.
     # Associate lines with a color; same color==same parallel set.
     line_color = []
-    current_color = 0  # Color identifying the current parallel set.
+    curr_color = 0  # Color identifying the current parallel set.
     for line in sys.stdin:
         l = line.rstrip()
         process_def_use_chains(l)
@@ -327,7 +339,7 @@ def main(argv):
             print(l)
         lines.append(l)
     # Add one to avoid checking out of bound accesses.
-    line_color.append(current_color+1)
+    line_color.append(curr_color+1)
 
     # Process the input.
     curr_parallel_color = -1
