@@ -39,6 +39,39 @@ def print_usage():
 
 
 ################################################################################
+# Process a def-use chain.
+
+def process_def_use_chains(line):
+    global def_set, line_color, current_color
+    def_qual_pat = re.compile(r'\s+%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?\s+=')
+    definition = def_qual_pat.match(line)
+    if not definition:
+        # Do not have a "x = ...", disable DAG.
+        def_set = []
+        current_color += 1
+        line_color.append(current_color)
+        #print(current_color, ":", line, "// no def, no DAG")
+        current_color += 1
+        return
+    # Has a def, add to def set.
+    curr_def = definition.group(1)
+    use_qual_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?')
+    uses = use_qual_pat.findall(line)
+    for u in uses:
+        # Var u is and array with var [name, qualifier]. Look at name only.
+        if u[0] in def_set:
+            # Use found in def set, disable DAG
+            def_set = [curr_def]
+            current_color += 1
+            line_color.append(current_color)
+            #print(current_color, ":", line, "// found use", u[0], "in defs")
+            return
+    def_set.append(curr_def)
+    line_color.append(current_color)
+    #print(current_color, ":", line, "// all good")
+    return
+
+################################################################################
 # Handling of names: global dictionaries.
 
 name_dict = {}  # orig_name -> new_name (with ref count)
@@ -118,6 +151,8 @@ def use_name(orig_name, orig_num, append_str):
 # process a line
 
 # Process the substitution for a whole line for the given pattern.
+
+
 def process_name(new_line, pattern, default_name, append_str, num_for_zero):
     definitions = pattern.findall(new_line)
     for d in definitions:
@@ -127,10 +162,11 @@ def process_name(new_line, pattern, default_name, append_str, num_for_zero):
         new_line = new_line.replace(x, y)
     return new_line
 
+
 # Drive the processing of the current line.
-
-
-def process_line(line):
+def process_line(i, line):
+    global debug, check
+    global line_color, curr_parallel_color
     # print("Process:", line)
     def_arg_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)():')
     def_qual_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?\s+=')
@@ -200,9 +236,9 @@ def process_line(line):
     new_line = re.sub(r'\[\[\[', '{{.}}[[', new_line)  # get rid of [[[
     new_line = re.sub(r'\]\]\]', ']]{{.}}', new_line)  # get rid of ]]]
     # change [[1 -> *[1
-    new_line = re.sub(r'\[\[\s*(\d)', '{{.}}[\g<1>', new_line)
+    new_line = re.sub(r'\[\[\s*(\d)', r'{{.}}[\g<1>', new_line)
     # change [[-1 -> *[-1
-    new_line = re.sub(r'\[\[\s*-\s*(\d)', '{{.}}[-\g<1>', new_line)
+    new_line = re.sub(r'\[\[\s*-\s*(\d)', r'{{.}}[-\g<1>', new_line)
     # change a]] -> 1]*
     new_line = re.sub(r'(\d)\s*\]\]', '\g<1>]{{.}}', new_line)
     if re.match(r'\s+func', line) is not None:
@@ -211,7 +247,21 @@ def process_line(line):
             r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'//CHECK-LABEL:\1\2\n//CHECK-SAME: \1\3', new_line)
         print(new_line)
     else:
-        print("//CHECK:      ", new_line)
+        if line_color[i] == curr_parallel_color:
+            # This line is in an established parallel region
+            print("//CHECK-DAG:  ", new_line)
+        elif line_color[i] == line_color[i+1]:
+            # This line starts a parallel region, check if this break a parallel region.
+            if curr_parallel_color != -1:
+                # Previous lines were also part of a parallel region.
+                # Need to separate them.
+                print("//CHECK-NOT: separator of consecutive DAGs")
+            curr_parallel_color = line_color[i]
+            print("//CHECK-DAG:  ", new_line)
+        else:
+            # No parallel region, set the color to undefined
+            curr_parallel_color = -1
+            print("//CHECK:      ", new_line)
 
 
 ################################################################################
@@ -219,6 +269,7 @@ def process_line(line):
 
 def main(argv):
     global debug, check
+    global def_set, line_color, current_color, curr_parallel_color
     debug = 0
     check = 0
     try:
@@ -251,33 +302,46 @@ def main(argv):
             print("//  use name dictionary:", user_dict)
             for orig_name, new_name in user_dict.items():
                 prepare_name_def(orig_name, new_name.upper())
-
-    # Normal run, process each line in turn.
-    if check == 0:
-        for line in sys.stdin:
-            process_line(line.rstrip())
+    if len(args) > 0:
+        print("command does not use arguments without options: ", args)
         return
 
-    # Copy input, process output, then pipe it all to FileCheck.
+    # Handle stdout for checks
     orig_stdout = sys.stdout
     tmpfile = 'tmp.m2fc'
-    print('>> gen test file in "', tmpfile, '"')
-    sys.stdout = open(tmpfile, 'w')
+    if check:
+        # When checking, redirect stdout to file.
+        print('>> gen test file in "', tmpfile, '"')
+        sys.stdout = open(tmpfile, 'w')
+
+    # Compute def-use colors, and print in check mode.
     lines = []
-    # Print the original.
+    def_set = []  # Current set of defined variable in current parallel set.
+    # Associate lines with a color; same color==same parallel set.
+    line_color = []
+    current_color = 0  # Color identifying the current parallel set.
     for line in sys.stdin:
         l = line.rstrip()
-        print(l)
+        process_def_use_chains(l)
+        if check:
+            print(l)
         lines.append(l)
-    # Process the input
-    for line in lines:
-        process_line(line)
-    sys.stdout = orig_stdout
-    print('>> done writing print file, now check')
-    res = subprocess.run(['FileCheck', '--input-file='+tmpfile,
-                          tmpfile], capture_output=True, text=True).stderr
-    print(res)
-    print('>> check completed (empty line is success)')
+    # Add one to avoid checking out of bound accesses.
+    line_color.append(current_color+1)
+
+    # Process the input.
+    curr_parallel_color = -1
+    for i, line in enumerate(lines):
+        process_line(i, line)
+
+    # Complete the work when checking.
+    if check:
+        sys.stdout = orig_stdout
+        print('>> done writing print file, now check')
+        res = subprocess.run(['FileCheck', '--input-file='+tmpfile,
+                              tmpfile], capture_output=True, text=True).stderr
+        print(res)
+        print('>> check completed (empty line is success)')
 
 
 if __name__ == "__main__":
