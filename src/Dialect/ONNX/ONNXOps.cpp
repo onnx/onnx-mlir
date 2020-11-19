@@ -2563,7 +2563,8 @@ LogicalResult ONNXGatherOp::inferShapes() {
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Gather parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(shapeHelper.dimsForOutput(0), outputDims);
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
   Type elementType = data().getType().cast<RankedTensorType>().getElementType();
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
@@ -2578,7 +2579,7 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes() {
   Type elementType;
 
   // 'value' attribute is a one-element tensor whose value and datatype are used
-  // to set the output tensor's value and datatype..
+  // to set the output tensor value and datatype.
   if (value().hasValue()) {
     elementType =
         valueAttr().cast<DenseElementsAttr>().getType().getElementType();
