@@ -13,6 +13,13 @@
 using namespace mlir;
 
 template <>
+struct ScalarOp<ONNXTanhOp> {
+  using FOp = TanhOp;
+  using IOp = TanhOp; // not use
+};
+
+
+template <>
 struct ScalarOp<ONNXAddOp> {
   using FOp = AddFOp;
   using IOp = AddIOp;
@@ -168,28 +175,6 @@ Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
   auto negExp = rewriter.create<ExpOp>(loc, neg);
   auto result = rewriter.create<DivFOp>(
       loc, rewriter.create<AddFOp>(loc, exp, negExp), two);
-
-  return result;
-}
-
-//===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXTanhOp
-//===----------------------------------------------------------------------===//
-template <>
-Value emitScalarOpFor<ONNXTanhOp>(ConversionPatternRewriter &rewriter,
-    Location loc, Operation *op, Type elementType,
-    ArrayRef<Value> scalarOperands) {
-  // ONNXTanhOp(%X) = DivFOp(SubFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
-  //                         AddFOp(ExpOp(%X), ExpOp(NegFOp(%X))))
-  Value operand = scalarOperands[0];
-
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto neg = rewriter.create<SubFOp>(loc, zero, operand);
-  auto exp = rewriter.create<ExpOp>(loc, operand);
-  auto negExp = rewriter.create<ExpOp>(loc, neg);
-  auto dividend = rewriter.create<SubFOp>(loc, exp, negExp);
-  auto divisor = rewriter.create<AddFOp>(loc, exp, negExp);
-  auto result = rewriter.create<DivFOp>(loc, dividend, divisor);
 
   return result;
 }
