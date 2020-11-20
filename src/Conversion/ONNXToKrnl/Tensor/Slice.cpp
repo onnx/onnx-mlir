@@ -30,11 +30,11 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     int64_t outputRank = outputMemRefType.getShape().size();
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.outputDims);
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
@@ -47,7 +47,8 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> storeIndices;
     for (int ii = 0; ii < outputRank; ++ii) {
       Value inductionVal = outputLoops.getInductionVar(ii);
-      IndexExpr inductionIndex = childContext.createLoopIterIndex(inductionVal);
+      IndexExpr inductionIndex =
+          childContext.createLoopInductionIndex(inductionVal);
       IndexExpr start = childContext.createSymbolIndexFromParentContext(
           shapeHelper.starts[ii]);
       IndexExpr step = childContext.createSymbolIndexFromParentContext(

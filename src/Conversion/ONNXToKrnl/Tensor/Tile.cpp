@@ -72,12 +72,12 @@ struct ONNXTileOpLowering : public ConversionPattern {
     Value input = operandAdaptor.input();
 
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     // Define loops and iteration trip counts (equivalent to size of output)
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.outputDims);
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
@@ -95,7 +95,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
       // Context is created for each dimension because they are independent
       IndexExprContext IEContext(&rewriter, loc);
       Value loopVal = outputLoops.getInductionVar(i);
-      IndexExpr index = IEContext.createLoopIterIndex(loopVal);
+      IndexExpr index = IEContext.createLoopInductionIndex(loopVal);
       IndexExpr dimSize = IEContext.createDimIndexFromShapedType(input, i);
       IndexExpr exprVal = index % dimSize;
       if (!exprVal.isAffine()) {
