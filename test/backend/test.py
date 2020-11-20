@@ -625,9 +625,9 @@ test_not_for_dynamic = [
     #"test_flatten_negative_axis4_cpu",
 
     # Gather Op:
-    "test_gather_0_cpu",
-    "test_gather_1_cpu",
-    "test_gather_negative_indices_cpu",
+    #"test_gather_0_cpu",
+    #"test_gather_1_cpu",
+    #"test_gather_negative_indices_cpu",
 
     # Gemm Op:
     #"test_gemm_all_attributes_cpu",
