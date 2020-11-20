@@ -229,8 +229,23 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
     just like an array index.
   }];
 
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset);
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset,
+                   Variadic<Index>:$value);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
+
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Type resultType, Value mempool, Value offset", [{
+      build(builder, state, resultType, mempool, offset, {});
+    }]>,
+    ];
+
+  let extraClassDeclaration = [{
+    /// Returns the symbolic operands (the ones in square brackets), which bind
+    /// to the symbols of the memref's layout map.
+    operand_range getDynamicSizes() {
+      return {operand_begin() + 2, operand_end()};
+    }
+  }];
 
   let parser = ?;
   let printer = ?;

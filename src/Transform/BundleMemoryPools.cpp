@@ -423,7 +423,7 @@ public:
 
     KrnlGetRefOp bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
         currentAllocGetRef.getResult().getType(), bundledAlloc,
-        integerDynamicMemoryPoolSize);
+        integerDynamicMemoryPoolSize, currentAllocGetRef.getDynamicSizes());
 
     // Replace old memory pool with new one.
     rewriter.replaceOp(oldDynamicMemoryPool, bundledAlloc.getResult());
