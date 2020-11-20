@@ -18,7 +18,6 @@ struct ScalarOp<ONNXTanhOp> {
   using IOp = TanhOp; // not use
 };
 
-
 template <>
 struct ScalarOp<ONNXAddOp> {
   using FOp = AddFOp;
