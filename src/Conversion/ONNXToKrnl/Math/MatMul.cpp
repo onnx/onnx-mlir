@@ -47,9 +47,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Access function for the output, and set it to zero.
     SmallVector<IndexExpr, 4> resAccessFct;
-    for (int i = 0; i < outerloopNum; ++i)
-      resAccessFct.emplace_back(
-          outerContext.createLoopIterIndex(outputLoops.getInductionVar(i)));
+    outerContext.createLoopInductionIndicesFromArrayValues(
+        outputLoops.getAllInductionVar(), resAccessFct);
     // Insert res[...] = 0.
     outerContext.createStoreOp(zero, alloc, resAccessFct);
 
@@ -64,7 +63,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Now start writing code inside the inner loop: get A & B access functions.
     rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
     IndexExpr k =
-        outerContext.createLoopIterIndex(innerLoops.getInductionVar(0));
+        outerContext.createLoopInductionIndex(innerLoops.getInductionVar(0));
     SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
     for (int i = 0; i < aRank; ++i) {
       // Add index if dim is not a padded dimension.
