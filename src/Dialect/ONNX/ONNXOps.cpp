@@ -2559,55 +2559,16 @@ LogicalResult ONNXGatherOp::inferShapes() {
   if (!indices().getType().isa<RankedTensorType>())
     return emitError("Indices tensor not ranked");
 
-  auto inputShape = data().getType().cast<RankedTensorType>().getShape();
-  auto indicesShape = indices().getType().cast<RankedTensorType>().getShape();
-  int64_t inputRank = inputShape.size();
-  int64_t indicesRank = indicesShape.size();
+  ONNXGatherOpAdaptor operandAdaptor(*this);
+  ONNXGatherOpShapeHelper shapeHelper(this, nullptr);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Gather parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
+  Type elementType = data().getType().cast<RankedTensorType>().getElementType();
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
 
-  if (inputRank < 1)
-    return emitError("Input tensor must have rank >= 1");
-
-  // Read 'axis' attribute.
-  int64_t axisIndex = axis();
-  // 'axis' must be in [-rank, rank-1]
-  if (axisIndex < -inputRank || axisIndex >= inputRank)
-    return emitError("Gather axis value out of bound");
-  // Convert a negative axis to a positive axis.
-  if (axisIndex < 0) {
-    axisIndex += inputRank;
-    auto builder = mlir::Builder(getContext());
-    axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
-  }
-
-  // If 'indices' is a constant, check whether its values are valid or not.
-  auto constantOp = getONNXConstantOp(indices());
-  if (constantOp && inputShape[axisIndex] != -1) {
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (!valueAttribute)
-      return emitError("DenseElementsAttr expected");
-    for (auto value : valueAttribute.getValues<IntegerAttr>()) {
-      auto index = value.cast<IntegerAttr>().getInt();
-      if (index < -inputShape[axisIndex] || index >= inputShape[axisIndex])
-        return emitError("Indices tensor contains an out-of-bound index");
-    }
-  }
-
-  // Output has rank of 'indicesRank + (inputRank - 1).
-  // Output shape is constructed from 'input' by:
-  //    replacing the dimension at 'axis' in 'input' by the shape of 'indices'.
-  SmallVector<int64_t, 1> outDims;
-  for (decltype(inputRank) i = 0; i < inputRank; ++i) {
-    if (i == axisIndex)
-      for (decltype(indicesRank) j = 0; j < indicesRank; ++j)
-        outDims.emplace_back(indicesShape[j]);
-    else
-      outDims.emplace_back(inputShape[i]);
-  }
-
-  getResult().setType(RankedTensorType::get(
-      outDims, data().getType().cast<RankedTensorType>().getElementType()));
   return success();
 }
 
@@ -2619,7 +2580,7 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes() {
   Type elementType;
 
   // 'value' attribute is a one-element tensor whose value and datatype are used
-  // to set the output tensor's value and datatype..
+  // to set the output tensor value and datatype.
   if (value().hasValue()) {
     elementType =
         valueAttr().cast<DenseElementsAttr>().getType().getElementType();
