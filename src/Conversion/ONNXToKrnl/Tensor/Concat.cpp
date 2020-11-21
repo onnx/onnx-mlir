@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -20,23 +21,23 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
     auto loc = op->getLoc();
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-    ONNXConcatOp concatOp = llvm::dyn_cast<ONNXConcatOp>(op);
+
+    ONNXConcatOpAdaptor operandAdaptor(operands);
+    ONNXConcatOp concatOp= llvm::cast<ONNXConcatOp>(op);
+    ONNXConcatOpShapeHelper shapeHelper(&concatOp, &rewriter);
+    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
+
     auto axis = concatOp.axis();
     int inputNum = operands.size();
+
     // Alloc and dealloc.
     auto resultOperand = concatOp.concat_result();
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    auto resultShape = memRefType.getShape();
+    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    auto resultShape = outputMemRefType.getShape();
     auto rank = resultShape.size();
-    assert((axis >= 0 && axis < rank) && "Concat axis out of bounds");
 
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {resultOperand});
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));;
 
     // Creates loops, one for each input.
     int writeOffset = 0;

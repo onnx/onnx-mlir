@@ -574,7 +574,7 @@ LogicalResult ONNXConcatOpShapeHelper::Compute(ONNXConcatOpAdaptor operandAdapto
   int inputNum = op->getNumOperands();
 
   Value firstInput = operandAdaptor.getODSOperands(0)[0];
-  auto commonType = firstInput.getType().cast<RankedTensorType>();
+  auto commonType = firstInput.getType().cast<ShapedType>();
   auto commonShape = commonType.getShape();
   auto commonRank = commonShape.size();
   int64_t axisIndex = op->axis();
