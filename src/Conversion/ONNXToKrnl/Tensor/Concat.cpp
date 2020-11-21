@@ -40,7 +40,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));;
 
     // Creates loops, one for each input.
-    int writeOffset = 0;
+    //IndexExpr writeOffset = IEContext.createLiteralIndex(0);
     for (int i = 0; i < inputNum; ++i) {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Operand info.
@@ -51,21 +51,23 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       for (int r = 0; r < rank; ++r)
         inputLoops.pushBounds(0, operands[i], r);
       inputLoops.createIterateOp();
+      //writeOffset = writeOffset + IEContext.createDimIndexFromShapedType(operands[i], axis);
       rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
       // Indices for the read and write.
       SmallVector<Value, 4> readIndices;
       SmallVector<Value, 4> writeIndices;
       for (int r = 0; r < rank; ++r) {
         readIndices.emplace_back(inputLoops.getInductionVar(r));
-        if (r != axis || writeOffset == 0) {
+        if (r != axis || i == 0) {
           writeIndices.emplace_back(inputLoops.getInductionVar(r));
         } else {
-          AffineMap indexWithOffsetMap =
-              AffineMap::get(1, 0, rewriter.getAffineDimExpr(0) + writeOffset);
-          Value indexWithOffset =
-              rewriter.create<AffineApplyOp>(loc, indexWithOffsetMap,
-                  ArrayRef<Value>{inputLoops.getInductionVar(r)});
-          writeIndices.emplace_back(indexWithOffset);
+          IndexExprContext IEContext(&rewriter, loc);
+          IndexExpr writeOffset = IEContext.createDimIndexFromShapedType(operands[0], r);
+          for (int j = 1; j < i; j++) {
+            writeOffset = writeOffset + IEContext.createDimIndexFromShapedType(operands[j], r);
+          }
+          IndexExpr indexWithOffset =  IEContext.createLoopInductionIndex(inputLoops.getInductionVar(r)) + writeOffset;
+          writeIndices.emplace_back(indexWithOffset.getValue());
         }
       }
       // Insert copy.
@@ -73,7 +75,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
           rewriter.create<AffineLoadOp>(loc, operands[i], readIndices);
       rewriter.create<AffineStoreOp>(loc, loadData, alloc, writeIndices);
       // Increment offset
-      writeOffset += currShape[axis];
+      //writeOffset = writeOffset + IEContext.createDimIndexFromShapedType(operands[i], axis);
     }
     rewriter.replaceOp(op, alloc);
     return success();
