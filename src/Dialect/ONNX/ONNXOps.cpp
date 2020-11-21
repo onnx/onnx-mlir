@@ -2149,6 +2149,10 @@ LogicalResult ONNXConstantOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXConcatOp::inferShapes() {
+
+  
+  // The check of constraints is kept
+  // However,  current check hanldes dynamic dim only for the concat dim 
   int inputNum = getNumOperands();
   for (int i = 0; i < inputNum; ++i) {
     if (!getOperand(i).getType().isa<RankedTensorType>())
@@ -2162,18 +2166,16 @@ LogicalResult ONNXConcatOp::inferShapes() {
   // Negative axis means values are counted from the opposite side.
   if (axisIndex < 0) {
     axisIndex = commonRank + axisIndex;
+    // Tong Chen:
+    // TOFIX: attribute modification should be into canonicalization
+    // I did not move the code into ShapeHelper
     auto builder = mlir::Builder(getContext());
     axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
         APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
   }
   if (axisIndex >= commonRank)
     return emitError("Concat axis value out of bound");
-  // Initial cummlative size is that of the first operand.
-  int cummulativeAxisSize = commonShape[axisIndex];
 
-  // Compute the cummlative size with all of the other ones, and make sure
-  // that the other sizes are all alike.
-  bool isUnknown = false;
   for (int i = 1; i < inputNum; ++i) {
     auto currShape =
         getOperand(i).getType().cast<RankedTensorType>().getShape();
@@ -2181,8 +2183,6 @@ LogicalResult ONNXConcatOp::inferShapes() {
       return emitError("Concat input must all have the same rank");
     for (int j = 0; j < commonRank; ++j) {
       if (j == axisIndex) {
-        // Known dim size is OK
-        isUnknown = true;
       } else if (currShape[j] != commonShape[j]) {
         return emitError("Concat input dimensions must be all identical, "
                          "except for dimension on the axis of the "
@@ -2191,18 +2191,19 @@ LogicalResult ONNXConcatOp::inferShapes() {
                << " instead.";
       }
     }
-    cummulativeAxisSize += currShape[axisIndex];
   }
-  if (isUnknown) 
-    cummulativeAxisSize = -1;
 
-  // Set output size and type
+  
+  ONNXConcatOpAdaptor operandAdaptor(*this);
+  ONNXConcatOpShapeHelper shapeHelper(this, nullptr);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  for (int j = 0; j < commonRank; ++j)
-    outputDims.emplace_back(
-        j == axisIndex ? cummulativeAxisSize : commonShape[j]);
-  getResult().setType(
-      RankedTensorType::get(outputDims, commonType.getElementType()));
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, commonType.getElementType())); 
+  
+
   return success();
 }
 
