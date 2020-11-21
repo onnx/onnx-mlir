@@ -152,12 +152,14 @@ struct Command {
       cout << llvm::join(argsRef, " ") << "\n";
 
     std::string errMsg;
-    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef), /*Env=*/None, /*Redirects=*/None,
-            /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
+    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
+        /*Env=*/None, /*Redirects=*/None,
+        /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
 
     if (rc != 0) {
       fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
       fprintf(stderr, "Error message: %s\n", errMsg.c_str());
+      fprintf(stderr, "Program path: %s\n", _path.c_str());
       llvm_unreachable("Command execution failed.");
     }
   }
