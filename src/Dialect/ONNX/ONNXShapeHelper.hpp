@@ -29,7 +29,9 @@ using namespace mlir;
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-/// When defining support for a new op, add one such stuct which mÍÎust
+typedef SmallVector<IndexExpr, 4> DimsExpr;
+
+/// When defining support for a new op, add one such stuct which must
 /// minimally compute the outputDims present in the parent class. Computation
 /// should be performed using a `Compute` function. Return success on successful
 /// computation of all the IndexExpr. During shape inference, object is built
@@ -45,12 +47,20 @@ struct ONNXOpShapeHelper {
     llvm_unreachable("implement in child structs");
   }
 
+  // Return output dims for the N-th output.
+  DimsExpr &dimsForOutput(int n) { return outputsDims[n]; }
+
+  // Set the number of outputs.
+  void setNumberOfOutputs(int n) { outputsDims.resize(n); }
+
   // Data that must be present for every ShapeHelper operation. Op and context
-  // are initialized in the constructor, and outputDims is computed by the
+  // are initialized in the constructor, and outputsDims is computed by the
   // child's struct `Compute` function.
   OP *op;
   IndexExprContext context;
-  SmallVector<IndexExpr, 4> outputDims;
+
+private:
+  SmallVector<DimsExpr, 1> outputsDims;
 };
 
 // Shape for SliceOp.
@@ -64,6 +74,13 @@ struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
   SmallVector<IndexExpr, 4> starts;
   SmallVector<IndexExpr, 4> ends;
   SmallVector<IndexExpr, 4> steps;
+};
+
+// Shape for Tile.
+struct ONNXTileOpShapeHelper : public ONNXOpShapeHelper<ONNXTileOp> {
+  ONNXTileOpShapeHelper(ONNXTileOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXTileOpAdaptor operandAdaptor);
 };
 
 // Shape for GemmOp.
@@ -92,6 +109,26 @@ struct ONNXMatMulOpShapeHelper : public ONNXOpShapeHelper<ONNXMatMulOp> {
   SmallVector<IndexExpr, 4> bDims; // Dim of B, after applying padding.
   llvm::BitVector aPadDims;        // When true, that dim was padded.
   llvm::BitVector bPadDims;        // When true, that dim was padded.
+};
+
+// Shape for Gather.
+struct ONNXGatherOpShapeHelper : public ONNXOpShapeHelper<ONNXGatherOp> {
+  ONNXGatherOpShapeHelper(
+      ONNXGatherOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXGatherOpAdaptor operandAdaptor);
+
+  SmallVector<IndexExpr, 4> dataDims;    // Dim of data.
+  SmallVector<IndexExpr, 4> indicesDims; // Dim of indices.
+  bool positiveConstantIndices; // True when all indices are positive consants.
+};
+
+// Shape for SplitOp.
+struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
+  ONNXSplitOpShapeHelper(
+      ONNXSplitOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXSplitOpAdaptor operandAdaptor);
 };
 
 //===----------------------------------------------------------------------===//

@@ -9,7 +9,6 @@ arch:
   - ppc64le
   - amd64
 env:
-  - NIGHTLY=true
   - NIGHTLY=false
 addons:
   apt:
