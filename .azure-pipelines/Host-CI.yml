@@ -27,6 +27,12 @@ schedules:
     - apollo
   always: true
 
+parameters:
+- name: AlwaysBuildDebug
+  displayName: Build Debug?
+  type: boolean
+  default: false
+
 # Set up variables for jobs, used across templates
 variables:
 - name: LLVMSourceDir
@@ -54,15 +60,18 @@ jobs:
         CMakeBuildConfiguration: 'Release'
         LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm'
         LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm'
-      Debug:
-        CMakeBuildConfiguration: 'Debug'
-        LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm'
-        LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm'
+      # Run the debug configuration for scheduled builds, CI/PR only use Release config to save VM cycles
+      ${{ if or(eq(variables['Build.Reason'], 'Schedule'), eq(parameters.AlwaysBuildDebug, true)) }}:
+        Debug:
+          CMakeBuildConfiguration: 'Debug'
+          LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm'
+          LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm'
   pool:
     name: Default
     demands:
     - Agent.OS -equals Windows_NT
   timeoutInMinutes: 180
+
   steps:
   - template: BuildOnnxMlir.yml
     parameters:
@@ -81,16 +90,19 @@ jobs:
         # For Linux split LLVM build directory. This saves time by eliminating builder trashing
         LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm_Release'
         LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm_Release'
-      Debug:
-        CMakeBuildConfiguration: 'Debug'
-        LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm_Debug'
-        LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm_Debug'
+      # Run the debug configuration for scheduled builds, CI/PR only use Release config to save VM cycles
+      ${{ if or(eq(variables['Build.Reason'], 'Schedule'), eq(parameters.AlwaysBuildDebug, true)) }}:
+        Debug:
+          CMakeBuildConfiguration: 'Debug'
+          LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm_Debug'
+          LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm_Debug'
   pool:
     name: Default
     demands:
     - Agent.OS -equals Linux
     - CentOS -equals false
   timeoutInMinutes: 180
+
   steps:
   - template: BuildOnnxMlir.yml
     parameters:
@@ -112,4 +124,3 @@ jobs:
     inputs:
       workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
       cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target test'
-
