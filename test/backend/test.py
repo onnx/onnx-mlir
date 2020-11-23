@@ -79,7 +79,7 @@ def determine_dynamic_parameters(test_name):
     if not args.dynamic :
         return [None, None]
     # set default value
-    selected_input = -1
+    selected_input = 0
     selected_dim = 0
     if test_name in dynamic_input_dict :
         selected_input = dynamic_input_dict[test_name]
@@ -90,6 +90,7 @@ def determine_dynamic_parameters(test_name):
 def execute_commands(cmds, dynamic_input, dynamic_dim):
     if (VERBOSE):
         print(" ".join(cmds))
+        print("IMPORTER FORCE DYNAMIC ", dynamic_input, dynamic_dim)
     my_env = os.environ.copy();
     if dynamic_input is not None:
         my_env["IMPORTER_FORCE_DYNAMIC"] = str(dynamic_input) 
@@ -260,14 +261,14 @@ test_to_enable_static_dynamic = {
     "test_concat_2d_axis_0_cpu": test_static_dynamic,
     "test_concat_2d_axis_1_cpu": test_static_dynamic,
     "test_concat_3d_axis_0_cpu": test_static_dynamic,
-    "test_concat_3d_axis_1_cpu": test_static_dynamic,
-    "test_concat_3d_axis_2_cpu": test_static_dynamic,
+    "test_concat_3d_axis_1_cpu": test_static,
+    "test_concat_3d_axis_2_cpu": test_static,
     "test_concat_1d_axis_negative_1_cpu": test_static_dynamic,
     "test_concat_2d_axis_negative_1_cpu": test_static_dynamic,
     "test_concat_2d_axis_negative_2_cpu": test_static_dynamic,
     "test_concat_3d_axis_negative_1_cpu": test_static_dynamic,
-    "test_concat_3d_axis_negative_2_cpu": test_static_dynamic,
-    "test_concat_3d_axis_negative_3_cpu": test_static_dynamic,
+    "test_concat_3d_axis_negative_2_cpu": test_static,
+    "test_concat_3d_axis_negative_3_cpu": test_static,
 
     # Constant
 
