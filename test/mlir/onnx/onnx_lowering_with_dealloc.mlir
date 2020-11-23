@@ -286,14 +286,22 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = constant 0 : index
   // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
-  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
-  // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
-  // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
-  // CHECK: [[TANH:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
+  // CHECK: [[X:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ONE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[TWO:%.+]] = constant 2.000000e+00 : f32
+  // CHECK: [[X_MUL_2:%.+]] = mulf [[X]], [[TWO]] : f32
+  // CHECK: [[NEG_X_MUL_2:%.+]] = negf [[X_MUL_2]] : f32
+  // CHECK: [[EXP_1:%.+]] = exp [[NEG_X_MUL_2]] : f32
+  // CHECK: [[SUB_1:%.+]] = subf %cst, [[EXP_1]] : f32
+  // CHECK: [[ADD_1:%.+]] = addf %cst, [[EXP_1]] : f32
+  // CHECK: [[DIV_1:%.+]] = divf [[SUB_1]], [[ADD_1]] : f32
+  // CHECK: [[EXP_2:%.+]] = exp [[X_MUL_2]] : f32
+  // CHECK: [[SUB_2:%.+]] = subf [[EXP_2]], %cst : f32
+  // CHECK: [[ADD_2:%.+]] = addf [[EXP_2]], %cst : f32
+  // CHECK: [[DIV_2:%.+]] = divf [[SUB_2]], [[ADD_2]] : f32
+  // CHECK: [[ZERO:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[CMP:%.+]] = cmpf "oge", [[X]], [[ZERO]] : f32
+  // CHECK: [[TANH:%.+]] = select [[CMP]], [[DIV_1]], [[DIV_2]] : f32
   // CHECK: affine.store [[TANH]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Tanh
@@ -304,14 +312,22 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_2:%.+]] = constant 0 : index
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
-  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
-  // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
-  // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
-  // CHECK: [[TANH_RES:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
+  // CHECK: [[X:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ONE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[TWO:%.+]] = constant 2.000000e+00 : f32
+  // CHECK: [[X_MUL_2:%.+]] = mulf [[X]], [[TWO]] : f32
+  // CHECK: [[NEG_X_MUL_2:%.+]] = negf [[X_MUL_2]] : f32
+  // CHECK: [[EXP_1:%.+]] = exp [[NEG_X_MUL_2]] : f32
+  // CHECK: [[SUB_1:%.+]] = subf %cst, [[EXP_1]] : f32
+  // CHECK: [[ADD_1:%.+]] = addf %cst, [[EXP_1]] : f32
+  // CHECK: [[DIV_1:%.+]] = divf [[SUB_1]], [[ADD_1]] : f32
+  // CHECK: [[EXP_2:%.+]] = exp [[X_MUL_2]] : f32
+  // CHECK: [[SUB_2:%.+]] = subf [[EXP_2]], %cst : f32
+  // CHECK: [[ADD_2:%.+]] = addf [[EXP_2]], %cst : f32
+  // CHECK: [[DIV_2:%.+]] = divf [[SUB_2]], [[ADD_2]] : f32
+  // CHECK: [[ZERO:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[CMP:%.+]] = cmpf "oge", [[X]], [[ZERO]] : f32
+  // CHECK: [[TANH_RES:%.+]] = select [[CMP]], [[DIV_1]], [[DIV_2]] : f32
   // CHECK: affine.store [[TANH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
 
   /// Dealloc of first result.
