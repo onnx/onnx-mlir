@@ -79,7 +79,7 @@ def determine_dynamic_parameters(test_name):
     if not args.dynamic :
         return [None, None]
     # set default value
-    selected_input = 0
+    selected_input = -1
     selected_dim = 0
     if test_name in dynamic_input_dict :
         selected_input = dynamic_input_dict[test_name]
