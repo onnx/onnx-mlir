@@ -23,7 +23,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     ONNXConcatOpAdaptor operandAdaptor(operands);
-    ONNXConcatOp concatOp= llvm::cast<ONNXConcatOp>(op);
+    ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
     ONNXConcatOpShapeHelper shapeHelper(&concatOp, &rewriter);
     assert(succeeded(shapeHelper.Compute(operandAdaptor)));
 
@@ -37,10 +37,11 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     auto rank = resultShape.size();
 
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));;
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+    ;
 
     // Creates loops, one for each input.
-    //IndexExpr writeOffset = IEContext.createLiteralIndex(0);
+    // IndexExpr writeOffset = IEContext.createLiteralIndex(0);
     for (int i = 0; i < inputNum; ++i) {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Operand info.
@@ -51,7 +52,8 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       for (int r = 0; r < rank; ++r)
         inputLoops.pushBounds(0, operands[i], r);
       inputLoops.createIterateOp();
-      //writeOffset = writeOffset + IEContext.createDimIndexFromShapedType(operands[i], axis);
+      // writeOffset = writeOffset +
+      // IEContext.createDimIndexFromShapedType(operands[i], axis);
       rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
       // Indices for the read and write.
       SmallVector<Value, 4> readIndices;
@@ -62,20 +64,19 @@ struct ONNXConcatOpLowering : public ConversionPattern {
           writeIndices.emplace_back(inputLoops.getInductionVar(r));
         } else {
           IndexExprContext IEContext(&rewriter, loc);
-          IndexExpr writeOffset = IEContext.createDimIndexFromShapedType(operands[0], r);
-          for (int j = 1; j < i; j++) {
-            writeOffset = writeOffset + IEContext.createDimIndexFromShapedType(operands[j], r);
+          IndexExpr writeOffset =
+              IEContext.createLoopInductionIndex(inputLoops.getInductionVar(r));
+          for (int j = 0; j < i; j++) {
+            writeOffset = writeOffset + IEContext.createDimIndexFromShapedType(
+                                            operands[j], r);
           }
-          IndexExpr indexWithOffset =  IEContext.createLoopInductionIndex(inputLoops.getInductionVar(r)) + writeOffset;
-          writeIndices.emplace_back(indexWithOffset.getValue());
+          writeIndices.emplace_back(writeOffset.getValue());
         }
       }
       // Insert copy.
       auto loadData =
           rewriter.create<AffineLoadOp>(loc, operands[i], readIndices);
       rewriter.create<AffineStoreOp>(loc, loadData, alloc, writeIndices);
-      // Increment offset
-      //writeOffset = writeOffset + IEContext.createDimIndexFromShapedType(operands[i], axis);
     }
     rewriter.replaceOp(op, alloc);
     return success();

@@ -2150,9 +2150,8 @@ LogicalResult ONNXConstantOp::inferShapes() {
 
 LogicalResult ONNXConcatOp::inferShapes() {
 
-  
   // The check of constraints is kept
-  // However,  current check hanldes dynamic dim only for the concat dim 
+  // However,  current check hanldes dynamic dim only for the concat dim
   int inputNum = getNumOperands();
   for (int i = 0; i < inputNum; ++i) {
     if (!getOperand(i).getType().isa<RankedTensorType>())
@@ -2193,7 +2192,6 @@ LogicalResult ONNXConcatOp::inferShapes() {
     }
   }
 
-  
   ONNXConcatOpAdaptor operandAdaptor(*this);
   ONNXConcatOpShapeHelper shapeHelper(this, nullptr);
   if (failed(shapeHelper.Compute(operandAdaptor)))
@@ -2201,8 +2199,8 @@ LogicalResult ONNXConcatOp::inferShapes() {
   SmallVector<int64_t, 4> outputDims;
   IndexExprContext::getOutputDimsForType(
       shapeHelper.dimsForOutput(0), outputDims);
-  getResult().setType(RankedTensorType::get(outputDims, commonType.getElementType())); 
-  
+  getResult().setType(
+      RankedTensorType::get(outputDims, commonType.getElementType()));
 
   return success();
 }
