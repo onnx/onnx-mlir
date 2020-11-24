@@ -386,6 +386,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::shape::ShapeDialect>();
   context.getOrLoadDialect<mlir::ONNXOpsDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
+  context.getOrLoadDialect<mlir::linalg::LinalgDialect>();
   context.getOrLoadDialect<mlir::tvp::TVPDialect>();
 }
 
@@ -404,7 +405,14 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createSymbolDCEPass());
 }
 
+// Declaring this option extern to minimize source code changes to allow
+// simpler merges from upstream.
+// This option enables all NPU specific passes.
+extern llvm::cl::opt<bool> npu;
+
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
+  if (npu)
+    pm.addPass(mlir::createConvertONNXToLinalgPass());
   pm.addPass(mlir::createLowerToKrnlPass());
   pm.addPass(mlir::createConvertKrnlToStandardPass());
   pm.addPass(mlir::createPackKrnlGlobalConstantsPass());
@@ -464,6 +472,9 @@ llvm::cl::opt<bool> preserveLocations("preserveLocations",
 llvm::cl::opt<bool> printIR("printIR",
     llvm::cl::desc("print the IR to stdout:"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> npu("npu", llvm::cl::desc("Execute passes specific to NPU"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {

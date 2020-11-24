@@ -14,6 +14,7 @@ set(OMLibs
         OMKrnlToStandard
         OMKrnlToLLVM
         OMONNXToKrnl
+        OMONNXToLinalg
         OMONNXRewrite
         OMShapeInference
         OMShapeInferenceOpInterface

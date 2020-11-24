@@ -20,6 +20,16 @@ bool hasAllConstantDimensions(MemRefType type) {
   return true;
 }
 
+/// Check if all dimensions are perfectly divisible by
+/// specified constant.
+bool hasAllDimensionsDivisibleBy(MemRefType type, int64_t val) {
+  auto memRefShape = type.getShape();
+  for (int i = 0; i < memRefShape.size(); ++i)
+    if ((memRefShape[i] < 0) || ((memRefShape[i] % val) != 0))
+      return false;
+  return true;
+}
+
 /// Check is all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values) {
   for (Value value : values) {

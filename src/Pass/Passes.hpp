@@ -34,6 +34,9 @@ std::unique_ptr<Pass> createKrnlEnableMemoryPoolPass();
 /// Pass for enabling a memory pool for MemRefs.
 std::unique_ptr<Pass> createKrnlBundleMemoryPoolsPass();
 
+/// Pass for lowering ONNX Matmul op to Linalg dialect.
+std::unique_ptr<Pass> createConvertONNXToLinalgPass();
+
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<Pass> createLowerToKrnlPass();
 

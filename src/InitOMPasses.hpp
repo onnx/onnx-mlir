@@ -58,6 +58,12 @@ void initOMPasses() {
         return mlir::createConvertKrnlToStandardPass();
       });
 
+  mlir::registerPass("convert-onnx-to-linalg",
+      "Lower ONNX Matmul op to Linalg dialect.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createConvertONNXToLinalgPass();
+      });
+
   mlir::registerPass("convert-onnx-to-krnl",
       "Lower frontend ops to Krnl dialect.",
       []() -> std::unique_ptr<mlir::Pass> {
