@@ -57,6 +57,15 @@ dynamic_input_dict = {
     "test_reshape_zero_dim":0,
     "test_basic_conv_without_padding":0,
     "test_conv_with_strides_no_padding":0,
+    "test_lstm_defaults_cpu":0,
+    "test_lstm_with_initial_bias_cpu":0,
+    "test_lstm_with_peepholes_cpu":0,
+    "test_gru_defaults_cpu":0,
+    "test_gru_seq_length_cpu":0,
+    "test_gru_with_initial_bias_cpu":0,
+    "test_rnn_seq_length_cpu":0,
+    "test_simple_rnn_defaults_cpu":0,
+    "test_simple_rnn_with_initial_bias_cpu":0,
 }
 
 dynamic_dim_dict = {
@@ -72,6 +81,33 @@ dynamic_dim_dict = {
     "test_concat_3d_axis_negative_1":2,
     "test_concat_3d_axis_negative_2":1,
     "test_concat_3d_axis_negative_3":0,
+    "test_lstm_defaults_cpu":0, # timestep
+    "test_lstm_defaults_cpu":1, # batch size
+    "test_lstm_defaults_cpu":2, # input size
+    "test_lstm_with_initial_bias_cpu":0,
+    "test_lstm_with_initial_bias_cpu":1,
+    "test_lstm_with_initial_bias_cpu":2,
+    "test_lstm_with_peepholes_cpu":0,
+    "test_lstm_with_peepholes_cpu":1,
+    "test_lstm_with_peepholes_cpu":2,
+    "test_gru_defaults_cpu":0, # timestep
+    "test_gru_defaults_cpu":1, # batch size
+    "test_gru_defaults_cpu":2, # input size
+    "test_gru_seq_length_cpu":0,
+    "test_gru_seq_length_cpu":1,
+    "test_gru_seq_length_cpu":2,
+    "test_gru_with_initial_bias_cpu":0,
+    "test_gru_with_initial_bias_cpu":1,
+    "test_gru_with_initial_bias_cpu":2,
+    "test_rnn_seq_length_cpu":0, # timestep
+    "test_rnn_seq_length_cpu":1, # batch size
+    "test_rnn_seq_length_cpu":2, # input size
+    "test_simple_rnn_defaults_cpu":0,
+    "test_simple_rnn_defaults_cpu":1,
+    "test_simple_rnn_defaults_cpu":2,
+    "test_simple_rnn_with_initial_bias_cpu":0,
+    "test_simple_rnn_with_initial_bias_cpu":1,
+    "test_simple_rnn_with_initial_bias_cpu":2,
 }
 
 # determine the dynamic input and dim
@@ -245,8 +281,8 @@ test_to_enable_static_dynamic = {
     "test_averagepool_3d_default_cpu": test_static_dynamic,
 
     # BatchNormalization (test mode)
-    #"test_batchnorm_epsilon_cpu": test_static,
-    #"test_batchnorm_example_cpu": test_static,
+    "test_batchnorm_epsilon_cpu": test_static_dynamic,
+    "test_batchnorm_example_cpu": test_static_dynamic,
 
     # Bitshift left/right
 
@@ -378,9 +414,9 @@ test_to_enable_static_dynamic = {
     # Greater
 
     # GRU
-    "test_gru_defaults_cpu": test_static,
-    "test_gru_seq_length_cpu": test_static,
-    "test_gru_with_initial_bias_cpu": test_static,
+    "test_gru_defaults_cpu": test_static_dynamic,
+    "test_gru_seq_length_cpu": test_static_dynamic,
+    "test_gru_with_initial_bias_cpu": test_static_dynamic,
 
     # Hard Max
 
@@ -411,20 +447,20 @@ test_to_enable_static_dynamic = {
     "test_log_cpu": test_static_dynamic,
 
     # LogSoftmax
-    "test_logsoftmax_axis_0_cpu": test_static,
-    "test_logsoftmax_axis_1_cpu": test_static,
-    "test_logsoftmax_axis_2_cpu": test_static,
-    "test_logsoftmax_example_1_cpu": test_static,
-    "test_logsoftmax_default_axis_cpu": test_static,
-    "test_logsoftmax_negative_axis_cpu": test_static,
-    "test_logsoftmax_large_number_cpu": test_static,
+    "test_logsoftmax_axis_0_cpu": test_static_dynamic,
+    "test_logsoftmax_axis_1_cpu": test_static_dynamic,
+    "test_logsoftmax_axis_2_cpu": test_static_dynamic,
+    "test_logsoftmax_example_1_cpu": test_static_dynamic,
+    "test_logsoftmax_default_axis_cpu": test_static_dynamic,
+    "test_logsoftmax_negative_axis_cpu": test_static_dynamic,
+    "test_logsoftmax_large_number_cpu": test_static_dynamic,
 
     # LRN
 
     # LSTM
-    "test_lstm_defaults_cpu": test_static,
-    "test_lstm_with_initial_bias_cpu": test_static,
-    "test_lstm_with_peepholes_cpu": test_static,
+    "test_lstm_defaults_cpu": test_static_dynamic,
+    "test_lstm_with_initial_bias_cpu": test_static_dynamic,
+    "test_lstm_with_peepholes_cpu": test_static_dynamic,
 
     # Matmul
     "test_matmul_2d_cpu": test_static_dynamic,
@@ -499,104 +535,104 @@ test_to_enable_static_dynamic = {
     "test_reciprocal_example_cpu": test_static_dynamic,
 
     # ReduceL1
-    "test_reduce_l1_default_axes_keepdims_example_cpu": test_static,
-    "test_reduce_l1_default_axes_keepdims_random_cpu": test_static,
-    "test_reduce_l1_do_not_keepdims_example_cpu": test_static,
-    "test_reduce_l1_do_not_keepdims_random_cpu": test_static,
-    "test_reduce_l1_keep_dims_example_cpu": test_static,
+    "test_reduce_l1_default_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_l1_default_axes_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_l1_do_not_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_l1_do_not_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_l1_keep_dims_example_cpu": test_static_dynamic,
     "test_reduce_l1_keep_dims_random_cpu": test_static,
-    "test_reduce_l1_negative_axes_keep_dims_example_cpu": test_static,
-    "test_reduce_l1_negative_axes_keep_dims_random_cpu": test_static,
+    "test_reduce_l1_negative_axes_keep_dims_example_cpu": test_static_dynamic,
+    "test_reduce_l1_negative_axes_keep_dims_random_cpu": test_static_dynamic,
 
     # ReduceL2
-    "test_reduce_l2_default_axes_keepdims_example_cpu": test_static,
-    "test_reduce_l2_default_axes_keepdims_random_cpu": test_static,
-    "test_reduce_l2_do_not_keepdims_example_cpu": test_static,
-    "test_reduce_l2_do_not_keepdims_random_cpu": test_static,
-    "test_reduce_l2_keep_dims_example_cpu": test_static,
-    "test_reduce_l2_keep_dims_random_cpu": test_static,
-    "test_reduce_l2_negative_axes_keep_dims_example_cpu": test_static,
-    "test_reduce_l2_negative_axes_keep_dims_random_cpu": test_static,
+    "test_reduce_l2_default_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_l2_default_axes_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_l2_do_not_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_l2_do_not_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_l2_keep_dims_example_cpu": test_static_dynamic,
+    "test_reduce_l2_keep_dims_random_cpu": test_static_dynamic,
+    "test_reduce_l2_negative_axes_keep_dims_example_cpu": test_static_dynamic,
+    "test_reduce_l2_negative_axes_keep_dims_random_cpu": test_static_dynamic,
 
     # ReduceLogSum
-    "test_reduce_log_sum_asc_axes_cpu": test_static,
-    "test_reduce_log_sum_cpu": test_static,
-    "test_reduce_log_sum_default_cpu": test_static,
-    "test_reduce_log_sum_desc_axes_cpu": test_static,
+    "test_reduce_log_sum_asc_axes_cpu": test_static_dynamic,
+    "test_reduce_log_sum_cpu": test_static_dynamic,
+    "test_reduce_log_sum_default_cpu": test_static_dynamic,
+    "test_reduce_log_sum_desc_axes_cpu": test_static_dynamic,
 
     # ReduceLogSumExp
-    "test_reduce_log_sum_exp_default_axes_keepdims_example_cpu": test_static,
-    "test_reduce_log_sum_exp_default_axes_keepdims_random_cpu": test_static,
-    "test_reduce_log_sum_exp_do_not_keepdims_example_cpu": test_static,
-    "test_reduce_log_sum_exp_do_not_keepdims_random_cpu": test_static,
-    "test_reduce_log_sum_exp_keepdims_example_cpu": test_static,
-    "test_reduce_log_sum_exp_keepdims_random_cpu": test_static,
-    "test_reduce_log_sum_exp_negative_axes_keepdims_example_cpu": test_static,
-    "test_reduce_log_sum_exp_negative_axes_keepdims_random_cpu": test_static,
-    "test_reduce_log_sum_negative_axes_cpu": test_static,
+    "test_reduce_log_sum_exp_default_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_log_sum_exp_default_axes_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_log_sum_exp_do_not_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_log_sum_exp_do_not_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_log_sum_exp_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_log_sum_exp_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_log_sum_exp_negative_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_log_sum_exp_negative_axes_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_log_sum_negative_axes_cpu": test_static_dynamic,
 
     # ReduceMax
-    "test_reduce_max_default_axes_keepdim_example_cpu": test_static,
-    "test_reduce_max_default_axes_keepdims_random_cpu": test_static,
-    "test_reduce_max_do_not_keepdims_example_cpu": test_static,
-    "test_reduce_max_do_not_keepdims_random_cpu": test_static,
-    "test_reduce_max_keepdims_example_cpu": test_static,
-    "test_reduce_max_keepdims_random_cpu": test_static,
-    "test_reduce_max_negative_axes_keepdims_example_cpu": test_static,
-    "test_reduce_max_negative_axes_keepdims_random_cpu": test_static,
+    "test_reduce_max_default_axes_keepdim_example_cpu": test_static_dynamic,
+    "test_reduce_max_default_axes_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_max_do_not_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_max_do_not_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_max_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_max_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_max_negative_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_max_negative_axes_keepdims_random_cpu": test_static_dynamic,
 
     # ReduceMean
-    "test_reduce_mean_default_axes_keepdims_example_cpu": test_static,
-    "test_reduce_mean_default_axes_keepdims_random_cpu": test_static,
-    "test_reduce_mean_do_not_keepdims_example_cpu": test_static,
-    "test_reduce_mean_do_not_keepdims_random_cpu": test_static,
-    "test_reduce_mean_keepdims_example_cpu": test_static,
-    "test_reduce_mean_keepdims_random_cpu": test_static,
-    "test_reduce_mean_negative_axes_keepdims_example_cpu": test_static,
-    "test_reduce_mean_negative_axes_keepdims_random_cpu": test_static,
+    "test_reduce_mean_default_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_mean_default_axes_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_mean_do_not_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_mean_do_not_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_mean_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_mean_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_mean_negative_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_mean_negative_axes_keepdims_random_cpu": test_static_dynamic,
 
     # ReduceMin
-    "test_reduce_min_default_axes_keepdims_example_cpu": test_static,
-    "test_reduce_min_default_axes_keepdims_random_cpu": test_static,
-    "test_reduce_min_do_not_keepdims_example_cpu": test_static,
-    "test_reduce_min_do_not_keepdims_random_cpu": test_static,
-    "test_reduce_min_keepdims_example_cpu": test_static,
-    "test_reduce_min_keepdims_random_cpu": test_static,
-    "test_reduce_min_negative_axes_keepdims_example_cpu": test_static,
-    "test_reduce_min_negative_axes_keepdims_random_cpu": test_static,
+    "test_reduce_min_default_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_min_default_axes_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_min_do_not_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_min_do_not_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_min_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_min_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_min_negative_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_min_negative_axes_keepdims_random_cpu": test_static_dynamic,
 
     # ReduceProd
-    "test_reduce_prod_default_axes_keepdims_example_cpu": test_static,
-    "test_reduce_prod_default_axes_keepdims_random_cpu": test_static,
-    "test_reduce_prod_do_not_keepdims_example_cpu": test_static,
-    "test_reduce_prod_do_not_keepdims_random_cpu": test_static,
-    "test_reduce_prod_keepdims_example_cpu": test_static,
-    "test_reduce_prod_keepdims_random_cpu": test_static,
-    "test_reduce_prod_negative_axes_keepdims_example_cpu": test_static,
-    "test_reduce_prod_negative_axes_keepdims_random_cpu": test_static,
+    "test_reduce_prod_default_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_prod_default_axes_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_prod_do_not_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_prod_do_not_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_prod_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_prod_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_prod_negative_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_prod_negative_axes_keepdims_random_cpu": test_static_dynamic,
 
     # ReduceSum
-    "test_reduce_sum_default_axes_keepdims_example_cpu": test_static,
-    "test_reduce_sum_default_axes_keepdims_random_cpu": test_static,
-    "test_reduce_sum_do_not_keepdims_example_cpu": test_static,
-    "test_reduce_sum_do_not_keepdims_random_cpu": test_static,
-    "test_reduce_sum_keepdims_example_cpu": test_static,
-    "test_reduce_sum_keepdims_random_cpu": test_static,
-    "test_reduce_sum_negative_axes_keepdims_example_cpu": test_static,
-    "test_reduce_sum_negative_axes_keepdims_random_cpu": test_static,
+    "test_reduce_sum_default_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_sum_default_axes_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_sum_do_not_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_sum_do_not_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_sum_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_sum_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_sum_negative_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_sum_negative_axes_keepdims_random_cpu": test_static_dynamic,
 
     # ReduceSumSquare
-    "test_reduce_sum_square_default_axes_keepdims_example_cpu": test_static,
-    "test_reduce_sum_square_default_axes_keepdims_random_cpu": test_static,
-    "test_reduce_sum_square_do_not_keepdims_example_cpu": test_static,
-    "test_reduce_sum_square_do_not_keepdims_random_cpu": test_static,
-    "test_reduce_sum_square_keepdims_example_cpu": test_static,
-    "test_reduce_sum_square_keepdims_random_cpu": test_static,
-    "test_reduce_sum_square_negative_axes_keepdims_example_cpu": test_static,
-    "test_reduce_sum_square_negative_axes_keepdims_random_cpu": test_static,
+    "test_reduce_sum_square_default_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_sum_square_default_axes_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_sum_square_do_not_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_sum_square_do_not_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_sum_square_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_sum_square_keepdims_random_cpu": test_static_dynamic,
+    "test_reduce_sum_square_negative_axes_keepdims_example_cpu": test_static_dynamic,
+    "test_reduce_sum_square_negative_axes_keepdims_random_cpu": test_static_dynamic,
 
     # Relu
-    "test_relu_cpu": test_static,
+    "test_relu_cpu": test_static_dynamic,
 
     # Reshape
     "test_reshape_extended_dims_cpu": test_static_dynamic,
@@ -614,9 +650,9 @@ test_to_enable_static_dynamic = {
     # Reverse Sequence
 
     # RNN
-    "test_rnn_seq_length_cpu": test_static,
-    "test_simple_rnn_defaults_cpu": test_static,
-    "test_simple_rnn_with_initial_bias_cpu": test_static,
+    "test_rnn_seq_length_cpu": test_static_dynamic,
+    "test_simple_rnn_defaults_cpu": test_static_dynamic,
+    "test_simple_rnn_with_initial_bias_cpu": test_static_dynamic,
 
     # Roi Align
 
@@ -731,14 +767,14 @@ test_to_enable_static_dynamic = {
     # Unique
 
     # Unsqueeze
-    "test_unsqueeze_axis_0_cpu": test_static,
-    "test_unsqueeze_axis_1_cpu": test_static,
-    "test_unsqueeze_axis_2_cpu": test_static,
-    "test_unsqueeze_axis_3_cpu": test_static,
-    "test_unsqueeze_negative_axes_cpu": test_static,
-    "test_unsqueeze_three_axes_cpu": test_static,
-    "test_unsqueeze_two_axes_cpu": test_static,
-    # "test_unsqueeze_unsorted_axes_cpu": test_static,
+    "test_unsqueeze_axis_0_cpu": test_static_dynamic,
+    "test_unsqueeze_axis_1_cpu": test_static_dynamic,
+    "test_unsqueeze_axis_2_cpu": test_static_dynamic,
+    "test_unsqueeze_axis_3_cpu": test_static_dynamic,
+    "test_unsqueeze_negative_axes_cpu": test_static_dynamic,
+    "test_unsqueeze_three_axes_cpu": test_static_dynamic,
+    "test_unsqueeze_two_axes_cpu": test_static_dynamic,
+    "test_unsqueeze_unsorted_axes_cpu": test_static_dynamic,
 
     # Upsample
 
