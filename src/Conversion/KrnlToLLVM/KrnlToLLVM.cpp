@@ -1019,7 +1019,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(
   populateShapeToStandardConversionPatterns(patterns, ctx);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
-  populateStdExpandDivsRewritePatterns(ctx, patterns);
+  populateStdExpandOpsPatterns(ctx, patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
