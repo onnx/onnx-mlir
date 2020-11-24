@@ -84,24 +84,24 @@ dynamic_dim_dict = {
     "test_lstm_defaults_cpu":0, # timestep
     "test_lstm_defaults_cpu":1, # batch size
     "test_lstm_defaults_cpu":2, # input size
-    "test_lstm_with_initial_bias_cpu":0, # timestep
-    "test_lstm_with_initial_bias_cpu":1, # batch size
-    "test_lstm_with_initial_bias_cpu":2, # input size
-    "test_lstm_with_peepholes_cpu":0, # timestep
-    "test_lstm_with_peepholes_cpu":1, # batch size
-    "test_lstm_with_peepholes_cpu":2, # input size
-    "test_gru_defaults_cpu":0,
-    "test_gru_defaults_cpu":1,
-    "test_gru_defaults_cpu":2,
+    "test_lstm_with_initial_bias_cpu":0,
+    "test_lstm_with_initial_bias_cpu":1,
+    "test_lstm_with_initial_bias_cpu":2,
+    "test_lstm_with_peepholes_cpu":0,
+    "test_lstm_with_peepholes_cpu":1,
+    "test_lstm_with_peepholes_cpu":2,
+    "test_gru_defaults_cpu":0, # timestep
+    "test_gru_defaults_cpu":1, # batch size
+    "test_gru_defaults_cpu":2, # input size
     "test_gru_seq_length_cpu":0,
     "test_gru_seq_length_cpu":1,
     "test_gru_seq_length_cpu":2,
     "test_gru_with_initial_bias_cpu":0,
     "test_gru_with_initial_bias_cpu":1,
     "test_gru_with_initial_bias_cpu":2,
-    "test_rnn_seq_length_cpu":0,
-    "test_rnn_seq_length_cpu":1,
-    "test_rnn_seq_length_cpu":2,
+    "test_rnn_seq_length_cpu":0, # timestep
+    "test_rnn_seq_length_cpu":1, # batch size
+    "test_rnn_seq_length_cpu":2, # input size
     "test_simple_rnn_defaults_cpu":0,
     "test_simple_rnn_defaults_cpu":1,
     "test_simple_rnn_defaults_cpu":2,
