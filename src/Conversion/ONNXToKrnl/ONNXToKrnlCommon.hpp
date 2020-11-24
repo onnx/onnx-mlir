@@ -203,6 +203,9 @@ void populateLoweringONNXSoftmaxOpPattern(
 void populateLoweringONNXConvOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXInstanceNormalizationOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXNormalizationOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 

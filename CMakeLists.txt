@@ -34,6 +34,7 @@ add_subdirectory(third_party/variant)
 add_subdirectory(third_party/rapidcheck)
 
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(utils)
 add_subdirectory(include)

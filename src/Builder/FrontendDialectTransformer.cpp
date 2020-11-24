@@ -388,6 +388,18 @@ private:
   }
 
   /*!
+   * Special handle for InstanceNormalization operations.
+   */
+  void ImportNodeInstanceNormalization(const onnx::NodeProto &node) {
+    int nOuts = node.output().size();
+    if (nOuts == 1) {
+      buildOperation<mlir::ONNXInstanceNormalizationOp>(node);
+    } else {
+      buildOperation<mlir::ONNXInstanceNormalizationOp>(node);
+    }
+  }
+
+  /*!
    * Special handle for Pad operations.
    */
   void ImportNodePad(const onnx::NodeProto &node) {

@@ -9,6 +9,7 @@ add_library(OMONNXToKrnl
         NN/Conv.cpp
         NN/Normalization.cpp
         NN/Pooling.cpp
+	NN/InstanceNormalization.cpp
         RNN/RNNBase.cpp
         RNN/RNNBase.hpp
         RNN/GRU.cpp

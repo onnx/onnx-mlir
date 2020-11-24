@@ -276,6 +276,7 @@ OpsWithShapeInference=[
     'GlobalMaxPool',
     'HardSigmoid',
     'Identity',
+    'InstanceNormalization',
     'LSTM',
     'LeakyRelu',
     'Less',
@@ -328,7 +329,7 @@ OpsWithShapeInference=[
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast', 'Transpose', 'Dropout', 'Shape', 'Size']
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast', 'Transpose', 'Dropout', 'Shape', 'Size', 'InstanceNormalization']
 
 # Operations who have operands that, if produced by constant operations, should
 # be promoted to become an attribute (via attribute promotion).
