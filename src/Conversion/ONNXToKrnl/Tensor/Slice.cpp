@@ -24,60 +24,42 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter);
-    if (failed(shapeHelper.Compute(operandAdaptor)))
-      return op->emitError("Failed to scan Silce parameters successfully");
+    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
 
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     int64_t outputRank = outputMemRefType.getShape().size();
-    assert(outputRank == shapeHelper.outputDims.size());
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    for (int ii = 0; ii < outputRank; ++ii)
-      outputLoops.pushBounds(
-          shapeHelper.context, 0, shapeHelper.outputDims[ii]);
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     IndexExprContext childContext(shapeHelper.context);
 
-    // Proceed with the load data["i * step + start} for all dim].
-    Value loadVal;
-    SmallVector<Value, 4> loadIndices;
-    bool loadIsAffine = true;
+    // Compute indices for the load and store op.
+    // Load: "i * step + start" for all dim.
+    // Store: "i" for all dims.
+    SmallVector<IndexExpr, 4> loadIndices;
+    SmallVector<IndexExpr, 4> storeIndices;
     for (int ii = 0; ii < outputRank; ++ii) {
-      Value loopVal = outputLoops.getInductionVar(ii);
-      IndexExpr loopIndex = childContext.createLoopIterIndex(loopVal);
+      Value inductionVal = outputLoops.getInductionVar(ii);
+      IndexExpr inductionIndex =
+          childContext.createLoopInductionIndex(inductionVal);
       IndexExpr start = childContext.createSymbolIndexFromParentContext(
           shapeHelper.starts[ii]);
       IndexExpr step = childContext.createSymbolIndexFromParentContext(
           shapeHelper.steps[ii]);
-      loopIndex.debugPrint("loop index");
-      step.debugPrint("  steps");
-      start.debugPrint("  start");
-      IndexExpr actualIndex = (step * loopIndex) + start;
-      loadIndices.emplace_back(actualIndex.getValue());
-
-      if (!actualIndex.isAffine())
-        loadIsAffine = false;
+      loadIndices.emplace_back((step * inductionIndex) + start);
+      storeIndices.emplace_back(inductionIndex);
     }
-    // Load data.
-    if (loadIsAffine) {
-      loadVal = rewriter.create<AffineLoadOp>(
-          loc, operandAdaptor.data(), loadIndices);
-    } else {
-      loadVal =
-          rewriter.create<LoadOp>(loc, operandAdaptor.data(), loadIndices);
-    }
-    // Store data
-    SmallVector<Value, 4> storeIndices;
-    for (int ii = 0; ii < outputRank; ++ii) {
-      storeIndices.emplace_back(outputLoops.getInductionVar(ii));
-    }
-    rewriter.create<AffineStoreOp>(loc, loadVal, alloc, storeIndices);
+    // Load data and store in alloc data.
+    Value loadVal =
+        childContext.createLoadOp(operandAdaptor.data(), loadIndices);
+    childContext.createStoreOp(loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
     return success();
