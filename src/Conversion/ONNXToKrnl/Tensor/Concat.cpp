@@ -52,9 +52,8 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       for (int r = 0; r < rank; ++r)
         inputLoops.pushBounds(0, operands[i], r);
       inputLoops.createIterateOp();
-      // writeOffset = writeOffset +
-      // IEContext.createDimIndexFromShapedType(operands[i], axis);
       rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
+
       // Indices for the read and write.
       SmallVector<Value, 4> readIndices;
       SmallVector<Value, 4> writeIndices;
