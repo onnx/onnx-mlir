@@ -85,12 +85,14 @@ func @test_enable_memory_pool_3(%arg0: tensor<?x?xf32>, %arg1: tensor<?x10xf32>,
   // CHECK: krnl.define_loops 2
   // CHECK: krnl.iterate
   // CHECK: affine.store {{.*}}, [[DATA1]][%arg3, %arg4] : memref<?x10xf32>
-  // CHECK: [[CMP1:%.+]] = cmpi "sgt", [[DIM1]], [[DIM1]] : index
-  // CHECK: [[SELECT1:%.+]] = select [[CMP1]], [[DIM1]], [[DIM1]] : index
-  // CHECK: [[TMP3:%.+]] = muli [[SELECT1]], [[CONST4]] : index
+  // CHECK: krnl.define_loops 1
+  // CHECK: krnl.iterate
+  // CHECK: affine.store {{.*}}[%arg3, %arg4] : memref<?x10xf32>
+  // CHECK: [[TMP3:%.+]] = muli [[DIM1]], [[CONST4]] : index
   // CHECK: [[TMP4:%.+]] = muli [[TMP3]], [[CONST10]] : index
   // CHECK: [[MEMPOOL2:%.+]] = alloc([[TMP4]]) : memref<?xi8>
   // CHECK: [[DATA2:%.+]] = "krnl.getref"([[MEMPOOL2]], [[CONST0_I64]]) : (memref<?xi8>, i64) -> memref<?x10xf32>
+  // CHECK: [[CMP1:%.+]] = cmpi "eq", [[DIM1]], [[CONST1]] : index
   // CHECK: krnl.define_loops 2
   // CHECK: krnl.iterate
   // CHECK: affine.store {{.*}}, [[DATA2]][%arg3, %arg4] : memref<?x10xf32>
@@ -98,9 +100,6 @@ func @test_enable_memory_pool_3(%arg0: tensor<?x?xf32>, %arg1: tensor<?x10xf32>,
   // CHECK: krnl.define_loops 2
   // CHECK: krnl.iterate
   // CHECK: affine.store [[CST]], [[DATA3]][%arg3, %arg4] : memref<?x10xf32>
-  // CHECK: krnl.define_loops 1
-  // CHECK: krnl.iterate
-  // CHECK: affine.store {{.*}}, [[DATA3]][%arg3, %arg4] : memref<?x10xf32>
   // CHECK: dealloc [[MEMPOOL2]] : memref<?xi8>
   // CHECK: dealloc [[MEMPOOL1]] : memref<?xi8>
   // CHECK: return [[DATA3]] : memref<?x10xf32>

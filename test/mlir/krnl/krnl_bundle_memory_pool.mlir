@@ -90,9 +90,7 @@ func @test_dynamic_pool_bundling(%arg0: memref<?x?xf32>) -> memref<?x10xf32> {
   // CHECK: [[DIM:%.+]] = dim %arg0, [[C0]] : memref<?x?xf32>
   // CHECK: [[MUL2:%.+]] = muli [[DIM]], [[C4]] : index
   // CHECK: [[OFFSET2:%.+]] = muli [[MUL2]], [[C10]] : index
-  // CHECK: [[SGT:%.+]] = cmpi "sgt", [[DIM]], [[DIM]] : index
-  // CHECK: [[SELECT:%.+]] = select [[SGT]], [[DIM]], [[DIM]] : index
-  // CHECK: [[MUL1:%.+]] = muli [[SELECT]], [[C4]] : index
+  // CHECK: [[MUL1:%.+]] = muli [[DIM]], [[C4]] : index
   // CHECK: [[OFFSET1:%.+]] = muli [[MUL1]], [[C10]] : index
   // CHECK: [[MEMPOOL_SIZE:%.+]] = addi [[OFFSET1]], [[OFFSET2]] : index
   // CHECK: [[OFFSET1_I64:%.+]] = index_cast [[OFFSET1]] : index to i64
@@ -159,9 +157,7 @@ func @test_dynamic_and_static_pool_bundling(%arg0: memref<?x?xf32>, %arg1: memre
   // CHECK: [[DIM:%.+]] = dim %arg0, [[C0]] : memref<?x?xf32>
   // CHECK: [[MUL2:%.+]] = muli [[DIM]], [[C4]] : index
   // CHECK: [[OFFSET2:%.+]] = muli [[MUL2]], [[C10]] : index
-  // CHECK: [[SGT:%.+]] = cmpi "sgt", [[DIM]], [[DIM]] : index
-  // CHECK: [[SELECT:%.+]] = select [[SGT]], [[DIM]], [[DIM]] : index
-  // CHECK: [[MUL1:%.+]] = muli [[SELECT]], [[C4]] : index
+  // CHECK: [[MUL1:%.+]] = muli [[DIM]], [[C4]] : index
   // CHECK: [[OFFSET1:%.+]] = muli [[MUL1]], [[C10]] : index
   // CHECK: [[MEMPOOL_SIZE:%.+]] = addi [[OFFSET1]], [[OFFSET2]] : index
   // CHECK: [[OFFSET1_I64:%.+]] = index_cast [[OFFSET1]] : index to i64
