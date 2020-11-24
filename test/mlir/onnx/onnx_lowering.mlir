@@ -215,14 +215,22 @@ func @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = constant 0 : index
   // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
-  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
-  // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
-  // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
-  // CHECK: [[TANH:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
+  // CHECK: [[X:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ONE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[TWO:%.+]] = constant 2.000000e+00 : f32
+  // CHECK: [[X_MUL_2:%.+]] = mulf [[X]], [[TWO]] : f32
+  // CHECK: [[NEG_X_MUL_2:%.+]] = negf [[X_MUL_2]] : f32
+  // CHECK: [[EXP_1:%.+]] = exp [[NEG_X_MUL_2]] : f32
+  // CHECK: [[SUB_1:%.+]] = subf %cst, [[EXP_1]] : f32
+  // CHECK: [[ADD_1:%.+]] = addf %cst, [[EXP_1]] : f32
+  // CHECK: [[DIV_1:%.+]] = divf [[SUB_1]], [[ADD_1]] : f32
+  // CHECK: [[EXP_2:%.+]] = exp [[X_MUL_2]] : f32
+  // CHECK: [[SUB_2:%.+]] = subf [[EXP_2]], %cst : f32
+  // CHECK: [[ADD_2:%.+]] = addf [[EXP_2]], %cst : f32
+  // CHECK: [[DIV_2:%.+]] = divf [[SUB_2]], [[ADD_2]] : f32
+  // CHECK: [[ZERO:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[CMP:%.+]] = cmpf "oge", [[X]], [[ZERO]] : f32
+  // CHECK: [[TANH:%.+]] = select [[CMP]], [[DIV_1]], [[DIV_2]] : f32
   // CHECK: affine.store [[TANH]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
@@ -1922,13 +1930,21 @@ func @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2
   /// apply activation g = tanh
   // CHECK:     affine.store [[ADD]], {{.*}}[] : memref<f32>
   // CHECK:     {{.*}} = affine.load {{.*}}[] : memref<f32>
-  // CHECK:     {{.*}}= constant 0.000000e+00 : f32
-  // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:     {{.*}} = constant 2.000000e+00 : f32
+  // CHECK:     {{.*}} = mulf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = negf {{.*}} : f32
   // CHECK:     {{.*}} = exp {{.*}} : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:     {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:     affine.store {{.*}}, [[ht]][] : memref<f32>
   // CHECK:     [[LOAD_ht:%.+]] = affine.load [[ht]][] : memref<f32>
 
@@ -2100,13 +2116,21 @@ func @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2
   // CHECK:     {{.*}} = alloc() : memref<f32>
   // CHECK:     affine.store [[ADD]], {{.*}}[] : memref<f32>
   // CHECK:     {{.*}} = affine.load {{.*}}[] : memref<f32>
-  // CHECK:     %cst_8 = constant 0.000000e+00 : f32
-  // CHECK:     {{.*}} = subf %cst_8, {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:     {{.*}} = constant 2.000000e+00 : f32
+  // CHECK:     {{.*}} = mulf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = negf {{.*}} : f32
   // CHECK:     {{.*}} = exp {{.*}} : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:     {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:     affine.store {{.*}}, [[ht]][] : memref<f32>
   // CHECK:     [[LOAD_ht:%.+]] = affine.load [[ht]][] : memref<f32>
   // CHECK:     affine.store [[LOAD_ht]], [[htMemRef]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
@@ -2355,13 +2379,21 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
   // CHECK:      [[TANH_CELL:%.+]] = alloc() : memref<f32>
   // CHECK:      affine.store [[ct_OUTPUT]], [[TANH_CELL]][] : memref<f32>
   // CHECK:      {{.*}} = affine.load [[TANH_CELL]][] : memref<f32>
-  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:      {{.*}} = constant 2.000000e+00 : f32
+  // CHECK:      {{.*}} = mulf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = negf {{.*}} : f32
   // CHECK:      {{.*}} = exp {{.*}} : f32
   // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:      {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:      affine.store {{.*}}, [[ct]][] : memref<f32>
   // CHECK:      [[ct_LOAD:%.+]] = affine.load [[ct]][] : memref<f32>
 
@@ -2389,13 +2421,21 @@ func @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12
   // CHECK:      [[TANH_HIDDEN:%.+]] = alloc() : memref<f32>
   // CHECK:      affine.store [[Ct]], [[TANH_HIDDEN]][] : memref<f32>
   // CHECK:      {{.*}} = affine.load [[TANH_HIDDEN]][] : memref<f32>
-  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:      {{.*}} = constant 2.000000e+00 : f32
+  // CHECK:      {{.*}} = mulf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = negf {{.*}} : f32
   // CHECK:      {{.*}} = exp {{.*}} : f32
   // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:      {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:      affine.store {{.*}}, [[hCt]][] : memref<f32>
   // CHECK:      [[hCt_LOAD:%.+]] = affine.load [[hCt]][] : memref<f32>
 
@@ -2570,13 +2610,21 @@ func @test_rnn_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2
   // CHECK:     {{.*}} = alloc() : memref<f32>
   // CHECK:     affine.store [[XWi_PLUS_HRi]], {{.*}} : memref<f32>
   // CHECK:     {{.*}} = affine.load {{.*}}[] : memref<f32>
-  // CHECK:     {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:     {{.*}} = constant 2.000000e+00 : f32
+  // CHECK:     {{.*}} = mulf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = negf {{.*}} : f32
   // CHECK:     {{.*}} = exp {{.*}} : f32
-  // CHECK:     {{.*.}} = exp {{.*.}} : f32
-  // CHECK:     {{.*.}} = subf {{.*.}}, {{.*.}} : f32
-  // CHECK:     {{.*.}} = addf {{.*.}}, {{.*.}} : f32
-  // CHECK:     {{.*}} = divf {{.*.}}, {{.*.}} : f32
+  // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:     {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:     affine.store {{.*}}, [[Ht]][] : memref<f32>
 
   /// Check storing the result.
