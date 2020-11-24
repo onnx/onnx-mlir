@@ -57,6 +57,15 @@ dynamic_input_dict = {
     "test_reshape_zero_dim":0,
     "test_basic_conv_without_padding":0,
     "test_conv_with_strides_no_padding":0,
+    "test_lstm_defaults_cpu":0,
+    "test_lstm_with_initial_bias_cpu":0,
+    "test_lstm_with_peepholes_cpu":0,
+    "test_gru_defaults_cpu":0,
+    "test_gru_seq_length_cpu":0,
+    "test_gru_with_initial_bias_cpu":0,
+    "test_rnn_seq_length_cpu":0,
+    "test_simple_rnn_defaults_cpu":0,
+    "test_simple_rnn_with_initial_bias_cpu":0,
 }
 
 dynamic_dim_dict = {
@@ -72,6 +81,33 @@ dynamic_dim_dict = {
     "test_concat_3d_axis_negative_1":2,
     "test_concat_3d_axis_negative_2":1,
     "test_concat_3d_axis_negative_3":0,
+    "test_lstm_defaults_cpu":0, # timestep
+    "test_lstm_defaults_cpu":1, # batch size
+    "test_lstm_defaults_cpu":2, # input size
+    "test_lstm_with_initial_bias_cpu":0, # timestep
+    "test_lstm_with_initial_bias_cpu":1, # batch size
+    "test_lstm_with_initial_bias_cpu":2, # input size
+    "test_lstm_with_peepholes_cpu":0, # timestep
+    "test_lstm_with_peepholes_cpu":1, # batch size
+    "test_lstm_with_peepholes_cpu":2, # input size
+    "test_gru_defaults_cpu":0,
+    "test_gru_defaults_cpu":1,
+    "test_gru_defaults_cpu":2,
+    "test_gru_seq_length_cpu":0,
+    "test_gru_seq_length_cpu":1,
+    "test_gru_seq_length_cpu":2,
+    "test_gru_with_initial_bias_cpu":0,
+    "test_gru_with_initial_bias_cpu":1,
+    "test_gru_with_initial_bias_cpu":2,
+    "test_rnn_seq_length_cpu":0,
+    "test_rnn_seq_length_cpu":1,
+    "test_rnn_seq_length_cpu":2,
+    "test_simple_rnn_defaults_cpu":0,
+    "test_simple_rnn_defaults_cpu":1,
+    "test_simple_rnn_defaults_cpu":2,
+    "test_simple_rnn_with_initial_bias_cpu":0,
+    "test_simple_rnn_with_initial_bias_cpu":1,
+    "test_simple_rnn_with_initial_bias_cpu":2,
 }
 
 # determine the dynamic input and dim
@@ -363,9 +399,9 @@ test_to_enable_static_dynamic = {
     # Greater
 
     # GRU
-    "test_gru_defaults_cpu": test_static,
-    "test_gru_seq_length_cpu": test_static,
-    "test_gru_with_initial_bias_cpu": test_static,
+    "test_gru_defaults_cpu": test_static_dynamic,
+    "test_gru_seq_length_cpu": test_static_dynamic,
+    "test_gru_with_initial_bias_cpu": test_static_dynamic,
 
     # Hard Max
 
@@ -405,9 +441,9 @@ test_to_enable_static_dynamic = {
     # LRN
 
     # LSTM
-    "test_lstm_defaults_cpu": test_static,
-    "test_lstm_with_initial_bias_cpu": test_static,
-    "test_lstm_with_peepholes_cpu": test_static,
+    "test_lstm_defaults_cpu": test_static_dynamic,
+    "test_lstm_with_initial_bias_cpu": test_static_dynamic,
+    "test_lstm_with_peepholes_cpu": test_static_dynamic,
 
     # Matmul
     "test_matmul_2d_cpu": test_static_dynamic,
@@ -597,9 +633,9 @@ test_to_enable_static_dynamic = {
     # Reverse Sequence
 
     # RNN
-    "test_rnn_seq_length_cpu": test_static,
-    "test_simple_rnn_defaults_cpu": test_static,
-    "test_simple_rnn_with_initial_bias_cpu": test_static,
+    "test_rnn_seq_length_cpu": test_static_dynamic,
+    "test_simple_rnn_defaults_cpu": test_static_dynamic,
+    "test_simple_rnn_with_initial_bias_cpu": test_static_dynamic,
 
     # Roi Align
 
