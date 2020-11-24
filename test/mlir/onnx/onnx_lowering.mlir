@@ -215,14 +215,22 @@ func private @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[C0_0:%.+]] = constant 0 : index
   // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
-  // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
-  // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
-  // CHECK: [[DIVISOR:%.+]] = addf [[EXP]], [[NEXP]] : f32
-  // CHECK: [[TANH:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
+  // CHECK: [[X:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ONE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK: [[TWO:%.+]] = constant 2.000000e+00 : f32
+  // CHECK: [[X_MUL_2:%.+]] = mulf [[X]], [[TWO]] : f32
+  // CHECK: [[NEG_X_MUL_2:%.+]] = negf [[X_MUL_2]] : f32
+  // CHECK: [[EXP_1:%.+]] = exp [[NEG_X_MUL_2]] : f32
+  // CHECK: [[SUB_1:%.+]] = subf %cst, [[EXP_1]] : f32
+  // CHECK: [[ADD_1:%.+]] = addf %cst, [[EXP_1]] : f32
+  // CHECK: [[DIV_1:%.+]] = divf [[SUB_1]], [[ADD_1]] : f32
+  // CHECK: [[EXP_2:%.+]] = exp [[X_MUL_2]] : f32
+  // CHECK: [[SUB_2:%.+]] = subf [[EXP_2]], %cst : f32
+  // CHECK: [[ADD_2:%.+]] = addf [[EXP_2]], %cst : f32
+  // CHECK: [[DIV_2:%.+]] = divf [[SUB_2]], [[ADD_2]] : f32
+  // CHECK: [[ZERO:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[CMP:%.+]] = cmpf "oge", [[X]], [[ZERO]] : f32
+  // CHECK: [[TANH:%.+]] = select [[CMP]], [[DIV_1]], [[DIV_2]] : f32
   // CHECK: affine.store [[TANH]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
@@ -1101,23 +1109,25 @@ func private @test_matmul1(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>) -
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<10x5xf32>, tensor<5x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_matmul1
-  // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
-  // CHECK: [[CONSTANT:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK:   affine.store [[CONSTANT]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK:   [[DEF_LOOPS_REDUCE:%.+]] = krnl.define_loops 1
-  // CHECK:   krnl.iterate([[DEF_LOOPS_REDUCE]]) with ([[DEF_LOOPS_REDUCE]] -> %arg4 = 0 to 5) {
-  // CHECK:     [[LOAD_0:%.+]] = affine.load %arg0[%arg2, %arg4] : memref<10x5xf32>
-  // CHECK:     [[LOAD_1:%.+]] = affine.load %arg1[%arg4, %arg3] : memref<5x10xf32>
-  // CHECK:     [[LOAD_RES:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK:     [[MUL:%.+]] = mulf [[LOAD_0]], [[LOAD_1]] : f32
-  // CHECK:     [[ADD:%.+]] = addf [[LOAD_RES]], [[MUL]] : f32
-  // CHECK:     affine.store [[ADD]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
-  // CHECK:   }
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<10x10xf32>
+//CHECK-LABEL:  func @test_matmul1
+//CHECK-SAME:   ([[A_:%.+]]: memref<10x5xf32>, [[B_:%.+]]: memref<5x10xf32>) -> memref<10x10xf32> {
+//CHECK:           [[RES_:%.+]] = alloc() : memref<10x10xf32>
+//CHECK:           [[VAR_cst_:%.+]] = constant 0.000000e+00 : f32
+//CHECK:           [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+//CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10) {
+//CHECK:             affine.store [[VAR_cst_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<10x10xf32>
+//CHECK:             [[LOOP_1_:%.+]] = krnl.define_loops 1
+//CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 5) {
+//CHECK:               [[LOAD_A_MEM_:%.+]] = affine.load [[A_]]{{.}}[[I_0_]], [[I_2_]]{{.}} : memref<10x5xf32>
+//CHECK:               [[LOAD_B_MEM_:%.+]] = affine.load [[B_]]{{.}}[[I_2_]], [[I_1_]]{{.}} : memref<5x10xf32>
+//CHECK:               [[LOAD_RES_MEM_:%.+]] = affine.load [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<10x10xf32>
+//CHECK:               [[VAR_6_:%.+]] = mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
+//CHECK:               [[VAR_7_:%.+]] = addf [[LOAD_RES_MEM_]], [[VAR_6_]] : f32
+//CHECK:               affine.store [[VAR_7_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<10x10xf32>
+//CHECK:             }
+//CHECK:           }
+//CHECK:           return [[RES_]] : memref<10x10xf32>
+//CHECK:         }
 }
 
 // -----
@@ -1127,25 +1137,25 @@ func private @test_matmul2(%arg0 : tensor<10x5xf32>, %arg1 : tensor<2x3x5x10xf32
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<10x5xf32>, tensor<2x3x5x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_matmul2
-  // CHECK: [[RES:%.+]] = alloc() : memref<2x3x10x10xf32>
-  // CHECK: [[CONSTANT:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[LOOPS:%.+]]:4 = krnl.define_loops 4
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[LOOPS]]#0 -> %arg2 = 0 to 2, [[LOOPS]]#1 -> %arg3 = 0 to 3) {
-  // CHECK:   krnl.iterate([[DEF_LOOPS]]#2, [[DEF_LOOPS]]#3) with ([[LOOPS]]#2 -> %arg4 = 0 to 10, [[LOOPS]]#3 -> %arg5 = 0 to 10) {
-  // CHECK:     affine.store [[CONSTANT]], [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<2x3x10x10xf32>
-  // CHECK:     [[LOOPS_REDUCE:%.+]] = krnl.define_loops 1
-  // CHECK:     krnl.iterate([[DEF_LOOPS_REDUCE]]) with ([[LOOPS_REDUCE]] -> %arg6 = 0 to 5) {
-  // CHECK:       [[LOAD_0:%.+]] = affine.load %arg0[%arg4, %arg6] : memref<10x5xf32>
-  // CHECK:       [[LOAD_1:%.+]] = affine.load %arg1[%arg2, %arg3, %arg6, %arg5] : memref<2x3x5x10xf32>
-  // CHECK:       [[LOAD_RES:%.+]] = affine.load [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<2x3x10x10xf32>
-  // CHECK:       [[MUL:%.+]] = mulf [[LOAD_0]], [[LOAD_1]] : f32
-  // CHECK:       [[ADD:%.+]] = addf [[LOAD_RES]], [[MUL]] : f32
-  // CHECK:       affine.store [[ADD]], [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<2x3x10x10xf32>
-  // CHECK:     }
-  // CHECK:   }
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<2x3x10x10xf32>
+//CHECK-LABEL:  func @test_matmul2
+//CHECK-SAME:   ([[A_:%.+]]: memref<10x5xf32>, [[B_:%.+]]: memref<2x3x5x10xf32>) -> memref<2x3x10x10xf32> {
+//CHECK:           [[RES_:%.+]] = alloc() : memref<2x3x10x10xf32>
+//CHECK:           [[VAR_cst_:%.+]] = constant 0.000000e+00 : f32
+//CHECK:           [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
+//CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 10, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 10) {
+//CHECK:             affine.store [[VAR_cst_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]], [[I_3_]]{{.}} : memref<2x3x10x10xf32>
+//CHECK:             [[LOOP_1_:%.+]] = krnl.define_loops 1
+//CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_4_:%.+]] = 0 to 5) {
+//CHECK:               [[LOAD_A_MEM_:%.+]] = affine.load [[A_]]{{.}}[[I_2_]], [[I_4_]]{{.}} : memref<10x5xf32>
+//CHECK:               [[LOAD_B_MEM_:%.+]] = affine.load [[B_]]{{.}}[[I_0_]], [[I_1_]], [[I_4_]], [[I_3_]]{{.}} : memref<2x3x5x10xf32>
+//CHECK:               [[LOAD_RES_MEM_:%.+]] = affine.load [[RES_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]], [[I_3_]]{{.}} : memref<2x3x10x10xf32>
+//CHECK:               [[VAR_6_:%.+]] = mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
+//CHECK:               [[VAR_7_:%.+]] = addf [[LOAD_RES_MEM_]], [[VAR_6_]] : f32
+//CHECK:               affine.store [[VAR_7_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]], [[I_3_]]{{.}} : memref<2x3x10x10xf32>
+//CHECK:             }
+//CHECK:           }
+//CHECK:           return [[RES_]] : memref<2x3x10x10xf32>
+//CHECK:         }
 }
 
 // -----
@@ -1155,25 +1165,25 @@ func private @test_matmul3(%arg0 : tensor<2x3x10x5xf32>, %arg1 : tensor<2x3x5x10
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<2x3x10x5xf32>, tensor<2x3x5x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_matmul3
-  // CHECK: [[RES:%.+]] = alloc() : memref<2x3x10x10xf32>
-  // CHECK: [[CONSTANT:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[LOOPS:%.+]]:4 = krnl.define_loops 4
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[LOOPS]]#0 -> %arg2 = 0 to 2, [[LOOPS]]#1 -> %arg3 = 0 to 3) {
-  // CHECK:   krnl.iterate([[DEF_LOOPS]]#2, [[DEF_LOOPS]]#3) with ([[LOOPS]]#2 -> %arg4 = 0 to 10, [[LOOPS]]#3 -> %arg5 = 0 to 10) {
-  // CHECK:     store [[CONSTANT]], [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<2x3x10x10xf32>
-  // CHECK:     [[LOOPS_REDUCE:%.+]] = krnl.define_loops 1
-  // CHECK:     krnl.iterate([[DEF_LOOPS_REDUCE]]) with ([[LOOPS_REDUCE]] -> %arg6 = 0 to 5) {
-  // CHECK:       [[LOAD_0:%.+]] = affine.load %arg0[%arg2, %arg3, %arg4, %arg6] : memref<2x3x10x5xf32>
-  // CHECK:       [[LOAD_1:%.+]] = affine.load %arg1[%arg2, %arg3, %arg6, %arg5] : memref<2x3x5x10xf32>
-  // CHECK:       [[LOAD_RES:%.+]] = affine.load [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<2x3x10x10xf32>
-  // CHECK:       [[MUL:%.+]] = mulf [[LOAD_0]], [[LOAD_1]] : f32
-  // CHECK:       [[ADD:%.+]] = addf [[LOAD_RES]], [[MUL]] : f32
-  // CHECK:       affine.store [[ADD]], [[RES]][%arg2, %arg3, %arg4, %arg5] : memref<2x3x10x10xf32>
-  // CHECK:     }
-  // CHECK:   }
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<2x3x10x10xf32>
+//CHECK-LABEL:  func @test_matmul3
+//CHECK-SAME:   ([[A_:%.+]]: memref<2x3x10x5xf32>, [[B_:%.+]]: memref<2x3x5x10xf32>) -> memref<2x3x10x10xf32> {
+//CHECK:           [[RES_:%.+]] = alloc() : memref<2x3x10x10xf32>
+//CHECK:           [[VAR_cst_:%.+]] = constant 0.000000e+00 : f32
+//CHECK:           [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
+//CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 10, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 10) {
+//CHECK:             affine.store [[VAR_cst_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]], [[I_3_]]{{.}} : memref<2x3x10x10xf32>
+//CHECK:             [[LOOP_1_:%.+]] = krnl.define_loops 1
+//CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_4_:%.+]] = 0 to 5) {
+//CHECK:               [[LOAD_A_MEM_:%.+]] = affine.load [[A_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]], [[I_4_]]{{.}} : memref<2x3x10x5xf32>
+//CHECK:               [[LOAD_B_MEM_:%.+]] = affine.load [[B_]]{{.}}[[I_0_]], [[I_1_]], [[I_4_]], [[I_3_]]{{.}} : memref<2x3x5x10xf32>
+//CHECK:               [[LOAD_RES_MEM_:%.+]] = affine.load [[RES_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]], [[I_3_]]{{.}} : memref<2x3x10x10xf32>
+//CHECK:               [[VAR_6_:%.+]] = mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
+//CHECK:               [[VAR_7_:%.+]] = addf [[LOAD_RES_MEM_]], [[VAR_6_]] : f32
+//CHECK:               affine.store [[VAR_7_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]], [[I_3_]]{{.}} : memref<2x3x10x10xf32>
+//CHECK:             }
+//CHECK:           }
+//CHECK:           return [[RES_]] : memref<2x3x10x10xf32>
+//CHECK:         }
 }
 
 // -----
@@ -1183,23 +1193,25 @@ func private @test_matmul4(%arg0 : tensor<5xf32>, %arg1 : tensor<5x10xf32>) -> t
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<5xf32>, tensor<5x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_matmul4
-  // CHECK: [[RES:%.+]] = alloc() : memref<10xf32>
-  // CHECK: [[CONSTANT:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[LOOPS:%.+]] = krnl.define_loops 1
-  // CHECK: krnl.iterate([[DEF_LOOPS]]) with ([[LOOPS]] -> %arg2 = 0 to 10) {
-  // CHECK:   affine.store [[CONSTANT]], [[RES]][%arg2] : memref<10xf32>
-  // CHECK:   [[LOOPS_REDUCE:%.+]] = krnl.define_loops 1
-  // CHECK:   krnl.iterate([[DEF_LOOPS_REDUCE]]) with ([[LOOPS_REDUCE]] -> %arg3 = 0 to 5) {
-  // CHECK:     [[LOAD_0:%.+]] = affine.load %arg0[%arg3] : memref<5xf32>
-  // CHECK:     [[LOAD_1:%.+]] = affine.load %arg1[%arg3, %arg2] : memref<5x10xf32>
-  // CHECK:     [[LOAD_RES:%.+]] = affine.load [[RES]][%arg2] : memref<10xf32>
-  // CHECK:     [[MUL:%.+]] = mulf [[LOAD_0]], [[LOAD_1]] : f32
-  // CHECK:     [[ADD:%.+]] = addf [[LOAD_RES]], [[MUL]] : f32
-  // CHECK:     affine.store [[ADD]], [[RES]][%arg2] : memref<10xf32>
-  // CHECK:   }
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<10xf32>
+//CHECK-LABEL:  func @test_matmul4
+//CHECK-SAME:   ([[A_:%.+]]: memref<5xf32>, [[B_:%.+]]: memref<5x10xf32>) -> memref<10xf32> {
+//CHECK:           [[RES_:%.+]] = alloc() : memref<10xf32>
+//CHECK:           [[VAR_cst_:%.+]] = constant 0.000000e+00 : f32
+//CHECK:           [[LOOP_0_:%.+]] = krnl.define_loops 1
+//CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 10) {
+//CHECK:             affine.store [[VAR_cst_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<10xf32>
+//CHECK:             [[LOOP_1_:%.+]] = krnl.define_loops 1
+//CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = 0 to 5) {
+//CHECK:               [[LOAD_A_MEM_:%.+]] = affine.load [[A_]]{{.}}[[I_1_]]{{.}} : memref<5xf32>
+//CHECK:               [[LOAD_B_MEM_:%.+]] = affine.load [[B_]]{{.}}[[I_1_]], [[I_0_]]{{.}} : memref<5x10xf32>
+//CHECK:               [[LOAD_RES_MEM_:%.+]] = affine.load [[RES_]]{{.}}[[I_0_]]{{.}} : memref<10xf32>
+//CHECK:               [[VAR_6_:%.+]] = mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
+//CHECK:               [[VAR_7_:%.+]] = addf [[LOAD_RES_MEM_]], [[VAR_6_]] : f32
+//CHECK:               affine.store [[VAR_7_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<10xf32>
+//CHECK:             }
+//CHECK:           }
+//CHECK:           return [[RES_]] : memref<10xf32>
+//CHECK:         }
 }
 
 // -----
@@ -1209,29 +1221,27 @@ func private @test_matmul5(%arg0 : tensor<5xf32>, %arg1 : tensor<?x5x10xf32>) ->
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<5xf32>, tensor<?x5x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_matmul5
-  // CHECK: [[CONSTANT:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = dim %arg1, [[C0]] : memref<?x5x10xf32>
-  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
-  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[C0_0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_1:%.+]] = dim [[RES]], [[C0_0]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to [[DIM_1]]) {
-  // CHECK:   krnl.iterate([[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK:     affine.store [[CONSTANT]], [[RES]][%arg2, %arg3] : memref<?x10xf32>
-  // CHECK:     [[DEF_LOOPS_REDUCE:%.+]] = krnl.define_loops 1
-  // CHECK:     krnl.iterate([[DEF_LOOPS_REDUCE]]) with ([[DEF_LOOPS_REDUCE]] -> %arg4 = 0 to 5) {
-  // CHECK:       [[LOAD_0:%.+]] = affine.load %arg0[%arg4] : memref<5xf32>
-  // CHECK:       [[LOAD_1:%.+]] = affine.load %arg1[%arg2, %arg4, %arg3] : memref<?x5x10xf32>
-  // CHECK:       [[LOAD_RES:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<?x10xf32>
-  // CHECK:       [[MUL:%.+]] = mulf [[LOAD_0]], [[LOAD_1]] : f32
-  // CHECK:       [[ADD:%.+]] = addf [[LOAD_RES]], [[MUL]] : f32
-  // CHECK:       affine.store [[ADD]], [[RES]][%arg2, %arg3] : memref<?x10xf32>
-  // CHECK:     }
-  // CHECK:   }
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<?x10xf32>
+//CHECK-LABEL:  func @test_matmul5
+//CHECK-SAME:   ([[A_:%.+]]: memref<5xf32>, [[B_:%.+]]: memref<?x5x10xf32>) -> memref<?x10xf32> {
+//CHECK:           [[VAR_c0_:%.+]] = constant 0 : index
+//CHECK:           [[VAR_0_:%.+]] = dim [[B_]], [[VAR_c0_]] : memref<?x5x10xf32>
+//CHECK:           [[RES_:%.+]] = alloc([[VAR_0_]]) : memref<?x10xf32>
+//CHECK:           [[VAR_cst_:%.+]] = constant 0.000000e+00 : f32
+//CHECK:           [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+//CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_0_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10) {
+//CHECK:             affine.store [[VAR_cst_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<?x10xf32>
+//CHECK:             [[LOOP_1_:%.+]] = krnl.define_loops 1
+//CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 5) {
+//CHECK:               [[LOAD_A_MEM_:%.+]] = affine.load [[A_]]{{.}}[[I_2_]]{{.}} : memref<5xf32>
+//CHECK:               [[LOAD_B_MEM_:%.+]] = affine.load [[B_]]{{.}}[[I_0_]], [[I_2_]], [[I_1_]]{{.}} : memref<?x5x10xf32>
+//CHECK:               [[LOAD_RES_MEM_:%.+]] = affine.load [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<?x10xf32>
+//CHECK:               [[VAR_7_:%.+]] = mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
+//CHECK:               [[VAR_8_:%.+]] = addf [[LOAD_RES_MEM_]], [[VAR_7_]] : f32
+//CHECK:               affine.store [[VAR_8_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<?x10xf32>
+//CHECK:             }
+//CHECK:           }
+//CHECK:           return [[RES_]] : memref<?x10xf32>
+//CHECK:         }
 }
 
 // -----
@@ -1241,29 +1251,27 @@ func private @test_matmul6(%arg0 : tensor<?x10x5xf32>, %arg1 : tensor<5xf32>) ->
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<?x10x5xf32>, tensor<5xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_matmul6
-  // CHECK: [[CONSTANT:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10x5xf32>
-  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
-  // CHECK: [[LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[C0_0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_1:%.+]] = dim [[RES]], [[C0_0]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[LOOPS]]#0) with ([[LOOPS]]#0 -> %arg2 = 0 to [[DIM_1]]) {
-  // CHECK:   krnl.iterate([[LOOPS]]#1) with ([[LOOPS]]#1 -> %arg3 = 0 to 10) {
-  // CHECK:     affine.store [[CONSTANT]], [[RES]][%arg2, %arg3] : memref<?x10xf32>
-  // CHECK:     [[LOOPS_REDUCE:%.+]] = krnl.define_loops 1
-  // CHECK:     krnl.iterate([[LOOPS_REDUCE]]) with ([[LOOPS_REDUCE]] -> %arg4 = 0 to 5) {
-  // CHECK:       [[LOAD_0:%.+]] = affine.load %arg0[%arg2, %arg3, %arg4] : memref<?x10x5xf32>
-  // CHECK:       [[LOAD_1:%.+]] = affine.load %arg1[%arg4] : memref<5xf32>
-  // CHECK:       [[LOAD_RES:%.+]] = affine.load [[RES]][%arg2, %arg3] : memref<?x10xf32>
-  // CHECK:       [[MUL:%.+]] = mulf [[LOAD_0]], [[LOAD_1]] : f32
-  // CHECK:       [[ADD:%.+]] = addf [[LOAD_RES]], [[MUL]] : f32
-  // CHECK:       affine.store [[ADD]], [[RES]][%arg2, %arg3] : memref<?x10xf32>
-  // CHECK:     }
-  // CHECK:   }
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<?x10xf32>
+//CHECK-LABEL:  func @test_matmul6
+//CHECK-SAME:   ([[A_:%.+]]: memref<?x10x5xf32>, [[B_:%.+]]: memref<5xf32>) -> memref<?x10xf32> {
+//CHECK:           [[VAR_c0_:%.+]] = constant 0 : index
+//CHECK:           [[VAR_0_:%.+]] = dim [[A_]], [[VAR_c0_]] : memref<?x10x5xf32>
+//CHECK:           [[RES_:%.+]] = alloc([[VAR_0_]]) : memref<?x10xf32>
+//CHECK:           [[VAR_cst_:%.+]] = constant 0.000000e+00 : f32
+//CHECK:           [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+//CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_0_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10) {
+//CHECK:             affine.store [[VAR_cst_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<?x10xf32>
+//CHECK:             [[LOOP_1_:%.+]] = krnl.define_loops 1
+//CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 5) {
+//CHECK:               [[LOAD_A_MEM_:%.+]] = affine.load [[A_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<?x10x5xf32>
+//CHECK:               [[LOAD_B_MEM_:%.+]] = affine.load [[B_]]{{.}}[[I_2_]]{{.}} : memref<5xf32>
+//CHECK:               [[LOAD_RES_MEM_:%.+]] = affine.load [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<?x10xf32>
+//CHECK:               [[VAR_7_:%.+]] = mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
+//CHECK:               [[VAR_8_:%.+]] = addf [[LOAD_RES_MEM_]], [[VAR_7_]] : f32
+//CHECK:               affine.store [[VAR_8_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<?x10xf32>
+//CHECK:             }
+//CHECK:           }
+//CHECK:           return [[RES_]] : memref<?x10xf32>
+//CHECK:         }
 }
 
 // -----
@@ -1273,21 +1281,25 @@ func private @test_matmul7(%arg0 : tensor<5xf32>, %arg1 : tensor<5xf32>) -> tens
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<5xf32>, tensor<5xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_matmul7
-  // CHECK: [[RES:%.+]] = alloc() : memref<1xf32>
-  // CHECK: [[CONSTANT:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: %[[CONSTANT_INDEX:.+]] = constant 0 : index
-  // CHECK: affine.store [[CONSTANT]], [[RES]][%[[CONSTANT_INDEX]]] : memref<1xf32>
-  // CHECK: [[LOOPS_REDUCE:%.+]] = krnl.define_loops 1
-  // CHECK: krnl.iterate([[LOOPS_REDUCE]]) with ([[LOOPS_REDUCE]] -> %arg2 = 0 to 5) {
-  // CHECK:   [[LOAD_0:%.+]] = affine.load %arg0[%arg2] : memref<5xf32>
-  // CHECK:   [[LOAD_1:%.+]] = affine.load %arg1[%arg2] : memref<5xf32>
-  // CHECK:   [[LOAD_RES:%.+]] = affine.load [[RES]][%[[CONSTANT_INDEX]]] : memref<1xf32>
-  // CHECK:   [[MUL:%.+]] = mulf [[LOAD_0]], [[LOAD_1]] : f32
-  // CHECK:   [[ADD:%.+]] = addf [[LOAD_RES]], [[MUL]] : f32
-  // CHECK:   affine.store [[ADD]], [[RES]][%[[CONSTANT_INDEX]]] : memref<1xf32>
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<1xf32>
+//CHECK-LABEL:  func @test_matmul7
+//CHECK-SAME:   ([[A_:%.+]]: memref<5xf32>, [[B_:%.+]]: memref<5xf32>) -> memref<1xf32> {
+//CHECK:           [[RES_:%.+]] = alloc() : memref<1xf32>
+//CHECK:           [[VAR_cst_:%.+]] = constant 0.000000e+00 : f32
+//CHECK:           [[LOOP_0_:%.+]] = krnl.define_loops 1
+//CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 1) {
+//CHECK:             affine.store [[VAR_cst_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<1xf32>
+//CHECK:             [[LOOP_1_:%.+]] = krnl.define_loops 1
+//CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = 0 to 5) {
+//CHECK:               [[LOAD_A_MEM_:%.+]] = affine.load [[A_]]{{.}}[[I_1_]]{{.}} : memref<5xf32>
+//CHECK:               [[LOAD_B_MEM_:%.+]] = affine.load [[B_]]{{.}}[[I_1_]]{{.}} : memref<5xf32>
+//CHECK:               [[LOAD_RES_MEM_:%.+]] = affine.load [[RES_]]{{.}}[[I_0_]]{{.}} : memref<1xf32>
+//CHECK:               [[VAR_6_:%.+]] = mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
+//CHECK:               [[VAR_7_:%.+]] = addf [[LOAD_RES_MEM_]], [[VAR_6_]] : f32
+//CHECK:               affine.store [[VAR_7_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<1xf32>
+//CHECK:             }
+//CHECK:           }
+//CHECK:           return [[RES_]] : memref<1xf32>
+//CHECK:         }
 }
 
 // -----
@@ -1798,6 +1810,11 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   /// Check main loop.
   // CHECK: [[SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
   // CHECK: krnl.iterate([[SEQUENCE_LOOPS]]) with ([[SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
+  // CHECK:   [[rhrHMemRef:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:   [[rhMemRef:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:   [[xwHMemRef:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:   [[ztMemRef:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:   [[htMemRef:%.+]] = alloc() : memref<3x3xf32>
   // CHECK:   [[ZERO_INDEX:%.+]] = constant 0 : index
   // CHECK:   [[INDEX_3:%.+]] = constant 3 : index
   // CHECK:   [[INDEX_0:%.+]] = constant 0 : index
@@ -1805,11 +1822,8 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:   [[INDEX_2:%.+]] = constant 2 : index
   // CHECK:   [[DATA_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK:   krnl.iterate([[DATA_LOOPS]]#0, [[DATA_LOOPS]]#1) with ([[DATA_LOOPS]]#0 -> %arg4 = 0 to 3, [[DATA_LOOPS]]#1 -> %arg5 = 0 to 3) {
-  // CHECK:     [[ht:%.+]] = alloc() : memref<f32>
   // CHECK:     [[rt:%.+]] = alloc() : memref<f32>
   // CHECK:     [[zt:%.+]] = alloc() : memref<f32>
-
-  // CHECK:     [[PREVIOUS_Ht:%.+]] = affine.load [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
 
   // CHECK:     [[INITIAL_VAL_0:%.+]] = constant 0.000000e+00 : f32
   // CHECK:     [[XWZt:%.+]] = alloc() : memref<f32>
@@ -1820,10 +1834,8 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     affine.store [[INITIAL_VAL_0]], [[XWRt]][] : memref<f32>
   // CHECK:     [[HRRt:%.+]] = alloc() : memref<f32>
   // CHECK:     affine.store [[INITIAL_VAL_0]], [[HRRt]][] : memref<f32>
-  // CHECK:     [[XWHt:%.+]] = alloc() : memref<f32>
-  // CHECK:     affine.store [[INITIAL_VAL_0]], [[XWHt]][] : memref<f32>
-  // CHECK:     [[HRHt:%.+]] = alloc() : memref<f32>
-  // CHECK:     affine.store [[INITIAL_VAL_0]], [[HRHt]][] : memref<f32>
+
+  // CHECK:     affine.store [[INITIAL_VAL_0]], [[xwHMemRef]][%arg4, %arg5] : memref<3x3xf32>
 
   // CHECK:     [[REDUCTION_LOOPS:%.+]] = krnl.define_loops 1
   // CHECK:     krnl.iterate([[REDUCTION_LOOPS]]) with ([[REDUCTION_LOOPS]] -> %arg6 = 0 to 2) {
@@ -1839,13 +1851,6 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
   // CHECK:       affine.store [[ADD]], [[XWZt]][] : memref<f32>
 
-  /// compute Ht-1*(Rz^T)
-  // CHECK:       [[RZt:%.+]] = affine.load %arg2{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_Z]], %arg6] : memref<1x9x3xf32>
-  // CHECK:       [[MUL:%.+]] = mulf [[PREVIOUS_Ht]], [[RZt]] : f32
-  // CHECK:       [[LOAD:%.+]] = affine.load [[HRZt]][] : memref<f32>
-  // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
-  // CHECK:       affine.store [[ADD]], [[HRZt]][] : memref<f32>
-
   /// compute Xt*(Wr^T)
   // CHECK:       [[WRt:%.+]] = affine.load %arg1{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_R]], %arg6] : memref<1x9x2xf32>
   // CHECK:       [[MUL:%.+]] = mulf [[Xt]], [[WRt]] : f32
@@ -1853,19 +1858,33 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
   // CHECK:       affine.store [[ADD]], [[XWRt]][] : memref<f32>
 
+  /// compute Xt*(Wh^T)
+  // CHECK:       [[WHt:%.+]] = affine.load %arg1{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_H]], %arg6] : memref<1x9x2xf32>
+  // CHECK:       [[MUL:%.+]] = mulf [[Xt]], [[WHt]] : f32
+  // CHECK:       [[LOAD:%.+]] = affine.load [[xwHMemRef]][%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
+  // CHECK:       affine.store [[ADD]], [[xwHMemRef]][%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:     }
+
+  // CHECK:     [[REDUCTION_LOOPS:%.+]] = krnl.define_loops 1
+  // CHECK:     krnl.iterate([[REDUCTION_LOOPS]]) with ([[REDUCTION_LOOPS]] -> %arg6 = 0 to 3) {
+  // CHECK:       [[BIAS_MAP_FOR_Z:%.+]] = affine.apply {{.*}}(%arg5){{\[}}[[INDEX_0]], [[INDEX_3]]]
+  // CHECK:       [[BIAS_MAP_FOR_R:%.+]] = affine.apply {{.*}}(%arg5){{\[}}[[INDEX_1]], [[INDEX_3]]]
+  // CHECK:       [[BIAS_MAP_FOR_H:%.+]] = affine.apply {{.*}}(%arg5){{\[}}[[INDEX_2]], [[INDEX_3]]]
+  // CHECK:       [[PREVIOUS_Ht:%.+]] = affine.load [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg6] : memref<1x3x3xf32>
+  /// compute Ht-1*(Rz^T)
+  // CHECK:       [[RZt:%.+]] = affine.load %arg2{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_Z]], %arg6] : memref<1x9x3xf32>
+  // CHECK:       [[MUL:%.+]] = mulf [[PREVIOUS_Ht]], [[RZt]] : f32
+  // CHECK:       [[LOAD:%.+]] = affine.load [[HRZt]][] : memref<f32>
+  // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
+  // CHECK:       affine.store [[ADD]], [[HRZt]][] : memref<f32>
+
   /// compute Ht-1*(Rr^T)
   // CHECK:       [[RRt:%.+]] = affine.load %arg2{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_R]], %arg6] : memref<1x9x3xf32>
   // CHECK:       [[MUL:%.+]] = mulf [[PREVIOUS_Ht]], [[RRt]] : f32
   // CHECK:       [[LOAD:%.+]] = affine.load [[HRRt]][] : memref<f32>
   // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
   // CHECK:       affine.store [[ADD]], [[HRRt]][] : memref<f32>
-
-  /// compute Xt*(Wh^T)
-  // CHECK:       [[WHt:%.+]] = affine.load %arg1{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_H]], %arg6] : memref<1x9x2xf32>
-  // CHECK:       [[MUL:%.+]] = mulf [[Xt]], [[WHt]] : f32
-  // CHECK:       [[LOAD:%.+]] = affine.load [[XWHt]][] : memref<f32>
-  // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
-  // CHECK:       affine.store [[ADD]], [[XWHt]][] : memref<f32>
   // CHECK:     }
 
   /// compute zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
@@ -1883,16 +1902,16 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:     affine.store {{.*}}, [[zt]][] : memref<f32>
+  // CHECK:     affine.store {{.*}}, [[ztMemRef]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
 
   /// compute rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)
-  // CHECK:     [[LOAD_zt:%.+]] = affine.load [[zt]][] : memref<f32>
   // CHECK:     [[LOAD_XWRt:%.+]] = affine.load [[XWRt]][] : memref<f32>
   // CHECK:     [[LOAD_HRRt:%.+]] = affine.load [[HRRt]][] : memref<f32>
   // CHECK:     [[ADD:%.+]] = addf [[LOAD_XWRt]], [[LOAD_HRRt]] : f32
   /// apply activation f = sigmoid
   // CHECK:     {{.*}} = alloc() : memref<f32>
   // CHECK:     affine.store [[ADD]], {{.*}}[] : memref<f32>
-  // CHECK:     {{.*}} = affine.load %28[] : memref<f32>
+  // CHECK:     {{.*}} = affine.load {{.*}}[] : memref<f32>
   // CHECK:     {{.*}} = constant 0.000000e+00 : f32
   // CHECK:     {{.*}} = constant 1.000000e+00 : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
@@ -1902,54 +1921,78 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     affine.store {{.*}}, [[rt]][] : memref<f32>
   // CHECK:     [[LOAD_rt:%.+]] = affine.load [[rt]][] : memref<f32>
 
-  /// compute  ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh) since linear_before_reset = 0 (default)
-  /// 'rt (.) Ht-1'
-  // CHECK:     [[LOAD_XWHt:%.+]] = affine.load [[XWHt]][] : memref<f32>
-  // CHECK:     [[MUL_rt_PREVIOUS_Ht:%.+]] = mulf [[LOAD_rt]], [[PREVIOUS_Ht]] : f32
-  /// '(rt (.) Ht-1)*(Rh^T)'
+  // COM: 'rt (.) Ht-1'
+  // CHECK:     [[LOAD_ht:%.+]] = affine.load [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
+  // CHECK:     [[RtHt:%.+]] = mulf [[LOAD_rt]], [[LOAD_ht]] : f32
+  // CHECK:     affine.store [[RtHt]], [[rhMemRef]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+
+  // CHECK:     dealloc [[XWZt]] : memref<f32>
+  // CHECK:     dealloc [[XWRt]] : memref<f32>
+  // CHECK:     dealloc [[HRZt]] : memref<f32>
+  // CHECK:     dealloc [[HRRt]] : memref<f32>
+  // CHECK:   }
+
+  // COM: compute '(rt (.) Ht-1)*(Rh^T)'
+  // CHECK:   [[HT_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK:   krnl.iterate([[HT_LOOPS]]#0, [[HT_LOOPS]]#1) with ([[HT_LOOPS]]#0 -> %arg4 = 0 to 3, [[HT_LOOPS]]#1 -> %arg5 = 0 to 3) {
+  // CHECK:     [[BIAS_MAP_FOR_H:%.+]] = affine.apply {{.*}}(%arg5){{\[}}[[INDEX_2]], [[INDEX_3]]]
+  // CHECK:     [[INITIAL_VAL:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:     affine.store [[INITIAL_VAL]], [[rhrHMemRef]][%arg4, %arg5] : memref<3x3xf32>
   // CHECK:     [[REDUCTION_LOOPS_1:%.+]] = krnl.define_loops 1
-  // CHECK:     krnl.iterate([[REDUCTION_LOOPS_1]]) with ([[REDUCTION_LOOPS_1]] -> %arg6 = 0 to 2) {
-  // CHECK:       [[BIAS_MAP_FOR_H:%.+]] = affine.apply {{.*}}(%arg5){{\[}}[[INDEX_2]], [[INDEX_3]]]
+  // CHECK:     krnl.iterate([[REDUCTION_LOOPS_1]]) with ([[REDUCTION_LOOPS_1]] -> %arg6 = 0 to 3) {
+  // CHECK:       [[LOAD_RtHt:%.+]] = affine.load [[rhMemRef]][%arg4, %arg6] : memref<3x3xf32>
   // CHECK:       [[LOAD_RHt:%.+]] = affine.load %arg2{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_H]], %arg6] : memref<1x9x3xf32>
-  // CHECK:       [[MUL:%.+]] = mulf [[MUL_rt_PREVIOUS_Ht]], [[LOAD_RHt]] : f32
-  // CHECK:       [[LOAD:%.+]] = affine.load [[HRHt]][] : memref<f32>
+  // CHECK:       [[MUL:%.+]] = mulf [[LOAD_RtHt]], [[LOAD_RHt]] : f32
+  // CHECK:       [[LOAD:%.+]] = affine.load [[rhrHMemRef]][%arg4, %arg5] : memref<3x3xf32>
   // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
-  // CHECK:       affine.store [[ADD]], [[HRHt]][] : memref<f32>
+  // CHECK:       affine.store [[ADD]], [[rhrHMemRef]][%arg4, %arg5] : memref<3x3xf32>
   // CHECK:     }
-  // CHECK:     [[LOAD_HRHt:%.+]] = affine.load [[HRHt]][] : memref<f32>
+  // CHECK:   }
+
+  // CHECK:   [[GATE_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK:   krnl.iterate([[GATE_LOOPS]]#0, [[GATE_LOOPS]]#1) with ([[GATE_LOOPS]]#0 -> %arg4 = 0 to 3, [[GATE_LOOPS]]#1 -> %arg5 = 0 to 3) {
+
+  // COM: compute  ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh) since linear_before_reset = 0 (default)
+  // CHECK:     [[ht:%.+]] = alloc() : memref<f32>
+  // CHECK:     [[LOAD_XWHt:%.+]] = affine.load [[xwHMemRef]][%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:     [[LOAD_HRHt:%.+]] = affine.load [[rhrHMemRef]][%arg4, %arg5] : memref<3x3xf32>
   // CHECK:     [[ADD:%.+]] = addf [[LOAD_XWHt]], [[LOAD_HRHt]] : f32
   /// apply activation g = tanh
-  // CHECK:     {{.*}} = alloc() : memref<f32>
   // CHECK:     affine.store [[ADD]], {{.*}}[] : memref<f32>
   // CHECK:     {{.*}} = affine.load {{.*}}[] : memref<f32>
-  // CHECK:     %cst_8 = constant 0.000000e+00 : f32
-  // CHECK:     {{.*}} = subf %cst_8, {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:     {{.*}} = constant 2.000000e+00 : f32
+  // CHECK:     {{.*}} = mulf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = negf {{.*}} : f32
   // CHECK:     {{.*}} = exp {{.*}} : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:     {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:     affine.store {{.*}}, [[ht]][] : memref<f32>
   // CHECK:     [[LOAD_ht:%.+]] = affine.load [[ht]][] : memref<f32>
 
-  /// compute  Ht = (1 - zt) (.) ht + zt (.) Ht-1
+  // COM: compute  Ht = (1 - zt) (.) ht + zt (.) Ht-1
+  // CHECK:     [[LOAD_zt:%.+]] = affine.load [[ztMemRef]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:     [[PREVIOUS_Ht:%.+]] = affine.load [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
   // CHECK:     [[ONE:%.+]] = constant 1.000000e+00 : f32
   // CHECK:     [[SUB:%.+]] = subf [[ONE]], [[LOAD_zt]] : f32
   // CHECK:     [[MUL:%.+]] = mulf [[SUB]], [[LOAD_ht]] : f32
   // CHECK:     [[MUL_1:%.+]] = mulf [[LOAD_zt]], [[PREVIOUS_Ht]] : f32
   // CHECK:     [[ADD:%.+]] = addf [[MUL]], [[MUL_1]] : f32
   // CHECK:     affine.store [[ADD]], [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
-
-  // CHECK:     dealloc [[XWZt]] : memref<f32>
-  // CHECK:     dealloc [[XWRt]] : memref<f32>
-  // CHECK:     dealloc [[XWHt]] : memref<f32>
-  // CHECK:     dealloc [[HRZt]] : memref<f32>
-  // CHECK:     dealloc [[HRRt]] : memref<f32>
-  // CHECK:     dealloc [[HRHt]] : memref<f32>
-  // CHECK:     dealloc [[zt]] : memref<f32>
-  // CHECK:     dealloc [[rt]] : memref<f32>
-  // CHECK:     dealloc [[ht]] : memref<f32>
   // CHECK:   }
+  // CHECK:   dealloc [[htMemRef]] : memref<3x3xf32>
+  // CHECK:   dealloc [[ztMemRef]] : memref<3x3xf32>
+  // CHECK:   dealloc [[xwHMemRef]] : memref<3x3xf32>
+  // CHECK:   dealloc [[rhMemRef]] : memref<3x3xf32>
+  // CHECK:   dealloc [[rhrHMemRef]] : memref<3x3xf32>
   // CHECK: }
   // CHECK: return [[RES]] : memref<1x3x3xf32>
 }
@@ -1976,6 +2019,8 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
   /// Check main loop.
   // CHECK: [[SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
   // CHECK: krnl.iterate([[SEQUENCE_LOOPS]]) with ([[SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
+  // CHECK:   [[ztMemRef:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:   [[htMemRef:%.+]] = alloc() : memref<3x3xf32>
   // CHECK:   [[ZERO_INDEX:%.+]] = constant 0 : index
   // CHECK:   [[INDEX_3:%.+]] = constant 3 : index
   // CHECK:   [[INDEX_0:%.+]] = constant 0 : index
@@ -1986,8 +2031,6 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     [[ht:%.+]] = alloc() : memref<f32>
   // CHECK:     [[rt:%.+]] = alloc() : memref<f32>
   // CHECK:     [[zt:%.+]] = alloc() : memref<f32>
-
-  // CHECK:     [[PREVIOUS_Ht:%.+]] = affine.load [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
 
   // CHECK:     [[INITIAL_VAL_0:%.+]] = constant 0.000000e+00 : f32
   // CHECK:     [[XWZt:%.+]] = alloc() : memref<f32>
@@ -2017,13 +2060,6 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
   // CHECK:       affine.store [[ADD]], [[XWZt]][] : memref<f32>
 
-  /// compute Ht-1*(Rz^T)
-  // CHECK:       [[RZt:%.+]] = affine.load %arg2{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_Z]], %arg6] : memref<1x9x3xf32>
-  // CHECK:       [[MUL:%.+]] = mulf [[PREVIOUS_Ht]], [[RZt]] : f32
-  // CHECK:       [[LOAD:%.+]] = affine.load [[HRZt]][] : memref<f32>
-  // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
-  // CHECK:       affine.store [[ADD]], [[HRZt]][] : memref<f32>
-
   /// compute Xt*(Wr^T)
   // CHECK:       [[WRt:%.+]] = affine.load %arg1{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_R]], %arg6] : memref<1x9x2xf32>
   // CHECK:       [[MUL:%.+]] = mulf [[Xt]], [[WRt]] : f32
@@ -2031,19 +2067,33 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
   // CHECK:       affine.store [[ADD]], [[XWRt]][] : memref<f32>
 
-  /// compute Ht-1*(Rr^T)
-  // CHECK:       [[RRt:%.+]] = affine.load %arg2{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_R]], %arg6] : memref<1x9x3xf32>
-  // CHECK:       [[MUL:%.+]] = mulf [[PREVIOUS_Ht]], [[RRt]] : f32
-  // CHECK:       [[LOAD:%.+]] = affine.load [[HRRt]][] : memref<f32>
-  // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
-  // CHECK:       affine.store [[ADD]], [[HRRt]][] : memref<f32>
-
   /// compute Xt*(Wh^T)
   // CHECK:       [[WHt:%.+]] = affine.load %arg1{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_H]], %arg6] : memref<1x9x2xf32>
   // CHECK:       [[MUL:%.+]] = mulf [[Xt]], [[WHt]] : f32
   // CHECK:       [[LOAD:%.+]] = affine.load [[XWHt]][] : memref<f32>
   // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
   // CHECK:       affine.store [[ADD]], [[XWHt]][] : memref<f32>
+  // CHECK:     }
+
+  // CHECK:     [[REDUCTION_LOOPS:%.+]] = krnl.define_loops 1
+  // CHECK:     krnl.iterate([[REDUCTION_LOOPS]]) with ([[REDUCTION_LOOPS]] -> %arg6 = 0 to 3) {
+  // CHECK:       [[BIAS_MAP_FOR_Z:%.+]] = affine.apply {{.*}}(%arg5){{\[}}[[INDEX_0]], [[INDEX_3]]]
+  // CHECK:       [[BIAS_MAP_FOR_R:%.+]] = affine.apply {{.*}}(%arg5){{\[}}[[INDEX_1]], [[INDEX_3]]]
+  // CHECK:       [[BIAS_MAP_FOR_H:%.+]] = affine.apply {{.*}}(%arg5){{\[}}[[INDEX_2]], [[INDEX_3]]]
+  // CHECK:       [[PREVIOUS_Ht:%.+]] = affine.load [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg6] : memref<1x3x3xf32>
+  /// compute Ht-1*(Rz^T)
+  // CHECK:       [[RZt:%.+]] = affine.load %arg2{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_Z]], %arg6] : memref<1x9x3xf32>
+  // CHECK:       [[MUL:%.+]] = mulf [[PREVIOUS_Ht]], [[RZt]] : f32
+  // CHECK:       [[LOAD:%.+]] = affine.load [[HRZt]][] : memref<f32>
+  // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
+  // CHECK:       affine.store [[ADD]], [[HRZt]][] : memref<f32>
+
+  /// compute Ht-1*(Rr^T)
+  // CHECK:       [[RRt:%.+]] = affine.load %arg2{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_R]], %arg6] : memref<1x9x3xf32>
+  // CHECK:       [[MUL:%.+]] = mulf [[PREVIOUS_Ht]], [[RRt]] : f32
+  // CHECK:       [[LOAD:%.+]] = affine.load [[HRRt]][] : memref<f32>
+  // CHECK:       [[ADD:%.+]] = addf [[LOAD]], [[MUL]] : f32
+  // CHECK:       affine.store [[ADD]], [[HRRt]][] : memref<f32>
 
   /// compute Ht-1*(Rh^T)
   // CHECK:       [[RHt:%.+]] = affine.load %arg2{{\[}}[[ZERO_INDEX]], [[BIAS_MAP_FOR_H]], %arg6] : memref<1x9x3xf32>
@@ -2068,16 +2118,16 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:     affine.store {{.*}}, [[zt]][] : memref<f32>
+  // CHECK:     affine.store {{.*}}, [[ztMemRef]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
 
   /// compute rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)
-  // CHECK:     [[LOAD_zt:%.+]] = affine.load [[zt]][] : memref<f32>
   // CHECK:     [[LOAD_XWRt:%.+]] = affine.load [[XWRt]][] : memref<f32>
   // CHECK:     [[LOAD_HRRt:%.+]] = affine.load [[HRRt]][] : memref<f32>
   // CHECK:     [[ADD:%.+]] = addf [[LOAD_XWRt]], [[LOAD_HRRt]] : f32
   /// apply activation f = sigmoid
   // CHECK:     {{.*}} = alloc() : memref<f32>
   // CHECK:     affine.store [[ADD]], {{.*}}[] : memref<f32>
-  // CHECK:     {{.*}} = affine.load %28[] : memref<f32>
+  // CHECK:     {{.*}} = affine.load {{.*}}[] : memref<f32>
   // CHECK:     {{.*}} = constant 0.000000e+00 : f32
   // CHECK:     {{.*}} = constant 1.000000e+00 : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
@@ -2096,23 +2146,24 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = alloc() : memref<f32>
   // CHECK:     affine.store [[ADD]], {{.*}}[] : memref<f32>
   // CHECK:     {{.*}} = affine.load {{.*}}[] : memref<f32>
-  // CHECK:     %cst_8 = constant 0.000000e+00 : f32
-  // CHECK:     {{.*}} = subf %cst_8, {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:     {{.*}} = constant 2.000000e+00 : f32
+  // CHECK:     {{.*}} = mulf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = negf {{.*}} : f32
   // CHECK:     {{.*}} = exp {{.*}} : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:     {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:     affine.store {{.*}}, [[ht]][] : memref<f32>
   // CHECK:     [[LOAD_ht:%.+]] = affine.load [[ht]][] : memref<f32>
-
-  /// compute  Ht = (1 - zt) (.) ht + zt (.) Ht-1
-  // CHECK:     [[ONE:%.+]] = constant 1.000000e+00 : f32
-  // CHECK:     [[SUB:%.+]] = subf [[ONE]], [[LOAD_zt]] : f32
-  // CHECK:     [[MUL:%.+]] = mulf [[SUB]], [[LOAD_ht]] : f32
-  // CHECK:     [[MUL_1:%.+]] = mulf [[LOAD_zt]], [[PREVIOUS_Ht]] : f32
-  // CHECK:     [[ADD:%.+]] = addf [[MUL]], [[MUL_1]] : f32
-  // CHECK:     affine.store [[ADD]], [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
+  // CHECK:     affine.store [[LOAD_ht]], [[htMemRef]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
 
   // CHECK:     dealloc [[XWZt]] : memref<f32>
   // CHECK:     dealloc [[XWRt]] : memref<f32>
@@ -2124,6 +2175,22 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     dealloc [[rt]] : memref<f32>
   // CHECK:     dealloc [[ht]] : memref<f32>
   // CHECK:   }
+
+  // CHECK:   [[GATE_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK:   krnl.iterate([[GATE_LOOPS]]#0, [[GATE_LOOPS]]#1) with ([[GATE_LOOPS]]#0 -> %arg4 = 0 to 3, [[GATE_LOOPS]]#1 -> %arg5 = 0 to 3) {
+  /// compute  Ht = (1 - zt) (.) ht + zt (.) Ht-1
+  // CHECK:     [[LOAD_ht:%.+]] = affine.load [[htMemRef]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:     [[LOAD_zt:%.+]] = affine.load [[ztMemRef]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:     [[PREVIOUS_Ht:%.+]] = affine.load [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
+  // CHECK:     [[ONE:%.+]] = constant 1.000000e+00 : f32
+  // CHECK:     [[SUB:%.+]] = subf [[ONE]], [[LOAD_zt]] : f32
+  // CHECK:     [[MUL:%.+]] = mulf [[SUB]], [[LOAD_ht]] : f32
+  // CHECK:     [[MUL_1:%.+]] = mulf [[LOAD_zt]], [[PREVIOUS_Ht]] : f32
+  // CHECK:     [[ADD:%.+]] = addf [[MUL]], [[MUL_1]] : f32
+  // CHECK:     affine.store [[ADD]], [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
+  // CHECK:   }
+  // CHECK:    dealloc [[htMemRef]] : memref<3x3xf32>
+  // CHECK:    dealloc [[ztMemRef]] : memref<3x3xf32>
   // CHECK: }
   // CHECK: return [[RES]] : memref<1x3x3xf32>
 }
@@ -2156,6 +2223,25 @@ func private @test_gru_with_bias(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x9x2xf
 
 // -----
 
+// Check handling unknown dimensions for GRU by checking the 
+// correctness of allocating and deallocating memory.
+func private @test_gru_unkown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x9x?xf32>, %arg2: tensor<1x9x3xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %Y, %Y_h = "onnx.GRU"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<?x?x?xf32>, tensor<1x9x?xf32>, tensor<1x9x3xf32>, none, none, none) -> (none, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+  // CHECK-LABEL: @test_gru_unkown_dims_allocation
+
+  // allocate memory for Hidden (Y_h).
+  // CHECK: [[C1_0:%.+]] = constant 1 : index
+  // CHECK: [[BATCH_SIZE:%.+]] = dim %arg0, [[C1_0]] : memref<?x?x?xf32>
+  // CHECK: [[Y_h:%.+]] = alloc([[BATCH_SIZE]]) : memref<1x?x3xf32>
+
+  // CHECK: return [[Y_h]] : memref<1x?x3xf32>
+}
+
+// -----
+
 func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x12x2xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
   %cst = constant unit
   %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<4x3x2xf32>, tensor<1x12x2xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (none, tensor<*xf32>, none)
@@ -2177,7 +2263,17 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
 
   // CHECK:  [[SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
   // CHECK:  krnl.iterate([[SEQUENCE_LOOPS]]) with ([[SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
-  // CHECK:    {{.*}} = constant 0 : index
+
+  // CHECK:    [[HtRc_GEMM:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:    [[XtWc_GEMM:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:    [[HtRf_GEMM:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:    [[XtWf_GEMM:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:    [[HtRo_GEMM:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:    [[XtWo_GEMM:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:    [[HtRi_GEMM:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:    [[XtWi_GEMM:%.+]] = alloc() : memref<3x3xf32>
+
+  // CHECK:    [[C0_INDEX:%.+]] = constant 0 : index
   // CHECK:    {{.*}} = constant 3 : index
   // CHECK:    {{.*}} = constant 0 : index
   // CHECK:    {{.*}} = constant 1 : index
@@ -2187,6 +2283,84 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:    {{.*}} = constant 5 : index
   // CHECK:    {{.*}} = constant 6 : index
   // CHECK:    {{.*}} = constant 7 : index
+  // CHECK:    [[MATRIX_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK:    krnl.iterate([[MATRIX_LOOPS]]#0, [[MATRIX_LOOPS]]#1) with ([[MATRIX_LOOPS]]#0 -> %arg4 = 0 to 3, [[MATRIX_LOOPS]]#1 -> %arg5 = 0 to 3) {
+  // CHECK:      [[CST0:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:      affine.store [[CST0]], [[XtWi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      affine.store [[CST0]], [[HtRi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      affine.store [[CST0]], [[XtWo_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      affine.store [[CST0]], [[HtRo_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      affine.store [[CST0]], [[XtWf_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      affine.store [[CST0]], [[HtRf_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      affine.store [[CST0]], [[XtWc_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      affine.store [[CST0]], [[HtRc_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      [[XW_LOOPS:%.+]] = krnl.define_loops 1
+  // CHECK:      krnl.iterate([[XW_LOOPS]]) with ([[XW_LOOPS]] -> %arg6 = 0 to 2) {
+  // CHECK:        [[INPUT_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, {{.*}}]
+  // CHECK:        [[OUTPUT_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, {{.*}}]
+  // CHECK:        [[FORGET_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, {{.*}}]
+  // CHECK:        [[CELL_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, {{.*}}]
+
+  // CHECK:        [[Xt_LOAD:%.+]] = affine.load %arg0[%arg3, %arg4, %arg6] : memref<4x3x2xf32>
+  // CHECK:        [[Wi_LOAD:%.+]] = affine.load %arg1{{\[}}[[C0_INDEX]], [[INPUT_HIDDEN_INDEX]], %arg6] : memref<1x12x2xf32>
+  // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wi_LOAD]] : f32
+  // CHECK:        {{.*}} = affine.load [[XtWi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:        affine.store {{.*}}, [[XtWi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+
+  // CHECK:        [[Wo_LOAD:%.+]] = affine.load %arg1{{\[}}[[C0_INDEX]], [[OUTPUT_HIDDEN_INDEX]], %arg6] : memref<1x12x2xf32>
+  // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wo_LOAD]] : f32
+  // CHECK:        {{.*}} = affine.load [[XtWo_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:        {{.*}} = addf {{.*}}, %26 : f32
+  // CHECK:        affine.store {{.*}}, [[XtWo_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+
+  // CHECK:        [[Wf_LOAD:%.+]] = affine.load %arg1{{\[}}[[C0_INDEX]], [[FORGET_HIDDEN_INDEX]], %arg6] : memref<1x12x2xf32>
+  // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wf_LOAD]] : f32
+  // CHECK:        {{.*}} = affine.load [[XtWf_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:        {{.*}} = addf {{.*}}, %30 : f32
+  // CHECK:        affine.store {{.*}}, [[XtWf_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+
+  // CHECK:        [[Wc_LOAD:%.+]] = affine.load %arg1{{\[}}[[C0_INDEX]], [[CELL_HIDDEN_INDEX]], %arg6] : memref<1x12x2xf32>
+  // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wc_LOAD]] : f32
+  // CHECK:        {{.*}} = affine.load [[XtWc_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:        {{.*}} = addf {{.*}}, %34 : f32
+  // CHECK:        affine.store {{.*}}, [[XtWc_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      }
+  // CHECK:      [[HR_LOOPS:%.+]] = krnl.define_loops 1
+  // CHECK:      krnl.iterate([[HR_LOOPS]]) with ([[HR_LOOPS]] -> %arg6 = 0 to 3) {
+  // CHECK:        [[INPUT_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, {{.*}}]
+  // CHECK:        [[OUTPUT_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, {{.*}}]
+  // CHECK:        [[FORGET_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, {{.*}}]
+  // CHECK:        [[CELL_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, {{.*}}]
+
+  // CHECK:        [[Ht_LOAD:%.+]] = affine.load %1{{\[}}[[C0_INDEX]], %arg4, %arg6] : memref<1x3x3xf32>
+
+  // CHECK:        [[Ri_LOAD:%.+]] = affine.load %arg2{{\[}}[[C0_INDEX]], [[INPUT_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
+  // CHECK:        {{.*}} = mulf [[Ht_LOAD]], [[Ri_LOAD]] : f32
+  // CHECK:        {{.*}} = affine.load [[HtRi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:        affine.store {{.*}}, [[HtRi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+
+  // CHECK:        [[Ro_LOAD:%.+]] = affine.load %arg2{{\[}}[[C0_INDEX]], [[OUTPUT_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
+  // CHECK:        {{.*}} = mulf [[Ht_LOAD]], [[Ro_LOAD]] : f32
+  // CHECK:        {{.*}} = affine.load [[HtRo_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:        affine.store {{.*}}, [[HtRo_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+
+  // CHECK:        [[Rf_LOAD:%.+]] = affine.load %arg2{{\[}}[[C0_INDEX]], [[FORGET_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
+  // CHECK:        {{.*}} = mulf [[Ht_LOAD]], [[Rf_LOAD]] : f32
+  // CHECK:        {{.*}} = affine.load [[HtRf_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:        affine.store {{.*}}, [[HtRf_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+
+  // CHECK:        [[Rc_LOAD:%.+]] = affine.load %arg2{{\[}}[[C0_INDEX]], [[CELL_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
+  // CHECK:        {{.*}} = mulf [[Ht_LOAD]], [[Rc_LOAD]] : f32
+  // CHECK:        {{.*}} = affine.load [[HtRc_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:        affine.store {{.*}}, [[HtRc_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      } 
+  // CHECK:    }
+
   // CHECK:    [[DATA_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK:    krnl.iterate([[DATA_LOOPS]]#0, [[DATA_LOOPS]]#1) with ([[DATA_LOOPS]]#0 -> %arg4 = 0 to 3, [[DATA_LOOPS]]#1 -> %arg5 = 0 to 3) {
   // CHECK:      [[hCt:%.+]] = alloc() : memref<f32>
@@ -2194,87 +2368,11 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:      [[ct:%.+]] = alloc() : memref<f32>
   // CHECK:      [[Ft:%.+]] = alloc() : memref<f32>
   // CHECK:      [[It:%.+]] = alloc() : memref<f32>
-  // CHECK:      [[Ht1_LOAD:%.+]] = affine.load [[HIDDEN_STATE]][%c0, %arg4, %arg5] : memref<1x3x3xf32>
-  // CHECK:      [[Ct1_LOAD:%.+]] = affine.load [[CELL_STATE]][%c0, %arg4, %arg5] : memref<1x3x3xf32>
 
-  // CHECK:      [[ZERO_FLOAT:%.+]] = constant 0.000000e+00 : f32
-  // CHECK:      [[XtWi_GEMM:%.+]] = alloc() : memref<f32>
-  // CHECK:      affine.store [[ZERO_FLOAT]], [[XtWi_GEMM]][] : memref<f32>
-  // CHECK:      [[Ht1Ri_GEMM:%.+]] = alloc() : memref<f32>
-  // CHECK:      affine.store [[ZERO_FLOAT]], [[Ht1Ri_GEMM]][] : memref<f32>
-  // CHECK:      [[XtWo_GEMM:%.+]] = alloc() : memref<f32>
-  // CHECK:      affine.store [[ZERO_FLOAT]], [[XtWo_GEMM]][] : memref<f32>
-  // CHECK:      [[Ht1Ro_GEMM:%.+]] = alloc() : memref<f32>
-  // CHECK:      affine.store [[ZERO_FLOAT]], [[Ht1Ro_GEMM]][] : memref<f32>
-  // CHECK:      [[XtWf_GEMM:%.+]] = alloc() : memref<f32>
-  // CHECK:      affine.store [[ZERO_FLOAT]], [[XtWf_GEMM]][] : memref<f32>
-  // CHECK:      [[Ht1Rf_GEMM:%.+]] = alloc() : memref<f32>
-  // CHECK:      affine.store [[ZERO_FLOAT]], [[Ht1Rf_GEMM]][] : memref<f32>
-  // CHECK:      [[XtWc_GEMM:%.+]] = alloc() : memref<f32>
-  // CHECK:      affine.store [[ZERO_FLOAT]], [[XtWc_GEMM]][] : memref<f32>
-  // CHECK:      [[Ht1Rc_GEMM:%.+]] = alloc() : memref<f32>
-  // CHECK:      affine.store [[ZERO_FLOAT]], [[Ht1Rc_GEMM]][] : memref<f32>
-
-  // CHECK:      [[REDUCTION_LOOPS:%.+]] = krnl.define_loops 1
-  // CHECK:      krnl.iterate([[REDUCTION_LOOPS]]) with ([[REDUCTION_LOOPS]] -> %arg6 = 0 to 2) {
-  // CHECK:        [[INPUT_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, %c3]
-  // CHECK:        [[OUTPUT_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, %c3]
-  // CHECK:        [[FORGET_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, %c3]
-  // CHECK:        [[CELL_HIDDEN_INDEX:%.+]] = affine.apply #{{.*}}(%arg5)[{{.*}}, %c3]
-  // CHECK:        [[Xt_LOAD:%.+]] = affine.load %arg0[%arg3, %arg4, %arg6] : memref<4x3x2xf32>
-
-  // CHECK:        [[Wi_LOAD:%.+]] = affine.load %arg1[%c0, [[INPUT_HIDDEN_INDEX]], %arg6] : memref<1x12x2xf32>
-  // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wi_LOAD]] : f32
-  // CHECK:        {{.*}} = affine.load [[XtWi_GEMM]][] : memref<f32>
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        affine.store {{.*}}, [[XtWi_GEMM]][] : memref<f32>
-
-  // CHECK:        [[Ri_LOAD:%.+]] = affine.load %arg2[%c0, [[INPUT_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
-  // CHECK:        {{.*}} = mulf [[Ht1_LOAD]], [[Ri_LOAD]] : f32
-  // CHECK:        {{.*}} = affine.load [[Ht1Ri_GEMM]][] : memref<f32>
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        affine.store {{.*}}, [[Ht1Ri_GEMM]][] : memref<f32>
-
-  // CHECK:        [[Wo_LOAD:%.+]] = affine.load %arg1[%c0, [[OUTPUT_HIDDEN_INDEX]], %arg6] : memref<1x12x2xf32>
-  // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wo_LOAD]] : f32
-  // CHECK:        {{.*}} = affine.load [[XtWo_GEMM]][] : memref<f32>
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        affine.store {{.*}}, [[XtWo_GEMM]][] : memref<f32>
-
-  // CHECK:        [[Ro_LOAD:%.+]] = affine.load %arg2[%c0, [[OUTPUT_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
-  // CHECK:        {{.*}} = mulf [[Ht1_LOAD]], [[Ro_LOAD]] : f32
-  // CHECK:        {{.*}} = affine.load [[Ht1Ro_GEMM]][] : memref<f32>
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        affine.store {{.*}}, [[Ht1Ro_GEMM]][] : memref<f32>
-
-  // CHECK:        [[Wf_LOAD:%.+]] = affine.load %arg1[%c0, [[FORGET_HIDDEN_INDEX]], %arg6] : memref<1x12x2xf32>
-  // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wf_LOAD]] : f32
-  // CHECK:        {{.*}} = affine.load [[XtWf_GEMM]][] : memref<f32>
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        affine.store {{.*}}, [[XtWf_GEMM]][] : memref<f32>
-
-  // CHECK:        [[Rf_LOAD:%.+]] = affine.load %arg2[%c0, [[FORGET_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
-  // CHECK:        {{.*}} = mulf [[Ht1_LOAD]], [[Rf_LOAD]] : f32
-  // CHECK:        {{.*}} = affine.load [[Ht1Rf_GEMM]][] : memref<f32>
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        affine.store {{.*}}, [[Ht1Rf_GEMM]][] : memref<f32>
-
-  // CHECK:        [[Wc_LOAD:%.+]] = affine.load %arg1[%c0, [[CELL_HIDDEN_INDEX]], %arg6] : memref<1x12x2xf32>
-  // CHECK:        {{.*}} = mulf [[Xt_LOAD]], [[Wc_LOAD]] : f32
-  // CHECK:        {{.*}} = affine.load [[XtWc_GEMM]][] : memref<f32>
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        affine.store {{.*}}, [[XtWc_GEMM]][] : memref<f32>
-
-  // CHECK:        [[Rc_LOAD:%.+]] = affine.load %arg2[%c0, [[CELL_HIDDEN_INDEX]], %arg6] : memref<1x12x3xf32>
-  // CHECK:        {{.*}} = mulf [[Ht1_LOAD]], [[Rc_LOAD]] : f32
-  // CHECK:        {{.*}} = affine.load [[Ht1Rc_GEMM]][] : memref<f32>
-  // CHECK:        {{.*}} = addf {{.*}}, {{.*}} : f32
-  // CHECK:        affine.store {{.*}}, [[Ht1Rc_GEMM]][] : memref<f32>
-  // CHECK:      }
-
-  // CHECK:      [[XtWi_LOAD:%.+]] = affine.load [[XtWi_GEMM]][] : memref<f32>
-  // CHECK:      [[Ht1Ri_LOAD:%.+]] = affine.load [[Ht1Ri_GEMM]][] : memref<f32>
-  // CHECK:      [[It_OUTPUT:%.+]] = addf [[XtWi_LOAD]], [[Ht1Ri_LOAD]] : f32
+  // CHECK:      [[Ct1_LOAD:%.+]] = affine.load [[CELL_STATE]]{{\[}}[[C0_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
+  // CHECK:      [[XtWi_LOAD:%.+]] = affine.load [[XtWi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      [[HtRi_LOAD:%.+]] = affine.load [[HtRi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      [[It_OUTPUT:%.+]] = addf [[XtWi_LOAD]], [[HtRi_LOAD]] : f32
 
   // CHECK:      [[SIGMOID_INPUT:%.+]] = alloc() : memref<f32>
   // CHECK:      affine.store [[It_OUTPUT]], [[SIGMOID_INPUT]][] : memref<f32>
@@ -2288,9 +2386,9 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:      affine.store {{.*}}, [[It]][] : memref<f32>
   // CHECK:      [[It_LOAD:%.+]] = affine.load [[It]][] : memref<f32>
 
-  // CHECK:      [[XtWf_LOAD:%.+]] = affine.load [[XtWf_GEMM]][] : memref<f32>
-  // CHECK:      [[Ht1Rf_LOAD:%.+]] = affine.load [[Ht1Rf_GEMM]][] : memref<f32>
-  // CHECK:      [[Ft_OUTPUT:%.+]] = addf [[XtWf_LOAD]], [[Ht1Rf_LOAD]] : f32
+  // CHECK:      [[XtWf_LOAD:%.+]] = affine.load [[XtWf_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      [[HtRf_LOAD:%.+]] = affine.load [[HtRf_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      [[Ft_OUTPUT:%.+]] = addf [[XtWf_LOAD]], [[HtRf_LOAD]] : f32
 
   // CHECK:      [[SIGMOID_FORGET:%.+]] = alloc() : memref<f32>
   // CHECK:      affine.store [[Ft_OUTPUT]], [[SIGMOID_FORGET]][] : memref<f32>
@@ -2304,31 +2402,39 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:      affine.store {{.*}}, [[Ft]][] : memref<f32>
   // CHECK:      [[Ft_LOAD:%.+]] = affine.load [[Ft]][] : memref<f32>
 
-  // CHECK:      [[XtWc_LOAD:%.+]] = affine.load [[XtWc_GEMM]][] : memref<f32>
-  // CHECK:      [[Ht1Rc_LOAD:%.+]] = affine.load [[Ht1Rc_GEMM]][] : memref<f32>
-  // CHECK:      [[ct_OUTPUT:%.+]] = addf [[XtWc_LOAD]], [[Ht1Rc_LOAD]] : f32
+  // CHECK:      [[XtWc_LOAD:%.+]] = affine.load [[XtWc_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      [[HtRc_LOAD:%.+]] = affine.load [[HtRc_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      [[ct_OUTPUT:%.+]] = addf [[XtWc_LOAD]], [[HtRc_LOAD]] : f32
 
   // CHECK:      [[TANH_CELL:%.+]] = alloc() : memref<f32>
   // CHECK:      affine.store [[ct_OUTPUT]], [[TANH_CELL]][] : memref<f32>
   // CHECK:      {{.*}} = affine.load [[TANH_CELL]][] : memref<f32>
-  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:      {{.*}} = constant 2.000000e+00 : f32
+  // CHECK:      {{.*}} = mulf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = negf {{.*}} : f32
   // CHECK:      {{.*}} = exp {{.*}} : f32
   // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:      {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:      affine.store {{.*}}, [[ct]][] : memref<f32>
   // CHECK:      [[ct_LOAD:%.+]] = affine.load [[ct]][] : memref<f32>
 
   // CHECK:      [[FtCt1:%.+]] = mulf [[Ft_LOAD]], [[Ct1_LOAD]] : f32
   // CHECK:      [[Itct:%.+]] = mulf [[It_LOAD]], [[ct_LOAD]] : f32
   // CHECK:      [[Ct:%.+]] = addf [[FtCt1]], [[Itct]] : f32
-  // CHECK:      affine.store [[Ct]], [[CELL_STATE]][%c0, %arg4, %arg5] : memref<1x3x3xf32>
+  // CHECK:      affine.store [[Ct]], [[CELL_STATE]]{{\[}}[[C0_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
 
-  // CHECK:      [[XtWo_LOAD:%.+]] = affine.load [[XtWo_GEMM]][] : memref<f32>
-  // CHECK:      [[Ht1Ro_LOAD:%.+]] = affine.load [[Ht1Ro_GEMM]][] : memref<f32>
-  // CHECK:      [[Ot_OUTPUT:%.+]] = addf [[XtWo_LOAD]], [[Ht1Ro_LOAD]] : f32
+  // CHECK:      [[XtWo_LOAD:%.+]] = affine.load [[XtWo_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      [[HtRo_LOAD:%.+]] = affine.load [[HtRo_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:      [[Ot_OUTPUT:%.+]] = addf [[XtWo_LOAD]], [[HtRo_LOAD]] : f32
 
   // CHECK:      [[SIGMOID_OUTPUT:%.+]] = alloc() : memref<f32>
   // CHECK:      affine.store [[Ot_OUTPUT]], [[SIGMOID_OUTPUT]][] : memref<f32>
@@ -2345,33 +2451,42 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:      [[TANH_HIDDEN:%.+]] = alloc() : memref<f32>
   // CHECK:      affine.store [[Ct]], [[TANH_HIDDEN]][] : memref<f32>
   // CHECK:      {{.*}} = affine.load [[TANH_HIDDEN]][] : memref<f32>
-  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:      {{.*}} = constant 2.000000e+00 : f32
+  // CHECK:      {{.*}} = mulf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = negf {{.*}} : f32
   // CHECK:      {{.*}} = exp {{.*}} : f32
   // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:      {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:      affine.store {{.*}}, [[hCt]][] : memref<f32>
   // CHECK:      [[hCt_LOAD:%.+]] = affine.load [[hCt]][] : memref<f32>
 
   // CHECK:      [[Ht:%.+]] = mulf [[Ot_LOAD]], [[hCt_LOAD]] : f32
-  // CHECK:      affine.store [[Ht]], [[HIDDEN_STATE]][%c0, %arg4, %arg5] : memref<1x3x3xf32>
+  // CHECK:      affine.store [[Ht]], [[HIDDEN_STATE]]{{\[}}[[C0_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
 
-  // CHECK:      dealloc [[XtWi_GEMM]] : memref<f32>
-  // CHECK:      dealloc [[XtWo_GEMM]] : memref<f32>
-  // CHECK:      dealloc [[XtWf_GEMM]] : memref<f32>
-  // CHECK:      dealloc [[XtWc_GEMM]] : memref<f32>
-  // CHECK:      dealloc [[Ht1Ri_GEMM]] : memref<f32>
-  // CHECK:      dealloc [[Ht1Ro_GEMM]] : memref<f32>
-  // CHECK:      dealloc [[Ht1Rf_GEMM]] : memref<f32>
-  // CHECK:      dealloc [[Ht1Rc_GEMM]] : memref<f32>
   // CHECK:      dealloc [[It]] : memref<f32>
   // CHECK:      dealloc [[Ft]] : memref<f32>
   // CHECK:      dealloc [[ct]] : memref<f32>
   // CHECK:      dealloc [[Ot]] : memref<f32>
   // CHECK:      dealloc [[hCt]] : memref<f32>
   // CHECK:    }
+  // CHECK:    dealloc [[XtWi_GEMM]] : memref<3x3xf32>
+  // CHECK:    dealloc [[XtWo_GEMM]] : memref<3x3xf32>
+  // CHECK:    dealloc [[XtWf_GEMM]] : memref<3x3xf32>
+  // CHECK:    dealloc [[XtWc_GEMM]] : memref<3x3xf32>
+  // CHECK:    dealloc [[HtRi_GEMM]] : memref<3x3xf32>
+  // CHECK:    dealloc [[HtRo_GEMM]] : memref<3x3xf32>
+  // CHECK:    dealloc [[HtRf_GEMM]] : memref<3x3xf32>
+  // CHECK:    dealloc [[HtRc_GEMM]] : memref<3x3xf32>
+ 
   // CHECK:  }
   // CHECK:  dealloc [[CELL_STATE]] : memref<1x3x3xf32>
   // CHECK:  return [[HIDDEN_STATE]] : memref<1x3x3xf32>
@@ -2406,13 +2521,56 @@ func private @test_lstm_bidirectional_mode(%arg0: tensor<4x3x2xf32>, %arg1: tens
 
   // CHECK:  [[SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
   // CHECK:  krnl.iterate([[SEQUENCE_LOOPS]]) with ([[SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
+  // CHECK:  {{.*}} = krnl.define_loops 2
+  // CHECK:  {{.*}} = krnl.define_loops 1
   // CHECK:  [[Xt_LOAD:%.+]] = affine.load %arg0[%arg3, {{.*}}, {{.*}}] : memref<4x3x2xf32>
+  // CHECK:  {{.*}} = krnl.define_loops 1
+  // CHECK:  {{.*}} = krnl.define_loops 2
 
   // CHECK:  [[REVERSE_SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
   // CHECK:  krnl.iterate([[REVERSE_SEQUENCE_LOOPS]]) with ([[REVERSE_SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
   // CHECK:  %[[SEQUENCE_LEN:.+]] = constant 4 : index
   // CHECK:  %[[REVERSE_SEQUENCE_IV:.+]] = affine.apply [[REVERSE_IV_MAP]](%arg3)[%[[SEQUENCE_LEN]]{{]}}
+  // CHECK:  {{.*}} = krnl.define_loops 2
+  // CHECK:  {{.*}} = krnl.define_loops 1
   // CHECK:  [[Xt_LOAD:%.+]] = affine.load %arg0[%[[REVERSE_SEQUENCE_IV]], {{.*}}, {{.*}}] : memref<4x3x2xf32>
+  // CHECK:  {{.*}} = krnl.define_loops 1
+  // CHECK:  {{.*}} = krnl.define_loops 2
+}
+
+// -----
+
+// Check handling unknown dimensions for LSTM by checking the 
+// correctness of allocating and deallocating memory.
+func @test_lstm_unkown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x12x?xf32>, %arg2: tensor<1x12x3xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%arg0, %arg1, %arg2, %cst, %cst, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<?x?x?xf32>, tensor<1x12x?xf32>, tensor<1x12x3xf32>, none, none, none, none, none) -> (tensor<*xf32>, tensor<*xf32>, none)
+  return %Y_h : tensor<*xf32>
+
+  // CHECK-LABEL: @test_lstm_unkown_dims_allocation
+
+  // allocate memory for all Hidden (Y).
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[SEQUENCE_LENGTH:%.+]] = dim %arg0, [[C0]] : memref<?x?x?xf32>
+  // CHECK: [[C1:%.+]] = constant 1 : index
+  // CHECK: [[BATCH_SIZE:%.+]] = dim %arg0, [[C1]] : memref<?x?x?xf32>
+  // CHECK: [[Y:%.+]] = alloc([[SEQUENCE_LENGTH]], [[BATCH_SIZE]]) : memref<?x1x?x3xf32>
+
+  // allocate memory for Hidden (Y_h).
+  // CHECK: [[C1_0:%.+]] = constant 1 : index
+  // CHECK: [[BATCH_SIZE:%.+]] = dim %arg0, [[C1_0]] : memref<?x?x?xf32>
+  // CHECK: [[Y_h:%.+]] = alloc([[BATCH_SIZE]]) : memref<1x?x3xf32>
+
+  // allocate memory for Cell (Y_c).
+  // CHECK: [[C1_1:%.+]] = constant 1 : index
+  // CHECK: [[BATCH_SIZE:%.+]] = dim %arg0, [[C1_1]] : memref<?x?x?xf32>
+  // CHECK: [[Y_c:%.+]] = alloc([[BATCH_SIZE]]) : memref<1x?x3xf32>
+
+  // deallocate Y since there is no operation consuming it. 
+  // CHECK: dealloc [[Y]] : memref<?x1x?x3xf32>
+  // deallocate Y_c since it is not a return value.
+  // CHECK: dealloc [[Y_c]] : memref<1x?x3xf32>
+  // CHECK: return [[Y_h]] : memref<1x?x3xf32>
 }
 
 // -----
@@ -2436,58 +2594,76 @@ func private @test_rnn_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   /// Check main loop.
   // CHECK: [[SEQUENCE_LOOPS:%.+]] = krnl.define_loops 1
   // CHECK: krnl.iterate([[SEQUENCE_LOOPS]]) with ([[SEQUENCE_LOOPS]] -> %arg3 = 0 to 4) {
+  // CHECK:   [[HtRi_GEMM:%.+]] = alloc() : memref<3x3xf32>
+  // CHECK:   [[XtWi_GEMM:%.+]] = alloc() : memref<3x3xf32>
   // CHECK:   [[ZERO_INDEX:%.+]] = constant 0 : index
+  // CHECK:   {{.*}} = constant 3 : index
+  // CHECK:   {{.*}} = constant 0 : index
+  // CHECK:   {{.*}} = constant 1 : index
+
+  /// Check reduction loop to compute matrix multiplication for 'Xt*(Wi^T)' and 'Ht-1*(Ri^T)'
+  // CHECK:   [[MATRIX_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK:   krnl.iterate([[MATRIX_LOOPS]]#0, [[MATRIX_LOOPS]]#1) with ([[MATRIX_LOOPS]]#0 -> %arg4 = 0 to 3, [[MATRIX_LOOPS]]#1 -> %arg5 = 0 to 3) {
+  // CHECK:     [[CST0:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:     affine.store [[CST0]], [[XtWi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:     affine.store [[CST0]], [[HtRi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:     [[XW_LOOPS:%.+]] = krnl.define_loops 1
+  // CHECK:     krnl.iterate([[XW_LOOPS]]) with ([[XW_LOOPS]] -> %arg6 = 0 to 2) {
+  // CHECK:       [[Xt_LOAD:%.+]] = affine.load %arg0[%arg3, %arg4, %arg6] : memref<4x3x2xf32>
+  // CHECK:       [[Wi_LOAD:%.+]] = affine.load %arg1{{\[}}[[ZERO_INDEX]], %arg5, %arg6] : memref<1x3x2xf32>
+  // CHECK:       {{.*}} = mulf [[Xt_LOAD]], [[Wi_LOAD]] : f32
+  // CHECK:       {{.*}} = affine.load [[XtWi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:       {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:       affine.store {{.*}}, [[XtWi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:     }
+  // CHECK:     [[HR_LOOPS:%.+]] = krnl.define_loops 1
+  // CHECK:     krnl.iterate([[HR_LOOPS]]) with ([[HR_LOOPS]] -> %arg6 = 0 to 3) {
+  // CHECK:       [[Ht_LOAD:%.+]] = affine.load %0{{\[}}[[ZERO_INDEX]], %arg4, %arg6] : memref<1x3x3xf32>
+  // CHECK:       [[Ri_LOAD:%.+]] = affine.load %arg2{{\[}}[[ZERO_INDEX]], %arg5, %arg6] : memref<1x3x3xf32>
+  // CHECK:       {{.*}} = mulf [[Ht_LOAD]], [[Ri_LOAD]] : f32
+  // CHECK:       {{.*}} = affine.load [[HtRi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:       {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:       affine.store {{.*}}, [[HtRi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:     }
+  // CHECK:   }
+ 
   // CHECK:   [[DATA_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK:   krnl.iterate([[DATA_LOOPS]]#0, [[DATA_LOOPS]]#1) with ([[DATA_LOOPS]]#0 -> %arg4 = 0 to 3, [[DATA_LOOPS]]#1 -> %arg5 = 0 to 3) {
   // CHECK:     [[Ht:%.+]] = alloc() : memref<f32>
-  // CHECK:     [[PREVIOUS_Ht:%.+]] = affine.load [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
-
-  /// Check reduction loop to compute matrix multiplication for 'Xt*(Wi^T)' and 'Ht-1*(Ri^T)'
-  // CHECK:     [[CONSTANT_ZERO:%.+]] = constant 0.000000e+00 : f32
-  // CHECK:     [[XWi:%.+]] = alloc() : memref<f32>
-  // CHECK:     affine.store [[CONSTANT_ZERO]], [[XWi]][] : memref<f32>
-  // CHECK:     [[HRi:%.+]] = alloc() : memref<f32>
-  // CHECK:     affine.store [[CONSTANT_ZERO]], [[HRi]][] : memref<f32>
-  // CHECK:     [[REDUCTION_LOOPS:%.+]] = krnl.define_loops 1
-  // CHECK:     krnl.iterate([[REDUCTION_LOOPS]]) with ([[REDUCTION_LOOPS]] -> %arg6 = 0 to 2) {
-  // CHECK:       [[X_LOAD:%.+]] = affine.load %arg0[%arg3, %arg4, %arg6] : memref<4x3x2xf32>
-  // CHECK:       [[W_LOAD:%.+]] = affine.load %arg1{{\[}}[[ZERO_INDEX]], %arg5, %arg6] : memref<1x3x2xf32>
-  // CHECK:       [[XW:%.+]] = mulf [[X_LOAD]], [[W_LOAD]] : f32
-  // CHECK:       [[XWi_LOAD:%.+]] = affine.load [[XWi]][] : memref<f32>
-  // CHECK:       [[NEW_XWi:%.+]] = addf [[XWi_LOAD]], [[XW]] : f32
-  // CHECK:       affine.store [[NEW_XWi]], [[XWi]][] : memref<f32>
-  // CHECK:       [[R_LOAD:%.+]] = affine.load %arg2{{\[}}[[ZERO_INDEX]], %arg5, %arg6] : memref<1x3x3xf32>
-  // CHECK:       [[HR:%.+]] = mulf [[PREVIOUS_Ht]], [[R_LOAD]] : f32
-  // CHECK:       [[HRi_LOAD:%.+]] = affine.load [[HRi]][] : memref<f32>
-  // CHECK:       [[NEW_HRi:%.+]] = addf [[HRi_LOAD]], [[HR]] : f32
-  // CHECK:       affine.store [[NEW_HRi]], [[HRi]][] : memref<f32>
-  // CHECK:     }
 
   /// Check 'Xt*(Wi^T) + Ht-1*(Ri^T)'
-  // CHECK: [[LOAD_XWi:%.+]] = affine.load [[XWi]][] : memref<f32>
-  // CHECK: [[LOAD_HRi:%.+]] = affine.load [[HRi]][] : memref<f32>
-  // CHECK: [[XWi_PLUS_HRi:%.+]] = addf [[LOAD_XWi]], [[LOAD_HRi]] : f32
+  // CHECK:     [[LOAD_XWi:%.+]] = affine.load [[XtWi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:     [[LOAD_HRi:%.+]] = affine.load [[HtRi_GEMM]]{{\[}}%arg4, %arg5] : memref<3x3xf32>
+  // CHECK:     [[XWi_PLUS_HRi:%.+]] = addf [[LOAD_XWi]], [[LOAD_HRi]] : f32
 
   /// Check calling 'Tanh'
-  // CHECK: {{.*}} = alloc() : memref<f32>
-  // CHECK: affine.store [[XWi_PLUS_HRi]], {{.*}} : memref<f32>
-  // CHECK: {{.*}} = affine.load {{.*}}[] : memref<f32>
-  // CHECK: {{.*}} = constant 0.000000e+00 : f32
-  // CHECK: {{.*}} = subf %cst_3, %13 : f32
-  // CHECK: {{.*}} = exp %13 : f32
-  // CHECK: {{.*.}} = exp {{.*.}} : f32
-  // CHECK: {{.*.}} = subf {{.*.}}, {{.*.}} : f32
-  // CHECK: {{.*.}} = addf {{.*.}}, {{.*.}} : f32
-  // CHECK: {{.*}} = divf {{.*.}}, {{.*.}} : f32
-  // CHECK: affine.store {{.*}}, [[Ht]][] : memref<f32>
+  // CHECK:     {{.*}} = alloc() : memref<f32>
+  // CHECK:     affine.store [[XWi_PLUS_HRi]], {{.*}} : memref<f32>
+  // CHECK:     {{.*}} = affine.load {{.*}}[] : memref<f32>
+  // CHECK:     {{.*}} = constant 1.000000e+00 : f32
+  // CHECK:     {{.*}} = constant 2.000000e+00 : f32
+  // CHECK:     {{.*}} = mulf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = negf {{.*}} : f32
+  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = constant 0.000000e+00 : f32
+  // CHECK:     {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
+  // CHECK:     affine.store {{.*}}, [[Ht]][] : memref<f32>
 
   /// Check storing the result.
   // CHECK:     [[NEW_Ht_LOAD:%.+]] = affine.load [[Ht]][] : memref<f32>
   // CHECK:     affine.store [[NEW_Ht_LOAD]], [[RES]]{{\[}}[[ZERO_INDEX]], %arg4, %arg5] : memref<1x3x3xf32>
-  // CHECK:     dealloc [[XWi]] : memref<f32>
-  // CHECK:     dealloc [[HRi]] : memref<f32>
   // CHECK:     dealloc [[Ht]] : memref<f32>
   // CHECK:   }
+  // CHECK:   dealloc [[XtWi_GEMM]] : memref<3x3xf32>
+  // CHECK:   dealloc [[HtRi_GEMM]] : memref<3x3xf32>
   // CHECK: }
   // CHECK: return [[RES]] : memref<1x3x3xf32>
 }
@@ -2506,6 +2682,26 @@ func private @test_rnn_with_bias(%arg0: tensor<4x3x2xf32>, %arg1: tensor<1x3x2xf
   // CHECK: [[LOAD_R_BIAS:%.+]] = affine.load %arg3[{{.*}}, {{.*}}] : memref<1x6xf32>
   // CHECK: {{.*}} = addf {{.*}}, [[LOAD_R_BIAS]] : f32
 }
+
+// -----
+
+// Check handling unknown dimensions for RNN by checking the 
+// correctness of allocating and deallocating memory.
+func @test_rnn_unkown_dims_allocation(%arg0: tensor<?x?x?xf32>, %arg1: tensor<1x3x?xf32>, %arg2: tensor<1x3x3xf32>) -> tensor<*xf32> {
+  %cst = constant unit
+  %Y, %Y_h = "onnx.RNN"(%arg0, %arg1, %arg2, %cst, %cst, %cst) {hidden_size = 3 : si64} : (tensor<?x?x?xf32>, tensor<1x3x?xf32>, tensor<1x3x3xf32>, none, none, none) -> (none, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+  // CHECK-LABEL: @test_rnn_unkown_dims_allocation
+
+  // allocate memory for Hidden (Y_h).
+  // CHECK: [[C1_0:%.+]] = constant 1 : index
+  // CHECK: [[BATCH_SIZE:%.+]] = dim %arg0, [[C1_0]] : memref<?x?x?xf32>
+  // CHECK: [[Y_h:%.+]] = alloc([[BATCH_SIZE]]) : memref<1x?x3xf32>
+
+  // CHECK: return [[Y_h]] : memref<1x?x3xf32>
+}
+
 
 // -----
 
@@ -2872,6 +3068,64 @@ func private @test_constant_of_shape_static_dims() -> tensor<*xf32> {
 
 // -----
 
+func private @test_flatten0(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Flatten"(%arg0) {axis = 0 : si64} : (tensor<2x3x4xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+  // CHECK: [[MAP_FIRST:#.+]] = affine_map<() -> (0)>
+  // CHECK: [[MAP_SECOND:#.+]] = affine_map<(d0, d1, d2)[s0, s1, s2] -> (d2 + d1 * s2 + d0 * (s1 * s2))>
+  // CHECK-LABEL test_flatten0
+  // CHECK:  [[ALLOC:%.+]] = alloc() : memref<1x24xf32>
+  // CHECK:  [[LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK:  krnl.iterate([[LOOP]]#0, [[LOOP]]#1, [[LOOP]]#2) with ([[LOOP]]#0 -> [[LOOPARG1:%.+]] = 0 to 2, [[LOOP]]#1 -> [[LOOPARG2:%.+]] = 0 to 3, [[LOOP]]#2 -> [[LOOPARG3:%.+]] = 0 to 4) {
+  // CHECK:    [[LOAD:%.+]] = affine.load %arg0{{\[}}[[LOOPARG1]], [[LOOPARG2]], [[LOOPARG3]]{{\]}} : memref<2x3x4xf32>
+  // CHECK:    [[FIRSTDIM:%.+]] = affine.apply [[MAP_FIRST]]()
+  // CHECK:    [[C0:%.+]] = constant 0 : index
+  // CHECK:    [[R4:%.+]] = dim %arg0, [[C0]] : memref<2x3x4xf32>
+  // CHECK:    [[C1:%.+]] = constant 1 : index
+  // CHECK:    [[R5:%.+]] = dim %arg0, [[C1]] : memref<2x3x4xf32>
+  // CHECK:    [[C2:%.+]] = constant 2 : index
+  // CHECK:    [[R6:%.+]] = dim %arg0, [[C2]] : memref<2x3x4xf32>
+  // CHECK:    [[SECONDDIM:%.+]] = affine.apply [[MAP_SECOND]]([[LOOPARG1]], [[LOOPARG2]], [[LOOPARG3]]){{\[}}[[R4]], [[R5]], [[R6]]{{\]}}
+  // CHECK:    affine.store [[LOAD]], [[ALLOC]]{{\[}}[[FIRSTDIM]], [[SECONDDIM]]{{\]}} : memref<1x24xf32>
+}
+
+// -----
+
+// test partially known input shape
+func private @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
+  %1 = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<2x?x4xf32>) -> tensor<*xf32>
+  "std.return"(%1) : (tensor<*xf32>) -> ()
+ 
+  // CHECK:  [[MAP1:#.+]] = affine_map<(d0, d1)[s0, s1] -> (d1 + d0 * s1)>
+  // CHECK:  [[MAP2:#.+]] = affine_map<(d0)[s0] -> (d0)>
+  // CHECK-LABEL test_flatten1
+  // CHECK:  [[C1:%.+]] = constant 1 : index
+  // CHECK:  [[C0:%.+]] = constant 0 : index
+  // CHECK:  [[R0:%.+]] = dim %arg0, [[C0]] : memref<2x?x4xf32>
+  // CHECK:  [[R1:%.+]] = muli [[C1]], [[R0]] : index
+  // CHECK:  [[C1_0:%.+]] = constant 1 : index
+  // CHECK:  [[R2:%.+]] = dim %arg0, [[C1_0]] : memref<2x?x4xf32>
+  // CHECK:  [[R3:%.+]] = muli [[R1]], [[R2]] : index
+  // CHECK:  [[R4:%.+]] = alloc([[R3]]) : memref<?x4xf32>
+  // CHECK:  [[R5:%.+]]:3 = krnl.define_loops 3
+  // CHECK:  [[C1_1:%.+]] = constant 1 : index
+  // CHECK:  [[R6:%.+]] = dim %arg0, [[C1_1]] : memref<2x?x4xf32>
+  // CHECK:  krnl.iterate([[R5]]#0, [[R5]]#1, [[R5]]#2) with ([[R5]]#0 -> [[ARG1:%.+]] = 0 to 2, [[R5]]#1 -> [[ARG2:%.+]] = 0 to [[R6]], [[R5]]#2 -> [[ARG3:%.+]] = 0 to 4) {
+  // CHECK:    [[R7:%.+]] = affine.load %arg0{{\[}}[[ARG1]], [[ARG2]], [[ARG3]]{{\]}} : memref<2x?x4xf32>
+  // CHECK:    [[C0_2:%.+]] = constant 0 : index
+  // CHECK:    [[R8:%.+]] = dim %arg0, [[C0_2]] : memref<2x?x4xf32>
+  // CHECK:    [[C1_3:%.+]] = constant 1 : index
+  // CHECK:    [[R9:%.+]] = dim %arg0, [[C1_3]] : memref<2x?x4xf32>
+  // CHECK:    [[R10:%.+]] = affine.apply [[MAP1]]([[ARG1]], [[ARG2]]){{\[}}[[R8]], [[R9]]{{\]}}
+  // CHECK:    [[C2:%.+]] = constant 2 : index
+  // CHECK:    [[R11:%.+]] = dim %arg0, [[C2]] : memref<2x?x4xf32>
+  // CHECK:    [[R12:%.+]] = affine.apply [[MAP2]]([[ARG3]]){{\[}}[[R11]]{{\]}}
+  // CHECK:    store [[R7]], [[R4]]{{\[}}[[R10]], [[R12]]{{\]}} : memref<?x4xf32>
+
+}
+
+// -----
+
 // Test Tile with 2D input and constant repeats
 func private @test_tile1(%arg0 : tensor<4x8xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() { value = dense<[3, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
@@ -3004,4 +3258,3 @@ func private @test_less_unknown_dims(%arg0: tensor<3x4x5xf32>, %arg1: tensor<?x4
   // CHECK: }
   // CHECK: return [[RES]] : memref<3x4x5xi1>
 }
-

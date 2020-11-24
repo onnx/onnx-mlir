@@ -5,3 +5,6 @@ defaults:
       path: "README.md"
     values:
       permalink: "README.html"
+
+# Doxygen generated per-file doc references.
+include: ["_*.html"]

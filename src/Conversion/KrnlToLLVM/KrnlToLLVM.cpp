@@ -17,6 +17,8 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
+#include "mlir/IR/StandardTypes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -164,6 +166,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
+    KrnlGetRefOp getRefOp = llvm::dyn_cast<KrnlGetRefOp>(op);
     auto *context = op->getContext();
     auto loc = op->getLoc();
 
@@ -173,6 +176,7 @@ public:
     // for the type of the internal MemRef.
     auto type = op->getResult(0).getType();
     auto memRefTy = type.cast<mlir::MemRefType>();
+
     auto llvmMemRefType =
         typeConverter.convertType(type).cast<LLVM::LLVMType>();
     auto outputElementType =
@@ -199,19 +203,80 @@ public:
     Value outputTypedPtrAlloc = rewriter.create<LLVM::BitcastOp>(
         loc, llvmOutputElementType.getPointerTo(), outputMemPoolTypePtrAlloc);
 
-    // Create llvm MemRef from original MemRef and fill the data pointers.
-    if (memRefTy.hasStaticShape()) {
+    // Handle the static case.
+    if (hasAllConstantDimensions(memRefTy)) {
+      // Create llvm MemRef from original MemRef and fill the data pointers.
       auto llvmMemRef = MemRefDescriptor::fromStaticShape(
           rewriter, loc, typeConverter, memRefTy, outputTypedPtrAlloc);
+
       rewriter.replaceOp(op, {llvmMemRef});
-    } else {
-      auto llvmMemRef = MemRefDescriptor::undef(
-          rewriter, loc, typeConverter.convertType(memRefTy));
-      llvmMemRef.setAllocatedPtr(rewriter, loc, outputTypedPtrAlloc);
-      llvmMemRef.setAlignedPtr(rewriter, loc, outputTypedPtrAlloc);
-      rewriter.replaceOp(op, {llvmMemRef});
+      return success();
     }
 
+    // Handle the dynamic case.
+
+    // Compute strides and offset based on MemRef type.
+    int64_t alignmentOffset;
+    SmallVector<int64_t, 4> strides;
+    auto successStrides =
+        getStridesAndOffset(memRefTy, strides, alignmentOffset);
+    (void)successStrides;
+    assert(succeeded(successStrides) && "unexpected non-strided memref");
+
+    // Create the memRef descriptor.
+    auto structType = typeConverter.convertType(memRefTy);
+    auto memRefDescriptor = MemRefDescriptor::undef(rewriter, loc, structType);
+
+    // Allocated pointer, used for malloc/free.
+    memRefDescriptor.setAllocatedPtr(rewriter, loc, outputTypedPtrAlloc);
+
+    // Actual aligned pointer to payload.
+    // TODO: support aligned MemRefs.
+    memRefDescriptor.setAlignedPtr(rewriter, loc, outputTypedPtrAlloc);
+
+    // Offset in aligned pointer.
+    // TODO: support non-zero here in the aligned case.
+    memRefDescriptor.setOffset(
+        rewriter, loc, createIndexConstant(rewriter, loc, 0));
+
+    if (memRefTy.getRank() != 0) {
+      // Prepare sizes.
+      SmallVector<Value, 4> dynamicSizes = getRefOp.getDynamicSizes();
+      SmallVector<Value, 4> sizes;
+      sizes.reserve(memRefTy.getRank());
+      unsigned i = 0;
+      for (int64_t s : memRefTy.getShape())
+        sizes.push_back(s == ShapedType::kDynamicSize
+                            ? dynamicSizes[i++]
+                            : createIndexConstant(rewriter, loc, s));
+
+      // Store all sizes in the descriptor. Only dynamic sizes are passed in as
+      // operands to AllocOp.
+      Value runningStride = nullptr;
+      auto nStrides = strides.size();
+      SmallVector<Value, 4> strideValues(nStrides, nullptr);
+      for (unsigned i = 0; i < nStrides; ++i) {
+        int64_t index = nStrides - 1 - i;
+        if (strides[index] == MemRefType::getDynamicStrideOrOffset())
+          // Identity layout map is enforced in the match function, so we
+          // compute:
+          //   `runningStride *= sizes[index + 1]`
+          runningStride = runningStride ? rewriter.create<LLVM::MulOp>(loc,
+                                              runningStride, sizes[index + 1])
+                                        : createIndexConstant(rewriter, loc, 1);
+        else
+          runningStride = createIndexConstant(rewriter, loc, strides[index]);
+        strideValues[index] = runningStride;
+      }
+      // Fill size and stride descriptors in memref.
+      for (auto indexedSize : llvm::enumerate(sizes)) {
+        int64_t index = indexedSize.index();
+        memRefDescriptor.setSize(rewriter, loc, index, indexedSize.value());
+        memRefDescriptor.setStride(rewriter, loc, index, strideValues[index]);
+      }
+    }
+
+    rewriter.replaceOp(op, {memRefDescriptor});
     return success();
   }
 
@@ -431,11 +496,11 @@ public:
     CREATE_OMTENSOR,
     GET_DATA,
     SET_DATA,
-    GET_DATA_SIZES,
+    GET_DATA_SHAPE,
     GET_DATA_STRIDES,
     SET_DATA_TYPE,
     GET_DATA_TYPE,
-    GET_OMTS,
+    GET_OMT_ARRAY,
   };
 
   struct ApiSpec {
@@ -514,7 +579,7 @@ public:
     auto wrappedInput = entryPointEntryBlock.getArgument(0);
 
     auto omTensorPtrArr =
-        callApi(rewriter, loc, apiRegistry, API::GET_OMTS, {wrappedInput});
+        callApi(rewriter, loc, apiRegistry, API::GET_OMT_ARRAY, {wrappedInput});
     for (size_t i = 0; i < staticEntryPointTy.getFunctionNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
       auto idxVal = rewriter.create<LLVM::ConstantOp>(
@@ -655,12 +720,12 @@ private:
         ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
         ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int32Ty}),
         ApiSpec(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
-        ApiSpec(API::SET_DATA, "omTensorSetPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
-        ApiSpec(API::GET_DATA_SIZES, "omTensorGetDataShape", int64PtrTy, {opaquePtrTy}),
+        ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
+        ApiSpec(API::GET_DATA_SHAPE, "omTensorGetShape", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_STRIDES, "omTensorGetStrides", int64PtrTy, {opaquePtrTy}),
         ApiSpec(API::GET_DATA_TYPE, "omTensorGetDataType", int32Ty, {opaquePtrTy}),
         ApiSpec(API::SET_DATA_TYPE, "omTensorSetDataType", voidTy, {opaquePtrTy, int32Ty}),
-        ApiSpec(API::GET_OMTS, "omTensorListGetPtrToOmts", opaquePtrPtrTy, {opaquePtrTy}),
+        ApiSpec(API::GET_OMT_ARRAY, "omTensorListGetOmtArray", opaquePtrPtrTy, {opaquePtrTy}),
     };
     // clang-format on
 
@@ -742,7 +807,7 @@ private:
     // Get rank, sizes array ptr and strides array ptr.
     auto rank = getRankFromMemRefType(memRefTy);
     auto sizesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_DATA_SIZES, {rtMemRef});
+        callApi(rewriter, loc, apiRegistry, API::GET_DATA_SHAPE, {rtMemRef});
     auto stridesArrayPtr =
         callApi(rewriter, loc, apiRegistry, API::GET_DATA_STRIDES, {rtMemRef});
 
@@ -813,7 +878,7 @@ private:
 
     auto rank = getRankFromMemRefType(outMemRefTy);
     auto sizesArrayPtr =
-        callApi(rewriter, loc, apiRegistry, API::GET_DATA_SIZES, {outOMTensor});
+        callApi(rewriter, loc, apiRegistry, API::GET_DATA_SHAPE, {outOMTensor});
     auto stridesArrayPtr = callApi(
         rewriter, loc, apiRegistry, API::GET_DATA_STRIDES, {outOMTensor});
 
@@ -954,6 +1019,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(
   populateShapeToStandardConversionPatterns(patterns, ctx);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
+  populateStdExpandDivsRewritePatterns(ctx, patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
   patterns.insert<KrnlGlobalOpLowering, KrnlPackedConstOpLowering>(
@@ -992,7 +1058,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
-  if (failed(applyFullConversion(getOperation(), target, std::move(patterns)))) {
+  if (failed(
+          applyFullConversion(getOperation(), target, std::move(patterns)))) {
     signalPassFailure();
   }
 }
