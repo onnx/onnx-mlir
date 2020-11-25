@@ -581,3 +581,7 @@ LogicalResult ONNXGlobalPoolOpShapeHelper<OP, ADAPTOR>::Compute(
 // time errors.
 template class ONNXGlobalPoolOpShapeHelper<ONNXGlobalAveragePoolOp,
     ONNXGlobalAveragePoolOpAdaptor>;
+template class ONNXGlobalPoolOpShapeHelper<ONNXGlobalLpPoolOp,
+    ONNXGlobalLpPoolOpAdaptor>;
+template class ONNXGlobalPoolOpShapeHelper<ONNXGlobalMaxPoolOp,
+    ONNXGlobalMaxPoolOpAdaptor>;

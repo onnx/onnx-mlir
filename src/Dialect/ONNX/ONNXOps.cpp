@@ -35,6 +35,7 @@ using namespace mlir::onnxmlir;
 // ONNX Helper functions for shape helpers
 //===----------------------------------------------------------------------===//
 
+// Handle shapes for operations with a single output.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 LogicalResult shapeHelperInferShapes(
     OP *op, Value typeOper, std::string opName) {
@@ -54,6 +55,7 @@ LogicalResult shapeHelperInferShapes(
   return success();
 }
 
+// Handle shapes for operations with multiple outputs.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
 LogicalResult shapeHelperInferMultipleShapes(
     OP *op, Value typeOper, std::string opName) {
@@ -165,12 +167,12 @@ static LogicalResult processConvDilationParam(
   if (dilationsOpt.hasValue()) {
     if (ArrayAttrSize(dilationsOpt) != kernelRank) {
       return op->emitError(
-          "dialation rank is not the same as the spatial rank");
+          "dilation rank is not the same as the spatial rank");
     }
     // Test values to be greater than 0.
     for (int i = 0; i < kernelRank; ++i) {
       if (ArrayAttrIntVal(dilationsOpt, i) < 1) {
-        return op->emitError("dialation value must be nonzero positive");
+        return op->emitError("dilation value must be nonzero positive");
       }
     }
   } else {
@@ -249,7 +251,7 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
       updatedPad = true;
     }
   } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
-    // Reload dialtion and strides as they may have gotten default values.
+    // Reload dilation and strides as they may have gotten default values.
     updatedPad = true;
     int64_t dilationVal = 1;
     for (int i = 0; i < kernelRank; ++i) {
@@ -263,17 +265,17 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
       // stride is greater than 1, take the ceil to be sure to have each input
       // value used, as padding will be used to fill the gaps.
       int64_t outputSize = ceil((1.0 * inputSize) / (1.0 * strideVal));
-      // Forumla is from ONNX MaxPool, and can be explained as follows. Pads
+      // Formula is from ONNX MaxPool, and can be explained as follows. Pads
       // is the difference between the needed values for the computations,
       // minus the input values. The needed values for the computation is the
       // effective side of the kernel plus the number of times we jump to the
       // next kernel. Number of time we jump is (outputSize - 1). That number
       // is multiplied with the size of the jump, namely strideVal. Now for
       // the effective kernel size. It is the kernelSize + the number of times
-      // we have dilation holes time the dialtion. The number of dialtion
+      // we have dilation holes time the dilation. The number of dilation
       // holes is (kernelSize -1). Thus the effective size is "kernelSize +
-      // (kernelSize-1)*dialation". This simplifies to "(kernelSize
-      // -1)*dialation + 1".
+      // (kernelSize-1)*dilation". This simplifies to "(kernelSize
+      // -1)*dilation + 1".
       auto sumOfPad = (outputSize - 1) * strideVal +
                       ((kernelSize - 1) * dilationVal + 1) - inputSize;
       // Pad values are assumed equal on both size, at half the total value.
@@ -299,7 +301,7 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
     ArrayRef<int64_t> defaultRefs(actualPads);
     op->padsAttr(builder.getI64ArrayAttr(defaultRefs));
   }
-  // In all cases now, the acutal pad values are found in the pads attribute.
+  // In all cases now, the actual pad values are found in the pads attribute.
   op->auto_padAttr(builder.getStringAttr("NOTSET"));
   return success();
 }
@@ -1293,7 +1295,7 @@ LogicalResult ONNXReshapeOp::inferShapes() {
     // If the number of dynamic inputs is 1 then deduce the missing value
     // based on the total input size. The total input size must be greater
     // than 0 i.e. all constant dimensions.
-    // TODO: Support dynamic input dimensons.
+    // TODO: Support dynamic input dimensions.
     if (numberOfDynamicInputs == 1 && totalKnownDimsSize > 0 &&
         totalInputSize > 0)
       dims[dynamicValueIndex] = totalInputSize / totalKnownDimsSize;
@@ -1467,7 +1469,7 @@ LogicalResult ONNXConvOp::inferShapes() {
                        "as weight's first dimension");
   }
 
-  // Note: the value of the group attribut only impacts the way the
+  // Note: the value of the group attribute only impacts the way the
   // computation is carried out and not the actual output size.
 
   // Number of spatial dimensions.
@@ -1594,7 +1596,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes() {
     }
   }
 
-  // Note: the value of the group attribut only impacts the way the
+  // Note: the value of the group attribute only impacts the way the
   // computation is carried out and not the actual output size.
 
   // Number of spatial dimensions.
@@ -1713,7 +1715,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes() {
                        "as weight's first dimension");
   }
 
-  // Note: the value of the group attribut only impacts the way the
+  // Note: the value of the group attribute only impacts the way the
   // computation is carried out and not the actual output size.
 
   // Number of spatial dimensions.
@@ -1915,7 +1917,14 @@ LogicalResult ONNXGlobalAveragePoolOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGlobalLpPoolOp::inferShapes() {
-  return inferShapesGlobalPool(this);
+  if (!X().getType().isa<RankedTensorType>())
+    return emitError("Input tensor is not ranked");
+
+  return shapeHelperInferShapes<
+      ONNXGlobalPoolOpShapeHelper<ONNXGlobalLpPoolOp,
+          ONNXGlobalLpPoolOpAdaptor>,
+      ONNXGlobalLpPoolOp, ONNXGlobalLpPoolOpAdaptor>(
+      this, X(), "GlobalLpPool");
 }
 
 //===----------------------------------------------------------------------===//
@@ -1923,7 +1932,14 @@ LogicalResult ONNXGlobalLpPoolOp::inferShapes() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXGlobalMaxPoolOp::inferShapes() {
-  return inferShapesGlobalPool(this);
+  if (!X().getType().isa<RankedTensorType>())
+    return emitError("Input tensor is not ranked");
+
+  return shapeHelperInferShapes<
+      ONNXGlobalPoolOpShapeHelper<ONNXGlobalMaxPoolOp,
+          ONNXGlobalMaxPoolOpAdaptor>,
+      ONNXGlobalMaxPoolOp, ONNXGlobalMaxPoolOpAdaptor>(
+      this, X(), "GlobalMaxPool");
 }
 
 //===----------------------------------------------------------------------===//
@@ -2208,10 +2224,10 @@ LogicalResult ONNXConcatOp::inferShapes() {
   }
   if (axisIndex >= commonRank)
     return emitError("Concat axis value out of bound");
-  // Initial cummlative size is that of the first operand.
-  int cummulativeAxisSize = commonShape[axisIndex];
+  // Initial cumulative size is that of the first operand.
+  int cumulativeAxisSize = commonShape[axisIndex];
 
-  // Compute the cummlative size with all of the other ones, and make sure
+  // Compute the cumulative size with all of the other ones, and make sure
   // that the other sizes are all alike.
   for (int i = 1; i < inputNum; ++i) {
     auto currShape =
@@ -2232,14 +2248,14 @@ LogicalResult ONNXConcatOp::inferShapes() {
                << " instead.";
       }
     }
-    cummulativeAxisSize += currShape[axisIndex];
+    cumulativeAxisSize += currShape[axisIndex];
   }
 
   // Set output size and type
   SmallVector<int64_t, 4> outputDims;
   for (int j = 0; j < commonRank; ++j)
     outputDims.emplace_back(
-        j == axisIndex ? cummulativeAxisSize : commonShape[j]);
+        j == axisIndex ? cumulativeAxisSize : commonShape[j]);
   getResult().setType(
       RankedTensorType::get(outputDims, commonType.getElementType()));
   return success();
@@ -2474,7 +2490,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes() {
     return emitOpError("Channel dimension mismatch");
   }
 
-  // Note: the value of the group attribut only impacts the way the
+  // Note: the value of the group attribute only impacts the way the
   // computation is carried out and not the actual output size.
 
   // Number of spatial dimensions.
@@ -2699,7 +2715,7 @@ LogicalResult ONNXExpandOp::inferShapes() {
   } else if (mlir::ONNXConstantOp constantOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDef)) {
     // If the shape operand is produced by a onnx.Constant operation, extract
-    // the actual value of the constant and use it as the reqested shape.
+    // the actual value of the constant and use it as the requested shape.
 
     auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
 
@@ -2730,7 +2746,7 @@ LogicalResult ONNXExpandOp::inferShapes() {
 
   SmallVector<int64_t, 2> resultShape;
   if (!getBroadcastedShape(lhsShape, rhsShape, resultShape)) {
-    return emitError("Tensor not exapandable");
+    // return emitError("Tensor not expandable");
   }
 
   getResult().setType(RankedTensorType::get(resultShape, elementType));
