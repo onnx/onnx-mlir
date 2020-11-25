@@ -36,7 +36,7 @@ typedef SmallVector<IndexExpr, 4> DimsExpr;
 /// should be performed using a `Compute` function. Return success on successful
 /// computation of all the IndexExpr. During shape inference, object is built
 /// using a null-ptr rewriter; during lowering, the rewriter is nonnull and will
-/// be used to generate code.
+/// be used to ate code.
 template <class OP>
 struct ONNXOpShapeHelper {
   ONNXOpShapeHelper(OP *newOp, ConversionPatternRewriter *rewriter);
@@ -131,6 +131,18 @@ struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
   LogicalResult Compute(ONNXSplitOpAdaptor operandAdaptor);
 };
 
+// Shape for global pool operations.
+template<class OP, class ADAPTOR>
+struct ONNXGlobalPoolOpShapeHelper: public ONNXOpShapeHelper<OP> {
+  ONNXGlobalPoolOpShapeHelper(
+      OP *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ADAPTOR operandAdaptor);
+
+  // Input dims
+  SmallVector<IndexExpr, 4> xDims;
+};
+
 //===----------------------------------------------------------------------===//
 // Low Level Helpers
 //===----------------------------------------------------------------------===//
@@ -145,3 +157,4 @@ ONNXConstantOp getONNXConstantOp(Value value);
 DenseElementsAttr getDenseElementAttributeFromValue(Value value);
 
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
+

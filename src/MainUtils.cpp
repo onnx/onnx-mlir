@@ -150,10 +150,16 @@ struct Command {
     // If in verbose mode, print out command before execution.
     if (verbose)
       cout << llvm::join(argsRef, " ") << "\n";
-    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef));
+
+    std::string errMsg;
+    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
+        /*Env=*/None, /*Redirects=*/None,
+        /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
 
     if (rc != 0) {
       fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
+      fprintf(stderr, "Error message: %s\n", errMsg.c_str());
+      fprintf(stderr, "Program path: %s\n", _path.c_str());
       llvm_unreachable("Command execution failed.");
     }
   }

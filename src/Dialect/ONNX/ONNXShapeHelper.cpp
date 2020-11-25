@@ -210,8 +210,6 @@ ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(
 
 LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of result.
   DimsExpr outputDims;
 
@@ -309,8 +307,6 @@ ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(
 LogicalResult ONNXMatMulOpShapeHelper::Compute(
     ONNXMatMulOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of result.
   DimsExpr outputDims;
 
@@ -431,8 +427,6 @@ ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(
 LogicalResult ONNXSplitOpShapeHelper::Compute(
     ONNXSplitOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Get info about input and output data.
   int numOfResults = op->getNumResults();
   auto rank = operandAdaptor.input().getType().cast<ShapedType>().getRank();
@@ -506,8 +500,6 @@ ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(
 LogicalResult ONNXGatherOpShapeHelper::Compute(
     ONNXGatherOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Read data and indices shapes as dim indices.
   context.createDimIndicesFromShapedType(operandAdaptor.data(), dataDims);
   context.createDimIndicesFromShapedType(operandAdaptor.indices(), indicesDims);
@@ -557,3 +549,35 @@ LogicalResult ONNXGatherOpShapeHelper::Compute(
 
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// ONNX Global Pool Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+template <class OP, class ADAPTOR>
+ONNXGlobalPoolOpShapeHelper<OP, ADAPTOR>::ONNXGlobalPoolOpShapeHelper(
+    OP *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<OP>(newOp, rewriter), xDims() {}
+
+template <class OP, class ADAPTOR>
+LogicalResult ONNXGlobalPoolOpShapeHelper<OP, ADAPTOR>::Compute(
+    ADAPTOR operandAdaptor) {
+  // Read data and indices shapes as dim indices.
+  this->context.createDimIndicesFromShapedType(operandAdaptor.X(), xDims);
+  int rank = xDims.size();
+  if (rank < 3)
+    return this->op->emitError("Data input shape must be at least (NxCxD1)");
+  // Output shape has NxCx... where N=1st dim, C=2nd dim.
+  this->dimsForOutput(0).emplace_back(xDims[0]);
+  this->dimsForOutput(0).emplace_back(xDims[1]);
+  // Remaining dims are ones
+  IndexExpr one = this->context.createLiteralIndex(1);
+  for (int i = 2; i < rank; ++i)
+    this->dimsForOutput(0).emplace_back(one);
+  return success();
+}
+
+// Instantiation of templates; must be done here otherwise there will be link
+// time errors.
+template class ONNXGlobalPoolOpShapeHelper<ONNXGlobalAveragePoolOp,
+    ONNXGlobalAveragePoolOpAdaptor>;
