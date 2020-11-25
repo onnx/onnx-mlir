@@ -1011,6 +1011,28 @@ func @test_transpose(%arg0 : tensor<10x20x30x40xf32>) -> tensor<*xf32> {
 
 // -----
 
+// COM: Test whether the lowering is correct in the presence of dynamic dimensions.
+func @test_transpose_dynamic_dims(%arg0 : tensor<10x?x30x40xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<10x?x30x40xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+  // CHECK-LABEL:  func @test_transpose_dynamic_dims
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<10x?x30x40xf32>) -> memref<10x40x?x30xf32> {
+  // CHECK:           [[CST_1_:%.+]] = constant 1 : index
+  // CHECK:           [[DIM_0_:%.+]] = dim [[PARAM_0_]], [[CST_1_]] : memref<10x?x30x40xf32>
+  // CHECK-DAG:       [[RES_:%.+]] = alloc([[DIM_0_]]) : memref<10x40x?x30xf32>
+  // CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
+  // CHECK-DAG:       [[CST_1_1_:%.+]] = constant 1 : index
+  // CHECK:           [[DIM_1_:%.+]] = dim [[PARAM_0_]], [[CST_1_1_]] : memref<10x?x30x40xf32>
+  // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[DIM_1_]], [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 30, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 40) {
+  // CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = affine.load [[PARAM_0_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]], [[I_3_]]{{.}} : memref<10x?x30x40xf32>
+  // CHECK:             affine.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[I_0_]], [[I_3_]], [[I_1_]], [[I_2_]]{{.}} : memref<10x40x?x30xf32>
+  // CHECK:           }
+  // CHECK:           return [[RES_]] : memref<10x40x?x30xf32>
+  // CHECK:         }
+}
+
+// -----
+
 func @test_identity(%arg0 : tensor<10x20x30x40xf32>) -> tensor<*xf32> {
   %0 = "onnx.Identity"(%arg0) : (tensor<10x20x30x40xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()

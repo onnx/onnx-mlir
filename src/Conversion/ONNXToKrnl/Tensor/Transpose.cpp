@@ -19,30 +19,38 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTransposeOpAdaptor operandAdaptor(operands);
+    ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
     auto loc = op->getLoc();
-    // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
     Value data = operandAdaptor.data();
-
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      // TODO: While the code below appears to nominally handle the alloc of
-      // data in presence of dynamic dimensions, this appears to be false as the
-      // operand passed here "{data}" reflect the input sizes and does not
-      // reflect the transpose. Indeed, if an input is 4x3x2 then the output
-      // would be 2x3x4. If any of the 2,3,or 4 are dynamic dimensions, then we
-      // simply pass below the operand of the not-transposed input data to
-      // determine the dynamic sizes of the to-be-transposed data. At this time,
-      // there is also no dynamic size lowering tests...
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, {data});
-
-    // Number of loops
+    auto permAttr = transposeOp.perm();
+    auto memRefType = convertToMemRefType(*op->result_type_begin());
     auto memRefShape = memRefType.getShape();
     int64_t rank = memRefShape.size();
+
+    // Insert an allocation and deallocation for the result of this operation.
+    Value alloc;
+    bool insertDealloc = checkInsertDealloc(op);
+    if (hasAllConstantDimensions(memRefType))
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+    else {
+      SmallVector<Value, 4> allocOperands;
+      for (int i = 0; i < rank; ++i) {
+        if (memRefShape[i] == -1) {
+          auto operandDim =
+              rewriter.create<DimOp>(loc, data, ArrayAttrIntVal(permAttr, i));
+          allocOperands.emplace_back(operandDim);
+        } else
+          continue;
+      }
+      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+
+      // Insert dealloc if necessary.
+      auto *parentBlock = alloc.getDefiningOp()->getBlock();
+      if (insertDealloc) {
+        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        dealloc.getOperation()->moveBefore(&parentBlock->back());
+      }
+    }
 
     // Define loops.
     std::vector<Value> originalLoops;
