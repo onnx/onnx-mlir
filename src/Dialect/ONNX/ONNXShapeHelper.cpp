@@ -33,7 +33,9 @@ ONNXConstantOp getONNXConstantOp(Value value) {
 template <class OP>
 ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
     OP *newOp, ConversionPatternRewriter *rewriter)
-    : op(newOp), context(rewriter, newOp->getLoc()), outputDims() {}
+    : op(newOp), context(rewriter, newOp->getLoc()), outputsDims() {
+  setNumberOfOutputs(op->getOperation()->getNumResults());
+}
 
 //===----------------------------------------------------------------------===//
 // ONNX Slice Op Shape Helper
@@ -49,6 +51,9 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
 
+  // Output dims of results.
+  DimsExpr outputDims;
+
   // Get info about input data operand.
   Value data = operandAdaptor.data();
   int64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
@@ -57,7 +62,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   SmallVector<int64_t, 2> axesIntLit;
   Value axes = operandAdaptor.axes();
   if (axes.getType().isa<NoneType>()) {
-    // If `axes` are omitted, they are set to `[0, ..., ndim-1]`."
+    // If `axes` are omitted, they are set to `[0, ..., nDim-1]`."
     for (int i = 0; i < dataRank; ++i)
       axesIntLit.emplace_back(i);
   } else if (auto valueAttribute = getDenseElementAttributeFromValue(axes)) {
@@ -88,17 +93,17 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     int ii = axesIntLit[i];
     // Get start, end, step, and dim index expressions.
     // Get start.
-    IndexExpr startInput = context.createSymbolIndexFromArrayAtIndex(
+    IndexExpr startInput = context.createSymbolIndexFromArrayValueAtIndex(
         genericOp, operandAdaptor.starts(), i);
     if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
     // Get end.
-    IndexExpr endInput = context.createSymbolIndexFromArrayAtIndex(
+    IndexExpr endInput = context.createSymbolIndexFromArrayValueAtIndex(
         genericOp, operandAdaptor.ends(), i);
     if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
     // Get step.
-    IndexExpr stepInput = context.createSymbolIndexFromArrayAtIndex(
+    IndexExpr stepInput = context.createSymbolIndexFromArrayValueAtIndex(
         genericOp, operandAdaptor.steps(), i, 1);
     if (stepInput.isUndefined())
       return op->emitError("step input parameter could not be processed");
@@ -155,6 +160,42 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       outputDims[i] = dimInput;
     }
   }
+
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Tile Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXTileOpShapeHelper::ONNXTileOpShapeHelper(
+    ONNXTileOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXTileOp>(newOp, rewriter) {}
+
+LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Get info about input data operand.
+  Value input = operandAdaptor.input();
+  // TOFIX: need to check is_a<ShapedType>?
+  int64_t inputRank = input.getType().cast<ShapedType>().getShape().size();
+  Value repeats = operandAdaptor.repeats();
+
+  // Compute outputDims
+  DimsExpr outputDims;
+  outputDims.resize(inputRank);
+  for (auto i = 0; i < inputRank; i++) {
+    IndexExpr dimInput = context.createDimIndexFromShapedType(input, i);
+    IndexExpr repeatsValue =
+        context.createSymbolIndexFromArrayValueAtIndex(genericOp, repeats, i);
+    IndexExpr dimOutput = dimInput * repeatsValue;
+    outputDims[i] = dimOutput;
+  }
+  dimsForOutput(0) = outputDims;
   return success();
 }
 
@@ -170,6 +211,10 @@ ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(
 LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of result.
+  DimsExpr outputDims;
+
   // Get info.
   Value A = operandAdaptor.A();
   Value B = operandAdaptor.B();
@@ -247,6 +292,8 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
       }
     }
   }
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
   return success();
 }
 
@@ -263,6 +310,10 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
     ONNXMatMulOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Output dims of result.
+  DimsExpr outputDims;
+
   // Get info.
   Value A = operandAdaptor.A();
   Value B = operandAdaptor.B();
@@ -276,9 +327,9 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   bDims.resize(paddedRank);
   aPadDims.resize(paddedRank, false);
   bPadDims.resize(paddedRank, false);
-  // Add the dims of A. All of the aDim[0]...adim[arank-1] are in the rightmost
+  // Add the dims of A. All of the aDim[0]...aDim[aRank-1] are in the rightmost
   // positions, prepended by 1s to fit the paddedRankSize.
-  // (1,1,1... 1, aDim[0]...adim[aRank-1])
+  // (1,1,1... 1, aDim[0]...aDim[aRank-1])
   IndexExpr one = context.createLiteralIndex(1);
   int aOffset = paddedRank - aRank;
   for (int i = 0; i < aOffset; ++i) {
@@ -287,11 +338,11 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   }
   for (int i = 0; i < aRank; ++i) {
     aDims[i + aOffset] = context.createDimIndexFromShapedType(A, i);
-    aPadDims[i + aOffset] = false; // Pad false evein if dim is sized 1.
+    aPadDims[i + aOffset] = false; // Pad false even if dim is sized 1.
   }
   // for B: two cases. If bRank = 1, we pad the rightmost position. Namely we
   // get (1...,1, bDim[0], 1). We use one padding credit for the rightmost
-  // position. Otherwise, when bRank>1, we only padd the leading positions.
+  // position. Otherwise, when bRank>1, we only pad the leading positions.
   // Namely we get (1,1,1...,1, bDim[0],.... bDim[bRank-1])
   int bOffset = paddedRank - bRank;
   if (bRank == 1) {
@@ -305,7 +356,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   }
   for (int i = 0; i < bRank; ++i) {
     bDims[i + bOffset] = context.createDimIndexFromShapedType(B, i);
-    bPadDims[i + bOffset] = false; // Pad false evein if dim is sized 1.
+    bPadDims[i + bOffset] = false; // Pad false even if dim is sized 1.
   }
   assert(aDims.size() == bDims.size() && "padded A&B must have same size");
 
@@ -364,5 +415,192 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   if (aRank == 1 && bRank == 1) {
     outputDims.emplace_back(one);
   }
+  // Save the final result.
+  dimsForOutput(0) = outputDims;
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Split Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(
+    ONNXSplitOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXSplitOp>(newOp, rewriter) {}
+
+LogicalResult ONNXSplitOpShapeHelper::Compute(
+    ONNXSplitOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Get info about input and output data.
+  int numOfResults = op->getNumResults();
+  auto rank = operandAdaptor.input().getType().cast<ShapedType>().getRank();
+
+  // Checking value of axis parameter.
+  int64_t axisIndex = op->axis();
+  if (axisIndex < -rank || axisIndex >= rank)
+    return op->emitError("Split axis value out of bound");
+  // Negative axis means values are counted from the opposite side.
+  if (axisIndex < 0) {
+    axisIndex = rank + axisIndex;
+    auto builder = mlir::Builder(op->getContext());
+    op->axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
+  }
+
+  // Checking value of split parameter.
+  auto splitAttribute = op->split();
+  SmallVector<IndexExpr, 4> splitDims;
+  if (splitAttribute.hasValue()) {
+    if (ArrayAttrSize(splitAttribute) != numOfResults)
+      return op->emitError("Split size not equal to the number of results");
+    for (int i = 0; i < numOfResults; ++i) {
+      IndexExpr dim =
+          context.createLiteralIndex(ArrayAttrIntVal(splitAttribute, i));
+      splitDims.emplace_back(dim);
+    }
+  } else {
+    // If split parameter is not specified, the dimension is split to
+    // equal-sized parts.
+    IndexExpr splitInputDim =
+        context.createDimIndexFromShapedType(operandAdaptor.input(), axisIndex);
+    IndexExpr numOfPartitions = context.createLiteralIndex(numOfResults);
+    if (splitInputDim.isLiteral() &&
+        (splitInputDim.getLiteral() % numOfResults != 0))
+      return op->emitError("The dimension at the split axis is "
+                           "expected to be divisible by the number of results");
+    for (int i = 0; i < numOfResults; ++i) {
+      IndexExpr splitDim = splitInputDim.ceilDiv(numOfPartitions);
+      splitDims.emplace_back(splitDim);
+    }
+  }
+
+  // Build result types.
+  for (int i = 0; i < numOfResults; ++i) {
+    DimsExpr outputDims;
+    outputDims.resize(rank);
+    for (int j = 0; j < rank; ++j) {
+      if (j == axisIndex) {
+        outputDims[j] = splitDims[i];
+      } else {
+        IndexExpr dim =
+            context.createDimIndexFromShapedType(operandAdaptor.input(), j);
+        outputDims[j] = dim;
+      }
+    }
+    dimsForOutput(i) = outputDims;
+  }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Gather Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(
+    ONNXGatherOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXGatherOp>(newOp, rewriter), dataDims(),
+      indicesDims(), positiveConstantIndices(false) {}
+
+LogicalResult ONNXGatherOpShapeHelper::Compute(
+    ONNXGatherOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Read data and indices shapes as dim indices.
+  context.createDimIndicesFromShapedType(operandAdaptor.data(), dataDims);
+  context.createDimIndicesFromShapedType(operandAdaptor.indices(), indicesDims);
+
+  // Read constant 'axis' attribute and normalize when negative.
+  int64_t axisIndex = op->axis();
+  // The 'axis' value must be in [-rank, rank-1].
+  int dataRank = dataDims.size();
+  if (axisIndex < -dataRank || axisIndex >= dataRank)
+    return op->emitError("Gather axis value out of bound");
+  // Convert a negative axis to a positive axis.
+  if (axisIndex < 0) {
+    axisIndex += dataRank;
+    auto builder = mlir::Builder(op->getContext());
+    op->axisAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, /*value=*/axisIndex, /*isSigned=*/true)));
+  }
+
+  // If 'indices' is a constant tensor, check whether its values are valid.
+  if (dataDims[axisIndex].isLiteral()) {
+    auto valueAttribute =
+        getDenseElementAttributeFromValue(operandAdaptor.indices());
+    if (valueAttribute) {
+      int64_t dataDimAtAxis = dataDims[axisIndex].getLiteral();
+      positiveConstantIndices = true;
+      for (auto value : valueAttribute.getValues<IntegerAttr>()) {
+        auto index = value.cast<IntegerAttr>().getInt();
+        if (index < -dataDimAtAxis || index >= dataDimAtAxis)
+          return op->emitError("Indices tensor contains an out-of-bound index");
+        if (index < 0)
+          // TODO: make the negative consant number positive.
+          positiveConstantIndices = false;
+      }
+    }
+  }
+
+  // Output has rank of 'indicesRank + (dataRank - 1).
+  // Output shape is constructed from 'input' by:
+  //    replacing the dimension at 'axis' in 'input' by the shape of 'indices'.
+  for (int i = 0; i < dataRank; ++i) {
+    if (i == axisIndex)
+      for (IndexExpr d : indicesDims)
+        dimsForOutput(0).emplace_back(d);
+    else
+      dimsForOutput(0).emplace_back(dataDims[i]);
+  }
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Concat Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(
+    ONNXConcatOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXConcatOp>(newOp, rewriter) {}
+
+LogicalResult ONNXConcatOpShapeHelper::Compute(
+    ONNXConcatOpAdaptor operandAdaptor) {
+
+  int inputNum = op->getNumOperands();
+  Value firstInput = operandAdaptor.getODSOperands(0)[0];
+  auto commonType = firstInput.getType().cast<ShapedType>();
+  auto commonShape = commonType.getShape();
+  auto commonRank = commonShape.size();
+  int64_t axisIndex = op->axis();
+
+  // Negative axis means values are counted from the opposite side.
+  // TOFIX should be in normalization pass
+  if (axisIndex < 0) {
+    axisIndex = commonRank + axisIndex;
+  }
+
+  IndexExpr cummulativeAxisSize = context.createLiteralIndex(0);
+
+  for (int i = 0; i < inputNum; ++i) {
+    Value currentInput = operandAdaptor.getODSOperands(0)[i];
+    IndexExpr currentSize =
+        context.createDimIndexFromShapedType(currentInput, axisIndex);
+    cummulativeAxisSize = cummulativeAxisSize + currentSize;
+  }
+
+  DimsExpr outputDims;
+  outputDims.resize(commonRank);
+  for (int i = 0; i < commonRank; i++) {
+    if (i == axisIndex) {
+      outputDims[i] = cummulativeAxisSize;
+    } else {
+      outputDims[i] = context.createDimIndexFromShapedType(firstInput, i);
+    }
+  }
+
+  dimsForOutput(0) = outputDims;
   return success();
 }
