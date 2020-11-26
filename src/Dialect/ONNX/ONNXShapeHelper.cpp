@@ -557,3 +557,50 @@ LogicalResult ONNXGatherOpShapeHelper::Compute(
 
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// ONNX Concat Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXConcatOpShapeHelper::ONNXConcatOpShapeHelper(
+    ONNXConcatOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXConcatOp>(newOp, rewriter) {}
+
+LogicalResult ONNXConcatOpShapeHelper::Compute(
+    ONNXConcatOpAdaptor operandAdaptor) {
+
+  int inputNum = op->getNumOperands();
+  Value firstInput = operandAdaptor.getODSOperands(0)[0];
+  auto commonType = firstInput.getType().cast<ShapedType>();
+  auto commonShape = commonType.getShape();
+  auto commonRank = commonShape.size();
+  int64_t axisIndex = op->axis();
+
+  // Negative axis means values are counted from the opposite side.
+  // TOFIX should be in normalization pass
+  if (axisIndex < 0) {
+    axisIndex = commonRank + axisIndex;
+  }
+
+  IndexExpr cummulativeAxisSize = context.createLiteralIndex(0);
+
+  for (int i = 0; i < inputNum; ++i) {
+    Value currentInput = operandAdaptor.getODSOperands(0)[i];
+    IndexExpr currentSize =
+        context.createDimIndexFromShapedType(currentInput, axisIndex);
+    cummulativeAxisSize = cummulativeAxisSize + currentSize;
+  }
+
+  DimsExpr outputDims;
+  outputDims.resize(commonRank);
+  for (int i = 0; i < commonRank; i++) {
+    if (i == axisIndex) {
+      outputDims[i] = cummulativeAxisSize;
+    } else {
+      outputDims[i] = context.createDimIndexFromShapedType(firstInput, i);
+    }
+  }
+
+  dimsForOutput(0) = outputDims;
+  return success();
+}
