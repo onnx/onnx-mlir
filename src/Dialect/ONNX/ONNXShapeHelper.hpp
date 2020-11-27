@@ -63,6 +63,14 @@ private:
   SmallVector<DimsExpr, 1> outputsDims;
 };
 
+// Shape for concat
+struct ONNXConcatOpShapeHelper : public ONNXOpShapeHelper<ONNXConcatOp> {
+  ONNXConcatOpShapeHelper(
+      ONNXConcatOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXConcatOpAdaptor operandAdaptor);
+};
+
 // Shape for SliceOp.
 struct ONNXSliceOpShapeHelper : public ONNXOpShapeHelper<ONNXSliceOp> {
   ONNXSliceOpShapeHelper(
