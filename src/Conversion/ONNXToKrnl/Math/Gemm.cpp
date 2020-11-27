@@ -34,7 +34,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
     Type elementType = outputMemRefType.getElementType();
     Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
     // Get the constants: zero, alpha,and beta.
     float alphaLit = gemmOp.alpha().convertToFloat();
@@ -43,24 +43,24 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    // loop iterations N=0 & M-1 going over each of the res[n, m] values.
+    // Loop iterations N=0 & M-1 going over each of the res[n, m] values.
     BuildKrnlLoop outputLoops(rewriter, loc, 2);
     outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.outputDims);
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // Compute the access functions for res[n,m].
     IndexExpr n =
-        outerContext.createLoopIterIndex(outputLoops.getInductionVar(0));
+        outerContext.createLoopInductionIndex(outputLoops.getInductionVar(0));
     IndexExpr m =
-        outerContext.createLoopIterIndex(outputLoops.getInductionVar(1));
+        outerContext.createLoopInductionIndex(outputLoops.getInductionVar(1));
     SmallVector<IndexExpr, 4> resAccessFct({n, m});
 
     // Insert res[n,m] = 0.
     outerContext.createStoreOp(zero, alloc, resAccessFct);
 
-    // Create the inner loop
+    // Create the inner reduction loop.
     BuildKrnlLoop innerLoops(rewriter, loc, 1);
     innerLoops.createDefineOp();
     innerLoops.pushBounds(0, shapeHelper.aDims[1]);
@@ -95,7 +95,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Now start writing code inside the inner loop: get A & B access functions.
     rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
     IndexExpr k =
-        outerContext.createLoopIterIndex(innerLoops.getInductionVar(0));
+        outerContext.createLoopInductionIndex(innerLoops.getInductionVar(0));
     SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
     if (gemmOp.transA() != 0)
       aAccessFct = {k, n};
