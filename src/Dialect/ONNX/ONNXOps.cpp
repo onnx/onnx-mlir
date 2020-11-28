@@ -2985,7 +2985,16 @@ LogicalResult ONNXCeilOp::inferShapes(
 
 LogicalResult ONNXClipOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!input().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  RankedTensorType inputTy = input().getType().cast<RankedTensorType>();
+
+  Type elementType = inputTy.getElementType();
+  ArrayRef<int64_t> inputShape = inputTy.getShape();
+
+  getResult().setType(RankedTensorType::get(inputShape, elementType));
+  return success();
 }
 
 LogicalResult ONNXCompressOp::inferShapes(
