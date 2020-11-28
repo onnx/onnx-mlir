@@ -3,7 +3,6 @@ add_executable(CustomFnTest CustomFnTest.cpp)
 target_link_libraries(CustomFnTest
         ${OMLibs}
         ${MLIRLibs}
-        ${OMLibs}
         onnx)
 
 target_include_directories(CustomFnTest
