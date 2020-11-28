@@ -75,12 +75,13 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int n) {
 /* OMTensorList destroyer */
 void omTensorListDestroy(OMTensorList *list) {
   for (int i = 0; i < list->_size; i++)
-    free(list->_omts[i]);
+    if (list->_omts[i])
+      omTensorDestroy(list->_omts[i]);
   free(list);
 }
 
 /* OMTensorList OMTensor array getter */
-OMTensor **omTensorListGetPtrToOmts(OMTensorList *list) { return list->_omts; }
+OMTensor **omTensorListGetOmtArray(OMTensorList *list) { return list->_omts; }
 
 /* OMTensorList number of OMTensor getter */
 int omTensorListGetSize(OMTensorList *list) { return list->_size; }

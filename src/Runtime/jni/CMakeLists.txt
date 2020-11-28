@@ -9,7 +9,7 @@ if(Java_Development_FOUND AND JNI_FOUND)
   # Target for Java runtime jar
   add_jar(javaruntime
           src/com/ibm/onnxmlir/DynEntryPoint.java
-	      src/com/ibm/onnxmlir/OMTensorList.java
+	  src/com/ibm/onnxmlir/OMTensorList.java
           src/com/ibm/onnxmlir/OMTensor.java
           OUTPUT_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 

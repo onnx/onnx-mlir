@@ -52,6 +52,10 @@ struct OMTensor;
 typedef struct OMTensor OMTensor;
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * \brief Create a OMTensor with specified data pointer, shape, rank and element
  * type.
@@ -148,7 +152,7 @@ void *omTensorGetDataPtr(OMTensor *tensor);
  * @param tensor pointer to the OMTensor
  * @return pointer to the data shape array.
  */
-int64_t *omTensorGetDataShape(OMTensor *tensor);
+int64_t *omTensorGetShape(OMTensor *tensor);
 
 /**
  * \brief OMTensor data shape setter.
@@ -160,9 +164,9 @@ int64_t *omTensorGetDataShape(OMTensor *tensor);
  * manage the shape array oneself.
  *
  * @param tensor pointer to the OMTensor
- * @param shape data sizes array to be set
+ * @param shape data shape array to be set
  *
- * Set the data sizes array of the OMTensor to the values in the input array.
+ * Set the data shape array of the OMTensor to the values in the input array.
  */
 void omTensorSetShape(OMTensor *tensor, int64_t *shape);
 
@@ -194,7 +198,7 @@ int64_t *omTensorGetStrides(OMTensor *tensor);
  *
  * Set the data strides array of the OMTensor to the values in the input array.
  */
-void omTensorSetStrides(OMTensor *tensor, int64_t *strides);
+void omTensorSetStrides(OMTensor *tensor, int64_t *stride);
 
 /**
  * \brief OMTensor data type getter
@@ -225,13 +229,13 @@ static inline int getDataTypeSize(OM_DATA_TYPE dataType) {
  * @param tensor pointer to the OMTensor
  * @return the total size of the data buffer in bytes.
  */
-int64_t omTensorGetDataBufferSize(OMTensor *tensor);
+int64_t omTensorGetBufferSize(OMTensor *tensor);
 
 /**
  * \brief OMTensor rank getter
  *
  * @param tensor, pointer to the OMTensor
- * @return rank of data sizes and strides of the OMTensor.
+ * @return rank of data shape and strides of the OMTensor.
  */
 int omTensorGetRank(OMTensor *tensor);
 
@@ -242,5 +246,16 @@ int omTensorGetRank(OMTensor *tensor);
  * @return the number of elements in the data buffer.
  */
 int64_t omTensorGetNumElems(OMTensor *tensor);
+
+/**
+ * \brief OMTensor owning flag getter
+ *
+ * @return owning flag of the OMTensor.
+ */
+int omTensorGetOwning(OMTensor *tensor);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // ONNX_MLIR_OMTENSOR_H

@@ -60,6 +60,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect,
       shape::ShapeDialect, scf::SCFDialect>();
 
+  // std.tanh will be expanded.
+  target.addIllegalOp<mlir::TanhOp>();
+
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
   // if any of these operations are *not* converted.
@@ -129,6 +132,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXRNNOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
+
+  // Expand std.tanh
+  populateExpandTanhPattern(patterns, &getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
