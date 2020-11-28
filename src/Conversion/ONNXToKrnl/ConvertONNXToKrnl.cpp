@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -57,7 +58,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect,
-      shape::ShapeDialect>();
+      shape::ShapeDialect, scf::SCFDialect>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
@@ -132,8 +133,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
   // operations were not converted successfully.
-  if (failed(applyPartialConversion(module, target, std::move(patterns))))
+  if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
+  }
 }
 
 std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {

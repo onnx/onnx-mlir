@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <random>
 #include <rapidcheck.h>
 #include <string>
@@ -18,27 +19,44 @@
 
 using namespace std;
 
-// Returns whether onnx-mlir compiled convolution is producing the same results
-// as a naive implementation of convolution for a specific set of convolution
-// parameters/configuration.
-bool isOMLoopTheSameAsNaiveImplFor(
-    const int64_t tripCount, const int64_t yInit) {
+std::string testLoopSimpleIR = R"(
+module {
+  func @loop_body(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<i1>, tensor<1xi64>, tensor<1xi64>) {
+    %0 = "onnx.Identity"(%arg1) : (tensor<i1>) -> tensor<i1>
+    %1 = "onnx.Add"(%arg0, %arg2) : (tensor<i64>, tensor<1xi64>) -> tensor<1xi64>
+    return %0, %1, %1 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
+  }
+  func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) {
+    %0:2 = "onnx.Loop"(%arg0, %arg1, %arg2) {body = @loop_body} : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
+    return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
+  }
+  "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32} : () -> ()
+})";
+
+std::string testLoopWithEarlyTermination = R"(
+module {
+  func @loop_body(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<i1>, tensor<1xi64>, tensor<1xi64>) attributes {input_names = ["iter_count", "cond_in", "y_in"], output_names = ["cond_out", "y_out", "scan_out"]} {
+    %0 = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
+    %1 = "onnx.Less"(%arg0, %0) : (tensor<i64>, tensor<i64>) -> tensor<i1>
+    %2 = "onnx.Add"(%arg2, %arg0) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
+    return %1, %2, %2 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
+  }
+  func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) attributes {input_names = ["trip_count", "cond", "y"], output_names = ["res_y", "res_scan"]} {
+    %0:2 = "onnx.Loop"(%arg0, %arg1, %arg2) {body = @loop_body} : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
+    return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
+  }
+  "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32} : () -> ()
+})";
+
+// Returns whether onnx-mlir compiled loop operation is producing the same
+// results as a naive implementation of loop operation for a specific set of
+// convolution parameters/configuration.
+bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
+    const int64_t tripCount, const int64_t yInit,
+    const int64_t earlyTerminationTripCount =
+        std::numeric_limits<int64_t>::max()) {
   MLIRContext ctx;
   registerDialects(ctx);
-
-  std::string moduleIR = R"(
-    module {
-      func @loop_body(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<i1>, tensor<1xi64>, tensor<1xi64>) {
-          %0 = "onnx.Identity"(%arg1) : (tensor<i1>) -> tensor<i1>
-          %1 = "onnx.Add"(%arg0, %arg2) : (tensor<i64>, tensor<1xi64>) -> tensor<1xi64>
-          return %0, %1, %1 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
-      }
-      func @main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>) {
-          %0:2 = "onnx.Loop"(%arg0, %arg1, %arg2) {body = @loop_body} : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
-          return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
-      }
-      "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32} : () -> ()
-    })";
 
   auto module = mlir::parseSourceString(moduleIR, &ctx);
   OwningModuleRef moduleRef(std::move(module));
@@ -73,7 +91,8 @@ bool isOMLoopTheSameAsNaiveImplFor(
       omTensorDestroy);
 
   omTensorGetElem<int64_t>(vFinalRef.get(), {0}) = yInit;
-  for (int i = 0; i < tripCount; i++)
+  for (int i = 0;
+       i <= std::min<int64_t>(earlyTerminationTripCount, tripCount - 1); i++)
     omTensorGetElem<int64_t>(vFinalRef.get(), {0}) += i;
 
   auto &vFinal = outputs.at(0);
@@ -84,9 +103,19 @@ int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
-  assert(isOMLoopTheSameAsNaiveImplFor(0, 42));
-  assert(isOMLoopTheSameAsNaiveImplFor(1, 42));
-  assert(isOMLoopTheSameAsNaiveImplFor(10, 42));
+  // Loop tests, simple.
+  assert(isOMLoopTheSameAsNaiveImplFor(testLoopSimpleIR, 0, 42));
+  assert(isOMLoopTheSameAsNaiveImplFor(testLoopSimpleIR, 1, 42));
+  assert(isOMLoopTheSameAsNaiveImplFor(testLoopSimpleIR, 10, 42));
+
+  // Loop tests, with early termination. The early termination trip count is
+  // hard-coded in the IR as a constant operation as 3.
+  assert(isOMLoopTheSameAsNaiveImplFor(
+      testLoopWithEarlyTermination, 0, 42, /*earlyTerminationTripCount=*/3));
+  assert(isOMLoopTheSameAsNaiveImplFor(
+      testLoopWithEarlyTermination, 1, 42, /*earlyTerminationTripCount=*/3));
+  assert(isOMLoopTheSameAsNaiveImplFor(
+      testLoopWithEarlyTermination, 10, 42, /*earlyTerminationTripCount=*/3));
 
   return 0;
 }
