@@ -9,8 +9,13 @@ add_subdirectory(Runtime)
 # All ONNX-MLIR libraries.
 set(OMLibs
         OMBuilder
+        # Note that circular dependencies exist between
+        # ONNXOps and KrnlOps, so we include them twice
+        # for full symbol resolution.
+        OMONNXOps
         OMKrnlOps
         OMONNXOps
+        OMKrnlOps
         OMSupport
         OMKrnlToAffine
         OMKrnlToLLVM
