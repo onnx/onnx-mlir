@@ -859,7 +859,7 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
          if not input.typeStr in type_str_dict :
              # some arguments use type description directly
              # instead of constraint
-             return [parse_type_str(input.typeStr)]
+             return [parse_type_str(input.typeStr), "AnyMemRef"]
          else :
              return type_str_dict[input.typeStr]
     else :
@@ -1177,4 +1177,3 @@ if __name__ == '__main__':
         sys.stdout.write(Args.op_def.getvalue())
     if args.dry_run_op_build_table:
         sys.stdout.write(Args.op_importer.getvalue())
-
