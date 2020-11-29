@@ -3,6 +3,7 @@ ARG BASE_IMAGE="ubuntu:focal"
 FROM $BASE_IMAGE
 
 ARG CPU_ARCH
+ENV CPU_ARCH ${CPU_ARCH}
 
 WORKDIR /build
 
