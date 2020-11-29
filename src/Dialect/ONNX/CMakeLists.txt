@@ -28,7 +28,9 @@ target_include_directories(OMONNXOps
         ${ONNX_MLIR_SRC_ROOT})
 
 add_dependencies(OMONNXOps OMONNXOpsIncGen OMKrnlOpsInc)
+# TODO: remove dependency of ONNXOps on KrnlOps
 target_link_libraries(OMONNXOps
+        OMKrnlOps
         onnx)
 # Linking dependencies:
 add_dependencies(OMONNXOps
