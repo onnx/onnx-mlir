@@ -87,7 +87,7 @@ jobs:
       arch:
         - s390x
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="ubuntu:focal" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="ubuntu:focal" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
     - stage: prereq-0
@@ -95,7 +95,7 @@ jobs:
       arch:
         - s390x
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
     - stage: prereq-1
@@ -103,7 +103,7 @@ jobs:
       arch:
         - s390x
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
     - stage: prereq-2
@@ -111,7 +111,7 @@ jobs:
       arch:
         - s390x
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:s390x -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:s390x
     - stage: prereq-final
@@ -119,7 +119,7 @@ jobs:
       arch:
         - s390x
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage:s390x -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage:s390x -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:s390x" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage:s390x
 
@@ -133,7 +133,7 @@ jobs:
       arch:
         - ppc64le
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="ubuntu:focal" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="ubuntu:focal" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
     - stage: prereq-0
@@ -141,7 +141,7 @@ jobs:
       arch:
         - ppc64le
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
     - stage: prereq-1
@@ -149,7 +149,7 @@ jobs:
       arch:
         - ppc64le
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
     - stage: prereq-2
@@ -157,7 +157,7 @@ jobs:
       arch:
         - ppc64le
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le
     - stage: prereq-final
@@ -165,7 +165,7 @@ jobs:
       arch:
         - ppc64le
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage:ppc64le -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage:ppc64le -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:ppc64le" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage:ppc64le
 
@@ -179,7 +179,7 @@ jobs:
       arch:
         - amd64
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="ubuntu:focal" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="ubuntu:focal" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:amd64
     - stage: prereq-0
@@ -187,7 +187,7 @@ jobs:
       arch:
         - amd64
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:amd64
     - stage: prereq-1
@@ -195,7 +195,7 @@ jobs:
       arch:
         - amd64
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:amd64
     - stage: prereq-2
@@ -203,7 +203,7 @@ jobs:
       arch:
         - amd64
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage-partial:amd64 -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage-partial:amd64
     - stage: prereq-final
@@ -211,7 +211,7 @@ jobs:
       arch:
         - amd64
       script:
-        - docker build -t onnxmlirczar/onnx-mlir-llvmimage:amd64 -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
+        - docker build -t onnxmlirczar/onnx-mlir-llvmimage:amd64 -f docker/Dockerfile.prereq --build-arg CPU_ARCH="${TRAVIS_CPU_ARCH}" --build-arg BASE_IMAGE="onnxmlirczar/onnx-mlir-llvmimage-partial:amd64" ./utils
         - docker login -u onnxmlirczar -p "${DOCKER_HUB_TOKEN}"
         - docker push onnxmlirczar/onnx-mlir-llvmimage:amd64
 after_success:
