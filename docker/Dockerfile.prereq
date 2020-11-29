@@ -54,7 +54,7 @@ RUN if [ ! -f "/build/llvm-project/build/CMakeCache.txt" ]; then \
 
 ENV MAKEFLAGS=-j2
 ENV CPU_ARCH ${CPU_ARCH}
-RUN if echo "${CPU_ARCH}" && timeout 30m cmake --build . --target -- ${MAKEFLAGS} ; then \
+RUN if timeout 30m cmake --build . --target -- ${MAKEFLAGS} ; then \
       echo "check-mlir on CPU_ARCH=${CPU_ARCH}"; \
       cmake --build . --target check-mlir || [ "${CPU_ARCH}" = "s390x" ]; \
     fi
