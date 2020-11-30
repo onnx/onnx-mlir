@@ -181,6 +181,11 @@ struct TensorTypeConverter : public TypeConverter {
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
+// `ControlFlow` directory methods:
+
+void populateLoweringONNXLoopOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 // `Math` directory methods:
 
 void populateLoweringONNXElementwiseOpPattern(
