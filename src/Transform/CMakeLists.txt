@@ -85,3 +85,4 @@ add_dependencies(OMLowerKrnlShape
         OMKrnlOps)
 
 add_subdirectory(ONNX)
+add_subdirectory(Krnl)
