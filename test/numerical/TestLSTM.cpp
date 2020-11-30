@@ -104,7 +104,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(
 
   // Use the lstmOp shape inference method to compute output shape, and unset
   // the shape so that we don't leave IR in an inconsistent state.
-  lstmOp.inferShapes();
+  lstmOp.inferShapes([](mlir::FuncOp) {});
   auto yOutputShape =
       lstmOp.getResults()[0].getType().cast<ShapedType>().getShape();
   auto SOut = yOutputShape[0];
