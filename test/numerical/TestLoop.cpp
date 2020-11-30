@@ -63,8 +63,6 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   compileModule(moduleRef, ctx, SHARED_LIB_BASE, EmitLib);
   onnx_mlir::ExecutionSession sess(SHARED_LIB_BASE + ".so", "run_main_graph");
 
-  auto *yInitShape = new int64_t[1]{1};
-  auto *yRefInitShape = new int64_t[1]{1};
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto tripCountTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateEmpty(nullptr, 0, OM_DATA_TYPE::ONNX_TYPE_INT64),
@@ -78,6 +76,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   omTensorGetElem<bool>(condTensor.get(), {}) = true;
   inputs.emplace_back(move(condTensor));
 
+  auto *yInitShape = new int64_t[1]{1};
   auto yInitTensor = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateEmpty(&yInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
@@ -86,12 +85,13 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
 
   auto outputs = sess.run(move(inputs));
 
+  auto *yRefInitShape = new int64_t[1]{1};
   auto vFinalRef = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateEmpty(&yRefInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
 
   omTensorGetElem<int64_t>(vFinalRef.get(), {0}) = yInit;
-  for (int i = 0;
+  for (int64_t i = 0;
        i <= std::min<int64_t>(earlyTerminationTripCount, tripCount - 1); i++)
     omTensorGetElem<int64_t>(vFinalRef.get(), {0}) += i;
 
