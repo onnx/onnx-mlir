@@ -1,6 +1,7 @@
 var searchData=
 [
   ['omtensorcreate',['omTensorCreate',['../_o_m_tensor_8h.html#ae7465303dcf4e6b090f6ef7bf16bbe6a',1,'OMTensor.h']]],
+  ['omtensorcreateempty',['omTensorCreateEmpty',['../_o_m_tensor_8h.html#a5e7b452b053fcdcbbb0d85deed59a314',1,'OMTensor.h']]],
   ['omtensorcreatewithownership',['omTensorCreateWithOwnership',['../_o_m_tensor_8h.html#a91ae8bbc685f94d70b9ed2f64ea76e15',1,'OMTensor.h']]],
   ['omtensordestroy',['omTensorDestroy',['../_o_m_tensor_8h.html#a425a838c94082f3c6287c80a658e5d31',1,'OMTensor.h']]],
   ['omtensorgetbuffersize',['omTensorGetBufferSize',['../_o_m_tensor_8h.html#ad4265dec5bb16b5a525494f2741c8c90',1,'OMTensor.h']]],
