@@ -30,8 +30,6 @@ namespace bstd = mpark;
 namespace onnx_mlir {
 namespace detail {
 
-
-
 class FrontendGenImpl {
 public:
   FrontendGenImpl(mlir::MLIRContext &context)
