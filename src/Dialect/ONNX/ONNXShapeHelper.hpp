@@ -139,6 +139,14 @@ struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
   LogicalResult Compute(ONNXSplitOpAdaptor operandAdaptor);
 };
 
+// Shape for TransposeOp.
+struct ONNXTransposeOpShapeHelper : public ONNXOpShapeHelper<ONNXTransposeOp> {
+  ONNXTransposeOpShapeHelper(
+      ONNXTransposeOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXTransposeOpAdaptor operandAdaptor);
+};
+
 //===----------------------------------------------------------------------===//
 // Low Level Helpers
 //===----------------------------------------------------------------------===//

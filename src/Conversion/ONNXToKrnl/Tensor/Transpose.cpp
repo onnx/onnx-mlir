@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -21,74 +22,48 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     ONNXTransposeOpAdaptor operandAdaptor(operands);
     ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
     auto loc = op->getLoc();
+
+    // Operands and attributes.
     Value data = operandAdaptor.data();
     auto permAttr = transposeOp.perm();
+
+    // Basic information.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
-    auto memRefShape = memRefType.getShape();
-    int64_t rank = memRefShape.size();
+    int64_t rank = memRefType.getShape().size();
+
+    // Get a shape helper.
+    ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, &rewriter);
+    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else {
-      SmallVector<Value, 4> allocOperands;
-      for (int i = 0; i < rank; ++i) {
-        if (memRefShape[i] == -1) {
-          auto operandDim =
-              rewriter.create<DimOp>(loc, data, ArrayAttrIntVal(permAttr, i));
-          allocOperands.emplace_back(operandDim);
-        } else
-          continue;
-      }
-      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, memRefType, loc, shapeHelper.dimsForOutput(0));
 
-      // Insert dealloc if necessary.
-      auto *parentBlock = alloc.getDefiningOp()->getBlock();
-      if (insertDealloc) {
-        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
+    // Create loop.
+    BuildKrnlLoop inputLoops(rewriter, loc, rank);
+    inputLoops.createDefineAndIterateOp(data);
+    rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
+    {
+      // Get a child IndexExpr context.
+      IndexExprContext childContext(shapeHelper.context);
+
+      // Get read/write indices.
+      SmallVector<IndexExpr, 4> readIndices;
+      SmallVector<IndexExpr, 4> writeIndices;
+      for (decltype(rank) i = 0; i < rank; ++i) {
+        Value readVal = inputLoops.getInductionVar(i);
+        Value writeVal =
+            inputLoops.getInductionVar(ArrayAttrIntVal(permAttr, i));
+        IndexExpr readIndex = childContext.createLoopInductionIndex(readVal);
+        IndexExpr writeIndex = childContext.createLoopInductionIndex(writeVal);
+        readIndices.emplace_back(readIndex);
+        writeIndices.emplace_back(writeIndex);
       }
+
+      // Copy data.
+      Value loadData = childContext.createLoadOp(data, readIndices);
+      childContext.createStoreOp(loadData, alloc, writeIndices);
     }
-
-    // Define loops.
-    std::vector<Value> originalLoops;
-    defineLoops(rewriter, loc, originalLoops, rank);
-
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
-    // Iterate over the loop nest using the input shape.
-    for (int i = 0; i < rank; ++i)
-      addDimensionToPack(rewriter, loc, pack, data, i);
-
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
-    Block &iterationBlock = iterateOp.bodyRegion().front();
-
-    // Now perform the insertions into the body of the
-    // just generated instructions:
-
-    // Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation.
-
-    // Read perm attribute.
-    SmallVector<int, 4> perm;
-    auto permAttribute = llvm::dyn_cast<ONNXTransposeOp>(op).permAttr();
-    assert(permAttribute && "permute attribute expected to be defined here");
-    for (auto permVal : permAttribute.getValue())
-      perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
-
-    SmallVector<Value, 4> inLoopIVs;
-    for (auto arg : iterationBlock.getArguments())
-      inLoopIVs.emplace_back(arg);
-
-    SmallVector<Value, 4> outLoopIVs;
-    for (int i = 0; i < iterationBlock.getArguments().size(); ++i)
-      outLoopIVs.emplace_back(iterationBlock.getArguments()[perm[i]]);
-
-    auto inVal = rewriter.create<AffineLoadOp>(loc, data, inLoopIVs);
-    rewriter.create<AffineStoreOp>(loc, inVal, alloc, outLoopIVs);
 
     rewriter.replaceOp(op, alloc);
 
