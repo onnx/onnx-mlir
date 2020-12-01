@@ -413,6 +413,97 @@ private:
   }
 
   template <typename T>
+  void buildOutputAndOperationWithAttribute(const onnx::NodeProto &node,
+      std::vector<mlir::Value> inputs, int expectedNumOperands,
+      int expectedNumResults,mlir::NamedAttribute attr) {
+    bool variadicIn = expectedNumOperands == -1;
+    bool variadicOut = expectedNumResults == -1;
+
+    // In ONNX, there are two ways to leave an optional input or output
+    // unspecified: the first, available only for trailing inputs and outputs,
+    // is to simply not provide that input; the second method is to use an empty
+    // string in place of an input or output name.
+    //
+    // Here, we import optional inputs and outputs as NoneType.
+
+    // Trailing optional inputs.
+    if (!variadicIn)
+      for (auto i = inputs.size(); i < expectedNumOperands; i++) {
+        if (!none_)
+          none_ = builder_.create<mlir::ConstantOp>(
+              UnknownLoc(), builder_.getUnitAttr());
+        inputs.emplace_back(none_);
+      }
+
+    std::vector<mlir::Type> outputTypes;
+
+    // Use the type map to determine the data type of output.
+    std::vector<int> outputMap = T::getTypeMap();
+    for (auto i = 0; i < node.output().size(); i++) {
+      // Optional outputs using empty string.
+      if (node.output()[i].empty()) {
+        outputTypes.emplace_back(builder_.getNoneType());
+      } else {
+        auto j = i;
+        // Variadic output is a single ODS result.
+        if (variadicOut)
+          j = 0;
+        if (j < outputMap.size() && outputMap[j] >= MAX_TYPE) {
+          // Mapping gives a connection with an input.
+          mlir::Type inputType = inputs[outputMap[j] - MAX_TYPE].getType();
+          if (inputType.isa<mlir::TensorType>()) {
+            auto elementType =
+                inputType.cast<mlir::TensorType>().getElementType();
+            auto outType = mlir::UnrankedTensorType::get(elementType);
+            outputTypes.emplace_back(outType);
+          } else {
+            outputTypes.push_back(inputType);
+          }
+        } else if (j < outputMap.size() && outputMap[j] != -1) {
+          // Mapping gives a direct type.
+          auto elementType = buildTypeFromIndex(outputMap[j]);
+          auto outType = mlir::UnrankedTensorType::get(elementType);
+          outputTypes.emplace_back(outType);
+        } else {
+          outputTypes.emplace_back(builder_.getNoneType());
+        }
+      }
+    }
+    // Trailing optional outputs.
+    if (!variadicOut)
+      for (int i = node.output().size(); i < expectedNumResults; ++i)
+        outputTypes.emplace_back(builder_.getNoneType());
+
+    auto attributes = ImportNodeAttributes(node);
+    attributes.push_back(attr);
+
+    // TODO: Handle optional inputs.
+    auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
+
+    // Type inference for results.
+    if (auto opWithTypeInference =
+            mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
+                op.getOperation())) {
+      auto outTypes = opWithTypeInference.resultTypeInference();
+      for (int i = 0; i < node.output().size(); i++) {
+        if (variadicOut)
+          (*(op.getODSResults(0).begin() + i)).setType(outTypes[i]);
+        else
+          (*op.getODSResults(i).begin()).setType(outTypes[i]);
+      }
+    }
+
+    for (int i = 0; i < node.output().size(); i++) {
+      if (variadicOut)
+        frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
+            *(op.getODSResults(0).begin() + i));
+      else
+        frontend_symbols_.AddMapping(
+            legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));
+    }
+  }
+
+  template <typename T>
   void buildOperation(const onnx::NodeProto &node) {
     std::vector<mlir::Value> inputs;
     int expectedNumOperands = T::getNumberOfOperands();
@@ -674,6 +765,67 @@ private:
       mlir::emitWarning(UnknownLoc(),
           "Could not find op importer: assuming this "
           "represents a custom operator.");
+    int nOps = node.input().size();
+    auto funcName = opName.str();
+    std::vector<mlir::Type> outputTypes;
+    std::vector<mlir::Value> inputs;
+    auto attributes = ImportNodeAttributes(node);
+    auto mlirAttr = builder_.getStringAttr(funcName);
+    auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
+    attributes.push_back(funcAttr);
+    //auto customOp = builder_.create<ONNXCustomOp>(UnknownLoc(), outputTypes, inputs, attributes);
+    int nIn = 0;
+    int nOut=0;
+    //mlir::Value customResult = *(customOp.getODSResults(0).begin());
+    //std::vector<mlir::Value> inputs;
+    for (const auto &item : node.input()) {
+      ++nIn;
+      if (initializedTensors.ContainKey(legalize_name(item))) {
+        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+            UnknownLoc(), builder_, legalize_name(item)));
+      } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
+        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      }
+    }
+
+    for (const auto &item : node.output())
+      ++nOut;
+    //inputs.push_back(customResult);
+
+    buildOutputAndOperationWithAttribute<mlir::ONNXCustomOp>(node, inputs, nIn, nOut,funcAttr);
+
+    /*
+    if (nOps == 2) {
+      llvm::SmallVector<int64_t, 2> dims;
+      dims.push_back(1);
+      llvm::SmallVector<float, 2> values;
+      values.push_back(0.);
+      auto elementType = builder_.getF32Type();
+      llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
+      auto tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
+      auto constantDenseAttribute =
+          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+
+      // Use the special builder defined in ONNXOp.td.inc.
+      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+      mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
+      std::vector<mlir::Value> inputs;
+      for (const auto &item : node.input())
+        if (initializedTensors.ContainKey(legalize_name(item))) {
+          inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+              UnknownLoc(), builder_, legalize_name(item)));
+        } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
+          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+        }
+      inputs.push_back(constantResult);
+
+      int nIn = mlir::ONNXPadOp::getNumberOfOperands();
+      int nOut = mlir::ONNXPadOp::getNumberOfResults();
+      buildOutputAndOperation<mlir::ONNXPadOp>(node, inputs, nIn, nOut);
+    } else {
+      buildOperation<mlir::ONNXPadOp>(node);
+    }*/
   }
 
   void ImportNode(const onnx::NodeProto &node) {
@@ -838,6 +990,7 @@ private:
     builder_.create<mlir::ReturnOp>(UnknownLoc(), ret_vals);
     // Update main function signature to reflect types of newly imported
     // output tensors.
+    mainFunc.dump();
     funcType = builder_.getFunctionType(arg_types, ret_types);
     mainFunc.setType(funcType);
 
