@@ -143,6 +143,15 @@ struct ONNXGlobalPoolOpShapeHelper: public ONNXOpShapeHelper<OP> {
   SmallVector<IndexExpr, 4> xDims;
 };
 
+// Instances of Global Pool Ops: Average, Lp, and Max.
+typedef ONNXGlobalPoolOpShapeHelper<ONNXGlobalAveragePoolOp,
+    ONNXGlobalAveragePoolOpAdaptor> ONNXGlobalAveragePoolOpShapeHelper;
+typedef ONNXGlobalPoolOpShapeHelper<ONNXGlobalLpPoolOp,
+    ONNXGlobalLpPoolOpAdaptor> ONNXGlobalLpPoolOpShapeHelper;
+typedef ONNXGlobalPoolOpShapeHelper<ONNXGlobalMaxPoolOp,
+    ONNXGlobalMaxPoolOpAdaptor> ONNXGlobalMaxPoolOpShapeHelper;
+
+
 //===----------------------------------------------------------------------===//
 // Low Level Helpers
 //===----------------------------------------------------------------------===//

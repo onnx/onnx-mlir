@@ -37,15 +37,14 @@ using namespace mlir::onnxmlir;
 
 // Handle shapes for operations with a single output.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
-LogicalResult shapeHelperInferShapes(
-    OP *op, Value typeOper, std::string opName) {
+LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
 
   SHAPE_HELPER shapeHelper(op, nullptr);
 
   ADAPTOR operandAdaptor(*op);
   if (failed(shapeHelper.Compute(operandAdaptor)))
-    return op->emitError(
-        "Failed to scan " + opName + " parameters successfully");
+    return op->emitError("Failed to scan " + OP::getOperationName() +
+                         " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExprContext::getOutputDimsForType(
       shapeHelper.dimsForOutput(0), outputDims);
@@ -57,15 +56,14 @@ LogicalResult shapeHelperInferShapes(
 
 // Handle shapes for operations with multiple outputs.
 template <class SHAPE_HELPER, class OP, class ADAPTOR>
-LogicalResult shapeHelperInferMultipleShapes(
-    OP *op, Value typeOper, std::string opName) {
+LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
 
   SHAPE_HELPER shapeHelper(op, nullptr);
 
   ADAPTOR operandAdaptor(*op);
   if (failed(shapeHelper.Compute(operandAdaptor)))
-    return op->emitError(
-        "Failed to scan " + opName + " parameters successfully");
+    return op->emitError("Failed to scan " + OP::getOperationName() +
+                         " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExprContext::getOutputDimsForType(
       shapeHelper.dimsForOutput(0), outputDims);
@@ -166,8 +164,7 @@ static LogicalResult processConvDilationParam(
   auto dilationsOpt = op->dilations();
   if (dilationsOpt.hasValue()) {
     if (ArrayAttrSize(dilationsOpt) != kernelRank) {
-      return op->emitError(
-          "dilation rank is not the same as the spatial rank");
+      return op->emitError("dilation rank is not the same as the spatial rank");
     }
     // Test values to be greater than 0.
     for (int i = 0; i < kernelRank; ++i) {
@@ -1032,7 +1029,7 @@ LogicalResult ONNXMatMulOp::inferShapes() {
     return emitError("Input tensor(s) not ranked");
 
   return shapeHelperInferShapes<ONNXMatMulOpShapeHelper, ONNXMatMulOp,
-      ONNXMatMulOpAdaptor>(this, A(), "MatMul");
+      ONNXMatMulOpAdaptor>(this, A());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1176,7 +1173,7 @@ LogicalResult ONNXGemmOp::inferShapes() {
     return emitError("Input tensor(s) not ranked");
 
   return shapeHelperInferShapes<ONNXGemmOpShapeHelper, ONNXGemmOp,
-      ONNXGemmOpAdaptor>(this, A(), "GemmOp");
+      ONNXGemmOpAdaptor>(this, A());
 }
 
 /// BatchNormalizationTestMode
@@ -1871,32 +1868,6 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes() {
   return success();
 }
 
-// Helper function to infer shapes of global pool operations.
-template <typename PoolingOp>
-static LogicalResult inferShapesGlobalPool(PoolingOp *op) {
-  // Cannot infer shape if no shape exists.
-  if (!op->X().getType().template isa<RankedTensorType>())
-    return op->emitError("Input tensor not ranked");
-
-  auto xTy = op->X().getType().template cast<RankedTensorType>();
-  auto xShape = xTy.getShape();
-  xTy.getRank();
-
-  if (xShape.size() < 3) {
-    return op->emitError("Data input shape must be at least (NxCxD1)");
-  }
-
-  SmallVector<int64_t, 4> outputDims;
-  outputDims.emplace_back(xShape[0]);
-  outputDims.emplace_back(xShape[1]);
-  // Spatial dimensions are reduced to 1.
-  outputDims.insert(outputDims.end(), xTy.getRank() - 2, 1);
-
-  op->getResult().setType(
-      RankedTensorType::get(outputDims, xTy.getElementType()));
-  return success();
-}
-
 //===----------------------------------------------------------------------===//
 // GlobalAveragePool
 //===----------------------------------------------------------------------===//
@@ -1905,11 +1876,8 @@ LogicalResult ONNXGlobalAveragePoolOp::inferShapes() {
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor is not ranked");
 
-  return shapeHelperInferShapes<
-      ONNXGlobalPoolOpShapeHelper<ONNXGlobalAveragePoolOp,
-          ONNXGlobalAveragePoolOpAdaptor>,
-      ONNXGlobalAveragePoolOp, ONNXGlobalAveragePoolOpAdaptor>(
-      this, X(), "GlobalAveragePool");
+  return shapeHelperInferShapes<ONNXGlobalAveragePoolOpShapeHelper,
+      ONNXGlobalAveragePoolOp, ONNXGlobalAveragePoolOpAdaptor>(this, X());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1920,11 +1888,8 @@ LogicalResult ONNXGlobalLpPoolOp::inferShapes() {
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor is not ranked");
 
-  return shapeHelperInferShapes<
-      ONNXGlobalPoolOpShapeHelper<ONNXGlobalLpPoolOp,
-          ONNXGlobalLpPoolOpAdaptor>,
-      ONNXGlobalLpPoolOp, ONNXGlobalLpPoolOpAdaptor>(
-      this, X(), "GlobalLpPool");
+  return shapeHelperInferShapes<ONNXGlobalLpPoolOpShapeHelper,
+      ONNXGlobalLpPoolOp, ONNXGlobalLpPoolOpAdaptor>(this, X());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1935,11 +1900,8 @@ LogicalResult ONNXGlobalMaxPoolOp::inferShapes() {
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor is not ranked");
 
-  return shapeHelperInferShapes<
-      ONNXGlobalPoolOpShapeHelper<ONNXGlobalMaxPoolOp,
-          ONNXGlobalMaxPoolOpAdaptor>,
-      ONNXGlobalMaxPoolOp, ONNXGlobalMaxPoolOpAdaptor>(
-      this, X(), "GlobalMaxPool");
+  return shapeHelperInferShapes<ONNXGlobalMaxPoolOpShapeHelper,
+      ONNXGlobalMaxPoolOp, ONNXGlobalMaxPoolOpAdaptor>(this, X());
 }
 
 //===----------------------------------------------------------------------===//
@@ -2288,22 +2250,7 @@ LogicalResult ONNXSplitOp::inferShapes() {
     return emitError("Input tensor not ranked");
 
   return shapeHelperInferMultipleShapes<ONNXSplitOpShapeHelper, ONNXSplitOp,
-      ONNXSplitOpAdaptor>(this, input(), "Split");
-#if 0
-    auto elementType = input().getType().cast<ShapedType>().getElementType();
-    ONNXSplitOpAdaptor operandAdaptor(*this);
-    ONNXSplitOpShapeHelper shapeHelper(this, nullptr);
-    if (failed(shapeHelper.Compute(operandAdaptor)))
-      return emitError("Failed to scan Split parameters successfully");
-    for (int i = 0; i < getNumResults(); ++i) {
-      SmallVector<int64_t, 4> outputDims;
-      IndexExprContext::getOutputDimsForType(
-          shapeHelper.dimsForOutput(i), outputDims);
-      getResults()[i].setType(RankedTensorType::get(outputDims, elementType));
-    }
-
-    return success();
-#endif
+      ONNXSplitOpAdaptor>(this, input());
 }
 
 //===----------------------------------------------------------------------===//
@@ -2593,7 +2540,7 @@ LogicalResult ONNXTileOp::inferShapes() {
     return emitError("Repeats tensor must have rank one");
 
   return shapeHelperInferShapes<ONNXTileOpShapeHelper, ONNXTileOp,
-      ONNXTileOpAdaptor>(this, input(), "Tile");
+      ONNXTileOpAdaptor>(this, input());
 }
 
 //===----------------------------------------------------------------------===//
@@ -2608,7 +2555,7 @@ LogicalResult ONNXGatherOp::inferShapes() {
     return emitError("Indices tensor not ranked");
 
   return shapeHelperInferShapes<ONNXGatherOpShapeHelper, ONNXGatherOp,
-      ONNXGatherOpAdaptor>(this, data(), "Gather");
+      ONNXGatherOpAdaptor>(this, data());
 }
 
 //===----------------------------------------------------------------------===//
@@ -2682,7 +2629,7 @@ LogicalResult ONNXSliceOp::inferShapes() {
     return emitError("Input tensor not ranked");
 
   return shapeHelperInferShapes<ONNXSliceOpShapeHelper, ONNXSliceOp,
-      ONNXSliceOpAdaptor>(this, data(), "Slice");
+      ONNXSliceOpAdaptor>(this, data());
 }
 
 //===----------------------------------------------------------------------===//

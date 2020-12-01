@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -43,6 +44,18 @@ Value getIdentityValue<ONNXReduceMeanOp>(
   return emitConstantOp(rewriter, loc, type, 0);
 }
 
+template <>
+Value getIdentityValue<ONNXGlobalAveragePoolOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return emitConstantOp(rewriter, loc, type, 0);
+}
+
+template <>
+Value getIdentityValue<ONNXGlobalMaxPoolOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type type) {
+  return emitNegativeInfinityConstantOp(rewriter, loc, type);
+}
+
 // Scalar ops
 template <>
 struct ScalarOp<ONNXReduceProdOp> {
@@ -58,6 +71,12 @@ struct ScalarOp<ONNXReduceSumOp> {
 
 template <>
 struct ScalarOp<ONNXReduceMeanOp> {
+  using FOp = AddFOp;
+  using IOp = AddIOp;
+};
+
+template <>
+struct ScalarOp<ONNXGlobalAveragePoolOp> {
   using FOp = AddFOp;
   using IOp = AddIOp;
 };
@@ -123,6 +142,15 @@ Value emitScalarOpFor<ONNXReduceMaxOp>(ConversionPatternRewriter &rewriter,
   }
 }
 
+template <>
+Value emitScalarOpFor<ONNXGlobalMaxPoolOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  // Reuse non-specific implementation of ONNXReduceMaxOp.
+  return emitScalarOpFor<ONNXReduceMaxOp>(
+      rewriter, loc, op, elementType, scalarOperands);
+}
+
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXReduceMinOp
 //===----------------------------------------------------------------------===//
@@ -145,6 +173,9 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Reductions.
+//===----------------------------------------------------------------------===//
 template <typename ONNXReductionOp>
 struct ONNXReductionOpLowering : public ConversionPattern {
   bool computeMean = false;
@@ -345,12 +376,134 @@ struct ONNXReductionOpLowering : public ConversionPattern {
   }
 };
 
+//===----------------------------------------------------------------------===//
+// Global Reduction
+//===----------------------------------------------------------------------===//
+
+template <class SHAPE_HELPER, class OP, class ADAPTOR>
+struct ONNXGlobalReductionOpLowering : public ConversionPattern {
+  bool computeMean = false;
+
+  ONNXGlobalReductionOpLowering(MLIRContext *ctx, bool computeMean = false)
+      : ConversionPattern(OP::getOperationName(), 1, ctx) {
+    this->computeMean = computeMean;
+  }
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    // Get info.
+    ADAPTOR operandAdaptor(operands);
+    OP specializedOp = llvm::cast<OP>(op);
+    Location loc = op->getLoc();
+    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    Type elementType = outputMemRefType.getElementType();
+    // Get shape info.
+    SHAPE_HELPER shapeHelper(&specializedOp, &rewriter);
+    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
+
+    // Allocate output.
+    int64_t outputRank = outputMemRefType.getShape().size();
+    // Insert an allocation and deallocation for the output of this operation.
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+
+    // If we need to compute a mean, compute the divisor now before the loop.
+    Value divisor = Value(nullptr);
+    if (computeMean) {
+      // Compute the total size of the reduction space.
+      IndexExpr size = shapeHelper.context.createLiteralIndex(1);
+      for (int i = 2; i < outputRank; ++i)
+        size = size * shapeHelper.xDims[i];
+      // convert to the right format
+      if (elementType.isa<IntegerType>()) {
+        divisor =
+            rewriter.create<IndexCastOp>(loc, size.getValue(), elementType);
+      } else if (elementType.isa<FloatType>()) {
+        Value tmp = rewriter.create<IndexCastOp>(
+            loc, size.getValue(), rewriter.getI64Type());
+        divisor = rewriter.create<UIToFPOp>(loc, tmp, elementType);
+      } else {
+        llvm_unreachable("unsupported element type");
+      }
+    }
+
+    // Build 2 outer loops (N, C).
+    int N = 0;
+    int C = 1;
+    BuildKrnlLoop outerLoops(rewriter, loc, 2);
+    outerLoops.createDefineOp();
+    outerLoops.pushBounds(0, shapeHelper.dimsForOutput(0)[N]);
+    outerLoops.pushBounds(0, shapeHelper.dimsForOutput(0)[C]);
+    outerLoops.createIterateOp();
+    rewriter.setInsertionPointToStart(outerLoops.getIterateBlock());
+    // Create loop induction indices in the loop context.
+    IndexExprContext loopContext(shapeHelper.context);
+    IndexExpr nInduction =
+        loopContext.createLoopInductionIndex(outerLoops.getInductionVar(N));
+    IndexExpr cInduction =
+        loopContext.createLoopInductionIndex(outerLoops.getInductionVar(C));
+
+    // Compute the loop indices for the output (n, k, 0, ... 0).
+    SmallVector<IndexExpr, 4> outputAccessFct({nInduction, cInduction});
+    IndexExpr zero = loopContext.createLiteralIndex(0);
+    for (int i = 2; i < outputRank; ++i)
+      outputAccessFct.emplace_back(zero);
+
+    // Set to neutral value.
+    Value neutral = getIdentityValue<OP>(rewriter, loc, elementType);
+    loopContext.createStoreOp(neutral, alloc, outputAccessFct);
+
+    // Create the inner loop (outputRank -2)
+    int innerRank = outputRank - 2;
+    BuildKrnlLoop innerLoops(rewriter, loc, innerRank);
+    innerLoops.createDefineOp();
+    for (int i = 2; i < outputRank; ++i)
+      innerLoops.pushBounds(0, shapeHelper.xDims[i]);
+    innerLoops.createIterateOp();
+
+    // Create loop induction indices in the inner context.
+    SmallVector<IndexExpr, 4> reductionAccessFct({nInduction, cInduction});
+    for (int i = 0; i < innerRank; ++i)
+      reductionAccessFct.emplace_back(
+          loopContext.createLoopInductionIndex(innerLoops.getInductionVar(i)));
+
+    // Before filling the reduction loops, deal with the averaging, if needed.
+    if (computeMean) {
+      Value loadOutputData = loopContext.createLoadOp(alloc, outputAccessFct);
+      Value avg;
+      if (elementType.isa<IntegerType>()) {
+        avg = rewriter.create<SignedDivIOp>(loc, loadOutputData, divisor);
+      } else {
+        assert(elementType.isa<FloatType>());
+        avg = rewriter.create<DivFOp>(loc, loadOutputData, divisor);
+      }
+      loopContext.createStoreOp(avg, alloc, outputAccessFct);
+    }
+
+    // now compute the reduction.
+    rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
+    Value loadOutputData = loopContext.createLoadOp(alloc, outputAccessFct);
+    Value loadRedData =
+        loopContext.createLoadOp(operandAdaptor.X(), reductionAccessFct);
+    Value red = emitScalarOpFor<OP>(
+        rewriter, loc, op, elementType, {loadOutputData, loadRedData});
+    loopContext.createStoreOp(red, alloc, outputAccessFct);
+
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+};
+
 void populateLoweringONNXReductionOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMaxOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp>,
       ONNXReductionOpLowering<mlir::ONNXReduceProdOp>,
-      ONNXReductionOpLowering<mlir::ONNXReduceSumOp>>(ctx);
-  patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
+      ONNXReductionOpLowering<mlir::ONNXReduceSumOp>,
+      ONNXGlobalReductionOpLowering<ONNXGlobalMaxPoolOpShapeHelper,
+          ONNXGlobalMaxPoolOp, ONNXGlobalMaxPoolOpAdaptor>>(ctx);
+  patterns.insert<ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>,
+      ONNXGlobalReductionOpLowering<ONNXGlobalAveragePoolOpShapeHelper,
+          ONNXGlobalAveragePoolOp, ONNXGlobalAveragePoolOpAdaptor>>(
       ctx, /*computeMean=*/true);
 }
