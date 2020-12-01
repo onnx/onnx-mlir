@@ -327,9 +327,15 @@ public:
     auto constantElementType =
         typeConverter.convertType(memRefTy.getElementType());
     auto globalType = constantElementType;
-    for (int i = shape.size() - 1; i >= 0; i--)
-      globalType = LLVM::LLVMType::getArrayTy(
-          globalType.cast<LLVM::LLVMType>(), ArrayAttrIntVal(shape, i));
+
+    if (shape.empty()) {
+      globalType =
+          LLVM::LLVMType::getArrayTy(globalType.cast<LLVM::LLVMType>(), 1);
+    } else {
+      for (int i = shape.size() - 1; i >= 0; i--)
+        globalType = LLVM::LLVMType::getArrayTy(
+            globalType.cast<LLVM::LLVMType>(), ArrayAttrIntVal(shape, i));
+    }
     // The llvm type of the global (example: [2 x [8 x float]])
     auto llvmGlobalType = globalType.cast<LLVM::LLVMType>();
 
@@ -1016,6 +1022,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(
     LLVMTypeConverter &typeConverter) {
   populateAffineToStdConversionPatterns(patterns, ctx);
   populateLoopToStdConversionPatterns(patterns, ctx);
+
   populateShapeToStandardConversionPatterns(patterns, ctx);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);

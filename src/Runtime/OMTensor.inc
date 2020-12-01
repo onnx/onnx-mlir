@@ -189,22 +189,6 @@ OMTensor *omTensorCreateEmptyDeprecated(int rank) {
   return omt;
 }
 
-/**
- * Create an OMTensor with the specified shape, rank and element type,
- * allocate uninitialized data for the specified shape.
- * This function is intentionally left out from the header because it is only
- * used by the wrapper code we emit around inference function that converts
- * MemRefs to OMTensors for user convenience.
- *
- * The OMTensor created using this constructor owns the underlying memory
- * space allocated to the content of the tensor.
- *
- * @param shape list of integers indicating the tensor shape.
- * @param rank tensor rank.
- * @param dtype tensor element data type.
- * @return pointer to OMTensor created, NULL if creation failed.
- *
- */
 OMTensor *omTensorCreateEmpty(
     int64_t *shape, int64_t rank, OM_DATA_TYPE dtype) {
   OMTensor *tensor =
@@ -212,9 +196,11 @@ OMTensor *omTensorCreateEmpty(
   // If ctor fails, return null.
   if (!tensor)
     return NULL;
+
   void *dataPtr = malloc(omTensorGetNumElems(tensor) * getDataTypeSize(dtype));
   if (!dataPtr)
     return NULL;
+
   tensor->_alignedPtr = dataPtr;
   tensor->_allocatedPtr = dataPtr;
   return tensor;
@@ -506,6 +492,8 @@ template OMTensor *omTensorCreateWithRandomData<float>(
 template OMTensor *omTensorCreateWithRandomData<double>(
     std::vector<int64_t> shape, double lbound, double ubound);
 
+template bool &omTensorGetElem<bool>(
+    OMTensor *, std::vector<int64_t> indexes);
 template int32_t &omTensorGetElem<int32_t>(
     OMTensor *, std::vector<int64_t> indexes);
 template int64_t &omTensorGetElem<int64_t>(

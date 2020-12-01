@@ -89,7 +89,7 @@ bool isOMRNNTheSameAsNaiveImplFor(
 
   // Use the rnnOp shape inference method to compute output shape, and unset
   // the shape so that we don't leave IR in an inconsistent state.
-  rnnOp.inferShapes();
+  rnnOp.inferShapes([](mlir::FuncOp) {});
   auto yOutputShape =
       rnnOp.getResults()[0].getType().cast<ShapedType>().getShape();
   auto SOut = yOutputShape[0];

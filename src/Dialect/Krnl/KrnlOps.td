@@ -389,3 +389,23 @@ def KrnlShapeOp : Op<Krnl_Dialect, "shape"> {
   let printer = ?;
 }
 
+def KrnlDummyCastOp : Op<Krnl_Dialect, "dummy_cast"> {
+  let summary = "A dummy Krnl operation to perform type casting.";
+  let hasCanonicalizer = 1;
+
+  let description = [{
+    Krnl operation to perform dummy type casting to remove the type
+    dependencies existing between lowering of multiple IR objects.
+  }];
+
+  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result, "
+                               "Value in, Type outType"> ];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$in);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$out);
+
+  let assemblyFormat = [{
+          $in attr-dict `:` functional-type($in, results)
+  }];
+}
+
