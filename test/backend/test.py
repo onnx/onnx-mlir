@@ -652,6 +652,7 @@ test_to_enable_static_dynamic = {
     "test_selu_example_cpu": test_static_dynamic,
 
     # Shape
+    "test_shape_cpu": test_static_dynamic,
 
     # Shrink
 
