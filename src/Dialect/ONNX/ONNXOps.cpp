@@ -3505,15 +3505,7 @@ mlir::Operation::result_range ONNXLoopOp::scan_outputs() {
   auto results = getResults();
   return llvm::make_range(results.begin() + v_initial().size(), results.end());
 }
-//===----------------------------------------------------------------------===//
-// CustomOp
-//===----------------------------------------------------------------------===//
-/// Infer the output shape of the ONNXCustomOp. This method is required by the
-/// shape inference interface.
-LogicalResult ONNXCustomOp::inferShapes() {
-  // getResult().setType(getOperand().getType());
-  return success();
-}
+
 //===----------------------------------------------------------------------===//
 // CustomOp
 //===----------------------------------------------------------------------===//
