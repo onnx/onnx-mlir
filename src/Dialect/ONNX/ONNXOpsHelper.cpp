@@ -8,9 +8,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ONNXOpsHelper.hpp"
-
-#include "ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 
 // Identity affine
 using namespace mlir;
@@ -85,4 +85,47 @@ mlir::Type convertONNXTypeToMLIRType(
     assert(false && "Unsupported data type encountered.");
     return nullptr;
   }
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Helper functions
+//===----------------------------------------------------------------------===//
+
+size_t ArrayAttrSize(ArrayAttr a) { return a.size(); }
+
+size_t ArrayAttrSize(Optional<ArrayAttr> a) { return a.getValue().size(); }
+
+int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
+  return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+}
+
+int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
+  return (a.getValue().getValue()[i]).cast<IntegerAttr>().getInt();
+}
+
+DenseElementsAttr getDenseElementAttributeFromValue(Value value) {
+  auto definingOp = value.getDefiningOp();
+  if (auto constantOp = dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp))
+    return constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  else if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp))
+    if (globalOp.value().hasValue())
+      return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
+  return nullptr;
+}
+
+bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
+  // From lib/Dialect/LinAlg/Transform/Promotion.cpp
+  if (auto constantOp = value.getDefiningOp<ConstantOp>()) {
+    if (constantOp.getType().isa<IndexType>())
+      intLit = constantOp.value().cast<IntegerAttr>().getInt();
+    return true;
+  }
+  // Since ConsantIndexOp is a subclass of ConstantOp, not sure if this one is
+  // useful.
+  if (auto constantOp = value.getDefiningOp<ConstantIndexOp>()) {
+    if (constantOp.getType().isa<IndexType>())
+      intLit = constantOp.value().cast<IntegerAttr>().getInt();
+    return true;
+  }
+  return false;
 }

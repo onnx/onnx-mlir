@@ -2,7 +2,7 @@
 if(DEFINED ENV{LLVM_PROJ_SRC})
   set(LLVM_PROJ_SRC $ENV{LLVM_PROJ_SRC})
   if(EXISTS ${LLVM_PROJ_SRC})
-    message(STATUS "LLVM_PROJ_SRC " ${LLVM_PROJ_SRC})
+    message(STATUS "LLVM_PROJ_SRC           : " ${LLVM_PROJ_SRC})
   else()
     message(FATAL_ERROR "The path specified by LLVM_PROJ_SRC does not exist: "
             ${LLVM_PROJ_SRC})
@@ -15,7 +15,7 @@ endif()
 if(DEFINED ENV{LLVM_PROJ_BUILD})
   set(LLVM_PROJ_BUILD $ENV{LLVM_PROJ_BUILD})
   if(EXISTS ${LLVM_PROJ_BUILD})
-    message(STATUS "LLVM_PROJ_BUILD " ${LLVM_PROJ_BUILD})
+    message(STATUS "LLVM_PROJ_BUILD         : " ${LLVM_PROJ_BUILD})
   else()
     message(FATAL_ERROR "The path specified by LLVM_PROJ_BUILD does not exist: "
             ${LLVM_PROJ_BUILD})
@@ -38,7 +38,7 @@ else()
     set(LLVM_PROJECT_LIB ${LLVM_PROJ_BUILD}/lib)
   endif()
 endif()
-message(STATUS "LLVM_PROJECT_LIB:" ${LLVM_PROJECT_LIB})
+message(STATUS "LLVM_PROJECT_LIB        : " ${LLVM_PROJECT_LIB})
 
 # LLVM project bin folder
 if (ENV{LLVM_PROJ_BIN})
@@ -54,7 +54,7 @@ else()
     set(LLVM_PROJ_BIN ${LLVM_PROJ_BUILD}/bin)
   endif()
 endif()
-message(STATUS "LLVM_PROJ_BIN:" ${LLVM_PROJ_BIN})
+message(STATUS "LLVM_PROJ_BIN           : " ${LLVM_PROJ_BIN})
 
 # Include paths for MLIR
 set(LLVM_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/llvm/include)
@@ -73,7 +73,7 @@ if(MSVC)
 else()
   set(ONNX_MLIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin)
 endif()
-message(STATUS "ONNX_MLIR_TOOLS_DIR:" ${ONNX_MLIR_TOOLS_DIR})
+message(STATUS "ONNX_MLIR_TOOLS_DIR     : " ${ONNX_MLIR_TOOLS_DIR})
 set(ONNX_MLIR_LIT_TEST_SRC_DIR ${ONNX_MLIR_SRC_ROOT}/test/mlir)
 set(ONNX_MLIR_LIT_TEST_BUILD_DIR ${CMAKE_BINARY_DIR}/test/mlir)
 
@@ -83,11 +83,16 @@ set(
 )
 include_directories(${MLIR_INCLUDE_PATHS})
 
-# Force BUILD_SHARED_LIBS to be the same as LLVM build
+# Force CMAKE_INSTALL_PREFIX and BUILD_SHARED_LIBS to be the same as LLVM build
+file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt prefix REGEX CMAKE_INSTALL_PREFIX)
+string(REGEX REPLACE "CMAKE_INSTALL_PREFIX:PATH=" "" prefix ${prefix})
+set(CMAKE_INSTALL_PREFIX ${prefix} CACHE PATH "" FORCE)
+message(STATUS "CMAKE_INSTALL_PREFIX    : " ${CMAKE_INSTALL_PREFIX})
+
 file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt shared REGEX BUILD_SHARED_LIBS)
 string(REGEX REPLACE "BUILD_SHARED_LIBS:BOOL=" "" shared ${shared})
 set(BUILD_SHARED_LIBS ${shared} CACHE BOOL "" FORCE)
-message(STATUS "BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS}")
+message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
 
 # Threading libraries required due to parallel pass execution.
 find_package(Threads REQUIRED)
@@ -132,7 +137,7 @@ function(find_mlir_lib lib)
   endif()
 endfunction(find_mlir_lib)
 
-find_mlir_lib(MLIRAffineOps)
+find_mlir_lib(MLIRAffine)
 find_mlir_lib(MLIRAffineUtils)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAffineTransforms)
@@ -149,7 +154,7 @@ find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
 find_mlir_lib(MLIRSCFToStandard)
 find_mlir_lib(MLIRLoopLikeInterface)
-find_mlir_lib(MLIRLinalgOps)
+find_mlir_lib(MLIRLinalg)
 find_mlir_lib(MLIRLinalgEDSC)
 find_mlir_lib(MLIRLinalgAnalysis)
 find_mlir_lib(MLIRLinalgTransforms)
@@ -160,7 +165,8 @@ find_mlir_lib(MLIRLLVMIRTransforms)
 find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRParser)
 find_mlir_lib(MLIRPass)
-find_mlir_lib(MLIRStandardOps)
+find_mlir_lib(MLIRRewrite)
+find_mlir_lib(MLIRStandard)
 find_mlir_lib(MLIRStandardOpsTransforms)
 find_mlir_lib(MLIRStandardToLLVM)
 find_mlir_lib(MLIRSideEffectInterfaces)
@@ -182,7 +188,6 @@ find_mlir_lib(MLIRVector)
 find_mlir_lib(MLIRVectorInterfaces)
 find_mlir_lib(MLIRVectorToLLVM)
 find_mlir_lib(MLIRVectorToSCF)
-find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRAffineEDSC)
 find_mlir_lib(MLIRLinalgEDSC)
 find_mlir_lib(MLIRViewLikeInterface)
@@ -208,11 +213,11 @@ find_mlir_lib(LLVMFrontendOpenMP)
 
 set(MLIRLibs
         ${MLIRAffineToStandard}
-        ${MLIRAffineOps}
+        ${MLIRAffine}
         ${MLIRAffineUtils}
         ${MLIRCopyOpInterface}
         ${MLIRLLVMIR}
-        ${MLIRStandardOps}
+        ${MLIRStandard}
         ${MLIRStandardOpsTransforms}
         ${MLIRStandardToLLVM}
         ${MLIRTransforms}
@@ -231,7 +236,7 @@ set(MLIRLibs
         ${MLIRTargetLLVMIRModuleTranslation}
         ${MLIRTransforms}
         ${MLIRTransformUtils}
-        ${MLIRAffineOps}
+        ${MLIRAffine}
         ${MLIRAffineToStandard}
         ${MLIRAffineTransforms}
         ${MLIRAnalysis}
@@ -250,11 +255,11 @@ set(MLIRLibs
         ${MLIROpenMP}
         ${MLIRMlirOptMain}
         ${MLIRSideEffectInterfaces}
-        ${MLIRStandardOps}
+        ${MLIRStandard}
         ${MLIRStandardToLLVM}
         ${MLIRTranslation}
         ${MLIRSupport}
-        ${MLIRLinalgOps}
+        ${MLIRLinalg}
         ${MLIRLinalgEDSC}
         ${MLIRLinalgAnalysis}
         ${MLIRLinalgTransforms}
@@ -266,6 +271,7 @@ set(MLIRLibs
         ${MLIRShape}
         ${MLIRShapeToStandard}
         ${MLIRInferTypeOpInterface}
+        ${MLIRRewrite}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}

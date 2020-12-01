@@ -218,7 +218,7 @@ def KrnlPackedConstantOp : Op<Krnl_Dialect, "packed_const"> {
   let printer = ?;
 }
 
-def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
+def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
   let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
   let description = [{
     Retreieves a MemRef from within another MemRef:
@@ -229,8 +229,23 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref"> {
     just like an array index.
   }];
 
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset);
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset,
+                   Variadic<Index>:$value);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
+
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Type resultType, Value mempool, Value offset", [{
+      build(builder, state, resultType, mempool, offset, {});
+    }]>,
+    ];
+
+  let extraClassDeclaration = [{
+    /// Returns the symbolic operands (the ones in square brackets), which bind
+    /// to the symbols of the memref's layout map.
+    operand_range getDynamicSizes() {
+      return {operand_begin() + 2, operand_end()};
+    }
+  }];
 
   let parser = ?;
   let printer = ?;
@@ -368,9 +383,29 @@ def KrnlShapeOp : Op<Krnl_Dialect, "shape"> {
   }];
 
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc);
-  let results = (outs Shape_ShapeType:$shape);
+  let results = (outs AnyTypeOf<[AnyMemRef]>:$shape);
 
   let parser = ?;
   let printer = ?;
+}
+
+def KrnlDummyCastOp : Op<Krnl_Dialect, "dummy_cast"> {
+  let summary = "A dummy Krnl operation to perform type casting.";
+  let hasCanonicalizer = 1;
+
+  let description = [{
+    Krnl operation to perform dummy type casting to remove the type
+    dependencies existing between lowering of multiple IR objects.
+  }];
+
+  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result, "
+                               "Value in, Type outType"> ];
+
+  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$in);
+  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$out);
+
+  let assemblyFormat = [{
+          $in attr-dict `:` functional-type($in, results)
+  }];
 }
 

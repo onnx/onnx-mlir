@@ -1,6 +1,7 @@
 add_library(OMONNXToKrnl
         ONNXToKrnlCommon.cpp
         ONNXToKrnlCommon.hpp
+        ControlFlow/Loop.cpp
         Math/Elementwise.cpp
         Math/Gemm.cpp
         Math/MatMul.cpp
@@ -11,7 +12,9 @@ add_library(OMONNXToKrnl
         NN/Pooling.cpp
         RNN/RNNBase.cpp
         RNN/RNNBase.hpp
+        RNN/GRU.cpp
         RNN/LSTM.cpp
+        RNN/RNN.cpp
         Tensor/Identity.cpp
         Tensor/Reshape.cpp
         Tensor/PadConstantValuePad.cpp
@@ -24,10 +27,13 @@ add_library(OMONNXToKrnl
         Tensor/Concat.cpp
         Tensor/Split.cpp
         Tensor/Gather.cpp
+        Tensor/Slice.cpp
         Tensor/Size.cpp
+        Tensor/Flatten.cpp
         Tensor/Tile.cpp
         ConvertONNXToKrnl.cpp)
 target_link_libraries(OMONNXToKrnl
+        OMSupport
         onnx)
 target_include_directories(OMONNXToKrnl
         PRIVATE

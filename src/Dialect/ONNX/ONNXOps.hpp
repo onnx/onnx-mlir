@@ -18,6 +18,7 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/StandardTypes.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
@@ -81,7 +82,4 @@ public:
 };
 
 } // end namespace onnxmlir
-
 } // end namespace mlir
-
-namespace onnx_mlir {}

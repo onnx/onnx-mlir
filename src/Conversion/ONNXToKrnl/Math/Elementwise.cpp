@@ -13,6 +13,12 @@
 using namespace mlir;
 
 template <>
+struct ScalarOp<ONNXTanhOp> {
+  using FOp = TanhOp;
+  using IOp = TanhOp; // not use
+};
+
+template <>
 struct ScalarOp<ONNXAddOp> {
   using FOp = AddFOp;
   using IOp = AddIOp;
@@ -168,28 +174,6 @@ Value emitScalarOpFor<ONNXCoshOp>(ConversionPatternRewriter &rewriter,
   auto negExp = rewriter.create<ExpOp>(loc, neg);
   auto result = rewriter.create<DivFOp>(
       loc, rewriter.create<AddFOp>(loc, exp, negExp), two);
-
-  return result;
-}
-
-//===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXTanhOp
-//===----------------------------------------------------------------------===//
-template <>
-Value emitScalarOpFor<ONNXTanhOp>(ConversionPatternRewriter &rewriter,
-    Location loc, Operation *op, Type elementType,
-    ArrayRef<Value> scalarOperands) {
-  // ONNXTanhOp(%X) = DivFOp(SubFOp(ExpOp(%X), ExpOp(NegFOp(%X))),
-  //                         AddFOp(ExpOp(%X), ExpOp(NegFOp(%X))))
-  Value operand = scalarOperands[0];
-
-  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
-  auto neg = rewriter.create<SubFOp>(loc, zero, operand);
-  auto exp = rewriter.create<ExpOp>(loc, operand);
-  auto negExp = rewriter.create<ExpOp>(loc, neg);
-  auto dividend = rewriter.create<SubFOp>(loc, exp, negExp);
-  auto divisor = rewriter.create<AddFOp>(loc, exp, negExp);
-  auto result = rewriter.create<DivFOp>(loc, dividend, divisor);
 
   return result;
 }
@@ -535,6 +519,26 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXLessOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXLessOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value lhs = scalarOperands[0];
+  Value rhs = scalarOperands[1];
+
+  Type inputType = lhs.getType();
+  if (inputType.isa<FloatType>()) {
+    return rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, lhs, rhs);
+  } else if (inputType.isa<IntegerType>()) {
+    return rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, lhs, rhs);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+}
+
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -589,6 +593,89 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     rewriter.create<AffineStoreOp>(loc, loweredOpResult, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
+    return success();
+  }
+};
+
+// Element-wise binary ops lowering to Krnl dialect.
+// This template can be used for binary ops that return a result whose type is
+// different from the input type.
+//===----------------------------------------------------------------------===//
+template <typename ElementwiseBinaryOp>
+struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
+  ONNXElementwiseBinaryOpLowering(MLIRContext *ctx)
+      : ConversionPattern(ElementwiseBinaryOp::getOperationName(), 1, ctx) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    auto loc = op->getLoc();
+    auto numArgs = op->getNumOperands();
+
+    // Insert an allocation and deallocation for the result of this operation.
+    auto memRefType = convertToMemRefType(*op->result_type_begin());
+
+    Value alloc;
+    bool insertDealloc = checkInsertDealloc(op);
+    // If the output has a dynamic dimension, we compute its dimension at
+    // runtime by using dimensions from the operands.
+    // In particular, we need to know from which operand a result dimension
+    // comes from.
+    // TODO: can the dimension of the result differ after optimizations?
+    if (hasAllConstantDimensions(memRefType))
+      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
+    else
+      alloc = insertAllocAndDealloc(
+          memRefType, loc, rewriter, insertDealloc, operands);
+
+    SmallVector<Value, 4> loopIVs;
+    std::map<int, std::map<int, Value>> broadcastedDimInfo;
+    if (!hasAllScalarValues(operands)) {
+      // Get run-time dimension information for unknown dimensions used for
+      // broadcasting.
+      broadcastedDimInfo =
+          getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
+
+      // Create iterateOp & get block within iterate op.
+      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
+      loops.createDefineAndIterateOp(alloc);
+      Block *iterationBlock = loops.getIterateBlock();
+
+      // Insert instructions inside the KernelIterateOp body.
+      rewriter.setInsertionPointToStart(iterationBlock);
+
+      // Handle the operation:
+      for (auto arg : iterationBlock->getArguments())
+        loopIVs.push_back(arg);
+    }
+    // Fold over operands for each of their scalar values.
+    Value lhs, rhs;
+    // Obtain the first operand.
+    std::vector<Value> lhsLoopIVs = getLoopIVsForBroadcasting(
+        loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
+    if (!hasAllConstantDimensions(operands[0].getType().cast<MemRefType>()))
+      // In case of unknown dimensions, use std.load since
+      // 'getLoopIVsForBroadcasting' has not supported affine map so far.
+      lhs = rewriter.create<LoadOp>(loc, operands[0], lhsLoopIVs);
+    else
+      lhs = rewriter.create<AffineLoadOp>(loc, operands[0], lhsLoopIVs);
+    // Obtain the second operand.
+    std::vector<Value> rhsLoopIVs = getLoopIVsForBroadcasting(
+        loc, rewriter, loopIVs, operands[1], broadcastedDimInfo[1]);
+    if (!hasAllConstantDimensions(operands[1].getType().cast<MemRefType>()))
+      // In case of unknown dimensions, use std.load since
+      // 'getLoopIVsForBroadcasting' has not supported affine map so far.
+      rhs = rewriter.create<LoadOp>(loc, operands[1], rhsLoopIVs);
+    else
+      rhs = rewriter.create<AffineLoadOp>(loc, operands[1], rhsLoopIVs);
+
+    // Apply the element-wise function.
+    Value result = emitScalarOpFor<ElementwiseBinaryOp>(
+        rewriter, loc, op, memRefType.getElementType(), {lhs, rhs});
+
+    // Store result in the resulting array.
+    rewriter.create<AffineStoreOp>(loc, result, alloc, loopIVs);
+
+    rewriter.replaceOp(op, alloc);
+
     return success();
   }
 };
@@ -691,6 +778,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLogOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMaxOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMinOp>,

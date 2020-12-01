@@ -8,8 +8,9 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.ShortBuffer;
 
-public class RtMemRef {
-    final ByteOrder endian = ByteOrder.nativeOrder();
+public class OMTensor {
+
+    private final ByteOrder nativeEndian = ByteOrder.nativeOrder();
     
     /* We can use enum but that creates another class
      * which complicates things for JNI.
@@ -53,71 +54,45 @@ public class RtMemRef {
     };
 
     private ByteBuffer _data;
-    private int _type;
-    private int _rank;
-    private long[] _sizes;
+    private long[] _shape;
     private long[] _strides;
-    
+    private int _dataType;
+    private int _rank;
+
     /**
      * Constructor
      */
-    public RtMemRef(int rank) {
-        if (rank <= 0)
-            throw new IllegalArgumentException(
-                    "invalid rank " + rank);
-        _data = null;
-        _type = ONNX_TYPE_UNDEFINED;
-        _rank = rank;
-        _sizes = new long[rank];
-        _strides = new long[rank];
+    public OMTensor(byte[] data, long[] shape) {
+        setByteData(data);
+        putShape(shape);
     }
 
-    /* ---------- Data type getter and setter ---------- */
-    /* For JNI wrapper only. Not intended for end user.  */
-
-    /**
-     * Type getter
-     * 
-     * @return data type
-     */
-    @SuppressWarnings("unused")
-    private int getType() {
-        return _type;
+    public OMTensor(short[] data, long[] shape) {
+        setShortData(data);
+        putShape(shape);
     }
 
-    /**
-     * Type setter
-     * 
-     * @param type data type to be set
-     */
-    @SuppressWarnings("unused")
-    private void setType(int type) {
-        _type = type;
+    public OMTensor(int[] data, long[] shape) {
+        setIntData(data);
+        putShape(shape);
     }
 
-    /* ---------- Raw data getter and setter ---------- */
-    /* For JNI wrapper only. Not intended for end user. */
-
-    /**
-     * Raw data getter
-     * 
-     * @return raw data
-     */
-    @SuppressWarnings("unused")
-    private ByteBuffer getData() {
-        return _data;
+    public OMTensor(long[] data, long[] shape) {
+        setLongData(data);
+        putShape(shape);
     }
 
-    /**
-     * Raw data setter
-     * 
-     * @param data raw data to be set
-     */
-    @SuppressWarnings("unused")
-    private void setData(ByteBuffer data) {
-        _data = data.order(endian);
+    public OMTensor(float[] data, long[] shape) {
+        setFloatData(data);
+        putShape(shape);
     }
-    
+
+    public OMTensor(double[] data, long[] shape) {
+        setDoubleData(data);
+        putShape(shape);
+    }
+
+
     /* ---------- Byte data getter and setter ---------- */
 
     /**
@@ -148,7 +123,7 @@ public class RtMemRef {
          */
         _data = ByteBuffer.allocateDirect(data.length);
         _data.slice().put(data);
-        _type = ONNX_TYPE_INT8;
+        _dataType = ONNX_TYPE_INT8;
     }
 
     /* ---------- Short data getter and setter ---------- */
@@ -180,16 +155,16 @@ public class RtMemRef {
         /* asShortBuffer() creates a new view so the position of the
          * original data will stay at 0 for getShortData() after put(data).
          */
-        _data = ByteBuffer.allocateDirect(data.length*2).order(endian);
+        _data = ByteBuffer.allocateDirect(data.length*2).order(nativeEndian);
         _data.asShortBuffer().put(data);
-        _type = ONNX_TYPE_INT16;
+        _dataType = ONNX_TYPE_INT16;
     }
 
     /* ---------- Int data getter and setter ---------- */
 
     /**
      * Int data getter
-     * 
+     *
      * @return int data array
      */
     public int[] getIntData() {
@@ -214,9 +189,9 @@ public class RtMemRef {
         /* asIntBuffer() creates a new view so the position of the
          * original data will stay at 0 for getIntData() after put(data).
          */
-        _data = ByteBuffer.allocateDirect(data.length*4).order(endian);
+        _data = ByteBuffer.allocateDirect(data.length*4).order(nativeEndian);
         _data.asIntBuffer().put(data);
-        _type = ONNX_TYPE_INT32;
+        _dataType = ONNX_TYPE_INT32;
     }
 
     /* ---------- Long data getter and setter ---------- */
@@ -248,9 +223,9 @@ public class RtMemRef {
         /* asLongBuffer() creates a new view so the position of the
          * original data will stay at 0 for getLongData() after put(data).
          */
-        _data = ByteBuffer.allocateDirect(data.length*8).order(endian);
+        _data = ByteBuffer.allocateDirect(data.length*8).order(nativeEndian);
         _data.asLongBuffer().put(data);
-        _type = ONNX_TYPE_INT64;
+        _dataType = ONNX_TYPE_INT64;
     }
 
     /* ---------- Float data getter and setter ---------- */
@@ -282,9 +257,9 @@ public class RtMemRef {
         /* asFloatBuffer() creates a new view so the position of the
          * original data will stay at 0 for getFloatData() after put(data).
          */
-        _data = ByteBuffer.allocateDirect(data.length*4).order(endian);
+        _data = ByteBuffer.allocateDirect(data.length*4).order(nativeEndian);
         _data.asFloatBuffer().put(data);
-        _type = ONNX_TYPE_FLOAT;
+        _dataType = ONNX_TYPE_FLOAT;
     }
 
     /* ---------- Double data getter and setter ---------- */
@@ -316,85 +291,177 @@ public class RtMemRef {
         /* asDoubleBuffer() creates a new view so the position of the
          * original data will stay at 0 for getDoubleData() after put(data).
          */
-        _data = ByteBuffer.allocateDirect(data.length*8).order(endian);
+        _data = ByteBuffer.allocateDirect(data.length*8).order(nativeEndian);
         _data.asDoubleBuffer().put(data);
-        _type = ONNX_TYPE_DOUBLE;
+        _dataType = ONNX_TYPE_DOUBLE;
+    }
+
+    /* ---------- Data shape getter and setter ---------- */
+
+    /**
+     * Data shape getter
+     *
+     * @return data shape array
+     */
+    public long[] getShape() {
+        return _shape;
     }
 
     /**
-     * Rank getter
-     * 
-     * @return rank
+     * Data shape setter
+     *
+     * @param shape data shape array to be set
      */
-    public int getRank() {
-        return _rank;
-    }
-
-    /* ---------- Sizes getter and setter ---------- */
-
-    /**
-     * Sizes getter
-     * 
-     * @return sizes array
-     */
-    public long[] getSizes() {
-        return _sizes;
-    }
-    
-    /**
-     * Sizes setter
-     * 
-     * @param sizes sizes array to be set
-     */
-    public void setSizes(long[] sizes) {
-        if (sizes.length != _rank)
+    public void setShape(long[] shape) {
+        if (shape.length != _rank)
             throw new IllegalArgumentException(
-                    "array length " + sizes.length + " != rank " + _rank);
-        _sizes = sizes.clone();
+                    "array length " + shape.length + " != rank " + _rank);
+        _shape = shape;
     }
-    
-    /* ---------- Strides getter and setter ---------- */
+
+    /* ---------- Data strides getter and setter ---------- */
 
     /**
-     * Strides getter
+     * Data strides getter
      * 
-     * @return strides array
+     * @return data strides array
      */
     public long[] getStrides() {
         return _strides;
     }
-    
+
     /**
-     * Strides setter
+     * Data strides setter
      * 
-     * @param strides strides array to be set
+     * @param strides data strides array to be set
      */
     public void setStrides(long[] strides) {
         if (strides.length != _rank)
             throw new IllegalArgumentException(
                     "array length " + strides.length + " != rank " + _rank);
-        _strides = strides.clone();
+        _strides = strides;
+    }
+
+    /* ---------- Data type getter and setter ---------- */
+
+    /**
+     * Data type getter
+     *
+     * @return data type
+     */
+    public int getDataType() {
+        return _dataType;
     }
 
     /**
-     * Size getter
+     * Data type setter
      * 
-     * @return product of sizes array, i.e., total number of data elements
+     * @param type data type to be set
      */
-    public long getDataSize() {
-        long n = _sizes[0];
-        for (int i = 1; i < _sizes.length; i++) n *= _sizes[i];
+    public void setDataType(int dataType) {
+        if (dataType < 0 || dataType > ONNX_TYPE_BFLOAT16)
+            throw new IllegalArgumentException(
+                    "data type " + dataType + " unknown");
+        _dataType = dataType;
+    }
+
+    /* ---------- Data buffer size getter ---------- */
+    
+    /**
+     * Data buffer size getter
+     * 
+     * @return total size of the data buffer in bytes
+     */
+    public long getBufferSize() {
+        return _data == null ? 0 : _data.limit();
+    }
+
+    /* ---------- Rank getter ---------- */
+
+    /**
+     * Rank getter
+     *
+     * @return rank of the OMTensor
+     */
+    public int getRank() {
+        return _rank;
+    }
+
+    /* ---------- Number of elements getter ---------- */
+
+    /**
+     * Number of elements getter
+     * 
+     * @return number of data elements in the data buffer
+     */
+    public long getNumElems() {
+        long n = _shape[0];
+        for (int i = 1; i < _shape.length; i++) n *= _shape[i];
         return n;
     }
 
+    /* ---------- End of public methods ---------- */
+
+
+    /* Called by public constructors to initialize rank, shape, and stride */
+    private void putShape(long[] shape) {
+        _rank = shape.length;
+        _shape = new long[_rank];
+        _strides = new long[_rank];
+                
+        /* Using signed indices helps detect when index falls below 0. */
+        for (int i = _rank - 1; i >= 0; i--) {
+          _shape[i] = shape[i];
+          if (i == _rank - 1)
+            _strides[i] = 1;
+          else
+            _strides[i] = _strides[i+1] * _shape[i+1];
+        }
+    }
+
+    /* For JNI wrapper only. Not intended for end user. */
     /**
-     * Check validity of RtMemRef
+     * Constructor
      * 
-     * @return true if RtMemRef is valid, false otherwise
+     * @param data data buffer
+     * @param shape data shape
+     * @param strides data stride
+     * @param dataType data type
      */
-    public boolean validRmr() {
-        return (_data != null &&
-                _data.limit() != 0 &&
-                _data.limit() == getDataSize() * ONNX_TYPE_SIZE[_type]);
+    @SuppressWarnings("unused")
+    private OMTensor(ByteBuffer data, long[] shape, long[] strides, int dataType) {
+        if (shape.length != strides.length)
+            throw new IllegalArgumentException(
+                    "shape.length (" + shape.length + ") != stride.length (" + strides.length + ")");
+        if (dataType < 0 || dataType > ONNX_TYPE_BFLOAT16)
+            throw new IllegalArgumentException(
+                    "data type " + dataType + " unknown");
+        _data = data.order(nativeEndian);
+        _dataType = dataType;
+        _rank = shape.length;
+        _shape = shape;
+        _strides = strides;
+    }
+
+    /* For JNI wrapper only. Not intended for end user. */
+    /**
+     * Raw data getter
+     * 
+     * @return raw data
+     */
+    @SuppressWarnings("unused")
+    private ByteBuffer getData() {
+        return _data;
+    }
+
+    /* For JNI wrapper only. Not intended for end user. */
+    /**
+     * Raw data setter
+     * 
+     * @param data raw data to be set
+     */
+    @SuppressWarnings("unused")
+    private void setData(ByteBuffer data) {
+        _data = data.order(nativeEndian);
     }
 }

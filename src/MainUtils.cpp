@@ -76,6 +76,34 @@ string getRuntimeDir() {
   return llvm::StringRef(instDir).str();
 }
 
+// onnx-mlir currently requires llvm tools llc and opt and they are assumed
+// to be under llvm-project/build/bin. This doesn't work with the case where
+// llvm-project has been installed system wide (typically under /usr/local/...)
+// and its source has been removed.
+//
+// To account for this scenario, we first search for the tools in the same
+// directory where onnx-mlir is run. If they are found, it  means both onnx-mlir
+// and llvm-project have been installed system wide under the same directory,
+// so we get them from that directory (typically /usr/local/bin). Otherwise,
+// at least one of onnx-mlir and llvm-project has not been installed system
+// wide. In this case, getToolPath returns an empty string and we will fallback
+// to llvm-project/build/bin.
+//
+// Note that this will not work if both onnx-mlir and llvm-project have been
+// installed system wide but to different places and their sources have been
+// removed. So we force CMAKE_INSTALL_PREFIX to be the same as that of
+// llvm-project.
+string getToolPath(string tool) {
+  string execDir = llvm::sys::path::parent_path(kExecPath).str();
+  llvm::SmallString<8> toolPath(execDir);
+  llvm::sys::path::append(toolPath, tool);
+  string p = llvm::StringRef(toolPath).str();
+  if (llvm::sys::fs::can_execute(p))
+    return p;
+  else
+    return string();
+}
+
 // Helper struct to make command construction and execution easy & readable.
 struct Command {
   std::string _path;
@@ -116,16 +144,22 @@ struct Command {
   void exec() {
     auto argsRef = std::vector<llvm::StringRef>(_args.begin(), _args.end());
     bool verbose = false;
-    if (const auto &verboseStr = getEnvVar("VERBOSE"))
+    if (const auto &verboseStr = getEnvVar("ONNX_MLIR_VERBOSE"))
       istringstream(verboseStr.getValue()) >> verbose;
 
     // If in verbose mode, print out command before execution.
     if (verbose)
       cout << llvm::join(argsRef, " ") << "\n";
-    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef));
+
+    std::string errMsg;
+    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
+        /*Env=*/None, /*Redirects=*/None,
+        /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
 
     if (rc != 0) {
       fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
+      fprintf(stderr, "Error message: %s\n", errMsg.c_str());
+      fprintf(stderr, "Program path: %s\n", _path.c_str());
       llvm_unreachable("Command execution failed.");
     }
   }
@@ -268,7 +302,8 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
-  Command optBitcode(/*exePath=*/kOptPath);
+  string optPath = getToolPath("opt");
+  Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
   optBitcode.appendStr("-O3")
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
@@ -278,7 +313,8 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
 // Compile LLVM bitcode to object file.
 void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
     string modelObjPath) {
-  Command llvmToObj(/*exePath=*/kLlcPath);
+  string llcPath = getToolPath("llc");
+  Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
       .appendList({"-o", modelObjPath})
@@ -388,16 +424,16 @@ void registerDialects(mlir::MLIRContext &context) {
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
-  pm.addPass(mlir::createDecomposeONNXToONNXPass());
-  pm.addPass(mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
+  pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(mlir::createAttributePromotionPass());
+  pm.addNestedPass<FuncOp>(mlir::createAttributePromotionPass());
   pm.addPass(mlir::createShapeInferencePass());
-  pm.addPass(mlir::createAttributePromotionPass());
+  pm.addNestedPass<FuncOp>(mlir::createAttributePromotionPass());
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
-  pm.addPass(mlir::createConstPropONNXToONNXPass());
+  pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
   // Clean dead code.
   pm.addPass(mlir::createSymbolDCEPass());
 }
@@ -409,16 +445,18 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.
   pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(createDisconnectKrnlDimFromAllocPass());
+  pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
 
   // TODO: make this pass optional:
-  pm.addPass(mlir::createKrnlEnableMemoryPoolPass());
-  pm.addPass(mlir::createKrnlBundleMemoryPoolsPass());
+  pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
+  pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+  pm.addPass(mlir::createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
-  pm.addPass(mlir::createConvertKrnlToAffinePass());
+  pm.addNestedPass<FuncOp>(mlir::createConvertKrnlToAffinePass());
   // Fuse loops in Affine dialect.
   //  pm.addPass(mlir::createLoopFusionPass());
 }
@@ -522,9 +560,10 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
     // Apply specific passes to clean up the code where necessary.
     mlir::PassManager cleanSourcePM(&context);
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
-      cleanSourcePM.addPass(mlir::createElideConstantValuePass());
+      cleanSourcePM.addNestedPass<FuncOp>(mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
-      cleanSourcePM.addPass(mlir::createElideConstGlobalValuePass());
+      cleanSourcePM.addNestedPass<FuncOp>(
+          mlir::createElideConstGlobalValuePass());
 
     if (emissionTarget == EmitONNXBasic || emissionTarget == EmitONNXIR ||
         emissionTarget == EmitMLIR) {

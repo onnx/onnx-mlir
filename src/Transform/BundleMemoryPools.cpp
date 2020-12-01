@@ -17,9 +17,9 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/SetVector.h"
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
 
@@ -131,7 +131,7 @@ public:
       AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
 
-    auto memRefType = convertToMemRefType(allocOp.getResult().getType());
+    auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
     auto memRefShape = memRefType.getShape();
 
     // If alloca result is not used by getref then it cannot be part of
@@ -184,9 +184,10 @@ public:
     if (allocOp == staticMemPoolAlloc)
       return failure();
 
-    auto staticMemPoolShape =
-        convertToMemRefType(staticMemPoolAlloc.getResult().getType())
-            .getShape();
+    auto staticMemPoolShape = staticMemPoolAlloc.getResult()
+                                  .getType()
+                                  .dyn_cast<MemRefType>()
+                                  .getShape();
     int64_t currentMemPoolSize = staticMemPoolShape[0];
 
     // Get the getref of the current allocOp. There is exactly one such getref.
@@ -253,7 +254,7 @@ public:
       AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
 
-    auto memRefType = convertToMemRefType(allocOp.getResult().getType());
+    auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
     auto memRefShape = memRefType.getShape();
 
     // If alloca result is not used by getref then it cannot be part of
@@ -334,7 +335,7 @@ public:
                 auto localAlloc = llvm::dyn_cast<AllocOp>(operandOp);
                 if (localAlloc) {
                   auto memRefType =
-                      convertToMemRefType(localAlloc.getResult().getType());
+                      localAlloc.getResult().getType().dyn_cast<MemRefType>();
                   if (!hasAllConstantDimensions(memRefType))
                     dependsOnLocalDynamicAlloc = true;
                 }
@@ -422,7 +423,7 @@ public:
 
     KrnlGetRefOp bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
         currentAllocGetRef.getResult().getType(), bundledAlloc,
-        integerDynamicMemoryPoolSize);
+        integerDynamicMemoryPoolSize, currentAllocGetRef.getDynamicSizes());
 
     // Replace old memory pool with new one.
     rewriter.replaceOp(oldDynamicMemoryPool, bundledAlloc.getResult());
@@ -460,7 +461,7 @@ public:
     patterns.insert<KrnlBundleStaticMemoryPools, KrnlBundleDynamicMemoryPools>(
         &getContext());
 
-    applyPatternsAndFoldGreedily(function, patterns);
+    applyPatternsAndFoldGreedily(function, std::move(patterns));
 
     dynamicPoolMap.erase(function);
     staticPoolMap.erase(function);

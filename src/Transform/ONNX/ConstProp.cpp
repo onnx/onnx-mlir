@@ -419,9 +419,9 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   target.addLegalDialect<ONNXOpsDialect>();
 
   OwningRewritePatternList patterns;
-  populateWithGenerated(context, &patterns);
+  populateWithGenerated(context, patterns);
 
-  applyPatternsAndFoldGreedily(function, patterns);
+  applyPatternsAndFoldGreedily(function, std::move(patterns));
 } // end anonymous namespace
 
 /*!

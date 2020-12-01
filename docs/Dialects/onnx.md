@@ -103,8 +103,8 @@ ONNX And operation
 ONNX ArgMax operation
 
 "Computes the indices of the max elements of the input tensor's element along the "
-"provided axis. The resulted tensor has the same rank as the input if keepdims equal 1."
-"If keepdims equal 0, then the resulted tensor have the reduced dimension pruned. "
+"provided axis. The resulting tensor has the same rank as the input if keepdims equal 1. "
+"If keepdims equal 0, then the resulting tensor have the reduced dimension pruned. "
 "The type of the output tensor is integer."
 
 #### Attributes:
@@ -124,15 +124,15 @@ ONNX ArgMax operation
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 64-bit signless integer values
+`reduced` | tensor of 64-bit signless integer values or memref of any type values
 
 ### `onnx.ArgMin` (ONNXArgMinOp)
 
 ONNX ArgMin operation
 
 "Computes the indices of the min elements of the input tensor's element along the "
-"provided axis. The resulted tensor has the same rank as the input if keepdims equal 1."
-"If keepdims equal 0, then the resulted tensor have the reduced dimension pruned. "
+"provided axis. The resulting tensor has the same rank as the input if keepdims equal 1. "
+"If keepdims equal 0, then the resulting tensor have the reduced dimension pruned. "
 "The type of the output tensor is integer."
 
 #### Attributes:
@@ -152,7 +152,7 @@ ONNX ArgMin operation
 
 | Result | Description |
 | :----: | ----------- |
-`reduced` | tensor of 64-bit signless integer values
+`reduced` | tensor of 64-bit signless integer values or memref of any type values
 
 ### `onnx.ArrayFeatureExtractor` (ONNXArrayFeatureExtractorOp)
 
@@ -166,7 +166,7 @@ ONNX ArrayFeatureExtractor operation
 | Operand | Description |
 | :-----: | ----------- |
 `X` | tensor of 32-bit float values or tensor of 64-bit float values or tensor of 64-bit signless integer values or tensor of 32-bit signless integer values or tensor of stirng type values or memref of any type values
-`Y` | tensor of 64-bit signless integer values
+`Y` | tensor of 64-bit signless integer values or memref of any type values
 
 #### Results:
 
@@ -970,14 +970,14 @@ ONNX DequantizeLinear operation
 | Operand | Description |
 | :-----: | ----------- |
 `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or memref of any type values
-`x_scale` | tensor of 32-bit float values
+`x_scale` | tensor of 32-bit float values or memref of any type values
 `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or memref of any type values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`y` | tensor of 32-bit float values
+`y` | tensor of 32-bit float values or memref of any type values
 
 ### `onnx.Det` (ONNXDetOp)
 
@@ -1102,7 +1102,7 @@ ONNX DynamicQuantizeLinear operation
 "```"
 "Zero point is calculated as:"
 "```"
-"intermediate_zero_point = (qmin - min(x))/(qmax - qmin)"
+"intermediate_zero_point = qmin - min(x)/y_scale"
 "y_zero_point = cast(round(saturate(itermediate_zero_point)))"
 "* where qmax and qmin are max and min values for quantization range .i.e [0, 255] in case of uint8"
 "* for saturation, it saturates to [0, 255] if it's uint8, or [-127, 127] if it's int8. Right now only uint8 is supported."
@@ -1126,7 +1126,7 @@ ONNX DynamicQuantizeLinear operation
 | Result | Description |
 | :----: | ----------- |
 `y` | tensor of 8-bit unsigned integer values or memref of any type values
-`y_scale` | tensor of 32-bit float values
+`y_scale` | tensor of 32-bit float values or memref of any type values
 `y_zero_point` | tensor of 8-bit unsigned integer values or memref of any type values
 
 ### `onnx.Elu` (ONNXEluOp)
@@ -1238,7 +1238,7 @@ ONNX Expand operation
 | Operand | Description |
 | :-----: | ----------- |
 `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
-`shape` | tensor of 64-bit signless integer values
+`shape` | tensor of 64-bit signless integer values or memref of any type values
 
 #### Results:
 
@@ -1302,7 +1302,7 @@ ONNX FeatureVectorizer operation
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit float values
+`Y` | tensor of 32-bit float values or memref of any type values
 
 ### `onnx.Flatten` (ONNXFlattenOp)
 
@@ -1612,7 +1612,7 @@ ONNX GatherND operation
 | Operand | Description |
 | :-----: | ----------- |
 `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
-`indices` | tensor of 64-bit signless integer values
+`indices` | tensor of 64-bit signless integer values or memref of any type values
 
 #### Results:
 
@@ -2324,7 +2324,7 @@ ONNX LinearClassifier operation
 | Result | Description |
 | :----: | ----------- |
 `Y` | tensor of stirng type values or tensor of 64-bit signless integer values or memref of any type values
-`Z` | tensor of 32-bit float values
+`Z` | tensor of 32-bit float values or memref of any type values
 
 ### `onnx.LinearRegressor` (ONNXLinearRegressorOp)
 
@@ -2356,7 +2356,7 @@ ONNX LinearRegressor operation
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit float values
+`Y` | tensor of 32-bit float values or memref of any type values
 
 ### `onnx.Log` (ONNXLogOp)
 
@@ -2476,15 +2476,15 @@ ONNX Loop operation
 "    }"
 ""
 "    graph body-net ("
-"      %i[INT32, scalar]"
-"      %keepgoing[BOOL, scalar]"
-"      %b[INT32, scalar]"
+"      %i[INT32, scalar]           // iteration number"
+"      %keepgoing_in[BOOL, scalar] // incoming loop-termination-condition; not used"
+"      %b_in[INT32, scalar]        // incoming value of loop-carried-dependency b"
 "    ) {"
-"      %my_local = Add(%a, %b)"
-"      %b_out = Sub(%a, %b)"
-"      %keepgoing_out = Greater(%my_local, %b_out)"
-"      %user_defined_vals = Add(%b, %b)"
-"      return %keepgoing_out, %b_out, %user_defined_vals"
+"      %my_local = Add(%a, %b_in)"
+"      %b_out = Sub(%a, %b_in) // outgoing value of loop-carried-dependency b"
+"      %keepgoing_out = Greater(%my_local, %b_out) // outgoing loop-termination-condition"
+"      %user_defined_val = Add(%b_in, %b_in) // scan-output value to be accumulated"
+"      return %keepgoing_out, %b_out, %user_defined_val"
 "    }"
 ""
 "*Sample equivalent C code*"
@@ -2499,29 +2499,49 @@ ONNX Loop operation
 "      const int max_trip_count = 10; // Analogous to input M"
 "      int user_defined_vals[]; // Imagine this is resizable"
 "      /* End implicitly-defined code */"
-"      for (int i=0; i < max_trip_count && keepgoing; ++i) {"
-"        /* User-defined code (loop body) */"
-"        int my_local = a + b; // Reading values in the enclosing scope is fine"
-"        b = a - b; // writes fine if we specify b as a loop-carried dependency"
-"        keepgoing = my_local > b; // keepgoing is a loop-carried dependency"
-"        user_defined_vals[i] = b + b;"
-"        /* End user-defined code */"
-"      }"
-"      // my_local = 123; // Can't do this. my_local was defined in the the body"
+"      /* initialize loop-carried variables and scan-output variables */"
+"      bool keepgoing_out = keepgoing"
+"      int b_out = b"
 ""
-"      // These below values are live-out from the loop and therefore accessible"
-"      b_out; user_defined_vals; keepgoing_out;"
+"      for (int i=0; i < max_trip_count && keepgoing_out; ++i) {"
+"        /* Implicitly-defined code: bind actual parameter values"
+"           to formal parameter variables of loop-body */"
+"        bool keepgoing_in = keepgoing_out; "
+"        bool b_in = b_out;"
+""
+"        /* User-defined code (loop body) */"
+"        int my_local = a + b_in; // Reading value \"a\" from the enclosing scope is fine"
+"        b_out = a - b_in;"
+"        keepgoing_out = my_local > b_out; "
+"        user_defined_val = b_in + b_in; // b_in and b_out are different variables"
+"        /* End user-defined code */"
+""
+"        /* Implicitly defined-code */"
+"        user_defined_vals[i] = user_defined_val // accumulate scan-output values"
+"      }"
+"      // int t = my_local; // Can't do this. my_local is not accessible here."
+""
+"      // The values below are bound to the output variables of the loop and therefore accessible"
+"      // b_out; user_defined_vals; keepgoing_out;"
 "    }"
 ""
 "There are several things of note in this code snippet:"
 ""
-"1) Values from the enclosing scope (i.e. variable a here) are in scope and can"
+"1) Values from the enclosing scope (i.e. variable \"a\" here) are in scope and can"
 "   be referenced in the inputs of the loop."
-"2) Any variables which you wish to make available in the enclosing scope (i.e."
-"   the variables b and keepgoing) must be declared as either loop-carried"
-"   dependencies (both at the op inputs and output and at the body net input and"
-"   output) or scan_outputs."
-"3) Values created in the body cannot be accessed in the enclosing scope."
+"2) Any values computed in the loop body that needs to be used in a subsequent"
+"   iteration or after the loop are modelled using a pair of variables in the loop-body,"
+"   consisting of an input variable (eg., b_in) and an output variable (eg., b_out)."
+"   These are referred to as loop-carried dependences. The loop operation node"
+"   supplies the input value of the input variable for the first iteration, and"
+"   returns the output value of the output variable produced by the final"
+"   iteration."
+"3) Scan_output variables are used to implicitly concatenate values computed across"
+"   all the iterations. In the above example, the value of user_defined_val computed"
+"   over all iterations are concatenated and returned as the value of user_defined_vals"
+"   after the loop."
+"4) Values created in the body cannot be accessed in the enclosing scope,"
+"   except using the mechanism described above."
 ""
 "Note that the semantics of this op support \"diagonal\" or \"wavefront\" execution."
 "(See Step 3 here for an example:"
@@ -3024,17 +3044,17 @@ ONNX NonMaxSuppression operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`boxes` | tensor of 32-bit float values
-`scores` | tensor of 32-bit float values
-`max_output_boxes_per_class` | tensor of 64-bit signless integer values or none type
-`iou_threshold` | tensor of 32-bit float values or none type
-`score_threshold` | tensor of 32-bit float values or none type
+`boxes` | tensor of 32-bit float values or memref of any type values
+`scores` | tensor of 32-bit float values or memref of any type values
+`max_output_boxes_per_class` | tensor of 64-bit signless integer values or memref of any type values or none type
+`iou_threshold` | tensor of 32-bit float values or memref of any type values or none type
+`score_threshold` | tensor of 32-bit float values or memref of any type values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`selected_indices` | tensor of 64-bit signless integer values
+`selected_indices` | tensor of 64-bit signless integer values or memref of any type values
 
 ### `onnx.NonZero` (ONNXNonZeroOp)
 
@@ -3055,7 +3075,7 @@ ONNX NonZero operation
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 64-bit signless integer values
+`Y` | tensor of 64-bit signless integer values or memref of any type values
 
 ### `onnx.Normalizer` (ONNXNormalizerOp)
 
@@ -3088,7 +3108,7 @@ ONNX Normalizer operation
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit float values
+`Y` | tensor of 32-bit float values or memref of any type values
 
 ### `onnx.Not` (ONNXNotOp)
 
@@ -3139,7 +3159,7 @@ ONNX OneHotEncoder operation
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit float values
+`Y` | tensor of 32-bit float values or memref of any type values
 
 ### `onnx.OneHot` (ONNXOneHotOp)
 
@@ -3412,7 +3432,7 @@ ONNX Pad operation
 | Operand | Description |
 | :-----: | ----------- |
 `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
-`pads` | tensor of 64-bit signless integer values or none type
+`pads` | tensor of 64-bit signless integer values or memref of any type values or none type
 `constant_value` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values or none type
 
 #### Results:
@@ -3452,6 +3472,8 @@ ONNX QLinearConv operation
 "and computes the quantized output. Each scale and zero-point pair must have same shape."
 "It means they must be either scalars (per tensor) or 1-D tensors (per output channel)."
 "Each input or output and its related zero point must have same type."
+"When bias is present it must be quantized using scale = input scale * weight scale and "
+"zero point as 0."
 
 #### Attributes:
 
@@ -3469,12 +3491,12 @@ ONNX QLinearConv operation
 | Operand | Description |
 | :-----: | ----------- |
 `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or memref of any type values
-`x_scale` | tensor of 32-bit float values
+`x_scale` | tensor of 32-bit float values or memref of any type values
 `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or memref of any type values
 `w` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or memref of any type values
-`w_scale` | tensor of 32-bit float values
+`w_scale` | tensor of 32-bit float values or memref of any type values
 `w_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or memref of any type values
-`y_scale` | tensor of 32-bit float values
+`y_scale` | tensor of 32-bit float values or memref of any type values
 `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or memref of any type values
 `B` | tensor of 32-bit signless integer values or memref of any type values or none type
 
@@ -3502,12 +3524,12 @@ ONNX QLinearMatMul operation
 | Operand | Description |
 | :-----: | ----------- |
 `a` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or memref of any type values
-`a_scale` | tensor of 32-bit float values
+`a_scale` | tensor of 32-bit float values or memref of any type values
 `a_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or memref of any type values
 `b` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or memref of any type values
-`b_scale` | tensor of 32-bit float values
+`b_scale` | tensor of 32-bit float values or memref of any type values
 `b_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or memref of any type values
-`y_scale` | tensor of 32-bit float values
+`y_scale` | tensor of 32-bit float values or memref of any type values
 `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or memref of any type values
 
 #### Results:
@@ -3529,7 +3551,7 @@ ONNX QuantizeLinear operation
 | Operand | Description |
 | :-----: | ----------- |
 `x` | tensor of 32-bit float values or tensor of 32-bit signless integer values or memref of any type values
-`y_scale` | tensor of 32-bit float values
+`y_scale` | tensor of 32-bit float values or memref of any type values
 `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or memref of any type values or none type
 
 #### Results:
@@ -3758,7 +3780,7 @@ ONNX RandomUniform operation
 
 ONNX Range operation
 
-"Generate a tensor containing a sequence of numbers that begin at `start` and extends by increments of `delta` "
+"Generate a tensor containing a sequence of numbers that begin at `start` and extends by increments of `delta`"
 "up to `limit` (exclusive)."
 ""
 "The number of elements in the output of range is computed as below-"
@@ -3770,10 +3792,10 @@ ONNX Range operation
 "`for(int i=0; i<number_of_elements; ++i)`"
 ""
 "`{`"
-"   "
-"`    output[i] =  start + (i * delta);  ` "
 ""
-"`}`	"
+"`    output[i] =  start + (i * delta);  `"
+""
+"`}`"
 ""
 "`Example 1`"
 "Inputs: start = 3, limit = 9, delta = 3"
@@ -4154,7 +4176,7 @@ ONNX Reshape operation
 | Operand | Description |
 | :-----: | ----------- |
 `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
-`shape` | tensor of 64-bit signless integer values or none type
+`shape` | tensor of 64-bit signless integer values or memref of any type values or none type
 
 #### Results:
 
@@ -4187,8 +4209,8 @@ ONNX Resize operation
 | :-----: | ----------- |
 `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
 `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
-`scales` | tensor of 32-bit float values
-`sizes` | tensor of 64-bit signless integer values or none type
+`scales` | tensor of 32-bit float values or memref of any type values
+`sizes` | tensor of 64-bit signless integer values or memref of any type values or none type
 
 #### Results:
 
@@ -4246,7 +4268,7 @@ ONNX ReverseSequence operation
 | Operand | Description |
 | :-----: | ----------- |
 `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
-`sequence_lens` | tensor of 64-bit signless integer values
+`sequence_lens` | tensor of 64-bit signless integer values or memref of any type values
 
 #### Results:
 
@@ -4357,7 +4379,7 @@ ONNX SVMClassifier operation
 | Result | Description |
 | :----: | ----------- |
 `Y` | tensor of stirng type values or tensor of 64-bit signless integer values or memref of any type values
-`Z` | tensor of 32-bit float values
+`Z` | tensor of 32-bit float values or memref of any type values
 
 ### `onnx.SVMRegressor` (ONNXSVMRegressorOp)
 
@@ -4388,7 +4410,7 @@ ONNX SVMRegressor operation
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit float values
+`Y` | tensor of 32-bit float values or memref of any type values
 
 ### `onnx.Scaler` (ONNXScalerOp)
 
@@ -4413,7 +4435,7 @@ ONNX Scaler operation
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit float values
+`Y` | tensor of 32-bit float values or memref of any type values
 
 ### `onnx.Scan` (ONNXScanOp)
 
@@ -4706,7 +4728,7 @@ ONNX ScatterND operation
 | Operand | Description |
 | :-----: | ----------- |
 `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
-`indices` | tensor of 64-bit signless integer values
+`indices` | tensor of 64-bit signless integer values or memref of any type values
 `updates` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
 
 #### Results:
@@ -5091,11 +5113,13 @@ ONNX Slice operation
 "Slices uses `starts`, `ends`, `axes` and `steps` inputs to specify the start and end"
 "dimension and step for each axis in the list of axes, it uses this information to"
 "slice the input `data` tensor. If a negative value is passed for any of the"
-"start or end indices, it represent number of elements before the end of that"
+"start or end indices, it represents number of elements before the end of that"
 "dimension. If the value passed to start or end is larger than the `n` (the"
 "number of elements in this dimension), it represents `n`. For slicing to the"
-"end of a dimension with unknown size, it is recommended to pass in `INT_MAX`."
-"If a negative value is passed for step, it represents slicing backward."
+"end of a dimension with unknown size, it is recommended to pass in `INT_MAX` "
+"when sclicing forward and 'INT_MIN' when slicing backward."
+"If a negative value is passed for step, it represents slicing backward. "
+"However step value cannot be 0."
 "If `axes` are omitted, they are set to `[0, ..., ndim-1]`."
 "If `steps` are omitted, they are set to `[1, ..., 1]` of length `len(starts)`"
 "Example 1:"
@@ -5374,13 +5398,13 @@ ONNX StringNormalizer operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of stirng type values
+`X` | tensor of stirng type values or memref of any type values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of stirng type values
+`Y` | tensor of stirng type values or memref of any type values
 
 ### `onnx.Sub` (ONNXSubOp)
 
@@ -5596,7 +5620,7 @@ ONNX TopK operation
 | Operand | Description |
 | :-----: | ----------- |
 `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
-`K` | tensor of 64-bit signless integer values
+`K` | tensor of 64-bit signless integer values or memref of any type values
 
 #### Results:
 
@@ -5678,7 +5702,7 @@ ONNX TreeEnsembleClassifier operation
 | Result | Description |
 | :----: | ----------- |
 `Y` | tensor of stirng type values or tensor of 64-bit signless integer values or memref of any type values
-`Z` | tensor of 32-bit float values
+`Z` | tensor of 32-bit float values or memref of any type values
 
 ### `onnx.TreeEnsembleRegressor` (ONNXTreeEnsembleRegressorOp)
 
@@ -5727,7 +5751,7 @@ ONNX TreeEnsembleRegressor operation
 
 | Result | Description |
 | :----: | ----------- |
-`Y` | tensor of 32-bit float values
+`Y` | tensor of 32-bit float values or memref of any type values
 
 ### `onnx.Unique` (ONNXUniqueOp)
 
@@ -5827,9 +5851,9 @@ ONNX Unique operation
 | Result | Description |
 | :----: | ----------- |
 `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
-`indices` | tensor of 64-bit signless integer values or none type
-`inverse_indices` | tensor of 64-bit signless integer values or none type
-`counts` | tensor of 64-bit signless integer values or none type
+`indices` | tensor of 64-bit signless integer values or memref of any type values or none type
+`inverse_indices` | tensor of 64-bit signless integer values or memref of any type values or none type
+`counts` | tensor of 64-bit signless integer values or memref of any type values or none type
 
 ### `onnx.Unsqueeze` (ONNXUnsqueezeOp)
 
@@ -5885,7 +5909,7 @@ ONNX Upsample operation
 | Operand | Description |
 | :-----: | ----------- |
 `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
-`scales` | tensor of 32-bit float values
+`scales` | tensor of 32-bit float values or memref of any type values
 
 #### Results:
 
@@ -5958,7 +5982,7 @@ ONNX ZipMap operation
 
 | Operand | Description |
 | :-----: | ----------- |
-`X` | tensor of 32-bit float values
+`X` | tensor of 32-bit float values or memref of any type values
 
 #### Results:
 

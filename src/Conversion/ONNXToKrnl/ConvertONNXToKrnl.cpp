@@ -9,6 +9,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
@@ -55,7 +58,10 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect,
-      shape::ShapeDialect>();
+      shape::ShapeDialect, scf::SCFDialect>();
+
+  // std.tanh will be expanded.
+  target.addIllegalOp<mlir::TanhOp>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
@@ -71,19 +77,28 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   OwningRewritePatternList patterns;
 
   // Convert TensorType to MemRef
-  TensorTypeConverter tensor_to_memref_converter;
+  TensorTypeConverter tensorToMemRefConverter;
   target.addDynamicallyLegalOp<FuncOp>([&](FuncOp op) {
     // FuncOp is legal only if types have been converted to Std types.
-    return tensor_to_memref_converter.isSignatureLegal(op.getType());
+    return tensorToMemRefConverter.isSignatureLegal(op.getType());
+  });
+
+  target.addDynamicallyLegalOp<CallOp>([&](CallOp op) {
+    // FuncOp is legal only if types have been converted to Std types.
+    return tensorToMemRefConverter.isLegal(op);
   });
 
   // Type conversion for function signatures.
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
   populateFuncOpTypeConversionPattern(
-      patterns, &getContext(), tensor_to_memref_converter);
+      patterns, &getContext(), tensorToMemRefConverter);
+  populateCallOpTypeConversionPattern(
+      patterns, &getContext(), tensorToMemRefConverter);
 
   // Frontend operation lowering.
+  // ControlFlow
+  populateLoweringONNXLoopOpPattern(patterns, &getContext());
   // Math
   populateLoweringONNXElementwiseOpPattern(patterns, &getContext());
   populateLoweringONNXGemmOpPattern(patterns, &getContext());
@@ -101,24 +116,32 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXConstantOfShapeOpPattern(patterns, &getContext());
   populateLoweringONNXConstantOpPattern(patterns, &getContext());
   populateLoweringONNXConcatOpPattern(patterns, &getContext());
+  populateLoweringONNXSliceOpPattern(patterns, &getContext());
   populateLoweringONNXSqueezeOpPattern(patterns, &getContext());
   populateLoweringONNXSplitOpPattern(patterns, &getContext());
   populateLoweringONNXSizeOpPattern(patterns, &getContext());
   populateLoweringONNXTileOpPattern(patterns, &getContext());
+  populateLoweringONNXFlattenOpPattern(patterns, &getContext());
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, &getContext());
   populateLoweringONNXNormalizationOpPattern(patterns, &getContext());
   populateLoweringONNXPoolingOpPattern(patterns, &getContext());
   // Recurrent neural network
+  populateLoweringONNXGRUOpPattern(patterns, &getContext());
   populateLoweringONNXLSTMOpPattern(patterns, &getContext());
+  populateLoweringONNXRNNOpPattern(patterns, &getContext());
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(&getContext());
+
+  // Expand std.tanh
+  populateExpandTanhPattern(patterns, &getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
   // operations were not converted successfully.
-  if (failed(applyPartialConversion(module, target, patterns)))
+  if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
+  }
 }
 
 std::unique_ptr<Pass> mlir::createLowerToKrnlPass() {

@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -21,18 +22,23 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     ONNXGatherOpAdaptor operandAdaptor(operands);
     ONNXGatherOp gatherOp = llvm::cast<ONNXGatherOp>(op);
     auto loc = op->getLoc();
-    // get input operands, shapes, and rank
-    Value data = operandAdaptor.data();
-    auto dataShape = data.getType().cast<MemRefType>().getShape();
-    int64_t dataRank = dataShape.size();
-    Value indices = operandAdaptor.indices();
-    auto indicesShape = indices.getType().cast<MemRefType>().getShape();
-    int64_t indicesRank = indicesShape.size();
-    int64_t axisIndex = gatherOp.axis();
-    // get output info
-    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    auto outputMemRefShape = outputMemRefType.getShape();
-    int64_t outputRank = outputMemRefShape.size();
+
+    ONNXGatherOpShapeHelper shapeHelper(&gatherOp, &rewriter);
+    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
+    IndexExprContext outerContext(shapeHelper.context);
+
+    // Insert an allocation and deallocation for the output of this operation.
+    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    Type elementType = outputMemRefType.getElementType();
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+
+    // Save axis and rank info.
+    int64_t axisLit = gatherOp.axis();
+    int64_t dataRank = shapeHelper.dataDims.size();
+    int64_t indicesRank = shapeHelper.indicesDims.size();
+    int64_t outputRank = shapeHelper.dimsForOutput(0).size();
+
     /*
       The pattern that we are using is that of numpy.take.
 
@@ -44,85 +50,55 @@ struct ONNXGatherOpLowering : public ConversionPattern {
             out[ii + jj + kk] = data[ii + (indices[jj],) + kk]
     */
     // Define loops and iteration trip counts (equivalent to size of output)
-    std::vector<Value> originalLoops;
-    defineLoops(rewriter, loc, originalLoops, outputRank);
-    KrnlIterateOperandPack pack(rewriter, originalLoops);
+    BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
+    outputLoops.createDefineOp();
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
+    outputLoops.createIterateOp();
     int iIndexStart = 0;
-    for (int ii = 0; ii < axisIndex; ++ii)
-      addDimensionToPack(rewriter, loc, pack, data, ii);
-    // Then iterates over the Nj (indices matrix), jj indices in above algo.
-    int jIndexStart = iIndexStart + axisIndex;
-    for (int jj = 0; jj < indicesRank; ++jj)
-      addDimensionToPack(rewriter, loc, pack, indices, jj);
-    // Finally iterates over the Nk (data after axis), kk indices in above algo.
-    int kIndexStart = jIndexStart + indicesRank - (axisIndex + 1);
-    for (int kk = axisIndex + 1; kk < dataRank; ++kk)
-      addDimensionToPack(rewriter, loc, pack, data, kk);
-    // Insert an allocation and deallocation for the result of this operation.
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-    if (hasAllConstantDimensions(outputMemRefType))
-      alloc =
-          insertAllocAndDealloc(outputMemRefType, loc, rewriter, insertDealloc);
-    else
-      return emitError(loc, "unsupported dynamic dimensions");
+    int jIndexStart = iIndexStart + axisLit;
+    int kIndexStart = jIndexStart + indicesRank - (axisLit + 1);
 
-    // Get the size of the "axis"th dimension of data.
-    auto zeroConst = rewriter.create<ConstantOp>(
-        loc, rewriter.getIntegerAttr(rewriter.getIndexType(), 0));
-    auto axisIndexConst = rewriter.create<ConstantOp>(
-        loc, rewriter.getIntegerAttr(rewriter.getIndexType(), axisIndex));
-    auto sizeAxisVal = rewriter.create<KrnlDimOp>(
-        loc, rewriter.getIndexType(), data, axisIndexConst);
+    // Load the constants for the tests
+    IndexExpr zero = outerContext.createLiteralIndex(0);
+    IndexExpr axis = outerContext.createLiteralIndex(axisLit);
+    IndexExpr axisDim = outerContext.createSymbolIndexFromParentContext(
+        shapeHelper.dataDims[axisLit]);
+    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-    // Create the loops
-    auto iterateOp = rewriter.create<KrnlIterateOp>(loc, pack);
-    Block &iterationBlock = iterateOp.bodyRegion().front();
+    // compute the loop indices for the output
+    SmallVector<IndexExpr, 4> outputAccessFct;
+    outerContext.createLoopInductionIndicesFromArrayValues(
+        outputLoops.getAllInductionVar(), outputAccessFct);
 
-    // Now perform the insertions into the body of the just generated loops.
-    // Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operations.
-    // Read first the indices[jj] into rawIndexVal.
-    SmallVector<Value, 4> indicesMemRefVal;
+    // Compute access function for indices[jjs].
+    SmallVector<IndexExpr, 4> indicesAccessFct;
     for (int j = 0; j < indicesRank; ++j)
-      indicesMemRefVal.emplace_back(
-          iterationBlock.getArguments()[jIndexStart + j]);
-    auto indexValInteger =
-        rewriter.create<AffineLoadOp>(loc, indices, indicesMemRefVal);
-    auto rawIndexVal = rewriter.create<IndexCastOp>(
-        loc, indexValInteger, rewriter.getIndexType());
-    // When raw index value is negative, must add array dimension size to it.
-    auto negativeIndexVal =
-        rewriter.create<AddIOp>(loc, rawIndexVal, sizeAxisVal);
-    // Select value for non-negative or negative case.
-    auto isNegative = rewriter.create<CmpIOp>(
-        loc, CmpIPredicate::slt, rawIndexVal, zeroConst);
-    auto indexVal = rewriter.create<SelectOp>(
-        loc, isNegative, negativeIndexVal, rawIndexVal);
+      indicesAccessFct.emplace_back(outputAccessFct[jIndexStart + j]);
+    Value indexVal =
+        outerContext.createLoadOp(operandAdaptor.indices(), indicesAccessFct);
+    // Loaded value is an index that is not affine
+    IndexExpr index = outerContext.createNonAffineIndex(indexVal);
+    // When index may be negative, add axis Dim to it.
+    if (!shapeHelper.positiveConstantIndices) {
+      index = index.selectOrSelf(index < zero, index + axisDim);
+    }
 
-    // Then read input data into DataVal: first add ii's.
-    SmallVector<Value, 4> dataMemRefVal;
-    for (int i = 0; i < axisIndex; ++i)
-      dataMemRefVal.emplace_back(
-          iterationBlock.getArguments()[iIndexStart + i]);
+    // Compute access function of data: data[ii + (indices[jj],) + kk]
+    SmallVector<IndexExpr, 4> dataAccessFct;
+    // First add indices iis
+    for (int i = 0; i < axisLit; ++i)
+      dataAccessFct.emplace_back(outputAccessFct[iIndexStart + i]);
     // Then add indices[jj] (indexVal).
-    dataMemRefVal.emplace_back(indexVal);
-    // Then add kk's.
-    for (int k = axisIndex + 1; k < dataRank; ++k)
-      dataMemRefVal.emplace_back(
-          iterationBlock.getArguments()[kIndexStart + k]);
-    auto dataVal = rewriter.create<LoadOp>(loc, data, dataMemRefVal);
+    dataAccessFct.emplace_back(index);
+    // Then add kks.
+    for (int k = axisLit + 1; k < dataRank; ++k)
+      dataAccessFct.emplace_back(outputAccessFct[kIndexStart + k]);
+    Value data =
+        outerContext.createLoadOp(operandAdaptor.data(), dataAccessFct);
 
-    // Then store the value in the output.
-    SmallVector<Value, 4> outputMemRefVal;
-    for (int n = 0; n < iterationBlock.getArguments().size(); ++n)
-      outputMemRefVal.emplace_back(iterationBlock.getArguments()[n]);
-    rewriter.create<AffineStoreOp>(loc, dataVal, alloc, outputMemRefVal);
-
+    // Save data into output
+    outerContext.createStoreOp(data, alloc, outputAccessFct);
     rewriter.replaceOp(op, alloc);
-
     return success();
   }
 };

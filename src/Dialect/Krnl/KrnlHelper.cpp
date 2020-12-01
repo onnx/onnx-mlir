@@ -200,6 +200,13 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
   return pushCount++;
 }
 
+int BuildKrnlLoop::pushBounds(int64_t lowerBound, IndexExpr upperBound) {
+  if (upperBound.isLiteral()) {
+    return pushBounds(0, upperBound.getLiteral());
+  }
+  return pushBounds(0, upperBound.getValue());
+}
+
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, AffineMap upperBound,
     ArrayRef<Value> operandsForUpperBoundMap) {
   pack->pushConstantBound(lowerBound);
@@ -230,6 +237,12 @@ int BuildKrnlLoop::pushBounds(Value lowerBound, Value upperBound) {
   pack->pushOperandBound(lowerBound);
   pack->pushOperandBound(upperBound);
   return pushCount++;
+}
+
+void BuildKrnlLoop::pushAllBounds(SmallVectorImpl<IndexExpr> &upperBounds) {
+  for (IndexExpr ie : upperBounds) {
+    pushBounds(0, ie);
+  }
 }
 
 void BuildKrnlLoop::createIterateOp() {
@@ -269,6 +282,11 @@ BlockArgument &BuildKrnlLoop::getInductionVar(int originalLoopIndex) {
   assert(originalLoopIndex >= 0 && originalLoopIndex < originalLoopNum &&
          "Original loop index is out of bounds.");
   return iterBlock->getArguments()[originalLoopIndex];
+}
+
+ArrayRef<BlockArgument> BuildKrnlLoop::getAllInductionVar() {
+  return ArrayRef<BlockArgument>(
+      iterBlock->getArguments().begin(), iterBlock->getArguments().end());
 }
 
 } // namespace mlir

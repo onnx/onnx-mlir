@@ -40,7 +40,7 @@ def ONNXAbsOp:ONNX_Op<"Abs",
 }
 
 def ONNXAcosOp:ONNX_Op<"Acos",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Acos operation";
   let description = [{
   "Calculates the arccosine (inverse of cosine) of the given input tensor, element-wise."
@@ -61,7 +61,7 @@ def ONNXAcosOp:ONNX_Op<"Acos",
 }
 
 def ONNXAcoshOp:ONNX_Op<"Acosh",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Acosh operation";
   let description = [{
   "Calculates the hyperbolic arccosine of the given input tensor element-wise."
@@ -184,18 +184,18 @@ def ONNXAndOp:ONNX_Op<"And",
 }
 
 def ONNXArgMaxOp:ONNX_Op<"ArgMax",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ArgMax operation";
   let description = [{
   "Computes the indices of the max elements of the input tensor's element along the "
-  "provided axis. The resulted tensor has the same rank as the input if keepdims equal 1."
-  "If keepdims equal 0, then the resulted tensor have the reduced dimension pruned. "
+  "provided axis. The resulting tensor has the same rank as the input if keepdims equal 1. "
+  "If keepdims equal 0, then the resulting tensor have the reduced dimension pruned. "
   "The type of the output tensor is integer."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$data,
     DefaultValuedAttr<SI64Attr, "0">:$axis,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
-  let results = (outs TensorOf<[I64]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$reduced);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -210,18 +210,18 @@ def ONNXArgMaxOp:ONNX_Op<"ArgMax",
 }
 
 def ONNXArgMinOp:ONNX_Op<"ArgMin",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ArgMin operation";
   let description = [{
   "Computes the indices of the min elements of the input tensor's element along the "
-  "provided axis. The resulted tensor has the same rank as the input if keepdims equal 1."
-  "If keepdims equal 0, then the resulted tensor have the reduced dimension pruned. "
+  "provided axis. The resulting tensor has the same rank as the input if keepdims equal 1. "
+  "If keepdims equal 0, then the resulting tensor have the reduced dimension pruned. "
   "The type of the output tensor is integer."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$data,
     DefaultValuedAttr<SI64Attr, "0">:$axis,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
-  let results = (outs TensorOf<[I64]>:$reduced);
+  let results = (outs AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$reduced);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -236,7 +236,7 @@ def ONNXArgMinOp:ONNX_Op<"ArgMin",
 }
 
 def ONNXAsinOp:ONNX_Op<"Asin",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Asin operation";
   let description = [{
   "Calculates the arcsine (inverse of sine) of the given input tensor, element-wise."
@@ -257,7 +257,7 @@ def ONNXAsinOp:ONNX_Op<"Asin",
 }
 
 def ONNXAsinhOp:ONNX_Op<"Asinh",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Asinh operation";
   let description = [{
   "Calculates the hyperbolic arcsine of the given input tensor element-wise."
@@ -299,7 +299,7 @@ def ONNXAtanOp:ONNX_Op<"Atan",
 }
 
 def ONNXAtanhOp:ONNX_Op<"Atanh",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Atanh operation";
   let description = [{
   "Calculates the hyperbolic arctangent of the given input tensor element-wise."
@@ -375,7 +375,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
 }
 
 def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BatchNormalization operation";
   let description = [{
   "Carries out batch normalization as described in the paper"
@@ -415,7 +415,7 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
 }
 
 def ONNXBitShiftOp:ONNX_Op<"BitShift",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX BitShift operation";
   let description = [{
   "Bitwise shift operator performs element-wise operation. For each input element, if the"
@@ -506,7 +506,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
 }
 
 def ONNXCeilOp:ONNX_Op<"Ceil",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Ceil operation";
   let description = [{
   "Ceil takes one input data (Tensor<T>) and produces one output data"
@@ -529,7 +529,7 @@ def ONNXCeilOp:ONNX_Op<"Ceil",
 }
 
 def ONNXClipOp:ONNX_Op<"Clip",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Clip operation";
   let description = [{
   "Clip operator limits the given input within an interval. The interval is"
@@ -554,7 +554,7 @@ def ONNXClipOp:ONNX_Op<"Clip",
 }
 
 def ONNXCompressOp:ONNX_Op<"Compress",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Compress operation";
   let description = [{
   "Selects slices from an input tensor along a given axis where condition evaluates to True for each axis index."
@@ -602,7 +602,7 @@ def ONNXConcatOp:ONNX_Op<"Concat",
 }
 
 def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ConcatFromSequence operation";
   let description = [{
   "Concatenate a sequence of tensors into a single tensor."
@@ -852,7 +852,7 @@ def ONNXCoshOp:ONNX_Op<"Cosh",
 }
 
 def ONNXCumSumOp:ONNX_Op<"CumSum",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX CumSum operation";
   let description = [{
   "Performs cumulative sum of the input elements along the given axis."
@@ -895,7 +895,7 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
 }
 
 def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX DepthToSpace operation";
   let description = [{
   "DepthToSpace rearranges (permutes) data from depth into blocks of spatial data."
@@ -953,9 +953,9 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
   "there's no zero point (zero point is supposed to be 0)."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I32]>, AnyMemRef]>:$x,
-    TensorOf<[F32]>:$x_scale,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$x_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I32]>, AnyMemRef, NoneType]>:$x_zero_point);
-  let results = (outs TensorOf<[F32]>:$y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -970,7 +970,7 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
 }
 
 def ONNXDetOp:ONNX_Op<"Det",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Det operation";
   let description = [{
   "Det calculates determinant of a square matrix or batches of square matrices."
@@ -1087,7 +1087,7 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
   "```"
   "Zero point is calculated as:"
   "```"
-  "intermediate_zero_point = (qmin - min(x))/(qmax - qmin)"
+  "intermediate_zero_point = qmin - min(x)/y_scale"
   "y_zero_point = cast(round(saturate(itermediate_zero_point)))"
   "* where qmax and qmin are max and min values for quantization range .i.e [0, 255] in case of uint8"
   "* for saturation, it saturates to [0, 255] if it's uint8, or [-127, 127] if it's int8. Right now only uint8 is supported."
@@ -1102,7 +1102,7 @@ def ONNXDynamicQuantizeLinearOp:ONNX_Op<"DynamicQuantizeLinear",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$x);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, AnyMemRef]>:$y,
-    TensorOf<[F32]>:$y_scale,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$y_scale,
     AnyTypeOf<[TensorOf<[UI8]>, AnyMemRef]>:$y_zero_point);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -1143,7 +1143,7 @@ def ONNXEluOp:ONNX_Op<"Elu",
 }
 
 def ONNXEqualOp:ONNX_Op<"Equal",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Equal operation";
   let description = [{
   "Returns the tensor resulted from performing the `equal` logical operation"
@@ -1261,7 +1261,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
   "or the shape.ndim < input.shape.ndim."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$input,
-    TensorOf<[I64]>:$shape);
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$shape);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -1277,7 +1277,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX EyeLike operation";
   let description = [{
   "Generate a 2D tensor (matrix) with ones on the diagonal and zeros everywhere else. Only 2D"
@@ -1330,7 +1330,7 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
 }
 
 def ONNXFloorOp:ONNX_Op<"Floor",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Floor operation";
   let description = [{
   "Floor takes one input data (Tensor<T>) and produces one output data"
@@ -1538,7 +1538,7 @@ def ONNXGatherOp:ONNX_Op<"Gather",
 }
 
 def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GatherElements operation";
   let description = [{
   "GatherElements takes two inputs `data` and `indices` of the same rank r >= 1"
@@ -1615,7 +1615,7 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
 }
 
 def ONNXGatherNDOp:ONNX_Op<"GatherND",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GatherND operation";
   let description = [{
   "Given `data` tensor of rank `r` >= 1, and `indices` tensor of rank `q` >= 1, this operator gathers "
@@ -1685,7 +1685,7 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
   ""
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
-    TensorOf<[I64]>:$indices);
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$indices);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -1741,7 +1741,7 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
 }
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX GlobalAveragePool operation";
   let description = [{
@@ -1765,7 +1765,7 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
 }
 
 def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX GlobalLpPool operation";
   let description = [{
   "GlobalLpPool consumes an input tensor X and applies lp pool pooling across"
@@ -1789,7 +1789,7 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
 }
 
 def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX GlobalMaxPool operation";
   let description = [{
@@ -1813,7 +1813,7 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
 }
 
 def ONNXGreaterOp:ONNX_Op<"Greater",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Greater operation";
   let description = [{
   "Returns the tensor resulted from performing the `greater` logical operation"
@@ -1889,7 +1889,7 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
 }
 
 def ONNXHardmaxOp:ONNX_Op<"Hardmax",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Hardmax operation";
   let description = [{
   "The operator computes the hardmax (1 for the first maximum value, and 0 for all others) values for each layer in the batch"
@@ -1946,7 +1946,7 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
 }
 
 def ONNXIfOp:ONNX_Op<"If",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX If operation";
   let description = [{
   "If conditional"
@@ -1954,7 +1954,7 @@ def ONNXIfOp:ONNX_Op<"If",
   let arguments = (ins AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$cond,
     AnyAttr:$else_branch,
     AnyAttr:$then_branch);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$outputs);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$outputs);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -1969,7 +1969,7 @@ def ONNXIfOp:ONNX_Op<"If",
 }
 
 def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX InstanceNormalization operation";
   let description = [{
   "Carries out instance normalization as described in the paper"
@@ -1998,7 +1998,7 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
 }
 
 def ONNXIsInfOp:ONNX_Op<"IsInf",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX IsInf operation";
   let description = [{
   "Map infinity to true and other values to false."
@@ -2021,7 +2021,7 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
 }
 
 def ONNXIsNaNOp:ONNX_Op<"IsNaN",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX IsNaN operation";
   let description = [{
   "Returns which elements of the input are NaN."
@@ -2042,7 +2042,7 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
 }
 
 def ONNXLRNOp:ONNX_Op<"LRN",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LRN operation";
   let description = [{
   "Local Response Normalization proposed in the [AlexNet paper](https://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf)."
@@ -2217,7 +2217,7 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
 }
 
 def ONNXLessOp:ONNX_Op<"Less",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Less operation";
   let description = [{
   "Returns the tensor resulted from performing the `less` logical operation"
@@ -2289,7 +2289,7 @@ def ONNXLogOp:ONNX_Op<"Log",
 }
 
 def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LogSoftmax operation";
   let description = [{
   "The operator computes the logsoftmax (log of softmax) values for each layer in the batch"
@@ -2324,7 +2324,7 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Loop operation";
   let description = [{
   "Generic Looping construct. This loop has multiple termination conditions:"
@@ -2386,15 +2386,15 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   "    }"
   ""
   "    graph body-net ("
-  "      %i[INT32, scalar]"
-  "      %keepgoing[BOOL, scalar]"
-  "      %b[INT32, scalar]"
+  "      %i[INT32, scalar]           // iteration number"
+  "      %keepgoing_in[BOOL, scalar] // incoming loop-termination-condition; not used"
+  "      %b_in[INT32, scalar]        // incoming value of loop-carried-dependency b"
   "    ) {"
-  "      %my_local = Add(%a, %b)"
-  "      %b_out = Sub(%a, %b)"
-  "      %keepgoing_out = Greater(%my_local, %b_out)"
-  "      %user_defined_vals = Add(%b, %b)"
-  "      return %keepgoing_out, %b_out, %user_defined_vals"
+  "      %my_local = Add(%a, %b_in)"
+  "      %b_out = Sub(%a, %b_in) // outgoing value of loop-carried-dependency b"
+  "      %keepgoing_out = Greater(%my_local, %b_out) // outgoing loop-termination-condition"
+  "      %user_defined_val = Add(%b_in, %b_in) // scan-output value to be accumulated"
+  "      return %keepgoing_out, %b_out, %user_defined_val"
   "    }"
   ""
   "*Sample equivalent C code*"
@@ -2409,29 +2409,49 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   "      const int max_trip_count = 10; // Analogous to input M"
   "      int user_defined_vals[]; // Imagine this is resizable"
   "      /* End implicitly-defined code */"
-  "      for (int i=0; i < max_trip_count && keepgoing; ++i) {"
-  "        /* User-defined code (loop body) */"
-  "        int my_local = a + b; // Reading values in the enclosing scope is fine"
-  "        b = a - b; // writes fine if we specify b as a loop-carried dependency"
-  "        keepgoing = my_local > b; // keepgoing is a loop-carried dependency"
-  "        user_defined_vals[i] = b + b;"
-  "        /* End user-defined code */"
-  "      }"
-  "      // my_local = 123; // Can't do this. my_local was defined in the the body"
+  "      /* initialize loop-carried variables and scan-output variables */"
+  "      bool keepgoing_out = keepgoing"
+  "      int b_out = b"
   ""
-  "      // These below values are live-out from the loop and therefore accessible"
-  "      b_out; user_defined_vals; keepgoing_out;"
+  "      for (int i=0; i < max_trip_count && keepgoing_out; ++i) {"
+  "        /* Implicitly-defined code: bind actual parameter values"
+  "           to formal parameter variables of loop-body */"
+  "        bool keepgoing_in = keepgoing_out; "
+  "        bool b_in = b_out;"
+  ""
+  "        /* User-defined code (loop body) */"
+  "        int my_local = a + b_in; // Reading value \"a\" from the enclosing scope is fine"
+  "        b_out = a - b_in;"
+  "        keepgoing_out = my_local > b_out; "
+  "        user_defined_val = b_in + b_in; // b_in and b_out are different variables"
+  "        /* End user-defined code */"
+  ""
+  "        /* Implicitly defined-code */"
+  "        user_defined_vals[i] = user_defined_val // accumulate scan-output values"
+  "      }"
+  "      // int t = my_local; // Can't do this. my_local is not accessible here."
+  ""
+  "      // The values below are bound to the output variables of the loop and therefore accessible"
+  "      // b_out; user_defined_vals; keepgoing_out;"
   "    }"
   ""
   "There are several things of note in this code snippet:"
   ""
-  "1) Values from the enclosing scope (i.e. variable a here) are in scope and can"
+  "1) Values from the enclosing scope (i.e. variable \"a\" here) are in scope and can"
   "   be referenced in the inputs of the loop."
-  "2) Any variables which you wish to make available in the enclosing scope (i.e."
-  "   the variables b and keepgoing) must be declared as either loop-carried"
-  "   dependencies (both at the op inputs and output and at the body net input and"
-  "   output) or scan_outputs."
-  "3) Values created in the body cannot be accessed in the enclosing scope."
+  "2) Any values computed in the loop body that needs to be used in a subsequent"
+  "   iteration or after the loop are modelled using a pair of variables in the loop-body,"
+  "   consisting of an input variable (eg., b_in) and an output variable (eg., b_out)."
+  "   These are referred to as loop-carried dependences. The loop operation node"
+  "   supplies the input value of the input variable for the first iteration, and"
+  "   returns the output value of the output variable produced by the final"
+  "   iteration."
+  "3) Scan_output variables are used to implicitly concatenate values computed across"
+  "   all the iterations. In the above example, the value of user_defined_val computed"
+  "   over all iterations are concatenated and returned as the value of user_defined_vals"
+  "   after the loop."
+  "4) Values created in the body cannot be accessed in the enclosing scope,"
+  "   except using the mechanism described above."
   ""
   "Note that the semantics of this op support \"diagonal\" or \"wavefront\" execution."
   "(See Step 3 here for an example:"
@@ -2443,9 +2463,9 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$M,
     AnyTypeOf<[TensorOf<[I1]>, AnyMemRef, NoneType]>:$cond,
-    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$v_initial,
+    Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$v_initial,
     AnyAttr:$body);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$v_final_and_scan_outputs);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$v_final_and_scan_outputs);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return -1;
@@ -2456,11 +2476,16 @@ def ONNXLoopOp:ONNX_Op<"Loop",
     static std::vector<int> getTypeMap() {
       return {22};
     }
-  }];
+
+  mlir::FuncOp getLoopBodyFunc();
+  mlir::Operation::result_range v_final();
+  mlir::Operation::result_range scan_outputs();
+  
+    }];
 }
 
 def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LpNormalization operation";
   let description = [{
   "Given a matrix, apply Lp-normalization along the provided axis."
@@ -2483,7 +2508,7 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
 }
 
 def ONNXLpPoolOp:ONNX_Op<"LpPool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LpPool operation";
   let description = [{
   "LpPool consumes an input tensor X and applies Lp pooling across"
@@ -2535,7 +2560,7 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
 }
 
 def ONNXMatMulIntegerOp:ONNX_Op<"MatMulInteger",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MatMulInteger operation";
   let description = [{
   "Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html."
@@ -2583,7 +2608,7 @@ def ONNXMaxOp:ONNX_Op<"Max",
 }
 
 def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MaxPool operation";
   let description = [{
   "MaxPool consumes an input tensor X and applies max pooling across"
@@ -2640,7 +2665,7 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
 }
 
 def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MaxRoiPool operation";
   let description = [{
   "ROI max pool consumes an input tensor X and region of interests (RoIs) to"
@@ -2666,7 +2691,7 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
 }
 
 def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MaxUnpool operation";
   let description = [{
   "MaxUnpool essentially computes the partial inverse of the MaxPool op."
@@ -2709,7 +2734,7 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
 }
 
 def ONNXMeanOp:ONNX_Op<"Mean",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Mean operation";
   let description = [{
   "Element-wise mean of each of the input tensors (with Numpy-style broadcasting support)."
@@ -2732,7 +2757,7 @@ def ONNXMeanOp:ONNX_Op<"Mean",
 }
 
 def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX MeanVarianceNormalization operation";
   let description = [{
   "A MeanVarianceNormalization Function: Perform mean variance normalization"
@@ -2778,7 +2803,7 @@ def ONNXMinOp:ONNX_Op<"Min",
 }
 
 def ONNXModOp:ONNX_Op<"Mod",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Mod operation";
   let description = [{
   "Performs element-wise binary modulus (with Numpy-style broadcasting support). "
@@ -2863,7 +2888,7 @@ def ONNXMulOp:ONNX_Op<"Mul",
 }
 
 def ONNXMultinomialOp:ONNX_Op<"Multinomial",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Multinomial operation";
   let description = [{
   "Generate a tensor of samples from a multinomial distribution according to the probabilities"
@@ -2923,7 +2948,7 @@ def ONNXNegOp:ONNX_Op<"Neg",
 }
 
 def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX NonMaxSuppression operation";
   let description = [{
   "Filter out boxes that have high intersection-over-union (IOU) overlap with previously selected boxes."
@@ -2934,13 +2959,13 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
   "The selected_indices output is a set of integers indexing into the input collection of bounding boxes representing the selected boxes."
   "The bounding box coordinates corresponding to the selected indices can then be obtained using the Gather or GatherND operation."
   }];
-  let arguments = (ins TensorOf<[F32]>:$boxes,
-    TensorOf<[F32]>:$scores,
-    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$max_output_boxes_per_class,
-    AnyTypeOf<[TensorOf<[F32]>, NoneType]>:$iou_threshold,
-    AnyTypeOf<[TensorOf<[F32]>, NoneType]>:$score_threshold,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$boxes,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$scores,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$max_output_boxes_per_class,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef, NoneType]>:$iou_threshold,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef, NoneType]>:$score_threshold,
     DefaultValuedAttr<SI64Attr, "0">:$center_point_box);
-  let results = (outs TensorOf<[I64]>:$selected_indices);
+  let results = (outs AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$selected_indices);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 5;
@@ -2955,7 +2980,7 @@ def ONNXNonMaxSuppressionOp:ONNX_Op<"NonMaxSuppression",
 }
 
 def ONNXNonZeroOp:ONNX_Op<"NonZero",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX NonZero operation";
   let description = [{
   "Returns the indices of the elements that are non-zero"
@@ -2964,7 +2989,7 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
   "    https://docs.scipy.org/doc/numpy/reference/generated/numpy.nonzero.html"
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$X);
-  let results = (outs TensorOf<[I64]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -2979,7 +3004,7 @@ def ONNXNonZeroOp:ONNX_Op<"NonZero",
 }
 
 def ONNXNotOp:ONNX_Op<"Not",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Not operation";
   let description = [{
   "Returns the negation of the input tensor element-wise."
@@ -3000,7 +3025,7 @@ def ONNXNotOp:ONNX_Op<"Not",
 }
 
 def ONNXOneHotOp:ONNX_Op<"OneHot",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX OneHot operation";
   let description = [{
   "Produces a one-hot tensor based on inputs."
@@ -3204,7 +3229,7 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$data,
-    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$pads,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$pads,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType]>:$constant_value,
     DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType]>:$output);
@@ -3288,7 +3313,7 @@ def ONNXPowOp:ONNX_Op<"Pow",
 }
 
 def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX QLinearConv operation";
   let description = [{
   "The convolution operator consumes a quantized input tensor, its scale and zero point,"
@@ -3296,14 +3321,16 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
   "and computes the quantized output. Each scale and zero-point pair must have same shape."
   "It means they must be either scalars (per tensor) or 1-D tensors (per output channel)."
   "Each input or output and its related zero point must have same type."
+  "When bias is present it must be quantized using scale = input scale * weight scale and "
+  "zero point as 0."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$x,
-    TensorOf<[F32]>:$x_scale,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$x_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$x_zero_point,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$w,
-    TensorOf<[F32]>:$w_scale,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$w_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$w_zero_point,
-    TensorOf<[F32]>:$y_scale,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$y_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$y_zero_point,
     AnyTypeOf<[TensorOf<[I32]>, AnyMemRef, NoneType]>:$B,
     DefaultValuedAttr<StrAttr, "NOTSET">:$auto_pad,
@@ -3327,7 +3354,7 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
 }
 
 def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX QLinearMatMul operation";
   let description = [{
   "Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html."
@@ -3340,12 +3367,12 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
   "Production must never overflow, and accumulation may overflow if and only if in 32 bits."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$a,
-    TensorOf<[F32]>:$a_scale,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$a_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$a_zero_point,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$b,
-    TensorOf<[F32]>:$b_scale,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$b_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$b_zero_point,
-    TensorOf<[F32]>:$y_scale,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$y_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$y_zero_point);
   let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef]>:$y);
   let extraClassDeclaration = [{
@@ -3370,7 +3397,7 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
   "For (x / y_scale), it's rounding to nearest ties to even. Refer to https://en.wikipedia.org/wiki/Rounding for details. 'y_zero_point' and 'y' must have same type."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[I32]>, AnyMemRef]>:$x,
-    TensorOf<[F32]>:$y_scale,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$y_scale,
     AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef, NoneType]>:$y_zero_point);
   let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, AnyMemRef, NoneType]>:$y);
   let extraClassDeclaration = [{
@@ -3480,7 +3507,7 @@ def ONNXRNNOp:ONNX_Op<"RNN",
 }
 
 def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX RandomNormal operation";
   let description = [{
   "Generate a tensor with random values drawn from a normal distribution. The shape"
@@ -3511,7 +3538,7 @@ def ONNXRandomNormalOp:ONNX_Op<"RandomNormal",
 }
 
 def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX RandomNormalLike operation";
   let description = [{
   "Generate a tensor with random values drawn from a normal distribution."
@@ -3542,7 +3569,7 @@ def ONNXRandomNormalLikeOp:ONNX_Op<"RandomNormalLike",
 }
 
 def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX RandomUniform operation";
   let description = [{
   "Generate a tensor with random values drawn from a uniform distribution. The shape"
@@ -3572,7 +3599,7 @@ def ONNXRandomUniformOp:ONNX_Op<"RandomUniform",
 }
 
 def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX RandomUniformLike operation";
   let description = [{
   "Generate a tensor with random values drawn from a uniform distribution."
@@ -3603,10 +3630,10 @@ def ONNXRandomUniformLikeOp:ONNX_Op<"RandomUniformLike",
 }
 
 def ONNXRangeOp:ONNX_Op<"Range",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Range operation";
   let description = [{
-  "Generate a tensor containing a sequence of numbers that begin at `start` and extends by increments of `delta` "
+  "Generate a tensor containing a sequence of numbers that begin at `start` and extends by increments of `delta`"
   "up to `limit` (exclusive)."
   ""
   "The number of elements in the output of range is computed as below-"
@@ -3618,10 +3645,10 @@ def ONNXRangeOp:ONNX_Op<"Range",
   "`for(int i=0; i<number_of_elements; ++i)`"
   ""
   "`{`"
-  "   "
-  "`    output[i] =  start + (i * delta);  ` "
   ""
-  "`}`	"
+  "`    output[i] =  start + (i * delta);  `"
+  ""
+  "`}`"
   ""
   "`Example 1`"
   "Inputs: start = 3, limit = 9, delta = 3"
@@ -3673,7 +3700,7 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
 }
 
 def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceL1 operation";
   let description = [{
   "Computes the L1 norm of the input tensor's element along the provided axes. The resulted"
@@ -3701,7 +3728,7 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
 }
 
 def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceL2 operation";
   let description = [{
   "Computes the L2 norm of the input tensor's element along the provided axes. The resulted"
@@ -3729,7 +3756,7 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
 }
 
 def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceLogSum operation";
   let description = [{
   "Computes the log sum of the input tensor's element along the provided axes. The resulted"
@@ -3743,21 +3770,33 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
+      auto elementType = data.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceLogSumExp operation";
   let description = [{
   "Computes the log sum exponent of the input tensor's element along the provided axes. The resulted"
@@ -3799,17 +3838,29 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
     OptionalAttr<I64ArrayAttr>:$axes,
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes, IntegerAttr keepdims", [{
+      auto elementType = data.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), data, axes, keepdims);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
@@ -3937,7 +3988,7 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
 }
 
 def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReduceSumSquare operation";
   let description = [{
   "Computes the sum square of the input tensor's element along the provided axes. The resulted"
@@ -4011,7 +4062,7 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
   "from the input tensor)."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
-    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$shape);
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$shape);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$reshaped);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -4030,7 +4081,7 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
 }
 
 def ONNXResizeOp:ONNX_Op<"Resize",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Resize operation";
   let description = [{
   "Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor."
@@ -4039,8 +4090,8 @@ def ONNXResizeOp:ONNX_Op<"Resize",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$X,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$roi,
-    TensorOf<[F32]>:$scales,
-    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$sizes,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$scales,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$sizes,
     DefaultValuedAttr<StrAttr, "half_pixel">:$coordinate_transformation_mode,
     DefaultValuedAttr<F32Attr, "-0.75">:$cubic_coeff_a,
     DefaultValuedAttr<SI64Attr, "0">:$exclude_outside,
@@ -4062,7 +4113,7 @@ def ONNXResizeOp:ONNX_Op<"Resize",
 }
 
 def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ReverseSequence operation";
   let description = [{
   "Reverse batch of sequences having different lengths specified by `sequence_lens`."
@@ -4100,7 +4151,7 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
   "            [15.0, 14.0, 13.0, 12.0]]"
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$input,
-    TensorOf<[I64]>:$sequence_lens,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$sequence_lens,
     DefaultValuedAttr<SI64Attr, "1">:$batch_axis,
     DefaultValuedAttr<SI64Attr, "0">:$time_axis);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$Y);
@@ -4118,7 +4169,7 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
 }
 
 def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX RoiAlign operation";
   let description = [{
   "Region of Interest (RoI) align operation described in the"
@@ -4156,7 +4207,7 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
 }
 
 def ONNXRoundOp:ONNX_Op<"Round",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Round operation";
   let description = [{
   "Round takes one input Tensor and rounds the values, element-wise, meaning"
@@ -4189,7 +4240,7 @@ def ONNXRoundOp:ONNX_Op<"Round",
 }
 
 def ONNXScanOp:ONNX_Op<"Scan",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Scan operation";
   let description = [{
   "Scan can be used to iterate over one or more scan_input tensors,"
@@ -4314,14 +4365,14 @@ def ONNXScanOp:ONNX_Op<"Scan",
   "    }"
   ""
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$initial_state_and_scan_inputs,
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$initial_state_and_scan_inputs,
     AnyAttr:$body,
     SI64Attr:$num_scan_inputs,
     OptionalAttr<I64ArrayAttr>:$scan_input_axes,
     OptionalAttr<I64ArrayAttr>:$scan_input_directions,
     OptionalAttr<I64ArrayAttr>:$scan_output_axes,
     OptionalAttr<I64ArrayAttr>:$scan_output_directions);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$final_state_and_scan_outputs);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$final_state_and_scan_outputs);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return -1;
@@ -4336,7 +4387,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
 }
 
 def ONNXScatterOp:ONNX_Op<"Scatter",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Scatter operation";
   let description = [{
   "This operator is deprecated. Please use ScatterElements, which provides the same functionality."
@@ -4412,7 +4463,7 @@ def ONNXScatterOp:ONNX_Op<"Scatter",
 }
 
 def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ScatterElements operation";
   let description = [{
   "ScatterElements takes three inputs `data`, `updates`, and `indices` of the same"
@@ -4486,7 +4537,7 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
 }
 
 def ONNXScatterNDOp:ONNX_Op<"ScatterND",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ScatterND operation";
   let description = [{
   "ScatterND takes three inputs `data` tensor of rank r >= 1, `indices` tensor of rank q >= 1,"
@@ -4547,7 +4598,7 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
   "```"
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
-    TensorOf<[I64]>:$indices,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$indices,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$updates);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
   let extraClassDeclaration = [{
@@ -4590,7 +4641,7 @@ def ONNXSeluOp:ONNX_Op<"Selu",
 }
 
 def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceAt operation";
   let description = [{
   "Outputs a tensor copy from the tensor at 'position' in 'input_sequence'."
@@ -4614,7 +4665,7 @@ def ONNXSequenceAtOp:ONNX_Op<"SequenceAt",
 }
 
 def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceConstruct operation";
   let description = [{
   "Construct a tensor sequence containing 'inputs' tensors."
@@ -4636,7 +4687,7 @@ def ONNXSequenceConstructOp:ONNX_Op<"SequenceConstruct",
 }
 
 def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceEmpty operation";
   let description = [{
   "Construct an empty tensor sequence, with given data type."
@@ -4657,7 +4708,7 @@ def ONNXSequenceEmptyOp:ONNX_Op<"SequenceEmpty",
 }
 
 def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceErase operation";
   let description = [{
   "Outputs a tensor sequence that removes the tensor at 'position' from 'input_sequence'."
@@ -4682,7 +4733,7 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
 }
 
 def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceInsert operation";
   let description = [{
   "Outputs a tensor sequence that inserts 'tensor' into 'input_sequence' at 'position'."
@@ -4709,7 +4760,7 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
 }
 
 def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SequenceLength operation";
   let description = [{
   "Produces a scalar(tensor of empty shape) containing the number of tensors in 'input_sequence'."
@@ -4752,7 +4803,7 @@ def ONNXShapeOp:ONNX_Op<"Shape",
 }
 
 def ONNXShrinkOp:ONNX_Op<"Shrink",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Shrink operation";
   let description = [{
   "Shrink takes one input data (Tensor<numeric>) and produces one Tensor output,"
@@ -4895,11 +4946,13 @@ def ONNXSliceOp:ONNX_Op<"Slice",
   "Slices uses `starts`, `ends`, `axes` and `steps` inputs to specify the start and end"
   "dimension and step for each axis in the list of axes, it uses this information to"
   "slice the input `data` tensor. If a negative value is passed for any of the"
-  "start or end indices, it represent number of elements before the end of that"
+  "start or end indices, it represents number of elements before the end of that"
   "dimension. If the value passed to start or end is larger than the `n` (the"
   "number of elements in this dimension), it represents `n`. For slicing to the"
-  "end of a dimension with unknown size, it is recommended to pass in `INT_MAX`."
-  "If a negative value is passed for step, it represents slicing backward."
+  "end of a dimension with unknown size, it is recommended to pass in `INT_MAX` "
+  "when sclicing forward and 'INT_MIN' when slicing backward."
+  "If a negative value is passed for step, it represents slicing backward. "
+  "However step value cannot be 0."
   "If `axes` are omitted, they are set to `[0, ..., ndim-1]`."
   "If `steps` are omitted, they are set to `[1, ..., 1]` of length `len(starts)`"
   "Example 1:"
@@ -4966,17 +5019,29 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$input,
     DefaultValuedAttr<SI64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value input, IntegerAttr axis", [{
+      auto elementType = input.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), input, axis);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXSoftplusOp:ONNX_Op<"Softplus",
@@ -5024,7 +5089,7 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
 }
 
 def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SpaceToDepth operation";
   let description = [{
   "SpaceToDepth rearranges blocks of spatial data into depth. More specifically,"
@@ -5073,7 +5138,7 @@ def ONNXSplitOp:ONNX_Op<"Split",
 }
 
 def ONNXSplitToSequenceOp:ONNX_Op<"SplitToSequence",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SplitToSequence operation";
   let description = [{
   "Split a tensor into a sequence of tensors, along the specified"
@@ -5152,21 +5217,33 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$data,
     OptionalAttr<I64ArrayAttr>:$axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$squeezed);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &state, Value data, ArrayAttr axes", [{
+      auto elementType = data.getType().cast<TensorType>().getElementType();
+      build(builder, state, UnrankedTensorType::get(elementType), data, axes);
+    }]>,
+    OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
+      auto elementType = operands[0].getType().cast<TensorType>().getElementType();
+      std::vector<mlir::Type> outputTypes;
+      outputTypes.emplace_back(UnrankedTensorType::get(elementType));
+      build(builder, state, outputTypes, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 1;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {20};
+      }
+    }];
 }
 
 def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX StringNormalizer operation";
   let description = [{
   "StringNormalization performs string operations for basic cleaning."
@@ -5179,12 +5256,12 @@ def ONNXStringNormalizerOp:ONNX_Op<"StringNormalizer",
   "If all elements in X are dropped, the output will be the empty value of string tensor with shape [1]"
   "if input shape is [C] and shape [1, 1] if input shape is [1, C]."
   }];
-  let arguments = (ins TensorOf<[StringType]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[StringType]>, AnyMemRef]>:$X,
     DefaultValuedAttr<StrAttr, "NONE">:$case_change_action,
     DefaultValuedAttr<SI64Attr, "0">:$is_case_sensitive,
     OptionalAttr<StrAttr>:$locale,
     OptionalAttr<StrArrayAttr>:$stopwords);
-  let results = (outs TensorOf<[StringType]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[StringType]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -5314,7 +5391,7 @@ def ONNXTanhOp:ONNX_Op<"Tanh",
 }
 
 def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX TfIdfVectorizer operation";
   let description = [{
   "This transform extracts n-grams from the input sequence and save them as a vector. Input can"
@@ -5370,7 +5447,7 @@ def ONNXTfIdfVectorizerOp:ONNX_Op<"TfIdfVectorizer",
 }
 
 def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ThresholdedRelu operation";
   let description = [{
   "ThresholdedRelu takes one input data (Tensor<T>) and produces one output data"
@@ -5421,7 +5498,7 @@ def ONNXTileOp:ONNX_Op<"Tile",
 }
 
 def ONNXTopKOp:ONNX_Op<"TopK",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX TopK operation";
   let description = [{
   "Retrieve the top-K largest or smallest elements along a specified axis. Given an input tensor of"
@@ -5440,7 +5517,7 @@ def ONNXTopKOp:ONNX_Op<"TopK",
   " a tiebreaker. That is, the element with the lower index will appear first."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$X,
-    TensorOf<[I64]>:$K,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$K,
     DefaultValuedAttr<SI64Attr, "-1">:$axis,
     DefaultValuedAttr<SI64Attr, "1">:$largest,
     DefaultValuedAttr<SI64Attr, "1">:$sorted);
@@ -5485,7 +5562,7 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
 }
 
 def ONNXUniqueOp:ONNX_Op<"Unique",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Unique operation";
   let description = [{
   "Find the unique elements of a tensor. When an optional attribute 'axis' is provided, unique subtensors sliced along the 'axis' are returned. "
@@ -5568,9 +5645,9 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
     OptionalAttr<SI64Attr>:$axis,
     DefaultValuedAttr<SI64Attr, "1">:$sorted);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$Y,
-    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$indices,
-    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$inverse_indices,
-    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$counts);
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$indices,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$inverse_indices,
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef, NoneType]>:$counts);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -5630,7 +5707,7 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
 }
 
 def ONNXUpsampleOp:ONNX_Op<"Upsample",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Upsample operation";
   let description = [{
   "Upsample the input tensor."
@@ -5638,7 +5715,7 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
   "  output_dimension = floor(input_dimension * scale)."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$X,
-    TensorOf<[F32]>:$scales,
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$scales,
     DefaultValuedAttr<StrAttr, "nearest">:$mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
@@ -5655,7 +5732,7 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
 }
 
 def ONNXWhereOp:ONNX_Op<"Where",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Where operation";
   let description = [{
   "Return elements, either from X or Y, depending on condition"
@@ -5732,14 +5809,14 @@ def ONNXXorOp:ONNX_Op<"Xor",
 }
 
 def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ArrayFeatureExtractor operation";
   let description = [{
   "Select elements of the input tensor based on the indices passed.<br>"
   "    The indices are applied to the last axes of the tensor."
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I64]>, TensorOf<[I32]>, TensorOf<[StringType]>, AnyMemRef]>:$X,
-    TensorOf<[I64]>:$Y);
+    AnyTypeOf<[TensorOf<[I64]>, AnyMemRef]>:$Y);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I64]>, TensorOf<[I32]>, TensorOf<[StringType]>, AnyMemRef]>:$Z);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -5755,7 +5832,7 @@ def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
 }
 
 def ONNXBinarizerOp:ONNX_Op<"Binarizer",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Binarizer operation";
   let description = [{
   "Maps the values of the input tensor to either 0 or 1, element-wise, based on the outcome of a comparison against a threshold value."
@@ -5777,7 +5854,7 @@ def ONNXBinarizerOp:ONNX_Op<"Binarizer",
 }
 
 def ONNXCastMapOp:ONNX_Op<"CastMap",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX CastMap operation";
   let description = [{
   "Converts a map to a tensor.<br>The map key must be an int64 and the values will be ordered"
@@ -5803,7 +5880,7 @@ def ONNXCastMapOp:ONNX_Op<"CastMap",
 }
 
 def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX CategoryMapper operation";
   let description = [{
   "Converts strings to integers and vice versa.<br>"
@@ -5835,7 +5912,7 @@ def ONNXCategoryMapperOp:ONNX_Op<"CategoryMapper",
 }
 
 def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX DictVectorizer operation";
   let description = [{
   "Uses an index mapping to convert a dictionary to an array.<br>"
@@ -5869,7 +5946,7 @@ def ONNXDictVectorizerOp:ONNX_Op<"DictVectorizer",
 }
 
 def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX FeatureVectorizer operation";
   let description = [{
   "Concatenates input tensors into one continuous output.<br>"
@@ -5879,7 +5956,7 @@ def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
   }];
   let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>>:$X,
     OptionalAttr<I64ArrayAttr>:$inputdimensions);
-  let results = (outs TensorOf<[F32]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return -1;
@@ -5894,7 +5971,7 @@ def ONNXFeatureVectorizerOp:ONNX_Op<"FeatureVectorizer",
 }
 
 def ONNXImputerOp:ONNX_Op<"Imputer",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Imputer operation";
   let description = [{
   "Replaces inputs that equal one value with another, leaving all other elements alone.<br>"
@@ -5926,7 +6003,7 @@ def ONNXImputerOp:ONNX_Op<"Imputer",
 }
 
 def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LabelEncoder operation";
   let description = [{
   "Maps each element in the input tensor to another value.<br>"
@@ -5972,7 +6049,7 @@ def ONNXLabelEncoderOp:ONNX_Op<"LabelEncoder",
 }
 
 def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LinearClassifier operation";
   let description = [{
   "Linear classifier"
@@ -5985,7 +6062,7 @@ def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
     DefaultValuedAttr<SI64Attr, "0">:$multi_class,
     DefaultValuedAttr<StrAttr, "NONE">:$post_transform);
   let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>, AnyMemRef]>:$Y,
-    TensorOf<[F32]>:$Z);
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$Z);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -6000,7 +6077,7 @@ def ONNXLinearClassifierOp:ONNX_Op<"LinearClassifier",
 }
 
 def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX LinearRegressor operation";
   let description = [{
   "Generalized linear regression evaluation.<br>"
@@ -6015,7 +6092,7 @@ def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
     OptionalAttr<F32ArrayAttr>:$intercepts,
     DefaultValuedAttr<StrAttr, "NONE">:$post_transform,
     DefaultValuedAttr<SI64Attr, "1">:$targets);
-  let results = (outs TensorOf<[F32]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -6030,7 +6107,7 @@ def ONNXLinearRegressorOp:ONNX_Op<"LinearRegressor",
 }
 
 def ONNXNormalizerOp:ONNX_Op<"Normalizer",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX Normalizer operation";
   let description = [{
   "Normalize the input.  There are three normalization modes, which have the corresponding formulas,"
@@ -6046,7 +6123,7 @@ def ONNXNormalizerOp:ONNX_Op<"Normalizer",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I64]>, TensorOf<[I32]>, AnyMemRef]>:$X,
     DefaultValuedAttr<StrAttr, "MAX">:$norm);
-  let results = (outs TensorOf<[F32]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -6077,7 +6154,7 @@ def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
     OptionalAttr<I64ArrayAttr>:$cats_int64s,
     OptionalAttr<StrArrayAttr>:$cats_strings,
     DefaultValuedAttr<SI64Attr, "1">:$zeros);
-  let results = (outs TensorOf<[F32]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -6092,7 +6169,7 @@ def ONNXOneHotEncoderOp:ONNX_Op<"OneHotEncoder",
 }
 
 def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SVMClassifier operation";
   let description = [{
   "Support Vector Machine classifier"
@@ -6110,7 +6187,7 @@ def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
     OptionalAttr<F32ArrayAttr>:$support_vectors,
     OptionalAttr<I64ArrayAttr>:$vectors_per_class);
   let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>, AnyMemRef]>:$Y,
-    TensorOf<[F32]>:$Z);
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$Z);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -6125,7 +6202,7 @@ def ONNXSVMClassifierOp:ONNX_Op<"SVMClassifier",
 }
 
 def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX SVMRegressor operation";
   let description = [{
   "Support Vector Machine regression prediction and one-class SVM anomaly detection."
@@ -6139,7 +6216,7 @@ def ONNXSVMRegressorOp:ONNX_Op<"SVMRegressor",
     DefaultValuedAttr<StrAttr, "NONE">:$post_transform,
     OptionalAttr<F32ArrayAttr>:$rho,
     OptionalAttr<F32ArrayAttr>:$support_vectors);
-  let results = (outs TensorOf<[F32]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -6162,7 +6239,7 @@ def ONNXScalerOp:ONNX_Op<"Scaler",
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I64]>, TensorOf<[I32]>, AnyMemRef]>:$X,
     OptionalAttr<F32ArrayAttr>:$offset,
     OptionalAttr<F32ArrayAttr>:$scale);
-  let results = (outs TensorOf<[F32]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -6177,7 +6254,7 @@ def ONNXScalerOp:ONNX_Op<"Scaler",
 }
 
 def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX TreeEnsembleClassifier operation";
   let description = [{
   "Tree Ensemble classifier.  Returns the top class for each of N inputs.<br>"
@@ -6209,7 +6286,7 @@ def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
     OptionalAttr<F32ArrayAttr>:$nodes_values,
     DefaultValuedAttr<StrAttr, "NONE">:$post_transform);
   let results = (outs AnyTypeOf<[TensorOf<[StringType]>, TensorOf<[I64]>, AnyMemRef]>:$Y,
-    TensorOf<[F32]>:$Z);
+    AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$Z);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -6224,7 +6301,7 @@ def ONNXTreeEnsembleClassifierOp:ONNX_Op<"TreeEnsembleClassifier",
 }
 
 def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX TreeEnsembleRegressor operation";
   let description = [{
   "Tree Ensemble regressor.  Returns the regressed values for each input in N.<br>"
@@ -6256,7 +6333,7 @@ def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
     OptionalAttr<I64ArrayAttr>:$target_nodeids,
     OptionalAttr<I64ArrayAttr>:$target_treeids,
     OptionalAttr<F32ArrayAttr>:$target_weights);
-  let results = (outs TensorOf<[F32]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -6271,7 +6348,7 @@ def ONNXTreeEnsembleRegressorOp:ONNX_Op<"TreeEnsembleRegressor",
 }
 
 def ONNXZipMapOp:ONNX_Op<"ZipMap",
-  [NoSideEffect]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ONNX ZipMap operation";
   let description = [{
   "Creates a map from the input and the attributes.<br>"
@@ -6279,7 +6356,7 @@ def ONNXZipMapOp:ONNX_Op<"ZipMap",
   "    Must provide keys in either classlabels_strings or classlabels_int64s (but not both).<br>"
   "    The columns of the tensor correspond one-by-one to the keys specified by the attributes. There must be as many columns as keys.<br>"
   }];
-  let arguments = (ins TensorOf<[F32]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, AnyMemRef]>:$X,
     OptionalAttr<I64ArrayAttr>:$classlabels_int64s,
     OptionalAttr<StrArrayAttr>:$classlabels_strings);
   let results = (outs AnyTypeOf<[SeqOf<[TupleOf<[StringType, F32]>]>, SeqOf<[TupleOf<[I64, F32]>]>, AnyMemRef]>:$Z);

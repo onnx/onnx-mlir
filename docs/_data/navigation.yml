@@ -11,15 +11,21 @@ toc:
 #    subfolderitems:
 #      - page: Placeholder
 #        url: /piece1.html
-#  - title: How-tos
-#    subfolderitems:
-#      - page: Placeholder
-#        url: /piece1.html
+  - title: How-tos
+    subfolderitems:
+      - page: Using PyRuntime
+        url: /UsingPyRuntime.html
+      - page: Perform Inference Using ONNX-MLIR Runtime API
+        url: /doxygen_html/index.html
   - title: References
     subfolderitems:
       - page: ONNX Dialect
         url: /Dialects/onnx.html
-      - page: Generating ONNX Dialect
+      - page: OMTensor C99 Runtime API
+        url: /doxygen_html/_o_m_tensor_8h.html
+      - page: OMTensorList C99 Runtime API
+        url: /doxygen_html/_o_m_tensor_list_8h.html
+      - page: Generate ONNX Dialect
         url: /ImportONNXDefs.html
       - page: About Documentation
         url: /Documentation.html

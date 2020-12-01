@@ -15,6 +15,7 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -24,9 +25,11 @@
 
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/KrnlSupport.hpp"
 
 using namespace mlir;
 
@@ -43,13 +46,16 @@ bool hasAllScalarValues(ArrayRef<Value> values);
 /// Get the corresponding MemRefType of a given TensorType/MemRefType.
 MemRefType convertToMemRefType(Type type);
 
-/// Retrieve function which contains the current operation.
-FuncOp getContainingFunction(Operation *op);
-
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
     PatternRewriter &rewriter, bool insertDealloc,
     ArrayRef<Value> operands = {}, int64_t alignment = -1);
+
+// Insert an allocation and deallocation for the given MemRefType, handling
+// compile time relying on the above function, and extracting the runtime
+// definitions from the index expressions otherwise.
+Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
+    MemRefType type, Location loc, SmallVectorImpl<IndexExpr> &outputDims);
 
 // Determine if current function returns the result value of the
 // current op being lowered. If it does then dealloc should not be
@@ -72,8 +78,6 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
 void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &loops, int64_t numLoops);
 
-unsigned getMemRefEltSizeInBytes(MemRefType memRefType);
-
 // Get run-time dimension information for unknown dimensions used for
 // broadcasting.
 std::map<int, std::map<int, Value>> getBroadcastedDimInfo(Location loc,
@@ -85,12 +89,6 @@ std::map<int, std::map<int, Value>> getBroadcastedDimInfo(Location loc,
 std::vector<Value> getLoopIVsForBroadcasting(Location loc,
     ConversionPatternRewriter &rewriter, ArrayRef<Value> loopIVs, Value operand,
     std::map<int, Value> broadcastedDims);
-
-// Emit a constant of a specific type.
-// Use this function for small values only to avoid unexpected loss in type
-// casting.
-Value emitConstantOp(
-    PatternRewriter &rewriter, Location loc, Type type, double value);
 
 // Emit a positive infinity constant of a specific type.
 // Supported types: F16, F32, F64, Int8, Int16, Int32, Int64.
@@ -183,6 +181,11 @@ struct TensorTypeConverter : public TypeConverter {
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
+// `ControlFlow` directory methods:
+
+void populateLoweringONNXLoopOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 // `Math` directory methods:
 
 void populateLoweringONNXElementwiseOpPattern(
@@ -212,7 +215,12 @@ void populateLoweringONNXPoolingOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 // `RNN` directory methods:
+void populateLoweringONNXGRUOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXLSTMOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+void populateLoweringONNXRNNOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 // `Tensor` directory methods:
@@ -247,6 +255,9 @@ void populateLoweringONNXConstantOpPattern(
 void populateLoweringONNXConcatOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXSliceOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXSqueezeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
@@ -259,12 +270,10 @@ void populateLoweringONNXSizeOpPattern(
 void populateLoweringONNXTileOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXFlattenOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
-
-int64_t getMemRefSizeInBytes(Value val);
-
-Value getDynamicMemRefSizeInBytes(
-    MemRefType type, Location loc, PatternRewriter &rewriter, AllocOp allocOp);
 
 /// This function returns the index in the list of alloc arguments of the
 /// dynamic dimension corresponding to `index` in the MemRef shape.

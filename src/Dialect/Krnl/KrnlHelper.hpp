@@ -19,6 +19,7 @@
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/StandardTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
 
 namespace onnx_mlir {
 
@@ -164,11 +165,14 @@ public:
   // must be of MemRef type.
   int pushBounds(int64_t lowerBound, int64_t upperBound);
   int pushBounds(int64_t lowerBound, Value upperBound);
+  int pushBounds(int64_t lowerBound, IndexExpr upperBound);
   int pushBounds(int64_t lowerBound, AffineMap upperBound,
       ArrayRef<Value> operandsForUpperBoundMap);
   int pushBounds(Value lowerBound, Value upperBound);
   int pushBounds(int64_t lowerBound, Value upperBoundMemRefOperand,
       int upperBoundMemRefIndex, bool upperBoundMustBeConstant = false);
+  // for each index expression i in upperBounds, push 0..upperBound[i].
+  void pushAllBounds(SmallVectorImpl<IndexExpr> &upperBounds);
 
   // Create the KrnlIterateOp assiciated with this loop nest. The loops
   // iteration will be created if the definition and the optimization
@@ -185,6 +189,9 @@ public:
   // Get the (original loop) induction variable associated with the given
   // index. Use the index returned when pushing the bounds.
   BlockArgument &getInductionVar(int originalLoopIndex);
+
+  // Get all of the (original loop) induction variables.
+  ArrayRef<BlockArgument> getAllInductionVar();
 
   // Get a reference to the code region of the optimization operation.
   // This allows us to set the insertion point to the inner block of the

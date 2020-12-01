@@ -1,0 +1,34 @@
+name: Build x86 onnx-mlir on macOS
+
+on: [push, pull_request]
+
+jobs:
+  build-x86-onnx-mlir-macOS:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.7'
+    - name: install tools that are needed for compilation
+      run: brew install ninja protobuf
+    - name: cache MLIR directory
+      id: cache-mlir
+      uses: actions/cache@v2
+      env:
+        cache-name: cache-mlir-directory
+      with:
+        path: ~/work/onnx-mlir/llvm-project
+        key: V8-${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}
+    - name: clone & build MLIR
+      if: steps.cache-mlir.outputs.cache-hit != 'true'
+      run: |
+        cd ~/work/onnx-mlir
+        sh ~/work/onnx-mlir/onnx-mlir/utils/clone-mlir.sh
+        sh ~/work/onnx-mlir/onnx-mlir/utils/build-mlir.sh
+    - name: build onnx-mlir
+      run: |
+        cd ~/work/onnx-mlir
+        sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
