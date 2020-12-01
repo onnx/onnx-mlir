@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Traits.h"
+#include "mlir/IR/Attributes.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/DialectImplementation.h"
@@ -24,6 +25,8 @@
 
 #include "ONNXOps.hpp"
 #include "ONNXShapeHelper.hpp"
+#include "mlir/IR/StandardTypes.h"
+
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -1336,17 +1339,36 @@ LogicalResult ONNXReshapeOp::inferShapes() {
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input data tensor not ranked");
 
+  // For some reason Reshape will get run twice when going through the shape inference pass
+  // where the second time through the shape type becomes a NoneType and fails inference
+  // This only happens if reshape is the last operation
+
+  // %1 = "onnx.Reshape"(%arg0, %0) {onnx_node_name = "Reshape_1"} : (tensor<3x3xi8>, tensor<2xi64>) -> tensor<1x9xi8>
+  // %0 = "onnx.Reshape"(%arg0, %cst) {onnx_node_name = "Reshape_1", shape = dense<[1, 9]> : tensor<2xi64>} : (tensor<3x3xi8>, none) -> tensor<1x9xi8>
+  // Second time around, it's a dense<[1, 9]>
+
+  int64_t outputRank;
+  auto inputTensorTy = data().getType().cast<RankedTensorType>();
+  // Attribute promotion can change shape to a nonetype
+  if(shape().getType().isa<NoneType>()) {
+    auto shapeAttr = getAttr("shape").cast<DenseElementsAttr>();
+    const unsigned long *shapeRank = (*shapeAttr.int_value_begin()).getRawData();
+    outputRank = *shapeRank;
+    if (outputRank != 1)
+      return emitError("Shape tensor described by attribute must be rank 1");
+    // return success();
+  } else {
+
   if (!shape().getType().isa<RankedTensorType>())
     return emitError("Shape tensor not ranked");
-
-  auto inputTensorTy = data().getType().cast<RankedTensorType>();
   auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
 
   // Only rank 1 shape tensors are supported.
   if (shapeTensorTy.getShape().size() != 1)
     return emitError("Shape tensor must have rank one");
-  int64_t outputRank = shapeTensorTy.getShape()[0];
+  outputRank = shapeTensorTy.getShape()[0];
 
+  }
   // Shape tensor must have constant shape.
   if (outputRank < 0)
     return emitError("Shape tensor must have constant shape");
