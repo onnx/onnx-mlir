@@ -678,8 +678,6 @@ private:
       mlir::emitWarning(UnknownLoc(),
           "Could not find op importer: assuming this "
           "represents a custom operator.");
-    mlir::emitWarning(UnknownLoc(), "Could not find op importer: assuming this "
-                                    "represents a custom operator.");
     int nOps = node.input().size();
     auto funcName = opName.str();
     std::vector<mlir::Type> outputTypes;
