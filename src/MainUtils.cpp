@@ -450,10 +450,10 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // TODO: make this pass optional:
   // These passes causes error when compling LSTM/GRU/RNN ops with unknown dims.
   // Temporary disable them for testing purpose.
-  //pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
-  //pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
-  //pm.addPass(mlir::createCanonicalizerPass());
-  //pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+  // pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
+  // pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+  // pm.addPass(mlir::createCanonicalizerPass());
+  // pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
