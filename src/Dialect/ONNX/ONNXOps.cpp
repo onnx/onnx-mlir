@@ -3511,7 +3511,9 @@ mlir::Operation::result_range ONNXLoopOp::scan_outputs() {
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXCustomOp. This method is required by the
 /// shape inference interface.
-LogicalResult ONNXCustomOp::inferShapes() {
+LogicalResult ONNXCustomOp::inferShapes(
+  std::function<void(mlir::FuncOp)> shapeInferenceFunc
+) {
   // getResult().setType(getOperand().getType());
   return success();
 }

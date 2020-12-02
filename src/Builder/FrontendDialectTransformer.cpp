@@ -503,96 +503,7 @@ private:
     }
   }
 
-  template <typename T>
-  void buildOutputAndOperationWithAttribute(const onnx::NodeProto &node,
-      std::vector<mlir::Value> inputs, int expectedNumOperands,
-      int expectedNumResults,mlir::NamedAttribute attr) {
-    bool variadicIn = expectedNumOperands == -1;
-    bool variadicOut = expectedNumResults == -1;
 
-    // In ONNX, there are two ways to leave an optional input or output
-    // unspecified: the first, available only for trailing inputs and outputs,
-    // is to simply not provide that input; the second method is to use an empty
-    // string in place of an input or output name.
-    //
-    // Here, we import optional inputs and outputs as NoneType.
-
-    // Trailing optional inputs.
-    if (!variadicIn)
-      for (auto i = inputs.size(); i < expectedNumOperands; i++) {
-        if (!none_)
-          none_ = builder_.create<mlir::ConstantOp>(
-              UnknownLoc(), builder_.getUnitAttr());
-        inputs.emplace_back(none_);
-      }
-
-    std::vector<mlir::Type> outputTypes;
-
-    // Use the type map to determine the data type of output.
-    std::vector<int> outputMap = T::getTypeMap();
-    for (auto i = 0; i < node.output().size(); i++) {
-      // Optional outputs using empty string.
-      if (node.output()[i].empty()) {
-        outputTypes.emplace_back(builder_.getNoneType());
-      } else {
-        auto j = i;
-        // Variadic output is a single ODS result.
-        if (variadicOut)
-          j = 0;
-        if (j < outputMap.size() && outputMap[j] >= MAX_TYPE) {
-          // Mapping gives a connection with an input.
-          mlir::Type inputType = inputs[outputMap[j] - MAX_TYPE].getType();
-          if (inputType.isa<mlir::TensorType>()) {
-            auto elementType =
-                inputType.cast<mlir::TensorType>().getElementType();
-            auto outType = mlir::UnrankedTensorType::get(elementType);
-            outputTypes.emplace_back(outType);
-          } else {
-            outputTypes.push_back(inputType);
-          }
-        } else if (j < outputMap.size() && outputMap[j] != -1) {
-          // Mapping gives a direct type.
-          auto elementType = buildTypeFromIndex(outputMap[j]);
-          auto outType = mlir::UnrankedTensorType::get(elementType);
-          outputTypes.emplace_back(outType);
-        } else {
-          outputTypes.emplace_back(builder_.getNoneType());
-        }
-      }
-    }
-    // Trailing optional outputs.
-    if (!variadicOut)
-      for (int i = node.output().size(); i < expectedNumResults; ++i)
-        outputTypes.emplace_back(builder_.getNoneType());
-
-    auto attributes = ImportNodeAttributes(node);
-    attributes.push_back(attr);
-
-    // TODO: Handle optional inputs.
-    auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
-
-    // Type inference for results.
-    if (auto opWithTypeInference =
-            mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
-                op.getOperation())) {
-      auto outTypes = opWithTypeInference.resultTypeInference();
-      for (int i = 0; i < node.output().size(); i++) {
-        if (variadicOut)
-          (*(op.getODSResults(0).begin() + i)).setType(outTypes[i]);
-        else
-          (*op.getODSResults(i).begin()).setType(outTypes[i]);
-      }
-    }
-
-    for (int i = 0; i < node.output().size(); i++) {
-      if (variadicOut)
-        frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
-            *(op.getODSResults(0).begin() + i));
-      else
-        frontend_symbols_.AddMapping(
-            legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));
-    }
-  }
 
   template <typename T>
   void buildOperation(const onnx::NodeProto &node) {
@@ -852,15 +763,12 @@ private:
   void ImportCustomNode(const onnx::NodeProto &node) {
     llvm::StringRef opName = node.op_type();
 
-<<<<<<< HEAD
     if (!TryImportFunctionCallNode(node))
       mlir::emitWarning(UnknownLoc(),
           "Could not find op importer: assuming this "
           "represents a custom operator.");
-=======
     mlir::emitWarning(UnknownLoc(), "Could not find op importer: assuming this "
                                     "represents a custom operator.");
->>>>>>> 932ed25eae9b7edc4fd42fca8f1b4044ea6116a9
     int nOps = node.input().size();
     auto funcName = opName.str();
     std::vector<mlir::Type> outputTypes;
