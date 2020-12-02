@@ -600,13 +600,6 @@ test_to_enable_static_dynamic = {
     "test_resnet50_cpu": (test_static,),
     "test_vgg19_cpu": (test_static,),
 }
-#test_to_enable_static_dynamic = {
-#    #"test_add_cpu": ((test_static_dynamic,),),
-#    "test_unsqueeze_two_axes_cpu": ((test_static_dynamic,),),
-#    "test_transpose_all_permutations_5_cpu": (test_static,),
-#    #"test_reshape_extended_dims_cpu":((test_static_dynamic,),[{0: {0}, 1:{2, 3}}]),
-#    #"test_unsqueeze_two_axes_cpu": (test_static,)
-#}
 
 # test for static
 test_to_enable = [ key for (key, value) in test_to_enable_static_dynamic.items() if value[0] & test_static ]
