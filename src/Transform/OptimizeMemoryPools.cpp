@@ -28,6 +28,8 @@ namespace {
 typedef std::map<Block *, bool> BlockToCompactedFlag;
 std::map<FuncOp, std::unique_ptr<BlockToCompactedFlag>> staticPoolCompacted;
 
+std::mutex m;
+
 /// Get the total size in bytes used by the getref operations associated
 /// with a given memory pool.
 int64_t getAllocGetRefTotalSize(AllocOp *allocOp) {
@@ -767,9 +769,11 @@ public:
   void runOnFunction() override {
     auto function = getFunction();
 
+    m.lock();
     staticPoolCompacted.insert(
         std::pair<FuncOp, std::unique_ptr<BlockToCompactedFlag>>(
             function, std::make_unique<BlockToCompactedFlag>()));
+    m.unlock();
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
