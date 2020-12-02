@@ -42,15 +42,30 @@ public:
     module_ = mlir::ModuleOp::create(mlir::UnknownLoc::get(&context));
     InitHandlerMap();
     force_dim_dynamic_enabled_ = false;
-    forced_input_ = 0;
-    forced_dim_ = 0;
     if (const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC")) {
       force_dim_dynamic_enabled_ = true;
-      forced_input_ = atoi(envInputString);
-    }
-    if (const char *envDimString = std::getenv("IMPORTER_FORCE_DYNAMIC_DIM")) {
-      force_dim_dynamic_enabled_ = true;
-      forced_dim_ = atoi(envDimString);
+      std::stringstream envString;
+      envString << envInputString;
+      std::string dynamicInput;
+      while (getline(envString, dynamicInput, '|')) {
+        size_t pos = dynamicInput.find(':');
+        std::string inputString = dynamicInput.substr(0, pos);
+        std::string dimString = dynamicInput.substr(pos + 1);
+
+        std::stringstream dimIndices(dimString);
+        std::string dimIndex;
+        std::vector<int> dims;
+        while (getline(dimIndices, dimIndex, ',')) {
+          dims.emplace_back(stoi(dimIndex));
+        }
+        // Default to the all dimensions if dims are not specified.
+        if (dims.empty())
+          dims.emplace_back(-1);
+        forced_inputs_dims.insert(std::make_pair(stoi(inputString), dims));
+      }
+      // Default to the all inputs and dimensions.
+      if (forced_inputs_dims.empty())
+        forced_inputs_dims.insert(std::make_pair(-1, std::vector<int>(1, -1)));
     }
   }
 
@@ -72,16 +87,35 @@ private:
 
   // Flag to change the inputs of function to unknown dimension
   // Temporarily added to use the test cases with static shape to test
-  // The value is set by enviroment variable IMPORTER_FORCE_DYNAMIC
-  // Variable forced_input records which inputs to be changed, starting from 0.
-  // When all the inputs are to be changed, set IMPORTER_FORCE_DYNAMIC=-1
+  // The values are set by enviroment variable IMPORTER_FORCE_DYNAMIC
+  // IMPORTER_FORCE_DYNAMIC's format is:
+  //   'input_index:dim_index, ...,dim_index|input_index:dim_index, ...
+  //   dim_index|...'
+  // where '|' and ',' are delimiters for input and dim, respectively. Input and
+  // dims are seperated by ':'.
+  // - input_index and dim_index starts from 0.
+  // - input_index = -1 means changing all inputs.
+  // - dim_index = -1 means changing all dims.
+  // Examples:
+  // 1. IMPORTER_FORCE_DYNAMIC='-1:-1'
+  //    - change all dimensions in all inputs to unknown dimensions.
+  // 2. IMPORTER_FORCE_DYNAMIC='-1:0'
+  //    - change the first dimension in all inputs to unknown dimensions.
+  // 3. IMPORTER_FORCE_DYNAMIC='1:-1'
+  //    - change all dimensions in the second input to unknown dimensions.
+  // 4. IMPORTER_FORCE_DYNAMIC='1:0,1'
+  //    - change the first and second dimensions in the second input to unknown
+  //    dimensions.
+  // 5. IMPORTER_FORCE_DYNAMIC='0:1|1:0,1'
+  //    - change the second dimension in the first input to unknown dimensions,
+  //    and
+  //    - change the first and second dimensions in the second input to unknown
+  //    dimensions,
+
   bool force_dim_dynamic_enabled_;
-  // Which input to be changed to dynamic
-  // Default value is 0, first input
-  int forced_input_;
-  // Which dimension to be changed to dynamic
-  // Default value is 0, first dimension
-  int forced_dim_;
+  // A map from an input index to a list of dim indices those are changed to
+  // dynamic. Default value corresponds to IMPORTER_FORCE_DYNAMIC='-1:-1'
+  std::map<int, std::vector<int>> forced_inputs_dims;
 
   typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
       const onnx::NodeProto &);
@@ -98,6 +132,7 @@ private:
     mlir::FuncOp func = isa<mlir::FuncOp>(op)
                             ? dyn_cast<mlir::FuncOp>(op)
                             : op->getParentOfType<mlir::FuncOp>();
+
     assert(func && "Cannot find FuncOp surrounding current insertion point.");
 
     // Check if there's a none-typed value in the curent Func already, if so,
@@ -122,9 +157,9 @@ private:
     value_info_map[vi.name()] = vi;
   }
 
-  // opset_map_ is the internal (map) representation of ModelProto::opset_import
-  // It maps each domain (e.g., "ai.onnx") to the specific version of that opset
-  // used by this model.
+  // opset_map_ is the internal (map) representation of
+  // ModelProto::opset_import It maps each domain (e.g., "ai.onnx") to the
+  // specific version of that opset used by this model.
   std::map<std::string, int64_t> opset_map_;
   void SetOpSetImport(const onnx::ModelProto &model) {
     opset_map_.clear();
@@ -182,9 +217,9 @@ private:
   }
 
   /*!
-   * Import a input tensor symbol by recording a new entry in frontend_symbols_
-   * recording the mapping between legalized onnx tensor name and mlir::Value
-   * for further lookup in computation node importing.
+   * Import a input tensor symbol by recording a new entry in
+   * frontend_symbols_ recording the mapping between legalized onnx tensor
+   * name and mlir::Value for further lookup in computation node importing.
    * @param input onnx input tensor ValueInfoProto.
    * @param symbol mlir input argument.
    */
@@ -334,8 +369,8 @@ private:
 
     // In ONNX, there are two ways to leave an optional input or output
     // unspecified: the first, available only for trailing inputs and outputs,
-    // is to simply not provide that input; the second method is to use an empty
-    // string in place of an input or output name.
+    // is to simply not provide that input; the second method is to use an
+    // empty string in place of an input or output name.
     //
     // Here, we import optional inputs and outputs as NoneType.
 
@@ -584,7 +619,8 @@ private:
     if (schema == nullptr)
       return false;
 
-    // Collect input/output MLIR types, input ONNX types, and input MLIR values.
+    // Collect input/output MLIR types, input ONNX types, and input MLIR
+    // values.
     // TODO: Optional inputs/outputs of functions not handled yet.
     llvm::SmallVector<mlir::Type, 16> operandTypes;
     llvm::SmallVector<mlir::Type, 16> resultTypes;
@@ -738,12 +774,14 @@ private:
     //  * maintain a list of the defined graph
     llvm::SmallVector<mlir::Type, 4> arg_types;
 
-    // Get a list of function attributes - including names of inputs and outputs
+    // Get a list of function attributes - including names of inputs and
+    // outputs
     llvm::SmallVector<mlir::NamedAttribute, 4> funcAttrs;
     llvm::SmallVector<llvm::StringRef, 4> inputNames;
     llvm::SmallVector<llvm::StringRef, 4> outputNames;
 
-    // Import the input tensor types that are not constant and not initialized.
+    // Import the input tensor types that are not constant and not
+    // initialized.
     int numInputs = 0;
     for (const auto &input : graph.input()) {
       AddValueInfo(input);
@@ -753,11 +791,19 @@ private:
         auto shapedTy = argTy.dyn_cast<mlir::RankedTensorType>();
         // Change the first dimension to unknown (-1) for test purpose only
         if (shapedTy && force_dim_dynamic_enabled_ &&
-            (forced_input_ == -1 || forced_input_ == numInputs)) {
+            ((forced_inputs_dims.find(-1) != forced_inputs_dims.end()) ||
+                (forced_inputs_dims.find(numInputs) !=
+                    forced_inputs_dims.end()))) {
+          std::vector<int> forced_dims;
+          if (forced_inputs_dims.find(-1) != forced_inputs_dims.end())
+            forced_dims = forced_inputs_dims.at(-1);
+          else
+            forced_dims = forced_inputs_dims.at(numInputs);
           auto argShape = shapedTy.getShape();
           SmallVector<int64_t, 4> newDims;
           for (auto i = 0; i < argShape.size(); i++) {
-            if (forced_dim_ == -1 || forced_dim_ == i) {
+            if (llvm::is_contained(forced_dims, -1) ||
+                llvm::is_contained(forced_dims, i)) {
               newDims.push_back(-1);
             } else {
               newDims.push_back(argShape[i]);
@@ -793,8 +839,8 @@ private:
     auto mainFunc = mlir::FuncOp::create(UnknownLoc(), name, funcType,
         /* attrs = */ llvm::makeArrayRef(funcAttrs));
 
-    // Get the entru block inside the main function and set the insertion point
-    // to it.
+    // Get the entru block inside the main function and set the insertion
+    // point to it.
     auto &entryBlock = *mainFunc.addEntryBlock();
     builder_.setInsertionPointToStart(&entryBlock);
 
