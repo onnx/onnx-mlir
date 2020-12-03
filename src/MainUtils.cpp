@@ -150,10 +150,16 @@ struct Command {
     // If in verbose mode, print out command before execution.
     if (verbose)
       cout << llvm::join(argsRef, " ") << "\n";
-    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef));
+
+    std::string errMsg;
+    int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
+        /*Env=*/None, /*Redirects=*/None,
+        /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
 
     if (rc != 0) {
       fprintf(stderr, "%s\n", llvm::join(argsRef, " ").c_str());
+      fprintf(stderr, "Error message: %s\n", errMsg.c_str());
+      fprintf(stderr, "Program path: %s\n", _path.c_str());
       llvm_unreachable("Command execution failed.");
     }
   }
@@ -420,10 +426,10 @@ void registerDialects(mlir::MLIRContext &context) {
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
-  pm.addNestedPass<FuncOp>(mlir::createShapeInferencePass());
+  pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(mlir::createAttributePromotionPass());
-  pm.addNestedPass<FuncOp>(mlir::createShapeInferencePass());
+  pm.addPass(mlir::createShapeInferencePass());
   pm.addNestedPass<FuncOp>(mlir::createAttributePromotionPass());
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.

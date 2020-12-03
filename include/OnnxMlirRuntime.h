@@ -108,7 +108,7 @@
  * \subsection reference Reference
  *
  * For full reference to available C Runtime API, refer to
- *`include/onnx-mlir/Runtime/OMTensor.h` and
+ * `include/onnx-mlir/Runtime/OMTensor.h` and
  * `include/onnx-mlir/Runtime/OMTensorList.h`.
  *
  */

@@ -20,6 +20,10 @@ struct OMTensorList;
 typedef struct OMTensorList OMTensorList;
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * \brief OMTensorList creator
  *
@@ -54,7 +58,7 @@ void omTensorListDestroy(OMTensorList *list);
  * @param list pointer to the OMTensorList
  * @return pointer to the array of OMTensor pointers.
  */
-OMTensor **omTensorListGetPtrToOmts(OMTensorList *list);
+OMTensor **omTensorListGetOmtArray(OMTensorList *list);
 
 /**
  * \brief OMTensorList size getter
@@ -73,5 +77,9 @@ int omTensorListGetSize(OMTensorList *list);
  * @reutrn pointer to the OMTensor, NULL if not found.
  */
 OMTensor *omTensorListGetOmtByIndex(OMTensorList *list, size_t index);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // ONNX_MLIR_OMTENSORLIST_H

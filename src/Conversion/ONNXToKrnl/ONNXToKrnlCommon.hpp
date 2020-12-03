@@ -15,6 +15,7 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -179,6 +180,11 @@ struct TensorTypeConverter : public TypeConverter {
 //===----------------------------------------------------------------------===//
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
+
+// `ControlFlow` directory methods:
+
+void populateLoweringONNXLoopOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 // `Math` directory methods:
 
