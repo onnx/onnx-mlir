@@ -415,12 +415,7 @@ private:
     }
   }
 
-  
-  template <typename T>
-  void buildOperation(const onnx::NodeProto &node) {
-    std::vector<mlir::Value> inputs;
-    int expectedNumOperands = T::getNumberOfOperands();
-    int expectedNumResults = T::getNumberOfResults();
+void getNodeInputs(const onnx::NodeProto &node,std::vector<mlir::Value> &inputs) {
     for (const auto &item : node.input())
       if (item.empty()) {
         inputs.emplace_back(none());
@@ -430,6 +425,15 @@ private:
       } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
+}
+
+  
+  template <typename T>
+  void buildOperation(const onnx::NodeProto &node) {
+    std::vector<mlir::Value> inputs;
+    int expectedNumOperands = T::getNumberOfOperands();
+    int expectedNumResults = T::getNumberOfResults();
+    getNodeInputs(node,inputs);
     buildOutputAndOperation<T>(
         node, inputs, expectedNumOperands, expectedNumResults);
   }
@@ -686,24 +690,12 @@ private:
     auto mlirAttr = builder_.getStringAttr(funcName);
     auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
     attributes.push_back(funcAttr);
-    //auto customOp = builder_.create<ONNXCustomOp>(UnknownLoc(), outputTypes, inputs, attributes);
     int nIn = 0;
     int nOut=0;
-    //mlir::Value customResult = *(customOp.getODSResults(0).begin());
-    //std::vector<mlir::Value> inputs;
-    for (const auto &item : node.input()) {
-      ++nIn;
-      if (initializedTensors.ContainKey(legalize_name(item))) {
-        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-            UnknownLoc(), builder_, legalize_name(item)));
-      } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
-      }
-    }
+    getNodeInputs(node,inputs);
 
     for (const auto &item : node.output())
       ++nOut;
-    //inputs.push_back(customResult);
 
     buildOutputAndOperation<mlir::ONNXCustomOp>(node, inputs, nIn, nOut,&funcAttr);
   }
@@ -870,7 +862,6 @@ private:
     builder_.create<mlir::ReturnOp>(UnknownLoc(), ret_vals);
     // Update main function signature to reflect types of newly imported
     // output tensors.
-    mainFunc.dump();
     funcType = builder_.getFunctionType(arg_types, ret_types);
     mainFunc.setType(funcType);
 
