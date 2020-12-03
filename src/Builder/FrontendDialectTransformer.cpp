@@ -85,17 +85,25 @@ private:
   // mapping between string name and symbol
   OnnxMlirSymbolMapping frontend_symbols_;
 
-  // Flag to change the inputs of function to unknown dimension
-  // Temporarily added to use the test cases with static shape to test
+  // Flag to change the inputs of function to unknown dimension.
+  // Temporarily added to use the test cases with static shape to test.
   // The values are set by enviroment variable IMPORTER_FORCE_DYNAMIC
-  // IMPORTER_FORCE_DYNAMIC's format is:
-  //   'input_index:dim_index, ...,dim_index|input_index:dim_index, ...
-  //   dim_index|...'
-  // where '|' and ',' are delimiters for input and dim, respectively. Input and
-  // dims are seperated by ':'.
-  // - input_index and dim_index starts from 0.
-  // - input_index = -1 means changing all inputs.
-  // - dim_index = -1 means changing all dims.
+  // The Backus–Naur Form (BNF) for IMPORTER_FORCE_DYNAMIC is as follows.
+  //
+  // <ImportForceDymanicExpr> :== `'` <expr> `'`
+  //                   <expr> ::= <inputString> | <inputString> `|` <expr>
+  //             <inputString ::= <inputIndex> `:` <dimString>
+  //              <dimString> ::= <dimIndex> | <dimIndex> `,` <dimString>
+  //             <inputIndex> ::= <index>
+  //               <dimIndex> ::= <index>
+  //                  <index> ::= -1 | <number>
+  //                 <number> ::= <digit> | <digit><number>
+  //                  <digit> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+  //
+  // Value `-1` semantically represents all inputs or all dimensions, and it
+  // has the highest priority. E.g. `'0: -1, 0'` means all dimensions of the
+  // first input will be changed. Input and dimension indices start from 0.
+  //
   // Examples:
   // 1. IMPORTER_FORCE_DYNAMIC='-1:-1'
   //    - change all dimensions in all inputs to unknown dimensions.
