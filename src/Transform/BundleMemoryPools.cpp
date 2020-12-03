@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <mutex>
+
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
@@ -36,6 +38,8 @@ std::map<FuncOp, std::unique_ptr<BlockToDynamicPool>> dynamicPoolMap;
 // Handling of static memory pool on a block-basis in each function.
 typedef std::map<Block *, AllocOp> BlockToStaticPool;
 std::map<FuncOp, std::unique_ptr<BlockToStaticPool>> staticPoolMap;
+
+std::mutex m;
 
 //===----------------------------------------------------------------------===//
 // Helper functions.
@@ -449,12 +453,14 @@ public:
   void runOnFunction() override {
     auto function = getFunction();
 
+    m.lock();
     dynamicPoolMap.insert(
         std::pair<FuncOp, std::unique_ptr<BlockToDynamicPool>>(
             function, std::make_unique<BlockToDynamicPool>()));
 
     staticPoolMap.insert(std::pair<FuncOp, std::unique_ptr<BlockToStaticPool>>(
         function, std::make_unique<BlockToStaticPool>()));
+    m.unlock();
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
@@ -463,8 +469,10 @@ public:
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
 
+    m.lock();
     dynamicPoolMap.erase(function);
     staticPoolMap.erase(function);
+    m.unlock();
   }
 };
 } // namespace
