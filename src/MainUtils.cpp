@@ -449,12 +449,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
 
   // TODO: make this pass optional:
   pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
-  // This pass causes error when compling LSTM with unknown dims.
-  // Temporary disable it.
-  // To reproduce this error, use
-  // `IMPORTER_FORCE_DYNAMIC='0:0,1' BACKEND_TEST=test_lstm_defaults_cpu make
-  // check-onnx-backend`
-  // pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+  pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
   pm.addPass(mlir::createCanonicalizerPass());

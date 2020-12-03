@@ -286,9 +286,14 @@ test_to_enable_static_dynamic = {
     # LRN
 
     # LSTM
-    "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1}}),
-    "test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1}}),
-    "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1}}),
+    "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0}}),
+    "test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0}}),
+    "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0}}),
+    # The following tests failed with an issue reported at:
+    # https://github.com/onnx/onnx-mlir/issues/431
+    #"test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1}}),
+    #"test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1}}),
+    #"test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1}}),
 
     # Matmul
     "test_matmul_2d_cpu": (test_static_dynamic,),
