@@ -39,6 +39,7 @@ std::map<FuncOp, std::unique_ptr<BlockToDynamicPool>> dynamicPoolMap;
 typedef std::map<Block *, AllocOp> BlockToStaticPool;
 std::map<FuncOp, std::unique_ptr<BlockToStaticPool>> staticPoolMap;
 
+// Make map insertion and deletion thread-safe using a mutex.
 std::mutex m;
 
 //===----------------------------------------------------------------------===//
