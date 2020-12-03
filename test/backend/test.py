@@ -22,6 +22,10 @@ TEST_DYNAMIC = os.environ.get("IMPORTER_FORCE_DYNAMIC")
 parser = argparse.ArgumentParser(description='with dynamic shape or not.')
 parser.add_argument('--dynamic', action='store_true',
     help='enable dynamic (default: false)')
+parser.add_argument('-i', '--input', type=int, default=-1,
+    help='input whose dimensions to be changed to unknown (default: all inputs')
+parser.add_argument('-d', '--dim', type=int, default=0,
+    help='dimension to be changed to unknown (default: first dimension')
 parser.add_argument('unittest_args', nargs='*')
 args = parser.parse_args()
 sys.argv[1:] = args.unittest_args
@@ -62,7 +66,8 @@ test_static_dynamic = test_static + test_dynamic
 #     unknown, where its key is an input index and its value is a set of
 #     dimension indices, e.g. {0:{0,1}, 1:{-1}, 2:{0}}
 # If 'dynamic_dict' is not given, by default, the first dimension of all inputs
-#   will be changed to unknown. 
+#   will be changed to unknown. Use this script's arguments '--input' and
+#   '--dim' to control the default values.
 # Input and dimension indices start from 0. -1 means all inputs or all dimensions.
 
 test_to_enable_static_dynamic = {
@@ -631,12 +636,13 @@ if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
     test_to_enable = [TEST_CASE_BY_USER]
 
 # determine the dynamic input and dim
-#"test_reshape_extended_dims_cpu":((test_static_dynamic,),{0: {0}, 1:{2, 3}}),
 def determine_dynamic_parameters(test_name):
     if not args.dynamic :
         return None
-    # set default value: all inputs, first dimension
-    selected_list = {-1: {0}}
+    # set default value: all inputs, first dimension.
+    # Use this script's arguments '--input' and '--dim' to control the default
+    # value.
+    selected_list = {args.input: {args.dim}}
     test_name_cpu = test_name + "_cpu"
     if test_name_cpu in test_for_dynamic:
         if len(test_to_enable_static_dynamic[test_name_cpu]) > 1:
