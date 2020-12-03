@@ -784,7 +784,9 @@ public:
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
 
+    m.lock();
     staticPoolCompacted.erase(function);
+    m.unlock();
   }
 };
 } // namespace
