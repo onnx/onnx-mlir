@@ -218,7 +218,6 @@ backend_test = onnx.backend.test.BackendTest(DummyBackend, __name__)
 
 # Test directories:
 # https://github.com/onnx/onnx/tree/master/onnx/backend/test/data/node
-
 # Set value for each benchmark to: test_disabled, test_static, 
 #   test_dynamic, or test_static_dynamic.
 test_disabled = 0
