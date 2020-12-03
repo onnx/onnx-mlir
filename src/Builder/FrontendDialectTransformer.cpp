@@ -157,9 +157,9 @@ private:
     value_info_map[vi.name()] = vi;
   }
 
-  // opset_map_ is the internal (map) representation of
-  // ModelProto::opset_import It maps each domain (e.g., "ai.onnx") to the
-  // specific version of that opset used by this model.
+  // opset_map_ is the internal (map) representation of ModelProto::opset_import
+  // It maps each domain (e.g., "ai.onnx") to the specific version of that opset
+  // used by this model.
   std::map<std::string, int64_t> opset_map_;
   void SetOpSetImport(const onnx::ModelProto &model) {
     opset_map_.clear();
@@ -217,9 +217,9 @@ private:
   }
 
   /*!
-   * Import a input tensor symbol by recording a new entry in
-   * frontend_symbols_ recording the mapping between legalized onnx tensor
-   * name and mlir::Value for further lookup in computation node importing.
+   * Import a input tensor symbol by recording a new entry in frontend_symbols_
+   * recording the mapping between legalized onnx tensor name and mlir::Value
+   * for further lookup in computation node importing.
    * @param input onnx input tensor ValueInfoProto.
    * @param symbol mlir input argument.
    */
@@ -369,8 +369,8 @@ private:
 
     // In ONNX, there are two ways to leave an optional input or output
     // unspecified: the first, available only for trailing inputs and outputs,
-    // is to simply not provide that input; the second method is to use an
-    // empty string in place of an input or output name.
+    // is to simply not provide that input; the second method is to use an empty
+    // string in place of an input or output name.
     //
     // Here, we import optional inputs and outputs as NoneType.
 
@@ -619,8 +619,7 @@ private:
     if (schema == nullptr)
       return false;
 
-    // Collect input/output MLIR types, input ONNX types, and input MLIR
-    // values.
+    // Collect input/output MLIR types, input ONNX types, and input MLIR values.
     // TODO: Optional inputs/outputs of functions not handled yet.
     llvm::SmallVector<mlir::Type, 16> operandTypes;
     llvm::SmallVector<mlir::Type, 16> resultTypes;
@@ -774,14 +773,12 @@ private:
     //  * maintain a list of the defined graph
     llvm::SmallVector<mlir::Type, 4> arg_types;
 
-    // Get a list of function attributes - including names of inputs and
-    // outputs
+    // Get a list of function attributes - including names of inputs and outputs
     llvm::SmallVector<mlir::NamedAttribute, 4> funcAttrs;
     llvm::SmallVector<llvm::StringRef, 4> inputNames;
     llvm::SmallVector<llvm::StringRef, 4> outputNames;
 
-    // Import the input tensor types that are not constant and not
-    // initialized.
+    // Import the input tensor types that are not constant and not initialized.
     int numInputs = 0;
     for (const auto &input : graph.input()) {
       AddValueInfo(input);
@@ -839,8 +836,8 @@ private:
     auto mainFunc = mlir::FuncOp::create(UnknownLoc(), name, funcType,
         /* attrs = */ llvm::makeArrayRef(funcAttrs));
 
-    // Get the entru block inside the main function and set the insertion
-    // point to it.
+    // Get the entru block inside the main function and set the insertion point
+    // to it.
     auto &entryBlock = *mainFunc.addEntryBlock();
     builder_.setInsertionPointToStart(&entryBlock);
 

@@ -55,6 +55,16 @@ test_static = 1
 test_dynamic = 2
 test_static_dynamic = test_static + test_dynamic
 
+# For each benchmark, its value is a tuple of (test_type, dynamic_dict)
+# - 'test_type' is one of test_disabled, test_static, test_dynamic, and
+#     test_static_dynamic.
+# - 'dynamic_dict' is a dict to define which inputs/dimensions are changed to
+#     unknown, where its key is an input index and its value is a set of
+#     dimension indices, e.g. {0:{0,1}, 1:{-1}, 2:{0}}
+# If 'dynamic_dict' is not given, by default, the first dimension of all inputs
+#   will be changed to unknown. 
+# Input and dimension indices start from 0. -1 means all inputs or all dimensions.
+
 test_to_enable_static_dynamic = {
 
     ############################################################
