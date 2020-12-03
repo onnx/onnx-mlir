@@ -328,7 +328,7 @@ private:
   template <typename T>
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<mlir::Value> inputs, int expectedNumOperands,
-      int expectedNumResults,mlir::NamedAttribute* attr=NULL) {
+      int expectedNumResults,std::vector<mlir::NamedAttribute>* extraAttributes=NULL) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -385,8 +385,9 @@ private:
         outputTypes.emplace_back(builder_.getNoneType());
 
     auto attributes = ImportNodeAttributes(node);
-    if (attr!=NULL)
-        attributes.push_back(*attr);
+    if (extraAttributes!=NULL)
+        for(mlir::NamedAttribute attr : *extraAttributes)
+            attributes.push_back(attr);
 
 
     // TODO: Handle optional inputs.
@@ -686,10 +687,12 @@ void getNodeInputs(const onnx::NodeProto &node,std::vector<mlir::Value> &inputs)
     auto funcName = opName.str();
     std::vector<mlir::Type> outputTypes;
     std::vector<mlir::Value> inputs;
-    auto attributes = ImportNodeAttributes(node);
+    std::vector<mlir::NamedAttribute> attributes;
     auto mlirAttr = builder_.getStringAttr(funcName);
-    auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
+    auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);  
     attributes.push_back(funcAttr);
+    auto domainAttr = builder_.getNamedAttr("domain_name", builder_.getStringAttr(node.domain()));
+    attributes.push_back(domainAttr);
     int nIn = 0;
     int nOut=0;
     getNodeInputs(node,inputs);
@@ -697,7 +700,7 @@ void getNodeInputs(const onnx::NodeProto &node,std::vector<mlir::Value> &inputs)
     for (const auto &item : node.output())
       ++nOut;
 
-    buildOutputAndOperation<mlir::ONNXCustomOp>(node, inputs, nIn, nOut,&funcAttr);
+    buildOutputAndOperation<mlir::ONNXCustomOp>(node, inputs, nIn, nOut,&attributes);
   }
 
   void ImportNode(const onnx::NodeProto &node) {
