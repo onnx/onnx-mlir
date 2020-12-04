@@ -439,9 +439,6 @@ public:
     blockToDynamicPool->insert(
         std::pair<Block *, AllocOp>(parentBlock, bundledAlloc));
 
-    //printf("\n====================================================\n");
-    //function.dump();
-    //printf("\n====================================================\n");
     return success();
   }
 };
