@@ -682,197 +682,199 @@ private:
           "Could not find op importer: assuming this "
           "represents a custom operator.");
 
-    llvm::StringRef opName = node.op_type();
-    int nOps = node.input().size();
-    auto funcName = opName.str();
-    std::vector<mlir::Type> outputTypes;
-    std::vector<mlir::Value> inputs;
-    std::vector<mlir::NamedAttribute> attributes;
-    auto mlirAttr = builder_.getStringAttr(funcName);
-    auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
-    attributes.push_back(funcAttr);
-    auto domainAttr = builder_.getNamedAttr(
-        "domain_name", builder_.getStringAttr(node.domain()));
-    attributes.push_back(domainAttr);
-    int nIn = 0;
-    int nOut = 0;
-    getNodeInputs(node, inputs);
+      llvm::StringRef opName = node.op_type();
+      int nOps = node.input().size();
+      auto funcName = opName.str();
+      std::vector<mlir::Type> outputTypes;
+      std::vector<mlir::Value> inputs;
+      std::vector<mlir::NamedAttribute> attributes;
+      auto mlirAttr = builder_.getStringAttr(funcName);
+      auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
+      attributes.push_back(funcAttr);
+      auto domainAttr = builder_.getNamedAttr(
+          "domain_name", builder_.getStringAttr(node.domain()));
+      attributes.push_back(domainAttr);
+      int nIn = 0;
+      int nOut = 0;
+      getNodeInputs(node, inputs);
 
-    for (const auto &item : node.output())
-      ++nOut;
+      for (const auto &item : node.output())
+        ++nOut;
 
-    buildOutputAndOperation<mlir::ONNXCustomOp>(
-        node, inputs, nIn, nOut, &attributes);
+      buildOutputAndOperation<mlir::ONNXCustomOp>(
+          node, inputs, nIn, nOut, &attributes);
+    }
   }
-}
 
   void ImportNode(const onnx::NodeProto &node) {
-  llvm::StringRef opName = node.op_type();
+    llvm::StringRef opName = node.op_type();
 
-  // look up handler for the opName. If not found, create a node
-  // for a custom op, and issue a warning.
-  auto handler = import_handler_map_.find(opName.str());
-  if (handler != import_handler_map_.end()) {
-    (this->*(handler->second))(node);
-  } else {
-    ImportCustomNode(node);
+    // look up handler for the opName. If not found, create a node
+    // for a custom op, and issue a warning.
+    auto handler = import_handler_map_.find(opName.str());
+    if (handler != import_handler_map_.end()) {
+      (this->*(handler->second))(node);
+    } else {
+      ImportCustomNode(node);
+    }
   }
-}
 
-void InitHandlerMap() {
+  void InitHandlerMap() {
 #include "src/Builder/OpBuildTable.inc"
-}
-
-/*!
- * Import output tensor, by doing the following:
- * - Add the t/yp this output tensor to a list of tensor
- *   types representing return types of this graph function.
- * - Add this output tensor to the list of mlir::Value
- *   to be returned by the function representing computation graph.
- * @param output onnx output tensor ValueInfoProto.
- * @param ret_types a vector of tensor types representing graph's
- *   output tensor types.
- * @param ret_vals a vector of mlir Value  representing graph's
- *   output tensor.
- */
-void ImportOutputTensor(const onnx::ValueInfoProto &output,
-    llvm::SmallVectorImpl<mlir::Type> &ret_types,
-    llvm::SmallVectorImpl<mlir::Value> &ret_vals) {
-  auto output_tensor_legalized_name = legalize_name(output.name());
-  assert(frontend_symbols_.ContainKey(output_tensor_legalized_name) &&
-         "Output tensor not found");
-
-  auto tensor_val =
-      frontend_symbols_.GetTensorByOnnxName(output_tensor_legalized_name);
-  if (output.type().value_case() == onnx::TypeProto::kTensorType) {
-    if (output.type().tensor_type().has_shape()) {
-      tensor_val.setType(ImportTensorType(output));
-    }
-  }
-  ret_types.emplace_back(tensor_val.getType());
-  ret_vals.push_back(tensor_val);
-}
-
-mlir::FuncOp ImportGraph(
-    const onnx::GraphProto &graph, const std::string &name = "main_graph") {
-  // Maintain a mapping between the parameter and its initializer.
-  for (const auto &initializer : graph.initializer()) {
-    const auto &initializerName = initializer.name();
-    initializedTensors.AddMapping(legalize_name(initializerName), initializer);
   }
 
-  // create a function for the graph
-  // TODO:
-  //  * get name and type for the function.
-  //  * maintain a list of the defined graph
-  llvm::SmallVector<mlir::Type, 4> arg_types;
+  /*!
+   * Import output tensor, by doing the following:
+   * - Add the t/yp this output tensor to a list of tensor
+   *   types representing return types of this graph function.
+   * - Add this output tensor to the list of mlir::Value
+   *   to be returned by the function representing computation graph.
+   * @param output onnx output tensor ValueInfoProto.
+   * @param ret_types a vector of tensor types representing graph's
+   *   output tensor types.
+   * @param ret_vals a vector of mlir Value  representing graph's
+   *   output tensor.
+   */
+  void ImportOutputTensor(const onnx::ValueInfoProto &output,
+      llvm::SmallVectorImpl<mlir::Type> &ret_types,
+      llvm::SmallVectorImpl<mlir::Value> &ret_vals) {
+    auto output_tensor_legalized_name = legalize_name(output.name());
+    assert(frontend_symbols_.ContainKey(output_tensor_legalized_name) &&
+           "Output tensor not found");
 
-  // Get a list of function attributes - including names of inputs and outputs
-  llvm::SmallVector<mlir::NamedAttribute, 4> funcAttrs;
-  llvm::SmallVector<llvm::StringRef, 4> inputNames;
-  llvm::SmallVector<llvm::StringRef, 4> outputNames;
-
-  // Import the input tensor types that are not constant and not initialized.
-  int numInputs = 0;
-  for (const auto &input : graph.input()) {
-    AddValueInfo(input);
-    if (!initializedTensors.ContainKey(legalize_name(input.name()))) {
-      inputNames.push_back(input.name());
-      auto argTy = ImportTensorType(input);
-      auto shapedTy = argTy.dyn_cast<mlir::RankedTensorType>();
-      // Change the first dimension to unknown (-1) for test purpose only
-      if (shapedTy && force_dim_dynamic_enabled_ &&
-          (forced_input_ == -1 || forced_input_ == numInputs)) {
-        auto argShape = shapedTy.getShape();
-        SmallVector<int64_t, 4> newDims;
-        for (auto i = 0; i < argShape.size(); i++) {
-          if (forced_dim_ == -1 || forced_dim_ == i) {
-            newDims.push_back(-1);
-          } else {
-            newDims.push_back(argShape[i]);
-          }
-        }
-        argTy = mlir::RankedTensorType::get(newDims, shapedTy.getElementType());
+    auto tensor_val =
+        frontend_symbols_.GetTensorByOnnxName(output_tensor_legalized_name);
+    if (output.type().value_case() == onnx::TypeProto::kTensorType) {
+      if (output.type().tensor_type().has_shape()) {
+        tensor_val.setType(ImportTensorType(output));
       }
-      arg_types.emplace_back(argTy);
-
-      // numInputs is the number of graph inputs not contained within the
-      // initializer
-      ++numInputs;
     }
+    ret_types.emplace_back(tensor_val.getType());
+    ret_vals.push_back(tensor_val);
   }
 
-  for (const auto &output : graph.output()) {
-    AddValueInfo(output);
-    outputNames.push_back(output.name());
-  }
-
-  for (const auto &internal : graph.value_info()) {
-    AddValueInfo(internal);
-  }
-
-  funcAttrs.emplace_back(builder_.getNamedAttr(
-      "input_names", builder_.getStrArrayAttr(inputNames)));
-  funcAttrs.emplace_back(builder_.getNamedAttr(
-      "output_names", builder_.getStrArrayAttr(outputNames)));
-
-  // Create the main function.
-  auto funcType = builder_.getFunctionType(arg_types, {});
-  auto mainFunc = mlir::FuncOp::create(UnknownLoc(), name, funcType,
-      /* attrs = */ llvm::makeArrayRef(funcAttrs));
-
-  // Get the entru block inside the main function and set the insertion point
-  // to it.
-  auto &entryBlock = *mainFunc.addEntryBlock();
-  builder_.setInsertionPointToStart(&entryBlock);
-
-  module_.push_back(mainFunc);
-
-  if (name == "main_graph") {
-    // Emit the entry point operation which specifies the number of user
-    // inputs and outputs.
-    auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
-        /*numInputs=*/numInputs,
-        /*numOutputs=*/graph.output().size());
-    module_.push_back(entryPoint);
-  }
-
-  // Map graph inputs to entry block arguments.
-  // Counter of un-initialized tensors. This counter is used to index the
-  // entry block arguments.
-  int entryBlockArgIdx = 0;
-  for (int i = 0; i < graph.input().size(); ++i) {
-    if (!initializedTensors.ContainKey(
-            legalize_name(graph.input()[i].name()))) {
-      ImportInputTensorSymbol(
-          graph.input()[i], entryBlock.getArguments()[entryBlockArgIdx]);
-      entryBlockArgIdx++;
+  mlir::FuncOp ImportGraph(
+      const onnx::GraphProto &graph, const std::string &name = "main_graph") {
+    // Maintain a mapping between the parameter and its initializer.
+    for (const auto &initializer : graph.initializer()) {
+      const auto &initializerName = initializer.name();
+      initializedTensors.AddMapping(
+          legalize_name(initializerName), initializer);
     }
+
+    // create a function for the graph
+    // TODO:
+    //  * get name and type for the function.
+    //  * maintain a list of the defined graph
+    llvm::SmallVector<mlir::Type, 4> arg_types;
+
+    // Get a list of function attributes - including names of inputs and outputs
+    llvm::SmallVector<mlir::NamedAttribute, 4> funcAttrs;
+    llvm::SmallVector<llvm::StringRef, 4> inputNames;
+    llvm::SmallVector<llvm::StringRef, 4> outputNames;
+
+    // Import the input tensor types that are not constant and not initialized.
+    int numInputs = 0;
+    for (const auto &input : graph.input()) {
+      AddValueInfo(input);
+      if (!initializedTensors.ContainKey(legalize_name(input.name()))) {
+        inputNames.push_back(input.name());
+        auto argTy = ImportTensorType(input);
+        auto shapedTy = argTy.dyn_cast<mlir::RankedTensorType>();
+        // Change the first dimension to unknown (-1) for test purpose only
+        if (shapedTy && force_dim_dynamic_enabled_ &&
+            (forced_input_ == -1 || forced_input_ == numInputs)) {
+          auto argShape = shapedTy.getShape();
+          SmallVector<int64_t, 4> newDims;
+          for (auto i = 0; i < argShape.size(); i++) {
+            if (forced_dim_ == -1 || forced_dim_ == i) {
+              newDims.push_back(-1);
+            } else {
+              newDims.push_back(argShape[i]);
+            }
+          }
+          argTy =
+              mlir::RankedTensorType::get(newDims, shapedTy.getElementType());
+        }
+        arg_types.emplace_back(argTy);
+
+        // numInputs is the number of graph inputs not contained within the
+        // initializer
+        ++numInputs;
+      }
+    }
+
+    for (const auto &output : graph.output()) {
+      AddValueInfo(output);
+      outputNames.push_back(output.name());
+    }
+
+    for (const auto &internal : graph.value_info()) {
+      AddValueInfo(internal);
+    }
+
+    funcAttrs.emplace_back(builder_.getNamedAttr(
+        "input_names", builder_.getStrArrayAttr(inputNames)));
+    funcAttrs.emplace_back(builder_.getNamedAttr(
+        "output_names", builder_.getStrArrayAttr(outputNames)));
+
+    // Create the main function.
+    auto funcType = builder_.getFunctionType(arg_types, {});
+    auto mainFunc = mlir::FuncOp::create(UnknownLoc(), name, funcType,
+        /* attrs = */ llvm::makeArrayRef(funcAttrs));
+
+    // Get the entru block inside the main function and set the insertion point
+    // to it.
+    auto &entryBlock = *mainFunc.addEntryBlock();
+    builder_.setInsertionPointToStart(&entryBlock);
+
+    module_.push_back(mainFunc);
+
+    if (name == "main_graph") {
+      // Emit the entry point operation which specifies the number of user
+      // inputs and outputs.
+      auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
+          /*numInputs=*/numInputs,
+          /*numOutputs=*/graph.output().size());
+      module_.push_back(entryPoint);
+    }
+
+    // Map graph inputs to entry block arguments.
+    // Counter of un-initialized tensors. This counter is used to index the
+    // entry block arguments.
+    int entryBlockArgIdx = 0;
+    for (int i = 0; i < graph.input().size(); ++i) {
+      if (!initializedTensors.ContainKey(
+              legalize_name(graph.input()[i].name()))) {
+        ImportInputTensorSymbol(
+            graph.input()[i], entryBlock.getArguments()[entryBlockArgIdx]);
+        entryBlockArgIdx++;
+      }
+    }
+
+    // Import nodes in the graph.
+    for (const auto &item : graph.node()) {
+      ImportNode(item);
+    }
+
+    llvm::SmallVector<mlir::Type, 4> ret_types;
+    llvm::SmallVector<mlir::Value, 4> ret_vals;
+    // Import the output tensors
+    for (const auto &output : graph.output()) {
+      ImportOutputTensor(output, ret_types, ret_vals);
+    }
+
+    // Create a return operation to return all ONNX output tensors.
+    builder_.create<mlir::ReturnOp>(UnknownLoc(), ret_vals);
+    // Update main function signature to reflect types of newly imported
+    // output tensors.
+    funcType = builder_.getFunctionType(arg_types, ret_types);
+    mainFunc.setType(funcType);
+
+    return mainFunc;
   }
-
-  // Import nodes in the graph.
-  for (const auto &item : graph.node()) {
-    ImportNode(item);
-  }
-
-  llvm::SmallVector<mlir::Type, 4> ret_types;
-  llvm::SmallVector<mlir::Value, 4> ret_vals;
-  // Import the output tensors
-  for (const auto &output : graph.output()) {
-    ImportOutputTensor(output, ret_types, ret_vals);
-  }
-
-  // Create a return operation to return all ONNX output tensors.
-  builder_.create<mlir::ReturnOp>(UnknownLoc(), ret_vals);
-  // Update main function signature to reflect types of newly imported
-  // output tensors.
-  funcType = builder_.getFunctionType(arg_types, ret_types);
-  mainFunc.setType(funcType);
-
-  return mainFunc;
-}
 }; // namespace detail
-} // namespace onnx_mlir
+} // namespace detail
 } // namespace onnx_mlir
 
 namespace onnx_mlir {
