@@ -289,7 +289,7 @@ public:
     // Get function.
     FuncOp function = getContainingFunction(allocOp);
 
-    // Use function to retrieve the list of blocks for this function.
+    // Use function to retrieve the list of blocks for the current function.
     m.lock();
     std::unique_ptr<BlockToDynamicPool> &blockToDynamicPool =
         dynamicPoolMap.at(function);
