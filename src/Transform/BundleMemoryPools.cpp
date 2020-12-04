@@ -162,8 +162,10 @@ public:
       return failure();
     }
 
+    m.lock();
     std::unique_ptr<BlockToStaticPool> &blockToStaticPool =
         staticPoolMap.at(function);
+    m.unlock();
 
     // Get parent block.
     Block *parentBlock = allocOp.getOperation()->getBlock();
@@ -288,17 +290,16 @@ public:
     FuncOp function = getContainingFunction(allocOp);
 
     // Use function to retrieve the list of blocks for this function.
+    m.lock();
     std::unique_ptr<BlockToDynamicPool> &blockToDynamicPool =
         dynamicPoolMap.at(function);
+    m.unlock();
 
     // If this is not the first time we process an alloc in this block, avoid
     // processing the current dynamic memory pool again.
-    if (blockToDynamicPool->count(parentBlock) > 0) {
-      std::unique_ptr<BlockToDynamicPool> &blockToDynamicPool =
-          dynamicPoolMap.at(function);
-      if (allocOp == blockToDynamicPool->at(parentBlock))
-        return failure();
-    }
+    if (blockToDynamicPool->count(parentBlock) > 0 &&
+        allocOp == blockToDynamicPool->at(parentBlock))
+      return failure();
 
     // Initialize work queue data structure.
     Operation *op = allocOp.getOperation();
