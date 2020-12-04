@@ -425,6 +425,9 @@ public:
         currentAllocGetRef.getResult().getType(), bundledAlloc,
         integerDynamicMemoryPoolSize, currentAllocGetRef.getDynamicSizes());
 
+    // The get ref can be kept in its original location.
+    bundledMemRef.getOperation()->moveBefore(currentAllocGetRef);
+
     // Replace old memory pool with new one.
     rewriter.replaceOp(oldDynamicMemoryPool, bundledAlloc.getResult());
 
@@ -436,6 +439,9 @@ public:
     blockToDynamicPool->insert(
         std::pair<Block *, AllocOp>(parentBlock, bundledAlloc));
 
+    //printf("\n====================================================\n");
+    //function.dump();
+    //printf("\n====================================================\n");
     return success();
   }
 };
