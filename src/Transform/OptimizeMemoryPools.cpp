@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <mutex>
+
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
@@ -27,6 +29,8 @@ namespace {
 // Handling of static memory pool on a block-basis in each function.
 typedef std::map<Block *, bool> BlockToCompactedFlag;
 std::map<FuncOp, std::unique_ptr<BlockToCompactedFlag>> staticPoolCompacted;
+
+std::mutex m;
 
 /// Get the total size in bytes used by the getref operations associated
 /// with a given memory pool.
@@ -767,9 +771,11 @@ public:
   void runOnFunction() override {
     auto function = getFunction();
 
+    m.lock();
     staticPoolCompacted.insert(
         std::pair<FuncOp, std::unique_ptr<BlockToCompactedFlag>>(
             function, std::make_unique<BlockToCompactedFlag>()));
+    m.unlock();
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
@@ -778,7 +784,9 @@ public:
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
 
+    m.lock();
     staticPoolCompacted.erase(function);
+    m.unlock();
   }
 };
 } // namespace

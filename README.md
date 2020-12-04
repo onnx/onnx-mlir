@@ -20,7 +20,7 @@ seen in the docs folder. The Dockerfile is shown here.
 
 [same-as-file]: <> (docs/docker-example/Dockerfile)
 ```
-FROM onnxmlirczar/onnx-mlir-build:x86
+FROM onnxmlirczar/onnx-mlir-build:amd64
 
 WORKDIR /build
 ENV HOME=/build
