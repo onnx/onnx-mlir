@@ -210,8 +210,8 @@ OMTensor *omTensorCreateEmpty(
 void omTensorDestroy(OMTensor *tensor) {
   if (tensor->_owning)
     free(tensor->_allocatedPtr);
-  free(tensor->_shape);
-  free(tensor->_strides);
+//  free(tensor->_shape);
+//  free(tensor->_strides);
   free(tensor);
 }
 
