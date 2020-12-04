@@ -328,7 +328,8 @@ private:
   template <typename T>
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<mlir::Value> inputs, int expectedNumOperands,
-      int expectedNumResults) {
+      int expectedNumResults,
+      std::vector<mlir::NamedAttribute> *extraAttributes = NULL) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -385,6 +386,9 @@ private:
         outputTypes.emplace_back(builder_.getNoneType());
 
     auto attributes = ImportNodeAttributes(node);
+    if (extraAttributes != NULL)
+      for (mlir::NamedAttribute attr : *extraAttributes)
+        attributes.push_back(attr);
 
     // TODO: Handle optional inputs.
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
@@ -412,11 +416,8 @@ private:
     }
   }
 
-  template <typename T>
-  void buildOperation(const onnx::NodeProto &node) {
-    std::vector<mlir::Value> inputs;
-    int expectedNumOperands = T::getNumberOfOperands();
-    int expectedNumResults = T::getNumberOfResults();
+  void getNodeInputs(
+      const onnx::NodeProto &node, std::vector<mlir::Value> &inputs) {
     for (const auto &item : node.input())
       if (item.empty()) {
         inputs.emplace_back(none());
@@ -426,6 +427,14 @@ private:
       } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
+  }
+
+  template <typename T>
+  void buildOperation(const onnx::NodeProto &node) {
+    std::vector<mlir::Value> inputs;
+    int expectedNumOperands = T::getNumberOfOperands();
+    int expectedNumResults = T::getNumberOfResults();
+    getNodeInputs(node, inputs);
     buildOutputAndOperation<T>(
         node, inputs, expectedNumOperands, expectedNumResults);
   }
@@ -674,6 +683,26 @@ private:
       mlir::emitWarning(UnknownLoc(),
           "Could not find op importer: assuming this "
           "represents a custom operator.");
+    int nOps = node.input().size();
+    auto funcName = opName.str();
+    std::vector<mlir::Type> outputTypes;
+    std::vector<mlir::Value> inputs;
+    std::vector<mlir::NamedAttribute> attributes;
+    auto mlirAttr = builder_.getStringAttr(funcName);
+    auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
+    attributes.push_back(funcAttr);
+    auto domainAttr = builder_.getNamedAttr(
+        "domain_name", builder_.getStringAttr(node.domain()));
+    attributes.push_back(domainAttr);
+    int nIn = 0;
+    int nOut = 0;
+    getNodeInputs(node, inputs);
+
+    for (const auto &item : node.output())
+      ++nOut;
+
+    buildOutputAndOperation<mlir::ONNXCustomOp>(
+        node, inputs, nIn, nOut, &attributes);
   }
 
   void ImportNode(const onnx::NodeProto &node) {
