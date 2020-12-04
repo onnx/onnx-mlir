@@ -677,7 +677,7 @@ private:
   }
 
   void ImportCustomNode(const onnx::NodeProto &node) {
-    if (!TryImportFunctionCallNode(node))
+    if (!TryImportFunctionCallNode(node)) {
       mlir::emitWarning(UnknownLoc(),
           "Could not find op importer: assuming this "
           "represents a custom operator.");
