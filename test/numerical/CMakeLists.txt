@@ -76,6 +76,6 @@ target_link_libraries(TestLoop
 
 add_test(NAME OMTestConv COMMAND TestConv)
 add_test(NAME OMTestLoop COMMAND TestLoop)
-add_test(NAME OMTestGRU COMMAND TestGRU)
-add_test(NAME OMTestLSTM COMMAND TestLSTM)
-add_test(NAME OMTestRNN COMMAND TestRNN)
+add_test(NAME OMTestGRU COMMAND gdb -return-child-result -ex run -ex "thread apply all bt" -ex "quit" --args ${CMAKE_BINARY_DIR}/bin/TestGRU)
+add_test(NAME OMTestLSTM COMMAND gdb -return-child-result -ex run -ex "thread apply all bt" -ex "quit" --args ${CMAKE_BINARY_DIR}/bin/TestLSTM)
+add_test(NAME OMTestRNN COMMAND gdb -return-child-result -ex run -ex "thread apply all bt" -ex "quit" --args ${CMAKE_BINARY_DIR}/bin/TestRNN)
