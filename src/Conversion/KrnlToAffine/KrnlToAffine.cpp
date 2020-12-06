@@ -239,6 +239,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
       if (op->use_empty()) {
         op->erase();
         opsToErase.erase(op);
+        // Restart, itr has been invalidated.
+        break;
       }
     }
     if (opsToErase.empty())
