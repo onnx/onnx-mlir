@@ -242,7 +242,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
       }
     }
     if (opsToErase.empty())
-        break;
+      break;
   }
   assert(opsToErase.empty());
 
