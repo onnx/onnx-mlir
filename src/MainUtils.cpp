@@ -419,17 +419,27 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.
-  pm.addPass(mlir::createCanonicalizerPass());
+
+  // MAKUDRYA-ISSUE_TODO: temporarily remove canonicalization pass as it
+  // changes affine maps in affine loads/stores in such a way that
+  // supervectorizer pass is not capable to generate correct mapping.
+  // pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(createDisconnectKrnlDimFromAllocPass());
 
   // TODO: make this pass optional:
   pm.addPass(mlir::createKrnlEnableMemoryPoolPass());
   pm.addPass(mlir::createKrnlBundleMemoryPoolsPass());
-  pm.addPass(mlir::createCanonicalizerPass());
+
+  // MAKUDRYA-ISSUE_TODO: see comment above.
+  //pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createConvertKrnlToAffinePass());
+
+  // MAKUDRYA-ISSUE_TODO: see comment above. Add canonicalization
+  // here instead, where it is safe.
+  pm.addPass(mlir::createCanonicalizerPass());
   // Fuse loops in Affine dialect.
   //  pm.addPass(mlir::createLoopFusionPass());
   pm.addPass(mlir::createAffineLoopInvariantCodeMotionPass());
