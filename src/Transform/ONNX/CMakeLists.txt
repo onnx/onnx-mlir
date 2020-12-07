@@ -50,6 +50,7 @@ add_library(OMONNXRewrite
 target_include_directories(OMONNXRewrite
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNF_MLIR_SRC_ROOT})
+
 # Header dependencies
 add_dependencies(OMONNXRewrite
         OMONNXOpsInc
@@ -71,3 +72,8 @@ target_include_directories(OMShapeInference
 add_dependencies(OMShapeInference ShapeInferenceOpInterfaceIncGen)
 # Linking dependencies
 add_dependencies(OMShapeInference OMShapeInferenceOpInterface)
+
+install(TARGETS OMAttributePromotion DESTINATION lib)
+install(TARGETS OMElideConstants     DESTINATION lib)
+install(TARGETS OMONNXRewrite        DESTINATION lib)
+install(TARGETS OMShapeInference     DESTINATION lib)

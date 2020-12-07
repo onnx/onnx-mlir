@@ -45,3 +45,5 @@ target_include_directories(OMONNXToKrnl
 add_dependencies(OMONNXToKrnl OMKrnlOpsInc OMONNXOpsInc)
 # Linking dependencies
 add_dependencies(OMONNXToKrnl OMKrnlOps)
+
+install(TARGETS OMONNXToKrnl DESTINATION lib)

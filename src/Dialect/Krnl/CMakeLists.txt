@@ -20,3 +20,5 @@ target_include_directories(OMKrnlOps
         ${ONNX_MLIR_BIN_ROOT}
         ${ONNX_MLIR_SRC_ROOT})
 add_dependencies(OMKrnlOps OMKrnlOpsInc)
+
+install(TARGETS OMKrnlOps DESTINATION lib)
