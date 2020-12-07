@@ -91,7 +91,7 @@ func @test_enable_memory_pool_3(%arg0: tensor<?x?xf32>, %arg1: tensor<?x10xf32>,
   // CHECK: [[TMP3:%.+]] = muli [[DIM1]], [[CONST4]] : index
   // CHECK: [[TMP4:%.+]] = muli [[TMP3]], [[CONST10]] : index
   // CHECK: [[MEMPOOL2:%.+]] = alloc([[TMP4]]) : memref<?xi8>
-  // CHECK: [[DATA2:%.+]] = "krnl.getref"([[MEMPOOL2]], [[CONST0_I64]], [[SELECT1]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
+  // CHECK: [[DATA2:%.+]] = "krnl.getref"([[MEMPOOL2]], [[CONST0_I64]], [[DIM1]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
   // CHECK: [[CMP1:%.+]] = cmpi "eq", [[DIM1]], [[CONST1]] : index
   // CHECK: krnl.define_loops 2
   // CHECK: krnl.iterate
