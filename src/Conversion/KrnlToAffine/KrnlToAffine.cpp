@@ -228,9 +228,25 @@ void ConvertKrnlToAffinePass::runOnFunction() {
     return;
   }
 
-  // Erase interpreted operations.
-  for (const auto &op : opsToErase)
-    op->erase();
+  // Remove lowered operations topologically; if ops are not removed
+  // topologically, memory error will occur.
+  size_t numOpsToRemove = opsToErase.size();
+  // Given N operations to remove topologically, and that we remove
+  // at least one operation during each pass through opsToErase, we
+  // can only have a maximum of N passes through opsToErase.
+  for (size_t i = 0; i < numOpsToRemove; i++) {
+    for (auto op : opsToErase) {
+      if (op->use_empty()) {
+        op->erase();
+        opsToErase.erase(op);
+        // Restart, itr has been invalidated.
+        break;
+      }
+    }
+    if (opsToErase.empty())
+      break;
+  }
+  assert(opsToErase.empty());
 
   ConversionTarget target(getContext());
   target.addIllegalOp<KrnlTerminatorOp>();
