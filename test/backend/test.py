@@ -51,7 +51,6 @@ from PyRuntime import ExecutionSession
 
 # Test directories:
 # https://github.com/onnx/onnx/tree/master/onnx/backend/test/data/node
-
 # Set value for each benchmark to: test_disabled, test_static, 
 #   test_dynamic, or test_static_dynamic.
 test_disabled = 0
@@ -91,6 +90,14 @@ test_to_enable_static_dynamic = {
     "test_add_bcast_cpu": (test_static_dynamic,{0: {0}}),
 
     # And
+    "test_and2d_cpu": (test_static_dynamic,),
+    "test_and3d_cpu": (test_static_dynamic,),
+    "test_and4d_cpu": (test_static_dynamic,),
+    "test_and_bcast3v1d_cpu": (test_static_dynamic,),
+    "test_and_bcast3v2d_cpu": (test_static_dynamic,),
+    "test_and_bcast4v2d_cpu": (test_static_dynamic,),
+    "test_and_bcast4v3d_cpu": (test_static_dynamic,),
+    "test_and_bcast4v4d_cpu": (test_static_dynamic,),
 
     # Argmax
 
@@ -165,6 +172,8 @@ test_to_enable_static_dynamic = {
     # ConvTranspose
 
     # Cos
+    "test_cos_example_cpu": (test_static_dynamic,),
+    "test_cos_cpu": (test_static_dynamic,),
 
     # Cosh
     "test_cosh_cpu": (test_static_dynamic,),
@@ -256,6 +265,7 @@ test_to_enable_static_dynamic = {
     "test_hardsigmoid_example_cpu": (test_static_dynamic,),
 
     # Identity
+    "test_identity_cpu": (test_static_dynamic,),
 
     # Instance Norm
 
@@ -340,6 +350,8 @@ test_to_enable_static_dynamic = {
     # Multinomial (NMV)
 
     # Neg
+    "test_neg_example_cpu": (test_static_dynamic,),
+    "test_neg_cpu": (test_static_dynamic,),
 
     # Negative Log Likelihood Loss
 
@@ -352,6 +364,19 @@ test_to_enable_static_dynamic = {
     # One Hot
 
     # Or
+    "test_or2d_cpu": (test_static_dynamic,),
+    "test_or3d_cpu": (test_static_dynamic,),
+    "test_or4d_cpu": (test_static_dynamic,),
+    "test_or_bcast3v1d_cpu": (test_static_dynamic,),
+    "test_or_bcast3v2d_cpu": (test_static_dynamic,),
+    "test_or_bcast4v2d_cpu": (test_static_dynamic,),
+    "test_or_bcast4v3d_cpu": (test_static_dynamic,),
+    "test_or_bcast4v4d_cpu": (test_static_dynamic,),
+
+    # Pad (not working)
+    #"test_constant_pad_cpu": test_static_dynamic,
+    #"test_edge_pad_cpu": test_static_dynamic,
+    #"test_reflect_pad_cpu": test_static_dynamic,
 
     # Pow
 
@@ -361,7 +386,7 @@ test_to_enable_static_dynamic = {
 
     # QLinear Matmul
 
-    # Quantize Lienar
+    # Quantize Linear
 
     # Reciprocal Op:
     "test_reciprocal_cpu": (test_static_dynamic,),
@@ -509,11 +534,13 @@ test_to_enable_static_dynamic = {
     "test_sigmoid_example_cpu": (test_static_dynamic,),
 
     # Sign
-    #"test_sign_cpu": (test_static,),
+    "test_sign_cpu": (test_static_dynamic,),
 
     # Sin
 
     # Sinh
+    "test_sinh_cpu": (test_static_dynamic,),
+    "test_sinh_example_cpu": (test_static_dynamic,),
 
     # Size
     # TODO(tjingrant): fix unit test for size ops.
@@ -611,7 +638,14 @@ test_to_enable_static_dynamic = {
     # Where
 
     # Xor
-
+    "test_xor2d_cpu": (test_static_dynamic,),
+    "test_xor3d_cpu": (test_static_dynamic,),
+    "test_xor4d_cpu": (test_static_dynamic,),
+    "test_xor_bcast3v1d_cpu": (test_static_dynamic,),
+    "test_xor_bcast3v2d_cpu": (test_static_dynamic,),
+    "test_xor_bcast4v2d_cpu": (test_static_dynamic,),
+    "test_xor_bcast4v3d_cpu": (test_static_dynamic,),
+    "test_xor_bcast4v4d_cpu": (test_static_dynamic,),
 
     ############################################################
     # Model (alphabetical order)
