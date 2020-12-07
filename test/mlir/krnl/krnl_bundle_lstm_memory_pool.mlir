@@ -266,20 +266,20 @@ module {
 
 // CHECK-LABEL: bundle_lstm_dyn_mem_pools
 
-// CHECK: [[C0:%.+]] = constant 0 : index
-// CHECK: [[C1:%.+]] = constant 1 : index
-// CHECK: [[C4:%.+]] = constant 4 : index
-// CHECK: [[C3:%.+]] = constant 3 : index
-// CHECK: [[C0_I64:%.+]] = constant 0 : i64
-// CHECK: [[C36_I64:%.+]] = constant 36 : i64
-// CHECK: [[C32_I64:%.+]] = constant 32 : i64
-// CHECK: [[C28_I64:%.+]] = constant 28 : i64
-// CHECK: [[C24_I64:%.+]] = constant 24 : i64
-// CHECK: [[C20_I64:%.+]] = constant 20 : i64
-// CHECK: [[C16_I64:%.+]] = constant 16 : i64
-// CHECK: [[C12_I64:%.+]] = constant 12 : i64
-// CHECK: [[C8_I64:%.+]] = constant 8 : i64
-// CHECK: [[C4_I64:%.+]] = constant 4 : i64
+// CHECK-DAG: [[C0:%.+]] = constant 0 : index
+// CHECK-DAG: [[C1:%.+]] = constant 1 : index
+// CHECK-DAG: [[C4:%.+]] = constant 4 : index
+// CHECK-DAG: [[C3:%.+]] = constant 3 : index
+// CHECK-DAG: [[C0_I64:%.+]] = constant 0 : i64
+// CHECK-DAG: [[C36_I64:%.+]] = constant 36 : i64
+// CHECK-DAG: [[C32_I64:%.+]] = constant 32 : i64
+// CHECK-DAG: [[C28_I64:%.+]] = constant 28 : i64
+// CHECK-DAG: [[C24_I64:%.+]] = constant 24 : i64
+// CHECK-DAG: [[C20_I64:%.+]] = constant 20 : i64
+// CHECK-DAG: [[C16_I64:%.+]] = constant 16 : i64
+// CHECK-DAG: [[C12_I64:%.+]] = constant 12 : i64
+// CHECK-DAG: [[C8_I64:%.+]] = constant 8 : i64
+// CHECK-DAG: [[C4_I64:%.+]] = constant 4 : i64
 
 // CHECK: [[DIM1:%.+]] = dim %arg0, %c1 : memref<?x?x2xf32>
 // CHECK: [[MUL1:%.+]] = muli [[DIM1]], [[C4]] : index
