@@ -11,15 +11,6 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
-/// Check if all dimensions are known at compile time.
-bool hasAllConstantDimensions(MemRefType type) {
-  auto memRefShape = type.getShape();
-  for (int i = 0; i < memRefShape.size(); ++i)
-    if (memRefShape[i] < 0)
-      return false;
-  return true;
-}
-
 /// Check if all dimensions are perfectly divisible by
 /// specified constant.
 bool hasAllDimensionsDivisibleBy(MemRefType type, int64_t val) {
