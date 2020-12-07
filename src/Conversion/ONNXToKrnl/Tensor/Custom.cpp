@@ -78,4 +78,3 @@ void populateLoweringONNXCustomOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXCustomOpLowering>(ctx);
 }
-
