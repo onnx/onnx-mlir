@@ -248,6 +248,9 @@ void populateLoweringONNXReshapeOpPattern(
 void populateLoweringONNXIdentityOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXCustomOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXConstantOfShapeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
