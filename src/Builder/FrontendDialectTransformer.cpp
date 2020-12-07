@@ -677,32 +677,33 @@ private:
   }
 
   void ImportCustomNode(const onnx::NodeProto &node) {
-    llvm::StringRef opName = node.op_type();
-
-    if (!TryImportFunctionCallNode(node))
+    if (!TryImportFunctionCallNode(node)) {
       mlir::emitWarning(UnknownLoc(),
           "Could not find op importer: assuming this "
           "represents a custom operator.");
-    int nOps = node.input().size();
-    auto funcName = opName.str();
-    std::vector<mlir::Type> outputTypes;
-    std::vector<mlir::Value> inputs;
-    std::vector<mlir::NamedAttribute> attributes;
-    auto mlirAttr = builder_.getStringAttr(funcName);
-    auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
-    attributes.push_back(funcAttr);
-    auto domainAttr = builder_.getNamedAttr(
-        "domain_name", builder_.getStringAttr(node.domain()));
-    attributes.push_back(domainAttr);
-    int nIn = 0;
-    int nOut = 0;
-    getNodeInputs(node, inputs);
 
-    for (const auto &item : node.output())
-      ++nOut;
+      llvm::StringRef opName = node.op_type();
+      int nOps = node.input().size();
+      auto funcName = opName.str();
+      std::vector<mlir::Type> outputTypes;
+      std::vector<mlir::Value> inputs;
+      std::vector<mlir::NamedAttribute> attributes;
+      auto mlirAttr = builder_.getStringAttr(funcName);
+      auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
+      attributes.push_back(funcAttr);
+      auto domainAttr = builder_.getNamedAttr(
+          "domain_name", builder_.getStringAttr(node.domain()));
+      attributes.push_back(domainAttr);
+      int nIn = 0;
+      int nOut = 0;
+      getNodeInputs(node, inputs);
 
-    buildOutputAndOperation<mlir::ONNXCustomOp>(
-        node, inputs, nIn, nOut, &attributes);
+      for (const auto &item : node.output())
+        ++nOut;
+
+      buildOutputAndOperation<mlir::ONNXCustomOp>(
+          node, inputs, nIn, nOut, &attributes);
+    }
   }
 
   void ImportNode(const onnx::NodeProto &node) {
@@ -872,7 +873,7 @@ private:
 
     return mainFunc;
   }
-}; // FrontendGenImpl class
+}; // namespace detail
 } // namespace detail
 } // namespace onnx_mlir
 
