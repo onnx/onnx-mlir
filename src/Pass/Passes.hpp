@@ -37,6 +37,9 @@ std::unique_ptr<Pass> createKrnlBundleMemoryPoolsPass();
 /// Pass for optimizing memory pools.
 std::unique_ptr<Pass> createKrnlOptimizeMemoryPoolsPass();
 
+/// Pass for lowering ONNX Matmul op to Linalg dialect.
+std::unique_ptr<Pass> createConvertONNXToLinalgPass();
+
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<Pass> createLowerToKrnlPass();
 

@@ -14,6 +14,8 @@
 #include <map>
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/Linalg/IR/LinalgTypes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
@@ -40,6 +42,10 @@ using namespace mlir;
 
 /// Check is all dimensions are known at compile time.
 bool hasAllConstantDimensions(MemRefType type);
+
+/// Check if all dimensions are perfectly divisible by
+/// specified constant.
+bool hasAllDimensionsDivisibleBy(MemRefType type, int64_t val);
 
 /// Check is all operands are scalar values at compile time.
 bool hasAllScalarValues(ArrayRef<Value> values);

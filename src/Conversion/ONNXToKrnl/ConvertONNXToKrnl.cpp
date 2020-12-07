@@ -55,7 +55,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect,
-      shape::ShapeDialect>();
+      linalg::LinalgDialect, shape::ShapeDialect>();
 
   // std.tanh will be expanded.
   target.addIllegalOp<mlir::TanhOp>();
