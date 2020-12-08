@@ -455,19 +455,40 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.
-  pm.addPass(mlir::createCanonicalizerPass());
+
+  // MAKUDRYA-ISSUE_TODO: temporarily remove canonicalization pass as it
+  // changes affine maps in affine loads/stores in such a way that
+  // supervectorizer pass is not capable to generate correct mapping.
+  // pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(createDisconnectKrnlDimFromAllocPass());
   pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
 
-  // TODO: make this pass optional:
-  pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
-  pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
-  pm.addPass(mlir::createCanonicalizerPass());
-  pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
-  pm.addPass(mlir::createCanonicalizerPass());
+  // TODO: make this pass optional
+  // NOTE-diprou-12/07/20: Conditionally disabling both mem-pool
+  // passes for the Apollo pipeline. Introducing the pool leads
+  // krnl.getref() statements. Such statements are later lowered
+  // in krnl -> llvm pass. At that point Memrefs are converted
+  // to a low-level representation which is incompatible with the
+  // high-level view required for turning buffers to NEPAL ArrayRefs.
+  // Disabling the passes leaves the original buffer allocations,
+  // which can subsequently be optimized and turned into NEPAL
+  // ArrayRefs in a straightforward manner.
+  if (!npu) {
+    pm.addNestedPass<FuncOp>(mlir::createKrnlEnableMemoryPoolPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlBundleMemoryPoolsPass());
+    pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
+  }
+  // MAKUDRYA-ISSUE_TODO: see comment above.
+  //pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createConvertKrnlToAffinePass());
+
+  // MAKUDRYA-ISSUE_TODO: see comment above. Add canonicalization
+  // here instead, where it is safe.
+  pm.addPass(mlir::createCanonicalizerPass());
+
   // Fuse loops in Affine dialect.
   //  pm.addPass(mlir::createLoopFusionPass());
   pm.addPass(mlir::createAffineLoopInvariantCodeMotionPass());
