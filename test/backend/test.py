@@ -86,8 +86,8 @@ test_to_enable_static_dynamic = {
     # Adam
 
     # Add
-    "test_add_cpu": (test_static_dynamic,{0: {0}}),
-    "test_add_bcast_cpu": (test_static_dynamic,{0: {0}}),
+    "test_add_cpu": (test_static_dynamic,{0: {0,1}}),
+    "test_add_bcast_cpu": (test_static_dynamic,{0: {0,1}}),
 
     # And
     "test_and2d_cpu": (test_static_dynamic,),
@@ -148,13 +148,13 @@ test_to_enable_static_dynamic = {
     "test_concat_2d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
     "test_concat_2d_axis_1_cpu": (test_static_dynamic,{0:{1}}),
     "test_concat_3d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
-    "test_concat_3d_axis_1_cpu": (test_static,),
-    "test_concat_3d_axis_2_cpu": (test_static,),
+    "test_concat_3d_axis_1_cpu": (test_static_dynamic,{0:{1}}),
+    "test_concat_3d_axis_2_cpu": (test_static_dynamic,{0:{1}}),
     "test_concat_1d_axis_negative_1_cpu": (test_static_dynamic,{0:{0}}),
     "test_concat_2d_axis_negative_1_cpu": (test_static_dynamic,{0:{1}}),
     "test_concat_2d_axis_negative_2_cpu": (test_static_dynamic,{0:{0}}),
-    "test_concat_3d_axis_negative_1_cpu": (test_static,),
-    "test_concat_3d_axis_negative_2_cpu": (test_static,),
+    "test_concat_3d_axis_negative_1_cpu": (test_static_dynamic,{0:{1}}),
+    "test_concat_3d_axis_negative_2_cpu": (test_static_dynamic,{0:{1}}),
     "test_concat_3d_axis_negative_3_cpu": (test_static_dynamic,{0:{0}}),
 
     # Constant
