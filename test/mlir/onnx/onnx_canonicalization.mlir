@@ -268,3 +268,46 @@ func @test_size2(%arg0 : tensor<*xf32>) -> tensor<*xi64> {
   // CHECK-NEXT: return %0 : tensor<*xi64>
 }
 
+// -----
+
+// COM: Test rewriting GlobalAveragePool into ReduceMean
+func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+  %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  return %0 : tensor<1x3x1x1xf32>
+  // CHECK-LABEL: test_global_average_pool
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3]} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  // CHECK: return [[RES]] : tensor<1x3x1x1xf32>
+}
+
+// -----
+
+// COM: Test rewriting GlobalAveragePool into ReduceMean with dynamic dimensions
+func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32> {
+  %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
+  return %0 : tensor<1x?x?x1xf32>
+  // CHECK-LABEL: test_global_average_pool_dyn_dims
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMean"(%arg0) {axes = [2, 3]} : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
+  // CHECK: return [[RES]] : tensor<1x?x?x1xf32>
+}
+
+// -----
+
+// COM: Test rewriting GlobalMaxPool into ReduceMax
+func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
+  %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  return %0 : tensor<1x3x1x1xf32>
+  // CHECK-LABEL: test_global_average_pool
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMax"(%arg0) {axes = [2, 3]} : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
+  // CHECK: return [[RES]] : tensor<1x3x1x1xf32>
+}
+
+// -----
+
+// COM: Test rewriting GlobalMaxPool into ReduceMax with dynamic dimensions
+func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32> {
+  %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
+  return %0 : tensor<1x?x?x1xf32>
+  // CHECK-LABEL: test_global_average_pool_dyn_dims
+  // CHECK: [[RES:%.+]] = "onnx.ReduceMax"(%arg0) {axes = [2, 3]} : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
+  // CHECK: return [[RES]] : tensor<1x?x?x1xf32>
+}
