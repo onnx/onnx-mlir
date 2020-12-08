@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -20,181 +21,98 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
-    bool hasBias = !op->getOperand(2).getType().isa<NoneType>();
 
-    Value A, B, C;
+    // Get shape.
     ONNXGemmOpAdaptor operandAdaptor(operands);
-    A = operandAdaptor.A();
-    B = operandAdaptor.B();
-    if (hasBias)
-      C = operandAdaptor.C();
+    ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
+    Location loc = op->getLoc();
+    ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter);
+    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    assert(succeeded(shapecomputed));
+    IndexExprContext outerContext(shapeHelper.context);
 
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    // Insert an allocation and deallocation for the output of this operation.
+    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    Type elementType = outputMemRefType.getElementType();
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
-    auto alphaAttr = FloatAttr::get(memRefType.getElementType(),
-        llvm::dyn_cast<GemmOp>(op).alpha().convertToFloat());
-    auto betaAttr = FloatAttr::get(memRefType.getElementType(),
-        llvm::dyn_cast<GemmOp>(op).beta().convertToFloat());
-    auto alpha = rewriter.create<ConstantOp>(loc, alphaAttr);
-    auto beta = rewriter.create<ConstantOp>(loc, betaAttr);
+    // Get the constants: zero, alpha,and beta.
+    float alphaLit = gemmOp.alpha().convertToFloat();
+    float betaLit = gemmOp.beta().convertToFloat();
+    Value alpha = emitConstantOp(rewriter, loc, elementType, alphaLit);
+    Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
+    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    bool isTransA = (llvm::dyn_cast<GemmOp>(op).transA() != 0);
-    bool isTransB = (llvm::dyn_cast<GemmOp>(op).transB() != 0);
+    // Loop iterations N=0 & M-1 going over each of the res[n, m] values.
+    BuildKrnlLoop outputLoops(rewriter, loc, 2);
+    outputLoops.createDefineOp();
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
+    outputLoops.createIterateOp();
+    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-    // Insert an allocation and deallocation for the result of this operation.
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else {
-      auto memRefShape = memRefType.getShape();
-      SmallVector<Value, 2> allocOperands;
-      if (memRefShape[0] < 0) {
-        auto dim = rewriter.create<DimOp>(loc, A, (isTransA) ? 1 : 0);
-        allocOperands.emplace_back(dim);
-      }
-      if (memRefShape[1] < 0) {
-        auto dim = rewriter.create<DimOp>(loc, B, (isTransB) ? 0 : 1);
-        allocOperands.emplace_back(dim);
-      }
-      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
-      if (insertDealloc) {
-        auto *parentBlock = alloc.getDefiningOp()->getBlock();
-        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
-        dealloc.getOperation()->moveBefore(&parentBlock->back());
-      }
-    }
+    // Compute the access functions for res[n,m].
+    IndexExpr n =
+        outerContext.createLoopInductionIndex(outputLoops.getInductionVar(0));
+    IndexExpr m =
+        outerContext.createLoopInductionIndex(outputLoops.getInductionVar(1));
+    SmallVector<IndexExpr, 4> resAccessFct({n, m});
 
-    // Number of loops
-    auto memRefShape = memRefType.getShape();
-    int64_t numLoops = 3;
+    // Insert res[n,m] = 0.
+    outerContext.createStoreOp(zero, alloc, resAccessFct);
 
-    // Define loops.
-    std::vector<Value> originalLoops;
-    defineLoops(rewriter, loc, originalLoops, numLoops);
+    // Create the inner reduction loop.
+    BuildKrnlLoop innerLoops(rewriter, loc, 1);
+    innerLoops.createDefineOp();
+    innerLoops.pushBounds(0, shapeHelper.aDims[1]);
+    innerLoops.createIterateOp();
 
-    // We have two Krnl loops:
-    // - Outer loop iterates over the output matrix dimensions, and
-    // - Reduction loop iterates over the reduction dimension.
-
-    // Outer loop
-    std::vector<Value> outerLoops, optimizedOuterLoops;
-    outerLoops.reserve(2);
-    optimizedOuterLoops.reserve(2);
-    for (int i = 0; i < 2; ++i)
-      outerLoops.push_back(originalLoops[i]);
-    KrnlIterateOperandPack outerPack(rewriter, outerLoops);
-    // Induction variables for the outer loops
-    for (int i = 0; i < 2; ++i)
-      addDimensionToPack(rewriter, loc, outerPack, alloc, i);
-
-    // Reduction loop
-    std::vector<Value> reductionLoops;
-    reductionLoops.reserve(1);
-    reductionLoops.push_back(originalLoops[2]);
-    KrnlIterateOperandPack reductionPack(rewriter, reductionLoops);
-    // Induction variable for the reduction dimension
-    // Try to find and use a static value from A or B first.
-    // If it failed then use a dynamic value.
-    auto ATy = A.getType().cast<MemRefType>();
-    auto BTy = B.getType().cast<MemRefType>();
-    int64_t K_A_Idx = (isTransA) ? 0 : 1;
-    int64_t K_B_Idx = (isTransB) ? 1 : 0;
-    reductionPack.pushConstantBound(0);
-    if (ATy.getShape()[K_A_Idx] != -1)
-      reductionPack.pushConstantBound(ATy.getShape()[K_A_Idx]);
-    else if (BTy.getShape()[K_B_Idx] != -1)
-      reductionPack.pushConstantBound(BTy.getShape()[K_B_Idx]);
-    else
-      reductionPack.pushOperandBound(
-          rewriter.create<DimOp>(loc, B, K_B_Idx).getResult());
-
-    // Get run-time dimension information for unknown dimensions used for
-    // broadcasting.
-    // GemmOp supports unidirectional broadcasting from C to A*B.
-    // Hence, it must be enough to get broadcasting information for C only.
-    std::map<int, Value> broadcastedDimInfo;
-    if (hasBias) {
-      auto shape = C.getType().cast<MemRefType>().getShape();
-      for (int i = 0; i < shape.size(); ++i) {
-        if (shape[i] < 0) {
-          auto dim = rewriter.create<DimOp>(loc, C, i).getResult();
-          auto one = rewriter.create<ConstantIndexOp>(loc, 1);
-          auto isBroadcasted =
-              rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, dim, one);
-          broadcastedDimInfo.insert(std::make_pair(i, isBroadcasted));
-        }
+    // Write code after the completion of the inner loop.
+    // Compute the c access function using the broadcast rules.
+    SmallVector<IndexExpr, 4> cAccessFct;
+    if (shapeHelper.hasBias) {
+      for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
+        // If dim > 1, use loop index, otherwise broadcast on 0's element.
+        IndexExpr dim = outerContext.createSymbolIndexFromParentContext(
+            shapeHelper.cDims[x]);
+        cAccessFct.emplace_back(IndexExpr::select(dim > 1, resAccessFct[x], 0));
       }
     }
 
-    auto outerIterateOp = rewriter.create<KrnlIterateOp>(loc, outerPack);
-
-    // Now perform the insertions into the body of the
-    // just generated instructions:
-
-    // Insert instructions inside the outer loop.
-    Block &outerIterationBlock = outerIterateOp.bodyRegion().front();
-    rewriter.setInsertionPointToStart(&outerIterationBlock);
-
-    // Induction variables
-    SmallVector<Value, 4> loopMNIVs;
-    for (auto arg : outerIterationBlock.getArguments()) {
-      loopMNIVs.emplace_back(arg);
-    }
-
-    // Initialize the output of A * B
-    auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
-    rewriter.create<AffineStoreOp>(loc, zero, alloc, loopMNIVs);
-
-    // Compute A * B
-    auto matmulIterateOp = rewriter.create<KrnlIterateOp>(loc, reductionPack);
-
-    // Compute beta * C, and add up to alpha * A * B (unidirectional
-    // broadcasting)
-    auto loadedAB = rewriter.create<AffineLoadOp>(loc, alloc, loopMNIVs);
-    auto alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
-    if (hasBias) {
-      auto loopCIVs = getLoopIVsForBroadcasting(
-          loc, rewriter, loopMNIVs, C, broadcastedDimInfo);
-      auto loadedC = rewriter.create<AffineLoadOp>(loc, C, loopCIVs);
+    // Calculate reduction(AB)*alpha.
+    Value loadedAB = outerContext.createLoadOp(alloc, resAccessFct);
+    Value alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
+    if (shapeHelper.hasBias) {
+      // Res = AB*alpha + beta * C.
+      Value loadedC = outerContext.createLoadOp(operandAdaptor.C(), cAccessFct);
       auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
       auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-      rewriter.create<AffineStoreOp>(loc, Y, alloc, loopMNIVs);
+      outerContext.createStoreOp(Y, alloc, resAccessFct);
     } else {
-      rewriter.create<AffineStoreOp>(loc, alphaAB, alloc, loopMNIVs);
+      // No bias, just store alphaAB into res.
+      outerContext.createStoreOp(alphaAB, alloc, resAccessFct);
     }
 
-    // Insert instructions to do matrix multiplication: A * B
-    Block &matmulIterationBlock = matmulIterateOp.bodyRegion().front();
-    rewriter.setInsertionPointToStart(&matmulIterationBlock);
-
-    // Induction variables
-    SmallVector<Value, 4> loopKIVs, loopAIVs, loopBIVs;
-    for (auto arg : matmulIterationBlock.getArguments())
-      loopKIVs.emplace_back(arg);
-    if (isTransA) {
-      loopAIVs.emplace_back(loopKIVs[0]);
-      loopAIVs.emplace_back(loopMNIVs[0]);
-    } else {
-      loopAIVs.emplace_back(loopMNIVs[0]);
-      loopAIVs.emplace_back(loopKIVs[0]);
-    }
-    if (isTransB) {
-      loopBIVs.emplace_back(loopMNIVs[1]);
-      loopBIVs.emplace_back(loopKIVs[0]);
-    } else {
-      loopBIVs.emplace_back(loopKIVs[0]);
-      loopBIVs.emplace_back(loopMNIVs[1]);
-    }
-
-    // Matmul computation
-    auto loadedA = rewriter.create<AffineLoadOp>(loc, A, loopAIVs);
-    auto loadedB = rewriter.create<AffineLoadOp>(loc, B, loopBIVs);
-    auto loadedY = rewriter.create<AffineLoadOp>(loc, alloc, loopMNIVs);
-    auto AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
-    auto accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopMNIVs);
+    // Now start writing code inside the inner loop: get A & B access functions.
+    rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
+    IndexExpr k =
+        outerContext.createLoopInductionIndex(innerLoops.getInductionVar(0));
+    SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
+    if (gemmOp.transA() != 0)
+      aAccessFct = {k, n};
+    else
+      aAccessFct = {n, k};
+    if (gemmOp.transB() != 0)
+      bAccessFct = {m, k};
+    else
+      bAccessFct = {k, m};
+    // Add mat mul operation.
+    Value loadedA = outerContext.createLoadOp(operandAdaptor.A(), aAccessFct);
+    Value loadedB = outerContext.createLoadOp(operandAdaptor.B(), bAccessFct);
+    Value loadedY = outerContext.createLoadOp(alloc, resAccessFct);
+    Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
+    Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
+    outerContext.createStoreOp(accumulated, alloc, resAccessFct);
 
     rewriter.replaceOp(op, alloc);
 

@@ -1,5 +1,6 @@
 add_subdirectory(Interface)
 add_subdirectory(Dialect)
+add_subdirectory(Support)
 add_subdirectory(Conversion)
 add_subdirectory(Transform)
 add_subdirectory(Builder)
@@ -10,6 +11,7 @@ set(OMLibs
         OMBuilder
         OMKrnlOps
         OMONNXOps
+        OMSupport
         OMKrnlToAffine
         OMKrnlToStandard
         OMKrnlToLLVM
@@ -26,6 +28,7 @@ set(OMLibs
         OMPackKrnlGlobalConstants
         OMEnableMemoryPool
         OMBundleMemoryPools
+        OMOptimizeMemoryPools
         OMDisconnectKrnlDimFromAlloc
         OMLowerKrnlShape)
 set(OMLibs ${OMLibs} PARENT_SCOPE)

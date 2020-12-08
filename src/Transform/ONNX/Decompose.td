@@ -24,6 +24,12 @@ include "src/Dialect/ONNX/ONNXOps.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+def KeepdimsTrue: NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 1, /*isSigned=*/true))">;
+
+def KeepdimsIsTrue:
+    Constraint<CPred<"$_self.cast<IntegerAttr>().getSInt() == 1">,
+  "keepdims attribute is true">;
+
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
 //===----------------------------------------------------------------------===//
@@ -43,10 +49,35 @@ def ReduceLogSumOpPattern: Pat<(ONNXReduceLogSumOp $oprd, $axes, $keepdims),
                            (ONNXLogOp (ONNXReduceSumOp $oprd, $axes, $keepdims))>;
 
 //===----------------------------------------------------------------------===//
-// ONNXReduceLogSumExpOp %X = ONNXReduceLogSumOp (ONNXExpOp %X)
+// ONNXReduceLogSumExpOp %X
 //===----------------------------------------------------------------------===//
-def ReduceLogSumExpOpPattern: Pat<(ONNXReduceLogSumExpOp $oprd, $axes, $keepdims),
-                                  (ONNXReduceLogSumOp (ONNXExpOp $oprd), $axes, $keepdims)>;
+// keepdims is true
+def ReduceLogSumExpOpPattern1: Pat<
+  (ONNXReduceLogSumExpOp $oprd, $axes, $keepdims),
+  (ONNXAddOp
+    (ONNXReduceLogSumOp
+      (ONNXExpOp
+         (ONNXSubOp $oprd, (ONNXReduceMaxOp:$max $oprd, $axes, (KeepdimsTrue)))),
+      $axes,
+      $keepdims),
+    $max),
+  [(KeepdimsIsTrue:$keepdims)],
+  (addBenefit 1)
+>;
+
+// keepdims is false 
+def ReduceLogSumExpOpPattern2: Pat<
+  (ONNXReduceLogSumExpOp $oprd, $axes, $keepdims),
+  (ONNXAddOp
+    (ONNXReduceLogSumOp
+      (ONNXExpOp
+         (ONNXSubOp $oprd, (ONNXReduceMaxOp:$max $oprd, $axes, (KeepdimsTrue)))),
+      $axes,
+      $keepdims),
+    (ONNXSqueezeOp $max, $axes)),
+  [],
+  (addBenefit 0)
+>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceSumSquareOp %X = ONNXReduceSumOp (ONNXMulOp %X, %X)
@@ -142,5 +173,11 @@ def ScalerPattern2 : Pat<
     (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b))),
   [],
   (addBenefit 0)>;
+
+// Express LogSoftmax using Log and Softmax.
+def LogSoftmaxPattern : Pat<
+  (ONNXLogSoftmaxOp $x, $axis),
+  (ONNXLogOp (ONNXSoftmaxOp $x, $axis))
+>;
 
 #endif // ONNX_DECOMPOSE

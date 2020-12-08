@@ -48,6 +48,12 @@ void initOMPasses() {
         return mlir::createKrnlBundleMemoryPoolsPass();
       });
 
+  mlir::registerPass("optimize-memory-pools",
+      "Optimize the static and dynamic memory pools.",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::createKrnlOptimizeMemoryPoolsPass();
+      });
+
   mlir::registerPass("convert-krnl-to-affine", "Lower Krnl dialect.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createConvertKrnlToAffinePass();

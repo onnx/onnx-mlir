@@ -21,6 +21,7 @@
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Support/KrnlSupport.hpp"
 
 #include "ElideKrnlGlobalConstants.hpp"
 
@@ -58,7 +59,8 @@ public:
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
-    patterns.insert<KrnlConstGlobalValueElision>(&getContext());
+    patterns.insert<KrnlConstGlobalValueElision>(
+        &getContext(), KrnlConstGlobalValueElision::kDefaultElisionThreshold);
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
