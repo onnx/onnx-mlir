@@ -20,33 +20,43 @@ With BACKEND_TEST specified, the intermedia result, the .onnx file and .so file,
 
 When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in third_part/onnx/onnx/backend/test/case/node. Please note to add suffix `_cpu` to the onnx test name. 
 
-The onnx node tests usually have known dimension size for input tensors. To test tensor with unknown dimension, the model importer (Build/FrontendONNXTransformer.cpp) provides a functionality to generate such cases. When the environment variable, `IMPORTER_FORCE_DYNAMIC`, is set, the frontend import will turn the first dimension (by default) of some input tensor of the model into -1. 
+### Tests with unknown dimensions
+The onnx node tests usually have known dimension size for input tensors. To test tensor with unknown dimension, the model importer (Build/FrontendONNXTransformer.cpp) provides a functionality to generate such cases. When the environment variable, `IMPORTER_FORCE_DYNAMIC`, is set, the frontend import will turn the all the dimensions (by default) of all the input tensors of the model into -1. For example,
 ```
-IMPORTER_FORCE_DYNAMIC=-1 all the inputs will be changed
-IMPORTER_FORCE_DYNAMIC=0 the first input will be changed
-IMPORTER_FORCE_DYNAMIC=n input[n] will be changed
+IMPORTER_FORCE_DYNAMIC='-1:-1' all dimensions of all the inputs will be changed
+IMPORTER_FORCE_DYNAMIC='0:-1' all dimensions of the first input will be changed
+IMPORTER_FORCE_DYNAMIC='0:-1|1:0,1' all dimensions of the first input and the 1st and 2nd dimensions of the second input will be changed
 ```
+
+The Backus–Naur Form (BNF) for IMPORTER_FORCE_DYNAMIC is as follows.
+```
+<ImportForceDymanicExpr> :== `'` <expr> `'`
+                  <expr> ::= <inputString> | <inputString> `|` <expr>
+            <inputString ::= <inputIndex> `:` <dimString>
+             <dimString> ::= <dimIndex> | <dimIndex> `,` <dimString>
+            <inputIndex> ::= <index>
+              <dimIndex> ::= <index>
+                 <index> ::= -1 | <number>
+                <number> ::= <digit> | <digit><number>
+                 <digit> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+```
+Value `-1` semantically represents all inputs or all dimensions, and it has the highest priority. E.g. `'0: -1, 0'` means all dimensions of the first input will be changed. Input and dimension indices start from 0.
+
 For example, the default model for test_add_cpu is:
 
 `func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>`
 
-with IMPORTER_FORCE_DYNAMIC=-1, the result is:
+with IMPORTER_FORCE_DYNAMIC='-1:-1', the result is:
 
-`func @main_graph(%arg0: tensor<?x4x5xf32>, %arg1: tensor<?x4x5xf32>) -> tensor<?x4x5xf32>`
+`func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32>`
 
-with IMPORTER_FORCE_DYNAMIC=0, the result is:
+with IMPORTER_FORCE_DYNAMIC='0:-1', the result is:
 
-  `func @main_graph(%arg0: tensor<?x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>`.
+`func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>`.
 
-Which dimension to be changed can be specified with env variable `IMPORTER_FORCE_DYNAMIC`.
-```
-IMPORTER_FORCE_DYNAMIC_DIM=-1 all the dimensions to be changed
-IMPORTER_FORCE_DYNAMIC_DIM=0 the first dimension
-IMPORTER_FORCE_DYNAMIC_DIM=n the n+1 th dimension
-```
-For example, with `IMPORTER_FORCE_DYNAMIC=0 IMPORTER_FORCE_DYNAMIC_DIM=1`, the result is:
+with IMPORTER_FORCE_DYNAMIC='0:0,2|1:1', the result is:
 
-`func @main_graph(%arg0: tensor<3x?x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> `
+`func @main_graph(%arg0: tensor<?x4x?xf32>, %arg1: tensor<3x?x5xf32>) -> tensor<3x4x5xf32>`.
 
 This is a way to use existing node test for dynamic tensors. Since not all test case can pass with dynamic tensor, there is a list in test/backend/test.py, test_not_for_dynamic, to specify which test can not pass with IMPORTER_FORCE_DYNAMIC is defined.
 

@@ -833,7 +833,7 @@ private:
 
       // Insert stride of the dimension.
       auto dimStridePtr = rewriter.create<LLVM::GEPOp>(loc,
-          int64Ty.getPointerTo(), sizesArrayPtr, ArrayRef<Value>({dimIdx}));
+          int64Ty.getPointerTo(), stridesArrayPtr, ArrayRef<Value>({dimIdx}));
       auto dimStride = rewriter.create<LLVM::LoadOp>(
           loc, int64Ty.getPointerTo(), dimStridePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
