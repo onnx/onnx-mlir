@@ -64,6 +64,75 @@ func @test_elementwise_op_with_scalar_values_3(%arg0 : tensor<f32>, %arg1 : tens
 
 // -----
 
+// COM: Check the template for lowering binary operations whose output type can be different from its input type.
+func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5xf32>, %arg1: tensor<3x4x1xf32>) -> tensor<3x4x5xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<?x4x5xf32>, tensor<3x4x1xf32>) -> tensor<3x4x5xi1>
+  return %0 : tensor<3x4x5xi1>
+  // CHECK-LABEL:  func @test_binary_elementwise_op_template_unknown_dims
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x4x5xf32>, [[PARAM_1_:%.+]]: memref<3x4x1xf32>) -> memref<3x4x5xi1> {
+  // CHECK-DAG:       [[RES_:%.+]] = alloc() : memref<3x4x5xi1>
+  // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+  // CHECK-NOT: separator of consecutive DAGs
+  // CHECK-DAG:       [[DIM_0_:%.+]] = dim [[PARAM_0_]], [[CST_0_]] : memref<?x4x5xf32>
+  // CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+  // CHECK-NOT: separator of consecutive DAGs
+  // CHECK-DAG:       [[VAR_2_:%.+]] = cmpi "eq", [[DIM_0_]], [[CST_1_]] : index
+  // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+  // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5) {
+  // CHECK:             [[CST_0_1_:%.+]] = constant 0 : index
+  // CHECK:             [[VAR_4_:%.+]] = select [[VAR_2_]], [[CST_0_1_]], [[I_0_]] : index
+  // CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = load [[PARAM_0_]]{{.}}[[VAR_4_]], [[I_1_]], [[I_2_]]{{.}} : memref<?x4x5xf32>
+  // CHECK-DAG:         [[CST_0_2_:%.+]] = constant 0 : index
+  // CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = affine.load [[PARAM_1_]]{{.}}[[I_0_]], [[I_1_]], [[CST_0_2_]]{{.}} : memref<3x4x1xf32>
+  // CHECK:             [[VAR_7_:%.+]] = cmpf "olt", [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+  // CHECK:             affine.store [[VAR_7_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<3x4x5xi1>
+  // CHECK:           }
+  // CHECK:           return [[RES_]] : memref<3x4x5xi1>
+  // CHECK:         }
+}
+
+// -----
+
+// COM: Check the template for lowering variadic operations and binary operations whose output type is the same as its input type: Min, Max, Add, Sub, etc. 
+func @test_variadic_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5xf32>, %arg1: tensor<3x?x5xf32>, %arg2: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+  %0 = "onnx.Max"(%arg0, %arg1, %arg2) : (tensor<?x4x5xf32>, tensor<3x?x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+  return %0 : tensor<3x4x5xf32>
+  // CHECK-LABEL:  func @test_variadic_elementwise_op_template_unknown_dims
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x4x5xf32>, [[PARAM_1_:%.+]]: memref<3x?x5xf32>, [[PARAM_2_:%.+]]: memref<3x4x5xf32>) -> memref<3x4x5xf32> {
+  // CHECK-DAG:       [[RES_:%.+]] = alloc() : memref<3x4x5xf32>
+  // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+  // CHECK-NOT: separator of consecutive DAGs
+  // CHECK-DAG:       [[DIM_0_:%.+]] = dim [[PARAM_0_]], [[CST_0_]] : memref<?x4x5xf32>
+  // CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
+  // CHECK-NOT: separator of consecutive DAGs
+  // CHECK-DAG:       [[VAR_2_:%.+]] = cmpi "eq", [[DIM_0_]], [[CST_1_]] : index
+  // CHECK-DAG:       [[CST_1_1_:%.+]] = constant 1 : index
+  // CHECK-NOT: separator of consecutive DAGs
+  // CHECK-DAG:       [[DIM_1_:%.+]] = dim [[PARAM_1_]], [[CST_1_1_]] : memref<3x?x5xf32>
+  // CHECK-DAG:       [[CST_1_2_:%.+]] = constant 1 : index
+  // CHECK-NOT: separator of consecutive DAGs
+  // CHECK-DAG:       [[VAR_4_:%.+]] = cmpi "eq", [[DIM_1_]], [[CST_1_2_]] : index
+  // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+  // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5) {
+  // CHECK:             [[CST_0_1_:%.+]] = constant 0 : index
+  // CHECK:             [[VAR_6_:%.+]] = select [[VAR_2_]], [[CST_0_1_]], [[I_0_]] : index
+  // CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = load [[PARAM_0_]]{{.}}[[VAR_6_]], [[I_1_]], [[I_2_]]{{.}} : memref<?x4x5xf32>
+  // CHECK-DAG:         [[CST_0_2_:%.+]] = constant 0 : index
+  // CHECK:             [[VAR_8_:%.+]] = select [[VAR_4_]], [[CST_0_2_]], [[I_1_]] : index
+  // CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = load [[PARAM_1_]]{{.}}[[I_0_]], [[VAR_8_]], [[I_2_]]{{.}} : memref<3x?x5xf32>
+  // CHECK:             [[VAR_10_:%.+]] = cmpf "ogt", [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+  // CHECK-DAG:         [[VAR_11_:%.+]] = select [[VAR_10_]], [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+  // CHECK-DAG:         [[LOAD_PARAM_2_MEM_:%.+]] = affine.load [[PARAM_2_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<3x4x5xf32>
+  // CHECK:             [[VAR_13_:%.+]] = cmpf "ogt", [[VAR_11_]], [[LOAD_PARAM_2_MEM_]] : f32
+  // CHECK:             [[VAR_14_:%.+]] = select [[VAR_13_]], [[VAR_11_]], [[LOAD_PARAM_2_MEM_]] : f32
+  // CHECK:             affine.store [[VAR_14_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<3x4x5xf32>
+  // CHECK:           }
+  // CHECK:           return [[RES_]] : memref<3x4x5xf32>
+  // CHECK:         }
+}
+
+// -----
+
 func @test_add(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
