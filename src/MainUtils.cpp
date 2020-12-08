@@ -426,10 +426,20 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(createDisconnectKrnlDimFromAllocPass());
 
-  // TODO: make this pass optional:
-  pm.addPass(mlir::createKrnlEnableMemoryPoolPass());
-  pm.addPass(mlir::createKrnlBundleMemoryPoolsPass());
-
+  // TODO: make this pass optional
+  // NOTE-diprou-12/07/20: Conditionally disabling both mem-pool
+  // passes for the Apollo pipeline. Introducing the pool leads
+  // krnl.getref() statements. Such statements are later lowered
+  // in krnl -> llvm pass. At that point Memrefs are converted
+  // to a low-level representation which is incompatible with the
+  // high-level view required for turning buffers to NEPAL ArrayRefs.
+  // Disabling the passes leaves the original buffer allocations,
+  // which can subsequently be optimized and turned into NEPAL
+  // ArrayRefs in a straightforward manner.
+  if (!npu) {
+    pm.addPass(mlir::createKrnlEnableMemoryPoolPass());
+    pm.addPass(mlir::createKrnlBundleMemoryPoolsPass());
+  }
   // MAKUDRYA-ISSUE_TODO: see comment above.
   //pm.addPass(mlir::createCanonicalizerPass());
 }
