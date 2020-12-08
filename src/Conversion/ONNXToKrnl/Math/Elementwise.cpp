@@ -735,7 +735,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Obtain the first operand.
     std::vector<Value> accumulatedLoopIVs = getLoopIVsForBroadcasting(
         loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
-    if (!hasAllConstantDimensions(memRefType))
+    if (!hasAllConstantDimensions(operands[0].getType().cast<MemRefType>()))
       // In case of unknown dimensions, use std.load since
       // 'getLoopIVsForBroadcasting' has not supported affine map so far.
       accumulated =
@@ -747,7 +747,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     for (unsigned i = 1; i < numArgs; i++) {
       std::vector<Value> nextLoopIVs = getLoopIVsForBroadcasting(
           loc, rewriter, loopIVs, operands[i], broadcastedDimInfo[i]);
-      if (!hasAllConstantDimensions(memRefType))
+      if (!hasAllConstantDimensions(operands[i].getType().cast<MemRefType>()))
         // In case of unknown dimensions, use std.load since
         // 'getLoopIVsForBroadcasting' has not supported affine map so far.
         next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
@@ -771,6 +771,7 @@ void populateLoweringONNXElementwiseOpPattern(
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
@@ -797,6 +798,5 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
 }
