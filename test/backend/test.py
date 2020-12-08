@@ -224,7 +224,7 @@ backend_test = onnx.backend.test.BackendTest(DummyBackend, __name__)
 # Set value for each benchmark to: test_disabled, test_static, 
 #   test_dynamic, test_static_dynamic, test_static_dynamicNA.
 # The test_static_dynamicNA values indicates tests for which the dynamic test
-# makes no sense, e.g. where we build an array of constant but we don't even 
+# makes no sense, e.g. where we build an array of constant but we don't even
 # know the rank of the constant array we are generating.
 test_disabled = 0  # no tests
 test_static = 1    # static test only
@@ -304,7 +304,7 @@ test_to_enable_static_dynamic = {
     "test_cast_DOUBLE_to_FLOAT16_cpu": test_disabled, # appers unsupported at this time
     "test_cast_FLOAT_to_STRING_cpu": test_disabled, # appers unsupported at this time
     "test_cast_STRING_to_FLOAT_cpu": test_disabled, # appers unsupported at this time
-    
+
     # Ceil
 
     # Celu
