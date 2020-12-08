@@ -125,8 +125,9 @@ public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
 
   BlockToMemPool *blockToStaticPool;
-  KrnlBundleStaticMemoryPools(MLIRContext *context, BlockToMemPool *_blockToStaticPool) :
-      OpRewritePattern<AllocOp>(context) {
+  KrnlBundleStaticMemoryPools(
+      MLIRContext *context, BlockToMemPool *_blockToStaticPool)
+      : OpRewritePattern<AllocOp>(context) {
     blockToStaticPool = _blockToStaticPool;
   }
 
@@ -245,8 +246,9 @@ public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
 
   BlockToMemPool *blockToDynamicPool;
-  KrnlBundleDynamicMemoryPools(MLIRContext *context, BlockToMemPool *_blockToDynamicPool) :
-      OpRewritePattern<AllocOp>(context) {
+  KrnlBundleDynamicMemoryPools(
+      MLIRContext *context, BlockToMemPool *_blockToDynamicPool)
+      : OpRewritePattern<AllocOp>(context) {
     blockToDynamicPool = _blockToDynamicPool;
   }
 
@@ -437,8 +439,8 @@ public:
 class KrnlBundleMemoryPoolsPass
     : public PassWrapper<KrnlBundleMemoryPoolsPass, FunctionPass> {
 
-BlockToMemPool blockToStaticPool;
-BlockToMemPool blockToDynamicPool;
+  BlockToMemPool blockToStaticPool;
+  BlockToMemPool blockToDynamicPool;
 
 public:
   void runOnFunction() override {
@@ -446,8 +448,10 @@ public:
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
-    patterns.insert<KrnlBundleStaticMemoryPools>(&getContext(), &blockToStaticPool);
-    patterns.insert<KrnlBundleDynamicMemoryPools>(&getContext(), &blockToDynamicPool);
+    patterns.insert<KrnlBundleStaticMemoryPools>(
+        &getContext(), &blockToStaticPool);
+    patterns.insert<KrnlBundleDynamicMemoryPools>(
+        &getContext(), &blockToDynamicPool);
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
