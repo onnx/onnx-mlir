@@ -86,8 +86,8 @@ test_to_enable_static_dynamic = {
     # Adam
 
     # Add
-    "test_add_cpu": (test_static_dynamic,{0: {0,1}}),
-    "test_add_bcast_cpu": (test_static_dynamic,{0: {0,1}}),
+    "test_add_cpu": (test_static_dynamic,{-1: {-1}}),
+    "test_add_bcast_cpu": (test_static_dynamic,{-1: {-1}}),
 
     # And
     "test_and2d_cpu": (test_static_dynamic,),
@@ -149,11 +149,11 @@ test_to_enable_static_dynamic = {
     "test_concat_2d_axis_1_cpu": (test_static_dynamic,{0:{1}}),
     "test_concat_3d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
     "test_concat_3d_axis_1_cpu": (test_static_dynamic,{0:{1}}),
-    "test_concat_3d_axis_2_cpu": (test_static_dynamic,{0:{1}}),
+    "test_concat_3d_axis_2_cpu": (test_static_dynamic,{0:{2}}),
     "test_concat_1d_axis_negative_1_cpu": (test_static_dynamic,{0:{0}}),
     "test_concat_2d_axis_negative_1_cpu": (test_static_dynamic,{0:{1}}),
     "test_concat_2d_axis_negative_2_cpu": (test_static_dynamic,{0:{0}}),
-    "test_concat_3d_axis_negative_1_cpu": (test_static_dynamic,{0:{1}}),
+    "test_concat_3d_axis_negative_1_cpu": (test_static_dynamic,{0:{2}}),
     "test_concat_3d_axis_negative_2_cpu": (test_static_dynamic,{0:{1}}),
     "test_concat_3d_axis_negative_3_cpu": (test_static_dynamic,{0:{0}}),
 
@@ -257,9 +257,9 @@ test_to_enable_static_dynamic = {
     # Greater
 
     # GRU
-    "test_gru_defaults_cpu": (test_static_dynamic,{0:{0,1}}),
-    "test_gru_seq_length_cpu": (test_static_dynamic,{0:{0}}),
-    "test_gru_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1}}),
+    "test_gru_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_gru_seq_length_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_gru_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
 
     # Hard Max
 
@@ -305,9 +305,10 @@ test_to_enable_static_dynamic = {
     "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0}}),
     # The following tests failed with an issue reported at:
     # https://github.com/onnx/onnx-mlir/issues/431
-    #"test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1}}),
-    #"test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1}}),
-    #"test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1}}),
+    # Enable the following benchmarks once the above is fixed.
+    #"test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    #"test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    #"test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1,2}}),
 
     # Matmul
     "test_matmul_2d_cpu": (test_static_dynamic,),
@@ -512,9 +513,9 @@ test_to_enable_static_dynamic = {
     # Reverse Sequence
 
     # RNN
-    "test_rnn_seq_length_cpu": (test_static_dynamic,{0:{0}}),
-    "test_simple_rnn_defaults_cpu": (test_static_dynamic,{0:{0,1}}),
-    "test_simple_rnn_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1}}),
+    "test_rnn_seq_length_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_simple_rnn_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_simple_rnn_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
 
     # Roi Align
 
