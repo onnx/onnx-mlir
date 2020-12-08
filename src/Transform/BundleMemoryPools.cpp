@@ -32,15 +32,7 @@ namespace {
 //===----------------------------------------------------------------------===//
 
 // Data structure for managing dyanmic memory pool.
-typedef std::map<Block *, AllocOp> BlockToDynamicPool;
-std::map<FuncOp, std::unique_ptr<BlockToDynamicPool>> dynamicPoolMap;
-
-// Handling of static memory pool on a block-basis in each function.
-typedef std::map<Block *, AllocOp> BlockToStaticPool;
-std::map<FuncOp, std::unique_ptr<BlockToStaticPool>> staticPoolMap;
-
-// Make map insertion and deletion thread-safe using a mutex.
-std::mutex m;
+typedef std::map<Block *, AllocOp> BlockToMemPool;
 
 //===----------------------------------------------------------------------===//
 // Helper functions.
@@ -132,6 +124,12 @@ class KrnlBundleStaticMemoryPools : public OpRewritePattern<AllocOp> {
 public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
 
+  BlockToMemPool *blockToStaticPool;
+  KrnlBundleStaticMemoryPools(MLIRContext *context, BlockToMemPool *_blockToStaticPool) :
+      OpRewritePattern<AllocOp>(context) {
+    blockToStaticPool = _blockToStaticPool;
+  }
+
   LogicalResult matchAndRewrite(
       AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
@@ -155,17 +153,6 @@ public:
     // Rank of the allocated MemRef must be 1.
     if (memRefShape.size() != 1)
       return failure();
-
-    FuncOp function = getContainingFunction(allocOp);
-
-    if (staticPoolMap.count(function) == 0) {
-      return failure();
-    }
-
-    m.lock();
-    std::unique_ptr<BlockToStaticPool> &blockToStaticPool =
-        staticPoolMap.at(function);
-    m.unlock();
 
     // Get parent block.
     Block *parentBlock = allocOp.getOperation()->getBlock();
@@ -257,6 +244,12 @@ class KrnlBundleDynamicMemoryPools : public OpRewritePattern<AllocOp> {
 public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
 
+  BlockToMemPool *blockToDynamicPool;
+  KrnlBundleDynamicMemoryPools(MLIRContext *context, BlockToMemPool *_blockToDynamicPool) :
+      OpRewritePattern<AllocOp>(context) {
+    blockToDynamicPool = _blockToDynamicPool;
+  }
+
   LogicalResult matchAndRewrite(
       AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
@@ -285,15 +278,6 @@ public:
     // a trace of operations which participate in the computation of the size
     // of the AllocOp.
     auto parentBlock = allocOp.getOperation()->getBlock();
-
-    // Get function.
-    FuncOp function = getContainingFunction(allocOp);
-
-    // Retrieve the list of blocks for the current function.
-    m.lock();
-    std::unique_ptr<BlockToDynamicPool> &blockToDynamicPool =
-        dynamicPoolMap.at(function);
-    m.unlock();
 
     // If this is not the first time we process an alloc in this block, avoid
     // processing the current dynamic memory pool again.
@@ -449,32 +433,23 @@ public:
 /*!
  *  Function pass that enables memory pooling for MemRefs.
  */
+
 class KrnlBundleMemoryPoolsPass
     : public PassWrapper<KrnlBundleMemoryPoolsPass, FunctionPass> {
+
+BlockToMemPool blockToStaticPool;
+BlockToMemPool blockToDynamicPool;
+
 public:
   void runOnFunction() override {
     auto function = getFunction();
 
-    m.lock();
-    dynamicPoolMap.insert(
-        std::pair<FuncOp, std::unique_ptr<BlockToDynamicPool>>(
-            function, std::make_unique<BlockToDynamicPool>()));
-
-    staticPoolMap.insert(std::pair<FuncOp, std::unique_ptr<BlockToStaticPool>>(
-        function, std::make_unique<BlockToStaticPool>()));
-    m.unlock();
-
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
-    patterns.insert<KrnlBundleStaticMemoryPools, KrnlBundleDynamicMemoryPools>(
-        &getContext());
+    patterns.insert<KrnlBundleStaticMemoryPools>(&getContext(), &blockToStaticPool);
+    patterns.insert<KrnlBundleDynamicMemoryPools>(&getContext(), &blockToDynamicPool);
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
-
-    m.lock();
-    dynamicPoolMap.erase(function);
-    staticPoolMap.erase(function);
-    m.unlock();
   }
 };
 } // namespace
