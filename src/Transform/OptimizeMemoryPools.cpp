@@ -669,10 +669,8 @@ public:
     Block *parentBlock = allocOp.getOperation()->getBlock();
 
     // Retrieve block flag.
-    m.lock();
     std::unique_ptr<BlockToCompactedFlag> &blockToStaticPoolFlag =
         staticPoolCompacted.at(function);
-    m.unlock();
 
     // Check if this block has already been compacted. If it has then
     // skip its processing.

@@ -31,7 +31,7 @@ namespace {
 // Data structures for managing memory pools.
 //===----------------------------------------------------------------------===//
 
-// Data structure for managing dyanmic memory pool.
+// Data structure for managing memory pools.
 typedef std::map<Block *, AllocOp> BlockToMemPool;
 
 //===----------------------------------------------------------------------===//
