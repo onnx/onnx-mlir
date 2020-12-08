@@ -767,10 +767,10 @@ public:
 
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
-    patterns.insert<KrnlOptimizeStaticMemoryPools>(&getContext(),
-        &blockToStaticPoolFlag);
-    patterns.insert<KrnlCompactStaticMemoryPools>(&getContext(),
-        &blockToStaticPoolFlag);
+    patterns.insert<KrnlOptimizeStaticMemoryPools>(
+        &getContext(), &blockToStaticPoolFlag);
+    patterns.insert<KrnlCompactStaticMemoryPools>(
+        &getContext(), &blockToStaticPoolFlag);
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
