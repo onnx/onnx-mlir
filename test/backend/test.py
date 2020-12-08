@@ -247,8 +247,12 @@ test_to_enable_static_dynamic = {
     "test_gemm_transposeB_cpu": (test_static_dynamic,),
 
     # Global Average Pool
+    "test_globalaveragepool_cpu": test_static_dynamic,
+    "test_globalaveragepool_precomputed_cpu": test_static_dynamic,
 
     # Global Max Pool
+    "test_globalmaxpool_cpu": test_static_dynamic,
+    "test_globalmaxpool_precomputed_cpu": test_static_dynamic,
 
     # Greater
 
