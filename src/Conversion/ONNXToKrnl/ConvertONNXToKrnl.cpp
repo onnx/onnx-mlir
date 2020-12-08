@@ -63,9 +63,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // std.tanh will be expanded.
   target.addIllegalOp<mlir::TanhOp>();
 
-  // std.tanh will be expanded.
-  target.addIllegalOp<mlir::TanhOp>();
-
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail
   // if any of these operations are *not* converted.

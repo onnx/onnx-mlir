@@ -139,27 +139,6 @@ struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
   LogicalResult Compute(ONNXSplitOpAdaptor operandAdaptor);
 };
 
-// Shape for global pool operations.
-template<class OP, class ADAPTOR>
-struct ONNXGlobalPoolOpShapeHelper: public ONNXOpShapeHelper<OP> {
-  ONNXGlobalPoolOpShapeHelper(
-      OP *newOp, ConversionPatternRewriter *rewriter);
-
-  LogicalResult Compute(ADAPTOR operandAdaptor);
-
-  // Input dims
-  SmallVector<IndexExpr, 4> xDims;
-};
-
-// Instances of Global Pool Ops: Average, Lp, and Max.
-typedef ONNXGlobalPoolOpShapeHelper<ONNXGlobalAveragePoolOp,
-    ONNXGlobalAveragePoolOpAdaptor> ONNXGlobalAveragePoolOpShapeHelper;
-typedef ONNXGlobalPoolOpShapeHelper<ONNXGlobalLpPoolOp,
-    ONNXGlobalLpPoolOpAdaptor> ONNXGlobalLpPoolOpShapeHelper;
-typedef ONNXGlobalPoolOpShapeHelper<ONNXGlobalMaxPoolOp,
-    ONNXGlobalMaxPoolOpAdaptor> ONNXGlobalMaxPoolOpShapeHelper;
-
-
 //===----------------------------------------------------------------------===//
 // Low Level Helpers
 //===----------------------------------------------------------------------===//
