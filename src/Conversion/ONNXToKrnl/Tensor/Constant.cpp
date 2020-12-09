@@ -65,8 +65,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
 
     // Check if the variable is returned.
     if (checkOpResultIsReturned(&constantOp)) {
-      // In this case, use an AllocOp for the constant since krnl.Global operations
-      // are not mean to be returned.
+      // In this case, use an AllocOp for the constant since krnl.Global
+      // operations are not mean to be returned.
       AllocOp alloc = rewriter.create<AllocOp>(loc, memRefType);
 
       // Compute size in bytes using the input tensor.
@@ -77,8 +77,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
       tensorSize = rewriter.create<MulIOp>(loc, tensorSize, numElementsValue);
 
       // Copy the value in the AllocOp.
-      //Value data = constantGlobal.value().getValue();
-      rewriter.create<KrnlMemcpyOp>(loc, alloc, constantGlobal.getResult(), tensorSize);
+      rewriter.create<KrnlMemcpyOp>(
+          loc, alloc, constantGlobal.getResult(), tensorSize);
 
       // Since the value is returned we need to only work with the AllocOp
       // not the KrnlGlobalOp. Globals cannot be returned.
