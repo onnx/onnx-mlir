@@ -475,7 +475,7 @@ private:
     getNodeInputs(node, inputs);
     auto attributes = ImportNodeAttributes(node);
     buildOutputAndOperation<T>(
-        node, inputs, expectedNumOperands, expectedNumResultsi, attributes);
+        node, inputs, expectedNumOperands, expectedNumResults, attributes);
   }
 
   std::vector<mlir::NamedAttribute> ImportCastAttributes(
