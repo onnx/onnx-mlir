@@ -37,15 +37,30 @@ public:
     module_ = mlir::ModuleOp::create(mlir::UnknownLoc::get(&context));
     InitHandlerMap();
     force_dim_dynamic_enabled_ = false;
-    forced_input_ = 0;
-    forced_dim_ = 0;
     if (const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC")) {
       force_dim_dynamic_enabled_ = true;
-      forced_input_ = atoi(envInputString);
-    }
-    if (const char *envDimString = std::getenv("IMPORTER_FORCE_DYNAMIC_DIM")) {
-      force_dim_dynamic_enabled_ = true;
-      forced_dim_ = atoi(envDimString);
+      std::stringstream envString;
+      envString << envInputString;
+      std::string dynamicInput;
+      while (getline(envString, dynamicInput, '|')) {
+        size_t pos = dynamicInput.find(':');
+        std::string inputString = dynamicInput.substr(0, pos);
+        std::string dimString = dynamicInput.substr(pos + 1);
+
+        std::stringstream dimIndices(dimString);
+        std::string dimIndex;
+        std::vector<int> dims;
+        while (getline(dimIndices, dimIndex, ',')) {
+          dims.emplace_back(stoi(dimIndex));
+        }
+        // Default to the all dimensions if dims are not specified.
+        if (dims.empty())
+          dims.emplace_back(-1);
+        forced_inputs_dims.insert(std::make_pair(stoi(inputString), dims));
+      }
+      // Default to the all inputs and dimensions.
+      if (forced_inputs_dims.empty())
+        forced_inputs_dims.insert(std::make_pair(-1, std::vector<int>(1, -1)));
     }
   }
 
@@ -71,18 +86,45 @@ private:
   // mapping between string name and symbol
   OnnxMlirSymbolMapping frontend_symbols_;
 
-  // Flag to change the inputs of function to unknown dimension
-  // Temporarily added to use the test cases with static shape to test
-  // The value is set by enviroment variable IMPORTER_FORCE_DYNAMIC
-  // Variable forced_input records which inputs to be changed, starting from 0.
-  // When all the inputs are to be changed, set IMPORTER_FORCE_DYNAMIC=-1
+  // Flag to change the inputs of function to unknown dimension.
+  // Temporarily added to use the test cases with static shape to test.
+  // The values are set by enviroment variable IMPORTER_FORCE_DYNAMIC
+  // The Backus–Naur Form (BNF) for IMPORTER_FORCE_DYNAMIC is as follows.
+  //
+  // <ImportForceDymanicExpr> :== `'` <expr> `'`
+  //                   <expr> ::= <inputString> | <inputString> `|` <expr>
+  //             <inputString ::= <inputIndex> `:` <dimString>
+  //              <dimString> ::= <dimIndex> | <dimIndex> `,` <dimString>
+  //             <inputIndex> ::= <index>
+  //               <dimIndex> ::= <index>
+  //                  <index> ::= -1 | <number>
+  //                 <number> ::= <digit> | <digit><number>
+  //                  <digit> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+  //
+  // Value `-1` semantically represents all inputs or all dimensions, and it
+  // has the highest priority. E.g. `'0: -1, 0'` means all dimensions of the
+  // first input will be changed. Input and dimension indices start from 0.
+  //
+  // Examples:
+  // 1. IMPORTER_FORCE_DYNAMIC='-1:-1'
+  //    - change all dimensions in all inputs to unknown dimensions.
+  // 2. IMPORTER_FORCE_DYNAMIC='-1:0'
+  //    - change the first dimension in all inputs to unknown dimensions.
+  // 3. IMPORTER_FORCE_DYNAMIC='1:-1'
+  //    - change all dimensions in the second input to unknown dimensions.
+  // 4. IMPORTER_FORCE_DYNAMIC='1:0,1'
+  //    - change the first and second dimensions in the second input to unknown
+  //    dimensions.
+  // 5. IMPORTER_FORCE_DYNAMIC='0:1|1:0,1'
+  //    - change the second dimension in the first input to unknown dimensions,
+  //    and
+  //    - change the first and second dimensions in the second input to unknown
+  //    dimensions,
+
   bool force_dim_dynamic_enabled_;
-  // Which input to be changed to dynamic
-  // Default value is 0, first input
-  int forced_input_;
-  // Which dimension to be changed to dynamic
-  // Default value is 0, first dimension
-  int forced_dim_;
+  // A map from an input index to a list of dim indices those are changed to
+  // dynamic. Default value corresponds to IMPORTER_FORCE_DYNAMIC='-1:-1'
+  std::map<int, std::vector<int>> forced_inputs_dims;
 
   typedef void (onnx_mlir::detail::FrontendGenImpl::*ImportHandlerType)(
       const onnx::NodeProto &);
@@ -99,6 +141,7 @@ private:
     mlir::FuncOp func = isa<mlir::FuncOp>(op)
                             ? dyn_cast<mlir::FuncOp>(op)
                             : op->getParentOfType<mlir::FuncOp>();
+
     assert(func && "Cannot find FuncOp surrounding current insertion point.");
 
     // Check if there's a none-typed value in the curent Func already, if so,
@@ -678,32 +721,33 @@ private:
   }
 
   void ImportCustomNode(const onnx::NodeProto &node) {
-    llvm::StringRef opName = node.op_type();
-
-    if (!TryImportFunctionCallNode(node))
+    if (!TryImportFunctionCallNode(node)) {
       mlir::emitWarning(UnknownLoc(),
           "Could not find op importer: assuming this "
           "represents a custom operator.");
-    int nOps = node.input().size();
-    auto funcName = opName.str();
-    std::vector<mlir::Type> outputTypes;
-    std::vector<mlir::Value> inputs;
-    std::vector<mlir::NamedAttribute> attributes;
-    auto mlirAttr = builder_.getStringAttr(funcName);
-    auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
-    attributes.push_back(funcAttr);
-    auto domainAttr = builder_.getNamedAttr(
-        "domain_name", builder_.getStringAttr(node.domain()));
-    attributes.push_back(domainAttr);
-    int nIn = 0;
-    int nOut = 0;
-    getNodeInputs(node, inputs);
 
-    for (const auto &item : node.output())
-      ++nOut;
+      llvm::StringRef opName = node.op_type();
+      int nOps = node.input().size();
+      auto funcName = opName.str();
+      std::vector<mlir::Type> outputTypes;
+      std::vector<mlir::Value> inputs;
+      std::vector<mlir::NamedAttribute> attributes;
+      auto mlirAttr = builder_.getStringAttr(funcName);
+      auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
+      attributes.push_back(funcAttr);
+      auto domainAttr = builder_.getNamedAttr(
+          "domain_name", builder_.getStringAttr(node.domain()));
+      attributes.push_back(domainAttr);
+      int nIn = 0;
+      int nOut = 0;
+      getNodeInputs(node, inputs);
 
-    buildOutputAndOperation<mlir::ONNXCustomOp>(
-        node, inputs, nIn, nOut, &attributes);
+      for (const auto &item : node.output())
+        ++nOut;
+
+      buildOutputAndOperation<mlir::ONNXCustomOp>(
+          node, inputs, nIn, nOut, &attributes);
+    }
   }
 
   void ImportNode(const onnx::NodeProto &node) {
@@ -783,11 +827,19 @@ private:
         auto shapedTy = argTy.dyn_cast<mlir::RankedTensorType>();
         // Change the first dimension to unknown (-1) for test purpose only
         if (shapedTy && force_dim_dynamic_enabled_ &&
-            (forced_input_ == -1 || forced_input_ == numInputs)) {
+            ((forced_inputs_dims.find(-1) != forced_inputs_dims.end()) ||
+                (forced_inputs_dims.find(numInputs) !=
+                    forced_inputs_dims.end()))) {
+          std::vector<int> forced_dims;
+          if (forced_inputs_dims.find(-1) != forced_inputs_dims.end())
+            forced_dims = forced_inputs_dims.at(-1);
+          else
+            forced_dims = forced_inputs_dims.at(numInputs);
           auto argShape = shapedTy.getShape();
           SmallVector<int64_t, 4> newDims;
           for (auto i = 0; i < argShape.size(); i++) {
-            if (forced_dim_ == -1 || forced_dim_ == i) {
+            if (llvm::is_contained(forced_dims, -1) ||
+                llvm::is_contained(forced_dims, i)) {
               newDims.push_back(-1);
             } else {
               newDims.push_back(argShape[i]);
@@ -873,7 +925,7 @@ private:
 
     return mainFunc;
   }
-}; // FrontendGenImpl class
+}; // namespace detail
 } // namespace detail
 } // namespace onnx_mlir
 

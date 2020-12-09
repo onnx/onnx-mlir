@@ -1742,6 +1742,7 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
 
 def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX GlobalAveragePool operation";
   let description = [{
   "GlobalAveragePool consumes an input tensor X and applies average pooling across"
@@ -1789,6 +1790,7 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
 
 def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX GlobalMaxPool operation";
   let description = [{
   "GlobalMaxPool consumes an input tensor X and applies max pooling across"
