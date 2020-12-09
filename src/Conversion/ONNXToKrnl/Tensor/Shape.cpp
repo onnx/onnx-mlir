@@ -45,25 +45,8 @@ struct ONNXShapeOpLowering : public ConversionPattern {
       IndexExpr storeIndex = IEContext.createLiteralIndex(i);
       IndexExpr shapeVal = IEContext.createDimIndexFromShapedType(data, i);
       Value storeVal = rewriter.create<IndexCastOp>(
-            loc, shapeVal.getValue(), outputMemRefType.getElementType());
+          loc, shapeVal.getValue(), outputMemRefType.getElementType());
       rewriter.create<StoreOp>(loc, storeVal, alloc, storeIndex.getValue());
-#if 0
-      // Create store index value.
-      Value storeVal;
-      Value storeIndex =
-          emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-
-      // Checking for dynamic dimensions.
-      if (dataShape[i] == -1) {
-        Value shapeVal = rewriter.create<DimOp>(loc, data, storeIndex);
-        storeVal = rewriter.create<IndexCastOp>(
-            loc, shapeVal, outputMemRefType.getElementType());
-      } else
-        storeVal = emitConstantOp(
-            rewriter, loc, outputMemRefType.getElementType(), dataShape[i]);
-
-      rewriter.create<StoreOp>(loc, storeVal, alloc, storeIndex);
-#endif
     }
     rewriter.replaceOp(op, alloc);
     return success();
