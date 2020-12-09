@@ -25,25 +25,34 @@ float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 // naive implementation of GRU for a specific set of GRU
 // parameters/configuration.
 bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
-    const int I, const int H, const int LinearBeforeReset) {
+    const int I, const int H, const int LinearBeforeReset,
+    bool isDynamicS = false, bool isDynamicB = false) {
   MLIRContext ctx;
   registerDialects(ctx);
 
   int D = abs(direction);
 
+  int S1 = S, B1 = B;
+  if (isDynamicS)
+    S1 = -1;
+  if (isDynamicB)
+    B1 = -1;
+
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
   llvm::SmallVector<int64_t, 3> xShape = {S, B, I};
+  llvm::SmallVector<int64_t, 3> xShapeSymbol = {S1, B1, I};
   llvm::SmallVector<int64_t, 3> wShape = {D, 3 * H, I};
   llvm::SmallVector<int64_t, 3> rShape = {D, 3 * H, H};
   llvm::SmallVector<int64_t, 2> bShape = {D, 6 * H};
   llvm::SmallVector<int64_t, 3> hShape = {D, B, H};
+  llvm::SmallVector<int64_t, 3> hShapeSymbol = {D, B1, H};
 
-  auto xType = RankedTensorType::get(xShape, builder.getF32Type());
+  auto xType = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
   auto wType = RankedTensorType::get(wShape, builder.getF32Type());
   auto rType = RankedTensorType::get(rShape, builder.getF32Type());
   auto bType = RankedTensorType::get(bShape, builder.getF32Type());
-  auto hType = RankedTensorType::get(hShape, builder.getF32Type());
+  auto hType = RankedTensorType::get(hShapeSymbol, builder.getF32Type());
   auto yType = UnrankedTensorType::get(builder.getF32Type());
   auto yHType = UnrankedTensorType::get(builder.getF32Type());
 
@@ -98,10 +107,6 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   gruOp.inferShapes([](mlir::FuncOp) {});
   auto yOutputShape =
       gruOp.getResults()[0].getType().cast<ShapedType>().getShape();
-  auto SOut = yOutputShape[0];
-  auto DOut = yOutputShape[1];
-  auto BOut = yOutputShape[2];
-  auto HOut = yOutputShape[3];
   gruOp.getResults()[0].setType(yType);
   gruOp.getResults()[1].setType(yHType);
 
@@ -142,8 +147,8 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
       omTensorDestroy);
   inputs.emplace_back(move(hOmt));
 
-  auto refY = omTensorCreateWithShape<float>({SOut, DOut, BOut, HOut});
-  auto refYh = omTensorCreateWithShape<float>({DOut, BOut, HOut});
+  auto refY = omTensorCreateWithShape<float>({S, D, B, H});
+  auto refYh = omTensorCreateWithShape<float>({D, B, H});
   // Naive GRU implementation.
   // Equations for GRU.
   // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
@@ -160,31 +165,31 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   auto &initialH = inputs.at(4);
 
   // Initialize refYh and refYc.
-  for (int64_t d = 0; d < DOut; d++)
-    for (int64_t b = 0; b < BOut; b++)
-      for (int64_t h = 0; h < HOut; h++)
+  for (int64_t d = 0; d < D; d++)
+    for (int64_t b = 0; b < B; b++)
+      for (int64_t h = 0; h < H; h++)
         omTensorGetElem<float>(refYh, {d, b, h}) =
             omTensorGetElem<float>(initialH.get(), {d, b, h});
 
   // Main computation.
-  for (int64_t d = 0; d < DOut; ++d)
-    for (int64_t s = 0; s < SOut; ++s) {
+  for (int64_t d = 0; d < D; ++d)
+    for (int64_t s = 0; s < S; ++s) {
       int64_t seq = s;
       if (d == 1 || direction == -1)
         // reverse
         seq = S - s - 1;
-      auto XtWz = omTensorCreateWithShape<float>({BOut, HOut});
-      auto XtWr = omTensorCreateWithShape<float>({BOut, HOut});
-      auto XtWh = omTensorCreateWithShape<float>({BOut, HOut});
-      auto HtRz = omTensorCreateWithShape<float>({BOut, HOut});
-      auto HtRr = omTensorCreateWithShape<float>({BOut, HOut});
-      auto HtRh = omTensorCreateWithShape<float>({BOut, HOut});
-      auto RtHt = omTensorCreateWithShape<float>({BOut, HOut});
-      auto RtHtRh = omTensorCreateWithShape<float>({BOut, HOut});
-      auto rt = omTensorCreateWithShape<float>({BOut, HOut});
-      auto zt = omTensorCreateWithShape<float>({BOut, HOut});
-      for (int64_t b = 0; b < BOut; b++)
-        for (int64_t h = 0; h < HOut; h++) {
+      auto XtWz = omTensorCreateWithShape<float>({B, H});
+      auto XtWr = omTensorCreateWithShape<float>({B, H});
+      auto XtWh = omTensorCreateWithShape<float>({B, H});
+      auto HtRz = omTensorCreateWithShape<float>({B, H});
+      auto HtRr = omTensorCreateWithShape<float>({B, H});
+      auto HtRh = omTensorCreateWithShape<float>({B, H});
+      auto RtHt = omTensorCreateWithShape<float>({B, H});
+      auto RtHtRh = omTensorCreateWithShape<float>({B, H});
+      auto rt = omTensorCreateWithShape<float>({B, H});
+      auto zt = omTensorCreateWithShape<float>({B, H});
+      for (int64_t b = 0; b < B; b++)
+        for (int64_t h = 0; h < H; h++) {
           omTensorGetElem<float>(XtWz, {b, h}) = 0;
           omTensorGetElem<float>(XtWr, {b, h}) = 0;
           omTensorGetElem<float>(XtWh, {b, h}) = 0;
@@ -215,8 +220,8 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
           }
         }
 
-      for (int64_t b = 0; b < BOut; b++)
-        for (int64_t h = 0; h < HOut; h++) {
+      for (int64_t b = 0; b < B; b++)
+        for (int64_t h = 0; h < H; h++) {
           // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
           omTensorGetElem<float>(zt, {b, h}) =
               sigmoid(omTensorGetElem<float>(XtWz, {b, h}) +
@@ -239,8 +244,8 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 
       // (rt (.) Ht-1)*(Rh^T)
       if (LinearBeforeReset == 0)
-        for (int64_t b = 0; b < BOut; b++)
-          for (int64_t h = 0; h < HOut; h++) {
+        for (int64_t b = 0; b < B; b++)
+          for (int64_t h = 0; h < H; h++) {
             omTensorGetElem<float>(RtHtRh, {b, h}) = 0;
             for (int64_t k = 0; k < H; k++)
               omTensorGetElem<float>(RtHtRh, {b, h}) +=
@@ -248,8 +253,8 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
                   omTensorGetElem<float>(recurr.get(), {d, h + 2 * H, k});
           }
 
-      for (int64_t b = 0; b < BOut; b++) {
-        for (int64_t h = 0; h < HOut; h++) {
+      for (int64_t b = 0; b < B; b++) {
+        for (int64_t h = 0; h < H; h++) {
           // when linear_before_reset = 0
           //  - ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh) # default
           // when linear_before_reset != 0
@@ -305,8 +310,12 @@ int main(int argc, char *argv[]) {
     const auto H = *rc::gen::inRange(30, 40);
     // LinearBeforeReset.
     const auto L = *rc::gen::element(0, 1);
+    // Whether test dynamic dimension for sequence.
+    const auto isDynS = *rc::gen::element(true, false);
+    // Whether test dynamic dimension for batch size.
+    const auto isDynB = *rc::gen::element(true, false);
 
-    RC_ASSERT(isOMGRUTheSameAsNaiveImplFor(D, S, B, I, H, L));
+    RC_ASSERT(isOMGRUTheSameAsNaiveImplFor(D, S, B, I, H, L, isDynS, isDynB));
   });
 
   // Exhaustive test case generation.
@@ -315,12 +324,21 @@ int main(int argc, char *argv[]) {
       for (int64_t i = 2; i < 5; i++)
         for (int64_t h = 2; h < 5; h++)
           for (int64_t l = 0; l < 2; l++) {
+            // Static dimensions.
             // forward
             assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, l));
             // reverse
             assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, l));
             // bidirectional
             assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l));
+
+            // Dynamic dimensions for sequence, batch size.
+            // forward
+            assert(isOMGRUTheSameAsNaiveImplFor(1, s, b, i, h, l, true, true));
+            // reverse
+            assert(isOMGRUTheSameAsNaiveImplFor(-1, s, b, i, h, l, true, true));
+            // bidirectional
+            assert(isOMGRUTheSameAsNaiveImplFor(2, s, b, i, h, l, true, true));
           }
   return 0;
 }
