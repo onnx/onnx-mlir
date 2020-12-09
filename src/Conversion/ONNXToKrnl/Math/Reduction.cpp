@@ -313,16 +313,34 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     if (computeMean) {
       Type elementType = memRefOutType.getElementType();
       // Compute the divisor that is the number of elements participated in
-      // reduction, i.e., 'divisor = size of input / size of output'
+      // reduction, i.e., 'divisor = size of input / size of output'.
+      // If both size of input and size of output are constants, just emit a
+      // single constant for divisor.
       Value inputSize = getSizeInType(rewriter, loc, input, elementType);
       Value outputSize = getSizeInType(rewriter, loc, alloc, elementType);
       Value divisor;
-      if (elementType.isa<FloatType>())
-        divisor = rewriter.create<DivFOp>(loc, inputSize, outputSize);
-      else if (elementType.isa<IntegerType>())
-        divisor = rewriter.create<SignedDivIOp>(loc, inputSize, outputSize);
-      else
-        llvm_unreachable("unsupported element type");
+      if (isa<ConstantOp>(inputSize.getDefiningOp()) &&
+          isa<ConstantOp>(outputSize.getDefiningOp())) {
+        ConstantOp inConstant = cast<ConstantOp>(inputSize.getDefiningOp());
+        ConstantOp outConstant = cast<ConstantOp>(outputSize.getDefiningOp());
+        if (elementType.isa<FloatType>()) {
+          divisor = emitConstantOp(rewriter, loc, elementType,
+              inConstant.getValue().cast<FloatAttr>().getValueAsDouble() /
+                  outConstant.getValue().cast<FloatAttr>().getValueAsDouble());
+        } else if (elementType.isa<IntegerType>()) {
+          divisor = emitConstantOp(rewriter, loc, elementType,
+              inConstant.getValue().cast<IntegerAttr>().getInt() /
+                  outConstant.getValue().cast<IntegerAttr>().getInt());
+        } else
+          llvm_unreachable("unsupported element type");
+      } else {
+        if (elementType.isa<FloatType>())
+          divisor = rewriter.create<DivFOp>(loc, inputSize, outputSize);
+        else if (elementType.isa<IntegerType>())
+          divisor = rewriter.create<SignedDivIOp>(loc, inputSize, outputSize);
+        else
+          llvm_unreachable("unsupported element type");
+      }
 
       // Compute mean
       BuildKrnlLoop meanLoops(rewriter, loc, outRank);

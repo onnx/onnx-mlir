@@ -886,9 +886,7 @@ func @test_reducemean_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[REDUCE]], [[RES]][%arg1, %arg3] : memref<3x2xf32>
   // CHECK: }
 
-  // CHECK: [[INPUT_SIZE:%.+]] = constant 1.200000e+01 : f32
-  // CHECK: [[OUTPUT_SIZE:%.+]] = constant 6.000000e+00 : f32
-  // CHECK: [[DIVISOR:%.+]] = divf [[INPUT_SIZE]], [[OUTPUT_SIZE]] : f32
+  // CHECK: [[DIVISOR:%.+]] = constant 2.000000e+00 : f32
   // CHECK: [[DEF_MEAN_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) with ([[DEF_MEAN_LOOPS]]#0 -> %arg1 = 0 to 3, [[DEF_MEAN_LOOPS]]#1 -> %arg2 = 0 to 2) {
   // CHECK:   [[LOAD3:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<3x2xf32>
@@ -920,9 +918,7 @@ func @test_reducemean_i32(%arg0 : tensor<3x2x2xi32>) -> tensor<*xi32> {
   // CHECK: affine.store [[REDUCE]], [[RES]][%arg1, %arg3] : memref<3x2xi32>
   // CHECK: }
 
-  // CHECK: [[INPUT_SIZE:%.+]] = constant 12 : i32
-  // CHECK: [[OUTPUT_SIZE:%.+]] = constant 6 : i32
-  // CHECK: [[DIVISOR:%.+]] = divi_signed [[INPUT_SIZE]], [[OUTPUT_SIZE]] : i32
+  // CHECK: [[DIVISOR:%.+]] = constant 2 : i32
   // CHECK: [[DEF_MEAN_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) with ([[DEF_MEAN_LOOPS]]#0 -> %arg1 = 0 to 3, [[DEF_MEAN_LOOPS]]#1 -> %arg2 = 0 to 2) {
   // CHECK:   [[LOAD3:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<3x2xi32>
