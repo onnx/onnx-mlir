@@ -36,7 +36,7 @@ typedef SmallVector<IndexExpr, 4> DimsExpr;
 /// should be performed using a `Compute` function. Return success on successful
 /// computation of all the IndexExpr. During shape inference, object is built
 /// using a null-ptr rewriter; during lowering, the rewriter is nonnull and will
-/// be used to ate code.
+/// be used to generate code.
 template <class OP>
 struct ONNXOpShapeHelper {
   ONNXOpShapeHelper(OP *newOp, ConversionPatternRewriter *rewriter);
@@ -153,4 +153,3 @@ ONNXConstantOp getONNXConstantOp(Value value);
 DenseElementsAttr getDenseElementAttributeFromValue(Value value);
 
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
-
