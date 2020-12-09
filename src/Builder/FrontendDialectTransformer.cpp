@@ -360,12 +360,15 @@ private:
 
     std::vector<mlir::Type> outputTypes;
 
-    // Use the type map to determine the data type of output.
+    // Use the type map or types in input model to determine the data type of
+    // output.
     std::vector<int> outputMap = T::getTypeMap();
     for (auto i = 0; i < node.output().size(); i++) {
       // Optional outputs using empty string.
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
+      } else if (options_.useOnnxModelTypes) {
+        outputTypes.emplace_back(ConvertOnnxType(node.output(i)));
       } else {
         auto j = i;
         // Variadic output is a single ODS result.
@@ -406,27 +409,18 @@ private:
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
 
     // Type inference for results.
-    if (auto opWithTypeInference =
-            mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
-                op.getOperation())) {
-      auto outTypes = opWithTypeInference.resultTypeInference();
-      for (int i = 0; i < node.output().size(); i++) {
-        if (variadicOut)
-          (*(op.getODSResults(0).begin() + i)).setType(outTypes[i]);
-        else
-          (*op.getODSResults(i).begin()).setType(outTypes[i]);
+    if (!options_.useOnnxModelTypes)
+      if (auto opWithTypeInference =
+              mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
+                  op.getOperation())) {
+        auto outTypes = opWithTypeInference.resultTypeInference();
+        for (int i = 0; i < node.output().size(); i++) {
+          if (variadicOut)
+            (*(op.getODSResults(0).begin() + i)).setType(outTypes[i]);
+          else
+            (*op.getODSResults(i).begin()).setType(outTypes[i]);
+        }
       }
-    }
-
-    if (options_.useOnnxModelTypes) {
-      for (int i = 0; i < node.output().size(); i++) {
-        auto mlir_type = ConvertOnnxType(node.output(i));
-        if (variadicOut)
-          (*(op.getODSResults(0).begin() + i)).setType(mlir_type);
-        else
-          (*op.getODSResults(i).begin()).setType(mlir_type);
-      }
-    }
 
     for (int i = 0; i < node.output().size(); i++) {
       if (variadicOut)
