@@ -1353,27 +1353,16 @@ LogicalResult ONNXTransposeOp::inferShapes(
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  // Naive transposition which handles the default case of
-  // reversing the shape of the tensor (similar to numpy.transpose).
-  auto arrayTy = data().getType().cast<RankedTensorType>();
-  SmallVector<int64_t, 2> dims;
-  auto permutation = ONNXTransposeOp::permAttr();
-  if (!permutation) {
-    // Generate revese order for default transpose operation.
-    SmallVector<int64_t, 4> defaultVals;
-    auto builder = mlir::Builder(getContext());
-    auto rank = arrayTy.getShape().size();
-    for (int i = rank - 1; i >= 0; --i)
-      defaultVals.emplace_back(i);
-    // Set default attribute.
-    ArrayRef<int64_t> defaultRefs(defaultVals);
-    permAttr(builder.getI64ArrayAttr(defaultRefs));
-    permutation = permAttr();
-  }
-  // Perform transposition according to perm attribute.
-  for (auto perm : permutation.getValue())
-    dims.emplace_back(arrayTy.getShape()[perm.cast<IntegerAttr>().getInt()]);
-  getResult().setType(RankedTensorType::get(dims, arrayTy.getElementType()));
+  auto elementType = data().getType().cast<ShapedType>().getElementType();
+  ONNXTransposeOpAdaptor operandAdaptor(*this);
+  ONNXTransposeOpShapeHelper shapeHelper(this, nullptr);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan Transpose parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+
   return success();
 }
 
