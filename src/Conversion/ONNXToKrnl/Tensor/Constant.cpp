@@ -12,6 +12,20 @@
 
 using namespace mlir;
 
+bool checkOpResultIsReturned(ONNXConstantOp *constantOp) {
+  FuncOp function = getContainingFunction(constantOp->getOperation());
+
+  bool opIsReturned = false;
+  function.walk([&opIsReturned, constantOp](ReturnOp op) {
+    auto result = constantOp->getResult();
+    for (const auto &operand : op.getOperands())
+      if (operand == result)
+        opIsReturned = true;
+  });
+
+  return opIsReturned;
+}
+
 struct ONNXConstantOpLowering : public ConversionPattern {
   static int constantID;
 
@@ -24,6 +38,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
+
+    printf("Operation is returned: %d\n", checkOpResultIsReturned(&constantOp));
 
     if (constantOp.sparse_value().hasValue())
       return emitError(loc, "Only support dense values at this time");
@@ -47,9 +63,30 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     // Increment constant ID:
     constantID++;
 
-    // Replace this operation with the generated alloc.
-    // rewriter.replaceOp(op, alloc);
-    rewriter.replaceOp(op, constantGlobal.getResult());
+    // Check if the variable is returned.
+    if (checkOpResultIsReturned(&constantOp)) {
+      // In this case, use an AllocOp for the constant since krnl.Global operations
+      // are not mean to be returned.
+      AllocOp alloc = rewriter.create<AllocOp>(loc, memRefType);
+
+      // Compute size in bytes using the input tensor.
+      Value tensorSize = emitConstantOp(rewriter, loc,
+          rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
+      auto numElementsValue = emitConstantOp(
+          rewriter, loc, rewriter.getIntegerType(64), numElements);
+      tensorSize = rewriter.create<MulIOp>(loc, tensorSize, numElementsValue);
+
+      // Copy the value in the AllocOp.
+      //Value data = constantGlobal.value().getValue();
+      rewriter.create<KrnlMemcpyOp>(loc, alloc, constantGlobal.getResult(), tensorSize);
+
+      // Since the value is returned we need to only work with the AllocOp
+      // not the KrnlGlobalOp. Globals cannot be returned.
+      rewriter.replaceOp(op, alloc.getResult());
+    } else {
+      // Replace this operation with the generated krnl.global.
+      rewriter.replaceOp(op, constantGlobal.getResult());
+    }
 
     return success();
   }
