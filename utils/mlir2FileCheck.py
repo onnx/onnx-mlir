@@ -41,6 +41,9 @@ def print_usage():
 ################################################################################
 # Process a def-use chain.
 
+# Associate a color with each line; two lines with the same color are independent
+# and thus are eligible to use a CHECK-DAG.
+
 def process_def_use_chains(line):
     global def_set, line_color, curr_color
     def_qual_pat = re.compile(r'\s+%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?\s+=')
@@ -113,8 +116,8 @@ def record_name_def(orig_name, orig_num, new_name, append_str, num_for_zero, lin
             # We will use the pre-associated name.
             new_name = name_dict[orig_name]
             num_for_zero = 0
-        #else:
-            # A name is already associated, with a refcount; it was a 
+        # else:
+            # A name is already associated, with a refcount; it was a
             # normal use; do nothing special.
             #print("/// warning: name", orig_name, "is redefined at line", line)
 
@@ -286,7 +289,7 @@ def main(argv):
     check = 0
     try:
         opts, args = getopt.getopt(
-            argv, "hdca:n:", ["help", "debug", "check", "args=", "dict="])
+            argv, "hdca:n:", ["help", "debug", "check", "args=", "names="])
     except getopt.GetoptError:
         print_usage()
     for opt, arg in opts:
