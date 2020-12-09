@@ -39,8 +39,6 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
 
-    printf("Operation is returned: %d\n", checkOpResultIsReturned(&constantOp));
-
     if (constantOp.sparse_value().hasValue())
       return emitError(loc, "Only support dense values at this time");
 
