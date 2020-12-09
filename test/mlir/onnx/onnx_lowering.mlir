@@ -13,8 +13,13 @@ func @test_no_argument_2() -> tensor<*xf32> {
 
 // CHECK: test_no_argument_1
 // CHECK-NEXT: test_no_argument_2
-// CHECK: [[RES:%.+]] = "{{.*}}"({{.*}}) {{.*}} : ({{.*}}) -> memref<2x2xf32>
-// CHECK: return [[RES]] : memref<2x2xf32>
+// CHECK: [[GLOBAL:%.+]] = "{{.*}}"({{.*}}) {{.*}} : ({{.*}}) -> memref<2x2xf32>
+// CHECK: [[ALLOC:%.+]] = alloc() : memref<2x2xf32>
+// CHECK: [[CONST_4:%.+]] = constant 4 : i64
+// CHECK: [[CONST_4_0:%.+]] = constant 4 : i64
+// CHECK: [[SIZE:%.+]] = muli [[CONST_4]], [[CONST_4_0]] : i64
+// CHECK: "krnl.memcpy"([[ALLOC]], [[GLOBAL]], [[SIZE]]) : (memref<2x2xf32>, memref<2x2xf32>, i64) -> ()
+// CHECK: return [[ALLOC]] : memref<2x2xf32>
 
 // -----
 
@@ -1666,8 +1671,13 @@ func @test_constant_dense_2d_value(%arg0: tensor<1xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : () -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
   // CHECK-LABEL: test_constant_dense_2d_value
-  // CHECK: [[RES:%.+]] = "krnl.global"() {name = "constant_0", shape = [3, 2], value = dense<{{.*}}[0.000000e+00, 0.000000e+00], [1.000000e+00, 1.100000e+00], [2.000000e+00, 2.100000e+00]{{.*}}> : tensor<3x2xf32>} : () -> memref<3x2xf32>
-  // CHECK: return [[RES]] : memref<3x2xf32>
+  // CHECK: [[GLOBAL:%.+]] = "krnl.global"() {name = "constant_0", shape = [3, 2], value = dense<{{.*}}[0.000000e+00, 0.000000e+00], [1.000000e+00, 1.100000e+00], [2.000000e+00, 2.100000e+00]{{.*}}> : tensor<3x2xf32>} : () -> memref<3x2xf32>
+  // CHECK: [[ALLOC:%.+]] = alloc() : memref<3x2xf32>
+  // CHECK: [[CONST_4:%.+]] = constant 4 : i64
+  // CHECK: [[CONST_6:%.+]] = constant 6 : i64
+  // CHECK: [[SIZE:%.+]] = muli [[CONST_4]], [[CONST_6]] : i64
+  // CHECK: "krnl.memcpy"([[ALLOC]], [[GLOBAL]], [[SIZE]]) : (memref<3x2xf32>, memref<3x2xf32>, i64) -> ()
+  // CHECK: return [[ALLOC]] : memref<3x2xf32>
 }
 
 // -----
