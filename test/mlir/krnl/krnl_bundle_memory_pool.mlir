@@ -99,8 +99,8 @@ func @test_dynamic_pool_bundling(%arg0: memref<?x?xf32>) -> memref<?x10xf32> {
   // CHECK: [[MEMPOOL_SIZE:%.+]] = addi [[OFFSET1]], [[OFFSET2]] : index
   // CHECK: [[OFFSET1_I64:%.+]] = index_cast [[OFFSET1]] : index to i64
   // CHECK: [[DYN_MEMPOOL:%.+]] = alloc([[MEMPOOL_SIZE]]) : memref<?xi8>
-  // CHECK: [[DATA2:%.+]] = "krnl.getref"([[DYN_MEMPOOL]], [[C0_I64]], [[SELECT]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
   // CHECK: [[DATA1:%.+]] = "krnl.getref"([[DYN_MEMPOOL]], [[OFFSET1_I64]], [[DIM]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
+  // CHECK: [[DATA2:%.+]] = "krnl.getref"([[DYN_MEMPOOL]], [[C0_I64]], [[SELECT]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM]]) : memref<?x10xf32>
   // CHECK: affine.store [[CST]], [[DATA1]][0, 0] : memref<?x10xf32>
   // CHECK: affine.store [[CST]], [[DATA2]][0, 0] : memref<?x10xf32>
@@ -170,11 +170,11 @@ func @test_dynamic_and_static_pool_bundling(%arg0: memref<?x?xf32>, %arg1: memre
   // CHECK: [[MEMPOOL_SIZE:%.+]] = addi [[OFFSET1]], [[OFFSET2]] : index
   // CHECK: [[OFFSET1_I64:%.+]] = index_cast [[OFFSET1]] : index to i64
   // CHECK: [[DYN_MEMPOOL:%.+]] = alloc([[MEMPOOL_SIZE]]) : memref<?xi8>
-  // CHECK: [[DATA2:%.+]] = "krnl.getref"([[DYN_MEMPOOL]], [[C0_I64]], [[SELECT]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
   // CHECK: [[DATA1:%.+]] = "krnl.getref"([[DYN_MEMPOOL]], [[OFFSET1_I64]], [[DIM]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
   // CHECK: [[STATIC_MEMPOOL:%.+]] = alloc() : memref<2800xi8>
   // CHECK: [[DATA3:%.+]] = "krnl.getref"([[STATIC_MEMPOOL]], [[C2000_I64]]) : (memref<2800xi8>, i64) -> memref<10x20xf32>
   // CHECK: [[DATA4:%.+]] = "krnl.getref"([[STATIC_MEMPOOL]], [[C1600_I64]]) : (memref<2800xi8>, i64) -> memref<10x10xf32>
+  // CHECK: [[DATA2:%.+]] = "krnl.getref"([[DYN_MEMPOOL]], [[C0_I64]], [[SELECT]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
   // CHECK: [[RES:%.+]] = alloc([[DIM]]) : memref<?x10xf32>
   // CHECK: [[DATA5:%.+]] = "krnl.getref"([[STATIC_MEMPOOL]], [[C0_I64]]) : (memref<2800xi8>, i64) -> memref<10x40xf32>
   // CHECK: affine.store [[CST]], [[DATA1]][0, 0] : memref<?x10xf32>
@@ -458,7 +458,6 @@ func @test_dynamic_pool_rnn(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2xf32>, 
   // CHECK: [[ADD3:%.+]] = addi [[ADD2]], [[DIM1]] : index
   // CHECK: [[OFFSET3:%.+]] = index_cast [[ADD2]] : index to i64
   // CHECK: [[DYNAMIC_MEMORY_POOL:%.+]] = alloc([[ADD3]]) : memref<?xi8>
-  // CHECK: [[DATA1:%.+]] = "krnl.getref"([[DYNAMIC_MEMORY_POOL]], [[C0]]) : (memref<?xi8>, i64) -> memref<f32>
   // CHECK: [[DATA2:%.+]] = "krnl.getref"([[DYNAMIC_MEMORY_POOL]], [[OFFSET3]]) : (memref<?xi8>, i64) -> memref<f32>
   // CHECK: affine.load
   // CHECK: [[DATA3:%.+]] = "krnl.getref"([[DYNAMIC_MEMORY_POOL]], [[OFFSET2]]) : (memref<?xi8>, i64) -> memref<f32>
@@ -467,5 +466,6 @@ func @test_dynamic_pool_rnn(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2xf32>, 
   // CHECK: affine.store
   // CHECK: krnl.define_loops
   // CHECK: krnl.iterate
+  // CHECK: [[DATA1:%.+]] = "krnl.getref"([[DYNAMIC_MEMORY_POOL]], [[C0]]) : (memref<?xi8>, i64) -> memref<f32>
   // CHECK: dealloc [[DYNAMIC_MEMORY_POOL]] : memref<?xi8>
 }
