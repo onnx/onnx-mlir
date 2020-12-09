@@ -638,13 +638,13 @@ test_to_enable_static_dynamic = {
     # Training Dropout
 
     # Transpose
-    "test_transpose_default_cpu": (test_static,),
+    "test_transpose_default_cpu": (test_static_dynamic,),
     "test_transpose_all_permutations_0_cpu": (test_static_dynamic,),
     "test_transpose_all_permutations_1_cpu": (test_static_dynamic,),
-    "test_transpose_all_permutations_2_cpu": (test_static,),
-    "test_transpose_all_permutations_3_cpu": (test_static,),
-    "test_transpose_all_permutations_4_cpu": (test_static,),
-    "test_transpose_all_permutations_5_cpu": (test_static,),
+    "test_transpose_all_permutations_2_cpu": (test_static_dynamic,),
+    "test_transpose_all_permutations_3_cpu": (test_static_dynamic,),
+    "test_transpose_all_permutations_4_cpu": (test_static_dynamic,),
+    "test_transpose_all_permutations_5_cpu": (test_static_dynamic,),
 
     # Unique
 
