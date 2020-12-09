@@ -604,3 +604,48 @@ LogicalResult ONNXConcatOpShapeHelper::Compute(
   dimsForOutput(0) = outputDims;
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// ONNX Transpose Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(
+    ONNXTransposeOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXTransposeOp>(newOp, rewriter) {}
+
+LogicalResult ONNXTransposeOpShapeHelper::Compute(
+    ONNXTransposeOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Basic information.
+  auto rank = operandAdaptor.data().getType().cast<ShapedType>().getRank();
+
+  // Transposition which handles the default case of
+  // reversing the shape of the tensor (similar to numpy.transpose).
+  ArrayAttr permAttr = op->permAttr();
+  if (!permAttr) {
+    // Generate reverse order for default transpose operation.
+    SmallVector<int64_t, 4> defaultVals;
+    auto builder = mlir::Builder(op->getContext());
+    for (int i = rank - 1; i >= 0; --i)
+      defaultVals.emplace_back(i);
+    // Set default attribute.
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    op->permAttr(builder.getI64ArrayAttr(defaultRefs));
+    permAttr = op->permAttr();
+  }
+
+  // Perform transposition according to perm attribute.
+  DimsExpr transposedDims;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    int64_t inputIndex = ArrayAttrIntVal(permAttr, i);
+    IndexExpr inputDim =
+        context.createDimIndexFromShapedType(operandAdaptor.data(), inputIndex);
+    transposedDims.emplace_back(inputDim);
+  }
+
+  // Set type for the first output.
+  dimsForOutput(0) = transposedDims;
+  return success();
+}
