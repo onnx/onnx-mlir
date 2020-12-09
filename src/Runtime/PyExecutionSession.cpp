@@ -72,7 +72,8 @@ std::vector<py::array> PyExecutionSession::pyRun(
 
     auto *inputOMTensor = omTensorCreateWithOwnership(dataPtr,
         (int64_t *)inputPyArray.shape(), inputPyArray.ndim(), dtype, ownData);
-    omTensorSetStrides(inputOMTensor, (int64_t *)inputPyArray.strides());
+    omTensorSetStridesWithPyArrayStrides(
+        inputOMTensor, (int64_t *)inputPyArray.strides());
 
     omts.emplace_back(inputOMTensor);
   }
