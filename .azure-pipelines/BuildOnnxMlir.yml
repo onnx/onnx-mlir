@@ -48,6 +48,15 @@ steps:
       workingDirectory: '$(LLVMBuildDir)'
       cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-mlir'
 
+  # Delete the current build directory. This is a temporary workaround until dependency
+  # issues are resolved, although cost is low since ONNX MLIR builds quickly.
+  - task: DeleteFiles@1
+    displayName: 'Delete ONNX MLIR Build Directory'
+    inputs:
+      SourceFolder: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
+      Contents: '**/*' 
+      RemoveSourceFolder: false
+
   - task: CMake@1
     displayName: 'CMake ONNX MLIR'
     inputs:
