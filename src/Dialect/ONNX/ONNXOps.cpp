@@ -25,9 +25,57 @@
 #include "ONNXOps.hpp"
 #include "ONNXShapeHelper.hpp"
 
+#include <string>
+
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace mlir::onnxmlir;
+
+//===----------------------------------------------------------------------===//
+// ONNX Helper functions for shape helpers
+//===----------------------------------------------------------------------===//
+
+// Handle shapes for operations with a single output.
+template <class SHAPE_HELPER, class OP, class ADAPTOR>
+LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
+
+  SHAPE_HELPER shapeHelper(op, nullptr);
+
+  ADAPTOR operandAdaptor(*op);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return op->emitError("Failed to scan " + OP::getOperationName() +
+                         " parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
+  auto elementType = typeOper.getType().cast<ShapedType>().getElementType();
+  op->getResult().setType(RankedTensorType::get(outputDims, elementType));
+
+  return success();
+}
+
+// Handle shapes for operations with multiple outputs.
+template <class SHAPE_HELPER, class OP, class ADAPTOR>
+LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
+
+  SHAPE_HELPER shapeHelper(op, nullptr);
+
+  ADAPTOR operandAdaptor(*op);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return op->emitError("Failed to scan " + OP::getOperationName() +
+                         " parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
+  auto elementType = typeOper.getType().cast<ShapedType>().getElementType();
+  for (int i = 0; i < op->getNumResults(); ++i) {
+    SmallVector<int64_t, 4> outputDims;
+    IndexExprContext::getOutputDimsForType(
+        shapeHelper.dimsForOutput(i), outputDims);
+    op->getResults()[i].setType(RankedTensorType::get(outputDims, elementType));
+  }
+  return success();
+}
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
@@ -116,13 +164,12 @@ static LogicalResult processConvDilationParam(
   auto dilationsOpt = op->dilations();
   if (dilationsOpt.hasValue()) {
     if (ArrayAttrSize(dilationsOpt) != kernelRank) {
-      return op->emitError(
-          "dialation rank is not the same as the spatial rank");
+      return op->emitError("dilation rank is not the same as the spatial rank");
     }
     // Test values to be greater than 0.
     for (int i = 0; i < kernelRank; ++i) {
       if (ArrayAttrIntVal(dilationsOpt, i) < 1) {
-        return op->emitError("dialation value must be nonzero positive");
+        return op->emitError("dilation value must be nonzero positive");
       }
     }
   } else {
@@ -201,7 +248,7 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
       updatedPad = true;
     }
   } else if (autoPad == "SAME_UPPER" || autoPad == "SAME_LOWER") {
-    // Reload dialtion and strides as they may have gotten default values.
+    // Reload dilation and strides as they may have gotten default values.
     updatedPad = true;
     int64_t dilationVal = 1;
     for (int i = 0; i < kernelRank; ++i) {
@@ -215,17 +262,17 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
       // stride is greater than 1, take the ceil to be sure to have each input
       // value used, as padding will be used to fill the gaps.
       int64_t outputSize = ceil((1.0 * inputSize) / (1.0 * strideVal));
-      // Forumla is from ONNX MaxPool, and can be explained as follows. Pads is
-      // the difference between the needed values for the computations, minus
-      // the input values. The needed values for the computation is the
+      // Formula is from ONNX MaxPool, and can be explained as follows. Pads
+      // is the difference between the needed values for the computations,
+      // minus the input values. The needed values for the computation is the
       // effective side of the kernel plus the number of times we jump to the
-      // next kernel. Number of time we jump is (outputSize - 1). That number is
-      // multiplied with the size of the jump, namely strideVal. Now for the
-      // effective kernel size. It is the kernelSize + the number of times we
-      // have dilation holes time the dialtion. The number of dialtion holes is
-      // (kernelSize -1). Thus the effective size is "kernelSize +
-      // (kernelSize-1)*dialation". This simplifies to "(kernelSize
-      // -1)*dialation + 1".
+      // next kernel. Number of time we jump is (outputSize - 1). That number
+      // is multiplied with the size of the jump, namely strideVal. Now for
+      // the effective kernel size. It is the kernelSize + the number of times
+      // we have dilation holes time the dilation. The number of dilation
+      // holes is (kernelSize -1). Thus the effective size is "kernelSize +
+      // (kernelSize-1)*dilation". This simplifies to "(kernelSize
+      // -1)*dilation + 1".
       auto sumOfPad = (outputSize - 1) * strideVal +
                       ((kernelSize - 1) * dilationVal + 1) - inputSize;
       // Pad values are assumed equal on both size, at half the total value.
@@ -251,7 +298,7 @@ static LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
     ArrayRef<int64_t> defaultRefs(actualPads);
     op->padsAttr(builder.getI64ArrayAttr(defaultRefs));
   }
-  // In all cases now, the acutal pad values are found in the pads attribute.
+  // In all cases now, the actual pad values are found in the pads attribute.
   op->auto_padAttr(builder.getStringAttr("NOTSET"));
   return success();
 }
@@ -1019,16 +1066,8 @@ LogicalResult ONNXMatMulOp::inferShapes(
       !B().getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
 
-  auto elementType = A().getType().cast<ShapedType>().getElementType();
-  ONNXMatMulOpAdaptor operandAdaptor(*this);
-  ONNXMatMulOpShapeHelper shapeHelper(this, nullptr);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
-    return emitError("Failed to scan Silce parameters successfully");
-  SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(
-      shapeHelper.dimsForOutput(0), outputDims);
-  getResult().setType(RankedTensorType::get(outputDims, elementType));
-  return success();
+  return shapeHelperInferShapes<ONNXMatMulOpShapeHelper, ONNXMatMulOp,
+      ONNXMatMulOpAdaptor>(this, A());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1055,14 +1094,14 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
   } else if (lhsShape.size() == 1 && rhsShape.size() == 1) {
     // Special case when both arrays are 1-dimensional and according to
     // numpy rules the types need to be extended to 1xN and Nx1. Helper sizes
-    // need to be removed after the multiplication but cannot be removed if all
-    // sizes are 1.
+    // need to be removed after the multiplication but cannot be removed if
+    // all sizes are 1.
     if (lhsShape[0] != -1 && rhsShape[0] != -1 && lhsShape[0] != rhsShape[0])
       return emitError("Attempt to multiply incompatible matrices");
     dims.emplace_back(1);
   } else if (lhsShape.size() == 1 && rhsShape.size() >= 2) {
-    // If the first argument is 1-D, it is promoted to a matrix by prepending a
-    // 1 to its dimensions. After matrix multiplication the prepended 1 is
+    // If the first argument is 1-D, it is promoted to a matrix by prepending
+    // a 1 to its dimensions. After matrix multiplication the prepended 1 is
     // removed.
     //
     // N MATMUL (s1 x s2 x... x sK x N x P)
@@ -1078,8 +1117,8 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
       dims.emplace_back(rhsShape[i]);
     dims.emplace_back(rhsShape[rhsRank - 1]);
   } else if (lhsShape.size() >= 2 && rhsShape.size() == 1) {
-    // If the second argument is 1-D, it is promoted to a matrix by appending a
-    // 1 to its dimensions. After matrix multiplication the appended 1 is
+    // If the second argument is 1-D, it is promoted to a matrix by appending
+    // a 1 to its dimensions. After matrix multiplication the appended 1 is
     // removed.
     //
     // (s1 x s2 x... x sK x M x N) MATMUL N
@@ -1173,16 +1212,8 @@ LogicalResult ONNXGemmOp::inferShapes(
       (hasBias && !C().getType().isa<RankedTensorType>()))
     return emitError("Input tensor(s) not ranked");
 
-  ONNXGemmOpAdaptor operandAdaptor(*this);
-  ONNXGemmOpShapeHelper shapeHelper(this, nullptr);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
-    return emitError("Failed to scan Silce parameters successfully");
-  SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(
-      shapeHelper.dimsForOutput(0), outputDims);
-  Type elementType = A().getType().cast<ShapedType>().getElementType();
-  getResult().setType(RankedTensorType::get(outputDims, elementType));
-  return success();
+  return shapeHelperInferShapes<ONNXGemmOpShapeHelper, ONNXGemmOp,
+      ONNXGemmOpAdaptor>(this, A());
 }
 
 /// BatchNormalizationTestMode
@@ -1303,7 +1334,7 @@ LogicalResult ONNXReshapeOp::inferShapes(
     // If the number of dynamic inputs is 1 then deduce the missing value
     // based on the total input size. The total input size must be greater
     // than 0 i.e. all constant dimensions.
-    // TODO: Support dynamic input dimensons.
+    // TODO: Support dynamic input dimensions.
     if (numberOfDynamicInputs == 1 && totalKnownDimsSize > 0 &&
         totalInputSize > 0)
       dims[dynamicValueIndex] = totalInputSize / totalKnownDimsSize;
@@ -1473,7 +1504,7 @@ LogicalResult ONNXConvOp::inferShapes(
                        "as weight's first dimension");
   }
 
-  // Note: the value of the group attribut only impacts the way the
+  // Note: the value of the group attribute only impacts the way the
   // computation is carried out and not the actual output size.
 
   // Number of spatial dimensions.
@@ -1601,7 +1632,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
     }
   }
 
-  // Note: the value of the group attribut only impacts the way the
+  // Note: the value of the group attribute only impacts the way the
   // computation is carried out and not the actual output size.
 
   // Number of spatial dimensions.
@@ -1640,7 +1671,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   auto padsOpt = pads();
   auto outputPads = output_padding();
   auto outputShape = output_shape();
-  // TODO: handle the spatial dimension computation if output shape is specified
+  // TODO: handle the spatial dimension computation if output shape is
+  // specified
   assert(!outputShape.hasValue() && "unhandled option in ConvTranspose");
 
   // First two output dimensions consist of the number of batches and the
@@ -1720,7 +1752,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
                        "as weight's first dimension");
   }
 
-  // Note: the value of the group attribut only impacts the way the
+  // Note: the value of the group attribute only impacts the way the
   // computation is carried out and not the actual output size.
 
   // Number of spatial dimensions.
@@ -1795,8 +1827,8 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
   // Kernel shape.
   auto kernelShape = kernel_shape();
   if (!kernelShape)
-    return emitError(
-        "kernel_shape is a mandatory attribute for which there is no default");
+    return emitError("kernel_shape is a mandatory attribute for which there "
+                     "is no default");
 
   // Ceil mode.
   auto ceilMode = ceil_mode();
@@ -1849,8 +1881,8 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
   // Kernel shape.
   auto kernelShape = kernel_shape();
   if (!kernelShape)
-    return emitError(
-        "kernel_shape is a mandatory attribute for which there is no default");
+    return emitError("kernel_shape is a mandatory attribute for which there "
+                     "is no default");
 
   // Storage order.
   auto storageOrder = storage_order();
@@ -2294,19 +2326,8 @@ LogicalResult ONNXSplitOp::inferShapes(
   if (!getOperand().getType().cast<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
-  ONNXSplitOpAdaptor operandAdaptor(*this);
-  ONNXSplitOpShapeHelper shapeHelper(this, nullptr);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
-    return emitError("Failed to scan Split parameters successfully");
-  for (int i = 0; i < getNumResults(); ++i) {
-    SmallVector<int64_t, 4> outputDims;
-    IndexExprContext::getOutputDimsForType(
-        shapeHelper.dimsForOutput(i), outputDims);
-    getResults()[i].setType(RankedTensorType::get(outputDims, elementType));
-  }
-
-  return success();
+  return shapeHelperInferMultipleShapes<ONNXSplitOpShapeHelper, ONNXSplitOp,
+      ONNXSplitOpAdaptor>(this, input());
 }
 
 //===----------------------------------------------------------------------===//
@@ -2498,7 +2519,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
     return emitOpError("Channel dimension mismatch");
   }
 
-  // Note: the value of the group attribut only impacts the way the
+  // Note: the value of the group attribute only impacts the way the
   // computation is carried out and not the actual output size.
 
   // Number of spatial dimensions.
@@ -2598,24 +2619,13 @@ LogicalResult ONNXTileOp::inferShapes(
   if (!repeats().getType().isa<RankedTensorType>())
     return emitError("Repeats tensor not ranked");
 
-  auto inputTensorTy = input().getType().cast<RankedTensorType>();
-  auto repeatsTensorTy = repeats().getType().cast<RankedTensorType>();
-
   // 'repeats' tensor is an 1D tensor.
+  auto repeatsTensorTy = repeats().getType().cast<RankedTensorType>();
   if (repeatsTensorTy.getShape().size() != 1)
     return emitError("Repeats tensor must have rank one");
 
-  auto elementType = input().getType().cast<ShapedType>().getElementType();
-  ONNXTileOpAdaptor operandAdaptor(*this);
-  ONNXTileOpShapeHelper shapeHelper(this, nullptr);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
-    return emitError("Failed to scan Tile parameters successfully");
-  SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(
-      shapeHelper.dimsForOutput(0), outputDims);
-  getResult().setType(RankedTensorType::get(outputDims, elementType));
-
-  return success();
+  return shapeHelperInferShapes<ONNXTileOpShapeHelper, ONNXTileOp,
+      ONNXTileOpAdaptor>(this, input());
 }
 
 //===----------------------------------------------------------------------===//
@@ -2630,17 +2640,8 @@ LogicalResult ONNXGatherOp::inferShapes(
   if (!indices().getType().isa<RankedTensorType>())
     return emitError("Indices tensor not ranked");
 
-  ONNXGatherOpAdaptor operandAdaptor(*this);
-  ONNXGatherOpShapeHelper shapeHelper(this, nullptr);
-  if (failed(shapeHelper.Compute(operandAdaptor)))
-    return emitError("Failed to scan Gather parameters successfully");
-  SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(
-      shapeHelper.dimsForOutput(0), outputDims);
-  Type elementType = data().getType().cast<RankedTensorType>().getElementType();
-  getResult().setType(RankedTensorType::get(outputDims, elementType));
-
-  return success();
+  return shapeHelperInferShapes<ONNXGatherOpShapeHelper, ONNXGatherOp,
+      ONNXGatherOpAdaptor>(this, data());
 }
 
 //===----------------------------------------------------------------------===//
@@ -2651,14 +2652,14 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   Type elementType;
 
-  // 'value' attribute is a one-element tensor whose value and datatype are used
-  // to set the output tensor value and datatype.
+  // 'value' attribute is a one-element tensor whose value and datatype are
+  // used to set the output tensor value and datatype.
   if (value().hasValue()) {
     elementType =
         valueAttr().cast<DenseElementsAttr>().getType().getElementType();
   } else {
-    // If 'value' attribute is not specified, it defaults to a tensor of value 0
-    // and datatype float32.
+    // If 'value' attribute is not specified, it defaults to a tensor of value
+    // 0 and datatype float32.
     elementType = FloatType::getF32(getContext());
 
     llvm::SmallVector<int64_t, 2> dims(1, 1);
@@ -2756,7 +2757,7 @@ LogicalResult ONNXSliceOp::inferShapes(
   ONNXSliceOpAdaptor operandAdaptor(*this);
   ONNXSliceOpShapeHelper shapeHelper(this, nullptr);
   if (failed(shapeHelper.Compute(operandAdaptor)))
-    return emitError("Failed to scan Silce parameters successfully");
+    return emitError("Failed to scan Slice parameters successfully");
   SmallVector<int64_t, 4> outputDims;
   IndexExprContext::getOutputDimsForType(
       shapeHelper.dimsForOutput(0), outputDims);
@@ -2796,7 +2797,7 @@ LogicalResult ONNXExpandOp::inferShapes(
   } else if (mlir::ONNXConstantOp constantOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDef)) {
     // If the shape operand is produced by a onnx.Constant operation, extract
-    // the actual value of the constant and use it as the reqested shape.
+    // the actual value of the constant and use it as the requested shape.
 
     auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
 
@@ -2827,7 +2828,7 @@ LogicalResult ONNXExpandOp::inferShapes(
 
   SmallVector<int64_t, 2> resultShape;
   if (!getBroadcastedShape(lhsShape, rhsShape, resultShape)) {
-    return emitError("Tensor not exapandable");
+    // return emitError("Tensor not expandable");
   }
 
   getResult().setType(RankedTensorType::get(resultShape, elementType));
