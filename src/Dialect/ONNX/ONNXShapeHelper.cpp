@@ -210,8 +210,6 @@ ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(
 
 LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of result.
   DimsExpr outputDims;
 
@@ -309,8 +307,6 @@ ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(
 LogicalResult ONNXMatMulOpShapeHelper::Compute(
     ONNXMatMulOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of result.
   DimsExpr outputDims;
 
@@ -431,8 +427,6 @@ ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(
 LogicalResult ONNXSplitOpShapeHelper::Compute(
     ONNXSplitOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Get info about input and output data.
   int numOfResults = op->getNumResults();
   auto rank = operandAdaptor.input().getType().cast<ShapedType>().getRank();
@@ -506,8 +500,6 @@ ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(
 LogicalResult ONNXGatherOpShapeHelper::Compute(
     ONNXGatherOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Read data and indices shapes as dim indices.
   context.createDimIndicesFromShapedType(operandAdaptor.data(), dataDims);
   context.createDimIndicesFromShapedType(operandAdaptor.indices(), indicesDims);
@@ -582,20 +574,20 @@ LogicalResult ONNXConcatOpShapeHelper::Compute(
     axisIndex = commonRank + axisIndex;
   }
 
-  IndexExpr cummulativeAxisSize = context.createLiteralIndex(0);
+  IndexExpr cumulativeAxisSize = context.createLiteralIndex(0);
 
   for (int i = 0; i < inputNum; ++i) {
     Value currentInput = operandAdaptor.getODSOperands(0)[i];
     IndexExpr currentSize =
         context.createDimIndexFromShapedType(currentInput, axisIndex);
-    cummulativeAxisSize = cummulativeAxisSize + currentSize;
+    cumulativeAxisSize = cumulativeAxisSize + currentSize;
   }
 
   DimsExpr outputDims;
   outputDims.resize(commonRank);
   for (int i = 0; i < commonRank; i++) {
     if (i == axisIndex) {
-      outputDims[i] = cummulativeAxisSize;
+      outputDims[i] = cumulativeAxisSize;
     } else {
       outputDims[i] = context.createDimIndexFromShapedType(firstInput, i);
     }
