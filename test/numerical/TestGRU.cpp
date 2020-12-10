@@ -102,11 +102,6 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
       /*linear_before_reset=*/linearBeforeResetAttr);
 
-  // Use the gruOp shape inference method to compute output shape, and unset
-  // the shape so that we don't leave IR in an inconsistent state.
-  gruOp.inferShapes([](mlir::FuncOp) {});
-  auto yOutputShape =
-      gruOp.getResults()[0].getType().cast<ShapedType>().getShape();
   gruOp.getResults()[0].setType(yType);
   gruOp.getResults()[1].setType(yHType);
 

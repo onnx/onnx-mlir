@@ -111,11 +111,6 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
       /*input_forget=*/inputForgetAttr);
 
-  // Use the lstmOp shape inference method to compute output shape, and unset
-  // the shape so that we don't leave IR in an inconsistent state.
-  lstmOp.inferShapes([](mlir::FuncOp) {});
-  auto yOutputShape =
-      lstmOp.getResults()[0].getType().cast<ShapedType>().getShape();
   lstmOp.getResults()[0].setType(yType);
   lstmOp.getResults()[1].setType(yHType);
   lstmOp.getResults()[2].setType(yCType);

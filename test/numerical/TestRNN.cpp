@@ -95,11 +95,6 @@ bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
       /*activations=*/activationsAttr, /*clip=*/FloatAttr(),
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr);
 
-  // Use the rnnOp shape inference method to compute output shape, and unset
-  // the shape so that we don't leave IR in an inconsistent state.
-  rnnOp.inferShapes([](mlir::FuncOp) {});
-  auto yOutputShape =
-      rnnOp.getResults()[0].getType().cast<ShapedType>().getShape();
   rnnOp.getResults()[0].setType(yType);
   rnnOp.getResults()[1].setType(yHType);
 
