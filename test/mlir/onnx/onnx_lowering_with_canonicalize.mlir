@@ -518,8 +518,7 @@ func @test_tile2(%arg0 : tensor<8xf32>, %arg1 : tensor<1xi64>) -> tensor<*xf32> 
 // CHECK:           [[VAR_2:%.+]] = affine.apply #map1(){{.}}[[VAR_1]]{{.}}
 // CHECK-DAG:       [[VAR_3:%.+]] = alloc([[VAR_2]]) : memref<?xf32>
 // CHECK-DAG:       [[VAR_4:%.+]] = krnl.define_loops 1
-// CHECK-DAG:       [[VAR_5:%.+]] = affine.apply #map1(){{.}}[[VAR_1]]{{.}}
-// CHECK:           krnl.iterate([[VAR_4]]) with ([[VAR_4]] -> [[VAR_arg2:%.+]] = 0 to [[VAR_5]]) {
+// CHECK:           krnl.iterate([[VAR_4]]) with ([[VAR_4]] -> [[VAR_arg2:%.+]] = 0 to [[VAR_2]]) {
 // CHECK:             [[VAR_6:%.+]] = affine.load [[VAR_arg0]][symbol([[VAR_arg2]]) mod 8] : memref<8xf32>
 // CHECK:             affine.store [[VAR_6]], [[VAR_3]][symbol([[VAR_arg2]])] : memref<?xf32>
 // CHECK:           }
