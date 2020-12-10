@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "mlir/IR/Module.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "llvm/Support/FileSystem.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"

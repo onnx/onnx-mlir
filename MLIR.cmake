@@ -142,6 +142,8 @@ find_mlir_lib(MLIRAffineUtils)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAffineTransforms)
 find_mlir_lib(MLIRAnalysis)
+find_mlir_lib(MLIRAVX512)
+find_mlir_lib(MLIRAVX512ToLLVM)
 find_mlir_lib(MLIRCallInterfaces)
 find_mlir_lib(MLIRControlFlowInterfaces)
 find_mlir_lib(MLIRCopyOpInterface)
@@ -150,6 +152,7 @@ find_mlir_lib(MLIREDSC)
 find_mlir_lib(MLIRExecutionEngine)
 find_mlir_lib(MLIRInferTypeOpInterface)
 find_mlir_lib(MLIRIR)
+find_mlir_lib(MLIRLLVMAVX512)
 find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
 find_mlir_lib(MLIRSCFToStandard)
@@ -165,6 +168,9 @@ find_mlir_lib(MLIRLLVMIRTransforms)
 find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRParser)
 find_mlir_lib(MLIRPass)
+find_mlir_lib(MLIRPDL)
+find_mlir_lib(MLIRPDLInterp)
+find_mlir_lib(MLIRPDLToPDLInterp)
 find_mlir_lib(MLIRRewrite)
 find_mlir_lib(MLIRStandard)
 find_mlir_lib(MLIRStandardOpsTransforms)
@@ -194,7 +200,6 @@ find_mlir_lib(MLIRAffineEDSC)
 find_mlir_lib(MLIRLinalgEDSC)
 find_mlir_lib(MLIRViewLikeInterface)
 find_mlir_lib(MLIRPresburger)
-find_mlir_lib(MLIRRewrite)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -218,7 +223,10 @@ set(MLIRLibs
         ${MLIRAffineToStandard}
         ${MLIRAffine}
         ${MLIRAffineUtils}
+        ${MLIRAVX512ToLLVM}
+        ${MLIRAVX512}
         ${MLIRCopyOpInterface}
+        ${MLIRLLVMAVX512}
         ${MLIRLLVMIR}
         ${MLIRStandard}
         ${MLIRStandardOpsTransforms}
@@ -243,11 +251,9 @@ set(MLIRLibs
         ${MLIRAffine}
         ${MLIRAffineToStandard}
         ${MLIRAffineTransforms}
-        ${MLIRAnalysis}
         ${MLIRCallInterfaces}
         ${MLIRControlFlowInterfaces}
         ${MLIRDialect}
-        ${MLIREDSC}
         ${MLIRExecutionEngine}
         ${MLIRIR}
         ${MLIRLLVMIRTransforms}
@@ -264,6 +270,7 @@ set(MLIRLibs
         ${MLIRTranslation}
         ${MLIRSupport}
         ${MLIRLinalg}
+        ${MLIREDSC}
         ${MLIRLinalgEDSC}
         ${MLIRLinalgAnalysis}
         ${MLIRLinalgTransforms}
@@ -277,6 +284,10 @@ set(MLIRLibs
         ${MLIRShapeToStandard}
         ${MLIRInferTypeOpInterface}
         ${MLIRRewrite}
+        ${MLIRAnalysis}
+        ${MLIRPDLInterp}
+        ${MLIRPDLToPDLInterp}
+        ${MLIRPDL}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}

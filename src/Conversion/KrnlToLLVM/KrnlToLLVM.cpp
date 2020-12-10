@@ -178,9 +178,9 @@ public:
     auto memRefTy = type.cast<mlir::MemRefType>();
 
     auto llvmMemRefType =
-        typeConverter.convertType(type).cast<LLVM::LLVMType>();
+        typeConverter->convertType(type).cast<LLVM::LLVMType>();
     auto outputElementType =
-        typeConverter.convertType(memRefTy.getElementType());
+        typeConverter->convertType(memRefTy.getElementType());
 
     // This is the start of the memory pool containing the output MemRef.
     Type memPoolType = operandAdaptor.mempool()
@@ -193,7 +193,7 @@ public:
     // Get pointer using the offset.
     auto offset = operandAdaptor.offset();
     auto llvmMemPoolType =
-        typeConverter.convertType(memPoolType).cast<LLVM::LLVMType>();
+        typeConverter->convertType(memPoolType).cast<LLVM::LLVMType>();
     auto outputMemPoolTypePtrAlloc = rewriter.create<LLVM::GEPOp>(
         loc, llvmMemPoolType, alignedMemPoolBase, ArrayRef<Value>({offset}));
 
@@ -207,7 +207,7 @@ public:
     if (hasAllConstantDimensions(memRefTy)) {
       // Create llvm MemRef from original MemRef and fill the data pointers.
       auto llvmMemRef = MemRefDescriptor::fromStaticShape(
-          rewriter, loc, typeConverter, memRefTy, outputTypedPtrAlloc);
+          rewriter, loc, *getTypeConverter(), memRefTy, outputTypedPtrAlloc);
 
       rewriter.replaceOp(op, {llvmMemRef});
       return success();
@@ -224,7 +224,7 @@ public:
     assert(succeeded(successStrides) && "unexpected non-strided memref");
 
     // Create the memRef descriptor.
-    auto structType = typeConverter.convertType(memRefTy);
+    auto structType = typeConverter->convertType(memRefTy);
     auto memRefDescriptor = MemRefDescriptor::undef(rewriter, loc, structType);
 
     // Allocated pointer, used for malloc/free.
@@ -321,11 +321,11 @@ public:
     auto type = op->getResult(0).getType();
     auto memRefTy = type.cast<mlir::MemRefType>();
     auto llvmMemRefType =
-        typeConverter.convertType(type).cast<LLVM::LLVMType>();
+        typeConverter->convertType(type).cast<LLVM::LLVMType>();
 
     // The element type of the array.
     auto constantElementType =
-        typeConverter.convertType(memRefTy.getElementType());
+        typeConverter->convertType(memRefTy.getElementType());
     auto globalType = constantElementType;
     for (int i = shape.size() - 1; i >= 0; i--)
       globalType = LLVM::LLVMType::getArrayTy(
@@ -413,7 +413,7 @@ public:
 
     // Create llvm MemRef from original MemRef and fill the data pointers.
     auto llvmMemRef = MemRefDescriptor::fromStaticShape(
-        rewriter, loc, typeConverter, memRefTy, typedAlloc);
+        rewriter, loc, *getTypeConverter(), memRefTy, typedAlloc);
 
     rewriter.replaceOp(op, {llvmMemRef});
     return success();

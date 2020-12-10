@@ -2,8 +2,9 @@
 
 // ----
 
-func private @test_no_argument_1() -> () {
-}
+// ISSUE-TODO-stilis-2020/12/9: Remove test_no_argument_1 from the test - empty function body is no longer
+// supported in mlir: https://reviews.llvm.org/D91886
+// The proper fix for this should come from onnx based on how they decide to resolve this test
 
 func private @test_no_argument_2() -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value =  dense<[[1.000000e+0, 2.000000e+00], [3.000000e+00, 4.000000e+00]]> : tensor<2x2xf32>} : () -> tensor<*xf32>
@@ -11,8 +12,7 @@ func private @test_no_argument_2() -> tensor<*xf32> {
 
 }
 
-// CHECK: test_no_argument_1
-// CHECK-NEXT: test_no_argument_2
+// CHECK: test_no_argument_2
 // CHECK: [[RES:%.+]] = "{{.*}}"({{.*}}) {{.*}} : ({{.*}}) -> memref<2x2xf32>
 // CHECK: return [[RES]] : memref<2x2xf32>
 
