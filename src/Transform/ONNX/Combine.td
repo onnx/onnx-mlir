@@ -91,9 +91,9 @@ def FuseTransposePattern:  Pat<
 
 def RemoveIdentityTransposePattern:  Pat<
   // Transpose with an identity pattern (e.g. {0, 1, 2, 3}).
-  (ONNXTransposeOp $v, $p),
+  (ONNXTransposeOp $val, $p),
   // Remove the transpose.
-  (replaceWithValue $v),
+  (replaceWithValue $val),
   // Check that we have indeed a identity transpose pattern.
   [(IsIdentityPermuteAttribute:$p)]>;
 

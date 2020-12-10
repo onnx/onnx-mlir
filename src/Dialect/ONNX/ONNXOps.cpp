@@ -2167,7 +2167,7 @@ LogicalResult ONNXCastOp::inferShapes(
 
   mlir::Type targetType = this->getAttr("to").cast<::mlir::TypeAttr>().getValue();
   OpBuilder builder(getContext());
-  getResult().setType(targetType);
+  getResult().setType(getOutputType(targetType));
   return success();
 }
 
