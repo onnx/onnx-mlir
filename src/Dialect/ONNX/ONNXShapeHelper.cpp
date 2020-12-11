@@ -80,17 +80,42 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
   // folding over the other operands along the current dimension index.
   for (int64_t i = 1; i < numOfInputs; ++i) {
     for (int64_t j = 0; j < outputRank; ++j) {
+      // Set the output dimension based on the two dimension values.
+      // Dimension value can be one of 1, QuestionMark, LiteralNot1.
       IndexExpr currentDimExpr = dimsExpr[j];
       IndexExpr nextDimExpr = inputsDims[i][j];
 
-      // If both dimensions are literal other than 1, they must be the same.
-      if (currentDimExpr.isLiteralAndDifferentThan(1) &&
-          nextDimExpr.isLiteralAndDifferentThan(1)) {
-        assert(currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr));
+      // 1 - QuestionMark
+      // 1 - LiteralNot1
+      // 1 - 1
+      if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
+        dimsExpr[j] = nextDimExpr;
         continue;
       }
 
-      // Calculate a broadcasted dimension.
+      if (currentDimExpr.isLiteralAndDifferentThan(1)) {
+        // LiteralNot1 - LiteralNot1 => keep unchanged with verifying.
+        if (nextDimExpr.isLiteralAndDifferentThan(1))
+          assert(currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr));
+        // Keep unchanged wihout verifying:
+        //   - LiteralNot1 - QuestionMark
+        //   - LiteralNot1 - 1
+        continue;
+      }
+
+      // QuestionMark - 1 => keep unchanged.
+      if (currentDimExpr.isQuestionmark() &&
+          nextDimExpr.isLiteralAndIdenticalTo(1))
+        continue;
+
+      // QuestionMark - LiteralNot1 => set to LiteralNot1 without verifying.
+      if (currentDimExpr.isQuestionmark() &&
+          nextDimExpr.isLiteralAndDifferentThan(1)) {
+        dimsExpr[j] = nextDimExpr;
+        continue;
+      }
+
+      // QuestionMark - QuestionMark
       SmallVector<IndexExpr, 2> exprs({currentDimExpr, nextDimExpr});
       dimsExpr[j] = IndexExpr::max(exprs);
     }
