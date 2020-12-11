@@ -554,12 +554,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
 
-    // If the output has a dynamic dimension, pass the operands required for
-    // each dynamic dimension to the AllocOp. The first operand of the
-    // operation is used. The operands of the op need to match in terms of
-    // dimensions with the result at this pre-optimization phase.
-    // TODO: verify that dimensions match.
-    // TODO: can the dimension of the result differ after optimizations?
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
 
@@ -567,7 +561,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
     else
       alloc =
-          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, {X});
+          insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, X);
 
     SmallVector<Value, 4> loopIVs;
     // Only create krnl.iterate if one of the operands is not scalar tensor.
