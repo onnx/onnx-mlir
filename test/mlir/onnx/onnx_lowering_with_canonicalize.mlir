@@ -665,6 +665,39 @@ func @test_split_unknown_dimension_equal_split(%arg0 : tensor<?x?x64xf32>) -> (t
 
 // -----
 
+/// Check computing the divisor in ReduceMean
+/// when the input has unknown dimensions and is of i32.
+func @test_reducemean_i32_unknown_dims(%arg0 : tensor<3x?x2xi32>) -> tensor<*xi32> {
+  %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xi32>)-> tensor<*xi32>
+  "std.return"(%0) : (tensor<*xi32>) -> ()
+  // CHECK-LABEL: test_reducemean_i32_unknown_dims
+  // CHECK: [[ONE:%.+]] = constant 1 : index
+  // CHECK: krnl.iterate
+  // CHECK: krnl.iterate
+  // CHECK: [[DIM:%.+]] = dim %arg0, [[ONE]] : memref<3x?x2xi32>
+  // CHECK: [[DIVISOR:%.+]] = index_cast [[DIM]] : index to i32
+  // CHECK: krnl.iterate
+}
+
+// -----
+
+/// Check computing the divisor in ReduceMean
+/// when the input has unknown dimensions and is of f32.
+func @test_reducemean_f32_unknown_dims(%arg0 : tensor<3x?x2xf32>) -> tensor<*xf32> {
+  %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xf32>)-> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+  // CHECK-LABEL: test_reducemean_f32_unknown_dims
+  // CHECK: [[ONE:%.+]] = constant 1 : index
+  // CHECK: krnl.iterate
+  // CHECK: krnl.iterate
+  // CHECK: [[DIM:%.+]] = dim %arg0, [[ONE]] : memref<3x?x2xf32>
+  // CHECK: [[UNKNOWN_DIM_i64:%.+]] = index_cast [[DIM]] : index to i64
+  // CHECK: [[DIVISOR:%.+]] = uitofp [[UNKNOWN_DIM_i64]] : i64 to f32
+  // CHECK: krnl.iterate
+}
+
+// -----
+
 // COM: Check the template for lowering binary operations whose output type can be different from its input type.
 func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5xf32>, %arg1: tensor<3x4x1xf32>) -> tensor<3x4x5xi1> {
   %0 = "onnx.Less"(%arg0, %arg1) : (tensor<?x4x5xf32>, tensor<3x4x1xf32>) -> tensor<3x4x5xi1>
