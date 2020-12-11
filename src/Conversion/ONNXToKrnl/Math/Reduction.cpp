@@ -62,44 +62,6 @@ struct ScalarOp<ONNXReduceMeanOp> {
   using IOp = AddIOp;
 };
 
-/// Helper function to get the size of a MemRef in a given type.
-Value getSizeInType(ConversionPatternRewriter &rewriter, Location loc,
-    Value memRef, Type elementType) {
-  auto shape = memRef.getType().cast<MemRefType>().getShape();
-
-  // We accumulate static dimensions first and then unknown dimensions.
-  int64_t staticNumElement = 1;
-  bool allStaticDimensions = true;
-
-  // 1. Static dimensions.
-  for (unsigned i = 0; i < shape.size(); i++) {
-    if (shape[i] != -1)
-      staticNumElement *= shape[i];
-    else
-      allStaticDimensions = false;
-  }
-  //  2. Unknown dimensions.
-  Value sizeVal = emitConstantOp(rewriter, loc, elementType, staticNumElement);
-  if (!allStaticDimensions) {
-    for (unsigned i = 0; i < shape.size(); i++) {
-      if (shape[i] == -1) {
-        Value index = rewriter.create<DimOp>(loc, memRef, i);
-        if (elementType.isa<FloatType>()) {
-          Value dim =
-              rewriter.create<IndexCastOp>(loc, index, rewriter.getI64Type());
-          dim = rewriter.create<UIToFPOp>(loc, dim, elementType);
-          sizeVal = rewriter.create<MulFOp>(loc, sizeVal, dim);
-        } else if (elementType.isa<IntegerType>()) {
-          Value dim = rewriter.create<IndexCastOp>(loc, index, elementType);
-          sizeVal = rewriter.create<MulIOp>(loc, sizeVal, dim);
-        } else
-          llvm_unreachable("unsupported element type");
-      }
-    }
-  }
-  return sizeVal;
-}
-
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXReduceMaxOp
 //===----------------------------------------------------------------------===//
@@ -313,15 +275,27 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     if (computeMean) {
       Type elementType = memRefOutType.getElementType();
       // Compute the divisor that is the number of elements participated in
-      // reduction, i.e., 'divisor = size of input / size of output'
-      Value inputSize = getSizeInType(rewriter, loc, input, elementType);
-      Value outputSize = getSizeInType(rewriter, loc, alloc, elementType);
-      Value divisor;
-      if (elementType.isa<FloatType>())
-        divisor = rewriter.create<DivFOp>(loc, inputSize, outputSize);
-      else if (elementType.isa<IntegerType>())
-        divisor = rewriter.create<SignedDivIOp>(loc, inputSize, outputSize);
-      else
+      // reduction, i.e., 'divisor = size of input / size of output'.
+      IndexExprContext context(&rewriter, loc);
+      IndexExpr inputSizeExpr = context.createLiteralIndex(1);
+      for (unsigned i = 0; i < inRank; i++) {
+        IndexExpr dimExpr = context.createDimIndexFromShapedType(input, i);
+        inputSizeExpr = inputSizeExpr * dimExpr;
+      }
+      IndexExpr outputSizeExpr = context.createLiteralIndex(1);
+      for (unsigned i = 0; i < outRank; i++) {
+        IndexExpr dimExpr = context.createDimIndexFromShapedType(alloc, i);
+        outputSizeExpr = outputSizeExpr * dimExpr;
+      }
+      IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
+      Value divisor = divisorExpr.getValue();
+      if (elementType.isa<FloatType>()) {
+        divisor = rewriter.create<IndexCastOp>(
+            loc, divisor, rewriter.getIntegerType(64));
+        divisor = rewriter.create<UIToFPOp>(loc, elementType, divisor);
+      } else if (elementType.isa<IntegerType>()) {
+        divisor = rewriter.create<IndexCastOp>(loc, divisor, elementType);
+      } else
         llvm_unreachable("unsupported element type");
 
       // Compute mean

@@ -891,9 +891,9 @@ func @test_reducemean_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: affine.store [[REDUCE]], [[RES]][%arg1, %arg3] : memref<3x2xf32>
   // CHECK: }
 
-  // CHECK: [[INPUT_SIZE:%.+]] = constant 1.200000e+01 : f32
-  // CHECK: [[OUTPUT_SIZE:%.+]] = constant 6.000000e+00 : f32
-  // CHECK: [[DIVISOR:%.+]] = divf [[INPUT_SIZE]], [[OUTPUT_SIZE]] : f32
+  // CHECK: [[DIVISOR_INDEX:%.+]] = constant 2 : index 
+  // CHECK: [[DIVISOR_i64:%.+]] = index_cast [[DIVISOR_INDEX]] : index to i64
+  // CHECK: [[DIVISOR:%.+]] = uitofp [[DIVISOR_i64]] : i64 to f32
   // CHECK: [[DEF_MEAN_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) with ([[DEF_MEAN_LOOPS]]#0 -> %arg1 = 0 to 3, [[DEF_MEAN_LOOPS]]#1 -> %arg2 = 0 to 2) {
   // CHECK:   [[LOAD3:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<3x2xf32>
@@ -925,9 +925,8 @@ func @test_reducemean_i32(%arg0 : tensor<3x2x2xi32>) -> tensor<*xi32> {
   // CHECK: affine.store [[REDUCE]], [[RES]][%arg1, %arg3] : memref<3x2xi32>
   // CHECK: }
 
-  // CHECK: [[INPUT_SIZE:%.+]] = constant 12 : i32
-  // CHECK: [[OUTPUT_SIZE:%.+]] = constant 6 : i32
-  // CHECK: [[DIVISOR:%.+]] = divi_signed [[INPUT_SIZE]], [[OUTPUT_SIZE]] : i32
+  // CHECK: [[DIVISOR_INDEX:%.+]] = constant 2 : index 
+  // CHECK: [[DIVISOR:%.+]] = index_cast [[DIVISOR_INDEX]] : index to i32
   // CHECK: [[DEF_MEAN_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) with ([[DEF_MEAN_LOOPS]]#0 -> %arg1 = 0 to 3, [[DEF_MEAN_LOOPS]]#1 -> %arg2 = 0 to 2) {
   // CHECK:   [[LOAD3:%.+]] = affine.load [[RES]][%arg1, %arg2] : memref<3x2xi32>
@@ -935,41 +934,6 @@ func @test_reducemean_i32(%arg0 : tensor<3x2x2xi32>) -> tensor<*xi32> {
   // CHECK:   affine.store [[MEAN]], [[RES]][%arg1, %arg2] : memref<3x2xi32>
   // CHECK: }
   // CHECK: return [[RES]] : memref<3x2xi32>
-}
-
-// -----
-
-/// Check computing the divisor in ReduceMean
-/// when the input has unknown dimensions and is of i32.
-func @test_reducemean_i32_unknown_dims(%arg0 : tensor<3x?x2xi32>) -> tensor<*xi32> {
-  %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xi32>)-> tensor<*xi32>
-  "std.return"(%0) : (tensor<*xi32>) -> ()
-  // CHECK-LABEL: test_reducemean_i32_unknown_dims
-  // CHECK: [[INPUT_SIZE_CONSTANT:%.+]] = constant 6 : i32
-  // CHECK: [[ONE:%.+]] = constant 1 : index
-  // CHECK: [[DIM:%.+]] = dim %arg0, [[ONE]] : memref<3x?x2xi32>
-  // CHECK: [[UNKNOWN_DIM:%.+]] = index_cast [[DIM]] : index to i32
-  // CHECK: [[INPUT_SIZE:%.+]] = muli [[INPUT_SIZE_CONSTANT]], [[UNKNOWN_DIM]] : i32
-  // CHECK: [[OUTPUT_SIZE:%.+]] = constant 6 : i32
-  // CHECK: [[DIVISOR:%.+]] = divi_signed [[INPUT_SIZE]], [[OUTPUT_SIZE]] : i32
-}
-
-// -----
-
-/// Check computing the divisor in ReduceMean
-/// when the input has unknown dimensions and is of f32.
-func @test_reducemean_f32_unknown_dims(%arg0 : tensor<3x?x2xf32>) -> tensor<*xf32> {
-  %0 ="onnx.ReduceMean"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x?x2xf32>)-> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-  // CHECK-LABEL: test_reducemean_f32_unknown_dims
-  // CHECK: [[INPUT_SIZE_CONSTANT:%.+]] = constant 6.000000e+00 : f32
-  // CHECK: [[ONE:%.+]] = constant 1 : index
-  // CHECK: [[DIM:%.+]] = dim %arg0, [[ONE]] : memref<3x?x2xf32>
-  // CHECK: [[UNKNOWN_DIM_i64:%.+]] = index_cast [[DIM]] : index to i64
-  // CHECK: [[UNKNOWN_DIM:%.+]] = uitofp [[UNKNOWN_DIM_i64]] : i64 to f32
-  // CHECK: [[INPUT_SIZE:%.+]] = mulf [[INPUT_SIZE_CONSTANT]], [[UNKNOWN_DIM]] : f32
-  // CHECK: [[OUTPUT_SIZE:%.+]] = constant 6.000000e+00 : f32
-  // CHECK: [[DIVISOR:%.+]] = divf [[INPUT_SIZE]], [[OUTPUT_SIZE]] : f32
 }
 
 // -----
