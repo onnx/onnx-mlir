@@ -38,6 +38,89 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
 }
 
 //===----------------------------------------------------------------------===//
+// ONNX Op Shape Helper for Broadcasting
+//===----------------------------------------------------------------------===//
+
+ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
+    ConversionPatternRewriter *rewriter, Location loc)
+    : context(rewriter, loc) {}
+
+LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
+  // A temporary IndexExpr vector for the output.
+  DimsExpr dimsExpr;
+  int numOfInputs = operands.size();
+
+  // Compute rank of the output. Rank of the output is the maximum rank of all
+  // operands.
+  for (int64_t i = 0; i < numOfInputs; ++i) {
+    int64_t r = operands[i].getType().cast<ShapedType>().getRank();
+    outputRank = std::max(outputRank, r);
+  }
+  dimsExpr.resize(outputRank);
+
+  // Prepare dims for every input. Prepend 1s if the input's shape has smaller
+  // rank, so that all the shapes have the same rank.
+  for (int64_t i = 0; i < numOfInputs; ++i) {
+    DimsExpr dims;
+    int64_t r = operands[i].getType().cast<ShapedType>().getRank();
+    // Prepend 1s.
+    for (int64_t k = 0; k < outputRank - r; ++k)
+      dims.emplace_back(context.createLiteralIndex(1));
+    // Get from the input.
+    for (int64_t k = outputRank - r; k < outputRank; ++k)
+      dims.emplace_back(context.createDimIndexFromShapedType(
+          operands[i], k - outputRank + r));
+    inputsDims.emplace_back(dims);
+  }
+
+  // Initialize the output with the first operand.
+  dimsExpr = inputsDims[0];
+
+  // Now compute each broadcasted dimension for the output.
+  // folding over the other operands along the current dimension index.
+  for (int64_t i = 1; i < numOfInputs; ++i) {
+    for (int64_t j = 0; j < outputRank; ++j) {
+      IndexExpr currentDimExpr = dimsExpr[j];
+      IndexExpr nextDimExpr = inputsDims[i][j];
+
+      // If both dimensions are literal other than 1, they must be the same.
+      if (currentDimExpr.isLiteralAndDifferentThan(1) &&
+          nextDimExpr.isLiteralAndDifferentThan(1)) {
+        assert(currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr));
+        continue;
+      }
+
+      // Calculate a broadcasted dimension.
+      SmallVector<IndexExpr, 2> exprs({currentDimExpr, nextDimExpr});
+      dimsExpr[j] = IndexExpr::max(exprs);
+    }
+  }
+
+  // Set the final output.
+  outputDims = dimsExpr;
+
+  return success();
+}
+
+LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(
+    IndexExprContext &outerContext, Value operand, unsigned operandIndex,
+    const SmallVectorImpl<IndexExpr> &outputAccessExprs,
+    SmallVectorImpl<IndexExpr> &operandAccessExprs) {
+  auto operandRank = operand.getType().cast<ShapedType>().getRank();
+  for (decltype(operandRank) i = 0; i < operandRank; ++i) {
+    // Shape helper may pretend 1s, thus adjust dimension index accordingly.
+    auto dimIndex = outputRank - operandRank + i;
+    IndexExpr dim = outerContext.createSymbolIndexFromParentContext(
+        inputsDims[operandIndex][dimIndex]);
+    // Compute access index based on broadcasting rules.
+    operandAccessExprs.emplace_back(
+        IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
+  }
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX Slice Op Shape Helper
 //===----------------------------------------------------------------------===//
 

@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -547,9 +548,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       : ConversionPattern(ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    // TODO: Check that the types are valid.
-    // An element-wise unary operation must have all operands and the result of
-    // the same type. This should have been verified by the verifier.
     auto loc = op->getLoc();
     auto X = operands[0];
 
@@ -572,6 +570,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
           insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc, {X});
 
     SmallVector<Value, 4> loopIVs;
+    // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
       // Create iterateOp & get block within iterate op.
       BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
@@ -609,70 +608,53 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     auto numArgs = op->getNumOperands();
+    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    auto outputElementType = outputMemRefType.getElementType();
+    auto outputRank = outputMemRefType.getRank();
+
+    // Shape helper.
+    ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
+    assert(succeeded(shapeHelper.Compute(operands)));
+    IndexExprContext outerContext(shapeHelper.context);
 
     // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
 
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-    // If the output has a dynamic dimension, we compute its dimension at
-    // runtime by using dimensions from the operands.
-    // In particular, we need to know from which operand a result dimension
-    // comes from.
-    // TODO: can the dimension of the result differ after optimizations?
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, operands);
-
-    SmallVector<Value, 4> loopIVs;
-    std::map<int, std::map<int, Value>> broadcastedDimInfo;
+    // Emit main computation.
+    SmallVector<IndexExpr, 4> outputAccessExprs;
+    // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      // Get run-time dimension information for unknown dimensions used for
-      // broadcasting.
-      broadcastedDimInfo =
-          getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
-
       // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
+      BuildKrnlLoop loops(rewriter, loc, outputRank);
       loops.createDefineAndIterateOp(alloc);
       Block *iterationBlock = loops.getIterateBlock();
-
       // Insert instructions inside the KernelIterateOp body.
       rewriter.setInsertionPointToStart(iterationBlock);
-
       // Handle the operation:
       for (auto arg : iterationBlock->getArguments())
-        loopIVs.push_back(arg);
+        outputAccessExprs.emplace_back(
+            outerContext.createLoopInductionIndex(arg));
     }
-    // Fold over operands for each of their scalar values.
-    Value lhs, rhs;
-    // Obtain the first operand.
-    std::vector<Value> lhsLoopIVs = getLoopIVsForBroadcasting(
-        loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
-    if (!hasAllConstantDimensions(operands[0].getType().cast<MemRefType>()))
-      // In case of unknown dimensions, use std.load since
-      // 'getLoopIVsForBroadcasting' has not supported affine map so far.
-      lhs = rewriter.create<LoadOp>(loc, operands[0], lhsLoopIVs);
-    else
-      lhs = rewriter.create<AffineLoadOp>(loc, operands[0], lhsLoopIVs);
-    // Obtain the second operand.
-    std::vector<Value> rhsLoopIVs = getLoopIVsForBroadcasting(
-        loc, rewriter, loopIVs, operands[1], broadcastedDimInfo[1]);
-    if (!hasAllConstantDimensions(operands[1].getType().cast<MemRefType>()))
-      // In case of unknown dimensions, use std.load since
-      // 'getLoopIVsForBroadcasting' has not supported affine map so far.
-      rhs = rewriter.create<LoadOp>(loc, operands[1], rhsLoopIVs);
-    else
-      rhs = rewriter.create<AffineLoadOp>(loc, operands[1], rhsLoopIVs);
+
+    // Load the first value.
+    SmallVector<IndexExpr, 4> lhsAccessExprs;
+    shapeHelper.GetAccessExprs(
+        outerContext, operands[0], 0, outputAccessExprs, lhsAccessExprs);
+    Value lhs = outerContext.createLoadOp(operands[0], lhsAccessExprs);
+
+    // Load the sencond value.
+    SmallVector<IndexExpr, 4> rhsAccessExprs;
+    shapeHelper.GetAccessExprs(
+        outerContext, operands[1], 1, outputAccessExprs, rhsAccessExprs);
+    Value rhs = outerContext.createLoadOp(operands[1], rhsAccessExprs);
 
     // Apply the element-wise function.
     Value result = emitScalarOpFor<ElementwiseBinaryOp>(
-        rewriter, loc, op, memRefType.getElementType(), {lhs, rhs});
+        rewriter, loc, op, outputElementType, {lhs, rhs});
 
     // Store result in the resulting array.
-    rewriter.create<AffineStoreOp>(loc, result, alloc, loopIVs);
+    outerContext.createStoreOp(result, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -688,77 +670,58 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       : ConversionPattern(ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    // TODO: Check that the types are valid.
-    // An element-wise variadic operation must have all operands and the result
-    // of the same type. This should have been verified by the verifier.
     auto loc = op->getLoc();
     auto numArgs = op->getNumOperands();
+    auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    auto outputElementType = outputMemRefType.getElementType();
+    auto outputRank = outputMemRefType.getRank();
+
+    // Shape helper.
+    ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
+    assert(succeeded(shapeHelper.Compute(operands)));
+    IndexExprContext outerContext(shapeHelper.context);
 
     // Insert an allocation and deallocation for the result of this operation.
-    auto memRefType = convertToMemRefType(*op->result_type_begin());
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.outputDims);
 
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-    // If the output has a dynamic dimension, we compute its dimension at
-    // runtime by using dimensions from the operands.
-    // In particular, we need to know from which operand a result dimension
-    // comes from.
-    // TODO: can the dimension of the result differ after optimizations?
-    if (hasAllConstantDimensions(memRefType))
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    else
-      alloc = insertAllocAndDealloc(
-          memRefType, loc, rewriter, insertDealloc, operands);
-
-    SmallVector<Value, 4> loopIVs;
-    std::map<int, std::map<int, Value>> broadcastedDimInfo;
+    // Emit main computation.
+    SmallVector<IndexExpr, 4> outputAccessExprs;
+    // Only create krnl.iterate if one of the operands is not scalar tensor.
     if (!hasAllScalarValues(operands)) {
-      // Get run-time dimension information for unknown dimensions used for
-      // broadcasting.
-      broadcastedDimInfo =
-          getBroadcastedDimInfo(loc, rewriter, memRefType, operands);
-
       // Create iterateOp & get block within iterate op.
-      BuildKrnlLoop loops(rewriter, loc, memRefType.getRank());
+      BuildKrnlLoop loops(rewriter, loc, outputRank);
       loops.createDefineAndIterateOp(alloc);
       Block *iterationBlock = loops.getIterateBlock();
-
       // Insert instructions inside the KernelIterateOp body.
       rewriter.setInsertionPointToStart(iterationBlock);
-
       // Handle the operation:
       for (auto arg : iterationBlock->getArguments())
-        loopIVs.push_back(arg);
+        outputAccessExprs.emplace_back(
+            outerContext.createLoopInductionIndex(arg));
     }
+
     // Fold over operands for each of their scalar values.
-    Value accumulated, next;
     // Obtain the first operand.
-    std::vector<Value> accumulatedLoopIVs = getLoopIVsForBroadcasting(
-        loc, rewriter, loopIVs, operands[0], broadcastedDimInfo[0]);
-    if (!hasAllConstantDimensions(operands[0].getType().cast<MemRefType>()))
-      // In case of unknown dimensions, use std.load since
-      // 'getLoopIVsForBroadcasting' has not supported affine map so far.
-      accumulated =
-          rewriter.create<LoadOp>(loc, operands[0], accumulatedLoopIVs);
-    else
-      accumulated =
-          rewriter.create<AffineLoadOp>(loc, operands[0], accumulatedLoopIVs);
+    SmallVector<IndexExpr, 4> oprdAccessExprs;
+    shapeHelper.GetAccessExprs(
+        outerContext, operands[0], 0, outputAccessExprs, oprdAccessExprs);
+    Value accumulated = outerContext.createLoadOp(operands[0], oprdAccessExprs);
+
     // Iterate over the remaining operands.
     for (unsigned i = 1; i < numArgs; i++) {
-      std::vector<Value> nextLoopIVs = getLoopIVsForBroadcasting(
-          loc, rewriter, loopIVs, operands[i], broadcastedDimInfo[i]);
-      if (!hasAllConstantDimensions(operands[i].getType().cast<MemRefType>()))
-        // In case of unknown dimensions, use std.load since
-        // 'getLoopIVsForBroadcasting' has not supported affine map so far.
-        next = rewriter.create<LoadOp>(loc, operands[i], nextLoopIVs);
-      else
-        next = rewriter.create<AffineLoadOp>(loc, operands[i], nextLoopIVs);
+      // Obtain the next operand.
+      SmallVector<IndexExpr, 4> oprdAccessExprs;
+      shapeHelper.GetAccessExprs(
+          outerContext, operands[i], i, outputAccessExprs, oprdAccessExprs);
+      Value next = outerContext.createLoadOp(operands[i], oprdAccessExprs);
+      // Fold.
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
-          rewriter, loc, op, memRefType.getElementType(), {accumulated, next});
+          rewriter, loc, op, outputElementType, {accumulated, next});
     }
 
     // Store result in the resulting array.
-    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, loopIVs);
+    outerContext.createStoreOp(accumulated, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
