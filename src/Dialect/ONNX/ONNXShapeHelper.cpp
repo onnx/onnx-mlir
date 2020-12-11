@@ -137,9 +137,25 @@ LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(
     auto dimIndex = outputRank - operandRank + i;
     IndexExpr dim = outerContext.createSymbolIndexFromParentContext(
         inputsDims[operandIndex][dimIndex]);
+
     // Compute access index based on broadcasting rules.
-    operandAccessExprs.emplace_back(
-        IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
+    // If all other operand dims are 1, just use the output access index.
+    // Otherwise, emit a select op.
+    bool allOtherInputDimsAreOne = true;
+    for (int i = 0; i < inputsDims.size(); ++i) {
+      if (i == operandIndex)
+        continue;
+      IndexExpr dim = inputsDims[i][dimIndex];
+      if (!dim.isLiteralAndIdenticalTo(1)) {
+        allOtherInputDimsAreOne = false;
+        break;
+      }
+    }
+    if (allOtherInputDimsAreOne) {
+      operandAccessExprs.emplace_back(outputAccessExprs[dimIndex]);
+    } else
+      operandAccessExprs.emplace_back(
+          IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
   }
 
   return success();

@@ -713,14 +713,12 @@ func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5xf32>,
 // CHECK-DAG:       [[RES_:%.+]] = alloc([[VAR_2_]]) : memref<?x4x5xi1>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_2_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5) {
-// CHECK:             [[VAR_5_:%.+]] = cmpi "sgt", [[DIM_0_]], [[CST_1_]] : index
-// CHECK:             [[VAR_6_:%.+]] = select [[VAR_5_]], [[I_0_]], [[CST_0_]] : index
-// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = load [[PARAM_0_]]{{.}}[[VAR_6_]], [[I_1_]], [[I_2_]]{{.}} : memref<?x4x5xf32>
-// CHECK-DAG:         [[VAR_8_:%.+]] = cmpi "sgt", [[DIM_1_]], [[CST_1_]] : index
-// CHECK:             [[VAR_9_:%.+]] = select [[VAR_8_]], [[I_1_]], [[CST_0_]] : index
-// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = load [[PARAM_1_]]{{.}}[[CST_0_]], [[VAR_9_]], [[CST_0_]]{{.}} : memref<1x?x1xf32>
-// CHECK:             [[VAR_11_:%.+]] = cmpf "olt", [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
-// CHECK:             affine.store [[VAR_11_]], [[RES_]][symbol([[I_0_]]), symbol([[I_1_]]), symbol([[I_2_]])] : memref<?x4x5xi1>
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = affine.load [[PARAM_0_]][symbol([[I_0_]]), symbol([[I_1_]]), symbol([[I_2_]])] : memref<?x4x5xf32>
+// CHECK-DAG:         [[VAR_6_:%.+]] = cmpi "sgt", [[DIM_1_]], [[CST_1_]] : index
+// CHECK:             [[VAR_7_:%.+]] = select [[VAR_6_]], [[I_1_]], [[CST_0_]] : index
+// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = load [[PARAM_1_]]{{.}}[[CST_0_]], [[VAR_7_]], [[CST_0_]]{{.}} : memref<1x?x1xf32>
+// CHECK:             [[VAR_9_:%.+]] = cmpf "olt", [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK:             affine.store [[VAR_9_]], [[RES_]][symbol([[I_0_]]), symbol([[I_1_]]), symbol([[I_2_]])] : memref<?x4x5xi1>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x4x5xi1>
 // CHECK:         }

@@ -3070,8 +3070,7 @@ func @loop_body(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> 
   // CHECK:           [[VAR_0:%.+]] = alloc() : memref<1xi64>
   // CHECK:           [[VAR_1:%.+]] = krnl.define_loops 1
   // CHECK:           krnl.iterate([[VAR_1]]) with ([[VAR_1]] -> [[VAR_arg3:%.+]] = 0 to 1) {
-  // CHECK:             [[VAR_c0:%.+]] = constant 0 : index
-  // CHECK:             [[VAR_2:%.+]] = affine.load [[VAR_arg2]]{{.}}[[VAR_c0]]{{.}} : memref<1xi64>
+  // CHECK:             [[VAR_2:%.+]] = affine.load [[VAR_arg2]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
   // CHECK:             [[VAR_3:%.+]] = affine.load [[VAR_arg0]][] : memref<i64>
   // CHECK:             [[VAR_4:%.+]] = addi [[VAR_2]], [[VAR_3]] : i64
   // CHECK:             affine.store [[VAR_4]], [[VAR_0]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
