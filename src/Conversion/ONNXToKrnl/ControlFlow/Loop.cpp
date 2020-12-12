@@ -154,7 +154,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
       else
         alloc = insertAllocAndDealloc(
-            memRefType, loc, rewriter, shouldDealloc, {vInit});
+            memRefType, loc, rewriter, shouldDealloc, vInit);
       outputs.emplace_back(alloc);
     }
   }
