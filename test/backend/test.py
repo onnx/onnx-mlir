@@ -172,8 +172,7 @@ test_to_enable_static_dynamic = {
     "test_concat_3d_axis_negative_3_cpu": (test_static_dynamic,{0:{0}}),
 
     # Constant (dynamic NA)
-    # TODO look into error
-    "test_constant_cpu": (test_disabled,), # get very larger error, unsure why
+    "test_constant_cpu": (test_static_dynamicNA,),
 
     # ConstantOfShape (dynamic NA)
     "test_constantofshape_float_ones_cpu": (test_static_dynamicNA,),
