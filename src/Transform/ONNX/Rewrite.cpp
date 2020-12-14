@@ -71,6 +71,13 @@ ArrayAttr createArrayAttrOfOneToN(PatternRewriter &rewriter, int N) {
   return rewriter.getI64ArrayAttr(vals);
 }
 
+// Create an ArrayAttr of IntergerAttr(s) of values in [N, M].
+ArrayAttr createArrayAttrOfNToM(PatternRewriter &rewriter, int N, int M) {
+  SmallVector<int64_t, 4> vals;
+  for (int i = N; i <= M; ++i)
+    vals.emplace_back(i);
+  return rewriter.getI64ArrayAttr(vals);
+}
 // Check whether an ArrayAttr contains non-zero values or not.
 bool hasNonZeroInArrayAttr(ArrayAttr attrs) {
   bool allZeros = true;
@@ -162,4 +169,16 @@ void ONNXShapeOp::getCanonicalizationPatterns(
 void ONNXSizeOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<SizeToConstantPattern>(context);
+}
+
+/// on the ONNXGlobalAveragePoolOp.
+void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<GlobalAveragePoolPattern>(context);
+}
+
+/// on the ONNXGlobalMaxPoolOp.
+void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<GlobalMaxPoolPattern>(context);
 }

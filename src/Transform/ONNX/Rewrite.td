@@ -45,6 +45,10 @@ def subtractOrNeg: NativeCodeCall<
 def createArrayAttrOfOneToRankOf : NativeCodeCall<
   "createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
+// Create an ArrayAttr of IntergerAttr(s) of values in [2, rank - 1].
+def createArrayAttrOfTwoToRankOf : NativeCodeCall<
+  "createArrayAttrOfNToM($_builder, 2, $0.getType().cast<ShapedType>().getRank() - 1)">;
+
 def GetNullAttr :
    NativeCodeCall<"Attribute()">;
 
@@ -201,4 +205,17 @@ def SizeToConstantPattern: Pat<
         (createDenseElementsAttrFromSize $A)),
      [(IsStaticShapeTensor:$A)]
 >;
+
+// Rewrite GlobalAveragePool using ReduceMean.
+def GlobalAveragePoolPattern: Pat<
+  (ONNXGlobalAveragePoolOp $x),
+  (ONNXReduceMeanOp $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
+>;
+
+// Rewrite GlobalMaxPool using ReduceMax.
+def GlobalMaxPoolPattern: Pat<
+  (ONNXGlobalMaxPoolOp $x),
+  (ONNXReduceMaxOp $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
+>;
+
 #endif // ONNX_REWRITE
