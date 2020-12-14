@@ -260,7 +260,8 @@ int64_t *omTensorGetStrides(OMTensor *tensor) { return tensor->_strides; }
 /* OMTensor data strides setter */
 void omTensorSetStrides(OMTensor *tensor, int64_t *stridesInBytes) {
   for (int i = 0; i < tensor->_rank; i++)
-    tensor->_strides[i] = stridesInBytes[i] / sizeof(tensor->_dataType);
+    tensor->_strides[i] =
+      stridesInBytes[i] / getDataTypeSize(tensor->_dataType);
 }
 
 /* OMTensor data type getter */
