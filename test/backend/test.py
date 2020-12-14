@@ -318,15 +318,9 @@ test_to_enable_static_dynamic = {
     # LRN
 
     # LSTM
-    "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0}}),
-    "test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0}}),
-    "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0}}),
-    # The following tests failed with an issue reported at:
-    # https://github.com/onnx/onnx-mlir/issues/431
-    # Enable the following benchmarks once the above is fixed.
-    #"test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    #"test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    #"test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1,2}}),
 
     # Matmul
     "test_matmul_2d_cpu": (test_static_dynamic,),
@@ -549,9 +543,8 @@ test_to_enable_static_dynamic = {
     "test_selu_example_cpu": (test_static_dynamic,),
 
     # Shape
-    # TODO: fix error
-    "test_shape_cpu": (test_disabled,), # erronerous results
-    "test_shape_example_cpu": (test_disabled,), # erronerous results
+    "test_shape_cpu": (test_static_dynamic,), 
+    "test_shape_example_cpu": (test_static_dynamic,), 
 
     # Shrink
 
