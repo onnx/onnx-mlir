@@ -562,9 +562,8 @@ test_to_enable_static_dynamic = {
     "test_sinh_example_cpu": (test_static_dynamic,),
 
     # Size
-    # TODO(tjingrant): fix unit test for size ops.
-    "test_size_cpu": (test_static,),
-    "test_size_example_cpu": (test_static,),
+    "test_size_cpu": (test_static_dynamic,),
+    "test_size_example_cpu": (test_static_dynamic,),
 
     # Slice (makes Axis a runtime argument, which is not supported).
 
