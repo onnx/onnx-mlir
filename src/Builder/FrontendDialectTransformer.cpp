@@ -30,11 +30,6 @@ namespace bstd = mpark;
 namespace onnx_mlir {
 namespace detail {
 
-/*!
- *  The list of tensors initialized by the ONNX model.
- */
-InitializedTensorMapping initializedTensors;
-
 class FrontendGenImpl {
 public:
   FrontendGenImpl(mlir::MLIRContext &context)
@@ -82,6 +77,12 @@ private:
 
   mlir::Value none_;
   std::map<mlir::FuncOp, mlir::Value> func2None_;
+
+  /*!
+   *  The list of tensors initialized by the ONNX model.
+   */
+  InitializedTensorMapping initializedTensors;
+
   // mapping between string name and symbol
   OnnxMlirSymbolMapping frontend_symbols_;
 
