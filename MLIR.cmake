@@ -200,6 +200,10 @@ find_mlir_lib(MLIRAffineEDSC)
 find_mlir_lib(MLIRLinalgEDSC)
 find_mlir_lib(MLIRViewLikeInterface)
 find_mlir_lib(MLIRPresburger)
+find_mlir_lib(MLIRTensor)
+find_mlir_lib(MLIRArmNeonToLLVM)
+find_mlir_lib(MLIRLLVMArmNeon)
+find_mlir_lib(MLIRArmNeon)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -288,6 +292,10 @@ set(MLIRLibs
         ${MLIRPDLInterp}
         ${MLIRPDLToPDLInterp}
         ${MLIRPDL}
+        ${MLIRTensor}
+        ${MLIRArmNeonToLLVM}
+        ${MLIRLLVMArmNeon}
+        ${MLIRArmNeon}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}
