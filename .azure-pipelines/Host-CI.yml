@@ -111,6 +111,7 @@ jobs:
   # Pulled the following steps out of the template because they are currently Linux specific, until we get upstream fixes
   - script: |
       pip3 install --user -e $(ONNXMLIRSourceDir)/third_party/onnx
+      pip3 install --user --no-deps onnxruntime
     displayName: 'Install ONNX Python Module'
 
   - task: CMake@1
