@@ -13,3 +13,5 @@ add_dependencies(OMKrnlToLLVM OMKrnlOps OMONNXOps)
 
 target_link_libraries(OMKrnlToLLVM
         onnx)
+
+install(TARGETS OMKrnlToLLVM DESTINATION lib)

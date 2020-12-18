@@ -64,5 +64,7 @@ set_target_properties(EmbeddedDataLoader PROPERTIES
 
 add_dependencies(PyRuntime cruntime)
 
-install(TARGETS cruntime DESTINATION lib)
+install(TARGETS cruntime           DESTINATION lib)
+install(TARGETS OMTensorUtils      DESTINATION lib)
+install(TARGETS ExecutionSession   DESTINATION lib)
 install(TARGETS EmbeddedDataLoader DESTINATION lib)

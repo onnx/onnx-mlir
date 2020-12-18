@@ -39,3 +39,7 @@ target_include_directories(OMResultTypeInferenceOpInterface
         ${ONNX_MLIR_SRC_ROOT})
 add_dependencies(OMResultTypeInferenceOpInterface
         OMResultTypeInferenceOpInterfaceIncGen)
+
+install(TARGETS OMPromotableConstOperandsOpInterface DESTINATION lib)
+install(TARGETS OMShapeInferenceOpInterface          DESTINATION lib)
+install(TARGETS OMResultTypeInferenceOpInterface     DESTINATION lib)

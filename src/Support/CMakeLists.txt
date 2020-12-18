@@ -11,3 +11,4 @@ add_dependencies(OMSupport
         OMKrnlOps
         OMONNXOps)
 
+install(TARGETS OMSupport DESTINATION lib)
