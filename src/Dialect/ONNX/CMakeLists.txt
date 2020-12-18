@@ -40,3 +40,5 @@ add_dependencies(OMONNXOps
         OMShapeInferenceOpInterface)
 
 add_onnx_mlir_dialect_doc(onnx ONNXOps.td)
+
+install(TARGETS OMONNXOps DESTINATION lib)

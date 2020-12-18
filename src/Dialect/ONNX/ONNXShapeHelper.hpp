@@ -63,6 +63,41 @@ private:
   SmallVector<DimsExpr, 1> outputsDims;
 };
 
+/// Compute a broadcasted shape from the shapes of given operands. Operands must
+/// be ranked in advance.
+struct ONNXOpBroadcastedShapeHelper {
+  ONNXOpBroadcastedShapeHelper(
+      ConversionPatternRewriter *rewriter, Location loc);
+
+  // Compute a vector of IndexExprs to represent the output shape. Results are
+  // stored in 'outputDims'.
+  // Used in shape inference and memory allocation for the output.
+  // Parameters:
+  //   - operands: a list of input tensors.
+  LogicalResult Compute(ArrayRef<Value> operands);
+
+  // Compute access indices to load/store value from/to a given 'operand'.
+  // Used in a loop to access the operand.
+  // Parameters:
+  //   - outerContext: shape helper context obtained outside the loop.
+  //   - operand: operand to access
+  //   - operandIndex: index of the operand in 'inputsDims'
+  //   - loopAccessExprs: IndexExprs for the loop's IVs
+  //   - operandAccessExprs: access indices to access the operand.
+  LogicalResult GetAccessExprs(IndexExprContext &outerContext, Value operand,
+      unsigned operandIndex,
+      const SmallVectorImpl<IndexExpr> &outputAccessExprs,
+      SmallVectorImpl<IndexExpr> &operandAccessExprs);
+
+  IndexExprContext context;
+  // A vector of input shapes where dimensions are padded with 1 if necessary,
+  // so that all inputs have the same rank.
+  SmallVector<DimsExpr, 4> inputsDims;
+  // A vector of IndexExprs representing the output shape.
+  DimsExpr outputDims;
+  int64_t outputRank = -1;
+};
+
 // Shape for concat
 struct ONNXConcatOpShapeHelper : public ONNXOpShapeHelper<ONNXConcatOp> {
   ONNXConcatOpShapeHelper(
@@ -137,6 +172,14 @@ struct ONNXSplitOpShapeHelper : public ONNXOpShapeHelper<ONNXSplitOp> {
       ONNXSplitOp *newOp, ConversionPatternRewriter *rewriter);
 
   LogicalResult Compute(ONNXSplitOpAdaptor operandAdaptor);
+};
+
+// Shape for TransposeOp.
+struct ONNXTransposeOpShapeHelper : public ONNXOpShapeHelper<ONNXTransposeOp> {
+  ONNXTransposeOpShapeHelper(
+      ONNXTransposeOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXTransposeOpAdaptor operandAdaptor);
 };
 
 //===----------------------------------------------------------------------===//

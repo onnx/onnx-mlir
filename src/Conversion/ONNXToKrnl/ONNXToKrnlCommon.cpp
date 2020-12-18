@@ -36,49 +36,20 @@ MemRefType convertToMemRefType(Type type) {
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter &rewriter, bool insertDealloc, ArrayRef<Value> operands,
+    PatternRewriter &rewriter, bool insertDealloc, Value operand,
     int64_t alignment) {
   // Put together alloc operands for any dynamic dimensions of the memref.
   AllocOp alloc;
-  if (!operands.empty()) {
+  if (operand) {
     auto memRefShape = type.getShape();
     auto rank = memRefShape.size();
 
-    std::map<int, Value> fromOperands;
-    for (int reversedIdx = 0; reversedIdx < rank; ++reversedIdx) {
-      int memRefDimIdx = rank - 1 - reversedIdx;
-      if (memRefShape[memRefDimIdx] < 0) { // unknown dimension
-        Value maxDim = nullptr;
-        for (int i = 0; i < operands.size(); i++) {
-          auto operandShape =
-              operands[i].getType().cast<MemRefType>().getShape();
-          int operandDimIdx = operandShape.size() - 1 - reversedIdx;
-
-          if (operandDimIdx < 0)
-            continue;
-
-          // In case of operations with broadcasting, the dimension of the
-          // alloc result is the maximum size along each dimension of the
-          // operands.
-          auto operandDim =
-              rewriter.create<DimOp>(loc, operands[i], operandDimIdx);
-          if (maxDim) {
-            auto maxCondition = rewriter.create<CmpIOp>(
-                loc, CmpIPredicate::sgt, operandDim, maxDim);
-            maxDim = rewriter.create<SelectOp>(
-                loc, maxCondition, operandDim, maxDim);
-          } else {
-            maxDim = operandDim;
-          }
-        }
-        fromOperands.insert(std::make_pair(memRefDimIdx, maxDim));
-      }
-    }
-
     SmallVector<Value, 4> allocOperands;
     for (int i = 0; i < rank; ++i)
-      if (memRefShape[i] < 0)
-        allocOperands.push_back(fromOperands[i]);
+      if (memRefShape[i] < 0) {
+        auto dim = rewriter.create<DimOp>(loc, operand, i);
+        allocOperands.push_back(dim);
+      }
     // Set alignment attribute. Default value is `-1`, which does not set
     // alignment.
     if (alignment >= 0) {
@@ -220,88 +191,6 @@ void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
   loops.reserve(numLoops);
   for (auto result : loopsOp.getResults())
     loops.push_back(result);
-}
-
-// Get run-time dimension information for unknown dimensions used for
-// broadcasting.
-std::map<int, std::map<int, Value>> getBroadcastedDimInfo(Location loc,
-    ConversionPatternRewriter &rewriter, MemRefType memRefType,
-    ArrayRef<Value> operands) {
-  auto memRefShape = memRefType.getShape();
-  int64_t rank = memRefShape.size();
-  // For unknown dimensions, we need to get dimension values at runtime in
-  // order to do broadcasting.
-  std::map<int, std::map<int, Value>> DimInfo;
-  // For each result dimension, compute the number of sharing operands.
-  // Sharing operands are operands sharing the same index (counting from the
-  // rightmost to the leftmost) for a given dimension.
-  std::map<int, int> sharedDimCount;
-  for (int reversedIdx = 0; reversedIdx < rank; ++reversedIdx) {
-    int dimIdx = rank - 1 - reversedIdx;
-    sharedDimCount[dimIdx] = 0;
-    for (int i = 0; i < operands.size(); ++i) {
-      auto shape = operands[i].getType().cast<MemRefType>().getShape();
-      if (reversedIdx <= shape.size() - 1)
-        sharedDimCount[dimIdx]++;
-    }
-  }
-  // An unknown dimension can have a value of 1 or N (N > 1).
-  // If its value is 1, it is broadcasted dimension.
-  // Otherwise, non-broadcasted dimension.
-  // We only care about unknown dimensions whose number of sharing operands is
-  // more than one, since they are potentially broadcasted dimensions.
-  for (int i = 0; i < operands.size(); ++i) {
-    std::map<int, Value> broadcastedDims;
-    auto shape = operands[i].getType().cast<MemRefType>().getShape();
-    int size = shape.size();
-    for (int j = 0; j < shape.size(); ++j) {
-      if (shape[j] < 0 && sharedDimCount[rank - size + j] > 1) {
-        auto dim = rewriter.create<DimOp>(loc, operands[i], j).getResult();
-        auto one = rewriter.create<ConstantIndexOp>(loc, 1);
-        auto isBroadcasted =
-            rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, dim, one);
-        broadcastedDims.insert(std::make_pair(j, isBroadcasted));
-      }
-    }
-    DimInfo.insert(std::make_pair(i, broadcastedDims));
-  }
-  return DimInfo;
-}
-
-// Extract induction variables that are used for broadcasting values of a
-// given operand.
-std::vector<Value> getLoopIVsForBroadcasting(Location loc,
-    ConversionPatternRewriter &rewriter, ArrayRef<Value> loopIVs, Value operand,
-    std::map<int, Value> broadcastedDims) {
-  // `operand` must has a ranked type. This should have been checked by the
-  // shape inference pass.
-  auto operandShape = operand.getType().cast<MemRefType>().getShape();
-  auto rank = operandShape.size();
-  auto loopCount = loopIVs.size();
-
-  std::vector<Value> newLoopIVs;
-  for (unsigned reversedIdx = 0; reversedIdx < rank; ++reversedIdx) {
-    auto dimIdx = rank - 1 - reversedIdx;
-    auto loopIdx = loopCount - 1 - reversedIdx;
-    if (operandShape[dimIdx] == 1) {
-      // Broadcasted dimension
-      auto zero = rewriter.create<ConstantIndexOp>(loc, 0);
-      newLoopIVs.insert(newLoopIVs.begin(), zero);
-    } else if ((operandShape[dimIdx] == -1) &&
-               (broadcastedDims.find(dimIdx) != broadcastedDims.end())) {
-      // Unknown dimension, it can have a value of 1 or N (N > 1).
-      // If its value is 1, it is broadcasted dimension.
-      // Otherwise, non-broadcasted dimension.
-      auto zero = rewriter.create<ConstantIndexOp>(loc, 0);
-      auto idx = rewriter.create<SelectOp>(
-          loc, broadcastedDims[dimIdx], zero, loopIVs[loopIdx]);
-      newLoopIVs.insert(newLoopIVs.begin(), idx);
-    } else {
-      // Non-broadcasted dimension
-      newLoopIVs.insert(newLoopIVs.begin(), loopIVs[loopIdx]);
-    }
-  }
-  return newLoopIVs;
 }
 
 Value emitPositiveInfinityConstantOp(

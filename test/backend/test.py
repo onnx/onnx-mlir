@@ -318,15 +318,9 @@ test_to_enable_static_dynamic = {
     # LRN
 
     # LSTM
-    "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0}}),
-    "test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0}}),
-    "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0}}),
-    # The following tests failed with an issue reported at:
-    # https://github.com/onnx/onnx-mlir/issues/431
-    # Enable the following benchmarks once the above is fixed.
-    #"test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    #"test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    #"test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1,2}}),
 
     # Matmul
     "test_matmul_2d_cpu": (test_static_dynamic,),
@@ -549,9 +543,8 @@ test_to_enable_static_dynamic = {
     "test_selu_example_cpu": (test_static_dynamic,),
 
     # Shape
-    # TODO: fix error
-    "test_shape_cpu": (test_disabled,), # erronerous results
-    "test_shape_example_cpu": (test_disabled,), # erronerous results
+    "test_shape_cpu": (test_static_dynamic,), 
+    "test_shape_example_cpu": (test_static_dynamic,), 
 
     # Shrink
 
@@ -570,8 +563,8 @@ test_to_enable_static_dynamic = {
 
     # Size
     # TODO(tjingrant): fix unit test for size ops.
-    # "test_size_cpu": (test_static,),
-    # "test_size_example_cpu": (test_static,),
+    "test_size_cpu": (test_static,),
+    "test_size_example_cpu": (test_static,),
 
     # Slice (makes Axis a runtime argument, which is not supported).
 
@@ -638,13 +631,13 @@ test_to_enable_static_dynamic = {
     # Training Dropout
 
     # Transpose
-    "test_transpose_default_cpu": (test_static,),
+    "test_transpose_default_cpu": (test_static_dynamic,),
     "test_transpose_all_permutations_0_cpu": (test_static_dynamic,),
     "test_transpose_all_permutations_1_cpu": (test_static_dynamic,),
-    "test_transpose_all_permutations_2_cpu": (test_static,),
-    "test_transpose_all_permutations_3_cpu": (test_static,),
-    "test_transpose_all_permutations_4_cpu": (test_static,),
-    "test_transpose_all_permutations_5_cpu": (test_static,),
+    "test_transpose_all_permutations_2_cpu": (test_static_dynamic,),
+    "test_transpose_all_permutations_3_cpu": (test_static_dynamic,),
+    "test_transpose_all_permutations_4_cpu": (test_static_dynamic,),
+    "test_transpose_all_permutations_5_cpu": (test_static_dynamic,),
 
     # Unique
 
