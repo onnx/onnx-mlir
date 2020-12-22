@@ -204,6 +204,9 @@ find_mlir_lib(MLIRTensor)
 find_mlir_lib(MLIRArmNeonToLLVM)
 find_mlir_lib(MLIRLLVMArmNeon)
 find_mlir_lib(MLIRArmNeon)
+find_mlir_lib(MLIRArmSVEToLLVM)
+find_mlir_lib(MLIRLLVMArmSVE)
+find_mlir_lib(MLIRArmSVE)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -296,6 +299,9 @@ set(MLIRLibs
         ${MLIRArmNeonToLLVM}
         ${MLIRLLVMArmNeon}
         ${MLIRArmNeon}
+        ${MLIRArmSVEToLLVM}
+        ${MLIRLLVMArmSVE}
+        ${MLIRArmSVE}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}
