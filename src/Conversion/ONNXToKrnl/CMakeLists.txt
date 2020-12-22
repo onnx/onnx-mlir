@@ -1,6 +1,7 @@
 add_library(OMONNXToKrnl
         ONNXToKrnlCommon.cpp
         ONNXToKrnlCommon.hpp
+        ControlFlow/Loop.cpp
         Math/Elementwise.cpp
         Math/Gemm.cpp
         Math/MatMul.cpp
@@ -26,6 +27,7 @@ add_library(OMONNXToKrnl
         Tensor/Concat.cpp
         Tensor/Split.cpp
         Tensor/Gather.cpp
+        Tensor/Shape.cpp
         Tensor/Slice.cpp
         Tensor/Size.cpp
         Tensor/Flatten.cpp
@@ -44,3 +46,5 @@ target_include_directories(OMONNXToKrnl
 add_dependencies(OMONNXToKrnl OMKrnlOpsInc OMONNXOpsInc)
 # Linking dependencies
 add_dependencies(OMONNXToKrnl OMKrnlOps)
+
+install(TARGETS OMONNXToKrnl DESTINATION lib)

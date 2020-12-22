@@ -26,7 +26,6 @@ namespace {
 
 // Handling of static memory pool on a block-basis in each function.
 typedef std::map<Block *, bool> BlockToCompactedFlag;
-std::map<FuncOp, std::unique_ptr<BlockToCompactedFlag>> staticPoolCompacted;
 
 /// Get the total size in bytes used by the getref operations associated
 /// with a given memory pool.
@@ -435,6 +434,13 @@ class KrnlOptimizeStaticMemoryPools : public OpRewritePattern<KrnlGetRefOp> {
 public:
   using OpRewritePattern<KrnlGetRefOp>::OpRewritePattern;
 
+  BlockToCompactedFlag *blockToStaticPoolFlag;
+  KrnlOptimizeStaticMemoryPools(
+      MLIRContext *context, BlockToCompactedFlag *_blockToStaticPoolFlag)
+      : OpRewritePattern<KrnlGetRefOp>(context) {
+    blockToStaticPoolFlag = _blockToStaticPoolFlag;
+  }
+
   LogicalResult matchAndRewrite(
       KrnlGetRefOp firstGetRef, PatternRewriter &rewriter) const override {
     auto loc = firstGetRef.getLoc();
@@ -466,16 +472,8 @@ public:
     if (getAllocGetRefNum(&staticMemPool) < 2)
       return failure();
 
-    // Function must be present.
-    FuncOp function = getContainingFunction(firstGetRef.getOperation());
-    if (staticPoolCompacted.count(function) == 0)
-      return failure();
-
     // Get parent block.
     Block *parentBlock = firstGetRef.getOperation()->getBlock();
-
-    std::unique_ptr<BlockToCompactedFlag> &blockToStaticPoolFlag =
-        staticPoolCompacted.at(function);
 
     // Check if this block has already been compacted. If it has then
     // skip its optimization.
@@ -633,6 +631,13 @@ class KrnlCompactStaticMemoryPools : public OpRewritePattern<AllocOp> {
 public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
 
+  BlockToCompactedFlag *blockToStaticPoolFlag;
+  KrnlCompactStaticMemoryPools(
+      MLIRContext *context, BlockToCompactedFlag *_blockToStaticPoolFlag)
+      : OpRewritePattern<AllocOp>(context) {
+    blockToStaticPoolFlag = _blockToStaticPoolFlag;
+  }
+
   LogicalResult matchAndRewrite(
       AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
@@ -656,17 +661,8 @@ public:
     if (getAllocGetRefNum(&allocOp) < 1)
       return failure();
 
-    // Function must be present.
-    FuncOp function = getContainingFunction(allocOp.getOperation());
-    if (staticPoolCompacted.count(function) == 0)
-      return failure();
-
     // Get parent block.
     Block *parentBlock = allocOp.getOperation()->getBlock();
-
-    // Retrieve block flag.
-    std::unique_ptr<BlockToCompactedFlag> &blockToStaticPoolFlag =
-        staticPoolCompacted.at(function);
 
     // Check if this block has already been compacted. If it has then
     // skip its processing.
@@ -763,22 +759,20 @@ public:
  */
 class KrnlOptimizeMemoryPoolsPass
     : public PassWrapper<KrnlOptimizeMemoryPoolsPass, FunctionPass> {
+  BlockToCompactedFlag blockToStaticPoolFlag;
+
 public:
   void runOnFunction() override {
     auto function = getFunction();
 
-    staticPoolCompacted.insert(
-        std::pair<FuncOp, std::unique_ptr<BlockToCompactedFlag>>(
-            function, std::make_unique<BlockToCompactedFlag>()));
-
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
-    patterns.insert<KrnlOptimizeStaticMemoryPools>(&getContext());
-    patterns.insert<KrnlCompactStaticMemoryPools>(&getContext());
+    patterns.insert<KrnlOptimizeStaticMemoryPools>(
+        &getContext(), &blockToStaticPoolFlag);
+    patterns.insert<KrnlCompactStaticMemoryPools>(
+        &getContext(), &blockToStaticPoolFlag);
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
-
-    staticPoolCompacted.erase(function);
   }
 };
 } // namespace

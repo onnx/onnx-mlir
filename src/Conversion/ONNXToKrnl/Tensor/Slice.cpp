@@ -21,7 +21,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXSliceOpAdaptor operandAdaptor(operands);
     ONNXSliceOp sliceOp = llvm::cast<ONNXSliceOp>(op);
-    auto loc = op->getLoc();
+    Location loc = op->getLoc();
 
     ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);

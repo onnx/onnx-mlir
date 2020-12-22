@@ -55,8 +55,8 @@ MemRefType convertToMemRefType(Type type);
 
 /// Insert an allocation and deallocation for the given MemRefType.
 Value insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter &rewriter, bool insertDealloc,
-    ArrayRef<Value> operands = {}, int64_t alignment = -1);
+    PatternRewriter &rewriter, bool insertDealloc, Value operand = nullptr,
+    int64_t alignment = -1);
 
 // Insert an allocation and deallocation for the given MemRefType, handling
 // compile time relying on the above function, and extracting the runtime
@@ -84,18 +84,6 @@ void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
 // number of krnl loops, and fill `loop` with the newly defined loops.
 void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
     std::vector<Value> &loops, int64_t numLoops);
-
-// Get run-time dimension information for unknown dimensions used for
-// broadcasting.
-std::map<int, std::map<int, Value>> getBroadcastedDimInfo(Location loc,
-    ConversionPatternRewriter &rewriter, MemRefType memRefType,
-    ArrayRef<Value> operands);
-
-// Extract induction variables that are used for broadcasting values of a
-// given operand.
-std::vector<Value> getLoopIVsForBroadcasting(Location loc,
-    ConversionPatternRewriter &rewriter, ArrayRef<Value> loopIVs, Value operand,
-    std::map<int, Value> broadcastedDims);
 
 // Emit a positive infinity constant of a specific type.
 // Supported types: F16, F32, F64, Int8, Int16, Int32, Int64.
@@ -194,6 +182,11 @@ struct TensorTypeConverter : public TypeConverter {
 // Functions to add lowering patterns for frontend operations.
 //===----------------------------------------------------------------------===//
 
+// `ControlFlow` directory methods:
+
+void populateLoweringONNXLoopOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 // `Math` directory methods:
 
 void populateLoweringONNXElementwiseOpPattern(
@@ -261,6 +254,9 @@ void populateLoweringONNXConstantOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXConcatOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
+void populateLoweringONNXShapeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXSliceOpPattern(

@@ -271,7 +271,7 @@ public:
   bool createSymbolIndicesFromArrayValues(Operation *op, Value array,
       int arraySize, int64_t defaultLiteral,
       SmallVectorImpl<IndexExpr> &symbolIndices);
-  // Create loop induction indices for each of hte block arguments.
+  // Create loop induction indices for each of the block arguments.
   void createLoopInductionIndicesFromArrayValues(
       ArrayRef<BlockArgument> inductionVarArray,
       SmallVectorImpl<IndexExpr> &loopInductionIndices);

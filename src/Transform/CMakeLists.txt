@@ -85,3 +85,12 @@ add_dependencies(OMLowerKrnlShape
         OMKrnlOps)
 
 add_subdirectory(ONNX)
+add_subdirectory(Krnl)
+
+install(TARGETS OMElideKrnlGlobalConstants   DESTINATION lib)
+install(TARGETS OMPackKrnlGlobalConstants    DESTINATION lib)
+install(TARGETS OMEnableMemoryPool           DESTINATION lib)
+install(TARGETS OMOptimizeMemoryPools        DESTINATION lib)
+install(TARGETS OMBundleMemoryPools          DESTINATION lib)
+install(TARGETS OMDisconnectKrnlDimFromAlloc DESTINATION lib)
+install(TARGETS OMLowerKrnlShape             DESTINATION lib)

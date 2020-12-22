@@ -309,6 +309,16 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
   state.addAttribute(KrnlEntryPointOp::getNumOutputsAttrName(), numOutputs);
 }
 
+//===----------------------------------------------------------------------===//
+// KrnlIterateOp
+//===----------------------------------------------------------------------===//
+
+void KrnlDummyCastOp::build(
+    OpBuilder &builder, OperationState &state, Value in, Type outType) {
+  state.operands.emplace_back(in);
+  state.types.emplace_back(outType);
+}
+
 } // namespace mlir
 
 #define GET_OP_CLASSES

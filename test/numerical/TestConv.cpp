@@ -72,7 +72,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
   // Use the convOp shape inference method to compute output shape, and unset
   // the shape so that we don't leave IR in a inconsistent state.
-  convOp.inferShapes();
+  convOp.inferShapes([](mlir::FuncOp) {});
   auto outputShape = convOp.getResult().getType().cast<ShapedType>().getShape();
   auto NOut = outputShape[0];
   auto COut = outputShape[1];

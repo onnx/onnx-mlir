@@ -29,13 +29,8 @@ namespace {
 // Data structures for managing memory pools.
 //===----------------------------------------------------------------------===//
 
-// Data structure for managing dyanmic memory pool.
-typedef std::map<Block *, AllocOp> BlockToDynamicPool;
-std::map<FuncOp, std::unique_ptr<BlockToDynamicPool>> dynamicPoolMap;
-
-// Handling of static memory pool on a block-basis in each function.
-typedef std::map<Block *, AllocOp> BlockToStaticPool;
-std::map<FuncOp, std::unique_ptr<BlockToStaticPool>> staticPoolMap;
+// Data structure for managing memory pools.
+typedef std::map<Block *, AllocOp> BlockToMemPool;
 
 //===----------------------------------------------------------------------===//
 // Helper functions.
@@ -127,6 +122,13 @@ class KrnlBundleStaticMemoryPools : public OpRewritePattern<AllocOp> {
 public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
 
+  BlockToMemPool *blockToStaticPool;
+  KrnlBundleStaticMemoryPools(
+      MLIRContext *context, BlockToMemPool *_blockToStaticPool)
+      : OpRewritePattern<AllocOp>(context) {
+    blockToStaticPool = _blockToStaticPool;
+  }
+
   LogicalResult matchAndRewrite(
       AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
@@ -150,15 +152,6 @@ public:
     // Rank of the allocated MemRef must be 1.
     if (memRefShape.size() != 1)
       return failure();
-
-    FuncOp function = getContainingFunction(allocOp);
-
-    if (staticPoolMap.count(function) == 0) {
-      return failure();
-    }
-
-    std::unique_ptr<BlockToStaticPool> &blockToStaticPool =
-        staticPoolMap.at(function);
 
     // Get parent block.
     Block *parentBlock = allocOp.getOperation()->getBlock();
@@ -250,6 +243,13 @@ class KrnlBundleDynamicMemoryPools : public OpRewritePattern<AllocOp> {
 public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
 
+  BlockToMemPool *blockToDynamicPool;
+  KrnlBundleDynamicMemoryPools(
+      MLIRContext *context, BlockToMemPool *_blockToDynamicPool)
+      : OpRewritePattern<AllocOp>(context) {
+    blockToDynamicPool = _blockToDynamicPool;
+  }
+
   LogicalResult matchAndRewrite(
       AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
@@ -279,21 +279,11 @@ public:
     // of the AllocOp.
     auto parentBlock = allocOp.getOperation()->getBlock();
 
-    // Get function.
-    FuncOp function = getContainingFunction(allocOp);
-
-    // Use function to retrieve the list of blocks for this function.
-    std::unique_ptr<BlockToDynamicPool> &blockToDynamicPool =
-        dynamicPoolMap.at(function);
-
     // If this is not the first time we process an alloc in this block, avoid
     // processing the current dynamic memory pool again.
-    if (blockToDynamicPool->count(parentBlock) > 0) {
-      std::unique_ptr<BlockToDynamicPool> &blockToDynamicPool =
-          dynamicPoolMap.at(function);
-      if (allocOp == blockToDynamicPool->at(parentBlock))
-        return failure();
-    }
+    if (blockToDynamicPool->count(parentBlock) > 0 &&
+        allocOp == blockToDynamicPool->at(parentBlock))
+      return failure();
 
     // Initialize work queue data structure.
     Operation *op = allocOp.getOperation();
@@ -425,6 +415,9 @@ public:
         currentAllocGetRef.getResult().getType(), bundledAlloc,
         integerDynamicMemoryPoolSize, currentAllocGetRef.getDynamicSizes());
 
+    // The get ref can be kept in its original location.
+    bundledMemRef.getOperation()->moveBefore(currentAllocGetRef);
+
     // Replace old memory pool with new one.
     rewriter.replaceOp(oldDynamicMemoryPool, bundledAlloc.getResult());
 
@@ -443,28 +436,25 @@ public:
 /*!
  *  Function pass that enables memory pooling for MemRefs.
  */
+
 class KrnlBundleMemoryPoolsPass
     : public PassWrapper<KrnlBundleMemoryPoolsPass, FunctionPass> {
+
+  BlockToMemPool blockToStaticPool;
+  BlockToMemPool blockToDynamicPool;
+
 public:
   void runOnFunction() override {
     auto function = getFunction();
 
-    dynamicPoolMap.insert(
-        std::pair<FuncOp, std::unique_ptr<BlockToDynamicPool>>(
-            function, std::make_unique<BlockToDynamicPool>()));
-
-    staticPoolMap.insert(std::pair<FuncOp, std::unique_ptr<BlockToStaticPool>>(
-        function, std::make_unique<BlockToStaticPool>()));
-
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
-    patterns.insert<KrnlBundleStaticMemoryPools, KrnlBundleDynamicMemoryPools>(
-        &getContext());
+    patterns.insert<KrnlBundleStaticMemoryPools>(
+        &getContext(), &blockToStaticPool);
+    patterns.insert<KrnlBundleDynamicMemoryPools>(
+        &getContext(), &blockToDynamicPool);
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
-
-    dynamicPoolMap.erase(function);
-    staticPoolMap.erase(function);
   }
 };
 } // namespace
