@@ -563,8 +563,11 @@ test_to_enable_static_dynamic = {
 
     # Size
     # TODO(tjingrant): fix unit test for size ops.
-    "test_size_cpu": (test_static,),
-    "test_size_example_cpu": (test_static,),
+    # ISSUE-TODO-namcvica-2020/12/22: These tests were reenabled in
+    # <https://github.com/onnx/onnx-mlir/commit/9011ba769c534b96a46e1a1e0dce49ddfd9e2934>
+    # but are not buiding in our pipelines.
+    #"test_size_cpu": (test_static,),
+    #"test_size_example_cpu": (test_static,),
 
     # Slice (makes Axis a runtime argument, which is not supported).
 
