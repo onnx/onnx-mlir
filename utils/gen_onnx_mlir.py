@@ -240,7 +240,6 @@ special_op_handler = dict([
     ("BatchNormalization", "ImportNodeBatchNormalization"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
-    #("Transpose", "ImportNodeTranspose")
 ])
 
 # Operations supporting shape inference.
@@ -325,10 +324,13 @@ OpsWithShapeInference=[
     'Transpose',
     'Unsqueeze',
     'Xor',
+    'Loop',
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast', 'Transpose', 'Dropout', 'Shape', 'Size']
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast', 'Transpose',
+                        'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
+                        'GlobalMaxPool']
 
 # Operations who have operands that, if produced by constant operations, should
 # be promoted to become an attribute (via attribute promotion).
@@ -341,6 +343,14 @@ OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
                                   "Pad": [("pads", 1), ("constant_value", 2)],
                                   "Tile": [("repeats", 1)]}
 
+OpsWithHelpers = {
+  "Loop": """
+  mlir::FuncOp getLoopBodyFunc();
+  mlir::Operation::result_range v_final();
+  mlir::Operation::result_range scan_outputs();
+  
+  """,
+}
 # Interface for special handling of type inference
 # The common code are put into get_type_inference_func
 OpsWithResultTypeInference = {
@@ -631,7 +641,8 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
                 types = ["Variadic<{}>".format(any_type_of(types))]
             else:
                 #TODO handle(variadic, heterogeneous) "
-                sys.stderr.write("warning: (variadic, heterogeneous) for" + schema.name +
+                types = ["Variadic<{}>".format(any_type_of(types))]
+                sys.stderr.write("warning: (variadic, heterogeneous) for " + schema.name +
                       ' ' + value.name + "\n")
 
         # Since output name can coincide with that of an input, we explicitly
@@ -859,7 +870,7 @@ def get_onnx_mlir_types(schema, type_str_dict, input):
          if not input.typeStr in type_str_dict :
              # some arguments use type description directly
              # instead of constraint
-             return [parse_type_str(input.typeStr)]
+             return [parse_type_str(input.typeStr), "AnyMemRef"]
          else :
              return type_str_dict[input.typeStr]
     else :
@@ -999,14 +1010,14 @@ def gen_op_def(schema):
 
             s += '\n' + indent + '];\n'
 
-    # generate extracClassDeclaration
+    # Generate extracClassDeclaration.
     s += indent + "let extraClassDeclaration = [{\n"
     #indent = inc_indent(indent)
 
-    # generate input/output number
+    # Generate input/output number.
     s = get_numberof_inout(s, indent, schema)
 
-    # generate ProtableConst
+    # Generate promotable const operand interface impl.
     if schema.name in OpsWithPromotableConstOperands:
         s = get_promotable_const_operands_func(
             s, indent, OpsWithPromotableConstOperands[schema.name])
@@ -1014,6 +1025,9 @@ def gen_op_def(schema):
     if schema.name in OpsWithResultTypeInference:
         s = get_type_inference_func(
             s, indent, OpsWithResultTypeInference[schema.name])
+
+    if schema.name in OpsWithHelpers:
+        s += OpsWithHelpers[schema.name]
 
     s += indent + '}];\n'
 
@@ -1177,4 +1191,3 @@ if __name__ == '__main__':
         sys.stdout.write(Args.op_def.getvalue())
     if args.dry_run_op_build_table:
         sys.stdout.write(Args.op_importer.getvalue())
-

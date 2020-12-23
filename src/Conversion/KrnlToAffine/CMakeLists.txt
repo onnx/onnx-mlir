@@ -9,3 +9,5 @@ target_include_directories(OMKrnlToAffine
 add_dependencies(OMKrnlToAffine OMKrnlOpsInc)
 # Linking dependencies
 add_dependencies(OMKrnlToAffine OMKrnlOps)
+
+install(TARGETS OMKrnlToAffine DESTINATION lib)

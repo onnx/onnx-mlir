@@ -21,26 +21,34 @@ using namespace std;
 // Returns whether onnx-mlir compiled RNN is producing the same results as a
 // naive implementation of RNN for a specific set of RNN
 // parameters/configuration.
-bool isOMRNNTheSameAsNaiveImplFor(
-    const int direction, const int S, const int B, const int I, const int H) {
+bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
+    const int I, const int H, bool isDynamicS = false,
+    bool isDynamicB = false) {
   MLIRContext ctx;
   registerDialects(ctx);
 
   int D = abs(direction);
+  int S1 = S, B1 = B;
+  if (isDynamicS)
+    S1 = -1;
+  if (isDynamicB)
+    B1 = -1;
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
   llvm::SmallVector<int64_t, 3> xShape = {S, B, I};
+  llvm::SmallVector<int64_t, 3> xShapeSymbol = {S1, B1, I};
   llvm::SmallVector<int64_t, 3> wShape = {D, H, I};
   llvm::SmallVector<int64_t, 3> rShape = {D, H, H};
   llvm::SmallVector<int64_t, 2> bShape = {D, 2 * H};
   llvm::SmallVector<int64_t, 3> hShape = {D, B, H};
+  llvm::SmallVector<int64_t, 3> hShapeSymbol = {D, B1, H};
 
-  auto xType = RankedTensorType::get(xShape, builder.getF32Type());
+  auto xType = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
   auto wType = RankedTensorType::get(wShape, builder.getF32Type());
   auto rType = RankedTensorType::get(rShape, builder.getF32Type());
   auto bType = RankedTensorType::get(bShape, builder.getF32Type());
-  auto hType = RankedTensorType::get(hShape, builder.getF32Type());
+  auto hType = RankedTensorType::get(hShapeSymbol, builder.getF32Type());
   auto yType = UnrankedTensorType::get(builder.getF32Type());
   auto yHType = UnrankedTensorType::get(builder.getF32Type());
 
@@ -87,15 +95,6 @@ bool isOMRNNTheSameAsNaiveImplFor(
       /*activations=*/activationsAttr, /*clip=*/FloatAttr(),
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr);
 
-  // Use the rnnOp shape inference method to compute output shape, and unset
-  // the shape so that we don't leave IR in an inconsistent state.
-  rnnOp.inferShapes();
-  auto yOutputShape =
-      rnnOp.getResults()[0].getType().cast<ShapedType>().getShape();
-  auto SOut = yOutputShape[0];
-  auto DOut = yOutputShape[1];
-  auto BOut = yOutputShape[2];
-  auto HOut = yOutputShape[3];
   rnnOp.getResults()[0].setType(yType);
   rnnOp.getResults()[1].setType(yHType);
 
@@ -139,8 +138,8 @@ bool isOMRNNTheSameAsNaiveImplFor(
   // Naive RNN implementation.
   // Equations for RNN.
   // - Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
-  auto refY = omTensorCreateWithShape<float>({SOut, DOut, BOut, HOut});
-  auto refYh = omTensorCreateWithShape<float>({DOut, BOut, HOut});
+  auto refY = omTensorCreateWithShape<float>({S, D, B, H});
+  auto refYh = omTensorCreateWithShape<float>({D, B, H});
   auto &input = inputs.at(0);
   auto &weight = inputs.at(1);
   auto &recurr = inputs.at(2);
@@ -148,23 +147,23 @@ bool isOMRNNTheSameAsNaiveImplFor(
   auto &initialH = inputs.at(4);
 
   // Initialize refYh.
-  for (int64_t d = 0; d < DOut; d++)
-    for (int64_t b = 0; b < BOut; b++)
-      for (int64_t h = 0; h < HOut; h++)
+  for (int64_t d = 0; d < D; d++)
+    for (int64_t b = 0; b < B; b++)
+      for (int64_t h = 0; h < H; h++)
         omTensorGetElem<float>(refYh, {d, b, h}) =
             omTensorGetElem<float>(initialH.get(), {d, b, h});
 
   // Main computation.
-  for (int64_t d = 0; d < DOut; ++d) {
-    for (int64_t s = 0; s < SOut; ++s) {
+  for (int64_t d = 0; d < D; ++d) {
+    for (int64_t s = 0; s < S; ++s) {
       int64_t seq = s;
       if (d == 1 || direction == -1)
         // reverse
         seq = S - s - 1;
-      auto XtWi = omTensorCreateWithShape<float>({BOut, HOut});
-      auto HtRi = omTensorCreateWithShape<float>({BOut, HOut});
-      for (int64_t b = 0; b < BOut; b++) {
-        for (int64_t h = 0; h < HOut; h++) {
+      auto XtWi = omTensorCreateWithShape<float>({B, H});
+      auto HtRi = omTensorCreateWithShape<float>({B, H});
+      for (int64_t b = 0; b < B; b++) {
+        for (int64_t h = 0; h < H; h++) {
           omTensorGetElem<float>(XtWi, {b, h}) = 0;
           for (int64_t k = 0; k < I; k++) {
             float xt = omTensorGetElem<float>(input.get(), {seq, b, k});
@@ -172,15 +171,15 @@ bool isOMRNNTheSameAsNaiveImplFor(
                 xt * omTensorGetElem<float>(weight.get(), {d, h, k});
           }
           omTensorGetElem<float>(HtRi, {b, h}) = 0;
-          for (int64_t k = 0; k < HOut; k++) {
+          for (int64_t k = 0; k < H; k++) {
             float previousHt = omTensorGetElem<float>(refYh, {d, b, k});
             omTensorGetElem<float>(HtRi, {b, h}) +=
                 previousHt * omTensorGetElem<float>(recurr.get(), {d, h, k});
           }
         }
       }
-      for (int64_t b = 0; b < BOut; b++) {
-        for (int64_t h = 0; h < HOut; h++) {
+      for (int64_t b = 0; b < B; b++) {
+        for (int64_t h = 0; h < H; h++) {
           // - Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
           float Ht = tanh(omTensorGetElem<float>(XtWi, {b, h}) +
                           omTensorGetElem<float>(HtRi, {b, h}) +
@@ -219,8 +218,12 @@ int main(int argc, char *argv[]) {
     const auto I = *rc::gen::inRange(20, 30);
     // Hidden size.
     const auto H = *rc::gen::inRange(30, 40);
+    // Whether test dynamic dimension for sequence.
+    const auto isDynS = *rc::gen::element(true, false);
+    // Whether test dynamic dimension for batch size.
+    const auto isDynB = *rc::gen::element(true, false);
 
-    RC_ASSERT(isOMRNNTheSameAsNaiveImplFor(D, S, B, I, H));
+    RC_ASSERT(isOMRNNTheSameAsNaiveImplFor(D, S, B, I, H, isDynS, isDynB));
   });
 
   // Exhaustive test case generation.
@@ -228,12 +231,21 @@ int main(int argc, char *argv[]) {
     for (int64_t b = 2; b < 5; b++)
       for (int64_t i = 2; i < 5; i++)
         for (int64_t h = 2; h < 5; h++) {
+          // Static dimensions.
           // forward
           assert(isOMRNNTheSameAsNaiveImplFor(1, s, b, i, h));
           // reverse
           assert(isOMRNNTheSameAsNaiveImplFor(-1, s, b, i, h));
           // bidirectional
           assert(isOMRNNTheSameAsNaiveImplFor(2, s, b, i, h));
+
+          // Dynamic dimensions for sequence, batch size.
+          // forward
+          assert(isOMRNNTheSameAsNaiveImplFor(1, s, b, i, h, true, true));
+          // reverse
+          assert(isOMRNNTheSameAsNaiveImplFor(-1, s, b, i, h, true, true));
+          // bidirectional
+          assert(isOMRNNTheSameAsNaiveImplFor(2, s, b, i, h, true, true));
         }
   return 0;
 }

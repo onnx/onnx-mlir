@@ -9,8 +9,13 @@ add_subdirectory(Runtime)
 # All ONNX-MLIR libraries.
 set(OMLibs
         OMBuilder
+        # Note that circular dependencies exist between
+        # ONNXOps and KrnlOps, so we include them twice
+        # for full symbol resolution.
+        OMONNXOps
         OMKrnlOps
         OMONNXOps
+        OMKrnlOps
         OMSupport
         OMKrnlToAffine
         OMKrnlToStandard
@@ -30,7 +35,8 @@ set(OMLibs
         OMBundleMemoryPools
         OMOptimizeMemoryPools
         OMDisconnectKrnlDimFromAlloc
-        OMLowerKrnlShape)
+        OMLowerKrnlShape
+        OMSimplifyKrnl)
 set(OMLibs ${OMLibs} PARENT_SCOPE)
 
 add_subdirectory(Tool)
@@ -79,3 +85,4 @@ target_include_directories(onnx-mlir PRIVATE ${CMAKE_BINARY_DIR})
 target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_BIN_ROOT})
 
 install(TARGETS onnx-mlir DESTINATION bin)
+install(TARGETS MainUtils DESTINATION lib)

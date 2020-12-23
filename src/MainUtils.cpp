@@ -429,10 +429,10 @@ void registerDialects(mlir::MLIRContext &context) {
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
   pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
-  pm.addNestedPass<FuncOp>(mlir::createShapeInferencePass());
+  pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(mlir::createAttributePromotionPass());
-  pm.addNestedPass<FuncOp>(mlir::createShapeInferencePass());
+  pm.addPass(mlir::createShapeInferencePass());
   pm.addNestedPass<FuncOp>(mlir::createAttributePromotionPass());
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.

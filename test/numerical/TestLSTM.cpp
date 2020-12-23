@@ -24,29 +24,38 @@ float sigmoid(float x) { return 1 / (1 + exp(-x)); }
 // Returns whether onnx-mlir compiled LSTM is producing the same results as a
 // naive implementation of LSTM for a specific set of LSTM
 // parameters/configuration.
-bool isOMLSTMTheSameAsNaiveImplFor(
-    const int direction, const int S, const int B, const int I, const int H) {
+bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
+    const int B, const int I, const int H, bool isDynamicS = false,
+    bool isDynamicB = false) {
   MLIRContext ctx;
   registerDialects(ctx);
 
   int D = abs(direction);
+  int S1 = S, B1 = B;
+  if (isDynamicS)
+    S1 = -1;
+  if (isDynamicB)
+    B1 = -1;
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
   llvm::SmallVector<int64_t, 3> xShape = {S, B, I};
+  llvm::SmallVector<int64_t, 3> xShapeSymbol = {S1, B1, I};
   llvm::SmallVector<int64_t, 3> wShape = {D, 4 * H, I};
   llvm::SmallVector<int64_t, 3> rShape = {D, 4 * H, H};
   llvm::SmallVector<int64_t, 2> bShape = {D, 8 * H};
   llvm::SmallVector<int64_t, 3> hShape = {D, B, H};
+  llvm::SmallVector<int64_t, 3> hShapeSymbol = {D, B1, H};
   llvm::SmallVector<int64_t, 3> cShape = {D, B, H};
+  llvm::SmallVector<int64_t, 3> cShapeSymbol = {D, B1, H};
   llvm::SmallVector<int64_t, 2> pShape = {D, 3 * H};
 
-  auto xType = RankedTensorType::get(xShape, builder.getF32Type());
+  auto xType = RankedTensorType::get(xShapeSymbol, builder.getF32Type());
   auto wType = RankedTensorType::get(wShape, builder.getF32Type());
   auto rType = RankedTensorType::get(rShape, builder.getF32Type());
   auto bType = RankedTensorType::get(bShape, builder.getF32Type());
-  auto hType = RankedTensorType::get(hShape, builder.getF32Type());
-  auto cType = RankedTensorType::get(cShape, builder.getF32Type());
+  auto hType = RankedTensorType::get(hShapeSymbol, builder.getF32Type());
+  auto cType = RankedTensorType::get(cShapeSymbol, builder.getF32Type());
   auto pType = RankedTensorType::get(pShape, builder.getF32Type());
   auto yType = UnrankedTensorType::get(builder.getF32Type());
   auto yHType = UnrankedTensorType::get(builder.getF32Type());
@@ -102,15 +111,6 @@ bool isOMLSTMTheSameAsNaiveImplFor(
       /*direction=*/directionAttr, /*hidden_size=*/hiddenSizeAttr,
       /*input_forget=*/inputForgetAttr);
 
-  // Use the lstmOp shape inference method to compute output shape, and unset
-  // the shape so that we don't leave IR in an inconsistent state.
-  lstmOp.inferShapes();
-  auto yOutputShape =
-      lstmOp.getResults()[0].getType().cast<ShapedType>().getShape();
-  auto SOut = yOutputShape[0];
-  auto DOut = yOutputShape[1];
-  auto BOut = yOutputShape[2];
-  auto HOut = yOutputShape[3];
   lstmOp.getResults()[0].setType(yType);
   lstmOp.getResults()[1].setType(yHType);
   lstmOp.getResults()[2].setType(yCType);
@@ -160,9 +160,9 @@ bool isOMLSTMTheSameAsNaiveImplFor(
       omTensorDestroy);
   inputs.emplace_back(move(pOmt));
 
-  auto refY = omTensorCreateWithShape<float>({SOut, DOut, BOut, HOut});
-  auto refYh = omTensorCreateWithShape<float>({DOut, BOut, HOut});
-  auto refYc = omTensorCreateWithShape<float>({DOut, BOut, HOut});
+  auto refY = omTensorCreateWithShape<float>({S, D, B, H});
+  auto refYh = omTensorCreateWithShape<float>({D, B, H});
+  auto refYc = omTensorCreateWithShape<float>({D, B, H});
   // Naive LSTM implementation.
   // Equations for LSTM.
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
@@ -181,9 +181,9 @@ bool isOMLSTMTheSameAsNaiveImplFor(
   auto &peepholes = inputs.at(6);
 
   // Initialize refYh and refYc.
-  for (int64_t d = 0; d < DOut; d++)
-    for (int64_t b = 0; b < BOut; b++)
-      for (int64_t h = 0; h < HOut; h++) {
+  for (int64_t d = 0; d < D; d++)
+    for (int64_t b = 0; b < B; b++)
+      for (int64_t h = 0; h < H; h++) {
         omTensorGetElem<float>(refYh, {d, b, h}) =
             omTensorGetElem<float>(initialH.get(), {d, b, h});
         omTensorGetElem<float>(refYc, {d, b, h}) =
@@ -191,22 +191,22 @@ bool isOMLSTMTheSameAsNaiveImplFor(
       }
 
   // Main computation.
-  for (int64_t d = 0; d < DOut; ++d) {
-    for (int64_t s = 0; s < SOut; ++s) {
+  for (int64_t d = 0; d < D; ++d) {
+    for (int64_t s = 0; s < S; ++s) {
       int64_t seq = s;
       if (d == 1 || direction == -1)
         // reverse
         seq = S - s - 1;
-      auto XtWi = omTensorCreateWithShape<float>({BOut, HOut});
-      auto XtWo = omTensorCreateWithShape<float>({BOut, HOut});
-      auto XtWf = omTensorCreateWithShape<float>({BOut, HOut});
-      auto XtWc = omTensorCreateWithShape<float>({BOut, HOut});
-      auto HtRi = omTensorCreateWithShape<float>({BOut, HOut});
-      auto HtRo = omTensorCreateWithShape<float>({BOut, HOut});
-      auto HtRf = omTensorCreateWithShape<float>({BOut, HOut});
-      auto HtRc = omTensorCreateWithShape<float>({BOut, HOut});
-      for (int64_t b = 0; b < BOut; b++) {
-        for (int64_t h = 0; h < HOut; h++) {
+      auto XtWi = omTensorCreateWithShape<float>({B, H});
+      auto XtWo = omTensorCreateWithShape<float>({B, H});
+      auto XtWf = omTensorCreateWithShape<float>({B, H});
+      auto XtWc = omTensorCreateWithShape<float>({B, H});
+      auto HtRi = omTensorCreateWithShape<float>({B, H});
+      auto HtRo = omTensorCreateWithShape<float>({B, H});
+      auto HtRf = omTensorCreateWithShape<float>({B, H});
+      auto HtRc = omTensorCreateWithShape<float>({B, H});
+      for (int64_t b = 0; b < B; b++) {
+        for (int64_t h = 0; h < H; h++) {
           omTensorGetElem<float>(XtWi, {b, h}) = 0;
           omTensorGetElem<float>(XtWo, {b, h}) = 0;
           omTensorGetElem<float>(XtWf, {b, h}) = 0;
@@ -242,8 +242,8 @@ bool isOMLSTMTheSameAsNaiveImplFor(
           }
         }
       }
-      for (int64_t b = 0; b < BOut; b++) {
-        for (int64_t h = 0; h < HOut; h++) {
+      for (int64_t b = 0; b < B; b++) {
+        for (int64_t h = 0; h < H; h++) {
           float previousCt = omTensorGetElem<float>(refYc, {d, b, h});
           // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
           float it = sigmoid(
@@ -312,8 +312,12 @@ int main(int argc, char *argv[]) {
     const auto I = *rc::gen::inRange(20, 30);
     // Hidden size.
     const auto H = *rc::gen::inRange(30, 40);
+    // Whether test dynamic dimension for sequence.
+    const auto isDynS = *rc::gen::element(true, false);
+    // Whether test dynamic dimension for batch size.
+    const auto isDynB = *rc::gen::element(true, false);
 
-    RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H));
+    RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H, isDynS, isDynB));
   });
 
   // Exhaustive test case generation.
@@ -321,12 +325,21 @@ int main(int argc, char *argv[]) {
     for (int64_t b = 2; b < 5; b++)
       for (int64_t i = 2; i < 5; i++)
         for (int64_t h = 2; h < 5; h++) {
+          // Static dimensions.
           // forward
           assert(isOMLSTMTheSameAsNaiveImplFor(1, s, b, i, h));
           // reverse
           assert(isOMLSTMTheSameAsNaiveImplFor(-1, s, b, i, h));
           // bidirectional
           assert(isOMLSTMTheSameAsNaiveImplFor(2, s, b, i, h));
+
+          // Dynamic dimensions for sequence, batch size.
+          // forward
+          assert(isOMLSTMTheSameAsNaiveImplFor(1, s, b, i, h, true, true));
+          // reverse
+          assert(isOMLSTMTheSameAsNaiveImplFor(-1, s, b, i, h, true, true));
+          // bidirectional
+          assert(isOMLSTMTheSameAsNaiveImplFor(2, s, b, i, h, true, true));
         }
   return 0;
 }

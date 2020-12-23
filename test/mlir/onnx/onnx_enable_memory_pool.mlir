@@ -23,6 +23,8 @@ func @test_enable_memory_pool(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   // CHECK: return [[RES]] : memref<10x10xf32>
 }
 
+// -----
+
 /// Two intermediate values to allocate in the memory pool.
 func @test_enable_memory_pool_2(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf32>) -> tensor<10x20xf32> {
   %0 = "onnx.Add"(%arg0, %arg0) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
@@ -63,6 +65,8 @@ func @test_enable_memory_pool_2(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf3
   // CHECK: return [[RES]] : memref<10x20xf32>
 }
 
+// -----
+
 // Two intermediate dynamic sized MemRefs.
 func @test_enable_memory_pool_3(%arg0: tensor<?x?xf32>, %arg1: tensor<?x10xf32>, %arg2: tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<?x10xf32>) -> tensor<*xf32>
@@ -85,14 +89,11 @@ func @test_enable_memory_pool_3(%arg0: tensor<?x?xf32>, %arg1: tensor<?x10xf32>,
   // CHECK: krnl.define_loops 2
   // CHECK: krnl.iterate
   // CHECK: affine.store {{.*}}, [[DATA1]][%arg3, %arg4] : memref<?x10xf32>
-  // CHECK: krnl.define_loops 1
-  // CHECK: krnl.iterate
-  // CHECK: affine.store {{.*}}[%arg3, %arg4] : memref<?x10xf32>
-  // CHECK: [[TMP3:%.+]] = muli [[DIM1]], [[CONST4]] : index
+  // CHECK: [[CMP1:%.+]] = affine.max {{.*}}([[DIM1]], [[DIM1]])
+  // CHECK: [[TMP3:%.+]] = muli [[CMP1]], [[CONST4]] : index
   // CHECK: [[TMP4:%.+]] = muli [[TMP3]], [[CONST10]] : index
   // CHECK: [[MEMPOOL2:%.+]] = alloc([[TMP4]]) : memref<?xi8>
-  // CHECK: [[DATA2:%.+]] = "krnl.getref"([[MEMPOOL2]], [[CONST0_I64]], [[DIM1]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
-  // CHECK: [[CMP1:%.+]] = cmpi "eq", [[DIM1]], [[CONST1]] : index
+  // CHECK: [[DATA2:%.+]] = "krnl.getref"([[MEMPOOL2]], [[CONST0_I64]], [[CMP1]]) : (memref<?xi8>, i64, index) -> memref<?x10xf32>
   // CHECK: krnl.define_loops 2
   // CHECK: krnl.iterate
   // CHECK: affine.store {{.*}}, [[DATA2]][%arg3, %arg4] : memref<?x10xf32>

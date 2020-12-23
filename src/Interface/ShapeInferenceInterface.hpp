@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/OpDefinition.h"
 
 namespace mlir {
