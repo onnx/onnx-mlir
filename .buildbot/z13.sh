@@ -31,7 +31,8 @@ if ! [ -d ${LLVM_PROJECT_ROOT} ]; then
     git clone https://github.com/llvm/llvm-project.git ${LLVM_PROJECT_ROOT}
 fi
 PREBUILT_LLVM_PROJECT_SHA1=$(git -C ${LLVM_PROJECT_ROOT} rev-parse HEAD)
-EXPECTED_LLVM_PROJECT_SHA1=$(cat utils/clone-mlir.sh|grep -Po '(?<=git checkout )[0-9a-f]+')
+EXPECTED_LLVM_PROJECT_SHA1='fixme'
+# $(cat utils/clone-mlir.sh|grep -Po '(?<=git checkout )[0-9a-f]+')
 
 echo "${LLVM_PROJECT_ROOT} sha1 prebuilt ${PREBUILT_LLVM_PROJECT_SHA1} expected ${EXPECTED_LLVM_PROJECT_SHA1}"
 
