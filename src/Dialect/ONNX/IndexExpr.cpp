@@ -86,6 +86,7 @@ IndexExpr IndexExprContext::createQuestionmarkIndex() {
 
 IndexExpr IndexExprContext::createLiteralIndex(int64_t const val) {
   IndexExprImpl *obj;
+
   // Provide reuse for 0/1/-1.
   if (val == 0) {
     if (zero)
@@ -699,6 +700,12 @@ AffineExpr IndexExpr::getAffineExpr() const {
 
 Value IndexExpr::getValue() const {
   assert(!isShapeInferencePass() && "cannot get affine during shape inference");
+
+  // If we already have a value, no need to recompute it as all values must be
+  // in the same scope.
+  if (hasValue())
+    return getObj().value;
+
   if (isLiteral()) {
     // Create a literal constant. Literal pred type should be used directly to
     // eliminate the comparison, so we don't intend to support them here.
@@ -719,7 +726,7 @@ Value IndexExpr::getValue() const {
     getContext().getDimAndSymbolList(list);
     getObj().value = getRewriter().create<AffineApplyOp>(getLoc(), map, list);
   } else {
-    assert(hasValue());
+    llvm_unreachable("bad path");
   }
   return getObj().value;
 }

@@ -20,12 +20,12 @@ if(EXISTS ${LIBSTDCXX_LIB})
 endif()
 
 add_custom_target(check-onnx-backend
-        COMMAND ${PYTHON_EXECUTABLE}
+        COMMAND ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR} ${PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_BINARY_DIR}/test.py)
 
 add_custom_target(check-onnx-backend-dynamic
         COMMAND ${PYTHON_EXECUTABLE}
-        ${CMAKE_CURRENT_BINARY_DIR}/test.py "--dynamic")
+        ${CMAKE_CURRENT_BINARY_DIR}/test.py --dynamic --input=-1 --dim=0)
 
 add_custom_target(clean-onnx-backend
         COMMAND ${CMAKE_COMMAND} -E remove
