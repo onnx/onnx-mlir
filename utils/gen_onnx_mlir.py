@@ -931,8 +931,6 @@ def gen_op_def(schema):
     s += indent + 'let results = (outs {});\n'.format(
         (',\n' + inc_indent(indent)).join(outs_strs))
 
-    # let regions = (region SizedRegion<1>:$thenRegion, AnyRegion:$elseRegion);
-
     regions = {}
     for _, attr in sorted(schema.attributes.items()):
         if attr.type == OpSchema.AttrType.GRAPH:
