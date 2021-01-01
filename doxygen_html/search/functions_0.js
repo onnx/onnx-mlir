@@ -19,5 +19,6 @@ var searchData=
   ['omtensorlistgetsize',['omTensorListGetSize',['../_o_m_tensor_list_8h.html#a06ceb4a9d2eacd093eac37e3634e6c26',1,'OMTensorList.h']]],
   ['omtensorsetdatatype',['omTensorSetDataType',['../_o_m_tensor_8h.html#a7345ee1bac3a3d8f6040fc272ad72e1e',1,'OMTensor.h']]],
   ['omtensorsetshape',['omTensorSetShape',['../_o_m_tensor_8h.html#a4f8988bba03753b74375441fd942619b',1,'OMTensor.h']]],
-  ['omtensorsetstrides',['omTensorSetStrides',['../_o_m_tensor_8h.html#a5814f2aebd685f424a5cc40aa9daef96',1,'OMTensor.h']]]
+  ['omtensorsetstrides',['omTensorSetStrides',['../_o_m_tensor_8h.html#a5814f2aebd685f424a5cc40aa9daef96',1,'OMTensor.h']]],
+  ['omtensorsetstrideswithpyarraystrides',['omTensorSetStridesWithPyArrayStrides',['../_o_m_tensor_8h.html#aec08d2fb818b6b958229535db323653a',1,'OMTensor.h']]]
 ];

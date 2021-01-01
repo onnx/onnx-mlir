@@ -108,6 +108,9 @@ Functions</h2></td></tr>
 <tr class="memitem:a5814f2aebd685f424a5cc40aa9daef96"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#a5814f2aebd685f424a5cc40aa9daef96">omTensorSetStrides</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, int64_t *stride)</td></tr>
 <tr class="memdesc:a5814f2aebd685f424a5cc40aa9daef96"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data strides setter.  <a href="#a5814f2aebd685f424a5cc40aa9daef96">More...</a><br /></td></tr>
 <tr class="separator:a5814f2aebd685f424a5cc40aa9daef96"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aec08d2fb818b6b958229535db323653a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#aec08d2fb818b6b958229535db323653a">omTensorSetStridesWithPyArrayStrides</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor, int64_t *stridesInBytes)</td></tr>
+<tr class="memdesc:aec08d2fb818b6b958229535db323653a"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data strides setter with stride values from PyArray strides.  <a href="#aec08d2fb818b6b958229535db323653a">More...</a><br /></td></tr>
+<tr class="separator:aec08d2fb818b6b958229535db323653a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afbd6de424e6935d527708feaf9969047"><td class="memItemLeft" align="right" valign="top"><a class="el" href="_onnx_data_type_8h.html#aa7315491c4b1be4c29023499fbe0530a">OM_DATA_TYPE</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="_o_m_tensor_8h.html#afbd6de424e6935d527708feaf9969047">omTensorGetDataType</a> (<a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *tensor)</td></tr>
 <tr class="memdesc:afbd6de424e6935d527708feaf9969047"><td class="mdescLeft">&#160;</td><td class="mdescRight">OMTensor data type getter.  <a href="#afbd6de424e6935d527708feaf9969047">More...</a><br /></td></tr>
 <tr class="separator:afbd6de424e6935d527708feaf9969047"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -647,6 +650,47 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>OMTensor data strides setter. </p>
+<p>n int64 elements are copied from the strides array to indicate the per-dimension stride of the tensor, where n is the rank of the tensor.</p>
+<p>The strides array is copied without being freed, so caller is expected to manage the strides array oneself.</p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">tensor</td><td>pointer to the OMTensor </td></tr>
+    <tr><td class="paramname">strides</td><td>tensor strides array to be set.</td></tr>
+  </table>
+  </dd>
+</dl>
+<p>Set the data strides array of the OMTensor to the values in the input array. </p>
+
+</div>
+</div>
+<a id="aec08d2fb818b6b958229535db323653a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aec08d2fb818b6b958229535db323653a">&#9670;&nbsp;</a></span>omTensorSetStridesWithPyArrayStrides()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void omTensorSetStridesWithPyArrayStrides </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="_o_m_tensor_8h.html#a7099d0375d9023e04c7fe5b651ee079e">OMTensor</a> *&#160;</td>
+          <td class="paramname"><em>tensor</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int64_t *&#160;</td>
+          <td class="paramname"><em>stridesInBytes</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>OMTensor data strides setter with stride values from PyArray strides. </p>
+<p>Note that PyArray stride values are in bytes, while OMTensor stride values in elements. Thus, PyArray stride values will be divided by datatype size before passing to OMTensor stride values.</p>
 <p>n int64 elements are copied from the strides array to indicate the per-dimension stride of the tensor, where n is the rank of the tensor.</p>
 <p>The strides array is copied without being freed, so caller is expected to manage the strides array oneself.</p>
 <dl class="params"><dt>Parameters</dt><dd>

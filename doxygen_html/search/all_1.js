@@ -28,6 +28,7 @@ var searchData=
   ['omtensorsetdatatype',['omTensorSetDataType',['../_o_m_tensor_8h.html#a7345ee1bac3a3d8f6040fc272ad72e1e',1,'OMTensor.h']]],
   ['omtensorsetshape',['omTensorSetShape',['../_o_m_tensor_8h.html#a4f8988bba03753b74375441fd942619b',1,'OMTensor.h']]],
   ['omtensorsetstrides',['omTensorSetStrides',['../_o_m_tensor_8h.html#a5814f2aebd685f424a5cc40aa9daef96',1,'OMTensor.h']]],
+  ['omtensorsetstrideswithpyarraystrides',['omTensorSetStridesWithPyArrayStrides',['../_o_m_tensor_8h.html#aec08d2fb818b6b958229535db323653a',1,'OMTensor.h']]],
   ['onnxdatatype_2eh',['OnnxDataType.h',['../_onnx_data_type_8h.html',1,'']]],
   ['onnxdatatypemetadata_2einc',['OnnxDataTypeMetaData.inc',['../_onnx_data_type_meta_data_8inc.html',1,'']]],
   ['onnxmlirruntime_2eh',['OnnxMlirRuntime.h',['../_onnx_mlir_runtime_8h.html',1,'']]]
