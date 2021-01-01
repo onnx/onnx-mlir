@@ -23,6 +23,7 @@
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Interface/ShapeInferenceInterface.hpp"
+#include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 
 #include "ONNXOpsHelper.hpp"
 

@@ -1946,14 +1946,14 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
 }
 
 def ONNXIfOp:ONNX_Op<"If",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX If operation";
   let description = [{
   "If conditional"
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$cond);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$outputs);
-  let regions = (regions $SizedRegion<1>:$else_branch,
+  let regions = (region SizedRegion<1>:$else_branch,
     SizedRegion<1>:$then_branch);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -1965,6 +1965,11 @@ def ONNXIfOp:ONNX_Op<"If",
     static std::vector<int> getTypeMap() {
       return {-1};
     }
+  int64_t getSubgraphRegionIdx(const std::string& name) {
+    if (name == "else_branch") return 0;
+    if (name == "then_branch") return 1;
+    assert(false && "region with the specified name does not exist");
+  }
   }];
 }
 
@@ -2324,7 +2329,7 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
 }
 
 def ONNXLoopOp:ONNX_Op<"Loop",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX Loop operation";
   let description = [{
   "Generic Looping construct. This loop has multiple termination conditions:"
@@ -2465,7 +2470,7 @@ def ONNXLoopOp:ONNX_Op<"Loop",
     AnyTypeOf<[TensorOf<[I1]>, AnyMemRef, NoneType]>:$cond,
     Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$v_initial);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$v_final_and_scan_outputs);
-  let regions = (regions $SizedRegion<1>:$body);
+  let regions = (region SizedRegion<1>:$body);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return -1;
@@ -2481,7 +2486,11 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   mlir::Operation::result_range v_final();
   mlir::Operation::result_range scan_outputs();
   
-    }];
+    int64_t getSubgraphRegionIdx(const std::string& name) {
+    if (name == "body") return 0;
+    assert(false && "region with the specified name does not exist");
+  }
+  }];
 }
 
 def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
@@ -4240,7 +4249,7 @@ def ONNXRoundOp:ONNX_Op<"Round",
 }
 
 def ONNXScanOp:ONNX_Op<"Scan",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX Scan operation";
   let description = [{
   "Scan can be used to iterate over one or more scan_input tensors,"
@@ -4372,7 +4381,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
     OptionalAttr<I64ArrayAttr>:$scan_output_axes,
     OptionalAttr<I64ArrayAttr>:$scan_output_directions);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>>:$final_state_and_scan_outputs);
-  let regions = (regions $SizedRegion<1>:$body);
+  let regions = (region SizedRegion<1>:$body);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return -1;
@@ -4383,6 +4392,10 @@ def ONNXScanOp:ONNX_Op<"Scan",
     static std::vector<int> getTypeMap() {
       return {20};
     }
+  int64_t getSubgraphRegionIdx(const std::string& name) {
+    if (name == "body") return 0;
+    assert(false && "region with the specified name does not exist");
+  }
   }];
 }
 

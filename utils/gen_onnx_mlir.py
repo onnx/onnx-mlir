@@ -881,6 +881,14 @@ def gen_op_def(schema):
     indent = inc_indent()
     s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
 
+    regions = OrderedDict()
+    for _, attr in sorted(schema.attributes.items()):
+      if attr.type == OpSchema.AttrType.GRAPH:
+        if attr.required:
+          regions[attr.name] = "SizedRegion<1>"
+        else:
+          regions[attr.name] = "AnyRegion"
+
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
     # OpsWithShapeInference:
@@ -892,6 +900,8 @@ def gen_op_def(schema):
         traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
     if schema.name in OpsWithResultTypeInference.keys():
         traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
+    if len(regions):
+        traits.append("OpInterface<\"HasOnnxSubgraphOpInterface\">")
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
     # Generate decl for canonicalizer.
@@ -931,17 +941,10 @@ def gen_op_def(schema):
     s += indent + 'let results = (outs {});\n'.format(
         (',\n' + inc_indent(indent)).join(outs_strs))
 
-    regions = {}
-    for _, attr in sorted(schema.attributes.items()):
-        if attr.type == OpSchema.AttrType.GRAPH:
-          if attr.required:
-            regions[attr.name] = "SizedRegion<1>"
-          else:
-            regions[attr.name] = "AnyRegion"
     regions_strs = ["{1}:${0}".format(*i) for i in regions.items()]
 
     if len(regions):
-        s += indent + 'let regions = (regions ${});\n'.format(
+        s += indent + 'let regions = (region {});\n'.format(
             (',\n' + inc_indent(indent)).join(regions_strs))
 
     # custom_builder_broadcast_ops_list
@@ -1042,6 +1045,15 @@ def gen_op_def(schema):
 
     if schema.name in OpsWithHelpers:
         s += OpsWithHelpers[schema.name]
+
+    if len(regions):
+        s += indent + "int64_t getSubgraphRegionIdx(const std::string& name) {\n"
+        indent = inc_indent(indent)
+        for idx, region_name in enumerate(regions.keys()):
+          s += indent + "if (name == \"{}\") return {};\n".format(region_name, idx)
+        s += indent + "assert(false && \"region with the specified name does not exist\");\n"
+        indent = dec_indent(indent)
+        s += indent + "}\n"
 
     s += indent + '}];\n'
 

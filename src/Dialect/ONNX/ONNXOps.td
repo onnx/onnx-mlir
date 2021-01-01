@@ -40,6 +40,11 @@ include "src/Interface/PromotableConstOperandsOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 #endif // RESULT_TYPE_INFERENCE_OP_INTERFACE
 
+#ifdef HAS_ONNX_SUBGRAPH_OP_INTERFACE
+#else
+include "src/Interface/HasOnnxSubgraphOpInterface.td"
+#endif // HAS_ONNX_SUBGRAPH_OP_INTERFACE
+
 def ONNX_Dialect : Dialect {
   let name = "onnx";
   let cppNamespace = "";
