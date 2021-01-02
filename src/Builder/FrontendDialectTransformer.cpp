@@ -373,7 +373,7 @@ private:
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<mlir::Value> inputs, int expectedNumOperands,
       int expectedNumResults,
-      const std::vector<mlir::NamedAttribute>& attributes) {
+      const std::vector<mlir::NamedAttribute> &attributes) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -431,7 +431,7 @@ private:
 
     // TODO: Handle optional inputs.
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
-    
+
     // Type inference for results.
     if (auto opWithTypeInference =
             mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
@@ -583,7 +583,8 @@ private:
       int nIn = mlir::ONNXPadOp::getNumberOfOperands();
       int nOut = mlir::ONNXPadOp::getNumberOfResults();
       auto attributes = ImportNodeAttributes(node);
-      buildOutputAndOperation<mlir::ONNXPadOp>(node, inputs, nIn, nOut, attributes);
+      buildOutputAndOperation<mlir::ONNXPadOp>(
+          node, inputs, nIn, nOut, attributes);
     } else {
       buildOperation<mlir::ONNXPadOp>(node);
     }
@@ -705,7 +706,7 @@ private:
     // Check if op is a context-independent function
     const onnx::FunctionProto *pFunctionProto = schema->GetFunction();
     if (!pFunctionProto) {
-      // Check if op is a context-dependent function and build function-body
+// Check if op is a context-dependent function and build function-body
 #ifdef ONNX_FUNCTION_TYPE_CONTEXT
       onnx::FunctionBodyBuildContextImpl onnxFunContext(node, operandOnnxTypes);
 #else
