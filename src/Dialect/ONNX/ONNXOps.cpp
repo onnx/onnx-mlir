@@ -1489,7 +1489,7 @@ LogicalResult ONNXConvOp::inferShapes(
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (xShape[1] != -1 && weightShape[1] != -1 &&
       xShape[1] != (weightShape[1] * group)) {
-    return emitOpError("Channel dimension mismatch") 
+    return emitOpError("Channel dimension mismatch")
            << xTy << " " << weightTy << " " << group;
   }
 
