@@ -1489,8 +1489,8 @@ LogicalResult ONNXConvOp::inferShapes(
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (xShape[1] != -1 && weightShape[1] != -1 &&
       xShape[1] != (weightShape[1] * group)) {
-    return emitOpError("Channel dimension mismatch") << xTy << " " << weightTy
-                                                     << " " << group;
+    return emitOpError("Channel dimension mismatch") 
+           << xTy << " " << weightTy << " " << group;
   }
 
   // Check the size of bias.
@@ -1615,8 +1615,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   // condition holds.
   if (xShape[1] != -1 && inChannels != -1 && xShape[1] != inChannels &&
       xShape[1] % group != 0) {
-    return emitOpError("Channel dimension mismatch") << xTy << " " << weightTy
-                                                     << " " << group;
+    return emitOpError("Channel dimension mismatch")
+           << xTy << " " << weightTy << " " << group;
   }
 
   // Check the size of bias.

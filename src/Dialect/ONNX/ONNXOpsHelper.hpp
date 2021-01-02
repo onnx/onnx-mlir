@@ -34,7 +34,6 @@ AffineMap getIdentityDimMap(Builder &builder);
 // - s3: dilation
 AffineMap getConvDimMap(Builder &builder, bool ceilMode);
 
-
 // Helper functions to get values from attribute arrays.
 size_t ArrayAttrSize(ArrayAttr a);
 size_t ArrayAttrSize(Optional<ArrayAttr> a);
