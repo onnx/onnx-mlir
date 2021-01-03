@@ -2808,6 +2808,34 @@ func @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
 
 // -----
 
+func @cast_lowering_int_wider_int(%arg0: tensor<i32>) -> tensor<i64> {
+  %0 = "onnx.Cast"(%arg0) {to = 7 : si64} : (tensor<i32>) -> tensor<i64>
+  "std.return"(%0) : (tensor<i64>) -> ()
+
+  // CHECK-LABEL: cast_lowering_int_wider_int
+  // CHECK: [[RES:%.+]] = alloc() : memref<i64>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[] : memref<i32>
+  // CHECK: [[CAST:%.+]] = sexti [[LOAD]] : i32 to i64
+  // CHECK: affine.store [[CAST]], [[RES]][] : memref<i64>
+  // CHECK: return [[RES]] : memref<i64>
+}
+
+// -----
+
+func @cast_lowering_int_narrow_int(%arg0: tensor<i64>) -> tensor<i32> {
+  %0 = "onnx.Cast"(%arg0) {to = 6 : si64} : (tensor<i64>) -> tensor<i32>
+  "std.return"(%0) : (tensor<i32>) -> ()
+
+  // CHECK-LABEL: cast_lowering_int_narrow_int
+  // CHECK: [[RES:%.+]] = alloc() : memref<i32>
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[] : memref<i64>
+  // CHECK: [[CAST:%.+]] = trunci [[LOAD]] : i64 to i32
+  // CHECK: affine.store [[CAST]], [[RES]][] : memref<i32>
+  // CHECK: return [[RES]] : memref<i32>
+}
+
+// -----
+
 func @test_size_known(%arg0: tensor<2x2xf32>) -> tensor<i64> {
   %1 = "onnx.Size"(%arg0) : (tensor<2x2xf32>) -> tensor<i64>
   "std.return"(%1) : (tensor<i64>) -> ()

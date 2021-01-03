@@ -125,11 +125,20 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
       else
         return rewriter.create<FPTruncOp>(loc, elementType, operand);
     }
-  }
-  // int to float
-  else if (origtype.isa<IntegerType>()) {
+  } else if (origtype.isa<IntegerType>()) {
+    // cast from integer type to floating-point type
     if (elementType.isa<FloatType>())
       return rewriter.create<SIToFPOp>(loc, elementType, operand);
+    else if (elementType.isa<IntegerType>())
+      // cast from integer to wider integer
+      if (origtype.getIntOrFloatBitWidth() <
+          elementType.getIntOrFloatBitWidth())
+        return rewriter.create<SignExtendIOp>(loc, operand, elementType);
+      // cast from integer to narrower integer
+      else
+        return rewriter.create<TruncateIOp>(loc, operand, elementType);
+    else
+      llvm_unreachable("unsupported element type");
   }
   llvm_unreachable("unsupported element type");
 }

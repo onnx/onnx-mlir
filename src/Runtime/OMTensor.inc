@@ -258,7 +258,14 @@ void omTensorSetShape(OMTensor *tensor, int64_t *shape) {
 int64_t *omTensorGetStrides(OMTensor *tensor) { return tensor->_strides; }
 
 /* OMTensor data strides setter */
-void omTensorSetStrides(OMTensor *tensor, int64_t *stridesInBytes) {
+void omTensorSetStrides(OMTensor *tensor, int64_t *strides) {
+  for (int i = 0; i < tensor->_rank; i++)
+    tensor->_strides[i] = strides[i];
+}
+
+/* OMTensor data strides setter with PyArray stride values */
+void omTensorSetStridesWithPyArrayStrides(OMTensor *tensor,
+  int64_t *stridesInBytes) {
   for (int i = 0; i < tensor->_rank; i++)
     tensor->_strides[i] = stridesInBytes[i] / sizeof(tensor->_dataType);
 }
