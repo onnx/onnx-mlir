@@ -2809,7 +2809,7 @@ func @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
 // -----
 
 func @cast_lowering_int_wider_int(%arg0: tensor<i32>) -> tensor<i64> {
-  %0 = "onnx.Cast"(%arg0) {to = 7 : si64} : (tensor<i32>) -> tensor<i64>
+  %0 = "onnx.Cast"(%arg0) {to = i64} : (tensor<i32>) -> tensor<i64>
   "std.return"(%0) : (tensor<i64>) -> ()
 
   // CHECK-LABEL: cast_lowering_int_wider_int
@@ -2823,7 +2823,7 @@ func @cast_lowering_int_wider_int(%arg0: tensor<i32>) -> tensor<i64> {
 // -----
 
 func @cast_lowering_int_narrow_int(%arg0: tensor<i64>) -> tensor<i32> {
-  %0 = "onnx.Cast"(%arg0) {to = 6 : si64} : (tensor<i64>) -> tensor<i32>
+  %0 = "onnx.Cast"(%arg0) {to = i32 : si64} : (tensor<i64>) -> tensor<i32>
   "std.return"(%0) : (tensor<i32>) -> ()
 
   // CHECK-LABEL: cast_lowering_int_narrow_int
