@@ -2823,7 +2823,7 @@ func @cast_lowering_int_wider_int(%arg0: tensor<i32>) -> tensor<i64> {
 // -----
 
 func @cast_lowering_int_narrow_int(%arg0: tensor<i64>) -> tensor<i32> {
-  %0 = "onnx.Cast"(%arg0) {to = i32 : si64} : (tensor<i64>) -> tensor<i32>
+  %0 = "onnx.Cast"(%arg0) {to = i32 } : (tensor<i64>) -> tensor<i32>
   "std.return"(%0) : (tensor<i32>) -> ()
 
   // CHECK-LABEL: cast_lowering_int_narrow_int
