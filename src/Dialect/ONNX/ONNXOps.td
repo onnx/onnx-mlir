@@ -12,10 +12,8 @@
 #else
 #define ONNX_OPS
 
-#ifdef OP_BASE
-#else
 include "mlir/IR/OpBase.td"
-#endif // OP_BASE
+include "mlir/Interfaces/ControlFlowInterfaces.td"
 
 def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
 
@@ -102,6 +100,25 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     static StringRef getNumOutputsAttrName() { return "numOutputs"; }
   }];
 }
+
+def ONNXReturnOp : ONNX_Op<"Return", [NoSideEffect,
+                                ReturnLike, Terminator]> {
+  let summary = "ONNX return operation";
+  let description = [{
+    The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
+    The operation takes variable number of operands and produces no results.
+
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$operands);
+
+  let builders = [
+    OpBuilderDAG<(ins),
+    [{ build($_builder, $_state, llvm::None); }]>];
+
+  let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
+}
+
 
 //===----------------------------------------------------------------------===//
 // ONNX Operations for handling optional arguments

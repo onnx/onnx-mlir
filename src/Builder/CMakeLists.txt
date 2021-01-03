@@ -30,5 +30,6 @@ target_include_directories(OMBuilder
 # the compilation will fail.
 add_dependencies(OMBuilder OMONNXOpsInc)
 add_dependencies(OMBuilder OMONNXOps OMResultTypeInferenceOpInterface)
+add_dependencies(OMBuilder OMONNXOps OMHasOnnxSubgraphOpInterface)
 
 install(TARGETS OMBuilder DESTINATION lib)

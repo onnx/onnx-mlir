@@ -23,6 +23,7 @@ namespace bstd = mpark;
 #include "mlir/IR/Module.h"
 #include "onnx/defs/schema.h"
 
+#include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 
 #include "FrontendDialectTransformer.hpp"
@@ -296,7 +297,12 @@ private:
       const onnx::NodeProto &node) {
     std::vector<mlir::NamedAttribute> attributes;
     for (int i = 0; i < node.attribute_size(); ++i) {
-      auto attr = node.attribute(i);
+      const auto &attr = node.attribute(i);
+      // Ignore subgraph attributes, as they will be imported as regions.
+      if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH ||
+          attr.type() == onnx::AttributeProto_AttributeType_GRAPHS) {
+        continue;
+      }
       attributes.push_back(convertOnnxAttributeProtoToMlirNamedAttribute(attr));
     }
 
@@ -306,6 +312,111 @@ private:
           "onnx_node_name", builder_.getStringAttr(node.name())));
     }
     return attributes;
+  }
+
+  static void createRegionForSubgraphs(
+      const onnx::NodeProto &node, mlir::OperationState &state) {
+    for (const auto &attr : node.attribute()) {
+      // Ignore subgraph attributes, as they will be imported as regions.
+      if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH ||
+          attr.type() == onnx::AttributeProto_AttributeType_GRAPHS) {
+        state.addRegion();
+      }
+    }
+  }
+
+  void importSubgraphsToRegions(
+      const onnx::NodeProto &node, mlir::Operation *op) {
+    for (const auto &attr : node.attribute()) {
+      // Ignore subgraph attributes, as they will be imported as regions.
+      if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH ||
+          attr.type() == onnx::AttributeProto_AttributeType_GRAPHS) {
+        mlir::OpBuilder::InsertionGuard guard(builder_);
+        mlir::Block *entryBlock;
+        if (auto opWithSubgraph =
+                mlir::dyn_cast<mlir::HasOnnxSubgraphOpInterface>(op)) {
+          auto regionIdx = opWithSubgraph.getSubgraphRegionIdx(attr.name());
+          auto &region = op->getRegion(regionIdx);
+          entryBlock = new Block;
+          region.push_back(entryBlock);
+          builder_.setInsertionPointToStart(entryBlock);
+        } else {
+          llvm_unreachable("Op contain subgraph attributes but does not "
+                           "implement HasOnnxSubgraphOpInterface interface.");
+        }
+
+        llvm::SmallVector<mlir::Type, 4> argTypes;
+        // Import the input tensor types that are not constant and not
+        // initialized.
+        int numInputs = 0;
+        for (const auto &input : attr.g().input()) {
+          AddValueInfo(input);
+          if (!initializedTensors.ContainKey(legalize_name(input.name()))) {
+            //                  inputNames.push_back(input.name());
+            auto argTy = ImportTensorType(input);
+            auto shapedTy = argTy.dyn_cast<mlir::RankedTensorType>();
+            // Change the first dimension to unknown (-1) for test purpose only
+            if (shapedTy && force_dim_dynamic_enabled_ &&
+                ((forced_inputs_dims.find(-1) != forced_inputs_dims.end()) ||
+                    (forced_inputs_dims.find(numInputs) !=
+                        forced_inputs_dims.end()))) {
+              std::vector<int> forced_dims;
+              if (forced_inputs_dims.find(-1) != forced_inputs_dims.end())
+                forced_dims = forced_inputs_dims.at(-1);
+              else
+                forced_dims = forced_inputs_dims.at(numInputs);
+              auto argShape = shapedTy.getShape();
+              SmallVector<int64_t, 4> newDims;
+              for (auto i = 0; i < argShape.size(); i++) {
+                if (llvm::is_contained(forced_dims, -1) ||
+                    llvm::is_contained(forced_dims, i)) {
+                  newDims.push_back(-1);
+                } else {
+                  newDims.push_back(argShape[i]);
+                }
+              }
+              argTy = mlir::RankedTensorType::get(
+                  newDims, shapedTy.getElementType());
+            }
+            argTypes.emplace_back(argTy);
+
+            // numInputs is the number of graph inputs not contained within the
+            // initializer
+            ++numInputs;
+          }
+        }
+
+        // Map graph inputs to entry block arguments.
+        // Counter of un-initialized tensors. This counter is used to index the
+        // entry block arguments.
+        entryBlock->addArguments(argTypes);
+        int entryBlockArgIdx = 0;
+        for (int i = 0; i < attr.g().input().size(); ++i) {
+          if (!initializedTensors.ContainKey(
+                  legalize_name(attr.g().input()[i].name()))) {
+
+            ImportInputTensorSymbol(attr.g().input()[i],
+                entryBlock->getArguments()[entryBlockArgIdx]);
+            entryBlockArgIdx++;
+          }
+        }
+
+        // Import nodes in the subgraph.
+        for (const auto &item : attr.g().node()) {
+          ImportNode(item);
+        }
+
+        llvm::SmallVector<mlir::Type, 4> ret_types;
+        llvm::SmallVector<mlir::Value, 4> ret_vals;
+        // Import the output tensors
+        for (const auto &output : attr.g().output()) {
+          ImportOutputTensor(output, ret_types, ret_vals);
+        }
+
+        // Create a return operation to return all ONNX output tensors.
+        builder_.create<ONNXReturnOp>(UnknownLoc(), ret_vals);
+      }
+    }
   }
 
   void ImportNodeGeneric(const onnx::NodeProto &node) {
@@ -321,8 +432,9 @@ private:
     }
     result.addOperands(inputs);
     result.addAttributes(ImportNodeAttributes(node));
-
+    createRegionForSubgraphs(node, result);
     auto op = builder_.createOperation(result);
+
     for (int i = 0; i < node.output().size(); i++) {
       auto r = op->getResult(i);
       frontend_symbols_.AddMapping(legalize_name(node.output()[i]), r);
@@ -437,6 +549,7 @@ private:
 
     // TODO: Handle optional inputs.
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
+    importSubgraphsToRegions(node, op.getOperation());
 
     // Type inference for results.
     if (auto opWithTypeInference =
@@ -784,6 +897,9 @@ private:
       llvm::SmallVectorImpl<mlir::Type> &ret_types,
       llvm::SmallVectorImpl<mlir::Value> &ret_vals) {
     auto output_tensor_legalized_name = legalize_name(output.name());
+    if (!frontend_symbols_.ContainKey(output_tensor_legalized_name))
+      printf("tensor not found: %s\n", output_tensor_legalized_name.c_str());
+
     assert(frontend_symbols_.ContainKey(output_tensor_legalized_name) &&
            "Output tensor not found");
 
