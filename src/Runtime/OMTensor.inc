@@ -267,7 +267,8 @@ void omTensorSetStrides(OMTensor *tensor, int64_t *strides) {
 void omTensorSetStridesWithPyArrayStrides(OMTensor *tensor,
   int64_t *stridesInBytes) {
   for (int i = 0; i < tensor->_rank; i++)
-    tensor->_strides[i] = stridesInBytes[i] / sizeof(tensor->_dataType);
+    tensor->_strides[i] =
+      stridesInBytes[i] / getDataTypeSize(tensor->_dataType);
 }
 
 /* OMTensor data type getter */
