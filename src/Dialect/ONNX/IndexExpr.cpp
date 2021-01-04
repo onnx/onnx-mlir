@@ -55,7 +55,7 @@ IndexExprContext::IndexExprContext(IndexExprContext &newParentContext)
 IndexExprContext::~IndexExprContext() {
   // Free the memory of each IndexExprImpl in context's container.
   for (IndexExprImpl *obj : container)
-    free(obj);
+    delete obj;
   container.clear();
 }
 
