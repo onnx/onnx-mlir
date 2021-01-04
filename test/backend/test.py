@@ -24,8 +24,8 @@ parser.add_argument('--dynamic', action='store_true',
     help='enable dynamic (default: false)')
 parser.add_argument('-i', '--input', type=int, default=-1,
     help='input whose dimensions to be changed to unknown (default: all inputs')
-parser.add_argument('-d', '--dim', type=int, default=0,
-    help='dimension to be changed to unknown (default: first dimension')
+parser.add_argument('-d', '--dim', type=int, default=-1,
+    help='dimension to be changed to unknown (default: all dimension')
 parser.add_argument('unittest_args', nargs='*')
 args = parser.parse_args()
 sys.argv[1:] = args.unittest_args
@@ -71,9 +71,9 @@ test_static_dynamicNA = test_static # static tests for which dyn not available.
 # - 'dynamic_dict' is a dict to define which inputs/dimensions are changed to
 #     unknown, where its key is an input index and its value is a set of
 #     dimension indices, e.g. {0:{0,1}, 1:{-1}, 2:{0}}
-# If 'dynamic_dict' is not given, by default, the first dimension of all inputs
-#   will be changed to unknown. Use this script's arguments '--input' and
-#   '--dim' to control the default values.
+# If 'dynamic_dict' is not given, by default, all dimension of all inputs will
+#   be changed to unknown. Use this script's arguments '--input' and '--dim' to
+#   control the default values.
 # Input and dimension indices start from 0. -1 means all inputs or all dimensions.
 
 test_to_enable_static_dynamic = {
@@ -93,8 +93,8 @@ test_to_enable_static_dynamic = {
     # Adam
 
     # Add
-    "test_add_cpu": (test_static_dynamic,{-1: {-1}}),
-    "test_add_bcast_cpu": (test_static_dynamic,{-1: {-1}}),
+    "test_add_cpu": (test_static_dynamic,),
+    "test_add_bcast_cpu": (test_static_dynamic,),
 
     # And
     "test_and2d_cpu": (test_static_dynamic,),
@@ -172,8 +172,7 @@ test_to_enable_static_dynamic = {
     "test_concat_3d_axis_negative_3_cpu": (test_static_dynamic,{0:{0}}),
 
     # Constant (dynamic NA)
-    # TODO look into error
-    "test_constant_cpu": (test_disabled,), # get very larger error, unsure why
+    "test_constant_cpu": (test_static_dynamicNA,),
 
     # ConstantOfShape (dynamic NA)
     "test_constantofshape_float_ones_cpu": (test_static_dynamicNA,),
@@ -562,9 +561,8 @@ test_to_enable_static_dynamic = {
     "test_sinh_example_cpu": (test_static_dynamic,),
 
     # Size
-    # TODO(tjingrant): fix unit test for size ops.
-    "test_size_cpu": (test_static,),
-    "test_size_example_cpu": (test_static,),
+    "test_size_cpu": (test_static_dynamic,),
+    "test_size_example_cpu": (test_static_dynamic,),
 
     # Slice (makes Axis a runtime argument, which is not supported).
 

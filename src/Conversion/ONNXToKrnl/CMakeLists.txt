@@ -35,7 +35,7 @@ add_library(OMONNXToKrnl
         ConvertONNXToKrnl.cpp)
 target_link_libraries(OMONNXToKrnl
         OMSupport
-        onnx)
+        )
 target_include_directories(OMONNXToKrnl
         PRIVATE
         ${ONNX_MLIR_SRC_ROOT}
