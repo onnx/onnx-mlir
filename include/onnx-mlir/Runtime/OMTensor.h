@@ -115,8 +115,7 @@ OMTensor *omTensorCreateWithOwnership(void *data_ptr, int64_t *shape,
  * @return pointer to OMTensor created, NULL if creation failed.
  *
  */
-OMTensor *omTensorCreateEmpty(
-        int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
+OMTensor *omTensorCreateEmpty(int64_t *shape, int64_t rank, OM_DATA_TYPE dtype);
 
 /**
  * \brief Destroy the OMTensor struct.
@@ -199,6 +198,27 @@ int64_t *omTensorGetStrides(OMTensor *tensor);
  * Set the data strides array of the OMTensor to the values in the input array.
  */
 void omTensorSetStrides(OMTensor *tensor, int64_t *stride);
+
+/**
+ * \brief OMTensor data strides setter with stride values from PyArray strides
+ *
+ * Note that PyArray stride values are in bytes, while OMTensor stride values in
+ * elements. Thus, PyArray stride values will be divided by datatype size before
+ * passing to OMTensor stride values.
+ *
+ * n int64 elements are copied from the strides array to indicate the
+ * per-dimension stride of the tensor, where n is the rank of the tensor.
+ *
+ * The strides array is copied without being freed, so caller is expected to
+ * manage the strides array oneself.
+ *
+ * @param tensor pointer to the OMTensor
+ * @param strides tensor strides array to be set.
+ *
+ * Set the data strides array of the OMTensor to the values in the input array.
+ */
+void omTensorSetStridesWithPyArrayStrides(
+    OMTensor *tensor, int64_t *stridesInBytes);
 
 /**
  * \brief OMTensor data type getter
