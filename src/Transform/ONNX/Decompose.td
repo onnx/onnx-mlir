@@ -103,7 +103,7 @@ def GetNullAttr :
 def createDenseArrayAttr:
   NativeCodeCall<"createDenseArrayAttr($_builder, $0)">;
 
-def ScalerT : NativeCodeCall<"IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, 1, /*isSigned=*/true))">;
+def ScalerT : NativeCodeCall<"TypeAttr::get($_builder.getF32Type())">;
 
 // No attribute
 def ScalerNullPattern : Pat<

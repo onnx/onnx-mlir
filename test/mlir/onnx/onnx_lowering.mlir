@@ -2724,7 +2724,7 @@ func @test_split_variable(%arg0 : tensor<16x32x64xf32>) -> (tensor<*xf32>, tenso
 // -----
 
 func @cast_lowering_sametype(%arg0: tensor<f32>) -> tensor<f32> {
-  %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<f32>) -> tensor<f32>
+  %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<f32>) -> tensor<f32>
   "std.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_sametype
@@ -2737,7 +2737,7 @@ func @cast_lowering_sametype(%arg0: tensor<f32>) -> tensor<f32> {
 // -----
 
 func @cast_lowering_intfloat(%arg0: tensor<i64>) -> tensor<f32> {
-  %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<i64>) -> tensor<f32>
+  %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<i64>) -> tensor<f32>
   "std.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_intfloat
@@ -2751,7 +2751,7 @@ func @cast_lowering_intfloat(%arg0: tensor<i64>) -> tensor<f32> {
 // -----
 
 func @cast_lowering_floatint(%arg0: tensor<f32>) -> tensor<i64> {
-  %0 = "onnx.Cast"(%arg0) {to = 7 : si64} : (tensor<f32>) -> tensor<i64>
+  %0 = "onnx.Cast"(%arg0) {to = i64} : (tensor<f32>) -> tensor<i64>
   "std.return"(%0) : (tensor<i64>) -> ()
 
   // CHECK-LABEL: cast_lowering_floatint
@@ -2765,7 +2765,7 @@ func @cast_lowering_floatint(%arg0: tensor<f32>) -> tensor<i64> {
 // -----
 
 func @cast_lowering_f16f32(%arg0: tensor<f16>) -> tensor<f32> {
-  %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<f16>) -> tensor<f32>
+  %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<f16>) -> tensor<f32>
   "std.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_f16f32
@@ -2779,7 +2779,7 @@ func @cast_lowering_f16f32(%arg0: tensor<f16>) -> tensor<f32> {
 // -----
 
 func @cast_lowering_f64f32(%arg0: tensor<f64>) -> tensor<f32> {
-  %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<f64>) -> tensor<f32>
+  %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<f64>) -> tensor<f32>
   "std.return"(%0) : (tensor<f32>) -> ()
 
   // CHECK-LABEL: cast_lowering_f64f32
@@ -2793,7 +2793,7 @@ func @cast_lowering_f64f32(%arg0: tensor<f64>) -> tensor<f32> {
 // -----
 
 func @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
-  %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<10xf64>) -> tensor<*xf32>
+  %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<10xf64>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: cast_lowering_f64f32_10
@@ -2809,7 +2809,7 @@ func @cast_lowering_f64f32_10(%arg0: tensor<10xf64>) -> tensor<*xf32> {
 // -----
 
 func @cast_lowering_int_wider_int(%arg0: tensor<i32>) -> tensor<i64> {
-  %0 = "onnx.Cast"(%arg0) {to = 7 : si64} : (tensor<i32>) -> tensor<i64>
+  %0 = "onnx.Cast"(%arg0) {to = i64} : (tensor<i32>) -> tensor<i64>
   "std.return"(%0) : (tensor<i64>) -> ()
 
   // CHECK-LABEL: cast_lowering_int_wider_int
@@ -2823,7 +2823,7 @@ func @cast_lowering_int_wider_int(%arg0: tensor<i32>) -> tensor<i64> {
 // -----
 
 func @cast_lowering_int_narrow_int(%arg0: tensor<i64>) -> tensor<i32> {
-  %0 = "onnx.Cast"(%arg0) {to = 6 : si64} : (tensor<i64>) -> tensor<i32>
+  %0 = "onnx.Cast"(%arg0) {to = i32 } : (tensor<i64>) -> tensor<i32>
   "std.return"(%0) : (tensor<i32>) -> ()
 
   // CHECK-LABEL: cast_lowering_int_narrow_int
