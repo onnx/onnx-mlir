@@ -51,12 +51,19 @@ from PyRuntime import ExecutionSession
 
 # Test directories:
 # https://github.com/onnx/onnx/tree/master/onnx/backend/test/data/node
+# In our directories, the python files that generate the tests are found here
+# onnx-mlir/third_party/onnx/onnx/backend/test/case/node
+
 # Set value for each benchmark to: test_disabled, test_static, 
-#   test_dynamic, or test_static_dynamic.
-test_disabled = 0
-test_static = 1
-test_dynamic = 2
-test_static_dynamic = test_static + test_dynamic
+#   test_dynamic, test_static_dynamic, test_static_dynamicNA.
+# The test_static_dynamicNA values indicates tests for which the dynamic test
+# makes no sense, e.g. where we build an array of constant but we don't even
+# know the rank of the constant array we are generating.
+test_disabled = 0  # no tests
+test_static = 1    # static test only (1st bit on).
+test_dynamic = 2   # dynamic test only (2nd bit on).
+test_static_dynamic = test_static + test_dynamic # both static & dynamic
+test_static_dynamicNA = test_static # static tests for which dyn not available.
 
 # For each benchmark, its value is a tuple of (test_type, dynamic_dict)
 # - 'test_type' is one of test_disabled, test_static, test_dynamic, and
@@ -111,7 +118,6 @@ test_to_enable_static_dynamic = {
 
     # Atanh
 
-
     # AveragePool
     "test_averagepool_1d_default_cpu": (test_static_dynamic,),
     "test_averagepool_2d_ceil_cpu": (test_static_dynamic,),
@@ -134,6 +140,14 @@ test_to_enable_static_dynamic = {
     # Bitshift left/right
 
     # Cast
+    "test_cast_FLOAT_to_DOUBLE_cpu": (test_static_dynamic,),
+    "test_cast_DOUBLE_to_FLOAT_cpu": (test_static_dynamic,),
+    "test_cast_FLOAT_to_FLOAT16_cpu": (test_disabled,), # appers unsupported at this time
+    "test_cast_FLOAT16_to_FLOAT_cpu": (test_disabled,), # appers unsupported at this time
+    "test_cast_FLOAT16_to_DOUBLE_cpu": (test_disabled,), # appers unsupported at this time
+    "test_cast_DOUBLE_to_FLOAT16_cpu": (test_disabled,), # appers unsupported at this time
+    "test_cast_FLOAT_to_STRING_cpu": (test_disabled,), # appers unsupported at this time
+    "test_cast_STRING_to_FLOAT_cpu": (test_disabled,), # appers unsupported at this time
 
     # Ceil
 
@@ -157,11 +171,13 @@ test_to_enable_static_dynamic = {
     "test_concat_3d_axis_negative_2_cpu": (test_static_dynamic,{0:{1}}),
     "test_concat_3d_axis_negative_3_cpu": (test_static_dynamic,{0:{0}}),
 
-    # Constant
+    # Constant (dynamic NA)
+    # TODO look into error
+    "test_constant_cpu": (test_disabled,), # get very larger error, unsure why
 
-    # ConstantOfShape
-    "test_constantofshape_float_ones_cpu": (test_static,),
-    "test_constantofshape_int_zeros_cpu": (test_static,),
+    # ConstantOfShape (dynamic NA)
+    "test_constantofshape_float_ones_cpu": (test_static_dynamicNA,),
+    "test_constantofshape_int_zeros_cpu": (test_static_dynamicNA,),
 
     # Conv
     "test_basic_conv_without_padding_cpu": (test_static_dynamic,{0:{0}}),
@@ -287,6 +303,8 @@ test_to_enable_static_dynamic = {
     "test_less_bcast_cpu": (test_static_dynamic,),
 
     # Log
+    "test_log_example_cpu": (test_static_dynamic,),
+    "test_log_cpu": (test_static_dynamic,),
 
     # LogSoftmax
     "test_logsoftmax_axis_0_cpu": (test_static_dynamic,),
@@ -300,15 +318,9 @@ test_to_enable_static_dynamic = {
     # LRN
 
     # LSTM
-    "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0}}),
-    "test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0}}),
-    "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0}}),
-    # The following tests failed with an issue reported at:
-    # https://github.com/onnx/onnx-mlir/issues/431
-    # Enable the following benchmarks once the above is fixed.
-    #"test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    #"test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    #"test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1,2}}),
 
     # Matmul
     "test_matmul_2d_cpu": (test_static_dynamic,),
@@ -531,6 +543,8 @@ test_to_enable_static_dynamic = {
     "test_selu_example_cpu": (test_static_dynamic,),
 
     # Shape
+    "test_shape_cpu": (test_static_dynamic,), 
+    "test_shape_example_cpu": (test_static_dynamic,), 
 
     # Shrink
 
@@ -549,11 +563,10 @@ test_to_enable_static_dynamic = {
 
     # Size
     # TODO(tjingrant): fix unit test for size ops.
-    # "test_size_cpu": (test_static,),
-    # "test_size_example_cpu": (test_static,),
+    "test_size_cpu": (test_static,),
+    "test_size_example_cpu": (test_static,),
 
-    # Slice
-    # Slice makes Axis a runtime argument, which is not supported.
+    # Slice (makes Axis a runtime argument, which is not supported).
 
     # Softmax
     "test_softmax_axis_0_cpu": (test_static_dynamic,),
@@ -618,13 +631,13 @@ test_to_enable_static_dynamic = {
     # Training Dropout
 
     # Transpose
-    "test_transpose_default_cpu": (test_static,),
+    "test_transpose_default_cpu": (test_static_dynamic,),
     "test_transpose_all_permutations_0_cpu": (test_static_dynamic,),
     "test_transpose_all_permutations_1_cpu": (test_static_dynamic,),
-    "test_transpose_all_permutations_2_cpu": (test_static,),
-    "test_transpose_all_permutations_3_cpu": (test_static,),
-    "test_transpose_all_permutations_4_cpu": (test_static,),
-    "test_transpose_all_permutations_5_cpu": (test_static,),
+    "test_transpose_all_permutations_2_cpu": (test_static_dynamic,),
+    "test_transpose_all_permutations_3_cpu": (test_static_dynamic,),
+    "test_transpose_all_permutations_4_cpu": (test_static_dynamic,),
+    "test_transpose_all_permutations_5_cpu": (test_static_dynamic,),
 
     # Unique
 
@@ -667,9 +680,7 @@ test_to_enable = [ key for (key, value) in test_to_enable_static_dynamic.items()
 # Presumably, this list should be empty
 # Except for some operation too difficult to handle for dynamic shape
 # or big models
-test_not_for_dynamic = [ key for (key, value) in test_to_enable_static_dynamic.items() if value[0] == test_static ]
-
-test_for_dynamic = [case for case in test_to_enable if case not in test_not_for_dynamic]
+test_for_dynamic = [ key for (key, value) in test_to_enable_static_dynamic.items() if value[0] & test_dynamic ]
 
 if args.dynamic :
     print("dynamic shape is enabled")

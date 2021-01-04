@@ -38,6 +38,130 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
 }
 
 //===----------------------------------------------------------------------===//
+// ONNX Op Shape Helper for Broadcasting
+//===----------------------------------------------------------------------===//
+
+ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
+    ConversionPatternRewriter *rewriter, Location loc)
+    : context(rewriter, loc) {}
+
+LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
+  // A temporary IndexExpr vector for the output.
+  DimsExpr dimsExpr;
+  int numOfInputs = operands.size();
+
+  // Compute rank of the output. Rank of the output is the maximum rank of all
+  // operands.
+  for (int64_t i = 0; i < numOfInputs; ++i) {
+    int64_t r = operands[i].getType().cast<ShapedType>().getRank();
+    outputRank = std::max(outputRank, r);
+  }
+  dimsExpr.resize(outputRank);
+
+  // Prepare dims for every input. Prepend 1s if the input's shape has smaller
+  // rank, so that all the shapes have the same rank.
+  for (int64_t i = 0; i < numOfInputs; ++i) {
+    DimsExpr dims;
+    int64_t r = operands[i].getType().cast<ShapedType>().getRank();
+    // Prepend 1s.
+    for (int64_t k = 0; k < outputRank - r; ++k)
+      dims.emplace_back(context.createLiteralIndex(1));
+    // Get from the input.
+    for (int64_t k = outputRank - r; k < outputRank; ++k)
+      dims.emplace_back(context.createDimIndexFromShapedType(
+          operands[i], k - outputRank + r));
+    inputsDims.emplace_back(dims);
+  }
+
+  // Initialize the output with the first operand.
+  dimsExpr = inputsDims[0];
+
+  // Now compute each broadcasted dimension for the output.
+  // folding over the other operands along the current dimension index.
+  for (int64_t i = 1; i < numOfInputs; ++i) {
+    for (int64_t j = 0; j < outputRank; ++j) {
+      // Set the output dimension based on the two dimension values.
+      // Dimension value can be one of 1, QuestionMark, LiteralNot1.
+      IndexExpr currentDimExpr = dimsExpr[j];
+      IndexExpr nextDimExpr = inputsDims[i][j];
+
+      // 1 - QuestionMark
+      // 1 - LiteralNot1
+      // 1 - 1
+      if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
+        dimsExpr[j] = nextDimExpr;
+        continue;
+      }
+
+      if (currentDimExpr.isLiteralAndDifferentThan(1)) {
+        // LiteralNot1 - LiteralNot1 => keep unchanged with verifying.
+        if (nextDimExpr.isLiteralAndDifferentThan(1))
+          assert(currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr));
+        // Keep unchanged wihout verifying:
+        //   - LiteralNot1 - QuestionMark
+        //   - LiteralNot1 - 1
+        continue;
+      }
+
+      // QuestionMark - 1 => keep unchanged.
+      if (currentDimExpr.isQuestionmark() &&
+          nextDimExpr.isLiteralAndIdenticalTo(1))
+        continue;
+
+      // QuestionMark - LiteralNot1 => set to LiteralNot1 without verifying.
+      if (currentDimExpr.isQuestionmark() &&
+          nextDimExpr.isLiteralAndDifferentThan(1)) {
+        dimsExpr[j] = nextDimExpr;
+        continue;
+      }
+
+      // QuestionMark - QuestionMark
+      SmallVector<IndexExpr, 2> exprs({currentDimExpr, nextDimExpr});
+      dimsExpr[j] = IndexExpr::max(exprs);
+    }
+  }
+
+  // Set the final output.
+  outputDims = dimsExpr;
+
+  return success();
+}
+
+LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(
+    IndexExprContext &outerContext, Value operand, unsigned operandIndex,
+    const SmallVectorImpl<IndexExpr> &outputAccessExprs,
+    SmallVectorImpl<IndexExpr> &operandAccessExprs) {
+  auto operandRank = operand.getType().cast<ShapedType>().getRank();
+  for (decltype(operandRank) i = 0; i < operandRank; ++i) {
+    // Shape helper may pretend 1s, thus adjust dimension index accordingly.
+    auto dimIndex = outputRank - operandRank + i;
+    IndexExpr dim = outerContext.createSymbolIndexFromParentContext(
+        inputsDims[operandIndex][dimIndex]);
+
+    // Compute access index based on broadcasting rules.
+    // If all other operand dims are 1, just use the output access index.
+    // Otherwise, emit a select op.
+    bool allOtherInputDimsAreOne = true;
+    for (int i = 0; i < inputsDims.size(); ++i) {
+      if (i == operandIndex)
+        continue;
+      IndexExpr dim = inputsDims[i][dimIndex];
+      if (!dim.isLiteralAndIdenticalTo(1)) {
+        allOtherInputDimsAreOne = false;
+        break;
+      }
+    }
+    if (allOtherInputDimsAreOne) {
+      operandAccessExprs.emplace_back(outputAccessExprs[dimIndex]);
+    } else
+      operandAccessExprs.emplace_back(
+          IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
+  }
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX Slice Op Shape Helper
 //===----------------------------------------------------------------------===//
 
@@ -210,8 +334,6 @@ ONNXGemmOpShapeHelper::ONNXGemmOpShapeHelper(
 
 LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of result.
   DimsExpr outputDims;
 
@@ -309,8 +431,6 @@ ONNXMatMulOpShapeHelper::ONNXMatMulOpShapeHelper(
 LogicalResult ONNXMatMulOpShapeHelper::Compute(
     ONNXMatMulOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Output dims of result.
   DimsExpr outputDims;
 
@@ -431,8 +551,6 @@ ONNXSplitOpShapeHelper::ONNXSplitOpShapeHelper(
 LogicalResult ONNXSplitOpShapeHelper::Compute(
     ONNXSplitOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Get info about input and output data.
   int numOfResults = op->getNumResults();
   auto rank = operandAdaptor.input().getType().cast<ShapedType>().getRank();
@@ -506,8 +624,6 @@ ONNXGatherOpShapeHelper::ONNXGatherOpShapeHelper(
 LogicalResult ONNXGatherOpShapeHelper::Compute(
     ONNXGatherOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
-  Operation *genericOp = reinterpret_cast<Operation *>(op);
-
   // Read data and indices shapes as dim indices.
   context.createDimIndicesFromShapedType(operandAdaptor.data(), dataDims);
   context.createDimIndicesFromShapedType(operandAdaptor.indices(), indicesDims);
@@ -582,25 +698,70 @@ LogicalResult ONNXConcatOpShapeHelper::Compute(
     axisIndex = commonRank + axisIndex;
   }
 
-  IndexExpr cummulativeAxisSize = context.createLiteralIndex(0);
+  IndexExpr cumulativeAxisSize = context.createLiteralIndex(0);
 
   for (int i = 0; i < inputNum; ++i) {
     Value currentInput = operandAdaptor.getODSOperands(0)[i];
     IndexExpr currentSize =
         context.createDimIndexFromShapedType(currentInput, axisIndex);
-    cummulativeAxisSize = cummulativeAxisSize + currentSize;
+    cumulativeAxisSize = cumulativeAxisSize + currentSize;
   }
 
   DimsExpr outputDims;
   outputDims.resize(commonRank);
   for (int i = 0; i < commonRank; i++) {
     if (i == axisIndex) {
-      outputDims[i] = cummulativeAxisSize;
+      outputDims[i] = cumulativeAxisSize;
     } else {
       outputDims[i] = context.createDimIndexFromShapedType(firstInput, i);
     }
   }
 
   dimsForOutput(0) = outputDims;
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Transpose Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXTransposeOpShapeHelper::ONNXTransposeOpShapeHelper(
+    ONNXTransposeOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXTransposeOp>(newOp, rewriter) {}
+
+LogicalResult ONNXTransposeOpShapeHelper::Compute(
+    ONNXTransposeOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Basic information.
+  auto rank = operandAdaptor.data().getType().cast<ShapedType>().getRank();
+
+  // Transposition which handles the default case of
+  // reversing the shape of the tensor (similar to numpy.transpose).
+  ArrayAttr permAttr = op->permAttr();
+  if (!permAttr) {
+    // Generate reverse order for default transpose operation.
+    SmallVector<int64_t, 4> defaultVals;
+    auto builder = mlir::Builder(op->getContext());
+    for (int i = rank - 1; i >= 0; --i)
+      defaultVals.emplace_back(i);
+    // Set default attribute.
+    ArrayRef<int64_t> defaultRefs(defaultVals);
+    op->permAttr(builder.getI64ArrayAttr(defaultRefs));
+    permAttr = op->permAttr();
+  }
+
+  // Perform transposition according to perm attribute.
+  DimsExpr transposedDims;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    int64_t inputIndex = ArrayAttrIntVal(permAttr, i);
+    IndexExpr inputDim =
+        context.createDimIndexFromShapedType(operandAdaptor.data(), inputIndex);
+    transposedDims.emplace_back(inputDim);
+  }
+
+  // Set type for the first output.
+  dimsForOutput(0) = transposedDims;
   return success();
 }

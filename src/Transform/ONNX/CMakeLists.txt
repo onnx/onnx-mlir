@@ -9,8 +9,6 @@ add_dependencies(OMAttributePromotion
 # Linking dependencies
 add_dependencies(OMAttributePromotion
         OMPromotableConstOperandsOpInterface)
-target_link_libraries(OMAttributePromotion
-        onnx)
 
 add_library(OMElideConstants
         ElideConstants.cpp)
@@ -23,8 +21,6 @@ add_dependencies(OMElideConstants OMONNXOpsInc)
 # Linking dependencies
 add_dependencies(OMElideConstants OMONNXOps)
 
-target_link_libraries(OMElideConstants
-        onnx)
 
 set(LLVM_TARGET_DEFINITIONS Rewrite.td)
 onnx_mlir_tablegen(ONNXRewrite.inc -gen-rewriters)
@@ -50,6 +46,7 @@ add_library(OMONNXRewrite
 target_include_directories(OMONNXRewrite
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
         ${ONNF_MLIR_SRC_ROOT})
+
 # Header dependencies
 add_dependencies(OMONNXRewrite
         OMONNXOpsInc
@@ -60,8 +57,6 @@ add_dependencies(OMONNXRewrite
 
 # Linking dependencies
 add_dependencies(OMONNXRewrite OMONNXOps)
-target_link_libraries(OMONNXRewrite
-        onnx)
 
 add_library(OMShapeInference ShapeInferencePass.cpp)
 target_include_directories(OMShapeInference
@@ -71,3 +66,8 @@ target_include_directories(OMShapeInference
 add_dependencies(OMShapeInference ShapeInferenceOpInterfaceIncGen)
 # Linking dependencies
 add_dependencies(OMShapeInference OMShapeInferenceOpInterface)
+
+install(TARGETS OMAttributePromotion DESTINATION lib)
+install(TARGETS OMElideConstants     DESTINATION lib)
+install(TARGETS OMONNXRewrite        DESTINATION lib)
+install(TARGETS OMShapeInference     DESTINATION lib)

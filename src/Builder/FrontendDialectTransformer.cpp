@@ -30,11 +30,6 @@ namespace bstd = mpark;
 namespace onnx_mlir {
 namespace detail {
 
-/*!
- *  The list of tensors initialized by the ONNX model.
- */
-InitializedTensorMapping initializedTensors;
-
 class FrontendGenImpl {
 public:
   FrontendGenImpl(mlir::MLIRContext &context)
@@ -82,6 +77,12 @@ private:
 
   mlir::Value none_;
   std::map<mlir::FuncOp, mlir::Value> func2None_;
+
+  /*!
+   *  The list of tensors initialized by the ONNX model.
+   */
+  InitializedTensorMapping initializedTensors;
+
   // mapping between string name and symbol
   OnnxMlirSymbolMapping frontend_symbols_;
 
@@ -372,7 +373,7 @@ private:
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<mlir::Value> inputs, int expectedNumOperands,
       int expectedNumResults,
-      std::vector<mlir::NamedAttribute> *extraAttributes = NULL) {
+      const std::vector<mlir::NamedAttribute> &attributes) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -428,11 +429,6 @@ private:
       for (int i = node.output().size(); i < expectedNumResults; ++i)
         outputTypes.emplace_back(builder_.getNoneType());
 
-    auto attributes = ImportNodeAttributes(node);
-    if (extraAttributes != NULL)
-      for (mlir::NamedAttribute attr : *extraAttributes)
-        attributes.push_back(attr);
-
     // TODO: Handle optional inputs.
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
 
@@ -478,8 +474,53 @@ private:
     int expectedNumOperands = T::getNumberOfOperands();
     int expectedNumResults = T::getNumberOfResults();
     getNodeInputs(node, inputs);
+    auto attributes = ImportNodeAttributes(node);
     buildOutputAndOperation<T>(
-        node, inputs, expectedNumOperands, expectedNumResults);
+        node, inputs, expectedNumOperands, expectedNumResults, attributes);
+  }
+
+  std::vector<mlir::NamedAttribute> ImportCastAttributes(
+      const onnx::NodeProto &node) {
+    std::vector<mlir::NamedAttribute> attributes;
+    for (int i = 0; i < node.attribute_size(); ++i) {
+      auto attr = node.attribute(i);
+      auto mlir_type = convertONNXTypeToMLIRType(
+          builder_, static_cast<onnx::TensorProto_DataType>(attr.i()));
+      mlir::Attribute mlirAttr = TypeAttr::get(mlir_type);
+      attributes.push_back(builder_.getNamedAttr(attr.name(), mlirAttr));
+    }
+
+    // If the node has a name, then import it.
+    if (node.has_name()) {
+      attributes.push_back(builder_.getNamedAttr(
+          "onnx_node_name", builder_.getStringAttr(node.name())));
+    }
+    return attributes;
+  }
+
+  /*!
+   * Special handle for Cast operations.
+   */
+  void ImportNodeCast(const onnx::NodeProto &node) {
+    std::vector<mlir::Value> inputs;
+    int expectedNumOperands = ONNXCastOp::getNumberOfOperands();
+    int expectedNumResults = ONNXCastOp::getNumberOfResults();
+    for (const auto &item : node.input())
+      if (item.empty()) {
+        // Optional inputs using empty string will be imported as NoneType.
+        if (!none_)
+          none_ = builder_.create<mlir::ConstantOp>(
+              UnknownLoc(), builder_.getUnitAttr());
+        inputs.emplace_back(none_);
+      } else if (initializedTensors.ContainKey(legalize_name(item))) {
+        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+            UnknownLoc(), builder_, legalize_name(item)));
+      } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
+        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      }
+    auto attributes = ImportCastAttributes(node);
+    buildOutputAndOperation<ONNXCastOp>(
+        node, inputs, expectedNumOperands, expectedNumResults, attributes);
   }
 
   /*!
@@ -541,7 +582,9 @@ private:
 
       int nIn = mlir::ONNXPadOp::getNumberOfOperands();
       int nOut = mlir::ONNXPadOp::getNumberOfResults();
-      buildOutputAndOperation<mlir::ONNXPadOp>(node, inputs, nIn, nOut);
+      auto attributes = ImportNodeAttributes(node);
+      buildOutputAndOperation<mlir::ONNXPadOp>(
+          node, inputs, nIn, nOut, attributes);
     } else {
       buildOperation<mlir::ONNXPadOp>(node);
     }
@@ -602,7 +645,7 @@ private:
     int nOut = mlir::ONNXSliceOp::getNumberOfResults();
     const auto in = std::vector<mlir::Value>(inVals.begin(), inVals.end());
 
-    buildOutputAndOperation<mlir::ONNXSliceOp>(node, in, nIn, nOut);
+    buildOutputAndOperation<mlir::ONNXSliceOp>(node, in, nIn, nOut, attributes);
   }
 
   const onnx::OpSchema *GetOpSchema(const onnx::NodeProto &node) {
@@ -663,7 +706,7 @@ private:
     // Check if op is a context-independent function
     const onnx::FunctionProto *pFunctionProto = schema->GetFunction();
     if (!pFunctionProto) {
-      // Check if op is a context-dependent function and build function-body
+// Check if op is a context-dependent function and build function-body
 #ifdef ONNX_FUNCTION_TYPE_CONTEXT
       onnx::FunctionBodyBuildContextImpl onnxFunContext(node, operandOnnxTypes);
 #else
@@ -730,7 +773,7 @@ private:
       auto funcName = opName.str();
       std::vector<mlir::Type> outputTypes;
       std::vector<mlir::Value> inputs;
-      std::vector<mlir::NamedAttribute> attributes;
+      auto attributes = ImportNodeAttributes(node);
       auto mlirAttr = builder_.getStringAttr(funcName);
       auto funcAttr = builder_.getNamedAttr("function_name", mlirAttr);
       attributes.push_back(funcAttr);
@@ -745,7 +788,7 @@ private:
         ++nOut;
 
       buildOutputAndOperation<mlir::ONNXCustomOp>(
-          node, inputs, nIn, nOut, &attributes);
+          node, inputs, nIn, nOut, attributes);
     }
   }
 

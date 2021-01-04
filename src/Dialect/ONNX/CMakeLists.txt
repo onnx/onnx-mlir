@@ -32,8 +32,7 @@ add_dependencies(OMONNXOps OMONNXOpsInc OMKrnlOpsInc)
 # OMONNXOps depends on symbols in OMKrnlOps, we do not specify
 # linking dependency explicitly here because OMKrnlOps also depends
 # on OMONNXOps, which is circular.
-target_link_libraries(OMONNXOps
-        onnx)
+
 # Linking dependencies:
 add_dependencies(OMONNXOps
         OMPromotableConstOperandsOpInterface
@@ -41,3 +40,5 @@ add_dependencies(OMONNXOps
         OMShapeInferenceOpInterface)
 
 add_onnx_mlir_dialect_doc(onnx ONNXOps.td)
+
+install(TARGETS OMONNXOps DESTINATION lib)

@@ -10,3 +10,5 @@ add_dependencies(OMKrnlOps OMSimplifyKrnl)
 
 # Header dependency:
 add_dependencies(OMSimplifyKrnl OMKrnlOpsInc)
+
+install(TARGETS OMSimplifyKrnl DESTINATION lib)
