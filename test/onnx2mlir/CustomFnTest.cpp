@@ -16,6 +16,8 @@ using namespace ONNX_NAMESPACE;
 #define ONNX_OPSET_VERSION 11
 
 void RegisterFunSchema() {
+  static bool registered = false;
+  if (registered) return;
   ONNX_NAMESPACE::OpSchema schema;
   schema.SetName("SquareFn")
       .SetDomain(ONNX_DOMAIN)
@@ -32,6 +34,7 @@ void RegisterFunSchema() {
               {{"Y"}, "Mul", {"Two", "X"}}}));
   ONNX_NAMESPACE::OpSchemaRegistry::OpSchemaRegisterOnce unused(schema);
   (void)unused;
+  registered = true;
 }
 
 void registerDialects(mlir::MLIRContext &context) {
@@ -140,7 +143,7 @@ void testUseOfOnnxModelTypes() {
 }
 
 int main(int argc, char *argv[]) {
-  // testCustomFunTranslation();
+  testCustomFunTranslation();
   testUseOfOnnxModelTypes();
 
   return 0;
