@@ -83,16 +83,18 @@ set(
 )
 include_directories(${MLIR_INCLUDE_PATHS})
 
-# Force CMAKE_INSTALL_PREFIX and BUILD_SHARED_LIBS to be the same as LLVM build
-file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt prefix REGEX CMAKE_INSTALL_PREFIX)
-string(REGEX REPLACE "CMAKE_INSTALL_PREFIX:PATH=" "" prefix ${prefix})
-set(CMAKE_INSTALL_PREFIX ${prefix} CACHE PATH "" FORCE)
-message(STATUS "CMAKE_INSTALL_PREFIX    : " ${CMAKE_INSTALL_PREFIX})
+if (NOT USE_INSTALLED_LLVM)
+  # Force CMAKE_INSTALL_PREFIX and BUILD_SHARED_LIBS to be the same as LLVM build
+  file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt prefix REGEX CMAKE_INSTALL_PREFIX)
+  string(REGEX REPLACE "CMAKE_INSTALL_PREFIX:PATH=" "" prefix ${prefix})
+  set(CMAKE_INSTALL_PREFIX ${prefix} CACHE PATH "" FORCE)
+  message(STATUS "CMAKE_INSTALL_PREFIX    : " ${CMAKE_INSTALL_PREFIX})
 
-file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt shared REGEX BUILD_SHARED_LIBS)
-string(REGEX REPLACE "BUILD_SHARED_LIBS:BOOL=" "" shared ${shared})
-set(BUILD_SHARED_LIBS ${shared} CACHE BOOL "" FORCE)
-message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
+  file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt shared REGEX BUILD_SHARED_LIBS)
+  string(REGEX REPLACE "BUILD_SHARED_LIBS:BOOL=" "" shared ${shared})
+  set(BUILD_SHARED_LIBS ${shared} CACHE BOOL "" FORCE)
+  message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
+endif()
 
 # Threading libraries required due to parallel pass execution.
 find_package(Threads REQUIRED)

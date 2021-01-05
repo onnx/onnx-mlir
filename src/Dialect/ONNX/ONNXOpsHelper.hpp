@@ -14,8 +14,6 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Value.h"
 
-#include "onnx/onnx_pb.h"
-
 using namespace mlir;
 
 // Identity affine map:
@@ -35,9 +33,6 @@ AffineMap getIdentityDimMap(Builder &builder);
 // - s2: stride
 // - s3: dilation
 AffineMap getConvDimMap(Builder &builder, bool ceilMode);
-
-mlir::Type convertONNXTypeToMLIRType(
-    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
 
 // Helper functions to get values from attribute arrays.
 size_t ArrayAttrSize(ArrayAttr a);

@@ -233,6 +233,8 @@ special_attr_defaults = dict([
     # ("RNN.activation_alpha", ('floats', '{}')),
     # ("RNN.activation_beta", ('floats', '{}')),
 ])
+# Manual specification of attribute type.
+special_attr_types = dict([("Cast.to", 'type')])
 
 # Special operation importing handlers.
 special_op_handler = dict([
@@ -240,6 +242,8 @@ special_op_handler = dict([
     ("BatchNormalization", "ImportNodeBatchNormalization"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
+    ("Cast", "ImportNodeCast")
+    #("Transpose", "ImportNodeTranspose")
 ])
 
 # Operations supporting shape inference.
@@ -361,10 +365,8 @@ OpsWithResultTypeInference = {
         resultTypes.push_back(attr.getType());
       }''',
   "Cast":
-    '''auto toAttr = to();
-      auto builder = mlir::OpBuilder(getContext());
-      resultTypes.push_back(mlir::UnrankedTensorType::get(
-        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));''',
+    '''auto builder = mlir::OpBuilder(getContext());
+      resultTypes.push_back(mlir::UnrankedTensorType::get(to()));''',
   "ConstantOfShape":
   '''if (auto attr = valueAttr()) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
@@ -410,10 +412,8 @@ custom_definition_misc = dict([ ('Constant',
   ];'''),
   ('Cast',
  '''   let builders = [
-  OpBuilderDAG<(ins "Value":$input, "IntegerAttr":$to), [{
-   auto toAttr = to.getValue().getSExtValue();
-   auto resultType = mlir::UnrankedTensorType::get(
-    convertONNXTypeToMLIRType($_builder, static_cast<onnx::TensorProto_DataType>(toAttr)));
+  OpBuilderDAG<(ins "Value":$input, "TypeAttr":$to), [{
+   auto resultType = mlir::UnrankedTensorType::get(to.getValue());
    build($_builder, $_state, resultType, input, to);
   }] >
   ];'''
@@ -468,6 +468,8 @@ def onnx_attr_type_to_mlir_attr_type(t):
         mlir_attr_type = 'StrAttr'
     elif onnx_attr_type == "strings":
         mlir_attr_type = 'StrArrayAttr'
+    elif onnx_attr_type == 'type':
+        mlir_attr_type = 'TypeAttr'
     else:
         mlir_attr_type = 'AnyAttr'
     #TODO: tensor and sparse tensor
@@ -674,7 +676,9 @@ def get_attrs(schema):
         if qualified_attr_name in special_attr_defaults:
             name_to_type[attr.name] = get_attr_type_with_default(
                 *special_attr_defaults[qualified_attr_name])
-
+        if qualified_attr_name in special_attr_types:
+            name_to_type[attr.name] = onnx_attr_type_to_mlir_attr_type(
+                special_attr_types[qualified_attr_name])
         # option holds either required or default value
         elif attr.required:
             name_to_type[attr.name] = onnx_attr_type_to_mlir_attr_type(
