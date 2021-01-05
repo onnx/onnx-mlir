@@ -20,7 +20,7 @@
 #include <mpark/variant.hpp>
 namespace bstd = mpark;
 
-#include "mlir/IR/Module.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "onnx/defs/schema.h"
 
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"

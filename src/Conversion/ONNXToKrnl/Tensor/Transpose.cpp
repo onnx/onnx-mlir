@@ -33,7 +33,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
     // Get a shape helper.
     ONNXTransposeOpShapeHelper shapeHelper(&transposeOp, &rewriter);
-    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
+    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    assert(succeeded(shapecomputed));
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(

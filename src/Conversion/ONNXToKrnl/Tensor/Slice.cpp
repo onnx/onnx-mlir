@@ -24,7 +24,8 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
 
     ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter);
-    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
+    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    assert(succeeded(shapecomputed));
 
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     int64_t outputRank = outputMemRefType.getShape().size();

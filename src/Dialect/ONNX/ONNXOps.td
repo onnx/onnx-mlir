@@ -42,7 +42,7 @@ include "src/Interface/ResultTypeInferenceOpInterface.td"
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
-  let cppNamespace = "";
+  let cppNamespace = "::mlir";
 }
 
 // Base class for ONNX dialect operations. This operation inherits from the base
@@ -85,8 +85,7 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
 
-  let builders = [OpBuilder<[{OpBuilder &builder, OperationState &state,
-                             FuncOp function, int numInputs, int numOutputs}]>];
+  let builders = [OpBuilderDAG<(ins "FuncOp":$function, "int":$numInputs, "int":$numOutputs)>];
 
   let extraClassDeclaration = [{
     static ONNXEntryPointOp create(Location location, FuncOp& func,
@@ -242,9 +241,8 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
   // A build method with the result type deduction.
-  let builders = [OpBuilder<"OpBuilder &builder, OperationState &state, "
-                            "Value data, ArrayAttr pads, "
-                            "FloatAttr constant_value, StringAttr mode">];
+  let builders = [OpBuilderDAG<(ins "Value":$data, "ArrayAttr":$pads,
+                                    "FloatAttr":$constant_value, "StringAttr":$mode)>];
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;

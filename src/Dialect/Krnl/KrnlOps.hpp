@@ -12,11 +12,11 @@
 
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/DialectImplementation.h"
-#include "mlir/IR/Function.h"
 #include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/StandardTypes.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "KrnlHelper.hpp"
@@ -45,7 +45,7 @@ public:
     });
   }
 };
+} // namespace mlir
 
 #define GET_OP_CLASSES
 #include "src/Dialect/Krnl/KrnlOps.hpp.inc"
-} // namespace mlir
