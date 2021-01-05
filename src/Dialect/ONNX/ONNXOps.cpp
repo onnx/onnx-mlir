@@ -3422,8 +3422,8 @@ LogicalResult ONNXLoopOp::inferShapes(
   }
 
   // Update function signature according to new entry block argument types.
-  func.setType(FunctionType::get(getContext(), func.getBody().getArgumentTypes(),
-      func.getType().getResults()));
+  func.setType(FunctionType::get(getContext(),
+      func.getBody().getArgumentTypes(), func.getType().getResults()));
 
   // Now we have modified loop body function input signatures according to
   // the knowledge we have on the inputs we pass to this function. Dispatch

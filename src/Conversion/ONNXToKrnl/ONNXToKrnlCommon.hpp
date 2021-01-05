@@ -167,8 +167,9 @@ struct TensorTypeConverter : public TypeConverter {
 
   /// Return true if the operands/results of call have a legal type.
   bool isSignatureLegal(mlir::CallOp call) {
-    auto f = [this]( Type type) { return isLegal(type); };
-    return llvm::all_of(call.getOperandTypes(), f) && llvm::all_of(call.getResultTypes(), f);
+    auto f = [this](Type type) { return isLegal(type); };
+    return llvm::all_of(call.getOperandTypes(), f) &&
+           llvm::all_of(call.getResultTypes(), f);
   }
 };
 
