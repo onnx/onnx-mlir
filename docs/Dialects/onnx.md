@@ -499,7 +499,7 @@ ONNX Cast operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`to` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`to` | ::mlir::TypeAttr | any type attribute
 
 #### Operands:
 

@@ -25,7 +25,7 @@ add_custom_target(check-onnx-backend
 
 add_custom_target(check-onnx-backend-dynamic
         COMMAND ${PYTHON_EXECUTABLE}
-        ${CMAKE_CURRENT_BINARY_DIR}/test.py --dynamic --input=-1 --dim=0)
+        ${CMAKE_CURRENT_BINARY_DIR}/test.py --dynamic --input=-1 --dim=-1)
 
 add_custom_target(clean-onnx-backend
         COMMAND ${CMAKE_COMMAND} -E remove

@@ -1064,38 +1064,38 @@ func @test_squeeze_mix(%arg0 : tensor<16x1x32x1x64xf32>) -> tensor<*xf32> {
 //===----------------------------------------------------------------------===//
 
 func @test_cast_1(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
-  %1 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<*xf32>
+  %1 = "onnx.Cast"(%arg0) {to = f32} : (tensor<2x3x4xf32>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_cast_1
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = f32} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
   // CHECK: return [[RES]] : tensor<2x3x4xf32>
 }
 
 func @test_cast_2(%arg0 : tensor<2x3x4xf32>) -> tensor<*xui8> {
-  %1 = "onnx.Cast"(%arg0) {to = 2 : si64} : (tensor<2x3x4xf32>) -> tensor<*xui8>
+  %1 = "onnx.Cast"(%arg0) {to = ui8} : (tensor<2x3x4xf32>) -> tensor<*xui8>
   "std.return"(%1) : (tensor<*xui8>) -> ()
 
   // CHECK-LABEL: test_cast_2
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = 2 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xui8>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = ui8} : (tensor<2x3x4xf32>) -> tensor<2x3x4xui8>
   // CHECK: return [[RES]] : tensor<2x3x4xui8>
 }
 
 func @test_cast_3(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi8> {
-  %1 = "onnx.Cast"(%arg0) {to = 3 : si64} : (tensor<2x3x4xf32>) -> tensor<*xi8>
+  %1 = "onnx.Cast"(%arg0) {to = i8} : (tensor<2x3x4xf32>) -> tensor<*xi8>
   "std.return"(%1) : (tensor<*xi8>) -> ()
 
   // CHECK-LABEL: test_cast_3
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = 3 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi8>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = i8} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi8>
   // CHECK: return [[RES]] : tensor<2x3x4xi8>
 }
 
 func @test_cast_10(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf16> {
-  %1 = "onnx.Cast"(%arg0) {to = 10 : si64} : (tensor<2x3x4xf32>) -> tensor<*xf16>
+  %1 = "onnx.Cast"(%arg0) {to = f16} : (tensor<2x3x4xf32>) -> tensor<*xf16>
   "std.return"(%1) : (tensor<*xf16>) -> ()
 
   // CHECK-LABEL: test_cast_10
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = 10 : si64} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf16>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = f16} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf16>
   // CHECK: return [[RES]] : tensor<2x3x4xf16>
 }
 
