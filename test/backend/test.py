@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from distutils.util import strtobool
 import os
 import sys
 import unittest
@@ -16,21 +17,31 @@ import test_config
 import tempfile
 import argparse
 
-VERBOSE = bool(os.environ.get("VERBOSE"))
-TEST_DYNAMIC = os.environ.get("IMPORTER_FORCE_DYNAMIC")
-    
+# Casting with "bool" does not work well. When you specify VERBOSE=xxx,
+# regardless of the value of xxx (e.g., true, false, y, n, etc.) the
+# casted bool value will be true. Only if xxx is empty, the casted bool
+# value will be false. This is a bit counter intuitive. So we use strtobool
+# to do the conversion. But note that strtobool can't take an emtpy string.
+
+VERBOSE = os.getenv("VERBOSE")
+IMPORTER_FORCE_DYNAMIC = os.getenv("IMPORTER_FORCE_DYNAMIC")
+TEST_DYNAMIC = os.getenv("TEST_DYNAMIC")
+
 parser = argparse.ArgumentParser(description='with dynamic shape or not.')
 parser.add_argument('--dynamic', action='store_true',
+    default=(strtobool(TEST_DYNAMIC) if TEST_DYNAMIC else False),
     help='enable dynamic (default: false)')
-parser.add_argument('-i', '--input', type=int, default=-1,
+parser.add_argument('-i', '--input', type=int,
+    default=os.getenv("TEST_INPUT", -1),
     help='input whose dimensions to be changed to unknown (default: all inputs')
-parser.add_argument('-d', '--dim', type=int, default=-1,
+parser.add_argument('-d', '--dim', type=int,
+    default=os.getenv("TEST_DIM", -1),
     help='dimension to be changed to unknown (default: all dimension')
 parser.add_argument('unittest_args', nargs='*')
 args = parser.parse_args()
 sys.argv[1:] = args.unittest_args
 
-TEST_CASE_BY_USER = os.environ.get("BACKEND_TEST")
+TEST_CASE_BY_USER = os.getenv("TEST_CASE_BY_USER")
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
     result_dir = "./"
 else :
