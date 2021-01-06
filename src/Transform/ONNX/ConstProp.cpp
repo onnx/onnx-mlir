@@ -389,7 +389,8 @@ DenseElementsAttr ConstPropUnsqueeze(
   DenseElementsAttr denseAttr =
       attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   assert(denseAttr && "expected dense attribute");
-  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+  RankedTensorType resType =
+      constructRankedTensorType(resOperand.getType().cast<ShapedType>());
 
   // Unqueeze does not change the order of access, so just copy the whole data.
   std::vector<Attribute> resVector;

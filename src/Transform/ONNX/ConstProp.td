@@ -284,7 +284,10 @@ def UnsqueezeofConst :  Pat<
     // From Unsqueeze (c, axis)
     (ONNXUnsqueezeOp:$resOp (ONNXConstantOp $s, $v), $_),
     // To c' where c' is the unsqueezed value.
-    (ONNXConstantOp (GetNullAttr), (CreateUnsqueezeOfConst $resOp, $v)),
+    (CreateONNXConstantOp
+      $resOp,
+      (GetNullAttr),
+      (CreateUnsqueezeOfConst $resOp, $v)),
     [(AttributeIsNull:$s)]>;
 
 
