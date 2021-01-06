@@ -52,7 +52,7 @@ def GetNullAttr : NativeCodeCall<"Attribute()">;
 
 def GetType:
    NativeCodeCall<"$0.getType()">;
- 
+
 def CreateConstantOp:
    NativeCodeCall<"$_builder.create<ONNXConstantOp>(odsLoc, $0, $1, $2)">;
 

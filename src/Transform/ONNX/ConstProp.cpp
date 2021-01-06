@@ -356,7 +356,7 @@ DenseElementsAttr ConstPropTranspose(PatternRewriter &rewriter,
   DenseElementsAttr denseAttr =
       attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   assert(denseAttr && "expected dense attribute");
-  // ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+  ShapedType resType = resOperand.getType().cast<ShapedType>();
   auto rank = denseAttr.getType().getShape().size();
   // Read permute vector.
   SmallVector<uint64_t, 4> perm;
@@ -370,14 +370,9 @@ DenseElementsAttr ConstPropTranspose(PatternRewriter &rewriter,
   RecurseConstPropTranspose(
       rewriter, resVector, denseAttr, indices, perm, rank);
   ArrayRef<Attribute> resRef(resVector);
-  if (resOperand.getType().isa<RankedTensorType>())
-    return DenseElementsAttr::get(
-        resOperand.getType().cast<RankedTensorType>(), resRef);
-  else {
-    auto shape = resOperand.getType().cast<MemRefType>().getShape();
-    auto elementType = resOperand.getType().cast<MemRefType>().getElementType();
-    return DenseElementsAttr::get(RankedTensorType::get(shape, elementType), resRef);
-  }
+  return DenseElementsAttr::get(
+      RankedTensorType::get(resType.getShape(), resType.getElementType()),
+      resRef);
 }
 
 //===----------------------------------------------------------------------===//
