@@ -48,6 +48,11 @@ namespace {
 // ConstProp.td for example.
 //
 
+/// A helper function to contruct a RankedTensorType from a ShapedType.
+RankedTensorType constructRankedTensorType(ShapedType type) {
+  return RankedTensorType::get(type.getShape(), type.getElementType());
+}
+
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for binary in presence of broadcast.
 //===----------------------------------------------------------------------===//
@@ -356,7 +361,8 @@ DenseElementsAttr ConstPropTranspose(PatternRewriter &rewriter,
   DenseElementsAttr denseAttr =
       attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   assert(denseAttr && "expected dense attribute");
-  ShapedType resType = resOperand.getType().cast<ShapedType>();
+  RankedTensorType resType =
+      constructRankedTensorType(resOperand.getType().cast<ShapedType>());
   auto rank = denseAttr.getType().getShape().size();
   // Read permute vector.
   SmallVector<uint64_t, 4> perm;
@@ -370,9 +376,7 @@ DenseElementsAttr ConstPropTranspose(PatternRewriter &rewriter,
   RecurseConstPropTranspose(
       rewriter, resVector, denseAttr, indices, perm, rank);
   ArrayRef<Attribute> resRef(resVector);
-  return DenseElementsAttr::get(
-      RankedTensorType::get(resType.getShape(), resType.getElementType()),
-      resRef);
+  return DenseElementsAttr::get(resType, resRef);
 }
 
 //===----------------------------------------------------------------------===//
