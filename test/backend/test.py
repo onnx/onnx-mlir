@@ -30,13 +30,16 @@ TEST_DYNAMIC = os.getenv("TEST_DYNAMIC")
 parser = argparse.ArgumentParser(description='with dynamic shape or not.')
 parser.add_argument('--dynamic', action='store_true',
     default=(strtobool(TEST_DYNAMIC) if TEST_DYNAMIC else False),
-    help='enable dynamic (default: false)')
+    help='enable dynamic shape tests (default: false if TEST_DYNAMIC env var not set)')
 parser.add_argument('-i', '--input', type=int,
     default=os.getenv("TEST_INPUT", -1),
-    help='input whose dimensions to be changed to unknown (default: all inputs')
+    help='inputs whose dimensions to be changed to unknown (default: all inputs if TEST_INPUT env var not set)')
 parser.add_argument('-d', '--dim', type=int,
     default=os.getenv("TEST_DIM", -1),
-    help='dimension to be changed to unknown (default: all dimension')
+    help='dimensions to be changed to unknown (default: all dimensions if TEST_DIM env var not set)')
+parser.add_argument('-v', '--verbose', action='store_true',
+    default=(strtobool(VERBOSE) if VERBOSE else False),
+    help='verbose output (default: false if VERBOSE env var not set)')
 parser.add_argument('unittest_args', nargs='*')
 args = parser.parse_args()
 sys.argv[1:] = args.unittest_args
@@ -714,7 +717,7 @@ def determine_dynamic_parameters(test_name):
     return selected_list 
 
 def execute_commands(cmds, dynamic_inputs_dims):
-    if (strtobool(VERBOSE) if VERBOSE else False):
+    if (args.verbose):
         print(" ".join(cmds))
         print("IMPORTER FORCE DYNAMIC ", dynamic_inputs_dims)
     my_env = os.environ.copy();
