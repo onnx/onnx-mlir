@@ -704,8 +704,8 @@ def determine_dynamic_parameters(test_name):
     if not args.dynamic :
         return None
     # set default value: all inputs, first dimension.
-    # Use this script's arguments '--input' and '--dim' to control the default
-    # value.
+    # Use this script's arguments '--input' and '--dim' or environment variables
+    # TEST_INPUT and TEST_DIM to control the values.
     selected_list = {args.input: {args.dim}}
     test_name_cpu = test_name + "_cpu"
     if test_name_cpu in test_for_dynamic:
@@ -714,7 +714,7 @@ def determine_dynamic_parameters(test_name):
     return selected_list 
 
 def execute_commands(cmds, dynamic_inputs_dims):
-    if (VERBOSE):
+    if (strtobool(VERBOSE) if VERBOSE else False):
         print(" ".join(cmds))
         print("IMPORTER FORCE DYNAMIC ", dynamic_inputs_dims)
     my_env = os.environ.copy();
