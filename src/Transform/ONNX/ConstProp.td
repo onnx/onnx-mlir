@@ -47,10 +47,15 @@ def AttributeIsNull :
     Constraint<CPred<"! ($_self)">,
   "Attribute is null">;
 
-
 // Usefult code generation invokation.
 def GetNullAttr : NativeCodeCall<"Attribute()">;
-  
+
+def GetType:
+   NativeCodeCall<"$0.getType()">;
+ 
+def CreateConstantOp:
+   NativeCodeCall<"$_builder.create<ONNXConstantOp>(odsLoc, $0, $1, $2)">;
+
 def CreateAddOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
 
@@ -267,7 +272,7 @@ def TransposeofConst :  Pat<
     // From TransposeOp(c, p)
     (ONNXTransposeOp:$resOp (ONNXConstantOp $s, $v), $p),
     // To c' where c' is transposed attribute
-    (ONNXConstantOp (GetNullAttr), (CreateTransposeOfConst $resOp, $v, $p)),
+    (CreateConstantOp (GetType $resOp), (GetNullAttr), (CreateTransposeOfConst $resOp, $v, $p)),
     [(AttributeIsNull:$s)]>;
 
 //===----------------------------------------------------------------------===//
