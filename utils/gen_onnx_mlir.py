@@ -949,12 +949,14 @@ def gen_op_def(schema):
             # E.g. OpBuilderDAG<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
             indent = inc_indent(indent)
             s += indent + 'OpBuilderDAG<(ins '
-            operands_dict = get_operands_or_results(schema, type_str_dict,  is_input=True)
-            for name, ty in operands_dict.items():
-                s += ', "{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
-                                      name)
-            for name, ty in get_attrs(schema).items():
-                s += ', "{}":${}'.format(tblgen_attr_type_to_cpp_type(ty), name)
+            operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
+            attrs_dict = get_attrs(schema)
+            s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
+                                      name) for name, ty in operands_dict.items())
+            if operands_dict and attrs_dict:
+                s += ', '
+            s += ', '.join('"{}":${}'.format(tblgen_attr_type_to_cpp_type(ty),
+                                      name) for name, ty in attrs_dict.items())
             s += '), [{\n'
             indent = inc_indent(indent)
 
@@ -989,7 +991,7 @@ def gen_op_def(schema):
             # Custom builders with all operands and attributes having aggregate parameters.
             # E.g. OpBuilderDAG<(ins "ValueRange operands,
             #    ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilderDAG<(ins "' + \
+            s += indent + 'OpBuilderDAG<(ins ' + \
                 '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
             indent = inc_indent(indent)
             if schema.name in custom_builder_broadcast_ops_list:
