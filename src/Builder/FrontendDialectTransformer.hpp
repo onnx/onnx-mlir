@@ -30,13 +30,24 @@ class OwningModuleRef;
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
+
+/*!
+ * Options to control the translation of an ONNX model to ONNX-MLIR.
+ */
+struct ImportOptions {
+  // Use types/shapes in the input-model for translation (for intermediate
+  // variables)
+  bool useOnnxModelTypes = false;
+};
+
 /*!
  *  Import an ONNX model file into the ONNX Dialect.
  *  @param model_fname file name pointing to the onnx model protobuf.
  *  @return MLIR::module generated for the ONNX model.
  */
 void ImportFrontendModelFile(std::string model_fname,
-    mlir::MLIRContext &context, mlir::OwningModuleRef &module);
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module,
+    ImportOptions options = ImportOptions());
 
 /*!
  *  Import an ONNX model proto into the ONNX Dialect.
@@ -44,7 +55,8 @@ void ImportFrontendModelFile(std::string model_fname,
  *  @return MLIR::module generated for the ONNX model.
  */
 void ImportFrontendModel(const onnx::ModelProto &model,
-    mlir::MLIRContext &context, mlir::OwningModuleRef &module);
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module,
+    ImportOptions options = ImportOptions());
 
 /*!
  *  TODO: Import models into other extension dialects that cover the

@@ -64,13 +64,16 @@ public:
     }
   }
 
-  mlir::ModuleOp ImportONNXModel(const onnx::ModelProto &model) {
+  mlir::ModuleOp ImportONNXModel(
+      const onnx::ModelProto &model, ImportOptions options) {
+    options_ = options;
     SetOpSetImport(model); // Determines which opsets to use.
     ImportGraph(model.graph());
     return module_;
   }
 
 private:
+  ImportOptions options_;
   mlir::MLIRContext &context_;
   mlir::ModuleOp module_;
   mlir::OpBuilder builder_;
@@ -223,6 +226,15 @@ private:
 
     llvm::ArrayRef<int64_t> tensor_dims(dims.data(), dims.size());
     return mlir::RankedTensorType::get(tensor_dims, elementType);
+  }
+
+  mlir::Type ConvertOnnxType(const std::string &onnx_name) {
+    auto it = value_info_map.find(onnx_name);
+    if (it != value_info_map.end()) {
+      return ImportTensorType(it->second);
+    } else {
+      return builder_.getNoneType();
+    }
   }
 
   /*!
@@ -392,12 +404,15 @@ private:
 
     std::vector<mlir::Type> outputTypes;
 
-    // Use the type map to determine the data type of output.
+    // Use the type map or types in input model to determine the data type of
+    // output.
     std::vector<int> outputMap = T::getTypeMap();
     for (auto i = 0; i < node.output().size(); i++) {
       // Optional outputs using empty string.
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
+      } else if (options_.useOnnxModelTypes) {
+        outputTypes.emplace_back(ConvertOnnxType(node.output(i)));
       } else {
         auto j = i;
         // Variadic output is a single ODS result.
@@ -433,17 +448,18 @@ private:
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
 
     // Type inference for results.
-    if (auto opWithTypeInference =
-            mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
-                op.getOperation())) {
-      auto outTypes = opWithTypeInference.resultTypeInference();
-      for (int i = 0; i < node.output().size(); i++) {
-        if (variadicOut)
-          (*(op.getODSResults(0).begin() + i)).setType(outTypes[i]);
-        else
-          (*op.getODSResults(i).begin()).setType(outTypes[i]);
+    if (!options_.useOnnxModelTypes)
+      if (auto opWithTypeInference =
+              mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
+                  op.getOperation())) {
+        auto outTypes = opWithTypeInference.resultTypeInference();
+        for (int i = 0; i < node.output().size(); i++) {
+          if (variadicOut)
+            (*(op.getODSResults(0).begin() + i)).setType(outTypes[i]);
+          else
+            (*op.getODSResults(i).begin()).setType(outTypes[i]);
+        }
       }
-    }
 
     for (int i = 0; i < node.output().size(); i++) {
       if (variadicOut)
@@ -974,22 +990,23 @@ private:
 namespace onnx_mlir {
 
 void ImportFrontendModelFile(std::string model_fname,
-    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module,
+    ImportOptions options) {
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
 
   auto parse_success = model.ParseFromIstream(&input);
   assert(parse_success && "Onnx Model Parsing Failed.");
 
-  detail::FrontendGenImpl myONNXGen(context);
-  module = myONNXGen.ImportONNXModel(model);
+  ImportFrontendModel(model, context, module, options);
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model,
-    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module,
+    ImportOptions options) {
 
   detail::FrontendGenImpl myONNXGen(context);
-  module = myONNXGen.ImportONNXModel(model);
+  module = myONNXGen.ImportONNXModel(model, options);
 }
 
 } // namespace onnx_mlir
