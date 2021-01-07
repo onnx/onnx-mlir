@@ -97,7 +97,7 @@ def ONNXAddOp:ONNX_Op<"Add",
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = A.getType().cast<TensorType>().getElementType();
@@ -108,7 +108,7 @@ def ONNXAddOp:ONNX_Op<"Add",
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = operands[0].getType().cast<TensorType>().getElementType();
@@ -148,7 +148,7 @@ def ONNXAndOp:ONNX_Op<"And",
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = A.getType().cast<TensorType>().getElementType();
@@ -159,7 +159,7 @@ def ONNXAndOp:ONNX_Op<"And",
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = operands[0].getType().cast<TensorType>().getElementType();
@@ -1005,7 +1005,7 @@ def ONNXDivOp:ONNX_Op<"Div",
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = A.getType().cast<TensorType>().getElementType();
@@ -1016,7 +1016,7 @@ def ONNXDivOp:ONNX_Op<"Div",
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = operands[0].getType().cast<TensorType>().getElementType();
@@ -1154,7 +1154,7 @@ def ONNXEqualOp:ONNX_Op<"Equal",
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = A.getType().cast<TensorType>().getElementType();
@@ -1165,7 +1165,7 @@ def ONNXEqualOp:ONNX_Op<"Equal",
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = operands[0].getType().cast<TensorType>().getElementType();
@@ -1824,7 +1824,7 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = A.getType().cast<TensorType>().getElementType();
@@ -1835,7 +1835,7 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = operands[0].getType().cast<TensorType>().getElementType();
@@ -2228,7 +2228,7 @@ def ONNXLessOp:ONNX_Op<"Less",
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = A.getType().cast<TensorType>().getElementType();
@@ -2239,7 +2239,7 @@ def ONNXLessOp:ONNX_Op<"Less",
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = operands[0].getType().cast<TensorType>().getElementType();
@@ -2848,7 +2848,7 @@ def ONNXMulOp:ONNX_Op<"Mul",
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = A.getType().cast<TensorType>().getElementType();
@@ -2859,7 +2859,7 @@ def ONNXMulOp:ONNX_Op<"Mul",
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = operands[0].getType().cast<TensorType>().getElementType();
@@ -3078,7 +3078,7 @@ def ONNXOrOp:ONNX_Op<"Or",
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = A.getType().cast<TensorType>().getElementType();
@@ -3089,7 +3089,7 @@ def ONNXOrOp:ONNX_Op<"Or",
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = operands[0].getType().cast<TensorType>().getElementType();
@@ -3273,7 +3273,7 @@ def ONNXPowOp:ONNX_Op<"Pow",
     OpBuilder<"OpBuilder &builder, OperationState &state, Value X, Value Y", [{
       auto lhsTy = X.getType();
       auto rhsTy = Y.getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = X.getType().cast<TensorType>().getElementType();
@@ -3284,7 +3284,7 @@ def ONNXPowOp:ONNX_Op<"Pow",
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = operands[0].getType().cast<TensorType>().getElementType();
@@ -5286,7 +5286,7 @@ def ONNXSubOp:ONNX_Op<"Sub",
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = A.getType().cast<TensorType>().getElementType();
@@ -5297,7 +5297,7 @@ def ONNXSubOp:ONNX_Op<"Sub",
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = operands[0].getType().cast<TensorType>().getElementType();
@@ -5769,7 +5769,7 @@ def ONNXXorOp:ONNX_Op<"Xor",
     OpBuilder<"OpBuilder &builder, OperationState &state, Value A, Value B", [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = A.getType().cast<TensorType>().getElementType();
@@ -5780,7 +5780,7 @@ def ONNXXorOp:ONNX_Op<"Xor",
     OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands, ArrayRef<NamedAttribute> attributes", [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
-      auto elementType = getBroadcastedType(lhsTy, rhsTy);
+      auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
       auto shapedType = elementType.dyn_cast_or_null<ShapedType>();
       if (!shapedType || !shapedType.hasStaticShape()) {
             elementType = operands[0].getType().cast<TensorType>().getElementType();

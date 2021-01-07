@@ -87,3 +87,25 @@ bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
   }
   return false;
 }
+
+//===----------------------------------------------------------------------===//
+// Get a broadcasted type for RankedTensorType and MemRefType.
+//===----------------------------------------------------------------------===//
+Type getBroadcastedRankedType(Type type1, Type type2) {
+  if (type1.isa<RankedTensorType>() && type2.isa<RankedTensorType>())
+    return OpTrait::util::getBroadcastedType(type1, type2);
+  if (type1.isa<MemRefType>() && type2.isa<MemRefType>()) {
+    // Contruct RankedTensorType(s).
+    auto elementType = type1.cast<MemRefType>().getElementType();
+    auto ty1 =
+        RankedTensorType::get(type1.cast<MemRefType>().getShape(), elementType);
+    auto ty2 =
+        RankedTensorType::get(type2.cast<MemRefType>().getShape(), elementType);
+    // Compute a broadcasted type.
+    Type outputType = OpTrait::util::getBroadcastedType(ty1, ty2);
+    // Construct a MemRefType.
+    return MemRefType::get(
+        outputType.cast<RankedTensorType>().getShape(), elementType);
+  } else
+    return (Type)NULL;
+}

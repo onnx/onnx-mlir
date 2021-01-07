@@ -8,6 +8,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Traits.h"
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
@@ -42,3 +43,4 @@ int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
 
 DenseElementsAttr getDenseElementAttributeFromValue(Value value);
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
+Type getBroadcastedRankedType(Type type1, Type type2);

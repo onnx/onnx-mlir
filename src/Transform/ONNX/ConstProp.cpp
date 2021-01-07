@@ -233,9 +233,10 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
   DenseElementsAttr rhsDenseAttr =
       rhsAttr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   assert((lhsDenseAttr && lhsDenseAttr) && "expected dense attributes");
-  assert(
-      resOperand.getType().isa<RankedTensorType>() && "expected ranked tensor");
-  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+  assert(resOperand.getType().cast<ShapedType>().hasRank() &&
+         "expected ranked tensor");
+  RankedTensorType resType =
+      constructRankedTensorType(resOperand.getType().cast<ShapedType>());
   auto lhsRank = lhsDenseAttr.getType().getShape().size();
   auto rhsRank = rhsDenseAttr.getType().getShape().size();
   SmallVector<uint64_t, 4> lhsIndices(lhsRank, 0);
@@ -317,9 +318,10 @@ DenseElementsAttr ConstPropElementwiseUnary(
   DenseElementsAttr denseAttr =
       attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   assert(denseAttr && "expected dense attribute");
-  assert(
-      resOperand.getType().isa<RankedTensorType>() && "expected ranked tensor");
-  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+  assert(resOperand.getType().cast<ShapedType>().hasRank() &&
+         "expected ranked tensor");
+  RankedTensorType resType =
+      constructRankedTensorType(resOperand.getType().cast<ShapedType>());
   auto rank = denseAttr.getType().getShape().size();
   SmallVector<uint64_t, 4> indices(rank, 0);
   std::vector<Attribute> resVector;
