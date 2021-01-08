@@ -50,6 +50,7 @@ namespace {
 
 /// A helper function to contruct a RankedTensorType from a ShapedType.
 RankedTensorType constructRankedTensorType(ShapedType type) {
+  assert(type.hasRank() && "Not a ranked type");
   return RankedTensorType::get(type.getShape(), type.getElementType());
 }
 

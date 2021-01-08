@@ -107,5 +107,5 @@ Type getBroadcastedRankedType(Type type1, Type type2) {
     return MemRefType::get(
         outputType.cast<RankedTensorType>().getShape(), elementType);
   } else
-    return (Type)NULL;
+    return {};
 }
