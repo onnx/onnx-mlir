@@ -389,49 +389,11 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       }
 
       // Affine maps for the pooling window.
-      AffineMap poolStartMap, poolEndMap, poolDimMap;
-      { // Construct poolStartMap, poolEndMap and poolDimMap.
-        // AffineExpr(s) to obtain the dimensions and symbols.
-        AffineExpr outputIndex = rewriter.getAffineDimExpr(0);
-        AffineExpr inputDim = rewriter.getAffineSymbolExpr(0);
-        AffineExpr kernelDim = rewriter.getAffineSymbolExpr(1);
-        AffineExpr padTopDim = rewriter.getAffineSymbolExpr(2);
-        AffineExpr strideDim = rewriter.getAffineSymbolExpr(3);
-        AffineExpr dilationDim = rewriter.getAffineSymbolExpr(4);
-        AffineExpr start1 =
-            (padTopDim).ceilDiv(dilationDim) * dilationDim - padTopDim;
-        AffineExpr start2 = outputIndex * strideDim - padTopDim;
-        AffineExpr end1 = inputDim;
-        AffineExpr end2 = outputIndex * strideDim +
-                          (kernelDim - 1) * dilationDim + 1 - padTopDim;
-
-        // poolDimMap
-        SmallVector<AffineExpr, 4> dimExpr;
-        // Upperbound for an affine.for is `min AffineMap`, where `min` is
-        // automatically inserted when an affine.for is constructed from
-        // an AffineMap, thus we rewrite `endH - startH` as follows:
-        //   endH - start H
-        //     = min(end1, end2) - max(start1, start2)
-        //     = min(end1 - start1, end1 - start2, end2 - start1, end2 - start2)
-        AffineExpr dimExpr1 = end1 - start1;
-        AffineExpr dimExpr2 = end1 - start2;
-        AffineExpr dimExpr3 = end2 - start1;
-        AffineExpr dimExpr4 = end2 - start2;
-        for (AffineExpr de : {dimExpr1, dimExpr2, dimExpr3, dimExpr4}) {
-          if (isDilated) {
-            de = de + 1;
-            de =
-                (ceilMode) ? de.ceilDiv(dilationDim) : de.floorDiv(dilationDim);
-          }
-          dimExpr.emplace_back(de);
-        }
-        poolDimMap = AffineMap::get(1, 5, dimExpr, rewriter.getContext());
-
-        // poolStartMap and poolEndMap
-        poolStartMap =
-            AffineMap::get(1, 5, {start1, start2}, rewriter.getContext());
-        poolEndMap = AffineMap::get(1, 5, {end1, end2}, rewriter.getContext());
-      }
+      std::vector<AffineMap> poolAffineMaps =
+          getAffineMapsForConvWindow(rewriter, ceilMode, isDilated);
+      AffineMap poolStartMap = poolAffineMaps[0];
+      AffineMap poolEndMap = poolAffineMaps[1];
+      AffineMap poolDimMap = poolAffineMaps[2];
 
       // Obtain values from the affine maps.
       SmallVector<Value, 4> poolStartValues;

@@ -13,6 +13,22 @@
 
 using namespace mlir;
 
+std::vector<int64_t> getDilations(ONNXConvOp poolOp) {
+  std::vector<int64_t> dilations;
+  auto dilationsAttribute = poolOp.dilationsAttr();
+  bool isDefaultDilations = true;
+  for (auto dilation : dilationsAttribute.getValue()) {
+    int64_t dilationValue = dilation.cast<IntegerAttr>().getInt();
+    if (dilationValue > 1 && isDefaultDilations)
+      isDefaultDilations = false;
+    dilations.emplace_back(dilationValue);
+  }
+  if (isDefaultDilations)
+    return {};
+  else
+    return dilations;
+}
+
 struct ONNXConvOpLowering : public ConversionPattern {
   ONNXConvOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXConvOp::getOperationName(), 1, ctx) {}
@@ -21,11 +37,31 @@ struct ONNXConvOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
     ONNXConvOpAdaptor operandAdaptor(operands);
+    ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
+
+    // Read ceil_mode attribute
+    auto ceilMode = true;
+
+    // Read dilations attribute if the op has.
+    std::vector<int64_t> dilations = getDilations(convOp);
+    bool isDilated = !dilations.empty();
+
+    // Read pads attribute
+    SmallVector<int64_t, 4> pads;
+    auto padsAttribute = convOp.padsAttr();
+    for (Attribute pad : padsAttribute.getValue())
+      pads.emplace_back(pad.cast<IntegerAttr>().getInt());
+
+    // Read strides attribute
+    SmallVector<int64_t, 4> strides;
+    auto stridesAttribute = convOp.stridesAttr();
+    for (Attribute stride : stridesAttribute.getValue())
+      strides.emplace_back(stride.cast<IntegerAttr>().getInt());
+
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
-    ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
     auto resultShape = memRefType.getShape();
     auto inputOperand = operandAdaptor.X();
@@ -165,6 +201,61 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // Store initializer value into output location.
         rewriter.create<AffineStoreOp>(loc, zero, alloc, resultIndices);
 
+        // Prepare induction variables and constants as arguments for the affine
+        // maps.
+        int kernelOffset = 2;
+        SmallVector<SmallVector<Value, 4>, 4> IVsAndConstants;
+        { // Construct IVsAndConstants.
+          for (int i = 0; i < nSpatialLoops; ++i) {
+            SmallVector<Value, 4> ic;
+            // d0, output
+            ic.emplace_back(resultIndices[i + kernelOffset]);
+            // s0, input dim
+            if (inputShape[i + kernelOffset] < 0) {
+              ic.emplace_back(
+                  rewriter.create<DimOp>(loc, inputOperand, i + kernelOffset));
+            } else {
+              ic.emplace_back(emitConstantOp(rewriter, loc,
+                  rewriter.getIndexType(), inputShape[i + kernelOffset]));
+            }
+            // s1, kernel dim
+            if (kernelShape[i + kernelOffset] < 0) {
+              ic.emplace_back(
+                  rewriter.create<DimOp>(loc, kernelOperand, i + kernelOffset));
+            } else {
+              ic.emplace_back(emitConstantOp(rewriter, loc,
+                  rewriter.getIndexType(), kernelShape[i + kernelOffset]));
+            }
+            // s2, pad dim
+            ic.emplace_back(emitConstantOp(
+                rewriter, loc, rewriter.getIndexType(), pads[i]));
+            // s3, stride dim
+            ic.emplace_back(emitConstantOp(
+                rewriter, loc, rewriter.getIndexType(), strides[i]));
+            // s4, dilation dim
+            ic.emplace_back(emitConstantOp(rewriter, loc,
+                rewriter.getIndexType(), (isDilated) ? dilations[i] : 1));
+            IVsAndConstants.emplace_back(ic);
+          }
+        }
+
+        // Affine maps for the conv window.
+        std::vector<AffineMap> windowAffineMaps =
+            getAffineMapsForConvWindow(rewriter, ceilMode, isDilated);
+        AffineMap windowStartMap = windowAffineMaps[0];
+        AffineMap windowEndMap = windowAffineMaps[1];
+        AffineMap windowDimMap = windowAffineMaps[2];
+
+        // Obtain values from the affine maps.
+        SmallVector<Value, 4> windowStartValues;
+        { // Construct windowStartValues and windowDimValues.
+          for (int i = 0; i < nSpatialLoops; ++i) {
+            Value startIndex = rewriter.create<AffineMaxOp>(
+                loc, windowStartMap, IVsAndConstants[i]);
+            windowStartValues.emplace_back(startIndex);
+          }
+        }
+
         // 3.2 Define inner loops.
         int64_t nInnerLoops = 1 + (kernelShape.size() - 2);
         BuildKrnlLoop innerLoops(rewriter, loc, nInnerLoops);
@@ -173,7 +264,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
         int cIndex = innerLoops.pushBounds(0, kernelShape[1]);
         //   for Kx = 0 .. KX
         for (int i = 2; i < kernelShape.size(); ++i)
-          innerLoops.pushBounds(0, kernelOperand, i);
+          innerLoops.pushBounds(0, windowDimMap,
+              llvm::makeArrayRef(IVsAndConstants[i - kernelOffset]));
+        // innerLoops.pushBounds(0, kernelOperand, i);
 
         // 3.4 Emit inner loop nest.
         innerLoops.createIterateOp();
@@ -217,26 +310,20 @@ struct ONNXConvOpLowering : public ConversionPattern {
                     /*c=*/channelDepth, /*subchannel=*/subchannels});
           }
           dataIndices.emplace_back(channelDepth);
-          // sX * rX + kX
-          auto stridesAttribute = convOp.stridesAttr();
-          // Read strides attribute
-          SmallVector<int, 4> strides;
-          if (stridesAttribute)
-            for (auto stride : stridesAttribute.getValue())
-              strides.emplace_back(stride.cast<IntegerAttr>().getInt());
-          for (int i = 0; i < kernelShape.size() - 2; ++i) {
-            Value spatialIndex = spatialLoops.getInductionVar(i);
-            // If strides are present then emit the correct access index.
-            int stride = 1;
-            if (stridesAttribute && strides[i] > 1)
-              stride = strides[i];
-            AffineMap indexMap = AffineMap::get(2, 0,
-                /*sX=*/rewriter.getAffineDimExpr(0) * /*rX=*/stride +
-                    /*kX=*/rewriter.getAffineDimExpr(1));
-            Value outIV = rewriter.create<AffineApplyOp>(loc, indexMap,
-                ArrayRef<Value>{spatialLoops.getInductionVar(i),
-                    innerLoops.getInductionVar(i + 1)});
-            dataIndices.emplace_back(outIV);
+
+          for (int i = kernelOffset; i < inputShape.size(); ++i) {
+            int j = i - kernelOffset;
+            if (isDilated) {
+              // hi = hp * dH + startH
+              Value index = rewriter.create<MulIOp>(loc,
+                  innerLoops.getInductionVar(j + 1), IVsAndConstants[j][5]);
+              index = rewriter.create<AddIOp>(loc, index, windowStartValues[j]);
+              dataIndices.emplace_back(index);
+            } else {
+              // hi = hp + startH
+              dataIndices.emplace_back(rewriter.create<AddIOp>(loc,
+                  innerLoops.getInductionVar(j + 1), windowStartValues[j]));
+            }
           }
 
           // 4.2 Prepare indices for accessing the kernel tensor.
@@ -251,7 +338,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
           // 4.3 Compute convolution.
           auto loadData =
-              rewriter.create<AffineLoadOp>(loc, inputOperand, dataIndices);
+              rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
           auto loadKernel =
               rewriter.create<AffineLoadOp>(loc, kernelOperand, kernelIndices);
           auto loadPartialSum =

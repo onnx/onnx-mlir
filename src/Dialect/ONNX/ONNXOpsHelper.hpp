@@ -33,7 +33,8 @@ AffineMap getIdentityDimMap(Builder &builder);
 // - s2: stride
 // - s3: dilation
 AffineMap getConvDimMap(Builder &builder, bool ceilMode);
-
+std::vector<AffineMap> getAffineMapsForConvWindow(
+    Builder &builder, bool ceilMode, bool isDilated);
 // Helper functions to get values from attribute arrays.
 size_t ArrayAttrSize(ArrayAttr a);
 size_t ArrayAttrSize(Optional<ArrayAttr> a);

@@ -45,6 +45,58 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
   return AffineMap::get(1, 4, {dimExp});
 }
 
+/// Pool/conv helper affine expressions
+
+std::vector<AffineMap> getAffineMapsForConvWindow(
+    Builder &builder, bool ceilMode, bool isDilated) {
+  // Affine maps for the pooling window.
+  AffineMap poolStartMap, poolEndMap, poolDimMap;
+  { // Construct poolStartMap, poolEndMap and poolDimMap.
+    // AffineExpr(s) to obtain the dimensions and symbols.
+    AffineExpr outputIndex = builder.getAffineDimExpr(0);
+    AffineExpr inputDim = builder.getAffineSymbolExpr(0);
+    AffineExpr kernelDim = builder.getAffineSymbolExpr(1);
+    AffineExpr padTopDim = builder.getAffineSymbolExpr(2);
+    AffineExpr strideDim = builder.getAffineSymbolExpr(3);
+    AffineExpr dilationDim = builder.getAffineSymbolExpr(4);
+    AffineExpr start1 =
+        (padTopDim).ceilDiv(dilationDim) * dilationDim - padTopDim;
+    AffineExpr start2 = outputIndex * strideDim - padTopDim;
+    AffineExpr end1 = inputDim;
+    AffineExpr end2 =
+        outputIndex * strideDim + (kernelDim - 1) * dilationDim + 1 - padTopDim;
+
+    // poolDimMap
+    SmallVector<AffineExpr, 4> dimExpr;
+    // Upperbound for an affine.for is `min AffineMap`, where `min` is
+    // automatically inserted when an affine.for is constructed from
+    // an AffineMap, thus we rewrite `endH - startH` as follows:
+    //   endH - start H
+    //     = min(end1, end2) - max(start1, start2)
+    //     = min(end1 - start1, end1 - start2, end2 - start1, end2 - start2)
+    AffineExpr dimExpr1 = end1 - start1;
+    AffineExpr dimExpr2 = end1 - start2;
+    AffineExpr dimExpr3 = end2 - start1;
+    AffineExpr dimExpr4 = end2 - start2;
+    for (AffineExpr de : {dimExpr1, dimExpr2, dimExpr3, dimExpr4}) {
+      if (isDilated) {
+        de = de + 1;
+        de = (ceilMode) ? de.ceilDiv(dilationDim) : de.floorDiv(dilationDim);
+      }
+      dimExpr.emplace_back(de);
+    }
+    poolDimMap = AffineMap::get(1, 5, dimExpr, builder.getContext());
+
+    // poolStartMap and poolEndMap
+    poolStartMap =
+        AffineMap::get(1, 5, {start1, start2}, builder.getContext());
+    poolEndMap = AffineMap::get(1, 5, {end1, end2}, builder.getContext());
+  }
+
+  return std::vector<AffineMap>{poolStartMap, poolEndMap, poolDimMap};
+}
+
+
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
 //===----------------------------------------------------------------------===//
