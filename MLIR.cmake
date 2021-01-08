@@ -57,7 +57,11 @@ endif()
 message(STATUS "LLVM_PROJ_BIN           : " ${LLVM_PROJ_BIN})
 
 # Include paths for MLIR
-set(LLVM_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/llvm/include)
+if (USE_INSTALLED_LLVM)
+  set(LLVM_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/include)
+else()
+  set(LLVM_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/llvm/include)
+endif()
 set(LLVM_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/include)
 set(MLIR_SRC_INCLUDE_PATH ${LLVM_PROJ_SRC}/mlir/include)
 set(MLIR_BIN_INCLUDE_PATH ${LLVM_PROJ_BUILD}/tools/mlir/include)
@@ -328,9 +332,15 @@ set(MLIRLibs
         ${CURSES_LIBRARIES}
         ${ZLIB_LIBRARIES})
 
-set(LLVM_CMAKE_DIR
+if (USE_INSTALLED_LLVM)
+  set(LLVM_CMAKE_DIR
+        "${LLVM_PROJECT_LIB}/cmake/llvm"
+        CACHE PATH "Path to LLVM cmake modules")
+else()
+  set(LLVM_CMAKE_DIR
         "${LLVM_PROJ_BUILD}/lib/cmake/llvm"
         CACHE PATH "Path to LLVM cmake modules")
+endif()
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(AddLLVM)
 include(TableGen)
@@ -349,14 +359,16 @@ endfunction()
 # Import the pre-built mlir TableGen as an imported exetuable. It is required by
 # the LLVM TableGen command to have the TableGen target so that changes to the
 # table gen utility itself can be detected and cause re-compilation of .td file.
-add_executable(mlir-tblgen IMPORTED)
-# Specify extension for incremental Windows builds.
-if(MSVC)
-  set_property(TARGET mlir-tblgen
+if (NOT TARGET mlir-tblgen)
+  add_executable(mlir-tblgen IMPORTED)
+  # Specify extension for incremental Windows builds.
+  if(MSVC)
+    set_property(TARGET mlir-tblgen
           PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BIN}/mlir-tblgen.exe)
-else()
-  set_property(TARGET mlir-tblgen
+  else()
+    set_property(TARGET mlir-tblgen
           PROPERTY IMPORTED_LOCATION ${LLVM_PROJ_BIN}/mlir-tblgen)
+  endif()
 endif()
 
 set(MLIR_TABLEGEN_EXE mlir-tblgen)
