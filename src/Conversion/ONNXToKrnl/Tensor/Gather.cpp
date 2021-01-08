@@ -25,6 +25,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
 
     ONNXGatherOpShapeHelper shapeHelper(&gatherOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    (void)shapecomputed;
     assert(succeeded(shapecomputed));
     IndexExprContext outerContext(shapeHelper.context);
 

@@ -28,6 +28,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    (void)shapecomputed;
     assert(succeeded(shapecomputed));
     IndexExprContext outerContext(shapeHelper.context);
 

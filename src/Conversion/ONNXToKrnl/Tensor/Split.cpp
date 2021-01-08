@@ -30,6 +30,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
     // Get a shape helper.
     ONNXSplitOpShapeHelper shapeHelper(&splitOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    (void)shapecomputed;
     assert(succeeded(shapecomputed));
 
     // Alloc and dealloc.
