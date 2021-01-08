@@ -24,7 +24,9 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     auto loc = op->getLoc();
 
     ONNXGatherOpShapeHelper shapeHelper(&gatherOp, &rewriter);
-    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
+    bool computeSucceeded = succeeded(shapeHelper.Compute(operandAdaptor));
+    (void)computeSucceeded;
+    assert(computeSucceeded && "Failed to compute shape!");
     IndexExprContext outerContext(shapeHelper.context);
 
     // Insert an allocation and deallocation for the output of this operation.

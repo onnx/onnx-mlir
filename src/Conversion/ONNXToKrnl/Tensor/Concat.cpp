@@ -25,7 +25,9 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     ONNXConcatOpAdaptor operandAdaptor(operands);
     ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
     ONNXConcatOpShapeHelper shapeHelper(&concatOp, &rewriter);
-    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
+    bool computeSucceeded = succeeded(shapeHelper.Compute(operandAdaptor));
+    (void)computeSucceeded;
+    assert(computeSucceeded && "Failed to compute shape!");
 
     auto axis = concatOp.axis();
     int inputNum = operands.size();

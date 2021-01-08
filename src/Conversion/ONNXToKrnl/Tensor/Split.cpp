@@ -29,7 +29,9 @@ struct ONNXSplitOpLowering : public ConversionPattern {
 
     // Get a shape helper.
     ONNXSplitOpShapeHelper shapeHelper(&splitOp, &rewriter);
-    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
+    bool computeSucceeded = succeeded(shapeHelper.Compute(operandAdaptor));
+    (void)computeSucceeded;
+    assert(computeSucceeded && "Failed to compute shape!");
 
     // Alloc and dealloc.
     SmallVector<Value, 4> allocs;

@@ -25,7 +25,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
     Location loc = op->getLoc();
     ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter);
-    assert(succeeded(shapeHelper.Compute(operandAdaptor)));
+    bool computeSucceeded = succeeded(shapeHelper.Compute(operandAdaptor));
+    (void)computeSucceeded;
+    assert(computeSucceeded && "Failed to compute shape");
     IndexExprContext outerContext(shapeHelper.context);
 
     // Insert an allocation and deallocation for the output of this operation.

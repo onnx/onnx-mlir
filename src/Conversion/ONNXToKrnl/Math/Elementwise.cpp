@@ -616,7 +616,9 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
-    assert(succeeded(shapeHelper.Compute(operands)));
+    bool computeSucceeded = succeeded(shapeHelper.Compute(operands));
+    (void)computeSucceeded;
+    assert(computeSucceeded && "Failed to compute shape!");
     IndexExprContext outerContext(shapeHelper.context);
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -680,7 +682,9 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
-    assert(succeeded(shapeHelper.Compute(operands)));
+    bool computeSucceeded = succeeded(shapeHelper.Compute(operands));
+    (void)computeSucceeded;
+    assert(computeSucceeded && "Failed to compute shape!");
     IndexExprContext outerContext(shapeHelper.context);
 
     // Insert an allocation and deallocation for the result of this operation.
