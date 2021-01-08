@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from distutils.util import strtobool
 import os
 import sys
 import unittest
@@ -16,21 +17,34 @@ import test_config
 import tempfile
 import argparse
 
-VERBOSE = bool(os.environ.get("VERBOSE"))
-TEST_DYNAMIC = os.environ.get("IMPORTER_FORCE_DYNAMIC")
-    
+# Casting with "bool" does not work well. When you specify VERBOSE=xxx,
+# regardless of the value of xxx (e.g., true, false, y, n, etc.) the
+# casted bool value will be true. Only if xxx is empty, the casted bool
+# value will be false. This is a bit counter intuitive. So we use strtobool
+# to do the conversion. But note that strtobool can't take an emtpy string.
+
+VERBOSE = os.getenv("VERBOSE")
+IMPORTER_FORCE_DYNAMIC = os.getenv("IMPORTER_FORCE_DYNAMIC")
+TEST_DYNAMIC = os.getenv("TEST_DYNAMIC")
+
 parser = argparse.ArgumentParser(description='with dynamic shape or not.')
 parser.add_argument('--dynamic', action='store_true',
-    help='enable dynamic (default: false)')
-parser.add_argument('-i', '--input', type=int, default=-1,
-    help='input whose dimensions to be changed to unknown (default: all inputs')
-parser.add_argument('-d', '--dim', type=int, default=0,
-    help='dimension to be changed to unknown (default: first dimension')
+    default=(strtobool(TEST_DYNAMIC) if TEST_DYNAMIC else False),
+    help='enable dynamic shape tests (default: false if TEST_DYNAMIC env var not set)')
+parser.add_argument('-i', '--input', type=int,
+    default=os.getenv("TEST_INPUT", -1),
+    help='inputs whose dimensions to be changed to unknown (default: all inputs if TEST_INPUT env var not set)')
+parser.add_argument('-d', '--dim', type=int,
+    default=os.getenv("TEST_DIM", -1),
+    help='dimensions to be changed to unknown (default: all dimensions if TEST_DIM env var not set)')
+parser.add_argument('-v', '--verbose', action='store_true',
+    default=(strtobool(VERBOSE) if VERBOSE else False),
+    help='verbose output (default: false if VERBOSE env var not set)')
 parser.add_argument('unittest_args', nargs='*')
 args = parser.parse_args()
 sys.argv[1:] = args.unittest_args
 
-TEST_CASE_BY_USER = os.environ.get("BACKEND_TEST")
+TEST_CASE_BY_USER = os.getenv("TEST_CASE_BY_USER")
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
     result_dir = "./"
 else :
@@ -71,9 +85,9 @@ test_static_dynamicNA = test_static # static tests for which dyn not available.
 # - 'dynamic_dict' is a dict to define which inputs/dimensions are changed to
 #     unknown, where its key is an input index and its value is a set of
 #     dimension indices, e.g. {0:{0,1}, 1:{-1}, 2:{0}}
-# If 'dynamic_dict' is not given, by default, the first dimension of all inputs
-#   will be changed to unknown. Use this script's arguments '--input' and
-#   '--dim' to control the default values.
+# If 'dynamic_dict' is not given, by default, all dimension of all inputs will
+#   be changed to unknown. Use this script's arguments '--input' and '--dim' to
+#   control the default values.
 # Input and dimension indices start from 0. -1 means all inputs or all dimensions.
 
 test_to_enable_static_dynamic = {
@@ -93,8 +107,8 @@ test_to_enable_static_dynamic = {
     # Adam
 
     # Add
-    "test_add_cpu": (test_static_dynamic,{-1: {-1}}),
-    "test_add_bcast_cpu": (test_static_dynamic,{-1: {-1}}),
+    "test_add_cpu": (test_static_dynamic,),
+    "test_add_bcast_cpu": (test_static_dynamic,),
 
     # And
     "test_and2d_cpu": (test_static_dynamic,),
@@ -172,8 +186,7 @@ test_to_enable_static_dynamic = {
     "test_concat_3d_axis_negative_3_cpu": (test_static_dynamic,{0:{0}}),
 
     # Constant (dynamic NA)
-    # TODO look into error
-    "test_constant_cpu": (test_disabled,), # get very larger error, unsure why
+    "test_constant_cpu": (test_static_dynamicNA,),
 
     # ConstantOfShape (dynamic NA)
     "test_constantofshape_float_ones_cpu": (test_static_dynamicNA,),
@@ -562,9 +575,8 @@ test_to_enable_static_dynamic = {
     "test_sinh_example_cpu": (test_static_dynamic,),
 
     # Size
-    # TODO(tjingrant): fix unit test for size ops.
-    "test_size_cpu": (test_static,),
-    "test_size_example_cpu": (test_static,),
+    "test_size_cpu": (test_static_dynamic,),
+    "test_size_example_cpu": (test_static_dynamic,),
 
     # Slice (makes Axis a runtime argument, which is not supported).
 
@@ -695,8 +707,8 @@ def determine_dynamic_parameters(test_name):
     if not args.dynamic :
         return None
     # set default value: all inputs, first dimension.
-    # Use this script's arguments '--input' and '--dim' to control the default
-    # value.
+    # Use this script's arguments '--input' and '--dim' or environment variables
+    # TEST_INPUT and TEST_DIM to control the values.
     selected_list = {args.input: {args.dim}}
     test_name_cpu = test_name + "_cpu"
     if test_name_cpu in test_for_dynamic:
@@ -705,7 +717,7 @@ def determine_dynamic_parameters(test_name):
     return selected_list 
 
 def execute_commands(cmds, dynamic_inputs_dims):
-    if (VERBOSE):
+    if (args.verbose):
         print(" ".join(cmds))
         print("IMPORTER FORCE DYNAMIC ", dynamic_inputs_dims)
     my_env = os.environ.copy();
