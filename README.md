@@ -106,6 +106,8 @@ export LIT_OPTS=-v
 cmake --build . --target check-onnx-lit
 ```
 
+If you are running on OSX Big Sur, you need to add `-DCMAKE_CXX_COMPILER=/usr/bin/c++`
+to the `cmake ..` command due to changes in the compilers.
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory. 
 
 ## Installation on Windows
