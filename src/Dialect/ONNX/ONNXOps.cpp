@@ -852,11 +852,18 @@ LogicalResult ONNXErfOp::inferShapes(
 
 LogicalResult ONNXPowOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
+  return emitError(NOT_IMPLEMENTED_MESSAGE);
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  RankedTensorType lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  RankedTensorType rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  Type rhsETy = rhsTy.getElementType();
+  Type lhsETy = lhsTy.getElementType();
+  if (rhsETy != lhsETy)
+    return emitError("do not support Pow with different input type yet");
+  if (rhsETy.isa<IntegerType>() || lhsETy.isa<IntegerType>())
+    return emitError("do not support integer power yet");
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
   return success();
 }
@@ -2965,7 +2972,8 @@ LogicalResult ONNXBitShiftOp::inferShapes(
 
 LogicalResult ONNXCeilOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 LogicalResult ONNXClipOp::inferShapes(
@@ -3019,7 +3027,8 @@ LogicalResult ONNXEyeLikeOp::inferShapes(
 
 LogicalResult ONNXFloorOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 LogicalResult ONNXGatherElementsOp::inferShapes(

@@ -314,6 +314,26 @@ func @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
+func @test_sin(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Sin"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_sin
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[SIN:%.+]] = sin [[LOAD]] : f32
+  // CHECK: affine.store [[SIN]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+// -----
+
 func @test_log(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Log"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -3105,4 +3125,64 @@ func @loop_body(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> 
   // CHECK:           }
   // CHECK:           return [[VAR_arg1]], [[VAR_0]] : memref<i1>, memref<1xi64>
   // CHECK:         }
+}
+
+// -----
+
+func @test_floor(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Floor"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_floor
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[FLOOR:%.+]] = floorf [[LOAD]] : f32
+  // CHECK: affine.store [[FLOOR]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+// -----
+
+func @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Ceil"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_ceil
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[CEIL:%.+]] = ceilf [[LOAD]] : f32
+  // CHECK: affine.store [[CEIL]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
+}
+
+// -----
+
+func @test_atan(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Atan"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
+  "std.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_atan
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[C0_0:%.+]] = constant 0 : index
+  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[LOAD:%.+]] = affine.load %arg0[%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: [[ATAN:%.+]] = atan [[LOAD]] : f32
+  // CHECK: affine.store [[ATAN]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
+  // CHECK: return [[RES]] : memref<?x10xf32>
 }

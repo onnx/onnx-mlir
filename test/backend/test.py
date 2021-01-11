@@ -129,6 +129,8 @@ test_to_enable_static_dynamic = {
     # Asinh
 
     # Atan
+    #"test_atan_example_cpu": (test_static_dynamic,),
+    #"test_atan_cpu": (test_static_dynamic,),
 
     # Atanh
 
@@ -164,6 +166,8 @@ test_to_enable_static_dynamic = {
     "test_cast_STRING_to_FLOAT_cpu": (test_disabled,), # appers unsupported at this time
 
     # Ceil
+    "test_ceil_example_cpu": (test_static_dynamic,),
+    "test_ceil_cpu": (test_static_dynamic,),
 
     # Celu
 
@@ -256,6 +260,8 @@ test_to_enable_static_dynamic = {
     "test_flatten_negative_axis4_cpu": (test_static_dynamic,),
 
     # Floor
+    "test_floor_example_cpu": (test_static_dynamic,),
+    "test_floor_cpu": (test_static_dynamic,),
     
     # Gather
     "test_gather_0_cpu": (test_static_dynamic,),
@@ -569,6 +575,8 @@ test_to_enable_static_dynamic = {
     "test_sign_cpu": (test_static_dynamic,),
 
     # Sin
+    "test_sin_example_cpu": (test_static_dynamic,),
+    "test_sin_cpu": (test_static_dynamic,),
 
     # Sinh
     "test_sinh_cpu": (test_static_dynamic,),

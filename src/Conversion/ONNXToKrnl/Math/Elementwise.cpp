@@ -91,6 +91,31 @@ struct ScalarOp<ONNXSqrtOp> {
   using IOp = SqrtOp; // not use
 };
 
+template <>
+struct ScalarOp<ONNXAtanOp> {
+  using FOp = AtanOp;
+  using IOp = AtanOp; // not use
+};
+
+template <>
+struct ScalarOp<ONNXCeilOp> {
+  using FOp = CeilFOp;
+  using IOp = CeilFOp; // not use
+};
+
+template <>
+struct ScalarOp<ONNXFloorOp> {
+  using FOp = FloorFOp;
+  using IOp = FloorFOp; // not use
+};
+
+template <>
+struct ScalarOp<ONNXSinOp> {
+  using FOp = SinOp;
+  using IOp = SinOp; // not use
+};
+
+
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
@@ -736,12 +761,15 @@ void populateLoweringONNXElementwiseOpPattern(
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOp>,
@@ -756,6 +784,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSinOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSinhOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftplusOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftsignOp>,
