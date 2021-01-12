@@ -46,7 +46,7 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 }
 
 /// Affine Maps to compute the convolution/pooling window.
-//
+///
 /// The conv/pooling window can be smaller than the kernel when slicing it over
 /// the border edges. Thus, we will compute the start and end indices for
 /// each window dimension as follows.
@@ -67,6 +67,8 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 ///              n >= pH/dH
 ///   thus n = ceil(pH/dH)
 ///   thus the first valid pixel location is 'ceil(pH / dH) * dH- pH'.
+///
+/// This function returns {startH, endH, hDim, kernelOffset}.
 
 std::vector<AffineMap> getAffineMapsForConvWindow(
     Builder &builder, bool ceilMode, bool isDilated) {
