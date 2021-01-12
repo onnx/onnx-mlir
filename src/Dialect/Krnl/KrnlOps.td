@@ -13,7 +13,7 @@ include "mlir/Dialect/Shape/IR/ShapeBase.td"
 
 def Krnl_Dialect : Dialect {
   let name = "krnl";
-  let cppNamespace = "";
+  let cppNamespace = "::mlir";
 }
 
 // Require regions to have krnl.terminate terminator operation.
@@ -30,8 +30,7 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   let arguments = (ins);
   let results = (outs Variadic<AnyType>);
   let skipDefaultBuilders = 1;
-  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result,"
-                             "int64_t num_loops"> ];
+  let builders = [ OpBuilderDAG<(ins "int64_t":$num_loops)> ];
 
   let printer = [{ return ::print(p, *this); }];
   let parser = [{ return ::parse$cppClass(parser, result); }];
@@ -75,8 +74,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator, AffineS
   let arguments = (ins Variadic<AnyType>);
   let regions = (region SizedRegion<1>:$bodyRegion);
   let skipDefaultBuilders = 1;
-  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result, "
-                             "KrnlIterateOperandPack operandPack"> ];
+  let builders = [ OpBuilderDAG<(ins "KrnlIterateOperandPack":$operandPack)> ];
 
   let extraClassDeclaration = [{
     // In krnl.iterate operation, operands are stored as such
@@ -127,9 +125,8 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   let summary = "Indicate ONNX entry point";
   let description = [{The "krnl.entry_point" function indicates the main entry
                            point of ONNX model.}];
-  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result, "
-                             "SymbolRefAttr funcAttr, IntegerAttr numInputs, "
-                             "IntegerAttr numOutputs"> ];
+  let builders = [ OpBuilderDAG<(ins "SymbolRefAttr":$funcAttr, "IntegerAttr":$numInputs,
+                                     "IntegerAttr":$numOutputs)> ];
 
   let extraClassDeclaration = [{
     static StringRef getEntryPointFuncAttrName() { return "func"; }
@@ -234,8 +231,8 @@ def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
   let builders = [
-    OpBuilder<"OpBuilder &builder, OperationState &state, Type resultType, Value mempool, Value offset", [{
-      build(builder, state, resultType, mempool, offset, {});
+    OpBuilderDAG<(ins "Type":$resultType, "Value":$mempool, "Value":$offset), [{
+      build($_builder, $_state, resultType, mempool, offset, {});
     }]>,
     ];
 
@@ -398,8 +395,7 @@ def KrnlDummyCastOp : Op<Krnl_Dialect, "dummy_cast"> {
     dependencies existing between lowering of multiple IR objects.
   }];
 
-  let builders = [ OpBuilder<"OpBuilder &builder, OperationState &result, "
-                               "Value in, Type outType"> ];
+  let builders = [ OpBuilderDAG<(ins "Value":$in, "Type":$outType)> ];
 
   let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$in);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$out);

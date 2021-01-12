@@ -15,10 +15,9 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/Function.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Matchers.h"
-#include "mlir/IR/Module.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
@@ -32,7 +31,6 @@
 
 using namespace mlir;
 
-namespace mlir {
 KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
     : Dialect(getDialectNamespace(), context, TypeID::get<KrnlOpsDialect>()) {
   addOperations<
@@ -41,6 +39,8 @@ KrnlOpsDialect::KrnlOpsDialect(MLIRContext *context)
       >();
   addTypes<LoopType>();
 }
+
+namespace mlir {
 
 //===----------------------------------------------------------------------===//
 // KrnlDefineLoopsOp
@@ -319,6 +319,7 @@ void KrnlDummyCastOp::build(
   state.types.emplace_back(outType);
 }
 
+} // namespace mlir
+
 #define GET_OP_CLASSES
 #include "src/Dialect/Krnl/KrnlOps.cpp.inc"
-} // namespace mlir
