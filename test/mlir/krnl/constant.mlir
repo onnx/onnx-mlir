@@ -12,7 +12,8 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   // CHECK: llvm.func @test_constant({{.*}}) -> !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)> {
 
   // CHECK: [[CONST_3:%.+]] = llvm.mlir.constant(3 : index) : !llvm.i64
-  // CHECK: [[CONST_4:%.+]] = llvm.mlir.constant(2 : index) : !llvm.i64
+  // CHECK: [[CONST_2:%.+]] = llvm.mlir.constant(2 : index) : !llvm.i64
+  // CHECK: [[CONST_1:%.+]] = llvm.mlir.constant(1 : index) : !llvm.i64
 
   /// This is the result MemRef:
   // CHECK: [[MALLOC_FOR_RES:%.+]] = llvm.call @malloc
@@ -22,11 +23,9 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   // CHECK: [[RES_MEMREF_2:%.+]] = llvm.insertvalue [[CAST_MALLOC_FOR_RES]], [[RES_MEMREF_1]][1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
   // CHECK: [[CONST_0:%.+]] = llvm.mlir.constant(0 : index) : !llvm.i64
   // CHECK: [[RES_MEMREF_3:%.+]] = llvm.insertvalue [[CONST_0]], [[RES_MEMREF_2]][2] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[CONST_1:%.+]] = llvm.mlir.constant(1 : index) : !llvm.i64
-  // CHECK: [[CONST_2:%.+]] = llvm.mlir.constant(2 : index) : !llvm.i64
   // CHECK: [[RES_MEMREF_4:%.+]] = llvm.insertvalue [[CONST_3]], [[RES_MEMREF_3]][3, 0] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[RES_MEMREF_5:%.+]] = llvm.insertvalue [[CONST_2]], [[RES_MEMREF_4]][4, 0] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[RES_MEMREF_6:%.+]] = llvm.insertvalue [[CONST_4]], [[RES_MEMREF_5]][3, 1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[RES_MEMREF_5:%.+]] = llvm.insertvalue [[CONST_2]], [[RES_MEMREF_4]][3, 1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[RES_MEMREF_6:%.+]] = llvm.insertvalue [[CONST_2]], [[RES_MEMREF_5]][4, 0] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
   // CHECK: [[RES_MEMREF_7:%.+]] = llvm.insertvalue [[CONST_1]], [[RES_MEMREF_6]][4, 1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
 
   // CHECK: [[CONST1:%.+]] = llvm.mlir.constant(1 : i64) : !llvm.i64
@@ -121,7 +120,8 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   // CHECK: [[MEMREF5:%.+]] = llvm.insertvalue [[CONST1]], [[MEMREF4]][4, 1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
 
   // CHECK: [[CONST_3:%.+]] = llvm.mlir.constant(3 : index) : !llvm.i64
-  // CHECK: [[CONST_4:%.+]] = llvm.mlir.constant(2 : index) : !llvm.i64
+  // CHECK: [[CONST_2:%.+]] = llvm.mlir.constant(2 : index) : !llvm.i64
+  // CHECK: [[CONST_1:%.+]] = llvm.mlir.constant(1 : index) : !llvm.i64
 
   /// This is the result MemRef:
   // CHECK: [[MALLOC_FOR_RES:%.+]] = llvm.call @malloc
@@ -131,11 +131,9 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   // CHECK: [[RES_MEMREF_2:%.+]] = llvm.insertvalue [[CAST_MALLOC_FOR_RES]], [[RES_MEMREF_1]][1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
   // CHECK: [[CONST_0:%.+]] = llvm.mlir.constant(0 : index) : !llvm.i64
   // CHECK: [[RES_MEMREF_3:%.+]] = llvm.insertvalue [[CONST_0]], [[RES_MEMREF_2]][2] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[CONST_1:%.+]] = llvm.mlir.constant(1 : index) : !llvm.i64
-  // CHECK: [[CONST_2:%.+]] = llvm.mlir.constant(2 : index) : !llvm.i64
   // CHECK: [[RES_MEMREF_4:%.+]] = llvm.insertvalue [[CONST_3]], [[RES_MEMREF_3]][3, 0] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[RES_MEMREF_5:%.+]] = llvm.insertvalue [[CONST_2]], [[RES_MEMREF_4]][4, 0] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[RES_MEMREF_6:%.+]] = llvm.insertvalue [[CONST_4]], [[RES_MEMREF_5]][3, 1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[RES_MEMREF_5:%.+]] = llvm.insertvalue [[CONST_2]], [[RES_MEMREF_4]][3, 1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[RES_MEMREF_6:%.+]] = llvm.insertvalue [[CONST_2]], [[RES_MEMREF_5]][4, 0] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
   // CHECK: [[RES_MEMREF_7:%.+]] = llvm.insertvalue [[CONST_1]], [[RES_MEMREF_6]][4, 1] : !llvm.struct<(ptr<float>, ptr<float>, i64, array<2 x i64>, array<2 x i64>)>
 
   /// Copy result in a MemRef:

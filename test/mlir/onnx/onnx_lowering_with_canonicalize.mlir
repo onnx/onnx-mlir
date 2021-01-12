@@ -223,7 +223,7 @@ func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_7_:%.+]] = index_cast [[LOAD_STEP_MEM_]] : i64 to index
 // CHECK-DAG:       [[VAR_8_:%.+]] = cmpi "slt", [[VAR_3_]], [[CST_0_]] : index
-// CHECK-DAG:       [[VAR_9_:%.+]] = affine.apply #map1(){{.}}[[VAR_3_]]{{.}}
+// CHECK-DAG:       [[VAR_9_:%.+]] = affine.apply #map0(){{.}}[[VAR_3_]]{{.}}
 // CHECK:           [[VAR_10_:%.+]] = select [[VAR_8_]], [[VAR_9_]], [[VAR_3_]] : index
 // CHECK:           [[VAR_11_:%.+]] = cmpi "slt", [[VAR_10_]], [[CST_0_]] : index
 // CHECK:           [[VAR_12_:%.+]] = select [[VAR_11_]], [[CST_0_]], [[VAR_10_]] : index
@@ -237,7 +237,7 @@ func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_20_:%.+]] = select [[VAR_19_]], [[VAR_14_]], [[VAR_18_]] : index
 // CHECK-DAG:       [[VAR_21_:%.+]] = cmpi "slt", [[VAR_5_]], [[CST_0_]] : index
-// CHECK-DAG:       [[VAR_22_:%.+]] = affine.apply #map1(){{.}}[[VAR_5_]]{{.}}
+// CHECK-DAG:       [[VAR_22_:%.+]] = affine.apply #map0(){{.}}[[VAR_5_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_23_:%.+]] = select [[VAR_21_]], [[VAR_22_]], [[VAR_5_]] : index
 // CHECK-DAG:       [[VAR_24_:%.+]] = cmpi "slt", [[VAR_5_]], [[CST_minus_2147483648_]] : index
@@ -269,7 +269,7 @@ func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_47_:%.+]] = index_cast [[LOAD_STEP_MEM_1_]] : i64 to index
 // CHECK-DAG:       [[VAR_48_:%.+]] = cmpi "slt", [[VAR_43_]], [[CST_0_]] : index
-// CHECK-DAG:       [[VAR_49_:%.+]] = affine.apply #map3(){{.}}[[VAR_43_]]{{.}}
+// CHECK-DAG:       [[VAR_49_:%.+]] = affine.apply #map1(){{.}}[[VAR_43_]]{{.}}
 // CHECK:           [[VAR_50_:%.+]] = select [[VAR_48_]], [[VAR_49_]], [[VAR_43_]] : index
 // CHECK:           [[VAR_51_:%.+]] = cmpi "slt", [[VAR_50_]], [[CST_0_]] : index
 // CHECK:           [[VAR_52_:%.+]] = select [[VAR_51_]], [[CST_0_]], [[VAR_50_]] : index
@@ -283,7 +283,7 @@ func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_60_:%.+]] = select [[VAR_59_]], [[VAR_54_]], [[VAR_58_]] : index
 // CHECK-DAG:       [[VAR_61_:%.+]] = cmpi "slt", [[VAR_45_]], [[CST_0_]] : index
-// CHECK-DAG:       [[VAR_62_:%.+]] = affine.apply #map3(){{.}}[[VAR_45_]]{{.}}
+// CHECK-DAG:       [[VAR_62_:%.+]] = affine.apply #map1(){{.}}[[VAR_45_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_63_:%.+]] = select [[VAR_61_]], [[VAR_62_]], [[VAR_45_]] : index
 // CHECK-DAG:       [[VAR_64_:%.+]] = cmpi "slt", [[VAR_45_]], [[CST_minus_2147483648_]] : index
@@ -515,7 +515,7 @@ func @test_tile2(%arg0 : tensor<8xf32>, %arg1 : tensor<1xi64>) -> tensor<*xf32> 
 // CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<8xf32>, [[VAR_arg1:%.+]]: memref<1xi64>) -> memref<?xf32> {
 // CHECK:           [[VAR_0:%.+]] = affine.load [[VAR_arg1]][0] : memref<1xi64>
 // CHECK:           [[VAR_1:%.+]] = index_cast [[VAR_0]] : i64 to index
-// CHECK:           [[VAR_2:%.+]] = affine.apply #map1(){{.}}[[VAR_1]]{{.}}
+// CHECK:           [[VAR_2:%.+]] = affine.apply #map(){{.}}[[VAR_1]]{{.}}
 // CHECK-DAG:       [[VAR_3:%.+]] = alloc([[VAR_2]]) : memref<?xf32>
 // CHECK-DAG:       [[VAR_4:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate([[VAR_4]]) with ([[VAR_4]] -> [[VAR_arg2:%.+]] = 0 to [[VAR_2]]) {
@@ -644,9 +644,9 @@ func @test_split_unknown_dimension_equal_split(%arg0 : tensor<?x?x64xf32>) -> (t
 // CHECK-DAG:       [[DIM_0_:%.+]] = dim [[PARAM_0_]], [[CST_1_]] : memref<?x?x64xf32>
 // CHECK-DAG:       [[DIM_1_:%.+]] = dim [[PARAM_0_]], [[CST_0_]] : memref<?x?x64xf32>
 // CHECK-DAG:       [[DIM_2_:%.+]] = dim [[PARAM_0_]], [[CST_0_]] : memref<?x?x64xf32>
-// CHECK:           [[VAR_3_:%.+]] = affine.apply #map0(){{.}}[[DIM_0_]]{{.}}
+// CHECK:           [[VAR_3_:%.+]] = affine.apply #map(){{.}}[[DIM_0_]]{{.}}
 // CHECK-DAG:       [[RES_:%.+]] = alloc([[DIM_1_]], [[VAR_3_]]) : memref<?x?x64xf32>
-// CHECK-DAG:       [[VAR_5_:%.+]] = affine.apply #map0(){{.}}[[DIM_0_]]{{.}}
+// CHECK-DAG:       [[VAR_5_:%.+]] = affine.apply #map(){{.}}[[DIM_0_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[RES_1_:%.+]] = alloc([[DIM_2_]], [[VAR_5_]]) : memref<?x?x64xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
@@ -709,7 +709,7 @@ func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5xf32>,
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[DIM_0_:%.+]] = dim [[PARAM_0_]], [[CST_0_]] : memref<?x4x5xf32>
 // CHECK-DAG:       [[DIM_1_:%.+]] = dim [[PARAM_1_]], [[CST_1_]] : memref<1x?x1xf32>
-// CHECK:           [[VAR_2_:%.+]] = affine.max #map0(){{.}}[[DIM_0_]]{{.}}
+// CHECK:           [[VAR_2_:%.+]] = affine.max #map(){{.}}[[DIM_0_]]{{.}}
 // CHECK-DAG:       [[RES_:%.+]] = alloc([[VAR_2_]]) : memref<?x4x5xi1>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_2_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5) {
@@ -739,7 +739,7 @@ func @test_variadic_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x1xf32
 // CHECK-DAG:       [[DIM_1_:%.+]] = dim [[PARAM_1_]], [[CST_0_]] : memref<?x?x5xf32>
 // CHECK-DAG:       [[DIM_2_:%.+]] = dim [[PARAM_1_]], [[CST_1_]] : memref<?x?x5xf32>
 // CHECK-DAG:       [[DIM_3_:%.+]] = dim [[PARAM_2_]], [[CST_0_]] : memref<?x1x5xf32>
-// CHECK:           [[VAR_4_:%.+]] = affine.max #map0(){{.}}[[DIM_0_]], [[DIM_1_]]{{.}}
+// CHECK:           [[VAR_4_:%.+]] = affine.max #map(){{.}}[[DIM_0_]], [[DIM_1_]]{{.}}
 // CHECK-DAG:       [[RES_:%.+]] = alloc([[VAR_4_]]) : memref<?x4x5xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_4_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5) {

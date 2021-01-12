@@ -400,21 +400,21 @@ custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broa
 #a dictionary to add any special definition for an operation
 custom_definition_misc = dict([ ('Constant',
  '''  let builders = [
-  OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
+  OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
-    build(builder, state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value);
    } else {
     auto tensorType = sparse_value.getType();
-    build(builder, state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value);
    }
   }]>
   ];'''),
   ('Cast',
  '''   let builders = [
-  OpBuilder<"OpBuilder &builder, OperationState &state, Value input, TypeAttr to", [{
+  OpBuilderDAG<(ins "Value":$input, "TypeAttr":$to), [{
    auto resultType = mlir::UnrankedTensorType::get(to.getValue());
-   build(builder, state, resultType, input, to);
+   build($_builder, $_state, resultType, input, to);
   }] >
   ];'''
  )])
@@ -945,18 +945,19 @@ def gen_op_def(schema):
                 schema.name + " since it does not have operands.")
         else:
             s += indent + 'let builders = [\n'
-            # Custom builders with operands and attributes having a seperate parameter.
-            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, Value X,
-            #   Value, Y, Attribute A", [{}]>
+            # Custom builders with operands and attributes having a separate parameter.
+            # E.g. OpBuilderDAG<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
             indent = inc_indent(indent)
-            s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state'
-            operands_dict = get_operands_or_results(schema, type_str_dict,  is_input=True)
-            for name, ty in operands_dict.items():
-                s += ', {} {}'.format(tblgen_operand_type_to_cpp_type(ty),
-                                      name)
-            for name, ty in get_attrs(schema).items():
-                s += ', {} {}'.format(tblgen_attr_type_to_cpp_type(ty), name)
-            s += '", [{\n'
+            s += indent + 'OpBuilderDAG<(ins '
+            operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
+            attrs_dict = get_attrs(schema)
+            s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
+                                      name) for name, ty in operands_dict.items())
+            if operands_dict and attrs_dict:
+                s += ', '
+            s += ', '.join('"{}":${}'.format(tblgen_attr_type_to_cpp_type(ty),
+                                      name) for name, ty in attrs_dict.items())
+            s += '), [{\n'
             indent = inc_indent(indent)
 
             # Get output type from first operand's type.
@@ -980,7 +981,7 @@ def gen_op_def(schema):
                 s += indent + 'auto elementType = {}'.format(first_operand_name) + \
                     '.getType().cast<TensorType>().getElementType();\n'
                 build_type_name = 'UnrankedTensorType::get(elementType)'
-            s += indent + 'build(builder, state, {}'.format(build_type_name)
+            s += indent + 'build($_builder, $_state, {}'.format(build_type_name)
             for name, _ in ins.items():
                 s += ', ' + name
             s += ');\n'
@@ -988,10 +989,10 @@ def gen_op_def(schema):
             s += indent + '}]>,\n'
 
             # Custom builders with all operands and attributes having aggregate parameters.
-            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands,
+            # E.g. OpBuilderDAG<(ins "ValueRange operands,
             #    ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state, ' + \
-                'ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
+            s += indent + 'OpBuilderDAG<(ins ' + \
+                '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
             indent = inc_indent(indent)
             if schema.name in custom_builder_broadcast_ops_list:
                 s += indent + 'auto lhsTy = operands[0].getType();\n'
@@ -1008,7 +1009,7 @@ def gen_op_def(schema):
                     'cast<TensorType>().getElementType();\n'
             s += indent + 'std::vector<mlir::Type> outputTypes;\n'
             s += indent + 'outputTypes.emplace_back({});\n'.format(build_type_name)
-            s += indent + 'build(builder, state, outputTypes, operands, attributes);\n'
+            s += indent + 'build($_builder, $_state, outputTypes, operands, attributes);\n'
             indent = dec_indent(indent)
             s += indent + '}]>'
 
