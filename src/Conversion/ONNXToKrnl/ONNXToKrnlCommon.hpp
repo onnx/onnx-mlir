@@ -15,6 +15,7 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -162,6 +163,13 @@ struct TensorTypeConverter : public TypeConverter {
     return llvm::all_of(
         llvm::concat<const Type>(funcType.getInputs(), funcType.getResults()),
         [this](Type type) { return isLegal(type); });
+  }
+
+  /// Return true if the operands/results of call have a legal type.
+  bool isSignatureLegal(mlir::CallOp call) {
+    auto f = [this](Type type) { return isLegal(type); };
+    return llvm::all_of(call.getOperandTypes(), f) &&
+           llvm::all_of(call.getResultTypes(), f);
   }
 };
 
