@@ -45,7 +45,7 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
   return AffineMap::get(1, 4, {dimExp});
 }
 
-/// Affine expressions to compute the convolution/pooling window.
+/// Affine Maps to compute the convolution/pooling window.
 //
 /// The conv/pooling window can be smaller than the kernel when slicing it over
 /// the border edges. Thus, we will compute the start and end indices for
