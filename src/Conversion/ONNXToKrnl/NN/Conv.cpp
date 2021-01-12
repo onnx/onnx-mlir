@@ -130,7 +130,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //                 k2 = h2 - kernelOffset2
     //                 # Update the output.
     //                 R[n][kernel][r1][r2] =
-    //                   D[n][g * (C / group) + c][h1][h2] * K[kernel][c][k1][k2];
+    //                   D[n][g * (C / group) + c][h1][h2] *
+    //                   K[kernel][c][k1][k2];
     //
     // Naming:
     //   n, g, m: outer loop nest indices
