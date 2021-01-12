@@ -195,6 +195,8 @@ test_to_enable_static_dynamic = {
     # Conv
     "test_basic_conv_without_padding_cpu": (test_static_dynamic,{0:{0}}),
     "test_conv_with_strides_no_padding_cpu": (test_static_dynamic,{0:{0}}),
+    "test_conv_with_strides_padding_cpu": (test_static_dynamic,{0:{0}}),
+    "test_conv_with_strides_and_asymmetric_padding_cpu": (test_static_dynamic,{0:{0}}),
 
     # ConvInteger
 

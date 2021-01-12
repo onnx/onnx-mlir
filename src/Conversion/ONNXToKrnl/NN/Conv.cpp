@@ -39,9 +39,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
     ONNXConvOpAdaptor operandAdaptor(operands);
     ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
 
-    // Read ceil_mode attribute
-    auto ceilMode = true;
-
     // Read dilations attribute if the op has.
     std::vector<int64_t> dilations = getDilations(convOp);
     bool isDilated = !dilations.empty();
@@ -57,6 +54,13 @@ struct ONNXConvOpLowering : public ConversionPattern {
     auto stridesAttribute = convOp.stridesAttr();
     for (Attribute stride : stridesAttribute.getValue())
       strides.emplace_back(stride.cast<IntegerAttr>().getInt());
+
+    // Affine maps for computing the conv window.
+    std::vector<AffineMap> windowAffineMaps =
+        getAffineMapsForConvWindow(rewriter, /*ceilMode=*/true, isDilated);
+    AffineMap windowStartMap = windowAffineMaps[0];
+    AffineMap windowDimMap = windowAffineMaps[2];
+    AffineMap kernelOffsetMap = windowAffineMaps[3];
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -89,6 +93,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // The loop nest will look as follows:
     //
     // strides = [s1, s2]
+    // dilations = [d1, d2]
+    // pads = [pt1, pt2, pb1, pb2]
     //
     // kernelsPerGroup = M / group;
     // for n = 0 .. N:
@@ -98,19 +104,39 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //       for r1 = 0 .. RH:
     //         for r2 = 0 .. RW:
     //           R[n][kernel][r1][r2] = 0;
+    //
+    //           # Compute the convolution window.
+    //           firstValid1 = ceil(float(pt1 / d1)) * d1 - pt1
+    //           start1 = max(firstValid1, r1 * s1 - pt1)
+    //           end1 = min(H, r1 * s1 + (KH -1) * d1  + 1 - pt1)
+    //           kernelOffset1 = min(0, r1 * s1 - pt1)
+    //
+    //           firstValid2= ceil(float(p2 / d2)) * d2 - pt2
+    //           start2 = max(firstValid2, r2 * s2 - pt2)
+    //           end2 = min(W, r2 * s2 + (KW - 1) * d2 + 1 - pt2)
+    //           kernelOffset2 = min(0, r2 * s2 - pt2)
+    //
+    //           convWindowDim1= round(float(end1 - start1) / float(d2))
+    //           convWindowDim2= round(float(end2 - start2) / float(d2))
+    //
     //           for c = 0 .. C/group:
-    //             for k1 = 0 .. KH:
-    //               for k2 = 0 .. KW:
+    //             for cw1 in range(convWindowDim1):
+    //               for cw2 in range(convWindowDim2):
+    //                 # indices to access the data
+    //                 h1 = cw1 * d1 + start1
+    //                 h2 = cw2 * d2 + start2
+    //                 # indices to access the kernel
+    //                 k1 = h1 - kernelOffset1
+    //                 k2 = h2 - kernelOffset2
+    //                 # Update the output.
     //                 R[n][kernel][r1][r2] =
-    //                   D[n][g * (C / group) + c][s1 * r1 + k1][s2 * r2 + k2] *
-    //                   K[kernel][c][k1][k2];
+    //                   D[n][g * (C / group) + c][h1][h2] * K[kernel][c][k1][k2];
     //
     // Naming:
     //   n, g, m: outer loop nest indices
     //   r1, r2: spatial loop nest indices
     //   c, k1, k2: inner loop nest indices
     //
-    // TODO: handle padding.
     //
     // In the general case:
     //
@@ -207,24 +233,23 @@ struct ONNXConvOpLowering : public ConversionPattern {
         SmallVector<SmallVector<Value, 4>, 4> IVsAndConstants;
         { // Construct IVsAndConstants.
           for (int i = 0; i < nSpatialLoops; ++i) {
+            int j = i + kernelOffset;
             SmallVector<Value, 4> ic;
             // d0, output
-            ic.emplace_back(resultIndices[i + kernelOffset]);
+            ic.emplace_back(resultIndices[j]);
             // s0, input dim
-            if (inputShape[i + kernelOffset] < 0) {
-              ic.emplace_back(
-                  rewriter.create<DimOp>(loc, inputOperand, i + kernelOffset));
+            if (inputShape[j] < 0) {
+              ic.emplace_back(rewriter.create<DimOp>(loc, inputOperand, j));
             } else {
-              ic.emplace_back(emitConstantOp(rewriter, loc,
-                  rewriter.getIndexType(), inputShape[i + kernelOffset]));
+              ic.emplace_back(emitConstantOp(
+                  rewriter, loc, rewriter.getIndexType(), inputShape[j]));
             }
             // s1, kernel dim
-            if (kernelShape[i + kernelOffset] < 0) {
-              ic.emplace_back(
-                  rewriter.create<DimOp>(loc, kernelOperand, i + kernelOffset));
+            if (kernelShape[j] < 0) {
+              ic.emplace_back(rewriter.create<DimOp>(loc, kernelOperand, j));
             } else {
-              ic.emplace_back(emitConstantOp(rewriter, loc,
-                  rewriter.getIndexType(), kernelShape[i + kernelOffset]));
+              ic.emplace_back(emitConstantOp(
+                  rewriter, loc, rewriter.getIndexType(), kernelShape[j]));
             }
             // s2, pad dim
             ic.emplace_back(emitConstantOp(
@@ -239,21 +264,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
           }
         }
 
-        // Affine maps for the conv window.
-        std::vector<AffineMap> windowAffineMaps =
-            getAffineMapsForConvWindow(rewriter, ceilMode, isDilated);
-        AffineMap windowStartMap = windowAffineMaps[0];
-        AffineMap windowEndMap = windowAffineMaps[1];
-        AffineMap windowDimMap = windowAffineMaps[2];
-
         // Obtain values from the affine maps.
-        SmallVector<Value, 4> windowStartValues;
-        { // Construct windowStartValues and windowDimValues.
-          for (int i = 0; i < nSpatialLoops; ++i) {
-            Value startIndex = rewriter.create<AffineMaxOp>(
-                loc, windowStartMap, IVsAndConstants[i]);
-            windowStartValues.emplace_back(startIndex);
-          }
+        SmallVector<Value, 4> windowStartValues, kernelOffsetValues;
+        for (int i = 0; i < nSpatialLoops; ++i) {
+          Value startIndex = rewriter.create<AffineMaxOp>(
+              loc, windowStartMap, IVsAndConstants[i]);
+          windowStartValues.emplace_back(startIndex);
+          Value offsetIndex = rewriter.create<AffineMinOp>(
+              loc, kernelOffsetMap, IVsAndConstants[i]);
+          kernelOffsetValues.emplace_back(offsetIndex);
         }
 
         // 3.2 Define inner loops.
@@ -261,12 +280,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
         BuildKrnlLoop innerLoops(rewriter, loc, nInnerLoops);
         innerLoops.createDefineOp();
         //   for c = 0 .. C/group
-        int cIndex = innerLoops.pushBounds(0, kernelShape[1]);
+        int cIndex = innerLoops.pushBounds(0, kernelOperand, 1);
         //   for Kx = 0 .. KX
         for (int i = 2; i < kernelShape.size(); ++i)
-          innerLoops.pushBounds(0, windowDimMap,
-              llvm::makeArrayRef(IVsAndConstants[i - kernelOffset]));
-        // innerLoops.pushBounds(0, kernelOperand, i);
+          innerLoops.pushBounds(
+              0, windowDimMap, llvm::makeArrayRef(IVsAndConstants[i - 2]));
 
         // 3.4 Emit inner loop nest.
         innerLoops.createIterateOp();
@@ -311,18 +329,18 @@ struct ONNXConvOpLowering : public ConversionPattern {
           }
           dataIndices.emplace_back(channelDepth);
 
-          for (int i = kernelOffset; i < inputShape.size(); ++i) {
-            int j = i - kernelOffset;
+          for (int i = 0; i < nSpatialLoops; ++i) {
             if (isDilated) {
               // hi = hp * dH + startH
               Value index = rewriter.create<MulIOp>(loc,
-                  innerLoops.getInductionVar(j + 1), IVsAndConstants[j][5]);
-              index = rewriter.create<AddIOp>(loc, index, windowStartValues[j]);
+                  innerLoops.getInductionVar(i + 1), IVsAndConstants[i][5]);
+              index = rewriter.create<AddIOp>(loc, index, windowStartValues[i]);
               dataIndices.emplace_back(index);
             } else {
               // hi = hp + startH
-              dataIndices.emplace_back(rewriter.create<AddIOp>(loc,
-                  innerLoops.getInductionVar(j + 1), windowStartValues[j]));
+              Value index = rewriter.create<AddIOp>(
+                  loc, innerLoops.getInductionVar(i + 1), windowStartValues[i]);
+              dataIndices.emplace_back(index);
             }
           }
 
@@ -333,14 +351,19 @@ struct ONNXConvOpLowering : public ConversionPattern {
           // c
           kernelIndices.emplace_back(innerLoops.getInductionVar(cIndex));
           // kX
-          for (int i = 0; i < kernelShape.size() - 2; ++i)
-            kernelIndices.emplace_back(innerLoops.getInductionVar(i + 1));
+          for (int i = 0; i < kernelShape.size() - 2; ++i) {
+            // Since the window at borders may be smaller than the kernel, we
+            // have to shift kernel indices with a suitalbe offset.
+            Value kernelIndex = rewriter.create<SubIOp>(
+                loc, innerLoops.getInductionVar(i + 1), kernelOffsetValues[i]);
+            kernelIndices.emplace_back(kernelIndex);
+          }
 
           // 4.3 Compute convolution.
           auto loadData =
               rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
           auto loadKernel =
-              rewriter.create<AffineLoadOp>(loc, kernelOperand, kernelIndices);
+              rewriter.create<LoadOp>(loc, kernelOperand, kernelIndices);
           auto loadPartialSum =
               rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,

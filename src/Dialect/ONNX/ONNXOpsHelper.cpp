@@ -45,13 +45,34 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
   return AffineMap::get(1, 4, {dimExp});
 }
 
-/// Pool/conv helper affine expressions
+/// Affine expressions to compute the convolution/pooling window.
+//
+/// The conv/pooling window can be smaller than the kernel when slicing it over
+/// the border edges. Thus, we will compute the start and end indices for
+/// each window dimension as follows.
+///   firstValidH = ceil(float(ptH / dH)) * dH - ptH
+///   startH = max(firstValidH, ho * sH - ptH)
+///   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
+///   hDim = round(float(endH - startH) / float(dH))
+/// We also want to compute how the window is smaller than the kernel.
+///   kernelOffset = min(0, ho * sH - ptH)
+///
+/// How 'firstValidH' was derived:
+///   When dilation is non-unit, the first valid pixel to apply conv/pooling on
+///   will not be the 0-th pixel, but rather the smallest integer n to make
+///   '-pH + n * dH' greater than or equal to 0, where pH and dH are pad
+///   and dilation along axis H. We derive what is this smallest n:
+///   -pH + n * dH >= 0
+///         n * dH >= pH
+///              n >= pH/dH
+///   thus n = ceil(pH/dH)
+///   thus the first valid pixel location is 'ceil(pH / dH) * dH- pH'.
 
 std::vector<AffineMap> getAffineMapsForConvWindow(
     Builder &builder, bool ceilMode, bool isDilated) {
-  // Affine maps for the pooling window.
-  AffineMap poolStartMap, poolEndMap, poolDimMap;
-  { // Construct poolStartMap, poolEndMap and poolDimMap.
+  // Affine maps for the conv/pooling window.
+  AffineMap windowStartMap, windowEndMap, windowDimMap, kernelOffsetMap;
+  { // Construct windowStartMap, windowEndMap and windowDimMap.
     // AffineExpr(s) to obtain the dimensions and symbols.
     AffineExpr outputIndex = builder.getAffineDimExpr(0);
     AffineExpr inputDim = builder.getAffineSymbolExpr(0);
@@ -66,7 +87,7 @@ std::vector<AffineMap> getAffineMapsForConvWindow(
     AffineExpr end2 =
         outputIndex * strideDim + (kernelDim - 1) * dilationDim + 1 - padTopDim;
 
-    // poolDimMap
+    // windowDimMap
     SmallVector<AffineExpr, 4> dimExpr;
     // Upperbound for an affine.for is `min AffineMap`, where `min` is
     // automatically inserted when an affine.for is constructed from
@@ -85,17 +106,20 @@ std::vector<AffineMap> getAffineMapsForConvWindow(
       }
       dimExpr.emplace_back(de);
     }
-    poolDimMap = AffineMap::get(1, 5, dimExpr, builder.getContext());
+    windowDimMap = AffineMap::get(1, 5, dimExpr, builder.getContext());
 
-    // poolStartMap and poolEndMap
-    poolStartMap =
+    // windowStartMap, windowEndMap, and kernelOffsetMap.
+    windowStartMap =
         AffineMap::get(1, 5, {start1, start2}, builder.getContext());
-    poolEndMap = AffineMap::get(1, 5, {end1, end2}, builder.getContext());
+    windowEndMap = AffineMap::get(1, 5, {end1, end2}, builder.getContext());
+    kernelOffsetMap = AffineMap::get(1, 5,
+        {mlir::getAffineConstantExpr(0, builder.getContext()), start2},
+        builder.getContext());
   }
 
-  return std::vector<AffineMap>{poolStartMap, poolEndMap, poolDimMap};
+  return std::vector<AffineMap>{
+      windowStartMap, windowEndMap, windowDimMap, kernelOffsetMap};
 }
-
 
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
