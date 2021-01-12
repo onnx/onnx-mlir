@@ -2,8 +2,8 @@
 #include <string>
 #include <vector>
 
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/IR/Module.h"
 
 #include "onnx/defs/function.h"
 #include "onnx/defs/schema.h"

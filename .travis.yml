@@ -76,6 +76,7 @@ jobs:
   allow_failures:
     - env: NIGHTLY=true
     - arch: ppc64le
+    - arch: s390x
   include:
     ##########################################################################################
     #

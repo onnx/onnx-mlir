@@ -2,10 +2,8 @@
 
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0)>
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0 + 2)>
-// CHECK-DAG: #{{.*}} = affine_map<() -> (0)>
-// CHECK-DAG: #{{.*}} = affine_map<() -> (10)>
-// CHECK-DAG: #{{.*}} = affine_map<(d0, d1) -> (d1 + 2, d0 + 4, 10)>
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0 + 4, 10)>
+// CHECK-DAG: #{{.*}} = affine_map<(d0, d1) -> (d1 + 2, d0 + 4, 10)>
 
 func @simple_block() {
   // CHECK-LABEL: simple_block
