@@ -96,10 +96,10 @@ Type getBroadcastedRankedType(Type type1, Type type2) {
     return OpTrait::util::getBroadcastedType(type1, type2);
   if (type1.isa<MemRefType>() && type2.isa<MemRefType>()) {
     // Contruct RankedTensorType(s).
-    auto elementType = type1.cast<MemRefType>().getElementType();
-    auto ty1 =
+    Type elementType = type1.cast<MemRefType>().getElementType();
+    RankedTensorType ty1 =
         RankedTensorType::get(type1.cast<MemRefType>().getShape(), elementType);
-    auto ty2 =
+    RankedTensorType ty2 =
         RankedTensorType::get(type2.cast<MemRefType>().getShape(), elementType);
     // Compute a broadcasted type.
     Type outputType = OpTrait::util::getBroadcastedType(ty1, ty2);
