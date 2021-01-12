@@ -11,7 +11,7 @@
 #include <regex>
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
@@ -117,8 +117,8 @@ public:
         funcBody.back().back().isKnownTerminator())
       if (auto returnOp = f.getBody().back().getTerminator()) {
         auto results = returnOp->getOperandTypes();
-        f.setType(FunctionType::get(f.getType().getInputs(),
-            std::vector<Type>(results.begin(), results.end()), f.getContext()));
+        f.setType(FunctionType::get(f.getContext(), f.getType().getInputs(),
+            std::vector<Type>(results.begin(), results.end())));
       }
     return success();
   }
