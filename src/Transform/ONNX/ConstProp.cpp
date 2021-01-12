@@ -49,6 +49,12 @@ namespace {
 // ConstProp.td for example.
 //
 
+/// A helper function to contruct a RankedTensorType from a ShapedType.
+RankedTensorType constructRankedTensorType(ShapedType type) {
+  assert(type.hasRank() && "Not a ranked type");
+  return RankedTensorType::get(type.getShape(), type.getElementType());
+}
+
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for binary in presence of broadcast.
 //===----------------------------------------------------------------------===//
@@ -229,9 +235,10 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
   DenseElementsAttr rhsDenseAttr =
       rhsAttr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   assert((lhsDenseAttr && lhsDenseAttr) && "expected dense attributes");
-  assert(
-      resOperand.getType().isa<RankedTensorType>() && "expected ranked tensor");
-  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+  assert(resOperand.getType().cast<ShapedType>().hasRank() &&
+         "expected ranked tensor");
+  RankedTensorType resType =
+      constructRankedTensorType(resOperand.getType().cast<ShapedType>());
   auto lhsRank = lhsDenseAttr.getType().getShape().size();
   auto rhsRank = rhsDenseAttr.getType().getShape().size();
   SmallVector<uint64_t, 4> lhsIndices(lhsRank, 0);
@@ -313,9 +320,10 @@ DenseElementsAttr ConstPropElementwiseUnary(
   DenseElementsAttr denseAttr =
       attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   assert(denseAttr && "expected dense attribute");
-  assert(
-      resOperand.getType().isa<RankedTensorType>() && "expected ranked tensor");
-  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+  assert(resOperand.getType().cast<ShapedType>().hasRank() &&
+         "expected ranked tensor");
+  RankedTensorType resType =
+      constructRankedTensorType(resOperand.getType().cast<ShapedType>());
   auto rank = denseAttr.getType().getShape().size();
   SmallVector<uint64_t, 4> indices(rank, 0);
   std::vector<Attribute> resVector;
@@ -357,7 +365,8 @@ DenseElementsAttr ConstPropTranspose(PatternRewriter &rewriter,
   DenseElementsAttr denseAttr =
       attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   assert(denseAttr && "expected dense attribute");
-  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+  RankedTensorType resType =
+      constructRankedTensorType(resOperand.getType().cast<ShapedType>());
   auto rank = denseAttr.getType().getShape().size();
   // Read permute vector.
   SmallVector<uint64_t, 4> perm;
@@ -384,7 +393,8 @@ DenseElementsAttr ConstPropUnsqueeze(
   DenseElementsAttr denseAttr =
       attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
   assert(denseAttr && "expected dense attribute");
-  ShapedType resType = resOperand.getType().cast<RankedTensorType>();
+  RankedTensorType resType =
+      constructRankedTensorType(resOperand.getType().cast<ShapedType>());
 
   // Unqueeze does not change the order of access, so just copy the whole data.
   std::vector<Attribute> resVector;
