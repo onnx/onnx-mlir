@@ -333,24 +333,14 @@ struct ONNXConvOpLowering : public ConversionPattern {
           for (int i = 0; i < nSpatialLoops; ++i) {
             if (isDilated) {
               // hi = hp * dH + startH
-              AffineMap indexMap = AffineMap::get(1, 2,
-                  /*hp=*/rewriter.getAffineDimExpr(0) *
-                          /*dH=*/rewriter.getAffineSymbolExpr(0) +
-                      /*startH=*/rewriter.getAffineSymbolExpr(1));
-
-              Value index = rewriter.create<AffineApplyOp>(loc, indexMap,
-                  ArrayRef<Value>{/*hp=*/innerLoops.getInductionVar(i + 1),
-                      /*dH=*/IVsAndConstants[i][5],
-                      /*startH=*/windowStartValues[i]});
+              Value index = rewriter.create<MulIOp>(loc,
+                  innerLoops.getInductionVar(i + 1), IVsAndConstants[i][5]);
+              index = rewriter.create<AddIOp>(loc, index, windowStartValues[i]);
               dataIndices.emplace_back(index);
             } else {
               // hi = hp + startH
-              AffineMap indexMap = AffineMap::get(1, 1,
-                  /*hp=*/rewriter.getAffineDimExpr(0) +
-                      /*startH=*/rewriter.getAffineSymbolExpr(0));
-              Value index = rewriter.create<AffineApplyOp>(loc, indexMap,
-                  ArrayRef<Value>{/*hp=*/innerLoops.getInductionVar(i + 1),
-                      /*startH=*/windowStartValues[i]});
+              Value index = rewriter.create<AddIOp>(
+                  loc, innerLoops.getInductionVar(i + 1), windowStartValues[i]);
               dataIndices.emplace_back(index);
             }
           }
@@ -365,13 +355,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
           for (int i = 0; i < kernelShape.size() - 2; ++i) {
             // Since the window at borders may be smaller than the kernel, we
             // have to shift kernel indices with a suitalbe offset.
-            AffineMap indexMap = AffineMap::get(1, 1,
-                /*hp=*/rewriter.getAffineDimExpr(0) -
-                    /*kernelOffset=*/rewriter.getAffineSymbolExpr(0));
-            Value index = rewriter.create<AffineApplyOp>(loc, indexMap,
-                ArrayRef<Value>{/*hp=*/innerLoops.getInductionVar(i + 1),
-                    /*kernelOffset=*/kernelOffsetValues[i]});
-            kernelIndices.emplace_back(index);
+            Value kernelIndex = rewriter.create<SubIOp>(
+                loc, innerLoops.getInductionVar(i + 1), kernelOffsetValues[i]);
+            kernelIndices.emplace_back(kernelIndex);
           }
 
           // 4.3 Compute convolution.
