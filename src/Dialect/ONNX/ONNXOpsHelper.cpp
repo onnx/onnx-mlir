@@ -10,6 +10,7 @@
 
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 // Identity affine
@@ -45,7 +46,8 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
   return AffineMap::get(1, 4, {dimExp});
 }
 
-/// Affine Maps to compute the convolution/pooling window.
+/// IndexExprs to compute the start and end indices of the convolution/pooling
+/// window.
 ///
 /// The conv/pooling window can be smaller than the kernel when slicing it over
 /// the border edges. Thus, we will compute the start and end indices for
@@ -53,7 +55,10 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 ///   firstValidH = ceil(float(ptH / dH)) * dH - ptH
 ///   startH = max(firstValidH, ho * sH - ptH)
 ///   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
+///
+/// Full conv/pooling window can be reconstructed by:
 ///   hDim = round(float(endH - startH) / float(dH))
+//
 /// We also want to compute how the window is smaller than the kernel.
 ///   kernelOffset = min(0, ho * sH - ptH)
 ///
@@ -68,59 +73,81 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 ///   thus n = ceil(pH/dH)
 ///   thus the first valid pixel location is 'ceil(pH / dH) * dH- pH'.
 ///
-/// This function returns {startH, endH, hDim, kernelOffset}.
+/// This function returns {startH, endH, kernelOffset}.
 
-std::vector<AffineMap> getAffineMapsForConvWindow(
-    Builder &builder, bool ceilMode, bool isDilated) {
-  // Affine maps for the conv/pooling window.
-  AffineMap windowStartMap, windowEndMap, windowDimMap, kernelOffsetMap;
-  { // Construct windowStartMap, windowEndMap and windowDimMap.
-    // AffineExpr(s) to obtain the dimensions and symbols.
-    AffineExpr outputIndex = builder.getAffineDimExpr(0);
-    AffineExpr inputDim = builder.getAffineSymbolExpr(0);
-    AffineExpr kernelDim = builder.getAffineSymbolExpr(1);
-    AffineExpr padTopDim = builder.getAffineSymbolExpr(2);
-    AffineExpr strideDim = builder.getAffineSymbolExpr(3);
-    AffineExpr dilationDim = builder.getAffineSymbolExpr(4);
-    AffineExpr start1 =
-        (padTopDim).ceilDiv(dilationDim) * dilationDim - padTopDim;
-    AffineExpr start2 = outputIndex * strideDim - padTopDim;
-    AffineExpr end1 = inputDim;
-    AffineExpr end2 =
-        outputIndex * strideDim + (kernelDim - 1) * dilationDim + 1 - padTopDim;
+std::vector<IndexExpr> getIndexExprsForConvWindow(IndexExprContext &context,
+    SmallVectorImpl<IndexExpr> &inputExprs, bool ceilMode, bool isDilated) {
+  assert(inputExprs.size() == 6 && "Not enought inputs");
+  IndexExpr windowStartExpr, windowEndExpr, kernelOffsetExpr;
+  IndexExpr outputIndex = inputExprs[0];
+  IndexExpr inputDim = inputExprs[1];
+  IndexExpr kernelDim = inputExprs[2];
+  IndexExpr padTopDim = inputExprs[3];
+  IndexExpr strideDim = inputExprs[4];
+  IndexExpr dilationDim = inputExprs[5];
 
-    // windowDimMap
-    SmallVector<AffineExpr, 4> dimExpr;
-    // Upperbound for an affine.for is `min AffineMap`, where `min` is
-    // automatically inserted when an affine.for is constructed from
-    // an AffineMap, thus we rewrite `endH - startH` as follows:
-    //   endH - start H
-    //     = min(end1, end2) - max(start1, start2)
-    //     = min(end1 - start1, end1 - start2, end2 - start1, end2 - start2)
-    AffineExpr dimExpr1 = end1 - start1;
-    AffineExpr dimExpr2 = end1 - start2;
-    AffineExpr dimExpr3 = end2 - start1;
-    AffineExpr dimExpr4 = end2 - start2;
-    for (AffineExpr de : {dimExpr1, dimExpr2, dimExpr3, dimExpr4}) {
-      if (isDilated) {
-        de = de + 1;
-        de = (ceilMode) ? de.ceilDiv(dilationDim) : de.floorDiv(dilationDim);
-      }
-      dimExpr.emplace_back(de);
+  IndexExpr start1 = (padTopDim).ceilDiv(dilationDim) * dilationDim - padTopDim;
+  IndexExpr start2 = outputIndex * strideDim - padTopDim;
+  IndexExpr end1 = inputDim;
+  IndexExpr end2 =
+      outputIndex * strideDim + (kernelDim - 1) * dilationDim + 1 - padTopDim;
+
+  // windowStartExpr
+  SmallVector<mlir::IndexExpr, 2> startExprs = {start1, start2};
+  windowStartExpr = IndexExpr::max(startExprs);
+  // windowEndExpr
+  SmallVector<mlir::IndexExpr, 2> endExprs = {end1, end2};
+  windowEndExpr = IndexExpr::min(endExprs);
+  // kernelOffsetExpr
+  SmallVector<mlir::IndexExpr, 2> kernelExprs = {
+      context.createLiteralIndex(0), start2};
+  kernelOffsetExpr = IndexExpr::min(kernelExprs);
+
+  return std::vector<IndexExpr>{
+      windowStartExpr, windowEndExpr, kernelOffsetExpr};
+}
+
+/// The conv/pooling window can be smaller than the kernel when slicing it over
+/// the border edges. This function returns an AffineMap to compute the size of
+/// one edge of the window.
+AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated) {
+  AffineMap windowDimMap;
+  // Compute start and end indices.
+  AffineExpr outputIndex = builder.getAffineDimExpr(0);
+  AffineExpr inputDim = builder.getAffineSymbolExpr(0);
+  AffineExpr kernelDim = builder.getAffineSymbolExpr(1);
+  AffineExpr padTopDim = builder.getAffineSymbolExpr(2);
+  AffineExpr strideDim = builder.getAffineSymbolExpr(3);
+  AffineExpr dilationDim = builder.getAffineSymbolExpr(4);
+  AffineExpr start1 =
+      (padTopDim).ceilDiv(dilationDim) * dilationDim - padTopDim;
+  AffineExpr start2 = outputIndex * strideDim - padTopDim;
+  AffineExpr end1 = inputDim;
+  AffineExpr end2 =
+      outputIndex * strideDim + (kernelDim - 1) * dilationDim + 1 - padTopDim;
+
+  // Compute the window's size.
+  SmallVector<AffineExpr, 4> dimExpr;
+  // Upperbound for an affine.for is `min AffineMap`, where `min` is
+  // automatically inserted when an affine.for is constructed from
+  // an AffineMap, thus we rewrite `endH - startH` as follows:
+  //   endH - startH
+  //     = min(end1, end2) - max(start1, start2)
+  //     = min(end1 - start1, end1 - start2, end2 - start1, end2 - start2)
+  AffineExpr dimExpr1 = end1 - start1;
+  AffineExpr dimExpr2 = end1 - start2;
+  AffineExpr dimExpr3 = end2 - start1;
+  AffineExpr dimExpr4 = end2 - start2;
+  for (AffineExpr de : {dimExpr1, dimExpr2, dimExpr3, dimExpr4}) {
+    if (isDilated) {
+      de = de + 1;
+      de = (ceilMode) ? de.ceilDiv(dilationDim) : de.floorDiv(dilationDim);
     }
-    windowDimMap = AffineMap::get(1, 5, dimExpr, builder.getContext());
-
-    // windowStartMap, windowEndMap, and kernelOffsetMap.
-    windowStartMap =
-        AffineMap::get(1, 5, {start1, start2}, builder.getContext());
-    windowEndMap = AffineMap::get(1, 5, {end1, end2}, builder.getContext());
-    kernelOffsetMap = AffineMap::get(1, 5,
-        {mlir::getAffineConstantExpr(0, builder.getContext()), start2},
-        builder.getContext());
+    dimExpr.emplace_back(de);
   }
+  windowDimMap = AffineMap::get(1, 5, dimExpr, builder.getContext());
 
-  return std::vector<AffineMap>{
-      windowStartMap, windowEndMap, windowDimMap, kernelOffsetMap};
+  return windowDimMap;
 }
 
 //===----------------------------------------------------------------------===//

@@ -15,6 +15,8 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Value.h"
 
+#include "src/Dialect/ONNX/IndexExpr.hpp"
+
 using namespace mlir;
 
 // Identity affine map:
@@ -35,7 +37,8 @@ AffineMap getIdentityDimMap(Builder &builder);
 // - s3: dilation
 AffineMap getConvDimMap(Builder &builder, bool ceilMode);
 
-/// Affine Maps to compute the convolution/pooling window.
+/// IndexExprs to compute the start and end indices of the convolution/pooling
+/// window.
 ///
 /// The conv/pooling window can be smaller than the kernel when slicing it over
 /// the border edges. Thus, we will compute the start and end indices for
@@ -43,8 +46,12 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode);
 ///   firstValidH = ceil(float(ptH / dH)) * dH - ptH
 ///   startH = max(firstValidH, ho * sH - ptH)
 ///   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
+///
+/// Full conv/pooling window can be reconstructed by:
 ///   hDim = round(float(endH - startH) / float(dH))
-/// We also want to compute how the window is smaller than the kernel.
+//
+/// We also want to compute the relative position of the window w.r.t. the
+/// kernel.
 ///   kernelOffset = min(0, ho * sH - ptH)
 ///
 /// How to derive 'firstValidH':
@@ -58,8 +65,18 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode);
 ///   thus n = ceil(pH/dH)
 ///   thus the first valid pixel location is 'ceil(pH / dH) * dH- pH'.
 ///
-/// This function returns {startH, endH, hDim, kernelOffset}.
-std::vector<AffineMap> getAffineMapsForConvWindow(
+/// This function returns {startH, endH, kernelOffset}.
+std::vector<IndexExpr> getIndexExprsForConvWindow(IndexExprContext &context,
+    SmallVectorImpl<IndexExpr> &inputExprs, bool ceilMode, bool isDilated);
+
+/// The conv/pooling window can be smaller than the kernel when slicing it over
+/// the border edges. This function returns an AffineMap to compute the size of
+/// one edge of the window.
+AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated);
+
+// Return a AffineMap to compute the number of times to convolve along each
+// dimension.
+AffineMap getAffineMapForConvolveCount(
     Builder &builder, bool ceilMode, bool isDilated);
 
 // Helper functions to get values from attribute arrays.

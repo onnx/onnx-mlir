@@ -55,12 +55,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
     for (Attribute stride : stridesAttribute.getValue())
       strides.emplace_back(stride.cast<IntegerAttr>().getInt());
 
-    // Affine maps for computing the conv window.
-    std::vector<AffineMap> windowAffineMaps =
-        getAffineMapsForConvWindow(rewriter, /*ceilMode=*/true, isDilated);
-    AffineMap windowStartMap = windowAffineMaps[0];
-    AffineMap windowDimMap = windowAffineMaps[2];
-    AffineMap kernelOffsetMap = windowAffineMaps[3];
+    // Context for IndexExpr.
+    IndexExprContext ieContext(&rewriter, loc);
+
+    // Spatial data starts from the second dimension.
+    int spatialStartIndex = 2;
 
     // Insert an allocation and deallocation for the result of this operation.
     auto memRefType = convertToMemRefType(*op->result_type_begin());
@@ -69,7 +68,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     auto resultShape = memRefType.getShape();
     auto inputOperand = operandAdaptor.X();
-    auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
     auto kernelOperand = operandAdaptor.W();
     auto kernelShape = kernelOperand.getType().cast<MemRefType>().getShape();
     auto biasOperand = operandAdaptor.B();
@@ -116,12 +114,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
     //           end2 = min(W, r2 * s2 + (KW - 1) * d2 + 1 - pt2)
     //           kernelOffset2 = min(0, r2 * s2 - pt2)
     //
-    //           convWindowDim1= round(float(end1 - start1) / float(d2))
-    //           convWindowDim2= round(float(end2 - start2) / float(d2))
-    //
     //           for c = 0 .. C/group:
-    //             for cw1 in range(convWindowDim1):
-    //               for cw2 in range(convWindowDim2):
+    //             for cw1 in range(end1 - start1):
+    //               for cw2 in range(end2 - start2):
     //                 # indices to access the data
     //                 h1 = cw1 * d1 + start1
     //                 h2 = cw2 * d2 + start2
@@ -157,18 +152,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Compute the number of unsplit kernels. The number of kernels
     // must be a multiple of the number of groups.
     int64_t kernelsPerGroup = floor(kernelShape[0] / group);
-    auto kernelsPerGroupValue =
-        rewriter.create<ConstantIndexOp>(loc, kernelsPerGroup);
+    IndexExpr kernelsPerGroupValue =
+        ieContext.createLiteralIndex(kernelsPerGroup);
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
-    Value subchannels;
-    if (kernelShape[1] < 0) {
-      subchannels = rewriter.create<DimOp>(loc, kernelOperand, 1).getResult();
-    } else {
-      subchannels = rewriter.create<ConstantIndexOp>(loc, kernelShape[1]);
-    }
+    IndexExpr subchannels =
+        ieContext.createDimIndexFromShapedType(kernelOperand, 1);
 
     // 1. Define outer loops and emit empty optimization block:
-    int64_t nOuterLoops = (group > 1) ? 3 : 2;
+    int64_t nOuterLoops =
+        (group > 1) ? (spatialStartIndex + 1) : spatialStartIndex;
     BuildKrnlLoop outerLoops(rewriter, loc, nOuterLoops);
     outerLoops.createDefineOp();
     //   for n = 0 .. N:
@@ -188,25 +180,21 @@ struct ONNXConvOpLowering : public ConversionPattern {
       // 2.1 Compute kernel order number: kernel = g * kernelsPerGroup + m;
       // If group is not set then the value of the kernel ID is
       // identical to that of the loop over kernels.
-      Value kernel = outerLoops.getInductionVar(mIndex);
+      IndexExpr kernel = ieContext.createLoopInductionIndex(
+          outerLoops.getInductionVar(mIndex));
       if (group > 1) {
-        // Middle loop is over groups and third loop is over the
-        // kernel identifiers in the current group.
-        AffineMap kernelMap = AffineMap::get(2, 1,
-            /*gIndex=*/rewriter.getAffineDimExpr(0) *
-                    /*kernelsPerGroup=*/rewriter.getAffineSymbolExpr(0) +
-                /*mIndex=*/rewriter.getAffineDimExpr(1));
-        kernel = rewriter.create<AffineApplyOp>(loc, kernelMap,
-            ArrayRef<Value>{/*gIndex=*/outerLoops.getInductionVar(gIndex),
-                /*mIndex=*/outerLoops.getInductionVar(mIndex),
-                /*kernelsPerGroupValue=*/kernelsPerGroupValue});
+        IndexExpr g = ieContext.createLoopInductionIndex(
+            outerLoops.getInductionVar(gIndex));
+        IndexExpr m = ieContext.createLoopInductionIndex(
+            outerLoops.getInductionVar(mIndex));
+        kernel = g * kernelsPerGroup + m;
       }
 
       // 2.2 Define spatial loops
-      int64_t nSpatialLoops = resultShape.size() - 2;
+      int64_t nSpatialLoops = resultShape.size() - spatialStartIndex;
       BuildKrnlLoop spatialLoops(rewriter, loc, nSpatialLoops);
       spatialLoops.createDefineOp();
-      for (int i = 2; i < resultShape.size(); ++i)
+      for (int i = spatialStartIndex; i < resultShape.size(); ++i)
         spatialLoops.pushBounds(0, alloc, i);
 
       // 2.4 Emit loop nest over output spatial dimensions.
@@ -217,160 +205,157 @@ struct ONNXConvOpLowering : public ConversionPattern {
       {
         // 3. Emit the body of the spatial loop nest.
         // 3.1 Emit: R[n][kernel][r1][r2] = 0;
-        SmallVector<Value, 4> resultIndices;
+        SmallVector<IndexExpr, 4> resultIndices;
         // n
-        resultIndices.emplace_back(outerLoops.getInductionVar(nIndex));
+        resultIndices.emplace_back(ieContext.createLoopInductionIndex(
+            outerLoops.getInductionVar(nIndex)));
         // kernel
         resultIndices.emplace_back(kernel);
         // rX
         for (auto arg : spatialLoops.getIterateBlock()->getArguments())
-          resultIndices.emplace_back(arg);
+          resultIndices.emplace_back(ieContext.createLoopInductionIndex(arg));
         // Store initializer value into output location.
-        rewriter.create<AffineStoreOp>(loc, zero, alloc, resultIndices);
+        ieContext.createStoreOp(zero, alloc, resultIndices);
 
-        // Prepare induction variables and constants as arguments for the affine
-        // maps.
-        int kernelOffset = 2;
-        SmallVector<SmallVector<Value, 4>, 4> IVsAndConstants;
-        { // Construct IVsAndConstants.
+        // Prepare induction variables.
+        SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
+        {
           for (int i = 0; i < nSpatialLoops; ++i) {
-            int j = i + kernelOffset;
-            SmallVector<Value, 4> ic;
+            int j = i + spatialStartIndex;
+            SmallVector<IndexExpr, 4> ic;
             // d0, output
             ic.emplace_back(resultIndices[j]);
             // s0, input dim
-            if (inputShape[j] < 0) {
-              ic.emplace_back(rewriter.create<DimOp>(loc, inputOperand, j));
-            } else {
-              ic.emplace_back(emitConstantOp(
-                  rewriter, loc, rewriter.getIndexType(), inputShape[j]));
-            }
+            ic.emplace_back(
+                ieContext.createDimIndexFromShapedType(inputOperand, j));
             // s1, kernel dim
-            if (kernelShape[j] < 0) {
-              ic.emplace_back(rewriter.create<DimOp>(loc, kernelOperand, j));
-            } else {
-              ic.emplace_back(emitConstantOp(
-                  rewriter, loc, rewriter.getIndexType(), kernelShape[j]));
-            }
+            ic.emplace_back(
+                ieContext.createDimIndexFromShapedType(kernelOperand, j));
             // s2, pad dim
-            ic.emplace_back(emitConstantOp(
-                rewriter, loc, rewriter.getIndexType(), pads[i]));
+            ic.emplace_back(ieContext.createLiteralIndex(pads[i]));
             // s3, stride dim
-            ic.emplace_back(emitConstantOp(
-                rewriter, loc, rewriter.getIndexType(), strides[i]));
+            ic.emplace_back(ieContext.createLiteralIndex(strides[i]));
             // s4, dilation dim
-            ic.emplace_back(emitConstantOp(rewriter, loc,
-                rewriter.getIndexType(), (isDilated) ? dilations[i] : 1));
-            IVsAndConstants.emplace_back(ic);
+            ic.emplace_back(
+                ieContext.createLiteralIndex((isDilated) ? dilations[i] : 1));
+            IVExprs.emplace_back(ic);
           }
         }
 
-        // Obtain values from the affine maps.
-        SmallVector<Value, 4> windowStartValues, kernelOffsetValues;
+        // IndexExprs to compute:
+        // - the start position of the conv window, and
+        // - the relative offset of the kernel to the conv window's start
+        // position.
+        SmallVector<IndexExpr, 4> windowStartExprs, kernelOffsetExprs;
         for (int i = 0; i < nSpatialLoops; ++i) {
-          Value startIndex = rewriter.create<AffineMaxOp>(
-              loc, windowStartMap, IVsAndConstants[i]);
-          windowStartValues.emplace_back(startIndex);
-          Value offsetIndex = rewriter.create<AffineMinOp>(
-              loc, kernelOffsetMap, IVsAndConstants[i]);
-          kernelOffsetValues.emplace_back(offsetIndex);
+          std::vector<mlir::IndexExpr> exprs = getIndexExprsForConvWindow(
+              ieContext, IVExprs[i], /*ceilMode=*/true, isDilated);
+          windowStartExprs.emplace_back(exprs[0]);
+          kernelOffsetExprs.emplace_back(exprs[2]);
         }
 
         // 3.2 Define inner loops.
-        int64_t nInnerLoops = 1 + (kernelShape.size() - 2);
+        int64_t nInnerLoops = 1 + (kernelShape.size() - spatialStartIndex);
         BuildKrnlLoop innerLoops(rewriter, loc, nInnerLoops);
         innerLoops.createDefineOp();
         //   for c = 0 .. C/group
         int cIndex = innerLoops.pushBounds(0, kernelOperand, 1);
-        //   for Kx = 0 .. KX
-        for (int i = 2; i < kernelShape.size(); ++i)
-          innerLoops.pushBounds(
-              0, windowDimMap, llvm::makeArrayRef(IVsAndConstants[i - 2]));
+        //   for cw1 in range(end1 - start1):
+        //     for cw2 in range(end2 - start2):
+        AffineMap windowSizeMap =
+            getWindowAffineMap(rewriter, /*ceilMode=*/true, isDilated);
+        for (int i = spatialStartIndex; i < kernelShape.size(); ++i) {
+          // Affine map's operands.
+          SmallVector<Value, 4> operands;
+          for (IndexExpr expr : IVExprs[i - spatialStartIndex])
+            operands.emplace_back(expr.getValue());
+          innerLoops.pushBounds(0, windowSizeMap, operands);
+        }
 
         // 3.4 Emit inner loop nest.
         innerLoops.createIterateOp();
 
         // Emit the bias, if needed.
         if (hasBias) {
-          auto loadResult =
-              rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
-          SmallVector<Value, 4> biasIndices;
+          auto loadResult = ieContext.createLoadOp(alloc, resultIndices);
+          SmallVector<IndexExpr, 4> biasIndices;
           biasIndices.emplace_back(kernel);
-          auto loadBias =
-              rewriter.create<AffineLoadOp>(loc, biasOperand, kernel);
+          auto loadBias = ieContext.createLoadOp(biasOperand, biasIndices);
           auto resultWithBias =
               rewriter.create<AddFOp>(loc, loadResult, loadBias);
           // Store initializer value into output location.
-          rewriter.create<AffineStoreOp>(
-              loc, resultWithBias, alloc, resultIndices);
+          ieContext.createStoreOp(resultWithBias, alloc, resultIndices);
         }
 
         //
         rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
         {
           // 4. Emit inner loop body
-          // R[n][kernel][r1][r2] =
-          //   D[n][g * (C / group) + c][s1 * r1 + k1][s2 * r2 + k2] *
-          //   K[kernel][c][k1][k2];
+          //    # indices to access the data
+          //    h1 = cw1 * d1 + start1
+          //    h2 = cw2 * d2 + start2
+          //    # indices to access the kernel
+          //    k1 = h1 - kernelOffset1
+          //    k2 = h2 - kernelOffset2
+          //    R[n][kernel][r1][r2] =
+          //      D[n][g * (C / group) + c][h1][h2] *
+          //      K[kernel][c][k1][k2];
 
           // 4.1 Prepare indices for accesing the data tensor.
-          SmallVector<Value, 4> dataIndices;
+          SmallVector<IndexExpr, 4> dataIndices;
           // n
-          dataIndices.emplace_back(outerLoops.getInductionVar(nIndex));
+          dataIndices.emplace_back(ieContext.createLoopInductionIndex(
+              outerLoops.getInductionVar(nIndex)));
           // g * (C / group) + c
-          Value channelDepth = innerLoops.getInductionVar(cIndex);
+          IndexExpr channelDepth = ieContext.createLoopInductionIndex(
+              innerLoops.getInductionVar(cIndex));
           if (group > 1) {
-            AffineMap indexMap = AffineMap::get(2, 1,
-                /*g=*/rewriter.getAffineDimExpr(0) *
-                        /*subchannel=*/rewriter.getAffineSymbolExpr(0) +
-                    /*c=*/rewriter.getAffineDimExpr(1));
-            channelDepth = rewriter.create<AffineApplyOp>(loc, indexMap,
-                ArrayRef<Value>{/*g=*/outerLoops.getInductionVar(gIndex),
-                    /*c=*/channelDepth, /*subchannel=*/subchannels});
+            IndexExpr g = ieContext.createLoopInductionIndex(
+                outerLoops.getInductionVar(gIndex));
+            channelDepth = g * channelDepth + subchannels;
           }
           dataIndices.emplace_back(channelDepth);
-
+          // h1 = cw1 * d1 + start1
           for (int i = 0; i < nSpatialLoops; ++i) {
+            IndexExpr cw1 = ieContext.createLoopInductionIndex(
+                innerLoops.getInductionVar(i + 1));
+            IndexExpr start1 = windowStartExprs[i];
             if (isDilated) {
-              // hi = hp * dH + startH
-              Value index = rewriter.create<MulIOp>(loc,
-                  innerLoops.getInductionVar(i + 1), IVsAndConstants[i][5]);
-              index = rewriter.create<AddIOp>(loc, index, windowStartValues[i]);
-              dataIndices.emplace_back(index);
+              // h1 = cw1 * d1 + start1
+              IndexExpr d1 = IVExprs[i][5];
+              dataIndices.emplace_back(cw1 * d1 + start1);
             } else {
-              // hi = hp + startH
-              Value index = rewriter.create<AddIOp>(
-                  loc, innerLoops.getInductionVar(i + 1), windowStartValues[i]);
-              dataIndices.emplace_back(index);
+              // h1 = cw1 + start1
+              dataIndices.emplace_back(cw1 + startH);
             }
           }
 
           // 4.2 Prepare indices for accessing the kernel tensor.
-          SmallVector<Value, 4> kernelIndices;
+          // SmallVector<Value, 4> kernelIndices;
+          SmallVector<IndexExpr, 4> kernelIndices;
           // kernel
           kernelIndices.emplace_back(kernel);
           // c
-          kernelIndices.emplace_back(innerLoops.getInductionVar(cIndex));
-          // kX
-          for (int i = 0; i < kernelShape.size() - 2; ++i) {
+          kernelIndices.emplace_back(ieContext.createLoopInductionIndex(
+              innerLoops.getInductionVar(cIndex)));
+          // k1 = h1 - kernelOffset1
+          for (int i = 0; i < kernelShape.size() - spatialStartIndex; ++i) {
             // Since the window at borders may be smaller than the kernel, we
             // have to shift kernel indices with a suitalbe offset.
-            Value kernelIndex = rewriter.create<SubIOp>(
-                loc, innerLoops.getInductionVar(i + 1), kernelOffsetValues[i]);
-            kernelIndices.emplace_back(kernelIndex);
+            IndexExpr h1 = ieContext.createLoopInductionIndex(
+                innerLoops.getInductionVar(i + 1));
+            kernelIndices.emplace_back(h1 - kernelOffsetExprs[i]);
           }
 
           // 4.3 Compute convolution.
-          auto loadData =
-              rewriter.create<LoadOp>(loc, inputOperand, dataIndices);
+          auto loadData = ieContext.createLoadOp(inputOperand, dataIndices);
           auto loadKernel =
-              rewriter.create<LoadOp>(loc, kernelOperand, kernelIndices);
-          auto loadPartialSum =
-              rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
+              ieContext.createLoadOp(kernelOperand, kernelIndices);
+          auto loadPartialSum = ieContext.createLoadOp(alloc, resultIndices);
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
               rewriter.create<MulFOp>(loc, loadData, loadKernel));
           // 4.4 Store computed value into output location.
-          rewriter.create<AffineStoreOp>(loc, result, alloc, resultIndices);
+          ieContext.createStoreOp(result, alloc, resultIndices);
         }
       }
     }
