@@ -742,7 +742,8 @@ private:
     }
 
     // Create MLIR function:
-    auto funcOp = CreateFuncOp(node.name(), operandTypes, resultTypes);
+    const std::string& func_name_prefix = node.name().empty() ? node.op_type() : node.name();
+    auto funcOp = CreateFuncOp(func_name_prefix, operandTypes, resultTypes);
     auto *fnEntryBlock = funcOp.addEntryBlock();
 
     // Save caller context, while generating callee function body.

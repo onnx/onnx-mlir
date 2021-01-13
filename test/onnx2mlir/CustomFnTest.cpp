@@ -54,6 +54,7 @@ void check(ModelProto &model) {
 
   module->verify();
   module->dump();
+  std::cerr << std::endl;
 }
 
 void testCustomFunTranslation() {
