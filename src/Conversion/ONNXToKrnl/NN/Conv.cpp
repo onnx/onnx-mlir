@@ -326,7 +326,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
               dataIndices.emplace_back(cw1 * d1 + start1);
             } else {
               // h1 = cw1 + start1
-              dataIndices.emplace_back(cw1 + startH);
+              dataIndices.emplace_back(cw1 + start1);
             }
           }
 
