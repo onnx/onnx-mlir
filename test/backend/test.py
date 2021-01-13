@@ -226,7 +226,9 @@ test_to_enable_static_dynamic = {
     "test_div_example_cpu": (test_static_dynamic,),
 
     # Dropout
-
+    "test_dropout_default_cpu": (test_static_dynamic,),
+    # Problem: onnx-mlir accepts only one input, but there are 2 (x & ratio)
+    #"test_dropout_default_ratio_cpu": (test_static_dynamic,),
     # DynamicQuantizeLinear
 
     # Edge

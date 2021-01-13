@@ -1388,21 +1388,6 @@ func @test_scaler_no_scale_int(%arg0: tensor<3xi32>) -> tensor<*xf32> {
 // -----
 
 //===----------------------------------------------------------------------===//
-/// Test shape inference for Pow.
-//===----------------------------------------------------------------------===//
-
-func @test_pow(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<f32>) -> tensor<*xf32> {
-  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<1x2x3x4xf32>, tensor<f32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_pow
-  // CHECK: [[RES:%.+]] = "onnx.Pow"(%arg0, %arg1) : (tensor<1x2x3x4xf32>, tensor<f32>) -> tensor<1x2x3x4xf32>
-  // CHECK: return [[RES]] : tensor<1x2x3x4xf32>
-}
-
-// -----
-
-//===----------------------------------------------------------------------===//
 /// Test shape inference for Erf.
 //===----------------------------------------------------------------------===//
 

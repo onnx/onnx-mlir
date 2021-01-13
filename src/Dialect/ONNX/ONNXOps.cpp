@@ -77,6 +77,9 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
   return success();
 }
 
+#define NOT_IMPLEMENTED_MESSAGE                                                \
+  (getOperationName() + ": inferShapes() not implemented")
+
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
 //===----------------------------------------------------------------------===//
@@ -2921,9 +2924,6 @@ LogicalResult ONNXLessOp::inferShapes(
 // Also please add test case in test/mlir/onnx/onnx_shape_inference.mlir
 // Followed by the implementation of lowering to Krnl and
 // Enable the corresponding node test in check-onnx-backend
-
-#define NOT_IMPLEMENTED_MESSAGE                                                \
-  (getOperationName() + ": inferShapes() not implemented")
 
 LogicalResult ONNXAcosOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
