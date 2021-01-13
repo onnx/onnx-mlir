@@ -185,9 +185,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       if (group > 1) {
         IndexExpr g = ieContext.createLoopInductionIndex(
             outerLoops.getInductionVar(gIndex));
-        IndexExpr m = ieContext.createLoopInductionIndex(
-            outerLoops.getInductionVar(mIndex));
-        kernel = g * kernelsPerGroup + m;
+        kernel = g * kernelsPerGroupValue + kernel;
       }
 
       // 2.2 Define spatial loops
@@ -312,7 +310,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
           if (group > 1) {
             IndexExpr g = ieContext.createLoopInductionIndex(
                 outerLoops.getInductionVar(gIndex));
-            channelDepth = g * channelDepth + subchannels;
+            channelDepth = g * subchannels + channelDepth;
           }
           dataIndices.emplace_back(channelDepth);
           // h1 = cw1 * d1 + start1
