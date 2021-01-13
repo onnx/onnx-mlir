@@ -697,14 +697,18 @@ private:
 
     // Collect input/output MLIR types, input ONNX types, and input MLIR values.
     // TODO: Optional inputs/outputs of functions not handled yet.
+    onnx::TypeProto unspecifiedType;
     llvm::SmallVector<mlir::Type, 16> operandTypes;
     llvm::SmallVector<mlir::Type, 16> resultTypes;
     llvm::SmallVector<::mlir::Value, 16> operands;
     std::vector<onnx::TypeProto> operandOnnxTypes;
 
     for (auto &v : node.input()) {
-      if (v.empty())
-        return false;
+      if (v.empty()) {
+        // Use default TypeProto() to indicate missing input/type
+        operandOnnxTypes.push_back(unspecifiedType);
+        continue;
+      }
       operandOnnxTypes.push_back(value_info_map[v].type());
       auto val = LookupOnnxName(v);
       operands.push_back(val);
@@ -712,7 +716,7 @@ private:
     }
     for (auto &v : node.output()) {
       if (v.empty())
-        return false;
+        continue;
       auto resultType = ImportTensorType(value_info_map[v]);
       resultTypes.push_back(resultType);
     }
