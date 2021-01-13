@@ -57,7 +57,7 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 /// We also want to compute how the window is smaller than the kernel.
 ///   kernelOffset = min(0, ho * sH - ptH)
 ///
-/// How 'firstValidH' was derived:
+/// How to derive 'firstValidH':
 ///   When dilation is non-unit, the first valid pixel to apply conv/pooling on
 ///   will not be the 0-th pixel, but rather the smallest integer n to make
 ///   '-pH + n * dH' greater than or equal to 0, where pH and dH are pad
