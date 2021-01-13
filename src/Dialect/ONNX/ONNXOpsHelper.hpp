@@ -74,11 +74,6 @@ std::vector<IndexExpr> getIndexExprsForConvWindow(IndexExprContext &context,
 /// one edge of the window.
 AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated);
 
-// Return a AffineMap to compute the number of times to convolve along each
-// dimension.
-AffineMap getAffineMapForConvolveCount(
-    Builder &builder, bool ceilMode, bool isDilated);
-
 // Helper functions to get values from attribute arrays.
 size_t ArrayAttrSize(ArrayAttr a);
 size_t ArrayAttrSize(Optional<ArrayAttr> a);
