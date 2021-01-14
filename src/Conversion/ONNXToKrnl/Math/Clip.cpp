@@ -1,5 +1,4 @@
-//===----------------- Clip.cpp - Lowering Clip Op
-//-------------------------===//
+//===----------------- Clip.cpp - Lowering Clip Op ------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //

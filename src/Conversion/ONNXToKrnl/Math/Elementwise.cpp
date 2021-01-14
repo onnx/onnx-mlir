@@ -16,7 +16,7 @@ using namespace mlir;
 template <>
 struct ScalarOp<ONNXTanhOp> {
   using FOp = TanhOp;
-  using IOp = TanhOp; // not use
+  using IOp = TanhOp; // Not used.
 };
 
 template <>
@@ -45,26 +45,26 @@ struct ScalarOp<ONNXSubOp> {
 
 template <>
 struct ScalarOp<ONNXAndOp> {
-  using FOp = AndOp; // not use
+  using FOp = AndOp; // Not used.
   using IOp = AndOp;
 };
 
 template <>
 struct ScalarOp<ONNXOrOp> {
-  using FOp = OrOp; // not use
+  using FOp = OrOp; // Not used.
   using IOp = OrOp;
 };
 
 template <>
 struct ScalarOp<ONNXXorOp> {
-  using FOp = XOrOp; // not use
+  using FOp = XOrOp; // Not used.
   using IOp = XOrOp;
 };
 
 template <>
 struct ScalarOp<ONNXExpOp> {
   using FOp = ExpOp;
-  using IOp = ExpOp; // not use
+  using IOp = ExpOp; // Not used.
 };
 
 template <>
@@ -76,49 +76,49 @@ struct ScalarOp<ONNXSumOp> {
 template <>
 struct ScalarOp<ONNXCosOp> {
   using FOp = CosOp;
-  using IOp = CosOp; // not use
+  using IOp = CosOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXLogOp> {
   using FOp = LogOp;
-  using IOp = LogOp; // not use
+  using IOp = LogOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXSqrtOp> {
   using FOp = SqrtOp;
-  using IOp = SqrtOp; // not use
+  using IOp = SqrtOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXAtanOp> {
   using FOp = AtanOp;
-  using IOp = AtanOp; // not use
+  using IOp = AtanOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXCeilOp> {
   using FOp = CeilFOp;
-  using IOp = CeilFOp; // not use
+  using IOp = CeilFOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXFloorOp> {
   using FOp = FloorFOp;
-  using IOp = FloorFOp; // not use
+  using IOp = FloorFOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXSinOp> {
   using FOp = SinOp;
-  using IOp = SinOp; // not use
+  using IOp = SinOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXPowOp> {
   using FOp = PowFOp;
-  using IOp = PowFOp; // not use
+  using IOp = PowFOp; // Not used.
 };
 
 //===----------------------------------------------------------------------===//
