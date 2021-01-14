@@ -622,6 +622,8 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
   }
 };
 
+
+
 // Element-wise binary ops lowering to Krnl dialect.
 // This template can be used for binary ops that return a result whose type is
 // different from the input type.
@@ -640,7 +642,9 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
-    assert(succeeded(shapeHelper.Compute(operands)));
+    auto shapecomputed = shapeHelper.Compute(operands);
+    (void)shapecomputed;
+    assert(succeeded(shapecomputed));
     IndexExprContext outerContext(shapeHelper.context);
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -688,6 +692,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
   }
 };
 
+
 // Element-wise variadic ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseVariadicOp>
@@ -704,7 +709,9 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
-    assert(succeeded(shapeHelper.Compute(operands)));
+    auto shapecomputed = shapeHelper.Compute(operands);
+    (void)shapecomputed;
+    assert(succeeded(shapecomputed));
     IndexExprContext outerContext(shapeHelper.context);
 
     // Insert an allocation and deallocation for the result of this operation.

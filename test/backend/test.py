@@ -172,6 +172,16 @@ test_to_enable_static_dynamic = {
     # Celu
 
     # Clip
+    "test_clip_cpu": (test_static_dynamic,),
+    "test_clip_example_cpu": (test_static_dynamic,),
+    "test_clip_inbounds_cpu": (test_static_dynamic,),
+    "test_clip_outbounds_cpu": (test_static_dynamic,),
+    "test_clip_splitbounds_cpu": (test_static_dynamic,),
+    "test_clip_default_min_cpu": (test_static_dynamic,),
+    "test_clip_default_max_cpu": (test_static_dynamic,),
+    "test_clip_cpu": (test_static_dynamic,),
+    "test_clip_default_inbounds_cpu": (test_static_dynamic,),
+    #"test_clip_default_int8_min_cpu": (test_static_dynamic,),
 
     # Compress
 

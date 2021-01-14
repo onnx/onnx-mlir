@@ -11,11 +11,10 @@
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/DialectImplementation.h"
-#include "mlir/IR/Function.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Matchers.h"
-#include "mlir/IR/Module.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/SetVector.h"
@@ -2403,7 +2402,7 @@ LogicalResult ONNXDynamicQuantizeLinearOp::inferShapes(
   auto yZPTy = y_zero_point().getType().cast<ShapedType>();
 
   IntegerType ui8Type =
-      IntegerType::get(8, IntegerType::Unsigned, getContext());
+      IntegerType::get(getContext(), 8, IntegerType::Unsigned);
   FloatType f32Type = FloatType::getF32(getContext());
 
   RankedTensorType scalarType = RankedTensorType::get({}, f32Type);
@@ -2442,7 +2441,7 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
   if (!yTy.hasStaticShape()) {
     // TODO: Unfortunately, we can't tell if this should be signed or unsigned
     //       here...
-    IntegerType i8Type = IntegerType::get(8, getContext());
+    IntegerType i8Type = IntegerType::get(getContext(), 8);
     RankedTensorType outType = RankedTensorType::get(inTy.getShape(), i8Type);
     y().setType(outType);
   }
@@ -2574,7 +2573,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
       stridesOpt, dilationsOpt);
 
   // ONNX spec specifies the output type as an int32
-  Type outputType = IntegerType::get(32, getContext());
+  Type outputType = IntegerType::get(getContext(), 32);
   getResult().setType(RankedTensorType::get(outputDims, outputType));
   return success();
 }
@@ -2593,7 +2592,7 @@ LogicalResult ONNXShapeOp::inferShapes(
   int64_t rank = data().getType().cast<RankedTensorType>().getRank();
   SmallVector<int64_t, 1> outDims(1, rank);
   getResult().setType(
-      RankedTensorType::get(outDims, IntegerType::get(64, getContext())));
+      RankedTensorType::get(outDims, IntegerType::get(getContext(), 64)));
   return success();
 }
 
@@ -2606,7 +2605,7 @@ LogicalResult ONNXSizeOp::inferShapes(
   // Output is scalar of int64 containing the size of the input tensor.
   SmallVector<int64_t, 1> outDims;
   getResult().setType(
-      RankedTensorType::get(outDims, IntegerType::get(64, getContext())));
+      RankedTensorType::get(outDims, IntegerType::get(getContext(), 64)));
   return success();
 }
 
@@ -2853,7 +2852,7 @@ LogicalResult ONNXDropoutOp::inferShapes(
 
   auto inputShape = data().getType().cast<RankedTensorType>().getShape();
 
-  IntegerType i1Type = IntegerType::get(1, IntegerType::Signless, getContext());
+  IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
   getResult(1).setType(RankedTensorType::get(inputShape, i1Type));
   return success();
 }
@@ -2915,7 +2914,7 @@ LogicalResult ONNXLessOp::inferShapes(
       getBroadcastedType(lhsTy, rhsTy).cast<RankedTensorType>().getShape();
 
   getResult().setType(
-      RankedTensorType::get(dims, IntegerType::get(/*width=*/1, getContext())));
+      RankedTensorType::get(dims, IntegerType::get(getContext(), /*width=*/1)));
   return success();
 }
 
@@ -2978,13 +2977,36 @@ LogicalResult ONNXCeilOp::inferShapes(
 
 LogicalResult ONNXClipOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
+  // Look at input.
   if (!input().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
-
   RankedTensorType inputTy = input().getType().cast<RankedTensorType>();
-
   Type elementType = inputTy.getElementType();
   ArrayRef<int64_t> inputShape = inputTy.getShape();
+  // Look at optional min.
+  if (!min().getType().isa<NoneType>()) {
+    // Has a min, make sure its of the right type.
+    if (!min().getType().isa<RankedTensorType>())
+      return emitError("Min tensor not ranked");
+    // And size.
+    RankedTensorType minTy = min().getType().cast<RankedTensorType>();
+    if (minTy.getElementType() != elementType)
+      return emitError("Element type mismatch between input and min tensors");
+    if (minTy.getShape().size() != 0)
+      return emitError("Min tensor ranked with nonzero size");
+  }
+  // Look at optional max
+  if (!max().getType().isa<NoneType>()) {
+    // Has a max, make sure its of the right type.
+    if (!max().getType().isa<RankedTensorType>())
+      return emitError("Min tensor not ranked");
+    // And size.
+    RankedTensorType maxTy = max().getType().cast<RankedTensorType>();
+    if (maxTy.getElementType() != elementType)
+      return emitError("Element type mismatch between input and max tensors");
+    if (maxTy.getShape().size() != 0)
+      return emitError("Min tensor ranked with nonzero size");
+  }
 
   getResult().setType(RankedTensorType::get(inputShape, elementType));
   return success();
@@ -3432,8 +3454,8 @@ LogicalResult ONNXLoopOp::inferShapes(
   }
 
   // Update function signature according to new entry block argument types.
-  func.setType(FunctionType::get(func.getBody().getArgumentTypes(),
-      func.getType().getResults(), getContext()));
+  func.setType(FunctionType::get(getContext(),
+      func.getBody().getArgumentTypes(), func.getType().getResults()));
 
   // Now we have modified loop body function input signatures according to
   // the knowledge we have on the inputs we pass to this function. Dispatch

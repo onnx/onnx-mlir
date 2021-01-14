@@ -14,7 +14,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/SetVector.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -319,7 +319,9 @@ public:
             // instructions cannot be moved.
             // Check if the current operation is a DimOp or a LoadOp.
             if (llvm::dyn_cast<DimOp>(definingOperation) ||
-                llvm::dyn_cast<LoadOp>(definingOperation)) {
+                llvm::dyn_cast<KrnlDimOp>(definingOperation) ||
+                llvm::dyn_cast<LoadOp>(definingOperation) ||
+                llvm::dyn_cast<AffineLoadOp>(definingOperation)) {
               Operation *operandOp = operand.getDefiningOp();
               if (operandOp) {
                 auto localAlloc = llvm::dyn_cast<AllocOp>(operandOp);
