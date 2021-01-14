@@ -115,6 +115,12 @@ struct ScalarOp<ONNXSinOp> {
   using IOp = SinOp; // not use
 };
 
+template <>
+struct ScalarOp<ONNXPowOp> {
+  using FOp = PowFOp;
+  using IOp = PowFOp; // not use
+};
+
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
@@ -622,8 +628,6 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
   }
 };
 
-
-
 // Element-wise binary ops lowering to Krnl dialect.
 // This template can be used for binary ops that return a result whose type is
 // different from the input type.
@@ -691,7 +695,6 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     return success();
   }
 };
-
 
 // Element-wise variadic ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
@@ -785,6 +788,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXNegOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXOrOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXPowOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,

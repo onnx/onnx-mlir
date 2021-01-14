@@ -427,6 +427,11 @@ test_to_enable_static_dynamic = {
     #"test_reflect_pad_cpu": test_static_dynamic,
 
     # Pow
+    "test_pow_cpu": (test_static_dynamic,),
+    "test_pow_example_cpu": (test_static_dynamic,),
+    "test_pow_bcast_scalar_cpu": (test_static_dynamic,),
+    "test_pow_bcast_array_cpu": (test_static_dynamic,),
+    # Does not support integer power yet
 
     # PRelu
 
