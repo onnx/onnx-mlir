@@ -3122,11 +3122,11 @@ func private @test_atan(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+func private @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
   %0 = "onnx.Clip"(%arg0, %arg1, %arg2) : (tensor<3xf32>, tensor<f32>, tensor<f32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
-// CHECK-LABEL:  func @test_clip
+// CHECK-LABEL: test_clip
 // CHECK-SAME:   ([[INPUT_:%.+]]: memref<3xf32>, [[MIN_:%.+]]: memref<f32>, [[MAX_:%.+]]: memref<f32>) -> memref<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
 // CHECK-DAG:       [[RES_:%.+]] = alloc() : memref<3xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
@@ -3142,16 +3142,16 @@ func @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) ->
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<3xf32>
 // CHECK:         }
-  }
+}
 
 // -----
 
-func @test_clip_default_min(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+func private @test_clip_default_min(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
   %cst = constant unit
   %0 = "onnx.Clip"(%arg0, %cst, %arg2) : (tensor<3xf32>, none, tensor<f32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
-// CHECK-LABEL:  func @test_clip
+// CHECK-LABEL: test_clip_default_min
 // CHECK-SAME:   ([[INPUT_:%.+]]: memref<3xf32>, [[MIN_:%.+]]: memref<f32>, [[MAX_:%.+]]: memref<f32>) -> memref<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
 // CHECK-DAG:       [[RES_:%.+]] = alloc() : memref<3xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
@@ -3164,4 +3164,23 @@ func @test_clip_default_min(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: ten
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<3xf32>
 // CHECK:         }
-  }
+}
+
+// -----
+
+func private @test_pown(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> attributes {input_names = ["x", "y"], output_names = ["z"]} {
+    %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+    return %0 : tensor<3x4x5xf32>
+// CHECK-LABEL: test_pow
+// CHECK-SAME:   ([[INPUT_:%.+]]: memref<3x4x5xf32>, [[POWER_:%.+]]: memref<3x4x5xf32>) -> memref<3x4x5xf32> attributes {input_names = ["x", "y"], output_names = ["z"]} {
+// CHECK-DAG:       [[RES_:%.+]] = alloc() : memref<3x4x5xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5) {
+// CHECK-DAG:         [[LOAD_INPUT_MEM_:%.+]] = affine.load [[INPUT_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<3x4x5xf32>
+// CHECK-DAG:         [[LOAD_POWER_MEM_:%.+]] = affine.load [[POWER_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<3x4x5xf32>
+// CHECK:             [[VAR_4_:%.+]] = powf [[LOAD_INPUT_MEM_]], [[LOAD_POWER_MEM_]] : f32
+// CHECK:             affine.store [[VAR_4_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<3x4x5xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<3x4x5xf32>
+// CHECK:         }
+}

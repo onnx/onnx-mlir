@@ -854,7 +854,6 @@ LogicalResult ONNXErfOp::inferShapes(
 
 LogicalResult ONNXPowOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
@@ -864,7 +863,7 @@ LogicalResult ONNXPowOp::inferShapes(
   Type lhsETy = lhsTy.getElementType();
   if (rhsETy != lhsETy)
     return emitError("do not support Pow with different input type yet");
-  if (rhsETy.isa<IntegerType>() || lhsETy.isa<IntegerType>())
+  if (lhsETy.isa<IntegerType>() || lhsETy.isa<IntegerType>())
     return emitError("do not support integer power yet");
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
   return success();
