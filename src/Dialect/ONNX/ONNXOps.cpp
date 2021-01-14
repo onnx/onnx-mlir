@@ -76,6 +76,9 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
   return success();
 }
 
+#define NOT_IMPLEMENTED_MESSAGE                                                \
+  (getOperationName() + ": inferShapes() not implemented")
+
 //===----------------------------------------------------------------------===//
 // ONNX Helper functions
 //===----------------------------------------------------------------------===//
@@ -854,8 +857,14 @@ LogicalResult ONNXPowOp::inferShapes(
   if (!getOperand(0).getType().isa<RankedTensorType>() ||
       !getOperand(1).getType().isa<RankedTensorType>())
     return emitError("Input tensor(s) not ranked");
-  auto lhsTy = getOperand(0).getType().cast<RankedTensorType>();
-  auto rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  RankedTensorType lhsTy = getOperand(0).getType().cast<RankedTensorType>();
+  RankedTensorType rhsTy = getOperand(1).getType().cast<RankedTensorType>();
+  Type rhsETy = rhsTy.getElementType();
+  Type lhsETy = lhsTy.getElementType();
+  if (rhsETy != lhsETy)
+    return emitError("do not support Pow with different input type yet");
+  if (lhsETy.isa<IntegerType>() || lhsETy.isa<IntegerType>())
+    return emitError("do not support integer power yet");
   getResult().setType(getBroadcastedType(lhsTy, rhsTy));
   return success();
 }
@@ -2914,9 +2923,6 @@ LogicalResult ONNXLessOp::inferShapes(
 // Followed by the implementation of lowering to Krnl and
 // Enable the corresponding node test in check-onnx-backend
 
-#define NOT_IMPLEMENTED_MESSAGE                                                \
-  (getOperationName() + ": inferShapes() not implemented")
-
 LogicalResult ONNXAcosOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
@@ -2964,18 +2970,42 @@ LogicalResult ONNXBitShiftOp::inferShapes(
 
 LogicalResult ONNXCeilOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 LogicalResult ONNXClipOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
+  // Look at input.
   if (!input().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
-
   RankedTensorType inputTy = input().getType().cast<RankedTensorType>();
-
   Type elementType = inputTy.getElementType();
   ArrayRef<int64_t> inputShape = inputTy.getShape();
+  // Look at optional min.
+  if (!min().getType().isa<NoneType>()) {
+    // Has a min, make sure its of the right type.
+    if (!min().getType().isa<RankedTensorType>())
+      return emitError("Min tensor not ranked");
+    // And size.
+    RankedTensorType minTy = min().getType().cast<RankedTensorType>();
+    if (minTy.getElementType() != elementType)
+      return emitError("Element type mismatch between input and min tensors");
+    if (minTy.getShape().size() != 0)
+      return emitError("Min tensor ranked with nonzero size");
+  }
+  // Look at optional max
+  if (!max().getType().isa<NoneType>()) {
+    // Has a max, make sure its of the right type.
+    if (!max().getType().isa<RankedTensorType>())
+      return emitError("Min tensor not ranked");
+    // And size.
+    RankedTensorType maxTy = max().getType().cast<RankedTensorType>();
+    if (maxTy.getElementType() != elementType)
+      return emitError("Element type mismatch between input and max tensors");
+    if (maxTy.getShape().size() != 0)
+      return emitError("Min tensor ranked with nonzero size");
+  }
 
   getResult().setType(RankedTensorType::get(inputShape, elementType));
   return success();
@@ -3018,7 +3048,8 @@ LogicalResult ONNXEyeLikeOp::inferShapes(
 
 LogicalResult ONNXFloorOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  getResult().setType(getOperand().getType());
+  return success();
 }
 
 LogicalResult ONNXGatherElementsOp::inferShapes(
