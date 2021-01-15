@@ -513,11 +513,12 @@ public:
     SmallVector<::mlir::Value, 4> returnValues;
     for (int i = 0; i < outputNum; ++i) {
       Value splitOutput = splitOp->getResults()[i];
-      Value constOp = rewriter.create<ONNXConstantOp>(loc, splitOutput.getType(),
-          /*sparse_value=*/Attribute(),
-          /*dense_value=*/
-          ConstPropSplit(
-              rewriter, splitOutput, denseAttr, axisAttr, splitAttr, i));
+      Value constOp =
+          rewriter.create<ONNXConstantOp>(loc, splitOutput.getType(),
+              /*sparse_value=*/Attribute(),
+              /*dense_value=*/
+              ConstPropSplit(
+                  rewriter, splitOutput, denseAttr, axisAttr, splitAttr, i));
       returnValues.emplace_back(constOp);
     }
 
