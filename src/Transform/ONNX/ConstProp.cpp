@@ -407,6 +407,126 @@ DenseElementsAttr ConstPropUnsqueeze(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for split.
+//===----------------------------------------------------------------------===//
+
+void RecurseConstPropSplit(PatternRewriter &rewriter,
+    std::vector<Attribute> &resVector, DenseElementsAttr attr,
+    SmallVector<uint64_t, 4> &indices, uint64_t splitAxis, uint64_t axisOffset,
+    uint64_t axisSize, int freeRank) {
+  if (freeRank == 0) {
+    // Fully defined ranks.
+    auto res = attr.getValue(ArrayRef<uint64_t>(indices));
+    resVector.emplace_back(res);
+  } else {
+    // Recurse.
+    auto shape = attr.getType().getShape();
+    int rank = shape.size();
+    int index = rank - freeRank;
+    int start, size;
+    if (index == splitAxis) {
+      start = axisOffset;
+      size = axisSize;
+    } else {
+      start = 0;
+      size = attr.getType().getShape()[index];
+    }
+    for (int i = start; i < start + size; ++i) {
+      indices[index] = i;
+      RecurseConstPropSplit(rewriter, resVector, attr, indices, splitAxis,
+          axisOffset, axisSize, freeRank - 1);
+    }
+  }
+}
+
+DenseElementsAttr ConstPropSplit(PatternRewriter &rewriter, Value resOperand,
+    Attribute attr, IntegerAttr axisAttr, ArrayAttr splitAttr,
+    unsigned resIndex) {
+  // Read dense attribute, the constant tensor we are transforming.
+  DenseElementsAttr denseAttr =
+      attr.dyn_cast_or_null<mlir::DenseElementsAttr>();
+  assert(denseAttr && "expected dense attribute");
+  RankedTensorType resType =
+      constructRankedTensorType(resOperand.getType().cast<ShapedType>());
+  auto rank = denseAttr.getType().getShape().size();
+  // Read split axis.
+  uint64_t splitAxis = axisAttr.getValue().getSExtValue();
+  // Read split vector.
+  SmallVector<uint64_t, 4> splits;
+  assert(splitAttr && "split attribute expected to be defined here");
+  for (auto splitVal : splitAttr.getValue())
+    splits.emplace_back(splitVal.cast<IntegerAttr>().getInt());
+  // Compute the range of elements of interest in the given axis.
+  uint64_t axisOffset = 0, axisSize = splits[resIndex];
+  for (int i = 0; i < resIndex; ++i)
+    axisOffset += splits[i];
+  // Init indice vector.
+  SmallVector<uint64_t, 4> indices(rank, -1);
+  std::vector<Attribute> resVector;
+  // Copy.
+  RecurseConstPropSplit(rewriter, resVector, denseAttr, indices, splitAxis,
+      axisOffset, axisSize, rank);
+  ArrayRef<Attribute> resRef(resVector);
+  return DenseElementsAttr::get(resType, resRef);
+}
+
+class ConstPropSplitPattern : public OpRewritePattern<ONNXSplitOp> {
+public:
+  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXSplitOp op, PatternRewriter &rewriter) const override {
+    auto loc = op.getLoc();
+    // A dense attribute that contains constant values of the split op's input.
+    Attribute denseAttr;
+
+    // Match
+    auto splitOp = ::llvm::dyn_cast_or_null<::mlir::ONNXSplitOp>(&op);
+    (void)splitOp;
+    {
+      auto *producerOp = splitOp->input().getDefiningOp();
+      auto castedProducerOp =
+          ::llvm::dyn_cast_or_null<::mlir::ONNXConstantOp>(producerOp);
+      (void)castedProducerOp;
+      if (!castedProducerOp)
+        return failure();
+      // Check whether the constant op is using a dense value or not.
+      auto sparseAttr =
+          producerOp->getAttrOfType<::mlir::Attribute>("sparse_value");
+      (void)sparseAttr;
+      if (sparseAttr)
+        return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+          diag << "entities '' failed to satisfy constraint: Attribute "
+                  "is null";
+        });
+      auto dataAttr = producerOp->getAttrOfType<::mlir::Attribute>("value");
+      (void)dataAttr;
+      denseAttr = dataAttr;
+    }
+
+    // Rewrite
+    unsigned outputNum = splitOp->getNumResults();
+    int64_t rank = splitOp->input().getType().cast<ShapedType>().getRank();
+    IntegerAttr axisAttr = splitOp->axisAttr();
+    ArrayAttr splitAttr = splitOp->splitAttr();
+
+    SmallVector<::mlir::Value, 4> returnValues;
+    for (int i = 0; i < outputNum; ++i) {
+      Value splitOutput = splitOp->getResults()[i];
+      Value constOp = rewriter.create<ONNXConstantOp>(loc, splitOutput.getType(),
+          /*sparse_value=*/Attribute(),
+          /*dense_value=*/
+          ConstPropSplit(
+              rewriter, splitOutput, denseAttr, axisAttr, splitAttr, i));
+      returnValues.emplace_back(constOp);
+    }
+
+    rewriter.replaceOp(op, returnValues);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 
@@ -431,6 +551,7 @@ void ConstPropONNXToONNXPass::runOnFunction() {
 
   OwningRewritePatternList patterns;
   populateWithGenerated(context, patterns);
+  patterns.insert<ConstPropSplitPattern>(&getContext());
 
   applyPatternsAndFoldGreedily(function, std::move(patterns));
 } // end anonymous namespace
