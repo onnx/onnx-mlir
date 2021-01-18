@@ -434,6 +434,8 @@ test_to_enable_static_dynamic = {
     # Does not support integer power yet
 
     # PRelu
+    "test_prelu_example_cpu": (test_static_dynamic,),
+    "test_prelu_broadcast_cpu": (test_static_dynamic,),
 
     # QLinear Conv
 

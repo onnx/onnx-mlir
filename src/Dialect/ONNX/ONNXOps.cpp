@@ -757,7 +757,25 @@ LogicalResult ONNXSeluOp::inferShapes(
 /// the shape inference interface.
 LogicalResult ONNXPReluOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
-  getResult().setType(getOperand(0).getType());
+  if (!X().getType().isa<RankedTensorType>() ||
+      !slope().getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+  auto xShape = X().getType().cast<ShapedType>().getShape();
+  auto slopeShape = slope().getType().cast<ShapedType>().getShape();
+  // PRelu supports unidirectional broadcasting, that is slope should be
+  // unidirectional broadcastable to input X.
+  // To do unidirectional broadcasting, we first apply bidirectional
+  // broadcasting. Then, fine-tune by getting constant dimensions from X.
+  SmallVector<int64_t, 4> shape;
+  // Bidirectional broadcasting rules.
+  getBroadcastedShape(xShape, slopeShape, shape);
+  // Fine-tune.
+  for (int i = 0; i < shape.size(); ++i)
+    if (xShape[i] != -1)
+      shape[i] = xShape[i];
+
+  getResult().setType(RankedTensorType::get(
+      shape, X().getType().cast<ShapedType>().getElementType()));
   return success();
 }
 
