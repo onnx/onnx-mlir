@@ -762,8 +762,12 @@ LogicalResult ONNXPReluOp::inferShapes(
     return emitError("Input tensor(s) not ranked");
   auto xShape = X().getType().cast<ShapedType>().getShape();
   auto slopeShape = slope().getType().cast<ShapedType>().getShape();
+
   // PRelu supports unidirectional broadcasting, that is slope should be
   // unidirectional broadcastable to input X.
+  if (slopeShape.size() > xShape.size())
+    return emitError("Slope tensor has a wrong shape");
+
   // To do unidirectional broadcasting, we first apply bidirectional
   // broadcasting. Then, fine-tune by getting constant dimensions from X.
   SmallVector<int64_t, 4> shape;
