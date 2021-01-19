@@ -129,6 +129,8 @@ test_to_enable_static_dynamic = {
     # Asinh
 
     # Atan
+    #"test_atan_example_cpu": (test_static_dynamic,),
+    #"test_atan_cpu": (test_static_dynamic,),
 
     # Atanh
 
@@ -164,10 +166,22 @@ test_to_enable_static_dynamic = {
     "test_cast_STRING_to_FLOAT_cpu": (test_disabled,), # appers unsupported at this time
 
     # Ceil
+    "test_ceil_example_cpu": (test_static_dynamic,),
+    "test_ceil_cpu": (test_static_dynamic,),
 
     # Celu
 
     # Clip
+    "test_clip_cpu": (test_static_dynamic,),
+    "test_clip_example_cpu": (test_static_dynamic,),
+    "test_clip_inbounds_cpu": (test_static_dynamic,),
+    "test_clip_outbounds_cpu": (test_static_dynamic,),
+    "test_clip_splitbounds_cpu": (test_static_dynamic,),
+    "test_clip_default_min_cpu": (test_static_dynamic,),
+    "test_clip_default_max_cpu": (test_static_dynamic,),
+    "test_clip_cpu": (test_static_dynamic,),
+    "test_clip_default_inbounds_cpu": (test_static_dynamic,),
+    #"test_clip_default_int8_min_cpu": (test_static_dynamic,),
 
     # Compress
 
@@ -224,6 +238,7 @@ test_to_enable_static_dynamic = {
     # Dropout
     "test_dropout_default_cpu": (test_static_dynamic,),
     "test_dropout_default_ratio_cpu": (test_static_dynamic,),
+    # Other dopout test case failed: implementation is missing
     #"test_dropout_default_mask_cpu": (test_static_dynamic,),
     #"test_dropout_default_mask_ratio_cpu": (test_static_dynamic,),
 
@@ -275,6 +290,8 @@ test_to_enable_static_dynamic = {
     "test_flatten_negative_axis4_cpu": (test_static_dynamic,),
 
     # Floor
+    "test_floor_example_cpu": (test_static_dynamic,),
+    "test_floor_cpu": (test_static_dynamic,),
     
     # Gather
     "test_gather_0_cpu": (test_static_dynamic,),
@@ -428,6 +445,11 @@ test_to_enable_static_dynamic = {
     #"test_reflect_pad_cpu": test_static_dynamic,
 
     # Pow
+    "test_pow_cpu": (test_static_dynamic,),
+    "test_pow_example_cpu": (test_static_dynamic,),
+    "test_pow_bcast_scalar_cpu": (test_static_dynamic,),
+    "test_pow_bcast_array_cpu": (test_static_dynamic,),
+    # Does not support integer power yet
 
     # PRelu
 
@@ -588,6 +610,8 @@ test_to_enable_static_dynamic = {
     "test_sign_cpu": (test_static_dynamic,),
 
     # Sin
+    "test_sin_example_cpu": (test_static_dynamic,),
+    "test_sin_cpu": (test_static_dynamic,),
 
     # Sinh
     "test_sinh_cpu": (test_static_dynamic,),
