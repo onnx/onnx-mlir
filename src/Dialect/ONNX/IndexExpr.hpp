@@ -285,6 +285,10 @@ public:
   void createStoreOp(
       Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
 
+  Value createKrnlLoadOp(Value memref, SmallVectorImpl<IndexExpr> &indices);
+  void createKrnlStoreOp(
+      Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
+
   // Support functions for AffineExpr.
   int addDim(Value const value);
   int addSymbol(Value const value);

@@ -742,7 +742,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> oprdAccessExprs;
     shapeHelper.GetAccessExprs(
         outerContext, operands[0], 0, outputAccessExprs, oprdAccessExprs);
-    Value accumulated = outerContext.createLoadOp(operands[0], oprdAccessExprs);
+    Value accumulated =
+        outerContext.createKrnlLoadOp(operands[0], oprdAccessExprs);
 
     // Iterate over the remaining operands.
     for (unsigned i = 1; i < numArgs; i++) {
@@ -750,14 +751,14 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> oprdAccessExprs;
       shapeHelper.GetAccessExprs(
           outerContext, operands[i], i, outputAccessExprs, oprdAccessExprs);
-      Value next = outerContext.createLoadOp(operands[i], oprdAccessExprs);
+      Value next = outerContext.createKrnlLoadOp(operands[i], oprdAccessExprs);
       // Fold.
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
           rewriter, loc, op, outputElementType, {accumulated, next});
     }
 
     // Store result in the resulting array.
-    outerContext.createStoreOp(accumulated, alloc, outputAccessExprs);
+    outerContext.createKrnlStoreOp(accumulated, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 

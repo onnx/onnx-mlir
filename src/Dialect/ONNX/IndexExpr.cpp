@@ -18,6 +18,7 @@
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
@@ -279,6 +280,18 @@ Value IndexExprContext::createLoadOp(
   return getRewriter().create<LoadOp>(getLoc(), memref, loadIndices);
 }
 
+Value IndexExprContext::createKrnlLoadOp(
+    Value memref, SmallVectorImpl<IndexExpr> &indices) {
+  bool affineIndices = true;
+  SmallVector<Value, 4> loadIndices;
+  for (IndexExpr ie : indices) {
+    if (!ie.isAffine())
+      affineIndices = false;
+    loadIndices.emplace_back(ie.getValue());
+  }
+  return getRewriter().create<KrnlLoadOp>(getLoc(), memref, loadIndices);
+}
+
 void IndexExprContext::createStoreOp(
     Value val, Value memref, SmallVectorImpl<IndexExpr> &indices) {
   bool affineIndices = true;
@@ -293,6 +306,18 @@ void IndexExprContext::createStoreOp(
   } else { // Not affine, use regular load.
     getRewriter().create<StoreOp>(getLoc(), val, memref, storeIndices);
   }
+}
+
+void IndexExprContext::createKrnlStoreOp(
+    Value val, Value memref, SmallVectorImpl<IndexExpr> &indices) {
+  bool affineIndices = true;
+  SmallVector<Value, 4> storeIndices;
+  for (IndexExpr ie : indices) {
+    if (!ie.isAffine())
+      affineIndices = false;
+    storeIndices.emplace_back(ie.getValue());
+  }
+  getRewriter().create<KrnlStoreOp>(getLoc(), val, memref, storeIndices);
 }
 
 //===----------------------------------------------------------------------===//
