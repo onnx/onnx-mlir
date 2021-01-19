@@ -230,6 +230,9 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     // Kernel offset in the input shape.
     int kernelOffset = inputShape.size() - kernelShape.size();
 
+    // Context for IndexExpr.
+    IndexExprContext ieContext(&rewriter, loc);
+
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc;
     bool insertDealloc = checkInsertDealloc(op);
@@ -285,9 +288,6 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //         startW = max(firstValidW, wo * sW - ptW)
     //         endW = min(W, wo * sW + (kW - 1) * dW + 1 - ptW)
     //
-    //         hDim= round(float(endH - startH) / float(dH))
-    //         wDim= round(float(endW - startW) / float(dW))
-    //
     //         # Apply the pooling window.
     //         # The pooling window can be smaller than the kernel when slicing
     //         # over the border edges.
@@ -298,8 +298,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     //
     //         # The above two for-loops are rewritten as follows:
     //         # (since KrnlIterateOp has not supported `step` yet)
-    //         for hp in range(hDim):
-    //           for wp in range(wDim):
+    //         for hp in range(endH - startH):
+    //           for wp in range(endW - startW):
     //             hi = hp * dH + startH
     //             wi = wp * dW + startW
     //             output[n, c, ho, wo] = emitScalarOpFor(output[n, c, ho, wo],
@@ -339,12 +339,13 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     {
       // 2. Emit the body of the output loop nest, which applies a pooling
       // window to a region in the input, producing one output pixel.
-      SmallVector<Value, 4> outputIndices;
+      SmallVector<IndexExpr, 4> outputIndices;
       for (int i = 0; i < outputShape.size(); ++i)
-        outputIndices.emplace_back(outputLoops.getInductionVar(i));
+        outputIndices.emplace_back(
+            ieContext.createLoopInductionIndex(outputLoops.getInductionVar(i)));
 
       // 2.1 Emit: output[n][c][ho][wo] = identity
-      rewriter.create<AffineStoreOp>(loc, identity, alloc, outputIndices);
+      ieContext.createStoreOp(identity, alloc, outputIndices);
 
       // 2.2 Emit affine maps which express the lower and upper bounds for the
       // pooling window's dimensions.
@@ -356,115 +357,66 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
       //   hDim = round(float(endH - startH) / float(dH))
 
-      // Prepare induction variables and constants as arguments for the affine
-      // maps.
-      SmallVector<SmallVector<Value, 4>, 4> IVsAndConstants;
-      { // Construct IVsAndConstants.
+      // Prepare induction variables.
+      SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
+      {
         for (int i = 0; i < kernelShape.size(); ++i) {
-          SmallVector<Value, 4> ic;
+          int j = i + kernelOffset;
+          SmallVector<IndexExpr, 4> ic;
           // d0, output
-          ic.emplace_back(outputLoops.getInductionVar(i + kernelOffset));
+          ic.emplace_back(outputIndices[j]);
           // s0, input dim
-          if (inputShape[i + kernelOffset] < 0) {
-            ic.emplace_back(
-                rewriter.create<DimOp>(loc, inputOperand, i + kernelOffset));
-          } else {
-            ic.emplace_back(emitConstantOp(rewriter, loc,
-                rewriter.getIndexType(), inputShape[i + kernelOffset]));
-          }
-          // s1, kernel dim
-          ic.emplace_back(emitConstantOp(
-              rewriter, loc, rewriter.getIndexType(), kernelShape[i]));
-          // s2, pad dim
           ic.emplace_back(
-              emitConstantOp(rewriter, loc, rewriter.getIndexType(), pads[i]));
+              ieContext.createDimIndexFromShapedType(inputOperand, j));
+          // s1, kernel dim
+          ic.emplace_back(ieContext.createLiteralIndex(kernelShape[i]));
+          // s2, pad dim
+          ic.emplace_back(ieContext.createLiteralIndex(pads[i]));
           // s3, stride dim
-          ic.emplace_back(emitConstantOp(
-              rewriter, loc, rewriter.getIndexType(), strides[i]));
+          ic.emplace_back(ieContext.createLiteralIndex(strides[i]));
           // s4, dilation dim
-          ic.emplace_back(emitConstantOp(rewriter, loc, rewriter.getIndexType(),
-              (isDilated) ? dilations[i] : 1));
-          IVsAndConstants.emplace_back(ic);
+          ic.emplace_back(
+              ieContext.createLiteralIndex((isDilated) ? dilations[i] : 1));
+          IVExprs.emplace_back(ic);
         }
       }
 
-      // Affine maps for the pooling window.
-      AffineMap poolStartMap, poolEndMap, poolDimMap;
-      { // Construct poolStartMap, poolEndMap and poolDimMap.
-        // AffineExpr(s) to obtain the dimensions and symbols.
-        AffineExpr outputIndex = rewriter.getAffineDimExpr(0);
-        AffineExpr inputDim = rewriter.getAffineSymbolExpr(0);
-        AffineExpr kernelDim = rewriter.getAffineSymbolExpr(1);
-        AffineExpr padTopDim = rewriter.getAffineSymbolExpr(2);
-        AffineExpr strideDim = rewriter.getAffineSymbolExpr(3);
-        AffineExpr dilationDim = rewriter.getAffineSymbolExpr(4);
-        AffineExpr start1 =
-            (padTopDim).ceilDiv(dilationDim) * dilationDim - padTopDim;
-        AffineExpr start2 = outputIndex * strideDim - padTopDim;
-        AffineExpr end1 = inputDim;
-        AffineExpr end2 = outputIndex * strideDim +
-                          (kernelDim - 1) * dilationDim + 1 - padTopDim;
-
-        // poolDimMap
-        SmallVector<AffineExpr, 4> dimExpr;
-        // Upperbound for an affine.for is `min AffineMap`, where `min` is
-        // automatically inserted when an affine.for is constructed from
-        // an AffineMap, thus we rewrite `endH - startH` as follows:
-        //   endH - start H
-        //     = min(end1, end2) - max(start1, start2)
-        //     = min(end1 - start1, end1 - start2, end2 - start1, end2 - start2)
-        AffineExpr dimExpr1 = end1 - start1;
-        AffineExpr dimExpr2 = end1 - start2;
-        AffineExpr dimExpr3 = end2 - start1;
-        AffineExpr dimExpr4 = end2 - start2;
-        for (AffineExpr de : {dimExpr1, dimExpr2, dimExpr3, dimExpr4}) {
-          if (isDilated) {
-            de = de + 1;
-            de =
-                (ceilMode) ? de.ceilDiv(dilationDim) : de.floorDiv(dilationDim);
-          }
-          dimExpr.emplace_back(de);
-        }
-        poolDimMap = AffineMap::get(1, 5, dimExpr, rewriter.getContext());
-
-        // poolStartMap and poolEndMap
-        poolStartMap =
-            AffineMap::get(1, 5, {start1, start2}, rewriter.getContext());
-        poolEndMap = AffineMap::get(1, 5, {end1, end2}, rewriter.getContext());
+      // Compute the start and end position of the conv window.
+      //   firstValidH = ceil(float(ptH / dH)) * dH - ptH
+      //   startH = max(firstValidH, ho * sH - ptH)
+      //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
+      SmallVector<IndexExpr, 4> windowStartExprs, windowEndExprs;
+      for (int i = 0; i < kernelShape.size(); ++i) {
+        std::vector<mlir::IndexExpr> exprs = getIndexExprsForConvWindow(
+            ieContext, IVExprs[i], ceilMode, isDilated);
+        windowStartExprs.emplace_back(exprs[0]);
+        windowEndExprs.emplace_back(exprs[1]);
       }
 
-      // Obtain values from the affine maps.
-      SmallVector<Value, 4> poolStartValues;
-      SmallVector<Value, 4> poolDimValues;
-      { // Construct poolStartValues and poolDimValues.
-        for (int i = 0; i < kernelShape.size(); ++i) {
-          Value startIndex = rewriter.create<AffineMaxOp>(
-              loc, poolStartMap, IVsAndConstants[i]);
-          poolStartValues.emplace_back(startIndex);
-
-          Value endIndex =
-              rewriter.create<AffineMinOp>(loc, poolEndMap, IVsAndConstants[i]);
-
-          Value dim = rewriter.create<SubIOp>(loc, endIndex, startIndex);
-          if (isDilated) {
-            Value one =
-                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
-            Value numerator = rewriter.create<AddIOp>(loc, dim, one);
-            Value denominator = IVsAndConstants[i][5]; // dilations[i]
-            dim = rewriter.create<SignedDivIOp>(loc, numerator, denominator);
-            if (ceilMode) {
-              auto remainder =
-                  rewriter.create<SignedRemIOp>(loc, numerator, denominator);
-              Value zero =
-                  emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
-              auto isZero = rewriter.create<CmpIOp>(
-                  loc, CmpIPredicate::eq, remainder, zero);
-              auto dimPlusOne = rewriter.create<AddIOp>(loc, dim, one);
-              dim = rewriter.create<SelectOp>(loc, isZero, dim, dimPlusOne);
-            }
+      // Compute the size of the full conv window.
+      //   hDim = round(float(endH - startH) / float(dH))
+      //   wDim = round(float(endW - startW) / float(dW))
+      SmallVector<Value, 4> fullWindowSize;
+      for (int i = 0; i < kernelShape.size(); ++i) {
+        Value dim = rewriter.create<SubIOp>(
+            loc, windowEndExprs[i].getValue(), windowStartExprs[i].getValue());
+        if (isDilated) {
+          Value one = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 1);
+          Value numerator = rewriter.create<AddIOp>(loc, dim, one);
+          Value denominator = IVExprs[i][5].getValue(); // dilations[i]
+          dim = rewriter.create<SignedDivIOp>(loc, numerator, denominator);
+          if (ceilMode) {
+            auto remainder =
+                rewriter.create<SignedRemIOp>(loc, numerator, denominator);
+            Value zero =
+                emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
+            auto isZero = rewriter.create<CmpIOp>(
+                loc, CmpIPredicate::eq, remainder, zero);
+            auto dimPlusOne = rewriter.create<AddIOp>(loc, dim, one);
+            dim = rewriter.create<SelectOp>(loc, isZero, dim, dimPlusOne);
           }
-          poolDimValues.emplace_back(dim);
         }
+        fullWindowSize.emplace_back(dim);
       }
 
       // 2.3 Define pooling loops.
@@ -476,9 +428,17 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
       BuildKrnlLoop poolingLoops(rewriter, loc, kernelShape.size());
       poolingLoops.createDefineOp();
-      for (int i = 0; i < kernelShape.size(); ++i)
-        poolingLoops.pushBounds(
-            0, poolDimMap, llvm::makeArrayRef(IVsAndConstants[i]));
+      // Push bounds.
+      AffineMap windowSizeMap =
+          getWindowAffineMap(rewriter, ceilMode, isDilated);
+      for (int i = 0; i < kernelShape.size(); ++i) {
+        // Affine map's operands.
+        SmallVector<Value, 4> operands;
+        for (IndexExpr expr : IVExprs[i])
+          operands.emplace_back(expr.getValue());
+        poolingLoops.pushBounds(0, windowSizeMap, operands);
+      }
+      // Create a krnl iterate.
       poolingLoops.createIterateOp();
 
       auto ipOuterLoops = rewriter.saveInsertionPoint();
@@ -486,22 +446,22 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       {
         // 2.4 Emit the body of the pooling loop nest.
         // Prepare indices to access a pixel in the input.
-        std::vector<Value> inputIndices;
+        SmallVector<IndexExpr, 4> inputIndices;
         { // Construct inputIndices
           for (int i = 0; i < kernelOffset; ++i)
             inputIndices.emplace_back(outputIndices[i]);
           for (int i = kernelOffset; i < inputShape.size(); ++i) {
             int j = i - kernelOffset;
+            IndexExpr hp = ieContext.createLoopInductionIndex(
+                poolingLoops.getInductionVar(j));
+            IndexExpr startH = windowStartExprs[j];
             if (isDilated) {
               // hi = hp * dH + startH
-              Value index = rewriter.create<MulIOp>(
-                  loc, poolingLoops.getInductionVar(j), IVsAndConstants[j][5]);
-              index = rewriter.create<AddIOp>(loc, index, poolStartValues[j]);
-              inputIndices.emplace_back(index);
+              IndexExpr dH = IVExprs[j][5];
+              inputIndices.emplace_back(hp * dH + startH);
             } else {
               // hi = hp + startH
-              inputIndices.emplace_back(rewriter.create<AddIOp>(
-                  loc, poolingLoops.getInductionVar(j), poolStartValues[j]));
+              inputIndices.emplace_back(hp + startH);
             }
           }
         }
@@ -509,19 +469,20 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         // Apply pooling operation.
         //      output[n][c][ho][wo] =
         //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-        Value loadInput =
-            rewriter.create<LoadOp>(loc, inputOperand, inputIndices);
-        Value loadPartialOutput =
-            rewriter.create<AffineLoadOp>(loc, alloc, outputIndices);
+        Value loadInput = ieContext.createLoadOp(inputOperand, inputIndices);
+        Value loadPartialOutput = ieContext.createLoadOp(alloc, outputIndices);
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
             outputElementType, {loadPartialOutput, loadInput});
-        rewriter.create<AffineStoreOp>(loc, output, alloc, outputIndices);
+        ieContext.createStoreOp(output, alloc, outputIndices);
       }
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.
       rewriter.restoreInsertionPoint(ipOuterLoops);
+      SmallVector<Value, 4> outputIndicesInValue;
+      for (IndexExpr expr : outputIndices)
+        outputIndicesInValue.emplace_back(expr.getValue());
       postProcessPoolingWindow<PoolOp>(rewriter, loc, poolOp, alloc,
-          outputIndices, kernelShape, poolDimValues);
+          outputIndicesInValue, kernelShape, fullWindowSize);
     }
 
     // Go back to the main region.
