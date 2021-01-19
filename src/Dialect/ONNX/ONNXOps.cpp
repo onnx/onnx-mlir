@@ -3116,7 +3116,12 @@ LogicalResult ONNXIsNaNOp::inferShapes(
 
 LogicalResult ONNXLRNOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!X().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  Y().setType(X().getType());
+
+  return success();
 }
 
 LogicalResult ONNXLogSoftmaxOp::inferShapes(
