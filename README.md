@@ -63,7 +63,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout c6a384df1f8ab85815160297543ab329e02560ef && cd ..
+cd llvm-project && git checkout 496fb70b141ccbfaba9761294f3b4b97717096a3 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -106,6 +106,8 @@ export LIT_OPTS=-v
 cmake --build . --target check-onnx-lit
 ```
 
+If you are running on OSX Big Sur, you need to add `-DCMAKE_CXX_COMPILER=/usr/bin/c++`
+to the `cmake ..` command due to changes in the compilers.
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory. 
 
 ## Installation on Windows
@@ -153,7 +155,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout c6a384df1f8ab85815160297543ab329e02560ef && cd ..
+cd llvm-project && git checkout 496fb70b141ccbfaba9761294f3b4b97717096a3 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)

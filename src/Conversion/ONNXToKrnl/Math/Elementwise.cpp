@@ -16,7 +16,7 @@ using namespace mlir;
 template <>
 struct ScalarOp<ONNXTanhOp> {
   using FOp = TanhOp;
-  using IOp = TanhOp; // not use
+  using IOp = TanhOp; // Not used.
 };
 
 template <>
@@ -45,26 +45,26 @@ struct ScalarOp<ONNXSubOp> {
 
 template <>
 struct ScalarOp<ONNXAndOp> {
-  using FOp = AndOp; // not use
+  using FOp = AndOp; // Not used.
   using IOp = AndOp;
 };
 
 template <>
 struct ScalarOp<ONNXOrOp> {
-  using FOp = OrOp; // not use
+  using FOp = OrOp; // Not used.
   using IOp = OrOp;
 };
 
 template <>
 struct ScalarOp<ONNXXorOp> {
-  using FOp = XOrOp; // not use
+  using FOp = XOrOp; // Not used.
   using IOp = XOrOp;
 };
 
 template <>
 struct ScalarOp<ONNXExpOp> {
   using FOp = ExpOp;
-  using IOp = ExpOp; // not use
+  using IOp = ExpOp; // Not used.
 };
 
 template <>
@@ -76,19 +76,49 @@ struct ScalarOp<ONNXSumOp> {
 template <>
 struct ScalarOp<ONNXCosOp> {
   using FOp = CosOp;
-  using IOp = CosOp; // not use
+  using IOp = CosOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXLogOp> {
   using FOp = LogOp;
-  using IOp = LogOp; // not use
+  using IOp = LogOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXSqrtOp> {
   using FOp = SqrtOp;
-  using IOp = SqrtOp; // not use
+  using IOp = SqrtOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAtanOp> {
+  using FOp = AtanOp;
+  using IOp = AtanOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXCeilOp> {
+  using FOp = CeilFOp;
+  using IOp = CeilFOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXFloorOp> {
+  using FOp = FloorFOp;
+  using IOp = FloorFOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXSinOp> {
+  using FOp = SinOp;
+  using IOp = SinOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXPowOp> {
+  using FOp = PowFOp;
+  using IOp = PowFOp; // Not used.
 };
 
 //===----------------------------------------------------------------------===//
@@ -616,7 +646,9 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
-    assert(succeeded(shapeHelper.Compute(operands)));
+    auto shapecomputed = shapeHelper.Compute(operands);
+    (void)shapecomputed;
+    assert(succeeded(shapecomputed));
     IndexExprContext outerContext(shapeHelper.context);
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -680,7 +712,9 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
-    assert(succeeded(shapeHelper.Compute(operands)));
+    auto shapecomputed = shapeHelper.Compute(operands);
+    (void)shapecomputed;
+    assert(succeeded(shapecomputed));
     IndexExprContext outerContext(shapeHelper.context);
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -736,12 +770,15 @@ void populateLoweringONNXElementwiseOpPattern(
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOp>,
@@ -751,11 +788,13 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXNegOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXOrOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXPowOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSinOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSinhOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftplusOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftsignOp>,
