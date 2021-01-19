@@ -239,6 +239,7 @@ test_to_enable_static_dynamic = {
     "test_dropout_default_cpu": (test_static_dynamic,),
     "test_dropout_default_ratio_cpu": (test_static_dynamic,),
     # Other dopout test case failed: implementation is missing
+    # mask is not supported for inference
     #"test_dropout_default_mask_cpu": (test_static_dynamic,),
     #"test_dropout_default_mask_ratio_cpu": (test_static_dynamic,),
 

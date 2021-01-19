@@ -571,7 +571,7 @@ private:
   void ImportNodeDropout(const onnx::NodeProto &node) {
     int nOps = node.input().size();
     int nIn = mlir::ONNXDropoutOp::getNumberOfOperands();
-    if (nOps == nIn) { 
+    if (nOps == nIn) {
       // All inputs are specified
       buildOperation<mlir::ONNXDropoutOp>(node);
       return;
