@@ -1487,12 +1487,12 @@ func @test_reduce_mean_3(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
 /// Test shape inference for Dropout.
 //===----------------------------------------------------------------------===//
 
-func @test_dropout(%arg0: tensor<1x2x3x4xf32>) -> (tensor<*xf32>, tensor<*xi1>) {
-  %output, %mask = "onnx.Dropout"(%arg0) {ratio =  1.000000e-01 : f32} : (tensor<1x2x3x4xf32>) -> (tensor<*xf32>, tensor<*xi1>)
+func @test_dropout(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<1xf32>, %arg2: tensor<1xi1>) -> (tensor<*xf32>, tensor<*xi1>) {
+  %output, %mask = "onnx.Dropout"(%arg0, %arg1, %arg2) {ratio =  1.000000e-01 : f32} : (tensor<1x2x3x4xf32>, tensor<1xf32>, tensor<1xi1>) -> (tensor<*xf32>, tensor<*xi1>)
   "std.return"(%output, %mask) : (tensor<*xf32>, tensor<*xi1>) -> ()
 
   // CHECK-LABEL: test_dropout
-  // CHECK: [[RES:%.+]], [[MASK:%.+]] = "onnx.Dropout"(%arg0) {ratio =  1.000000e-01 : f32} : (tensor<1x2x3x4xf32>) -> (tensor<1x2x3x4xf32>, tensor<1x2x3x4xi1>)
+  // CHECK: [[RES:%.+]], [[MASK:%.+]] = "onnx.Dropout"(%arg0, %arg1, %arg2) {ratio =  1.000000e-01 : f32} : (tensor<1x2x3x4xf32>, tensor<1xf32>, tensor<1xi1>) -> (tensor<1x2x3x4xf32>, tensor<1x2x3x4xi1>)
   // CHECK: return [[RES]], [[MASK]] : tensor<1x2x3x4xf32>, tensor<1x2x3x4xi1>
 }
 
@@ -1691,3 +1691,52 @@ func @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) ->
 // CHECK:           return [[RES_]] : tensor<3xf32>
 // CHECK:         }
   }
+
+// -----
+
+// COM: Check PRelu without broadcasting.
+func @test_prelu(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_prelu
+  // CHECK: {{.*}} = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+  // CHECK: return {{.*}} : tensor<3x4x5xf32>
+}
+
+// -----
+
+// COM: Check PRelu with unidirectional broadcasting.
+func @test_prelu_broadcast(%arg0: tensor<3x4x5xf32>, %arg1: tensor<5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_prelu_broadcast
+  // CHECK: {{.*}} = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<5xf32>) -> tensor<3x4x5xf32>
+  // CHECK: return {{.*}} : tensor<3x4x5xf32>
+}
+
+// -----
+
+// COM: Check PRelu with unidirectional broadcasting and unknown dimensions.
+// COM: Because of unidirectional broadcasting, always get constant dimensions from X even thought their values are 1.
+func @test_prelu_broadcast_unknown_dims(%arg0: tensor<3x1x5xf32>, %arg1: tensor<3x?x1xf32>) -> tensor<*xf32> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x1x5xf32>, tensor<3x?x1xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  // CHECK-LABEL: func @test_prelu_broadcast_unknown_dims
+  // CHECK: {{.*}} = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x1x5xf32>, tensor<3x?x1xf32>) -> tensor<3x1x5xf32>
+  // CHECK: return {{.*}} : tensor<3x1x5xf32>
+}
+
+// -----
+
+// COM: Check PRelu with unidirectional broadcasting and unknown dimensions.
+// COM: If X's dimensions are unknown, get dimensions from slope whenever they are non-zero constants.
+func @test_prelu_broadcast_unknown_dims1(%arg0: tensor<?x1x?xf32>, %arg1: tensor<?x5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<?x1x?xf32>, tensor<?x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+  // CHECK-LABEL: func @test_prelu_broadcast_unknown_dims1
+  // CHECK: {{.*}} = "onnx.PRelu"(%arg0, %arg1) : (tensor<?x1x?xf32>, tensor<?x5xf32>) -> tensor<?x1x5xf32>
+  // CHECK: return {{.*}} : tensor<?x1x5xf32>
+}
+

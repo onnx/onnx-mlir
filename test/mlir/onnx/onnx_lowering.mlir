@@ -3250,3 +3250,118 @@ func private @test_pown(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> t
 // CHECK:           return [[RES_]] : memref<3x4x5xf32>
 // CHECK:         }
 }
+
+// -----
+
+// COM: Check float PRelu without broadcasting.
+func @test_prelu_float(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_prelu_float
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x4x5xf32>
+  // CHECK: [[MAIN_LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[MAIN_LOOP]]#0, [[MAIN_LOOP]]#1, [[MAIN_LOOP]]#2) with ([[MAIN_LOOP]]#0 -> %arg2 = 0 to 3, [[MAIN_LOOP]]#1 -> %arg3 = 0 to 4, [[MAIN_LOOP]]#2 -> %arg4 = 0 to 5) {
+  // CHECK:   [[LOAD_X:%.+]] = affine.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK:   [[LOAD_SLOPE:%.+]] = affine.load %arg1[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK:   [[CST_0:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:   [[LESS_THAN_ZERO:%.+]] = cmpf "olt", [[LOAD_X]], [[CST_0]] : f32
+  // CHECK:   [[MUL:%.+]] = mulf [[LOAD_SLOPE]], [[LOAD_X]] : f32
+  // CHECK:   [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : f32
+  // CHECK:   affine.store [[SELECT]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x4x5xf32>
+}
+
+// -----
+
+// COM: Check int PRelu without broadcasting.
+func @test_prelu_int(%arg0: tensor<3x4x5xi32>, %arg1: tensor<3x4x5xi32>) -> tensor<*xi32> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xi32>, tensor<3x4x5xi32>) -> tensor<*xi32>
+  return %0 : tensor<*xi32>
+
+  // CHECK-LABEL: func @test_prelu_int
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x4x5xi32>
+  // CHECK: [[MAIN_LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[MAIN_LOOP]]#0, [[MAIN_LOOP]]#1, [[MAIN_LOOP]]#2) with ([[MAIN_LOOP]]#0 -> %arg2 = 0 to 3, [[MAIN_LOOP]]#1 -> %arg3 = 0 to 4, [[MAIN_LOOP]]#2 -> %arg4 = 0 to 5) {
+  // CHECK:   [[LOAD_X:%.+]] = affine.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xi32>
+  // CHECK:   [[LOAD_SLOPE:%.+]] = affine.load %arg1[%arg2, %arg3, %arg4] : memref<3x4x5xi32>
+  // CHECK:   [[CST_0:%.+]] = constant 0 : i32
+  // CHECK:   [[LESS_THAN_ZERO:%.+]] = cmpi "slt", [[LOAD_X]], [[CST_0]] : i32
+  // CHECK:   [[MUL:%.+]] = muli [[LOAD_SLOPE]], [[LOAD_X]] : i32
+  // CHECK:   [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : i32
+  // CHECK:   affine.store [[SELECT]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xi32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x4x5xi32>
+}
+
+
+// -----
+
+// COM: Check PRelu with unidirectional broadcasting.
+func @test_prelu_broadcast1(%arg0: tensor<3x4x5xf32>, %arg1: tensor<5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_prelu_broadcast1
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x4x5xf32>
+  // CHECK: [[MAIN_LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[MAIN_LOOP]]#0, [[MAIN_LOOP]]#1, [[MAIN_LOOP]]#2) with ([[MAIN_LOOP]]#0 -> %arg2 = 0 to 3, [[MAIN_LOOP]]#1 -> %arg3 = 0 to 4, [[MAIN_LOOP]]#2 -> %arg4 = 0 to 5) {
+  // CHECK:       [[LOAD_X:%.+]] = affine.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK:       [[LOAD_SLOPE:%.+]] = affine.load %arg1[%arg4] : memref<5xf32>
+  // CHECK-DAG:   [[CST_0:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:       [[LESS_THAN_ZERO:%.+]] = cmpf "olt", [[LOAD_X]], [[CST_0]] : f32
+  // CHECK:       [[MUL:%.+]] = mulf [[LOAD_SLOPE]], [[LOAD_X]] : f32
+  // CHECK:       [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : f32
+  // CHECK:       affine.store [[SELECT]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x4x5xf32>
+}
+
+// -----
+
+// COM: Check PRelu with unidirectional broadcasting.
+// COM: Tensor slope should be unidirectional broadcastable to input tensor X
+func @test_prelu_broadcast2(%arg0: tensor<3x4x5xf32>, %arg1: tensor<1x5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<1x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_prelu_broadcast2
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x4x5xf32>
+  // CHECK: [[MAIN_LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[MAIN_LOOP]]#0, [[MAIN_LOOP]]#1, [[MAIN_LOOP]]#2) with ([[MAIN_LOOP]]#0 -> %arg2 = 0 to 3, [[MAIN_LOOP]]#1 -> %arg3 = 0 to 4, [[MAIN_LOOP]]#2 -> %arg4 = 0 to 5) {
+  // CHECK:       [[LOAD_X:%.+]] = affine.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK-DAG:   [[ZERO_INDEX:%.+]] = constant 0 : index
+  // CHECK:       [[LOAD_SLOPE:%.+]] = affine.load %arg1{{\[}}[[ZERO_INDEX]], %arg4] : memref<1x5xf32>
+  // CHECK-DAG:   [[CST_0:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:       [[LESS_THAN_ZERO:%.+]] = cmpf "olt", [[LOAD_X]], [[CST_0]] : f32
+  // CHECK:       [[MUL:%.+]] = mulf [[LOAD_SLOPE]], [[LOAD_X]] : f32
+  // CHECK:       [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : f32
+  // CHECK:       affine.store [[SELECT]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x4x5xf32>
+}
+
+// -----
+// COM: Check PRelu with unidirectional broadcasting.
+// COM: Tensor slope should be unidirectional broadcastable to input tensor X
+func @test_prelu_broadcast3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x1x5xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+  // CHECK-LABEL: func @test_prelu_broadcast3
+  // CHECK: [[RES:%.+]] = alloc() : memref<3x4x5xf32>
+  // CHECK: [[MAIN_LOOP:%.+]]:3 = krnl.define_loops 3
+  // CHECK: krnl.iterate([[MAIN_LOOP]]#0, [[MAIN_LOOP]]#1, [[MAIN_LOOP]]#2) with ([[MAIN_LOOP]]#0 -> %arg2 = 0 to 3, [[MAIN_LOOP]]#1 -> %arg3 = 0 to 4, [[MAIN_LOOP]]#2 -> %arg4 = 0 to 5) {
+  // CHECK:       [[LOAD_X:%.+]] = affine.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK-DAG:   [[ZERO_INDEX:%.+]] = constant 0 : index
+  // CHECK:       [[LOAD_SLOPE:%.+]] = affine.load %arg1[%arg2, [[ZERO_INDEX]], %arg4] : memref<3x1x5xf32>
+  // CHECK-DAG:   [[CST_0:%.+]] = constant 0.000000e+00 : f32
+  // CHECK:       [[LESS_THAN_ZERO:%.+]] = cmpf "olt", [[LOAD_X]], [[CST_0]] : f32
+  // CHECK:       [[MUL:%.+]] = mulf [[LOAD_SLOPE]], [[LOAD_X]] : f32
+  // CHECK:       [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : f32
+  // CHECK:       affine.store [[SELECT]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xf32>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<3x4x5xf32>
+}
+

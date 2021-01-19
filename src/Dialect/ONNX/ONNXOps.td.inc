@@ -1044,20 +1044,28 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
   let hasCanonicalizer = 1;
   let summary = "ONNX Dropout operation";
   let description = [{
-  "Dropout takes one input floating tensor and produces two tensor outputs,"
-  "output (floating tensor) and mask (`Tensor<bool>`). Depending on whether it is"
-  "in test mode or not, the output Y will either be a random dropout, or a simple"
-  "copy of the input. Note that our implementation of Dropout does scaling in"
-  "the training phase, so during testing nothing needs to be done."
+  "Dropout takes an input floating-point tensor, an optional input ratio (floating-point scalar) and an optional input training_mode (boolean scalar). It produces two tensor outputs,"
+  "output (floating-point tensor) and mask (optional `Tensor<bool>`). If `training_mode` is true then the output Y will be a random dropout;"
+  "Note that this Dropout scales the masked input data by the following equation, so to convert the trained model into inference mode,"
+  "the user can simply not pass `training_mode` input or set it to false."
+  "```"
+  "output = scale * data * mask,"
+  "```"
+  "where"
+  "```"
+  "scale = 1. / (1. - ratio)."
+  "```"
   "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$data,
-    DefaultValuedAttr<F32Attr, "0.5">:$ratio);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$output,
-    AnyTypeOf<[TensorOf<[I1]>, AnyMemRef, NoneType]>:$mask);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$data,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, NoneType]>:$ratio,
+    AnyTypeOf<[TensorOf<[I1]>, AnyMemRef, NoneType]>:$training_mode,
+    OptionalAttr<SI64Attr>:$seed);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$output,
+    AnyTypeOf<[TensorOf<[I1]>, AnyMemRef, NoneType, NoneType]>:$mask);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
-      return 1;
+      return 3;
     }
     static int getNumberOfResults() {
       return 2;
