@@ -238,11 +238,12 @@ special_attr_types = dict([("Cast.to", 'type')])
 
 # Special operation importing handlers.
 special_op_handler = dict([
-    ("MaxPool", "ImportNodeMaxPool"),
     ("BatchNormalization", "ImportNodeBatchNormalization"),
+    ("Dropout", "ImportNodeDropout"),
+    ("Cast", "ImportNodeCast"),
+    ("MaxPool", "ImportNodeMaxPool"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
-    ("Cast", "ImportNodeCast")
     #("Transpose", "ImportNodeTranspose")
 ])
 
