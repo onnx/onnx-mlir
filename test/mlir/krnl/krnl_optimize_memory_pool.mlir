@@ -17,63 +17,63 @@ func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) 
   %6 = "krnl.getref"(%1, %c0_i64) : (memref<2000xi8>, i64) -> memref<10x10xf32>
   %7:2 = krnl.define_loops 2
   krnl.iterate(%7#0, %7#1) with (%7#0 -> %arg2 = 0 to 10, %7#1 -> %arg3 = 0 to 10) {
-    affine.store %cst, %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %cst, %6[%arg2, %arg3] : memref<10x10xf32>
     %13 = krnl.define_loops 1
     krnl.iterate(%13) with (%13 -> %arg4 = 0 to 10) {
-      %14 = affine.load %arg0[symbol(%arg2), symbol(%arg4)] : memref<10x10xf32>
-      %15 = affine.load %arg1[symbol(%arg4), symbol(%arg3)] : memref<10x10xf32>
-      %16 = affine.load %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      %14 = krnl.load %arg0[%arg2, %arg4] : memref<10x10xf32>
+      %15 = krnl.load %arg1[%arg4, %arg3] : memref<10x10xf32>
+      %16 = krnl.load %6[%arg2, %arg3] : memref<10x10xf32>
       %17 = mulf %14, %15 : f32
       %18 = addf %16, %17 : f32
-      affine.store %18, %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      krnl.store %18, %6[%arg2, %arg3] : memref<10x10xf32>
     }
   }
   %8:2 = krnl.define_loops 2
   krnl.iterate(%8#0, %8#1) with (%8#0 -> %arg2 = 0 to 10, %8#1 -> %arg3 = 0 to 10) {
-    %13 = affine.load %arg0[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
-    %14 = affine.load %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %13 = krnl.load %arg0[%arg2, %arg3] : memref<10x10xf32>
+    %14 = krnl.load %6[%arg2, %arg3] : memref<10x10xf32>
     %15 = addf %13, %14 : f32
-    affine.store %15, %5[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %15, %5[%arg2, %arg3] : memref<10x10xf32>
   }
   %9:2 = krnl.define_loops 2
   krnl.iterate(%9#0, %9#1) with (%9#0 -> %arg2 = 0 to 10, %9#1 -> %arg3 = 0 to 10) {
-    affine.store %cst, %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %cst, %4[%arg2, %arg3] : memref<10x10xf32>
     %13 = krnl.define_loops 1
     krnl.iterate(%13) with (%13 -> %arg4 = 0 to 10) {
-      %14 = affine.load %arg0[symbol(%arg2), symbol(%arg4)] : memref<10x10xf32>
-      %15 = affine.load %5[symbol(%arg4), symbol(%arg3)] : memref<10x10xf32>
-      %16 = affine.load %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      %14 = krnl.load %arg0[%arg2, %arg4] : memref<10x10xf32>
+      %15 = krnl.load %5[%arg4, %arg3] : memref<10x10xf32>
+      %16 = krnl.load %4[%arg2, %arg3] : memref<10x10xf32>
       %17 = mulf %14, %15 : f32
       %18 = addf %16, %17 : f32
-      affine.store %18, %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      krnl.store %18, %4[%arg2, %arg3] : memref<10x10xf32>
     }
   }
   %10:2 = krnl.define_loops 2
   krnl.iterate(%10#0, %10#1) with (%10#0 -> %arg2 = 0 to 10, %10#1 -> %arg3 = 0 to 10) {
-    %13 = affine.load %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
-    %14 = affine.load %arg1[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %13 = krnl.load %4[%arg2, %arg3] : memref<10x10xf32>
+    %14 = krnl.load %arg1[%arg2, %arg3] : memref<10x10xf32>
     %15 = addf %13, %14 : f32
-    affine.store %15, %3[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %15, %3[%arg2, %arg3] : memref<10x10xf32>
   }
   %11:2 = krnl.define_loops 2
   krnl.iterate(%11#0, %11#1) with (%11#0 -> %arg2 = 0 to 10, %11#1 -> %arg3 = 0 to 10) {
-    affine.store %cst, %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %cst, %2[%arg2, %arg3] : memref<10x10xf32>
     %13 = krnl.define_loops 1
     krnl.iterate(%13) with (%13 -> %arg4 = 0 to 10) {
-      %14 = affine.load %arg0[symbol(%arg2), symbol(%arg4)] : memref<10x10xf32>
-      %15 = affine.load %3[symbol(%arg4), symbol(%arg3)] : memref<10x10xf32>
-      %16 = affine.load %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      %14 = krnl.load %arg0[%arg2, %arg4] : memref<10x10xf32>
+      %15 = krnl.load %3[%arg4, %arg3] : memref<10x10xf32>
+      %16 = krnl.load %2[%arg2, %arg3] : memref<10x10xf32>
       %17 = mulf %14, %15 : f32
       %18 = addf %16, %17 : f32
-      affine.store %18, %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      krnl.store %18, %2[%arg2, %arg3] : memref<10x10xf32>
     }
   }
   %12:2 = krnl.define_loops 2
   krnl.iterate(%12#0, %12#1) with (%12#0 -> %arg2 = 0 to 10, %12#1 -> %arg3 = 0 to 10) {
-    %13 = affine.load %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
-    %14 = affine.load %arg1[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %13 = krnl.load %2[%arg2, %arg3] : memref<10x10xf32>
+    %14 = krnl.load %arg1[%arg2, %arg3] : memref<10x10xf32>
     %15 = addf %13, %14 : f32
-    affine.store %15, %0[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %15, %0[%arg2, %arg3] : memref<10x10xf32>
   }
   dealloc %1 : memref<2000xi8>
   return %0 : memref<10x10xf32>
@@ -112,73 +112,73 @@ func @multiple_shaped_memrefs(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %
     %8 = "krnl.getref"(%1, %c0_i64) : (memref<1400xi8>, i64) -> memref<10x5xf32>
     %9:2 = krnl.define_loops 2
     krnl.iterate(%9#0, %9#1) with (%9#0 -> %arg3 = 0 to 10, %9#1 -> %arg4 = 0 to 5) {
-      affine.store %cst, %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %cst, %8[%arg3, %arg4] : memref<10x5xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 5) {
-        %18 = affine.load %arg0[symbol(%arg3), symbol(%arg5)] : memref<10x5xf32>
-        %19 = affine.load %arg1[symbol(%arg5), symbol(%arg4)] : memref<5x5xf32>
-        %20 = affine.load %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        %18 = krnl.load %arg0[%arg3, %arg5] : memref<10x5xf32>
+        %19 = krnl.load %arg1[%arg5, %arg4] : memref<5x5xf32>
+        %20 = krnl.load %8[%arg3, %arg4] : memref<10x5xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
-        affine.store %22, %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        krnl.store %22, %8[%arg3, %arg4] : memref<10x5xf32>
       }
     }
     %10:2 = krnl.define_loops 2
     krnl.iterate(%10#0, %10#1) with (%10#0 -> %arg3 = 0 to 10, %10#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %arg0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      %18 = affine.load %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %arg0[%arg3, %arg4] : memref<10x5xf32>
+      %18 = krnl.load %8[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %7[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %7[%arg3, %arg4] : memref<10x5xf32>
     }
     %11:2 = krnl.define_loops 2
     krnl.iterate(%11#0, %11#1) with (%11#0 -> %arg3 = 0 to 10, %11#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %7[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      affine.store %17, %6[symbol(%arg4), symbol(%arg3)] : memref<5x10xf32>
+      %17 = krnl.load %7[%arg3, %arg4] : memref<10x5xf32>
+      krnl.store %17, %6[%arg4, %arg3] : memref<5x10xf32>
     }
     %12:2 = krnl.define_loops 2
     krnl.iterate(%12#0, %12#1) with (%12#0 -> %arg3 = 0 to 5, %12#1 -> %arg4 = 0 to 10) {
-      affine.store %cst, %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+      krnl.store %cst, %5[%arg3, %arg4] : memref<5x10xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 10) {
-        %18 = affine.load %6[symbol(%arg3), symbol(%arg5)] : memref<5x10xf32>
-        %19 = affine.load %arg2[symbol(%arg5), symbol(%arg4)] : memref<10x10xf32>
-        %20 = affine.load %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+        %18 = krnl.load %6[%arg3, %arg5] : memref<5x10xf32>
+        %19 = krnl.load %arg2[%arg5, %arg4] : memref<10x10xf32>
+        %20 = krnl.load %5[%arg3, %arg4] : memref<5x10xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
-        affine.store %22, %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+        krnl.store %22, %5[%arg3, %arg4] : memref<5x10xf32>
       }
     }
     %13:2 = krnl.define_loops 2
     krnl.iterate(%13#0, %13#1) with (%13#0 -> %arg3 = 0 to 5, %13#1 -> %arg4 = 0 to 10) {
-      %17 = affine.load %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
-      affine.store %17, %4[symbol(%arg4), symbol(%arg3)] : memref<10x5xf32>
+      %17 = krnl.load %5[%arg3, %arg4] : memref<5x10xf32>
+      krnl.store %17, %4[%arg4, %arg3] : memref<10x5xf32>
     }
     %14:2 = krnl.define_loops 2
     krnl.iterate(%14#0, %14#1) with (%14#0 -> %arg3 = 0 to 10, %14#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %4[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      %18 = affine.load %arg0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %4[%arg3, %arg4] : memref<10x5xf32>
+      %18 = krnl.load %arg0[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %3[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %3[%arg3, %arg4] : memref<10x5xf32>
     }
     %15:2 = krnl.define_loops 2
     krnl.iterate(%15#0, %15#1) with (%15#0 -> %arg3 = 0 to 10, %15#1 -> %arg4 = 0 to 5) {
-      affine.store %cst, %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %cst, %2[%arg3, %arg4] : memref<10x5xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 5) {
-        %18 = affine.load %3[symbol(%arg3), symbol(%arg5)] : memref<10x5xf32>
-        %19 = affine.load %arg1[symbol(%arg5), symbol(%arg4)] : memref<5x5xf32>
-        %20 = affine.load %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        %18 = krnl.load %3[%arg3, %arg5] : memref<10x5xf32>
+        %19 = krnl.load %arg1[%arg5, %arg4] : memref<5x5xf32>
+        %20 = krnl.load %2[%arg3, %arg4] : memref<10x5xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
-        affine.store %22, %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        krnl.store %22, %2[%arg3, %arg4] : memref<10x5xf32>
       }
     }
     %16:2 = krnl.define_loops 2
     krnl.iterate(%16#0, %16#1) with (%16#0 -> %arg3 = 0 to 10, %16#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      %18 = affine.load %arg0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %2[%arg3, %arg4] : memref<10x5xf32>
+      %18 = krnl.load %arg0[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %0[%arg3, %arg4] : memref<10x5xf32>
     }
     dealloc %1 : memref<1400xi8>
     return %0 : memref<10x5xf32>
@@ -219,65 +219,65 @@ func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg
     %8 = "krnl.getref"(%1, %c0_i64) : (memref<1400xi8>, i64) -> memref<10x5xf32>
     %9:2 = krnl.define_loops 2
     krnl.iterate(%9#0, %9#1) with (%9#0 -> %arg3 = 0 to 10, %9#1 -> %arg4 = 0 to 5) {
-      affine.store %cst, %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %cst, %8[%arg3, %arg4] : memref<10x5xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 5) {
-        %18 = affine.load %arg0[symbol(%arg3), symbol(%arg5)] : memref<10x5xf32>
-        %19 = affine.load %arg1[symbol(%arg5), symbol(%arg4)] : memref<5x5xf32>
-        %20 = affine.load %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        %18 = krnl.load %arg0[%arg3, %arg5] : memref<10x5xf32>
+        %19 = krnl.load %arg1[%arg5, %arg4] : memref<5x5xf32>
+        %20 = krnl.load %8[%arg3, %arg4] : memref<10x5xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
-        affine.store %22, %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        krnl.store %22, %8[%arg3, %arg4] : memref<10x5xf32>
       }
     }
     %10:2 = krnl.define_loops 2
     krnl.iterate(%10#0, %10#1) with (%10#0 -> %arg3 = 0 to 10, %10#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %arg0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      %18 = affine.load %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %arg0[%arg3, %arg4] : memref<10x5xf32>
+      %18 = krnl.load %8[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %7[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %7[%arg3, %arg4] : memref<10x5xf32>
     }
     "krnl.memcpy"(%6, %7, %c200_i64) : (memref<5x10xf32>, memref<10x5xf32>, i64) -> ()
     %12:2 = krnl.define_loops 2
     krnl.iterate(%12#0, %12#1) with (%12#0 -> %arg3 = 0 to 5, %12#1 -> %arg4 = 0 to 10) {
-      affine.store %cst, %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+      krnl.store %cst, %5[%arg3, %arg4] : memref<5x10xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 10) {
-        %18 = affine.load %6[symbol(%arg3), symbol(%arg5)] : memref<5x10xf32>
-        %19 = affine.load %arg2[symbol(%arg5), symbol(%arg4)] : memref<10x10xf32>
-        %20 = affine.load %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+        %18 = krnl.load %6[%arg3, %arg5] : memref<5x10xf32>
+        %19 = krnl.load %arg2[%arg5, %arg4] : memref<10x10xf32>
+        %20 = krnl.load %5[%arg3, %arg4] : memref<5x10xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
-        affine.store %22, %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+        krnl.store %22, %5[%arg3, %arg4] : memref<5x10xf32>
       }
     }
     "krnl.memcpy"(%4, %5, %c200_i64) : (memref<10x5xf32>, memref<5x10xf32>, i64) -> ()
     %14:2 = krnl.define_loops 2
     krnl.iterate(%14#0, %14#1) with (%14#0 -> %arg3 = 0 to 10, %14#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %4[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      %18 = affine.load %arg0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %4[%arg3, %arg4] : memref<10x5xf32>
+      %18 = krnl.load %arg0[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %3[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %3[%arg3, %arg4] : memref<10x5xf32>
     }
     %15:2 = krnl.define_loops 2
     krnl.iterate(%15#0, %15#1) with (%15#0 -> %arg3 = 0 to 10, %15#1 -> %arg4 = 0 to 5) {
-      affine.store %cst, %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %cst, %2[%arg3, %arg4] : memref<10x5xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 5) {
-        %18 = affine.load %3[symbol(%arg3), symbol(%arg5)] : memref<10x5xf32>
-        %19 = affine.load %arg1[symbol(%arg5), symbol(%arg4)] : memref<5x5xf32>
-        %20 = affine.load %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        %18 = krnl.load %3[%arg3, %arg5] : memref<10x5xf32>
+        %19 = krnl.load %arg1[%arg5, %arg4] : memref<5x5xf32>
+        %20 = krnl.load %2[%arg3, %arg4] : memref<10x5xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
-        affine.store %22, %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        krnl.store %22, %2[%arg3, %arg4] : memref<10x5xf32>
       }
     }
     %16:2 = krnl.define_loops 2
     krnl.iterate(%16#0, %16#1) with (%16#0 -> %arg3 = 0 to 10, %16#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      %18 = affine.load %arg0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %2[%arg3, %arg4] : memref<10x5xf32>
+      %18 = krnl.load %arg0[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %0[%arg3, %arg4] : memref<10x5xf32>
     }
     dealloc %1 : memref<1400xi8>
     return %0 : memref<10x5xf32>
@@ -321,70 +321,70 @@ func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg
     %8 = "krnl.getref"(%1, %c0_i64) : (memref<1400xi8>, i64) -> memref<10x5xf32>
     %9:2 = krnl.define_loops 2
     krnl.iterate(%9#0, %9#1) with (%9#0 -> %arg3 = 0 to 10, %9#1 -> %arg4 = 0 to 5) {
-      affine.store %cst, %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %cst, %8[%arg3, %arg4] : memref<10x5xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 5) {
-        %18 = affine.load %arg0[symbol(%arg3), symbol(%arg5)] : memref<10x5xf32>
-        %19 = affine.load %arg1[symbol(%arg5), symbol(%arg4)] : memref<5x5xf32>
-        %20 = affine.load %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        %18 = krnl.load %arg0[%arg3, %arg5] : memref<10x5xf32>
+        %19 = krnl.load %arg1[%arg5, %arg4] : memref<5x5xf32>
+        %20 = krnl.load %8[%arg3, %arg4] : memref<10x5xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
-        affine.store %22, %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        krnl.store %22, %8[%arg3, %arg4] : memref<10x5xf32>
       }
     }
     %10:2 = krnl.define_loops 2
     krnl.iterate(%10#0, %10#1) with (%10#0 -> %arg3 = 0 to 10, %10#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %arg0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      %18 = affine.load %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %arg0[%arg3, %arg4] : memref<10x5xf32>
+      %18 = krnl.load %8[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %7[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %7[%arg3, %arg4] : memref<10x5xf32>
     }
     "krnl.memcpy"(%6, %7, %c200_i64) : (memref<5x10xf32>, memref<10x5xf32>, i64) -> ()
     %12:2 = krnl.define_loops 2
     krnl.iterate(%12#0, %12#1) with (%12#0 -> %arg3 = 0 to 5, %12#1 -> %arg4 = 0 to 10) {
-      affine.store %cst, %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+      krnl.store %cst, %5[%arg3, %arg4] : memref<5x10xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 10) {
-        %18 = affine.load %6[symbol(%arg3), symbol(%arg5)] : memref<5x10xf32>
-        %19 = affine.load %arg2[symbol(%arg5), symbol(%arg4)] : memref<10x10xf32>
-        %20 = affine.load %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+        %18 = krnl.load %6[%arg3, %arg5] : memref<5x10xf32>
+        %19 = krnl.load %arg2[%arg5, %arg4] : memref<10x10xf32>
+        %20 = krnl.load %5[%arg3, %arg4] : memref<5x10xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
-        affine.store %22, %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+        krnl.store %22, %5[%arg3, %arg4] : memref<5x10xf32>
       }
     }
     "krnl.memcpy"(%4, %5, %c200_i64) : (memref<10x5xf32>, memref<5x10xf32>, i64) -> ()
     %14:2 = krnl.define_loops 2
     krnl.iterate(%14#0, %14#1) with (%14#0 -> %arg3 = 0 to 10, %14#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %4[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %4[%arg3, %arg4] : memref<10x5xf32>
       /// Change this to use %8 instead of an arg argument.
-      %18 = affine.load %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %18 = krnl.load %8[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %3[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %3[%arg3, %arg4] : memref<10x5xf32>
     }
     %15:2 = krnl.define_loops 2
     krnl.iterate(%15#0, %15#1) with (%15#0 -> %arg3 = 0 to 10, %15#1 -> %arg4 = 0 to 5) {
-      affine.store %cst, %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %cst, %2[%arg3, %arg4] : memref<10x5xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 5) {
-        %18 = affine.load %3[symbol(%arg3), symbol(%arg5)] : memref<10x5xf32>
+        %18 = krnl.load %3[%arg3, %arg5] : memref<10x5xf32>
         /// Add new val that uses %8.
-        %newVal = affine.load %8[symbol(%arg3), symbol(%arg5)] : memref<10x5xf32>
+        %newVal = krnl.load %8[%arg3, %arg5] : memref<10x5xf32>
         %newAdd = addf %18, %newVal : f32
-        %19 = affine.load %arg1[symbol(%arg5), symbol(%arg4)] : memref<5x5xf32>
-        %20 = affine.load %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        %19 = krnl.load %arg1[%arg5, %arg4] : memref<5x5xf32>
+        %20 = krnl.load %2[%arg3, %arg4] : memref<10x5xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
         %newStoreVal = addf %22, %newAdd : f32
-        affine.store %newStoreVal, %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        krnl.store %newStoreVal, %2[%arg3, %arg4] : memref<10x5xf32>
       }
     }
     %16:2 = krnl.define_loops 2
     krnl.iterate(%16#0, %16#1) with (%16#0 -> %arg3 = 0 to 10, %16#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      %18 = affine.load %arg0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %2[%arg3, %arg4] : memref<10x5xf32>
+      %18 = krnl.load %arg0[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %0[%arg3, %arg4] : memref<10x5xf32>
     }
     dealloc %1 : memref<1400xi8>
     return %0 : memref<10x5xf32>
@@ -430,71 +430,71 @@ func @multiple_shaped_memrefs(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %
     %8 = "krnl.getref"(%1, %c0_i64) : (memref<1400xi8>, i64) -> memref<10x5xf32>
     %9:2 = krnl.define_loops 2
     krnl.iterate(%9#0, %9#1) with (%9#0 -> %arg3 = 0 to 10, %9#1 -> %arg4 = 0 to 5) {
-      affine.store %cst, %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %cst, %8[%arg3, %arg4] : memref<10x5xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 5) {
-        %18 = affine.load %arg0[symbol(%arg3), symbol(%arg5)] : memref<10x5xf32>
-        %19 = affine.load %arg1[symbol(%arg5), symbol(%arg4)] : memref<5x5xf32>
-        %20 = affine.load %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        %18 = krnl.load %arg0[%arg3, %arg5] : memref<10x5xf32>
+        %19 = krnl.load %arg1[%arg5, %arg4] : memref<5x5xf32>
+        %20 = krnl.load %8[%arg3, %arg4] : memref<10x5xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
-        affine.store %22, %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        krnl.store %22, %8[%arg3, %arg4] : memref<10x5xf32>
       }
     }
     %10:2 = krnl.define_loops 2
     krnl.iterate(%10#0, %10#1) with (%10#0 -> %arg3 = 0 to 10, %10#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %arg0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      %18 = affine.load %8[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %arg0[%arg3, %arg4] : memref<10x5xf32>
+      %18 = krnl.load %8[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %7[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %7[%arg3, %arg4] : memref<10x5xf32>
     }
     %11:2 = krnl.define_loops 2
     krnl.iterate(%11#0, %11#1) with (%11#0 -> %arg3 = 0 to 10, %11#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %7[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      affine.store %17, %6[symbol(%arg4), symbol(%arg3)] : memref<5x10xf32>
+      %17 = krnl.load %7[%arg3, %arg4] : memref<10x5xf32>
+      krnl.store %17, %6[%arg4, %arg3] : memref<5x10xf32>
     }
     %12:2 = krnl.define_loops 2
     krnl.iterate(%12#0, %12#1) with (%12#0 -> %arg3 = 0 to 5, %12#1 -> %arg4 = 0 to 10) {
-      affine.store %cst, %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+      krnl.store %cst, %5[%arg3, %arg4] : memref<5x10xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 10) {
-        %18 = affine.load %6[symbol(%arg3), symbol(%arg5)] : memref<5x10xf32>
-        %19 = affine.load %arg2[symbol(%arg5), symbol(%arg4)] : memref<10x10xf32>
-        %20 = affine.load %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+        %18 = krnl.load %6[%arg3, %arg5] : memref<5x10xf32>
+        %19 = krnl.load %arg2[%arg5, %arg4] : memref<10x10xf32>
+        %20 = krnl.load %5[%arg3, %arg4] : memref<5x10xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
-        affine.store %22, %5[symbol(%arg3), symbol(%arg4)] : memref<5x10xf32>
+        krnl.store %22, %5[%arg3, %arg4] : memref<5x10xf32>
       }
     }
     %14:2 = krnl.define_loops 2
     krnl.iterate(%14#0, %14#1) with (%14#0 -> %arg3 = 0 to 10, %14#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %5[symbol(%arg4), symbol(%arg3)] : memref<5x10xf32>
-      %18 = affine.load %arg0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %5[%arg4, %arg3] : memref<5x10xf32>
+      %18 = krnl.load %arg0[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %3[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %3[%arg3, %arg4] : memref<10x5xf32>
     }
     %15:2 = krnl.define_loops 2
     krnl.iterate(%15#0, %15#1) with (%15#0 -> %arg3 = 0 to 10, %15#1 -> %arg4 = 0 to 5) {
-      affine.store %cst, %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %cst, %2[%arg3, %arg4] : memref<10x5xf32>
       %17 = krnl.define_loops 1
       krnl.iterate(%17) with (%17 -> %arg5 = 0 to 5) {
-        %18 = affine.load %3[symbol(%arg3), symbol(%arg5)] : memref<10x5xf32>
-        %19 = affine.load %arg1[symbol(%arg5), symbol(%arg4)] : memref<5x5xf32>
-        %20 = affine.load %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        %18 = krnl.load %3[%arg3, %arg5] : memref<10x5xf32>
+        %19 = krnl.load %arg1[%arg5, %arg4] : memref<5x5xf32>
+        %20 = krnl.load %2[%arg3, %arg4] : memref<10x5xf32>
         %21 = mulf %18, %19 : f32
         %22 = addf %20, %21 : f32
-        affine.store %22, %2[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+        krnl.store %22, %2[%arg3, %arg4] : memref<10x5xf32>
       }
       /// Newly added code.
-      %newLoad = affine.load %3[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      affine.store %newLoad, %4[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %newLoad = krnl.load %3[%arg3, %arg4] : memref<10x5xf32>
+      krnl.store %newLoad, %4[%arg3, %arg4] : memref<10x5xf32>
     }
     %16:2 = krnl.define_loops 2
     krnl.iterate(%16#0, %16#1) with (%16#0 -> %arg3 = 0 to 10, %16#1 -> %arg4 = 0 to 5) {
-      %17 = affine.load %4[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
-      %18 = affine.load %arg0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      %17 = krnl.load %4[%arg3, %arg4] : memref<10x5xf32>
+      %18 = krnl.load %arg0[%arg3, %arg4] : memref<10x5xf32>
       %19 = addf %17, %18 : f32
-      affine.store %19, %0[symbol(%arg3), symbol(%arg4)] : memref<10x5xf32>
+      krnl.store %19, %0[%arg3, %arg4] : memref<10x5xf32>
     }
     dealloc %1 : memref<1400xi8>
     return %0 : memref<10x5xf32>
@@ -535,65 +535,65 @@ func @unknown_op_reuse(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> me
   %6 = "krnl.getref"(%1, %c0_i64) : (memref<2000xi8>, i64) -> memref<10x10xf32>
   %7:2 = krnl.define_loops 2
   krnl.iterate(%7#0, %7#1) with (%7#0 -> %arg2 = 0 to 10, %7#1 -> %arg3 = 0 to 10) {
-    affine.store %cst, %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %cst, %6[%arg2, %arg3] : memref<10x10xf32>
     %13 = krnl.define_loops 1
     krnl.iterate(%13) with (%13 -> %arg4 = 0 to 10) {
-      %14 = affine.load %arg0[symbol(%arg2), symbol(%arg4)] : memref<10x10xf32>
-      %15 = affine.load %arg1[symbol(%arg4), symbol(%arg3)] : memref<10x10xf32>
-      %16 = affine.load %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      %14 = krnl.load %arg0[%arg2, %arg4] : memref<10x10xf32>
+      %15 = krnl.load %arg1[%arg4, %arg3] : memref<10x10xf32>
+      %16 = krnl.load %6[%arg2, %arg3] : memref<10x10xf32>
       %17 = mulf %14, %15 : f32
       %18 = addf %16, %17 : f32
-      affine.store %18, %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      krnl.store %18, %6[%arg2, %arg3] : memref<10x10xf32>
     }
   }
   %8:2 = krnl.define_loops 2
   krnl.iterate(%8#0, %8#1) with (%8#0 -> %arg2 = 0 to 10, %8#1 -> %arg3 = 0 to 10) {
-    %13 = affine.load %arg0[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
-    %14 = affine.load %6[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %13 = krnl.load %arg0[%arg2, %arg3] : memref<10x10xf32>
+    %14 = krnl.load %6[%arg2, %arg3] : memref<10x10xf32>
     %15 = addf %13, %14 : f32
-    affine.store %15, %5[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %15, %5[%arg2, %arg3] : memref<10x10xf32>
   }
   %9:2 = krnl.define_loops 2
   krnl.iterate(%9#0, %9#1) with (%9#0 -> %arg2 = 0 to 10, %9#1 -> %arg3 = 0 to 10) {
-    affine.store %cst, %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %cst, %4[%arg2, %arg3] : memref<10x10xf32>
     %13 = krnl.define_loops 1
     krnl.iterate(%13) with (%13 -> %arg4 = 0 to 10) {
-      %14 = affine.load %arg0[symbol(%arg2), symbol(%arg4)] : memref<10x10xf32>
-      %15 = affine.load %5[symbol(%arg4), symbol(%arg3)] : memref<10x10xf32>
-      %16 = affine.load %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      %14 = krnl.load %arg0[%arg2, %arg4] : memref<10x10xf32>
+      %15 = krnl.load %5[%arg4, %arg3] : memref<10x10xf32>
+      %16 = krnl.load %4[%arg2, %arg3] : memref<10x10xf32>
       %17 = mulf %14, %15 : f32
       %18 = addf %16, %17 : f32
-      affine.store %18, %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      krnl.store %18, %4[%arg2, %arg3] : memref<10x10xf32>
     }
   }
   /// Newly added operation, unknown dialect and semantics.
   "unknown.newOp"(%4, %6) : (memref<10x10xf32>, memref<10x10xf32>) -> ()
   %10:2 = krnl.define_loops 2
   krnl.iterate(%10#0, %10#1) with (%10#0 -> %arg2 = 0 to 10, %10#1 -> %arg3 = 0 to 10) {
-    %13 = affine.load %4[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
-    %14 = affine.load %arg1[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %13 = krnl.load %4[%arg2, %arg3] : memref<10x10xf32>
+    %14 = krnl.load %arg1[%arg2, %arg3] : memref<10x10xf32>
     %15 = addf %13, %14 : f32
-    affine.store %15, %3[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %15, %3[%arg2, %arg3] : memref<10x10xf32>
   }
   %11:2 = krnl.define_loops 2
   krnl.iterate(%11#0, %11#1) with (%11#0 -> %arg2 = 0 to 10, %11#1 -> %arg3 = 0 to 10) {
-    affine.store %cst, %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %cst, %2[%arg2, %arg3] : memref<10x10xf32>
     %13 = krnl.define_loops 1
     krnl.iterate(%13) with (%13 -> %arg4 = 0 to 10) {
-      %14 = affine.load %arg0[symbol(%arg2), symbol(%arg4)] : memref<10x10xf32>
-      %15 = affine.load %3[symbol(%arg4), symbol(%arg3)] : memref<10x10xf32>
-      %16 = affine.load %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      %14 = krnl.load %arg0[%arg2, %arg4] : memref<10x10xf32>
+      %15 = krnl.load %3[%arg4, %arg3] : memref<10x10xf32>
+      %16 = krnl.load %2[%arg2, %arg3] : memref<10x10xf32>
       %17 = mulf %14, %15 : f32
       %18 = addf %16, %17 : f32
-      affine.store %18, %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+      krnl.store %18, %2[%arg2, %arg3] : memref<10x10xf32>
     }
   }
   %12:2 = krnl.define_loops 2
   krnl.iterate(%12#0, %12#1) with (%12#0 -> %arg2 = 0 to 10, %12#1 -> %arg3 = 0 to 10) {
-    %13 = affine.load %2[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
-    %14 = affine.load %arg1[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    %13 = krnl.load %2[%arg2, %arg3] : memref<10x10xf32>
+    %14 = krnl.load %arg1[%arg2, %arg3] : memref<10x10xf32>
     %15 = addf %13, %14 : f32
-    affine.store %15, %0[symbol(%arg2), symbol(%arg3)] : memref<10x10xf32>
+    krnl.store %15, %0[%arg2, %arg3] : memref<10x10xf32>
   }
   dealloc %1 : memref<2000xi8>
   return %0 : memref<10x10xf32>
