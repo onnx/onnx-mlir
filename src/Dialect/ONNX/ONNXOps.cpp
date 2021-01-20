@@ -3116,10 +3116,24 @@ LogicalResult ONNXIsNaNOp::inferShapes(
 
 LogicalResult ONNXLRNOp::inferShapes(
     std::function<void(mlir::FuncOp)> shapeInferenceFunc) {
+/*
   if (!X().getType().isa<RankedTensorType>())
     return emitError("Input tensor not ranked");
 
   Y().setType(X().getType());
+  if (!X().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+*/
+
+  auto elementType = X().getType().cast<ShapedType>().getElementType();
+  ONNXLRNOpAdaptor operandAdaptor(*this);
+  ONNXLRNOpShapeHelper shapeHelper(this, nullptr);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan LRN parameters successfully");
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
 }
