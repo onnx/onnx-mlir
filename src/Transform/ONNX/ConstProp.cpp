@@ -398,7 +398,7 @@ DenseElementsAttr ConstPropUnsqueeze(
 
   // Unqueeze does not change the order of access, so just copy the whole data.
   std::vector<Attribute> resVector;
-  for (Attribute value : denseAttr.getValues<Attribute>()) {
+  for (auto value : denseAttr.getValues<Attribute>()) {
     resVector.emplace_back(value);
   }
 
