@@ -147,12 +147,6 @@ DenseElementsAttr insertZerosForNonPaddedDims(
 
 } // end anonymous namespace
 
-/// on the ONNXConvOp.
-void ONNXConvOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<ConvOpPaddingPattern>(context);
-}
-
 /// on the ONNXBatchNormalizationTestModeOp.
 void ONNXBatchNormalizationTestModeOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
