@@ -30,7 +30,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     (void)shapecomputed;
     assert(!failed(shapecomputed) && "expected to succeed");
 
-    auto resultOperand = lrnOp.output();
+    auto resultOperand = lrnOp.Y();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
@@ -50,23 +50,12 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     bool isAffineLoad = true;
 
     for (int i = 0; i < outputRank; i++) {
-      // Context is created for each dimension because they are independent
-      IndexExprContext IEContext(&rewriter, loc);
       Value loopVal = outputLoops.getInductionVar(i);
-      IndexExpr index = IEContext.createLoopInductionIndex(loopVal);
-      IndexExpr dimSize = IEContext.createDimIndexFromShapedType(input, i);
-      IndexExpr exprVal = index % dimSize;
-      if (!exprVal.isAffine()) {
-        isAffineLoad = false;
-      }
-      loadIndices.emplace_back(exprVal.getValue());
+      loadIndices.emplace_back(loopVal);
     }
 
     Value loadVal;
-    if (isAffineLoad)
-      loadVal = rewriter.create<AffineLoadOp>(loc, input, loadIndices);
-    else
-      loadVal = rewriter.create<LoadOp>(loc, input, loadIndices);
+    loadVal = rewriter.create<AffineLoadOp>(loc, input, loadIndices);
 
     SmallVector<Value, 4> storeIndices;
     for (int i = 0; i < outputRank; ++i) {

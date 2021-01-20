@@ -5,6 +5,7 @@ add_library(OMONNXToKrnl
         Math/Clip.cpp
         Math/Elementwise.cpp
         Math/Gemm.cpp
+        Math/LRN.cpp
         Math/MatMul.cpp
         Math/Reduction.cpp
         Math/Softmax.cpp
