@@ -348,6 +348,37 @@ Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXPReluOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXPReluOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  // ONNXPReluOp(%X) = (%slope * %X) if %X < 0 else %X
+
+  Value operand = scalarOperands[0];
+  Value slope = scalarOperands[1];
+
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  Value lessThanZero, result;
+
+  if (elementType.isa<FloatType>()) {
+    lessThanZero =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, operand, zero);
+    result = rewriter.create<SelectOp>(loc, lessThanZero,
+        rewriter.create<MulFOp>(loc, slope, operand), operand);
+  } else if (elementType.isa<IntegerType>()) {
+    lessThanZero =
+        rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, operand, zero);
+    result = rewriter.create<SelectOp>(loc, lessThanZero,
+        rewriter.create<MulIOp>(loc, slope, operand), operand);
+  } else
+    llvm_unreachable("unsupported element type");
+
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSeluOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -634,8 +665,14 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseBinaryOp>
 struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
-  ONNXElementwiseBinaryOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ElementwiseBinaryOp::getOperationName(), 1, ctx) {}
+  bool isUniBroadcasting = false;
+
+  ONNXElementwiseBinaryOpLowering(
+      MLIRContext *ctx, bool isUniBroadcasting = false)
+      : ConversionPattern(ElementwiseBinaryOp::getOperationName(), 1, ctx) {
+    this->isUniBroadcasting = isUniBroadcasting;
+  }
+
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
@@ -645,7 +682,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     auto outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
+    ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, isUniBroadcasting);
     auto shapecomputed = shapeHelper.Compute(operands);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
@@ -803,4 +840,6 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
+  patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
+      ctx, /*isUniBroadcasting=*/true);
 }

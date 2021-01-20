@@ -209,6 +209,8 @@ test_to_enable_static_dynamic = {
     # Conv
     "test_basic_conv_without_padding_cpu": (test_static_dynamic,{0:{0}}),
     "test_conv_with_strides_no_padding_cpu": (test_static_dynamic,{0:{0}}),
+    "test_conv_with_strides_padding_cpu": (test_static_dynamic,{0:{0}}),
+    "test_conv_with_strides_and_asymmetric_padding_cpu": (test_static_dynamic,{0:{0}}),
 
     # ConvInteger
 
@@ -237,8 +239,27 @@ test_to_enable_static_dynamic = {
 
     # Dropout
     "test_dropout_default_cpu": (test_static_dynamic,),
-    # Problem: onnx-mlir accepts only one input, but there are 2 (x & ratio)
-    #"test_dropout_default_ratio_cpu": (test_static_dynamic,),
+    "test_dropout_default_ratio_cpu": (test_static_dynamic,),
+    # Other dopout test case failed: implementation is missing
+    # mask is not supported for inference
+    #"test_dropout_default_mask_cpu": (test_static_dynamic,),
+    #"test_dropout_default_mask_ratio_cpu": (test_static_dynamic,),
+
+    # Error: input arrays contain a mixture of endianness configuration
+    #"test_training_dropout_default_cpu": (test_static_dynamic,),
+
+    #"test_training_dropout_default_mask_cpu": (test_static_dynamic,),
+
+    # Error: input arrays contain a mixture of endianness configuration
+    #"test_training_dropout_default_cpu": (test_static_dynamic,),
+
+    #"test_training_dropout_mask_cpu": (test_static_dynamic,),
+
+    # Error: input arrays contain a mixture of endianness configuration
+    #"test_training_dropout_zero_ratio_cpu": (test_static_dynamic,),
+
+    #"test_training_dropout_zero_ratio_mask_cpu": (test_static_dynamic,),
+
     # DynamicQuantizeLinear
 
     # Edge
@@ -434,6 +455,8 @@ test_to_enable_static_dynamic = {
     # Does not support integer power yet
 
     # PRelu
+    "test_prelu_example_cpu": (test_static_dynamic,),
+    "test_prelu_broadcast_cpu": (test_static_dynamic,),
 
     # QLinear Conv
 
