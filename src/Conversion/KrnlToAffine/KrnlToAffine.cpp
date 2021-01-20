@@ -269,9 +269,9 @@ public:
         !llvm::any_of(indices, [](Value v) { return !isValidDim(v); });
 
     if (affineIndices)
-      rewriter.replaceOpWithNewOp<StoreOp>(op, value, memref, indices);
-    else
       rewriter.replaceOpWithNewOp<AffineStoreOp>(op, value, memref, indices);
+    else
+      rewriter.replaceOpWithNewOp<StoreOp>(op, value, memref, indices);
 
     return success();
   }

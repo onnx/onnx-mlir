@@ -63,13 +63,7 @@ std::vector<Operation *> getGetRefStores(KrnlGetRefOp *getRef) {
   auto parentBlock = getRef->getOperation()->getBlock();
   std::vector<Operation *> stores;
 
-  parentBlock->walk([&stores, getRef](StoreOp op) {
-    for (const auto &operand : op.getOperands())
-      if (operand == getRef->getResult())
-        stores.emplace_back(op);
-  });
-
-  parentBlock->walk([&stores, getRef](AffineStoreOp op) {
+  parentBlock->walk([&stores, getRef](KrnlStoreOp op) {
     for (const auto &operand : op.getOperands())
       if (operand == getRef->getResult())
         stores.emplace_back(op);
@@ -166,8 +160,7 @@ bool getRefUsesAreDisjoint(
         // Add value to dependent values list.
         dependentOps.insert(definingOperation);
 
-        if (llvm::dyn_cast<AffineLoadOp>(definingOperation) ||
-            llvm::dyn_cast<LoadOp>(definingOperation)) {
+        if (llvm::dyn_cast<KrnlLoadOp>(definingOperation)) {
           // Check that the MemRef operand of this load operation is
           // not in the firstGetRefList.
           Value loadOperand = definingOperation->getOperands()[0];
