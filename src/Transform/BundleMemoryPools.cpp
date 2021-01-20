@@ -320,8 +320,7 @@ public:
             // Check if the current operation is a DimOp or a LoadOp.
             if (llvm::dyn_cast<DimOp>(definingOperation) ||
                 llvm::dyn_cast<KrnlDimOp>(definingOperation) ||
-                llvm::dyn_cast<LoadOp>(definingOperation) ||
-                llvm::dyn_cast<AffineLoadOp>(definingOperation)) {
+                llvm::dyn_cast<KrnlLoadOp>(definingOperation)) {
               Operation *operandOp = operand.getDefiningOp();
               if (operandOp) {
                 auto localAlloc = llvm::dyn_cast<AllocOp>(operandOp);

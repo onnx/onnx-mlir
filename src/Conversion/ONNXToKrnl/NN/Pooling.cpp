@@ -100,7 +100,7 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
     ArrayRef<Value> poolDimValues) {
   // AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
   bool countIncludePad = getCountIncludePad<ONNXAveragePoolOp>(poolOp);
-  Value numerator = rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
+  Value numerator = rewriter.create<KrnlLoadOp>(loc, alloc, resultIndices);
   Value denominator;
   if (countIncludePad) {
     int64_t kernelSize = 1;
@@ -120,7 +120,7 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 
   Value average = rewriter.create<DivFOp>(loc, numerator, denominator);
 
-  rewriter.create<AffineStoreOp>(loc, average, alloc, resultIndices);
+  rewriter.create<KrnlStoreOp>(loc, average, alloc, resultIndices);
 }
 
 //===----------------------------------------------------------------------===//
@@ -344,7 +344,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         outputIndices.emplace_back(outputLoops.getInductionVar(i));
 
       // 2.1 Emit: output[n][c][ho][wo] = identity
-      rewriter.create<AffineStoreOp>(loc, identity, alloc, outputIndices);
+      rewriter.create<KrnlStoreOp>(loc, identity, alloc, outputIndices);
 
       // 2.2 Emit affine maps which express the lower and upper bounds for the
       // pooling window's dimensions.
@@ -510,12 +510,12 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         //      output[n][c][ho][wo] =
         //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
         Value loadInput =
-            rewriter.create<LoadOp>(loc, inputOperand, inputIndices);
+            rewriter.create<KrnlLoadOp>(loc, inputOperand, inputIndices);
         Value loadPartialOutput =
-            rewriter.create<AffineLoadOp>(loc, alloc, outputIndices);
+            rewriter.create<KrnlLoadOp>(loc, alloc, outputIndices);
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
             outputElementType, {loadPartialOutput, loadInput});
-        rewriter.create<AffineStoreOp>(loc, output, alloc, outputIndices);
+        rewriter.create<KrnlStoreOp>(loc, output, alloc, outputIndices);
       }
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.

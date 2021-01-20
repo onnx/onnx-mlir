@@ -285,7 +285,9 @@ public:
   void createStoreOp(
       Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
 
+  // Emit a krnl.load to load an element from the memref.
   Value createKrnlLoadOp(Value memref, SmallVectorImpl<IndexExpr> &indices);
+  // Emit a krnl.store to store an element to the memref.
   void createKrnlStoreOp(
       Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
 

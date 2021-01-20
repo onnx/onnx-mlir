@@ -280,18 +280,6 @@ Value IndexExprContext::createLoadOp(
   return getRewriter().create<LoadOp>(getLoc(), memref, loadIndices);
 }
 
-Value IndexExprContext::createKrnlLoadOp(
-    Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  bool affineIndices = true;
-  SmallVector<Value, 4> loadIndices;
-  for (IndexExpr ie : indices) {
-    if (!ie.isAffine())
-      affineIndices = false;
-    loadIndices.emplace_back(ie.getValue());
-  }
-  return getRewriter().create<KrnlLoadOp>(getLoc(), memref, loadIndices);
-}
-
 void IndexExprContext::createStoreOp(
     Value val, Value memref, SmallVectorImpl<IndexExpr> &indices) {
   bool affineIndices = true;
@@ -306,6 +294,21 @@ void IndexExprContext::createStoreOp(
   } else { // Not affine, use regular load.
     getRewriter().create<StoreOp>(getLoc(), val, memref, storeIndices);
   }
+}
+
+//===----------------------------------------------------------------------===//
+// IndexExprContext support for creating krnl load and store ops.
+//===----------------------------------------------------------------------===//
+Value IndexExprContext::createKrnlLoadOp(
+    Value memref, SmallVectorImpl<IndexExpr> &indices) {
+  bool affineIndices = true;
+  SmallVector<Value, 4> loadIndices;
+  for (IndexExpr ie : indices) {
+    if (!ie.isAffine())
+      affineIndices = false;
+    loadIndices.emplace_back(ie.getValue());
+  }
+  return getRewriter().create<KrnlLoadOp>(getLoc(), memref, loadIndices);
 }
 
 void IndexExprContext::createKrnlStoreOp(

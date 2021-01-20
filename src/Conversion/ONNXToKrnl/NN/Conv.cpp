@@ -163,7 +163,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
         for (auto arg : spatialLoops.getIterateBlock()->getArguments())
           resultIndices.emplace_back(arg);
         // Store initializer value into output location.
-        rewriter.create<AffineStoreOp>(loc, zero, alloc, resultIndices);
+        rewriter.create<KrnlStoreOp>(loc, zero, alloc, resultIndices);
 
         // 3.2 Define inner loops.
         int64_t nInnerLoops = 1 + (kernelShape.size() - 2);
@@ -181,15 +181,14 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // Emit the bias, if needed.
         if (hasBias) {
           auto loadResult =
-              rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
+              rewriter.create<KrnlLoadOp>(loc, alloc, resultIndices);
           SmallVector<Value, 4> biasIndices;
           biasIndices.emplace_back(kernel);
-          auto loadBias =
-              rewriter.create<AffineLoadOp>(loc, biasOperand, kernel);
+          auto loadBias = rewriter.create<KrnlLoadOp>(loc, biasOperand, kernel);
           auto resultWithBias =
               rewriter.create<AddFOp>(loc, loadResult, loadBias);
           // Store initializer value into output location.
-          rewriter.create<AffineStoreOp>(
+          rewriter.create<KrnlStoreOp>(
               loc, resultWithBias, alloc, resultIndices);
         }
 
@@ -251,15 +250,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
           // 4.3 Compute convolution.
           auto loadData =
-              rewriter.create<AffineLoadOp>(loc, inputOperand, dataIndices);
+              rewriter.create<KrnlLoadOp>(loc, inputOperand, dataIndices);
           auto loadKernel =
-              rewriter.create<AffineLoadOp>(loc, kernelOperand, kernelIndices);
+              rewriter.create<KrnlLoadOp>(loc, kernelOperand, kernelIndices);
           auto loadPartialSum =
-              rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
+              rewriter.create<KrnlLoadOp>(loc, alloc, resultIndices);
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
               rewriter.create<MulFOp>(loc, loadData, loadKernel));
           // 4.4 Store computed value into output location.
-          rewriter.create<AffineStoreOp>(loc, result, alloc, resultIndices);
+          rewriter.create<KrnlStoreOp>(loc, result, alloc, resultIndices);
         }
       }
     }

@@ -56,31 +56,31 @@ struct ONNXClipOpLowering : public ConversionPattern {
     }
 
     // Load unary first operand.
-    Value loadedVal = rewriter.create<AffineLoadOp>(loc, input, loopIVs);
+    Value loadedVal = rewriter.create<KrnlLoadOp>(loc, input, loopIVs);
     Type inputType = loadedVal.getType();
     Value res = loadedVal;
     if (inputType.isa<FloatType>()) {
       if (!min.getType().isa<NoneType>()) {
-        Value minVal = rewriter.create<AffineLoadOp>(loc, min).getResult();
+        Value minVal = rewriter.create<KrnlLoadOp>(loc, min).getResult();
         Value lessThanMin =
             rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, res, minVal);
         res = rewriter.create<SelectOp>(loc, lessThanMin, minVal, res);
       }
       if (!max.getType().isa<NoneType>()) {
-        Value maxVal = rewriter.create<AffineLoadOp>(loc, max).getResult();
+        Value maxVal = rewriter.create<KrnlLoadOp>(loc, max).getResult();
         Value lessThanMax =
             rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, res, maxVal);
         res = rewriter.create<SelectOp>(loc, lessThanMax, res, maxVal);
       }
     } else if (inputType.isa<IntegerType>()) {
       if (!min.getType().isa<NoneType>()) {
-        Value minVal = rewriter.create<AffineLoadOp>(loc, min).getResult();
+        Value minVal = rewriter.create<KrnlLoadOp>(loc, min).getResult();
         Value lessThanMin =
             rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, res, minVal);
         res = rewriter.create<SelectOp>(loc, lessThanMin, minVal, res);
       }
       if (!max.getType().isa<NoneType>()) {
-        Value maxVal = rewriter.create<AffineLoadOp>(loc, max).getResult();
+        Value maxVal = rewriter.create<KrnlLoadOp>(loc, max).getResult();
         Value lessThanMax =
             rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, res, maxVal);
         res = rewriter.create<SelectOp>(loc, lessThanMax, res, maxVal);
@@ -90,7 +90,7 @@ struct ONNXClipOpLowering : public ConversionPattern {
     }
 
     // Store result in the resulting array.
-    rewriter.create<AffineStoreOp>(loc, res, alloc, loopIVs);
+    rewriter.create<KrnlStoreOp>(loc, res, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
     return success();

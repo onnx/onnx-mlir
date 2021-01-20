@@ -42,7 +42,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
       for (decltype(rank) i = 0; i < rank; ++i) {
         auto index = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
         auto dim =
-            rewriter.create<AffineLoadOp>(loc, operandAdaptor.input(), index);
+            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.input(), index);
         auto dimIndex =
             rewriter.create<IndexCastOp>(loc, rewriter.getIndexType(), dim);
         allocOperands.emplace_back(dimIndex);
@@ -85,7 +85,7 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
     }
 
     // Store the constant value to the output.
-    rewriter.create<AffineStoreOp>(loc, constantVal, alloc, loopIVs);
+    rewriter.create<KrnlStoreOp>(loc, constantVal, alloc, loopIVs);
 
     // Replace this operation with the generated alloc.
     rewriter.replaceOp(op, alloc);
