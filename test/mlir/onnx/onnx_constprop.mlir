@@ -300,3 +300,15 @@ func @test_split_axis_1() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
   // CHECK-NOT: {{.*}} = "onnx.Split"{{.*}}
 }
 
+// -----
+
+// COM: There is no constant propagation if the split's input is not a constant.
+
+// CHECK-LABEL: @test_split_axis_2(%arg0: tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>) {
+func @test_split_axis_2(%arg0 : tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>) {
+  %1, %2 = "onnx.Split"(%arg0) { axis = 1 : si64, split = [5, 5]} : (tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
+  "std.return"(%1, %2) : (tensor<2x5xf32>, tensor<2x5xf32>) -> ()
+
+  // CHECK: {{.*}} = "onnx.Split"(%arg0) {axis = 1 : si64, split = [5, 5]} : (tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
+}
+

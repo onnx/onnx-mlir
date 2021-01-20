@@ -398,7 +398,7 @@ DenseElementsAttr ConstPropUnsqueeze(
 
   // Unqueeze does not change the order of access, so just copy the whole data.
   std::vector<Attribute> resVector;
-  for (auto value : denseAttr.getValues<Attribute>()) {
+  for (Attribute value : denseAttr.getValues<Attribute>()) {
     resVector.emplace_back(value);
   }
 
@@ -416,11 +416,11 @@ void RecurseConstPropSplit(PatternRewriter &rewriter,
     uint64_t axisSize, int freeRank) {
   if (freeRank == 0) {
     // Fully defined ranks.
-    auto res = attr.getValue(ArrayRef<uint64_t>(indices));
+    Attribute res = attr.getValue(ArrayRef<uint64_t>(indices));
     resVector.emplace_back(res);
   } else {
     // Recurse.
-    auto shape = attr.getType().getShape();
+    ArrayRef<int64_t> shape = attr.getType().getShape();
     int rank = shape.size();
     int index = rank - freeRank;
     int start, size;
@@ -448,13 +448,13 @@ DenseElementsAttr ConstPropSplit(PatternRewriter &rewriter, Value resOperand,
   assert(denseAttr && "expected dense attribute");
   RankedTensorType resType =
       constructRankedTensorType(resOperand.getType().cast<ShapedType>());
-  auto rank = denseAttr.getType().getShape().size();
+  unsigned rank = denseAttr.getType().getShape().size();
   // Read split axis.
   uint64_t splitAxis = axisAttr.getValue().getSExtValue();
   // Read split vector.
   SmallVector<uint64_t, 4> splits;
   assert(splitAttr && "split attribute expected to be defined here");
-  for (auto splitVal : splitAttr.getValue())
+  for (Attribute splitVal : splitAttr.getValue())
     splits.emplace_back(splitVal.cast<IntegerAttr>().getInt());
   // Compute the range of elements of interest in the given axis.
   uint64_t axisOffset = 0, axisSize = splits[resIndex];
@@ -476,31 +476,28 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXSplitOp op, PatternRewriter &rewriter) const override {
-    auto loc = op.getLoc();
+    Location loc = op.getLoc();
     // A dense attribute that contains constant values of the split op's input.
     Attribute denseAttr;
 
     // Match
-    auto splitOp = ::llvm::dyn_cast_or_null<::mlir::ONNXSplitOp>(&op);
-    (void)splitOp;
+    ONNXSplitOp *splitOp = ::llvm::dyn_cast_or_null<::mlir::ONNXSplitOp>(&op);
     {
-      auto *producerOp = splitOp->input().getDefiningOp();
-      auto castedProducerOp =
+      Operation *producerOp = splitOp->input().getDefiningOp();
+      ONNXConstantOp castedProducerOp =
           ::llvm::dyn_cast_or_null<::mlir::ONNXConstantOp>(producerOp);
-      (void)castedProducerOp;
       if (!castedProducerOp)
         return failure();
       // Check whether the constant op is using a dense value or not.
-      auto sparseAttr =
+      Attribute sparseAttr =
           producerOp->getAttrOfType<::mlir::Attribute>("sparse_value");
-      (void)sparseAttr;
       if (sparseAttr)
         return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
           diag << "entities '' failed to satisfy constraint: Attribute "
                   "is null";
         });
-      auto dataAttr = producerOp->getAttrOfType<::mlir::Attribute>("value");
-      (void)dataAttr;
+      Attribute dataAttr =
+          producerOp->getAttrOfType<::mlir::Attribute>("value");
       denseAttr = dataAttr;
     }
 
