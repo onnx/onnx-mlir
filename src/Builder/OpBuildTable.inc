@@ -69,7 +69,7 @@ import_handler_map_["Det"] =
 import_handler_map_["Div"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDivOp>;
 import_handler_map_["Dropout"] = 
-   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDropoutOp>;
+   &onnx_mlir::detail::FrontendGenImpl::ImportNodeDropout;
 import_handler_map_["DynamicQuantizeLinear"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDynamicQuantizeLinearOp>;
 import_handler_map_["Elu"] = 

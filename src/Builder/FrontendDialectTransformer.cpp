@@ -566,6 +566,69 @@ private:
   }
 
   /*!
+   * Special handle for Dropout operations.
+   */
+  void ImportNodeDropout(const onnx::NodeProto &node) {
+    int nOps = node.input().size();
+    int nIn = mlir::ONNXDropoutOp::getNumberOfOperands();
+    if (nOps == nIn) {
+      // All inputs are specified
+      buildOperation<mlir::ONNXDropoutOp>(node);
+      return;
+    }
+
+    // Add the default value for optional input
+    // Copy the provided inputs first
+    std::vector<mlir::Value> inputs;
+    for (const auto &item : node.input()) {
+      if (initializedTensors.ContainKey(legalize_name(item))) {
+        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+            UnknownLoc(), builder_, legalize_name(item)));
+      } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
+        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      }
+    }
+
+    // If ratio is not specified, the default value is 0.5
+    if (nOps < 2) {
+      llvm::SmallVector<int64_t, 1> dims;
+      dims.push_back(1);
+      llvm::SmallVector<float, 1> values;
+      values.push_back(0.5);
+      auto elementType = builder_.getF32Type();
+      llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
+      auto tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
+      auto constantDenseAttribute =
+          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+      mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
+      inputs.push_back(constantResult);
+    }
+
+    // If training_mode is not specified, the default value is false
+    if (nOps < 3) {
+      llvm::SmallVector<int64_t, 1> dims;
+      dims.push_back(1);
+      llvm::SmallVector<bool, 1> values;
+      values.push_back(false);
+      auto elementType = builder_.getIntegerType(1);
+      llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
+      auto tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
+      auto constantDenseAttribute =
+          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+      mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
+      inputs.push_back(constantResult);
+    }
+    int nOut = mlir::ONNXDropoutOp::getNumberOfResults();
+    auto attributes = ImportNodeAttributes(node);
+    buildOutputAndOperation<mlir::ONNXDropoutOp>(
+        node, inputs, nIn, nOut, attributes);
+  }
+
+  /*!
    * Special handle for Pad operations.
    */
   void ImportNodePad(const onnx::NodeProto &node) {

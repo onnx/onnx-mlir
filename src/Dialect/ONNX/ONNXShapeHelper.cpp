@@ -42,8 +42,8 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
 //===----------------------------------------------------------------------===//
 
 ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
-    ConversionPatternRewriter *rewriter, Location loc)
-    : context(rewriter, loc) {}
+    ConversionPatternRewriter *rewriter, Location loc, bool uniBroadcasting)
+    : context(rewriter, loc), isUniBroadcasting(uniBroadcasting) {}
 
 LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
   // A temporary IndexExpr vector for the output.
@@ -89,7 +89,8 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
       // 1 - LiteralNot1
       // 1 - 1
       if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
-        dimsExpr[j] = nextDimExpr;
+        if (!isUniBroadcasting)
+          dimsExpr[j] = nextDimExpr;
         continue;
       }
 
@@ -116,8 +117,10 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
       }
 
       // QuestionMark - QuestionMark
-      SmallVector<IndexExpr, 2> exprs({currentDimExpr, nextDimExpr});
-      dimsExpr[j] = IndexExpr::max(exprs);
+      if (!isUniBroadcasting) {
+        SmallVector<IndexExpr, 2> exprs({currentDimExpr, nextDimExpr});
+        dimsExpr[j] = IndexExpr::max(exprs);
+      }
     }
   }
 
@@ -131,6 +134,12 @@ LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(
     IndexExprContext &outerContext, Value operand, unsigned operandIndex,
     const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
+  if (isUniBroadcasting && operandIndex == 0) {
+    for (IndexExpr ie : outputAccessExprs)
+      operandAccessExprs.emplace_back(ie);
+    return success();
+  }
+
   auto operandRank = operand.getType().cast<ShapedType>().getRank();
   for (decltype(operandRank) i = 0; i < operandRank; ++i) {
     // Shape helper may pretend 1s, thus adjust dimension index accordingly.

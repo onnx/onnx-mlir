@@ -79,7 +79,7 @@ version_dict = {'Abs': 6,
  'DequantizeLinear': 10,
  'Det': 11,
  'Div': 7,
- 'Dropout': 10,
+ 'Dropout': 13,
  'DynamicQuantizeLinear': 11,
  'Elu': 6,
  'Equal': 11,
@@ -238,11 +238,12 @@ special_attr_types = dict([("Cast.to", 'type')])
 
 # Special operation importing handlers.
 special_op_handler = dict([
-    ("MaxPool", "ImportNodeMaxPool"),
     ("BatchNormalization", "ImportNodeBatchNormalization"),
+    ("Dropout", "ImportNodeDropout"),
+    ("Cast", "ImportNodeCast"),
+    ("MaxPool", "ImportNodeMaxPool"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
-    ("Cast", "ImportNodeCast")
     #("Transpose", "ImportNodeTranspose")
 ])
 
@@ -332,7 +333,7 @@ OpsWithShapeInference=[
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast', 'Transpose',
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Cast', 'Transpose',
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
                         'GlobalMaxPool']
 
@@ -833,6 +834,7 @@ def parse_type_str(allowedType):
         'int32' : 'I32',
         'int64' : 'I64',
         'float16' : 'F16',
+        'bfloat16' : 'BF16',
         'float' : 'F32',
         'double' : 'F64',
         'unkown' : 'BF16',
@@ -1117,12 +1119,13 @@ def build_operator_schemas():
 
                     # Add checks against version_dict
                     if schema.name not in version_dict :
-                        print("Check-operation-version: Operation {} with version is new".format(
-                            schema.since_version, schema.name))
+                        print("Check-operation-version: Operation {} is new  with version {}"
+                            .format(schema.name, schema.since_version))
                     elif schema.since_version >  version_dict[schema.name]:
-                        print("Check-operation-version: Operation {} has a newer version {}"+
-                            "(old version {})".format( schema.name,
-                            schema.since_version, version_dict[schema.name]))
+                        print("Check-operation-version: Operation {}"
+                            .format(schema.name)+
+                            " has a newer version {} over old version {}"
+                            .format(schema.since_version, version_dict[schema.name]))
                 else:
                     # Generate operation according to the version in version_dict.
                     if schema.name not in version_dict :
