@@ -86,14 +86,10 @@ Value emitConstantOp(
 //===----------------------------------------------------------------------===//
 
 /// Operation is a LoadOp or AffineLoadOp.
-bool isLoad(Operation *op) {
-  return llvm::dyn_cast_or_null<KrnlLoadOp>(op);
-}
+bool isLoad(Operation *op) { return llvm::dyn_cast_or_null<KrnlLoadOp>(op); }
 
 /// Operation is a StoreOp or AffineStoreOp.
-bool isStore(Operation *op) {
-  return llvm::dyn_cast_or_null<KrnlStoreOp>(op);
-}
+bool isStore(Operation *op) { return llvm::dyn_cast_or_null<KrnlStoreOp>(op); }
 
 /// Operation is a KrnlMemcpyOp.
 bool isKrnlMemcpy(Operation *op) {

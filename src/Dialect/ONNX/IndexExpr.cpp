@@ -301,25 +301,17 @@ void IndexExprContext::createStoreOp(
 //===----------------------------------------------------------------------===//
 Value IndexExprContext::createKrnlLoadOp(
     Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  bool affineIndices = true;
   SmallVector<Value, 4> loadIndices;
-  for (IndexExpr ie : indices) {
-    if (!ie.isAffine())
-      affineIndices = false;
+  for (IndexExpr ie : indices)
     loadIndices.emplace_back(ie.getValue());
-  }
   return getRewriter().create<KrnlLoadOp>(getLoc(), memref, loadIndices);
 }
 
 void IndexExprContext::createKrnlStoreOp(
     Value val, Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  bool affineIndices = true;
   SmallVector<Value, 4> storeIndices;
-  for (IndexExpr ie : indices) {
-    if (!ie.isAffine())
-      affineIndices = false;
+  for (IndexExpr ie : indices)
     storeIndices.emplace_back(ie.getValue());
-  }
   getRewriter().create<KrnlStoreOp>(getLoc(), val, memref, storeIndices);
 }
 
