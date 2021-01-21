@@ -33,7 +33,7 @@ namespace detail {
 
 class FrontendGenImpl {
 public:
-  FrontendGenImpl(mlir::MLIRContext &context)
+  explicit FrontendGenImpl(mlir::MLIRContext &context)
       : context_(context), builder_(&context) {
     module_ = mlir::ModuleOp::create(mlir::UnknownLoc::get(&context));
     InitHandlerMap();
