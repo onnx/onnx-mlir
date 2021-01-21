@@ -2,8 +2,8 @@
 #include <string>
 #include <vector>
 
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/IR/Module.h"
 
 #include "onnx/defs/function.h"
 #include "onnx/defs/schema.h"
@@ -16,6 +16,8 @@ using namespace ONNX_NAMESPACE;
 #define ONNX_OPSET_VERSION 11
 
 void RegisterFunSchema() {
+  static bool registered = false;
+  if (registered) return;
   ONNX_NAMESPACE::OpSchema schema;
   schema.SetName("SquareFn")
       .SetDomain(ONNX_DOMAIN)
@@ -32,12 +34,10 @@ void RegisterFunSchema() {
               {{"Y"}, "Mul", {"Two", "X"}}}));
   ONNX_NAMESPACE::OpSchemaRegistry::OpSchemaRegisterOnce unused(schema);
   (void)unused;
+  registered = true;
 }
 
 void registerDialects(mlir::MLIRContext &context) {
-  // mlir::DialectRegistry registry;
-  // registry.insert<mlir::StandardOpsDialect>();
-  // registry.insert<mlir::ONNXOpsDialect>();
   context.getOrLoadDialect<mlir::StandardOpsDialect>();
   context.getOrLoadDialect<mlir::ONNXOpsDialect>();
 }
@@ -47,14 +47,15 @@ void check(ModelProto &model) {
   registerDialects(context);
   mlir::OwningModuleRef module;
 
-  onnx_mlir::ImportFrontendModel(model, context, module);
+  onnx_mlir::ImportOptions options;
+  options.useOnnxModelTypes = true;
+  onnx_mlir::ImportFrontendModel(model, context, module, options);
 
   module->verify();
   module->dump();
 }
 
-int main(int argc, char *argv[]) {
-
+void testCustomFunTranslation() {
   RegisterFunSchema();
 
   ModelProto model_proto;
@@ -91,6 +92,59 @@ int main(int argc, char *argv[]) {
   node->set_op_type("SquareFn");
 
   check(model_proto);
+}
+
+void testUseOfOnnxModelTypes() {
+  RegisterFunSchema();
+
+  ModelProto model_proto;
+  model_proto.set_ir_version(7);
+  auto *opset_version = model_proto.add_opset_import();
+  opset_version->set_domain(ONNX_DOMAIN);
+  opset_version->set_version(ONNX_OPSET_VERSION);
+
+  auto *graph = model_proto.mutable_graph();
+
+  auto float_type = TensorProto_DataType::TensorProto_DataType_FLOAT;
+  auto int_type = TensorProto_DataType::TensorProto_DataType_INT32;
+
+  auto *x = graph->add_input();
+  x->set_name("x");
+  auto *x_type = x->mutable_type()->mutable_tensor_type();
+  x_type->set_elem_type(float_type);
+  auto *x_shape = x_type->mutable_shape();
+  x_shape->add_dim()->set_dim_value(10);
+
+  auto *t = graph->add_value_info();
+  t->set_name("t");
+  auto *t_type = t->mutable_type()->mutable_tensor_type();
+  t_type->set_elem_type(int_type);
+  auto *t_shape = t_type->mutable_shape();
+  t_shape->add_dim()->set_dim_value(10);
+
+  auto *y = graph->add_output();
+  y->set_name("y");
+  auto *y_type = y->mutable_type()->mutable_tensor_type();
+  y_type->set_elem_type(float_type);
+  auto *y_shape = y_type->mutable_shape();
+  y_shape->add_dim()->set_dim_value(10);
+
+  auto *node = graph->add_node();
+  node->add_input("x");
+  node->add_output("t");
+  node->set_op_type("CustomFn1");
+
+  node = graph->add_node();
+  node->add_input("t");
+  node->add_output("y");
+  node->set_op_type("CustomFn2");
+
+  check(model_proto);
+}
+
+int main(int argc, char *argv[]) {
+  testCustomFunTranslation();
+  testUseOfOnnxModelTypes();
 
   return 0;
 }

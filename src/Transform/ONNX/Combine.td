@@ -34,7 +34,7 @@ class HasRankOf<int rank> : Constraint<CPred<"$0.getType().isa<ShapedType>() && 
 def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 def HasSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
-          "convertONNXTypeToMLIRType($_builder, static_cast<onnx::TensorProto_DataType>($1.cast<::mlir::IntegerAttr>().getSInt())))">,
+          "$1.cast<::mlir::TypeAttr>().getValue())">,
     "has same element type">;
 
 //===----------------------------------------------------------------------===//
@@ -61,7 +61,7 @@ def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
                                      (replaceWithValue $arg)>;
 
 // y, mask = onnx.Dropout(x) -> y, mask = x, none
-def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $ratio),
+def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $arg1, $arg2, $ratio),
                                         [(replaceWithValue $arg),
                                          (ONNXConstantOp (GetNullAttr), (GetUnitAttr))]>;
 
@@ -91,9 +91,9 @@ def FuseTransposePattern:  Pat<
 
 def RemoveIdentityTransposePattern:  Pat<
   // Transpose with an identity pattern (e.g. {0, 1, 2, 3}).
-  (ONNXTransposeOp $v, $p),
+  (ONNXTransposeOp $val, $p),
   // Remove the transpose.
-  (replaceWithValue $v),
+  (replaceWithValue $val),
   // Check that we have indeed a identity transpose pattern.
   [(IsIdentityPermuteAttribute:$p)]>;
 

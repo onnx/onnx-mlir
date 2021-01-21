@@ -83,16 +83,18 @@ set(
 )
 include_directories(${MLIR_INCLUDE_PATHS})
 
-# Force CMAKE_INSTALL_PREFIX and BUILD_SHARED_LIBS to be the same as LLVM build
-file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt prefix REGEX CMAKE_INSTALL_PREFIX)
-string(REGEX REPLACE "CMAKE_INSTALL_PREFIX:PATH=" "" prefix ${prefix})
-set(CMAKE_INSTALL_PREFIX ${prefix} CACHE PATH "" FORCE)
-message(STATUS "CMAKE_INSTALL_PREFIX    : " ${CMAKE_INSTALL_PREFIX})
+if (NOT USE_INSTALLED_LLVM)
+  # Force CMAKE_INSTALL_PREFIX and BUILD_SHARED_LIBS to be the same as LLVM build
+  file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt prefix REGEX CMAKE_INSTALL_PREFIX)
+  string(REGEX REPLACE "CMAKE_INSTALL_PREFIX:PATH=" "" prefix ${prefix})
+  set(CMAKE_INSTALL_PREFIX ${prefix} CACHE PATH "" FORCE)
+  message(STATUS "CMAKE_INSTALL_PREFIX    : " ${CMAKE_INSTALL_PREFIX})
 
-file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt shared REGEX BUILD_SHARED_LIBS)
-string(REGEX REPLACE "BUILD_SHARED_LIBS:BOOL=" "" shared ${shared})
-set(BUILD_SHARED_LIBS ${shared} CACHE BOOL "" FORCE)
-message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
+  file(STRINGS ${LLVM_PROJ_BUILD}/CMakeCache.txt shared REGEX BUILD_SHARED_LIBS)
+  string(REGEX REPLACE "BUILD_SHARED_LIBS:BOOL=" "" shared ${shared})
+  set(BUILD_SHARED_LIBS ${shared} CACHE BOOL "" FORCE)
+  message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
+endif()
 
 # Threading libraries required due to parallel pass execution.
 find_package(Threads REQUIRED)
@@ -142,6 +144,8 @@ find_mlir_lib(MLIRAffineUtils)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAffineTransforms)
 find_mlir_lib(MLIRAnalysis)
+find_mlir_lib(MLIRAVX512)
+find_mlir_lib(MLIRAVX512ToLLVM)
 find_mlir_lib(MLIRCallInterfaces)
 find_mlir_lib(MLIRControlFlowInterfaces)
 find_mlir_lib(MLIRCopyOpInterface)
@@ -150,6 +154,7 @@ find_mlir_lib(MLIREDSC)
 find_mlir_lib(MLIRExecutionEngine)
 find_mlir_lib(MLIRInferTypeOpInterface)
 find_mlir_lib(MLIRIR)
+find_mlir_lib(MLIRLLVMAVX512)
 find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
 find_mlir_lib(MLIRSCFToStandard)
@@ -165,6 +170,9 @@ find_mlir_lib(MLIRLLVMIRTransforms)
 find_mlir_lib(MLIRMlirOptMain)
 find_mlir_lib(MLIRParser)
 find_mlir_lib(MLIRPass)
+find_mlir_lib(MLIRPDL)
+find_mlir_lib(MLIRPDLInterp)
+find_mlir_lib(MLIRPDLToPDLInterp)
 find_mlir_lib(MLIRRewrite)
 find_mlir_lib(MLIRStandard)
 find_mlir_lib(MLIRStandardOpsTransforms)
@@ -192,6 +200,13 @@ find_mlir_lib(MLIRAffineEDSC)
 find_mlir_lib(MLIRLinalgEDSC)
 find_mlir_lib(MLIRViewLikeInterface)
 find_mlir_lib(MLIRPresburger)
+find_mlir_lib(MLIRTensor)
+find_mlir_lib(MLIRArmNeonToLLVM)
+find_mlir_lib(MLIRLLVMArmNeon)
+find_mlir_lib(MLIRArmNeon)
+find_mlir_lib(MLIRArmSVEToLLVM)
+find_mlir_lib(MLIRLLVMArmSVE)
+find_mlir_lib(MLIRArmSVE)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -215,7 +230,10 @@ set(MLIRLibs
         ${MLIRAffineToStandard}
         ${MLIRAffine}
         ${MLIRAffineUtils}
+        ${MLIRAVX512ToLLVM}
+        ${MLIRAVX512}
         ${MLIRCopyOpInterface}
+        ${MLIRLLVMAVX512}
         ${MLIRLLVMIR}
         ${MLIRStandard}
         ${MLIRStandardOpsTransforms}
@@ -268,10 +286,22 @@ set(MLIRLibs
         ${MLIRLinalgEDSC}
         ${MLIRViewLikeInterface}
         ${MLIRPresburger}
+        ${MLIRRewrite}
         ${MLIRShape}
         ${MLIRShapeToStandard}
         ${MLIRInferTypeOpInterface}
         ${MLIRRewrite}
+        ${MLIRAnalysis}
+        ${MLIRPDLInterp}
+        ${MLIRPDLToPDLInterp}
+        ${MLIRPDL}
+        ${MLIRTensor}
+        ${MLIRArmNeonToLLVM}
+        ${MLIRLLVMArmNeon}
+        ${MLIRArmNeon}
+        ${MLIRArmSVEToLLVM}
+        ${MLIRLLVMArmSVE}
+        ${MLIRArmSVE}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}
@@ -295,8 +325,8 @@ set(MLIRLibs
         ${LLVMSupport}
         ${LLVMDemangle}
         ${CMAKE_THREAD_LIBS_INIT}
-	      ${CURSES_LIBRARIES}
-	      ${ZLIB_LIBRARIES})
+        ${CURSES_LIBRARIES}
+        ${ZLIB_LIBRARIES})
 
 set(LLVM_CMAKE_DIR
         "${LLVM_PROJ_BUILD}/lib/cmake/llvm"

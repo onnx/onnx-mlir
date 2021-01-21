@@ -425,7 +425,6 @@ void registerDialects(mlir::MLIRContext &context) {
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
   pm.addNestedPass<FuncOp>(mlir::createDecomposeONNXToONNXPass());
-  pm.addNestedPass<FuncOp>(mlir::createConstPropONNXToONNXPass());
   pm.addPass(mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(mlir::createAttributePromotionPass());
@@ -468,23 +467,6 @@ void addKrnlToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
-    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
-  // Decide if the input file is an ONNX model or a model specified
-  // in MLIR. The extension of the file is the decider.
-  string extension = inputFilename.substr(inputFilename.find_last_of(".") + 1);
-  bool inputIsONNX = (extension == "onnx");
-  bool inputIsMLIR = (extension == "mlir");
-  assert(inputIsONNX != inputIsMLIR &&
-         "Either ONNX model or MLIR file needs to be provided.");
-
-  if (inputIsONNX) {
-    ImportFrontendModelFile(inputFilename, context, module);
-  } else {
-    LoadMLIR(inputFilename, context, module);
-  }
-}
-
 // This definition is here rather than in main.cpp because otherwise it's not
 // found probably should be pulled out to a more common location
 // TODO: Find a respectable home for the wain
@@ -498,6 +480,29 @@ llvm::cl::opt<bool> preserveLocations("preserveLocations",
 llvm::cl::opt<bool> printIR("printIR",
     llvm::cl::desc("print the IR to stdout:"), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
+    llvm::cl::desc("use types and shapes from ONNX model"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+  // Decide if the input file is an ONNX model or a model specified
+  // in MLIR. The extension of the file is the decider.
+  string extension = inputFilename.substr(inputFilename.find_last_of(".") + 1);
+  bool inputIsONNX = (extension == "onnx");
+  bool inputIsMLIR = (extension == "mlir");
+  assert(inputIsONNX != inputIsMLIR &&
+         "Either ONNX model or MLIR file needs to be provided.");
+
+  if (inputIsONNX) {
+    ImportOptions options;
+    options.useOnnxModelTypes = useOnnxModelTypes;
+    ImportFrontendModelFile(inputFilename, context, module, options);
+  } else {
+    LoadMLIR(inputFilename, context, module);
+  }
+}
 
 void outputCode(
     mlir::OwningModuleRef &module, string filename, string extension) {

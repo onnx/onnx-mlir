@@ -99,7 +99,7 @@ func @test_scaler_null(%arg0: tensor<3xi32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) : (tensor<3xi32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
-  // CHECK-NEXT: %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<3xi32>) -> tensor<3xf32>
+  // CHECK-NEXT: %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<3xi32>) -> tensor<3xf32>
   // CHECK-NEXT: return %0 : tensor<3xf32>
 }
 
@@ -124,7 +124,7 @@ func @test_scaler_no_offset2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) {scale = [3.125000e-02 : f32, 0.0909090936 : f32, 0.0333333351 : f32]} : (tensor<3xi32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
-  // CHECK-NEXT: %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<3xi32>) -> tensor<*xf32>
+  // CHECK-NEXT: %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<3xi32>) -> tensor<*xf32>
   // CHECK-NEXT: %1 = "onnx.Constant"() {value = dense<[3.125000e-02, 0.0909090936, 0.0333333351]> : tensor<3xf32>} : () -> tensor<3xf32>
   // CHECK-NEXT: %2 = "onnx.Mul"(%0, %1) : (tensor<*xf32>, tensor<3xf32>) -> tensor<3xf32>
   // CHECK-NEXT: return %2 : tensor<3xf32>
@@ -151,7 +151,7 @@ func @test_scaler_no_scale2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) {offset = [1986.99939 : f32, 0.99999988 : f32, 0.999999701 : f32]} : (tensor<3xi32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
-  //CHECK-NEXT: %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<3xi32>) -> tensor<*xf32>
+  //CHECK-NEXT: %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<3xi32>) -> tensor<*xf32>
   //CHECK-NEXT: %1 = "onnx.Constant"() {value = dense<[1986.99939, 0.99999988, 0.999999701]> : tensor<3xf32>} : () -> tensor<3xf32>
   //CHECK-NEXT: %2 = "onnx.Sub"(%0, %1) : (tensor<*xf32>, tensor<3xf32>) -> tensor<3xf32>
   //CHECK-NEXT: return %2 : tensor<3xf32>
@@ -180,7 +180,7 @@ func @test_scaler_normal2(%arg0: tensor<3xi32>) -> tensor<3xf32> {
   %0 = "onnx.Scaler"(%arg0) {offset = [1986.99939 : f32, 0.99999988 : f32, 0.999999701 : f32], scale = [3.125000e-02 : f32, 0.0909090936 : f32, 0.0333333351 : f32]} : (tensor<3xi32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
-  // CHECK-NEXT: %0 = "onnx.Cast"(%arg0) {to = 1 : si64} : (tensor<3xi32>) -> tensor<*xf32>
+  // CHECK-NEXT: %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<3xi32>) -> tensor<*xf32>
   // CHECK-NEXT: %1 = "onnx.Constant"() {value = dense<[1986.99939, 0.99999988, 0.999999701]> : tensor<3xf32>} : () -> tensor<3xf32>
   // CHECK-NEXT: %2 = "onnx.Sub"(%0, %1) : (tensor<*xf32>, tensor<3xf32>) -> tensor<*xf32>
   // CHECK-NEXT: %3 = "onnx.Constant"() {value = dense<[3.125000e-02, 0.0909090936, 0.0333333351]> : tensor<3xf32>} : () -> tensor<3xf32>

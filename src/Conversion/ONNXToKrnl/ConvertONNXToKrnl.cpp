@@ -84,7 +84,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   });
 
   target.addDynamicallyLegalOp<CallOp>([&](CallOp op) {
-    // FuncOp is legal only if types have been converted to Std types.
+    // CallOp is legal only if types have been converted to Std types.
     return tensorToMemRefConverter.isLegal(op);
   });
 
@@ -100,6 +100,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // ControlFlow
   populateLoweringONNXLoopOpPattern(patterns, &getContext());
   // Math
+  populateLoweringONNXClipOpPattern(patterns, &getContext());
   populateLoweringONNXElementwiseOpPattern(patterns, &getContext());
   populateLoweringONNXGemmOpPattern(patterns, &getContext());
   populateLoweringONNXReductionOpPattern(patterns, &getContext());

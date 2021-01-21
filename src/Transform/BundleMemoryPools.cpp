@@ -14,7 +14,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/SetVector.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -313,28 +313,24 @@ public:
           if (!isBlockArgument(allocOp, operand)) {
             operandList.emplace_back(operand);
 
-            // Check if the current operation is a dim or a load and the
-            // argument list involves a local AllocOp with dynamic sizes.
+            // Check if the current operation is an AllocOp with dynamic
+            // sizes or a KrnlGetRefOp.
             // If that's the case then it means that the whole set of
             // instructions cannot be moved.
-            // Check if the current operation is a DimOp or a LoadOp.
-            if (llvm::dyn_cast<DimOp>(definingOperation) ||
-                llvm::dyn_cast<LoadOp>(definingOperation)) {
-              Operation *operandOp = operand.getDefiningOp();
-              if (operandOp) {
-                auto localAlloc = llvm::dyn_cast<AllocOp>(operandOp);
-                if (localAlloc) {
-                  auto memRefType =
-                      localAlloc.getResult().getType().dyn_cast<MemRefType>();
-                  if (!hasAllConstantDimensions(memRefType))
-                    dependsOnLocalDynamicAlloc = true;
-                }
-
-                // If operand is a getref then this alloc cannot be bundled.
-                auto memPool = llvm::dyn_cast<KrnlGetRefOp>(operandOp);
-                if (memPool)
+            Operation *operandOp = operand.getDefiningOp();
+            if (operandOp) {
+              auto localAlloc = llvm::dyn_cast<AllocOp>(operandOp);
+              if (localAlloc) {
+                auto memRefType =
+                    localAlloc.getResult().getType().dyn_cast<MemRefType>();
+                if (!hasAllConstantDimensions(memRefType))
                   dependsOnLocalDynamicAlloc = true;
               }
+
+              // If operand is a getref then this alloc cannot be bundled.
+              auto memPool = llvm::dyn_cast<KrnlGetRefOp>(operandOp);
+              if (memPool)
+                dependsOnLocalDynamicAlloc = true;
             }
           }
         }

@@ -79,7 +79,7 @@ version_dict = {'Abs': 6,
  'DequantizeLinear': 10,
  'Det': 11,
  'Div': 7,
- 'Dropout': 10,
+ 'Dropout': 13,
  'DynamicQuantizeLinear': 11,
  'Elu': 6,
  'Equal': 11,
@@ -233,13 +233,18 @@ special_attr_defaults = dict([
     # ("RNN.activation_alpha", ('floats', '{}')),
     # ("RNN.activation_beta", ('floats', '{}')),
 ])
+# Manual specification of attribute type.
+special_attr_types = dict([("Cast.to", 'type')])
 
 # Special operation importing handlers.
 special_op_handler = dict([
-    ("MaxPool", "ImportNodeMaxPool"),
     ("BatchNormalization", "ImportNodeBatchNormalization"),
+    ("Dropout", "ImportNodeDropout"),
+    ("Cast", "ImportNodeCast"),
+    ("MaxPool", "ImportNodeMaxPool"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
+    #("Transpose", "ImportNodeTranspose")
 ])
 
 # Operations supporting shape inference.
@@ -328,7 +333,7 @@ OpsWithShapeInference=[
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast', 'Transpose',
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Cast', 'Transpose',
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
                         'GlobalMaxPool']
 
@@ -361,10 +366,8 @@ OpsWithResultTypeInference = {
         resultTypes.push_back(attr.getType());
       }''',
   "Cast":
-    '''auto toAttr = to();
-      auto builder = mlir::OpBuilder(getContext());
-      resultTypes.push_back(mlir::UnrankedTensorType::get(
-        convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr))));''',
+    '''auto builder = mlir::OpBuilder(getContext());
+      resultTypes.push_back(mlir::UnrankedTensorType::get(to()));''',
   "ConstantOfShape":
   '''if (auto attr = valueAttr()) {
         resultTypes.push_back(mlir::UnrankedTensorType::get(
@@ -398,23 +401,21 @@ custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broa
 #a dictionary to add any special definition for an operation
 custom_definition_misc = dict([ ('Constant',
  '''  let builders = [
-  OpBuilder<"OpBuilder &builder, OperationState &state, Attribute sparse_value, Attribute value", [{
+  OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
-    build(builder, state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value);
    } else {
     auto tensorType = sparse_value.getType();
-    build(builder, state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value);
    }
   }]>
   ];'''),
   ('Cast',
  '''   let builders = [
-  OpBuilder<"OpBuilder &builder, OperationState &state, Value input, IntegerAttr to", [{
-   auto toAttr = to.getValue().getSExtValue();
-   auto resultType = mlir::UnrankedTensorType::get(
-    convertONNXTypeToMLIRType(builder, static_cast<onnx::TensorProto_DataType>(toAttr)));
-   build(builder, state, resultType, input, to);
+  OpBuilderDAG<(ins "Value":$input, "TypeAttr":$to), [{
+   auto resultType = mlir::UnrankedTensorType::get(to.getValue());
+   build($_builder, $_state, resultType, input, to);
   }] >
   ];'''
  )])
@@ -465,6 +466,8 @@ def onnx_attr_type_to_mlir_attr_type(t):
         mlir_attr_type = 'StrAttr'
     elif onnx_attr_type == "strings":
         mlir_attr_type = 'StrArrayAttr'
+    elif onnx_attr_type == 'type':
+        mlir_attr_type = 'TypeAttr'
     else:
         mlir_attr_type = 'AnyAttr'
     #TODO: tensor and sparse tensor
@@ -674,7 +677,9 @@ def get_attrs(schema):
         if qualified_attr_name in special_attr_defaults:
             name_to_type[attr.name] = get_attr_type_with_default(
                 *special_attr_defaults[qualified_attr_name])
-
+        if qualified_attr_name in special_attr_types:
+            name_to_type[attr.name] = onnx_attr_type_to_mlir_attr_type(
+                special_attr_types[qualified_attr_name])
         # option holds either required or default value
         elif attr.required:
             name_to_type[attr.name] = onnx_attr_type_to_mlir_attr_type(
@@ -829,6 +834,7 @@ def parse_type_str(allowedType):
         'int32' : 'I32',
         'int64' : 'I64',
         'float16' : 'F16',
+        'bfloat16' : 'BF16',
         'float' : 'F32',
         'double' : 'F64',
         'unkown' : 'BF16',
@@ -958,18 +964,19 @@ def gen_op_def(schema):
                 schema.name + " since it does not have operands.")
         else:
             s += indent + 'let builders = [\n'
-            # Custom builders with operands and attributes having a seperate parameter.
-            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, Value X,
-            #   Value, Y, Attribute A", [{}]>
+            # Custom builders with operands and attributes having a separate parameter.
+            # E.g. OpBuilderDAG<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
             indent = inc_indent(indent)
-            s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state'
-            operands_dict = get_operands_or_results(schema, type_str_dict,  is_input=True)
-            for name, ty in operands_dict.items():
-                s += ', {} {}'.format(tblgen_operand_type_to_cpp_type(ty),
-                                      name)
-            for name, ty in get_attrs(schema).items():
-                s += ', {} {}'.format(tblgen_attr_type_to_cpp_type(ty), name)
-            s += '", [{\n'
+            s += indent + 'OpBuilderDAG<(ins '
+            operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
+            attrs_dict = get_attrs(schema)
+            s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
+                                      name) for name, ty in operands_dict.items())
+            if operands_dict and attrs_dict:
+                s += ', '
+            s += ', '.join('"{}":${}'.format(tblgen_attr_type_to_cpp_type(ty),
+                                      name) for name, ty in attrs_dict.items())
+            s += '), [{\n'
             indent = inc_indent(indent)
 
             # Get output type from first operand's type.
@@ -981,7 +988,7 @@ def gen_op_def(schema):
                     format(first_operand_name)
                 s += indent + 'auto rhsTy = {}.getType();\n'. \
                     format(second_operand_name)
-                s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
+                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
                 s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
@@ -993,7 +1000,7 @@ def gen_op_def(schema):
                 s += indent + 'auto elementType = {}'.format(first_operand_name) + \
                     '.getType().cast<TensorType>().getElementType();\n'
                 build_type_name = 'UnrankedTensorType::get(elementType)'
-            s += indent + 'build(builder, state, {}'.format(build_type_name)
+            s += indent + 'build($_builder, $_state, {}'.format(build_type_name)
             for name, _ in ins.items():
                 s += ', ' + name
             s += ');\n'
@@ -1001,15 +1008,15 @@ def gen_op_def(schema):
             s += indent + '}]>,\n'
 
             # Custom builders with all operands and attributes having aggregate parameters.
-            # E.g. OpBuilder<"OpBuilder &builder, OperationState &state, ValueRange operands,
+            # E.g. OpBuilderDAG<(ins "ValueRange operands,
             #    ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilder<"OpBuilder &builder, OperationState &state, ' + \
-                'ValueRange operands, ArrayRef<NamedAttribute> attributes", [{\n'
+            s += indent + 'OpBuilderDAG<(ins ' + \
+                '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
             indent = inc_indent(indent)
             if schema.name in custom_builder_broadcast_ops_list:
                 s += indent + 'auto lhsTy = operands[0].getType();\n'
                 s += indent + 'auto rhsTy = operands[1].getType();\n'
-                s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
+                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
                 s += indent + indent + 'elementType = operands[0]' + \
@@ -1021,7 +1028,7 @@ def gen_op_def(schema):
                     'cast<TensorType>().getElementType();\n'
             s += indent + 'std::vector<mlir::Type> outputTypes;\n'
             s += indent + 'outputTypes.emplace_back({});\n'.format(build_type_name)
-            s += indent + 'build(builder, state, outputTypes, operands, attributes);\n'
+            s += indent + 'build($_builder, $_state, outputTypes, operands, attributes);\n'
             indent = dec_indent(indent)
             s += indent + '}]>'
 
@@ -1138,12 +1145,13 @@ def build_operator_schemas():
 
                     # Add checks against version_dict
                     if schema.name not in version_dict :
-                        print("Check-operation-version: Operation {} with version is new".format(
-                            schema.since_version, schema.name))
+                        print("Check-operation-version: Operation {} is new  with version {}"
+                            .format(schema.name, schema.since_version))
                     elif schema.since_version >  version_dict[schema.name]:
-                        print("Check-operation-version: Operation {} has a newer version {}"+
-                            "(old version {})".format( schema.name,
-                            schema.since_version, version_dict[schema.name]))
+                        print("Check-operation-version: Operation {}"
+                            .format(schema.name)+
+                            " has a newer version {} over old version {}"
+                            .format(schema.since_version, version_dict[schema.name]))
                 else:
                     # Generate operation according to the version in version_dict.
                     if schema.name not in version_dict :

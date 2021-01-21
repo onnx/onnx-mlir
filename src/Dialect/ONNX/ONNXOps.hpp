@@ -15,9 +15,9 @@
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/StandardTypes.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp"
@@ -44,12 +44,14 @@ public:
   /// several utilities for casting between dialects.
   static StringRef getDialectNamespace() { return "onnx"; }
 };
+} // end namespace mlir
 
 /// Include the auto-generated header file containing the declarations of the
 /// ONNX operations.
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.hpp.inc"
 
+namespace mlir {
 // The namespace onnxmlir is experimental.
 // onnx_mlir has been used in KRNL. Other candidates are onnxops, onnxdialect.
 // Should this namesapce for onnx mlir project or ONNXOp dialect?

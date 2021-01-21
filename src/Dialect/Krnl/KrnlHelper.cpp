@@ -173,7 +173,7 @@ BuildKrnlLoop::BuildKrnlLoop(
 
 BuildKrnlLoop::~BuildKrnlLoop() {
   if (pack)
-    free(pack);
+    delete pack;
 }
 
 void BuildKrnlLoop::createDefineOp() {
