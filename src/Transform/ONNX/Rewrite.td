@@ -90,42 +90,6 @@ class IsNotStringAttrOfValue<string val>:
   Constraint<CPred<"$0.cast<StringAttr>().getValue() != \"" # val # "\"">>;
 
 //===----------------------------------------------------------------------===//
-// Rewrite:
-// %0 = onnx.ConvOp(%D : tensor<DShape>, %K)
-//     {pads = [b0, b1, ... bK, e0, e1, ..., eK]} ->
-//         tensor<OutShape>
-//
-// as:
-// %0 = onnx.PadConstantValuePadOp(%D)
-//     {pads = [0, 0, b0, b1, ... bK, 0, 0, e0, e1, ..., eK]} ->
-//     tensor<DPaddedShape>
-// %1 = onnx.Conv(%0 : tensor<DPaddedShape>, %K) {pads = [0, ..., 0]} ->
-//     tensor<OutShape>
-//===----------------------------------------------------------------------===//
-
-def ConvOpPaddingPattern: Pat<
-  (ONNXConvOp:$res
-     $x,
-     $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
-     $pads,
-     $strides),
-  (ONNXConvOp
-
-    (ONNXPadOp $x,
-       (ONNXConstantOp (GetNullAttr), 
-          (insertZerosForNonPaddedDims<2> $pads)),
-       (ONNXConstantOp (GetNullAttr), 
-          (FloatAttrOfValue<0> $res)),
-       (StringAttrOfValue<"constant">)),
-
-        
-     $w, $b, $auto_pad, $dilation, $group, $kernel_shape,
-     (createArrayAttrOfZerosFrom $pads),
-     $strides),
-  [(HasNonZeroInArrayAttr:$pads), (IsNotStringAttrOfValue<"VALID"> $auto_pad)]
->;
-
-//===----------------------------------------------------------------------===//
 // This is to fuse the composition: 'BatchNorm o Conv' into 'Conv'
 // by deriving new 'w' and 'b' for 'Conv':
 //

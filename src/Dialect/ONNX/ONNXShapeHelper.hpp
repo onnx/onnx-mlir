@@ -66,8 +66,8 @@ private:
 /// Compute a broadcasted shape from the shapes of given operands. Operands must
 /// be ranked in advance.
 struct ONNXOpBroadcastedShapeHelper {
-  ONNXOpBroadcastedShapeHelper(
-      ConversionPatternRewriter *rewriter, Location loc);
+  ONNXOpBroadcastedShapeHelper(ConversionPatternRewriter *rewriter,
+      Location loc, bool uniBroadcasting = false);
 
   // Compute a vector of IndexExprs to represent the output shape. Results are
   // stored in 'outputDims'.
@@ -96,6 +96,11 @@ struct ONNXOpBroadcastedShapeHelper {
   // A vector of IndexExprs representing the output shape.
   DimsExpr outputDims;
   int64_t outputRank = -1;
+
+private:
+  // If unidirectional broadcasting, the other operands are always
+  // unidirectional broadcastable to the first operand.
+  bool isUniBroadcasting;
 };
 
 // Shape for concat

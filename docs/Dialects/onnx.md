@@ -1089,31 +1089,39 @@ ONNX Div operation
 
 ONNX Dropout operation
 
-"Dropout takes one input floating tensor and produces two tensor outputs,"
-"output (floating tensor) and mask (`Tensor<bool>`). Depending on whether it is"
-"in test mode or not, the output Y will either be a random dropout, or a simple"
-"copy of the input. Note that our implementation of Dropout does scaling in"
-"the training phase, so during testing nothing needs to be done."
+"Dropout takes an input floating-point tensor, an optional input ratio (floating-point scalar) and an optional input training_mode (boolean scalar). It produces two tensor outputs,"
+"output (floating-point tensor) and mask (optional `Tensor<bool>`). If `training_mode` is true then the output Y will be a random dropout;"
+"Note that this Dropout scales the masked input data by the following equation, so to convert the trained model into inference mode,"
+"the user can simply not pass `training_mode` input or set it to false."
+"```"
+"output = scale * data * mask,"
+"```"
+"where"
+"```"
+"scale = 1. / (1. - ratio)."
+"```"
 "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
 
 #### Attributes:
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`ratio` | ::mlir::FloatAttr | 32-bit float attribute
+`seed` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-`data` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
+`data` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or memref of any type values
+`ratio` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values or none type
+`training_mode` | tensor of 1-bit signless integer values or memref of any type values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
-`mask` | tensor of 1-bit signless integer values or memref of any type values or none type
+`output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or memref of any type values
+`mask` | tensor of 1-bit signless integer values or memref of any type values or none type or none type
 
 ### `onnx.DynamicQuantizeLinear` (::mlir::ONNXDynamicQuantizeLinearOp)
 
