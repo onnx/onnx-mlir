@@ -23,25 +23,10 @@ class SeqOf<list<Type> allowedTypes> :
   ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
                 "$_self.cast<SeqType>().getElementType()",  "SeqType">;
 
-#ifdef SHAPE_INFERENCE_INTERFACE
-#else
 include "src/Interface/ShapeInferenceInterface.td"
-#endif // SHAPE_INFERENCE_INTERFACE
-
-#ifdef PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
-#else
 include "src/Interface/PromotableConstOperandsOpInterface.td"
-#endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
-
-#ifdef RESULT_TYPE_INFERENCE_OP_INTERFACE
-#else
 include "src/Interface/ResultTypeInferenceOpInterface.td"
-#endif // RESULT_TYPE_INFERENCE_OP_INTERFACE
-
-#ifdef HAS_ONNX_SUBGRAPH_OP_INTERFACE
-#else
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
-#endif // HAS_ONNX_SUBGRAPH_OP_INTERFACE
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";

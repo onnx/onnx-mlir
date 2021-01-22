@@ -13,10 +13,7 @@
 #else
 #define HAS_ONNX_SUBGRAPH_OP_INTERFACE
 
-#ifdef OP_BASE
-#else
 include "mlir/IR/OpBase.td"
-#endif // OP_BASE
 
 def HasOnnxSubgraphOpInterface : OpInterface<"HasOnnxSubgraphOpInterface"> {
   let description = [{
