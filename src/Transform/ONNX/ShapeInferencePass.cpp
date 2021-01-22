@@ -73,8 +73,8 @@ public:
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape or followed by a return op.
     for (Operation &op : r.getOps()) {
-      std::function<void(mlir::FuncOp)> shapeInferenceFunc =
-          &ShapeInferencePass::runShapeInferenceOn;
+      std::function<void(mlir::Region&)> shapeInferenceFunc =
+          &ShapeInferencePass::runShapeInferenceOnRegion;
       // The shape of graph output has been imported from onnx protobuf model,
       // so the ops followed by a return op may not have dynamic shape output.
       // However, shape inference is still need on these ops
