@@ -3477,51 +3477,41 @@ LogicalResult ONNXLoopOp::inferShapes(
   // the knowledge we have on the inputs we pass to this function. Dispatch
   // shape inference to obtain body function output types.
   shapeInferenceFunc(loopBody);
-  //
-  //  // Output loop variables should have the same type as their input
-  //  // counterparts.
-  //    auto bodyResultTys = func.getType().getResults();
-  //    // Compute the type range corresponding to the final values of
-  //    loop-carried
-  //    // dependencies/scan outputs in the body function output types.
-  //    auto bodyResVFinalTys = llvm::make_range(bodyResultTys.begin() + 1,
-  //        bodyResultTys.begin() + 1 + v_initial().size());
-  //    auto bodyResScanTys = llvm::make_range(
-  //        bodyResultTys.begin() + 1 + v_initial().size(),
-  //        bodyResultTys.end());
-  //
-  //    // Set shape for loop operation outputs corresponding to the final
-  //    values of
-  //    // loop-carried dependencies to be shape of their counterparts in the
-  //    body
-  //    // function output.
-  //    for (auto vFinalValToTy : llvm::zip(v_final(), bodyResVFinalTys)) {
-  //      std::get<0>(vFinalValToTy).setType(std::get<1>(vFinalValToTy));
-  //    }
-  //
-  //    // For scan outputs, we set their shape to be the shape of the return
-  //    values
-  //    // of the loop body function corresponding to scan outputs, but with an
-  //    extra
-  //    // leading dimension.
-  //    for (auto vScanOutputValToTy : llvm::zip(scan_outputs(),
-  //    bodyResScanTys))
-  //    {
-  //      auto rankedScanTy =
-  //          std::get<1>(vScanOutputValToTy).cast<RankedTensorType>();
-  //      auto shape = rankedScanTy.getShape();
-  //      SmallVector<int64_t, 4> unsqueezedShape(shape.begin(), shape.end());
-  //      // Note that we may know the extent of the scan output leading
-  //      // dimension, which is very likely just the trip count specified as an
-  //      input
-  //      // to Loop operation, but we need to eliminate the possibility of
-  //      early
-  //      // termination to be sure.
-  //      unsqueezedShape.insert(unsqueezedShape.begin(), -1);
-  //      std::get<0>(vScanOutputValToTy)
-  //          .setType(RankedTensorType::get(
-  //              unsqueezedShape, rankedScanTy.getElementType()));
-  //    }
+
+  // Output loop variables should have the same type as their input
+  // counterparts.
+  auto bodyResultTys = loopBody.back().getTerminator()->getOperandTypes();
+  // Compute the type range corresponding to the final values of
+  // loop-carried dependencies/scan outputs in the body function output types.
+  auto scanStartItr = std::next(bodyResultTys.begin(), 1 + v_initial().size());
+  auto bodyResVFinalTys =
+      llvm::make_range(std::next(bodyResultTys.begin(), 1), scanStartItr);
+  auto bodyResScanTys = llvm::make_range(scanStartItr, bodyResultTys.end());
+
+  // Set shape for loop operation outputs corresponding to the final
+  // values of loop-carried dependencies to be shape of their counterparts in
+  // the body function output.
+  for (auto vFinalValToTy : llvm::zip(v_final(), bodyResVFinalTys)) {
+    std::get<0>(vFinalValToTy).setType(std::get<1>(vFinalValToTy));
+  }
+
+  // For scan outputs, we set their shape to be the shape of the return values
+  // of the loop body function corresponding to scan outputs, but with an
+  // extra leading dimension.
+  for (auto vScanOutputValToTy : llvm::zip(scan_outputs(), bodyResScanTys)) {
+    auto rankedScanTy =
+        std::get<1>(vScanOutputValToTy).cast<RankedTensorType>();
+    auto shape = rankedScanTy.getShape();
+    SmallVector<int64_t, 4> unsqueezedShape(shape.begin(), shape.end());
+    // Note that we may know the extent of the scan output leading
+    // dimension, which is very likely just the trip count specified as an input
+    // to Loop operation, but we need to eliminate the possibility of early
+    // termination to be sure.
+    unsqueezedShape.insert(unsqueezedShape.begin(), -1);
+    std::get<0>(vScanOutputValToTy)
+        .setType(RankedTensorType::get(
+            unsqueezedShape, rankedScanTy.getElementType()));
+  }
 
   return success();
 }
