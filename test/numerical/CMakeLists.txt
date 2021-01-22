@@ -75,7 +75,7 @@ target_link_libraries(TestGRU
         
 
 add_test(NAME OMTestConv COMMAND TestConv)
-add_test(NAME OMTestLoop COMMAND TestLoop)
+#add_test(NAME OMTestLoop COMMAND TestLoop)
 add_test(NAME OMTestGRU COMMAND TestGRU)
 add_test(NAME OMTestLSTM COMMAND TestLSTM)
 add_test(NAME OMTestRNN COMMAND TestRNN)
