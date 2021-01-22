@@ -9,7 +9,24 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/IR/BlockAndValueMapping.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include <mlir/IR/BlockAndValueMapping.h>
+
+// TODO(tjingrant): don't duplicate:
+// https://github.com/llvm/llvm-project/blob/0bf4a82a5a2b11a07a7f7eac5e49b565cb041b13/mlir/lib/Transforms/Utils/InliningUtils.cpp
+/// Remap locations from the inlined blocks with CallSiteLoc locations with the
+/// provided caller location.
+static void remapInlinedOperands(iterator_range<Region::iterator> inlinedBlocks,
+    BlockAndValueMapping &mapper) {
+  auto remapOperands = [&](Operation *op) {
+    for (auto &operand : op->getOpOperands())
+      if (auto mappedOp = mapper.lookupOrNull(operand.get()))
+        operand.set(mappedOp);
+  };
+  for (auto &block : inlinedBlocks)
+    block.walk(remapOperands);
+}
 
 struct ONNXLoopOpLowering : public ConversionPattern {
   explicit ONNXLoopOpLowering(MLIRContext *ctx)
@@ -21,8 +38,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     ONNXLoopOpAdaptor loopOpAdapter(operands, op->getAttrDictionary());
 
-    auto func = loopOp.getLoopBodyFunc();
-    auto &loopBody = func.getBody();
+    auto &loopBody = loopOp.body();
 
     // Allocate memory for two kinds of outputs:
     // - final values of loop carried dependencies, and
@@ -83,13 +99,38 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       for (auto value : llvm::make_range(outputs.begin(),
                outputs.begin() + loopOpAdapter.v_initial().size()))
         params.emplace_back(value);
-      auto callOp = rewriter.create<CallOp>(loc, func, params);
+
+      auto &loopBodyEntryBlock = loopBody.front();
+      BlockAndValueMapping mapper;
+      for (unsigned i = 0, e = params.size(); i != e; ++i) {
+        // Verify that the types of the provided values match the function
+        // argument types.
+        BlockArgument regionArg = loopBodyEntryBlock.getArgument(i);
+        mapper.map(regionArg, params[i]);
+      }
+
+      auto insertPoint =
+          std::next(ifOp.thenRegion().front().getOperations().begin(),
+              ifOp.thenRegion().front().getOperations().size() - 1);
+      ifOp.thenRegion().front().getOperations().splice(
+          insertPoint, loopBody.front().getOperations());
+
+      //        ifOp.thenRegion().getBlocks().splice(ifOp.thenRegion().end(),
+      //                                           loopBody.getBlocks());
+      remapInlinedOperands(ifOp.thenRegion().getBlocks(), mapper);
+      auto terminator = *(ifOp.thenRegion().getOps<ONNXReturnOp>().begin());
+      auto resultsRange = llvm::SmallVector<Value, 4>(
+          terminator->getOperands().begin(), terminator->getOperands().end());
+
+      insertPoint = std::next(ifOp.thenRegion().front().getOperations().begin(),
+          ifOp.thenRegion().front().getOperations().size() - 1);
+      rewriter.setInsertionPoint(ifOp.thenRegion().front().getTerminator());
 
       // Cast loop body outputs from tensor type to memref type in case it has
       // not already been lowered via dummy_cast. Eventually, dummy cast becomes
       // a cast from memref type to a memref type when everything is lowered and
       // thus becomes redundant.
-      auto resultsRange = callOp.getResults();
+      // auto resultsRange = callOp.getResults();
       SmallVector<Value, 4> bodyOutputs(
           resultsRange.begin(), resultsRange.end());
       for (int i = 0; i < bodyOutputs.size(); i++) {
@@ -128,8 +169,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
             std::get<1>(scanIntermediateToFinal),
             /*writePrefix=*/{origIV});
-    }
 
+      rewriter.eraseOp(terminator);
+    }
     rewriter.replaceOp(op, outputs);
     return success();
   }
