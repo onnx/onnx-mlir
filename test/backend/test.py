@@ -731,6 +731,7 @@ test_to_enable_static_dynamic = {
     "test_shufflenet_cpu": (test_static,),
     "test_resnet50_cpu": (test_static,),
     "test_vgg19_cpu": (test_static,),
+    "test_densenet121_cpu": (test_static,),
 }
 
 # test for static
