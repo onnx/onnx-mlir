@@ -48,13 +48,30 @@ module {
   "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32} : () -> ()
 })";
 
+std::string testLoopWithParentScopeVariable = R"(
+module {
+  func @main_graph(%max_trip_count: tensor<i64>, %cond: tensor<i1>, %y_initial: tensor<1xi64>) ->
+        (tensor<1xi64>, tensor<?x1xi64>) {
+    %const_offset = "onnx.Constant"() {value = dense<7> : tensor<i64>} : () -> tensor<i64>
+    %y_final, %y_scan = "onnx.Loop"(%max_trip_count, %cond, %y_initial) ({
+    ^bb0(%i: tensor<i64>, %body_cond: tensor<i1>, %y_prev: tensor<1xi64>):
+      %2 = "onnx.Add"(%y_prev, %i) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
+      %3 = "onnx.Add"(%2, %const_offset) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
+      onnx.Return %body_cond, %3, %3 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
+    }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
+    return %y_final, %y_scan : tensor<1xi64>, tensor<?x1xi64>
+  }
+  "onnx.EntryPoint"() {func = @main_graph, numInputs = 3 : i32, numOutputs = 2 : i32} : () -> ()
+})";
+
 // Returns whether onnx-mlir compiled loop operation is producing the same
 // results as a naive implementation of loop operation for a specific set of
 // convolution parameters/configuration.
 bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
     const int64_t tripCount, const int64_t yInit,
     const int64_t earlyTerminationTripCount =
-        std::numeric_limits<int64_t>::max()) {
+        std::numeric_limits<int64_t>::max(),
+    const int64_t constOffset = 0) {
   MLIRContext ctx;
   registerDialects(ctx);
 
@@ -93,7 +110,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   omTensorGetElem<int64_t>(vFinalRef.get(), {0}) = yInit;
   for (int64_t i = 0;
        i <= std::min<int64_t>(earlyTerminationTripCount, tripCount - 1); i++)
-    omTensorGetElem<int64_t>(vFinalRef.get(), {0}) += i;
+    omTensorGetElem<int64_t>(vFinalRef.get(), {0}) += (i + constOffset);
 
   auto &vFinal = outputs.at(0);
   return omTensorAreTwoOmtsClose<int64_t>(vFinal.get(), vFinalRef.get());
@@ -117,5 +134,14 @@ int main(int argc, char *argv[]) {
   assert(isOMLoopTheSameAsNaiveImplFor(
       testLoopWithEarlyTermination, 10, 42, /*earlyTerminationTripCount=*/3));
 
+  assert(isOMLoopTheSameAsNaiveImplFor(testLoopWithParentScopeVariable, 0, 42,
+      /*earlyTerminationTripCount=*/std::numeric_limits<int64_t>::max(),
+      /*constOffset=*/7));
+  assert(isOMLoopTheSameAsNaiveImplFor(testLoopWithParentScopeVariable, 1, 42,
+      /*earlyTerminationTripCount=*/std::numeric_limits<int64_t>::max(),
+      /*constOffset=*/7));
+  assert(isOMLoopTheSameAsNaiveImplFor(testLoopWithParentScopeVariable, 10, 42,
+      /*earlyTerminationTripCount=*/std::numeric_limits<int64_t>::max(),
+      /*constOffset=*/7));
   return 0;
 }
