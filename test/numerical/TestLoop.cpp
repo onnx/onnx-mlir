@@ -134,6 +134,8 @@ int main(int argc, char *argv[]) {
   assert(isOMLoopTheSameAsNaiveImplFor(
       testLoopWithEarlyTermination, 10, 42, /*earlyTerminationTripCount=*/3));
 
+  // Loop tests, in which loop body makes reference to values defined in the
+  // parent scope.
   assert(isOMLoopTheSameAsNaiveImplFor(testLoopWithParentScopeVariable, 0, 42,
       /*earlyTerminationTripCount=*/std::numeric_limits<int64_t>::max(),
       /*constOffset=*/7));
