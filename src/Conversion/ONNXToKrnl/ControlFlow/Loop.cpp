@@ -109,28 +109,33 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         mapper.map(regionArg, params[i]);
       }
 
-      auto insertPoint =
-          std::next(ifOp.thenRegion().front().getOperations().begin(),
-              ifOp.thenRegion().front().getOperations().size() - 1);
-      ifOp.thenRegion().front().getOperations().splice(
-          insertPoint, loopBody.front().getOperations());
+      auto &thenRegion = ifOp.thenRegion();
+      auto &thenBlock = thenRegion.front();
 
-      //        ifOp.thenRegion().getBlocks().splice(ifOp.thenRegion().end(),
-      //                                           loopBody.getBlocks());
-      remapInlinedOperands(ifOp.thenRegion().getBlocks(), mapper);
-      auto terminator = *(ifOp.thenRegion().getOps<ONNXReturnOp>().begin());
-      auto resultsRange = llvm::SmallVector<Value, 4>(
-          terminator->getOperands().begin(), terminator->getOperands().end());
+      // Split the insertion block into two, where the second block
+      // `postInsertBlock` contains only the terminator operation, insert loop
+      // body right before `postInsertBlock`, after all other operations created
+      // within the if Op.
+      Block *postInsertBlock = thenBlock.splitBlock(thenBlock.getTerminator());
+      assert(loopBody.getBlocks().size() == 1 &&
+             "Currently only support loop body with 1 block.");
+      thenRegion.getBlocks().splice(
+          postInsertBlock->getIterator(), loopBody.getBlocks());
+      auto newBlocks = llvm::make_range(
+          std::next(thenBlock.getIterator()), postInsertBlock->getIterator());
+      auto &loopBodyBlock = *newBlocks.begin();
 
-      insertPoint = std::next(ifOp.thenRegion().front().getOperations().begin(),
-          ifOp.thenRegion().front().getOperations().size() - 1);
-      rewriter.setInsertionPoint(ifOp.thenRegion().front().getTerminator());
+      auto loopBodyTerminator = loopBodyBlock.getTerminator();
+      remapInlinedOperands(thenRegion.getBlocks(), mapper);
+      auto resultsRange =
+          llvm::SmallVector<Value, 4>(loopBodyTerminator->getOperands().begin(),
+              loopBodyTerminator->getOperands().end());
+      rewriter.setInsertionPointToStart(postInsertBlock);
 
       // Cast loop body outputs from tensor type to memref type in case it has
       // not already been lowered via dummy_cast. Eventually, dummy cast becomes
       // a cast from memref type to a memref type when everything is lowered and
       // thus becomes redundant.
-      // auto resultsRange = callOp.getResults();
       SmallVector<Value, 4> bodyOutputs(
           resultsRange.begin(), resultsRange.end());
       for (int i = 0; i < bodyOutputs.size(); i++) {
@@ -170,7 +175,18 @@ struct ONNXLoopOpLowering : public ConversionPattern {
             std::get<1>(scanIntermediateToFinal),
             /*writePrefix=*/{origIV});
 
-      rewriter.eraseOp(terminator);
+      // Remove loop body terminator op.
+      rewriter.eraseOp(loopBodyTerminator);
+
+      // Merge the post insert block into the cloned entry block.
+      loopBodyBlock.getOperations().splice(
+          loopBodyBlock.end(), postInsertBlock->getOperations());
+      rewriter.eraseBlock(postInsertBlock);
+
+      // Merge the loop body block into the then block.
+      thenBlock.getOperations().splice(
+          thenBlock.end(), loopBodyBlock.getOperations());
+      rewriter.eraseBlock(&loopBodyBlock);
     }
     rewriter.replaceOp(op, outputs);
     return success();
