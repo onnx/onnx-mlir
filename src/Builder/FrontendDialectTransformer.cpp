@@ -349,9 +349,8 @@ private:
                 mlir::dyn_cast<mlir::HasOnnxSubgraphOpInterface>(op)) {
           auto regionIdx = opWithSubgraph.getSubgraphRegionIdx(attr.name());
           auto &region = op->getRegion(regionIdx);
-          entryBlock = new Block;
-          region.push_back(entryBlock);
-          builder_.setInsertionPointToStart(entryBlock);
+          region.push_back(new Block);
+          builder_.setInsertionPointToStart(&region.back());
         } else {
           llvm_unreachable("Op contain subgraph attributes but does not "
                            "implement HasOnnxSubgraphOpInterface interface.");

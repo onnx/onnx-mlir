@@ -3516,14 +3516,6 @@ LogicalResult ONNXLoopOp::inferShapes(
   return success();
 }
 
-// Helper function to obtain the loop body function associated with a Loop op.
-mlir::FuncOp ONNXLoopOp::getLoopBodyFunc() {
-  //  auto module = this->getParentOfType<mlir::ModuleOp>();
-  //  auto symbolName = this->body().cast<SymbolRefAttr>().getLeafReference();
-  //  return dyn_cast<mlir::FuncOp>(module.lookupSymbol(symbolName));
-  return nullptr;
-}
-
 // Helper function to obtain subset of op results corresponding to the final
 // value of loop carried dependencies.
 mlir::Operation::result_range ONNXLoopOp::v_final() {
