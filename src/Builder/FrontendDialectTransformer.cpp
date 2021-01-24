@@ -337,7 +337,7 @@ private:
     }
   }
 
-  void importSubgraphsToRegions(
+  void importSubgraphToRegion(
       const onnx::NodeProto &node, mlir::Operation *op) {
     for (const auto &attr : node.attribute()) {
       // Ignore subgraph attributes, as they will be imported as regions.
@@ -558,7 +558,7 @@ private:
 
     // TODO: Handle optional inputs.
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
-    importSubgraphsToRegions(node, op.getOperation());
+    importSubgraphToRegion(node, op.getOperation());
 
     // Type inference for results.
     if (!options_.useOnnxModelTypes)

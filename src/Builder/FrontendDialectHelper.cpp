@@ -28,33 +28,36 @@ void replaceAll(
 }
 
 std::string legalize_name(std::string name) {
-//  std::replace(name.begin(), name.end(), '/', '_');
-//  std::replace(name.begin(), name.end(), '-', '_');
-//  replaceAll(name, ":", "_colon_");
-//  // If tensor name starts with a number, prepend n to make it a legal c++
-//  // identifier.
-//  if (name.size() > 0 && isdigit(name.at(0)))
-//    name.insert(0, 1, 'n');
+  std::replace(name.begin(), name.end(), '/', '_');
+  std::replace(name.begin(), name.end(), '-', '_');
+  replaceAll(name, ":", "_colon_");
+  // If tensor name starts with a number, prepend n to make it a legal c++
+  // identifier.
+  if (name.size() > 0 && isdigit(name.at(0)))
+    name.insert(0, 1, 'n');
   return name;
 }
 
 mlir::Value OnnxMlirSymbolMapping::GetTensorByOnnxName(
     const std::string &name) {
-  assert(onnx_name2onnx_mlir_tensor.find(legalize_name(name)) !=
-             onnx_name2onnx_mlir_tensor.end() &&
-         "Tensor not found");
-  return onnx_name2onnx_mlir_tensor.at(legalize_name(name));
+  std::string legalized_name = legalize_name(name);
+  for (const auto &scope : _scopes)
+    if (scope.contain(legalized_name))
+      return scope.get(legalized_name);
+  llvm_unreachable("Tensor not found");
 }
 
 void OnnxMlirSymbolMapping::AddMapping(
     const std::string &name, mlir::Value tensor) {
-  assert(onnx_name2onnx_mlir_tensor.count(legalize_name(name)) == 0 &&
-         "Tensor already exists.");
-  onnx_name2onnx_mlir_tensor.emplace(legalize_name(name), tensor);
+  assert(!_scopes.empty());
+  assert(
+      !_scopes.back().contain(legalize_name(name)) && "Tensor already exists.");
+  _scopes.back().set(legalize_name(name), tensor);
 }
 
 bool OnnxMlirSymbolMapping::ContainKey(std::string name) {
-  return onnx_name2onnx_mlir_tensor.count(name) != 0;
+  return llvm::any_of(
+      _scopes, [name](VariableScope scope) { return scope.contain(name); });
 }
 
 template <typename T>

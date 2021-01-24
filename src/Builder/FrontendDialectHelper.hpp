@@ -35,6 +35,7 @@
 #if INCLUDE_ONNX_ML == 1
 #include "src/Dialect/MLONNX/MLONNXOps.hpp"
 #endif
+#include "src/Builder/SymbolTable.hpp"
 
 namespace onnx_mlir {
 
@@ -44,6 +45,8 @@ void replaceAll(
 std::string legalize_name(std::string name);
 
 struct OnnxMlirSymbolMapping {
+  OnnxMlirSymbolMapping() { pushScope("root"); }
+
   /*!
    *  Get MLIR tensor by onnx tensor name.
    *  @param name onnx tensor name.
@@ -60,11 +63,22 @@ struct OnnxMlirSymbolMapping {
 
   bool ContainKey(std::string name);
 
+  void pushScope(std::string identifier) {
+    _scopes.emplace_back(VariableScope(identifier));
+  }
+
+  void popScope(std::string scopeIdentifier) {
+    assert(_scopes.back().identifier == scopeIdentifier);
+    _scopes.pop_back();
+  }
+
 private:
   /*!
    *  mapping from onnx tensor names to MLIR tensor.
    */
-  std::map<std::string, mlir::Value> onnx_name2onnx_mlir_tensor;
+  std::vector<VariableScope> _scopes;
+
+  std::string _name;
 };
 
 struct InitializedTensorMapping {
