@@ -28,13 +28,13 @@ void replaceAll(
 }
 
 std::string legalize_name(std::string name) {
-  std::replace(name.begin(), name.end(), '/', '_');
-  std::replace(name.begin(), name.end(), '-', '_');
-  replaceAll(name, ":", "_colon_");
-  // If tensor name starts with a number, prepend n to make it a legal c++
-  // identifier.
-  if (name.size() > 0 && isdigit(name.at(0)))
-    name.insert(0, 1, 'n');
+//  std::replace(name.begin(), name.end(), '/', '_');
+//  std::replace(name.begin(), name.end(), '-', '_');
+//  replaceAll(name, ":", "_colon_");
+//  // If tensor name starts with a number, prepend n to make it a legal c++
+//  // identifier.
+//  if (name.size() > 0 && isdigit(name.at(0)))
+//    name.insert(0, 1, 'n');
   return name;
 }
 
