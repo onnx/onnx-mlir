@@ -221,6 +221,7 @@ func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 
 // CHECK-LABEL:  func @compute_slice_all_dyn
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2xi64>, [[PARAM_1_:%.+]]: memref<2xi64>, [[PARAM_2_:%.+]]: memref<2xi64>) {
 // CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = constant 1 : index
 // CHECK-DAG:       [[CST_5_:%.+]] = constant 5 : index
 // CHECK-DAG:       [[CST_minus_1_:%.+]] = constant -1 : index
 // CHECK-DAG:       [[CST_3_:%.+]] = constant 3 : index
@@ -229,13 +230,13 @@ func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 
 // CHECK-DAG:       [[CST_2147483647_:%.+]] = constant 2147483647 : index
 // CHECK-DAG:       [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_0", shape = [3, 4, 5], value = dense<{{.}}{{.}}[0, 1, 2, 3, 4], [10, 11, 12, 13, 14], [20, 21, 22, 23, 24], [30, 31, 32, 33, 34]{{.}}, {{.}}[100, 101, 102, 103, 104], [110, 111, 112, 113, 114], [120, 121, 122, 123, 124], [130, 131, 132, 133, 134]{{.}}, {{.}}[200, 201, 202, 203, 204], [210, 211, 212, 213, 214], [220, 221, 222, 223, 224], [230, 231, 232, 233, 234]{{.}}{{.}}> : tensor<3x4x5xi64>} : () -> memref<3x4x5xi64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "krnl.global"() {name = "constant_1", shape = [2], value = dense<[2, 1]> : tensor<2xi64>} : () -> memref<2xi64>
-// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = affine.load [[PARAM_0_]][0] : memref<2xi64>
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{\[}}[[CST_0_]]{{\]}} : memref<2xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_3_:%.+]] = index_cast [[LOAD_PARAM_0_MEM_]] : i64 to index
-// CHECK-DAG:       [[LOAD_PARAM_1_MEM_:%.+]] = affine.load [[PARAM_1_]][0] : memref<2xi64>
+// CHECK-DAG:       [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{\[}}[[CST_0_]]{{\]}} : memref<2xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_5_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
-// CHECK-DAG:       [[LOAD_PARAM_2_MEM_:%.+]] = affine.load [[PARAM_2_]][0] : memref<2xi64>
+// CHECK-DAG:       [[LOAD_PARAM_2_MEM_:%.+]] = krnl.load [[PARAM_2_]]{{\[}}[[CST_0_]]{{\]}} : memref<2xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_7_:%.+]] = index_cast [[LOAD_PARAM_2_MEM_]] : i64 to index
 // CHECK-DAG:       [[VAR_8_:%.+]] = cmpi "slt", [[VAR_3_]], [[CST_0_]] : index
@@ -275,13 +276,13 @@ func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 
 // CHECK:           [[VAR_39_:%.+]] = ceildivi_signed [[VAR_38_]], [[VAR_7_]] : index
 // CHECK:           [[VAR_40_:%.+]] = cmpi "slt", [[VAR_39_]], [[CST_0_]] : index
 // CHECK-DAG:       [[VAR_41_:%.+]] = select [[VAR_40_]], [[CST_0_]], [[VAR_39_]] : index
-// CHECK-DAG:       [[LOAD_PARAM_0_MEM_1_:%.+]] = affine.load [[PARAM_0_]][1] : memref<2xi64>
+// CHECK-DAG:       [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[PARAM_0_]]{{\[}}[[CST_1_]]{{\]}} : memref<2xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_43_:%.+]] = index_cast [[LOAD_PARAM_0_MEM_1_]] : i64 to index
-// CHECK-DAG:       [[LOAD_PARAM_1_MEM_1_:%.+]] = affine.load [[PARAM_1_]][1] : memref<2xi64>
+// CHECK-DAG:       [[LOAD_PARAM_1_MEM_1_:%.+]] = krnl.load [[PARAM_1_]]{{\[}}[[CST_1_]]{{\]}} : memref<2xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_45_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_1_]] : i64 to index
-// CHECK-DAG:       [[LOAD_PARAM_2_MEM_1_:%.+]] = affine.load [[PARAM_2_]][1] : memref<2xi64>
+// CHECK-DAG:       [[LOAD_PARAM_2_MEM_1_:%.+]] = krnl.load [[PARAM_2_]]{{\[}}[[CST_1_]]{{\]}} : memref<2xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_47_:%.+]] = index_cast [[LOAD_PARAM_2_MEM_1_]] : i64 to index
 // CHECK-DAG:       [[VAR_48_:%.+]] = cmpi "slt", [[VAR_43_]], [[CST_0_]] : index
@@ -533,7 +534,8 @@ func @test_tile2(%arg0 : tensor<8xf32>, %arg1 : tensor<1xi64>) -> tensor<*xf32> 
 
 // CHECK-LABEL:  func @test_tile2
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<8xf32>, [[PARAM_1_:%.+]]: memref<1xi64>) -> memref<?xf32> {
-// CHECK:           [[LOAD_PARAM_1_MEM_:%.+]] = affine.load [[PARAM_1_]][0] : memref<1xi64>
+// CHECK-DAG:       [[CST_0_:%.+]] = constant 0 : index
+// CHECK:           [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{\[}}[[CST_0_]]{{\]}} : memref<1xi64>
 // CHECK:           [[VAR_1_:%.+]] = index_cast [[LOAD_PARAM_1_MEM_]] : i64 to index
 // CHECK:           [[VAR_2_:%.+]] = affine.apply #map0(){{.}}[[VAR_1_]]{{.}}
 // CHECK-DAG:       [[RES_:%.+]] = alloc([[VAR_2_]]) : memref<?xf32>
