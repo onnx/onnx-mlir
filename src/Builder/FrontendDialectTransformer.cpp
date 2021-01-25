@@ -571,7 +571,7 @@ private:
           builder_.setInsertionPointToStart(&region.back());
           importSubgraphToRegion(attr.g(), region, op.getOperation(), false);
         } else {
-          llvm_unreachable("Op contain subgraph attributes but does not "
+          llvm_unreachable("Op contains subgraph attributes but does not "
                            "implement HasOnnxSubgraphOpInterface interface.");
         }
       }
