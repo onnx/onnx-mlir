@@ -165,8 +165,8 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
     assert(!expr.isPredType() && "no affine support for predicate type");
     int dimNum = expr.getContext().getNumDims();
     int symNum = expr.getContext().getNumSymbols();
-    AffineMap map = AffineMap::get(
-      dimNum, symNum, {expr.getAffineExpr()}, expr.getRewriter().getContext());
+    AffineMap map = AffineMap::get(dimNum, symNum, {expr.getAffineExpr()},
+        expr.getRewriter().getContext());
     SmallVector<Value, 4> list;
     expr.getContext().getDimAndSymbolList(list);
     pushAffineMapBound(map, list);
@@ -176,7 +176,8 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
   }
 }
 
-void KrnlIterateOperandPack::pushIndexExprsBound(SmallVectorImpl<IndexExpr> &exprVector) {
+void KrnlIterateOperandPack::pushIndexExprsBound(
+    SmallVectorImpl<IndexExpr> &exprVector) {
   SmallVector<AffineExpr, 4> AEVector;
   for (IndexExpr expr : exprVector) {
     assert(!expr.isPredType() && "no affine support for predicate type");
@@ -185,7 +186,8 @@ void KrnlIterateOperandPack::pushIndexExprsBound(SmallVectorImpl<IndexExpr> &exp
   IndexExpr expr = exprVector.front();
   int dimNum = expr.getContext().getNumDims();
   int symNum = expr.getContext().getNumSymbols();
-  AffineMap map = AffineMap::get(dimNum, symNum, AEVector, builder.getContext());
+  AffineMap map =
+      AffineMap::get(dimNum, symNum, AEVector, builder.getContext());
   SmallVector<Value, 4> list;
   expr.getContext().getDimAndSymbolList(list);
   pushAffineMapBound(map, list);
@@ -234,27 +236,29 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
 }
 
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, IndexExpr upperBound) {
-    pack->pushConstantBound(lowerBound);
-    pack->pushIndexExprBound(upperBound);
-    return pushCount++;
+  pack->pushConstantBound(lowerBound);
+  pack->pushIndexExprBound(upperBound);
+  return pushCount++;
 }
 
-int BuildKrnlLoop::pushBounds(int64_t lowerBound, SmallVectorImpl<IndexExpr> &upperBound) {
-    pack->pushConstantBound(lowerBound);
-    pack->pushIndexExprsBound(upperBound);
-    return pushCount++;
+int BuildKrnlLoop::pushBounds(
+    int64_t lowerBound, SmallVectorImpl<IndexExpr> &upperBound) {
+  pack->pushConstantBound(lowerBound);
+  pack->pushIndexExprsBound(upperBound);
+  return pushCount++;
 }
 
-int BuildKrnlLoop::pushBounds(SmallVectorImpl<IndexExpr> &lowerBound, SmallVectorImpl<IndexExpr> &upperBound) {
-    pack->pushIndexExprsBound(lowerBound);
-    pack->pushIndexExprsBound(upperBound);
-    return pushCount++;
+int BuildKrnlLoop::pushBounds(SmallVectorImpl<IndexExpr> &lowerBound,
+    SmallVectorImpl<IndexExpr> &upperBound) {
+  pack->pushIndexExprsBound(lowerBound);
+  pack->pushIndexExprsBound(upperBound);
+  return pushCount++;
 }
 
 int BuildKrnlLoop::pushBounds(IndexExpr lowerBound, IndexExpr upperBound) {
-    pack->pushIndexExprBound(lowerBound);
-    pack->pushIndexExprBound(upperBound);
-    return pushCount++;
+  pack->pushIndexExprBound(lowerBound);
+  pack->pushIndexExprBound(upperBound);
+  return pushCount++;
 }
 
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, AffineMap upperBound,

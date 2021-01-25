@@ -171,7 +171,8 @@ public:
   int pushBounds(int64_t lowerBound, Value upperBound);
   int pushBounds(int64_t lowerBound, IndexExpr upperBound);
   int pushBounds(int64_t lowerBound, SmallVectorImpl<IndexExpr> &upperBound);
-  int pushBounds(SmallVectorImpl<IndexExpr> &lowerBound, SmallVectorImpl<IndexExpr> &upperBound);
+  int pushBounds(SmallVectorImpl<IndexExpr> &lowerBound,
+      SmallVectorImpl<IndexExpr> &upperBound);
   int pushBounds(IndexExpr lowerBound, IndexExpr upperBound);
   int pushBounds(int64_t lowerBound, AffineMap upperBound,
       ArrayRef<Value> operandsForUpperBoundMap);

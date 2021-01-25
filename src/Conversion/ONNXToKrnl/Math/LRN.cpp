@@ -37,6 +37,15 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     int64_t outputRank = outputMemRefShape.size();
 
     Value input = operandAdaptor.X();
+    float biasLit = lrnOp.bias().convertToFloat();
+    float alphaLit = lrnOp.alpha().convertToFloat();
+    float betaLit = lrnOp.beta().convertToFloat();
+    float sizeLit = (float)lrnOp.size();
+    auto f32Type = elementType; // FloatType::getF32(ctx);
+    Value biasValue = emitConstantOp(rewriter, loc, f32Type, biasLit);
+    Value alphaDivSizeValue =
+        emitConstantOp(rewriter, loc, f32Type, alphaLit / sizeLit);
+    Value betaValue = emitConstantOp(rewriter, loc, f32Type, betaLit);
 
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
@@ -49,39 +58,43 @@ struct ONNXLRNOpLowering : public ConversionPattern {
 
     // Insert computation of square_sum.
     // square_sum[n, c, d1, ..., dk] = sum(X[n, i, d1, ..., dk] ^ 2),
-    // where max(0, c - floor((size - 1) / 2)) <= i 
+    // where max(0, c - floor((size - 1) / 2)) <= i
     // and i<= min(C - 1, c + ceil((size - 1) / 2)).
 
     // Get a child IndexExpr context.
     IndexExprContext childContext(shapeHelper.context);
-    
+
     // Compute the lower bound and upper bound for square_sum.
     const int loopIndexForC = 1;
     Value cValue = outputLoops.getInductionVar(loopIndexForC);
     IndexExpr cIE = childContext.createLoopInductionIndex(cValue);
-    IndexExpr sizeIE = childContext.createDimIndexFromShapedType(input, loopIndexForC);
-    
+    IndexExpr sizeIE =
+        childContext.createDimIndexFromShapedType(input, loopIndexForC);
+
     SmallVector<IndexExpr, 2> lbMaxList;
     lbMaxList.emplace_back(childContext.createLiteralIndex(0));
-    lbMaxList.emplace_back(cIE-(sizeIE-1).floorDiv(childContext.createLiteralIndex(2)));
+    lbMaxList.emplace_back(
+        cIE - (sizeIE - 1).floorDiv(childContext.createLiteralIndex(2)));
 
     SmallVector<IndexExpr, 2> ubMinList;
-    ubMinList.emplace_back(sizeIE-1);
-    ubMinList.emplace_back(cIE-1+(sizeIE-1).ceilDiv(childContext.createLiteralIndex(2)));
-    
+    ubMinList.emplace_back(sizeIE);
+    ubMinList.emplace_back(
+        cIE + 1 + (sizeIE - 1).ceilDiv(childContext.createLiteralIndex(2)));
+
     // Initialize sum
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
     Value sumAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-    rewriter.create<StoreOp>(loc, emitConstantOp(rewriter, loc, elementType, 0), sumAlloc, ArrayRef<Value>{});
+    rewriter.create<StoreOp>(loc, emitConstantOp(rewriter, loc, elementType, 0),
+        sumAlloc, ArrayRef<Value>{});
 
     // Create the sum reduction loop
     BuildKrnlLoop sumLoops(rewriter, loc, 1);
     sumLoops.createDefineOp();
     sumLoops.pushBounds(lbMaxList, ubMinList);
     sumLoops.createIterateOp();
-    auto outputLoopBody = rewriter.saveInsertionPoint(); 
+    auto outputLoopBody = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(sumLoops.getIterateBlock());
-    
+
     // Compute quare-sum value
     SmallVector<Value, 4> loadIndices;
     for (int i = 0; i < outputRank; i++) {
@@ -96,19 +109,27 @@ struct ONNXLRNOpLowering : public ConversionPattern {
 
     Value loadVal = rewriter.create<LoadOp>(loc, input, loadIndices);
     Value squareVal = rewriter.create<MulFOp>(loc, loadVal, loadVal);
-  
+
     Value sumValue = rewriter.create<LoadOp>(loc, sumAlloc, ArrayRef<Value>{});
     sumValue = rewriter.create<AddFOp>(loc, sumValue, squareVal);
     rewriter.create<StoreOp>(loc, sumValue, sumAlloc, ArrayRef<Value>{});
 
-    // Store the output
+    // Compute and store the output
+    // y = x / ((bias + (alpha / nsize) * square_sum) ** beta)
     rewriter.restoreInsertionPoint(outputLoopBody);
     SmallVector<Value, 4> storeIndices;
     for (int i = 0; i < outputRank; ++i) {
       storeIndices.emplace_back(outputLoops.getInductionVar(i));
     }
+    Value xValue = rewriter.create<LoadOp>(loc, input, storeIndices);
     sumValue = rewriter.create<LoadOp>(loc, sumAlloc, ArrayRef<Value>{});
-    rewriter.create<StoreOp>(loc, sumValue, alloc, storeIndices);
+    Value tempValue = rewriter.create<PowFOp>(loc,
+        rewriter.create<AddFOp>(loc, biasValue,
+            rewriter.create<MulFOp>(loc, alphaDivSizeValue, sumValue)),
+        betaValue);
+    Value resultValue = rewriter.create<DivFOp>(loc, xValue, tempValue);
+
+    rewriter.create<StoreOp>(loc, resultValue, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
 
