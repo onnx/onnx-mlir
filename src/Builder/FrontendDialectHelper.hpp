@@ -45,7 +45,6 @@ void replaceAll(
 std::string legalize_name(std::string name);
 
 struct OnnxMlirSymbolMapping {
-  OnnxMlirSymbolMapping() { pushScope("root"); }
 
   /*!
    *  Get MLIR tensor by onnx tensor name.
