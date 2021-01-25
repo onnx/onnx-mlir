@@ -10,34 +10,19 @@
 
 #pragma once
 
-#include <cmath>
-#include <iostream>
-
 #include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileUtilities.h"
-#include "llvm/Support/InitLLVM.h"
-#include "llvm/Support/Regex.h"
-#include "llvm/Support/SourceMgr.h"
-
-#include "src/Builder/FrontendDialectTransformer.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/Pass/Passes.hpp"
 
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
-#include "mlir/Dialect/Shape/IR/Shape.h"
-#include "mlir/ExecutionEngine/ExecutionEngine.h"
-#include "mlir/ExecutionEngine/OptUtils.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/MLIRContext.h"
 #include "mlir/InitAllDialects.h"
-#include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Parser.h"
-#include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Target/LLVMIR.h"
 #include "mlir/Transforms/Passes.h"
+
+#include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Pass/Passes.hpp"
 
 enum EmissionTargetType {
   EmitONNXBasic,
