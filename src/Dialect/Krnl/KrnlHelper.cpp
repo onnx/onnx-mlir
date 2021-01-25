@@ -158,11 +158,11 @@ void KrnlIterateOperandPack::pushAffineMapBound(
     _operands.emplace_back(operand);
 }
 
+// Bound could be a constant, Value or AffineMap
 void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
   if (expr.isLiteral()) {
     pushConstantBound(expr.getLiteral());
-  } else if (expr.isAffine()) {
-    assert(!expr.isPredType() && "no affine support for predicate type");
+  } else if (expr.isAffine() && !expr.isPredType()) {
     int dimNum = expr.getContext().getNumDims();
     int symNum = expr.getContext().getNumSymbols();
     AffineMap map = AffineMap::get(dimNum, symNum, {expr.getAffineExpr()},
@@ -171,7 +171,7 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
     expr.getContext().getDimAndSymbolList(list);
     pushAffineMapBound(map, list);
   } else {
-    llvm_unreachable("unexpected IndexExpr");
+    // Assume the expr is loop invariant if there is any outer loop
     pushOperandBound(expr.getValue());
   }
 }
@@ -236,9 +236,10 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
 }
 
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, IndexExpr upperBound) {
-  pack->pushConstantBound(lowerBound);
-  pack->pushIndexExprBound(upperBound);
-  return pushCount++;
+  if (upperBound.isLiteral()) {
+    return pushBounds(lowerBound, upperBound.getLiteral());
+  }
+  return pushBounds(lowerBound, upperBound.getValue());
 }
 
 int BuildKrnlLoop::pushBounds(
@@ -252,12 +253,6 @@ int BuildKrnlLoop::pushBounds(SmallVectorImpl<IndexExpr> &lowerBound,
     SmallVectorImpl<IndexExpr> &upperBound) {
   pack->pushIndexExprsBound(lowerBound);
   pack->pushIndexExprsBound(upperBound);
-  return pushCount++;
-}
-
-int BuildKrnlLoop::pushBounds(IndexExpr lowerBound, IndexExpr upperBound) {
-  pack->pushIndexExprBound(lowerBound);
-  pack->pushIndexExprBound(upperBound);
   return pushCount++;
 }
 
