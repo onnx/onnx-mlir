@@ -41,11 +41,6 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
 
-    MemRefType scalarIndexType = MemRefType::get({}, rewriter.getIndexType(), {}, 0);
-    Value cAlloc = rewriter.create<AllocOp>(loc, scalarIndexType);
-    MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-    Value sumAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-
     BuildKrnlLoop outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
     outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
@@ -68,28 +63,21 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     
     SmallVector<IndexExpr, 2> lbMaxList;
     lbMaxList.emplace_back(childContext.createLiteralIndex(0));
-    //lbMaxList.emplace_back(cIE-(sizeIE-childContext.createLiteralIndex(1)).floorDiv(childContext.createLiteralIndex(2)));
-    lbMaxList.emplace_back(cIE-(sizeIE-childContext.createLiteralIndex(1)));
-    //IndexExpr lbIE = IndexExpr::max(lbMaxList);
+    lbMaxList.emplace_back(cIE-(sizeIE-1).floorDiv(childContext.createLiteralIndex(2)));
 
     SmallVector<IndexExpr, 2> ubMinList;
     ubMinList.emplace_back(sizeIE-1);
-    ubMinList.emplace_back(cIE-childContext.createLiteralIndex(1)+(sizeIE-childContext.createLiteralIndex(1)).ceilDiv(childContext.createLiteralIndex(2)));
-
-    IndexExpr ubIE = cIE-childContext.createLiteralIndex(1)+(sizeIE-childContext.createLiteralIndex(1)).floorDiv(childContext.createLiteralIndex(2));
+    ubMinList.emplace_back(cIE-1+(sizeIE-1).ceilDiv(childContext.createLiteralIndex(2)));
     
-    rewriter.create<StoreOp>(loc, ubIE.getValue(), cAlloc, ArrayRef<Value>{});
-    Value cLoad = rewriter.create<LoadOp>(loc, cAlloc, ArrayRef<Value>{});
-
     // Initialize sum
+    MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
+    Value sumAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
     rewriter.create<StoreOp>(loc, emitConstantOp(rewriter, loc, elementType, 0), sumAlloc, ArrayRef<Value>{});
 
     // Create the sum reduction loop
     BuildKrnlLoop sumLoops(rewriter, loc, 1);
     sumLoops.createDefineOp();
-    //sumLoops.pushBounds(lbIE.getValue(), ubIE.getValue());
-    // Error sumLoops.pushBounds(0, cValue);
-    sumLoops.pushBounds(0, cIE);
+    sumLoops.pushBounds(lbMaxList, ubMinList);
     sumLoops.createIterateOp();
     auto outputLoopBody = rewriter.saveInsertionPoint(); 
     rewriter.setInsertionPointToStart(sumLoops.getIterateBlock());
@@ -98,9 +86,8 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     SmallVector<Value, 4> loadIndices;
     for (int i = 0; i < outputRank; i++) {
       if (i == loopIndexForC) {
-        Value loopVal = outputLoops.getInductionVar(i);
-        //loadIndices.emplace_back(loopVal);
-        loadIndices.emplace_back(cLoad);
+        Value loopVal = sumLoops.getInductionVar(0);
+        loadIndices.emplace_back(loopVal);
       } else {
         Value loopVal = outputLoops.getInductionVar(i);
         loadIndices.emplace_back(loopVal);
@@ -114,6 +101,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     sumValue = rewriter.create<AddFOp>(loc, sumValue, squareVal);
     rewriter.create<StoreOp>(loc, sumValue, sumAlloc, ArrayRef<Value>{});
 
+    // Store the output
     rewriter.restoreInsertionPoint(outputLoopBody);
     SmallVector<Value, 4> storeIndices;
     for (int i = 0; i < outputRank; ++i) {
