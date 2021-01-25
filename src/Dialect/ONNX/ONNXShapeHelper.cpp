@@ -783,7 +783,7 @@ ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(
     ONNXLRNOp *newOp, ConversionPatternRewriter *rewriter)
     : ONNXOpShapeHelper<ONNXLRNOp>(newOp, rewriter) {}
 
-LogicalResult ONNXLRNOpShapeHelper::Compute( ONNXLRNOpAdaptor operandAdaptor) {
+LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   Operation *genericOp = reinterpret_cast<Operation *>(op);
 
