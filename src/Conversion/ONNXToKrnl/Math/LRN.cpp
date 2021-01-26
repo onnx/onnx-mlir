@@ -110,7 +110,8 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     Value loadVal = rewriter.create<AffineLoadOp>(loc, input, loadIndices);
     Value squareVal = rewriter.create<MulFOp>(loc, loadVal, loadVal);
 
-    Value sumValue = rewriter.create<AffineLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
+    Value sumValue =
+        rewriter.create<AffineLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
     sumValue = rewriter.create<AddFOp>(loc, sumValue, squareVal);
     rewriter.create<AffineStoreOp>(loc, sumValue, sumAlloc, ArrayRef<Value>{});
 
