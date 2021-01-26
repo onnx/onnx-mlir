@@ -368,6 +368,9 @@ test_to_enable_static_dynamic = {
     "test_logsoftmax_large_number_cpu": (test_static_dynamic,),
 
     # LRN
+    "test_lrn_cpu": (test_static_dynamic,),
+    "test_lrn_default_cpu": (test_static_dynamic,),
+    
 
     # LSTM
     "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),

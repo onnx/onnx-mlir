@@ -187,6 +187,13 @@ struct ONNXTransposeOpShapeHelper : public ONNXOpShapeHelper<ONNXTransposeOp> {
   LogicalResult Compute(ONNXTransposeOpAdaptor operandAdaptor);
 };
 
+// Shape for LRN.
+struct ONNXLRNOpShapeHelper : public ONNXOpShapeHelper<ONNXLRNOp> {
+  ONNXLRNOpShapeHelper(ONNXLRNOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXLRNOpAdaptor operandAdaptor);
+};
+
 //===----------------------------------------------------------------------===//
 // Low Level Helpers
 //===----------------------------------------------------------------------===//
