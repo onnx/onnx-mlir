@@ -55,6 +55,7 @@ void SymbolMapping::popScope(const std::string &scopeIdentifier) {
 }
 
 void VariableScope::set(std::string name, mlir::Value val) {
+  assert(_nameToValue.count(name) == 0 && "duplicate key in symbol table");
   _nameToValue.emplace(name, val);
 }
 
