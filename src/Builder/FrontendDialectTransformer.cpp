@@ -88,7 +88,7 @@ private:
   InitializedTensorMapping initializedTensors;
 
   // mapping between string name and symbol
-  OnnxMlirSymbolMapping frontend_symbols_;
+  SymbolMapping frontend_symbols_;
 
   // Flag to change the inputs of function to unknown dimension.
   // Temporarily added to use the test cases with static shape to test.
@@ -941,7 +941,7 @@ private:
     auto *fnEntryBlock = funcOp.addEntryBlock();
 
     // Save caller context, while generating callee function body.
-    OnnxMlirSymbolMapping callerScope(std::move(frontend_symbols_));
+    SymbolMapping callerScope(std::move(frontend_symbols_));
     auto prev_ip = builder_.saveInsertionPoint();
     builder_.setInsertionPointToStart(fnEntryBlock);
 

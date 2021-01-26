@@ -39,47 +39,6 @@
 
 namespace onnx_mlir {
 
-void replaceAll(
-    std::string &str, const std::string &from, const std::string &to);
-
-std::string legalize_name(std::string name);
-
-struct OnnxMlirSymbolMapping {
-
-  /*!
-   *  Get MLIR tensor by onnx tensor name.
-   *  @param name onnx tensor name.
-   *  @return onnx mlir tensor corresponding to `name`.
-   */
-  mlir::Value GetTensorByOnnxName(const std::string &name);
-
-  /*!
-   *  Add a new mapping from onnx tensor name to MLIR symbol.
-   *  @param name onnx tensor name.
-   *  @param tensor MLIR Value  pointer.
-   */
-  void AddMapping(const std::string &name, mlir::Value tensor);
-
-  bool ContainKey(std::string name);
-
-  void pushScope(std::string identifier) {
-    _scopes.emplace_back(VariableScope(identifier));
-  }
-
-  void popScope(std::string scopeIdentifier) {
-    assert(_scopes.back().identifier == scopeIdentifier);
-    _scopes.pop_back();
-  }
-
-private:
-  /*!
-   *  mapping from onnx tensor names to MLIR tensor.
-   */
-  std::vector<VariableScope> _scopes;
-
-  std::string _name;
-};
-
 struct InitializedTensorMapping {
   // Add new entry.
   void AddMapping(std::string name, onnx::TensorProto tensor);

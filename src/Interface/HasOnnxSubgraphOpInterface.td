@@ -1,11 +1,12 @@
-//===----------------- HasOnnxSubgraphOpInterface.td -------------------===//
-//===--------- Infer Data Type for Results Interface Definition --------===//
+//===------------------- HasOnnxSubgraphOpInterface.hpp ------------------===//
+//===------------- Has Onnx Subgraph Op Interface Definition -------------===//
 //
 // Copyright 2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains the tablegen of the data type inference interface.
+// This file contains the TableGen definition of the HasOnnxSubgraph Op
+// Interface.
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,8 +18,11 @@ include "mlir/IR/OpBase.td"
 
 def HasOnnxSubgraphOpInterface : OpInterface<"HasOnnxSubgraphOpInterface"> {
   let description = [{
-    Interface to access a registered method to infer the data types for 
-    the result of an operation
+    Operation interface mapping the name of the subgraph (specified as the subgraph
+    attribute name in ONNX) to region index of the imported MLIR operation.
+
+    This operation interface essentially allows for the association of a name with
+    an operation region, where the name is specified by the ONNX standard.
   }];
 
   let methods = [
