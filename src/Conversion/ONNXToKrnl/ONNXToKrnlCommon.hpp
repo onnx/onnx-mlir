@@ -193,6 +193,9 @@ void populateLoweringONNXElementwiseOpPattern(
 void populateLoweringONNXGemmOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXLRNOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXMatMulOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
