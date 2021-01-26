@@ -169,14 +169,13 @@ static FlatSymbolRefAttr getOrInsertUnaryFloatMathFunction(
 
   // Create function declaration.
   auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
-  auto llvmFnType = LLVM::LLVMFunctionType::get(llvmF32Ty,
-      ArrayRef<mlir::LLVM::LLVMType>({llvmF32Ty}));
+  auto llvmFnType = LLVM::LLVMFunctionType::get(
+      llvmF32Ty, ArrayRef<mlir::LLVM::LLVMType>({llvmF32Ty}));
 
   // Insert the unary math function into the body of the parent module.
   PatternRewriter::InsertionGuard insertGuard(rewriter);
   rewriter.setInsertionPointToStart(module.getBody());
-  rewriter.create<LLVM::LLVMFuncOp>(
-      module.getLoc(), mathFuncName, llvmFnType);
+  rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), mathFuncName, llvmFnType);
   return SymbolRefAttr::get(mathFuncName, context);
 }
 
@@ -537,12 +536,13 @@ public:
 
     // Insert and/or get reference to erf function declaration.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    auto erfRef = getOrInsertUnaryFloatMathFunction(rewriter, parentModule, "erff");
+    auto erfRef =
+        getOrInsertUnaryFloatMathFunction(rewriter, parentModule, "erff");
 
     // Emit function call in the code.
     auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
-    auto funcCall = rewriter.create<CallOp>(loc, erfRef, llvmF32Ty,
-        ArrayRef<Value>({operands[0]}));
+    auto funcCall = rewriter.create<CallOp>(
+        loc, erfRef, llvmF32Ty, ArrayRef<Value>({operands[0]}));
     rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();
   }
