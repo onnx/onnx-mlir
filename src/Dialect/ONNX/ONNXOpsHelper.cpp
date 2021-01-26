@@ -10,6 +10,7 @@
 
 #include "src/Dialect/ONNX/ONNXOpsHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 // Identity affine
@@ -43,6 +44,110 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
     dimExp = (input + pad - (kernel - 1) * dilation - 1).floorDiv(stride) + 1;
 
   return AffineMap::get(1, 4, {dimExp});
+}
+
+/// IndexExprs to compute the start and end indices of the convolution/pooling
+/// window.
+///
+/// The conv/pooling window can be smaller than the kernel when slicing it over
+/// the border edges. Thus, we will compute the start and end indices for
+/// each window dimension as follows.
+///   firstValidH = ceil(float(ptH / dH)) * dH - ptH
+///   startH = max(firstValidH, ho * sH - ptH)
+///   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
+///
+/// Full conv/pooling window can be reconstructed by:
+///   hDim = round(float(endH - startH) / float(dH))
+//
+/// We also want to compute how the window is smaller than the kernel.
+///   kernelOffset = min(0, ho * sH - ptH)
+///
+/// How to derive 'firstValidH':
+///   When dilation is non-unit, the first valid pixel to apply conv/pooling on
+///   will not be the 0-th pixel, but rather the smallest integer n to make
+///   '-pH + n * dH' greater than or equal to 0, where pH and dH are pad
+///   and dilation along axis H. We derive what is this smallest n:
+///   -pH + n * dH >= 0
+///         n * dH >= pH
+///              n >= pH/dH
+///   thus n = ceil(pH/dH)
+///   thus the first valid pixel location is 'ceil(pH / dH) * dH- pH'.
+///
+/// This function returns {startH, endH, kernelOffset}.
+
+std::vector<IndexExpr> getIndexExprsForConvWindow(IndexExprContext &context,
+    SmallVectorImpl<IndexExpr> &inputExprs, bool ceilMode, bool isDilated) {
+  assert(inputExprs.size() == 6 && "Not enought inputs");
+  IndexExpr windowStartExpr, windowEndExpr, kernelOffsetExpr;
+  IndexExpr outputIndex = inputExprs[0];
+  IndexExpr inputDim = inputExprs[1];
+  IndexExpr kernelDim = inputExprs[2];
+  IndexExpr padTopDim = inputExprs[3];
+  IndexExpr strideDim = inputExprs[4];
+  IndexExpr dilationDim = inputExprs[5];
+
+  IndexExpr start1 = (padTopDim).ceilDiv(dilationDim) * dilationDim - padTopDim;
+  IndexExpr start2 = outputIndex * strideDim - padTopDim;
+  IndexExpr end1 = inputDim;
+  IndexExpr end2 =
+      outputIndex * strideDim + (kernelDim - 1) * dilationDim + 1 - padTopDim;
+
+  // windowStartExpr
+  SmallVector<mlir::IndexExpr, 2> startExprs = {start1, start2};
+  windowStartExpr = IndexExpr::max(startExprs);
+  // windowEndExpr
+  SmallVector<mlir::IndexExpr, 2> endExprs = {end1, end2};
+  windowEndExpr = IndexExpr::min(endExprs);
+  // kernelOffsetExpr
+  SmallVector<mlir::IndexExpr, 2> kernelExprs = {
+      context.createLiteralIndex(0), start2};
+  kernelOffsetExpr = IndexExpr::min(kernelExprs);
+
+  return std::vector<IndexExpr>{
+      windowStartExpr, windowEndExpr, kernelOffsetExpr};
+}
+
+/// The conv/pooling window can be smaller than the kernel when slicing it over
+/// the border edges. This function returns an AffineMap to compute the size of
+/// one edge of the window.
+AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated) {
+  AffineMap windowDimMap;
+  // Compute start and end indices.
+  AffineExpr outputIndex = builder.getAffineDimExpr(0);
+  AffineExpr inputDim = builder.getAffineSymbolExpr(0);
+  AffineExpr kernelDim = builder.getAffineSymbolExpr(1);
+  AffineExpr padTopDim = builder.getAffineSymbolExpr(2);
+  AffineExpr strideDim = builder.getAffineSymbolExpr(3);
+  AffineExpr dilationDim = builder.getAffineSymbolExpr(4);
+  AffineExpr start1 =
+      (padTopDim).ceilDiv(dilationDim) * dilationDim - padTopDim;
+  AffineExpr start2 = outputIndex * strideDim - padTopDim;
+  AffineExpr end1 = inputDim;
+  AffineExpr end2 =
+      outputIndex * strideDim + (kernelDim - 1) * dilationDim + 1 - padTopDim;
+
+  // Compute the window's size.
+  SmallVector<AffineExpr, 4> dimExpr;
+  // Upperbound for an affine.for is `min AffineMap`, where `min` is
+  // automatically inserted when an affine.for is constructed from
+  // an AffineMap, thus we rewrite `endH - startH` as follows:
+  //   endH - startH
+  //     = min(end1, end2) - max(start1, start2)
+  //     = min(end1 - start1, end1 - start2, end2 - start1, end2 - start2)
+  AffineExpr dimExpr1 = end1 - start1;
+  AffineExpr dimExpr2 = end1 - start2;
+  AffineExpr dimExpr3 = end2 - start1;
+  AffineExpr dimExpr4 = end2 - start2;
+  for (AffineExpr de : {dimExpr1, dimExpr2, dimExpr3, dimExpr4}) {
+    if (isDilated) {
+      de = de + 1;
+      de = (ceilMode) ? de.ceilDiv(dilationDim) : de.floorDiv(dilationDim);
+    }
+    dimExpr.emplace_back(de);
+  }
+  windowDimMap = AffineMap::get(1, 5, dimExpr, builder.getContext());
+
+  return windowDimMap;
 }
 
 //===----------------------------------------------------------------------===//
@@ -86,4 +191,26 @@ bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
     return true;
   }
   return false;
+}
+
+//===----------------------------------------------------------------------===//
+// Get a broadcasted type for RankedTensorType and MemRefType.
+//===----------------------------------------------------------------------===//
+Type getBroadcastedRankedType(Type type1, Type type2) {
+  if (type1.isa<RankedTensorType>() && type2.isa<RankedTensorType>())
+    return OpTrait::util::getBroadcastedType(type1, type2);
+  if (type1.isa<MemRefType>() && type2.isa<MemRefType>()) {
+    // Contruct RankedTensorType(s).
+    Type elementType = type1.cast<MemRefType>().getElementType();
+    RankedTensorType ty1 =
+        RankedTensorType::get(type1.cast<MemRefType>().getShape(), elementType);
+    RankedTensorType ty2 =
+        RankedTensorType::get(type2.cast<MemRefType>().getShape(), elementType);
+    // Compute a broadcasted type.
+    Type outputType = OpTrait::util::getBroadcastedType(ty1, ty2);
+    // Construct a MemRefType.
+    return MemRefType::get(
+        outputType.cast<RankedTensorType>().getShape(), elementType);
+  } else
+    return {};
 }

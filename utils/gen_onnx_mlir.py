@@ -79,7 +79,7 @@ version_dict = {'Abs': 6,
  'DequantizeLinear': 10,
  'Det': 11,
  'Div': 7,
- 'Dropout': 10,
+ 'Dropout': 13,
  'DynamicQuantizeLinear': 11,
  'Elu': 6,
  'Equal': 11,
@@ -238,11 +238,12 @@ special_attr_types = dict([("Cast.to", 'type')])
 
 # Special operation importing handlers.
 special_op_handler = dict([
-    ("MaxPool", "ImportNodeMaxPool"),
     ("BatchNormalization", "ImportNodeBatchNormalization"),
+    ("Dropout", "ImportNodeDropout"),
+    ("Cast", "ImportNodeCast"),
+    ("MaxPool", "ImportNodeMaxPool"),
     ("Pad", "ImportNodePad"),
     ("Slice", "ImportNodeSlice"),
-    ("Cast", "ImportNodeCast")
     #("Transpose", "ImportNodeTranspose")
 ])
 
@@ -332,7 +333,7 @@ OpsWithShapeInference=[
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast', 'Transpose',
+OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Cast', 'Transpose',
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
                         'GlobalMaxPool']
 
@@ -833,6 +834,7 @@ def parse_type_str(allowedType):
         'int32' : 'I32',
         'int64' : 'I64',
         'float16' : 'F16',
+        'bfloat16' : 'BF16',
         'float' : 'F32',
         'double' : 'F64',
         'unkown' : 'BF16',
@@ -949,12 +951,14 @@ def gen_op_def(schema):
             # E.g. OpBuilderDAG<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
             indent = inc_indent(indent)
             s += indent + 'OpBuilderDAG<(ins '
-            operands_dict = get_operands_or_results(schema, type_str_dict,  is_input=True)
-            for name, ty in operands_dict.items():
-                s += ', "{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
-                                      name)
-            for name, ty in get_attrs(schema).items():
-                s += ', "{}":${}'.format(tblgen_attr_type_to_cpp_type(ty), name)
+            operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
+            attrs_dict = get_attrs(schema)
+            s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
+                                      name) for name, ty in operands_dict.items())
+            if operands_dict and attrs_dict:
+                s += ', '
+            s += ', '.join('"{}":${}'.format(tblgen_attr_type_to_cpp_type(ty),
+                                      name) for name, ty in attrs_dict.items())
             s += '), [{\n'
             indent = inc_indent(indent)
 
@@ -967,7 +971,7 @@ def gen_op_def(schema):
                     format(first_operand_name)
                 s += indent + 'auto rhsTy = {}.getType();\n'. \
                     format(second_operand_name)
-                s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
+                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
                 s += indent + indent + 'elementType = {}'.format(first_operand_name) + \
@@ -989,13 +993,13 @@ def gen_op_def(schema):
             # Custom builders with all operands and attributes having aggregate parameters.
             # E.g. OpBuilderDAG<(ins "ValueRange operands,
             #    ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilderDAG<(ins "' + \
+            s += indent + 'OpBuilderDAG<(ins ' + \
                 '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
             indent = inc_indent(indent)
             if schema.name in custom_builder_broadcast_ops_list:
                 s += indent + 'auto lhsTy = operands[0].getType();\n'
                 s += indent + 'auto rhsTy = operands[1].getType();\n'
-                s += indent + 'auto elementType = getBroadcastedType(lhsTy, rhsTy);\n'
+                s += indent + 'auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);\n'
                 s += indent + 'auto shapedType = elementType.dyn_cast_or_null<ShapedType>();\n';
                 s += indent + 'if (!shapedType || !shapedType.hasStaticShape()) {\n';
                 s += indent + indent + 'elementType = operands[0]' + \
@@ -1115,12 +1119,13 @@ def build_operator_schemas():
 
                     # Add checks against version_dict
                     if schema.name not in version_dict :
-                        print("Check-operation-version: Operation {} with version is new".format(
-                            schema.since_version, schema.name))
+                        print("Check-operation-version: Operation {} is new  with version {}"
+                            .format(schema.name, schema.since_version))
                     elif schema.since_version >  version_dict[schema.name]:
-                        print("Check-operation-version: Operation {} has a newer version {}"+
-                            "(old version {})".format( schema.name,
-                            schema.since_version, version_dict[schema.name]))
+                        print("Check-operation-version: Operation {}"
+                            .format(schema.name)+
+                            " has a newer version {} over old version {}"
+                            .format(schema.since_version, version_dict[schema.name]))
                 else:
                     # Generate operation according to the version in version_dict.
                     if schema.name not in version_dict :

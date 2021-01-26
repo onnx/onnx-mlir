@@ -76,7 +76,7 @@ std::map<int64_t, int64_t> getReductionMapping(
     MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims);
 
 // Add bounds associated with the op operand to the KRNL iteration pack.
-// Dynamic dimenions are supported.
+// Dynamic dimensions are supported.
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     KrnlIterateOperandPack &pack, Value operand, int index);
 
@@ -173,8 +173,9 @@ struct TensorTypeConverter : public TypeConverter {
 
   /// Return true if the operands/results of call have a legal type.
   bool isSignatureLegal(mlir::CallOp call) {
-    auto f = [this]( Type type) { return isLegal(type); };
-    return llvm::all_of(call.getOperandTypes(), f) && llvm::all_of(call.getResultTypes(), f);
+    auto f = [this](Type type) { return isLegal(type); };
+    return llvm::all_of(call.getOperandTypes(), f) &&
+           llvm::all_of(call.getResultTypes(), f);
   }
 };
 
@@ -188,6 +189,9 @@ void populateLoweringONNXLoopOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 // `Math` directory methods:
+
+void populateLoweringONNXClipOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXElementwiseOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);

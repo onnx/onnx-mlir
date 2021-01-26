@@ -43,7 +43,6 @@ public:
   /// several utilities for casting between dialects.
   static StringRef getDialectNamespace() { return "onnx"; }
 };
-
 } // end namespace mlir
 
 /// Include the auto-generated header file containing the declarations of the
@@ -52,7 +51,6 @@ public:
 #include "src/Dialect/ONNX/ONNXOps.hpp.inc"
 
 namespace mlir {
-
 // The namespace onnxmlir is experimental.
 // onnx_mlir has been used in KRNL. Other candidates are onnxops, onnxdialect.
 // Should this namesapce for onnx mlir project or ONNXOp dialect?

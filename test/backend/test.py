@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from distutils.util import strtobool
 import os
 import sys
 import unittest
@@ -16,21 +17,34 @@ import test_config
 import tempfile
 import argparse
 
-VERBOSE = bool(os.environ.get("VERBOSE"))
-TEST_DYNAMIC = os.environ.get("IMPORTER_FORCE_DYNAMIC")
-    
+# Casting with "bool" does not work well. When you specify VERBOSE=xxx,
+# regardless of the value of xxx (e.g., true, false, y, n, etc.) the
+# casted bool value will be true. Only if xxx is empty, the casted bool
+# value will be false. This is a bit counter intuitive. So we use strtobool
+# to do the conversion. But note that strtobool can't take an emtpy string.
+
+VERBOSE = os.getenv("VERBOSE")
+IMPORTER_FORCE_DYNAMIC = os.getenv("IMPORTER_FORCE_DYNAMIC")
+TEST_DYNAMIC = os.getenv("TEST_DYNAMIC")
+
 parser = argparse.ArgumentParser(description='with dynamic shape or not.')
 parser.add_argument('--dynamic', action='store_true',
-    help='enable dynamic (default: false)')
-parser.add_argument('-i', '--input', type=int, default=-1,
-    help='input whose dimensions to be changed to unknown (default: all inputs')
-parser.add_argument('-d', '--dim', type=int, default=-1,
-    help='dimension to be changed to unknown (default: all dimension')
+    default=(strtobool(TEST_DYNAMIC) if TEST_DYNAMIC else False),
+    help='enable dynamic shape tests (default: false if TEST_DYNAMIC env var not set)')
+parser.add_argument('-i', '--input', type=int,
+    default=os.getenv("TEST_INPUT", -1),
+    help='inputs whose dimensions to be changed to unknown (default: all inputs if TEST_INPUT env var not set)')
+parser.add_argument('-d', '--dim', type=int,
+    default=os.getenv("TEST_DIM", -1),
+    help='dimensions to be changed to unknown (default: all dimensions if TEST_DIM env var not set)')
+parser.add_argument('-v', '--verbose', action='store_true',
+    default=(strtobool(VERBOSE) if VERBOSE else False),
+    help='verbose output (default: false if VERBOSE env var not set)')
 parser.add_argument('unittest_args', nargs='*')
 args = parser.parse_args()
 sys.argv[1:] = args.unittest_args
 
-TEST_CASE_BY_USER = os.environ.get("BACKEND_TEST")
+TEST_CASE_BY_USER = os.getenv("TEST_CASE_BY_USER")
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
     result_dir = "./"
 else :
@@ -115,6 +129,8 @@ test_to_enable_static_dynamic = {
     # Asinh
 
     # Atan
+    #"test_atan_example_cpu": (test_static_dynamic,),
+    #"test_atan_cpu": (test_static_dynamic,),
 
     # Atanh
 
@@ -150,10 +166,22 @@ test_to_enable_static_dynamic = {
     "test_cast_STRING_to_FLOAT_cpu": (test_disabled,), # appers unsupported at this time
 
     # Ceil
+    "test_ceil_example_cpu": (test_static_dynamic,),
+    "test_ceil_cpu": (test_static_dynamic,),
 
     # Celu
 
     # Clip
+    "test_clip_cpu": (test_static_dynamic,),
+    "test_clip_example_cpu": (test_static_dynamic,),
+    "test_clip_inbounds_cpu": (test_static_dynamic,),
+    "test_clip_outbounds_cpu": (test_static_dynamic,),
+    "test_clip_splitbounds_cpu": (test_static_dynamic,),
+    "test_clip_default_min_cpu": (test_static_dynamic,),
+    "test_clip_default_max_cpu": (test_static_dynamic,),
+    "test_clip_cpu": (test_static_dynamic,),
+    "test_clip_default_inbounds_cpu": (test_static_dynamic,),
+    #"test_clip_default_int8_min_cpu": (test_static_dynamic,),
 
     # Compress
 
@@ -181,6 +209,8 @@ test_to_enable_static_dynamic = {
     # Conv
     "test_basic_conv_without_padding_cpu": (test_static_dynamic,{0:{0}}),
     "test_conv_with_strides_no_padding_cpu": (test_static_dynamic,{0:{0}}),
+    "test_conv_with_strides_padding_cpu": (test_static_dynamic,{0:{0}}),
+    "test_conv_with_strides_and_asymmetric_padding_cpu": (test_static_dynamic,{0:{0}}),
 
     # ConvInteger
 
@@ -208,6 +238,27 @@ test_to_enable_static_dynamic = {
     "test_div_example_cpu": (test_static_dynamic,),
 
     # Dropout
+    "test_dropout_default_cpu": (test_static_dynamic,),
+    "test_dropout_default_ratio_cpu": (test_static_dynamic,),
+    # Other dopout test case failed: implementation is missing
+    # mask is not supported for inference
+    #"test_dropout_default_mask_cpu": (test_static_dynamic,),
+    #"test_dropout_default_mask_ratio_cpu": (test_static_dynamic,),
+
+    # Error: input arrays contain a mixture of endianness configuration
+    #"test_training_dropout_default_cpu": (test_static_dynamic,),
+
+    #"test_training_dropout_default_mask_cpu": (test_static_dynamic,),
+
+    # Error: input arrays contain a mixture of endianness configuration
+    #"test_training_dropout_default_cpu": (test_static_dynamic,),
+
+    #"test_training_dropout_mask_cpu": (test_static_dynamic,),
+
+    # Error: input arrays contain a mixture of endianness configuration
+    #"test_training_dropout_zero_ratio_cpu": (test_static_dynamic,),
+
+    #"test_training_dropout_zero_ratio_mask_cpu": (test_static_dynamic,),
 
     # DynamicQuantizeLinear
 
@@ -242,6 +293,8 @@ test_to_enable_static_dynamic = {
     "test_flatten_negative_axis4_cpu": (test_static_dynamic,),
 
     # Floor
+    "test_floor_example_cpu": (test_static_dynamic,),
+    "test_floor_cpu": (test_static_dynamic,),
     
     # Gather
     "test_gather_0_cpu": (test_static_dynamic,),
@@ -395,8 +448,15 @@ test_to_enable_static_dynamic = {
     #"test_reflect_pad_cpu": test_static_dynamic,
 
     # Pow
+    "test_pow_cpu": (test_static_dynamic,),
+    "test_pow_example_cpu": (test_static_dynamic,),
+    "test_pow_bcast_scalar_cpu": (test_static_dynamic,),
+    "test_pow_bcast_array_cpu": (test_static_dynamic,),
+    # Does not support integer power yet
 
     # PRelu
+    "test_prelu_example_cpu": (test_static_dynamic,),
+    "test_prelu_broadcast_cpu": (test_static_dynamic,),
 
     # QLinear Conv
 
@@ -555,6 +615,8 @@ test_to_enable_static_dynamic = {
     "test_sign_cpu": (test_static_dynamic,),
 
     # Sin
+    "test_sin_example_cpu": (test_static_dynamic,),
+    "test_sin_cpu": (test_static_dynamic,),
 
     # Sinh
     "test_sinh_cpu": (test_static_dynamic,),
@@ -696,8 +758,8 @@ def determine_dynamic_parameters(test_name):
     if not args.dynamic :
         return None
     # set default value: all inputs, first dimension.
-    # Use this script's arguments '--input' and '--dim' to control the default
-    # value.
+    # Use this script's arguments '--input' and '--dim' or environment variables
+    # TEST_INPUT and TEST_DIM to control the values.
     selected_list = {args.input: {args.dim}}
     test_name_cpu = test_name + "_cpu"
     if test_name_cpu in test_for_dynamic:
@@ -706,7 +768,7 @@ def determine_dynamic_parameters(test_name):
     return selected_list 
 
 def execute_commands(cmds, dynamic_inputs_dims):
-    if (VERBOSE):
+    if (args.verbose):
         print(" ".join(cmds))
         print("IMPORTER FORCE DYNAMIC ", dynamic_inputs_dims)
     my_env = os.environ.copy();

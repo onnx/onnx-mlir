@@ -16,7 +16,7 @@ using namespace mlir;
 template <>
 struct ScalarOp<ONNXTanhOp> {
   using FOp = TanhOp;
-  using IOp = TanhOp; // not use
+  using IOp = TanhOp; // Not used.
 };
 
 template <>
@@ -45,26 +45,26 @@ struct ScalarOp<ONNXSubOp> {
 
 template <>
 struct ScalarOp<ONNXAndOp> {
-  using FOp = AndOp; // not use
+  using FOp = AndOp; // Not used.
   using IOp = AndOp;
 };
 
 template <>
 struct ScalarOp<ONNXOrOp> {
-  using FOp = OrOp; // not use
+  using FOp = OrOp; // Not used.
   using IOp = OrOp;
 };
 
 template <>
 struct ScalarOp<ONNXXorOp> {
-  using FOp = XOrOp; // not use
+  using FOp = XOrOp; // Not used.
   using IOp = XOrOp;
 };
 
 template <>
 struct ScalarOp<ONNXExpOp> {
   using FOp = ExpOp;
-  using IOp = ExpOp; // not use
+  using IOp = ExpOp; // Not used.
 };
 
 template <>
@@ -76,19 +76,49 @@ struct ScalarOp<ONNXSumOp> {
 template <>
 struct ScalarOp<ONNXCosOp> {
   using FOp = CosOp;
-  using IOp = CosOp; // not use
+  using IOp = CosOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXLogOp> {
   using FOp = LogOp;
-  using IOp = LogOp; // not use
+  using IOp = LogOp; // Not used.
 };
 
 template <>
 struct ScalarOp<ONNXSqrtOp> {
   using FOp = SqrtOp;
-  using IOp = SqrtOp; // not use
+  using IOp = SqrtOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAtanOp> {
+  using FOp = AtanOp;
+  using IOp = AtanOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXCeilOp> {
+  using FOp = CeilFOp;
+  using IOp = CeilFOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXFloorOp> {
+  using FOp = FloorFOp;
+  using IOp = FloorFOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXSinOp> {
+  using FOp = SinOp;
+  using IOp = SinOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXPowOp> {
+  using FOp = PowFOp;
+  using IOp = PowFOp; // Not used.
 };
 
 //===----------------------------------------------------------------------===//
@@ -313,6 +343,37 @@ Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
       rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, operand, zero);
   auto result = rewriter.create<SelectOp>(
       loc, lessThanZero, rewriter.create<MulFOp>(loc, alpha, operand), operand);
+
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXPReluOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXPReluOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  // ONNXPReluOp(%X) = (%slope * %X) if %X < 0 else %X
+
+  Value operand = scalarOperands[0];
+  Value slope = scalarOperands[1];
+
+  auto zero = emitConstantOp(rewriter, loc, elementType, 0);
+  Value lessThanZero, result;
+
+  if (elementType.isa<FloatType>()) {
+    lessThanZero =
+        rewriter.create<CmpFOp>(loc, CmpFPredicate::OLT, operand, zero);
+    result = rewriter.create<SelectOp>(loc, lessThanZero,
+        rewriter.create<MulFOp>(loc, slope, operand), operand);
+  } else if (elementType.isa<IntegerType>()) {
+    lessThanZero =
+        rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, operand, zero);
+    result = rewriter.create<SelectOp>(loc, lessThanZero,
+        rewriter.create<MulIOp>(loc, slope, operand), operand);
+  } else
+    llvm_unreachable("unsupported element type");
 
   return result;
 }
@@ -628,8 +689,14 @@ static bool hasAffineMapOperand(mlir::Operation::operand_type_range argTypes) {
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseBinaryOp>
 struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
-  ONNXElementwiseBinaryOpLowering(MLIRContext *ctx)
-      : ConversionPattern(ElementwiseBinaryOp::getOperationName(), 1, ctx) {}
+  bool isUniBroadcasting = false;
+
+  ONNXElementwiseBinaryOpLowering(
+      MLIRContext *ctx, bool isUniBroadcasting = false)
+      : ConversionPattern(ElementwiseBinaryOp::getOperationName(), 1, ctx) {
+    this->isUniBroadcasting = isUniBroadcasting;
+  }
+
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     auto loc = op->getLoc();
@@ -639,8 +706,9 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     auto outputRank = outputMemRefType.getRank();
 
     // Shape helper.
-    ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
+    ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, isUniBroadcasting);
     auto shapecomputed = shapeHelper.Compute(operands);
+    (void)shapecomputed;
     assert(succeeded(shapecomputed));
     IndexExprContext outerContext(shapeHelper.context);
 
@@ -706,6 +774,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
     auto shapecomputed = shapeHelper.Compute(operands);
+    (void)shapecomputed;
     assert(succeeded(shapecomputed));
     IndexExprContext outerContext(shapeHelper.context);
 
@@ -762,12 +831,15 @@ void populateLoweringONNXElementwiseOpPattern(
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXLeakyReluOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXLessOp>,
@@ -777,11 +849,13 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXMulOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXNegOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXOrOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXPowOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReciprocalOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXReluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSigmoidOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSignOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXSinOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSinhOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftplusOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSoftsignOp>,
@@ -790,4 +864,6 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
+  patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
+      ctx, /*isUniBroadcasting=*/true);
 }

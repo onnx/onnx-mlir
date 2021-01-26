@@ -26,6 +26,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    (void)shapecomputed;
     assert(succeeded(shapecomputed));
     IndexExprContext outerContext(shapeHelper.context);
 

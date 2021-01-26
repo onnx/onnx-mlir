@@ -25,6 +25,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
 
     ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    (void)shapecomputed;
     assert(succeeded(shapecomputed));
 
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
