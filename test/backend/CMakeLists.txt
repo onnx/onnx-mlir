@@ -11,6 +11,23 @@ configure_file(test_config.py.in test_config.py)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
+# Detect pytest-xdist for parallel backend tests
+execute_process(
+  COMMAND ${PYTHON_EXECUTABLE} -m pip show pytest-xdist
+  RESULT_VARIABLE PYTEST_XDIST_FOUND
+  OUTPUT_QUIET
+  ERROR_QUIET
+)
+if (${PYTEST_XDIST_FOUND} EQUAL 0)
+  message(STATUS "Parallel backend tests  : ON")
+  set(BACKEND_TEST_COMMAND "pytest")
+  set(BACKEND_TEST_ARGS "--forked" "-n" "$$(nproc)")
+else()
+  message(STATUS "Parallel backend tests  : OFF (install pytest-xdist to enable)")
+  set(BACKEND_TEST_COMMAND ${PYTHON_EXECUTABLE})
+  set(BACKEND_TEST_ARGS "")
+endif()
+
 set(LD_PRELOADS $<TARGET_FILE:cruntime>)
 
 get_filename_component(CXX_BIN_DIR ${CMAKE_CXX_COMPILER} PATH)
@@ -20,12 +37,12 @@ if(EXISTS ${LIBSTDCXX_LIB})
 endif()
 
 add_custom_target(check-onnx-backend
-        COMMAND ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR} ${Python3_EXECUTABLE}
-        ${CMAKE_CURRENT_BINARY_DIR}/test.py)
+        COMMAND ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR} ${BACKEND_TEST_COMMAND}
+        ${BACKEND_TEST_ARGS} ${CMAKE_CURRENT_BINARY_DIR}/test.py)
 
 add_custom_target(check-onnx-backend-dynamic
-        COMMAND ${PYTHON_EXECUTABLE}
-        ${CMAKE_CURRENT_BINARY_DIR}/test.py --dynamic --input=-1 --dim=-1)
+        COMMAND TEST_DYNAMIC=true ${BACKEND_TEST_COMMAND}
+        ${BACKEND_TEST_ARGS} ${CMAKE_CURRENT_BINARY_DIR}/test.py)
 
 add_custom_target(clean-onnx-backend
         COMMAND ${CMAKE_COMMAND} -E remove

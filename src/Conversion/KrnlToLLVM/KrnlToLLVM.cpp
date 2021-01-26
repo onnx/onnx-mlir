@@ -622,8 +622,7 @@ public:
     // Call static entry point with the memref ptrs created, and get output.
     auto outMemRefs =
         rewriter
-            .create<LLVM::CallOp>(loc,
-                staticEntryPointTy.getReturnType(),
+            .create<LLVM::CallOp>(loc, staticEntryPointTy.getReturnType(),
                 rewriter.getSymbolRefAttr(wrappedStaticEntryPointFuncName),
                 staticInputs)
             .getResult(0);
@@ -835,8 +834,9 @@ private:
               {rewriter.getI64IntegerAttr(3), rewriter.getI64IntegerAttr(i)}));
 
       // Insert stride of the dimension.
-      auto dimStridePtr = rewriter.create<LLVM::GEPOp>(loc,
-          LLVM::LLVMPointerType::get(int64Ty), stridesArrayPtr, ArrayRef<Value>({dimIdx}));
+      auto dimStridePtr =
+          rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
+              stridesArrayPtr, ArrayRef<Value>({dimIdx}));
       auto dimStride = rewriter.create<LLVM::LoadOp>(
           loc, LLVM::LLVMPointerType::get(int64Ty), dimStridePtr);
       memRef = rewriter.create<LLVM::InsertValueOp>(loc, memRefTy, memRef,
@@ -878,7 +878,8 @@ private:
     callApi(rewriter, loc, apiRegistry, API::SET_DATA,
         {outOMTensor, owning, outMemRefAllocatedPtr, outMemRefAlignedPtr});
 
-    auto elemTy = outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
+    auto elemTy =
+        outMemRefTy.getBody()[0].cast<LLVM::LLVMPointerType>().getElementType();
     auto onnxTy = llvmTypeToOnnxType(elemTy);
     auto onnxTyVal = rewriter.create<LLVM::ConstantOp>(
         loc, int32Ty, rewriter.getI32IntegerAttr(onnxTy));
@@ -900,8 +901,9 @@ private:
           outMemRef,
           rewriter.getArrayAttr(
               {rewriter.getI64IntegerAttr(3), rewriter.getI64IntegerAttr(i)}));
-      auto dimSizePtr = rewriter.create<LLVM::GEPOp>(loc,
-          LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, ArrayRef<Value>({dimIdx}));
+      auto dimSizePtr =
+          rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
+              sizesArrayPtr, ArrayRef<Value>({dimIdx}));
       rewriter.create<LLVM::StoreOp>(loc, dimSize, dimSizePtr);
 
       // Transfer stride of dimension from memref to dynamic memref.
@@ -909,8 +911,9 @@ private:
           outMemRef,
           rewriter.getArrayAttr(
               {rewriter.getI64IntegerAttr(4), rewriter.getI64IntegerAttr(i)}));
-      auto dimStridePtr = rewriter.create<LLVM::GEPOp>(loc,
-          LLVM::LLVMPointerType::get(int64Ty), stridesArrayPtr, ArrayRef<Value>({dimIdx}));
+      auto dimStridePtr =
+          rewriter.create<LLVM::GEPOp>(loc, LLVM::LLVMPointerType::get(int64Ty),
+              stridesArrayPtr, ArrayRef<Value>({dimIdx}));
       rewriter.create<LLVM::StoreOp>(loc, dimStride, dimStridePtr);
     }
   }

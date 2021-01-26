@@ -64,13 +64,16 @@ public:
     }
   }
 
-  mlir::ModuleOp ImportONNXModel(const onnx::ModelProto &model) {
+  mlir::ModuleOp ImportONNXModel(
+      const onnx::ModelProto &model, ImportOptions options) {
+    options_ = options;
     SetOpSetImport(model); // Determines which opsets to use.
     ImportGraph(model.graph());
     return module_;
   }
 
 private:
+  ImportOptions options_;
   mlir::MLIRContext &context_;
   mlir::ModuleOp module_;
   mlir::OpBuilder builder_;
@@ -223,6 +226,15 @@ private:
 
     llvm::ArrayRef<int64_t> tensor_dims(dims.data(), dims.size());
     return mlir::RankedTensorType::get(tensor_dims, elementType);
+  }
+
+  mlir::Type ConvertOnnxType(const std::string &onnx_name) {
+    auto it = value_info_map.find(onnx_name);
+    if (it != value_info_map.end()) {
+      return ImportTensorType(it->second);
+    } else {
+      return builder_.getNoneType();
+    }
   }
 
   /*!
@@ -392,12 +404,15 @@ private:
 
     std::vector<mlir::Type> outputTypes;
 
-    // Use the type map to determine the data type of output.
+    // Use the type map or types in input model to determine the data type of
+    // output.
     std::vector<int> outputMap = T::getTypeMap();
     for (auto i = 0; i < node.output().size(); i++) {
       // Optional outputs using empty string.
       if (node.output()[i].empty()) {
         outputTypes.emplace_back(builder_.getNoneType());
+      } else if (options_.useOnnxModelTypes) {
+        outputTypes.emplace_back(ConvertOnnxType(node.output(i)));
       } else {
         auto j = i;
         // Variadic output is a single ODS result.
@@ -433,17 +448,18 @@ private:
     auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
 
     // Type inference for results.
-    if (auto opWithTypeInference =
-            mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
-                op.getOperation())) {
-      auto outTypes = opWithTypeInference.resultTypeInference();
-      for (int i = 0; i < node.output().size(); i++) {
-        if (variadicOut)
-          (*(op.getODSResults(0).begin() + i)).setType(outTypes[i]);
-        else
-          (*op.getODSResults(i).begin()).setType(outTypes[i]);
+    if (!options_.useOnnxModelTypes)
+      if (auto opWithTypeInference =
+              mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
+                  op.getOperation())) {
+        auto outTypes = opWithTypeInference.resultTypeInference();
+        for (int i = 0; i < node.output().size(); i++) {
+          if (variadicOut)
+            (*(op.getODSResults(0).begin() + i)).setType(outTypes[i]);
+          else
+            (*op.getODSResults(i).begin()).setType(outTypes[i]);
+        }
       }
-    }
 
     for (int i = 0; i < node.output().size(); i++) {
       if (variadicOut)
@@ -547,6 +563,69 @@ private:
       // Training mode with four trailing optional outputs. Not handled yet.
       buildOperation<mlir::ONNXBatchNormalizationOp>(node);
     }
+  }
+
+  /*!
+   * Special handle for Dropout operations.
+   */
+  void ImportNodeDropout(const onnx::NodeProto &node) {
+    int nOps = node.input().size();
+    int nIn = mlir::ONNXDropoutOp::getNumberOfOperands();
+    if (nOps == nIn) {
+      // All inputs are specified
+      buildOperation<mlir::ONNXDropoutOp>(node);
+      return;
+    }
+
+    // Add the default value for optional input
+    // Copy the provided inputs first
+    std::vector<mlir::Value> inputs;
+    for (const auto &item : node.input()) {
+      if (initializedTensors.ContainKey(legalize_name(item))) {
+        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+            UnknownLoc(), builder_, legalize_name(item)));
+      } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
+        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      }
+    }
+
+    // If ratio is not specified, the default value is 0.5
+    if (nOps < 2) {
+      llvm::SmallVector<int64_t, 1> dims;
+      dims.push_back(1);
+      llvm::SmallVector<float, 1> values;
+      values.push_back(0.5);
+      auto elementType = builder_.getF32Type();
+      llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
+      auto tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
+      auto constantDenseAttribute =
+          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+      mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
+      inputs.push_back(constantResult);
+    }
+
+    // If training_mode is not specified, the default value is false
+    if (nOps < 3) {
+      llvm::SmallVector<int64_t, 1> dims;
+      dims.push_back(1);
+      llvm::SmallVector<bool, 1> values;
+      values.push_back(false);
+      auto elementType = builder_.getIntegerType(1);
+      llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
+      auto tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
+      auto constantDenseAttribute =
+          mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+      mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
+      inputs.push_back(constantResult);
+    }
+    int nOut = mlir::ONNXDropoutOp::getNumberOfResults();
+    auto attributes = ImportNodeAttributes(node);
+    buildOutputAndOperation<mlir::ONNXDropoutOp>(
+        node, inputs, nIn, nOut, attributes);
   }
 
   /*!
@@ -681,14 +760,18 @@ private:
 
     // Collect input/output MLIR types, input ONNX types, and input MLIR values.
     // TODO: Optional inputs/outputs of functions not handled yet.
+    onnx::TypeProto unspecifiedType;
     llvm::SmallVector<mlir::Type, 16> operandTypes;
     llvm::SmallVector<mlir::Type, 16> resultTypes;
     llvm::SmallVector<::mlir::Value, 16> operands;
     std::vector<onnx::TypeProto> operandOnnxTypes;
 
     for (auto &v : node.input()) {
-      if (v.empty())
-        return false;
+      if (v.empty()) {
+        // Use default TypeProto() to indicate missing input/type
+        operandOnnxTypes.push_back(unspecifiedType);
+        continue;
+      }
       operandOnnxTypes.push_back(value_info_map[v].type());
       auto val = LookupOnnxName(v);
       operands.push_back(val);
@@ -696,7 +779,7 @@ private:
     }
     for (auto &v : node.output()) {
       if (v.empty())
-        return false;
+        continue;
       auto resultType = ImportTensorType(value_info_map[v]);
       resultTypes.push_back(resultType);
     }
@@ -722,7 +805,9 @@ private:
     }
 
     // Create MLIR function:
-    auto funcOp = CreateFuncOp(node.name(), operandTypes, resultTypes);
+    const std::string &func_name_prefix =
+        node.name().empty() ? node.op_type() : node.name();
+    auto funcOp = CreateFuncOp(func_name_prefix, operandTypes, resultTypes);
     auto *fnEntryBlock = funcOp.addEntryBlock();
 
     // Save caller context, while generating callee function body.
@@ -974,22 +1059,23 @@ private:
 namespace onnx_mlir {
 
 void ImportFrontendModelFile(std::string model_fname,
-    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module,
+    ImportOptions options) {
   onnx::ModelProto model;
   std::fstream input(model_fname, std::ios::in | std::ios::binary);
 
   auto parse_success = model.ParseFromIstream(&input);
   assert(parse_success && "Onnx Model Parsing Failed.");
 
-  detail::FrontendGenImpl myONNXGen(context);
-  module = myONNXGen.ImportONNXModel(model);
+  ImportFrontendModel(model, context, module, options);
 }
 
 void ImportFrontendModel(const onnx::ModelProto &model,
-    mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
+    mlir::MLIRContext &context, mlir::OwningModuleRef &module,
+    ImportOptions options) {
 
   detail::FrontendGenImpl myONNXGen(context);
-  module = myONNXGen.ImportONNXModel(model);
+  module = myONNXGen.ImportONNXModel(model, options);
 }
 
 } // namespace onnx_mlir
