@@ -51,6 +51,9 @@ def createArrayAttrOfTwoToRankOf : NativeCodeCall<
 
 def GetNullAttr :
    NativeCodeCall<"Attribute()">;
+// TODO: Remove GetNullPtr once corresponding attributes are supported
+def GetNullPtr :
+  NativeCodeCall<"nullptr">;
 
 // Create a StringAttr from a string.
 class StringAttrOfValue<string val>:
@@ -113,9 +116,13 @@ def ConvOpPaddingPattern: Pat<
 
     (ONNXPadOp $x,
        (ONNXConstantOp (GetNullAttr), 
-          (insertZerosForNonPaddedDims<2> $pads)),
+          (insertZerosForNonPaddedDims<2> $pads),
+          (GetNullPtr), (GetNullPtr), (GetNullPtr),
+          (GetNullPtr), (GetNullPtr), (GetNullPtr)),
        (ONNXConstantOp (GetNullAttr), 
-          (FloatAttrOfValue<0> $res)),
+          (FloatAttrOfValue<0> $res),
+          (GetNullPtr), (GetNullPtr), (GetNullPtr),
+          (GetNullPtr), (GetNullPtr), (GetNullPtr)),
        (StringAttrOfValue<"constant">)),
 
         
@@ -172,7 +179,9 @@ def FuseBatchNormTestModeConvPattern: Pat<
                     $var,
                     (ONNXConstantOp
                        (GetNullAttr),
-                       (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
+                       (createDenseElementsAttrFromFloatAttr $res, $epsilon),
+                       (GetNullPtr), (GetNullPtr), (GetNullPtr),
+                       (GetNullPtr), (GetNullPtr), (GetNullPtr))))),
            (createArrayAttrOfOneToRankOf $w))),
      // b_
      (ONNXAddOp
@@ -194,7 +203,9 @@ def ShapeToConstantPattern: Pat<
      (ONNXShapeOp $A),
      (ONNXConstantOp
         (GetNullAttr),
-        (createDenseElementsAttrFromShape $A)),
+        (createDenseElementsAttrFromShape $A),
+        (GetNullPtr), (GetNullPtr), (GetNullPtr),
+        (GetNullPtr), (GetNullPtr), (GetNullPtr)),
      [(IsStaticShapeTensor:$A)]
 >;
 
@@ -202,7 +213,9 @@ def SizeToConstantPattern: Pat<
      (ONNXSizeOp $A),
      (ONNXConstantOp
         (GetNullAttr),
-        (createDenseElementsAttrFromSize $A)),
+        (createDenseElementsAttrFromSize $A),
+        (GetNullPtr), (GetNullPtr), (GetNullPtr),
+        (GetNullPtr), (GetNullPtr), (GetNullPtr)),
      [(IsStaticShapeTensor:$A)]
 >;
 

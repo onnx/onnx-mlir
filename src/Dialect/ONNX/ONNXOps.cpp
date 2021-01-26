@@ -2729,7 +2729,8 @@ LogicalResult ONNXSliceOp::inferShapes(
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
       builder.setInsertionPoint(*this);
       auto constantOp = builder.create<mlir::ONNXConstantOp>(
-          this->getLoc(), mlir::Attribute(), constantDenseAttribute);
+          this->getLoc(), mlir::Attribute(), constantDenseAttribute,
+          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
       mlir::Value constantResult = constantOp.output();
       this->setOperand(3, constantResult);
     }
@@ -2741,7 +2742,8 @@ LogicalResult ONNXSliceOp::inferShapes(
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
       builder.setInsertionPoint(*this);
       auto constantOp = builder.create<mlir::ONNXConstantOp>(
-          this->getLoc(), mlir::Attribute(), constantDenseAttribute);
+          this->getLoc(), mlir::Attribute(), constantDenseAttribute,
+          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
       mlir::Value constantResult = constantOp.output();
       this->setOperand(4, constantResult);
     }
