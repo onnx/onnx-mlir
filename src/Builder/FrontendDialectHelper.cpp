@@ -165,8 +165,7 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
 
   // Create ConstantOp for dense array.
   return builder.create<mlir::ONNXConstantOp>(
-      loc, denseElmAttr.getType(), nullptr, denseElmAttr,
-      nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+      loc, denseElmAttr.getType(), nullptr, denseElmAttr);
 }
 
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
@@ -182,16 +181,6 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
     auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
     denseElmAttr = mlir::DenseElementsAttr::get(
         tensorType, llvm::makeArrayRef(arrayAttrInitializer));
-    break;
-  }
-  case (onnx::TensorProto::BFLOAT16): {
-    // TODO (kevin): Verify if 32-bits is correct
-    const auto &arrayAttrInitializer = CreateArrayAttribute<int32_t>(initializer);
-    std::vector<int16_t> arrayAttr16Bits(arrayAttrInitializer.begin(), arrayAttrInitializer.end());
-    auto elmType = builder.getBF16Type();
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
-    denseElmAttr = mlir::DenseElementsAttr::get(
-        tensorType, llvm::makeArrayRef(arrayAttr16Bits));
     break;
   }
   case (onnx::TensorProto::DOUBLE): {
@@ -253,8 +242,6 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
 mlir::Type convertONNXTypeToMLIRType(
     mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
   switch (onnxType) {
-  case onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16:
-    return builder_.getBF16Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
     return builder_.getF16Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:

@@ -50,7 +50,7 @@ check_operation_version = args.check_operation_version
 version_dict = {'Abs': 6,
  'Acos': 7,
  'Acosh': 9,
- 'Add': 13,
+ 'Add': 7,
  'And': 7,
  'ArgMax': 11,
  'ArgMin': 11,
@@ -67,7 +67,7 @@ version_dict = {'Abs': 6,
  'Compress': 11,
  'Concat': 11,
  'ConcatFromSequence': 11,
- 'Constant': 13,
+ 'Constant': 11,
  'ConstantOfShape': 9,
  'Conv': 11,
  'ConvInteger': 10,
@@ -93,7 +93,7 @@ version_dict = {'Abs': 6,
  'Gather': 11,
  'GatherElements': 11,
  'GatherND': 11,
- 'Gemm': 13,
+ 'Gemm': 11,
  'GlobalAveragePool': 1,
  'GlobalLpPool': 2,
  'GlobalMaxPool': 1,
@@ -114,7 +114,7 @@ version_dict = {'Abs': 6,
  'Loop': 11,
  'LpNormalization': 1,
  'LpPool': 11,
- 'MatMul': 13,
+ 'MatMul': 9,
  'MatMulInteger': 10,
  'Max': 8,
  'MaxPool': 11,
@@ -124,7 +124,7 @@ version_dict = {'Abs': 6,
  'MeanVarianceNormalization': 9,
  'Min': 8,
  'Mod': 10,
- 'Mul': 13,
+ 'Mul': 7,
  'Multinomial': 7,
  'Neg': 6,
  'NonMaxSuppression': 11,
@@ -155,7 +155,7 @@ version_dict = {'Abs': 6,
  'ReduceProd': 11,
  'ReduceSum': 11,
  'ReduceSumSquare': 11,
- 'Relu': 13,
+ 'Relu': 6,
  'Reshape': 5,
  'Resize': 11,
  'ReverseSequence': 10,
@@ -400,18 +400,13 @@ custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broa
 #a dictionary to add any special definition for an operation
 custom_definition_misc = dict([ ('Constant',
  '''  let builders = [
-  OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value,
-    "FloatAttr":$value_float, "ArrayAttr":$value_floats,
-    "IntegerAttr":$value_int, "ArrayAttr":$value_ints,
-    "StringAttr":$value_string, "ArrayAttr":$value_strings), [{
+  OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+    build($_builder, $_state, tensorType, sparse_value, value);
    } else {
     auto tensorType = sparse_value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+    build($_builder, $_state, tensorType, sparse_value, value);
    }
   }]>
   ];'''),
@@ -425,7 +420,7 @@ custom_definition_misc = dict([ ('Constant',
  )])
 
 onnx_types = (
-    'bool', 'int8', 'int16', 'int32', 'int64', 'bfloat16', 'float16',
+    'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
     'float', 'double', 'complex64', 'complex128', 'string'
 )
 tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64', 'BF16', 'F16', 'F32', 'F64',
@@ -838,7 +833,6 @@ def parse_type_str(allowedType):
         'int32' : 'I32',
         'int64' : 'I64',
         'float16' : 'F16',
-        'bfloat16' : 'BF16',
         'float' : 'F32',
         'double' : 'F64',
         'unkown' : 'BF16',
@@ -955,14 +949,12 @@ def gen_op_def(schema):
             # E.g. OpBuilderDAG<(ins "Value":$X, "Value":$Y, "Attribute":$A), [{}]>
             indent = inc_indent(indent)
             s += indent + 'OpBuilderDAG<(ins '
-            operands_dict = get_operands_or_results(schema, type_str_dict, is_input=True)
-            attrs_dict = get_attrs(schema)
-            s += ', '.join('"{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
-                                      name) for name, ty in operands_dict.items())
-            if operands_dict and attrs_dict:
-                s += ', '
-            s += ', '.join('"{}":${}'.format(tblgen_attr_type_to_cpp_type(ty),
-                                      name) for name, ty in attrs_dict.items())
+            operands_dict = get_operands_or_results(schema, type_str_dict,  is_input=True)
+            for name, ty in operands_dict.items():
+                s += ', "{}":${}'.format(tblgen_operand_type_to_cpp_type(ty),
+                                      name)
+            for name, ty in get_attrs(schema).items():
+                s += ', "{}":${}'.format(tblgen_attr_type_to_cpp_type(ty), name)
             s += '), [{\n'
             indent = inc_indent(indent)
 
@@ -997,7 +989,7 @@ def gen_op_def(schema):
             # Custom builders with all operands and attributes having aggregate parameters.
             # E.g. OpBuilderDAG<(ins "ValueRange operands,
             #    ArrayRef<NamedAttribute> attributes", [{}]>'
-            s += indent + 'OpBuilderDAG<(ins ' + \
+            s += indent + 'OpBuilderDAG<(ins "' + \
                 '"ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{\n'
             indent = inc_indent(indent)
             if schema.name in custom_builder_broadcast_ops_list:

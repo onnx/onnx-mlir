@@ -90,9 +90,9 @@ def ONNXAddOp:ONNX_Op<"Add",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$A,
-    AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$B);
-  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$A,
+    AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
@@ -627,18 +627,12 @@ def ONNXConstantOp:ONNX_Op<"Constant",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let summary = "ONNX Constant operation";
   let description = [{
-  "This operator produces a constant tensor. Exactly one of the provided attributes, either value, sparse_value,"
-  "or value_* must be specified."
+  "A constant tensor. Exactly one of the two attributes, either value or sparse_value,"
+  "must be specified."
   }];
   let arguments = (ins OptionalAttr<AnyAttr>:$sparse_value,
-    OptionalAttr<AnyAttr>:$value,
-    OptionalAttr<F32Attr>:$value_float,
-    OptionalAttr<F32ArrayAttr>:$value_floats,
-    OptionalAttr<SI64Attr>:$value_int,
-    OptionalAttr<I64ArrayAttr>:$value_ints,
-    OptionalAttr<StrAttr>:$value_string,
-    OptionalAttr<StrArrayAttr>:$value_strings);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
+    OptionalAttr<AnyAttr>:$value);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 0;
@@ -660,18 +654,13 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     }
   }];
   let builders = [
-  OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value,
-    "FloatAttr":$value_float, "ArrayAttr":$value_floats,
-    "IntegerAttr":$value_int, "ArrayAttr":$value_ints,
-    "StringAttr":$value_string, "ArrayAttr":$value_strings), [{
+  OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+    build($_builder, $_state, tensorType, sparse_value, value);
    } else {
     auto tensorType = sparse_value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value,
-      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+    build($_builder, $_state, tensorType, sparse_value, value);
    }
   }]>
   ];
@@ -1726,14 +1715,14 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
   "This operator supports **unidirectional broadcasting** (tensor C should be unidirectional broadcastable to tensor A * B); for more details please check [the doc](Broadcasting.md)."
   "This operator has **optional** inputs/outputs. See [the doc](IR.md) for more details about the representation of optional arguments. An empty string may be used in the place of an actual argument's name to indicate a missing argument. Trailing optional arguments (those not followed by an argument that is present) may also be simply omitted."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, AnyMemRef]>:$A,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, AnyMemRef]>:$B,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, AnyMemRef, NoneType]>:$C,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, AnyMemRef]>:$A,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, AnyMemRef]>:$B,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, AnyMemRef, NoneType]>:$C,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha,
     DefaultValuedAttr<F32Attr, "1.0">:$beta,
     DefaultValuedAttr<SI64Attr, "0">:$transA,
     DefaultValuedAttr<SI64Attr, "0">:$transB);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, AnyMemRef, NoneType]>:$Y);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, AnyMemRef, NoneType]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -2423,13 +2412,13 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   "      for (int i=0; i < max_trip_count && keepgoing_out; ++i) {"
   "        /* Implicitly-defined code: bind actual parameter values"
   "           to formal parameter variables of loop-body */"
-  "        bool keepgoing_in = keepgoing_out;"
+  "        bool keepgoing_in = keepgoing_out; "
   "        bool b_in = b_out;"
   ""
   "        /* User-defined code (loop body) */"
   "        int my_local = a + b_in; // Reading value \"a\" from the enclosing scope is fine"
   "        b_out = a - b_in;"
-  "        keepgoing_out = my_local > b_out;"
+  "        keepgoing_out = my_local > b_out; "
   "        user_defined_val = b_in + b_in; // b_in and b_out are different variables"
   "        /* End user-defined code */"
   ""
@@ -2550,9 +2539,9 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
   let description = [{
   "Matrix product that behaves like numpy.matmul: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.matmul.html"
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, AnyMemRef]>:$A,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, AnyMemRef]>:$B);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, AnyMemRef]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, AnyMemRef]>:$A,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, AnyMemRef]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 2;
@@ -2852,9 +2841,9 @@ def ONNXMulOp:ONNX_Op<"Mul",
   ""
   "This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md)."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$A,
-    AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$B);
-  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$C);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$A,
+    AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$C);
   let builders = [
     OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
@@ -3183,9 +3172,11 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   "  output = "
   "  ["
-  "      [0.0, 0.0, 1.0, 1.2],"
-  "      [0.0, 0.0, 2.3, 3.4],"
-  "      [0.0, 0.0, 4.5, 5.7],"
+  "      ["
+  "          [0.0, 0.0, 1.0, 1.2],"
+  "          [0.0, 0.0, 2.3, 3.4],"
+  "          [0.0, 0.0, 4.5, 5.7],"
+  "      ],"
   "  ]"
   ""
   ""
@@ -3203,9 +3194,11 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   "  output = "
   "  ["
-  "      [1.0, 1.2, 1.0, 1.2],"
-  "      [2.3, 3.4, 2.3, 3.4],"
-  "      [4.5, 5.7, 4.5, 5.7],"
+  "      ["
+  "          [1.0, 1.2, 1.0, 1.2],"
+  "          [2.3, 3.4, 2.3, 3.4],"
+  "          [4.5, 5.7, 4.5, 5.7],"
+  "      ],"
   "  ]"
   ""
   ""
@@ -3223,9 +3216,11 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   "  output = "
   "  ["
-  "      [1.0, 1.0, 1.0, 1.2],"
-  "      [2.3, 2.3, 2.3, 3.4],"
-  "      [4.5, 4.5, 4.5, 5.7],"
+  "      ["
+  "          [1.0, 1.0, 1.0, 1.2],"
+  "          [2.3, 2.3, 2.3, 3.4],"
+  "          [4.5, 4.5, 4.5, 5.7],"
+  "      ],"
   "  ]"
   ""
   }];
@@ -4036,8 +4031,8 @@ def ONNXReluOp:ONNX_Op<"Relu",
   "(Tensor<T>) where the rectified linear function, y = max(0, x), is applied to"
   "the tensor elementwise."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$X);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$Y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$X);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -4341,7 +4336,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
   "values are computed in the outer graph, they need to be passed in as extra state_variables."
   ""
   "    graph rnn-encoding {"
-  "      %H_0 = ..."
+  "      %H_0 = ... "
   "      %X = ..."
   "      %Y_h, %Y = Scan[body = <graph rnn-cell-1>, num_scan_inputs=1](%H_0, %X)"
   "      return %Y, %Y_h"

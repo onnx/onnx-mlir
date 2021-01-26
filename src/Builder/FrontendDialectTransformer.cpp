@@ -568,8 +568,7 @@ private:
 
       // Use the special builder defined in ONNXOp.td.inc.
       auto constantOp = builder_.create<mlir::ONNXConstantOp>(
-          UnknownLoc(), mlir::Attribute(), constantDenseAttribute,
-          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
       mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
       std::vector<mlir::Value> inputs;
       for (const auto &item : node.input())
@@ -618,8 +617,7 @@ private:
         auto constantDenseAttribute =
             mlir::DenseElementsAttr::get(tensorType, arrayAttr.getValue());
         auto constantOp = builder_.create<mlir::ONNXConstantOp>(
-            UnknownLoc(), mlir::Attribute(), constantDenseAttribute,
-            nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+            UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
         mlir::Value constantValue = constantOp.output();
 
         // Map from ONNX attributes to indices, which are

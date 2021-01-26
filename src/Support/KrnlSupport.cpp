@@ -65,8 +65,6 @@ Value emitConstantOp(
           [&](Type) { constantAttr = rewriter.getF32FloatAttr((float)value); })
       .Case<Float64Type>(
           [&](Type) { constantAttr = rewriter.getF64FloatAttr((float)value); })
-      .Case<BFloat16Type>(
-          [&](Type) { constantAttr = FloatAttr::get(rewriter.getBF16Type(), value); })
       .Case<IntegerType>([&](Type) {
         auto width = type.cast<IntegerType>().getWidth();
         if (width == 1) {

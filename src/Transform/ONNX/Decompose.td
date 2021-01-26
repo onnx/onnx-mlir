@@ -98,9 +98,6 @@ def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>().
 
 def GetNullAttr :
 	NativeCodeCall<"Attribute()">;
-// TODO: Remove GetNullPtr once corresponding attributes are supported
-def GetNullPtr :
-  NativeCodeCall<"nullptr">;
 
 // Create a DenseElementsAttr from an ArrayAttr.
 def createDenseArrayAttr:
@@ -126,9 +123,7 @@ def ScalerNullPattern2 : Pat<
 def ScalerNoScalePattern : Pat<
   (ONNXScalerOp $x, $a, $b),
     (ONNXSubOp $x,
-    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr))),
+    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))),
   [(HasFloatType:$x), (AttributeIsNull:$b)],
   (addBenefit 3)>;
 
@@ -137,9 +132,7 @@ def ScalerNoScalePattern2 : Pat<
  (ONNXScalerOp $x, $a, $b),
   (ONNXSubOp
    (ONNXCastOp $x, (ScalerT)),
-   (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a),
-     (GetNullPtr), (GetNullPtr), (GetNullPtr),
-     (GetNullPtr), (GetNullPtr), (GetNullPtr))
+   (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))
   ),
   [(AttributeIsNull:$b)],
   (addBenefit 2)>;
@@ -148,9 +141,7 @@ def ScalerNoScalePattern2 : Pat<
 def ScalerNoOffsetPattern : Pat<
   (ONNXScalerOp $x, $a, $b),
   (ONNXMulOp $x,
-    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr))),
+    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b))),
   [(HasFloatType:$x), (AttributeIsNull:$a)],
   (addBenefit 3)>;
 
@@ -159,9 +150,7 @@ def ScalerNoOffsetPattern2 : Pat<
  (ONNXScalerOp $x, $a, $b),
   (ONNXMulOp
    (ONNXCastOp $x, (ScalerT)),
-   (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b),
-     (GetNullPtr), (GetNullPtr), (GetNullPtr),
-     (GetNullPtr), (GetNullPtr), (GetNullPtr))),
+   (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b))),
   [(AttributeIsNull:$a)],
   (addBenefit 2)>;
 
@@ -170,12 +159,8 @@ def ScalerPattern : Pat<
   (ONNXScalerOp $x, $a, $b),
   (ONNXMulOp 
     (ONNXSubOp $x,
-      (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a),
-        (GetNullPtr), (GetNullPtr), (GetNullPtr),
-        (GetNullPtr), (GetNullPtr), (GetNullPtr))),
-    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr))),
+      (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))),
+    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b))),
   [(HasFloatType:$x)],
   (addBenefit 1)>;
 
@@ -184,12 +169,8 @@ def ScalerPattern2 : Pat<
   (ONNXScalerOp $x, $a, $b),
   (ONNXMulOp 
     (ONNXSubOp (ONNXCastOp $x, (ScalerT)),
-      (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a),
-        (GetNullPtr), (GetNullPtr), (GetNullPtr),
-        (GetNullPtr), (GetNullPtr), (GetNullPtr))),
-    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr))),
+      (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $a))),
+    (ONNXConstantOp (GetNullAttr), (createDenseArrayAttr $b))),
   [],
   (addBenefit 0)>;
 

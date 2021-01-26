@@ -50,8 +50,6 @@ def AttributeIsNull :
 
 // Usefult code generation invokation.
 def GetNullAttr : NativeCodeCall<"Attribute()">;
-// TODO: Remove GetNullPtr once corresponding attributes are supported
-def GetNullPtr : NativeCodeCall<"nullptr">;
   
 def CreateAddOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
@@ -84,7 +82,7 @@ def CreateUnsqueezeOfConst:
 // Use commutativity to normalize constants in the second position of Add.
 def AddConstCommutative1 : Pat<
   // From add(c, x).
-  (ONNXAddOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXAddOp (ONNXConstantOp:$c $_, $_), $x),
   // To add(x, c).
   (ONNXAddOp $x, $c),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
@@ -94,8 +92,8 @@ def AddConstCommutative1 : Pat<
 def AddConstAssociative1 : Pat<
   // From add(add(x, c1), c2).
   (ONNXAddOp
-    (ONNXAddOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp $x,(ONNXConstantOp:$c1 $_, $_)),
+    (ONNXConstantOp:$c2 $_, $_)),
   // To add(x, add(c1, c2)).
   (ONNXAddOp
     $x,
@@ -105,7 +103,7 @@ def AddConstAssociative1 : Pat<
 def AddConstAssociative2 : Pat<
   // From add(add(x, c), y).
   (ONNXAddOp
-    (ONNXAddOp $x,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp $x,(ONNXConstantOp:$c $_, $_)),
     $y),
   // To add(add(x, y), c).
   (ONNXAddOp
@@ -117,7 +115,7 @@ def AddConstAssociative3 : Pat<
   // From add(x, add(y, c)).
   (ONNXAddOp
     $x,
-    (ONNXAddOp $y,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXAddOp $y,(ONNXConstantOp:$c $_, $_))),
   // To add(add(x, y), c).
   (ONNXAddOp
     (ONNXAddOp $x, $y),
@@ -127,8 +125,8 @@ def AddConstAssociative3 : Pat<
 def AddConstAssociative4 : Pat<
   // From add(add(x, c1), add(y, c2)).
   (ONNXAddOp
-    (ONNXAddOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXAddOp $y,(ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXAddOp $x,(ONNXConstantOp:$c1 $_, $_)),
+    (ONNXAddOp $y,(ONNXConstantOp:$c2 $_, $_))),
   // To add(add(x, y), c1+c2).
   (ONNXAddOp
     (ONNXAddOp $x, $y),
@@ -138,11 +136,9 @@ def AddConstAssociative4 : Pat<
 // Constant Propagation for Add
 def AddConstProp : Pat<
     // From add(c1, c2).
-    (ONNXAddOp:$addOp (ONNXConstantOp $s1, $v1, $_, $_, $_, $_, $_, $_), (ONNXConstantOp $s2, $v2, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp:$addOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
     // To c1+c2
-    (ONNXConstantOp (GetNullAttr), (CreateAddOfTwoConst $addOp, $v1, $v2),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr)),
+    (ONNXConstantOp (GetNullAttr), (CreateAddOfTwoConst $addOp, $v1, $v2)),
     // Additional constraints (no sparse)
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
@@ -154,42 +150,34 @@ def AddConstProp : Pat<
 // Constant Propagation for Sub
 def SubConstProp : Pat<
     // From sub(c1, c2).
-    (ONNXSubOp:$subOp (ONNXConstantOp $s1, $v1, $_, $_, $_, $_, $_, $_), (ONNXConstantOp $s2, $v2, $_, $_, $_, $_, $_, $_)),
+    (ONNXSubOp:$subOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
     // To c1-c2
-    (ONNXConstantOp (GetNullAttr), (CreateSubOfTwoConst $subOp, $v1, $v2),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr)),
+    (ONNXConstantOp (GetNullAttr), (CreateSubOfTwoConst $subOp, $v1, $v2)),
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
 // Neg of constant is simly -const
 def NegofConst :  Pat<
     // From - (c)
-    (ONNXNegOp (ONNXConstantOp:$constOp $s, $v, $_, $_, $_, $_, $_, $_)),
+    (ONNXNegOp (ONNXConstantOp:$constOp $s, $v)),
     // To (-c)
-    (ONNXConstantOp (GetNullAttr), (CreateNegOfConst $constOp, $v),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr)),
+    (ONNXConstantOp (GetNullAttr), (CreateNegOfConst $constOp, $v)),
     [(AttributeIsNull:$s)]>;
   
 // Change a subtraction of a constant c by an addition of -c. Helpfull to combine
 // with other add optimizations.
 def SubConstToNeg : Pat<
     // From x - c.
-    (ONNXSubOp:$subOp $x, (ONNXConstantOp:$constOp $s, $v, $_, $_, $_, $_, $_, $_)),
+    (ONNXSubOp:$subOp $x, (ONNXConstantOp:$constOp $s, $v)),
     // To x + (-c).
-    (ONNXAddOp $x, (ONNXConstantOp (GetNullAttr), (CreateNegOfConst $constOp, $v),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr))),
+    (ONNXAddOp $x, (ONNXConstantOp (GetNullAttr), (CreateNegOfConst $constOp, $v))),
     [(IsNotAConstant:$x), (AttributeIsNull:$s)]>;
 
 // Constant Propagation for Sqrt
 def SqrtofConst :  Pat<
     // From  onnx.Sqrt(c)
-    (ONNXSqrtOp (ONNXConstantOp:$constOp $s, $v, $_, $_, $_, $_, $_, $_)),
+    (ONNXSqrtOp (ONNXConstantOp:$constOp $s, $v)),
     // To sqrt(c)
-    (ONNXConstantOp (GetNullAttr), (CreateSqrtOfConst $constOp, $v),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr)),
+    (ONNXConstantOp (GetNullAttr), (CreateSqrtOfConst $constOp, $v)),
     [(AttributeIsNull:$s)]>;
  
 //===----------------------------------------------------------------------===//
@@ -200,7 +188,7 @@ def SqrtofConst :  Pat<
 // Use commutativity to normalize constants in the second position of Mul.
 def MulConstCommutative1 : Pat<
   // From mul(c, x).
-  (ONNXMulOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
+  (ONNXMulOp (ONNXConstantOp:$c $_, $_), $x),
   // To mul(x, c).
   (ONNXMulOp $x, $c),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
@@ -210,8 +198,8 @@ def MulConstCommutative1 : Pat<
 def MulConstAssociative1 : Pat<
   // From mul(mul(x, c1), c2).
   (ONNXMulOp
-    (ONNXMulOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXMulOp $x,(ONNXConstantOp:$c1 $_, $_)),
+    (ONNXConstantOp:$c2 $_, $_)),
   // To mul(x, mul(c1, c2)).
   (ONNXMulOp
     $x,
@@ -221,7 +209,7 @@ def MulConstAssociative1 : Pat<
 def MulConstAssociative2 : Pat<
   // From mul(mul(x, c), y).
   (ONNXMulOp
-    (ONNXMulOp $x,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXMulOp $x,(ONNXConstantOp:$c $_, $_)),
     $y),
   // To mul(mul(x, y), c).
   (ONNXMulOp
@@ -233,7 +221,7 @@ def MulConstAssociative3 : Pat<
   // From mul(x, mul(y, c)).
   (ONNXMulOp
     $x,
-    (ONNXMulOp $y,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXMulOp $y,(ONNXConstantOp:$c $_, $_))),
   // To mul(mul(x, y), c).
   (ONNXMulOp
     (ONNXMulOp $x, $y),
@@ -243,8 +231,8 @@ def MulConstAssociative3 : Pat<
 def MulConstAssociative4 : Pat<
   // From mul(mul(x, c1), mul(y, c2)).
   (ONNXMulOp
-    (ONNXMulOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXMulOp $y,(ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXMulOp $x,(ONNXConstantOp:$c1 $_, $_)),
+    (ONNXMulOp $y,(ONNXConstantOp:$c2 $_, $_))),
   // To mul(mul(x, y), c1+c2).
   (ONNXMulOp
     (ONNXMulOp $x, $y),
@@ -254,22 +242,18 @@ def MulConstAssociative4 : Pat<
 // Constant Propagation for Mul
 def MulConstProp : Pat<
     // From mul(c1, c2).
-    (ONNXMulOp:$mulOp (ONNXConstantOp $s1, $v1, $_, $_, $_, $_, $_, $_), (ONNXConstantOp $s2, $v2, $_, $_, $_, $_, $_, $_)),
+    (ONNXMulOp:$mulOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
     // To c1+c2
-    (ONNXConstantOp (GetNullAttr), (CreateMulOfTwoConst $mulOp, $v1, $v2),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr)),
+    (ONNXConstantOp (GetNullAttr), (CreateMulOfTwoConst $mulOp, $v1, $v2)),
     // Mulitional constraints (no sparse)
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
 // Constant Propagation for Div 
 def DivConstProp : Pat<
     // From div(c1, c2).
-    (ONNXDivOp:$mulOp (ONNXConstantOp $s1, $v1, $_, $_, $_, $_, $_, $_), (ONNXConstantOp $s2, $v2, $_, $_, $_, $_, $_, $_)),
+    (ONNXDivOp:$mulOp (ONNXConstantOp $s1, $v1), (ONNXConstantOp $s2, $v2)),
     // To c1/c2
-    (ONNXConstantOp (GetNullAttr), (CreateDivOfTwoConst $mulOp, $v1, $v2),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr)),
+    (ONNXConstantOp (GetNullAttr), (CreateDivOfTwoConst $mulOp, $v1, $v2)),
     // Division constraints (no sparse)
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
 
@@ -281,11 +265,9 @@ def DivConstProp : Pat<
 // Neg of constant is simly -const
 def TransposeofConst :  Pat<
     // From TransposeOp(c, p)
-    (ONNXTransposeOp:$resOp (ONNXConstantOp $s, $v, $_, $_, $_, $_, $_, $_), $p),
+    (ONNXTransposeOp:$resOp (ONNXConstantOp $s, $v), $p),
     // To c' where c' is transposed attribute
-    (ONNXConstantOp (GetNullAttr), (CreateTransposeOfConst $resOp, $v, $p),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr)),
+    (ONNXConstantOp (GetNullAttr), (CreateTransposeOfConst $resOp, $v, $p)),
     [(AttributeIsNull:$s)]>;
 
 //===----------------------------------------------------------------------===//
@@ -294,11 +276,9 @@ def TransposeofConst :  Pat<
 
 def UnsqueezeofConst :  Pat<
     // From Unsqueeze (c, axis)
-    (ONNXUnsqueezeOp:$resOp (ONNXConstantOp $s, $v, $_, $_, $_, $_, $_, $_), $_),
+    (ONNXUnsqueezeOp:$resOp (ONNXConstantOp $s, $v), $_),
     // To c' where c' is the unsqueezed value.
-    (ONNXConstantOp (GetNullAttr), (CreateUnsqueezeOfConst $resOp, $v),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr),
-      (GetNullPtr), (GetNullPtr), (GetNullPtr)),
+    (ONNXConstantOp (GetNullAttr), (CreateUnsqueezeOfConst $resOp, $v)),
     [(AttributeIsNull:$s)]>;
 
 

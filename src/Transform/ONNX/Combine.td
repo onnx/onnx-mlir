@@ -26,8 +26,6 @@ include "src/Dialect/ONNX/ONNXOps.td"
 
 // Usefult code generation invokation.
 def GetNullAttr : NativeCodeCall<"Attribute()">;
-// TODO: Remove GetNullPtr once corresponding attributes are supported
-def GetNullPtr : NativeCodeCall<"nullptr">;
 
 def GetUnitAttr: NativeCodeCall<"$_builder.getUnitAttr()">;
 
@@ -65,11 +63,9 @@ def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
 // y, mask = onnx.Dropout(x) -> y, mask = x, none
 def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $ratio),
                                         [(replaceWithValue $arg),
-                                         (ONNXConstantOp (GetNullAttr), (GetUnitAttr),
-                                           (GetNullPtr), (GetNullPtr), (GetNullPtr),
-                                           (GetNullPtr), (GetNullPtr), (GetNullPtr))]>;
+                                         (ONNXConstantOp (GetNullAttr), (GetUnitAttr))]>;
 
-def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $v1, $v2, $v3, $v4, $v5, $v6, $v7, $v8), $m2, $m3),
+def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $v1, $v2), $m2, $m3),
                              (ONNXPadConstantValuePadOp $m1, $v2, $m2, $m3),
                              [(HasOneUse $res)]>;
 
