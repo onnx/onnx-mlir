@@ -506,6 +506,19 @@ public:
     int64_t rank = splitOp->input().getType().cast<ShapedType>().getRank();
     IntegerAttr axisAttr = splitOp->axisAttr();
     ArrayAttr splitAttr = splitOp->splitAttr();
+    if (!splitAttr) {
+      // If split parameter is not specified, it is constructed from output.
+      SmallVector<Attribute, 4> splits;
+      for (int i = 0; i < outputNum; ++i) {
+        Value splitOutput = splitOp->getResults()[i];
+        uint64_t splitAxis = axisAttr.getValue().getSExtValue();
+        RankedTensorType resType =
+            constructRankedTensorType(splitOutput.getType().cast<ShapedType>());
+        splits.emplace_back(rewriter.getIntegerAttr(
+            rewriter.getIntegerType(64), resType.getDimSize(splitAxis)));
+      }
+      splitAttr = rewriter.getArrayAttr(splits);
+    }
 
     SmallVector<::mlir::Value, 4> returnValues;
     for (int i = 0; i < outputNum; ++i) {
