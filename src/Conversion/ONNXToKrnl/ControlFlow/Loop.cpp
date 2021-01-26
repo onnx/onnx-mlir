@@ -13,21 +13,6 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include <mlir/IR/BlockAndValueMapping.h>
 
-// TODO(tjingrant): don't duplicate:
-// https://github.com/llvm/llvm-project/blob/0bf4a82a5a2b11a07a7f7eac5e49b565cb041b13/mlir/lib/Transforms/Utils/InliningUtils.cpp
-/// Remap locations from the inlined blocks with CallSiteLoc locations with the
-/// provided caller location.
-static void remapInlinedOperands(iterator_range<Region::iterator> inlinedBlocks,
-    BlockAndValueMapping &mapper) {
-  auto remapOperands = [&](Operation *op) {
-    for (auto &operand : op->getOpOperands())
-      if (auto mappedOp = mapper.lookupOrNull(operand.get()))
-        operand.set(mappedOp);
-  };
-  for (auto &block : inlinedBlocks)
-    block.walk(remapOperands);
-}
-
 struct ONNXLoopOpLowering : public ConversionPattern {
   explicit ONNXLoopOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXLoopOp::getOperationName(), 1, ctx) {}
@@ -126,7 +111,16 @@ struct ONNXLoopOpLowering : public ConversionPattern {
       auto &loopBodyBlock = *newBlocks.begin();
 
       auto loopBodyTerminator = loopBodyBlock.getTerminator();
-      remapInlinedOperands(thenRegion.getBlocks(), mapper);
+
+      // Within inlined blocks, substitute reference to block arguments with
+      // values produced by the lowered loop operation bootstrapping IR.
+      auto remapOperands = [&](Operation *op1) {
+        for (auto &operand : op1->getOpOperands())
+          if (auto mappedOp = mapper.lookupOrNull(operand.get()))
+            operand.set(mappedOp);
+      };
+      for (auto &block : thenRegion.getBlocks())
+        block.walk(remapOperands);
       auto resultsRange =
           llvm::SmallVector<Value, 4>(loopBodyTerminator->getOperands().begin(),
               loopBodyTerminator->getOperands().end());

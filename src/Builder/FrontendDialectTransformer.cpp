@@ -69,7 +69,7 @@ public:
       const onnx::ModelProto &model, ImportOptions options) {
     options_ = options;
     SetOpSetImport(model); // Determines which opsets to use.
-    ImportGraph(model.graph());
+    importGraph(model.graph());
     return module_;
   }
 
@@ -313,18 +313,20 @@ private:
     return attributes;
   }
 
-  static void createRegionForSubgraphs(
-      const onnx::NodeProto &node, mlir::OperationState &state) {
-    for (const auto &attr : node.attribute()) {
-      // Ignore subgraph attributes, as they will be imported as regions.
-      if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH ||
-          attr.type() == onnx::AttributeProto_AttributeType_GRAPHS) {
-        state.addRegion();
-      }
-    }
-  }
-
-  mlir::FunctionType importSubgraphToRegion(const onnx::GraphProto &graph,
+  /*!
+   * An alternative graph importing procedure for importing ONNX subgraphs.
+   * ONNX subgraphs, unlike the main computation graph, are imported as regions
+   * nested within the associated operations (e.g., the loop body subgraph
+   * associated with Loop operation).
+   * @param graph sub-computation graph to import.
+   * @param region region to import computation graph to.
+   * @param op operations whose attributes will be updated to contain
+   * input/output names.
+   * @param useStdReturn if set to true, will emit standard return op as
+   * terminator, otherwise, will use OnnxReturn op as terminator.
+   * @return function type corresponding to the subgraph input/output signature.
+   */
+  mlir::FunctionType importGraph(const onnx::GraphProto &graph,
       mlir::Region &region, mlir::Operation *op, bool useStdReturn) {
     frontend_symbols_.pushScope(graph.name());
     mlir::Block *entryBlock = &region.back();
@@ -444,9 +446,13 @@ private:
     }
     result.addOperands(inputs);
     result.addAttributes(ImportNodeAttributes(node));
-    createRegionForSubgraphs(node, result);
-    auto op = builder_.createOperation(result);
+    // Create corresponding regions for graph attributes.
+    for (const auto &attr : node.attribute())
+      // Ignore subgraph attributes, as they will be imported as regions.
+      if (attr.type() == onnx::AttributeProto_AttributeType_GRAPH)
+        result.addRegion();
 
+    auto op = builder_.createOperation(result);
     for (int i = 0; i < node.output().size(); i++) {
       auto r = op->getResult(i);
       frontend_symbols_.AddMapping(legalize_name(node.output()[i]), r);
@@ -569,7 +575,7 @@ private:
           region.push_back(new Block);
           mlir::OpBuilder::InsertionGuard guard(builder_);
           builder_.setInsertionPointToStart(&region.back());
-          importSubgraphToRegion(attr.g(), region, op.getOperation(), false);
+          importGraph(attr.g(), region, op.getOperation(), false);
         } else {
           llvm_unreachable("Op contains subgraph attributes but does not "
                            "implement HasOnnxSubgraphOpInterface interface.");
@@ -1057,33 +1063,33 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
-  mlir::FuncOp ImportGraph(
-      const onnx::GraphProto &graph, const std::string &name = "main_graph") {
-
+  /*!
+   * Import ONNX main computation graph.
+   * @param graph onnx graph proto.
+   * @return A function corresponding to the imported computation graph.
+   */
+  mlir::FuncOp importGraph(const onnx::GraphProto &graph) {
+    const std::string &name = "main_graph";
     auto mainFunc = mlir::FuncOp::create(UnknownLoc(), name,
         /*type=*/builder_.getFunctionType({}, {}), /*attrs=*/{});
     module_.push_back(mainFunc);
-    // Get the entru block inside the main function and set the insertion point
-    // to it.
+    // Create and set insertion point to entry block.
     mainFunc.body().push_back(new Block);
     builder_.setInsertionPointToStart(&mainFunc.body().back());
 
-    auto funcType = importSubgraphToRegion(
-        graph, mainFunc.body(), mainFunc.getOperation(), true);
+    auto funcType = importGraph(graph, /*region=*/mainFunc.body(),
+        /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
     mainFunc.setType(funcType);
 
-    if (name == "main_graph") {
-      // Emit the entry point operation which specifies the number of user
-      // inputs and outputs.
-      auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
-          /*numInputs=*/funcType.getNumInputs(),
-          /*numOutputs=*/funcType.getNumResults());
-      module_.push_back(entryPoint);
-    }
+    // Emit entry point op describing inference function signature.
+    auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
+        /*numInputs=*/funcType.getNumInputs(),
+        /*numOutputs=*/funcType.getNumResults());
+    module_.push_back(entryPoint);
 
     return mainFunc;
   }
-}; // namespace detail
+}; // class FrontendGenImpl
 } // namespace detail
 } // namespace onnx_mlir
 
