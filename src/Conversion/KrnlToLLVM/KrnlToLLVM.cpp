@@ -157,6 +157,29 @@ static FlatSymbolRefAttr getOrInsertMalloc(
   return SymbolRefAttr::get("malloc", ctx);
 }
 
+// This function emits a declaration of the form:
+//
+// declare float <mathFuncName>(float)
+//
+static FlatSymbolRefAttr getOrInsertUnaryFloatMathFunction(
+    PatternRewriter &rewriter, ModuleOp module, std::string mathFuncName) {
+  auto *context = module.getContext();
+  if (module.lookupSymbol<LLVM::LLVMFuncOp>(mathFuncName))
+    return SymbolRefAttr::get(mathFuncName, context);
+
+  // Create function declaration.
+  auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
+  auto llvmFnType = LLVM::LLVMFunctionType::get(llvmF32Ty,
+      ArrayRef<mlir::LLVM::LLVMType>({llvmF32Ty}));
+
+  // Insert the unary math function into the body of the parent module.
+  PatternRewriter::InsertionGuard insertGuard(rewriter);
+  rewriter.setInsertionPointToStart(module.getBody());
+  rewriter.create<LLVM::LLVMFuncOp>(
+      module.getLoc(), mathFuncName, llvmFnType);
+  return SymbolRefAttr::get(mathFuncName, context);
+}
+
 //===----------------------------------------------------------------------===//
 // KRNL to LLVM: KrnlGetRefOpLowering
 //===----------------------------------------------------------------------===//
@@ -494,6 +517,33 @@ public:
             int64Size, isVolatile}));
 
     rewriter.eraseOp(op);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// KRNL to LLVM: KrnlErfOpLowering
+//===----------------------------------------------------------------------===//
+
+class KrnlErfOpLowering : public ConversionPattern {
+public:
+  explicit KrnlErfOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlErfOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    auto *context = op->getContext();
+    auto loc = op->getLoc();
+
+    // Insert and/or get reference to erf function declaration.
+    ModuleOp parentModule = op->getParentOfType<ModuleOp>();
+    auto erfRef = getOrInsertUnaryFloatMathFunction(rewriter, parentModule, "erff");
+
+    // Emit function call in the code.
+    auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
+    auto funcCall = rewriter.create<CallOp>(loc, erfRef, llvmF32Ty,
+        ArrayRef<Value>({operands[0]}));
+    rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();
   }
 };
@@ -1057,6 +1107,9 @@ void mlir::populateAffineAndKrnlToLLVMConversion(
       ctx, typeConverter);
   patterns.insert<KrnlGetRefOpLowering>(ctx, typeConverter);
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(ctx);
+
+  // Math library functions.
+  patterns.insert<KrnlErfOpLowering>(ctx);
 }
 
 //===----------------------------------------------------------------------===//
