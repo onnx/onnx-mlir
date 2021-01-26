@@ -121,6 +121,12 @@ struct ScalarOp<ONNXPowOp> {
   using IOp = PowFOp; // Not used.
 };
 
+template <>
+struct ScalarOp<ONNXErfOp> {
+  using FOp = KrnlErfOp;
+  using IOp = KrnlErfOp; // Not used.
+};
+
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
@@ -609,6 +615,20 @@ Value emitScalarOpFor<ONNXLessOp>(ConversionPatternRewriter &rewriter,
   }
 }
 
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXErfOp
+//===----------------------------------------------------------------------===//
+
+template <>
+Value emitScalarOpFor<ONNXErfOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value operand = scalarOperands[0];
+
+  auto result = rewriter.create<KrnlErfOp>(loc, elementType, operand);
+  return result.getResult();
+}
+
 // Element-wise unary ops lowering to Krnl dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOp>
@@ -814,6 +834,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,

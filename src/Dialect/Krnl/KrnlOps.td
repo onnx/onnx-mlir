@@ -405,3 +405,16 @@ def KrnlDummyCastOp : Op<Krnl_Dialect, "dummy_cast"> {
   }];
 }
 
+def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
+  let summary = "Krnl erf scalar operation";
+  let description = [{
+    Krnl erf scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs AnyFloat:$out);
+
+  let parser = ?;
+  let printer = ?;
+}
+
