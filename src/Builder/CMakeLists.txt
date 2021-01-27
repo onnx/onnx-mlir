@@ -2,7 +2,9 @@ add_library(OMBuilder
         FrontendDialectHelper.cpp
         FrontendDialectHelper.hpp
         FrontendDialectTransformer.cpp
-        FrontendDialectTransformer.hpp)
+        FrontendDialectTransformer.hpp
+        SymbolTable.cpp
+        SymbolTable.hpp)
 
 target_include_directories(OMBuilder PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(OMBuilder PRIVATE ${CMAKE_BINARY_DIR})
@@ -30,5 +32,6 @@ target_include_directories(OMBuilder
 # the compilation will fail.
 add_dependencies(OMBuilder OMONNXOpsInc)
 add_dependencies(OMBuilder OMONNXOps OMResultTypeInferenceOpInterface)
+add_dependencies(OMBuilder OMONNXOps OMHasOnnxSubgraphOpInterface)
 
 install(TARGETS OMBuilder DESTINATION lib)

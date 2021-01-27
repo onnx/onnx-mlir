@@ -20,6 +20,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/PromotableConstOperandsOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Interface/ShapeInferenceInterface.hpp"
