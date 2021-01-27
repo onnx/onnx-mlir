@@ -3365,3 +3365,57 @@ func @test_prelu_broadcast3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) 
   // CHECK: return [[RES]] : memref<3x4x5xf32>
 }
 
+// -----
+// COM: Check simple loop lowering.
+func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> tensor<1xi64> {
+  %0 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
+    ^bb0(%body_arg0: tensor<i64>, %body_arg1: tensor<i1>, %body_arg2: tensor<1xi64>):
+    %0 = "onnx.Identity"(%body_arg1) : (tensor<i1>) -> tensor<i1>
+    %1 = "onnx.Add"(%body_arg2, %body_arg0) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
+    onnx.Return %0, %1 : tensor<i1>, tensor<1xi64>
+  }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> tensor<1xi64>
+  return %0 : tensor<1xi64>
+  // CHECK-LABEL:      func private @test_loop_simple_main_graph
+  // CHECK-SAME:     ([[VAR_arg0:%.+]]: memref<i64>, [[VAR_arg1:%.+]]: memref<i1>, [[VAR_arg2:%.+]]: memref<1xi64>) -> memref<1xi64> {
+  // CHECK:           [[VAR_0:%.+]] = alloc() : memref<i1>
+  // CHECK:           [[VAR_1:%.+]] = alloc() : memref<1xi64>
+  // CHECK:           [[VAR_2:%.+]] = krnl.define_loops 1
+  // CHECK:           krnl.iterate([[VAR_2]]) with ([[VAR_2]] -> [[VAR_arg3:%.+]] = 0 to 1) {
+  // CHECK:             [[VAR_7:%.+]] = affine.load [[VAR_arg2]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
+  // CHECK:             affine.store [[VAR_7]], [[VAR_1]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
+  // CHECK:           }
+  // CHECK:           [[VAR_3:%.+]] = affine.load [[VAR_arg1]][] : memref<i1>
+  // CHECK:           affine.store [[VAR_3]], [[VAR_0]][] : memref<i1>
+  // CHECK:           [[VAR_4:%.+]] = krnl.define_loops 1
+  // CHECK:           [[VAR_5:%.+]] = load [[VAR_arg0]][] : memref<i64>
+  // CHECK:           [[VAR_6:%.+]] = index_cast [[VAR_5]] : i64 to index
+  // CHECK:           krnl.iterate([[VAR_4]]) with ([[VAR_4]] -> [[VAR_arg3:%.+]] = 0 to [[VAR_6]]) {
+  // CHECK:             [[VAR_7:%.+]] = affine.load [[VAR_0]][] : memref<i1>
+  // CHECK:             scf.if [[VAR_7]] {
+  // CHECK:               [[VAR_8:%.+]] = alloc() : memref<1xi64>
+  // CHECK:               [[VAR_9:%.+]] = index_cast [[VAR_arg3]] : index to i64
+  // CHECK:               [[VAR_10:%.+]] = alloc() : memref<i64>
+  // CHECK:               store [[VAR_9]], [[VAR_10]][] : memref<i64>
+  // CHECK:               [[VAR_11:%.+]] = krnl.define_loops 1
+  // CHECK:               krnl.iterate([[VAR_11]]) with ([[VAR_11]] -> [[VAR_arg4:%.+]] = 0 to 1) {
+  // CHECK:                 [[VAR_16:%.+]] = affine.load [[VAR_1]]{{.}}[[VAR_arg4]]{{.}} : memref<1xi64>
+  // CHECK:                 [[VAR_17:%.+]] = affine.load [[VAR_10]][] : memref<i64>
+  // CHECK:                 [[VAR_18:%.+]] = addi [[VAR_16]], [[VAR_17]] : i64
+  // CHECK:                 affine.store [[VAR_18]], [[VAR_8]]{{.}}[[VAR_arg4]]{{.}} : memref<1xi64>
+  // CHECK:               }
+  // CHECK:               [[VAR_12:%.+]] = krnl.dummy_cast [[VAR_arg1]] : (memref<i1>) -> memref<i1>
+  // CHECK:               [[VAR_13:%.+]] = krnl.dummy_cast [[VAR_8]] : (memref<1xi64>) -> memref<1xi64>
+  // CHECK:               [[VAR_14:%.+]] = affine.load [[VAR_12]][] : memref<i1>
+  // CHECK:               affine.store [[VAR_14]], [[VAR_0]][] : memref<i1>
+  // CHECK:               [[VAR_15:%.+]] = krnl.define_loops 1
+  // CHECK:               krnl.iterate([[VAR_15]]) with ([[VAR_15]] -> [[VAR_arg4:%.+]] = 0 to 1) {
+  // CHECK:                 [[VAR_16:%.+]] = affine.load [[VAR_13]]{{.}}[[VAR_arg4]]{{.}} : memref<1xi64>
+  // CHECK:                 affine.store [[VAR_16]], [[VAR_1]]{{.}}[[VAR_arg4]]{{.}} : memref<1xi64>
+  // CHECK:               }
+  // CHECK:               dealloc [[VAR_8]] : memref<1xi64>
+  // CHECK:             }
+  // CHECK:           }
+  // CHECK:           dealloc [[VAR_0]] : memref<i1>
+  // CHECK:           return [[VAR_1]] : memref<1xi64>
+  // CHECK:         }
+}
