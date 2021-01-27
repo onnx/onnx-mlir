@@ -508,19 +508,16 @@ public:
     IntegerAttr axisAttr = splitOp->axisAttr();
     ArrayAttr splitAttr = splitOp->splitAttr();
     if (!splitAttr) {
-      // If split parameter is not specified, it is constructed from output.
-      SmallVector<Attribute, 4> splits;
-      for (int i = 0; i < outputNum; ++i) {
-        Value splitOutput = splitOp->getResults()[i];
-        uint64_t splitAxis = axisAttr.getValue().getSExtValue();
-        RankedTensorType inType =
-            constructRankedTensorType(splitInput.getType().cast<ShapedType>());
-        assert(inType.getDimSize(splitAxis) % outputNum == 0 &&
-               "The dimension at the split axis is expected to be divisible by "
-               "the number of results");
-        splits.emplace_back(rewriter.getIntegerAttr(rewriter.getIntegerType(64),
-            inType.getDimSize(splitAxis) / outputNum));
-      }
+      // If split attribute is not specified, it is constructed from input.
+      ArrayRef<int64_t> shape =
+          splitInput.getType().cast<ShapedType>().getShape();
+      uint64_t splitAxis = axisAttr.getValue().getSExtValue();
+      assert(shape[splitAxis] % outputNum == 0 &&
+             "The dimension at the split axis is expected to be divisible by "
+             "the number of results");
+      Attribute splitSize = rewriter.getIntegerAttr(
+          rewriter.getIntegerType(64), shape[splitAxis] / outputNum);
+      SmallVector<Attribute, 4> splits(outputNum, splitSize);
       splitAttr = rewriter.getArrayAttr(splits);
     }
 
