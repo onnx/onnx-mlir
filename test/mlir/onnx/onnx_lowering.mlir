@@ -3367,3 +3367,60 @@ func @test_prelu_broadcast3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) 
   // CHECK: return [[RES]] : memref<3x4x5xf32>
 }
 
+
+// -----
+// COM: Check simple loop lowering.
+func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi64>) -> tensor<1xi64> {
+  %0 = "onnx.Loop"(%arg0, %arg1, %arg2) ({
+    ^bb0(%body_arg0: tensor<i64>, %body_arg1: tensor<i1>, %body_arg2: tensor<1xi64>):
+    %0 = "onnx.Identity"(%body_arg1) : (tensor<i1>) -> tensor<i1>
+    %1 = "onnx.Add"(%body_arg2, %body_arg0) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
+    onnx.Return %0, %1 : tensor<i1>, tensor<1xi64>
+  }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> tensor<1xi64>
+  return %0 : tensor<1xi64>
+  // CHECK:       module  {
+  // CHECK-LABEL:       func private @test_loop_simple_main_graph
+  // CHECK-SAME:     ([[TRIP_COUNT:%.+]]: memref<i64>, [[COND:%.+]]: memref<i1>, [[Y_INIT:%.+]]: memref<1xi64>) -> memref<1xi64> {
+  // CHECK:           [[COND_GLOBAL:%.+]] = alloc() : memref<i1>
+  // CHECK:           [[Y:%.+]] = alloc() : memref<1xi64>
+  // CHECK:           [[Y_COPY_LOOP:%.+]] = krnl.define_loops 1
+  // CHECK:           krnl.iterate([[Y_COPY_LOOP]]) with ([[Y_COPY_LOOP]] -> [[YCOPY_IV:%.+]] = 0 to 1) {
+  // CHECK:             [[Y_VAL:%.+]] = krnl.load [[Y_INIT]]{{.}}[[YCOPY_IV]]{{.}} : memref<1xi64>
+  // CHECK:             krnl.store [[Y_VAL]], [[Y]]{{.}}[[YCOPY_IV]]{{.}} : memref<1xi64>
+  // CHECK:           }
+  // CHECK:           [[COND_VAL:%.+]] = krnl.load [[COND]][] : memref<i1>
+  // CHECK:           krnl.store [[COND_VAL]], [[COND_GLOBAL]][] : memref<i1>
+  // CHECK:           [[LOOP:%.+]] = krnl.define_loops 1
+  // CHECK:           [[TRIP_COUNT_VAL:%.+]] = krnl.load [[TRIP_COUNT]][] : memref<i64>
+  // CHECK:           [[TRIP_COUNT_IDX:%.+]] = index_cast [[TRIP_COUNT_VAL]] : i64 to index
+  // CHECK:           krnl.iterate([[LOOP]]) with ([[LOOP]] -> [[LOOP_IV:%.+]] = 0 to [[TRIP_COUNT_IDX]]) {
+  // CHECK:             [[COND_VAL:%.+]] = krnl.load [[COND_GLOBAL]][] : memref<i1>
+  // CHECK:             scf.if [[COND_VAL]] {
+  // CHECK:               [[Y_CURR:%.+]] = alloc() : memref<1xi64>
+  // CHECK:               [[LOOP_IV_VAL:%.+]] = index_cast [[LOOP_IV]] : index to i64
+  // CHECK:               [[CURR_LOOP_IV:%.+]] = alloc() : memref<i64>
+  // CHECK:               krnl.store [[LOOP_IV_VAL]], [[CURR_LOOP_IV]][] : memref<i64>
+  // CHECK:               [[Y_COMPUTE_LOOP:%.+]] = krnl.define_loops 1
+  // CHECK:               krnl.iterate([[Y_COMPUTE_LOOP]]) with ([[Y_COMPUTE_LOOP]] -> [[Y_COMPUTE_IV:%.+]] = 0 to 1) {
+  // CHECK:                 [[Y_VAL:%.+]] = krnl.load [[Y]]{{.}}[[Y_COMPUTE_IV]]{{.}} : memref<1xi64>
+  // CHECK:                 [[LOO_IV_VAL:%.+]] = krnl.load [[CURR_LOOP_IV]][] : memref<i64>
+  // CHECK:                 [[NEW_Y_VAL:%.+]] = addi [[Y_VAL]], [[LOO_IV_VAL]] : i64
+  // CHECK:                 krnl.store [[NEW_Y_VAL]], [[Y_CURR]]{{.}}[[Y_COMPUTE_IV]]{{.}} : memref<1xi64>
+  // CHECK:               }
+  // CHECK:               [[COND_CAST:%.+]] = krnl.dummy_cast [[COND]] : (memref<i1>) -> memref<i1>
+  // CHECK:               [[Y_CURR_CAST:%.+]] = krnl.dummy_cast [[Y_CURR]] : (memref<1xi64>) -> memref<1xi64>
+  // CHECK:               [[COND_CAST_VAL:%.+]] = krnl.load [[COND_CAST]][] : memref<i1>
+  // CHECK:               krnl.store [[COND_CAST_VAL]], [[COND_GLOBAL]][] : memref<i1>
+  // CHECK:               [[Y_COPY_LOOP:%.+]] = krnl.define_loops 1
+  // CHECK:               krnl.iterate([[Y_COPY_LOOP]]) with ([[Y_COPY_LOOP]] -> [[Y_COPY_IV:%.+]] = 0 to 1) {
+  // CHECK:                 [[Y_SCAN_VAL:%.+]] = krnl.load [[Y_CURR_CAST]]{{.}}[[Y_COPY_IV]]{{.}} : memref<1xi64>
+  // CHECK:                 krnl.store [[Y_SCAN_VAL]], [[Y]]{{.}}[[Y_COPY_IV]]{{.}} : memref<1xi64>
+  // CHECK:               }
+  // CHECK:               dealloc [[Y_CURR]] : memref<1xi64>
+  // CHECK:             }
+  // CHECK:           }
+  // CHECK:           dealloc [[COND_GLOBAL]] : memref<i1>
+  // CHECK:           return [[Y]] : memref<1xi64>
+  // CHECK:         }
+  // CHECK:       }
+}
