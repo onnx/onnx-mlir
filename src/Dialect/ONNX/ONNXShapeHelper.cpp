@@ -774,3 +774,31 @@ LogicalResult ONNXTransposeOpShapeHelper::Compute(
   dimsForOutput(0) = transposedDims;
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// ONNX LRN Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXLRNOpShapeHelper::ONNXLRNOpShapeHelper(
+    ONNXLRNOp *newOp, ConversionPatternRewriter *rewriter)
+    : ONNXOpShapeHelper<ONNXLRNOp>(newOp, rewriter) {}
+
+LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
+  // Shape inference indicated by passing a null rewriter pointer.
+  Operation *genericOp = reinterpret_cast<Operation *>(op);
+
+  // Basic information.
+  auto rank = operandAdaptor.X().getType().cast<ShapedType>().getRank();
+
+  // Perform transposition according to perm attribute.
+  DimsExpr outputDims;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    IndexExpr inputDim =
+        context.createDimIndexFromShapedType(operandAdaptor.X(), i);
+    outputDims.emplace_back(inputDim);
+  }
+
+  // Set type for the first output.
+  dimsForOutput(0) = outputDims;
+  return success();
+}
