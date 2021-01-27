@@ -50,7 +50,7 @@ check_operation_version = args.check_operation_version
 version_dict = {'Abs': 6,
  'Acos': 7,
  'Acosh': 9,
- 'Add': 7,
+ 'Add': 13,
  'And': 7,
  'ArgMax': 11,
  'ArgMin': 11,
@@ -67,7 +67,7 @@ version_dict = {'Abs': 6,
  'Compress': 11,
  'Concat': 11,
  'ConcatFromSequence': 11,
- 'Constant': 11,
+ 'Constant': 13,
  'ConstantOfShape': 9,
  'Conv': 11,
  'ConvInteger': 10,
@@ -93,7 +93,7 @@ version_dict = {'Abs': 6,
  'Gather': 11,
  'GatherElements': 11,
  'GatherND': 11,
- 'Gemm': 11,
+ 'Gemm': 13,
  'GlobalAveragePool': 1,
  'GlobalLpPool': 2,
  'GlobalMaxPool': 1,
@@ -114,7 +114,7 @@ version_dict = {'Abs': 6,
  'Loop': 11,
  'LpNormalization': 1,
  'LpPool': 11,
- 'MatMul': 9,
+ 'MatMul': 13,
  'MatMulInteger': 10,
  'Max': 8,
  'MaxPool': 11,
@@ -124,7 +124,7 @@ version_dict = {'Abs': 6,
  'MeanVarianceNormalization': 9,
  'Min': 8,
  'Mod': 10,
- 'Mul': 7,
+ 'Mul': 13,
  'Multinomial': 7,
  'Neg': 6,
  'NonMaxSuppression': 11,
@@ -155,7 +155,7 @@ version_dict = {'Abs': 6,
  'ReduceProd': 11,
  'ReduceSum': 11,
  'ReduceSumSquare': 11,
- 'Relu': 6,
+ 'Relu': 13,
  'Reshape': 5,
  'Resize': 11,
  'ReverseSequence': 10,
@@ -401,13 +401,18 @@ custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broa
 #a dictionary to add any special definition for an operation
 custom_definition_misc = dict([ ('Constant',
  '''  let builders = [
-  OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value), [{
+  OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value,
+    "FloatAttr":$value_float, "ArrayAttr":$value_floats,
+    "IntegerAttr":$value_int, "ArrayAttr":$value_ints,
+    "StringAttr":$value_string, "ArrayAttr":$value_strings), [{
    if (value) {
     auto tensorType = value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    } else {
     auto tensorType = sparse_value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    }
   }]>
   ];'''),
@@ -421,7 +426,7 @@ custom_definition_misc = dict([ ('Constant',
  )])
 
 onnx_types = (
-    'bool', 'int8', 'int16', 'int32', 'int64', 'unkown', 'float16',
+    'bool', 'int8', 'int16', 'int32', 'int64', 'bfloat16', 'float16',
     'float', 'double', 'complex64', 'complex128', 'string'
 )
 tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64', 'BF16', 'F16', 'F32', 'F64',

@@ -51,6 +51,9 @@ def createArrayAttrOfTwoToRankOf : NativeCodeCall<
 
 def GetNullAttr :
    NativeCodeCall<"Attribute()">;
+// TODO: Remove GetNullPtr once corresponding attributes are supported
+def GetNullPtr :
+  NativeCodeCall<"nullptr">;
 
 // Create a StringAttr from a string.
 class StringAttrOfValue<string val>:
@@ -136,7 +139,9 @@ def FuseBatchNormTestModeConvPattern: Pat<
                     $var,
                     (ONNXConstantOp
                        (GetNullAttr),
-                       (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
+                       (createDenseElementsAttrFromFloatAttr $res, $epsilon),
+                       (GetNullPtr), (GetNullPtr), (GetNullPtr),
+                       (GetNullPtr), (GetNullPtr), (GetNullPtr))))),
            (createArrayAttrOfOneToRankOf $w))),
      // b_
      (ONNXAddOp
@@ -158,7 +163,9 @@ def ShapeToConstantPattern: Pat<
      (ONNXShapeOp $A),
      (ONNXConstantOp
         (GetNullAttr),
-        (createDenseElementsAttrFromShape $A)),
+        (createDenseElementsAttrFromShape $A),
+        (GetNullPtr), (GetNullPtr), (GetNullPtr),
+        (GetNullPtr), (GetNullPtr), (GetNullPtr)),
      [(IsStaticShapeTensor:$A)]
 >;
 
@@ -166,7 +173,9 @@ def SizeToConstantPattern: Pat<
      (ONNXSizeOp $A),
      (ONNXConstantOp
         (GetNullAttr),
-        (createDenseElementsAttrFromSize $A)),
+        (createDenseElementsAttrFromSize $A),
+        (GetNullPtr), (GetNullPtr), (GetNullPtr),
+        (GetNullPtr), (GetNullPtr), (GetNullPtr)),
      [(IsStaticShapeTensor:$A)]
 >;
 

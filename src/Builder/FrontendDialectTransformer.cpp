@@ -601,7 +601,8 @@ private:
       auto constantDenseAttribute =
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
       auto constantOp = builder_.create<mlir::ONNXConstantOp>(
-          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute,
+          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
       mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
       inputs.push_back(constantResult);
     }
@@ -618,7 +619,8 @@ private:
       auto constantDenseAttribute =
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
       auto constantOp = builder_.create<mlir::ONNXConstantOp>(
-          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute,
+          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
       mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
       inputs.push_back(constantResult);
     }
@@ -647,7 +649,8 @@ private:
 
       // Use the special builder defined in ONNXOp.td.inc.
       auto constantOp = builder_.create<mlir::ONNXConstantOp>(
-          UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute,
+          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
       mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
       std::vector<mlir::Value> inputs;
       for (const auto &item : node.input())
@@ -696,7 +699,8 @@ private:
         auto constantDenseAttribute =
             mlir::DenseElementsAttr::get(tensorType, arrayAttr.getValue());
         auto constantOp = builder_.create<mlir::ONNXConstantOp>(
-            UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
+            UnknownLoc(), mlir::Attribute(), constantDenseAttribute,
+            nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         mlir::Value constantValue = constantOp.output();
 
         // Map from ONNX attributes to indices, which are
