@@ -17,29 +17,29 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   // CHECK:           [[VAR_1:%.+]] = alloc() : memref<1xi64>
   // CHECK:           [[VAR_2:%.+]] = krnl.define_loops 1
   // CHECK:           krnl.iterate([[VAR_2]]) with ([[VAR_2]] -> [[VAR_arg3:%.+]] = 0 to 1) {
-  // CHECK:             [[VAR_7:%.+]] = affine.load [[VAR_arg2]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
-  // CHECK:             affine.store [[VAR_7]], [[VAR_1]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
+  // CHECK:             [[VAR_7:%.+]] = knrl.load [[VAR_arg2]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
+  // CHECK:             knrl.store [[VAR_7]], [[VAR_1]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
   // CHECK:           }
-  // CHECK:           [[VAR_3:%.+]] = affine.load [[VAR_arg1]][] : memref<i1>
-  // CHECK:           affine.store [[VAR_3]], [[VAR_0]][] : memref<i1>
+  // CHECK:           [[VAR_3:%.+]] = knrl.load [[VAR_arg1]][] : memref<i1>
+  // CHECK:           knrl.store [[VAR_3]], [[VAR_0]][] : memref<i1>
   // CHECK:           [[VAR_4:%.+]] = krnl.define_loops 1
-  // CHECK:           [[VAR_5:%.+]] = load [[VAR_arg0]][] : memref<i64>
+  // CHECK:           [[VAR_5:%.+]] = krnl.load [[VAR_arg0]][] : memref<i64>
   // CHECK:           [[VAR_6:%.+]] = index_cast [[VAR_5]] : i64 to index
   // CHECK:           krnl.iterate([[VAR_4]]) with ([[VAR_4]] -> [[VAR_arg3:%.+]] = 0 to [[VAR_6]]) {
-  // CHECK:             [[VAR_7:%.+]] = affine.load [[VAR_0]][] : memref<i1>
+  // CHECK:             [[VAR_7:%.+]] = knrl.load [[VAR_0]][] : memref<i1>
   // CHECK:             scf.if [[VAR_7]] {
   // CHECK:               [[VAR_8:%.+]] = index_cast [[VAR_arg3]] : index to i64
   // CHECK:               [[VAR_9:%.+]] = alloc() : memref<i64>
-  // CHECK:               store [[VAR_8]], [[VAR_9]][] : memref<i64>
+  // CHECK:               krnl.store [[VAR_8]], [[VAR_9]][] : memref<i64>
   // CHECK:               [[VAR_10:%.+]]:2 = call @loop_body([[VAR_9]], [[VAR_arg1]], [[VAR_1]]) : (memref<i64>, memref<i1>, memref<1xi64>) -> (memref<i1>, memref<1xi64>)
   // CHECK:               [[VAR_11:%.+]] = krnl.dummy_cast [[VAR_10]]#0 : (memref<i1>) -> memref<i1>
   // CHECK:               [[VAR_12:%.+]] = krnl.dummy_cast [[VAR_10]]#1 : (memref<1xi64>) -> memref<1xi64>
-  // CHECK:               [[VAR_13:%.+]] = affine.load [[VAR_11]][] : memref<i1>
-  // CHECK:               affine.store [[VAR_13]], [[VAR_0]][] : memref<i1>
+  // CHECK:               [[VAR_13:%.+]] = knrl.load [[VAR_11]][] : memref<i1>
+  // CHECK:               knrl.store [[VAR_13]], [[VAR_0]][] : memref<i1>
   // CHECK:               [[VAR_14:%.+]] = krnl.define_loops 1
   // CHECK:               krnl.iterate([[VAR_14]]) with ([[VAR_14]] -> [[VAR_arg4:%.+]] = 0 to 1) {
-  // CHECK:                 [[VAR_15:%.+]] = affine.load [[VAR_12]]{{.}}[[VAR_arg4]]{{.}} : memref<1xi64>
-  // CHECK:                 affine.store [[VAR_15]], [[VAR_1]]{{.}}[[VAR_arg4]]{{.}} : memref<1xi64>
+  // CHECK:                 [[VAR_15:%.+]] = knrl.load [[VAR_12]]{{.}}[[VAR_arg4]]{{.}} : memref<1xi64>
+  // CHECK:                 knrl.store [[VAR_15]], [[VAR_1]]{{.}}[[VAR_arg4]]{{.}} : memref<1xi64>
   // CHECK:               }
   // CHECK:             }
   // CHECK:           }
@@ -56,10 +56,10 @@ func private @loop_body(%arg0: tensor<i64>, %arg1: tensor<i1>, %arg2: tensor<1xi
   // CHECK:           [[VAR_0:%.+]] = alloc() : memref<1xi64>
   // CHECK:           [[VAR_1:%.+]] = krnl.define_loops 1
   // CHECK:           krnl.iterate([[VAR_1]]) with ([[VAR_1]] -> [[VAR_arg3:%.+]] = 0 to 1) {
-  // CHECK:             [[VAR_2:%.+]] = affine.load [[VAR_arg2]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
-  // CHECK:             [[VAR_3:%.+]] = affine.load [[VAR_arg0]][] : memref<i64>
+  // CHECK:             [[VAR_2:%.+]] = knrl.load [[VAR_arg2]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
+  // CHECK:             [[VAR_3:%.+]] = knrl.load [[VAR_arg0]][] : memref<i64>
   // CHECK:             [[VAR_4:%.+]] = addi [[VAR_2]], [[VAR_3]] : i64
-  // CHECK:             affine.store [[VAR_4]], [[VAR_0]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
+  // CHECK:             knrl.store [[VAR_4]], [[VAR_0]]{{.}}[[VAR_arg3]]{{.}} : memref<1xi64>
   // CHECK:           }
   // CHECK:           return [[VAR_arg1]], [[VAR_0]] : memref<i1>, memref<1xi64>
   // CHECK:         }
