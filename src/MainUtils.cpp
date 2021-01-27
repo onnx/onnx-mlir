@@ -18,6 +18,17 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/Program.h>
 #include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
+#include "mlir/Dialect/TVP/TVPDialect.h"
+#include "mlir/Dialect/TVP/Passes.h"
+#include "mlir/Conversion/AffineToTVP/AffineToTVPPass.h"
+#include "mlir/Conversion/VectorToTVP/ConvertVectorToTVP.h"
+#include "mlir/Conversion/StandardToTVP/ConvertStandardToTVP.h"
+#include "mlir/Conversion/TVPToLLVM/ConvertTVPToLLVM.h"
+#include "mlir/Dialect/Nepal/IR/NepalDialect.h"
+#include "mlir/Dialect/Nepal/Passes.h"
+#include "mlir/Target/Cpp/CppPrinter.h"
+#include "mlir/Dialect/LLVMIR/Transforms/Passes.h"
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <mlir/IR/SymbolTable.h>
 
@@ -424,6 +435,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
   context.getOrLoadDialect<mlir::linalg::LinalgDialect>();
   context.getOrLoadDialect<mlir::tvp::TVPDialect>();
+  context.getOrLoadDialect<mlir::nepal::NepalDialect>();
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm) {
@@ -447,7 +459,7 @@ extern llvm::cl::opt<bool> npu;
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
   if (npu)
-    pm.addPass(mlir::createConvertONNXToLinalgPass());
+    pm.addNestedPass<FuncOp>(mlir::createConvertONNXToLinalgPass());
   pm.addPass(mlir::createLowerToKrnlPass());
   pm.addPass(mlir::createConvertKrnlToStandardPass());
   pm.addPass(mlir::createPackKrnlGlobalConstantsPass());
@@ -459,7 +471,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
   // changes affine maps in affine loads/stores in such a way that
   // supervectorizer pass is not capable to generate correct mapping.
   // pm.addPass(mlir::createCanonicalizerPass());
-  pm.addPass(createDisconnectKrnlDimFromAllocPass());
   pm.addNestedPass<FuncOp>(createDisconnectKrnlDimFromAllocPass());
 
   // TODO: make this pass optional
@@ -490,7 +501,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 
   // Fuse loops in Affine dialect.
   //  pm.addPass(mlir::createLoopFusionPass());
-  pm.addPass(mlir::createAffineLoopInvariantCodeMotionPass());
+  pm.addNestedPass<FuncOp>(mlir::createAffineLoopInvariantCodeMotionPass());
 }
 
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
@@ -520,6 +531,9 @@ llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
 
 llvm::cl::opt<bool> npu("npu", llvm::cl::desc("Execute passes specific to NPU"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<int> virtualVectorSize("virtual-vector-size", llvm::cl::desc("Virtual vector size to affine-super-vectorize size"),
+    llvm::cl::init(256), llvm::cl::cat(OnnxMlirOptions));
 
 void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
     mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
@@ -648,5 +662,79 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     return 4;
 
   emitOutputFiles(outputBaseName, emissionTarget, context, module);
+  return 0;
+}
+
+int compileModuleApollo(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, EmissionTargetType emissionTarget) {
+  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Explicit);
+  pm.enableCrashReproducerGeneration(outputBaseName + ".crash.mlir", true);
+#ifdef NDEBUG
+  pm.enableVerifier();
+#endif
+  applyPassManagerCLOptions(pm);
+
+  // EmitMLIR passes
+  npu = true;
+  addONNXToMLIRPasses(pm);
+  addONNXToKrnlPasses(pm);
+  addKrnlToAffinePasses(pm);
+
+  // Outlining passes
+  pm.addNestedPass<FuncOp>(mlir::createAffineForToTVPPass());
+  pm.addPass(mlir::createTVPKernelOutliningPass());
+  pm.addNestedPass<tvp::TVPModuleOp>(mlir::createAssignKernelIdsPass());
+
+  // TCP passes
+  pm.addPass(mlir::createNepalDMAOpInsertionPass());
+  pm.addPass(mlir::createNepalOptimizeDMAPass());
+  pm.addPass(mlir::createAffineDMAToNepalConversionPass());
+  pm.addPass(mlir::createNepalArgumentsStructPass());
+  pm.addPass(mlir::createCSEPass());
+  pm.addPass(mlir::createApplyArtemisCallingConventionPass());
+  pm.addPass(mlir::createNepalGenerationPass(outputBaseName));
+
+  // Remove TCP IR and only keep TVP kernels
+  pm.addPass(mlir::createTVPKernelFilterPass());
+
+  // TVP passes on TVP kernels
+  pm.addNestedPass<FuncOp>(mlir::createTVPKernelMemSpaceRemovalPass());
+  pm.addNestedPass<FuncOp>(mlir::createSuperVectorizePass({virtualVectorSize}));
+  pm.addNestedPass<FuncOp>(mlir::createLowerAffinePass());
+  pm.addNestedPass<FuncOp>(mlir::createConvertVectorToTVPPass());
+  pm.addNestedPass<FuncOp>(mlir::createLowerToCFGPass());
+  pm.addPass(mlir::createConvertStandardToTVPPass());
+  pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
+  pm.addPass(mlir::createConvertTVPToLLVMPass());
+  pm.addPass(mlir::LLVM::createGenerateKernelDispatcherPass());
+
+  if (mlir::failed(pm.run(*module)))
+    return 4;
+
+  outputCode(module, outputBaseName, ".final.mlir");
+
+  string mlirTranslatePath = getToolPath("mlir-translate");
+  Command mlirTranslateCommand(
+      /*exePath=*/!mlirTranslatePath.empty() ? mlirTranslatePath : kMlirTranslatePath);
+  string mlirTranslateInput = outputBaseName + ".final.mlir";
+  string mlirTranslateoOutput = outputBaseName + ".ll";
+  mlirTranslateCommand.appendStr("--mlir-to-llvmir")
+      .appendStr(mlirTranslateInput)
+      .appendStr("-o=" + mlirTranslateoOutput)
+      .exec();
+
+  string llcPath = getToolPath("llc");
+  Command llcCommand(
+      /*exePath=*/!llcPath.empty() ? llcPath
+                                             : kLlcPath);
+  string llcInput = mlirTranslateoOutput;
+  string llcOutput = outputBaseName + ".s";
+  llcCommand.appendStr("-mtriple=apollo-none-none")
+      .appendStr("-max-jump-table-size=0")
+      .appendStr("-O2")
+      .appendStr(llcInput)
+      .appendStr("-o=" + llcOutput)
+      .exec();
+
   return 0;
 }

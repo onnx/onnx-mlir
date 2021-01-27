@@ -31,6 +31,7 @@ enum EmissionTargetType {
   EmitLLVMIR,
   EmitLib,
   EmitJNI,
+  EmitApollo,
 };
 
 void setExecPath(const char *argv0, void *fmain);
@@ -66,4 +67,7 @@ void emitOutputFiles(std::string outputBaseName,
     mlir::OwningModuleRef &module);
 
 int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
+    std::string outputBaseName, EmissionTargetType targetType);
+
+int compileModuleApollo(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     std::string outputBaseName, EmissionTargetType targetType);

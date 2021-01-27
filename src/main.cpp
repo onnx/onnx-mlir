@@ -16,6 +16,7 @@ int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   mlir::MLIRContext context;
   registerDialects(context);
+  registerPassManagerCLOptions();
 
   llvm::cl::opt<string> inputFilename(llvm::cl::Positional,
       llvm::cl::desc("<input file>"), llvm::cl::init("-"),
@@ -35,6 +36,9 @@ int main(int argc, char *argv[]) {
               EmitONNXIR, "Ingest ONNX and emit corresponding ONNX dialect."),
           clEnumVal(
               EmitMLIR, "Lower model to MLIR built-in transformation dialect."),
+          clEnumVal(EmitApollo,
+              "Lower model to Apollo: (1) emit (to file) .s for TVP. (2) emit "
+              "C++ NEPAL (to file) for TCP."),
           clEnumVal(EmitLLVMIR, "Lower model to LLVM IR (LLVM dialect)."),
           clEnumVal(EmitLib, "Lower model to LLVM IR, emit (to file) "
                              "LLVM bitcode for model, compile and link it to a "
@@ -53,6 +57,8 @@ int main(int argc, char *argv[]) {
   // Input file base name, replace path if required.
   if (outputBaseName == "")
     outputBaseName = inputFilename.substr(0, inputFilename.find_last_of("."));
-
-  return compileModule(module, context, outputBaseName, emissionTarget);
+  if (emissionTarget == EmitApollo)
+    return compileModuleApollo(module, context, outputBaseName, emissionTarget);
+  else
+    return compileModule(module, context, outputBaseName, emissionTarget);
 }

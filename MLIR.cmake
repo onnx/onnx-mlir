@@ -212,6 +212,13 @@ find_mlir_lib(MLIRArmNeon)
 find_mlir_lib(MLIRArmSVEToLLVM)
 find_mlir_lib(MLIRLLVMArmSVE)
 find_mlir_lib(MLIRArmSVE)
+find_mlir_lib(MLIRAffineToTVP)
+find_mlir_lib(MLIRVectorToTVP)
+find_mlir_lib(MLIRStandardToTVP)
+find_mlir_lib(MLIRTVP)
+find_mlir_lib(MLIRNepal)
+find_mlir_lib(MLIRTVPToLLVM)
+find_mlir_lib(MLIRTargetCpp)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -307,6 +314,13 @@ set(MLIRLibs
         ${MLIRArmSVEToLLVM}
         ${MLIRLLVMArmSVE}
         ${MLIRArmSVE}
+        ${MLIRAffineToTVP}
+        ${MLIRVectorToTVP}
+        ${MLIRStandardToTVP}
+        ${MLIRTVP}
+        ${MLIRNepal}
+        ${MLIRTVPToLLVM}
+        ${MLIRTargetCpp}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}
