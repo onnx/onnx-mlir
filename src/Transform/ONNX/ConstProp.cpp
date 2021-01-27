@@ -503,7 +503,8 @@ public:
 
     // Rewrite
     unsigned outputNum = splitOp->getNumResults();
-    int64_t rank = splitOp->input().getType().cast<ShapedType>().getRank();
+    Value splitInput = splitOp->input();
+    int64_t rank = splitInput.getType().cast<ShapedType>().getRank();
     IntegerAttr axisAttr = splitOp->axisAttr();
     ArrayAttr splitAttr = splitOp->splitAttr();
     if (!splitAttr) {
@@ -512,10 +513,13 @@ public:
       for (int i = 0; i < outputNum; ++i) {
         Value splitOutput = splitOp->getResults()[i];
         uint64_t splitAxis = axisAttr.getValue().getSExtValue();
-        RankedTensorType resType =
-            constructRankedTensorType(splitOutput.getType().cast<ShapedType>());
-        splits.emplace_back(rewriter.getIntegerAttr(
-            rewriter.getIntegerType(64), resType.getDimSize(splitAxis)));
+        RankedTensorType inType =
+            constructRankedTensorType(splitInput.getType().cast<ShapedType>());
+        assert(inType.getDimSize(splitAxis) % outputNum == 0 &&
+               "The dimension at the split axis is expected to be divisible by "
+               "the number of results");
+        splits.emplace_back(rewriter.getIntegerAttr(rewriter.getIntegerType(64),
+            inType.getDimSize(splitAxis) / outputNum));
       }
       splitAttr = rewriter.getArrayAttr(splits);
     }
