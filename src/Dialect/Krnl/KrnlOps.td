@@ -10,6 +10,7 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 
 def Krnl_Dialect : Dialect {
   let name = "krnl";
@@ -48,7 +49,7 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
 }];
 }
 
-def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator, AffineScope]> {
+def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator]> {
   let summary = "iterate operation";
   let description = [{
     The "krnl.iterate" operation is conceptually equivalent to a nested for loops.
@@ -405,3 +406,86 @@ def KrnlDummyCastOp : Op<Krnl_Dialect, "dummy_cast"> {
   }];
 }
 
+def KrnlLoadOp : Op<Krnl_Dialect, "load",
+  [TypesMatchWith<"result type matches element type of 'memref'",
+                  "memref", "result",
+                  "$_self.cast<MemRefType>().getElementType()">,
+                  MemRefsNormalizable]> {
+  let summary = "A Krnl operation to load data from the memref.";
+
+  let description = [{
+    The `krnl.load` op reads an element from a memref specified by an index
+    list. The output of load is a new value with the same type as the elements
+    of the memref. The arity of indices is the rank of the memref (i.e., if the
+    memref loaded from is of rank 3, then 3 indices are required for the load
+    following the memref identifier).
+  }];
+
+  let arguments = (ins Arg<AnyMemRef, "the reference to load from",
+                           [MemRead]>:$memref,
+                       Variadic<Index>:$indices);
+  let results = (outs AnyType:$result);
+
+  let builders = [
+    OpBuilderDAG<(ins "Value":$memref, CArg<"ValueRange", "{}">:$indices), [{
+      auto memrefType = memref.getType().cast<MemRefType>();
+      $_state.addOperands(memref);
+      $_state.addOperands(indices);
+      $_state.types.push_back(memrefType.getElementType());
+    }]>];
+
+  let extraClassDeclaration = [{
+    Value getMemRef() { return getOperand(0); }
+    void setMemRef(Value value) { setOperand(0, value); }
+    MemRefType getMemRefType() {
+      return getMemRef().getType().cast<MemRefType>();
+    }
+
+    operand_range getIndices() { return {operand_begin() + 1, operand_end()}; }
+  }];
+
+  let assemblyFormat = [{$memref `[` $indices `]` attr-dict `:` type($memref)}];
+}
+
+def KrnlStoreOp : Op<Krnl_Dialect, "store",
+     [TypesMatchWith<"type of 'value' matches element type of 'memref'",
+                     "memref", "value",
+                     "$_self.cast<MemRefType>().getElementType()">,
+                     MemRefsNormalizable]> {
+  let summary = "A Krnl operation to store data to the memref.";
+  let description = [{
+    The `krnl.store` stores a value to a memref location given by indices. The
+    value stored should have the same type as the elemental type of the memref.
+    The number of arguments provided within brackets need to match the rank of
+    the memref.
+  }];
+
+  let arguments = (ins AnyType:$value,
+                       Arg<AnyMemRef, "the reference to store to",
+                           [MemWrite]>:$memref,
+                       Variadic<Index>:$indices);
+
+  let builders = [
+    OpBuilderDAG<(ins "Value":$valueToStore, "Value":$memref), [{
+      $_state.addOperands(valueToStore);
+      $_state.addOperands(memref);
+    }]>];
+
+  let extraClassDeclaration = [{
+      Value getValueToStore() { return getOperand(0); }
+
+      Value getMemRef() { return getOperand(1); }
+      void setMemRef(Value value) { setOperand(1, value); }
+      MemRefType getMemRefType() {
+        return getMemRef().getType().cast<MemRefType>();
+      }
+
+      operand_range getIndices() {
+        return {operand_begin() + 2, operand_end()};
+      }
+  }];
+
+  let assemblyFormat = [{
+    $value `,` $memref `[` $indices `]` attr-dict `:` type($memref)
+  }];
+}

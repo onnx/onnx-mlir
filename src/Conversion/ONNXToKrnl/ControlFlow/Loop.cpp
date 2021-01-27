@@ -53,7 +53,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     BuildKrnlLoop loop(rewriter, loc, 1);
     loop.createDefineOp();
     Value maxTripCount =
-        rewriter.create<LoadOp>(loc, loopOpAdapter.M()).getResult();
+        rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M()).getResult();
     maxTripCount = rewriter.create<IndexCastOp>(
         loc, maxTripCount, rewriter.getIndexType());
     loop.pushBounds(0, maxTripCount);
@@ -63,7 +63,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     {
       OpBuilder::InsertionGuard insertGuard(rewriter);
 
-      auto condReg = rewriter.create<AffineLoadOp>(loc, cond).getResult();
+      auto condReg = rewriter.create<KrnlLoadOp>(loc, cond).getResult();
       auto ifOp = rewriter.create<scf::IfOp>(loc, condReg, false);
       rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
 
@@ -76,7 +76,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           rewriter
               .create<AllocOp>(loc, MemRefType::get({}, rewriter.getI64Type()))
               .getResult();
-      rewriter.create<StoreOp>(loc, iv, ivMemRef);
+      rewriter.create<KrnlStoreOp>(loc, iv, ivMemRef);
 
       // Make the call to loop body function.
       SmallVector<Value, 4> params = {ivMemRef, loopOpAdapter.cond()};
@@ -187,7 +187,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
               // termination.
               assert(!loopOpAdapter.M().getType().isa<NoneType>());
               Value maxTripCount =
-                  rewriter.create<LoadOp>(loc, loopOpAdapter.M()).getResult();
+                  rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M())
+                      .getResult();
               allocParams.emplace_back(rewriter.create<IndexCastOp>(
                   loc, maxTripCount, rewriter.getIndexType()));
             } else {
@@ -231,8 +232,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     }
     SmallVector<Value, 4> writeIV(writePrefix.begin(), writePrefix.end());
     writeIV.insert(writeIV.end(), readIV.begin(), readIV.end());
-    auto val = rewriter.create<AffineLoadOp>(loc, src, readIV).getResult();
-    rewriter.create<AffineStoreOp>(loc, val, dest, writeIV);
+    auto val = rewriter.create<KrnlLoadOp>(loc, src, readIV).getResult();
+    rewriter.create<KrnlStoreOp>(loc, val, dest, writeIV);
   }
 };
 
