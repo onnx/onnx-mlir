@@ -52,7 +52,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     outerContext.createLoopInductionIndicesFromArrayValues(
         outputLoops.getAllInductionVar(), resAccessFct);
     // Insert res[...] = 0.
-    outerContext.createStoreOp(zero, alloc, resAccessFct);
+    outerContext.createKrnlStoreOp(zero, alloc, resAccessFct);
 
     // Create the inner reduction loop; trip count is last dim of A.
     BuildKrnlLoop innerLoops(rewriter, loc, 1);
@@ -96,12 +96,14 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     }
 
     // Add mat mul operation.
-    Value loadedA = outerContext.createLoadOp(operandAdaptor.A(), aAccessFct);
-    Value loadedB = outerContext.createLoadOp(operandAdaptor.B(), bAccessFct);
-    Value loadedY = outerContext.createLoadOp(alloc, resAccessFct);
+    Value loadedA =
+        outerContext.createKrnlLoadOp(operandAdaptor.A(), aAccessFct);
+    Value loadedB =
+        outerContext.createKrnlLoadOp(operandAdaptor.B(), bAccessFct);
+    Value loadedY = outerContext.createKrnlLoadOp(alloc, resAccessFct);
     Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
     Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-    outerContext.createStoreOp(accumulated, alloc, resAccessFct);
+    outerContext.createKrnlStoreOp(accumulated, alloc, resAccessFct);
 
     // Done.
     rewriter.replaceOp(op, alloc);
