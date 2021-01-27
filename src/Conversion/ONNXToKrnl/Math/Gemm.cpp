@@ -60,7 +60,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> resAccessFct({n, m});
 
     // Insert res[n,m] = 0.
-    outerContext.createStoreOp(zero, alloc, resAccessFct);
+    outerContext.createKrnlStoreOp(zero, alloc, resAccessFct);
 
     // Create the inner reduction loop.
     BuildKrnlLoop innerLoops(rewriter, loc, 1);
@@ -81,17 +81,18 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     }
 
     // Calculate reduction(AB)*alpha.
-    Value loadedAB = outerContext.createLoadOp(alloc, resAccessFct);
+    Value loadedAB = outerContext.createKrnlLoadOp(alloc, resAccessFct);
     Value alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
     if (shapeHelper.hasBias) {
       // Res = AB*alpha + beta * C.
-      Value loadedC = outerContext.createLoadOp(operandAdaptor.C(), cAccessFct);
+      Value loadedC =
+          outerContext.createKrnlLoadOp(operandAdaptor.C(), cAccessFct);
       auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
       auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-      outerContext.createStoreOp(Y, alloc, resAccessFct);
+      outerContext.createKrnlStoreOp(Y, alloc, resAccessFct);
     } else {
       // No bias, just store alphaAB into res.
-      outerContext.createStoreOp(alphaAB, alloc, resAccessFct);
+      outerContext.createKrnlStoreOp(alphaAB, alloc, resAccessFct);
     }
 
     // Now start writing code inside the inner loop: get A & B access functions.
@@ -108,12 +109,14 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     else
       bAccessFct = {k, m};
     // Add mat mul operation.
-    Value loadedA = outerContext.createLoadOp(operandAdaptor.A(), aAccessFct);
-    Value loadedB = outerContext.createLoadOp(operandAdaptor.B(), bAccessFct);
-    Value loadedY = outerContext.createLoadOp(alloc, resAccessFct);
+    Value loadedA =
+        outerContext.createKrnlLoadOp(operandAdaptor.A(), aAccessFct);
+    Value loadedB =
+        outerContext.createKrnlLoadOp(operandAdaptor.B(), bAccessFct);
+    Value loadedY = outerContext.createKrnlLoadOp(alloc, resAccessFct);
     Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
     Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-    outerContext.createStoreOp(accumulated, alloc, resAccessFct);
+    outerContext.createKrnlStoreOp(accumulated, alloc, resAccessFct);
 
     rewriter.replaceOp(op, alloc);
 

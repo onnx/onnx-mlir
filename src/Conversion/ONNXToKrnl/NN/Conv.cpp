@@ -213,7 +213,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
         for (auto arg : spatialLoops.getIterateBlock()->getArguments())
           resultIndices.emplace_back(ieContext.createLoopInductionIndex(arg));
         // Store initializer value into output location.
-        ieContext.createStoreOp(zero, alloc, resultIndices);
+        ieContext.createKrnlStoreOp(zero, alloc, resultIndices);
 
         // Prepare induction variables.
         SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
@@ -275,14 +275,14 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
         // Emit the bias, if needed.
         if (hasBias) {
-          auto loadResult = ieContext.createLoadOp(alloc, resultIndices);
+          auto loadResult = ieContext.createKrnlLoadOp(alloc, resultIndices);
           SmallVector<IndexExpr, 4> biasIndices;
           biasIndices.emplace_back(kernel);
-          auto loadBias = ieContext.createLoadOp(biasOperand, biasIndices);
+          auto loadBias = ieContext.createKrnlLoadOp(biasOperand, biasIndices);
           auto resultWithBias =
               rewriter.create<AddFOp>(loc, loadResult, loadBias);
           // Store initializer value into output location.
-          ieContext.createStoreOp(resultWithBias, alloc, resultIndices);
+          ieContext.createKrnlStoreOp(resultWithBias, alloc, resultIndices);
         }
 
         //
@@ -346,14 +346,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
           }
 
           // 4.3 Compute convolution.
-          auto loadData = ieContext.createLoadOp(inputOperand, dataIndices);
+          auto loadData = ieContext.createKrnlLoadOp(inputOperand, dataIndices);
           auto loadKernel =
-              ieContext.createLoadOp(kernelOperand, kernelIndices);
-          auto loadPartialSum = ieContext.createLoadOp(alloc, resultIndices);
+              ieContext.createKrnlLoadOp(kernelOperand, kernelIndices);
+          auto loadPartialSum =
+              ieContext.createKrnlLoadOp(alloc, resultIndices);
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
               rewriter.create<MulFOp>(loc, loadData, loadKernel));
           // 4.4 Store computed value into output location.
-          ieContext.createStoreOp(result, alloc, resultIndices);
+          ieContext.createKrnlStoreOp(result, alloc, resultIndices);
         }
       }
     }
