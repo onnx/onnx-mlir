@@ -52,7 +52,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     outerContext.createLoopInductionIndicesFromArrayValues(
         outputLoops.getAllInductionVar(), resAccessFct);
     // Insert res[...] = 0.
-    outerContext.createStoreOp(zero, alloc, resAccessFct);
+    // Create a local reduction value for res[...].
+    Value reductionVal =
+        rewriter.create<AllocaOp>(loc, MemRefType::get({}, elementType));
+    rewriter.create<AffineStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
 
     // Create the inner reduction loop; trip count is last dim of A.
     BuildKrnlLoop innerLoops(rewriter, loc, 1);
@@ -63,44 +66,53 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     innerLoops.createIterateOp();
 
     // Now start writing code inside the inner loop: get A & B access functions.
+    auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
-    IndexExpr k =
-        outerContext.createLoopInductionIndex(innerLoops.getInductionVar(0));
-    SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
-    for (int i = 0; i < aRank; ++i) {
-      // Add index if dim is not a padded dimension.
-      if (!shapeHelper.aPadDims[i]) {
-        // For A, reduction index is last
-        if (i == aRank - 1) {
-          aAccessFct.emplace_back(k);
-        } else {
-          aAccessFct.emplace_back(resAccessFct[i]);
+    {
+      IndexExpr k =
+          outerContext.createLoopInductionIndex(innerLoops.getInductionVar(0));
+      SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
+      for (int i = 0; i < aRank; ++i) {
+        // Add index if dim is not a padded dimension.
+        if (!shapeHelper.aPadDims[i]) {
+          // For A, reduction index is last
+          if (i == aRank - 1) {
+            aAccessFct.emplace_back(k);
+          } else {
+            aAccessFct.emplace_back(resAccessFct[i]);
+          }
+        }
+        if (!shapeHelper.bPadDims[i]) {
+          // For B, reduction index is second to last.
+          if (i == bRank - 2) {
+            bAccessFct.emplace_back(k);
+          } else if (i == outerloopNum) {
+            // When the rank of A 1D, then the output lost one dimension.
+            // E,g, (5) x (10, 5, 4) -> padded (1, 5) x (10, 5, 4) = (10, 1, 4).
+            // But we drop the "1" so its really (10, 4). When processing the
+            // last dim of the reduction (i=2 here), we would normally access
+            // output[2] but it does not exist, because we lost a dim in the
+            // output due to 1D A.
+            bAccessFct.emplace_back(resAccessFct[i - 1]);
+          } else {
+            bAccessFct.emplace_back(resAccessFct[i]);
+          }
         }
       }
-      if (!shapeHelper.bPadDims[i]) {
-        // For B, reduction index is second to last.
-        if (i == bRank - 2) {
-          bAccessFct.emplace_back(k);
-        } else if (i == outerloopNum) {
-          // When the rank of A 1D, then the output lost one dimension.
-          // E,g, (5) x (10, 5, 4) -> padded (1, 5) x (10, 5, 4) = (10, 1, 4).
-          // But we drop the "1" so its really (10, 4). When processing the
-          // last dim of the reduction (i=2 here), we would normally access
-          // output[2] but it does not exist, because we lost a dim in the
-          // output due to 1D A.
-          bAccessFct.emplace_back(resAccessFct[i - 1]);
-        } else {
-          bAccessFct.emplace_back(resAccessFct[i]);
-        }
-      }
-    }
 
-    // Add mat mul operation.
-    Value loadedA = outerContext.createLoadOp(operandAdaptor.A(), aAccessFct);
-    Value loadedB = outerContext.createLoadOp(operandAdaptor.B(), bAccessFct);
-    Value loadedY = outerContext.createLoadOp(alloc, resAccessFct);
-    Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
-    Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
+      // Add mat mul operation.
+      Value loadedA = outerContext.createLoadOp(operandAdaptor.A(), aAccessFct);
+      Value loadedB = outerContext.createLoadOp(operandAdaptor.B(), bAccessFct);
+      Value loadedY =
+          rewriter.create<AffineLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+      Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
+      Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
+      rewriter.create<AffineStoreOp>(
+          loc, accumulated, reductionVal, ArrayRef<Value>{});
+    }
+    rewriter.restoreInsertionPoint(ipOuterLoopRegion);
+    Value accumulated =
+        rewriter.create<AffineLoadOp>(loc, reductionVal, ArrayRef<Value>{});
     outerContext.createStoreOp(accumulated, alloc, resAccessFct);
 
     // Done.

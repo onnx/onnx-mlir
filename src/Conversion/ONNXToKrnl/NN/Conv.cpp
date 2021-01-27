@@ -212,8 +212,12 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // rX
         for (auto arg : spatialLoops.getIterateBlock()->getArguments())
           resultIndices.emplace_back(ieContext.createLoopInductionIndex(arg));
-        // Store initializer value into output location.
-        ieContext.createStoreOp(zero, alloc, resultIndices);
+
+        // Create a local reduction value.
+        Value reductionVal = rewriter.create<AllocaOp>(
+            loc, MemRefType::get({}, memRefType.getElementType()));
+        rewriter.create<AffineStoreOp>(
+            loc, zero, reductionVal, ArrayRef<Value>{});
 
         // Prepare induction variables.
         SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
@@ -273,19 +277,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // 3.4 Emit inner loop nest.
         innerLoops.createIterateOp();
 
-        // Emit the bias, if needed.
-        if (hasBias) {
-          auto loadResult = ieContext.createLoadOp(alloc, resultIndices);
-          SmallVector<IndexExpr, 4> biasIndices;
-          biasIndices.emplace_back(kernel);
-          auto loadBias = ieContext.createLoadOp(biasOperand, biasIndices);
-          auto resultWithBias =
-              rewriter.create<AddFOp>(loc, loadResult, loadBias);
-          // Store initializer value into output location.
-          ieContext.createStoreOp(resultWithBias, alloc, resultIndices);
-        }
-
         //
+        auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
         rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
         {
           // 4. Emit inner loop body
@@ -349,11 +342,27 @@ struct ONNXConvOpLowering : public ConversionPattern {
           auto loadData = ieContext.createLoadOp(inputOperand, dataIndices);
           auto loadKernel =
               ieContext.createLoadOp(kernelOperand, kernelIndices);
-          auto loadPartialSum = ieContext.createLoadOp(alloc, resultIndices);
+          auto loadPartialSum = rewriter.create<AffineLoadOp>(
+              loc, reductionVal, ArrayRef<Value>{});
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
               rewriter.create<MulFOp>(loc, loadData, loadKernel));
           // 4.4 Store computed value into output location.
-          ieContext.createStoreOp(result, alloc, resultIndices);
+          rewriter.create<AffineStoreOp>(
+              loc, result, reductionVal, ArrayRef<Value>{});
+        }
+        rewriter.restoreInsertionPoint(ipOuterLoopRegion);
+        auto sum =
+            rewriter.create<AffineLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+        ieContext.createStoreOp(sum, alloc, resultIndices);
+
+        // Emit the bias, if needed.
+        if (hasBias) {
+          SmallVector<IndexExpr, 4> biasIndices;
+          biasIndices.emplace_back(kernel);
+          auto loadBias = ieContext.createLoadOp(biasOperand, biasIndices);
+          auto resultWithBias = rewriter.create<AddFOp>(loc, sum, loadBias);
+          // Store initializer value into output location.
+          ieContext.createStoreOp(resultWithBias, alloc, resultIndices);
         }
       }
     }
