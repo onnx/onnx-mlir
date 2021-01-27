@@ -7,9 +7,9 @@ func @test_krnl_erf_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
   %0 = alloc() : memref<10x10xf32>
   %1:2 = krnl.define_loops 2
   krnl.iterate(%1#0, %1#1) with (%1#0 -> %arg1 = 0 to 10, %1#1 -> %arg2 = 0 to 10) {
-    %2 = affine.load %arg0[%arg1, %arg2] : memref<10x10xf32>
+    %2 = krnl.load %arg0[%arg1, %arg2] : memref<10x10xf32>
     %3 = "krnl.erf"(%2) : (f32) -> f32
-    affine.store %3, %0[%arg1, %arg2] : memref<10x10xf32>
+    krnl.store %3, %0[%arg1, %arg2] : memref<10x10xf32>
   }
   return %0 : memref<10x10xf32>
 }
