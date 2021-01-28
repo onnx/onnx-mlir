@@ -411,6 +411,7 @@ def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
   let summary = "Krnl erf scalar operation";
   let description = [{
     Krnl erf scalar operation.
+
   }];
 
   let arguments = (ins AnyFloat:$in);
@@ -420,6 +421,19 @@ def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
   let printer = ?;
 }
 
+def KrnlCustomOp : Op<Krnl_Dialect, "custom"> {
+  let summary = "Krnl custom scalar operation";
+  let description = [{
+    Krnl custom scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs AnyFloat:$out);
+
+  let parser = ?;
+  let printer = ?;
+}
+    
 def KrnlLoadOp : Op<Krnl_Dialect, "load",
   [TypesMatchWith<"result type matches element type of 'memref'",
                   "memref", "result",
