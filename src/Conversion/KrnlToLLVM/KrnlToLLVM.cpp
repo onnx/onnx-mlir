@@ -529,12 +529,12 @@ struct MathFunctionName {
   static std::string functionName() { return "none"; };
 };
 
-template<>
+template <>
 struct MathFunctionName<KrnlErfOp> {
   static std::string functionName() { return "erff"; }
 };
 
-template<typename KrnlScalarMathOp>
+template <typename KrnlScalarMathOp>
 class KrnlUnaryMathOpLowering : public ConversionPattern {
 public:
   explicit KrnlUnaryMathOpLowering(MLIRContext *context)
@@ -547,9 +547,8 @@ public:
 
     // Insert and/or get reference to erf function declaration.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    auto mathFunctionRef =
-        getOrInsertUnaryFloatMathFunction(rewriter, parentModule,
-            MathFunctionName<KrnlScalarMathOp>().functionName());
+    auto mathFunctionRef = getOrInsertUnaryFloatMathFunction(rewriter,
+        parentModule, MathFunctionName<KrnlScalarMathOp>().functionName());
 
     // Emit function call.
     auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
