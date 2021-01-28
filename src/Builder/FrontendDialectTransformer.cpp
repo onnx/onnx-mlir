@@ -345,8 +345,7 @@ private:
     int numInputs = 0;
     for (const auto &input : graph.input()) {
       AddValueInfo(input);
-      std::string name = input.name();
-      if (!initializedTensors.ContainKey(name)) {
+      if (!initializedTensors.ContainKey(input.name())) {
         inputNames.push_back(input.name());
         auto argTy = ImportTensorType(input);
         auto shapedTy = argTy.dyn_cast<mlir::RankedTensorType>();
@@ -394,11 +393,10 @@ private:
     // Counter of un-initialized tensors. This counter is used to index the
     // entry block arguments.
     int entryBlockArgIdx = 0;
-    for (int i = 0; i < graph.input().size(); ++i) {
-      std::string name = graph.input()[i].name();
-      if (!initializedTensors.ContainKey(name)) {
+    for (const onnx::ValueInfoProto &inputProto : graph.input()) {
+      if (!initializedTensors.ContainKey(inputProto.name())) {
         ImportInputTensorSymbol(
-            graph.input()[i], entryBlock->getArguments()[entryBlockArgIdx]);
+            inputProto, entryBlock->getArguments()[entryBlockArgIdx]);
         entryBlockArgIdx++;
       }
     }
@@ -450,8 +448,7 @@ private:
     auto op = builder_.createOperation(result);
     for (int i = 0; i < node.output().size(); i++) {
       auto r = op->getResult(i);
-      std::string name = node.output()[i];
-      frontend_symbols_.AddMapping(name, r);
+      frontend_symbols_.AddMapping(node.output()[i], r);
     }
   }
 
@@ -578,30 +575,19 @@ private:
         }
       }
     }
-
+    Operation *genericOp = op.getOperation();
     // Type inference for results.
     if (!options_.useOnnxModelTypes)
       if (auto opWithTypeInference =
-              mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(
-                  op.getOperation())) {
+              mlir::dyn_cast<mlir::ResultTypeInferenceOpInterface>(genericOp)) {
         auto outTypes = opWithTypeInference.resultTypeInference();
-        for (int i = 0; i < node.output().size(); i++) {
-          if (variadicOut)
-            (*(op.getODSResults(0).begin() + i)).setType(outTypes[i]);
-          else
-            (*op.getODSResults(i).begin()).setType(outTypes[i]);
-        }
+        for (int i = 0; i < node.output().size(); i++)
+          genericOp->getOpResult(i).setType(outTypes[i]);
       }
 
-    for (int i = 0; i < node.output().size(); i++) {
-      if (variadicOut) {
-        std::string name = node.output()[i];
-        frontend_symbols_.AddMapping(name, *(op.getODSResults(0).begin() + i));
-      } else {
-        std::string name = node.output()[i];
-        frontend_symbols_.AddMapping(name, *(op.getODSResults(i).begin()));
-      }
-    }
+    for (const auto &output : llvm::enumerate(node.output()))
+      frontend_symbols_.AddMapping(
+          output.value(), genericOp->getOpResult(output.index()));
   }
 
   void getNodeInputs(
