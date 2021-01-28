@@ -938,7 +938,7 @@ private:
     auto *fnEntryBlock = funcOp.addEntryBlock();
 
     // Save caller context, while generating callee function body.
-    SymbolMapping callerScope(std::move(frontend_symbols_));
+    frontend_symbols_.pushScope(func_name_prefix);
     auto prev_ip = builder_.saveInsertionPoint();
     builder_.setInsertionPointToStart(fnEntryBlock);
 
@@ -961,7 +961,7 @@ private:
     builder_.create<mlir::ReturnOp>(UnknownLoc(), ret_vals);
 
     // Restore caller context
-    frontend_symbols_ = std::move(callerScope);
+    frontend_symbols_.popScope(func_name_prefix);
     builder_.restoreInsertionPoint(prev_ip);
 
     // Generate call statement
@@ -1036,18 +1036,8 @@ private:
   void ImportOutputTensor(const onnx::ValueInfoProto &output,
       llvm::SmallVectorImpl<mlir::Type> &ret_types,
       llvm::SmallVectorImpl<mlir::Value> &ret_vals) {
-    std::string name = output.name();
-    std::string result;
-    result = name;
-    auto output_tensor_legalized_name = result;
-    if (!frontend_symbols_.ContainKey(output_tensor_legalized_name))
-      printf("tensor not found: %s\n", output_tensor_legalized_name.c_str());
-
-    assert(frontend_symbols_.ContainKey(output_tensor_legalized_name) &&
-           "Output tensor not found");
-
-    auto tensor_val =
-        frontend_symbols_.GetTensorByOnnxName(output_tensor_legalized_name);
+    mlir::Value tensor_val =
+        frontend_symbols_.GetTensorByOnnxName(output.name());
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       if (output.type().tensor_type().has_shape()) {
         tensor_val.setType(ImportTensorType(output));
