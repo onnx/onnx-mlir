@@ -1061,6 +1061,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // We have a combination of `krnl`, `affine`, and `std` operations. We
   // lower in stages until all the code is in the LLVM dialect.
   OwningRewritePatternList patterns;
+  //populateLoweringONNXCustomOpPattern(patterns, &getContext());
   populateAffineAndKrnlToLLVMConversion(patterns, &getContext(), typeConverter);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This

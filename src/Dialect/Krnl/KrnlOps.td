@@ -409,3 +409,15 @@ def KrnlDummyCastOp : Op<Krnl_Dialect, "dummy_cast"> {
   }];
 }
 
+def KrnlCustomOp : Op<Krnl_Dialect, "custom"> {
+  let summary = "Krnl custom scalar operation";
+  let description = [{
+    Krnl custom scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs AnyFloat:$out);
+
+  let parser = ?;
+  let printer = ?;
+}
