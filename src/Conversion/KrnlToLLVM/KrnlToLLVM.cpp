@@ -521,13 +521,24 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-// KRNL to LLVM: KrnlErfOpLowering
+// KRNL to LLVM: KrnlUnaryMathOpLowering
 //===----------------------------------------------------------------------===//
 
-class KrnlErfOpLowering : public ConversionPattern {
+template <typename Op>
+struct MathFunctionName {
+  static std::string functionName() { return "none"; };
+};
+
+template<>
+struct MathFunctionName<KrnlErfOp> {
+  static std::string functionName() { return "erff"; }
+};
+
+template<typename KrnlScalarMathOp>
+class KrnlUnaryMathOpLowering : public ConversionPattern {
 public:
-  explicit KrnlErfOpLowering(MLIRContext *context)
-      : ConversionPattern(KrnlErfOp::getOperationName(), 1, context) {}
+  explicit KrnlUnaryMathOpLowering(MLIRContext *context)
+      : ConversionPattern(KrnlScalarMathOp::getOperationName(), 1, context) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
@@ -536,13 +547,14 @@ public:
 
     // Insert and/or get reference to erf function declaration.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    auto erfRef =
-        getOrInsertUnaryFloatMathFunction(rewriter, parentModule, "erff");
+    auto mathFunctionRef =
+        getOrInsertUnaryFloatMathFunction(rewriter, parentModule,
+            MathFunctionName<KrnlScalarMathOp>().functionName());
 
     // Emit function call.
     auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
     auto funcCall = rewriter.create<CallOp>(
-        loc, erfRef, llvmF32Ty, ArrayRef<Value>({operands[0]}));
+        loc, mathFunctionRef, llvmF32Ty, ArrayRef<Value>({operands[0]}));
     rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();
   }
@@ -1109,7 +1121,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(
   patterns.insert<KrnlMemcpyOpLowering, KrnlEntryPointOpLowering>(ctx);
 
   // Math library functions.
-  patterns.insert<KrnlErfOpLowering>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(ctx);
 }
 
 //===----------------------------------------------------------------------===//
