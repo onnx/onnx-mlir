@@ -14,19 +14,10 @@ void replaceAll(
   }
 }
 
-std::string legalize_name(std::string name) {
-  std::replace(name.begin(), name.end(), '/', '_');
-  std::replace(name.begin(), name.end(), '-', '_');
-  replaceAll(name, ":", "_colon_");
-  // If tensor name starts with a number, prepend n to make it a legal c++
-  // identifier.
-  if (name.size() > 0 && isdigit(name.at(0)))
-    name.insert(0, 1, 'n');
-  return name;
-}
-
 mlir::Value SymbolMapping::GetTensorByOnnxName(const std::string &name) {
-  std::string legalized_name = legalize_name(name);
+  std::string result;
+  result = name;
+  std::string legalized_name = result;
   for (const auto &scope : _scopes)
     if (scope.contain(legalized_name))
       return scope.get(legalized_name);
@@ -35,9 +26,15 @@ mlir::Value SymbolMapping::GetTensorByOnnxName(const std::string &name) {
 
 void SymbolMapping::AddMapping(const std::string &name, mlir::Value tensor) {
   assert(!_scopes.empty());
-  assert(
-      !_scopes.back().contain(legalize_name(name)) && "Tensor already exists.");
-  _scopes.back().set(legalize_name(name), tensor);
+  assert({
+    std::string name1 = name;
+    std::string result1;
+    result1 = name1;
+    !_scopes.back().contain(result1) && "Tensor already exists."
+  });
+  std::string result;
+  result = name;
+  _scopes.back().set(result, tensor);
 }
 
 bool SymbolMapping::ContainKey(std::string name) {

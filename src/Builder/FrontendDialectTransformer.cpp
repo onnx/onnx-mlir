@@ -182,14 +182,18 @@ private:
   }
 
   void BindOnnxName(const std::string &onnx_name, mlir::Value symbol) {
-    auto input_tensor_legalized_name = legalize_name(onnx_name);
+    std::string result;
+    result = onnx_name;
+    auto input_tensor_legalized_name = result;
     assert(!frontend_symbols_.ContainKey(input_tensor_legalized_name) &&
            "Found duplicate legalized input tensor names.");
     frontend_symbols_.AddMapping(input_tensor_legalized_name, symbol);
   }
 
   mlir::Value LookupOnnxName(const std::string &onnx_name) {
-    auto legalized_name = legalize_name(onnx_name);
+    std::string result;
+    result = onnx_name;
+    auto legalized_name = result;
     assert(frontend_symbols_.ContainKey(legalized_name));
     return frontend_symbols_.GetTensorByOnnxName(legalized_name);
   }
@@ -334,8 +338,9 @@ private:
     // Maintain a mapping between the parameter and its initializer.
     for (const auto &initializer : graph.initializer()) {
       const auto &initializerName = initializer.name();
-      initializedTensors.AddMapping(
-          legalize_name(initializerName), initializer);
+      std::string result;
+      result = initializerName;
+      initializedTensors.AddMapping(result, initializer);
     }
 
     // create a function for the graph
@@ -351,7 +356,10 @@ private:
     int numInputs = 0;
     for (const auto &input : graph.input()) {
       AddValueInfo(input);
-      if (!initializedTensors.ContainKey(legalize_name(input.name()))) {
+      std::string name = input.name();
+      std::string result;
+      result = name;
+      if (!initializedTensors.ContainKey(result)) {
         inputNames.push_back(input.name());
         auto argTy = ImportTensorType(input);
         auto shapedTy = argTy.dyn_cast<mlir::RankedTensorType>();
@@ -400,8 +408,10 @@ private:
     // entry block arguments.
     int entryBlockArgIdx = 0;
     for (int i = 0; i < graph.input().size(); ++i) {
-      if (!initializedTensors.ContainKey(
-              legalize_name(graph.input()[i].name()))) {
+      std::string name = graph.input()[i].name();
+      std::string result;
+      result = name;
+      if (!initializedTensors.ContainKey(result)) {
         ImportInputTensorSymbol(
             graph.input()[i], entryBlock->getArguments()[entryBlockArgIdx]);
         entryBlockArgIdx++;
@@ -436,7 +446,9 @@ private:
   void ImportNodeGeneric(const onnx::NodeProto &node) {
     std::vector<mlir::Value> inputs;
     for (const auto &item : node.input()) {
-      if (frontend_symbols_.ContainKey(legalize_name(item))) {
+      std::string result1;
+      result1 = item;
+      if (frontend_symbols_.ContainKey(result1)) {
         inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
       }
     }
@@ -455,7 +467,10 @@ private:
     auto op = builder_.createOperation(result);
     for (int i = 0; i < node.output().size(); i++) {
       auto r = op->getResult(i);
-      frontend_symbols_.AddMapping(legalize_name(node.output()[i]), r);
+      std::string name = node.output()[i];
+      std::string result1;
+      result1 = name;
+      frontend_symbols_.AddMapping(result1, r);
     }
   }
 
@@ -598,12 +613,18 @@ private:
       }
 
     for (int i = 0; i < node.output().size(); i++) {
-      if (variadicOut)
-        frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
-            *(op.getODSResults(0).begin() + i));
-      else
+      if (variadicOut) {
+        std::string name = node.output()[i];
+        std::string result;
+        result = name;
         frontend_symbols_.AddMapping(
-            legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));
+            result, *(op.getODSResults(0).begin() + i));
+      } else {
+        std::string name = node.output()[i];
+        std::string result;
+        result = name;
+        frontend_symbols_.AddMapping(result, *(op.getODSResults(i).begin()));
+      }
     }
   }
 
@@ -612,11 +633,17 @@ private:
     for (const auto &item : node.input())
       if (item.empty()) {
         inputs.emplace_back(none());
-      } else if (initializedTensors.ContainKey(legalize_name(item))) {
-        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-            UnknownLoc(), builder_, legalize_name(item)));
-      } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      } else {
+        std::string result1;
+        result1 = item;
+        if (initializedTensors.ContainKey(result1)) {
+          std::string result;
+          result = item;
+          inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+              UnknownLoc(), builder_, result));
+        } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
+          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+        }
       }
   }
 
@@ -664,11 +691,17 @@ private:
           none_ = builder_.create<mlir::ConstantOp>(
               UnknownLoc(), builder_.getUnitAttr());
         inputs.emplace_back(none_);
-      } else if (initializedTensors.ContainKey(legalize_name(item))) {
-        inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-            UnknownLoc(), builder_, legalize_name(item)));
-      } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+      } else {
+        std::string result1;
+        result1 = item;
+        if (initializedTensors.ContainKey(result1)) {
+          std::string result;
+          result = item;
+          inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
+              UnknownLoc(), builder_, result));
+        } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
+          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+        }
       }
     auto attributes = ImportCastAttributes(node);
     buildOutputAndOperation<ONNXCastOp>(
@@ -717,11 +750,19 @@ private:
     // Copy the provided inputs first
     std::vector<mlir::Value> inputs;
     for (const auto &item : node.input()) {
-      if (initializedTensors.ContainKey(legalize_name(item))) {
+      std::string result;
+      result = item;
+      if (initializedTensors.ContainKey(result)) {
+        std::string result1;
+        result1 = item;
         inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
-            UnknownLoc(), builder_, legalize_name(item)));
-      } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
-        inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+            UnknownLoc(), builder_, result1));
+      } else {
+        std::string result1;
+        result1 = item;
+        if (frontend_symbols_.ContainKey(result1)) {
+          inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
+        }
       }
     }
 
@@ -786,13 +827,16 @@ private:
           UnknownLoc(), mlir::Attribute(), constantDenseAttribute);
       mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
       std::vector<mlir::Value> inputs;
-      for (const auto &item : node.input())
-        if (initializedTensors.ContainKey(legalize_name(item))) {
+      for (const auto &item : node.input()) {
+        std::string result;
+        result = item;
+        if (initializedTensors.ContainKey(result)) {
           inputs.push_back(initializedTensors.EmitInitializerForInputTensor(
               UnknownLoc(), builder_, legalize_name(item)));
         } else if (frontend_symbols_.ContainKey(legalize_name(item))) {
           inputs.push_back(frontend_symbols_.GetTensorByOnnxName(item));
         }
+      }
       inputs.push_back(constantResult);
 
       int nIn = mlir::ONNXPadOp::getNumberOfOperands();
@@ -811,14 +855,25 @@ private:
     };
 
     for (const auto &item : llvm::enumerate(node.input())) {
-      if (initializedTensors.ContainKey(legalize_name(item.value()))) {
+      std::string name1 = item.value();
+      std::string result1;
+      result1 = name1;
+      if (initializedTensors.ContainKey(result1)) {
+        std::string name = item.value();
+        std::string result;
+        result = name;
         inVals[item.index()] = initializedTensors.EmitInitializerForInputTensor(
-            UnknownLoc(), builder_, legalize_name(item.value()));
-      } else if (frontend_symbols_.ContainKey(legalize_name(item.value()))) {
-        inVals[item.index()] =
-            frontend_symbols_.GetTensorByOnnxName(item.value());
+            UnknownLoc(), builder_, result);
       } else {
-        assert(false && "Unknown input");
+        std::string name = item.value();
+        std::string result;
+        result = name;
+        if (frontend_symbols_.ContainKey(result)) {
+          inVals[item.index()] =
+              frontend_symbols_.GetTensorByOnnxName(item.value());
+        } else {
+          assert(false && "Unknown input");
+        }
       }
     }
 
@@ -875,7 +930,9 @@ private:
   FuncOp CreateFuncOp(
       std::string namePrefix, TypeRange operandTypes, TypeRange resultTypes) {
     auto funcType = builder_.getFunctionType(operandTypes, resultTypes);
-    namePrefix = legalize_name(namePrefix);
+    std::string result;
+    result = namePrefix;
+    namePrefix = result;
     if (namePrefix.empty())
       namePrefix = "fn";
     std::string funcName = namePrefix;
@@ -1045,7 +1102,10 @@ private:
   void ImportOutputTensor(const onnx::ValueInfoProto &output,
       llvm::SmallVectorImpl<mlir::Type> &ret_types,
       llvm::SmallVectorImpl<mlir::Value> &ret_vals) {
-    auto output_tensor_legalized_name = legalize_name(output.name());
+    std::string name = output.name();
+    std::string result;
+    result = name;
+    auto output_tensor_legalized_name = result;
     if (!frontend_symbols_.ContainKey(output_tensor_legalized_name))
       printf("tensor not found: %s\n", output_tensor_legalized_name.c_str());
 

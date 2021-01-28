@@ -12,8 +12,6 @@ namespace onnx_mlir {
 void replaceAll(
     std::string &str, const std::string &from, const std::string &to);
 
-std::string legalize_name(std::string name);
-
 /*!
  * A data structure for maintaining mappings from symbol names to symbol values
  * within a single variable scope.
