@@ -539,7 +539,7 @@ public:
     auto erfRef =
         getOrInsertUnaryFloatMathFunction(rewriter, parentModule, "erff");
 
-    // Emit function call in the code.
+    // Emit function call.
     auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
     auto funcCall = rewriter.create<CallOp>(
         loc, erfRef, llvmF32Ty, ArrayRef<Value>({operands[0]}));
