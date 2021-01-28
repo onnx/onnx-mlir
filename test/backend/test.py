@@ -273,6 +273,9 @@ test_to_enable_static_dynamic = {
 
     # Equal
 
+    # Erf
+    "test_erf_cpu": (test_static_dynamic,),
+
     # Exp
     "test_exp_cpu": (test_static_dynamic,),
     "test_exp_example_cpu": (test_static_dynamic,),

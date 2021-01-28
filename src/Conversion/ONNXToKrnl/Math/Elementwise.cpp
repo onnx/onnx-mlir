@@ -121,6 +121,12 @@ struct ScalarOp<ONNXPowOp> {
   using IOp = PowFOp; // Not used.
 };
 
+template <>
+struct ScalarOp<ONNXErfOp> {
+  using FOp = KrnlErfOp;
+  using IOp = KrnlErfOp; // Not used.
+};
+
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
@@ -815,6 +821,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
