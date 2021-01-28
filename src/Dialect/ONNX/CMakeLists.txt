@@ -9,7 +9,8 @@ add_custom_target(OMONNXOpsInc
         DEPENDS OMONNXOpsIncGen
                 OMPromotableConstOperandsOpInterfaceIncGen
                 OMResultTypeInferenceOpInterfaceIncGen
-                ShapeInferenceOpInterfaceIncGen)
+                ShapeInferenceOpInterfaceIncGen
+                OMHasOnnxSubgraphOpInterfaceIncGen)
 
 add_library(OMONNXOps
         ONNXOps.cpp

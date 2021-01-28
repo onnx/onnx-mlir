@@ -35,37 +35,9 @@
 #if INCLUDE_ONNX_ML == 1
 #include "src/Dialect/MLONNX/MLONNXOps.hpp"
 #endif
+#include "src/Builder/SymbolTable.hpp"
 
 namespace onnx_mlir {
-
-void replaceAll(
-    std::string &str, const std::string &from, const std::string &to);
-
-std::string legalize_name(std::string name);
-
-struct OnnxMlirSymbolMapping {
-  /*!
-   *  Get MLIR tensor by onnx tensor name.
-   *  @param name onnx tensor name.
-   *  @return onnx mlir tensor corresponding to `name`.
-   */
-  mlir::Value GetTensorByOnnxName(const std::string &name);
-
-  /*!
-   *  Add a new mapping from onnx tensor name to MLIR symbol.
-   *  @param name onnx tensor name.
-   *  @param tensor MLIR Value  pointer.
-   */
-  void AddMapping(const std::string &name, mlir::Value tensor);
-
-  bool ContainKey(std::string name);
-
-private:
-  /*!
-   *  mapping from onnx tensor names to MLIR tensor.
-   */
-  std::map<std::string, mlir::Value> onnx_name2onnx_mlir_tensor;
-};
 
 struct InitializedTensorMapping {
   // Add new entry.

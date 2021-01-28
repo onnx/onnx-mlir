@@ -12,10 +12,8 @@
 #else
 #define ONNX_OPS
 
-#ifdef OP_BASE
-#else
 include "mlir/IR/OpBase.td"
-#endif // OP_BASE
+include "mlir/Interfaces/ControlFlowInterfaces.td"
 
 def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
 
@@ -25,20 +23,10 @@ class SeqOf<list<Type> allowedTypes> :
   ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
                 "$_self.cast<SeqType>().getElementType()",  "SeqType">;
 
-#ifdef SHAPE_INFERENCE_INTERFACE
-#else
 include "src/Interface/ShapeInferenceInterface.td"
-#endif // SHAPE_INFERENCE_INTERFACE
-
-#ifdef PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
-#else
 include "src/Interface/PromotableConstOperandsOpInterface.td"
-#endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
-
-#ifdef RESULT_TYPE_INFERENCE_OP_INTERFACE
-#else
 include "src/Interface/ResultTypeInferenceOpInterface.td"
-#endif // RESULT_TYPE_INFERENCE_OP_INTERFACE
+include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
@@ -96,6 +84,25 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     static StringRef getNumOutputsAttrName() { return "numOutputs"; }
   }];
 }
+
+def ONNXReturnOp : ONNX_Op<"Return", [NoSideEffect,
+                                ReturnLike, Terminator]> {
+  let summary = "ONNX return operation";
+  let description = [{
+    The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
+    The operation takes variable number of operands and produces no results.
+
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$operands);
+
+  let builders = [
+    OpBuilderDAG<(ins),
+    [{ build($_builder, $_state, llvm::None); }]>];
+
+  let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
+}
+
 
 //===----------------------------------------------------------------------===//
 // ONNX Operations for handling optional arguments
