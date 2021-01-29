@@ -430,9 +430,6 @@ tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64', 'BF16', 'F16', '
 
 MAX_NUM_TYPES=20
 
-SNIPPETS = collect_snippets()
-SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
-
 def should_render_domain(domain):  # type: (Text) -> bool
     return True
 
@@ -673,6 +670,9 @@ def get_attrs(schema):
 
     name_to_type = OrderedDict()
     for _, attr in sorted(schema.attributes.items()):
+        if attr.type == OpSchema.AttrType.GRAPH:
+          continue
+
         qualified_attr_name = "{}.{}".format(schema.name, attr.name)
         if qualified_attr_name in special_attr_defaults:
             name_to_type[attr.name] = get_attr_type_with_default(
@@ -887,6 +887,14 @@ def gen_op_def(schema):
     indent = inc_indent()
     s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
 
+    regions = OrderedDict()
+    for _, attr in sorted(schema.attributes.items()):
+      if attr.type == OpSchema.AttrType.GRAPH:
+        if attr.required:
+          regions[attr.name] = "SizedRegion<1>"
+        else:
+          regions[attr.name] = "AnyRegion"
+
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
     # OpsWithShapeInference:
@@ -898,6 +906,8 @@ def gen_op_def(schema):
         traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
     if schema.name in OpsWithResultTypeInference.keys():
         traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
+    if len(regions):
+        traits.append("OpInterface<\"HasOnnxSubgraphOpInterface\">")
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
     # Generate decl for canonicalizer.
@@ -926,6 +936,7 @@ def gen_op_def(schema):
     # Generate ins (consisting of operands and attributes).
     ins = get_operands_or_results(schema, type_str_dict, is_input=True)
     ins.update(get_attrs(schema))
+
     ins_strs = ["{1}:${0}".format(*i) for i in ins.items()]
     s += indent + 'let arguments = (ins {});\n'.format(
         (',\n' + inc_indent(indent)).join(ins_strs))
@@ -935,6 +946,12 @@ def gen_op_def(schema):
     outs_strs = ["{1}:${0}".format(*i) for i in outs.items()]
     s += indent + 'let results = (outs {});\n'.format(
         (',\n' + inc_indent(indent)).join(outs_strs))
+
+    regions_strs = ["{1}:${0}".format(*i) for i in regions.items()]
+
+    if len(regions):
+        s += indent + 'let regions = (region {});\n'.format(
+            (',\n' + inc_indent(indent)).join(regions_strs))
 
     # custom_builder_broadcast_ops_list
 
@@ -1035,6 +1052,15 @@ def gen_op_def(schema):
 
     if schema.name in OpsWithHelpers:
         s += OpsWithHelpers[schema.name]
+
+    if len(regions):
+        s += indent + "int64_t getSubgraphRegionIdx(const std::string& name) {\n"
+        indent = inc_indent(indent)
+        for idx, region_name in enumerate(regions.keys()):
+          s += indent + "if (name == \"{}\") return {};\n".format(region_name, idx)
+        s += indent + "assert(false && \"region with the specified name does not exist\");\n"
+        indent = dec_indent(indent)
+        s += indent + "}\n"
 
     s += indent + '}];\n'
 

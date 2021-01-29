@@ -63,8 +63,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       }
 
       // Copy data.
-      Value loadData = childContext.createLoadOp(data, readIndices);
-      childContext.createStoreOp(loadData, alloc, writeIndices);
+      Value loadData = childContext.createKrnlLoadOp(data, readIndices);
+      childContext.createKrnlStoreOp(loadData, alloc, writeIndices);
     }
 
     rewriter.replaceOp(op, alloc);

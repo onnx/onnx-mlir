@@ -224,7 +224,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 
     Value identity =
         getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
-    rewriter.create<AffineStoreOp>(loc, identity, alloc, loopIVs);
+    rewriter.create<KrnlStoreOp>(loc, identity, alloc, loopIVs);
 
     // 2. Define an Krnl loop to do reduction.
     rewriter.setInsertionPointAfter(iterateOpInit);
@@ -264,11 +264,11 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     }
 
     Value next, accumulated;
-    next = rewriter.create<AffineLoadOp>(loc, input, inLoopIVs);
-    accumulated = rewriter.create<AffineLoadOp>(loc, alloc, outLoopIVs);
+    next = rewriter.create<KrnlLoadOp>(loc, input, inLoopIVs);
+    accumulated = rewriter.create<KrnlLoadOp>(loc, alloc, outLoopIVs);
     accumulated = emitScalarOpFor<ONNXReductionOp>(
         rewriter, loc, op, memRefOutType.getElementType(), {accumulated, next});
-    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, outLoopIVs);
+    rewriter.create<KrnlStoreOp>(loc, accumulated, alloc, outLoopIVs);
 
     // 3. Define an Krnl loop to compute mean (optional).
     rewriter.restoreInsertionPoint(ipMainRegion);
@@ -303,7 +303,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       meanLoops.createDefineAndIterateOp(alloc);
       rewriter.setInsertionPointToStart(meanLoops.getIterateBlock());
       auto meanIVs = meanLoops.getAllInductionVar();
-      auto loadData = rewriter.create<AffineLoadOp>(loc, alloc, meanIVs);
+      auto loadData = rewriter.create<KrnlLoadOp>(loc, alloc, meanIVs);
       Value meanVal;
       if (elementType.isa<FloatType>())
         meanVal = rewriter.create<DivFOp>(loc, loadData, divisor);
@@ -311,7 +311,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
         meanVal = rewriter.create<SignedDivIOp>(loc, loadData, divisor);
       else
         llvm_unreachable("unsupported element type");
-      rewriter.create<AffineStoreOp>(loc, meanVal, alloc, meanIVs);
+      rewriter.create<KrnlStoreOp>(loc, meanVal, alloc, meanIVs);
     }
 
     rewriter.replaceOp(op, alloc);

@@ -84,8 +84,9 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     // Initialize sum
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
     Value sumAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-    rewriter.create<StoreOp>(loc, emitConstantOp(rewriter, loc, elementType, 0),
-        sumAlloc, ArrayRef<Value>{});
+    rewriter.create<KrnlStoreOp>(loc,
+        emitConstantOp(rewriter, loc, elementType, 0), sumAlloc,
+        ArrayRef<Value>{});
 
     // Create the sum reduction loop
     BuildKrnlLoop sumLoops(rewriter, loc, 1);
@@ -107,13 +108,13 @@ struct ONNXLRNOpLowering : public ConversionPattern {
       }
     }
 
-    Value loadVal = rewriter.create<AffineLoadOp>(loc, input, loadIndices);
+    Value loadVal = rewriter.create<KrnlLoadOp>(loc, input, loadIndices);
     Value squareVal = rewriter.create<MulFOp>(loc, loadVal, loadVal);
 
     Value sumValue =
-        rewriter.create<AffineLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
+        rewriter.create<KrnlLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
     sumValue = rewriter.create<AddFOp>(loc, sumValue, squareVal);
-    rewriter.create<AffineStoreOp>(loc, sumValue, sumAlloc, ArrayRef<Value>{});
+    rewriter.create<KrnlStoreOp>(loc, sumValue, sumAlloc, ArrayRef<Value>{});
 
     // Compute and store the output
     // y = x / ((bias + (alpha / nsize) * square_sum) ** beta)
@@ -122,15 +123,15 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     for (int i = 0; i < outputRank; ++i) {
       storeIndices.emplace_back(outputLoops.getInductionVar(i));
     }
-    Value xValue = rewriter.create<AffineLoadOp>(loc, input, storeIndices);
-    sumValue = rewriter.create<AffineLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
+    Value xValue = rewriter.create<KrnlLoadOp>(loc, input, storeIndices);
+    sumValue = rewriter.create<KrnlLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
     Value tempValue = rewriter.create<PowFOp>(loc,
         rewriter.create<AddFOp>(loc, biasValue,
             rewriter.create<MulFOp>(loc, alphaDivSizeValue, sumValue)),
         betaValue);
     Value resultValue = rewriter.create<DivFOp>(loc, xValue, tempValue);
 
-    rewriter.create<AffineStoreOp>(loc, resultValue, alloc, storeIndices);
+    rewriter.create<KrnlStoreOp>(loc, resultValue, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
 
