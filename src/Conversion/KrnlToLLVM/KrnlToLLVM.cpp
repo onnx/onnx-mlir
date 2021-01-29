@@ -534,6 +534,11 @@ struct MathFunctionName<KrnlErfOp> {
   static std::string functionName() { return "erff"; }
 };
 
+template <>
+struct MathFunctionName<KrnlAcosOp> {
+  static std::string functionName() { return "acos"; }
+};
+
 template <typename KrnlScalarMathOp>
 class KrnlUnaryMathOpLowering : public ConversionPattern {
 public:
@@ -545,7 +550,7 @@ public:
     auto *context = op->getContext();
     auto loc = op->getLoc();
 
-    // Insert and/or get reference to erf function declaration.
+    // Insert and/or get reference to elementary math function declaration.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto mathFunctionRef = getOrInsertUnaryFloatMathFunction(rewriter,
         parentModule, MathFunctionName<KrnlScalarMathOp>().functionName());
@@ -1121,6 +1126,7 @@ void mlir::populateAffineAndKrnlToLLVMConversion(
 
   // Math library functions.
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAcosOp>>(ctx);
 }
 
 //===----------------------------------------------------------------------===//

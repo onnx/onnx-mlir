@@ -420,6 +420,19 @@ def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
   let printer = ?;
 }
 
+def KrnlAcosOp : Op<Krnl_Dialect, "acos"> {
+  let summary = "Krnl acos scalar operation";
+  let description = [{
+    Krnl acos scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs AnyFloat:$out);
+
+  let parser = ?;
+  let printer = ?;
+}
+
 def KrnlLoadOp : Op<Krnl_Dialect, "load",
   [TypesMatchWith<"result type matches element type of 'memref'",
                   "memref", "result",
