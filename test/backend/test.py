@@ -99,6 +99,7 @@ test_to_enable_static_dynamic = {
     "test_abs_cpu": (test_static_dynamic,),
 
     # Acos
+    "test_acos_cpu": (test_static_dynamic,),
 
     # Acosh
 
