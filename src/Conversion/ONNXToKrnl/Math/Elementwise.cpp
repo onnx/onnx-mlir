@@ -617,7 +617,10 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       : ConversionPattern(ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc =
+        NameLoc::get(Identifier::get(ElementwiseUnaryOp::getOperationName(),
+                         op->getContext()),
+            op->getLoc());
     auto X = operands[0];
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -699,7 +702,10 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc =
+        NameLoc::get(Identifier::get(ElementwiseBinaryOp::getOperationName(),
+                         op->getContext()),
+            op->getLoc());
     auto numArgs = op->getNumOperands();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputElementType = outputMemRefType.getElementType();
@@ -765,7 +771,10 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       : ConversionPattern(ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc =
+        NameLoc::get(Identifier::get(ElementwiseVariadicOp::getOperationName(),
+                         op->getContext()),
+            op->getLoc());
     auto numArgs = op->getNumOperands();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputElementType = outputMemRefType.getElementType();

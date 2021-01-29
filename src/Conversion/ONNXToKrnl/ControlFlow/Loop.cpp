@@ -17,7 +17,9 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc = NameLoc::get(
+        Identifier::get(ONNXLoopOp::getOperationName(), op->getContext()),
+        op->getLoc());
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     ONNXLoopOpAdaptor loopOpAdapter(operands, op->getAttrDictionary());
 
