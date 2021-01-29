@@ -674,6 +674,29 @@ LogicalResult ONNXCosOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Acos
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXAcosOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXAcosOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Acosh
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXAcoshOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXAcoshOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+
+//===----------------------------------------------------------------------===//
 // Log
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXLogOp. This method is required by the
@@ -2944,18 +2967,6 @@ LogicalResult ONNXLessOp::inferShapes(
 // Also please add test case in test/mlir/onnx/onnx_shape_inference.mlir
 // Followed by the implementation of lowering to Krnl and
 // Enable the corresponding node test in check-onnx-backend
-
-LogicalResult ONNXAcosOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
-}
-
-LogicalResult ONNXAcoshOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  getResult().setType(getOperand().getType());
-  return success();
-}
 
 LogicalResult ONNXArgMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
