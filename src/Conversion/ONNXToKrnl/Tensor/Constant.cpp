@@ -40,7 +40,9 @@ struct ONNXConstantOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc = NameLoc::get(
+        Identifier::get(ONNXConstantOp::getOperationName(), op->getContext()),
+        op->getLoc());
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
 
     if (constantOp.sparse_value().hasValue())
