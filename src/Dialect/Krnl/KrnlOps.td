@@ -40,7 +40,7 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
 
   // Helper function to extract the number of loops being defined.
   int64_t getNumLoops() {
-    auto num_loops = getAttrOfType<IntegerAttr>(getNumLoopsAttrName())
+    auto num_loops = (*this)->getAttrOfType<IntegerAttr>(getNumLoopsAttrName())
                          .getValue()
                          .getSExtValue();
     return num_loops;
@@ -87,7 +87,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator, AffineS
 
     int64_t getNumOptimizedLoops() {
       auto num_optimized_loops =
-        getAttrOfType<IntegerAttr>(getNumOptimizedLoopsAttrName())
+        (*this)->getAttrOfType<IntegerAttr>(getNumOptimizedLoopsAttrName())
           .getValue()
           .getSExtValue();
       return num_optimized_loops;

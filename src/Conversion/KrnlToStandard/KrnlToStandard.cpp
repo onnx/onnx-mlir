@@ -91,7 +91,7 @@ public:
             "This constant is too big to be turned into a global memref.");
         return failure();
       }
-      auto moduleOp = krnlGlobalOp.template getParentOfType<ModuleOp>();
+      auto moduleOp = krnlGlobalOp->template getParentOfType<ModuleOp>();
       PatternRewriter::InsertionGuard insertGuard(rewriter);
       rewriter.setInsertionPointToStart(moduleOp.getBody());
       auto sym_name = rewriter.getStringAttr(

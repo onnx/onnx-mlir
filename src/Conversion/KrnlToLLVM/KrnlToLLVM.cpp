@@ -532,12 +532,12 @@ public:
   LogicalResult matchAndRewrite(
       KrnlEntryPointOp op, PatternRewriter &rewriter) const override {
 
-    auto module = op.getParentOfType<ModuleOp>();
+    auto module = op->getParentOfType<ModuleOp>();
     auto *context = module.getContext();
     auto apiRegistry = RegisterAllApis(module, rewriter);
     auto loc = op.getLoc();
     auto numOutputs =
-        op.getAttrOfType<IntegerAttr>(KrnlEntryPointOp::getNumOutputsAttrName())
+        op->getAttrOfType<IntegerAttr>(KrnlEntryPointOp::getNumOutputsAttrName())
             .getInt();
 
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
@@ -552,7 +552,7 @@ public:
     // output is also a opaque ptr to a data structure with output memrefs
     // wrapped within it.
     auto staticEntryPointFuncName =
-        op.getAttrOfType<SymbolRefAttr>(
+        op->getAttrOfType<SymbolRefAttr>(
               KrnlEntryPointOp::getEntryPointFuncAttrName())
             .getLeafReference();
     auto dynEntryPointName = "run_" + staticEntryPointFuncName;

@@ -27,10 +27,10 @@ public:
   LogicalResult matchAndRewrite(
       ONNXEntryPointOp op, PatternRewriter &rewriter) const override {
     rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(op,
-        op.getAttrOfType<SymbolRefAttr>(
+        op->getAttrOfType<SymbolRefAttr>(
             ONNXEntryPointOp::getEntryPointFuncAttrName()),
-        op.getAttrOfType<IntegerAttr>(ONNXEntryPointOp::getNumInputsAttrName()),
-        op.getAttrOfType<IntegerAttr>(
+        op->getAttrOfType<IntegerAttr>(ONNXEntryPointOp::getNumInputsAttrName()),
+        op->getAttrOfType<IntegerAttr>(
             ONNXEntryPointOp::getNumOutputsAttrName()));
     return success();
   }

@@ -29,13 +29,13 @@ struct ONNXPadOpLowering : public ConversionPattern {
     if (padMode != "constant")
       return emitError(loc, "unsupported mode for Pad");
     DenseElementsAttr constantValAttr =
-        myOp.getAttr("constant_value")
+        myOp->getAttr("constant_value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>();
     if (!constantValAttr)
       return emitError(loc, "unsupported value");
 
     DenseElementsAttr padsAttributes =
-        myOp.getAttr("pads").dyn_cast_or_null<mlir::DenseElementsAttr>();
+        myOp->getAttr("pads").dyn_cast_or_null<mlir::DenseElementsAttr>();
     if (!padsAttributes)
       return emitError(loc, "Pad: unknown pads");
 
