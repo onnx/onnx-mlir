@@ -27,7 +27,6 @@
 #include "ONNXShapeHelper.hpp"
 #include "mlir/IR/StandardTypes.h"
 
-
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace mlir::onnxmlir;
@@ -1339,35 +1338,39 @@ LogicalResult ONNXReshapeOp::inferShapes() {
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input data tensor not ranked");
 
-  // For some reason Reshape will get run twice when going through the shape inference pass
-  // where the second time through the shape type becomes a NoneType and fails inference
+  // For some reason Reshape will get run twice when going through the shape
+  // inference pass
+  // where the second time through the shape type becomes a NoneType and fails
+  // inference
   // This only happens if reshape is the last operation
 
-  // %1 = "onnx.Reshape"(%arg0, %0) {onnx_node_name = "Reshape_1"} : (tensor<3x3xi8>, tensor<2xi64>) -> tensor<1x9xi8>
-  // %0 = "onnx.Reshape"(%arg0, %cst) {onnx_node_name = "Reshape_1", shape = dense<[1, 9]> : tensor<2xi64>} : (tensor<3x3xi8>, none) -> tensor<1x9xi8>
+  // %1 = "onnx.Reshape"(%arg0, %0) {onnx_node_name = "Reshape_1"} :
+  // (tensor<3x3xi8>, tensor<2xi64>) -> tensor<1x9xi8>
+  // %0 = "onnx.Reshape"(%arg0, %cst) {onnx_node_name = "Reshape_1", shape =
+  // dense<[1, 9]> : tensor<2xi64>} : (tensor<3x3xi8>, none) -> tensor<1x9xi8>
   // Second time around, it's a dense<[1, 9]>
 
   int64_t outputRank;
   auto inputTensorTy = data().getType().cast<RankedTensorType>();
   // Attribute promotion can change shape to a nonetype
-  if(shape().getType().isa<NoneType>()) {
+  if (shape().getType().isa<NoneType>()) {
     auto shapeAttr = getAttr("shape").cast<DenseElementsAttr>();
-    const unsigned long *shapeRank = (*shapeAttr.int_value_begin()).getRawData();
+    const unsigned long *shapeRank =
+        (*shapeAttr.int_value_begin()).getRawData();
     outputRank = *shapeRank;
     if (outputRank != 1)
       return emitError("Shape tensor described by attribute must be rank 1");
     // return success();
   } else {
 
-  if (!shape().getType().isa<RankedTensorType>())
-    return emitError("Shape tensor not ranked");
-  auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
+    if (!shape().getType().isa<RankedTensorType>())
+      return emitError("Shape tensor not ranked");
+    auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
 
-  // Only rank 1 shape tensors are supported.
-  if (shapeTensorTy.getShape().size() != 1)
-    return emitError("Shape tensor must have rank one");
-  outputRank = shapeTensorTy.getShape()[0];
-
+    // Only rank 1 shape tensors are supported.
+    if (shapeTensorTy.getShape().size() != 1)
+      return emitError("Shape tensor must have rank one");
+    outputRank = shapeTensorTy.getShape()[0];
   }
   // Shape tensor must have constant shape.
   if (outputRank < 0)
@@ -2051,31 +2054,47 @@ LogicalResult ONNXPadOp::inferShapes() {
   auto dataRank = dataTy.getRank();
   SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
 
-  // Get pads from valueAttribute.
-  Attribute padattr = getAttr("pads");
-  SmallVector<int64_t, 2> pads(dataRank * 2, -1);
-  // Sometimes it's an ArrayAttr and sometimes it's a DenseElementsAttr, so
-  // handle both cases.
-  if (ArrayAttr padsAttributes = padattr.dyn_cast_or_null<mlir::ArrayAttr>()) {
-    auto valueIt = padsAttributes.getValue().begin();
-    for (int64_t i = 0; i < dataRank * 2; ++i)
-      pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
-  } else if (DenseElementsAttr padsAttributes =
-                 padattr.dyn_cast_or_null<mlir::DenseElementsAttr>()) {
-    auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
-    for (int64_t i = 0; i < dataRank * 2; ++i)
-      pads[i] = (*valueIt++).getInt();
+  SmallVector<int64_t, 8> padsVector(dataRank * 2, -1);
+  // Check to see if pads() exists as input for post opset11
+  if (pads().getType().isa<NoneType>()) {
+    // Get pads from valueAttribute.
+    Attribute padAttr = getAttr("pads");
+    // Sometimes it's an ArrayAttr and sometimes it's a DenseElementsAttr, so
+    // handle both cases.
+    if (ArrayAttr padsAttributes =
+            padAttr.dyn_cast_or_null<mlir::ArrayAttr>()) {
+      auto valueIt = padsAttributes.getValue().begin();
+      for (int64_t i = 0; i < dataRank * 2; ++i)
+        padsVector[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+    } else if (DenseElementsAttr padsAttributes =
+                   padAttr.dyn_cast_or_null<mlir::DenseElementsAttr>()) {
+      auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
+      for (int64_t i = 0; i < dataRank * 2; ++i)
+        padsVector[i] = (*valueIt++).getInt();
+    } else {
+      // Cannot infer if the pads is not constant
+      return emitError("Pad: unknown pads ") << getAttr("pads");
+    }
   } else {
-    // Cannot infer if the pads is not constant
-    return emitError("Pad: unknown pads ") << getAttr("pads");
+    if (auto constantOp = getONNXConstantOp(pads())) {
+      DenseElementsAttr padsAttributes =
+          constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
+      if (!padsAttributes)
+        return emitError("DenseElementsAttr expected");
+      auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
+      for (int64_t i = 0; i < dataRank * 2; ++i)
+        padsVector[i] = (*valueIt++).getInt();
+    } else {
+      return emitError("Pad: unknown pads");
+    }
   }
 
   // Pads consists of two values for each axis of data.
   // The two values specify the number of elements padded before and after
   // respectively.
   for (int64_t i = 0; i < dataRank; ++i) {
-    int64_t p1 = pads[i];
-    int64_t p2 = pads[i + dataRank];
+    int64_t p1 = padsVector[i];
+    int64_t p2 = padsVector[i + dataRank];
     // Have to non-negative constant
     if (p1 < 0 || p2 < 0)
       return emitError("padding value can not be negative");
