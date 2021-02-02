@@ -60,6 +60,14 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect,
       shape::ShapeDialect, scf::SCFDialect>();
 
+  // Use krnl.load/store instead of std.load/store and affine.load/store.
+  // krnl.load/store will be lowered to std.load/store and affine.load/store by
+  // `convert-krnl-to-affine` pass.
+  target.addIllegalOp<mlir::LoadOp>();
+  target.addIllegalOp<mlir::AffineLoadOp>();
+  target.addIllegalOp<mlir::StoreOp>();
+  target.addIllegalOp<mlir::AffineStoreOp>();
+
   // std.tanh will be expanded.
   target.addIllegalOp<mlir::TanhOp>();
 
@@ -106,6 +114,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXReductionOpPattern(patterns, &getContext());
   populateLoweringONNXSoftmaxOpPattern(patterns, &getContext());
   populateLoweringONNXMatMulOpPattern(patterns, &getContext());
+  populateLoweringONNXLRNOpPattern(patterns, &getContext());
   // Tensor
   populateLoweringONNXReshapeOpPattern(patterns, &getContext());
   populateLoweringONNXPadConstantValuePadOpPattern(patterns, &getContext());

@@ -75,8 +75,8 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       }
       // Insert copy.
       Value loadData =
-          childContext.createLoadOp(operandAdaptor.input(), readIndices);
-      childContext.createStoreOp(loadData, allocs[i], writeIndices);
+          childContext.createKrnlLoadOp(operandAdaptor.input(), readIndices);
+      childContext.createKrnlStoreOp(loadData, allocs[i], writeIndices);
     }
     rewriter.replaceOp(op, allocs);
     return success();

@@ -61,7 +61,7 @@ struct ONNXSizeOpLowering : public ConversionPattern {
       }
     }
 
-    rewriter.create<AffineStoreOp>(loc, noElements, alloc, llvm::None);
+    rewriter.create<KrnlStoreOp>(loc, noElements, alloc, llvm::None);
     rewriter.replaceOp(op, alloc);
     return success();
   }

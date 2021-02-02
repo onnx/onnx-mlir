@@ -30,8 +30,8 @@ module {
     %7 = "krnl.getref"(%6, %c0_i64, %3) : (memref<?xi8>, i64, index) -> memref<1x?x3xf32>
     %8:3 = krnl.define_loops 3
     krnl.iterate(%8#0, %8#1, %8#2) with (%8#0 -> %arg3 = 0 to 1, %8#1 -> %arg4 = 0 to %1, %8#2 -> %arg5 = 0 to 3) {
-      affine.store %cst_1, %2[%arg3, %arg4, %arg5] : memref<1x?x3xf32>
-      affine.store %cst_1, %7[%arg3, %arg4, %arg5] : memref<1x?x3xf32>
+      krnl.store %cst_1, %2[%arg3, %arg4, %arg5] : memref<1x?x3xf32>
+      krnl.store %cst_1, %7[%arg3, %arg4, %arg5] : memref<1x?x3xf32>
     }
     %9 = krnl.define_loops 1
     %10 = dim %arg0, %c0 : memref<?x?x2xf32>
@@ -75,41 +75,41 @@ module {
       %47:2 = krnl.define_loops 2
       %48 = dim %arg0, %c1 : memref<?x?x2xf32>
       krnl.iterate(%47#0, %47#1) with (%47#0 -> %arg4 = 0 to %48, %47#1 -> %arg5 = 0 to 3) {
-        affine.store %cst_1, %15[%arg4, %arg5] : memref<?x3xf32>
-        affine.store %cst_1, %19[%arg4, %arg5] : memref<?x3xf32>
-        affine.store %cst_1, %24[%arg4, %arg5] : memref<?x3xf32>
-        affine.store %cst_1, %28[%arg4, %arg5] : memref<?x3xf32>
-        affine.store %cst_1, %33[%arg4, %arg5] : memref<?x3xf32>
-        affine.store %cst_1, %37[%arg4, %arg5] : memref<?x3xf32>
-        affine.store %cst_1, %42[%arg4, %arg5] : memref<?x3xf32>
-        affine.store %cst_1, %46[%arg4, %arg5] : memref<?x3xf32>
+        krnl.store %cst_1, %15[%arg4, %arg5] : memref<?x3xf32>
+        krnl.store %cst_1, %19[%arg4, %arg5] : memref<?x3xf32>
+        krnl.store %cst_1, %24[%arg4, %arg5] : memref<?x3xf32>
+        krnl.store %cst_1, %28[%arg4, %arg5] : memref<?x3xf32>
+        krnl.store %cst_1, %33[%arg4, %arg5] : memref<?x3xf32>
+        krnl.store %cst_1, %37[%arg4, %arg5] : memref<?x3xf32>
+        krnl.store %cst_1, %42[%arg4, %arg5] : memref<?x3xf32>
+        krnl.store %cst_1, %46[%arg4, %arg5] : memref<?x3xf32>
         %51 = krnl.define_loops 1
         krnl.iterate(%51) with (%51 -> %arg6 = 0 to 2) {
           %53 = affine.apply #map6(%arg5)[%c0, %c3]
           %54 = affine.apply #map6(%arg5)[%c1, %c3]
           %55 = affine.apply #map6(%arg5)[%c2, %c3]
           %56 = affine.apply #map6(%arg5)[%c3, %c3]
-          %57 = affine.load %arg0[%arg3, %arg4, %arg6] : memref<?x?x2xf32>
-          %58 = affine.load %arg1[%c0, %53, %arg6] : memref<1x12x2xf32>
+          %57 = krnl.load %arg0[%arg3, %arg4, %arg6] : memref<?x?x2xf32>
+          %58 = krnl.load %arg1[%c0, %53, %arg6] : memref<1x12x2xf32>
           %59 = mulf %57, %58 : f32
-          %60 = affine.load %15[%arg4, %arg5] : memref<?x3xf32>
+          %60 = krnl.load %15[%arg4, %arg5] : memref<?x3xf32>
           %61 = addf %60, %59 : f32
-          affine.store %61, %15[%arg4, %arg5] : memref<?x3xf32>
-          %62 = affine.load %arg1[%c0, %54, %arg6] : memref<1x12x2xf32>
+          krnl.store %61, %15[%arg4, %arg5] : memref<?x3xf32>
+          %62 = krnl.load %arg1[%c0, %54, %arg6] : memref<1x12x2xf32>
           %63 = mulf %57, %62 : f32
-          %64 = affine.load %24[%arg4, %arg5] : memref<?x3xf32>
+          %64 = krnl.load %24[%arg4, %arg5] : memref<?x3xf32>
           %65 = addf %64, %63 : f32
-          affine.store %65, %24[%arg4, %arg5] : memref<?x3xf32>
-          %66 = affine.load %arg1[%c0, %55, %arg6] : memref<1x12x2xf32>
+          krnl.store %65, %24[%arg4, %arg5] : memref<?x3xf32>
+          %66 = krnl.load %arg1[%c0, %55, %arg6] : memref<1x12x2xf32>
           %67 = mulf %57, %66 : f32
-          %68 = affine.load %33[%arg4, %arg5] : memref<?x3xf32>
+          %68 = krnl.load %33[%arg4, %arg5] : memref<?x3xf32>
           %69 = addf %68, %67 : f32
-          affine.store %69, %33[%arg4, %arg5] : memref<?x3xf32>
-          %70 = affine.load %arg1[%c0, %56, %arg6] : memref<1x12x2xf32>
+          krnl.store %69, %33[%arg4, %arg5] : memref<?x3xf32>
+          %70 = krnl.load %arg1[%c0, %56, %arg6] : memref<1x12x2xf32>
           %71 = mulf %57, %70 : f32
-          %72 = affine.load %42[%arg4, %arg5] : memref<?x3xf32>
+          %72 = krnl.load %42[%arg4, %arg5] : memref<?x3xf32>
           %73 = addf %72, %71 : f32
-          affine.store %73, %42[%arg4, %arg5] : memref<?x3xf32>
+          krnl.store %73, %42[%arg4, %arg5] : memref<?x3xf32>
         }
         %52 = krnl.define_loops 1
         krnl.iterate(%52) with (%52 -> %arg6 = 0 to 3) {
@@ -117,27 +117,27 @@ module {
           %54 = affine.apply #map6(%arg5)[%c1, %c3]
           %55 = affine.apply #map6(%arg5)[%c2, %c3]
           %56 = affine.apply #map6(%arg5)[%c3, %c3]
-          %57 = affine.load %2[%c0, %arg4, %arg6] : memref<1x?x3xf32>
-          %58 = affine.load %arg2[%c0, %53, %arg6] : memref<1x12x3xf32>
+          %57 = krnl.load %2[%c0, %arg4, %arg6] : memref<1x?x3xf32>
+          %58 = krnl.load %arg2[%c0, %53, %arg6] : memref<1x12x3xf32>
           %59 = mulf %57, %58 : f32
-          %60 = affine.load %19[%arg4, %arg5] : memref<?x3xf32>
+          %60 = krnl.load %19[%arg4, %arg5] : memref<?x3xf32>
           %61 = addf %60, %59 : f32
-          affine.store %61, %19[%arg4, %arg5] : memref<?x3xf32>
-          %62 = affine.load %arg2[%c0, %54, %arg6] : memref<1x12x3xf32>
+          krnl.store %61, %19[%arg4, %arg5] : memref<?x3xf32>
+          %62 = krnl.load %arg2[%c0, %54, %arg6] : memref<1x12x3xf32>
           %63 = mulf %57, %62 : f32
-          %64 = affine.load %28[%arg4, %arg5] : memref<?x3xf32>
+          %64 = krnl.load %28[%arg4, %arg5] : memref<?x3xf32>
           %65 = addf %64, %63 : f32
-          affine.store %65, %28[%arg4, %arg5] : memref<?x3xf32>
-          %66 = affine.load %arg2[%c0, %55, %arg6] : memref<1x12x3xf32>
+          krnl.store %65, %28[%arg4, %arg5] : memref<?x3xf32>
+          %66 = krnl.load %arg2[%c0, %55, %arg6] : memref<1x12x3xf32>
           %67 = mulf %57, %66 : f32
-          %68 = affine.load %37[%arg4, %arg5] : memref<?x3xf32>
+          %68 = krnl.load %37[%arg4, %arg5] : memref<?x3xf32>
           %69 = addf %68, %67 : f32
-          affine.store %69, %37[%arg4, %arg5] : memref<?x3xf32>
-          %70 = affine.load %arg2[%c0, %56, %arg6] : memref<1x12x3xf32>
+          krnl.store %69, %37[%arg4, %arg5] : memref<?x3xf32>
+          %70 = krnl.load %arg2[%c0, %56, %arg6] : memref<1x12x3xf32>
           %71 = mulf %57, %70 : f32
-          %72 = affine.load %46[%arg4, %arg5] : memref<?x3xf32>
+          %72 = krnl.load %46[%arg4, %arg5] : memref<?x3xf32>
           %73 = addf %72, %71 : f32
-          affine.store %73, %46[%arg4, %arg5] : memref<?x3xf32>
+          krnl.store %73, %46[%arg4, %arg5] : memref<?x3xf32>
         }
       }
       %49:2 = krnl.define_loops 2
@@ -153,40 +153,40 @@ module {
         %58 = "krnl.getref"(%57, %c0_i64) : (memref<4xi8>, i64) -> memref<f32>
         %59 = alloc() : memref<4xi8>
         %60 = "krnl.getref"(%59, %c0_i64) : (memref<4xi8>, i64) -> memref<f32>
-        %61 = affine.load %7[%c0, %arg4, %arg5] : memref<1x?x3xf32>
-        %62 = affine.load %15[%arg4, %arg5] : memref<?x3xf32>
-        %63 = affine.load %19[%arg4, %arg5] : memref<?x3xf32>
+        %61 = krnl.load %7[%c0, %arg4, %arg5] : memref<1x?x3xf32>
+        %62 = krnl.load %15[%arg4, %arg5] : memref<?x3xf32>
+        %63 = krnl.load %19[%arg4, %arg5] : memref<?x3xf32>
         %64 = addf %62, %63 : f32
         %65 = alloc() : memref<4xi8>
         %66 = "krnl.getref"(%65, %c0_i64) : (memref<4xi8>, i64) -> memref<f32>
-        affine.store %64, %66[] : memref<f32>
-        %67 = affine.load %66[] : memref<f32>
+        krnl.store %64, %66[] : memref<f32>
+        %67 = krnl.load %66[] : memref<f32>
         %68 = subf %cst_1, %67 : f32
         %69 = exp %68 : f32
         %70 = addf %cst, %69 : f32
         %71 = divf %cst, %70 : f32
-        affine.store %71, %60[] : memref<f32>
-        %72 = affine.load %60[] : memref<f32>
-        %73 = affine.load %33[%arg4, %arg5] : memref<?x3xf32>
-        %74 = affine.load %37[%arg4, %arg5] : memref<?x3xf32>
+        krnl.store %71, %60[] : memref<f32>
+        %72 = krnl.load %60[] : memref<f32>
+        %73 = krnl.load %33[%arg4, %arg5] : memref<?x3xf32>
+        %74 = krnl.load %37[%arg4, %arg5] : memref<?x3xf32>
         %75 = addf %73, %74 : f32
         %76 = alloc() : memref<4xi8>
         %77 = "krnl.getref"(%76, %c0_i64) : (memref<4xi8>, i64) -> memref<f32>
-        affine.store %75, %77[] : memref<f32>
-        %78 = affine.load %77[] : memref<f32>
+        krnl.store %75, %77[] : memref<f32>
+        %78 = krnl.load %77[] : memref<f32>
         %79 = subf %cst_1, %78 : f32
         %80 = exp %79 : f32
         %81 = addf %cst, %80 : f32
         %82 = divf %cst, %81 : f32
-        affine.store %82, %58[] : memref<f32>
-        %83 = affine.load %58[] : memref<f32>
-        %84 = affine.load %42[%arg4, %arg5] : memref<?x3xf32>
-        %85 = affine.load %46[%arg4, %arg5] : memref<?x3xf32>
+        krnl.store %82, %58[] : memref<f32>
+        %83 = krnl.load %58[] : memref<f32>
+        %84 = krnl.load %42[%arg4, %arg5] : memref<?x3xf32>
+        %85 = krnl.load %46[%arg4, %arg5] : memref<?x3xf32>
         %86 = addf %84, %85 : f32
         %87 = alloc() : memref<4xi8>
         %88 = "krnl.getref"(%87, %c0_i64) : (memref<4xi8>, i64) -> memref<f32>
-        affine.store %86, %88[] : memref<f32>
-        %89 = affine.load %88[] : memref<f32>
+        krnl.store %86, %88[] : memref<f32>
+        %89 = krnl.load %88[] : memref<f32>
         %90 = mulf %89, %cst_0 : f32
         %91 = negf %90 : f32
         %92 = exp %91 : f32
@@ -199,29 +199,29 @@ module {
         %99 = divf %97, %98 : f32
         %100 = cmpf "oge", %89, %cst_1 : f32
         %101 = select %100, %95, %99 : f32
-        affine.store %101, %56[] : memref<f32>
-        %102 = affine.load %56[] : memref<f32>
+        krnl.store %101, %56[] : memref<f32>
+        %102 = krnl.load %56[] : memref<f32>
         %103 = mulf %83, %61 : f32
         %104 = mulf %72, %102 : f32
         %105 = addf %103, %104 : f32
-        affine.store %105, %7[%c0, %arg4, %arg5] : memref<1x?x3xf32>
-        %106 = affine.load %24[%arg4, %arg5] : memref<?x3xf32>
-        %107 = affine.load %28[%arg4, %arg5] : memref<?x3xf32>
+        krnl.store %105, %7[%c0, %arg4, %arg5] : memref<1x?x3xf32>
+        %106 = krnl.load %24[%arg4, %arg5] : memref<?x3xf32>
+        %107 = krnl.load %28[%arg4, %arg5] : memref<?x3xf32>
         %108 = addf %106, %107 : f32
         %109 = alloc() : memref<4xi8>
         %110 = "krnl.getref"(%109, %c0_i64) : (memref<4xi8>, i64) -> memref<f32>
-        affine.store %108, %110[] : memref<f32>
-        %111 = affine.load %110[] : memref<f32>
+        krnl.store %108, %110[] : memref<f32>
+        %111 = krnl.load %110[] : memref<f32>
         %112 = subf %cst_1, %111 : f32
         %113 = exp %112 : f32
         %114 = addf %cst, %113 : f32
         %115 = divf %cst, %114 : f32
-        affine.store %115, %54[] : memref<f32>
-        %116 = affine.load %54[] : memref<f32>
+        krnl.store %115, %54[] : memref<f32>
+        %116 = krnl.load %54[] : memref<f32>
         %117 = alloc() : memref<4xi8>
         %118 = "krnl.getref"(%117, %c0_i64) : (memref<4xi8>, i64) -> memref<f32>
-        affine.store %105, %118[] : memref<f32>
-        %119 = affine.load %118[] : memref<f32>
+        krnl.store %105, %118[] : memref<f32>
+        %119 = krnl.load %118[] : memref<f32>
         %120 = mulf %119, %cst_0 : f32
         %121 = negf %120 : f32
         %122 = exp %121 : f32
@@ -234,10 +234,10 @@ module {
         %129 = divf %127, %128 : f32
         %130 = cmpf "oge", %119, %cst_1 : f32
         %131 = select %130, %125, %129 : f32
-        affine.store %131, %52[] : memref<f32>
-        %132 = affine.load %52[] : memref<f32>
+        krnl.store %131, %52[] : memref<f32>
+        %132 = krnl.load %52[] : memref<f32>
         %133 = mulf %116, %132 : f32
-        affine.store %133, %2[%c0, %arg4, %arg5] : memref<1x?x3xf32>
+        krnl.store %133, %2[%c0, %arg4, %arg5] : memref<1x?x3xf32>
         dealloc %117 : memref<4xi8>
         dealloc %109 : memref<4xi8>
         dealloc %87 : memref<4xi8>

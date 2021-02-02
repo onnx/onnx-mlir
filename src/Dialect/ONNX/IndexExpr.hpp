@@ -276,13 +276,11 @@ public:
       ArrayRef<BlockArgument> inductionVarArray,
       SmallVectorImpl<IndexExpr> &loopInductionIndices);
 
-  // Code Create for possibly affine load and store. Memref shape is expected to
-  // be of the same dimension than the indices array size. Each index expression
-  // will be transformed to a value to be used as indices to the memref. When
-  // all index expressions are affine, then an affine memory operation is
-  // generated. Otherwise, a standard memory operation is generated.
-  Value createLoadOp(Value memref, SmallVectorImpl<IndexExpr> &indices);
-  void createStoreOp(
+  // Code Create for krnl load and store. Memref shape is expected to be of the
+  // same dimension than the indices array size. Each index expression will be
+  // transformed to a value to be used as indices to the memref.
+  Value createKrnlLoadOp(Value memref, SmallVectorImpl<IndexExpr> &indices);
+  void createKrnlStoreOp(
       Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
 
   // Support functions for AffineExpr.
