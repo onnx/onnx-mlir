@@ -40,7 +40,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     Value data = operandAdaptor.data();
     Value shape = operandAdaptor.shape();
     auto dataShape = data.getType().cast<MemRefType>().getShape();
-    // If shape tensor was be promoted to attribute, get its values from the
+    // If shape input was promoted to attribute, get its values from the
     // attribute.
     SmallVector<int64_t, 4> shapeAttrValues;
     DenseElementsAttr shapeAttr =
@@ -104,8 +104,8 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
           loadedVal = rewriter.create<KrnlLoadOp>(loc, shape, index);
         }
 
-        // The output dimension cannot be 0 if the output dimension position is
-        // out of the input dimension position.
+        // A dimension cannot be 0 if its position is out-of-bound, e.g. the
+        // output rank is greater than the input rank.
         if (i < dataShape.size()) {
           // If a dimension is 0, the actual dimension value is taken from the
           // input tensor.
