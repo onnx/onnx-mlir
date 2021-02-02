@@ -14,6 +14,7 @@
 #include <cassert>
 #include <dlfcn.h>
 #include <string>
+#include <memory>
 
 #include "OnnxMlirRuntime.h"
 

@@ -536,7 +536,7 @@ struct MathFunctionName<KrnlErfOp> {
 
 template <>
 struct MathFunctionName<KrnlAcosOp> {
-  static std::string functionName() { return "acos"; }
+  static std::string functionName() { return "acosf"; }
 };
 
 template <typename KrnlScalarMathOp>
