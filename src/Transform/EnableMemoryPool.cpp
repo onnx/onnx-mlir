@@ -58,7 +58,7 @@ public:
     auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
 
     // The MemRef type returned by the AllocOp must be normalized.
-    if (!memrefType.getAffineMaps().empty())
+    if (!memRefType.getAffineMaps().empty())
       return failure();
 
     // Filter out MemRefs with Index type.
