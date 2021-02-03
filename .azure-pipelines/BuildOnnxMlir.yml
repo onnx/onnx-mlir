@@ -35,6 +35,7 @@ steps:
         -DCMAKE_BUILD_TYPE=$(CMakeBuildConfiguration)
         -DLLVM_ENABLE_ASSERTIONS=ON
         -DLLVM_ENABLE_RTTI=ON
+        $(LLVMAdditionalCMakeOptions)
 
   - task: CMake@1
     displayName: 'Build LLVM'

@@ -60,12 +60,14 @@ jobs:
         CMakeBuildConfiguration: 'Release'
         LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm'
         LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm'
+        LLVMAdditionalCMakeOptions: ''
       # Run the debug configuration for scheduled builds, CI/PR only use Release config to save VM cycles
       ${{ if or(eq(variables['Build.Reason'], 'Schedule'), eq(parameters.AlwaysBuildDebug, true)) }}:
         Debug:
           CMakeBuildConfiguration: 'Debug'
           LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm'
           LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm'
+          LLVMAdditionalCMakeOptions: ''
   pool:
     name: Default
     demands:
@@ -90,12 +92,15 @@ jobs:
         # For Linux split LLVM build directory. This saves time by eliminating builder trashing
         LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm_Release'
         LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm_Release'
+        LLVMAdditionalCMakeOptions: ''
       # Run the debug configuration for scheduled builds, CI/PR only use Release config to save VM cycles
       ${{ if or(eq(variables['Build.Reason'], 'Schedule'), eq(parameters.AlwaysBuildDebug, true)) }}:
         Debug:
           CMakeBuildConfiguration: 'Debug'
           LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm_Debug'
           LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm_Debug'
+          # Avoid running out of memory on server VMs during linking with GNU ld
+          LLVMAdditionalCMakeOptions: '-DLLVM_PARALLEL_LINK_JOBS=8'
   pool:
     name: Default
     demands:
