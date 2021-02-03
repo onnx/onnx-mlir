@@ -161,14 +161,14 @@ static FlatSymbolRefAttr getOrInsertMalloc(
 //
 // declare float <mathFuncName>(float)
 //
-static FlatSymbolRefAttr getOrInsertUnaryMathFunction(
-    PatternRewriter &rewriter, ModuleOp module, std::string mathFuncName,mlir::LLVM::LLVMType llvmType) {
+static FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
+    ModuleOp module, std::string mathFuncName, mlir::LLVM::LLVMType llvmType) {
   auto *context = module.getContext();
   if (module.lookupSymbol<LLVM::LLVMFuncOp>(mathFuncName))
     return SymbolRefAttr::get(mathFuncName, context);
 
   // Create function declaration.
-  //auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
+  // auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
   auto llvmFnType = LLVM::LLVMFunctionType::get(
       llvmType, ArrayRef<mlir::LLVM::LLVMType>({llvmType}));
 
@@ -538,11 +538,11 @@ template <>
 struct MathFunctionName<KrnlAcosOp> {
   static std::string functionName(mlir::Type type) {
     if (type.isF32())
-     return "acosf";
+      return "acosf";
     if (type.isF64())
-     return "acos";
-    assert(false && "Unsupported type for acos"); 
-      }
+      return "acos";
+    assert(false && "Unsupported type for acos");
+  }
 };
 
 template <typename KrnlScalarMathOp>
@@ -555,7 +555,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     auto *context = op->getContext();
     auto loc = op->getLoc();
-    
+
     // get the LLVM type for the function args and result
     mlir::Type inType = op->getOperand(0).getType();
     mlir::LLVM::LLVMType llvmType;
@@ -565,10 +565,11 @@ public:
       llvmType = LLVM::LLVMDoubleType::get(context);
 
     // Insert and/or get reference to elementary math function declaration.
-    assert(inType.isIntOrFloat() && "Type for math function must be int or float");
+    assert(
+        inType.isIntOrFloat() && "Type for math function must be int or float");
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    auto mathFunctionRef = getOrInsertUnaryMathFunction(rewriter,
-        parentModule, MathFunctionName<KrnlScalarMathOp>().functionName(inType),llvmType);
+    auto mathFunctionRef = getOrInsertUnaryMathFunction(rewriter, parentModule,
+        MathFunctionName<KrnlScalarMathOp>().functionName(inType), llvmType);
 
     // Emit function call.
     auto funcCall = rewriter.create<CallOp>(
