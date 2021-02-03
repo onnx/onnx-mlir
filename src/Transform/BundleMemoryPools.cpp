@@ -31,7 +31,7 @@ namespace {
 
 // Data structure for managing memory pools.
 typedef std::map<int64_t, AllocOp> AlignmentToMemPool;
-typedef std::map<Block *, AlignmentToMemPool*> BlockToMemPool;
+typedef std::map<Block *, AlignmentToMemPool *> BlockToMemPool;
 
 //===----------------------------------------------------------------------===//
 // Helper functions.
