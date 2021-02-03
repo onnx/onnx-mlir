@@ -212,8 +212,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
         for (auto arg : spatialLoops.getIterateBlock()->getArguments())
           resultIndices.emplace_back(ieContext.createLoopInductionIndex(arg));
 
-        // Explicitly evalutate IndexExprs. Otherwise it fails when using it for
-        // createKrnlStoreOp after the reduction loop.
+        // Explicitly evalutate IndexExprs. Otherwise it fails when using
+        // 'resultIndices' for createKrnlStoreOp called after the reduction
+        // loop.
         for (auto &ie : resultIndices)
           ie.getValue();
 
