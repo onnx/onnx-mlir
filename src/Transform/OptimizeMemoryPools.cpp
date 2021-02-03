@@ -16,6 +16,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallSet.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -25,7 +26,7 @@ using namespace mlir;
 namespace {
 
 // Handling of static memory pool on a block-basis in each function.
-typedef std::map<Block *, llvm::SmallSetVector<int64_t, 16>>
+typedef std::map<Block *, llvm::SmallSet<int64_t, 16>>
     BlockToCompactedAlignments;
 
 /// Get the total size in bytes used by the getref operations associated
@@ -511,7 +512,8 @@ public:
       // The second krnl.getref properties:
       // - must use the same static memory pool as the first krnl.getref;
       // - the result must have the same memory footprint as the first.
-      if (getAllocOfGetRef(&candidate) == staticMemPool &&
+      AllocOp allocOfCandidate = getAllocOfGetRef(&candidate);
+      if (allocOfCandidate == staticMemPool &&
           getMemRefSizeInBytes(firstGetRef.getResult()) ==
               getMemRefSizeInBytes(candidate.getResult())) {
         getRefCandidates.emplace_back(candidate);
@@ -750,8 +752,8 @@ public:
     // Update compacted flag.
     if (blockToStaticPoolAlignments->count(parentBlock) == 0)
       blockToStaticPoolAlignments->insert(
-          std::pair<Block *, llvm::SmallSetVector<int64_t, 16>>(
-              parentBlock, llvm::SmallSetVector<int64_t, 16>()));
+          std::pair<Block *, llvm::SmallSet<int64_t, 16>>(
+              parentBlock, llvm::SmallSet<int64_t, 16>()));
     blockToStaticPoolAlignments->at(parentBlock).insert(alignment);
 
     return success();
