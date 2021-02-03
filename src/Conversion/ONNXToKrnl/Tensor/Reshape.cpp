@@ -44,12 +44,13 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     Value alloc;
 
     // Compute size in bytes using the input tensor.
-    Value tensorSize = emitConstantOp(rewriter, loc,
+    Value tensorSizeFromInput = emitConstantOp(rewriter, loc,
         rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
     for (int i = 0; i < dataShape.size(); ++i) {
       Value dimVal =
           getDimOrConstant(rewriter, loc, data, i, rewriter.getIntegerType(64));
-      tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
+      tensorSizeFromInput =
+          rewriter.create<MulIOp>(loc, tensorSizeFromInput, dimVal);
     }
 
     bool insertDealloc = checkInsertDealloc(op);
@@ -65,83 +66,85 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
       // - If a dimension is 0, the actual dimension value is taken from the
       // input tensor.
       //
-      // - If a dimension is -1, we compute its actual dimension value from the
-      // other dimensions. But we don't have enough information about the other
-      // dimensions at this point. So, we need to scan the shape first to
-      // calculate reduction of all of the dimensions. If the reduction is
-      // negative, then the shape array contains a negative dimension.
-      // Otherwise, the reduction is the same as the one computed from the input
-      // tensor.
+      // - If a dimension is -1, the actual dimension value is computed by
+      // 'tensorSizeFromInput/tensorSizeFromShape'
+      //
+      // - If a dimension is N, kept it unchanged.
+
       Value tensorSizeFromShape = emitConstantOp(rewriter, loc,
           rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
-      SmallVector<Value, 4> DimInfo;
+
+      SmallVector<Value, 4> outputDimInfo;
       for (int i = 0; i < memRefShape.size(); ++i) {
-        // If a dimension is N (N != 0 && N != -1), use it.
-        // If a dimension is - 1, it will be computed from the other dimensions.
-        // But we don't have enough information about the other dimensions at
-        // this point. So, we let it as it is (-1), and compute it later.
-        Value loadedVal;
+        Value outputDimVal;
         if (!shapeAttrValues.empty()) {
-          loadedVal = emitConstantOp(
-              rewriter, loc, rewriter.getIntegerType(64), shapeAttrValues[i]);
+          // Compute the output dimension using shape attribute.
+          if (shapeAttrValues[i] == 0)
+            // Dimension is 0, get its actual value from the input tensor.
+            outputDimVal = getDimOrConstant(
+                rewriter, loc, data, i, rewriter.getIntegerType(64));
+          else
+            // If dimension is -1, compute it later.
+            // If dimension is N (N != 0 && N != -1), use it.
+            // In both cases, just kept it unchanged.
+            outputDimVal = emitConstantOp(
+                rewriter, loc, rewriter.getIntegerType(64), shapeAttrValues[i]);
         } else {
+          // Compute the output dimension using shape tensor.
           Value index =
               emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
-          loadedVal = rewriter.create<KrnlLoadOp>(loc, shape, index);
-        }
+          Value loadedVal = rewriter.create<KrnlLoadOp>(loc, shape, index);
 
-        // A dimension cannot be 0 if its position is out-of-bound, e.g. the
-        // output rank is greater than the input rank.
-        if (i < dataShape.size()) {
-          // If a dimension is 0, the actual dimension value is taken from the
-          // input tensor.
-          if (!shapeAttrValues.empty()) {
-            if (shapeAttrValues[i] == 0)
-              loadedVal = getDimOrConstant(
-                  rewriter, loc, data, i, rewriter.getIntegerType(64));
-          } else {
+          // If dimension is 0, get its actual value from the input tensor.
+          // Otherwise, kept it unchanged.
+          if (i >= dataShape.size())
+            // Dimension cannot be 0 if its position is out-of-bound, e.g. the
+            // output rank is greater than the input rank.
+            // No need to check 0.
+            outputDimVal = loadedVal;
+          else {
+            // Dimension is potentially 0, check it.
             auto dimVal = getDimOrConstant(
                 rewriter, loc, data, i, rewriter.getIntegerType(64));
             auto zero =
                 emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), 0);
             auto isZero = rewriter.create<CmpIOp>(
                 loc, CmpIPredicate::eq, loadedVal, zero);
-            loadedVal =
+            outputDimVal =
                 rewriter.create<SelectOp>(loc, isZero, dimVal, loadedVal);
           }
         }
 
         // Compute tensor size using shape information.
         tensorSizeFromShape =
-            rewriter.create<MulIOp>(loc, tensorSizeFromShape, loadedVal);
+            rewriter.create<MulIOp>(loc, tensorSizeFromShape, outputDimVal);
         // Store intermediate results to use later.
-        DimInfo.emplace_back(loadedVal);
+        outputDimInfo.emplace_back(outputDimVal);
       }
-      // Reverse tensorSizeFromShape since it is negative if the shape array has
-      // a negative dimension. This is safe since we only use it to compute the
-      // actual value for the negative dimension.
-      auto zero = emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), 0);
+
+      // tensorSizeFromShape is negative if a dimension is -1. So make it
+      // positive by multipling by -1.
+      auto negOne =
+          emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), -1);
       tensorSizeFromShape =
-          rewriter.create<SubIOp>(loc, zero, tensorSizeFromShape);
+          rewriter.create<MulIOp>(loc, tensorSizeFromShape, negOne);
 
       // Obtain operands for AllocOp.
       SmallVector<Value, 4> allocOperands;
-      auto negOne =
-          emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), -1);
-
       for (int i = 0; i < memRefShape.size(); ++i) {
         if (memRefShape[i] != -1)
           continue;
-        auto dimVal = DimInfo[i];
+        auto dimVal = outputDimInfo[i];
         auto isNegOne =
             rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, dimVal, negOne);
-        // If dimension is -1, compute its value from the other dimensions.
+        // If dimension is -1, compute its value by
+        // 'tensorSizeFromInput/tensorSizeFromShape'
+        auto unknownDimVal = rewriter.create<SignedDivIOp>(
+            loc, tensorSizeFromInput, tensorSizeFromShape);
         auto actualDimVal =
-            rewriter.create<SignedDivIOp>(loc, tensorSize, tensorSizeFromShape);
-        auto loadedVal =
-            rewriter.create<SelectOp>(loc, isNegOne, actualDimVal, dimVal);
+            rewriter.create<SelectOp>(loc, isNegOne, unknownDimVal, dimVal);
         allocOperands.push_back(rewriter.create<IndexCastOp>(
-            loc, loadedVal, rewriter.getIndexType()));
+            loc, actualDimVal, rewriter.getIndexType()));
       }
       AllocOp allocateMemref =
           rewriter.create<AllocOp>(loc, memRefType, allocOperands);
@@ -157,7 +160,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
       alloc = allocateMemref;
     }
 
-    rewriter.create<KrnlMemcpyOp>(loc, alloc, data, tensorSize);
+    rewriter.create<KrnlMemcpyOp>(loc, alloc, data, tensorSizeFromInput);
     rewriter.replaceOp(op, alloc);
 
     return success();
