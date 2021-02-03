@@ -387,9 +387,9 @@ public:
     // If this is the first valid alloc we can bundle in this block, then we
     // need to move it to the top of the block as it will consitute an
     // insertion point for all other bundle-able AllocOps in the block.
-    bool isFirstBundledAllocOp = blockToDynamicPool->count(parentBlock) == 0;
+    bool isFirstEverBundledAllocOp = blockToDynamicPool->count(parentBlock) == 0;
     AlignmentToMemPool *alignmentToMemPool;
-    if (isFirstBundledAllocOp) {
+    if (blockToDynamicPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
 
       // Create new entry in the block map.
@@ -400,8 +400,10 @@ public:
       alignmentToMemPool = blockToDynamicPool->at(parentBlock);
     }
 
+    bool isFirstBundledAllocWithThisAlignment = alignmentToMemPool->count(alignment) == 0;
+
     // This is the first dynamic alloc with this alignment.
-    if (alignmentToMemPool->count(alignment) == 0)
+    if (isFirstBundledAllocWithThisAlignment)
       alignmentToMemPool->insert(std::pair<int64_t, AllocOp>(alignment, allocOp));
 
     // Move the computation instructions at the start of the block.
@@ -423,7 +425,7 @@ public:
 
     // Add the current alloc size to the current MemPool size.
     Value dynamicMemoryPoolSize = oldDynamicMemoryPool.getOperand(0);
-    if (isFirstBundledAllocOp) {
+    if (isFirstBundledAllocWithThisAlignment) {
       Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
       zero.getDefiningOp()->moveBefore(oldDynamicMemoryPool);
       dynamicMemoryPoolSize = zero;
