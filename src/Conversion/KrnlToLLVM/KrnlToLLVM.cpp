@@ -531,12 +531,18 @@ struct MathFunctionName {
 
 template <>
 struct MathFunctionName<KrnlErfOp> {
-  static std::string functionName() { return "erff"; }
+  static std::string functionName(mlir::Type type) { return "erff"; }
 };
 
 template <>
 struct MathFunctionName<KrnlAcosOp> {
-  static std::string functionName() { return "acosf"; }
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+     return "acosf";
+    if (type.isF64())
+     return "acos";
+    assert(false && "Unsupported type for acos"); 
+      }
 };
 
 template <typename KrnlScalarMathOp>
@@ -551,9 +557,11 @@ public:
     auto loc = op->getLoc();
 
     // Insert and/or get reference to elementary math function declaration.
+    mlir::Type inType = op->getOperand(0).getType();
+    assert(inType.isIntOrFloat() && "Type for math function must be int or float");
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto mathFunctionRef = getOrInsertUnaryFloatMathFunction(rewriter,
-        parentModule, MathFunctionName<KrnlScalarMathOp>().functionName());
+        parentModule, MathFunctionName<KrnlScalarMathOp>().functionName(inType));
 
     // Emit function call.
     auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
