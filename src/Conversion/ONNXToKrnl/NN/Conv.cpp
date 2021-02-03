@@ -212,8 +212,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
         for (auto arg : spatialLoops.getIterateBlock()->getArguments())
           resultIndices.emplace_back(ieContext.createLoopInductionIndex(arg));
 
-        // Store initializer value into output location.
-        ieContext.createKrnlStoreOp(zero, alloc, resultIndices);
+        // Explicitly evalutate IndexExprs. Otherwise it fails when using it for
+        // createKrnlStoreOp after the reduction loop.
+        for (auto &ie : resultIndices)
+          ie.getValue();
+
         // Create a local reduction value.
         Value reductionVal = rewriter.create<AllocaOp>(
             loc, MemRefType::get({}, memRefType.getElementType()));
