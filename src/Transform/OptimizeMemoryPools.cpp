@@ -25,7 +25,8 @@ using namespace mlir;
 namespace {
 
 // Handling of static memory pool on a block-basis in each function.
-typedef std::map<Block *, llvm::SmallSetVector<int64_t, 16>> BlockToCompactedAlignments;
+typedef std::map<Block *, llvm::SmallSetVector<int64_t, 16>>
+    BlockToCompactedAlignments;
 
 /// Get the total size in bytes used by the getref operations associated
 /// with a given memory pool.
@@ -428,8 +429,8 @@ public:
   using OpRewritePattern<KrnlGetRefOp>::OpRewritePattern;
 
   BlockToCompactedAlignments *blockToStaticPoolAlignments;
-  KrnlOptimizeStaticMemoryPools(
-      MLIRContext *context, BlockToCompactedAlignments *_blockToStaticPoolAlignments)
+  KrnlOptimizeStaticMemoryPools(MLIRContext *context,
+      BlockToCompactedAlignments *_blockToStaticPoolAlignments)
       : OpRewritePattern<KrnlGetRefOp>(context) {
     blockToStaticPoolAlignments = _blockToStaticPoolAlignments;
   }
@@ -628,8 +629,8 @@ public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
 
   BlockToCompactedAlignments *blockToStaticPoolAlignments;
-  KrnlCompactStaticMemoryPools(
-      MLIRContext *context, BlockToCompactedAlignments *_blockToStaticPoolAlignments)
+  KrnlCompactStaticMemoryPools(MLIRContext *context,
+      BlockToCompactedAlignments *_blockToStaticPoolAlignments)
       : OpRewritePattern<AllocOp>(context) {
     blockToStaticPoolAlignments = _blockToStaticPoolAlignments;
   }
@@ -690,8 +691,8 @@ public:
         MemRefType::get(newStaticMemPoolShape, rewriter.getIntegerType(8));
 
     // We need to emit a new alloc of smaller size.
-    AllocOp newStaticMemPool =
-        rewriter.create<AllocOp>(loc, newStaticMemPoolType, allocOp.alignmentAttr());
+    AllocOp newStaticMemPool = rewriter.create<AllocOp>(
+        loc, newStaticMemPoolType, allocOp.alignmentAttr());
     newStaticMemPool.getOperation()->moveBefore(allocOp);
 
     // Changes are required, memory pool needs to be compacted.
@@ -748,7 +749,9 @@ public:
 
     // Update compacted flag.
     if (blockToStaticPoolAlignments->count(parentBlock) == 0)
-      blockToStaticPoolAlignments->insert(std::pair<Block *, llvm::SmallSetVector<int64_t, 16>>(parentBlock, llvm::SmallSetVector<int64_t, 16>()));
+      blockToStaticPoolAlignments->insert(
+          std::pair<Block *, llvm::SmallSetVector<int64_t, 16>>(
+              parentBlock, llvm::SmallSetVector<int64_t, 16>()));
     blockToStaticPoolAlignments->at(parentBlock).insert(alignment);
 
     return success();

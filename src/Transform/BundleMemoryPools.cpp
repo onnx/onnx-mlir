@@ -161,12 +161,8 @@ public:
     if (blockToStaticPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
       // Create new entry in the block map.
-      //blockToStaticPool->insert(std::pair<Block *, std::unique_ptr<AlignmentToMemPool>>(
-      //    parentBlock, std::make_unique<AlignmentToMemPool>()));
       AlignmentToMemPool *alignmentToMemPool = new AlignmentToMemPool();
-      //blockToStaticPool->insert(std::pair<Block *, AlignmentToMemPool*>(
-      //    parentBlock, &AlignmentToMemPool()));
-      blockToStaticPool->insert(std::pair<Block *, AlignmentToMemPool*>(
+      blockToStaticPool->insert(std::pair<Block *, AlignmentToMemPool *>(
           parentBlock, alignmentToMemPool));
     }
 
@@ -175,12 +171,12 @@ public:
 
     // If this parent block has been found present in the map, check that
     // a static memory bundle with the current alignment already exists.
-    //std::unique_ptr<AlignmentToMemPool> &alignmentToMemPool = blockToStaticPool->at(parentBlock);
     AlignmentToMemPool *alignmentToMemPool = blockToStaticPool->at(parentBlock);
     if (alignmentToMemPool->count(alignment) == 0) {
       // If static memory bundle for this alignment does not exist, then
       // create an entry.
-      alignmentToMemPool->insert(std::pair<int64_t, AllocOp>(alignment, allocOp));
+      alignmentToMemPool->insert(
+          std::pair<int64_t, AllocOp>(alignment, allocOp));
 
       // This is the initial memory pool for this block and alignment
       // so trivially bundle it and return success.
@@ -224,8 +220,8 @@ public:
     newMemPoolShape.emplace_back(bundleTotalSize);
     auto bundledMemPoolMemRefType =
         MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
-    auto newStaticMemPoolAlloc =
-        rewriter.create<AllocOp>(loc, bundledMemPoolMemRefType, staticMemPoolAlloc.alignmentAttr());
+    auto newStaticMemPoolAlloc = rewriter.create<AllocOp>(
+        loc, bundledMemPoolMemRefType, staticMemPoolAlloc.alignmentAttr());
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
     auto bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
@@ -381,24 +377,27 @@ public:
     // If this is the first valid alloc we can bundle in this block, then we
     // need to move it to the top of the block as it will consitute an
     // insertion point for all other bundle-able AllocOps in the block.
-    bool isFirstEverBundledAllocOp = blockToDynamicPool->count(parentBlock) == 0;
+    bool isFirstEverBundledAllocOp =
+        blockToDynamicPool->count(parentBlock) == 0;
     AlignmentToMemPool *alignmentToMemPool;
     if (blockToDynamicPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
 
       // Create new entry in the block map.
       alignmentToMemPool = new AlignmentToMemPool();
-      blockToDynamicPool->insert(std::pair<Block *, AlignmentToMemPool*>(
+      blockToDynamicPool->insert(std::pair<Block *, AlignmentToMemPool *>(
           parentBlock, alignmentToMemPool));
     } else {
       alignmentToMemPool = blockToDynamicPool->at(parentBlock);
     }
 
-    bool isFirstBundledAllocWithThisAlignment = alignmentToMemPool->count(alignment) == 0;
+    bool isFirstBundledAllocWithThisAlignment =
+        alignmentToMemPool->count(alignment) == 0;
 
     // This is the first dynamic alloc with this alignment.
     if (isFirstBundledAllocWithThisAlignment)
-      alignmentToMemPool->insert(std::pair<int64_t, AllocOp>(alignment, allocOp));
+      alignmentToMemPool->insert(
+          std::pair<int64_t, AllocOp>(alignment, allocOp));
 
     // Move the computation instructions at the start of the block.
     AllocOp oldDynamicMemoryPool = alignmentToMemPool->at(alignment);
@@ -438,8 +437,9 @@ public:
         oldDynamicMemoryPool);
 
     // We need to emit a new alloc which contains the additional MemRef.
-    AllocOp bundledAlloc = rewriter.create<AllocOp>(
-        loc, bundledMemPoolMemRefType, bundledAllocOperand.getResult(), oldDynamicMemoryPool.alignmentAttr());
+    AllocOp bundledAlloc = rewriter.create<AllocOp>(loc,
+        bundledMemPoolMemRefType, bundledAllocOperand.getResult(),
+        oldDynamicMemoryPool.alignmentAttr());
     bundledAlloc.getOperation()->moveBefore(oldDynamicMemoryPool);
 
     KrnlGetRefOp bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
