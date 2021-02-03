@@ -31,7 +31,7 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
       auto indexVal = emitConstantOp(rewriter, loc, rewriter.getIndexType(), i);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
       auto repeatsLoadVal =
-          rewriter.create<AffineLoadOp>(loc, repeatsOperand, repeatsMemRefVal);
+          rewriter.create<KrnlLoadOp>(loc, repeatsOperand, repeatsMemRefVal);
       auto repeatsElementVal = rewriter.create<IndexCastOp>(
           loc, repeatsLoadVal, rewriter.getIndexType());
       auto dimVal = rewriter.create<DimOp>(loc, inputOperand, i);
@@ -105,17 +105,13 @@ struct ONNXTileOpLowering : public ConversionPattern {
       loadIndices.emplace_back(exprVal.getValue());
     }
 
-    Value loadVal;
-    if (isAffineLoad)
-      loadVal = rewriter.create<AffineLoadOp>(loc, input, loadIndices);
-    else
-      loadVal = rewriter.create<LoadOp>(loc, input, loadIndices);
+    Value loadVal = rewriter.create<KrnlLoadOp>(loc, input, loadIndices);
 
     SmallVector<Value, 4> storeIndices;
     for (int i = 0; i < outputRank; ++i) {
       storeIndices.emplace_back(outputLoops.getInductionVar(i));
     }
-    rewriter.create<AffineStoreOp>(loc, loadVal, alloc, storeIndices);
+    rewriter.create<KrnlStoreOp>(loc, loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
 
@@ -166,7 +162,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
           emitConstantOp(rewriter, loc, rewriter.getIndexType(), ii);
       SmallVector<Value, 1> repeatsMemRefVal = {indexVal};
       auto repeatsLoadVal =
-          rewriter.create<AffineLoadOp>(loc, repeats, repeatsMemRefVal);
+          rewriter.create<KrnlLoadOp>(loc, repeats, repeatsMemRefVal);
       auto repeatsElementVal = rewriter.create<IndexCastOp>(
           loc, repeatsLoadVal, rewriter.getIndexType());
       pack.pushOperandBound(repeatsElementVal);
@@ -210,11 +206,8 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
       }
     }
 
-    auto inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
-    if (hasAllConstantDimensions(outputMemRefType))
-      rewriter.create<AffineStoreOp>(loc, inputVal, alloc, outputMemRefVal);
-    else
-      rewriter.create<StoreOp>(loc, inputVal, alloc, outputMemRefVal);
+    auto inputVal = rewriter.create<KrnlLoadOp>(loc, input, inputMemRefVal);
+    rewriter.create<KrnlStoreOp>(loc, inputVal, alloc, outputMemRefVal);
 
     rewriter.replaceOp(op, alloc);
 

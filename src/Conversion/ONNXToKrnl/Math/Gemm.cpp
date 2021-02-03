@@ -63,7 +63,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Create a local reduction value for res[n,m].
     Value reductionVal =
         rewriter.create<AllocaOp>(loc, MemRefType::get({}, elementType));
-    rewriter.create<AffineStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
+    rewriter.create<KrnlStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
 
     // Create the inner reduction loop.
     BuildKrnlLoop innerLoops(rewriter, loc, 1);
@@ -87,18 +87,20 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       else
         bAccessFct = {k, m};
       // Add mat mul operation.
-      Value loadedA = outerContext.createLoadOp(operandAdaptor.A(), aAccessFct);
-      Value loadedB = outerContext.createLoadOp(operandAdaptor.B(), bAccessFct);
+      Value loadedA =
+          outerContext.createKrnlLoadOp(operandAdaptor.A(), aAccessFct);
+      Value loadedB =
+          outerContext.createKrnlLoadOp(operandAdaptor.B(), bAccessFct);
       Value loadedY =
-          rewriter.create<AffineLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+          rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
       Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
       Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-      rewriter.create<AffineStoreOp>(
+      rewriter.create<KrnlStoreOp>(
           loc, accumulated, reductionVal, ArrayRef<Value>{});
     }
     rewriter.restoreInsertionPoint(ipOuterLoopRegion);
     Value loadedAB =
-        rewriter.create<AffineLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+        rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
 
     // Write code after the completion of the inner loop.
     // Compute the c access function using the broadcast rules.
@@ -116,13 +118,14 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
     if (shapeHelper.hasBias) {
       // Res = AB*alpha + beta * C.
-      Value loadedC = outerContext.createLoadOp(operandAdaptor.C(), cAccessFct);
+      Value loadedC =
+          outerContext.createKrnlLoadOp(operandAdaptor.C(), cAccessFct);
       auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
       auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-      outerContext.createStoreOp(Y, alloc, resAccessFct);
+      outerContext.createKrnlStoreOp(Y, alloc, resAccessFct);
     } else {
       // No bias, just store alphaAB into res.
-      outerContext.createStoreOp(alphaAB, alloc, resAccessFct);
+      outerContext.createKrnlStoreOp(alphaAB, alloc, resAccessFct);
     }
 
     rewriter.replaceOp(op, alloc);

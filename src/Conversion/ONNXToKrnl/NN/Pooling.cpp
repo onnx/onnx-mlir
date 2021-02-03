@@ -100,7 +100,7 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
     ArrayRef<Value> poolDimValues) {
   // AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
   bool countIncludePad = getCountIncludePad<ONNXAveragePoolOp>(poolOp);
-  Value numerator = rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
+  Value numerator = rewriter.create<KrnlLoadOp>(loc, alloc, resultIndices);
   Value denominator;
   if (countIncludePad) {
     int64_t kernelSize = 1;
@@ -120,7 +120,7 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 
   Value average = rewriter.create<DivFOp>(loc, numerator, denominator);
 
-  rewriter.create<AffineStoreOp>(loc, average, alloc, resultIndices);
+  rewriter.create<KrnlStoreOp>(loc, average, alloc, resultIndices);
 }
 
 //===----------------------------------------------------------------------===//
@@ -348,7 +348,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // Create a local reduction value for output[n][c][ho][wo].
       Value reductionVal = rewriter.create<AllocaOp>(
           loc, MemRefType::get({}, memRefType.getElementType()));
-      rewriter.create<AffineStoreOp>(
+      rewriter.create<KrnlStoreOp>(
           loc, identity, reductionVal, ArrayRef<Value>{});
 
       // 2.2 Emit affine maps which express the lower and upper bounds for the
@@ -473,18 +473,19 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         // Apply pooling operation.
         //      output[n][c][ho][wo] =
         //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-        Value loadInput = ieContext.createLoadOp(inputOperand, inputIndices);
+        Value loadInput =
+            ieContext.createKrnlLoadOp(inputOperand, inputIndices);
         Value loadPartialOutput =
-            rewriter.create<AffineLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+            rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
             outputElementType, {loadPartialOutput, loadInput});
-        rewriter.create<AffineStoreOp>(
+        rewriter.create<KrnlStoreOp>(
             loc, output, reductionVal, ArrayRef<Value>{});
       }
       rewriter.restoreInsertionPoint(ipOuterLoopRegion);
       Value output =
-          rewriter.create<AffineLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-      ieContext.createStoreOp(output, alloc, outputIndices);
+          rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+      ieContext.createKrnlStoreOp(output, alloc, outputIndices);
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.
       SmallVector<Value, 4> outputIndicesInValue;
