@@ -171,11 +171,7 @@ public:
     }
 
     // Populate alignment integer.
-    int64_t alignment = 0;
-    if (IntegerAttr alignmentAttr = allocOp.alignmentAttr())
-       alignment = alignmentAttr.getInt();
-
-    //printf("Alignment = %d\n", alignment);
+    int64_t alignment = getAllocAlignment(allocOp);
 
     // If this parent block has been found present in the map, check that
     // a static memory bundle with the current alignment already exists.
@@ -303,9 +299,7 @@ public:
     auto parentBlock = allocOp.getOperation()->getBlock();
 
     // Compute alignment.
-    int64_t alignment = 0;
-    if (IntegerAttr alignmentAttr = allocOp.alignmentAttr())
-       alignment = alignmentAttr.getInt();
+    int64_t alignment = getAllocAlignment(allocOp);
 
     // If this is not the first time we process an alloc in this block, avoid
     // processing the current dynamic memory pool again.
