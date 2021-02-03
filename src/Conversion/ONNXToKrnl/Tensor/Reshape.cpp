@@ -12,21 +12,6 @@
 
 using namespace mlir;
 
-Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
-    Value operand, int64_t axis) {
-  ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
-  Value dimVal;
-  if (shape[axis] < 0) {
-    Value dim = rewriter.create<DimOp>(loc, operand, axis);
-    dimVal =
-        rewriter.create<IndexCastOp>(loc, dim, rewriter.getIntegerType(64));
-  } else {
-    dimVal =
-        emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), shape[axis]);
-  }
-  return dimVal;
-}
-
 struct ONNXReshapeOpLowering : public ConversionPattern {
   ONNXReshapeOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXReshapeOp::getOperationName(), 1, ctx) {}
@@ -62,7 +47,8 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     Value tensorSize = emitConstantOp(rewriter, loc,
         rewriter.getIntegerType(64), getMemRefEltSizeInBytes(memRefType));
     for (int i = 0; i < dataShape.size(); ++i) {
-      Value dimVal = getDimOrConstant(rewriter, loc, data, i);
+      Value dimVal =
+          getDimOrConstant(rewriter, loc, data, i, rewriter.getIntegerType(64));
       tensorSize = rewriter.create<MulIOp>(loc, tensorSize, dimVal);
     }
 
@@ -111,9 +97,11 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
           // input tensor.
           if (!shapeAttrValues.empty()) {
             if (shapeAttrValues[i] == 0)
-              loadedVal = getDimOrConstant(rewriter, loc, data, i);
+              loadedVal = getDimOrConstant(
+                  rewriter, loc, data, i, rewriter.getIntegerType(64));
           } else {
-            auto dimVal = getDimOrConstant(rewriter, loc, data, i);
+            auto dimVal = getDimOrConstant(
+                rewriter, loc, data, i, rewriter.getIntegerType(64));
             auto zero =
                 emitConstantOp(rewriter, loc, rewriter.getIntegerType(64), 0);
             auto isZero = rewriter.create<CmpIOp>(
