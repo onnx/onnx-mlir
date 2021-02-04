@@ -187,6 +187,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
             outerLoops.getInductionVar(gIndex));
         kernel = g * kernelsPerGroupValue + kernel;
       }
+      // Evaluate kernel to emit its SSA value at this location.
+      kernel.getValue();
 
       // 2.2 Define spatial loops
       int64_t nSpatialLoops = resultShape.size() - spatialStartIndex;
@@ -212,12 +214,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
         for (auto arg : spatialLoops.getIterateBlock()->getArguments())
           resultIndices.emplace_back(ieContext.createLoopInductionIndex(arg));
 
-        // Explicitly evalutate IndexExprs. Otherwise it fails when using
-        // 'resultIndices' for createKrnlStoreOp called after the reduction
-        // loop.
-        for (auto &ie : resultIndices)
-          ie.getValue();
-
+        // Intialize the output.
+        ieContext.createKrnlStoreOp(zero, alloc, resultIndices);
         // Create a local reduction value.
         Value reductionVal = rewriter.create<AllocaOp>(
             loc, MemRefType::get({}, memRefType.getElementType()));
