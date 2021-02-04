@@ -214,8 +214,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
         for (auto arg : spatialLoops.getIterateBlock()->getArguments())
           resultIndices.emplace_back(ieContext.createLoopInductionIndex(arg));
 
-        // Intialize the output.
+        // Initialize the output.
         ieContext.createKrnlStoreOp(zero, alloc, resultIndices);
+
         // Create a local reduction value.
         Value reductionVal = rewriter.create<AllocaOp>(
             loc, MemRefType::get({}, memRefType.getElementType()));
