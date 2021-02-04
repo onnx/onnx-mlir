@@ -433,6 +433,85 @@ def KrnlAcosOp : Op<Krnl_Dialect, "acos"> {
   let printer = ?;
 }
 
+def KrnlAcoshOp : Op<Krnl_Dialect, "acosh"> {
+  let summary = "Krnl acosh scalar operation";
+  let description = [{
+    Krnl acosh scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs AnyFloat:$out);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlAsinOp : Op<Krnl_Dialect, "asin"> {
+  let summary = "Krnl asin scalar operation";
+  let description = [{
+    Krnl asin scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs AnyFloat:$out);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlAsinhOp : Op<Krnl_Dialect, "asinh"> {
+  let summary = "Krnl asinh scalar operation";
+  let description = [{
+    Krnl asinh scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs AnyFloat:$out);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlAtanOp : Op<Krnl_Dialect, "atan"> {
+  let summary = "Krnl atan scalar operation";
+  let description = [{
+    Krnl atan scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs AnyFloat:$out);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlAtanhOp : Op<Krnl_Dialect, "atanh"> {
+  let summary = "Krnl atanh scalar operation";
+  let description = [{
+    Krnl atanh scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs AnyFloat:$out);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+def KrnlTanOp : Op<Krnl_Dialect, "tan"> {
+  let summary = "Krnl tan scalar operation";
+  let description = [{
+    Krnl tan scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs AnyFloat:$out);
+
+  let parser = ?;
+  let printer = ?;
+}
+
+
 def KrnlLoadOp : Op<Krnl_Dialect, "load",
   [TypesMatchWith<"result type matches element type of 'memref'",
                   "memref", "result",

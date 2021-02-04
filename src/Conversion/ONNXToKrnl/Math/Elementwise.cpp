@@ -133,6 +133,38 @@ struct ScalarOp<ONNXAcosOp> {
   using IOp = KrnlAcosOp; // Not used.
 };
 
+template <>
+struct ScalarOp<ONNXAcoshOp> {
+  using FOp = KrnlAcoshOp;
+  using IOp = KrnlAcoshOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAsinOp> {
+  using FOp = KrnlAsinOp;
+  using IOp = KrnlAsinOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAsinhOp> {
+  using FOp = KrnlAsinhOp;
+  using IOp = KrnlAsinhOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAtanhOp> {
+  using FOp = KrnlAtanhOp;
+  using IOp = KrnlAtanhOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXTanOp> {
+  using FOp = KrnlTanOp;
+  using IOp = KrnlTanOp; // Not used.
+};
+
+
+
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
@@ -829,6 +861,10 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXAcosOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcoshOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanhOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,

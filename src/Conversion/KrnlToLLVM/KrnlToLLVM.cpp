@@ -545,6 +545,72 @@ struct MathFunctionName<KrnlAcosOp> {
   }
 };
 
+template <>
+struct MathFunctionName<KrnlAcoshOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "acoshf";
+    if (type.isF64())
+      return "acosh";
+    assert(false && "Unsupported type for acosh");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlAsinOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "asinf";
+    if (type.isF64())
+      return "asin";
+    assert(false && "Unsupported type for asin");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlAsinhOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "asinhf";
+    if (type.isF64())
+      return "asinh";
+    assert(false && "Unsupported type for asinh");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlAtanOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "atanf";
+    if (type.isF64())
+      return "atan";
+    assert(false && "Unsupported type for atan");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlTanOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "tanf";
+    if (type.isF64())
+      return "tan";
+    assert(false && "Unsupported type for tan");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlAtanhOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "atanhf";
+    if (type.isF64())
+      return "atanh";
+    assert(false && "Unsupported type for atanh");
+  }
+};
+
 template <typename KrnlScalarMathOp>
 class KrnlUnaryMathOpLowering : public ConversionPattern {
 public:
