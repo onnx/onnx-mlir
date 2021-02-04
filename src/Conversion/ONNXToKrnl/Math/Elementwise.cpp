@@ -889,6 +889,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSqrtOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
