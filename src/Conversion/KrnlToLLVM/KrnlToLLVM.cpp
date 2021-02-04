@@ -1208,6 +1208,13 @@ void mlir::populateAffineAndKrnlToLLVMConversion(
   // Math library functions.
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAcosOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAcoshOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAsinOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAsinhOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanhOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlTanOp>>(ctx);
+  
 }
 
 //===----------------------------------------------------------------------===//
