@@ -333,3 +333,19 @@ Value emitNegativeInfinityConstantOp(
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
 }
+
+Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
+    Value operand, int64_t axis, Type type) {
+  ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
+  Value dimVal;
+  if (shape[axis] < 0) {
+    Value dim = rewriter.create<DimOp>(loc, operand, axis);
+    if (type.isa<IndexType>())
+      dimVal = dim;
+    else
+      dimVal = rewriter.create<IndexCastOp>(loc, dim, type);
+  } else {
+    dimVal = emitConstantOp(rewriter, loc, type, shape[axis]);
+  }
+  return dimVal;
+}

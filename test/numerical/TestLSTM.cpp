@@ -290,9 +290,12 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   auto &lstmYh = outputs.at(1);
   auto &lstmYc = outputs.at(2);
 
-  return (omTensorAreTwoOmtsClose<float>(lstmY.get(), refY) &&
-          omTensorAreTwoOmtsClose<float>(lstmYh.get(), refYh) &&
-          omTensorAreTwoOmtsClose<float>(lstmYc.get(), refYc));
+  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
+  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
+
+  return (omTensorAreTwoOmtsClose<float>(lstmY.get(), refY, rtol, atol) &&
+          omTensorAreTwoOmtsClose<float>(lstmYh.get(), refYh, rtol, atol) &&
+          omTensorAreTwoOmtsClose<float>(lstmYc.get(), refYc, rtol, atol));
 }
 
 int main(int argc, char *argv[]) {
