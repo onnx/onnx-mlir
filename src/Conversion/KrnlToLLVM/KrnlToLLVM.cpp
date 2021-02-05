@@ -531,7 +531,13 @@ struct MathFunctionName {
 
 template <>
 struct MathFunctionName<KrnlErfOp> {
-  static std::string functionName(mlir::Type type) { return "erff"; }
+  static std::string functionName(mlir::Type type) { 
+   if (type.isF32())
+      return "erff";
+    if (type.isF64())
+      return "erf";
+    llvm_unreachable("Currently unsupported type for erf");
+ }
 };
 
 template <>
@@ -541,7 +547,7 @@ struct MathFunctionName<KrnlAcosOp> {
       return "acosf";
     if (type.isF64())
       return "acos";
-    assert(false && "Unsupported type for acos");
+    llvm_unreachable("Unsupported type for acos");
   }
 };
 
@@ -552,7 +558,7 @@ struct MathFunctionName<KrnlAcoshOp> {
       return "acoshf";
     if (type.isF64())
       return "acosh";
-    assert(false && "Unsupported type for acosh");
+    llvm_unreachable("Unsupported type for acosh");
   }
 };
 
@@ -563,7 +569,7 @@ struct MathFunctionName<KrnlAsinOp> {
       return "asinf";
     if (type.isF64())
       return "asin";
-    assert(false && "Unsupported type for asin");
+    llvm_unreachable("Unsupported type for asin");
   }
 };
 
@@ -574,7 +580,7 @@ struct MathFunctionName<KrnlAsinhOp> {
       return "asinhf";
     if (type.isF64())
       return "asinh";
-    assert(false && "Unsupported type for asinh");
+    llvm_unreachable("Unsupported type for asinh");
   }
 };
 
@@ -585,7 +591,7 @@ struct MathFunctionName<KrnlAtanOp> {
       return "atanf";
     if (type.isF64())
       return "atan";
-    assert(false && "Unsupported type for atan");
+    llvm_unreachable("Unsupported type for atan");
   }
 };
 
@@ -596,7 +602,7 @@ struct MathFunctionName<KrnlTanOp> {
       return "tanf";
     if (type.isF64())
       return "tan";
-    assert(false && "Unsupported type for tan");
+    llvm_unreachable("Unsupported type for tan");
   }
 };
 
@@ -607,7 +613,7 @@ struct MathFunctionName<KrnlAtanhOp> {
       return "atanhf";
     if (type.isF64())
       return "atanh";
-    assert(false && "Unsupported type for atanh");
+    llvm_unreachable("Unsupported type for atanh");
   }
 };
 
