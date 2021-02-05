@@ -1214,7 +1214,6 @@ void mlir::populateAffineAndKrnlToLLVMConversion(
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanOp>>(ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanhOp>>(ctx);
   patterns.insert<KrnlUnaryMathOpLowering<KrnlTanOp>>(ctx);
-  
 }
 
 //===----------------------------------------------------------------------===//

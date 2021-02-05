@@ -695,7 +695,6 @@ LogicalResult ONNXAcoshOp::inferShapes(
   return success();
 }
 
-
 //===----------------------------------------------------------------------===//
 // Asin
 //===----------------------------------------------------------------------===//
@@ -706,7 +705,6 @@ LogicalResult ONNXAsinOp::inferShapes(
   getResult().setType(getOperand().getType());
   return success();
 }
-
 
 //===----------------------------------------------------------------------===//
 // Asinh
@@ -719,7 +717,6 @@ LogicalResult ONNXAsinhOp::inferShapes(
   return success();
 }
 
-
 //===----------------------------------------------------------------------===//
 // Atanh
 //===----------------------------------------------------------------------===//
@@ -730,7 +727,6 @@ LogicalResult ONNXAtanhOp::inferShapes(
   getResult().setType(getOperand().getType());
   return success();
 }
-
 
 //===----------------------------------------------------------------------===//
 // Log
