@@ -163,8 +163,6 @@ struct ScalarOp<ONNXTanOp> {
   using IOp = KrnlTanOp; // Not used.
 };
 
-
-
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
