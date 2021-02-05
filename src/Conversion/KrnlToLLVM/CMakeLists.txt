@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 add_library(OMKrnlToLLVM
         KrnlToLLVM.cpp)
 target_include_directories(OMKrnlToLLVM

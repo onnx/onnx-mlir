@@ -1,3 +1,5 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
+
 # Testing
 
 In onnx-mlir, there are three types of tests to ensure correctness of implementation:

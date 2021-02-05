@@ -1,3 +1,5 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
+
 # How to support to process a new ONNX Operation
 
 The text below describe the list of actions needed to successfully process a new ONNX operation. We are adding here support for an existing operation, thus when parsing the ONNX list of operation form the ONNX repository, this operation is already present. The step below explain how to add the necessary support to process that operation and lower it to code that can be executed using the LLVM compiler backend.

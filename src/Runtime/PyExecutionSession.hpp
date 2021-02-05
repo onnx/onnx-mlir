@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===------ PyExecusionSession.hpp - PyExecutionSession Declaration -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
