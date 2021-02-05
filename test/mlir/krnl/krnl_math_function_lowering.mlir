@@ -106,8 +106,8 @@ func @test_krnl_asinh_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
 // CHECK: [[ACOS_RES:%.+]] = llvm.call @asinhf([[SCALAR_IN]]) : (!llvm.float) -> !llvm.float
 // CHECK: [[DATA_OUT:%.+]] = llvm.getelementptr {{.*}} : (!llvm.ptr<float>, !llvm.i64) -> !llvm.ptr<float>
 // CHECK: llvm.store [[ACOS_RES]], [[DATA_OUT]] : !llvm.ptr<float>
-/// Test lowering of krnl.acos to LLVM math function call.
 
+/// Test lowering of krnl.atan to LLVM math function call.
 func @test_krnl_atan_lowering(%arg0: memref<10x10xf32>) -> memref<10x10xf32> {
   %0 = alloc() : memref<10x10xf32>
   %1:2 = krnl.define_loops 2

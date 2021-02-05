@@ -3170,26 +3170,6 @@ func private @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func private @test_atan(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Atan"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_atan
-  // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
-  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
-  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[C0_0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[ATAN:%.+]] = atan [[LOAD]] : f32
-  // CHECK: krnl.store [[ATAN]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: return [[RES]] : memref<?x10xf32>
-}
-
-// -----
-
 func private @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
   %0 = "onnx.Clip"(%arg0, %arg1, %arg2) : (tensor<3xf32>, tensor<f32>, tensor<f32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>

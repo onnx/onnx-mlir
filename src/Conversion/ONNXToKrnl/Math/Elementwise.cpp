@@ -93,8 +93,8 @@ struct ScalarOp<ONNXSqrtOp> {
 
 template <>
 struct ScalarOp<ONNXAtanOp> {
-  using FOp = AtanOp;
-  using IOp = AtanOp; // Not used.
+  using FOp = KrnlAtanOp;
+  using IOp = KrnlAtanOp; // Not used.
 };
 
 template <>
