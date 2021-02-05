@@ -439,27 +439,26 @@ func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> t
   // CHECK: [[LOAD_3:%.+]] = krnl.load %arg1[%[[CONSTANT_6]]] : memref<4xi64>
   // CHECK: [[MUL_4:%.+]] = muli [[MUL_3]], [[LOAD_3]] : i64
 
-  // CHECK: [[CONSTANT_7:%.+]] = constant 0 : i64
-  // CHECK: [[SUB_0:%.+]] = subi [[CONSTANT_7]], [[MUL_4]] : i64
-
   // CHECK: [[CONSTANT_8:%.+]] = constant -1 : i64
+  // CHECK: [[TENSOR_SIZE_FROM_SHAPE:%.+]] = muli [[MUL_4]], [[CONSTANT_8]] : i64
+
   // CHECK: [[CMP_2:%.+]] = cmpi "eq", [[SELECT_0]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_0:%.+]] = divi_signed [[TENSOR_SIZE]], [[SUB_0]] : i64
+  // CHECK: [[DIVISIGNED_0:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
   // CHECK: [[SELECT_2:%.+]] = select [[CMP_2]], [[DIVISIGNED_0]], [[SELECT_0]] : i64
   // CHECK: [[CAST_0:%.+]] = index_cast [[SELECT_2]] : i64 to index
 
   // CHECK: [[CMP_3:%.+]] = cmpi "eq", [[SELECT_1]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_1:%.+]] = divi_signed [[TENSOR_SIZE]], [[SUB_0]] : i64
+  // CHECK: [[DIVISIGNED_1:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
   // CHECK: [[SELECT_3:%.+]] = select [[CMP_3]], [[DIVISIGNED_1]], [[SELECT_1]] : i64
   // CHECK: [[CAST_1:%.+]] = index_cast [[SELECT_3]] : i64 to index
 
   // CHECK: [[CMP_4:%.+]] = cmpi "eq", [[LOAD_2]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_2:%.+]] = divi_signed [[TENSOR_SIZE]], [[SUB_0]] : i64
+  // CHECK: [[DIVISIGNED_2:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
   // CHECK: [[SELECT_4:%.+]] = select [[CMP_4]], [[DIVISIGNED_2]], [[LOAD_2]] : i64
   // CHECK: [[CAST_2:%.+]] = index_cast [[SELECT_4]] : i64 to index
 
   // CHECK: [[CMP_5:%.+]] = cmpi "eq", [[LOAD_3]], [[CONSTANT_8]] : i64
-  // CHECK: [[DIVISIGNED_3:%.+]] = divi_signed [[TENSOR_SIZE]], [[SUB_0]] : i64
+  // CHECK: [[DIVISIGNED_3:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
   // CHECK: [[SELECT_5:%.+]] = select [[CMP_5]], [[DIVISIGNED_3]], [[LOAD_3]] : i64
   // CHECK: [[CAST_3:%.+]] = index_cast [[SELECT_5]] : i64 to index
 
