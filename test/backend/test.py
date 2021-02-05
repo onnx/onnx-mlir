@@ -100,9 +100,11 @@ test_to_enable_static_dynamic = {
 
     # Acos
     "test_acos_cpu": (test_static_dynamic,),
+    "test_acos_example_cpu": (test_static_dynamic,),
 
     # Acosh
     "test_acosh_cpu": (test_static_dynamic,),
+    "test_acosh_example_cpu": (test_static_dynamic,),
 
     # Adagrad
 
@@ -128,16 +130,19 @@ test_to_enable_static_dynamic = {
 
     # Asin
     "test_asin_cpu": (test_static_dynamic,),
+    "test_asin_example_cpu": (test_static_dynamic,),
 
     # Asinh
     "test_asinh_cpu": (test_static_dynamic,),
+    "test_asinh_example_cpu": (test_static_dynamic,),
 
     # Atan
-    #"test_atan_example_cpu": (test_static_dynamic,),
+    "test_atan_example_cpu": (test_static_dynamic,),
     "test_atan_cpu": (test_static_dynamic,),
 
     # Atanh
     "test_atanh_cpu": (test_static_dynamic,),
+    "test_atanh_example_cpu": (test_static_dynamic,),
 
     # AveragePool
     "test_averagepool_1d_default_cpu": (test_static_dynamic,),
@@ -685,6 +690,7 @@ test_to_enable_static_dynamic = {
 
     # Tan
     "test_tan_cpu": (test_static_dynamic,),
+    "test_tan_example_cpu": (test_static_dynamic,),
 
     # Tanh
     "test_tanh_cpu": (test_static_dynamic,),
