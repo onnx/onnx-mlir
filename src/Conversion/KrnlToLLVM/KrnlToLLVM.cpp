@@ -531,13 +531,13 @@ struct MathFunctionName {
 
 template <>
 struct MathFunctionName<KrnlErfOp> {
-  static std::string functionName(mlir::Type type) { 
-   if (type.isF32())
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
       return "erff";
     if (type.isF64())
       return "erf";
     llvm_unreachable("Currently unsupported type for erf");
- }
+  }
 };
 
 template <>
