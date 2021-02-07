@@ -88,11 +88,14 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
   if (currentNestedForOps.empty()) {
     // If no loops are involved, simply move operations from within iterateOp
     // body region to the parent region of iterateOp.
-    builder.setInsertionPointAfter(iterateOp);
-    iterateOp.bodyRegion().walk([&](Operation *op) {
-      if (!op->isKnownTerminator())
-        op->replaceAllUsesWith(builder.clone(*op));
-    });
+    auto *parentBlock = iterateOp->getBlock();
+    auto &iterateOpEntryBlock = iterateOp.bodyRegion().front();
+    // Transfer body region operations to parent region, without the terminator
+    // op.
+    parentBlock->getOperations().splice(iterateOp->getIterator(),
+        iterateOpEntryBlock.getOperations(),
+        iterateOpEntryBlock.front().getIterator(),
+        iterateOpEntryBlock.getTerminator()->getIterator());
   } else {
     // Transfer krnl.iterate region to innermost for op.
     auto innermostForOp = currentNestedForOps.back().second;
@@ -169,6 +172,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
   } else if (auto blockOp = dyn_cast_or_null<KrnlBlockOp>(op)) {
     SmallVector<AffineForOp, 2> tiledLoops;
     SmallVector<AffineForOp, 1> loopsToTile = {loopRefToOp[blockOp.loop()]};
+
     if (failed(tilePerfectlyNested(
             loopsToTile, blockOp.tile_sizeAttr().getInt(), &tiledLoops))) {
       return failure();
@@ -277,9 +281,97 @@ public:
   }
 };
 
+class FloatingRegionOrAnchor {
+public:
+  bool storeFloatingOp() { return _isFloatingOp; }
+  explicit FloatingRegionOrAnchor(KrnlFloatingOp op)
+      : _floatOp(op), _isFloatingOp(true){};
+  explicit FloatingRegionOrAnchor(llvm::SmallVector<mlir::Value, 4> handlers)
+      : _loopHandlers(handlers), _isFloatingOp(false){};
+
+  KrnlFloatingOp floatOp() { return _floatOp; }
+  llvm::SmallVector<mlir::Value, 4> loopHandlers() { return _loopHandlers; };
+
+private:
+  bool _isFloatingOp;
+  KrnlFloatingOp _floatOp;
+  llvm::SmallVector<mlir::Value, 4> _loopHandlers;
+};
+
+void breakStmts(KrnlIterateOp root, OpBuilder builder,
+    llvm::DenseMap<mlir::Value, llvm::SmallVector<FloatingRegionOrAnchor, 4>>
+        &layoutMap) {
+  auto &bodyRegion = root.bodyRegion();
+  for (auto &block : bodyRegion.getBlocks()) {
+    assert(!block.empty() && "IterateOp body block shouldn't be empty.");
+    Operation *frontOfNextFloatingRegion = &block.front();
+    for (auto iterateOp : block.getOps<KrnlIterateOp>()) {
+      if (iterateOp->getPrevNode()) {
+        builder.setInsertionPoint(iterateOp);
+        auto floatingOp = builder.create<KrnlFloatingOp>(iterateOp->getLoc());
+        auto &floatingRegion = floatingOp.region();
+
+        floatingRegion.push_back(new Block);
+        floatingRegion.front().getOperations().splice(
+            floatingRegion.front().end(), block.getOperations(),
+            block.getOperations().begin(), floatingOp->getIterator());
+        KrnlFloatingOp::ensureTerminator(
+            floatingRegion, builder, iterateOp->getLoc());
+
+        Value innerMostLoopHandler =
+            root.getOperand(root.getNumOptimizedLoops() - 1);
+        if (layoutMap.count(innerMostLoopHandler) == 0)
+          layoutMap.try_emplace(
+              innerMostLoopHandler, SmallVector<FloatingRegionOrAnchor, 4>());
+
+        layoutMap[innerMostLoopHandler].push_back(
+            FloatingRegionOrAnchor(floatingOp));
+        auto operandRange = iterateOp->getOperands();
+        llvm::SmallVector<Value, 4> optLoopHandlers(operandRange.begin(),
+            operandRange.begin() + iterateOp.getNumOptimizedLoops());
+        layoutMap[innerMostLoopHandler].push_back(
+            FloatingRegionOrAnchor(optLoopHandlers));
+      }
+      // Update the front of the next floating region to point to node next to
+      // the KrnlIterateOp just visited.
+      frontOfNextFloatingRegion = iterateOp->getNextNode();
+    }
+
+    // If operations remain between the last iterate op and the terminator op,
+    // we group them into a separate floating region.
+    if (frontOfNextFloatingRegion != block.getTerminator()) {
+      builder.setInsertionPoint(block.getTerminator());
+      auto floatingOp =
+          builder.create<KrnlFloatingOp>(frontOfNextFloatingRegion->getLoc());
+      auto &floatingRegion = floatingOp.region();
+      floatingRegion.push_back(new Block);
+      floatingRegion.front().getOperations().splice(
+          floatingRegion.front().end(), block.getOperations(),
+          frontOfNextFloatingRegion->getIterator(), floatingOp->getIterator());
+      KrnlFloatingOp::ensureTerminator(
+          floatingRegion, builder, frontOfNextFloatingRegion->getLoc());
+
+      Value innerMostLoopHandler =
+          root.getOperand(root.getNumOptimizedLoops() - 1);
+      if (layoutMap.count(innerMostLoopHandler) == 0)
+        layoutMap.try_emplace(
+            innerMostLoopHandler, SmallVector<FloatingRegionOrAnchor, 4>());
+      layoutMap[innerMostLoopHandler].push_back(
+          FloatingRegionOrAnchor(floatingOp));
+    }
+  }
+}
+
 void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
-  mlir::Operation *funcOp = getFunction();
+  FuncOp funcOp = getFunction();
+
+  llvm::DenseMap<mlir::Value, llvm::SmallVector<FloatingRegionOrAnchor, 4>>
+      layoutMap;
+  funcOp.walk([&](KrnlIterateOp op) { breakStmts(op, builder, layoutMap); });
+
+  fprintf(stderr, "Before krnl iterate lowering:\n");
+  funcOp->dump();
 
   // Interpret krnl dialect operations while looping recursively through
   // operations within the current function, note that erasing operations while
@@ -313,8 +405,42 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   }
   assert(opsToErase.empty());
 
+  for (auto pair : layoutMap) {
+    assert(loopRefToOp.count(pair.first) >= 0 &&
+           "Can't find affine for specified as key in layout map");
+    AffineForOp forOp = loopRefToOp[pair.first];
+    Block &loopBody = forOp.getLoopBody().front();
+    auto insertPt = loopBody.begin();
+
+    auto opsToTransfer = pair.second;
+    auto transferPt = opsToTransfer.begin();
+    printf("opsToTransfer size: %d\n", opsToTransfer.size());
+
+    while (insertPt != loopBody.end() && transferPt != opsToTransfer.end()) {
+      if (transferPt->storeFloatingOp()) {
+        auto floatingOp = transferPt->floatOp();
+        // Count ops being transferred sans terminator op.
+        auto numOps = floatingOp.getBody()->getOperations().size()-1;
+        loopBody.getOperations().splice(insertPt,
+            floatingOp.getBody()->getOperations(),
+            floatingOp.getBody()->begin(),
+            floatingOp.getBody()->getTerminator()->getIterator());
+        floatingOp->erase();
+      } else {
+
+        insertPt++;
+      }
+      transferPt++;
+    }
+  }
+
+  fprintf(stderr, "After krnl iterate lowering:\n");
+  funcOp.dump();
+  return;
+
   ConversionTarget target(getContext());
   target.addIllegalOp<KrnlTerminatorOp>();
+
   // krnl.dim operations must be lowered prior to this pass.
   target.addIllegalOp<KrnlDimOp>();
   target.addLegalOp<AffineYieldOp>();

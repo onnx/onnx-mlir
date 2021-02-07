@@ -503,3 +503,19 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
     $value `,` $memref `[` $indices `]` attr-dict `:` type($memref)
   }];
 }
+
+def KrnlFloatingOp : Op<Krnl_Dialect, "floating", [ImplicitKrnlTerminator]> {
+  let summary = "iterate operation";
+  let description = [{
+
+  }];
+
+  let arguments = (ins );
+
+  let regions = (region AnyRegion:$region);
+
+  let assemblyFormat = [{
+      $region attr-dict
+  }];
+
+}
