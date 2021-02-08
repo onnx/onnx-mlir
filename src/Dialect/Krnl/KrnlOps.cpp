@@ -57,7 +57,7 @@ void KrnlDefineLoopsOp::build(
 
 void print(OpAsmPrinter &p, KrnlDefineLoopsOp &op) {
   auto numLoopAttr =
-      op.getAttrOfType<IntegerAttr>(KrnlDefineLoopsOp::getNumLoopsAttrName());
+      op->getAttrOfType<IntegerAttr>(KrnlDefineLoopsOp::getNumLoopsAttrName());
   p << "krnl.define_loops " << numLoopAttr.getValue().getSExtValue();
 }
 
@@ -135,7 +135,7 @@ void print(OpAsmPrinter &p, KrnlIterateOp &op) {
 
   auto inductionVars = op.bodyRegion().begin()->getArguments();
   auto boundItr =
-      op.getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
+      op->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
           .getValue()
           .begin();
   auto operandItr = op.operand_begin() + numOptimizedLoops;

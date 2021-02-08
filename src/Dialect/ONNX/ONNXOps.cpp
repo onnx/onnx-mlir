@@ -2064,7 +2064,7 @@ LogicalResult ONNXPadOp::inferShapes(
   SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
 
   // Get pads from valueAttribute.
-  Attribute padattr = getAttr("pads");
+  Attribute padattr = (*this)->getAttr("pads");
   SmallVector<int64_t, 2> pads(dataRank * 2, -1);
   // Sometimes it's an ArrayAttr and sometimes it's a DenseElementsAttr, so
   // handle both cases.
@@ -2079,7 +2079,7 @@ LogicalResult ONNXPadOp::inferShapes(
       pads[i] = (*valueIt++).getInt();
   } else {
     // Cannot infer if the pads is not constant
-    return emitError("Pad: unknown pads ") << getAttr("pads");
+    return emitError("Pad: unknown pads ") << (*this)->getAttr("pads");
   }
 
   // Pads consists of two values for each axis of data.
@@ -2272,7 +2272,7 @@ LogicalResult ONNXCastOp::inferShapes(
   };
 
   mlir::Type targetType =
-      this->getAttr("to").cast<::mlir::TypeAttr>().getValue();
+      (*this)->getAttr("to").cast<::mlir::TypeAttr>().getValue();
   OpBuilder builder(getContext());
   getResult().setType(getOutputType(targetType));
   return success();
