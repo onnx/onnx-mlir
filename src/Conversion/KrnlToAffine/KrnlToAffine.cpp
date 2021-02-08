@@ -62,14 +62,14 @@ public:
         assert(transferPt->loopsToSkip.hasValue() !=
                transferPt->movableOp.hasValue());
         if (transferPt->movableOp.hasValue()) {
-          auto floatingOp = transferPt->movableOp.getValue();
+          auto movableOp = transferPt->movableOp.getValue();
           // Count ops being transferred (sans terminator op).
-          auto numOps = floatingOp.getBody()->getOperations().size() - 1;
+          auto numOps = movableOp.getBody()->getOperations().size() - 1;
           loopBody.getOperations().splice(insertPt,
-              floatingOp.getBody()->getOperations(),
-              floatingOp.getBody()->begin(),
-              floatingOp.getBody()->getTerminator()->getIterator());
-          floatingOp->erase();
+              movableOp.getBody()->getOperations(),
+              movableOp.getBody()->begin(),
+              movableOp.getBody()->getTerminator()->getIterator());
+          movableOp->erase();
         } else {
           Operation *insertPtOp = &(*insertPt);
           assert(dyn_cast_or_null<AffineForOp>(insertPtOp));
@@ -351,7 +351,7 @@ void makeBodyMovable(
   for (auto &block : bodyRegion.getBlocks()) {
     assert(!block.empty() && "IterateOp body block shouldn't be empty.");
 
-    // Delimeter ops are delimeters of a floating chunk of code.
+    // Delimeter ops are delimeters of a movable chunk of code.
     llvm::SmallVector<Operation *> delimeterOps(block.getOps<KrnlIterateOp>());
     delimeterOps.push_back(block.getTerminator());
     Operation *movableBeginOp = &block.front();
@@ -362,18 +362,18 @@ void makeBodyMovable(
       if (movableBegin == delimeterOp->getIterator())
         continue;
 
-      // Extract region & transfer them into
+      // Extract region & transfer them into a movable op.
       builder.setInsertionPoint(delimeterOp);
-      auto floatingOp = builder.create<KrnlMovableOp>(delimeterOp->getLoc());
-      auto &floatingRegion = floatingOp.region();
+      auto movableOp = builder.create<KrnlMovableOp>(delimeterOp->getLoc());
+      auto &movableRegion = movableOp.region();
       auto *entryBlock = new Block;
-      floatingRegion.push_back(entryBlock);
+      movableRegion.push_back(entryBlock);
       entryBlock->getOperations().splice(entryBlock->end(),
-          block.getOperations(), movableBegin, floatingOp->getIterator());
+          block.getOperations(), movableBegin, movableOp->getIterator());
       KrnlMovableOp::ensureTerminator(
-          floatingRegion, builder, delimeterOp->getLoc());
+          movableRegion, builder, delimeterOp->getLoc());
 
-      mover.toMoveUnder(LoopBodyMover::Movable(floatingOp), root);
+      mover.toMoveUnder(LoopBodyMover::Movable(movableOp), root);
       if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(delimeterOp))
         mover.toMoveUnder(LoopBodyMover::Movable(iterateOp), root);
 
