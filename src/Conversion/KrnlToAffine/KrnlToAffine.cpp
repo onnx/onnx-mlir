@@ -26,14 +26,14 @@ public:
    * A movable
    */
   struct Movable {
-    llvm::Optional<KrnlFloatingOp> movableOp;
+    llvm::Optional<KrnlMovableOp> movableOp;
     llvm::Optional<llvm::SmallVector<mlir::Value, 4>> loopsToSkip;
 
     /*!
      *
      * @param op
      */
-    explicit Movable(KrnlFloatingOp op) : movableOp(op) {}
+    explicit Movable(KrnlMovableOp op) : movableOp(op) {}
     explicit Movable(KrnlIterateOp op) {
       auto operandRange = op->getOperands();
       loopsToSkip = llvm::SmallVector<Value, 4>(operandRange.begin(),
@@ -364,13 +364,13 @@ void makeBodyMovable(
 
       // Extract region & transfer them into
       builder.setInsertionPoint(delimeterOp);
-      auto floatingOp = builder.create<KrnlFloatingOp>(delimeterOp->getLoc());
+      auto floatingOp = builder.create<KrnlMovableOp>(delimeterOp->getLoc());
       auto &floatingRegion = floatingOp.region();
       auto *entryBlock = new Block;
       floatingRegion.push_back(entryBlock);
       entryBlock->getOperations().splice(entryBlock->end(),
           block.getOperations(), movableBegin, floatingOp->getIterator());
-      KrnlFloatingOp::ensureTerminator(
+      KrnlMovableOp::ensureTerminator(
           floatingRegion, builder, delimeterOp->getLoc());
 
       mover.toMoveUnder(LoopBodyMover::Movable(floatingOp), root);

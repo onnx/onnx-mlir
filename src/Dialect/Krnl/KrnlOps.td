@@ -504,10 +504,12 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
   }];
 }
 
-def KrnlFloatingOp : Op<Krnl_Dialect, "floating", [ImplicitKrnlTerminator]> {
-  let summary = "iterate operation";
+def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
+  let summary = "Krnl movable operation";
   let description = [{
-
+     Encapsulates a list of operations, which should be moved under a newly lowered
+     affine for operation eventually, but cannot presently because the destination
+     affine for operation is not materialized yet.
   }];
 
   let arguments = (ins );
