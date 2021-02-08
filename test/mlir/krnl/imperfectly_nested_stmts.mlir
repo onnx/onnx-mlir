@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
-func @simple_block() {
+func @simple_imperfectly_nested() {
   %ii = krnl.define_loops 1
   %ib, %il = krnl.block %ii 2 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   krnl.iterate(%ib) with (%ii -> %i = 0 to 10) {
@@ -13,7 +13,7 @@ func @simple_block() {
   }
   return
 
-// CHECK-LABEL: func @simple_block
+// CHECK-LABEL: func @simple_imperfectly_nested
 // CHECK-SAME:     () {
 // CHECK:           affine.for [[I_BLOCK:%.+]] = 0 to 10 step 2 {
 // CHECK:             [[ALLOC:%.+]] = alloc() : memref<10xf32>
