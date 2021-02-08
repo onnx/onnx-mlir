@@ -237,6 +237,8 @@ void populateLoweringONNXRNNOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 // `Tensor` directory methods:
+void populateLoweringONNXArgMaxOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXUnsqueezeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
