@@ -23,16 +23,12 @@ using namespace mlir;
 class LoopBodyMover {
 public:
   /*!
-   * A movable
+   * Represents (a list of) operations to move moved.
    */
   struct Movable {
     llvm::Optional<KrnlMovableOp> movableOp;
     llvm::Optional<llvm::SmallVector<mlir::Value, 4>> loopsToSkip;
 
-    /*!
-     *
-     * @param op
-     */
     explicit Movable(KrnlMovableOp op) : movableOp(op) {}
     explicit Movable(KrnlIterateOp op) {
       auto operandRange = op->getOperands();
@@ -80,6 +76,34 @@ public:
     }
   }
 
+  void moveEx(Value loopRef, AffineForOp forOp) {
+    Block &loopBody = forOp.getLoopBody().front();
+    auto insertPt = loopBody.begin();
+
+    auto opsToTransfer = movingPlan[loopRef];
+    movingPlan.erase(loopRef);
+    auto transferPt = opsToTransfer.begin();
+
+    while (insertPt != loopBody.end() && transferPt != opsToTransfer.end()) {
+      assert(transferPt->loopsToSkip.hasValue() !=
+             transferPt->movableOp.hasValue());
+      if (transferPt->movableOp.hasValue()) {
+        auto movableOp = transferPt->movableOp.getValue();
+        // Count ops being transferred (sans terminator op).
+        auto numOps = movableOp.getBody()->getOperations().size() - 1;
+        loopBody.getOperations().splice(insertPt,
+            movableOp.getBody()->getOperations(), movableOp.getBody()->begin(),
+            movableOp.getBody()->getTerminator()->getIterator());
+        movableOp->erase();
+      } else {
+        Operation *insertPtOp = &(*insertPt);
+        //        assert(dyn_cast_or_null<AffineForOp>(insertPtOp));
+        insertPt++;
+      }
+      transferPt++;
+    }
+  }
+
 private:
   llvm::DenseMap<mlir::Value, llvm::SmallVector<Movable, 4>> movingPlan;
 };
@@ -102,7 +126,8 @@ public:
 };
 
 void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
-    llvm::SmallDenseMap<Value, AffineForOp, 4> &refToOps) {
+    llvm::SmallDenseMap<Value, AffineForOp, 4> &refToOps,
+    LoopBodyMover &mover) {
   builder.setInsertionPointAfter(iterateOp);
   SmallVector<std::pair<Value, AffineForOp>, 4> currentNestedForOps;
   auto boundMapAttrs =
@@ -169,8 +194,9 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
         innerMostRegion.end(), iterateOp.bodyRegion().getBlocks());
   }
 
-  for (const auto &pair : currentNestedForOps)
+  for (const auto &pair : currentNestedForOps) {
     refToOps.try_emplace(pair.first, pair.second);
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -189,14 +215,14 @@ struct ConvertKrnlToAffinePass
 
 LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
-    llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
+    llvm::SmallPtrSetImpl<Operation *> &opsToErase, LoopBodyMover &mover) {
   // Recursively interpret nested operations.
   for (auto &region : op->getRegions())
     for (auto &block : region.getBlocks()) {
       auto &blockOps = block.getOperations();
       for (auto itr = blockOps.begin(); itr != blockOps.end();)
         if (failed(interpretOperation(
-                &(*itr), builder, loopRefToOp, opsToErase))) {
+                &(*itr), builder, loopRefToOp, opsToErase, mover))) {
           return failure();
         } else {
           ++itr;
@@ -218,7 +244,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     if (!iterateOps.empty()) {
       for (auto opToLower : iterateOps) {
         if (opsToErase.count(opToLower) == 0) {
-          lowerIterateOp(opToLower, builder, loopRefToOp);
+          lowerIterateOp(opToLower, builder, loopRefToOp, mover);
           opsToErase.insert(opToLower);
         }
       }
@@ -229,7 +255,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     // If an iterateOp has no unoptimized loop references, then we need to lower
     // them manually.
     if (opsToErase.count(op) == 0) {
-      lowerIterateOp(iterateOp, builder, loopRefToOp);
+      lowerIterateOp(iterateOp, builder, loopRefToOp, mover);
       opsToErase.insert(iterateOp);
     }
     return success();
@@ -263,14 +289,20 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     for (const auto &attr : permuteOp.map().getAsRange<IntegerAttr>())
       permuteMap.emplace_back(attr.getValue().getSExtValue());
 
+    //    fprintf(stderr, "Before permute!");
+    //    permuteOp->getParentOfType<FuncOp>().dump();
+
     // Perform loop permutation.
     permuteLoops(loopsToPermute, permuteMap);
 
     opsToErase.insert(op);
     return success();
   } else if (auto unrollOp = dyn_cast_or_null<KrnlUnrollOp>(op)) {
+
     // Unroll the affine for loop fully.
     auto loopRef = unrollOp.loop();
+    mover.moveEx(loopRef, loopRefToOp[loopRef]);
+
     loopUnrollFull(loopRefToOp[loopRef]);
 
     opsToErase.insert(op);
@@ -348,6 +380,10 @@ public:
 void makeBodyMovable(
     KrnlIterateOp root, OpBuilder builder, LoopBodyMover &mover) {
   auto &bodyRegion = root.bodyRegion();
+
+  if (root.getNumOptimizedLoops() == 0)
+    return;
+
   for (auto &block : bodyRegion.getBlocks()) {
     assert(!block.empty() && "IterateOp body block shouldn't be empty.");
 
@@ -396,7 +432,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   // after iteration completes.
   llvm::SmallDenseMap<Value, AffineForOp, 4> loopRefToOp;
   llvm::SmallPtrSet<Operation *, 4> opsToErase;
-  if (failed(interpretOperation(funcOp, builder, loopRefToOp, opsToErase))) {
+  if (failed(interpretOperation(
+          funcOp, builder, loopRefToOp, opsToErase, mover))) {
     signalPassFailure();
     return;
   }
