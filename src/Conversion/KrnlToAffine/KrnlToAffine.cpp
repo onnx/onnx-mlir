@@ -126,8 +126,7 @@ public:
 };
 
 void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
-    llvm::SmallDenseMap<Value, AffineForOp, 4> &refToOps,
-    LoopBodyMover &mover) {
+    llvm::SmallDenseMap<Value, AffineForOp, 4> &refToOps) {
   builder.setInsertionPointAfter(iterateOp);
   SmallVector<std::pair<Value, AffineForOp>, 4> currentNestedForOps;
   auto boundMapAttrs =
@@ -194,9 +193,9 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
         innerMostRegion.end(), iterateOp.bodyRegion().getBlocks());
   }
 
-  for (const auto &pair : currentNestedForOps) {
+  for (const auto &pair : currentNestedForOps)
     refToOps.try_emplace(pair.first, pair.second);
-  }
+
 }
 
 //===----------------------------------------------------------------------===//
@@ -244,7 +243,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     if (!iterateOps.empty()) {
       for (auto opToLower : iterateOps) {
         if (opsToErase.count(opToLower) == 0) {
-          lowerIterateOp(opToLower, builder, loopRefToOp, mover);
+          lowerIterateOp(opToLower, builder, loopRefToOp);
           opsToErase.insert(opToLower);
         }
       }
@@ -255,7 +254,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     // If an iterateOp has no unoptimized loop references, then we need to lower
     // them manually.
     if (opsToErase.count(op) == 0) {
-      lowerIterateOp(iterateOp, builder, loopRefToOp, mover);
+      lowerIterateOp(iterateOp, builder, loopRefToOp);
       opsToErase.insert(iterateOp);
     }
     return success();
@@ -288,9 +287,6 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     SmallVector<unsigned int, 4> permuteMap;
     for (const auto &attr : permuteOp.map().getAsRange<IntegerAttr>())
       permuteMap.emplace_back(attr.getValue().getSExtValue());
-
-    //    fprintf(stderr, "Before permute!");
-    //    permuteOp->getParentOfType<FuncOp>().dump();
 
     // Perform loop permutation.
     permuteLoops(loopsToPermute, permuteMap);
