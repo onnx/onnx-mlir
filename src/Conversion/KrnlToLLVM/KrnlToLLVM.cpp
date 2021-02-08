@@ -165,16 +165,16 @@ static FlatSymbolRefAttr getOrInsertMalloc(
 //
 // declare float <mathFuncName>(float)
 //
-static FlatSymbolRefAttr getOrInsertUnaryFloatMathFunction(
-    PatternRewriter &rewriter, ModuleOp module, std::string mathFuncName) {
+static FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
+    ModuleOp module, std::string mathFuncName, mlir::LLVM::LLVMType llvmType) {
   auto *context = module.getContext();
   if (module.lookupSymbol<LLVM::LLVMFuncOp>(mathFuncName))
     return SymbolRefAttr::get(mathFuncName, context);
 
   // Create function declaration.
-  auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
+  // auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
   auto llvmFnType = LLVM::LLVMFunctionType::get(
-      llvmF32Ty, ArrayRef<mlir::LLVM::LLVMType>({llvmF32Ty}));
+      llvmType, ArrayRef<mlir::LLVM::LLVMType>({llvmType}));
 
   // Insert the unary math function into the body of the parent module.
   PatternRewriter::InsertionGuard insertGuard(rewriter);
@@ -535,7 +535,90 @@ struct MathFunctionName {
 
 template <>
 struct MathFunctionName<KrnlErfOp> {
-  static std::string functionName() { return "erff"; }
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "erff";
+    if (type.isF64())
+      return "erf";
+    llvm_unreachable("Currently unsupported type for erf");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlAcosOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "acosf";
+    if (type.isF64())
+      return "acos";
+    llvm_unreachable("Unsupported type for acos");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlAcoshOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "acoshf";
+    if (type.isF64())
+      return "acosh";
+    llvm_unreachable("Unsupported type for acosh");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlAsinOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "asinf";
+    if (type.isF64())
+      return "asin";
+    llvm_unreachable("Unsupported type for asin");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlAsinhOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "asinhf";
+    if (type.isF64())
+      return "asinh";
+    llvm_unreachable("Unsupported type for asinh");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlAtanOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "atanf";
+    if (type.isF64())
+      return "atan";
+    llvm_unreachable("Unsupported type for atan");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlTanOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "tanf";
+    if (type.isF64())
+      return "tan";
+    llvm_unreachable("Unsupported type for tan");
+  }
+};
+
+template <>
+struct MathFunctionName<KrnlAtanhOp> {
+  static std::string functionName(mlir::Type type) {
+    if (type.isF32())
+      return "atanhf";
+    if (type.isF64())
+      return "atanh";
+    llvm_unreachable("Unsupported type for atanh");
+  }
 };
 
 template <typename KrnlScalarMathOp>
@@ -549,15 +632,24 @@ public:
     auto *context = op->getContext();
     auto loc = op->getLoc();
 
-    // Insert and/or get reference to erf function declaration.
+    // get the LLVM type for the function args and result
+    mlir::Type inType = op->getOperand(0).getType();
+    mlir::LLVM::LLVMType llvmType;
+    if (inType.isF32())
+      llvmType = LLVM::LLVMFloatType::get(context);
+    else if (inType.isF64())
+      llvmType = LLVM::LLVMDoubleType::get(context);
+
+    // Insert and/or get reference to elementary math function declaration.
+    assert(
+        inType.isIntOrFloat() && "Type for math function must be int or float");
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
-    auto mathFunctionRef = getOrInsertUnaryFloatMathFunction(rewriter,
-        parentModule, MathFunctionName<KrnlScalarMathOp>().functionName());
+    auto mathFunctionRef = getOrInsertUnaryMathFunction(rewriter, parentModule,
+        MathFunctionName<KrnlScalarMathOp>().functionName(inType), llvmType);
 
     // Emit function call.
-    auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
     auto funcCall = rewriter.create<CallOp>(
-        loc, mathFunctionRef, llvmF32Ty, ArrayRef<Value>({operands[0]}));
+        loc, mathFunctionRef, llvmType, ArrayRef<Value>({operands[0]}));
     rewriter.replaceOp(op, funcCall.getResults()[0]);
     return success();
   }
@@ -1125,6 +1217,13 @@ void mlir::populateAffineAndKrnlToLLVMConversion(
 
   // Math library functions.
   patterns.insert<KrnlUnaryMathOpLowering<KrnlErfOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAcosOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAcoshOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAsinOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAsinhOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlAtanhOp>>(ctx);
+  patterns.insert<KrnlUnaryMathOpLowering<KrnlTanOp>>(ctx);
 }
 
 //===----------------------------------------------------------------------===//

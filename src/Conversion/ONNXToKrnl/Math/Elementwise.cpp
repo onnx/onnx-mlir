@@ -97,8 +97,8 @@ struct ScalarOp<ONNXSqrtOp> {
 
 template <>
 struct ScalarOp<ONNXAtanOp> {
-  using FOp = AtanOp;
-  using IOp = AtanOp; // Not used.
+  using FOp = KrnlAtanOp;
+  using IOp = KrnlAtanOp; // Not used.
 };
 
 template <>
@@ -129,6 +129,42 @@ template <>
 struct ScalarOp<ONNXErfOp> {
   using FOp = KrnlErfOp;
   using IOp = KrnlErfOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAcosOp> {
+  using FOp = KrnlAcosOp;
+  using IOp = KrnlAcosOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAcoshOp> {
+  using FOp = KrnlAcoshOp;
+  using IOp = KrnlAcoshOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAsinOp> {
+  using FOp = KrnlAsinOp;
+  using IOp = KrnlAsinOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAsinhOp> {
+  using FOp = KrnlAsinhOp;
+  using IOp = KrnlAsinhOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAtanhOp> {
+  using FOp = KrnlAtanhOp;
+  using IOp = KrnlAtanhOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXTanOp> {
+  using FOp = KrnlTanOp;
+  using IOp = KrnlTanOp; // Not used.
 };
 
 //===----------------------------------------------------------------------===//
@@ -826,6 +862,11 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcosOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcoshOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanhOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
@@ -850,6 +891,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSqrtOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
