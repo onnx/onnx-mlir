@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===- ElideKrnlGlobalConstants.cpp - Krnl Constant lobal Value Elision ---===//
 //
 // Copyright 2019-2020 The IBM Research Authors.

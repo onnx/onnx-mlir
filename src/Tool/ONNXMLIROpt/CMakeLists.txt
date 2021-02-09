@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 add_executable(onnx-mlir-opt ONNXMLIROpt.cpp)
 add_dependencies(onnx-mlir-opt OMKrnlOpsInc OMONNXOpsInc)
 
