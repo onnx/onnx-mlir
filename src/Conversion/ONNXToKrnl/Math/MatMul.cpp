@@ -55,7 +55,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     outerContext.createLoopInductionIndicesFromArrayValues(
         outputLoops.getAllInductionVar(), resAccessFct);
     // Insert res[...] = 0.
-    outerContext.createStoreOp(zero, alloc, resAccessFct);
+    // Create a local reduction value for res[...].
+    Value reductionVal =
+        rewriter.create<AllocaOp>(loc, MemRefType::get({}, elementType));
+    rewriter.create<KrnlStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
 
     // Create the inner reduction loop; trip count is last dim of A.
     BuildKrnlLoop innerLoops(rewriter, loc, 1);
@@ -66,7 +69,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     innerLoops.createIterateOp();
 
     // Now start writing code inside the inner loop: get A & B access functions.
+    auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
+
     IndexExpr k =
         outerContext.createLoopInductionIndex(innerLoops.getInductionVar(0));
     SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
@@ -99,12 +104,21 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     }
 
     // Add mat mul operation.
-    Value loadedA = outerContext.createLoadOp(operandAdaptor.A(), aAccessFct);
-    Value loadedB = outerContext.createLoadOp(operandAdaptor.B(), bAccessFct);
-    Value loadedY = outerContext.createLoadOp(alloc, resAccessFct);
+    Value loadedA =
+        outerContext.createKrnlLoadOp(operandAdaptor.A(), aAccessFct);
+    Value loadedB =
+        outerContext.createKrnlLoadOp(operandAdaptor.B(), bAccessFct);
+    Value loadedY =
+        rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
     Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
     Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-    outerContext.createStoreOp(accumulated, alloc, resAccessFct);
+    rewriter.create<KrnlStoreOp>(
+        loc, accumulated, reductionVal, ArrayRef<Value>{});
+
+    rewriter.restoreInsertionPoint(ipOuterLoopRegion);
+    accumulated =
+        rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+    outerContext.createKrnlStoreOp(accumulated, alloc, resAccessFct);
 
     // Done.
     rewriter.replaceOp(op, alloc);

@@ -40,6 +40,21 @@ target_include_directories(OMResultTypeInferenceOpInterface
 add_dependencies(OMResultTypeInferenceOpInterface
         OMResultTypeInferenceOpInterfaceIncGen)
 
+set(LLVM_TARGET_DEFINITIONS HasOnnxSubgraphOpInterface.td)
+onnx_mlir_tablegen(HasOnnxSubgraphOpInterface.hpp.inc -gen-op-interface-decls)
+onnx_mlir_tablegen(HasOnnxSubgraphOpInterface.cpp.inc -gen-op-interface-defs)
+add_public_tablegen_target(OMHasOnnxSubgraphOpInterfaceIncGen)
+
+add_library(OMHasOnnxSubgraphOpInterface
+        HasOnnxSubgraphOpInterface.hpp
+        HasOnnxSubgraphOpInterface.cpp)
+target_include_directories(OMHasOnnxSubgraphOpInterface
+        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+add_dependencies(OMHasOnnxSubgraphOpInterface
+        OMHasOnnxSubgraphOpInterfaceIncGen)
+
 install(TARGETS OMPromotableConstOperandsOpInterface DESTINATION lib)
 install(TARGETS OMShapeInferenceOpInterface          DESTINATION lib)
 install(TARGETS OMResultTypeInferenceOpInterface     DESTINATION lib)
+install(TARGETS OMHasOnnxSubgraphOpInterface         DESTINATION lib)

@@ -69,49 +69,51 @@ public:
     }
   }
 
-  static LogicalResult runShapeInferenceOn(mlir::FuncOp f) {
+  static LogicalResult runShapeInferenceOnRegion(mlir::Region &r) {
     // Iterate on the operations that need shape inference i.e the operations
     // that return a dynamic shape or followed by a return op.
-    auto result = f.walk([&](Operation *op) -> WalkResult {
-      std::function<void(mlir::FuncOp)> shapeInferenceFunc =
-          &ShapeInferencePass::runShapeInferenceOn;
+    for (Operation &op : r.getOps()) {
+      std::function<void(mlir::Region &)> doShapeInference =
+          &ShapeInferencePass::runShapeInferenceOnRegion;
       // The shape of graph output has been imported from onnx protobuf model,
       // so the ops followed by a return op may not have dynamic shape output.
       // However, shape inference is still need on these ops
       // to infer optional attributes.
-      if (isUsedByReturnOp(op) || returnsDynamicShape(op)) {
+      if (isUsedByReturnOp(&op) || returnsDynamicShape(&op)) {
         if (auto shape_op = llvm::dyn_cast<ShapeInference>(op)) {
-          if (failed(shape_op.inferShapes(shapeInferenceFunc))) {
-            op->emitError("shape inference failed");
+          if (failed(shape_op.inferShapes(doShapeInference))) {
+            op.emitError("shape inference failed");
             return failure();
           }
         } else {
-          op->emitError("unable to infer shape of operation without shape "
-                        "inference interface");
+          op.emitError("unable to infer shape of operation without shape "
+                       "inference interface");
           return failure();
         }
       }
-      return success();
-    });
-
-    if (result.wasInterrupted())
-      return failure();
+    }
 
     int64_t dynamicOperations = 0;
-    f.walk([&](Operation *op) {
-      if (returnsDynamicShape(op)) {
+    for (Operation &op : r.getOps()) {
+      if (returnsDynamicShape(&op))
         dynamicOperations++;
-      }
-    });
+    }
 
     // If any dynamic operations remain, this indicates a failure.
     if (dynamicOperations != 0) {
-      f.emitError("Shape inference failed, ")
-          << dynamicOperations << " operations couldn't be inferred\n";
-      return failure();
+      return r.getParentOp()->emitError("Region shape inference failed!");
     }
 
+    return success();
+  }
+
+  static LogicalResult runShapeInferenceOn(mlir::FuncOp f) {
+    // Iterate on the operations that need shape inference i.e the operations
+    // that return a dynamic shape or followed by a return op.
     auto &funcBody = f.getBody();
+    if (failed(runShapeInferenceOnRegion(funcBody)))
+      return failure();
+
     // Check if a terminator op exists for function.
     if (!funcBody.empty() && !funcBody.back().empty() &&
         funcBody.back().back().isKnownTerminator())

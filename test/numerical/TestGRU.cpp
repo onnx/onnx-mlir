@@ -282,8 +282,11 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   auto &gruY = outputs.at(0);
   auto &gruYh = outputs.at(1);
 
-  return (omTensorAreTwoOmtsClose<float>(gruY.get(), refY) &&
-          omTensorAreTwoOmtsClose<float>(gruYh.get(), refYh));
+  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
+  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
+
+  return (omTensorAreTwoOmtsClose<float>(gruY.get(), refY, rtol, atol) &&
+          omTensorAreTwoOmtsClose<float>(gruYh.get(), refYh, rtol, atol));
 }
 
 int main(int argc, char *argv[]) {

@@ -13,6 +13,7 @@
 
 #include <cassert>
 #include <dlfcn.h>
+#include <memory>
 #include <string>
 
 #include "OnnxMlirRuntime.h"
