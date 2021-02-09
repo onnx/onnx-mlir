@@ -1,3 +1,5 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
+
 # Import ONNX specifications into ONNX-MLIR
 
 ONNX specifications are defined under `onnx/defs` directory in the ONNX project repository. 

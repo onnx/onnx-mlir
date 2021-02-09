@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------- Passes.hpp - ONNX MLIR Passes Definition ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.

@@ -1,3 +1,5 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
+
 # Please keep up to date.
 
 - As you start working on a new operation, move it from the lower table to the top table,

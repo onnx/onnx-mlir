@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----- ElideConstants.cpp - Elide Constant Values ---------------------===//
 //
 // Copyright 2020 The IBM Research Authors.
