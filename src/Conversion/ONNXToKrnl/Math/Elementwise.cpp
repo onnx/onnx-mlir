@@ -93,8 +93,8 @@ struct ScalarOp<ONNXSqrtOp> {
 
 template <>
 struct ScalarOp<ONNXAtanOp> {
-  using FOp = AtanOp;
-  using IOp = AtanOp; // Not used.
+  using FOp = KrnlAtanOp;
+  using IOp = KrnlAtanOp; // Not used.
 };
 
 template <>
@@ -119,6 +119,48 @@ template <>
 struct ScalarOp<ONNXPowOp> {
   using FOp = PowFOp;
   using IOp = PowFOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXErfOp> {
+  using FOp = KrnlErfOp;
+  using IOp = KrnlErfOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAcosOp> {
+  using FOp = KrnlAcosOp;
+  using IOp = KrnlAcosOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAcoshOp> {
+  using FOp = KrnlAcoshOp;
+  using IOp = KrnlAcoshOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAsinOp> {
+  using FOp = KrnlAsinOp;
+  using IOp = KrnlAsinOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAsinhOp> {
+  using FOp = KrnlAsinhOp;
+  using IOp = KrnlAsinhOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAtanhOp> {
+  using FOp = KrnlAtanhOp;
+  using IOp = KrnlAtanhOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXTanOp> {
+  using FOp = KrnlTanOp;
+  using IOp = KrnlTanOp; // Not used.
 };
 
 //===----------------------------------------------------------------------===//
@@ -651,11 +693,11 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
         loopIVs.push_back(arg);
     }
 
-    auto loadedVal = rewriter.create<AffineLoadOp>(loc, X, loopIVs);
+    auto loadedVal = rewriter.create<KrnlLoadOp>(loc, X, loopIVs);
     auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
         rewriter, loc, op, memRefType.getElementType(), {loadedVal});
     // Store result in the resulting array.
-    rewriter.create<AffineStoreOp>(loc, loweredOpResult, alloc, loopIVs);
+    rewriter.create<KrnlStoreOp>(loc, loweredOpResult, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -742,20 +784,20 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> lhsAccessExprs;
     shapeHelper.GetAccessExprs(
         outerContext, operands[0], 0, outputAccessExprs, lhsAccessExprs);
-    Value lhs = outerContext.createLoadOp(operands[0], lhsAccessExprs);
+    Value lhs = outerContext.createKrnlLoadOp(operands[0], lhsAccessExprs);
 
     // Load the sencond value.
     SmallVector<IndexExpr, 4> rhsAccessExprs;
     shapeHelper.GetAccessExprs(
         outerContext, operands[1], 1, outputAccessExprs, rhsAccessExprs);
-    Value rhs = outerContext.createLoadOp(operands[1], rhsAccessExprs);
+    Value rhs = outerContext.createKrnlLoadOp(operands[1], rhsAccessExprs);
 
     // Apply the element-wise function.
     Value result = emitScalarOpFor<ElementwiseBinaryOp>(
         rewriter, loc, op, outputElementType, {lhs, rhs});
 
     // Store result in the resulting array.
-    outerContext.createStoreOp(result, alloc, outputAccessExprs);
+    outerContext.createKrnlStoreOp(result, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -812,7 +854,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> oprdAccessExprs;
     shapeHelper.GetAccessExprs(
         outerContext, operands[0], 0, outputAccessExprs, oprdAccessExprs);
-    Value accumulated = outerContext.createLoadOp(operands[0], oprdAccessExprs);
+    Value accumulated =
+        outerContext.createKrnlLoadOp(operands[0], oprdAccessExprs);
 
     // Iterate over the remaining operands.
     for (unsigned i = 1; i < numArgs; i++) {
@@ -820,14 +863,14 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> oprdAccessExprs;
       shapeHelper.GetAccessExprs(
           outerContext, operands[i], i, outputAccessExprs, oprdAccessExprs);
-      Value next = outerContext.createLoadOp(operands[i], oprdAccessExprs);
+      Value next = outerContext.createKrnlLoadOp(operands[i], oprdAccessExprs);
       // Fold.
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
           rewriter, loc, op, outputElementType, {accumulated, next});
     }
 
     // Store result in the resulting array.
-    outerContext.createStoreOp(accumulated, alloc, outputAccessExprs);
+    outerContext.createKrnlStoreOp(accumulated, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -847,6 +890,12 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcosOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcoshOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanhOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
@@ -871,6 +920,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSqrtOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(

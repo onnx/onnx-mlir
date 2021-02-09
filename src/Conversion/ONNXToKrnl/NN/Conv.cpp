@@ -187,6 +187,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
             outerLoops.getInductionVar(gIndex));
         kernel = g * kernelsPerGroupValue + kernel;
       }
+      // Evaluate kernel to emit its SSA value at this location.
+      kernel.getValue();
 
       // 2.2 Define spatial loops
       int64_t nSpatialLoops = resultShape.size() - spatialStartIndex;
@@ -199,7 +201,6 @@ struct ONNXConvOpLowering : public ConversionPattern {
       //   for rX = 0 .. RX
       spatialLoops.createIterateOp();
       rewriter.setInsertionPointToStart(spatialLoops.getIterateBlock());
-
       {
         // 3. Emit the body of the spatial loop nest.
         // 3.1 Emit: R[n][kernel][r1][r2] = 0;
@@ -212,8 +213,15 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // rX
         for (auto arg : spatialLoops.getIterateBlock()->getArguments())
           resultIndices.emplace_back(ieContext.createLoopInductionIndex(arg));
-        // Store initializer value into output location.
-        ieContext.createStoreOp(zero, alloc, resultIndices);
+
+        // Initialize the output.
+        ieContext.createKrnlStoreOp(zero, alloc, resultIndices);
+
+        // Create a local reduction value.
+        Value reductionVal = rewriter.create<AllocaOp>(
+            loc, MemRefType::get({}, memRefType.getElementType()));
+        rewriter.create<KrnlStoreOp>(
+            loc, zero, reductionVal, ArrayRef<Value>{});
 
         // Prepare induction variables.
         SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
@@ -273,19 +281,8 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // 3.4 Emit inner loop nest.
         innerLoops.createIterateOp();
 
-        // Emit the bias, if needed.
-        if (hasBias) {
-          auto loadResult = ieContext.createLoadOp(alloc, resultIndices);
-          SmallVector<IndexExpr, 4> biasIndices;
-          biasIndices.emplace_back(kernel);
-          auto loadBias = ieContext.createLoadOp(biasOperand, biasIndices);
-          auto resultWithBias =
-              rewriter.create<AddFOp>(loc, loadResult, loadBias);
-          // Store initializer value into output location.
-          ieContext.createStoreOp(resultWithBias, alloc, resultIndices);
-        }
-
         //
+        auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
         rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
         {
           // 4. Emit inner loop body
@@ -346,15 +343,30 @@ struct ONNXConvOpLowering : public ConversionPattern {
           }
 
           // 4.3 Compute convolution.
-          auto loadData = ieContext.createLoadOp(inputOperand, dataIndices);
+          auto loadData = ieContext.createKrnlLoadOp(inputOperand, dataIndices);
           auto loadKernel =
-              ieContext.createLoadOp(kernelOperand, kernelIndices);
-          auto loadPartialSum = ieContext.createLoadOp(alloc, resultIndices);
+              ieContext.createKrnlLoadOp(kernelOperand, kernelIndices);
+          auto loadPartialSum =
+              rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
               rewriter.create<MulFOp>(loc, loadData, loadKernel));
           // 4.4 Store computed value into output location.
-          ieContext.createStoreOp(result, alloc, resultIndices);
+          rewriter.create<KrnlStoreOp>(
+              loc, result, reductionVal, ArrayRef<Value>{});
         }
+        rewriter.restoreInsertionPoint(ipOuterLoopRegion);
+
+        auto result =
+            rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+        // Store the result. Optionally add bias.
+        if (hasBias) {
+          SmallVector<IndexExpr, 4> biasIndices;
+          biasIndices.emplace_back(kernel);
+          auto loadBias = ieContext.createKrnlLoadOp(biasOperand, biasIndices);
+          auto resultWithBias = rewriter.create<AddFOp>(loc, result, loadBias);
+          ieContext.createKrnlStoreOp(resultWithBias, alloc, resultIndices);
+        } else
+          ieContext.createKrnlStoreOp(result, alloc, resultIndices);
       }
     }
     rewriter.replaceOp(op, alloc);

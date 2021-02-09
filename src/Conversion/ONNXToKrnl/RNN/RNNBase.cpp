@@ -131,14 +131,14 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
 
     Value hiddenVal = zero;
     if (!isNoneType(initialH))
-      hiddenVal = rewriter.create<AffineLoadOp>(loc, initialH, IVs);
-    rewriter.create<AffineStoreOp>(loc, hiddenVal, ht, IVs);
+      hiddenVal = rewriter.create<KrnlLoadOp>(loc, initialH, IVs);
+    rewriter.create<KrnlStoreOp>(loc, hiddenVal, ht, IVs);
 
     if (!onlyHidden) {
       Value cellVal = zero;
       if (!isNoneType(initialC))
-        cellVal = rewriter.create<AffineLoadOp>(loc, initialC, IVs);
-      rewriter.create<AffineStoreOp>(loc, cellVal, ct, IVs);
+        cellVal = rewriter.create<KrnlLoadOp>(loc, initialC, IVs);
+      rewriter.create<KrnlStoreOp>(loc, cellVal, ct, IVs);
     }
   }
   rewriter.restoreInsertionPoint(ipInitializationLoops);
@@ -152,7 +152,7 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   MemRefType scalarMemRefType =
       MemRefType::get({}, scalarOperand.getType(), {}, 0);
   Value alloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-  rewriter.create<AffineStoreOp>(loc, scalarOperand, alloc, ArrayRef<Value>{});
+  rewriter.create<KrnlStoreOp>(loc, scalarOperand, alloc, ArrayRef<Value>{});
 
   std::vector<mlir::NamedAttribute> attributes;
   if (activation.alpha) {
@@ -192,6 +192,6 @@ Value applyActivation(ConversionPatternRewriter &rewriter, Location loc,
   else
     llvm_unreachable("Unsupported activation");
 
-  Value result = rewriter.create<AffineLoadOp>(loc, res);
+  Value result = rewriter.create<KrnlLoadOp>(loc, res);
   return result;
 }

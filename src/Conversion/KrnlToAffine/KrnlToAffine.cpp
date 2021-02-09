@@ -212,6 +212,71 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// Krnl to Affine Rewrite Patterns: KrnlLoad operation.
+//===----------------------------------------------------------------------===//
+
+/// KrnlLoad will be lowered to std.load or affine.load, depending on whether
+/// the access indices are all affine maps or not.
+class KrnlLoadLowering : public OpRewritePattern<KrnlLoadOp> {
+public:
+  using OpRewritePattern<KrnlLoadOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      KrnlLoadOp op, PatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    KrnlLoadOpAdaptor operandAdaptor = KrnlLoadOpAdaptor(op);
+
+    // Prepare inputs.
+    Value memref = operandAdaptor.memref();
+    SmallVector<Value, 4> indices = operandAdaptor.indices();
+
+    // Check whether all indices are affine maps or not.
+    bool affineIndices =
+        !llvm::any_of(indices, [](Value v) { return !isValidDim(v); });
+
+    if (affineIndices)
+      rewriter.replaceOpWithNewOp<AffineLoadOp>(op, memref, indices);
+    else
+      rewriter.replaceOpWithNewOp<LoadOp>(op, memref, indices);
+
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Krnl to Affine Rewrite Patterns: KrnlStore operation.
+//===----------------------------------------------------------------------===//
+
+/// KrnlStore will be lowered to std.store or affine.store, depending on whether
+/// the access indices are all affine maps or not.
+class KrnlStoreLowering : public OpRewritePattern<KrnlStoreOp> {
+public:
+  using OpRewritePattern<KrnlStoreOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      KrnlStoreOp op, PatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    KrnlStoreOpAdaptor operandAdaptor = KrnlStoreOpAdaptor(op);
+
+    // Prepare inputs.
+    Value value = operandAdaptor.value();
+    Value memref = operandAdaptor.memref();
+    SmallVector<Value, 4> indices = operandAdaptor.indices();
+
+    // Check whether all indices are affine maps or not.
+    bool affineIndices =
+        !llvm::any_of(indices, [](Value v) { return !isValidDim(v); });
+
+    if (affineIndices)
+      rewriter.replaceOpWithNewOp<AffineStoreOp>(op, value, memref, indices);
+    else
+      rewriter.replaceOpWithNewOp<StoreOp>(op, value, memref, indices);
+
+    return success();
+  }
+};
+
 void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   mlir::Operation *funcOp = getFunction();
@@ -253,8 +318,14 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   // krnl.dim operations must be lowered prior to this pass.
   target.addIllegalOp<KrnlDimOp>();
   target.addLegalOp<AffineYieldOp>();
+  target.addLegalOp<AffineLoadOp>();
+  target.addLegalOp<AffineStoreOp>();
+  target.addLegalOp<LoadOp>();
+  target.addLegalOp<StoreOp>();
   OwningRewritePatternList patterns;
   patterns.insert<KrnlTerminatorLowering>(&getContext());
+  patterns.insert<KrnlLoadLowering>(&getContext());
+  patterns.insert<KrnlStoreLowering>(&getContext());
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
           getFunction(), target, std::move(patterns), &unconverted)))

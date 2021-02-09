@@ -76,8 +76,8 @@ struct ONNXConcatOpLowering : public ConversionPattern {
       }
       // Insert copy.
       auto loadData =
-          rewriter.create<AffineLoadOp>(loc, operands[i], readIndices);
-      rewriter.create<AffineStoreOp>(loc, loadData, alloc, writeIndices);
+          rewriter.create<KrnlLoadOp>(loc, operands[i], readIndices);
+      rewriter.create<KrnlStoreOp>(loc, loadData, alloc, writeIndices);
     }
     rewriter.replaceOp(op, alloc);
     return success();

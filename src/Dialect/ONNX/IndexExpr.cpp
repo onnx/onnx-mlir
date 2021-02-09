@@ -18,6 +18,7 @@
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
@@ -261,38 +262,23 @@ void IndexExprContext::createLoopInductionIndicesFromArrayValues(
 }
 
 //===----------------------------------------------------------------------===//
-// IndexExprContext support for creating possibly affine load and store ops.
+// IndexExprContext support for creating krnl load and store ops.
 //===----------------------------------------------------------------------===//
 
-Value IndexExprContext::createLoadOp(
+Value IndexExprContext::createKrnlLoadOp(
     Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  bool affineIndices = true;
   SmallVector<Value, 4> loadIndices;
-  for (IndexExpr ie : indices) {
-    if (!ie.isAffine())
-      affineIndices = false;
+  for (IndexExpr ie : indices)
     loadIndices.emplace_back(ie.getValue());
-  }
-  if (affineIndices)
-    return getRewriter().create<AffineLoadOp>(getLoc(), memref, loadIndices);
-  // Not affine, use regular load.
-  return getRewriter().create<LoadOp>(getLoc(), memref, loadIndices);
+  return getRewriter().create<KrnlLoadOp>(getLoc(), memref, loadIndices);
 }
 
-void IndexExprContext::createStoreOp(
+void IndexExprContext::createKrnlStoreOp(
     Value val, Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  bool affineIndices = true;
   SmallVector<Value, 4> storeIndices;
-  for (IndexExpr ie : indices) {
-    if (!ie.isAffine())
-      affineIndices = false;
+  for (IndexExpr ie : indices)
     storeIndices.emplace_back(ie.getValue());
-  }
-  if (affineIndices) {
-    getRewriter().create<AffineStoreOp>(getLoc(), val, memref, storeIndices);
-  } else { // Not affine, use regular load.
-    getRewriter().create<StoreOp>(getLoc(), val, memref, storeIndices);
-  }
+  getRewriter().create<KrnlStoreOp>(getLoc(), val, memref, storeIndices);
 }
 
 //===----------------------------------------------------------------------===//
@@ -511,7 +497,7 @@ void IndexExprImpl::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
   Value indexVal = emitConstantOp(newContext.getRewriter(), newContext.getLoc(),
       newContext.getRewriter().getIndexType(), indexInArray);
   SmallVector<Value, 1> memrefVal = {indexVal};
-  Value loadVal = newContext.getRewriter().create<AffineLoadOp>(
+  Value loadVal = newContext.getRewriter().create<KrnlLoadOp>(
       newContext.getLoc(), array, memrefVal);
   initAsType(newContext, loadVal, IndexExprType::Symbol);
 }
@@ -547,7 +533,7 @@ void IndexExprImpl::initAsSymbolFromArrayAtIndex(IndexExprContext &newContext,
   Value indexVal = emitConstantOp(newContext.getRewriter(), newContext.getLoc(),
       newContext.getRewriter().getIndexType(), indexInArray);
   SmallVector<Value, 1> memrefVal = {indexVal};
-  Value loadVal = newContext.getRewriter().create<AffineLoadOp>(
+  Value loadVal = newContext.getRewriter().create<KrnlLoadOp>(
       newContext.getLoc(), array, memrefVal);
   initAsType(newContext, loadVal, IndexExprType::Symbol);
 }

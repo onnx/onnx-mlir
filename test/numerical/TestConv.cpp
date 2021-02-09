@@ -72,7 +72,7 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
   // Use the convOp shape inference method to compute output shape, and unset
   // the shape so that we don't leave IR in a inconsistent state.
-  convOp.inferShapes([](mlir::FuncOp) {});
+  convOp.inferShapes([](mlir::Region&) {});
   auto outputShape = convOp.getResult().getType().cast<ShapedType>().getShape();
   auto NOut = outputShape[0];
   auto COut = outputShape[1];
@@ -126,7 +126,10 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   auto outputs = sess.run(move(inputs));
   auto &conv = outputs.at(0);
 
-  return omTensorAreTwoOmtsClose<float>(conv.get(), ref);
+  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
+  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
+
+  return omTensorAreTwoOmtsClose<float>(conv.get(), ref, rtol, atol);
 }
 
 int main(int argc, char *argv[]) {
