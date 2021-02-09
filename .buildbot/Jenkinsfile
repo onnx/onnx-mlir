@@ -133,7 +133,6 @@ def call() {
           call_build_script("${JENKINS_CLEANUP_BUILD_STATES}")
 
           post_commit_status("${x_github_event}", 'pending')
-          set_build_name("${x_github_event}")
         }
       }
 
@@ -198,20 +197,6 @@ def call() {
 /* Call external script */
 def call_build_script(script) {
     sh "${script}"
-}
-
-/* Set build name appearing on the build history */
-def set_build_name(event) {
-    def title  = "${ONNX_MLIR_PR_TITLE}"
-    def pr     = (event == 'pull_request') ? 'PR ' : 'pr '
-    def phrase = (event == 'issue_comment') ?
-                 "${ONNX_MLIR_PR_PHRASE}" : "${ONNX_MLIR_PR_ACTION}"
-    currentBuild.displayName = "#${BUILD_NUMBER} " + pr +
-                               "#${ONNX_MLIR_PR_NUMBER} " +
-                               "[${ONNX_MLIR_PR_SENDER}] " +
-                               "[${phrase}] " +
-                               title.substring(0,Math.min(title.length(),32)) +
-                               (title.length() > 32 ? '...' : '')
 }
 
 /* Set commit status appearing on the GitHub pull request page */

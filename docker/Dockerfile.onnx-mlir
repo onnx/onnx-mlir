@@ -42,7 +42,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && make -j$(nproc) install \
 # Clean up
     && cd ${WORK_DIR} \
-    && apt-get purge --autoremove -y \
+    && apt-get purge --autoremove -qq -y \
                autoconf automake cmake git libtool make \
 	       ninja-build python3 wget \
     && rm -rf /tmp/* /var/lib/apt/lists/* \
