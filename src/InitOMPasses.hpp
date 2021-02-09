@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "mlir/Pass/Pass.h"
 
 #include "src/Pass/Passes.hpp"

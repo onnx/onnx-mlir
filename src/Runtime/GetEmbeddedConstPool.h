@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---- GetEmbeddedConstPool.h - Get Embedded Const Pool API Func Decl---===//
 //
 // Copyright 2019-2020 The IBM Research Authors.

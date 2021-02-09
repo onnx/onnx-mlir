@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------------- Identity.cpp - Lowering Identity Op ----------------===//
 //
 // Copyright 2019 The IBM Research Authors.

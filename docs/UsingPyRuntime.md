@@ -1,3 +1,5 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
+
 # Using PyRuntime
 
 onnx-mlir has a runtime utility to run ONNX models compiled as a shared library

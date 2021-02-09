@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------- ONNXDecompose.cpp - ONNX High Level Rewriting ------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
