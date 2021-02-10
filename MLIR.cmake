@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # Path to LLVM source folder.
 if(DEFINED ENV{LLVM_PROJ_SRC})
   set(LLVM_PROJ_SRC $ENV{LLVM_PROJ_SRC})

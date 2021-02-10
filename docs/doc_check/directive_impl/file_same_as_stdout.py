@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # ===------- file_same_as_stdout.py - File Same as stdout Directive -------===//
 #
 # Copyright 2019-2020 The IBM Research Authors.

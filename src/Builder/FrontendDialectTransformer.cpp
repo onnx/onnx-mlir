@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===--------- FrontendDialectTransformer.cpp - MLIR Operations -----------===//
 //
 // Copyright 2019 The IBM Research Authors.

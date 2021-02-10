@@ -1,3 +1,5 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
+
 # ONNX MLIR
 The Open Neural Network Exchange implementation in MLIR.
 

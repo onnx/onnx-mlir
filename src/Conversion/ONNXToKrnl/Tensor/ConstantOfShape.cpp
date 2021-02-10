@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===------------ ConstantOfShape.cpp - Lowering ConstantOfShape Op -------===//
 //
 // Copyright 2019 The IBM Research Authors.

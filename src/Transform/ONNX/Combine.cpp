@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===--------- ONNXCombine.cpp - ONNX High Level Optimizer ----------------===//
 //
 // Copyright 2019 The IBM Research Authors.
