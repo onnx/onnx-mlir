@@ -1,3 +1,5 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
+
 # Debugging Numerical Error
 
 Use `util/debug.py` python script to debug numerical errors, when onnx-mlir-compiled inference executable produces 
