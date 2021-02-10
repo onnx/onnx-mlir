@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===--------------- Conv.cpp - Lowering Convolution Op
 //--------------------===//
 //

@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===------------ PromotableConstOperandsOpInterface.hpp --------------===//
 //===-------- Promotable Const Operands Op Interface Definition -----------===//
 //

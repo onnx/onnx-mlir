@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
 // Copyright 2019 The IBM Research Authors.
