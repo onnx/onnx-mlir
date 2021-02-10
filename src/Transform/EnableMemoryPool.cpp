@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------- EnableMemoryPool.cpp - Enable Memory Pool for MemRefs -------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.

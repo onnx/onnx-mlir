@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------------Slice.cpp - Lowering Slice Op----------------------=== //
 //
 // Copyright 2020 The IBM Research Authors.
