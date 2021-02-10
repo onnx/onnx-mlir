@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Pooling.cpp - Lowering Pooling Ops ------------------===//
 //
 // Copyright 2019 The IBM Research Authors.

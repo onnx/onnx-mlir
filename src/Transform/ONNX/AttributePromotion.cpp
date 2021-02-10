@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----- attribute_promotion.cpp - Attribute Promotion ------------------===//
 //
 // Copyright 2020 The IBM Research Authors.
