@@ -390,6 +390,34 @@ Value emitScalarOpFor<ONNXLeakyReluOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXGeluOp
+//===----------------------------------------------------------------------===//
+template <>
+Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  // We approximate GELU using the Swish function [1,2]:
+  //
+  // ONNXGeluOp(%X) = %X * sigmoid(beta * %X)
+  //                = %X / [ 1 + e^(- beta * %X) ]
+  // where beta = -1.703125 for bf16 (-1.702 for f32)
+  //
+  // [1] https://arxiv.org/pdf/1606.08415.pdf
+  // [2] https://en.wikipedia.org/wiki/Swish_function
+  Value operand = scalarOperands[0];
+  auto operandType = operand.getType();
+  auto one = emitConstantOp(rewriter, loc, operandType, 1.0);
+  bool isBFloat16 = elementType.isa<BFloat16Type>();
+  auto minusBeta = emitConstantOp(
+      rewriter, loc, operandType, isBFloat16 ? -1.703125 : -1.702);
+  auto mul = rewriter.create<MulFOp>(loc, operand, minusBeta);
+  auto exp = rewriter.create<ExpOp>(loc, mul);
+  auto add = rewriter.create<AddFOp>(loc, exp, one);
+  auto result = rewriter.create<DivFOp>(loc, operand, add);
+  return result;
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXPReluOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -890,6 +918,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXGeluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXAcosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXAcoshOp>,

@@ -1031,6 +1031,7 @@ private:
   }
 
   void InitHandlerMap() {
+#include "src/Builder/ONNXTOpBuildTable.inc"
 #include "src/Builder/OpBuildTable.inc"
   }
 

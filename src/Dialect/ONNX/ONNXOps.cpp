@@ -2976,6 +2976,20 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Gelu
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXGelu. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXGeluOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+  auto op0 = getOperand().getType().cast<RankedTensorType>();
+  getResult().setType(op0);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Less
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXLessOp. This method is required by the
