@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 find_package(PythonInterp 3 REQUIRED)
 
 add_custom_target(check-doc

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 add_library(OMAttributePromotion
         AttributePromotion.cpp)
 target_include_directories(OMAttributePromotion
