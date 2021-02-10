@@ -327,6 +327,16 @@ OpsWithShapeInference=[
     'Xor',
 ]
 
+OpsWithFold = [
+    'Cast',
+    'Concat',
+    'Div',
+    'Shape',
+    'Slice',
+    'Squeeze',
+    'Unsqueeze'
+]
+
 # Operations supporting canonicalization.
 OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Conv', 'Cast', 'Transpose', 'Dropout', 'Shape', 'Size']
 
@@ -876,6 +886,8 @@ def gen_op_def(schema):
     # Dummy implementations are added to ONNXOps.cpp
     # Error will be report if these operations are encountered at runtime
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
+    if schema.name in OpsWithFold:
+        traits.append("DeclareOpInterfaceMethods<FoldOpInterface>")
     if schema.name in OpsWithPromotableConstOperands.keys():
         traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
     if schema.name in OpsWithResultTypeInference.keys():

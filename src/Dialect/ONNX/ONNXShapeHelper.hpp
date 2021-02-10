@@ -27,7 +27,7 @@ using namespace mlir;
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 
-/// When defining support for a new op, add one such stuct which mÍÎust
+/// When defining support for a new op, add one such stuct which must
 /// minimally compute the outputDims present in the parent class. Computation
 /// should be performed using a `Compute` function. Return success on successful
 /// computation of all the IndexExpr. During shape inference, object is built
@@ -73,6 +73,13 @@ int64_t ArrayAttrIntVal(ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
 // Returns the ConstantOp which defines an MLIR Value or null.
 ONNXConstantOp getONNXConstantOp(Value value);
+// Returns the value of shape_folding_value if it exists.
+DenseElementsAttr getShapeFoldingAttr(Operation *op);
+DenseElementsAttr getShapeFoldingAttr(Value value);
+// Sets the value of shape_folding_value if possible.
+void setShapeFoldingAttr(Operation *op, DenseElementsAttr attr);
+// Returns a the value of the constantOp or shape_folding_value if possible.
+DenseElementsAttr getONNXConstOrShapeFoldingAttr(Value value);
 
 DenseElementsAttr getDenseElementAttributeFromValue(Value value);
 

@@ -26,6 +26,19 @@ target_include_directories(OMShapeInferenceOpInterface
         ${ONNX_MLIR_SRC_ROOT})
 add_dependencies(OMShapeInferenceOpInterface ShapeInferenceOpInterfaceIncGen)
 
+set(LLVM_TARGET_DEFINITIONS FoldInterface.td)
+onnx_mlir_tablegen(FoldInterface.hpp.inc -gen-op-interface-decls)
+onnx_mlir_tablegen(FoldInterface.cpp.inc -gen-op-interface-defs)
+add_public_tablegen_target(FoldOpInterfaceIncGen)
+
+add_library(OMFoldOpInterface
+        FoldInterface.hpp
+        FoldInterface.cpp)
+target_include_directories(OMFoldOpInterface
+        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
+        ${ONNX_MLIR_SRC_ROOT})
+add_dependencies(OMFoldOpInterface FoldOpInterfaceIncGen)
+
 set(LLVM_TARGET_DEFINITIONS ResultTypeInferenceOpInterface.td)
 onnx_mlir_tablegen(ResultTypeInferenceOpInterface.hpp.inc -gen-op-interface-decls)
 onnx_mlir_tablegen(ResultTypeInferenceOpInterface.cpp.inc -gen-op-interface-defs)

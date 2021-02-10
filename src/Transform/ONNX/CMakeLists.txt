@@ -66,8 +66,11 @@ target_link_libraries(OMONNXRewrite
 add_library(OMShapeInference ShapeInferencePass.cpp)
 target_include_directories(OMShapeInference
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNX_MLIR_SRC_ROOT})
+        ${ONNF_MLIR_SRC_ROOT})
 # Header dependencies
 add_dependencies(OMShapeInference ShapeInferenceOpInterfaceIncGen)
+add_dependencies(OMShapeInference FoldOpInterfaceIncGen)
 # Linking dependencies
 add_dependencies(OMShapeInference OMShapeInferenceOpInterface)
+add_dependencies(OMShapeInference OMFoldOpInterface)
+target_link_libraries(OMShapeInference onnx)

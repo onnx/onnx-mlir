@@ -30,6 +30,11 @@ class SeqOf<list<Type> allowedTypes> :
 include "src/Interface/ShapeInferenceInterface.td"
 #endif // SHAPE_INFERENCE_INTERFACE
 
+#ifdef FOLD_INTERFACE
+#else
+include "src/Interface/FoldInterface.td"
+#endif // FOLD_INTERFACE
+
 #ifdef PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
 #else
 include "src/Interface/PromotableConstOperandsOpInterface.td"

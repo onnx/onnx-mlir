@@ -610,6 +610,8 @@ func @test_global_maxpool(%arg0 : tensor<5x5x32x32xf32>) -> tensor<*xf32> {
 /// Test the reshape op inference when constants are present.
 //===----------------------------------------------------------------------===//
 
+// -----
+
 func @test_reshape_dynamic(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
   %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<5x5x1x32xf32>, tensor<4xi64>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
@@ -655,7 +657,50 @@ func @test_reshape_3(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
   // CHECK: return [[RES]] : tensor<80x5x2xf32>
 }
 
+//===----------------------------------------------------------------------===//
+/// Test the resize op inference.
+//===----------------------------------------------------------------------===//
+
 // -----
+
+func @test_resize_sizes_dynamic(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
+  %1 = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
+  %2 = "onnx.Resize"(%arg0, %0, %1, %arg1) : (tensor<5x5x1x32xf32>, tensor<0xf32>, tensor<0xf32>, tensor<4xi64>) -> tensor<*xf32>
+  "std.return"(%2) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_resize_sizes_dynamic
+  // CHECK: [[RES:%.+]] = "onnx.Resize"(%arg0, %0, %1, %arg1) : (tensor<5x5x1x32xf32>, tensor<0xf32>, tensor<0xf32>, tensor<4xi64>) -> tensor<?x?x?x?xf32>
+  // CHECK: return [[RES]] : tensor<?x?x?x?xf32>
+}
+
+// -----
+
+func @test_resize_sizes_with_constant(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Constant"() {value = dense<[10, 10, 1, 16]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %1 = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
+  %2 = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
+  %3 = "onnx.Resize"(%arg0, %1, %2, %0) : (tensor<5x5x1x32xf32>, tensor<0xf32>, tensor<0xf32>, tensor<4xi64>) -> tensor<*xf32>
+  "std.return"(%3) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_resize_sizes_with_constant
+  // CHECK: [[RES:%.+]] = "onnx.Resize"(%arg0, %1, %2, %0) : (tensor<5x5x1x32xf32>, tensor<0xf32>, tensor<0xf32>, tensor<4xi64>) -> tensor<10x10x1x16xf32>
+  // CHECK: return [[RES]] : tensor<10x10x1x16xf32>
+}
+
+// -----
+
+func @test_resize_sizes_with_shape(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<10x10x1x16xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Shape"(%arg1) : (tensor<10x10x1x16xf32>) -> tensor<*xi64>
+  %1 = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
+  %2 = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
+  %3 = "onnx.Resize"(%arg0, %1, %2, %0) : (tensor<5x5x1x32xf32>, tensor<0xf32>, tensor<0xf32>, tensor<*xi64>) -> tensor<*xf32>
+  "std.return"(%3) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_resize_sizes_with_shape
+  // CHECK: [[RES:%.+]] = "onnx.Resize"(%arg0, %1, %2, %0) : (tensor<5x5x1x32xf32>, tensor<0xf32>, tensor<0xf32>, tensor<4xi64>) -> tensor<10x10x1x16xf32>
+  // CHECK: return [[RES]] : tensor<10x10x1x16xf32>
+}
 
 //===----------------------------------------------------------------------===//
 /// Test the flatten op inference.
@@ -705,7 +750,7 @@ func @test_flatten_4(%arg0 : tensor<2x4x5x?xf32>) -> tensor<*xf32> {
 
 
 //===----------------------------------------------------------------------===//
-/// Test the reshape op inference when concat are present.
+/// Test the concat op inference when concat are present.
 //===----------------------------------------------------------------------===//
 
 func @test_concat_1(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<*xf32> {
@@ -1238,7 +1283,7 @@ func @test_shape(%arg0: tensor<?x3x2xf32>) -> tensor<*xi64> {
   return %0 : tensor<*xi64>
 
   // CHECK-LABEL: test_shape
-  // CHECK: [[RES:%.+]] = "onnx.Shape"(%arg0) : (tensor<?x3x2xf32>) -> tensor<3xi64>
+  // CHECK: [[RES:%.+]] = "onnx.Constant"() {value = dense<[-1, 3, 2]> : tensor<3xi64>} : () -> tensor<3xi64>
   // CHECK: return [[RES]] : tensor<3xi64>
 }
 
@@ -1383,7 +1428,7 @@ func @test_erf(%arg0: tensor<1x2x3x4xf32>) -> tensor<*xf32> {
 /// Test shape inference for Expand.
 //===----------------------------------------------------------------------===//
 
-func @test_expand_with_constant(%arg0 : tensor<2x1x6x1xf32>) -> tensor<*xf32> {
+func @test_expand_with_constant(%arg0: tensor<2x1x6x1xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[7, 1, 5]> : tensor<3xi64> } : () -> tensor<3xi64>
   %1 = "onnx.Expand"(%arg0, %0) : (tensor<2x1x6x1xf32>, tensor<3xi64>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
@@ -1395,14 +1440,14 @@ func @test_expand_with_constant(%arg0 : tensor<2x1x6x1xf32>) -> tensor<*xf32> {
 
 // -----
 
-func @test_expand_with_shape(%arg0 : tensor<2x1x6x1xf32>, %arg1: tensor<6x2xf32>) -> tensor<*xf32> {
+func @test_expand_with_shape(%arg0: tensor<2x1x6x1xf32>, %arg1: tensor<6x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.Shape"(%arg1) : (tensor<6x2xf32>) -> tensor<*xi64>
   %1 = "onnx.Expand"(%arg0, %0) : (tensor<2x1x6x1xf32>, tensor<*xi64>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_expand_with_shape
-  // CHECK: [[SHAPE:%.+]] = "onnx.Shape"(%arg1) : (tensor<6x2xf32>) -> tensor<2xi64>
-  // CHECK: [[RES:%.+]] = "onnx.Expand"(%arg0, [[SHAPE]]) : (tensor<2x1x6x1xf32>, tensor<2xi64>) -> tensor<2x1x6x2xf32>
+  // CHECK: [[CONSTANT:%.+]] = "onnx.Constant"() {value = dense<[6, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
+  // CHECK: [[RES:%.+]] = "onnx.Expand"(%arg0, [[CONSTANT]]) : (tensor<2x1x6x1xf32>, tensor<2xi64>) -> tensor<2x1x6x2xf32>
   // CHECK: return [[RES]] : tensor<2x1x6x2xf32>
 }
 
@@ -1557,3 +1602,70 @@ func @test_less_unknown_dims_2(%arg0: tensor<?x?x5xf32>, %arg1: tensor<?x4x5xf32
   // CHECK: {{.*}} = "onnx.Less"(%arg0, %arg1) : (tensor<?x?x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
 }
 
+//===----------------------------------------------------------------------===//
+/// Test shape inference for shape folding.
+//===----------------------------------------------------------------------===/
+
+// -----
+
+func @test_shape_folding1(%arg0: tensor<?x256x16x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Shape"(%arg0) : (tensor<?x256x16x32xf32>) -> tensor<*xi64>
+  %1 = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
+  %2 = "onnx.Constant"() {value = dense<2> : tensor<1xi64>} : () -> tensor<1xi64>
+  %3 = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
+  %4 = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+  %5 = "onnx.Slice"(%0, %1, %2, %3, %4) : (tensor<*xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<*xi64>
+  %6 = "onnx.Constant"() {value = dense<[32, 64]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %7 = "onnx.Concat"(%5, %6) {axis = 0 : si64, onnx_node_name = "Concat"} : (tensor<*xi64>, tensor<2xi64>) -> tensor<*xi64>
+  %8 = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
+  %9 = "onnx.Constant"() {value = dense<> : tensor<0xf32>} : () -> tensor<0xf32>
+  %10 = "onnx.Resize"(%arg0, %8, %9, %7) {coordinate_transformation_mode = "align_corners", mode = "linear", nearest_mode = "floor", onnx_node_name = "Resize"} : (tensor<?x256x16x32xf32>, tensor<0xf32>, tensor<0xf32>, tensor<*xi64>) -> tensor<*xf32>
+  return %10 : tensor<*xf32>
+
+  // CHECK-LABEL: test_shape_folding1
+  // CHECK-NOT: "onnx.Shape"
+  // CHECK-NOT: "onnx.Slice"
+  // CHECK-NOT: "onnx.Concat"
+  // CHECK: [[CONSTANT:%.+]] = "onnx.Constant"() {value = dense<[-1, 256, 32, 64]> : tensor<4xi64>} : () -> tensor<4xi64>
+  // CHECK: [[RES:%.+]] = "onnx.Resize"(%arg0, %6, %7, [[CONSTANT]]) {coordinate_transformation_mode = "align_corners", mode = "linear", nearest_mode = "floor", onnx_node_name = "Resize"} : (tensor<?x256x16x32xf32>, tensor<0xf32>, tensor<0xf32>, tensor<4xi64>) -> tensor<?x256x32x64xf32>
+  // CHECK: return [[RES]] : tensor<?x256x32x64xf32>
+}
+
+// -----
+
+func @test_shape_folding2(%arg0: tensor<256x16x32xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Shape"(%arg0) : (tensor<256x16x32xf32>) -> tensor<*xi64>
+  %1 = "onnx.Cast"(%0) {to = 6 : si64} : (tensor<*xi64>) -> tensor<*xi32>
+  %2 = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
+  %3 = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
+  %4 = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
+  %5 = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+  %6 = "onnx.Slice"(%1, %2, %3, %4, %5) {} : (tensor<*xi32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<*xi32>
+  %7 = "onnx.Constant"() {value = dense<-1> : tensor<1xi64>} : () -> tensor<1xi64>
+  %8 = "onnx.Constant"() {value = dense<2147483647> : tensor<1xi64>} : () -> tensor<1xi64>
+  %9 = "onnx.Constant"() {value = dense<0> : tensor<1xi64>} : () -> tensor<1xi64>
+  %10 = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<1xi64>
+  %11 = "onnx.Slice"(%1, %7, %8, %9, %10) {} : (tensor<*xi32>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<*xi32>
+  %12 = "onnx.Squeeze"(%11) {axes = [0]} : (tensor<*xi32>) -> tensor<*xi32>
+  %13 = "onnx.Constant"() {value = dense<4> : tensor<i32>} : () -> tensor<i32>
+  %14 = "onnx.Div"(%12, %13) {} : (tensor<*xi32>, tensor<i32>) -> tensor<*xi32>
+  %15 = "onnx.Unsqueeze"(%14) {axes = [0]} : (tensor<*xi32>) -> tensor<*xi32>
+  %16 = "onnx.Constant"() {value = dense<4> : tensor<1xi32>} : () -> tensor<1xi32>
+  %17 = "onnx.Concat"(%16, %15) {axis = 0 : si64} : (tensor<1xi32>, tensor<*xi32>) -> tensor<*xi32>
+  %18 = "onnx.Concat"(%6, %17) {axis = 0 : si64} : (tensor<*xi32>, tensor<*xi32>) -> tensor<*xi32>
+  %19 = "onnx.Cast"(%18) {to = 7 : si64} : (tensor<*xi32>) -> tensor<*xi64>
+  %20 = "onnx.Reshape"(%arg0, %19) {} : (tensor<256x16x32xf32>, tensor<*xi64>) -> tensor<*xf32>
+  return %20 : tensor<*xf32>
+
+  // CHECK-LABEL: test_shape_folding2
+  // CHECK-NOT: "onnx.Shape"
+  // CHECK-NOT: "onnx.Cast"
+  // CHECK-NOT: "onnx.Slice"
+  // CHECK-NOT: "onnx.Squeeze"
+  // CHECK-NOT: "onnx.Div"
+  // CHECK-NOT: "onnx.Unsqueeze"
+  // CHECK-NOT: "onnx.Concat"
+  // CHECK: [[CONSTANT:%.+]] = "onnx.Constant"() {value = dense<[256, 16, 4, 8]> : tensor<4xi64>} : () -> tensor<4xi64>
+  // CHECK: [[RES:%.+]] = "onnx.Reshape"(%arg0, [[CONSTANT]]) : (tensor<256x16x32xf32>, tensor<4xi64>) -> tensor<256x16x4x8xf32>
+  // CHECK: return [[RES]] : tensor<256x16x4x8xf32>
+}

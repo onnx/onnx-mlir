@@ -8,6 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"

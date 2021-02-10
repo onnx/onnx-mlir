@@ -24,6 +24,36 @@ ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<mlir::ONNXConstantOp>(value.getDefiningOp());
 }
 
+// Returns the value of shape_folding_value if it exists.
+DenseElementsAttr getShapeFoldingAttr(Operation *op) {
+  return op ? op->getAttr("shape_folding_value")
+                  .dyn_cast_or_null<DenseElementsAttr>()
+            : nullptr;
+}
+
+DenseElementsAttr getShapeFoldingAttr(Value value) {
+  return value.getDefiningOp() ? value.getDefiningOp()
+                                     ->getAttr("shape_folding_value")
+                                     .dyn_cast_or_null<DenseElementsAttr>()
+                               : nullptr;
+}
+
+// Sets the value of shape_folding_value if possible.
+void setShapeFoldingAttr(Operation *op, DenseElementsAttr attr) {
+  assert(op);
+  op->setAttr("shape_folding_value", attr);
+}
+
+// Returns a the value of the constantOp or shape_folding_value if possible.
+DenseElementsAttr getONNXConstOrShapeFoldingAttr(Value value) {
+  if (auto constantOp = getONNXConstantOp(value)) {
+    return constantOp.getAttr("value")
+        .dyn_cast_or_null<::mlir::DenseElementsAttr>();
+  } else {
+    return getShapeFoldingAttr(value);
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//

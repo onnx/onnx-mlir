@@ -449,7 +449,7 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
 }
 
 def ONNXCastOp:ONNX_Op<"Cast",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Cast operation";
   let description = [{
@@ -580,7 +580,7 @@ def ONNXCompressOp:ONNX_Op<"Compress",
 }
 
 def ONNXConcatOp:ONNX_Op<"Concat",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
   let summary = "ONNX Concat operation";
   let description = [{
   "Concatenate a list of tensors into a single tensor. All input tensors must have the same shape, except for the dimension size of the axis to concatenate on."
@@ -995,7 +995,7 @@ def ONNXDetOp:ONNX_Op<"Det",
 }
 
 def ONNXDivOp:ONNX_Op<"Div",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
   let summary = "ONNX Div operation";
   let description = [{
   "Performs element-wise binary division (with Numpy-style broadcasting support)."
@@ -2414,13 +2414,13 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   "      for (int i=0; i < max_trip_count && keepgoing_out; ++i) {"
   "        /* Implicitly-defined code: bind actual parameter values"
   "           to formal parameter variables of loop-body */"
-  "        bool keepgoing_in = keepgoing_out; "
+  "        bool keepgoing_in = keepgoing_out;"
   "        bool b_in = b_out;"
   ""
   "        /* User-defined code (loop body) */"
   "        int my_local = a + b_in; // Reading value \"a\" from the enclosing scope is fine"
   "        b_out = a - b_in;"
-  "        keepgoing_out = my_local > b_out; "
+  "        keepgoing_out = my_local > b_out;"
   "        user_defined_val = b_in + b_in; // b_in and b_out are different variables"
   "        /* End user-defined code */"
   ""
@@ -3169,11 +3169,9 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   "  output = "
   "  ["
-  "      ["
-  "          [0.0, 0.0, 1.0, 1.2],"
-  "          [0.0, 0.0, 2.3, 3.4],"
-  "          [0.0, 0.0, 4.5, 5.7],"
-  "      ],"
+  "      [0.0, 0.0, 1.0, 1.2],"
+  "      [0.0, 0.0, 2.3, 3.4],"
+  "      [0.0, 0.0, 4.5, 5.7],"
   "  ]"
   ""
   ""
@@ -3191,11 +3189,9 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   "  output = "
   "  ["
-  "      ["
-  "          [1.0, 1.2, 1.0, 1.2],"
-  "          [2.3, 3.4, 2.3, 3.4],"
-  "          [4.5, 5.7, 4.5, 5.7],"
-  "      ],"
+  "      [1.0, 1.2, 1.0, 1.2],"
+  "      [2.3, 3.4, 2.3, 3.4],"
+  "      [4.5, 5.7, 4.5, 5.7],"
   "  ]"
   ""
   ""
@@ -3213,11 +3209,9 @@ def ONNXPadOp:ONNX_Op<"Pad",
   ""
   "  output = "
   "  ["
-  "      ["
-  "          [1.0, 1.0, 1.0, 1.2],"
-  "          [2.3, 2.3, 2.3, 3.4],"
-  "          [4.5, 4.5, 4.5, 5.7],"
-  "      ],"
+  "      [1.0, 1.0, 1.0, 1.2],"
+  "      [2.3, 2.3, 2.3, 3.4],"
+  "      [4.5, 4.5, 4.5, 5.7],"
   "  ]"
   ""
   }];
@@ -4309,7 +4303,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
   "values are computed in the outer graph, they need to be passed in as extra state_variables."
   ""
   "    graph rnn-encoding {"
-  "      %H_0 = ... "
+  "      %H_0 = ..."
   "      %X = ..."
   "      %Y_h, %Y = Scan[body = <graph rnn-cell-1>, num_scan_inputs=1](%H_0, %X)"
   "      return %Y, %Y_h"
@@ -4750,7 +4744,7 @@ def ONNXSequenceLengthOp:ONNX_Op<"SequenceLength",
 }
 
 def ONNXShapeOp:ONNX_Op<"Shape",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
   let hasCanonicalizer = 1;
   let summary = "ONNX Shape operation";
   let description = [{
@@ -4907,7 +4901,7 @@ def ONNXSizeOp:ONNX_Op<"Size",
 }
 
 def ONNXSliceOp:ONNX_Op<"Slice",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
   let summary = "ONNX Slice operation";
   let description = [{
   "Produces a slice of the input tensor along multiple axes. Similar to numpy:"
@@ -5175,7 +5169,7 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
 }
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
   let summary = "ONNX Squeeze operation";
   let description = [{
   "Remove single-dimensional entries from the shape of a tensor."
@@ -5631,7 +5625,7 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
 }
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
-  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<FoldOpInterface>]> {
   let summary = "ONNX Unsqueeze operation";
   let description = [{
   "Insert single-dimensional entries to the shape of an input tensor (`data`)."

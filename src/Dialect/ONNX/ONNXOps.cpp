@@ -19,13 +19,14 @@
 #include "mlir/IR/Module.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/StandardTypes.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/Support/FormatVariadic.h"
 
+#include "ONNXFoldHelper.hpp"
 #include "ONNXOps.hpp"
 #include "ONNXShapeHelper.hpp"
-#include "mlir/IR/StandardTypes.h"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -836,6 +837,18 @@ LogicalResult ONNXDivOp::inferShapes() {
   return success();
 }
 
+void ONNXDivOp::tryFold() {
+  auto lhsAttr = getONNXConstOrShapeFoldingAttr(getOperand(0));
+  auto rhsAttr = getONNXConstOrShapeFoldingAttr(getOperand(1));
+  if (!lhsAttr || !rhsAttr)
+    return;
+  Builder builder(getContext());
+  if (auto resultAttr = ConstPropElementwiseBinary<ONNXDivOp>(
+          builder, getResult(), lhsAttr, rhsAttr)) {
+    setShapeFoldingAttr(getOperation(), resultAttr);
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // Sub
 //===----------------------------------------------------------------------===//
@@ -1380,15 +1393,8 @@ LogicalResult ONNXReshapeOp::inferShapes() {
   for (auto inputDim : inputTensorTy.getShape())
     totalInputSize *= inputDim;
 
-  // Check if second argument of ReshapeOp is a constant.
-  auto constantOp = getONNXConstantOp(shape());
-
-  SmallVector<int64_t, 2> dims(outputRank, -1);
-  if (constantOp) {
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (!valueAttribute)
-      return emitError("DenseElementsAttr expected");
+  SmallVector<int64_t, 4> dims(outputRank, -1);
+  if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(shape())) {
     // Get dims from valueAttribute.
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
     for (int i = 0; i < outputRank; ++i)
@@ -1423,6 +1429,40 @@ LogicalResult ONNXReshapeOp::inferShapes() {
 
   getResult().setType(
       RankedTensorType::get(dims, inputTensorTy.getElementType()));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Resize
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXResizeOp::inferShapes() {
+  if (!X().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+  auto xTy = X().getType().cast<RankedTensorType>();
+
+  // TODO: Add support for resizing with scales
+  if (!sizes().getType().isa<RankedTensorType>())
+    return emitError("Sizes tensor not ranked");
+  auto sizesTensorTy = sizes().getType().cast<RankedTensorType>();
+
+  // Only rank 1 sizes tensors are supported.
+  if (sizesTensorTy.getShape().size() != 1)
+    return emitError("Shape tensor must have rank one");
+
+  Operation *sizesDef = sizes().getDefiningOp();
+
+  // Resize relies on shape information
+  // Failure if shape information cannot be retrieved
+  SmallVector<int64_t, 4> dims(xTy.getShape().size(), -1);
+  if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(sizes())) {
+    dims.resize(valueAttribute.size());
+    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
+    for (int i = 0; i != valueAttribute.size(); ++i)
+      dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+  }
+
+  getResult().setType(RankedTensorType::get(dims, xTy.getElementType()));
   return success();
 }
 
@@ -2211,6 +2251,14 @@ LogicalResult ONNXUnsqueezeOp::inferShapes() {
   return success();
 }
 
+void ONNXUnsqueezeOp::tryFold() {
+  if (auto dataAttr = getONNXConstOrShapeFoldingAttr(data())) {
+    Builder builder(getContext());
+    if (auto resultAttr = ConstPropUnsqueeze(builder, getResult(), dataAttr))
+      setShapeFoldingAttr(getOperation(), resultAttr);
+  }
+}
+
 //===----------------------------------------------------------------------===//
 
 // Squeeze
@@ -2257,6 +2305,15 @@ LogicalResult ONNXSqueezeOp::inferShapes() {
   return success();
 }
 
+void ONNXSqueezeOp::tryFold() {
+  if (auto dataAttr = getONNXConstOrShapeFoldingAttr(data())) {
+    Builder builder(getContext());
+    if (auto resultAttr = ConstPropSqueeze(builder, getResult(), dataAttr))
+      setShapeFoldingAttr(getOperation(), resultAttr);
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // Cast
 //===----------------------------------------------------------------------===//
 
@@ -2283,6 +2340,30 @@ LogicalResult ONNXCastOp::inferShapes() {
                        std::to_string(targetType));
   }
   return success();
+}
+
+void ONNXCastOp::tryFold() {
+  if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(input())) {
+    // Only supporting interger folding with promotion to int64
+    if (!valueAttribute.getType().getElementType().isSignlessInteger(64) &&
+        !valueAttribute.getType().getElementType().isSignlessInteger(32))
+      return;
+    std::vector<uint64_t> outShape;
+    outShape.reserve(valueAttribute.size());
+    auto outType = getResult().getType().dyn_cast<ShapedType>();
+    auto outElementType = outType.getElementType();
+    auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
+    for (int i = 0; i != valueAttribute.size(); ++i)
+      outShape.push_back((*valueIt++).cast<IntegerAttr>().getInt());
+    if (outElementType.isInteger(64)) {
+      setShapeFoldingAttr(getOperation(),
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(outShape)));
+    } else if (outElementType.isInteger(32)) {
+      std::vector<int32_t> newOutShape{outShape.begin(), outShape.end()};
+      setShapeFoldingAttr(getOperation(),
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(newOutShape)));
+    }
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -2373,6 +2454,35 @@ LogicalResult ONNXConcatOp::inferShapes() {
   getResult().setType(
       RankedTensorType::get(outputDims, commonType.getElementType()));
   return success();
+}
+
+void ONNXConcatOp::tryFold() {
+  // Checking to see if shape folding is possible
+  bool canShapeFold = false;
+  int64_t size = 0;
+  for (int i = 0; i < getNumOperands(); ++i) {
+    if (DenseElementsAttr attr =
+            getONNXConstOrShapeFoldingAttr(getOperand(i))) {
+      size += attr.size();
+    }
+  }
+
+  // TODO: Solve this limitation
+  if (axis() == 0 &&
+      getResult().getType().cast<RankedTensorType>().getShape()[0] == size) {
+    std::vector<Attribute> operandAttrs;
+    for (int i = 0; i < getNumOperands(); ++i) {
+      if (DenseElementsAttr attr =
+              getONNXConstOrShapeFoldingAttr(getOperand(i))) {
+        operandAttrs.emplace_back(attr);
+      }
+    }
+    Builder builder(getContext());
+    auto resultAttr = ConstPropConcat(builder, getResult(), operandAttrs);
+    // Only save shape folding attribute if there is no missing shape
+    // information
+    setShapeFoldingAttr(getOperation(), resultAttr);
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -2712,7 +2822,19 @@ LogicalResult ONNXShapeOp::inferShapes() {
   SmallVector<int64_t, 1> outDims(1, rank);
   getResult().setType(
       RankedTensorType::get(outDims, IntegerType::get(64, getContext())));
+
   return success();
+}
+
+void ONNXShapeOp::tryFold() {
+  // Get the actul shape of the input tensor and store it for later use
+  ArrayRef<int64_t> shapeRef =
+      data().getType().cast<RankedTensorType>().getShape();
+
+  // Storing actual shape of the input as an attribute
+  setShapeFoldingAttr(getOperation(),
+      DenseElementsAttr::get(
+          getResult().getType().cast<RankedTensorType>(), shapeRef));
 }
 
 //===----------------------------------------------------------------------===//
@@ -2933,8 +3055,77 @@ LogicalResult ONNXSliceOp::inferShapes() {
   SmallVector<int64_t, 4> outputDims;
   IndexExprContext::getOutputDimsForType(shapeHelper.outputDims, outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
-
   return success();
+}
+
+void ONNXSliceOp::tryFold() {
+  if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(data())) {
+    // This only works if the input shape is a 1D tensor
+    // TODO: complete implementation of slice?
+    int64_t start = 0;
+    int64_t end = 0;
+    int64_t axis = 0;
+    int64_t step = 1;
+
+    // Only a limited version of slice is supported
+    if (auto constantOp = getONNXConstantOp(starts())) {
+      start = constantOp.valueAttr()
+                  .dyn_cast<DenseElementsAttr>()
+                  .getValue<IntegerAttr>(0)
+                  .getInt();
+    } else {
+      return;
+    }
+    if (auto constantOp = getONNXConstantOp(ends())) {
+      end = constantOp.valueAttr()
+                .dyn_cast<DenseElementsAttr>()
+                .getValue<IntegerAttr>(0)
+                .getInt();
+    } else {
+      return;
+    }
+    if (auto constantOp = getONNXConstantOp(axes())) {
+      axis = constantOp.valueAttr()
+                 .dyn_cast<DenseElementsAttr>()
+                 .getValue<IntegerAttr>(0)
+                 .getInt();
+    } else {
+      return;
+    }
+    if (auto constantOp = getONNXConstantOp(steps())) {
+      step = constantOp.valueAttr()
+                 .dyn_cast<DenseElementsAttr>()
+                 .getValue<IntegerAttr>(0)
+                 .getInt();
+    } else {
+      return;
+    }
+
+    auto valueAttrSize = valueAttribute.size();
+    if (start < 0) {
+      start = start + valueAttrSize;
+    } else if (start > valueAttrSize) {
+      start = valueAttrSize;
+    }
+    if (end < 0) {
+      end = end + valueAttrSize;
+    } else if (end > valueAttrSize) {
+      end = valueAttrSize;
+    }
+    // Unsupported mode, do nothing
+    if (start < 0 || start > valueAttrSize || end < 0 || end > valueAttrSize ||
+        start > end || axis != 0 || step != 1) {
+      return;
+    }
+
+    Builder builder(getContext());
+    auto resultAttr = ConstPropSlice(builder, getResult(), valueAttribute,
+        getONNXConstantOp(starts()).valueAttr(),
+        getONNXConstantOp(ends()).valueAttr(),
+        getONNXConstantOp(axes()).valueAttr(),
+        getONNXConstantOp(steps()).valueAttr());
+    setShapeFoldingAttr(getOperation(), resultAttr);
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -2949,54 +3140,21 @@ LogicalResult ONNXExpandOp::inferShapes() {
 
   auto elementType = lhsTy.getElementType();
   auto lhsShape = lhsTy.getShape();
-  SmallVector<int64_t, 2> rhsShape;
+  SmallVector<int64_t, 4> rhsShape;
 
-  Operation *shapeDef = shape().getDefiningOp();
-
-  if (mlir::ONNXShapeOp shapeOp =
-          dyn_cast_or_null<mlir::ONNXShapeOp>(shapeDef)) {
-    // If the shape operand is produced by a onnx.Shape operation, infer its
-    // shape and use it as the requested shape.
-    if (!shapeOp.data().getType().isa<RankedTensorType>())
-      return emitError("Input tensor not ranked");
-
-    ArrayRef<int64_t> rhsShapeRef =
-        shapeOp.data().getType().cast<RankedTensorType>().getShape();
-    rhsShape.assign(rhsShapeRef.begin(), rhsShapeRef.end());
-
-  } else if (mlir::ONNXConstantOp constantOp =
-                 dyn_cast_or_null<mlir::ONNXConstantOp>(shapeDef)) {
-    // If the shape operand is produced by a onnx.Constant operation, extract
-    // the actual value of the constant and use it as the reqested shape.
-
-    auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
-
-    if (shapeTensorTy.getRank() != 1)
-      return emitError("Shape tensor must have rank one");
-
-    DenseElementsAttr valueAttribute =
-        constantOp.valueAttr().dyn_cast<DenseElementsAttr>();
-    if (!valueAttribute)
-      return emitError("DenseElementsAttr expected");
-
-    int64_t shapeRank = shapeTensorTy.getShape()[0];
-    rhsShape.resize(shapeRank);
-
+  if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(shape())) {
+    rhsShape.resize(valueAttribute.size());
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
-    for (int i = 0; i != shapeRank; ++i)
+    for (int i = 0; i != valueAttribute.size(); ++i)
       rhsShape[i] = (*valueIt++).cast<IntegerAttr>().getInt();
-
-    assert(valueIt == valueAttribute.getValues<IntegerAttr>().end() &&
-           "Shape of constant does not match its actual value");
   } else {
-    return emitError(
-        "Shape argument of Expand is the output of an unexpected "
-        "operation: " +
-        shapeDef->getName().getStringRef() +
-        ". Supported operations are: onnx.Constant and onnx.Shape");
+    // Dynamic expand not supported
+    return emitError("Shape argument of Expand is the output of an unexpected "
+                     "operation: " +
+                     shape().getDefiningOp()->getName().getStringRef());
   }
 
-  SmallVector<int64_t, 2> resultShape;
+  SmallVector<int64_t, 4> resultShape;
   if (!getBroadcastedShape(lhsShape, rhsShape, resultShape)) {
     return emitError("Tensor not exapandable");
   }
@@ -3303,10 +3461,6 @@ LogicalResult ONNXReduceLogSumExpOp::inferShapes() {
 }
 
 LogicalResult ONNXReduceSumSquareOp::inferShapes() {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXResizeOp::inferShapes() {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
