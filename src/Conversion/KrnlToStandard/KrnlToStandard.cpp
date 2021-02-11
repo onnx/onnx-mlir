@@ -107,7 +107,7 @@ public:
               sym_visibility, typeAttr, krnlGlobalOp.valueAttr(), constant);
 
       auto symRefAttr = FlatSymbolRefAttr::get(
-          sym_name.getValue(), krnlGlobalOp.getContext());
+          krnlGlobalOp.getContext(), sym_name.getValue());
 
       rewriter.setInsertionPoint(krnlGlobalOp);
       rewriter.replaceOpWithNewOp<GetGlobalMemrefOp>(

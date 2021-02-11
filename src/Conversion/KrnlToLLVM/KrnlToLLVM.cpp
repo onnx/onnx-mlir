@@ -82,14 +82,14 @@ static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
   auto *context = module.getContext();
   if (auto sym = module.lookupSymbol<LLVM::LLVMFuncOp>(funcName)) {
     assert(sym.getType() == funcType && "wrong symbol type");
-    return SymbolRefAttr::get(funcName, context);
+    return SymbolRefAttr::get(context, funcName);
   }
 
   // Insert the function into the body of the parent module.
   PatternRewriter::InsertionGuard insertGuard(rewriter);
   rewriter.setInsertionPointToStart(module.getBody());
   rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), funcName, funcType);
-  return SymbolRefAttr::get(funcName, context);
+  return SymbolRefAttr::get(context, funcName);
 }
 
 static size_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
@@ -115,7 +115,7 @@ static FlatSymbolRefAttr getOrInsertMemcpy(
     PatternRewriter &rewriter, ModuleOp module) {
   auto *context = module.getContext();
   if (module.lookupSymbol<LLVM::LLVMFuncOp>("llvm.memcpy.p0i8.p0i8.i64"))
-    return SymbolRefAttr::get("llvm.memcpy.p0i8.p0i8.i64", context);
+    return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
   // Create a function declaration for memcpy, the signature is:
   //   * `void (i8*, i8* , i64, i1)`
   auto llvmVoidTy = LLVM::LLVMVoidType::get(context);
@@ -132,7 +132,7 @@ static FlatSymbolRefAttr getOrInsertMemcpy(
   rewriter.setInsertionPointToStart(module.getBody());
   rewriter.create<LLVM::LLVMFuncOp>(
       module.getLoc(), "llvm.memcpy.p0i8.p0i8.i64", llvmFnType);
-  return SymbolRefAttr::get("llvm.memcpy.p0i8.p0i8.i64", context);
+  return SymbolRefAttr::get(context, "llvm.memcpy.p0i8.p0i8.i64");
 }
 
 static FlatSymbolRefAttr getOrInsertMalloc(
@@ -152,7 +152,7 @@ static FlatSymbolRefAttr getOrInsertMalloc(
             LLVM::LLVMFunctionType::get(voidPtrType, callArgTypes,
                 /*isVarArg=*/false));
   }
-  return SymbolRefAttr::get("malloc", ctx);
+  return SymbolRefAttr::get(ctx, "malloc");
 }
 
 // This function emits a declaration of the form:
@@ -163,7 +163,7 @@ static FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
     ModuleOp module, std::string mathFuncName, mlir::Type llvmType) {
   auto *context = module.getContext();
   if (module.lookupSymbol<LLVM::LLVMFuncOp>(mathFuncName))
-    return SymbolRefAttr::get(mathFuncName, context);
+    return SymbolRefAttr::get(context, mathFuncName);
 
   // Create function declaration.
   // auto llvmF32Ty = LLVM::LLVMFloatType::get(context);
@@ -174,7 +174,7 @@ static FlatSymbolRefAttr getOrInsertUnaryMathFunction(PatternRewriter &rewriter,
   PatternRewriter::InsertionGuard insertGuard(rewriter);
   rewriter.setInsertionPointToStart(module.getBody());
   rewriter.create<LLVM::LLVMFuncOp>(module.getLoc(), mathFuncName, llvmFnType);
-  return SymbolRefAttr::get(mathFuncName, context);
+  return SymbolRefAttr::get(context, mathFuncName);
 }
 
 //===----------------------------------------------------------------------===//
