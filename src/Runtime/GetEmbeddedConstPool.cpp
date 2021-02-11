@@ -48,7 +48,7 @@ void *getEmbeddedConstPool(int64_t size_in_byte) {
   float *data_ptr = (float *)data;
   void *buffer = malloc(size);
   memcpy(buffer, data, size);
-  return data;
+  return buffer;
 }
 
 #elif __linux__
