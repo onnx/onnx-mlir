@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
 // Copyright 2019 The IBM Research Authors.

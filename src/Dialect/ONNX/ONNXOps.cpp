@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===------------------ ONNXOps.cpp - ONNX Operations ---------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -668,6 +672,61 @@ LogicalResult ONNXCoshOp::inferShapes(
 /// Infer the output shape of the ONNXCosOp. This method is required by the
 /// shape inference interface.
 LogicalResult ONNXCosOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Acos
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXAcosOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXAcosOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Acosh
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXAcoshOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXAcoshOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Asin
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXAsinOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXAsinOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Asinh
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXAsinhOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXAsinhOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  getResult().setType(getOperand().getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Atanh
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXAtanhOp. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXAtanhOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   getResult().setType(getOperand().getType());
   return success();
@@ -2945,37 +3004,12 @@ LogicalResult ONNXLessOp::inferShapes(
 // Followed by the implementation of lowering to Krnl and
 // Enable the corresponding node test in check-onnx-backend
 
-LogicalResult ONNXAcosOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXAcoshOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
 LogicalResult ONNXArgMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
 LogicalResult ONNXArgMinOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXAsinOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXAsinhOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXAtanhOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
