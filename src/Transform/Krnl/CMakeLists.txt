@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 add_library(OMSimplifyKrnl
         SimplifyKrnl.cpp)
 target_include_directories(OMSimplifyKrnl PRIVATE

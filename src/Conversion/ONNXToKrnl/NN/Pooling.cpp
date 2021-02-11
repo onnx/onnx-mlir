@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Pooling.cpp - Lowering Pooling Ops ------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -345,7 +349,11 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             ieContext.createLoopInductionIndex(outputLoops.getInductionVar(i)));
 
       // 2.1 Emit: output[n][c][ho][wo] = identity
-      ieContext.createKrnlStoreOp(identity, alloc, outputIndices);
+      // Create a local reduction value for output[n][c][ho][wo].
+      Value reductionVal = rewriter.create<AllocaOp>(
+          loc, MemRefType::get({}, memRefType.getElementType()));
+      rewriter.create<KrnlStoreOp>(
+          loc, identity, reductionVal, ArrayRef<Value>{});
 
       // 2.2 Emit affine maps which express the lower and upper bounds for the
       // pooling window's dimensions.
@@ -441,7 +449,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // Create a krnl iterate.
       poolingLoops.createIterateOp();
 
-      auto ipOuterLoops = rewriter.saveInsertionPoint();
+      auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
       rewriter.setInsertionPointToStart(poolingLoops.getIterateBlock());
       {
         // 2.4 Emit the body of the pooling loop nest.
@@ -472,14 +480,18 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         Value loadInput =
             ieContext.createKrnlLoadOp(inputOperand, inputIndices);
         Value loadPartialOutput =
-            ieContext.createKrnlLoadOp(alloc, outputIndices);
+            rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
             outputElementType, {loadPartialOutput, loadInput});
-        ieContext.createKrnlStoreOp(output, alloc, outputIndices);
+        rewriter.create<KrnlStoreOp>(
+            loc, output, reductionVal, ArrayRef<Value>{});
       }
+      rewriter.restoreInsertionPoint(ipOuterLoopRegion);
+      Value output =
+          rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+      ieContext.createKrnlStoreOp(output, alloc, outputIndices);
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.
-      rewriter.restoreInsertionPoint(ipOuterLoops);
       SmallVector<Value, 4> outputIndicesInValue;
       for (IndexExpr expr : outputIndices)
         outputIndicesInValue.emplace_back(expr.getValue());

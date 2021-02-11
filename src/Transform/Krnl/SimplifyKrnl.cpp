@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 
 using namespace mlir;

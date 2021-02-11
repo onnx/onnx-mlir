@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -126,7 +130,10 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
   auto outputs = sess.run(move(inputs));
   auto &conv = outputs.at(0);
 
-  return omTensorAreTwoOmtsClose<float>(conv.get(), ref);
+  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
+  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
+
+  return omTensorAreTwoOmtsClose<float>(conv.get(), ref, rtol, atol);
 }
 
 int main(int argc, char *argv[]) {

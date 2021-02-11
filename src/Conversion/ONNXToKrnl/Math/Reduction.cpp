@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------------- Reduction.cpp - Lowering Reduction Ops ----------------===//
 //
 // Copyright 2019 The IBM Research Authors.
