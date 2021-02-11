@@ -129,6 +129,7 @@ OMTensor *omTensorCreate(
   } else {
     if (tensor->_shape)
       free(tensor->_shape);
+    free(tensor);
     return NULL;
   }
 
@@ -183,6 +184,7 @@ OMTensor *omTensorCreateEmptyDeprecated(int rank) {
   } else {
     if (omt->_shape)
       free(omt->_shape);
+    free(omt);
     return NULL;
   }
 
