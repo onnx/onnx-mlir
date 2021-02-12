@@ -13,6 +13,9 @@ parameters:
 - name: GeneratorString
   type: string
   default: 'Ninja'
+- name: Platform
+  type: string
+  default: ''
 - name: PythonExePath
   type: string
   default: '/usr/bin/python3'
@@ -82,3 +85,21 @@ steps:
     inputs:
       workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
       cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-onnx-lit'
+
+  - task: CopyFiles@2
+    displayName: 'Copy ONNX MLIR to Artifact Staging'
+    inputs:
+      sourceFolder: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
+      contents: |
+        bin/onnx-mlir*
+        bin/$(CMakeBuildConfiguration)/onnx-mlir*
+      targetFolder: '$(Build.ArtifactStagingDirectory)/onnx-mlir/bin'
+      cleanTargetFolder: true
+      flattenFolders: true
+      preserveTimestamp: true
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish ONNX MLIR Artifacts'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)/onnx-mlir'
+      artifactName: 'ONNX_MLIR_${{ parameters.Platform }}_$(CMakeBuildConfiguration)'

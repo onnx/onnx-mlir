@@ -81,6 +81,7 @@ jobs:
       CMakeExternalLIT: '-DLLVM_EXTERNAL_LIT="$(LLVMBuildDir)\$(CMakeBuildConfiguration)\bin\llvm-lit.py"'
       CMakePrefixPath: 'C:\protobuf\install\$(CMakeBuildConfiguration)'
       GeneratorString: '"Visual Studio 16 2019" -A x64 -T host=x64'
+      Platform: 'Windows'
       PythonExePath: '"C:/Program Files (x86)/Microsoft Visual Studio/Shared/Python36_64/python.EXE"'
 
 - job: Build_And_Test_ONNX_MLIR_Ubuntu
@@ -112,6 +113,7 @@ jobs:
   - template: BuildOnnxMlir.yml
     parameters:
       CMakeBuildTarget: 'onnx-mlir'
+      Platform: 'Ubuntu'
 
   # Pulled the following steps out of the template because they are currently Linux specific, until we get upstream fixes
   - script: |
