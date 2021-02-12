@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====----- ONNXToKrnlCommon.cpp - ONNX dialects to Krnl lowering ---------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -332,4 +336,20 @@ Value emitNegativeInfinityConstantOp(
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
   return rewriter.create<ConstantOp>(loc, constantAttr);
+}
+
+Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
+    Value operand, int64_t axis, Type type) {
+  ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
+  Value dimVal;
+  if (shape[axis] < 0) {
+    Value dim = rewriter.create<DimOp>(loc, operand, axis);
+    if (type.isa<IndexType>())
+      dimVal = dim;
+    else
+      dimVal = rewriter.create<IndexCastOp>(loc, dim, type);
+  } else {
+    dimVal = emitConstantOp(rewriter, loc, type, shape[axis]);
+  }
+  return dimVal;
 }

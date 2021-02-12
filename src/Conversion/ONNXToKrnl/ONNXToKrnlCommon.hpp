@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -93,6 +97,13 @@ Value emitNegativeInfinityConstantOp(
     ConversionPatternRewriter &rewriter, Location loc, Type type);
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i);
+
+/// Get a dimension value from a memref. Emit a constant if the dimension is
+/// constant. Otherwise, emit a dim op.
+/// If the return type is different from IndexType, emit a cast op to cast the
+/// output of the dim op.
+Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
+    Value operand, int64_t axis, Type type);
 
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.

@@ -48,12 +48,15 @@ func @test_enable_memory_pool_2(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf3
   // CHECK: krnl.store [[ADDF1]], [[GETREF1]][%arg2, %arg3] : memref<10x10xf32>
   // CHECK: krnl.define_loops
   // CHECK: krnl.iterate
+  // CHECK: [[REDUCTION_SUM:%.+]] = alloca() : memref<f32>
   // CHECK: [[LOAD3:%.+]] = krnl.load [[GETREF1]][%arg2, %arg4] : memref<10x10xf32>
   // CHECK: [[LOAD4:%.+]] = krnl.load %arg1[%arg4, %arg3] : memref<10x20xf32>
-  // CHECK: [[LOAD5:%.+]] = krnl.load [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
+  // CHECK: [[LOAD5:%.+]] = krnl.load [[REDUCTION_SUM]][] : memref<f32>
   // CHECK: [[MULF1:%.+]] = mulf [[LOAD3]], [[LOAD4]] : f32
   // CHECK: [[ADDF2:%.+]] = addf [[LOAD5]], [[MULF1]] : f32
-  // CHECK: krnl.store [[ADDF2]], [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
+  // CHECK: krnl.store [[ADDF2]], [[REDUCTION_SUM]][] : memref<f32>
+  // CHECK: [[SUM:%.+]] = krnl.load [[REDUCTION_SUM]][] : memref<f32>
+  // CHECK: krnl.store [[SUM]], [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
   // CHECK: krnl.define_loops
   // CHECK: krnl.iterate
   // CHECK: [[LOAD6:%.+]] = krnl.load [[GETREF0]][%arg2, %arg3] : memref<10x20xf32>
@@ -100,7 +103,6 @@ func @test_enable_memory_pool_3(%arg0: tensor<?x?xf32>, %arg1: tensor<?x10xf32>,
   // CHECK: [[DATA3:%.+]] = alloc([[DIM1]]) : memref<?x10xf32>
   // CHECK: krnl.define_loops 2
   // CHECK: krnl.iterate
-  // CHECK: krnl.store [[CST]], [[DATA3]][%arg3, %arg4] : memref<?x10xf32>
   // CHECK: krnl.define_loops 1
   // CHECK: krnl.iterate
   // CHECK: krnl.store {{.*}}, [[DATA3]][%arg3, %arg4] : memref<?x10xf32>

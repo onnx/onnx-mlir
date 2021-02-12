@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------- ONNXConstProp.cpp - ONNX High Level Rewriting ------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -503,9 +507,23 @@ public:
 
     // Rewrite
     unsigned outputNum = splitOp->getNumResults();
-    int64_t rank = splitOp->input().getType().cast<ShapedType>().getRank();
+    Value splitInput = splitOp->input();
+    int64_t rank = splitInput.getType().cast<ShapedType>().getRank();
     IntegerAttr axisAttr = splitOp->axisAttr();
     ArrayAttr splitAttr = splitOp->splitAttr();
+    if (!splitAttr) {
+      // If split attribute is not specified, it is constructed from input.
+      ArrayRef<int64_t> shape =
+          splitInput.getType().cast<ShapedType>().getShape();
+      uint64_t splitAxis = axisAttr.getValue().getSExtValue();
+      assert(shape[splitAxis] % outputNum == 0 &&
+             "The dimension at the split axis is expected to be divisible by "
+             "the number of results");
+      Attribute splitSize = rewriter.getIntegerAttr(
+          rewriter.getIntegerType(64), shape[splitAxis] / outputNum);
+      SmallVector<Attribute, 4> splits(outputNum, splitSize);
+      splitAttr = rewriter.getArrayAttr(splits);
+    }
 
     SmallVector<::mlir::Value, 4> returnValues;
     for (int i = 0; i < outputNum; ++i) {
