@@ -29,7 +29,10 @@
 using namespace mlir;
 namespace {
 
-// Handling of static memory pool on a block-basis in each function.
+// Handling of static memory pool on a block-basis in each function. For each
+// block we need to keep track of the memory pools which have been compacted
+// already. There can be several such memory pools, one for each alignment
+// present in the program.
 typedef std::map<Block *, llvm::SmallSet<int64_t, 16>>
     BlockToCompactedAlignments;
 

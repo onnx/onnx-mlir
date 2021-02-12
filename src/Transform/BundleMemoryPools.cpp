@@ -34,6 +34,11 @@ namespace {
 //===----------------------------------------------------------------------===//
 
 // Data structure for managing memory pools.
+// For each block track the set of memory pools for a given alignment.
+// Memory pools are created for an alloc as long as the MemRef created by the
+// alloc:
+// - does not contain any affine maps;
+// - the type of the MemRef is not index.
 typedef std::map<int64_t, AllocOp> AlignmentToMemPool;
 typedef std::map<Block *, AlignmentToMemPool *> BlockToMemPool;
 
@@ -192,7 +197,7 @@ public:
 
     // If this is the alloc representing the memory pool and the function
     // already has an init block, pattern matching must fail to avoid
-    // processing the dynamic memory pool a second time.
+    // processing the static memory pool a second time.
     if (allocOp == staticMemPoolAlloc)
       return failure();
 

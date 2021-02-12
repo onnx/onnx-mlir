@@ -310,11 +310,10 @@ int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
 
 /// Get alignment of an AllocOp if it exists else return zero.
 int64_t getAllocAlignment(AllocOp allocOp) {
-  int64_t alignment = 0;
   if (IntegerAttr alignmentAttr = allocOp.alignmentAttr())
-    alignment = alignmentAttr.getInt();
+    return alignmentAttr.getInt();
 
-  return alignment;
+  return 0;
 }
 
 //===----------------------------------------------------------------------===//
