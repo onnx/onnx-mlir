@@ -197,6 +197,8 @@ def build_private_onnx_mlir(image_type, exp):
                 }):
             print(line['stream'] if 'stream' in line else '',
                   end='', flush=True)
+            if 'error' in line:
+                raise Exception(line['error'])
 
         id = docker_api.images(name = image_full, all = False, quiet = True)
         logging.info('image %s (%s) built', image_full, id[0][0:19])

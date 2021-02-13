@@ -231,6 +231,8 @@ def setup_private_llvm(image_type, exp):
                     }):
                 print(line['stream'] if 'stream' in line else '',
                       end='', flush=True)
+                if 'error' in line:
+                    raise Exception(line['error'])
 
             id = docker_api.images(name = image_full,
                                    all = False, quiet = True)
