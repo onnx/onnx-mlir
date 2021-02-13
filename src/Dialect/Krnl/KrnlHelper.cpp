@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====---------------- KrnlHelper.cpp - Krnl Dialect Helper----------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.

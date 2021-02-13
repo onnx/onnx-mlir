@@ -1,0 +1,67 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} AS onnx-mlir-test
+
+# Label	the base image so it can be cleaned up after becoming dangling
+ARG ONNX_MLIR_PR_NUMBER
+LABEL onnx_mlir_pr_number=${ONNX_MLIR_PR_NUMBER}
+
+ARG WORK_DIR=/workdir
+WORKDIR ${WORK_DIR}
+
+# Copy onnx-mlir from the pull request
+COPY . onnx-mlir
+
+# Setup onnx
+#ARG THIRD_PARTY_ONNX_SHA1=b2a20a9d07678e89ae9346243035e194b63e0e8a
+#RUN pip3 install git+git://github.com/onnx/onnx.git@${THIRD_PARTY_ONNX_SHA1} \
+#    && rm -rf /root/.cache
+RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
+    && cd ${ONNX_ROOT} \
+    && python3 setup.py	-q install	\
+    && rm -rf .eggs .setuptools-cmake-build build dist onnx.egg-info
+
+RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
+    && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
+# Install llc, opt, and libraries
+    && cp ${LLVM_PROJECT_ROOT}/build/bin/llc /usr/local/bin \
+    && cp ${LLVM_PROJECT_ROOT}/build/bin/opt /usr/local/bin \
+    && cp -a ${LLVM_PROJECT_ROOT}/build/lib/* /usr/local/lib \
+# Build onnx-mlir, run tests, and install
+    && cd ${ONNX_MLIR_ROOT} \
+    && rm -rf build && mkdir -p build && cd build \
+    && LLVM_PROJ_SRC=${LLVM_PROJECT_ROOT} \
+       LLVM_PROJ_BUILD=${LLVM_PROJECT_ROOT}/build \
+       cmake .. \
+    && make -j$(nproc) \
+    && make -j$(nproc) check-onnx-lit \
+    && make check-onnx-backend \
+    && make check-onnx-backend-dynamic \
+    && make ARGS=-j$(nproc) test \
+    && make check-doc \
+    && make onnx-mlir-doc \
+    && make -j$(nproc) install \
+# Clean up
+    && cd ${WORK_DIR} \
+    && apt-get purge --autoremove -qq -y \
+               autoconf automake cmake git libtool make \
+	       ninja-build python3 wget \
+    && rm -rf /tmp/* /var/lib/apt/lists/* \
+              /usr/bin/python llvm-project onnx-mlir
+
+# Copy from onnx-mlir-test to squash removed source layer and
+# remove dependency on onnx-mlir-llvm-shared image
+FROM scratch
+
+# Label the images for various checking and cleanup
+ARG ONNX_MLIR_SHA1
+ARG ONNX_MLIR_SHA1_DATE
+ARG ONNX_MLIR_DOCKERFILE_SHA1
+ARG ONNX_MLIR_PR_NUMBER
+LABEL onnx_mlir_sha1=${ONNX_MLIR_SHA1}
+LABEL onnx_mlir_sha1_date=${ONNX_MLIR_SHA1_DATE}
+LABEL onnx_mlir_dockerfile_sha1=${ONNX_MLIR_DOCKERFILE_SHA1}
+LABEL onnx_mlir_pr_number=${ONNX_MLIR_PR_NUMBER}
+
+COPY --from=onnx-mlir-test / /
+ENTRYPOINT [ "onnx-mlir" ]
+CMD [ "--help" ]

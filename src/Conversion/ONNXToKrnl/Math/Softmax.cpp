@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------------- Softmax.cpp - Softmax Op ---------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
