@@ -204,11 +204,9 @@ def post_commit_status(event, state) {
     def status   = (state == 'aborted') ? 'failure' : state
     /* Commit message may have newline so replace it to avoid invalid JSON */
     def title    = "${ONNX_MLIR_PR_COMMIT_MESSAGE}".replace('\n', ' ')
-    def pr       = (event == 'pull_request') ? 'PR ' : 'pr '
     def phrase   = (event == 'issue_comment') ?
                    "${ONNX_MLIR_PR_PHRASE}" : "${ONNX_MLIR_PR_ACTION}"
-    def desc     = "Build #${BUILD_NUMBER} " + pr + "#${ONNX_MLIR_PR_NUMBER} " +
-                   "[${phrase}] " +
+    def desc     = "Build #${BUILD_NUMBER} " + "[${phrase}] " +
                    title.substring(0,Math.min(title.length(),24)) + '...'
     def action   = (state == 'success') ? 'passed'  :
                    (state == 'failure') ? 'failed'  :
