@@ -49,11 +49,16 @@ public:
              "Can't find affine for operation associated with .");
       AffineForOp forOp = loopRefToOp[pair.first];
       Block &loopBody = forOp.getLoopBody().front();
+      //      fprintf(stderr, "[Begin] For op looks like:\n");
+      //      forOp.dump();
+
       auto insertPt = loopBody.begin();
 
       auto opsToTransfer = pair.second;
       auto transferPt = opsToTransfer.begin();
 
+      SmallVector<KrnlMovableOp, 4> opsToErase;
+      decltype(insertPt) nextInsertPt;
       while (insertPt != loopBody.end() && transferPt != opsToTransfer.end()) {
         assert(transferPt->loopsToSkip.hasValue() !=
                transferPt->movableOp.hasValue());
@@ -61,18 +66,55 @@ public:
           auto movableOp = transferPt->movableOp.getValue();
           // Count ops being transferred (sans terminator op).
           auto numOps = movableOp.getBody()->getOperations().size() - 1;
+
           loopBody.getOperations().splice(insertPt,
               movableOp.getBody()->getOperations(),
               movableOp.getBody()->begin(),
               movableOp.getBody()->getTerminator()->getIterator());
-          movableOp->erase();
-        } else {
+
           Operation *insertPtOp = &(*insertPt);
-          assert(dyn_cast_or_null<AffineForOp>(insertPtOp));
-          insertPt++;
+          //          fprintf(stderr, "Transfer happening!\n");
+          //          fprintf(stderr, "InsertPoint looks like:\n");
+          //          insertPtOp->dump();
+          //          fprintf(stderr, "MovableOp looks like:\n");
+          //          movableOp->dump();
+
+          nextInsertPt = std::next(insertPt, 1);
+          transferPt++;
+          movableOp->erase();
+          //          fprintf(stderr, "after transfer look like:\n");
+          //          forOp.dump();
+        } else {
+          assert(transferPt->loopsToSkip.hasValue());
+
+          //          Operation *insertPtOp = &(*insertPt);
+          //          if (AffineForOp op =
+          //          dyn_cast_or_null<AffineForOp>(insertPtOp)) {
+          //
+          //          } else {
+          //            fprintf(stderr, "op name dump\n");
+          //            insertPtOp->dump();
+          //          }
+          insertPt = nextInsertPt;
+          nextInsertPt = std::next(insertPt, 1);
+          transferPt++;
         }
-        transferPt++;
+        // insertPt++;
+        // transferPt++;
       }
+      //      if (insertPt == loopBody.end()) {
+      //
+      //        fprintf(stderr, "insertion point hit end\n");
+      //        fprintf(stderr, "back look like\n");
+      //        loopBody.back().dump();
+      //      }
+      //      if (transferPt == opsToTransfer.end())
+      //        fprintf(stderr, "transfer point hit end\n");
+      //      for (auto op : opsToErase)
+      //        op->erase();
+      //
+      //      fprintf(stderr, "[End] For op looks like:\n");
+      //      forOp.dump();
     }
   }
 
@@ -195,7 +237,6 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
 
   for (const auto &pair : currentNestedForOps)
     refToOps.try_emplace(pair.first, pair.second);
-
 }
 
 //===----------------------------------------------------------------------===//
@@ -421,6 +462,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   LoopBodyMover mover;
   funcOp.walk([&](KrnlIterateOp op) { makeBodyMovable(op, builder, mover); });
 
+  //  funcOp.dump();
+
   // Interpret krnl dialect operations while looping recursively through
   // operations within the current function, note that erasing operations while
   // iterating is tricky because it can invalidate the iterator, so we collect
@@ -454,8 +497,10 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   }
   assert(opsToErase.empty());
 
+  //  funcOp.dump();
   // Move loop body under appropriate newly created affine loops.
   mover.move(loopRefToOp);
+  //  funcOp.dump();
 
   ConversionTarget target(getContext());
   target.addIllegalOp<KrnlTerminatorOp>();
