@@ -27,3 +27,39 @@ func @simple_imperfectly_nested() {
 // CHECK:         }
 // CHECK:       }
 }
+
+// -----
+
+func @test_2d_tiling_imperfectly_nested() {
+  %ii, %ij = krnl.define_loops 2
+  %ib, %il = krnl.block %ii 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+  %jb, %jl = krnl.block %ij 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+  krnl.permute(%ib, %il, %jb, %jl) [0, 2, 1, 3] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
+  krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 10, %ij -> %j = 0 to 20) {
+    %alloc = alloc() : memref<10 x f32>
+    krnl.iterate(%il, %jl) with () {
+      %foo = addi %i, %j : index
+    }
+    dealloc %alloc : memref<10 x f32>
+  }
+  return
+
+  // CHECK:       #map0 = affine_map<(d0) -> (d0)>
+  // CHECK:       #map1 = affine_map<(d0) -> (d0 + 5)>
+  // CHECK:       #map2 = affine_map<(d0) -> (d0 + 4)>
+  // CHECK-LABEL:       func @test_2d_tiling_imperfectly_nested
+  // CHECK-SAME:     () {
+  // CHECK:           affine.for [[IB:%.+]] = 0 to 10 step 5 {
+  // CHECK:             affine.for [[JB:%.+]] = 0 to 20 step 4 {
+  // CHECK:               [[ALLOC:%.+]] = alloc() : memref<10xf32>
+  // CHECK:               affine.for [[IL:%.+]] = #map0([[IB]]) to #map1([[IB]]) {
+  // CHECK:                 affine.for [[JL:%.+]] = #map0([[JB]]) to #map2([[JB]]) {
+  // CHECK:                   [[FOO:%.+]] = addi [[IL]], [[JL]] : index
+  // CHECK:                 }
+  // CHECK:               }
+  // CHECK:               dealloc [[ALLOC]] : memref<10xf32>
+  // CHECK:             }
+  // CHECK:           }
+  // CHECK:           return
+  // CHECK:         }
+}
