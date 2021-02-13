@@ -47,77 +47,19 @@ public:
     movingPlan[innerMostLoopHandler].push_back(movable);
   }
 
-  void move(llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp) {
-    for (const auto &pair : movingPlan) {
-      assert(loopRefToOp.count(pair.first) >= 0 &&
-             "Can't find affine for operation associated with .");
-      AffineForOp forOp = loopRefToOp[pair.first];
-      Block &loopBody = forOp.getLoopBody().front();
-
-      auto insertPt = loopBody.begin();
-      auto opsToTransfer = pair.second;
-      auto transferPt = opsToTransfer.begin();
-
-      SmallVector<KrnlMovableOp, 4> opsToErase;
-      while (insertPt != loopBody.end() && transferPt != opsToTransfer.end()) {
-        assert(transferPt->loopsToSkip.hasValue() !=
-               transferPt->movableOp.hasValue());
-        if (transferPt->movableOp.hasValue()) {
-          auto movableOp = transferPt->movableOp.getValue();
-
-          loopBody.getOperations().splice(insertPt,
-              movableOp.getBody()->getOperations(),
-              movableOp.getBody()->begin(),
-              movableOp.getBody()->getTerminator()->getIterator());
-
-          // After insertion, the insertion point iterator will remain valid
-          // and points to the operation before which new operations can be
-          // inserted, unless it happens to point to the extraction point, too
-          // (aka, the movable op from which operations are drawn). In this
-          // case, we increment it to its next operation. Notably, this has to
-          // be done after the movable op is disconnected from the basic block.
-          // Otherwise the iterator is invalidated and iterator increment
-          // doesn't work anymore.
-          if (insertPt == movableOp->getIterator())
-            insertPt++;
-          movableOp->erase();
-        } else if (transferPt->loopsToSkip.hasValue()) {
-          llvm::Optional<AffineForOp> loopToSkip;
-          loopToSkip =
-              transferPt->loopsToSkip.getValue().empty()
-                  ? loopToSkip
-                  : loopRefToOp[transferPt->loopsToSkip.getValue().front()];
-
-          // Move iterator to point to the next AffineFor Op.
-          while (insertPt != loopBody.end() &&
-                 !dyn_cast_or_null<AffineForOp>(&*insertPt)) {
-            assert(dyn_cast_or_null<KrnlMovableOp>(&*insertPt));
-            insertPt++;
-          }
-
-          // Assert that now insertion point points to the loop to skip.
-          if (loopToSkip)
-            assert(insertPt == loopToSkip.getValue()->getIterator());
-
-          // Skip loop by incrementing insertion point.
-          insertPt++;
-        }
-        transferPt++;
-      }
-    }
-  }
-
-  void moveEx(
-      Value loopRef, llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp) {
+  void moveOne(Value loopRef,
+      llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp, bool erase = 1) {
+    assert(loopRefToOp.count(loopRef) >= 0 &&
+           "Can't find affine for operation associated with .");
     AffineForOp forOp = loopRefToOp[loopRef];
     Block &loopBody = forOp.getLoopBody().front();
     auto insertPt = loopBody.begin();
 
     auto opsToTransfer = movingPlan[loopRef];
-    movingPlan.erase(loopRef);
+    if (erase)
+      movingPlan.erase(loopRef);
     auto transferPt = opsToTransfer.begin();
 
-    SmallVector<KrnlMovableOp, 4> opsToErase;
     while (insertPt != loopBody.end() && transferPt != opsToTransfer.end()) {
       assert(transferPt->loopsToSkip.hasValue() !=
              transferPt->movableOp.hasValue());
@@ -162,6 +104,11 @@ public:
       }
       transferPt++;
     }
+  }
+
+  void moveAll(llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp) {
+    for (const auto &pair : movingPlan)
+      moveOne(pair.first, loopRefToOp, /*erase=*/false);
   }
 
 private:
@@ -353,12 +300,16 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     opsToErase.insert(op);
     return success();
   } else if (auto unrollOp = dyn_cast_or_null<KrnlUnrollOp>(op)) {
-
     // Unroll the affine for loop fully.
     auto loopRef = unrollOp.loop();
-    mover.moveEx(loopRef, loopRefToOp);
+    auto loopToUnroll = loopRefToOp[loopRef];
+    mover.moveOne(loopRef, loopRefToOp);
 
-    loopUnrollFull(loopRefToOp[loopRef]);
+    // Assert that there's no floating code within the loop to be unrolled.
+    loopToUnroll.walk([](KrnlMovableOp op) {
+      llvm_unreachable("Loop to unroll must not contain movable op.");
+    });
+    loopUnrollFull(loopToUnroll);
 
     opsToErase.insert(op);
     return success();
@@ -514,7 +465,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   assert(opsToErase.empty());
 
   // Move loop body under appropriate newly created affine loops.
-  mover.move(loopRefToOp);
+  mover.moveAll(loopRefToOp);
   //  funcOp.dump();
 
   ConversionTarget target(getContext());
