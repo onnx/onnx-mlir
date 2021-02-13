@@ -49,12 +49,12 @@ public:
 
   void move(llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp) {
     for (auto pair : movingPlan) {
-      assert(loopRefToOp.count(pair.first) >= 0 &&
-             "Can't find affine for operation associated with .");
+//      assert(loopRefToOp.count(pair.first) >= 0 &&
+//             "Can't find affine for operation associated with .");
       AffineForOp forOp = loopRefToOp[pair.first];
       Block &loopBody = forOp.getLoopBody().front();
-      //      fprintf(stderr, "[Begin] For op looks like:\n");
-      //      forOp.dump();
+//      fprintf(stderr, "[Begin] For op looks like:\n");
+//      forOp.dump();
 
       auto insertPt = loopBody.begin();
 
@@ -70,28 +70,37 @@ public:
           auto movableOp = transferPt->movableOp.getValue();
           // Count ops being transferred (sans terminator op).
           auto numOps = movableOp.getBody()->getOperations().size() - 1;
-
+          Operation *insertPtOp = &(*insertPt);
+//          fprintf(stderr, "Potentially problematic insertion point:\n");
+//          insertPtOp->dump();
           loopBody.getOperations().splice(insertPt,
               movableOp.getBody()->getOperations(),
               movableOp.getBody()->begin(),
               movableOp.getBody()->getTerminator()->getIterator());
 
-          Operation *insertPtOp = &(*insertPt);
+          //          Operation *insertPtOp = &(*insertPt);
           //          fprintf(stderr, "Transfer happening!\n");
           //          fprintf(stderr, "InsertPoint looks like:\n");
           //          insertPtOp->dump();
           //          fprintf(stderr, "MovableOp looks like:\n");
           //          movableOp->dump();
 
-          nextInsertPt = insertPt != loopBody.end() ? std::next(insertPt, 1)
-                                                    : nextInsertPt;
-          transferPt++;
+          // After insertion, the insertion point iterator will remain valid
+          // and points to the operation before which new operations can be
+          // inserted,unless it points to the movable op from which operations
+          // are drawn. In this case, we increment it to its next operation.
+          // Notably, this has to be done after the movable op is disconnected
+          // from the basic block. Otherwise the iterator is invalidated and
+          // iterator increment doesn't work anymore.
+          if (insertPt == movableOp->getIterator())
+            insertPt++;
           movableOp->erase();
-          //          fprintf(stderr, "after transfer look like:\n");
-          //          forOp.dump();
+
+          transferPt++;
         } else {
           assert(transferPt->loopsToSkip.hasValue());
-
+//          fprintf(stderr, "Skipping transfer due to loop anchor; increment "
+//                          "insertion point to:\n");
           //          Operation *insertPtOp = &(*insertPt);
           //          if (AffineForOp op =
           //          dyn_cast_or_null<AffineForOp>(insertPtOp)) {
@@ -100,8 +109,10 @@ public:
           //            fprintf(stderr, "op name dump\n");
           //            insertPtOp->dump();
           //          }
-          insertPt = nextInsertPt;
-          nextInsertPt = std::next(insertPt, 1);
+          //          insertPt = nextInsertPt;
+          insertPt++;
+//          insertPt->dump();
+//          nextInsertPt = std::next(insertPt, 1);
           transferPt++;
         }
         // insertPt++;
@@ -502,7 +513,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   }
   assert(opsToErase.empty());
 
-  //  funcOp.dump();
+//  funcOp.dump();
   // Move loop body under appropriate newly created affine loops.
   mover.move(loopRefToOp);
   //  funcOp.dump();
