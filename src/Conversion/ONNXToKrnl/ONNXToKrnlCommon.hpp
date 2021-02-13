@@ -240,6 +240,9 @@ void populateLoweringONNXRNNOpPattern(
 
 // `Tensor` directory methods:
 
+void populateLoweringONNXExpandOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXUnsqueezeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
