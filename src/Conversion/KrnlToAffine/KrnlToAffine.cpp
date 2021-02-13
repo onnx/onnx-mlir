@@ -83,7 +83,8 @@ public:
           //          fprintf(stderr, "MovableOp looks like:\n");
           //          movableOp->dump();
 
-          nextInsertPt = std::next(insertPt, 1);
+          nextInsertPt = insertPt != loopBody.end() ? std::next(insertPt, 1)
+                                                    : nextInsertPt;
           transferPt++;
           movableOp->erase();
           //          fprintf(stderr, "after transfer look like:\n");
