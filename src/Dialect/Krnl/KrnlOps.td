@@ -613,3 +613,19 @@ def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
   }];
 
 }
+
+def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"> {
+  let summary = "Krnl operation to convert loop references to corresponding induction"
+                "variable values";
+  let description = [{
+
+  }];
+
+  let arguments = (ins Variadic<AnyType> : $loops);
+  let results = (outs Variadic<AnyType> : $ind_var_vals);
+
+  let assemblyFormat = [{
+      `(` $loops `)` attr-dict `:` functional-type($loops, results)
+  }];
+
+}

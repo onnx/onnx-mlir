@@ -313,6 +313,15 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
 
     opsToErase.insert(op);
     return success();
+  } else if (auto convertOp =
+                 dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
+    auto zippedOperandsResults = llvm::zip(op->getOperands(), op->getResults());
+    for (const auto &operandAndResult : zippedOperandsResults) {
+      auto operand = std::get<0>(operandAndResult);
+      auto result = std::get<1>(operandAndResult);
+      result.replaceAllUsesWith(loopRefToOp[operand].getInductionVar());
+    }
+    opsToErase.insert(op);
   }
 
   return success();
