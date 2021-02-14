@@ -24,10 +24,90 @@
 
 using namespace mlir;
 
+// Since Krnl Dialect allows optimizations to be specified without being
+// applied, some IR may be placed under Krnl loops that will not be materialized
+// concretely until relevant optimizations have been applied. Consider the
+// following example, where we specify the recepie for a 2-dimensional tiled
+// loop, and insert memory allocation/deallocation for per-tile temporary
+// buffer:
+//
+// %ii, %ij = krnl.define_loops 2
+// %ib, %il = krnl.block %ii 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// %jb, %jl = krnl.block %ij 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+// krnl.permute(%ib, %il, %jb, %jl) [0, 2, 1, 3] : !krnl.loop, !krnl.loop,
+//     !krnl.loop, !krnl.loop
+// krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 10, %ij -> %j = 0 to 20) {
+//   %alloc = alloc() : memref<10 x f32>
+//   krnl.iterate(%il, %jl) with () {
+//     %foo = addi %i, %j : index
+//   }
+//   dealloc %alloc : memref<10 x f32>
+//  }
+//
+// The temporary buffer allocation/deallocation are placed within loops that
+// have yet to be materialized because loop tiling and loop permutation are only
+// specified as recipes without actually being applied at Krnl Dialect level.
+// The need to move IR between loop bodies is ubiquitous in the lowering of Krnl
+// Dialect because of its lazy nature, and thus the need for LoopBodyMover.
+//
+// LoopBody mover registers, for each Krnl loop reference, a list of operations
+// that should be contained directly beneath it as the moving plan in the
+// beginning of the Krnl Dialect lowering. And subsequently, when the Affine for
+// loop corresponding to the Krnl loop reference is materialized, IRs will be
+// moved to appropriate locations based on information recorded as moving plan.
+//
+// Thus, for the above IR, the following moving plan is registered:
+// - For %ib, %jb, the list of operation nested directly under is:
+//    - alloc() operation,
+//    - materialized loops corresponding to %il, %jl,
+//    - dealloc() operation.
+// - For %il, %jl, the list of operations nested directly under is:
+//    - addi operation.
+//
+// Subsequently, lowering will start with affine ops materialized corresponding
+// to the reference to un-optimized loops:
+//
+// affine.for %i = 0 to 10 {
+//   affine.for %j = 0 to 20 {
+//     %foo = addi %i, %j : index
+//   }
+// }
+//
+// Since the tiling has not taken place yet, tile coordinat iteration loops have
+// not been materialized, therefore the alloc and dealloc operations do not fit
+// in the IR presently yet. Instead, they will be placed within a krnl.movable
+// op region, to indicate that their positioning is subject to change.
+//
+// krnl.movable {
+//   %alloc = alloc() : memref<10 x f32>;
+// }
+// krnl.movable {
+//   dealloc %alloc : memref<10 x f32>
+// }
+//
+// As we lower the optimization recipes, outer loops will eventually manifest as
+// affine loops. When the destination loops emerge, content within the
+// krnl.movable op will be transferred to appropriate locations, too, resulting
+// in the following final lowered IR:
+//
+// affine.for ib = 0 to 10 step 5 {
+//   affine.for jb = 0 to 20 step 4 {
+//     %alloc = alloc() : memref<10xf32>
+//     affine.for %il = ... {
+//       affine.for %jl = ... {
+//         %foo = addi %il, %jl : index
+//       }
+//     }
+//     dealloc %alloc : memref<10xf32>
+//   }
+// }
+//
+// As specified by the high-level Krnl Dialect.
 class LoopBodyMover {
 public:
   /*!
-   * Represents (a list of) operations to move moved.
+   * Represents (a list of) operations to be moved, or a particular set of loop
+   * nests expected in the destination loop body.
    */
   struct Movable {
     llvm::Optional<KrnlMovableOp> movableOp;
@@ -48,7 +128,8 @@ public:
   }
 
   void moveOne(Value loopRef,
-      llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp, bool erase = 1) {
+      llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
+      bool erase = true) {
     assert(loopRefToOp.count(loopRef) >= 0 &&
            "Can't find affine for operation associated with .");
     AffineForOp forOp = loopRefToOp[loopRef];
