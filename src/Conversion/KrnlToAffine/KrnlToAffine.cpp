@@ -58,13 +58,13 @@ public:
     auto opsToTransfer = movingPlan[loopRef];
     if (erase)
       movingPlan.erase(loopRef);
-    auto transferPt = opsToTransfer.begin();
 
-    while (insertPt != loopBody.end() && transferPt != opsToTransfer.end()) {
-      assert(transferPt->loopsToSkip.hasValue() !=
-             transferPt->movableOp.hasValue());
-      if (transferPt->movableOp.hasValue()) {
-        auto movableOp = transferPt->movableOp.getValue();
+    for (Movable transferPt : opsToTransfer) {
+      assert(insertPt != loopBody.end());
+      assert(
+          transferPt.loopsToSkip.hasValue() != transferPt.movableOp.hasValue());
+      if (transferPt.movableOp.hasValue()) {
+        auto movableOp = transferPt.movableOp.getValue();
 
         loopBody.getOperations().splice(insertPt,
             movableOp.getBody()->getOperations(), movableOp.getBody()->begin(),
@@ -81,12 +81,12 @@ public:
         if (insertPt == movableOp->getIterator())
           insertPt++;
         movableOp->erase();
-      } else if (transferPt->loopsToSkip.hasValue()) {
+      } else if (transferPt.loopsToSkip.hasValue()) {
         llvm::Optional<AffineForOp> loopToSkip;
         loopToSkip =
-            transferPt->loopsToSkip.getValue().empty()
+            transferPt.loopsToSkip.getValue().empty()
                 ? loopToSkip
-                : loopRefToOp[transferPt->loopsToSkip.getValue().front()];
+                : loopRefToOp[transferPt.loopsToSkip.getValue().front()];
 
         // Move iterator to point to the next AffineFor Op.
         while (insertPt != loopBody.end() &&
@@ -102,7 +102,6 @@ public:
         // Skip loop by incrementing insertion point.
         insertPt++;
       }
-      transferPt++;
     }
   }
 
