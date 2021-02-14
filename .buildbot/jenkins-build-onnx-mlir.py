@@ -29,6 +29,7 @@ cpu_arch             = os.getenv('CPU_ARCH')
 dockerhub_user_name  = os.getenv('DOCKERHUB_USER_NAME')
 docker_daemon_socket = os.getenv('DOCKER_DAEMON_SOCKET')
 onnx_mlir_pr_number  = os.getenv('ONNX_MLIR_PR_NUMBER')
+onnx_mlir_pr_number2 = os.getenv('ONNX_MLIR_PR_NUMBER2')
 
 docker_api           = docker.APIClient(base_url=docker_daemon_socket)
 
@@ -193,7 +194,8 @@ def build_private_onnx_mlir(image_type, exp):
                     'ONNX_MLIR_SHA1': exp['onnx_mlir_sha1'],
                     'ONNX_MLIR_SHA1_DATE': exp['onnx_mlir_sha1_date'],
                     'ONNX_MLIR_DOCKERFILE_SHA1': exp['onnx_mlir_dockerfile_sha1'],
-                    'ONNX_MLIR_PR_NUMBER': onnx_mlir_pr_number
+                    'ONNX_MLIR_PR_NUMBER': onnx_mlir_pr_number,
+                    'ONNX_MLIR_PR_NUMBER2': onnx_mlir_pr_number2
                 }):
             print(line['stream'] if 'stream' in line else '',
                   end='', flush=True)
