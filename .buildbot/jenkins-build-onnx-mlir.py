@@ -137,8 +137,8 @@ def build_private_onnx_mlir(image_type, exp):
     # purposes without actually changing the onnx-mlir itself, e.g.,
     # testing different Jenkins job configurations.
     #
-    # Note that, unlike the case with llvm-project images,  we don't need
-    # to check the dockerfile sha1 used to built the onnx-mlir images.
+    # Note that, unlike the case with llvm-project images, we don't need
+    # to check the dockerfile sha1 used to built the onnx-mlir images
     # because the dockerfile is part of onnx-mlir. If we changed it, then
     # onnx-mlir commit sha1 would have changed.
     id = docker_api.images(name = image_full, filters = image_filter,
