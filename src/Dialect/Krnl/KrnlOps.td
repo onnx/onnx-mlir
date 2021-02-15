@@ -615,10 +615,11 @@ def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
 }
 
 def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"> {
-  let summary = "Krnl operation to convert loop references to corresponding induction"
-                "variable values";
+  let summary = "Krnl ";
   let description = [{
-
+     Krnl operation to convert loop references to corresponding induction
+     variable values. This is useful for accessing optimized loop induction
+     variables, as they are not otherwise accessible during Krnl Dialect.
   }];
 
   let arguments = (ins Variadic<AnyType> : $loops);
