@@ -24,12 +24,21 @@
 
 using namespace mlir;
 
-// Since Krnl Dialect allows optimizations to be specified without being
-// applied, some IR may be placed under Krnl loops that will not be materialized
-// concretely until relevant optimizations have been applied. Consider the
-// following example, where we specify the recepie for a 2-dimensional tiled
-// loop, and insert memory allocation/deallocation for per-tile temporary
-// buffer:
+namespace {
+// Since Krnl Dialect allows optimizations to be specified in the form of
+// recipes without being applied, some IR block may exist under Krnl loops
+// corresponding to loops that will be materialized only after relevant
+// optimization recipes are applied; these Krnl loops serve as anchors for IR
+// placement as we progressively apply optimization recipes, creating new
+// concrete loops that will correspond to these optimized loop references.
+// Whenever a concrete loop gets materialized and is referred to by Krnl loop
+// reference %loop_ref, we will need to maintain the relative positioning of IR
+// block and their parent loop operations; we do so by moving IR blocks while
+// Krnl Dialect lowering proceeds.
+//
+// Consider the following example, where we specify the recepie for a
+// 2-dimensional tiled loop, and insert memory allocation/deallocation aimed to
+// set up and clean up per-tile temporary buffer:
 //
 // %ii, %ij = krnl.define_loops 2
 // %ib, %il = krnl.block %ii 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
@@ -47,16 +56,21 @@ using namespace mlir;
 // The temporary buffer allocation/deallocation are placed within loops that
 // have yet to be materialized because loop tiling and loop permutation are only
 // specified as recipes without actually being applied at Krnl Dialect level.
-// The need to move IR between loop bodies is ubiquitous in the lowering of Krnl
-// Dialect because of its lazy nature, and thus the need for LoopBodyMover.
+// Therefore as we proceed to lower Krnl Dialect, there will be no place for
+// these (blocks of) operations to exist until the corresponding concrete outer
+// loops emerge, as a result of optimizations being applied. Upon materializing
+// such a loop, we will move these (blocks of) operations to the corresponding
+// regions in the newly created loops.
 //
-// LoopBody mover registers, for each Krnl loop reference, a list of operations
-// that should be contained directly beneath it as the moving plan in the
-// beginning of the Krnl Dialect lowering. And subsequently, when the Affine for
-// loop corresponding to the Krnl loop reference is materialized, IRs will be
-// moved to appropriate locations based on information recorded as moving plan.
+// We use LoopBody mover to:
+// - register, for each Krnl loop reference, blocks of operations
+//   that should be contained directly beneath the corresponding concrete loops
+//   as the moving plan in the beginning of the Krnl Dialect lowering.
+// - subsequently, when the concrete loops corresponding to the Krnl loop
+//   reference is materialized, IR blocks will be moved to appropriate locations
+//   based on information recorded as moving plan.
 //
-// Thus, for the above IR, the following moving plan is registered:
+// Thus, for the above IR, the following moving plan will be registered:
 // - For %ib, %jb, the list of operation nested directly under is:
 //    - alloc() operation,
 //    - materialized loops corresponding to %il, %jl,
@@ -106,8 +120,16 @@ using namespace mlir;
 class LoopBodyMover {
 public:
   /*!
-   * Represents (a list of) operations to be moved, or a particular set of loop
-   * nests expected in the destination loop body.
+   * Represents either:
+   * - a list of operations to be moved, or
+   * - a particular set of loop nests expected in the destination loop body.
+   *     This is helpful because we're only adjusting the relative positioning
+   *     of IR blocks with respect to the concrete loops as we lowering the Krnl
+   *     Dialect by applying the optimization recepies. Therefore, clearly
+   *     moving IR blocks alone is sufficient to achieve our goal, and recording
+   *     the position of expected loop nests in the destination loop body simply
+   *     helps determine the correct relative position of IR blocks with respect
+   *     to inner loops.
    */
   struct Movable {
     llvm::Optional<KrnlMovableOp> movableOp;
@@ -121,12 +143,30 @@ public:
     }
   };
 
+  /*!
+   * Register in our moving plan that content in the movable op should be moved
+   * under the concrete loops corresponding to loop.
+   * @param movable IR blocks enclosed in krnl.movable op to move around.
+   * @param loop The Krnl Loop referring to the concrete loop sourrounding the
+   * content of the movable op in the lowered IR.
+   */
   void toMoveUnder(const Movable &movable, KrnlIterateOp loop) {
     Value innerMostLoopHandler =
         loop.getOperand(loop.getNumOptimizedLoops() - 1);
     movingPlan[innerMostLoopHandler].push_back(movable);
   }
 
+  /*!
+   * Signal that the concrete loop corresponding to loopRef has been
+   * materialized, and therefore we can transfer operations to its loop body as
+   * specified by moving plan.
+   * @param loopRef Krnl loop ref corresponding to the concrete loop being
+   * materailized.
+   * @param loopRefToOp A dictionary keeping track of the correspondence between
+   * Krnl loop references and concrete loops.
+   * @param erase whether to erase entries in the moving plan corresponding to
+   * this action.
+   */
   void moveOne(Value loopRef,
       llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
       bool erase = true) {
@@ -194,8 +234,6 @@ public:
 private:
   llvm::DenseMap<mlir::Value, llvm::SmallVector<Movable, 4>> movingPlan;
 };
-
-namespace {
 
 //===----------------------------------------------------------------------===//
 // Krnl to Affine Rewrite Patterns: KrnlTerminator operation.
@@ -291,12 +329,10 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
 /// This is a partial lowering to affine loops of the krnl dialect operations.
 /// At this stage the dialect will contain standard operations as well like
 /// add and multiply, this pass will leave these operations intact.
-namespace {
 struct ConvertKrnlToAffinePass
     : public PassWrapper<ConvertKrnlToAffinePass, FunctionPass> {
   void runOnFunction() final;
 };
-} // end anonymous namespace.
 
 LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
@@ -472,7 +508,22 @@ public:
   }
 };
 
-void makeBodyMovable(
+/*!
+ * Helper function to separate the operations nested directly within a
+ * Krnl.iterate op into two kinds:
+ * - the first kind is contiguous sequence of operations that will need to be
+ *     moved to a concrete loop when it materializes.
+ * - the second kind is anchors, which are Krnl loop operations. They need not
+ *     be moved because they are the references, and IR blocks will be
+ *     positioned relative to these anchors.
+ *
+ * And record the moving plans in mover.
+ *
+ * @param root root Krnl iterate operation.
+ * @param builder operation builder.
+ * @param mover loop body mover.
+ */
+void markLoopBodyAsMovable(
     KrnlIterateOp root, OpBuilder builder, LoopBodyMover &mover) {
   auto &bodyRegion = root.bodyRegion();
 
@@ -518,7 +569,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   FuncOp funcOp = getFunction();
 
   LoopBodyMover mover;
-  funcOp.walk([&](KrnlIterateOp op) { makeBodyMovable(op, builder, mover); });
+  funcOp.walk(
+      [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
 
   // Interpret krnl dialect operations while looping recursively through
   // operations within the current function, note that erasing operations while
@@ -555,7 +607,6 @@ void ConvertKrnlToAffinePass::runOnFunction() {
 
   // Move loop body under appropriate newly created affine loops.
   mover.moveAll(loopRefToOp);
-  //  funcOp.dump();
 
   ConversionTarget target(getContext());
   target.addIllegalOp<KrnlTerminatorOp>();
