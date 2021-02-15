@@ -29,6 +29,7 @@ cpu_arch             = os.getenv('CPU_ARCH')
 dockerhub_user_name  = os.getenv('DOCKERHUB_USER_NAME')
 docker_daemon_socket = os.getenv('DOCKER_DAEMON_SOCKET')
 onnx_mlir_pr_number  = os.getenv('ONNX_MLIR_PR_NUMBER')
+onnx_mlir_pr_number2 = os.getenv('ONNX_MLIR_PR_NUMBER2')
 
 docker_api           = docker.APIClient(base_url=docker_daemon_socket)
 
@@ -137,8 +138,8 @@ def build_private_onnx_mlir(image_type, exp):
     # purposes without actually changing the onnx-mlir itself, e.g.,
     # testing different Jenkins job configurations.
     #
-    # Note that, unlike the case with llvm-project images,  we don't need
-    # to check the dockerfile sha1 used to built the onnx-mlir images.
+    # Note that, unlike the case with llvm-project images, we don't need
+    # to check the dockerfile sha1 used to built the onnx-mlir images
     # because the dockerfile is part of onnx-mlir. If we changed it, then
     # onnx-mlir commit sha1 would have changed.
     id = docker_api.images(name = image_full, filters = image_filter,
@@ -193,10 +194,13 @@ def build_private_onnx_mlir(image_type, exp):
                     'ONNX_MLIR_SHA1': exp['onnx_mlir_sha1'],
                     'ONNX_MLIR_SHA1_DATE': exp['onnx_mlir_sha1_date'],
                     'ONNX_MLIR_DOCKERFILE_SHA1': exp['onnx_mlir_dockerfile_sha1'],
-                    'ONNX_MLIR_PR_NUMBER': onnx_mlir_pr_number
+                    'ONNX_MLIR_PR_NUMBER': onnx_mlir_pr_number,
+                    'ONNX_MLIR_PR_NUMBER2': onnx_mlir_pr_number2
                 }):
             print(line['stream'] if 'stream' in line else '',
                   end='', flush=True)
+            if 'error' in line:
+                raise Exception(line['error'])
 
         id = docker_api.images(name = image_full, all = False, quiet = True)
         logging.info('image %s (%s) built', image_full, id[0][0:19])
