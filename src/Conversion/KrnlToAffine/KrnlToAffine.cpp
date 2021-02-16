@@ -14,6 +14,7 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/LoopUtils.h"
@@ -21,6 +22,14 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
+
+// EDSC intrinsics (which include all builder methods too).
+#include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
+#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
+#include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
+
+#include "mlir/IR/Types.h"
+#include "mlir/IR/BuiltinTypes.h"
 
 using namespace mlir;
 
@@ -281,6 +290,57 @@ public:
   }
 };
 
+using namespace mlir::edsc;
+using namespace mlir::edsc::ops;
+using namespace mlir::edsc::intrinsics;
+
+// KrnlMatmul will be lowered to vector and affine expressions
+class KrnlMatmulLowering : public OpRewritePattern<KrnlMatMulOp> {
+public:
+  using OpRewritePattern<KrnlMatMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      KrnlMatMulOp op, PatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
+
+    printf("hi alex: start matching krnl.matmul\n");
+
+    Value alpha = emitConstantOp(rewriter, loc, rewriter.getF32Type(), 3.14);
+    printf("hi alex: start emiting krnl.matmul\n");
+
+#if 0
+    Value A = op.A();
+    Value B = op.B();
+    Value C = op.C();
+
+    ScopedContext scope(rewriter, op.getLoc());
+
+    Value zero = std_constant_index(0);
+    Value fZero(std_constant_float(llvm::APFloat(0.0f), rewriter.getF32Type()));
+
+    MemRefBoundsCapture vA(A), vB(B), vC(C); // Get bounds.
+    AffineIndexedValue AA(A), BB(B), CC(C);  // Obj we can load and store into.
+    Value i, j, k;
+    Value N(vC.ub(0)), M(vC.ub(1)), K(vA.ub(1));
+
+    // clang-format off
+    affineLoopNestBuilder({zero, zero}, {N, M}, {1, 1}, [&](ValueRange ivs) {
+      i = ivs[0]; 
+      j = ivs[1];
+      CC(i, j) = fZero;
+    });
+    // clang-format on
+#endif
+
+    printf("hi alex: start replacing krnl.matmul\n");
+    rewriter.eraseOp(op);
+    printf("hi alex: completed matching krnl.matmul\n");
+
+    return success();
+  }
+};
+
 void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   mlir::Operation *funcOp = getFunction();
@@ -321,6 +381,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   target.addIllegalOp<KrnlTerminatorOp>();
   // krnl.dim operations must be lowered prior to this pass.
   target.addIllegalOp<KrnlDimOp>();
+  // alex target.addIllegalOp<KrnlMatMulOp>();
   target.addLegalOp<AffineYieldOp>();
   target.addLegalOp<AffineLoadOp>();
   target.addLegalOp<AffineStoreOp>();
@@ -330,10 +391,12 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   patterns.insert<KrnlTerminatorLowering>(&getContext());
   patterns.insert<KrnlLoadLowering>(&getContext());
   patterns.insert<KrnlStoreLowering>(&getContext());
+  patterns.insert<KrnlMatmulLowering>(&getContext());
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
           getFunction(), target, std::move(patterns), &unconverted)))
     signalPassFailure();
+  funcOp->dump();
 }
 } // namespace
 

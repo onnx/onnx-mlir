@@ -595,3 +595,20 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
     $value `,` $memref `[` $indices `]` attr-dict `:` type($memref)
   }];
 }
+
+def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", []> {
+  let summary = "Matmul operation for a single pannel.";
+  let description = [{
+    Perform a matrix multiplication for a small tile A * B + C of sizes [NxK] * [KxM] + [NxM].
+  }];
+
+  // TODO: add "init z to zero"
+  let arguments = (ins Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A, 
+    Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B, 
+    Arg<AnyMemRef, "Add C [NxM]", [MemRead, MemWrite]>:$C) ;
+  //let results = (outs Arg<AnyMemRef, "Add C [NxM]", [MemRead, MemWrite]>:$res);
+  //let results = ();
+
+  let parser = ?;
+  let printer = ?;
+}
