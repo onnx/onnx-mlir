@@ -79,7 +79,7 @@ public:
       return failure();
 
     // Get the integer value of the index.
-    int64_t index = indexOp.getAttrOfType<IntegerAttr>("value").getInt();
+    int64_t index = indexOp->getAttrOfType<IntegerAttr>("value").getInt();
 
     // Get the shape of the MemRef argument.
     auto memRefType = krnlDimOp.alloc().getType().dyn_cast<MemRefType>();
