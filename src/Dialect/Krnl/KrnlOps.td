@@ -428,8 +428,9 @@ def KrnlCustomOp : Op<Krnl_Dialect, "custom"> {
     Krnl custom scalar operation.
   }];
 
-  let arguments = (ins AnyFloat:$in);
-  let results = (outs AnyFloat:$out);
+  let arguments = (ins AnyTypeOf<[AnyFloat, AnyInteger]>:$in,
+                   StrAttr:$funcName);
+  let results = (outs AnyTypeOf<[AnyFloat, AnyInteger]>:$out);
 
   let parser = ?;
   let printer = ?;
