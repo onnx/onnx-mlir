@@ -605,9 +605,9 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", []> {
   // TODO: add "init z to zero"
   let arguments = (ins Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A, 
     Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B, 
-    Arg<AnyMemRef, "Add C [NxM]", [MemRead, MemWrite]>:$C) ;
-  //let results = (outs Arg<AnyMemRef, "Add C [NxM]", [MemRead, MemWrite]>:$res);
-  //let results = ();
+    Arg<AnyMemRef, "Add C [NxM]", [MemRead, MemWrite]>:$C,
+    Arg<I1>: $zeroC,
+    DefaultValuedAttr<BoolAttr, "true">:$simdize) ;
 
   let parser = ?;
   let printer = ?;

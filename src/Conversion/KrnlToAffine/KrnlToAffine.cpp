@@ -28,9 +28,8 @@
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
 
-#include "mlir/IR/Types.h"
 #include "mlir/IR/BuiltinTypes.h"
-
+#include "mlir/IR/Types.h"
 using namespace mlir;
 
 namespace {
@@ -290,6 +289,10 @@ public:
   }
 };
 
+//===----------------------------------------------------------------------===//
+// Krnl to Affine Rewrite Patterns: Krnl MatMul operation.
+//===----------------------------------------------------------------------===//
+
 using namespace mlir::edsc;
 using namespace mlir::edsc::ops;
 using namespace mlir::edsc::intrinsics;
@@ -304,38 +307,95 @@ public:
     Location loc = op.getLoc();
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
 
-    printf("hi alex: start matching krnl.matmul\n");
+    // Operands and types.
+    Value A = operandAdaptor.A();
+    Value B = operandAdaptor.B();
+    Value C = operandAdaptor.C();
+    MemRefType AType = A.getType().cast<MemRefType>();
+    MemRefType BType = B.getType().cast<MemRefType>();
+    MemRefType CType = C.getType().cast<MemRefType>();
+    Type elementType = AType.getElementType();
+    Value zeroC = operandAdaptor.zeroC();
+    bool simdize = op.simdize();
+    // Check if zeroing of C is known at compile time.
+    bool zeroCIsConst = false;
+    int64_t zeroCConstVal = -1;
+    if (auto constantOp = zeroC.getDefiningOp<ConstantOp>()) {
+      zeroCIsConst = true;
+      zeroCConstVal = constantOp.getValue().cast<IntegerAttr>().getInt();
+    }
 
-    Value alpha = emitConstantOp(rewriter, loc, rewriter.getF32Type(), 3.14);
-    printf("hi alex: start emiting krnl.matmul\n");
-
-#if 0
-    Value A = op.A();
-    Value B = op.B();
-    Value C = op.C();
-
+    // Init scope and emit constants.
     ScopedContext scope(rewriter, op.getLoc());
-
     Value zero = std_constant_index(0);
-    Value fZero(std_constant_float(llvm::APFloat(0.0f), rewriter.getF32Type()));
+    Value fZero = emitConstantOp(rewriter, loc, elementType, 0.0);
 
+    // Get the EDSC variables, and loop dimensions.
     MemRefBoundsCapture vA(A), vB(B), vC(C); // Get bounds.
     AffineIndexedValue AA(A), BB(B), CC(C);  // Obj we can load and store into.
     Value i, j, k;
     Value N(vC.ub(0)), M(vC.ub(1)), K(vA.ub(1));
 
-    // clang-format off
-    affineLoopNestBuilder({zero, zero}, {N, M}, {1, 1}, [&](ValueRange ivs) {
-      i = ivs[0]; 
-      j = ivs[1];
-      CC(i, j) = fZero;
-    });
-    // clang-format on
-#endif
+    if (!simdize) {
+      // For i, j loops.
+      // clang-format off
+      affineLoopNestBuilder({zero, zero}, {N, M}, {1, 1}, [&](ValueRange ivs) {
+        // Defines induction variables, and possibly initialize C.
+        i = ivs[0]; 
+        j = ivs[1];
+        if (zeroCIsConst && zeroCConstVal!=0) {
+          CC(i, j) = fZero;
+        }
+        // Sum over k.
+        affineLoopBuilder(zero, K, 1, [&](Value k) {
+          using namespace edsc::op;
+          CC(i, j) = AA(i, k) * BB(k, j) + CC(i, j);
+        });
+      });
+      // clang-format on
+      // Unroll and jam. Seems to support only one operation at this time.
+      auto lj = getForInductionVarOwner(j);
+      auto res = loopUnrollJamByFactor(lj, 4);
+    } else {
+      // Find literal value for sizes.
+      int64_t NLit = CType.getShape()[0];
+      int64_t MLit = CType.getShape()[1];
+      int64_t KLit = AType.getShape()[1];
+      // Typecast B, C to memrefs of K x vector<M>, N x vector<M>.
+      VectorType vecType = VectorType::get({MLit}, elementType);
+      MemRefType BVecType = MemRefType::get({KLit}, vecType);
+      MemRefType CVecType = MemRefType::get({NLit}, vecType);
+      MemRefType CTmpType = MemRefType::get({}, vecType);
+      using namespace edsc::op;
+      Value BVec = vector_type_cast(BVecType, B);
+      Value CVec = vector_type_cast(CVecType, C);
+      // Iterates over the I indices (j are simd dim).
+      // clang-format off
+      Value i;
+      affineLoopBuilder(zero, M, 1, [&](Value ii) {
+        i = ii; // Saved for unroll and jam.
+        // Alloca temp vector TmpC and save C(i)/0.0 into it.
+        Value TmpC = std_alloca(CTmpType);
+        AffineIndexedValue BBVec(BVec), CCvec(CVec), TTmpC(TmpC);
+        if (zeroCIsConst && zeroCConstVal!=0) {
+          TTmpC() = vector_broadcast(vecType, fZero);
+        } else {
+          TTmpC() = CCvec(i);
+        }
+        // Sum over k.
+        affineLoopBuilder(zero, K, 1, [&](Value k) {
+          TTmpC() = vector_fma(vector_broadcast(vecType, AA(i, k)), BBVec(k), TTmpC());
+        });
+        // Store temp result into C(i)
+        CCvec(i) = TTmpC();
+      });
+      // clang-format on
+      // Unroll and jam. Seems to support only one operation at this time.
+      auto li = getForInductionVarOwner(i);
+      auto res = loopUnrollJamByFactor(li, MLit);
 
-    printf("hi alex: start replacing krnl.matmul\n");
+    }
     rewriter.eraseOp(op);
-    printf("hi alex: completed matching krnl.matmul\n");
 
     return success();
   }
@@ -381,12 +441,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   target.addIllegalOp<KrnlTerminatorOp>();
   // krnl.dim operations must be lowered prior to this pass.
   target.addIllegalOp<KrnlDimOp>();
-  // alex target.addIllegalOp<KrnlMatMulOp>();
-  target.addLegalOp<AffineYieldOp>();
-  target.addLegalOp<AffineLoadOp>();
-  target.addLegalOp<AffineStoreOp>();
-  target.addLegalOp<LoadOp>();
-  target.addLegalOp<StoreOp>();
+  target.addIllegalOp<KrnlMatMulOp>();
+  target.addLegalDialect<mlir::AffineDialect, mlir::StandardOpsDialect, mlir::vector::VectorDialect>();
   OwningRewritePatternList patterns;
   patterns.insert<KrnlTerminatorLowering>(&getContext());
   patterns.insert<KrnlLoadLowering>(&getContext());
@@ -396,7 +452,6 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   if (failed(applyPartialConversion(
           getFunction(), target, std::move(patterns), &unconverted)))
     signalPassFailure();
-  funcOp->dump();
 }
 } // namespace
 
