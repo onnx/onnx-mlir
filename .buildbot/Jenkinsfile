@@ -202,14 +202,22 @@ def call_build_script(script) {
 /* Set build status appearing on the GitHub pull request page */
 def post_build_status(event, state) {
     def status   = (state == 'aborted') ? 'failure' : state
-    /* Commit message may have newline so replace it to avoid invalid JSON */
-    def title    = "${ONNX_MLIR_PR_COMMIT_MESSAGE}".replace('\n', ' ')
+    /* Commit message may have newline so replace it to avoid invalid JSON.
+     * Also remove single and double quotes since the first MAXLEN characters
+     * may end in the middle of a quoted phrase.
+     *
+     * replace vs replaceAll: both will replace all occurrences of the 1st
+     * string with the 2nd string. But for replace the 1st string is a normal
+     * string while for replaceAll the 1st string is a regex.
+     */
+    def MAXLEN   = 24
+    def title    = "${ONNX_MLIR_PR_COMMIT_MESSAGE}".replace('\n', ' ').replace('\'', '').replace('"', '')
     def phrase   = (event == 'issue_comment') ?
                    "${ONNX_MLIR_PR_PHRASE}" : "${ONNX_MLIR_PR_ACTION}"
     def desc     = ("${ONNX_MLIR_PR_ACTION}" == 'push' ?
                     "Build [#${BUILD_NUMBER}](${BUILD_URL}) " :
                     "Build #${BUILD_NUMBER} ") + "[${phrase}] " +
-                   title.substring(0,Math.min(title.length(),24)) + '...'
+                   title.substring(0,Math.min(title.length(),MAXLEN)) + '...'
     def action   = (state == 'success') ? 'passed'  :
                    (state == 'failure') ? 'failed'  :
                    (state == 'aborted') ? 'aborted' : 'started'
