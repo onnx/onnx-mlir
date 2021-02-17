@@ -48,7 +48,7 @@ typedef std::map<Block *, AlignmentToMemPool *> BlockToMemPool;
 
 /// Retrieve function which contains the current operation.
 FuncOp getContainingFunction(AllocOp op) {
-  Operation *parentFuncOp = op.getParentOp();
+  Operation *parentFuncOp = op->getParentOp();
 
   // While parent is not a FuncOp and its cast to a FuncOp is null.
   while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
