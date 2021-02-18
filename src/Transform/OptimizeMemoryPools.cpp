@@ -651,6 +651,10 @@ public:
     auto memPoolType = allocOp.getResult().getType().dyn_cast<MemRefType>();
     auto memPoolShape = memPoolType.getShape();
 
+    // This is a memory pool if it is used by at least one getref.
+    if (getAllocGetRefNum(&allocOp) < 1)
+      return failure();
+
     // Only handle alloc ops that return a constant shaped MemRef.
     if (!hasAllConstantDimensions(memPoolType))
       return failure();
@@ -661,10 +665,6 @@ public:
 
     // Rank of the static memory pool must be 1.
     if (memPoolShape.size() != 1)
-      return failure();
-
-    // This is a memory pool if it is used by at least one getref.
-    if (getAllocGetRefNum(&allocOp) < 1)
       return failure();
 
     // Get parent block.
