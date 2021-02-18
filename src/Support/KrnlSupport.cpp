@@ -308,6 +308,14 @@ int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
   return -1;
 }
 
+/// Get alignment of an AllocOp if it exists else return zero.
+int64_t getAllocAlignment(AllocOp allocOp) {
+  if (IntegerAttr alignmentAttr = allocOp.alignmentAttr())
+    return alignmentAttr.getInt();
+
+  return 0;
+}
+
 //===----------------------------------------------------------------------===//
 // Live range analysis support.
 //===----------------------------------------------------------------------===//
