@@ -34,7 +34,13 @@ namespace {
 //===----------------------------------------------------------------------===//
 
 // Data structure for managing memory pools.
-typedef std::map<Block *, AllocOp> BlockToMemPool;
+// For each block track the set of memory pools for a given alignment.
+// Memory pools are created for an alloc as long as the MemRef created by the
+// alloc:
+// - does not contain any affine maps;
+// - the type of the MemRef is not index.
+typedef std::map<int64_t, AllocOp> AlignmentToMemPool;
+typedef std::map<Block *, AlignmentToMemPool *> BlockToMemPool;
 
 //===----------------------------------------------------------------------===//
 // Helper functions.
@@ -42,7 +48,7 @@ typedef std::map<Block *, AllocOp> BlockToMemPool;
 
 /// Retrieve function which contains the current operation.
 FuncOp getContainingFunction(AllocOp op) {
-  Operation *parentFuncOp = op.getParentOp();
+  Operation *parentFuncOp = op->getParentOp();
 
   // While parent is not a FuncOp and its cast to a FuncOp is null.
   while (!llvm::dyn_cast_or_null<FuncOp>(parentFuncOp))
@@ -160,24 +166,38 @@ public:
     // Get parent block.
     Block *parentBlock = allocOp.getOperation()->getBlock();
 
+    // Check if parent block has been seen before.
     if (blockToStaticPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
       // Create new entry in the block map.
-      blockToStaticPool->insert(
-          std::pair<Block *, AllocOp>(parentBlock, allocOp));
+      AlignmentToMemPool *alignmentToMemPool = new AlignmentToMemPool();
+      blockToStaticPool->insert(std::pair<Block *, AlignmentToMemPool *>(
+          parentBlock, alignmentToMemPool));
+    }
 
-      // This is the initial memory pool for this block and it is
-      // trivially bundled hence it's safe to return success.
+    // Populate alignment integer.
+    int64_t alignment = getAllocAlignment(allocOp);
+
+    // If this parent block has been found present in the map, check that
+    // a static memory bundle with the current alignment already exists.
+    AlignmentToMemPool *alignmentToMemPool = blockToStaticPool->at(parentBlock);
+    if (alignmentToMemPool->count(alignment) == 0) {
+      // If static memory bundle for this alignment does not exist, then
+      // create an entry.
+      alignmentToMemPool->insert(
+          std::pair<int64_t, AllocOp>(alignment, allocOp));
+
+      // This is the initial memory pool for this block and alignment
+      // so trivially bundle it and return success.
       return success();
     }
 
-    // If this parent block has been found present in the map, it means
-    // a static memory bundle already exists. Fetch it.
-    AllocOp staticMemPoolAlloc = blockToStaticPool->at(parentBlock);
+    // Static memory pool for this alignment exists, fetch it.
+    AllocOp staticMemPoolAlloc = alignmentToMemPool->at(alignment);
 
     // If this is the alloc representing the memory pool and the function
     // already has an init block, pattern matching must fail to avoid
-    // processing the dynamic memory pool a second time.
+    // processing the static memory pool a second time.
     if (allocOp == staticMemPoolAlloc)
       return failure();
 
@@ -209,8 +229,8 @@ public:
     newMemPoolShape.emplace_back(bundleTotalSize);
     auto bundledMemPoolMemRefType =
         MemRefType::get(newMemPoolShape, rewriter.getIntegerType(8));
-    auto newStaticMemPoolAlloc =
-        rewriter.create<AllocOp>(loc, bundledMemPoolMemRefType);
+    auto newStaticMemPoolAlloc = rewriter.create<AllocOp>(
+        loc, bundledMemPoolMemRefType, staticMemPoolAlloc.alignmentAttr());
 
     // The newly bundled MemRef expressed as a KrnlGetRefOp.
     auto bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
@@ -223,9 +243,9 @@ public:
 
     // Update data structure to contain the newly constructed static memory
     // pool.
-    blockToStaticPool->erase(parentBlock);
-    blockToStaticPool->insert(
-        std::pair<Block *, AllocOp>(parentBlock, newStaticMemPoolAlloc));
+    alignmentToMemPool->erase(alignment);
+    alignmentToMemPool->insert(
+        std::pair<int64_t, AllocOp>(alignment, newStaticMemPoolAlloc));
 
     return success();
   }
@@ -283,11 +303,17 @@ public:
     // of the AllocOp.
     auto parentBlock = allocOp.getOperation()->getBlock();
 
+    // Compute alignment.
+    int64_t alignment = getAllocAlignment(allocOp);
+
     // If this is not the first time we process an alloc in this block, avoid
     // processing the current dynamic memory pool again.
-    if (blockToDynamicPool->count(parentBlock) > 0 &&
-        allocOp == blockToDynamicPool->at(parentBlock))
-      return failure();
+    if (blockToDynamicPool->count(parentBlock) > 0) {
+      AlignmentToMemPool *memPoolList = blockToDynamicPool->at(parentBlock);
+      if (memPoolList->count(alignment) > 0 &&
+          allocOp == memPoolList->at(alignment))
+        return failure();
+    }
 
     // Initialize work queue data structure.
     Operation *op = allocOp.getOperation();
@@ -360,17 +386,30 @@ public:
     // If this is the first valid alloc we can bundle in this block, then we
     // need to move it to the top of the block as it will consitute an
     // insertion point for all other bundle-able AllocOps in the block.
-    bool isFirstBundledAllocOp = blockToDynamicPool->count(parentBlock) == 0;
-    if (isFirstBundledAllocOp) {
+    bool isFirstEverBundledAllocOp =
+        blockToDynamicPool->count(parentBlock) == 0;
+    AlignmentToMemPool *alignmentToMemPool;
+    if (blockToDynamicPool->count(parentBlock) == 0) {
       allocOp.getOperation()->moveBefore(&parentBlock->front());
 
       // Create new entry in the block map.
-      blockToDynamicPool->insert(
-          std::pair<Block *, AllocOp>(parentBlock, allocOp));
+      alignmentToMemPool = new AlignmentToMemPool();
+      blockToDynamicPool->insert(std::pair<Block *, AlignmentToMemPool *>(
+          parentBlock, alignmentToMemPool));
+    } else {
+      alignmentToMemPool = blockToDynamicPool->at(parentBlock);
     }
 
+    bool isFirstBundledAllocWithThisAlignment =
+        alignmentToMemPool->count(alignment) == 0;
+
+    // This is the first dynamic alloc with this alignment.
+    if (isFirstBundledAllocWithThisAlignment)
+      alignmentToMemPool->insert(
+          std::pair<int64_t, AllocOp>(alignment, allocOp));
+
     // Move the computation instructions at the start of the block.
-    AllocOp oldDynamicMemoryPool = blockToDynamicPool->at(parentBlock);
+    AllocOp oldDynamicMemoryPool = alignmentToMemPool->at(alignment);
     std::reverse(orderedDependentOps.begin(), orderedDependentOps.end());
     for (auto &op : orderedDependentOps)
       op->moveBefore(&parentBlock->front());
@@ -388,7 +427,7 @@ public:
 
     // Add the current alloc size to the current MemPool size.
     Value dynamicMemoryPoolSize = oldDynamicMemoryPool.getOperand(0);
-    if (isFirstBundledAllocOp) {
+    if (isFirstBundledAllocWithThisAlignment) {
       Value zero = emitConstantOp(rewriter, loc, rewriter.getIndexType(), 0);
       zero.getDefiningOp()->moveBefore(oldDynamicMemoryPool);
       dynamicMemoryPoolSize = zero;
@@ -407,8 +446,9 @@ public:
         oldDynamicMemoryPool);
 
     // We need to emit a new alloc which contains the additional MemRef.
-    AllocOp bundledAlloc = rewriter.create<AllocOp>(
-        loc, bundledMemPoolMemRefType, bundledAllocOperand.getResult());
+    AllocOp bundledAlloc = rewriter.create<AllocOp>(loc,
+        bundledMemPoolMemRefType, bundledAllocOperand.getResult(),
+        oldDynamicMemoryPool.alignmentAttr());
     bundledAlloc.getOperation()->moveBefore(oldDynamicMemoryPool);
 
     KrnlGetRefOp bundledMemRef = rewriter.create<KrnlGetRefOp>(loc,
@@ -425,9 +465,9 @@ public:
     rewriter.replaceOp(currentAllocGetRef, bundledMemRef.getResult());
 
     // Update MemPool data structure.
-    blockToDynamicPool->erase(parentBlock);
-    blockToDynamicPool->insert(
-        std::pair<Block *, AllocOp>(parentBlock, bundledAlloc));
+    alignmentToMemPool->erase(alignment);
+    alignmentToMemPool->insert(
+        std::pair<int64_t, AllocOp>(alignment, bundledAlloc));
 
     return success();
   }
@@ -455,6 +495,11 @@ public:
         &getContext(), &blockToDynamicPool);
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
+    BlockToMemPool::iterator it;
+    for (it = blockToStaticPool.begin(); it != blockToStaticPool.end(); it++)
+      free(it->second);
+    for (it = blockToDynamicPool.begin(); it != blockToDynamicPool.end(); it++)
+      free(it->second);
   }
 };
 } // namespace

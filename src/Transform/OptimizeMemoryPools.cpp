@@ -20,6 +20,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallSet.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -28,8 +29,12 @@
 using namespace mlir;
 namespace {
 
-// Handling of static memory pool on a block-basis in each function.
-typedef std::map<Block *, bool> BlockToCompactedFlag;
+// Handling of static memory pool on a block-basis in each function. For each
+// block we need to keep track of the memory pools which have been compacted
+// already. There can be several such memory pools, one for each alignment
+// present in the program.
+typedef std::map<Block *, llvm::SmallSet<int64_t, 16>>
+    BlockToCompactedAlignments;
 
 /// Get the total size in bytes used by the getref operations associated
 /// with a given memory pool.
@@ -431,11 +436,11 @@ class KrnlOptimizeStaticMemoryPools : public OpRewritePattern<KrnlGetRefOp> {
 public:
   using OpRewritePattern<KrnlGetRefOp>::OpRewritePattern;
 
-  BlockToCompactedFlag *blockToStaticPoolFlag;
-  KrnlOptimizeStaticMemoryPools(
-      MLIRContext *context, BlockToCompactedFlag *_blockToStaticPoolFlag)
+  BlockToCompactedAlignments *blockToStaticPoolAlignments;
+  KrnlOptimizeStaticMemoryPools(MLIRContext *context,
+      BlockToCompactedAlignments *_blockToStaticPoolAlignments)
       : OpRewritePattern<KrnlGetRefOp>(context) {
-    blockToStaticPoolFlag = _blockToStaticPoolFlag;
+    blockToStaticPoolAlignments = _blockToStaticPoolAlignments;
   }
 
   LogicalResult matchAndRewrite(
@@ -472,10 +477,13 @@ public:
     // Get parent block.
     Block *parentBlock = firstGetRef.getOperation()->getBlock();
 
-    // Check if this block has already been compacted. If it has then
-    // skip its optimization.
-    if (blockToStaticPoolFlag->count(parentBlock) > 0 &&
-        blockToStaticPoolFlag->at(parentBlock))
+    // Get alignment of the static memory pool.
+    int64_t alignment = getAllocAlignment(staticMemPool);
+
+    // Check if this block has already been compacted for the alignment of the
+    // current memory pool. If it has then skip its optimization.
+    if (blockToStaticPoolAlignments->count(parentBlock) > 0 &&
+        blockToStaticPoolAlignments->at(parentBlock).count(alignment) > 0)
       return failure();
 
     // TODO: relax this condition.
@@ -511,7 +519,8 @@ public:
       // The second krnl.getref properties:
       // - must use the same static memory pool as the first krnl.getref;
       // - the result must have the same memory footprint as the first.
-      if (getAllocOfGetRef(&candidate) == staticMemPool &&
+      AllocOp allocOfCandidate = getAllocOfGetRef(&candidate);
+      if (allocOfCandidate == staticMemPool &&
           getMemRefSizeInBytes(firstGetRef.getResult()) ==
               getMemRefSizeInBytes(candidate.getResult())) {
         getRefCandidates.emplace_back(candidate);
@@ -628,11 +637,11 @@ class KrnlCompactStaticMemoryPools : public OpRewritePattern<AllocOp> {
 public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
 
-  BlockToCompactedFlag *blockToStaticPoolFlag;
-  KrnlCompactStaticMemoryPools(
-      MLIRContext *context, BlockToCompactedFlag *_blockToStaticPoolFlag)
+  BlockToCompactedAlignments *blockToStaticPoolAlignments;
+  KrnlCompactStaticMemoryPools(MLIRContext *context,
+      BlockToCompactedAlignments *_blockToStaticPoolAlignments)
       : OpRewritePattern<AllocOp>(context) {
-    blockToStaticPoolFlag = _blockToStaticPoolFlag;
+    blockToStaticPoolAlignments = _blockToStaticPoolAlignments;
   }
 
   LogicalResult matchAndRewrite(
@@ -661,10 +670,13 @@ public:
     // Get parent block.
     Block *parentBlock = allocOp.getOperation()->getBlock();
 
-    // Check if this block has already been compacted. If it has then
-    // skip its processing.
-    if (blockToStaticPoolFlag->count(parentBlock) > 0 &&
-        blockToStaticPoolFlag->at(parentBlock))
+    // Get alignment.
+    int64_t alignment = getAllocAlignment(allocOp);
+
+    // Check if this block has already been compacted for current alignment.
+    // If it has then skip its processing.
+    if (blockToStaticPoolAlignments->count(parentBlock) > 0 &&
+        blockToStaticPoolAlignments->at(parentBlock).count(alignment) > 0)
       return failure();
 
     // If this is not the top block, fail.
@@ -688,8 +700,8 @@ public:
         MemRefType::get(newStaticMemPoolShape, rewriter.getIntegerType(8));
 
     // We need to emit a new alloc of smaller size.
-    AllocOp newStaticMemPool =
-        rewriter.create<AllocOp>(loc, newStaticMemPoolType);
+    AllocOp newStaticMemPool = rewriter.create<AllocOp>(
+        loc, newStaticMemPoolType, allocOp.alignmentAttr());
     newStaticMemPool.getOperation()->moveBefore(allocOp);
 
     // Changes are required, memory pool needs to be compacted.
@@ -745,7 +757,11 @@ public:
     rewriter.replaceOp(allocOp, newStaticMemPool.getResult());
 
     // Update compacted flag.
-    blockToStaticPoolFlag->insert(std::pair<Block *, bool>(parentBlock, true));
+    if (blockToStaticPoolAlignments->count(parentBlock) == 0)
+      blockToStaticPoolAlignments->insert(
+          std::pair<Block *, llvm::SmallSet<int64_t, 16>>(
+              parentBlock, llvm::SmallSet<int64_t, 16>()));
+    blockToStaticPoolAlignments->at(parentBlock).insert(alignment);
 
     return success();
   }
@@ -756,7 +772,7 @@ public:
  */
 class KrnlOptimizeMemoryPoolsPass
     : public PassWrapper<KrnlOptimizeMemoryPoolsPass, FunctionPass> {
-  BlockToCompactedFlag blockToStaticPoolFlag;
+  BlockToCompactedAlignments blockToStaticPoolAlignments;
 
 public:
   void runOnFunction() override {
@@ -765,9 +781,9 @@ public:
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
     patterns.insert<KrnlOptimizeStaticMemoryPools>(
-        &getContext(), &blockToStaticPoolFlag);
+        &getContext(), &blockToStaticPoolAlignments);
     patterns.insert<KrnlCompactStaticMemoryPools>(
-        &getContext(), &blockToStaticPoolFlag);
+        &getContext(), &blockToStaticPoolAlignments);
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
   }

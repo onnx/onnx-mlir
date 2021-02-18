@@ -31,6 +31,7 @@ LLVM_PROJECT_LABELS        = [ 'llvm_project_sha1',
 cpu_arch                   = os.getenv('CPU_ARCH')
 github_jenkins_droid_token = os.getenv('GITHUB_JENKINS_DROID_TOKEN')
 onnx_mlir_pr_number        = os.getenv('ONNX_MLIR_PR_NUMBER')
+onnx_mlir_pr_number2       = os.getenv('ONNX_MLIR_PR_NUMBER2')
 dockerhub_user_name        = os.getenv('DOCKERHUB_USER_NAME')
 docker_daemon_socket       = os.getenv('DOCKER_DAEMON_SOCKET')
 
@@ -227,10 +228,13 @@ def setup_private_llvm(image_type, exp):
                         'LLVM_PROJECT_SHA1': exp['llvm_project_sha1'],
                         'LLVM_PROJECT_SHA1_DATE': exp['llvm_project_sha1_date'],
                         'LLVM_PROJECT_DOCKERFILE_SHA1': exp['llvm_project_dockerfile_sha1'],
-                        'ONNX_MLIR_PR_NUMBER': onnx_mlir_pr_number
+                        'ONNX_MLIR_PR_NUMBER': onnx_mlir_pr_number,
+                        'ONNX_MLIR_PR_NUMBER2': onnx_mlir_pr_number2
                     }):
                 print(line['stream'] if 'stream' in line else '',
                       end='', flush=True)
+                if 'error' in line:
+                    raise Exception(line['error'])
 
             id = docker_api.images(name = image_full,
                                    all = False, quiet = True)

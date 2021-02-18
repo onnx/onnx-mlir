@@ -4,7 +4,7 @@ if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
     find_package(PythonInterp 3 REQUIRED)
 
     add_custom_target(OMInstallOnnx
-            COMMAND ${PYTHON_EXECUTABLE} setup.py install --user
+            COMMAND ${PYTHON_EXECUTABLE} setup.py -q install --user
             WORKING_DIRECTORY ${ONNX_MLIR_SRC_ROOT}/third_party/onnx)
 
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/gen_add_onnx.py
