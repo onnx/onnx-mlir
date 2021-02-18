@@ -101,6 +101,9 @@ Value getDynamicMemRefSizeInBytes(
 /// Get order number of dynamic index.
 int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);
 
+/// Get AllocOp alignment if it exists otherwise return zero.
+int64_t getAllocAlignment(AllocOp allocOp);
+
 //===----------------------------------------------------------------------===//
 // Live range analysis support.
 //===----------------------------------------------------------------------===//

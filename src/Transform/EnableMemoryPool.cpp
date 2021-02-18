@@ -61,8 +61,15 @@ public:
 
     auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
 
-    // For now we only support constant tensors.
-    // TODO: Enable this pass for MemRef with dyanmic shapes.
+    // The MemRef type returned by the AllocOp must be normalized.
+    if (!memRefType.getAffineMaps().empty())
+      return failure();
+
+    // Filter out MemRefs with Index type.
+    auto elementType = memRefType.getElementType();
+    if (elementType.isIndex())
+      return failure();
+
     // If alloc operation is not returned then it is a candidate for
     // being included in the memory pool.
     if (checkOpResultIsReturned(&allocOp))
@@ -82,7 +89,8 @@ public:
       memPoolShape.emplace_back(totalSize);
       auto memPoolMemRefType =
           MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
-      newAlloc = rewriter.create<AllocOp>(loc, memPoolMemRefType);
+      newAlloc = rewriter.create<AllocOp>(
+          loc, memPoolMemRefType, allocOp.alignmentAttr());
     } else {
       memPoolShape.emplace_back(-1);
       auto memPoolMemRefType =
@@ -90,8 +98,8 @@ public:
 
       Value dyanmicTotalSize =
           getDynamicMemRefSizeInBytes(memRefType, loc, rewriter, allocOp);
-      newAlloc =
-          rewriter.create<AllocOp>(loc, memPoolMemRefType, dyanmicTotalSize);
+      newAlloc = rewriter.create<AllocOp>(
+          loc, memPoolMemRefType, dyanmicTotalSize, allocOp.alignmentAttr());
     }
 
     // Emit new dealloc.
