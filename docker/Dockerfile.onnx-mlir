@@ -35,7 +35,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
        LLVM_PROJ_BUILD=${LLVM_PROJECT_ROOT}/build \
        cmake -DCMAKE_INSTALL_MESSAGE=NEVER .. \
     && make -j$(nproc) \
-    && make -j$(nproc) check-onnx-lit \
+    && LIT_OPTS=-v make -j$(nproc) check-onnx-lit \
     && make check-onnx-backend \
     && make check-onnx-backend-dynamic \
     && make ARGS=-j$(nproc) test \
