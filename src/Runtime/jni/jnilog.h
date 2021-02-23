@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #ifndef __JNILOG_H__
 #define __JNILOG_H__
 

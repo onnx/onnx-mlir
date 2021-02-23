@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering -------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -30,7 +34,8 @@ public:
     rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(op,
         op->getAttrOfType<SymbolRefAttr>(
             ONNXEntryPointOp::getEntryPointFuncAttrName()),
-        op->getAttrOfType<IntegerAttr>(ONNXEntryPointOp::getNumInputsAttrName()),
+        op->getAttrOfType<IntegerAttr>(
+            ONNXEntryPointOp::getNumInputsAttrName()),
         op->getAttrOfType<IntegerAttr>(
             ONNXEntryPointOp::getNumOutputsAttrName()));
     return success();

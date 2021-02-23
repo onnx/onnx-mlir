@@ -39,6 +39,10 @@ def HasSameElementType : Constraint<
           "$1.cast<::mlir::TypeAttr>().getValue())">,
     "has same element type">;
 
+def AreTheSameAxisArray: Constraint<
+    CPred<"AreTheSameAxisArray($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
+    "Two axis arrays are the same">;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -101,5 +105,25 @@ def RemoveIdentityTransposePattern:  Pat<
   // Check that we have indeed a identity transpose pattern.
   [(IsIdentityPermuteAttribute:$p)]>;
 
+
+/// Combine squeeze and unsqueeze.
+/// Squeeze {axes = [a, b, c]} (Unsqueeze {axes = [a, b, c]} (%X)) = %X
+def RemoveSqueezeUnsqueezePattern:  Pat<
+  // Squeeze and the unsqueeze with the same axes.
+  (ONNXSqueezeOp (ONNXUnsqueezeOp $val, $u_axes), $s_axes),
+  // Remove the transpose.
+  (replaceWithValue $val),
+  // Check that both ops use the same `axes`.
+  [(AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
+
+/// Combine unsqueeze and squeeze.
+/// Unsqueeze {axes = [a, b, c]} (Squeeze {axes = [a, b, c]} (%X)) = %X
+def RemoveUnsqueezeSqueezePattern:  Pat<
+  // Squeeze and the unsqueeze with the same axes.
+  (ONNXUnsqueezeOp (ONNXSqueezeOp:$res $val, $s_axes), $u_axes),
+  // Remove the transpose.
+  (replaceWithValue $val),
+  // Check that both ops use the same `axes`.
+  [(AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
 
 #endif // ONNX_COMBINE

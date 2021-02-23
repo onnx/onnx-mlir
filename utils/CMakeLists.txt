@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 find_package(Python 3 REQUIRED COMPONENTS Interpreter)
 
 # Invoke gen_onnx_mlir.py to obtain ONNXOps.td.inc, OpBuildTable.inc.

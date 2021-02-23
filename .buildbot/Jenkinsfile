@@ -1,0 +1,293 @@
+/* This is a special function that gets called by loading the file into
+ * an object variable and then simply call the object variable as a
+ * function, like the following:
+ *
+ *   jenkinsfile = load ".../Jenkinsfile"
+ *   jenkinsfile()
+ *
+ * If the function has a different name, e.g., run_pipeline, then it
+ * would have to be called like the following:
+ *
+ *   jenkinsfile = load	".../Jenkinsfile"
+ *   jenkinsfile.run_pipeline()
+ *
+ * However, the pipeline wrapped inside "run_pipeline" must be a scripted
+ * pipeline while the pipeline wrapped inside "call" can be a declarative
+ * pipeline. There are pros and cons between scripted and declarative
+ * pipeline. In our case, a declarative pipeline is somewhat simpler since
+ * with the environment {...} block it's simpler to pass global environment
+ * variables to to all the stages.
+ */
+def call() {
+  pipeline {
+    options { skipDefaultCheckout() }
+
+    agent {
+      node {
+        label 'master'
+        /* Each pull request has its own build directory so concurrent builds
+         * of different pull requests will not trash each other.
+         */
+        customWorkspace "${JENKINS_HOME}/workspace/${JOB_NAME}@pr_${ONNX_MLIR_PR_NUMBER}"
+      }
+    }
+
+    environment {
+      /* We ask for this directory */
+      JENKINS_WORKSPACE = "${JENKINS_HOME}/workspace/${JOB_NAME}@pr_${ONNX_MLIR_PR_NUMBER}"
+      /* We may get one with @2, @3, etc. appended */
+      JENKINS_WORKSPACE_AT = "${WORKSPACE}"
+
+      DOCKER_DAEMON_SOCKET = 'unix://var/run/docker.sock'
+      DOCKERHUB_USER_NAME = 'onnxmlirczar'
+
+      /* Environment variables that depend on the arch */
+      JENKINS_REST_API_URL = sh(returnStdout: true,
+                                script: """#!/bin/bash +x
+        declare -A url=([s390x]="http://localhost:8080/jenkins"
+                        [amd64]="http://localhost:8080/jenkinx")
+        echo \${url[${CPU_ARCH}]}""").trim()
+
+      JENKINS_REST_API_USER = sh(returnStdout: true,
+                                 script: """#!/bin/bash +x
+        declare -A user=([s390x]="jenkins"
+                         [amd64]="jenkins")
+        echo \${user[${CPU_ARCH}]}""").trim()
+
+      /* External stage build scripts */
+      JENKINS_SCRIPT_DIR="${JENKINS_WORKSPACE_AT}/.buildbot"
+      JENKINS_STOP_PREVIOUS_BUILD="${JENKINS_SCRIPT_DIR}/jenkins-stop-previous-build.py"
+      JENKINS_BUILD_LLVM_PROJECT="${JENKINS_SCRIPT_DIR}/jenkins-build-llvm-project.py"
+      JENKINS_BUILD_ONNX_MLIR="${JENKINS_SCRIPT_DIR}/jenkins-build-onnx-mlir.py"
+      JENKINS_PUBLISH_DOCKER_IMAGES="${JENKINS_SCRIPT_DIR}/jenkins-publish-docker-images.py"
+      JENKINS_CLEANUP_BUILD_STATES="${JENKINS_SCRIPT_DIR}/jenkins-cleanup-build-states.py"
+
+      /* Credentials defined in Jenkins */
+      JENKINS_REST_API_TOKEN = credentials('Jenkins-REST-API-Token')
+      GITHUB_JENKINS_DROID_TOKEN = credentials('jenkins-buildbot-access-token')
+      DOCKERHUB_USER_TOKEN = credentials('DOCKERHUB-TOKEN')
+
+      /* Depending on the system, python3 default I/O encoding could be set to
+       * something other than utf-8, e.g., ISO-8859-1. This will cause trouble
+       * when we try to print the output from docker build, which is encoded in
+       * utf-8. So we set the default I/O encoding to utf-8.
+       */
+      PYTHONIOENCODING = 'utf-8'
+    }
+
+    stages {
+      /* Once we are out of the node block in the Jenkins Web UI, the script
+       * directory can be overwritten. So we can only rely on the script
+       * directory for loading Jenkinsfile, which happens inside the node
+       * block. So the first thing we do is to checkout the proper pull
+       * request source code in order to get access to the rest of the build
+       * scripts.
+       *
+       * Note that with action close we still need to checkout the source
+       * code in order to get jenkins-cleanup-docker.py. So we only do a
+       * checkout without third party submodules. Just like what we did for
+       * Jenkinsfile script checkout.
+       */
+      stage('Checkout PR source') {
+        steps {
+          /* uncomment for debugging */
+          /*sh 'printenv'*/
+          echo "CPU_ARCH                    = ${CPU_ARCH}"
+          echo "BUILD_URL                   = ${BUILD_URL}"
+          echo "JENKINS_SCRIPTSPACE         = ${JENKINS_SCRIPTSPACE}"
+          echo "JENKINS_SCRIPTSPACE_AT      = ${JENKINS_SCRIPTSPACE_AT}"
+          echo "JENKINS_WORKSPACE           = ${JENKINS_WORKSPACE}"
+          echo "JENKINS_WORKSPACE_AT        = ${JENKINS_WORKSPACE_AT}"
+          echo "ONNX_MLIR_PR_SENDER         = ${ONNX_MLIR_PR_SENDER}"
+          echo "ONNX_MLIR_PR_NUMBER         = ${ONNX_MLIR_PR_NUMBER}"
+          echo "ONNX_MLIR_PR_NUMBER2        = ${ONNX_MLIR_PR_NUMBER2}"
+          echo "ONNX_MLIR_PR_REPO_URL       = ${ONNX_MLIR_PR_REPO_URL}"
+          echo "ONNX_MLIR_PR_REMOTE         = ${ONNX_MLIR_PR_REMOTE}"
+          echo "ONNX_MLIR_PR_REFSPEC        = ${ONNX_MLIR_PR_REFSPEC}"
+          echo "ONNX_MLIR_PR_BRANCH         = ${ONNX_MLIR_PR_BRANCH}"
+          echo "ONNX_MLIR_PR_ACTION         = ${ONNX_MLIR_PR_ACTION}"
+          echo "ONNX_MLIR_PR_PHRASE         = ${ONNX_MLIR_PR_PHRASE}"
+          echo "ONNX_MLIR_PR_TITLE          = ${ONNX_MLIR_PR_TITLE}"
+          echo "ONNX_MLIR_PR_REQUEST_URL    = ${ONNX_MLIR_PR_REQUEST_URL}"
+          echo "ONNX_MLIR_PR_COMMENT_URL    = ${ONNX_MLIR_PR_COMMENT_URL}"
+          echo "ONNX_MLIR_PR_STATUS_URL     = ${ONNX_MLIR_PR_STATUS_URL}"
+          echo "ONNX_MLIR_PR_COMMIT_MESSAGE = ${ONNX_MLIR_PR_COMMIT_MESSAGE}"
+          echo "ONNX_MLIR_PR_MERGED	    = ${ONNX_MLIR_PR_MERGED}"
+
+          checkout_pr_source("${ONNX_MLIR_PR_REPO_URL}",
+                             "${ONNX_MLIR_PR_REMOTE}",
+                             "${ONNX_MLIR_PR_REFSPEC}",
+                             "${ONNX_MLIR_PR_BRANCH}",
+                             "${ONNX_MLIR_PR_ACTION}" != 'closed')
+        }
+      }
+
+      stage('Pre build preparation') {
+        steps {
+	  /* Set build result to UNKNOWN so we know we are starting up */
+          script {
+            env.JENKINS_BUILD_RESULT = 'UNKNOWN'
+          }
+
+          call_build_script("${JENKINS_STOP_PREVIOUS_BUILD}")
+          call_build_script("${JENKINS_CLEANUP_BUILD_STATES}")
+
+          post_build_status("${x_github_event}", 'pending')
+        }
+      }
+
+      stage('Build llvm-project images') {
+        when { not { environment name: 'ONNX_MLIR_PR_ACTION',
+                     value: 'closed' } }
+        steps {
+          call_build_script("${JENKINS_BUILD_LLVM_PROJECT}")
+        }
+      }
+
+      stage('Build onnx-mlir images') {
+        when { not { environment name: 'ONNX_MLIR_PR_ACTION',
+                     value: 'closed' } }
+        steps {
+          call_build_script("${JENKINS_BUILD_ONNX_MLIR}")
+        }
+      }
+
+      stage('Publish docker images') {
+        when { anyOf { environment name: 'ONNX_MLIR_PR_PHRASE',
+                       value: 'push';
+                       environment name: 'ONNX_MLIR_PR_PHRASE',
+                       value: 'publish' }
+        }
+        steps {
+          call_build_script("${JENKINS_PUBLISH_DOCKER_IMAGES}")
+        }
+      }
+    } // stages
+
+    post {
+      success {
+        post_build_status("${x_github_event}", 'success')
+      }
+      failure {
+        post_build_status("${x_github_event}", 'failure')
+      }
+      aborted {
+        post_build_status("${x_github_event}", 'aborted')
+      }
+      cleanup {
+        script {
+          env.JENKINS_BUILD_RESULT = "${currentBuild.currentResult}"
+
+          try {
+              call_build_script("${JENKINS_CLEANUP_BUILD_STATES}")
+
+              deleteDir()
+              dir("${JENKINS_WORKSPACE_AT}@tmp") {
+                deleteDir()
+              }
+          } catch (e) {
+            echo e.getMessage()
+          }
+        } // script
+      } // cleanup
+    } // post
+  } // pipeline
+} // call
+
+/* Call external script */
+def call_build_script(script) {
+    sh "${script}"
+}
+
+/* Set build status appearing on the GitHub pull request page */
+def post_build_status(event, state) {
+    def status   = (state == 'aborted') ? 'failure' : state
+    /* Commit message may have newline so replace it to avoid invalid JSON.
+     * Also remove single and double quotes since the first MAXLEN characters
+     * may end in the middle of a quoted phrase.
+     *
+     * replace vs replaceAll: both will replace all occurrences of the 1st
+     * string with the 2nd string. But for replace the 1st string is a normal
+     * string while for replaceAll the 1st string is a regex.
+     */
+    def MAXLEN   = 24
+    def title    = "${ONNX_MLIR_PR_COMMIT_MESSAGE}".replace('\n', ' ').replace('\'', '').replace('"', '')
+    def phrase   = (event == 'issue_comment') ?
+                   "${ONNX_MLIR_PR_PHRASE}" : "${ONNX_MLIR_PR_ACTION}"
+    def desc     = ("${ONNX_MLIR_PR_ACTION}" == 'push' ?
+                    "Build [#${BUILD_NUMBER}](${BUILD_URL}) " :
+                    "Build #${BUILD_NUMBER} ") + "[${phrase}] " +
+                   title.substring(0,Math.min(title.length(),MAXLEN)) + '...'
+    def action   = (state == 'success') ? 'passed'  :
+                   (state == 'failure') ? 'failed'  :
+                   (state == 'aborted') ? 'aborted' : 'started'
+    def start    = (new Date("${currentBuild.startTimeInMillis}".toLong())).format('HH:mm')
+    def duration = (state == 'pending') ?
+        "at ${start}" : "after ${currentBuild.durationString.replace(' and counting','')}"
+
+    /* If the action is "push", it's for merging into master. The GitHub page
+     * for the pull request is already closed and commit status is no longer
+     * updated. So we post the build status as a comment.
+     */
+    if ("${ONNX_MLIR_PR_ACTION}" == 'push')
+        post_pr_comment("${ONNX_MLIR_PR_COMMENT_URL}",
+                        "**Jenkins Linux ${CPU_ARCH}** ${desc} ${action} ${duration}")
+    else
+        post_pr_status("${ONNX_MLIR_PR_STATUS_URL}",
+                       "${status}",
+                       "Jenkins Linux ${CPU_ARCH}",
+                       "${desc} ${action} ${duration}",
+                       "${BUILD_URL}")
+}
+
+/* Post a status to the pull request page */
+def post_pr_status(url, status, context, description, target_url) {
+    def data = """
+        { "state": "${status}", \
+          "context": "${context}", \
+          "description": "${description}", \
+          "target_url": "${target_url}" }
+    """
+
+    sh '''#!/bin/bash +x
+        curl -s ''' + url + ''' \
+             -X POST \
+             -H "Accept: application/vnd.github.v3+json" \
+             -H "Authorization: token ${GITHUB_JENKINS_DROID_TOKEN}" \
+             -d \' ''' + data + ''' \' | \
+        jq '{url: .url, state: .state, description: .description, context: .context, message: .message}'
+    '''
+}
+
+/* Post a comment to the pull request page */
+def post_pr_comment(url, msg) {
+    def data = """
+        { "body": "${msg}" }
+    """
+
+    sh '''#!/bin/bash +x
+        curl -s ''' + url + ''' \
+             -X POST \
+             -H "Accept: application/vnd.github.v3+json" \
+             -H "Authorization: token ${GITHUB_JENKINS_DROID_TOKEN}" \
+             -d \' ''' + data + ''' \' | \
+        jq '{url: .url, created_at: .created_at, updated_at: .updated_at, body: .body}'
+    '''
+}
+
+/* Checkout pull request source */
+def checkout_pr_source(url, remote, refspec, branch, recursive) {
+    checkout([
+        $class: 'GitSCM',
+        userRemoteConfigs: [[ url: url, name: remote, refspec: refspec ]],
+        branches: [[ name: branch ]],
+        extensions: [
+            [ $class: 'CloneOption', noTags: false, shallow: true ],
+            [ $class: 'SubmoduleOption', recursiveSubmodules: recursive ],
+            [ $class: 'CleanBeforeCheckout', deleteUntrackedNestedRepositories: true ]
+        ]
+    ])
+}
+
+/* Must return contents as an object to be assigned by load to a variable */
+return this

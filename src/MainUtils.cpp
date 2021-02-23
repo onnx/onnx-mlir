@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===--------------------------- MainUtils.cpp ---------------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -663,6 +667,7 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
     addKrnlToLLVMPasses(tvpModulePM);
   }
 
+  mlir::applyPassManagerCLOptions(pm);
   if (mlir::failed(pm.run(*module)))
     return 4;
 

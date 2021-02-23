@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====---------- KrnlSupport.hpp - Krnl-level support functions -----------===//
 //
 // Copyright 2020 The IBM Research Authors.
@@ -96,6 +100,9 @@ Value getDynamicMemRefSizeInBytes(
 
 /// Get order number of dynamic index.
 int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);
+
+/// Get AllocOp alignment if it exists otherwise return zero.
+int64_t getAllocAlignment(AllocOp allocOp);
 
 //===----------------------------------------------------------------------===//
 // Live range analysis support.

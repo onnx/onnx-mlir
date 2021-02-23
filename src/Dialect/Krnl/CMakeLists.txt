@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 set(LLVM_TARGET_DEFINITIONS KrnlOps.td)
 onnx_mlir_tablegen(KrnlOps.hpp.inc -gen-op-decls)
 onnx_mlir_tablegen(KrnlOps.cpp.inc -gen-op-defs)

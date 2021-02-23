@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 add_subdirectory(ONNXToKrnl)
 add_subdirectory(ONNXToLinalg)
 add_subdirectory(KrnlToLLVM)
