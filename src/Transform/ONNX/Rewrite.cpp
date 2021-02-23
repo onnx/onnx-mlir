@@ -115,6 +115,17 @@ DenseElementsAttr createDenseFloatAttrOfValue(
       llvm::makeArrayRef(wrapper));
 }
 
+Value createConstantOp_v11(
+    PatternRewriter &rewriter, Location loc, Attribute sparse, Attribute dense) {
+    FloatAttr fa=FloatAttr();
+    ArrayAttr aa = ArrayAttr();
+    IntegerAttr ia = IntegerAttr();
+    StringAttr sa = StringAttr();
+    rewriter.create<ONNXConstantOp>(loc, sparse, dense);
+        //FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+        //fa, aa, ia, aa, sa, aa);
+}
+
 // Pad a ArrayAttr with zeros.
 //
 // pads = [B1, B2, ... Bk, E1, E2, ..., Ek]

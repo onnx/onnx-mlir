@@ -533,7 +533,8 @@ public:
               /*sparse_value=*/Attribute(),
               /*dense_value=*/
               ConstPropSplit(
-                  rewriter, splitOutput, denseAttr, axisAttr, splitAttr, i));
+                  rewriter, splitOutput, denseAttr, axisAttr, splitAttr, i),
+FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
       returnValues.emplace_back(constOp);
     }
 

@@ -52,7 +52,7 @@ public:
 
     if (constOp->value().hasValue()) {
       auto newConstOp = rewriter.create<ONNXConstantOp>(
-          loc, constOp->getResult().getType(), nullptr, nullptr);
+          loc, constOp->getResult().getType(), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,nullptr, nullptr);
       rewriter.replaceOp(op, newConstOp.getResult());
     }
     return success();

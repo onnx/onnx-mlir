@@ -23,6 +23,9 @@ class SeqOf<list<Type> allowedTypes> :
   ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
                 "$_self.cast<SeqType>().getElementType()",  "SeqType">;
 
+def createConstantOp_v11: NativeCodeCall<
+  "createConstantOp_v11($_builder, $0.getDefiningOp()->getLoc(), $1, $2)">;
+
 include "src/Interface/ShapeInferenceInterface.td"
 include "src/Interface/PromotableConstOperandsOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"

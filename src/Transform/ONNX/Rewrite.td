@@ -134,7 +134,8 @@ def FuseBatchNormTestModeConvPattern: Pat<
               (ONNXSqrtOp
                  (ONNXAddOp
                     $var,
-                    (ONNXConstantOp
+                    (createConstantOp_v11
+                       $res,
                        (GetNullAttr),
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
            (createArrayAttrOfOneToRankOf $w))),
@@ -155,16 +156,18 @@ def IsStaticShapeTensor:
      "hasStaticShape">;
 
 def ShapeToConstantPattern: Pat<
-     (ONNXShapeOp $A),
-     (ONNXConstantOp
+     (ONNXShapeOp : $res $A),
+     (createConstantOp_v11
+        $res,
         (GetNullAttr),
         (createDenseElementsAttrFromShape $A)),
      [(IsStaticShapeTensor:$A)]
 >;
 
 def SizeToConstantPattern: Pat<
-     (ONNXSizeOp $A),
-     (ONNXConstantOp
+     (ONNXSizeOp : $res $A),
+     (createConstantOp_v11
+        $res,
         (GetNullAttr),
         (createDenseElementsAttrFromSize $A)),
      [(IsStaticShapeTensor:$A)]
