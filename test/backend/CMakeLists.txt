@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # Set TEST_DRIVER_BUILD_PATH to the directory of the test driver.
 # It is expected to have two sub-directories:
 # - 'bin' containing executable files, and

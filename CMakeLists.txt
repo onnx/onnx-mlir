@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # TODO: remove for release.
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "build type")

@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---- GetEmbeddedConstPool.h - Get Embedded Const Pool API Func Impl---===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -44,7 +48,7 @@ void *getEmbeddedConstPool(int64_t size_in_byte) {
   float *data_ptr = (float *)data;
   void *buffer = malloc(size);
   memcpy(buffer, data, size);
-  return data;
+  return buffer;
 }
 
 #elif __linux__

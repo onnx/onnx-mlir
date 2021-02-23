@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 include(GoogleTest)
 
 # Adapted from https://cliutils.gitlab.io/modern-cmake/chapters/testing/googletest.html.

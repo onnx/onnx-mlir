@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 set(LLVM_TARGET_DEFINITIONS ONNXOps.td)
 onnx_mlir_tablegen(ONNXOps.hpp.inc -gen-op-decls "-I${ONNX_MLIR_SRC_ROOT}/compiler/pass")
 onnx_mlir_tablegen(ONNXOps.cpp.inc -gen-op-defs "-I${ONNX_MLIR_SRC_ROOT}/compiler/pass")

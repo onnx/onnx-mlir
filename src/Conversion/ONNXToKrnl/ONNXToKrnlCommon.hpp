@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
 // Copyright 2019 The IBM Research Authors.

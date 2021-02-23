@@ -288,3 +288,67 @@ func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tensor<1x
   // CHECK: [[RES:%.+]] = "onnx.ReduceMax"(%arg0) {axes = [2, 3]} : (tensor<1x?x?x5xf32>) -> tensor<1x?x?x1xf32>
   // CHECK: return [[RES]] : tensor<1x?x?x1xf32>
 }
+
+// -----
+
+// COM: Test removing squeeze/unsqueeze pairs when they use the same axes.
+
+func @test_remove_unsqueeze_squeeze(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+  %0 = "onnx.Unsqueeze"(%arg0) {axes=[0, 2]} : (tensor<10x10xf32>) -> tensor<1x10x1x10xf32>
+  %1 = "onnx.Squeeze"(%0) {axes=[0, -2]} : (tensor<1x10x1x10xf32>) -> tensor<10x10xf32>
+  return %1: tensor<10x10xf32>
+
+  // CHECK-LABEL: test_remove_unsqueeze_squeeze
+  // CHECK: return {{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK-NOT: {{.*}} = onnx.Squeeze"{{.*}}
+
+}
+
+// -----
+
+func @test_should_not_remove_unsqueeze_squeeze(%arg0 : tensor<10x10xf32>) -> tensor<10x1x10xf32> {
+  %0 = "onnx.Unsqueeze"(%arg0) {axes=[0, 2]} : (tensor<10x10xf32>) -> tensor<1x10x1x10xf32>
+  %1 = "onnx.Squeeze"(%0) {axes=[0]} : (tensor<1x10x1x10xf32>) -> tensor<10x1x10xf32>
+  return %1: tensor<10x1x10xf32>
+  // CHECK-LABEL: test_should_not_remove_unsqueeze_squeeze
+  // CHECK: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK: return {{.*}}
+}
+
+// -----
+
+func @test_remove_squeeze_unsqueeze(%arg0 : tensor<10x1x10xf32>) -> tensor<10x1x10xf32> {
+  %0 = "onnx.Squeeze"(%arg0) {axes=[1]} : (tensor<10x1x10xf32>) -> tensor<10x10xf32>
+  %1 = "onnx.Unsqueeze"(%0) {axes=[1]} : (tensor<10x10xf32>) -> tensor<10x1x10xf32>
+  return %1: tensor<10x1x10xf32>
+  // CHECK-LABEL: test_remove_squeeze_unsqueeze
+  // CHECK: return {{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
+}
+
+// -----
+
+func @test_should_not_remove_squeeze_unsqueeze(%arg0 : tensor<1x10x1x10xf32>) -> tensor<10x1x10x1xf32> {
+  %0 = "onnx.Squeeze"(%arg0) {axes=[0]} : (tensor<1x10x1x10xf32>) -> tensor<10x1x10xf32>
+  %1 = "onnx.Unsqueeze"(%0) {axes=[3]} : (tensor<10x1x10xf32>) -> tensor<10x1x10x1xf32>
+  return %1: tensor<10x1x10x1xf32>
+  // CHECK-LABEL: test_should_not_remove_squeeze_unsqueeze
+  // CHECK: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK: return {{.*}}
+}
+
+// -----
+
+func @test_should_not_remove_null_axes_squeeze_unsqueeze(%arg0 : tensor<1x10x1x10xf32>) -> tensor<10x1x10x1xf32> {
+  %0 = "onnx.Squeeze"(%arg0) : (tensor<1x10x1x10xf32>) -> tensor<10x10xf32>
+  %1 = "onnx.Unsqueeze"(%0) {axes=[1, 3]} : (tensor<10x10xf32>) -> tensor<10x1x10x1xf32>
+  return %1: tensor<10x1x10x1xf32>
+  // CHECK-LABEL: test_should_not_remove_null_axes_squeeze_unsqueeze
+  // CHECK: {{.*}} = "onnx.Squeeze"{{.*}}
+  // CHECK: {{.*}} = "onnx.Unsqueeze"{{.*}}
+  // CHECK: return {{.*}}
+}

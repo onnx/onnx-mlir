@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(LLVM_LIT ${LLVM_PROJ_SRC}/utils/lit/lit.py)

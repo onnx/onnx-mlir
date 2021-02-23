@@ -1,3 +1,5 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
+
 # About Documentation
 
 ## How to add a new documentation page

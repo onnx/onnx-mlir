@@ -5230,6 +5230,7 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
 
 def ONNXSqueezeOp:ONNX_Op<"Squeeze",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Squeeze operation";
   let description = [{
   "Remove single-dimensional entries from the shape of a tensor."
@@ -5686,6 +5687,7 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
 
 def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Unsqueeze operation";
   let description = [{
   "Insert single-dimensional entries to the shape of an input tensor (`data`)."
