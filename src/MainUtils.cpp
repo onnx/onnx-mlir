@@ -603,6 +603,7 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
   if (emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm);
 
+  mlir::applyPassManagerCLOptions(pm);
   if (mlir::failed(pm.run(*module)))
     return 4;
 
