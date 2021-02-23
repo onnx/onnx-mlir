@@ -43,11 +43,12 @@ int main(int argc, char *argv[]) {
           clEnumVal(EmitLib, "Lower model to LLVM IR, emit (to file) "
                              "LLVM bitcode for model, compile and link it to a "
                              "shared library."),
-          clEnumVal(EmitJNI, "Lower model to LLMV IR -> LLVM bitcode "
+          clEnumVal(EmitJNI, "Lower model to LLVM IR -> LLVM bitcode "
                              "-> JNI shared library -> jar")),
       llvm::cl::init(EmitLib), llvm::cl::cat(OnnxMlirOptions));
 
-  llvm::cl::HideUnrelatedOptions(OnnxMlirOptions);
+  // llvm::cl::HideUnrelatedOptions(OnnxMlirOptions);
+  mlir::registerPassManagerCLOptions();
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "ONNX MLIR modular optimizer driver\n");
 

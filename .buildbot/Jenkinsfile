@@ -132,7 +132,7 @@ def call() {
           call_build_script("${JENKINS_STOP_PREVIOUS_BUILD}")
           call_build_script("${JENKINS_CLEANUP_BUILD_STATES}")
 
-          post_commit_status("${x_github_event}", 'pending')
+          post_build_status("${x_github_event}", 'pending')
         }
       }
 
@@ -166,13 +166,13 @@ def call() {
 
     post {
       success {
-        post_commit_status("${x_github_event}", 'success')
+        post_build_status("${x_github_event}", 'success')
       }
       failure {
-        post_commit_status("${x_github_event}", 'failure')
+        post_build_status("${x_github_event}", 'failure')
       }
       aborted {
-        post_commit_status("${x_github_event}", 'aborted')
+        post_build_status("${x_github_event}", 'aborted')
       }
       cleanup {
         script {
@@ -199,17 +199,25 @@ def call_build_script(script) {
     sh "${script}"
 }
 
-/* Set commit status appearing on the GitHub pull request page */
-def post_commit_status(event, state) {
+/* Set build status appearing on the GitHub pull request page */
+def post_build_status(event, state) {
     def status   = (state == 'aborted') ? 'failure' : state
-    /* Commit message may have newline so replace it to avoid invalid JSON */
-    def title    = "${ONNX_MLIR_PR_COMMIT_MESSAGE}".replace('\n', ' ')
-    def pr       = (event == 'pull_request') ? 'PR ' : 'pr '
+    /* Commit message may have newline so replace it to avoid invalid JSON.
+     * Also remove single and double quotes since the first MAXLEN characters
+     * may end in the middle of a quoted phrase.
+     *
+     * replace vs replaceAll: both will replace all occurrences of the 1st
+     * string with the 2nd string. But for replace the 1st string is a normal
+     * string while for replaceAll the 1st string is a regex.
+     */
+    def MAXLEN   = 24
+    def title    = "${ONNX_MLIR_PR_COMMIT_MESSAGE}".replace('\n', ' ').replace('\'', '').replace('"', '')
     def phrase   = (event == 'issue_comment') ?
                    "${ONNX_MLIR_PR_PHRASE}" : "${ONNX_MLIR_PR_ACTION}"
-    def desc     = "Build #${BUILD_NUMBER} " + pr + "#${ONNX_MLIR_PR_NUMBER} " +
-                   "[${phrase}] " +
-                   title.substring(0,Math.min(title.length(),24)) + '...'
+    def desc     = ("${ONNX_MLIR_PR_ACTION}" == 'push' ?
+                    "Build [#${BUILD_NUMBER}](${BUILD_URL}) " :
+                    "Build #${BUILD_NUMBER} ") + "[${phrase}] " +
+                   title.substring(0,Math.min(title.length(),MAXLEN)) + '...'
     def action   = (state == 'success') ? 'passed'  :
                    (state == 'failure') ? 'failed'  :
                    (state == 'aborted') ? 'aborted' : 'started'
@@ -217,20 +225,53 @@ def post_commit_status(event, state) {
     def duration = (state == 'pending') ?
         "at ${start}" : "after ${currentBuild.durationString.replace(' and counting','')}"
 
+    /* If the action is "push", it's for merging into master. The GitHub page
+     * for the pull request is already closed and commit status is no longer
+     * updated. So we post the build status as a comment.
+     */
+    if ("${ONNX_MLIR_PR_ACTION}" == 'push')
+        post_pr_comment("${ONNX_MLIR_PR_COMMENT_URL}",
+                        "**Jenkins Linux ${CPU_ARCH}** ${desc} ${action} ${duration}")
+    else
+        post_pr_status("${ONNX_MLIR_PR_STATUS_URL}",
+                       "${status}",
+                       "Jenkins Linux ${CPU_ARCH}",
+                       "${desc} ${action} ${duration}",
+                       "${BUILD_URL}")
+}
+
+/* Post a status to the pull request page */
+def post_pr_status(url, status, context, description, target_url) {
     def data = """
         { "state": "${status}", \
-          "context": "Jenkins Linux ${CPU_ARCH}", \
-          "description": "${desc} ${action} ${duration}", \
-          "target_url": "${BUILD_URL}" }
+          "context": "${context}", \
+          "description": "${description}", \
+          "target_url": "${target_url}" }
     """
 
     sh '''#!/bin/bash +x
-    curl -s ${ONNX_MLIR_PR_STATUS_URL} \
-         -X POST \
-         -H "Accept: application/vnd.github.v3+json" \
-         -H "Authorization: token ${GITHUB_JENKINS_DROID_TOKEN}" \
-         -d \' ''' + data + ''' \' | \
-    jq '{url: .url, state: .state, description: .description, context: .context, message: .message}'
+        curl -s ''' + url + ''' \
+             -X POST \
+             -H "Accept: application/vnd.github.v3+json" \
+             -H "Authorization: token ${GITHUB_JENKINS_DROID_TOKEN}" \
+             -d \' ''' + data + ''' \' | \
+        jq '{url: .url, state: .state, description: .description, context: .context, message: .message}'
+    '''
+}
+
+/* Post a comment to the pull request page */
+def post_pr_comment(url, msg) {
+    def data = """
+        { "body": "${msg}" }
+    """
+
+    sh '''#!/bin/bash +x
+        curl -s ''' + url + ''' \
+             -X POST \
+             -H "Accept: application/vnd.github.v3+json" \
+             -H "Authorization: token ${GITHUB_JENKINS_DROID_TOKEN}" \
+             -d \' ''' + data + ''' \' | \
+        jq '{url: .url, created_at: .created_at, updated_at: .updated_at, body: .body}'
     '''
 }
 
