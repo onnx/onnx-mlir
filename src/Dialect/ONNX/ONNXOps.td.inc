@@ -665,7 +665,6 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     auto tensorType = value.getType();
     build($_builder, $_state, tensorType, sparse_value, value,
       FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
-      //GetNullAttr, GetNullAttr, GetNullAttr, GetNullAttr, GetNullAttr, GetNullAttr);
    } else {
     auto tensorType = sparse_value.getType();
     build($_builder, $_state, tensorType, sparse_value, value,
