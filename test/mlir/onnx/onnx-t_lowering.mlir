@@ -18,7 +18,7 @@ func private @test_geluf32(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ONE:%.+]] = constant 1.000000e+00 : f32
   // CHECK: [[MINUSBETA:%.+]] = constant -1.702000e+00 : f32
   // CHECK: [[EXP_INPUT:%.+]] = mulf [[LOAD]], [[MINUSBETA]] : f32
-  // CHECK: [[EXP_RES:%.+]] = exp [[EXP_INPUT]] : f32
+  // CHECK: [[EXP_RES:%.+]] = math.exp [[EXP_INPUT]] : f32
   // CHECK: [[DENOMINATOR:%.+]] = addf [[EXP_RES]], [[ONE]] : f32
   // CHECK: [[GELU_RES:%.+]] = divf [[LOAD]], [[DENOMINATOR]] : f32
   // CHECK: krnl.store [[GELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
@@ -43,7 +43,7 @@ func private @test_gelubf16(%arg0 : tensor<?x10xbf16>) -> tensor<*xbf16> {
   // CHECK: [[ONE:%.+]] = constant 1.000000e+00 : bf16
   // CHECK: [[MINUSBETA:%.+]] = constant -1.703130e+00 : bf16
   // CHECK: [[EXP_INPUT:%.+]] = mulf [[LOAD]], [[MINUSBETA]] : bf16
-  // CHECK: [[EXP_RES:%.+]] = exp [[EXP_INPUT]] : bf16
+  // CHECK: [[EXP_RES:%.+]] = math.exp [[EXP_INPUT]] : bf16
   // CHECK: [[DENOMINATOR:%.+]] = addf [[EXP_RES]], [[ONE]] : bf16
   // CHECK: [[GELU_RES:%.+]] = divf [[LOAD]], [[DENOMINATOR]] : bf16
   // CHECK: krnl.store [[GELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xbf16>

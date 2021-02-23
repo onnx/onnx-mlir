@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 
@@ -58,7 +59,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect,
-      linalg::LinalgDialect, shape::ShapeDialect, scf::SCFDialect>();
+      linalg::LinalgDialect, math::MathDialect, shape::ShapeDialect,
+      scf::SCFDialect>();
 
   // Use krnl.load/store instead of std.load/store and affine.load/store.
   // krnl.load/store will be lowered to std.load/store and affine.load/store by
@@ -69,7 +71,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addIllegalOp<mlir::AffineStoreOp>();
 
   // std.tanh will be expanded.
-  target.addIllegalOp<mlir::TanhOp>();
+  target.addIllegalOp<mlir::math::TanhOp>();
 
   // TODO: enable this once more ops are supported.
   // We also define the ONNX dialect as Illegal so that the conversion will fail

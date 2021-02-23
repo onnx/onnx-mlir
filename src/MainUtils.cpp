@@ -28,6 +28,7 @@
 #include "mlir/Dialect/Nepal/IR/NepalDialect.h"
 #include "mlir/Dialect/Nepal/Passes.h"
 #include "mlir/Target/Cpp/CppPrinter.h"
+#include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Dialect/LLVMIR/Transforms/Passes.h"
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <mlir/IR/SymbolTable.h>
@@ -309,8 +310,11 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
       unoptimizedBitcodePath, error, llvm::sys::fs::F_None);
 
   llvm::LLVMContext llvmContext;
-  llvm::WriteBitcodeToFile(*mlir::translateModuleToLLVMIR(*module, llvmContext),
-      moduleBitcodeStream);
+  mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
+  auto llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
+  if (!llvmModule)
+    llvm::errs() << "Failed to translate module to LLVMIR.\n";
+  llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
   moduleBitcodeStream.flush();
 
   // Use the LLVM's 'opt' command to optimize the bitcode.
@@ -431,6 +435,7 @@ void registerDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::scf::SCFDialect>();
   context.getOrLoadDialect<mlir::StandardOpsDialect>();
   context.getOrLoadDialect<mlir::shape::ShapeDialect>();
+  context.getOrLoadDialect<mlir::math::MathDialect>();
   context.getOrLoadDialect<mlir::ONNXOpsDialect>();
   context.getOrLoadDialect<mlir::KrnlOpsDialect>();
   context.getOrLoadDialect<mlir::linalg::LinalgDialect>();

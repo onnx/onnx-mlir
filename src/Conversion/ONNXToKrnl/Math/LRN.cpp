@@ -125,7 +125,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     }
     Value xValue = rewriter.create<KrnlLoadOp>(loc, input, storeIndices);
     sumValue = rewriter.create<KrnlLoadOp>(loc, sumAlloc, ArrayRef<Value>{});
-    Value tempValue = rewriter.create<PowFOp>(loc,
+    Value tempValue = rewriter.create<math::PowFOp>(loc,
         rewriter.create<AddFOp>(loc, biasValue,
             rewriter.create<MulFOp>(loc, alphaDivSizeValue, sumValue)),
         betaValue);

@@ -162,7 +162,7 @@ module {
         krnl.store %64, %66[] : memref<f32>
         %67 = krnl.load %66[] : memref<f32>
         %68 = subf %cst_1, %67 : f32
-        %69 = exp %68 : f32
+        %69 = math.exp %68 : f32
         %70 = addf %cst, %69 : f32
         %71 = divf %cst, %70 : f32
         krnl.store %71, %60[] : memref<f32>
@@ -175,7 +175,7 @@ module {
         krnl.store %75, %77[] : memref<f32>
         %78 = krnl.load %77[] : memref<f32>
         %79 = subf %cst_1, %78 : f32
-        %80 = exp %79 : f32
+        %80 = math.exp %79 : f32
         %81 = addf %cst, %80 : f32
         %82 = divf %cst, %81 : f32
         krnl.store %82, %58[] : memref<f32>
@@ -189,11 +189,11 @@ module {
         %89 = krnl.load %88[] : memref<f32>
         %90 = mulf %89, %cst_0 : f32
         %91 = negf %90 : f32
-        %92 = exp %91 : f32
+        %92 = math.exp %91 : f32
         %93 = subf %cst, %92 : f32
         %94 = addf %cst, %92 : f32
         %95 = divf %93, %94 : f32
-        %96 = exp %90 : f32
+        %96 = math.exp %90 : f32
         %97 = subf %96, %cst : f32
         %98 = addf %96, %cst : f32
         %99 = divf %97, %98 : f32
@@ -213,7 +213,7 @@ module {
         krnl.store %108, %110[] : memref<f32>
         %111 = krnl.load %110[] : memref<f32>
         %112 = subf %cst_1, %111 : f32
-        %113 = exp %112 : f32
+        %113 = math.exp %112 : f32
         %114 = addf %cst, %113 : f32
         %115 = divf %cst, %114 : f32
         krnl.store %115, %54[] : memref<f32>
@@ -224,11 +224,11 @@ module {
         %119 = krnl.load %118[] : memref<f32>
         %120 = mulf %119, %cst_0 : f32
         %121 = negf %120 : f32
-        %122 = exp %121 : f32
+        %122 = math.exp %121 : f32
         %123 = subf %cst, %122 : f32
         %124 = addf %cst, %122 : f32
         %125 = divf %123, %124 : f32
-        %126 = exp %120 : f32
+        %126 = math.exp %120 : f32
         %127 = subf %126, %cst : f32
         %128 = addf %126, %cst : f32
         %129 = divf %127, %128 : f32

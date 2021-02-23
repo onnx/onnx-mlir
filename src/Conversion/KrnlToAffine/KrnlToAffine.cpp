@@ -90,7 +90,7 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     // body region to the parent region of iterateOp.
     builder.setInsertionPointAfter(iterateOp);
     iterateOp.bodyRegion().walk([&](Operation *op) {
-      if (!op->isKnownTerminator())
+      if (!op->hasTrait<OpTrait::IsTerminator>())
         op->replaceAllUsesWith(builder.clone(*op));
     });
   } else {

@@ -28,7 +28,7 @@ func private @test_elementwise_op_with_scalar_values_1(%arg0 : tensor<f32>) -> t
   // CHECK-LABEL: test_elementwise_op_with_scalar_values_1
   // CHECK: [[RES:%.+]] = alloc() : memref<f32>
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[] : memref<f32>
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
   // CHECK: krnl.store [[EXP]], [[RES]][] : memref<f32>
   // CHECK: return [[RES]] : memref<f32>
 }
@@ -199,7 +199,7 @@ func private @test_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
   // CHECK: krnl.store [[EXP]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
@@ -223,11 +223,11 @@ func private @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[TWO:%.+]] = constant 2.000000e+00 : f32
   // CHECK: [[X_MUL_2:%.+]] = mulf [[X]], [[TWO]] : f32
   // CHECK: [[NEG_X_MUL_2:%.+]] = negf [[X_MUL_2]] : f32
-  // CHECK: [[EXP_1:%.+]] = exp [[NEG_X_MUL_2]] : f32
+  // CHECK: [[EXP_1:%.+]] = math.exp [[NEG_X_MUL_2]] : f32
   // CHECK: [[SUB_1:%.+]] = subf %cst, [[EXP_1]] : f32
   // CHECK: [[ADD_1:%.+]] = addf %cst, [[EXP_1]] : f32
   // CHECK: [[DIV_1:%.+]] = divf [[SUB_1]], [[ADD_1]] : f32
-  // CHECK: [[EXP_2:%.+]] = exp [[X_MUL_2]] : f32
+  // CHECK: [[EXP_2:%.+]] = math.exp [[X_MUL_2]] : f32
   // CHECK: [[SUB_2:%.+]] = subf [[EXP_2]], %cst : f32
   // CHECK: [[ADD_2:%.+]] = addf [[EXP_2]], %cst : f32
   // CHECK: [[DIV_2:%.+]] = divf [[SUB_2]], [[ADD_2]] : f32
@@ -256,8 +256,8 @@ func private @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = math.exp [[NLOAD]] : f32
   // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
   // CHECK: [[SINH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
   // CHECK: krnl.store [[SINH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
@@ -282,8 +282,8 @@ func private @test_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = math.exp [[NLOAD]] : f32
   // CHECK: [[DIVIDEND:%.+]] = addf [[EXP]], [[NEXP]] : f32
   // CHECK: [[COSH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
   // CHECK: krnl.store [[COSH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
@@ -305,7 +305,7 @@ func private @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[COS:%.+]] = cos [[LOAD]] : f32
+  // CHECK: [[COS:%.+]] = math.cos [[LOAD]] : f32
   // CHECK: krnl.store [[COS]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
@@ -325,7 +325,7 @@ func private @test_sin(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[SIN:%.+]] = sin [[LOAD]] : f32
+  // CHECK: [[SIN:%.+]] = math.sin [[LOAD]] : f32
   // CHECK: krnl.store [[SIN]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
@@ -345,7 +345,7 @@ func private @test_log(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[LOG:%.+]] = log [[LOAD]] : f32
+  // CHECK: [[LOG:%.+]] = math.log [[LOAD]] : f32
   // CHECK: krnl.store [[LOG]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
@@ -368,7 +368,7 @@ func private @test_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = math.exp [[NLOAD]] : f32
   // CHECK: [[DIVISOR:%.+]] = addf [[ONE]], [[NEXP]] : f32
   // CHECK: [[SIGMOID_RES:%.+]] = divf [[ONE]], [[DIVISOR]] : f32
   // CHECK: krnl.store [[SIGMOID_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
@@ -538,7 +538,7 @@ func private @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
   // CHECK: [[ALPHA:%.+]] = constant {{2.+}} : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
   // CHECK: [[CMP:%.+]] = cmpf olt, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[SUB:%.+]] = subf [[EXP]], [[ONE]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[SUB]] : f32
@@ -589,7 +589,7 @@ func private @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32
   // CHECK: [[GAMMA:%.+]] = constant {{2.+}} : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
   // CHECK: [[CMP:%.+]] = cmpf ogt, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[EXP]] : f32
   // CHECK: [[SUB:%.+]] = subf [[MUL]], [[ALPHA]] : f32
@@ -664,10 +664,10 @@ func private @test_softplus(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
   // CHECK: [[ADD:%.+]] = addf [[EXP]], [[ONE]] : f32
-  // CHECK: [[SOFTPLUS_RES:%.+]] = log [[ADD]] : f32
+  // CHECK: [[SOFTPLUS_RES:%.+]] = math.log [[ADD]] : f32
   // CHECK: krnl.store [[SOFTPLUS_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
@@ -884,7 +884,7 @@ func private @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   // CHECK:   [[LOAD1]] = krnl.load [[SUM]][] : memref<f32>
   // CHECK:   [[LOAD2]] = krnl.load %arg0[%arg1, %arg2] : memref<10x10xf32>
   // CHECK:   [[SUB:%.+]] = subf [[LOAD2]], [[LOAD_MAX]] : f32
-  // CHECK:   [[EXP:%.+]] = exp [[SUB]] : f32
+  // CHECK:   [[EXP:%.+]] = math.exp [[SUB]] : f32
   // CHECK:   [[ADD:%.+]] = addf [[LOAD1]], [[EXP]] : f32
   // CHECK:   krnl.store [[ADD]], [[SUM]][] : memref<f32>
   // CHECK:   krnl.store [[EXP]], [[RES]][%arg1, %arg2] : memref<10x10xf32>
@@ -916,7 +916,7 @@ func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[SQRT:%.+]] = sqrt [[LOAD]] : f32
+  // CHECK: [[SQRT:%.+]] = math.sqrt [[LOAD]] : f32
   // CHECK: krnl.store [[SQRT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
 }
@@ -1518,7 +1518,7 @@ func private @test_batchnorm_testmode_Nd(%arg0: tensor<1x2x1x3xf32>, %arg1: tens
   // CHECK:     [[LOADED_VAL:%.+]] = krnl.load %arg0[%arg6, %arg5, %arg7, %arg8] : memref<1x2x1x3xf32>
   // CHECK:     [[DIVIDEND:%.+]] = subf [[LOADED_VAL]], [[MEAN]] : f32
   // CHECK:     [[ADJUSTED_VARIANCE:%.+]] = addf [[VARIANCE]], [[EPSILON]] : f32
-  // CHECK:     [[DIVISOR:%.+]] = sqrt [[ADJUSTED_VARIANCE]] : f32
+  // CHECK:     [[DIVISOR:%.+]] = math.sqrt [[ADJUSTED_VARIANCE]] : f32
   // CHECK:     [[NORM:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
   // CHECK:     [[SCALE_NORM:%.+]] = mulf [[SCALE]], [[NORM]] : f32
   // CHECK:     [[SHIFT_SCALE_NORM:%.+]] = addf [[SCALE_NORM]], [[BIAS]] : f32
@@ -1547,7 +1547,7 @@ func private @test_batchnorm_testmode_1d(%arg0: tensor<10xf32>, %arg1: tensor<1x
   // CHECK:   [[LOADED_VAL:%.+]] = krnl.load %arg0[%arg5] : memref<10xf32>
   // CHECK:   [[DIVIDEND:%.+]] = subf [[LOADED_VAL]], [[MEAN]] : f32
   // CHECK:   [[ADJUSTED_VARIANCE:%.+]] = addf [[VARIANCE]], [[EPSILON]] : f32
-  // CHECK:   [[DIVISOR:%.+]] = sqrt [[ADJUSTED_VARIANCE]] : f32
+  // CHECK:   [[DIVISOR:%.+]] = math.sqrt [[ADJUSTED_VARIANCE]] : f32
   // CHECK:   [[NORM:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
   // CHECK:   [[SCALE_NORM:%.+]] = mulf [[SCALE]], [[NORM]] : f32
   // CHECK:   [[SHIFT_SCALE_NORM:%.+]] = addf [[SCALE_NORM]], [[BIAS]] : f32
@@ -1575,7 +1575,7 @@ func private @test_batchnorm_testmode_2d(%arg0: tensor<10x3xf32>, %arg1: tensor<
   // CHECK:     [[LOADED_VAL:%.+]] = krnl.load %arg0[%arg6, %arg5] : memref<10x3xf32>
   // CHECK:     [[DIVIDEND:%.+]] = subf [[LOADED_VAL]], [[MEAN]] : f32
   // CHECK:     [[ADJUSTED_VARIANCE:%.+]] = addf [[VARIANCE]], [[EPSILON]] : f32
-  // CHECK:     [[DIVISOR:%.+]] = sqrt [[ADJUSTED_VARIANCE]] : f32
+  // CHECK:     [[DIVISOR:%.+]] = math.sqrt [[ADJUSTED_VARIANCE]] : f32
   // CHECK:     [[NORM:%.+]] = divf [[DIVIDEND]], [[DIVISOR]] : f32
   // CHECK:     [[SCALE_NORM:%.+]] = mulf [[SCALE]], [[NORM]] : f32
   // CHECK:     [[SHIFT_SCALE_NORM:%.+]] = addf [[SCALE_NORM]], [[BIAS]] : f32
@@ -1963,7 +1963,7 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = constant 0.000000e+00 : f32
   // CHECK:     {{.*}} = constant 1.000000e+00 : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = math.exp {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:     krnl.store {{.*}}, [[zt]][] : memref<f32>
@@ -1980,7 +1980,7 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = constant 0.000000e+00 : f32
   // CHECK:     {{.*}} = constant 1.000000e+00 : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = math.exp {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:     krnl.store {{.*}}, [[rt]][] : memref<f32>
@@ -2029,11 +2029,11 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = constant 2.000000e+00 : f32
   // CHECK:     {{.*}} = mulf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = negf {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = math.exp {{.*}} : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = math.exp {{.*}} : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
@@ -2179,7 +2179,7 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = constant 0.000000e+00 : f32
   // CHECK:     {{.*}} = constant 1.000000e+00 : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = math.exp {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:     krnl.store {{.*}}, [[zt]][] : memref<f32>
@@ -2196,7 +2196,7 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = constant 0.000000e+00 : f32
   // CHECK:     {{.*}} = constant 1.000000e+00 : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = math.exp {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:     krnl.store {{.*}}, [[rt]][] : memref<f32>
@@ -2215,11 +2215,11 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = constant 2.000000e+00 : f32
   // CHECK:     {{.*}} = mulf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = negf {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = math.exp {{.*}} : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = math.exp {{.*}} : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
@@ -2445,7 +2445,7 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:      {{.*}} = constant 0.000000e+00 : f32
   // CHECK:      {{.*}} = constant 1.000000e+00 : f32
   // CHECK:      {{.*}} = subf {{.*}}, {{.*}}: f32
-  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = math.exp {{.*}} : f32
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:      krnl.store {{.*}}, [[It]][] : memref<f32>
@@ -2461,7 +2461,7 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:      {{.*}} = constant 0.000000e+00 : f32
   // CHECK:      {{.*}} = constant 1.000000e+00 : f32
   // CHECK:      {{.*}} = subf {{.*}}, {{.*}}: f32
-  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = math.exp {{.*}} : f32
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:      krnl.store {{.*}}, [[Ft]][] : memref<f32>
@@ -2478,11 +2478,11 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:      {{.*}} = constant 2.000000e+00 : f32
   // CHECK:      {{.*}} = mulf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = negf {{.*}} : f32
-  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = math.exp {{.*}} : f32
   // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
-  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = math.exp {{.*}} : f32
   // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
@@ -2507,7 +2507,7 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:      {{.*}} = constant 0.000000e+00 : f32
   // CHECK:      {{.*}} = constant 1.000000e+00 : f32
   // CHECK:      {{.*}} = subf {{.*}}, {{.*}}: f32
-  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = math.exp {{.*}} : f32
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:      krnl.store {{.*}}, [[Ot]][] : memref<f32>
@@ -2520,11 +2520,11 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:      {{.*}} = constant 2.000000e+00 : f32
   // CHECK:      {{.*}} = mulf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = negf {{.*}} : f32
-  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = math.exp {{.*}} : f32
   // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
-  // CHECK:      {{.*}} = exp {{.*}} : f32
+  // CHECK:      {{.*}} = math.exp {{.*}} : f32
   // CHECK:      {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
@@ -2709,11 +2709,11 @@ func private @test_rnn_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = constant 2.000000e+00 : f32
   // CHECK:     {{.*}} = mulf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = negf {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = math.exp {{.*}} : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
-  // CHECK:     {{.*}} = exp {{.*}} : f32
+  // CHECK:     {{.*}} = math.exp {{.*}} : f32
   // CHECK:     {{.*}} = subf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
@@ -3268,7 +3268,7 @@ func private @test_pown(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> t
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 4, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5) {
 // CHECK-DAG:         [[LOAD_INPUT_MEM_:%.+]] = krnl.load [[INPUT_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<3x4x5xf32>
 // CHECK-DAG:         [[LOAD_POWER_MEM_:%.+]] = krnl.load [[POWER_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<3x4x5xf32>
-// CHECK:             [[VAR_4_:%.+]] = powf [[LOAD_INPUT_MEM_]], [[LOAD_POWER_MEM_]] : f32
+// CHECK:             [[VAR_4_:%.+]] = math.powf [[LOAD_INPUT_MEM_]], [[LOAD_POWER_MEM_]] : f32
 // CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]], [[I_2_]]{{.}} : memref<3x4x5xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<3x4x5xf32>

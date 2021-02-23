@@ -116,7 +116,7 @@ public:
 
     // Check if a terminator op exists for function.
     if (!funcBody.empty() && !funcBody.back().empty() &&
-        funcBody.back().back().isKnownTerminator())
+        funcBody.back().back().hasTrait<OpTrait::IsTerminator>())
       if (auto returnOp = f.getBody().back().getTerminator()) {
         auto results = returnOp->getOperandTypes();
         f.setType(FunctionType::get(f.getContext(), f.getType().getInputs(),

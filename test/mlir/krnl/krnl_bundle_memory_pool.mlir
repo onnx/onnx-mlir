@@ -228,8 +228,8 @@ func @static_mem_pool_rnn_subblock(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2
       krnl.store %14, %16[] : memref<f32>
       %17 = krnl.load %16[] : memref<f32>
       %18 = subf %cst, %17 : f32
-      %19 = exp %17 : f32
-      %20 = exp %18 : f32
+      %19 = math.exp %17 : f32
+      %20 = math.exp %18 : f32
       %21 = subf %19, %20 : f32
       %22 = addf %19, %20 : f32
       %23 = divf %21, %22 : f32
@@ -317,8 +317,8 @@ func @static_mem_pool_rnn_sub_and_main_block(%arg0: memref<1x3x2xf32>, %arg1: me
       krnl.store %14, %16[] : memref<f32>
       %17 = krnl.load %16[] : memref<f32>
       %18 = subf %cst, %17 : f32
-      %19 = exp %17 : f32
-      %20 = exp %18 : f32
+      %19 = math.exp %17 : f32
+      %20 = math.exp %18 : f32
       %21 = subf %19, %20 : f32
       %22 = addf %19, %20 : f32
       %23 = divf %21, %22 : f32
@@ -425,8 +425,8 @@ func @test_dynamic_pool_rnn(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2xf32>, 
       krnl.store %14, %16[] : memref<f32>
       %17 = krnl.load %16[] : memref<f32>
       %18 = subf %cst, %17 : f32
-      %19 = exp %17 : f32
-      %20 = exp %18 : f32
+      %19 = math.exp %17 : f32
+      %20 = math.exp %18 : f32
       %21 = subf %19, %20 : f32
       %22 = addf %19, %20 : f32
       %23 = divf %21, %22 : f32

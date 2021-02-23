@@ -248,7 +248,7 @@ func @test_exp_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
   // CHECK: krnl.store [[EXP]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Second Exp
@@ -260,7 +260,7 @@ func @test_exp_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[DIM_2:%.+]] = dim [[RES]], [[C0_2]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load [[RES]][%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
   // CHECK: krnl.store [[EXP]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
   
   /// Dealloc of first result.
@@ -291,11 +291,11 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[TWO:%.+]] = constant 2.000000e+00 : f32
   // CHECK: [[X_MUL_2:%.+]] = mulf [[X]], [[TWO]] : f32
   // CHECK: [[NEG_X_MUL_2:%.+]] = negf [[X_MUL_2]] : f32
-  // CHECK: [[EXP_1:%.+]] = exp [[NEG_X_MUL_2]] : f32
+  // CHECK: [[EXP_1:%.+]] = math.exp [[NEG_X_MUL_2]] : f32
   // CHECK: [[SUB_1:%.+]] = subf %cst, [[EXP_1]] : f32
   // CHECK: [[ADD_1:%.+]] = addf %cst, [[EXP_1]] : f32
   // CHECK: [[DIV_1:%.+]] = divf [[SUB_1]], [[ADD_1]] : f32
-  // CHECK: [[EXP_2:%.+]] = exp [[X_MUL_2]] : f32
+  // CHECK: [[EXP_2:%.+]] = math.exp [[X_MUL_2]] : f32
   // CHECK: [[SUB_2:%.+]] = subf [[EXP_2]], %cst : f32
   // CHECK: [[ADD_2:%.+]] = addf [[EXP_2]], %cst : f32
   // CHECK: [[DIV_2:%.+]] = divf [[SUB_2]], [[ADD_2]] : f32
@@ -317,11 +317,11 @@ func @test_tanh_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[TWO:%.+]] = constant 2.000000e+00 : f32
   // CHECK: [[X_MUL_2:%.+]] = mulf [[X]], [[TWO]] : f32
   // CHECK: [[NEG_X_MUL_2:%.+]] = negf [[X_MUL_2]] : f32
-  // CHECK: [[EXP_1:%.+]] = exp [[NEG_X_MUL_2]] : f32
+  // CHECK: [[EXP_1:%.+]] = math.exp [[NEG_X_MUL_2]] : f32
   // CHECK: [[SUB_1:%.+]] = subf %cst, [[EXP_1]] : f32
   // CHECK: [[ADD_1:%.+]] = addf %cst, [[EXP_1]] : f32
   // CHECK: [[DIV_1:%.+]] = divf [[SUB_1]], [[ADD_1]] : f32
-  // CHECK: [[EXP_2:%.+]] = exp [[X_MUL_2]] : f32
+  // CHECK: [[EXP_2:%.+]] = math.exp [[X_MUL_2]] : f32
   // CHECK: [[SUB_2:%.+]] = subf [[EXP_2]], %cst : f32
   // CHECK: [[ADD_2:%.+]] = addf [[EXP_2]], %cst : f32
   // CHECK: [[DIV_2:%.+]] = divf [[SUB_2]], [[ADD_2]] : f32
@@ -357,8 +357,8 @@ func @test_sinh_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = math.exp [[NLOAD]] : f32
   // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
   // CHECK: [[SINH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
   // CHECK: krnl.store [[SINH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
@@ -375,8 +375,8 @@ func @test_sinh_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = math.exp [[NLOAD]] : f32
   // CHECK: [[DIVIDEND:%.+]] = subf [[EXP]], [[NEXP]] : f32
   // CHECK: [[SINH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
   // CHECK: krnl.store [[SINH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
@@ -408,8 +408,8 @@ func @test_cosh_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = math.exp [[NLOAD]] : f32
   // CHECK: [[DIVIDEND:%.+]] = addf [[EXP]], [[NEXP]] : f32
   // CHECK: [[COSH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
   // CHECK: krnl.store [[COSH_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
@@ -425,8 +425,8 @@ func @test_cosh_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[TWO:%.+]] = constant {{2.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = math.exp [[NLOAD]] : f32
   // CHECK: [[DIVIDEND:%.+]] = addf [[EXP]], [[NEXP]] : f32
   // CHECK: [[COSH_RES:%.+]] = divf [[DIVIDEND]], [[TWO]] : f32
   // CHECK: krnl.store [[COSH_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
@@ -458,7 +458,7 @@ func @test_sigmoid_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = math.exp [[NLOAD]] : f32
   // CHECK: [[DIVISOR:%.+]] = addf [[ONE]], [[NEXP]] : f32
   // CHECK: [[SIGMOID_RES:%.+]] = divf [[ONE]], [[DIVISOR]] : f32
   // CHECK: krnl.store [[SIGMOID_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
@@ -475,7 +475,7 @@ func @test_sigmoid_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
   // CHECK: [[NLOAD:%.+]] = subf [[ZERO]], [[LOAD]] : f32
-  // CHECK: [[NEXP:%.+]] = exp [[NLOAD]] : f32
+  // CHECK: [[NEXP:%.+]] = math.exp [[NLOAD]] : f32
   // CHECK: [[DIVISOR:%.+]] = addf [[ONE]], [[NEXP]] : f32
   // CHECK: [[SIGMOID_RES:%.+]] = divf [[ONE]], [[DIVISOR]] : f32
   // CHECK: krnl.store [[SIGMOID_RES]], [[RET_RES]][%arg1, %arg2] : memref<?x10xf32>
@@ -653,7 +653,7 @@ func @test_elu_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{2.+}} : f32 
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
   // CHECK: [[CMP:%.+]] = cmpf olt, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[SUB:%.+]] = subf [[EXP]], [[ONE]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[SUB]] : f32
@@ -672,7 +672,7 @@ func @test_elu_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{2.+}} : f32 
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
   // CHECK: [[CMP:%.+]] = cmpf olt, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[SUB:%.+]] = subf [[EXP]], [[ONE]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[SUB]] : f32
@@ -753,7 +753,7 @@ func @test_selu_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[GAMMA:%.+]] = constant {{2.+}} : f32 
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
   // CHECK: [[CMP:%.+]] = cmpf ogt, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[EXP]] : f32
   // CHECK: [[SUB:%.+]] = subf [[MUL]], [[ALPHA]] : f32
@@ -773,7 +773,7 @@ func @test_selu_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32 
   // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32 
   // CHECK: [[GAMMA:%.+]] = constant {{2.+}} : f32 
-  // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
+  // CHECK: [[EXP:%.+]] = math.exp [[LOAD]] : f32
   // CHECK: [[CMP:%.+]] = cmpf ogt, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[EXP]] : f32
   // CHECK: [[SUB:%.+]] = subf [[MUL]], [[ALPHA]] : f32
