@@ -63,15 +63,16 @@ llvm::cl::opt<bool> printIR("printIR",
 llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
-  llvm::cl::opt<string> target("target",
-      llvm::cl::desc("Target architecture"),
-      llvm::cl::value_desc("<llvm target triple>"), llvm::cl::cat(OnnxMlirOptions),
-      llvm::cl::ValueRequired);
 
-  llvm::cl::opt<string> cpu("cpu",
-      llvm::cl::desc("Target cpu"),
-      llvm::cl::value_desc("<llvm cpu value>"), llvm::cl::cat(OnnxMlirOptions),
-      llvm::cl::ValueRequired);
+llvm::cl::opt<string> mtriple("mtriple",
+    llvm::cl::desc("Target architecture"),
+    llvm::cl::value_desc("<llvm target triple>"), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::ValueRequired);
+
+llvm::cl::opt<string> mcpu("mcpu",
+    llvm::cl::desc("Target cpu"),
+    llvm::cl::value_desc("<llvm cpu value>"), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::ValueRequired);
 
 // Runtime directory contains all the libraries, jars, etc. that are
 // necessary for running onnx-mlir. It's resolved in the following order:
@@ -317,6 +318,13 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
 #endif
 }
 
+string getTargetOptions() {
+    string targetOptions=" ";
+  if (mtriple!="") targetOptions="--mtriple="+ mtriple;
+  if (mcpu!="") targetOptions+=" --mcpu="+mcpu;
+  return targetOptions;
+}
+
 // Write LLVM optimized bitcode.
 void genLLVMBitcode(const mlir::OwningModuleRef &module,
     string optimizedBitcodePath, string outputBaseName) {
@@ -338,6 +346,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
   optBitcode.appendStr("-O3")
+      .appendStr(getTargetOptions())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
       .exec();
@@ -350,6 +359,7 @@ void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
   Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
+      .appendStr(getTargetOptions())
       .appendList({"-o", modelObjPath})
       .appendStr(bitcodePath)
       .exec();
@@ -409,11 +419,9 @@ void compileModuleToSharedLibrary(
   genModelObject(module, bitcodePath, modelObjPath);
   llvm::FileRemover modelObjRemover(modelObjPath);
 
-  string targetOptions=" ";
-  if (target!="") targetOptions="-target "+ target;
-  if (cpu!="") targetOptions+=" -cpu "+cpu;
+
   string modelSharedLibPath = outputBaseName + ".so";
-  genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC", targetOptions},
+  genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"},
       {constPackObjPath.getValueOr(""), modelObjPath},
       {"-lEmbeddedDataLoader", "-lcruntime"});
 }
