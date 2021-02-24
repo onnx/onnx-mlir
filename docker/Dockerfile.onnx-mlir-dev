@@ -37,12 +37,14 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && make ARGS=-j$(nproc) test \
     && make check-doc \
     && make onnx-mlir-doc \
-    && cd ${ONNX_MLIR_ROOT} \
-    && rm -rf /tmp/* ${ONNX_MLIR_ROOT}/build
+    && rm -rf /tmp/*
 
 # Copy from onnx-mlir-dev-test to squash removed source layer and
 # remove dependency on onnx-mlir-llvm-shared image
 FROM scratch
+
+ARG WORK_DIR=/workdir
+WORKDIR ${WORK_DIR}
 
 # Label the images for various checking and cleanup
 ARG ONNX_MLIR_SHA1
