@@ -297,6 +297,28 @@ using namespace mlir::edsc;
 using namespace mlir::edsc::ops;
 using namespace mlir::edsc::intrinsics;
 
+#if 0
+void genIfThenElseWithoutParams(PatternRewriter &rewriter, Value condition,
+    Block *&thenBlock, Block *&elseBlock) {
+
+  // Split current block in the if-conditional block, and the end block.
+  Block *ifBlock = rewriter.getInsertionBlock();
+  auto opPosition = rewriter.getInsertionPoint();
+  Block *endBlock = rewriter.splitBlock(ifBlock, opPosition);
+
+  // Then / Else bock.
+  thenBlock =
+      buildInNewBlock({}, [&](ValueRange args) { std_br(endBlock, {}); });
+  elseBlock =
+      buildInNewBlock({}, [&](ValueRange args) { std_br(endBlock, {}); });
+
+  // Add the conditional
+  appendToBlock(ifBlock, [&](ValueRange) {
+    std_cond_br(condition, thenBlock, {}, elseBlock, {});
+  });
+}
+#endif
+
 // KrnlMatmul will be lowered to vector and affine expressions
 class KrnlMatmulLowering : public OpRewritePattern<KrnlMatMulOp> {
 public:
@@ -308,96 +330,197 @@ public:
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
 
     // Operands and types.
+    Type elementType =
+        operandAdaptor.A().getType().cast<MemRefType>().getElementType();
+    bool simdize = op.simdize();
+    bool zeroC = op.zeroC();
+    // Init scope and emit constants.
+    ScopedContext scope(rewriter, op.getLoc());
+    // Generate the test for full/partial blocks
+    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
+    MemRefBoundsCapture aBounds(A), bBounds(B), cBounds(C);
+    Value nBlock(cBounds.ub(0)), mBlock(cBounds.ub(1)), kBlock(aBounds.ub(1));
+    Value nUB(operandAdaptor.nUpperBound()), mUB(operandAdaptor.mUpperBound()),
+        kUB(operandAdaptor.kUpperBound()), nGI(operandAdaptor.nGlobalIndex()),
+        mGI(operandAdaptor.mGlobalIndex()), kGI(operandAdaptor.kGlobalIndex());
+    using namespace edsc::op;
+
+    Value nTrip = nUB - nGI;
+    nTrip = std_select(sge(nTrip, nBlock), nBlock, nTrip);
+    Value mTrip = mUB - mGI;
+    mTrip = std_select(sge(mTrip, mBlock), mBlock, mTrip);
+    Value kTrip = kUB - kGI;
+    kTrip = std_select(sge(kTrip, kBlock), kBlock, kTrip);
+
+    if (simdize) {
+      if (zeroC) {
+        Value test = eq(kGI, std_constant_index(0));
+        printf("hi alex, start\n");
+        Block *thenBlock, *elseBlock;
+        genIfThenElseWithoutParams(rewriter, test, thenBlock, elseBlock);
+        appendToBlock(thenBlock,
+            [&](ValueRange) { genSimd(rewriter, op, elementType, true, false); });
+        appendToBlock(elseBlock,
+            [&](ValueRange) { genSimd(rewriter, op, elementType, false, true); });
+        printf("hi alex, end\n");
+      } else {
+        genSimd(rewriter, op, elementType, false, false);
+      }
+    } else {
+      genScalar(rewriter, op, elementType, zeroC, false);
+    }
+    rewriter.eraseOp(op);
+    printf("hi alex, done removing op\n");
+
+    return success();
+  }
+
+private:
+  void genScalar(PatternRewriter &rewriter, KrnlMatMulOp op, Type elementType,
+      bool zeroC, bool unrollJam) const {
+    // Get operands.
+    KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
+    Value A = operandAdaptor.A();
+    Value B = operandAdaptor.B();
+    Value C = operandAdaptor.C();
+
+    // Get the EDSC variables, and loop dimensions.
+    AffineIndexedValue AA(A), BB(B), CC(C); // Obj we can load and store into.
+    MemRefBoundsCapture aBounds(A), bBounds(B), cBounds(C); // Get bounds.
+    Value N(cBounds.ub(0)), M(cBounds.ub(1)), K(aBounds.ub(1));
+    MemRefType CTmpType = MemRefType::get({}, elementType);
+
+    // For i, j loops.
+    using namespace edsc::op;
+    Value zero = std_constant_index(0);
+    Value fZero(std_constant_float(llvm::APFloat(0.0f), rewriter.getF32Type()));
+    Value i, j;
+    // clang-format off
+    affineLoopNestBuilder({zero, zero}, {N, M}, {1, 1}, [&](ValueRange ivs) {
+      // Defines induction variables, and possibly initialize C.
+      i = ivs[0]; 
+      j = ivs[1];
+      // Alloc and init temp c storage.
+      Value TmpC = std_alloca(CTmpType);
+      AffineIndexedValue TTmpC(TmpC);
+      if (zeroC) {
+        TTmpC() = fZero;
+      } else {
+        TTmpC() = CC(i, j);
+      }
+      // Sum over k.
+      affineLoopBuilder(zero, K, 1, [&](Value k) {
+        TTmpC() = AA(i, k) * BB(k, j) + TTmpC();
+        //TTmpC() = std_fmaf(AA(i, k), BB(k, j), TTmpC());
+      });
+      // Store temp result into C(i, j)
+      CC(i, j) = TTmpC();
+    });
+    // clang-format on
+    if (unrollJam) {
+      // Unroll and jam. Seems to support only one operation at this time.
+      auto lj = getForInductionVarOwner(j);
+      LogicalResult res = loopUnrollJamByFactor(lj, 4);
+      assert(res.succeeded() && "failed to optimize");
+    }
+  }
+
+  void genSimd(PatternRewriter &rewriter, KrnlMatMulOp op, Type elementType,
+      bool zeroC, bool unrollJam) const {
+    // Get operands.
+    KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A = operandAdaptor.A();
     Value B = operandAdaptor.B();
     Value C = operandAdaptor.C();
     MemRefType AType = A.getType().cast<MemRefType>();
-    MemRefType BType = B.getType().cast<MemRefType>();
     MemRefType CType = C.getType().cast<MemRefType>();
-    Type elementType = AType.getElementType();
-    Value zeroC = operandAdaptor.zeroC();
-    bool simdize = op.simdize();
-    // Check if zeroing of C is known at compile time.
-    bool zeroCIsConst = false;
-    int64_t zeroCConstVal = -1;
-    if (auto constantOp = zeroC.getDefiningOp<ConstantOp>()) {
-      zeroCIsConst = true;
-      zeroCConstVal = constantOp.getValue().cast<IntegerAttr>().getInt();
-    }
-
-    // Init scope and emit constants.
-    ScopedContext scope(rewriter, op.getLoc());
-    Value zero = std_constant_index(0);
-    Value fZero = emitConstantOp(rewriter, loc, elementType, 0.0);
-
+    // Find literal value for sizes.
+    int64_t NLit = CType.getShape()[0];
+    int64_t MLit = CType.getShape()[1];
+    int64_t KLit = AType.getShape()[1];
+    // Typecast B, C to memrefs of K x vector<M>, N x vector<M>.
+    VectorType vecType = VectorType::get({MLit}, elementType);
+    MemRefType BVecType = MemRefType::get({KLit}, vecType);
+    MemRefType CVecType = MemRefType::get({NLit}, vecType);
+    MemRefType CTmpType = MemRefType::get({}, vecType);
+    Value BVec = vector_type_cast(BVecType, B);
+    Value CVec = vector_type_cast(CVecType, C);
     // Get the EDSC variables, and loop dimensions.
-    MemRefBoundsCapture vA(A), vB(B), vC(C); // Get bounds.
-    AffineIndexedValue AA(A), BB(B), CC(C);  // Obj we can load and store into.
-    Value i, j, k;
-    Value N(vC.ub(0)), M(vC.ub(1)), K(vA.ub(1));
-
-    if (!simdize) {
-      // For i, j loops.
-      // clang-format off
-      affineLoopNestBuilder({zero, zero}, {N, M}, {1, 1}, [&](ValueRange ivs) {
-        // Defines induction variables, and possibly initialize C.
-        i = ivs[0]; 
-        j = ivs[1];
-        if (zeroCIsConst && zeroCConstVal!=0) {
-          CC(i, j) = fZero;
-        }
-        // Sum over k.
-        affineLoopBuilder(zero, K, 1, [&](Value k) {
-          using namespace edsc::op;
-          CC(i, j) = AA(i, k) * BB(k, j) + CC(i, j);
-        });
+    AffineIndexedValue AA(A), BB(B), CC(C), BBVec(BVec), CCvec(CVec);
+    MemRefBoundsCapture aBounds(A), bBounds(B), cBounds(C); // Get bounds.
+    Value N(cBounds.ub(0)), M(cBounds.ub(1)), K(aBounds.ub(1));
+    // Iterates over the I indices (j are simd dim).
+    Value ii;
+    using namespace edsc::op;
+    Value zero = std_constant_index(0);
+    Value fZero(std_constant_float(llvm::APFloat(0.0f), rewriter.getF32Type()));
+    // clang-format off
+    affineLoopBuilder(zero, M, 1, [&](Value i) {
+      ii = i; // Saved for unroll and jam.
+      // Alloca temp vector TmpC and save C(i)/0.0 into it.
+      Value TmpC = std_alloca(CTmpType);
+      AffineIndexedValue TTmpC(TmpC);
+      if (zeroC) {
+        TTmpC() = vector_broadcast(vecType, fZero);
+      } else {
+        TTmpC() = CCvec(i);
+      }
+      // Sum over k.
+      affineLoopBuilder(zero, K, 1, [&](Value k) {
+        TTmpC() = vector_fma(vector_broadcast(vecType, AA(i, k)), BBVec(k), TTmpC());
       });
-      // clang-format on
+      // Store temp result into C(i)
+      CCvec(i) = TTmpC();
+    });
+    // clang-format on
+    if (unrollJam) {
       // Unroll and jam. Seems to support only one operation at this time.
-      auto lj = getForInductionVarOwner(j);
-      auto res = loopUnrollJamByFactor(lj, 4);
-    } else {
-      // Find literal value for sizes.
-      int64_t NLit = CType.getShape()[0];
-      int64_t MLit = CType.getShape()[1];
-      int64_t KLit = AType.getShape()[1];
-      // Typecast B, C to memrefs of K x vector<M>, N x vector<M>.
-      VectorType vecType = VectorType::get({MLit}, elementType);
-      MemRefType BVecType = MemRefType::get({KLit}, vecType);
-      MemRefType CVecType = MemRefType::get({NLit}, vecType);
-      MemRefType CTmpType = MemRefType::get({}, vecType);
-      using namespace edsc::op;
-      Value BVec = vector_type_cast(BVecType, B);
-      Value CVec = vector_type_cast(CVecType, C);
-      // Iterates over the I indices (j are simd dim).
-      // clang-format off
-      Value i;
-      affineLoopBuilder(zero, M, 1, [&](Value ii) {
-        i = ii; // Saved for unroll and jam.
-        // Alloca temp vector TmpC and save C(i)/0.0 into it.
-        Value TmpC = std_alloca(CTmpType);
-        AffineIndexedValue BBVec(BVec), CCvec(CVec), TTmpC(TmpC);
-        if (zeroCIsConst && zeroCConstVal!=0) {
-          TTmpC() = vector_broadcast(vecType, fZero);
-        } else {
-          TTmpC() = CCvec(i);
-        }
-        // Sum over k.
-        affineLoopBuilder(zero, K, 1, [&](Value k) {
-          TTmpC() = vector_fma(vector_broadcast(vecType, AA(i, k)), BBVec(k), TTmpC());
-        });
-        // Store temp result into C(i)
-        CCvec(i) = TTmpC();
-      });
-      // clang-format on
-      // Unroll and jam. Seems to support only one operation at this time.
-      auto li = getForInductionVarOwner(i);
-      auto res = loopUnrollJamByFactor(li, MLit);
-
+      auto li = getForInductionVarOwner(ii);
+      LogicalResult res = loopUnrollJamByFactor(li, MLit);
+      assert(res.succeeded() && "failed to optimize");
     }
-    rewriter.eraseOp(op);
+  }
 
-    return success();
+  void genIfThenElseWithoutParams(PatternRewriter &rewriter, Value condition,
+      function_ref<void(ValueRange)> thenFn,
+      function_ref<void(ValueRange)> elseFn) const {
+
+    // Split current block in the if-conditional block, and the end block.
+    Block *ifBlock = rewriter.getInsertionBlock();
+    auto opPosition = rewriter.getInsertionPoint();
+    Block *endBlock = rewriter.splitBlock(ifBlock, opPosition);
+
+    // Then / Else bock.
+    Block *thenBlock = buildInNewBlock({}, [&](ValueRange args) {
+      thenFn(args);
+      std_br(endBlock, {});
+    });
+    Block *elseBlock = buildInNewBlock({}, [&](ValueRange args) {
+      elseFn(args);
+      std_br(endBlock, {});
+    });
+
+    // Add the conditional
+    appendToBlock(ifBlock, [&](ValueRange args) {
+      std_cond_br(condition, thenBlock, {}, elseBlock, {});
+    });
+  }
+  void genIfThenElseWithoutParams(PatternRewriter &rewriter, Value condition,
+      Block *&thenBlock, Block *&elseBlock) const {
+
+    // Split current block in the if-conditional block, and the end block.
+    Block *ifBlock = rewriter.getInsertionBlock();
+    auto opPosition = rewriter.getInsertionPoint();
+    Block *endBlock = rewriter.splitBlock(ifBlock, opPosition);
+
+    // Then / Else bock.
+    thenBlock = buildInNewBlock({}, [&](ValueRange) { std_br(endBlock, {}); });
+    elseBlock = buildInNewBlock({}, [&](ValueRange) { std_br(endBlock, {}); });
+
+    // Add the conditional
+    appendToBlock(ifBlock, [&](ValueRange) {
+      std_cond_br(condition, thenBlock, {}, elseBlock, {});
+    });
   }
 };
 
@@ -406,10 +529,10 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   mlir::Operation *funcOp = getFunction();
 
   // Interpret krnl dialect operations while looping recursively through
-  // operations within the current function, note that erasing operations while
-  // iterating is tricky because it can invalidate the iterator, so we collect
-  // the operations to be erased in a small ptr set `opsToErase`, and only erase
-  // after iteration completes.
+  // operations within the current function, note that erasing operations
+  // while iterating is tricky because it can invalidate the iterator, so we
+  // collect the operations to be erased in a small ptr set `opsToErase`, and
+  // only erase after iteration completes.
   llvm::SmallDenseMap<Value, AffineForOp, 4> loopRefToOp;
   llvm::SmallPtrSet<Operation *, 4> opsToErase;
   if (failed(interpretOperation(funcOp, builder, loopRefToOp, opsToErase))) {
@@ -442,7 +565,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   // krnl.dim operations must be lowered prior to this pass.
   target.addIllegalOp<KrnlDimOp>();
   target.addIllegalOp<KrnlMatMulOp>();
-  target.addLegalDialect<mlir::AffineDialect, mlir::StandardOpsDialect, mlir::vector::VectorDialect>();
+  target.addLegalDialect<mlir::AffineDialect, mlir::StandardOpsDialect,
+      mlir::vector::VectorDialect>();
   OwningRewritePatternList patterns;
   patterns.insert<KrnlTerminatorLowering>(&getContext());
   patterns.insert<KrnlLoadLowering>(&getContext());
@@ -450,8 +574,13 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   patterns.insert<KrnlMatmulLowering>(&getContext());
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
-          getFunction(), target, std::move(patterns), &unconverted)))
+          getFunction(), target, std::move(patterns), &unconverted))) {
+    printf("alex: failure\n");
     signalPassFailure();
+  }
+  printf("alex start function dumping\n");
+  funcOp->dump();
+  printf("alex done function dumping\n");
 }
 } // namespace
 
