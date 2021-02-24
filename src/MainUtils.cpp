@@ -65,8 +65,8 @@ llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
-    llvm::cl::value_desc("<llvm target triple>"), llvm::cl::cat(OnnxMlirOptions),
-    llvm::cl::ValueRequired);
+    llvm::cl::value_desc("<llvm target triple>"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
 
 llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
     llvm::cl::value_desc("<llvm cpu value>"), llvm::cl::cat(OnnxMlirOptions),
@@ -317,9 +317,11 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
 }
 
 string getTargetOptions() {
-    string targetOptions=" ";
-  if (mtriple!="") targetOptions="--mtriple="+ mtriple;
-  if (mcpu!="") targetOptions+=" --mcpu="+mcpu;
+  string targetOptions = " ";
+  if (mtriple != "")
+    targetOptions = "--mtriple=" + mtriple;
+  if (mcpu != "")
+    targetOptions += " --mcpu=" + mcpu;
   return targetOptions;
 }
 
@@ -401,7 +403,6 @@ void genJniJar(const mlir::OwningModuleRef &module, string modelSharedLibPath,
   jar.appendList({"uf", modelJniJarPath}).appendStr(modelSharedLibPath).exec();
 }
 
-
 void compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
@@ -416,7 +417,6 @@ void compileModuleToSharedLibrary(
   string modelObjPath = outputBaseName + ".o";
   genModelObject(module, bitcodePath, modelObjPath);
   llvm::FileRemover modelObjRemover(modelObjPath);
-
 
   string modelSharedLibPath = outputBaseName + ".so";
   genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"},
@@ -509,7 +509,6 @@ void addKrnlToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createConvertKrnlToLLVMPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
-
 
 void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
     mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
