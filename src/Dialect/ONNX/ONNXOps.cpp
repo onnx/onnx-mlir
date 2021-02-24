@@ -2092,9 +2092,7 @@ LogicalResult ONNXPadOp::inferShapes(
   for (int64_t i = 0; i < dataRank; ++i) {
     int64_t p1 = pads[i];
     int64_t p2 = pads[i + dataRank];
-    // Have to non-negative constant
-    if (p1 < 0 || p2 < 0)
-      return emitError("padding value can not be negative");
+    // p1 and p2 can be positive or negative according to spec
     if (outputShape[i] != -1)
       outputShape[i] += p1 + p2;
   }

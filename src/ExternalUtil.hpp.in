@@ -5,9 +5,9 @@
 namespace onnx_mlir {
 std::string kExecPath = "@CMAKE_INSTALL_PREFIX@/bin/onnx-mlir"; /* fallback if not set by main */
 const std::string kInstPath = "@CMAKE_INSTALL_PREFIX@";
-const std::string kMlirTranslatePath = "@LLVM_PROJ_BIN@/mlir-translate";
-const std::string kOptPath = "@LLVM_PROJ_BIN@/opt";
-const std::string kLlcPath = "@LLVM_PROJ_BIN@/llc";
+const std::string kMlirTranslatePath = R"(@LLVM_PROJ_BIN@/mlir-translate)";
+const std::string kOptPath = R"(@LLVM_PROJ_BIN@/opt)";
+const std::string kLlcPath = R"(@LLVM_PROJ_BIN@/llc)";
 const std::string kCxxPath = "@CMAKE_CXX_COMPILER@";
 const std::string kLinkerPath = "@CMAKE_LINKER@";
 const std::string kObjCopyPath = "@CMAKE_OBJCOPY@";
