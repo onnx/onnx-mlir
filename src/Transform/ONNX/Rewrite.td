@@ -52,6 +52,18 @@ def createArrayAttrOfTwoToRankOf : NativeCodeCall<
 def GetNullAttr :
    NativeCodeCall<"Attribute()">;
 
+def GetNullFloatAttr :
+        NativeCodeCall<"FloatAttr()">;
+
+def GetNullIntegerAttr :
+        NativeCodeCall<"IntegerAttr()">;
+
+def GetNullStringAttr :
+        NativeCodeCall<"StringAttr()">;
+
+def GetNullArrayAttr :
+        NativeCodeCall<"ArrayAttr()">;
+
 // Create a StringAttr from a string.
 class StringAttrOfValue<string val>:
   NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
@@ -156,20 +168,22 @@ def IsStaticShapeTensor:
      "hasStaticShape">;
 
 def ShapeToConstantPattern: Pat<
-     (ONNXShapeOp : $res $A),
-     (createConstantOp_v11
-        $res,
-        (GetNullAttr),
-        (createDenseElementsAttrFromShape $A)),
+     (ONNXShapeOp $A),
+     (ONNXConstantOp
+        (GetNullAttr), (createDenseElementsAttrFromShape $A),
+        (GetNullFloatAttr), (GetNullArrayAttr), (GetNullIntegerAttr),
+        (GetNullArrayAttr), (GetNullStringAttr), (GetNullArrayAttr)
+     ),
      [(IsStaticShapeTensor:$A)]
 >;
 
 def SizeToConstantPattern: Pat<
-     (ONNXSizeOp : $res $A),
-     (createConstantOp_v11
-        $res,
-        (GetNullAttr),
-        (createDenseElementsAttrFromSize $A)),
+     (ONNXSizeOp $A),
+     (ONNXConstantOp
+        (GetNullAttr), (createDenseElementsAttrFromSize $A),
+        (GetNullFloatAttr), (GetNullArrayAttr), (GetNullIntegerAttr),
+        (GetNullArrayAttr), (GetNullStringAttr), (GetNullArrayAttr)
+     ),
      [(IsStaticShapeTensor:$A)]
 >;
 
