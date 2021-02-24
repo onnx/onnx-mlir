@@ -355,14 +355,12 @@ public:
     if (simdize) {
       if (zeroC) {
         Value test = eq(kGI, std_constant_index(0));
-        printf("hi alex, start\n");
         Block *thenBlock, *elseBlock;
         genIfThenElseWithoutParams(rewriter, test, thenBlock, elseBlock);
         appendToBlock(thenBlock,
             [&](ValueRange) { genSimd(rewriter, op, elementType, true, false); });
         appendToBlock(elseBlock,
             [&](ValueRange) { genSimd(rewriter, op, elementType, false, true); });
-        printf("hi alex, end\n");
       } else {
         genSimd(rewriter, op, elementType, false, false);
       }
@@ -370,8 +368,6 @@ public:
       genScalar(rewriter, op, elementType, zeroC, false);
     }
     rewriter.eraseOp(op);
-    printf("hi alex, done removing op\n");
-
     return success();
   }
 
