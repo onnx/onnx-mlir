@@ -56,6 +56,38 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
   return true;
 }
 
+/// Test if two axis arrays contain the same values or not.
+bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
+  // false if one of the array attributes is null.
+  if (!(lhsAttr) || !(rhsAttr))
+    return false;
+
+  SmallVector<int64_t, 4> lhs;
+  for (auto attr : lhsAttr.getValue()) {
+    int64_t axis = attr.cast<IntegerAttr>().getInt();
+    if (axis < 0)
+      axis += rank;
+    lhs.emplace_back(axis);
+  }
+
+  int64_t rhsSize = 0;
+  for (auto attr : rhsAttr.getValue()) {
+    int64_t axis = attr.cast<IntegerAttr>().getInt();
+    if (axis < 0)
+      axis += rank;
+    // false if axis is not in the lhs. Early stop.
+    if (!llvm::any_of(lhs, [&](int64_t lhsAxis) { return lhsAxis == axis; }))
+      return false;
+    rhsSize++;
+  }
+
+  // false if having different number of elements.
+  if (lhs.size() != rhsSize)
+    return false;
+
+  return true;
+}
+
 //===----------------------------------------------------------------------===//
 // Pattern definition.
 //===----------------------------------------------------------------------===//
@@ -104,4 +136,16 @@ void ONNXTransposeOp::getCanonicalizationPatterns(
 void ONNXDropoutOp::getCanonicalizationPatterns(
     OwningRewritePatternList &result, MLIRContext *context) {
   result.insert<DropoutEliminationPattern>(context);
+}
+
+/// on the ONNXSqueezeOp.
+void ONNXSqueezeOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &result, MLIRContext *context) {
+  result.insert<RemoveSqueezeUnsqueezePattern>(context);
+}
+
+/// on the ONNXUnsqueezeOp.
+void ONNXUnsqueezeOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &result, MLIRContext *context) {
+  result.insert<RemoveUnsqueezeSqueezePattern>(context);
 }
