@@ -229,6 +229,60 @@ void RecurseConstPropElementwiseBinary(PatternRewriter &rewriter,
   }
 }
 
+template <typename ElementwiseBinaryOp>
+void RecurseConstPropElementwiseBinary1(PatternRewriter &rewriter,
+    std::vector<Attribute> &resVector, DenseElementsAttr lhsAttr,
+    DenseElementsAttr rhsAttr, ArrayRef<int64_t> outputShape,
+    SmallVector<uint64_t, 4> &outputIndices, int freeRank) {
+  if (freeRank == 0) {
+    auto lhsShape = lhsAttr.getType().getShape();
+    int lhsRank = lhsShape.size();
+    auto rhsShape = rhsAttr.getType().getShape();
+    int rhsRank = rhsShape.size();
+    int outputRank = outputIndices.size();
+
+    // Compute indices to access inputs.
+    SmallVector<uint64_t, 4> lhsIndices, rhsIndices;
+    lhsIndices.reserve(lhsRank);
+    rhsIndices.reserve(rhsRank);
+    for (int i = 0; i < outputRank; ++i) {
+      // in the lhs index range.
+      if (i >= outputRank - lhsRank) {
+        int lhsIndex = i - outputRank + lhsRank;
+        if (lhsShape[lhsIndex] == 1)
+          // broadcast
+          lhsIndices.emplace_back(0);
+        else
+          lhsIndices.emplace_back(outputIndices[i]);
+      }
+      // in the rhs index range.
+      if (i >= outputRank - rhsRank) {
+        int rhsIndex = i - outputRank + rhsRank;
+        if (rhsShape[rhsIndex] == 1)
+          // broadcast
+          rhsIndices.emplace_back(0);
+        else
+          rhsIndices.emplace_back(outputIndices[i]);
+      }
+    }
+
+    auto lhsElementAttr = lhsAttr.getValue(ArrayRef<uint64_t>(lhsIndices));
+    auto rhsElementAttr = rhsAttr.getValue(ArrayRef<uint64_t>(rhsIndices));
+    auto elementaryType = lhsAttr.getType().getElementType();
+    auto res = ComputeConstPropElementwiseBinary<ElementwiseBinaryOp>(
+        rewriter, elementaryType, lhsElementAttr, rhsElementAttr);
+    resVector.emplace_back(res);
+  } else {
+    int outputIndex = outputShape.size() - freeRank;
+    for (int i = 0; i < outputShape[outputIndex]; ++i) {
+      outputIndices[outputIndex] = i;
+      RecurseConstPropElementwiseBinary1<ElementwiseBinaryOp>(rewriter,
+          resVector, lhsAttr, rhsAttr, outputShape, outputIndices,
+          freeRank - 1);
+    }
+  }
+}
+
 // Process the constant operands, perform the operation with broadcast, and
 // generate the new constant operation.
 template <typename ElementwiseBinaryOp>
@@ -243,13 +297,19 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
          "expected ranked tensor");
   RankedTensorType resType =
       constructRankedTensorType(resOperand.getType().cast<ShapedType>());
-  auto lhsRank = lhsDenseAttr.getType().getShape().size();
-  auto rhsRank = rhsDenseAttr.getType().getShape().size();
-  SmallVector<uint64_t, 4> lhsIndices(lhsRank, 0);
-  SmallVector<uint64_t, 4> rhsIndices(rhsRank, 0);
+  // auto lhsRank = lhsDenseAttr.getType().getShape().size();
+  // auto rhsRank = rhsDenseAttr.getType().getShape().size();
+  // SmallVector<uint64_t, 4> lhsIndices(lhsRank, 0);
+  // SmallVector<uint64_t, 4> rhsIndices(rhsRank, 0);
+  // RecurseConstPropElementwiseBinary<ElementwiseBinaryOp>(rewriter, resVector,
+  //     lhsDenseAttr, rhsDenseAttr, lhsIndices, rhsIndices, lhsRank, rhsRank);
+
   std::vector<Attribute> resVector;
-  RecurseConstPropElementwiseBinary<ElementwiseBinaryOp>(rewriter, resVector,
-      lhsDenseAttr, rhsDenseAttr, lhsIndices, rhsIndices, lhsRank, rhsRank);
+  auto outputShape = resOperand.getType().cast<ShapedType>().getShape();
+  auto outputRank = outputShape.size();
+  SmallVector<uint64_t, 4> outputIndices(outputRank, 0);
+  RecurseConstPropElementwiseBinary1<ElementwiseBinaryOp>(rewriter, resVector,
+      lhsDenseAttr, rhsDenseAttr, outputShape, outputIndices, outputRank);
   ArrayRef<Attribute> resRef(resVector);
   return DenseElementsAttr::get(resType, resRef);
 }
