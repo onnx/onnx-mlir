@@ -147,7 +147,8 @@ struct Command {
 
   // Append a single string argument.
   Command &appendStr(const std::string &arg) {
-    _args.emplace_back(arg);
+    if (arg.size() > 0)
+      _args.emplace_back(arg);
     return *this;
   }
 
@@ -317,7 +318,7 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
 }
 
 string getTargetOptions() {
-  string targetOptions = " ";
+  string targetOptions = "";
   if (mtriple != "")
     targetOptions = "--mtriple=" + mtriple;
   if (mcpu != "")
