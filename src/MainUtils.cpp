@@ -64,13 +64,11 @@ llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<string> mtriple("mtriple",
-    llvm::cl::desc("Target architecture"),
+llvm::cl::opt<string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
     llvm::cl::value_desc("<llvm target triple>"), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 
-llvm::cl::opt<string> mcpu("mcpu",
-    llvm::cl::desc("Target cpu"),
+llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
     llvm::cl::value_desc("<llvm cpu value>"), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 
