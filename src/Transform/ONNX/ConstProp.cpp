@@ -125,7 +125,7 @@ T ComputeConstPropElementwiseBinary(T lhs, T rhs) {
 }
 
 template <typename ElementwiseBinaryOp, typename T>
-void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
+void IterateConstPropElementwiseBinary(PatternRewriter &rewriter,
     std::vector<T> &resVector, DenseElementsAttr lhsAttr,
     DenseElementsAttr rhsAttr, ArrayRef<int64_t> outputShape) {
   // The algorithm to compute the output in case of broadcasting is as follows:
@@ -290,13 +290,13 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
     FloatType floatTy = resType.getElementType().cast<FloatType>();
     if (floatTy.getWidth() == 32) {
       std::vector<float> resVector;
-      FlatConstPropElementwiseBinary<ElementwiseBinaryOp, float>(
+      IterateConstPropElementwiseBinary<ElementwiseBinaryOp, float>(
           rewriter, resVector, lhsDenseAttr, rhsDenseAttr, outputShape);
       return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
     }
     if (floatTy.getWidth() == 64) {
       std::vector<double> resVector;
-      FlatConstPropElementwiseBinary<ElementwiseBinaryOp, double>(
+      IterateConstPropElementwiseBinary<ElementwiseBinaryOp, double>(
           rewriter, resVector, lhsDenseAttr, rhsDenseAttr, outputShape);
       return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
     }
@@ -307,13 +307,13 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
     IntegerType intTy = resType.getElementType().cast<IntegerType>();
     if (intTy.getWidth() == 32) {
       std::vector<int32_t> resVector;
-      FlatConstPropElementwiseBinary<ElementwiseBinaryOp, int32_t>(
+      IterateConstPropElementwiseBinary<ElementwiseBinaryOp, int32_t>(
           rewriter, resVector, lhsDenseAttr, rhsDenseAttr, outputShape);
       return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
     }
     if (intTy.getWidth() == 64) {
       std::vector<int64_t> resVector;
-      FlatConstPropElementwiseBinary<ElementwiseBinaryOp, int64_t>(
+      IterateConstPropElementwiseBinary<ElementwiseBinaryOp, int64_t>(
           rewriter, resVector, lhsDenseAttr, rhsDenseAttr, outputShape);
       return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
     }
@@ -347,7 +347,7 @@ T ComputeConstPropElementwiseUnary(T val) {
 }
 
 template <typename ElementwiseUnaryOp, typename T>
-void FlatConstPropElementwiseUnary(PatternRewriter &rewriter,
+void IterateConstPropElementwiseUnary(PatternRewriter &rewriter,
     std::vector<T> &resVector, DenseElementsAttr attr,
     ArrayRef<int64_t> outputShape) {
   int64_t elementCount = 1;
@@ -397,13 +397,13 @@ DenseElementsAttr ConstPropElementwiseUnary(
     FloatType floatTy = resType.getElementType().cast<FloatType>();
     if (floatTy.getWidth() == 32) {
       std::vector<float> resVector;
-      FlatConstPropElementwiseUnary<ElementwiseUnaryOp, float>(
+      IterateConstPropElementwiseUnary<ElementwiseUnaryOp, float>(
           rewriter, resVector, denseAttr, outputShape);
       return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
     }
     if (floatTy.getWidth() == 64) {
       std::vector<double> resVector;
-      FlatConstPropElementwiseUnary<ElementwiseUnaryOp, double>(
+      IterateConstPropElementwiseUnary<ElementwiseUnaryOp, double>(
           rewriter, resVector, denseAttr, outputShape);
       return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
     }
@@ -414,13 +414,13 @@ DenseElementsAttr ConstPropElementwiseUnary(
     IntegerType intTy = resType.getElementType().cast<IntegerType>();
     if (intTy.getWidth() == 32) {
       std::vector<int32_t> resVector;
-      FlatConstPropElementwiseUnary<ElementwiseUnaryOp, int32_t>(
+      IterateConstPropElementwiseUnary<ElementwiseUnaryOp, int32_t>(
           rewriter, resVector, denseAttr, outputShape);
       return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
     }
     if (intTy.getWidth() == 64) {
       std::vector<int64_t> resVector;
-      FlatConstPropElementwiseUnary<ElementwiseUnaryOp, int64_t>(
+      IterateConstPropElementwiseUnary<ElementwiseUnaryOp, int64_t>(
           rewriter, resVector, denseAttr, outputShape);
       return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
     }
