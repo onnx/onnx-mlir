@@ -59,42 +59,7 @@ RankedTensorType constructRankedTensorType(ShapedType type) {
   return RankedTensorType::get(type.getShape(), type.getElementType());
 }
 
-//===----------------------------------------------------------------------===//
-// Code to perform constant propagation for binary in presence of broadcast.
-//===----------------------------------------------------------------------===//
-
-// Template to generate binary operation results. It takes as inupt
-// the element type as well as the two element attributes for the
-// operation, and return the result of the operation, also as an
-// attribute.
-
-template <typename OP>
-Attribute ComputeConstPropElementwiseBinary(PatternRewriter &rewriter,
-    Type elementType, Attribute lhsAttr, Attribute secondAttr) {
-  llvm_unreachable("unkonwn operation");
-}
-
-template <>
-Attribute ComputeConstPropElementwiseBinary<ONNXAddOp>(
-    PatternRewriter &rewriter, Type elementType, Attribute lhsAttr,
-    Attribute secondAttr) {
-  if (elementType.isa<FloatType>()) {
-    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
-    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
-    double res = lhsVal + rhsVal;
-    // Could use the APFloat interface to emulate the results, are ok to simply
-    // perform them in the highest possible precision.
-    return rewriter.getFloatAttr(elementType, res);
-  }
-  if (elementType.isa<IntegerType>()) {
-    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
-    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
-    uint64_t res = lhsVal + rhsVal;
-    return rewriter.getIntegerAttr(elementType, res);
-  }
-  llvm_unreachable("constant propagation for AddOp: unkonwn data type");
-}
-
+/// A helper function to get a value of a given type from an attribute.
 template <typename T>
 T getAttributeValue(Attribute attr) {
   llvm_unreachable("unknown operation");
@@ -120,149 +85,69 @@ int32_t getAttributeValue(Attribute attr) {
   return attr.cast<IntegerAttr>().getInt();
 }
 
-template <>
-Attribute ComputeConstPropElementwiseBinary<ONNXSubOp>(
-    PatternRewriter &rewriter, Type elementType, Attribute lhsAttr,
-    Attribute secondAttr) {
-  if (elementType.isa<FloatType>()) {
-    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
-    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
-    double res = lhsVal - rhsVal;
-    return rewriter.getFloatAttr(elementType, res);
-  }
-  if (elementType.isa<IntegerType>()) {
-    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
-    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
-    uint64_t res = lhsVal - rhsVal;
-    return rewriter.getIntegerAttr(elementType, res);
-  }
-  llvm_unreachable("constant propagation for SubOp: unkonwn data type");
-}
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for binary in presence of broadcast.
+//===----------------------------------------------------------------------===//
 
-template <>
-Attribute ComputeConstPropElementwiseBinary<ONNXMulOp>(
-    PatternRewriter &rewriter, Type elementType, Attribute lhsAttr,
-    Attribute secondAttr) {
-  if (elementType.isa<FloatType>()) {
-    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
-    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
-    double res = lhsVal * rhsVal;
-    return rewriter.getFloatAttr(elementType, res);
-  }
-  if (elementType.isa<IntegerType>()) {
-    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
-    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
-    uint64_t res = lhsVal * rhsVal;
-    return rewriter.getIntegerAttr(elementType, res);
-  }
-  llvm_unreachable("constant propagation for MulOp: unkonwn data type");
-}
+// Template to generate binary operation results. It takes as inupt
+// the element type as well as the two element attributes for the
+// operation, and return the result of the operation, also as an
+// attribute.
+//
+template <typename OP, typename T>
+struct ElementWiseBinaryOpImpl {
+  static T impl(T lhs, T rhs) { llvm_unreachable("unknown operation"); }
+};
 
-template <>
-Attribute ComputeConstPropElementwiseBinary<ONNXDivOp>(
-    PatternRewriter &rewriter, Type elementType, Attribute lhsAttr,
-    Attribute secondAttr) {
-  if (elementType.isa<FloatType>()) {
-    double lhsVal = lhsAttr.cast<FloatAttr>().getValueAsDouble();
-    double rhsVal = secondAttr.cast<FloatAttr>().getValueAsDouble();
-    assert(rhsVal != 0 && "division by a zero");
-    double res = lhsVal / rhsVal;
-    return rewriter.getFloatAttr(elementType, res);
-  }
-  if (elementType.isa<IntegerType>()) {
-    uint64_t lhsVal = lhsAttr.cast<IntegerAttr>().getInt();
-    uint64_t rhsVal = secondAttr.cast<IntegerAttr>().getInt();
-    assert(rhsVal != 0 && "division by a zero");
-    uint64_t res = lhsVal / rhsVal;
-    return rewriter.getIntegerAttr(elementType, res);
-  }
-  llvm_unreachable("constant propagation for DivOp: unkonwn data type");
-}
-// Recursively process one dimension in the rank of the two references. There
-// can be one of 3 cases.
-// 1) We have fully defined accesses for both operands, launch the computations.
-// 2) One of the two has a higher number of unprocessed ranks, which is hte case
-// when we have to broadcast the whole lower-dim reference with respect to the
-// other. Iterate over each value of the higher ranked reference, keeping the
-// reference of the lower ranked reference constant.
-// 3) Both references have the same rank, we still do broadcast if one of the
-// dimension size is equal to 1.
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXAddOp, T> {
+  static T impl(T lhs, T rhs) { return (lhs + rhs); }
+};
 
-template <typename ElementwiseBinaryOp>
-void RecurseConstPropElementwiseBinary(PatternRewriter &rewriter,
-    std::vector<Attribute> &resVector, DenseElementsAttr lhsAttr,
-    DenseElementsAttr rhsAttr, SmallVector<uint64_t, 4> &lhsIndices,
-    SmallVector<uint64_t, 4> &rhsIndices, int lhsFreeRank, int rhsFreeRank) {
-  if (lhsFreeRank == 0) {
-    // Fully defined ranks.
-    assert(
-        rhsFreeRank == 0 && "expect both to recurse to zero at the same time");
-    auto lhsElementAttr = lhsAttr.getValue(ArrayRef<uint64_t>(lhsIndices));
-    auto rhsElementAttr = rhsAttr.getValue(ArrayRef<uint64_t>(rhsIndices));
-    auto elementaryType = lhsAttr.getType().getElementType();
-    auto res = ComputeConstPropElementwiseBinary<ElementwiseBinaryOp>(
-        rewriter, elementaryType, lhsElementAttr, rhsElementAttr);
-    resVector.emplace_back(res);
-  } else if (lhsFreeRank > rhsFreeRank) {
-    // Initial broadcast from lhs.
-    auto lhsShape = lhsAttr.getType().getShape();
-    int lhsRank = lhsShape.size();
-    int lhsIndex = lhsRank - lhsFreeRank;
-    int lhsSize = lhsAttr.getType().getShape()[lhsIndex];
-    for (int i = 0; i < lhsSize; ++i) {
-      lhsIndices[lhsIndex] = i;
-      RecurseConstPropElementwiseBinary<ElementwiseBinaryOp>(rewriter,
-          resVector, lhsAttr, rhsAttr, lhsIndices, rhsIndices, lhsFreeRank - 1,
-          rhsFreeRank);
-    }
-  } else if (lhsFreeRank < rhsFreeRank) {
-    // Initial broadcast from rhs.
-    auto rhsShape = rhsAttr.getType().getShape();
-    int rhsRank = rhsShape.size();
-    int rhsIndex = rhsRank - rhsFreeRank;
-    int rhsSize = rhsAttr.getType().getShape()[rhsIndex];
-    for (int i = 0; i < rhsSize; ++i) {
-      rhsIndices[rhsIndex] = i;
-      RecurseConstPropElementwiseBinary<ElementwiseBinaryOp>(rewriter,
-          resVector, lhsAttr, rhsAttr, lhsIndices, rhsIndices, lhsFreeRank,
-          rhsFreeRank - 1);
-    }
-  } else {
-    // No initial broadcast, but if one element has size 1 and the other is
-    // greater than one, then we also have broadcast.
-    auto lhsShape = lhsAttr.getType().getShape();
-    int lhsRank = lhsShape.size();
-    int lhsIndex = lhsRank - lhsFreeRank;
-    int lhsSize = lhsAttr.getType().getShape()[lhsIndex];
-    auto rhsShape = rhsAttr.getType().getShape();
-    int rhsRank = rhsShape.size();
-    int rhsIndex = rhsRank - rhsFreeRank;
-    int rhsSize = rhsAttr.getType().getShape()[rhsIndex];
-    assert((lhsSize == 1 || rhsSize == 1 || lhsSize == rhsSize) &&
-           "incompatible sizes");
-    int size = std::max(lhsSize, rhsSize);
-    lhsIndices[lhsIndex] = rhsIndices[rhsIndex] = 0;
-    for (int i = 0; i < size; ++i) {
-      if (lhsSize > 1)
-        lhsIndices[lhsIndex] = i;
-      if (rhsSize > 1)
-        rhsIndices[rhsIndex] = i;
-      RecurseConstPropElementwiseBinary<ElementwiseBinaryOp>(rewriter,
-          resVector, lhsAttr, rhsAttr, lhsIndices, rhsIndices, lhsFreeRank - 1,
-          rhsFreeRank - 1);
-    }
-  }
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXSubOp, T> {
+  static T impl(T lhs, T rhs) { return (lhs - rhs); }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXMulOp, T> {
+  static T impl(T lhs, T rhs) { return (lhs * rhs); }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXDivOp, T> {
+  static T impl(T lhs, T rhs) { return (lhs / rhs); }
+};
+
+template <typename OP, typename T>
+T ComputeConstPropElementwiseBinary(T lhs, T rhs) {
+  return ElementWiseBinaryOpImpl<OP, T>::impl(lhs, rhs);
 }
 
 template <typename ElementwiseBinaryOp, typename T>
 void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
     std::vector<T> &resVector, DenseElementsAttr lhsAttr,
     DenseElementsAttr rhsAttr, ArrayRef<int64_t> outputShape) {
+  // The algorithm to compute the output is as follows:
+  // For each value in [0, N), where N is the number of elements in the output:
+  //   - compute the access indices for the output.
+  //   - deduce access indices for the lhs and rhs from the output access
+  //   indices, using broadcasting rules.
+  //   - calculate element-wise binary result.
+  //   - store the result
+
   int outputRank = outputShape.size();
-  // shape: [M, N, K]
-  // strides:      [N * K, K, 1]
+  auto lhsShape = lhsAttr.getType().getShape();
+  int lhsRank = lhsShape.size();
+  auto rhsShape = rhsAttr.getType().getShape();
+  int rhsRank = rhsShape.size();
+
+  // shape:   [M, N, K]
+  // strides: [N * K, K, 1]
   //
-  // Given a value x in range [0, M*N*K), convert it to an index of [m, m, k].
+  // Given a value x in range [0, M*N*K), convert it to an index of [m, m, k] as
+  // follows:
+  //
   // for(int i = 0; i < rank; ++i) {
   //   s = strides[i]
   //   if (x < s)
@@ -274,7 +159,7 @@ void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
   //
   // }
 
-  //  Compute strides
+  //  Compute strides and the number of elements in the output.
   SmallVector<int64_t, 4> strides(outputRank, 0);
   int64_t elementCount = 1;
   for (int i = outputRank - 1; i >= 0; i--) {
@@ -282,8 +167,13 @@ void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
     elementCount *= outputShape[i];
   }
 
+  // Go through each element in [0, N), where N is the number of elements in the
+  // output, and compute the access indices for the output. Then, use the output
+  // access indices to deduce access indices for the inputs, using broadcasting
+  // rules.
   resVector.reserve(elementCount);
   for (int64_t i = 0; i < elementCount; ++i) {
+    // Compute access indices for the output.
     SmallVector<int64_t, 4> outputIndices(outputRank, 0);
     int64_t x = i;
     for (int64_t j = 0; j < outputRank; ++j) {
@@ -295,11 +185,6 @@ void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
         x = x % s;
       }
     }
-
-    auto lhsShape = lhsAttr.getType().getShape();
-    int lhsRank = lhsShape.size();
-    auto rhsShape = rhsAttr.getType().getShape();
-    int rhsRank = rhsShape.size();
 
     // Compute indices to access inputs.
     SmallVector<uint64_t, 4> lhsIndices;
@@ -325,21 +210,13 @@ void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
       }
     }
 
+    // Calculate element-wise binary result.
     auto lhsElementAttr = lhsAttr.getValue(ArrayRef<uint64_t>(lhsIndices));
     auto rhsElementAttr = rhsAttr.getValue(ArrayRef<uint64_t>(rhsIndices));
     T lhsValue = getAttributeValue<T>(lhsElementAttr);
     T rhsValue = getAttributeValue<T>(rhsElementAttr);
-    T res;
-    if (std::is_same<ElementwiseBinaryOp, ONNXAddOp>::value)
-      res = lhsValue + rhsValue;
-    else if (std::is_same<ElementwiseBinaryOp, ONNXSubOp>::value)
-      res = lhsValue - rhsValue;
-    else if (std::is_same<ElementwiseBinaryOp, ONNXMulOp>::value)
-      res = lhsValue * rhsValue;
-    else if (std::is_same<ElementwiseBinaryOp, ONNXDivOp>::value)
-      res = lhsValue / rhsValue;
-    else
-      llvm_unreachable("Unsupported operation");
+    T res = ComputeConstPropElementwiseBinary<ElementwiseBinaryOp, T>(
+        lhsValue, rhsValue);
     resVector.emplace_back(res);
   }
 }
@@ -360,6 +237,7 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
       constructRankedTensorType(resOperand.getType().cast<ShapedType>());
   auto outputShape = resOperand.getType().cast<ShapedType>().getShape();
 
+  // FloatType
   if (resType.getElementType().isa<FloatType>()) {
     FloatType floatTy = resType.getElementType().cast<FloatType>();
     if (floatTy.getWidth() == 32) {
@@ -376,6 +254,7 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
     }
   }
 
+  // IntegerType
   if (resType.getElementType().isa<IntegerType>()) {
     IntegerType intTy = resType.getElementType().cast<IntegerType>();
     if (intTy.getWidth() == 32) {
@@ -399,62 +278,24 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
 // Code to perform constant propagation for unary operation.
 //===----------------------------------------------------------------------===//
 
-template <typename OP>
-Attribute ComputeConstPropElementwiseUnary(
-    PatternRewriter &rewriter, Type elementType, Attribute attr) {
-  llvm_unreachable("unkonwn operation");
-}
+template <typename OP, typename T>
+struct ElementWiseUnaryOpImpl {
+  static T impl(T val) { llvm_unreachable("unknown operation"); }
+};
 
-template <>
-Attribute ComputeConstPropElementwiseUnary<ONNXNegOp>(
-    PatternRewriter &rewriter, Type elementType, Attribute attr) {
-  if (elementType.isa<FloatType>()) {
-    double val = attr.cast<FloatAttr>().getValueAsDouble();
-    double res = -val;
-    return rewriter.getFloatAttr(elementType, res);
-  }
-  if (elementType.isa<IntegerType>()) {
-    uint64_t val = attr.cast<IntegerAttr>().getInt();
-    uint64_t res = -val;
-    return rewriter.getIntegerAttr(elementType, res);
-  }
-  llvm_unreachable("constant propagation for NegOp: unkonwn data type");
-}
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXNegOp, T> {
+  static T impl(T val) { return (-val); }
+};
 
-template <>
-Attribute ComputeConstPropElementwiseUnary<ONNXSqrtOp>(
-    PatternRewriter &rewriter, Type elementType, Attribute attr) {
-  if (elementType.isa<FloatType>()) {
-    double val = attr.cast<FloatAttr>().getValueAsDouble();
-    double res = sqrt(val);
-    return rewriter.getFloatAttr(elementType, res);
-  }
-  llvm_unreachable("constant propagation for SqrtOp: unkonwn data type");
-}
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXSqrtOp, T> {
+  static T impl(T val) { return sqrt(val); }
+};
 
-template <typename ElementwiseUnaryOp>
-void RecurseConstPropElementwiseUnary(PatternRewriter &rewriter,
-    std::vector<Attribute> &resVector, DenseElementsAttr attr,
-    SmallVector<uint64_t, 4> &indices, int freeRank) {
-  if (freeRank == 0) {
-    // Fully defined ranks.
-    auto elementAttr = attr.getValue(ArrayRef<uint64_t>(indices));
-    auto elementaryType = attr.getType().getElementType();
-    auto res = ComputeConstPropElementwiseUnary<ElementwiseUnaryOp>(
-        rewriter, elementaryType, elementAttr);
-    resVector.emplace_back(res);
-  } else {
-    // Recurse.
-    auto shape = attr.getType().getShape();
-    int rank = shape.size();
-    int index = rank - freeRank;
-    int size = attr.getType().getShape()[index];
-    for (int i = 0; i < size; ++i) {
-      indices[index] = i;
-      RecurseConstPropElementwiseUnary<ElementwiseUnaryOp>(
-          rewriter, resVector, attr, indices, freeRank - 1);
-    }
-  }
+template <typename OP, typename T>
+T ComputeConstPropElementwiseUnary(T val) {
+  return ElementWiseUnaryOpImpl<OP, T>::impl(val);
 }
 
 template <typename ElementwiseUnaryOp, typename T>
@@ -462,10 +303,12 @@ void FlatConstPropElementwiseUnary(PatternRewriter &rewriter,
     std::vector<T> &resVector, DenseElementsAttr attr,
     ArrayRef<int64_t> outputShape) {
   int outputRank = outputShape.size();
-  // shape: [M, N, K]
-  // strides:      [N * K, K, 1]
+  // shape:   [M, N, K]
+  // strides: [N * K, K, 1]
   //
-  // Given a value x in range [0, M*N*K), convert it to an index of [m, m, k].
+  // Given a value x in range [0, M*N*K), convert it to an index of [m, m, k] as
+  // follows:
+  //
   // for(int i = 0; i < rank; ++i) {
   //   s = strides[i]
   //   if (x < s)
@@ -477,7 +320,7 @@ void FlatConstPropElementwiseUnary(PatternRewriter &rewriter,
   //
   // }
 
-  //  Compute strides
+  //  Compute strides and the number of elements in the output.
   SmallVector<int64_t, 4> strides(outputRank, 0);
   int64_t elementCount = 1;
   for (int i = outputRank - 1; i >= 0; i--) {
@@ -485,8 +328,12 @@ void FlatConstPropElementwiseUnary(PatternRewriter &rewriter,
     elementCount *= outputShape[i];
   }
 
+  // Go through each element in [0, N), where N is the number of elements in the
+  // output, and compute the access indices for the output. The input and output
+  // use the same access indices.
   resVector.reserve(elementCount);
   for (int64_t i = 0; i < elementCount; ++i) {
+    // Compute access indices for the output.
     SmallVector<uint64_t, 4> outputIndices(outputRank, 0);
     int64_t x = i;
     for (int64_t j = 0; j < outputRank; ++j) {
@@ -499,17 +346,11 @@ void FlatConstPropElementwiseUnary(PatternRewriter &rewriter,
       }
     }
 
+    // Calculate element-wise unary result.
     auto elementAttr = attr.getValue(ArrayRef<uint64_t>(outputIndices));
     auto elementType = attr.getType().getElementType();
     T value = getAttributeValue<T>(elementAttr);
-    T res;
-    if (std::is_same<ElementwiseUnaryOp, ONNXSqrtOp>::value)
-      res = sqrt(value);
-    else if (std::is_same<ElementwiseUnaryOp, ONNXNegOp>::value)
-      res = -value;
-    else
-      llvm_unreachable("Unsupported operation");
-
+    T res = ComputeConstPropElementwiseUnary<ElementwiseUnaryOp, T>(value);
     resVector.emplace_back(res);
   }
 }
@@ -530,6 +371,7 @@ DenseElementsAttr ConstPropElementwiseUnary(
   SmallVector<uint64_t, 4> indices(rank, 0);
   auto outputShape = resOperand.getType().cast<ShapedType>().getShape();
 
+  // FloatType
   if (resType.getElementType().isa<FloatType>()) {
     FloatType floatTy = resType.getElementType().cast<FloatType>();
     if (floatTy.getWidth() == 32) {
@@ -546,6 +388,7 @@ DenseElementsAttr ConstPropElementwiseUnary(
     }
   }
 
+  // IntegerType
   if (resType.getElementType().isa<IntegerType>()) {
     IntegerType intTy = resType.getElementType().cast<IntegerType>();
     if (intTy.getWidth() == 32) {
