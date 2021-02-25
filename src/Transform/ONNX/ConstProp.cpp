@@ -351,7 +351,7 @@ void FlatConstPropElementwiseUnary(PatternRewriter &rewriter,
     std::vector<T> &resVector, DenseElementsAttr attr,
     ArrayRef<int64_t> outputShape) {
   int64_t elementCount = 1;
-  for (int i = outputShape.size() - 1; i >= 0; i--) {
+  for (int i = 0; i < outputShape.size(); ++i) {
     elementCount *= outputShape[i];
   }
 
