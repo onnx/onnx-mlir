@@ -126,8 +126,9 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
       onnxTensorProtoToDenseElmAttr(builder, initializer);
 
   // Create ConstantOp for dense array.
-  return builder.create<mlir::ONNXConstantOp>(
-      loc, denseElmAttr.getType(), nullptr, denseElmAttr, nullptr, nullptr, nullptr, nullptr,nullptr, nullptr);
+  return builder.create<mlir::ONNXConstantOp>(loc, denseElmAttr.getType(),
+      nullptr, denseElmAttr, nullptr, nullptr, nullptr, nullptr, nullptr,
+      nullptr);
 }
 
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
