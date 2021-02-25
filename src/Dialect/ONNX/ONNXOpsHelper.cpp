@@ -182,7 +182,7 @@ DenseElementsAttr getDenseElementAttributeFromValue(Value value) {
 
 Value getONNXConstantOpFromDenseAttr(
     PatternRewriter &rewriter, Location loc, Attribute dense) {
-  rewriter.create<ONNXConstantOp>(loc, Attribute(), dense);
+  return rewriter.create<ONNXConstantOp>(loc, Attribute(), dense);
 }
 
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
