@@ -47,7 +47,7 @@ DenseElementsAttr createDenseElementsAttrFromShape(
 DenseElementsAttr createDenseElementsAttrFromSize(
     PatternRewriter &rewriter, Value value) {
   auto inType = value.getType().cast<ShapedType>();
-  SmallVector<int64_t, 1> dims(1,1);
+  SmallVector<int64_t, 1> dims(1, 1);
   SmallVector<int64_t, 1> values = {inType.getNumElements()};
   auto tensorType =
       mlir::RankedTensorType::get(dims, rewriter.getIntegerType(64));
@@ -115,16 +115,12 @@ DenseElementsAttr createDenseFloatAttrOfValue(
       llvm::makeArrayRef(wrapper));
 }
 
+/*
 Value createConstantOp_v11(
-    PatternRewriter &rewriter, Location loc, Attribute sparse, Attribute dense) {
-    FloatAttr fa=FloatAttr();
-    ArrayAttr aa = ArrayAttr();
-    IntegerAttr ia = IntegerAttr();
-    StringAttr sa = StringAttr();
-    rewriter.create<ONNXConstantOp>(loc, sparse, dense);
-        //FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
-        //fa, aa, ia, aa, sa, aa);
+    PatternRewriter &rewriter, Location loc, Attribute sparse, Attribute dense)
+{ rewriter.create<ONNXConstantOp>(loc, sparse, dense);
 }
+*/
 
 // Pad a ArrayAttr with zeros.
 //

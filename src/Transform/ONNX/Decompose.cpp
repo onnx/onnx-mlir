@@ -43,11 +43,6 @@ DenseElementsAttr createDenseArrayAttr(
       llvm::makeArrayRef(wrapper));
 }
 
-Value createConstantOp_v11(
-    PatternRewriter &rewriter, Location loc, Attribute sparse, Attribute dense) {
-    rewriter.create<ONNXConstantOp>(loc, sparse, dense);
-}
-
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXDecompose.inc"
 

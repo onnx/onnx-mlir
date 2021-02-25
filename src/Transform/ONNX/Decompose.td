@@ -123,25 +123,24 @@ def ScalerNullPattern2 : Pat<
 def ScalerNoScalePattern : Pat<
   (ONNXScalerOp : $res $x, $a, $b),
     (ONNXSubOp $x,
-    (createConstantOp_v11 $res, (GetNullAttr), (createDenseArrayAttr $a))),
+    (ONNXConstantOpFromDenseAttr $res, (createDenseArrayAttr $a))),
   [(HasFloatType:$x), (AttributeIsNull:$b)],
   (addBenefit 3)>;
 
 // No scale, input x not float type
 def ScalerNoScalePattern2 : Pat<
- (ONNXScalerOp : $res $x, $a, $b),
+ (ONNXScalerOp:$res $x, $a, $b),
   (ONNXSubOp
    (ONNXCastOp $x, (ScalerT)),
-   (createConstantOp_v11 $res, (GetNullAttr), (createDenseArrayAttr $a))
-  ),
+   (ONNXConstantOpFromDenseAttr $res, (createDenseArrayAttr $a))),
   [(AttributeIsNull:$b)],
   (addBenefit 2)>;
 
 // No offset
 def ScalerNoOffsetPattern : Pat<
-  (ONNXScalerOp : $res $x, $a, $b),
+  (ONNXScalerOp:$res $x, $a, $b),
   (ONNXMulOp $x,
-    (createConstantOp_v11 $res, (GetNullAttr), (createDenseArrayAttr $b))),
+    (ONNXConstantOpFromDenseAttr $res, (createDenseArrayAttr $b))),
   [(HasFloatType:$x), (AttributeIsNull:$a)],
   (addBenefit 3)>;
 
@@ -150,7 +149,7 @@ def ScalerNoOffsetPattern2 : Pat<
  (ONNXScalerOp : $res $x, $a, $b),
   (ONNXMulOp
    (ONNXCastOp $x, (ScalerT)),
-   (createConstantOp_v11 $res, (GetNullAttr), (createDenseArrayAttr $b))),
+   (ONNXConstantOpFromDenseAttr $res, (createDenseArrayAttr $b))),
   [(AttributeIsNull:$a)],
   (addBenefit 2)>;
 
@@ -159,8 +158,8 @@ def ScalerPattern : Pat<
   (ONNXScalerOp:$res $x, $a, $b),
   (ONNXMulOp 
     (ONNXSubOp $x,
-      (createConstantOp_v11 $res, (GetNullAttr), (createDenseArrayAttr $a))),
-    (createConstantOp_v11 $res, (GetNullAttr), (createDenseArrayAttr $b))),
+      (ONNXConstantOpFromDenseAttr $res, (createDenseArrayAttr $a))),
+    (ONNXConstantOpFromDenseAttr $res, (createDenseArrayAttr $b))),
   [(HasFloatType:$x)],
   (addBenefit 1)>;
 
@@ -169,8 +168,8 @@ def ScalerPattern2 : Pat<
   (ONNXScalerOp:$res $x, $a, $b),
   (ONNXMulOp 
     (ONNXSubOp (ONNXCastOp $x, (ScalerT)),
-      (createConstantOp_v11 $res, (GetNullAttr), (createDenseArrayAttr $a))),
-    (createConstantOp_v11 $res, (GetNullAttr), (createDenseArrayAttr $b))),
+      (ONNXConstantOpFromDenseAttr $res, (createDenseArrayAttr $a))),
+    (ONNXConstantOpFromDenseAttr $res, (createDenseArrayAttr $b))),
   [],
   (addBenefit 0)>;
 

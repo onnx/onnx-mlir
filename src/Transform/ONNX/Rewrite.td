@@ -146,9 +146,8 @@ def FuseBatchNormTestModeConvPattern: Pat<
               (ONNXSqrtOp
                  (ONNXAddOp
                     $var,
-                    (createConstantOp_v11
+                    (ONNXConstantOpFromDenseAttr
                        $res,
-                       (GetNullAttr),
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
            (createArrayAttrOfOneToRankOf $w))),
      // b_
