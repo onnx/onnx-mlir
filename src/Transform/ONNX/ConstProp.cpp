@@ -152,7 +152,7 @@ void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
   //   }
   //
   // }
-  
+
   int outputRank = outputShape.size();
   auto lhsShape = lhsAttr.getType().getShape();
   int lhsRank = lhsShape.size();
