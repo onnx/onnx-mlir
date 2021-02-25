@@ -128,19 +128,13 @@ template <typename ElementwiseBinaryOp, typename T>
 void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
     std::vector<T> &resVector, DenseElementsAttr lhsAttr,
     DenseElementsAttr rhsAttr, ArrayRef<int64_t> outputShape) {
-  // The algorithm to compute the output is as follows:
+  // The algorithm to compute the output in case of broadcasting is as follows:
   // For each value in [0, N), where N is the number of elements in the output:
   //   - compute the access indices for the output.
   //   - deduce access indices for the lhs and rhs from the output access
   //   indices, using broadcasting rules.
   //   - calculate element-wise binary result.
   //   - store the result
-
-  int outputRank = outputShape.size();
-  auto lhsShape = lhsAttr.getType().getShape();
-  int lhsRank = lhsShape.size();
-  auto rhsShape = rhsAttr.getType().getShape();
-  int rhsRank = rhsShape.size();
 
   // shape:   [M, N, K]
   // strides: [N * K, K, 1]
@@ -158,26 +152,78 @@ void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
   //   }
   //
   // }
+  
+  int outputRank = outputShape.size();
+  auto lhsShape = lhsAttr.getType().getShape();
+  int lhsRank = lhsShape.size();
+  auto rhsShape = rhsAttr.getType().getShape();
+  int rhsRank = rhsShape.size();
+  auto elementType = lhsAttr.getType().getElementType();
 
   //  Compute strides and the number of elements in the output.
-  SmallVector<int64_t, 4> strides(outputRank, 0);
-  int64_t elementCount = 1;
+  SmallVector<uint64_t, 4> strides(outputRank, 0);
+  uint64_t elementCount = 1;
   for (int i = outputRank - 1; i >= 0; i--) {
     strides[i] = elementCount;
     elementCount *= outputShape[i];
   }
 
-  // Go through each element in [0, N), where N is the number of elements in the
-  // output, and compute the access indices for the output. Then, use the output
-  // access indices to deduce access indices for the inputs, using broadcasting
-  // rules.
   resVector.reserve(elementCount);
+
+  // Check broadcasting.
+  bool broadcasting = false;
+  if (lhsRank != rhsRank)
+    broadcasting = true;
+  else
+    for (int i = 0; i < outputRank; ++i)
+      if (lhsShape[i] != rhsShape[i]) {
+        broadcasting = true;
+        break;
+      }
+
+  // If not broadcasting, it is not necessary to compute access indices because
+  // inputs and output have the same memory layout. So it is efficient to
+  // traverse data in the increasing order.
+  if (!broadcasting) {
+    if (elementType.isa<FloatType>()) {
+      auto lhsIt = lhsAttr.getValues<FloatAttr>().begin();
+      auto rhsIt = rhsAttr.getValues<FloatAttr>().begin();
+      for (int i = 0; i < elementCount; ++i) {
+        // Get lhs and rhs elements.
+        T lhsValue = (T)(*lhsIt++).cast<FloatAttr>().getValueAsDouble();
+        T rhsValue = (T)(*rhsIt++).cast<FloatAttr>().getValueAsDouble();
+        // Calculate element-wise binary result.
+        T res = ComputeConstPropElementwiseBinary<ElementwiseBinaryOp, T>(
+            lhsValue, rhsValue);
+        resVector.emplace_back(res);
+      }
+    } else if (elementType.isa<IntegerType>()) {
+      auto lhsIt = lhsAttr.getValues<IntegerAttr>().begin();
+      auto rhsIt = rhsAttr.getValues<IntegerAttr>().begin();
+      for (int i = 0; i < elementCount; ++i) {
+        // Get lhs and rhs elements.
+        T lhsValue = (T)(*lhsIt++).cast<IntegerAttr>().getInt();
+        T rhsValue = (T)(*rhsIt++).cast<IntegerAttr>().getInt();
+        // Calculate element-wise binary result.
+        T res = ComputeConstPropElementwiseBinary<ElementwiseBinaryOp, T>(
+            lhsValue, rhsValue);
+        resVector.emplace_back(res);
+      }
+    } else
+      llvm_unreachable("Unknown data type");
+    return;
+  }
+
+  // If broadcasting, go through each element in [0, N), where N is the number
+  // of elements in the output, and compute the access indices for the output.
+  // Then, use the output access indices to deduce access indices for the
+  // inputs, using broadcasting rules.
   for (int64_t i = 0; i < elementCount; ++i) {
     // Compute access indices for the output.
-    SmallVector<int64_t, 4> outputIndices(outputRank, 0);
-    int64_t x = i;
-    for (int64_t j = 0; j < outputRank; ++j) {
-      int64_t s = strides[j];
+    SmallVector<uint64_t, 4> outputIndices(outputRank, 0);
+    uint64_t x = i;
+    for (int j = 0; j < outputRank; ++j) {
+      uint64_t s = strides[j];
       if (x < s)
         outputIndices[j] = 0;
       else {
@@ -187,8 +233,7 @@ void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
     }
 
     // Compute indices to access inputs.
-    SmallVector<uint64_t, 4> lhsIndices;
-    SmallVector<uint64_t, 4> rhsIndices;
+    SmallVector<uint64_t, 4> lhsIndices, rhsIndices;
     for (int k = 0; k < outputRank; ++k) {
       // in the lhs index range.
       if (k >= outputRank - lhsRank) {
@@ -210,15 +255,18 @@ void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
       }
     }
 
+    // Get lhs and rhs elements.
+    Attribute lhsElementAttr = lhsAttr.getValue(ArrayRef<uint64_t>(lhsIndices));
+    Attribute rhsElementAttr = rhsAttr.getValue(ArrayRef<uint64_t>(rhsIndices));
+
     // Calculate element-wise binary result.
-    auto lhsElementAttr = lhsAttr.getValue(ArrayRef<uint64_t>(lhsIndices));
-    auto rhsElementAttr = rhsAttr.getValue(ArrayRef<uint64_t>(rhsIndices));
     T lhsValue = getAttributeValue<T>(lhsElementAttr);
     T rhsValue = getAttributeValue<T>(rhsElementAttr);
     T res = ComputeConstPropElementwiseBinary<ElementwiseBinaryOp, T>(
         lhsValue, rhsValue);
     resVector.emplace_back(res);
   }
+  return;
 }
 
 // Process the constant operands, perform the operation with broadcast, and
@@ -302,57 +350,30 @@ template <typename ElementwiseUnaryOp, typename T>
 void FlatConstPropElementwiseUnary(PatternRewriter &rewriter,
     std::vector<T> &resVector, DenseElementsAttr attr,
     ArrayRef<int64_t> outputShape) {
-  int outputRank = outputShape.size();
-  // shape:   [M, N, K]
-  // strides: [N * K, K, 1]
-  //
-  // Given a value x in range [0, M*N*K), convert it to an index of [m, m, k] as
-  // follows:
-  //
-  // for(int i = 0; i < rank; ++i) {
-  //   s = strides[i]
-  //   if (x < s)
-  //     indices[i] = 0
-  //   else {
-  //     indices[i] = x / s
-  //     x = x % s
-  //   }
-  //
-  // }
-
-  //  Compute strides and the number of elements in the output.
-  SmallVector<int64_t, 4> strides(outputRank, 0);
   int64_t elementCount = 1;
-  for (int i = outputRank - 1; i >= 0; i--) {
-    strides[i] = elementCount;
+  for (int i = outputShape.size() - 1; i >= 0; i--) {
     elementCount *= outputShape[i];
   }
 
-  // Go through each element in [0, N), where N is the number of elements in the
-  // output, and compute the access indices for the output. The input and output
-  // use the same access indices.
   resVector.reserve(elementCount);
-  for (int64_t i = 0; i < elementCount; ++i) {
-    // Compute access indices for the output.
-    SmallVector<uint64_t, 4> outputIndices(outputRank, 0);
-    int64_t x = i;
-    for (int64_t j = 0; j < outputRank; ++j) {
-      int64_t s = strides[j];
-      if (x < s)
-        outputIndices[j] = 0;
-      else {
-        outputIndices[j] = x / s;
-        x = x % s;
-      }
-    }
 
-    // Calculate element-wise unary result.
-    auto elementAttr = attr.getValue(ArrayRef<uint64_t>(outputIndices));
-    auto elementType = attr.getType().getElementType();
-    T value = getAttributeValue<T>(elementAttr);
-    T res = ComputeConstPropElementwiseUnary<ElementwiseUnaryOp, T>(value);
-    resVector.emplace_back(res);
-  }
+  auto elementType = attr.getType().getElementType();
+  if (elementType.isa<FloatType>()) {
+    auto it = attr.getValues<FloatAttr>().begin();
+    for (int i = 0; i < elementCount; ++i) {
+      T value = (T)(*it++).cast<FloatAttr>().getValueAsDouble();
+      T res = ComputeConstPropElementwiseUnary<ElementwiseUnaryOp, T>(value);
+      resVector.emplace_back(res);
+    }
+  } else if (elementType.isa<IntegerType>()) {
+    auto it = attr.getValues<IntegerAttr>().begin();
+    for (int i = 0; i < elementCount; ++i) {
+      T value = (T)(*it++).cast<IntegerAttr>().getInt();
+      T res = ComputeConstPropElementwiseUnary<ElementwiseUnaryOp, T>(value);
+      resVector.emplace_back(res);
+    }
+  } else
+    llvm_unreachable("Unknown data type");
 }
 
 // Process the constant operands, perform the operation with broadcast, and
