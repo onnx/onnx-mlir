@@ -1351,31 +1351,17 @@ LogicalResult ONNXReshapeOp::inferShapes() {
   if (!data().getType().isa<RankedTensorType>())
     return emitError("Input data tensor not ranked");
 
-  // For some reason Reshape will get run twice when going through the shape
-  // inference pass
-  // where the second time through the shape type becomes a NoneType and fails
-  // inference
-  // This only happens if reshape is the last operation
-
-  // %1 = "onnx.Reshape"(%arg0, %0) {onnx_node_name = "Reshape_1"} :
-  // (tensor<3x3xi8>, tensor<2xi64>) -> tensor<1x9xi8>
-  // %0 = "onnx.Reshape"(%arg0, %cst) {onnx_node_name = "Reshape_1", shape =
-  // dense<[1, 9]> : tensor<2xi64>} : (tensor<3x3xi8>, none) -> tensor<1x9xi8>
-  // Second time around, it's a dense<[1, 9]>
-
   int64_t outputRank;
   auto inputTensorTy = data().getType().cast<RankedTensorType>();
   // Attribute promotion can change shape to a nonetype
   if (shape().getType().isa<NoneType>()) {
-    auto shapeAttr = getAttr("shape").cast<DenseElementsAttr>();
-    const unsigned long *shapeRank =
-        (*shapeAttr.int_value_begin()).getRawData();
-    outputRank = *shapeRank;
-    if (outputRank != 1)
-      return emitError("Shape tensor described by attribute must be rank 1");
-    // return success();
+    if (auto shapeAttr =
+            getAttr("shape").dyn_cast_or_null<DenseElementsAttr>()) {
+      outputRank = shapeAttr.size();
+    } else {
+      return emitError("Shape attribute error");
+    }
   } else {
-
     if (!shape().getType().isa<RankedTensorType>())
       return emitError("Shape tensor not ranked");
     auto shapeTensorTy = shape().getType().cast<RankedTensorType>();
@@ -1394,38 +1380,44 @@ LogicalResult ONNXReshapeOp::inferShapes() {
     totalInputSize *= inputDim;
 
   SmallVector<int64_t, 4> dims(outputRank, -1);
-  if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(shape())) {
-    // Get dims from valueAttribute.
+  if (shape().getType().isa<NoneType>()) {
+    auto shapeAttr = getAttr("shape").cast<DenseElementsAttr>();
+    auto valueIt = shapeAttr.getValues<IntegerAttr>().begin();
+    for (int i = 0; i < outputRank; ++i)
+      dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
+    if (valueIt != shapeAttr.getValues<IntegerAttr>().end())
+      return emitError("Constant value must have same rank as output");
+  } else if (auto valueAttribute = getONNXConstOrShapeFoldingAttr(shape())) {
+    // Get dims from valueAttribute.S
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
     for (int i = 0; i < outputRank; ++i)
       dims[i] = (*valueIt++).cast<IntegerAttr>().getInt();
-
     if (valueIt != valueAttribute.getValues<IntegerAttr>().end())
       return emitError("Constant value must have same rank as output");
-    int64_t numberOfDynamicInputs = 0;
-    int64_t totalKnownDimsSize = 1;
-    int64_t dynamicValueIndex = -1;
-    for (int i = 0; i < outputRank; ++i) {
-      // Set output dimension.
-      if (dims[i] == 0)
-        dims[i] = inputTensorTy.getShape()[i];
-
-      if (dims[i] < 0) {
-        numberOfDynamicInputs++;
-        dynamicValueIndex = i;
-      } else {
-        totalKnownDimsSize *= dims[i];
-      }
-    }
-
-    // If the number of dynamic inputs is 1 then deduce the missing value
-    // based on the total input size. The total input size must be greater
-    // than 0 i.e. all constant dimensions.
-    // TODO: Support dynamic input dimensons.
-    if (numberOfDynamicInputs == 1 && totalKnownDimsSize > 0 &&
-        totalInputSize > 0)
-      dims[dynamicValueIndex] = totalInputSize / totalKnownDimsSize;
   }
+  int64_t numberOfDynamicInputs = 0;
+  int64_t totalKnownDimsSize = 1;
+  int64_t dynamicValueIndex = -1;
+  for (int i = 0; i < outputRank; ++i) {
+    // Set output dimension.
+    if (dims[i] == 0)
+      dims[i] = inputTensorTy.getShape()[i];
+
+    if (dims[i] < 0) {
+      numberOfDynamicInputs++;
+      dynamicValueIndex = i;
+    } else {
+      totalKnownDimsSize *= dims[i];
+    }
+  }
+
+  // If the number of dynamic inputs is 1 then deduce the missing value
+  // based on the total input size. The total input size must be greater
+  // than 0 i.e. all constant dimensions.
+  // TODO: Support dynamic input dimensons.
+  if (numberOfDynamicInputs == 1 && totalKnownDimsSize > 0 &&
+      totalInputSize > 0)
+    dims[dynamicValueIndex] = totalInputSize / totalKnownDimsSize;
 
   getResult().setType(
       RankedTensorType::get(dims, inputTensorTy.getElementType()));
