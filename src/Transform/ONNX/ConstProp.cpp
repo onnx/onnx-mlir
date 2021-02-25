@@ -95,6 +95,31 @@ Attribute ComputeConstPropElementwiseBinary<ONNXAddOp>(
   llvm_unreachable("constant propagation for AddOp: unkonwn data type");
 }
 
+template <typename T>
+T getAttributeValue(Attribute attr) {
+  llvm_unreachable("unknown operation");
+}
+
+template <>
+double getAttributeValue(Attribute attr) {
+  return attr.cast<FloatAttr>().getValueAsDouble();
+}
+
+template <>
+float getAttributeValue(Attribute attr) {
+  return (float)attr.cast<FloatAttr>().getValueAsDouble();
+}
+
+template <>
+int64_t getAttributeValue(Attribute attr) {
+  return attr.cast<IntegerAttr>().getInt();
+}
+
+template <>
+int32_t getAttributeValue(Attribute attr) {
+  return attr.cast<IntegerAttr>().getInt();
+}
+
 template <>
 Attribute ComputeConstPropElementwiseBinary<ONNXSubOp>(
     PatternRewriter &rewriter, Type elementType, Attribute lhsAttr,
@@ -229,57 +254,93 @@ void RecurseConstPropElementwiseBinary(PatternRewriter &rewriter,
   }
 }
 
-template <typename ElementwiseBinaryOp>
-void RecurseConstPropElementwiseBinary1(PatternRewriter &rewriter,
-    std::vector<Attribute> &resVector, DenseElementsAttr lhsAttr,
-    DenseElementsAttr rhsAttr, ArrayRef<int64_t> outputShape,
-    SmallVector<uint64_t, 4> &outputIndices, int freeRank) {
-  if (freeRank == 0) {
+template <typename ElementwiseBinaryOp, typename T>
+void FlatConstPropElementwiseBinary(PatternRewriter &rewriter,
+    std::vector<T> &resVector, DenseElementsAttr lhsAttr,
+    DenseElementsAttr rhsAttr, ArrayRef<int64_t> outputShape) {
+  int outputRank = outputShape.size();
+  // shape: [M, N, K]
+  // strides:      [N * K, K, 1]
+  //
+  // Given a value x in range [0, M*N*K), convert it to an index of [m, m, k].
+  // for(int i = 0; i < rank; ++i) {
+  //   s = strides[i]
+  //   if (x < s)
+  //     indices[i] = 0
+  //   else {
+  //     indices[i] = x / s
+  //     x = x % s
+  //   }
+  //
+  // }
+
+  //  Compute strides
+  SmallVector<int64_t, 4> strides(outputRank, 0);
+  int64_t elementCount = 1;
+  for (int i = outputRank - 1; i >= 0; i--) {
+    strides[i] = elementCount;
+    elementCount *= outputShape[i];
+  }
+
+  resVector.reserve(elementCount);
+  for (int64_t i = 0; i < elementCount; ++i) {
+    SmallVector<int64_t, 4> outputIndices(outputRank, 0);
+    int64_t x = i;
+    for (int64_t j = 0; j < outputRank; ++j) {
+      int64_t s = strides[j];
+      if (x < s)
+        outputIndices[j] = 0;
+      else {
+        outputIndices[j] = floor(x / s);
+        x = x % s;
+      }
+    }
+
     auto lhsShape = lhsAttr.getType().getShape();
     int lhsRank = lhsShape.size();
     auto rhsShape = rhsAttr.getType().getShape();
     int rhsRank = rhsShape.size();
-    int outputRank = outputIndices.size();
 
     // Compute indices to access inputs.
-    SmallVector<uint64_t, 4> lhsIndices, rhsIndices;
-    lhsIndices.reserve(lhsRank);
-    rhsIndices.reserve(rhsRank);
-    for (int i = 0; i < outputRank; ++i) {
+    SmallVector<uint64_t, 4> lhsIndices;
+    SmallVector<uint64_t, 4> rhsIndices;
+    for (int k = 0; k < outputRank; ++k) {
       // in the lhs index range.
-      if (i >= outputRank - lhsRank) {
-        int lhsIndex = i - outputRank + lhsRank;
+      if (k >= outputRank - lhsRank) {
+        int lhsIndex = k - outputRank + lhsRank;
         if (lhsShape[lhsIndex] == 1)
           // broadcast
           lhsIndices.emplace_back(0);
         else
-          lhsIndices.emplace_back(outputIndices[i]);
+          lhsIndices.emplace_back(outputIndices[k]);
       }
       // in the rhs index range.
-      if (i >= outputRank - rhsRank) {
-        int rhsIndex = i - outputRank + rhsRank;
+      if (k >= outputRank - rhsRank) {
+        int rhsIndex = k - outputRank + rhsRank;
         if (rhsShape[rhsIndex] == 1)
           // broadcast
           rhsIndices.emplace_back(0);
         else
-          rhsIndices.emplace_back(outputIndices[i]);
+          rhsIndices.emplace_back(outputIndices[k]);
       }
     }
 
     auto lhsElementAttr = lhsAttr.getValue(ArrayRef<uint64_t>(lhsIndices));
     auto rhsElementAttr = rhsAttr.getValue(ArrayRef<uint64_t>(rhsIndices));
-    auto elementaryType = lhsAttr.getType().getElementType();
-    auto res = ComputeConstPropElementwiseBinary<ElementwiseBinaryOp>(
-        rewriter, elementaryType, lhsElementAttr, rhsElementAttr);
+    T lhsValue = getAttributeValue<T>(lhsElementAttr);
+    T rhsValue = getAttributeValue<T>(rhsElementAttr);
+    T res;
+    if (std::is_same<ElementwiseBinaryOp, ONNXAddOp>::value)
+      res = lhsValue + rhsValue;
+    else if (std::is_same<ElementwiseBinaryOp, ONNXSubOp>::value)
+      res = lhsValue - rhsValue;
+    else if (std::is_same<ElementwiseBinaryOp, ONNXMulOp>::value)
+      res = lhsValue * rhsValue;
+    else if (std::is_same<ElementwiseBinaryOp, ONNXDivOp>::value)
+      res = lhsValue / rhsValue;
+    else
+      llvm_unreachable("Unsupported operation");
     resVector.emplace_back(res);
-  } else {
-    int outputIndex = outputShape.size() - freeRank;
-    for (int i = 0; i < outputShape[outputIndex]; ++i) {
-      outputIndices[outputIndex] = i;
-      RecurseConstPropElementwiseBinary1<ElementwiseBinaryOp>(rewriter,
-          resVector, lhsAttr, rhsAttr, outputShape, outputIndices,
-          freeRank - 1);
-    }
   }
 }
 
@@ -297,21 +358,41 @@ DenseElementsAttr ConstPropElementwiseBinary(PatternRewriter &rewriter,
          "expected ranked tensor");
   RankedTensorType resType =
       constructRankedTensorType(resOperand.getType().cast<ShapedType>());
-  // auto lhsRank = lhsDenseAttr.getType().getShape().size();
-  // auto rhsRank = rhsDenseAttr.getType().getShape().size();
-  // SmallVector<uint64_t, 4> lhsIndices(lhsRank, 0);
-  // SmallVector<uint64_t, 4> rhsIndices(rhsRank, 0);
-  // RecurseConstPropElementwiseBinary<ElementwiseBinaryOp>(rewriter, resVector,
-  //     lhsDenseAttr, rhsDenseAttr, lhsIndices, rhsIndices, lhsRank, rhsRank);
-
-  std::vector<Attribute> resVector;
   auto outputShape = resOperand.getType().cast<ShapedType>().getShape();
-  auto outputRank = outputShape.size();
-  SmallVector<uint64_t, 4> outputIndices(outputRank, 0);
-  RecurseConstPropElementwiseBinary1<ElementwiseBinaryOp>(rewriter, resVector,
-      lhsDenseAttr, rhsDenseAttr, outputShape, outputIndices, outputRank);
-  ArrayRef<Attribute> resRef(resVector);
-  return DenseElementsAttr::get(resType, resRef);
+
+  if (resType.getElementType().isa<FloatType>()) {
+    FloatType floatTy = resType.getElementType().cast<FloatType>();
+    if (floatTy.getWidth() == 32) {
+      std::vector<float> resVector;
+      FlatConstPropElementwiseBinary<ElementwiseBinaryOp, float>(
+          rewriter, resVector, lhsDenseAttr, rhsDenseAttr, outputShape);
+      return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
+    }
+    if (floatTy.getWidth() == 64) {
+      std::vector<double> resVector;
+      FlatConstPropElementwiseBinary<ElementwiseBinaryOp, double>(
+          rewriter, resVector, lhsDenseAttr, rhsDenseAttr, outputShape);
+      return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
+    }
+  }
+
+  if (resType.getElementType().isa<IntegerType>()) {
+    IntegerType intTy = resType.getElementType().cast<IntegerType>();
+    if (intTy.getWidth() == 32) {
+      std::vector<int32_t> resVector;
+      FlatConstPropElementwiseBinary<ElementwiseBinaryOp, int32_t>(
+          rewriter, resVector, lhsDenseAttr, rhsDenseAttr, outputShape);
+      return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
+    }
+    if (intTy.getWidth() == 64) {
+      std::vector<int64_t> resVector;
+      FlatConstPropElementwiseBinary<ElementwiseBinaryOp, int64_t>(
+          rewriter, resVector, lhsDenseAttr, rhsDenseAttr, outputShape);
+      return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
+    }
+  }
+
+  llvm_unreachable("Unknown data type");
 }
 
 //===----------------------------------------------------------------------===//
@@ -376,6 +457,63 @@ void RecurseConstPropElementwiseUnary(PatternRewriter &rewriter,
   }
 }
 
+template <typename ElementwiseUnaryOp, typename T>
+void FlatConstPropElementwiseUnary(PatternRewriter &rewriter,
+    std::vector<T> &resVector, DenseElementsAttr attr,
+    ArrayRef<int64_t> outputShape) {
+  int outputRank = outputShape.size();
+  // shape: [M, N, K]
+  // strides:      [N * K, K, 1]
+  //
+  // Given a value x in range [0, M*N*K), convert it to an index of [m, m, k].
+  // for(int i = 0; i < rank; ++i) {
+  //   s = strides[i]
+  //   if (x < s)
+  //     indices[i] = 0
+  //   else {
+  //     indices[i] = x / s
+  //     x = x % s
+  //   }
+  //
+  // }
+
+  //  Compute strides
+  SmallVector<int64_t, 4> strides(outputRank, 0);
+  int64_t elementCount = 1;
+  for (int i = outputRank - 1; i >= 0; i--) {
+    strides[i] = elementCount;
+    elementCount *= outputShape[i];
+  }
+
+  resVector.reserve(elementCount);
+  for (int64_t i = 0; i < elementCount; ++i) {
+    SmallVector<uint64_t, 4> outputIndices(outputRank, 0);
+    int64_t x = i;
+    for (int64_t j = 0; j < outputRank; ++j) {
+      int64_t s = strides[j];
+      if (x < s)
+        outputIndices[j] = 0;
+      else {
+        outputIndices[j] = x / s;
+        x = x % s;
+      }
+    }
+
+    auto elementAttr = attr.getValue(ArrayRef<uint64_t>(outputIndices));
+    auto elementType = attr.getType().getElementType();
+    T value = getAttributeValue<T>(elementAttr);
+    T res;
+    if (std::is_same<ElementwiseUnaryOp, ONNXSqrtOp>::value)
+      res = sqrt(value);
+    else if (std::is_same<ElementwiseUnaryOp, ONNXNegOp>::value)
+      res = -value;
+    else
+      llvm_unreachable("Unsupported operation");
+
+    resVector.emplace_back(res);
+  }
+}
+
 // Process the constant operands, perform the operation with broadcast, and
 // generate the new constant operation.
 template <typename ElementwiseUnaryOp>
@@ -390,11 +528,41 @@ DenseElementsAttr ConstPropElementwiseUnary(
       constructRankedTensorType(resOperand.getType().cast<ShapedType>());
   auto rank = denseAttr.getType().getShape().size();
   SmallVector<uint64_t, 4> indices(rank, 0);
-  std::vector<Attribute> resVector;
-  RecurseConstPropElementwiseUnary<ElementwiseUnaryOp>(
-      rewriter, resVector, denseAttr, indices, rank);
-  ArrayRef<Attribute> resRef(resVector);
-  return DenseElementsAttr::get(resType, resRef);
+  auto outputShape = resOperand.getType().cast<ShapedType>().getShape();
+
+  if (resType.getElementType().isa<FloatType>()) {
+    FloatType floatTy = resType.getElementType().cast<FloatType>();
+    if (floatTy.getWidth() == 32) {
+      std::vector<float> resVector;
+      FlatConstPropElementwiseUnary<ElementwiseUnaryOp, float>(
+          rewriter, resVector, denseAttr, outputShape);
+      return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
+    }
+    if (floatTy.getWidth() == 64) {
+      std::vector<double> resVector;
+      FlatConstPropElementwiseUnary<ElementwiseUnaryOp, double>(
+          rewriter, resVector, denseAttr, outputShape);
+      return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
+    }
+  }
+
+  if (resType.getElementType().isa<IntegerType>()) {
+    IntegerType intTy = resType.getElementType().cast<IntegerType>();
+    if (intTy.getWidth() == 32) {
+      std::vector<int32_t> resVector;
+      FlatConstPropElementwiseUnary<ElementwiseUnaryOp, int32_t>(
+          rewriter, resVector, denseAttr, outputShape);
+      return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
+    }
+    if (intTy.getWidth() == 64) {
+      std::vector<int64_t> resVector;
+      FlatConstPropElementwiseUnary<ElementwiseUnaryOp, int64_t>(
+          rewriter, resVector, denseAttr, outputShape);
+      return DenseElementsAttr::get(resType, llvm::makeArrayRef(resVector));
+    }
+  }
+
+  llvm_unreachable("Unknown data type");
 }
 
 //===----------------------------------------------------------------------===//
@@ -461,13 +629,8 @@ DenseElementsAttr ConstPropUnsqueeze(
       constructRankedTensorType(resOperand.getType().cast<ShapedType>());
 
   // Unqueeze does not change the order of access, so just copy the whole data.
-  std::vector<Attribute> resVector;
-  for (auto value : denseAttr.getValues<Attribute>()) {
-    resVector.emplace_back(value);
-  }
-
-  ArrayRef<Attribute> resRef(resVector);
-  return DenseElementsAttr::get(resType, resRef);
+  return DenseElementsAttr::getFromRawBuffer(
+      resType, denseAttr.getRawData(), denseAttr.isSplat());
 }
 
 //===----------------------------------------------------------------------===//
