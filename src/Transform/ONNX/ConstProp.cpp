@@ -38,16 +38,12 @@ namespace {
 // There is currently support for adding constant propagation for unary and
 // binary athythmetic ops (binary ops support broadcast). To add an operation,
 // you simply have to add a templated method on how to compute the result in
-// terms of one or two inputs. Values comes as Attribtues, and return is also an
-// Attribute. In that function, presumably you will need different methods to
-// handle int / float / strings... Note that these methods cannot fail. It is
-// your responsablitity to tests for which data type are supported in the rules
-// directly. Specific type restrictions can be added in the DRR files.
-
+// terms of one or two inputs.
+//
 // The methods are:
 //
-// ComputeConstPropElementwiseBinary and ComputeConstPropElementwiseUnary
-// and they need to be tempalted wtih an ONNX Operation (presuably).
+// ElementWiseBinaryOpImpl and ElementWiseUnaryOpImpl
+// and they need to be templated with an ONNX Operation (presuably).
 //
 // Then you need to add rules on how to transform the patterns; look into
 // ConstProp.td for example.
@@ -91,9 +87,8 @@ int32_t getAttributeValue(Attribute attr) {
 
 // Template to generate binary operation results. It takes as inupt
 // the element type as well as the two element attributes for the
-// operation, and return the result of the operation, also as an
-// attribute.
-//
+// operation, and return the result of the operation.
+
 template <typename OP, typename T>
 struct ElementWiseBinaryOpImpl {
   static T impl(T lhs, T rhs) { llvm_unreachable("unknown operation"); }
@@ -128,13 +123,19 @@ template <typename ElementwiseBinaryOp, typename T>
 void IterateConstPropElementwiseBinary(PatternRewriter &rewriter,
     std::vector<T> &resVector, DenseElementsAttr lhsAttr,
     DenseElementsAttr rhsAttr, ArrayRef<int64_t> outputShape) {
-  // The algorithm to compute the output in case of broadcasting is as follows:
-  // For each value in [0, N), where N is the number of elements in the output:
-  //   - compute the access indices for the output.
+  // If there is no broadcasting, the two inputs and the output have the same
+  // memory layout. We can safely do computation on each element pair (lhs, rhs)
+  // in the increasing order of indices.
+  //
+  // If there is broadcating, the algorithm to compute the output is as follows:
+  // For each value 'x' in [0, N), where N is the number of elements in the
+  // output:
+  //   - compute the access indices for the output, using 'x' and strides (see
+  //   below),
   //   - deduce access indices for the lhs and rhs from the output access
-  //   indices, using broadcasting rules.
-  //   - calculate element-wise binary result.
-  //   - store the result
+  //   indices, using broadcasting rules,
+  //   - calculate element-wise binary result,
+  //   - store the result.
 
   // shape:   [M, N, K]
   // strides: [N * K, K, 1]
@@ -182,8 +183,8 @@ void IterateConstPropElementwiseBinary(PatternRewriter &rewriter,
       }
 
   // If not broadcasting, it is not necessary to compute access indices because
-  // inputs and output have the same memory layout. So it is efficient to
-  // traverse data in the increasing order.
+  // inputs and output have the same memory layout. So it is safe to traverse
+  // data in the increasing order of indices.
   if (!broadcasting) {
     if (elementType.isa<FloatType>()) {
       auto lhsIt = lhsAttr.getValues<FloatAttr>().begin();
