@@ -339,15 +339,9 @@ public:
 
   // Default and shallow copy constructors.
   IndexExpr() : indexExprObj(nullptr) {} // Undefined index expression.
-  IndexExpr(IndexExprImpl *implObj) : indexExprObj(implObj) {}
-  IndexExpr(IndexExpr const &obj) : IndexExpr(obj.getObjPtr()) {}
-
-  // Constructor for new IndexExpr (xxx should they be made protected?)
-  IndexExpr(int64_t const value);    // Build literal index expression.
-  IndexExpr(Value const value);      // Build non-affine index expression.
-  IndexExpr(AffineExpr const value); // Build affine index expression.
-  IndexExpr(Value const val, IndexExprKind kind); // Build kind expression.
-
+  IndexExpr(IndexExprImpl *implObj) : indexExprObj(implObj) {}    // Shallow.
+  IndexExpr(IndexExpr const &obj) : IndexExpr(obj.getObjPtr()) {} // Shallow.
+  // To construct meaningful IndexExpr, use subclasses constructors.
   IndexExpr deepCopy() const;
 
   // Shape inference queries.

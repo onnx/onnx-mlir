@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 // both debug variables will be removed once debugging is complete.
-#define DEBUG 1
+#define DEBUG 0
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -246,31 +246,6 @@ void IndexExprImpl::copy(IndexExprImpl const *other) {
 }
 
 //===----------------------------------------------------------------------===//
-// IndexExpr constructors
-//===----------------------------------------------------------------------===//
-
-IndexExpr::IndexExpr(int64_t const val) {
-  indexExprObj = new IndexExprImpl();
-  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
-  indexExprObj->initAsLiteral(val);
-}
-
-IndexExpr::IndexExpr(Value const value)
-    : IndexExpr(value, IndexExprKind::NonAffine) {}
-
-IndexExpr::IndexExpr(AffineExpr const value) {
-  indexExprObj = new IndexExprImpl();
-  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
-  indexExprObj->initAsAffineExpr(value);
-}
-
-IndexExpr::IndexExpr(Value const value, IndexExprKind newKind) {
-  indexExprObj = new IndexExprImpl();
-  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
-  indexExprObj->initAsKind(value, newKind);
-}
-
-//===----------------------------------------------------------------------===//
 // IndexExpr copy and setters.
 //===----------------------------------------------------------------------===//
 
@@ -465,19 +440,26 @@ void IndexExpr::debugPrint(const std::string &msg) const {
   if (isAffine())
     printf(" is affine");
   switch (getKind()) {
-    case IndexExprKind::NonAffine : printf(" kind(non-affine)");
+  case IndexExprKind::NonAffine:
+    printf(" kind(non-affine)");
     break;
-    case IndexExprKind::Questionmark :  printf(" kind(questionmark)");
+  case IndexExprKind::Questionmark:
+    printf(" kind(questionmark)");
     break;
-    case IndexExprKind::Predicate :  printf(" kind(predicate)");
+  case IndexExprKind::Predicate:
+    printf(" kind(predicate)");
     break;
-    case IndexExprKind::Affine :printf(" kind(affine)");
+  case IndexExprKind::Affine:
+    printf(" kind(affine)");
     break;
-    case IndexExprKind::Dim :printf(" kind(dim)");
+  case IndexExprKind::Dim:
+    printf(" kind(dim)");
     break;
-    case IndexExprKind::Symbol :printf(" kind(symbol)");
+  case IndexExprKind::Symbol:
+    printf(" kind(symbol)");
     break;
-    default :printf(" kind(unknown)");
+  default:
+    printf(" kind(unknown)");
     break;
   }
   printf(" scope(0x%llx)\n", (long long unsigned)getScopePtr());
@@ -1004,7 +986,11 @@ IndexExpr IndexExpr::selectOrSelf(
 
 UndefinedIndexExpr::UndefinedIndexExpr() : IndexExpr() {}
 
-LiteralIndexExpr::LiteralIndexExpr(int64_t const value) : IndexExpr(value) {}
+LiteralIndexExpr::LiteralIndexExpr(int64_t const value) {
+  indexExprObj = new IndexExprImpl();
+  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  indexExprObj->initAsLiteral(value);
+}
 
 LiteralIndexExpr::LiteralIndexExpr(IndexExpr const otherIndexExpr) {
   assert(
@@ -1015,7 +1001,11 @@ LiteralIndexExpr::LiteralIndexExpr(IndexExpr const otherIndexExpr) {
   return;
 }
 
-NonAffineIndexExpr::NonAffineIndexExpr(Value const value) : IndexExpr(value) {}
+NonAffineIndexExpr::NonAffineIndexExpr(Value const value) {
+  indexExprObj = new IndexExprImpl();
+  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  indexExprObj->initAsKind(value, IndexExprKind::NonAffine);
+}
 
 NonAffineIndexExpr::NonAffineIndexExpr(IndexExpr const otherIndexExpr) {
   // Create new IndexExpr implementation object.
@@ -1070,8 +1060,11 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExpr const otherIndexExpr)
   // Don't care about otherIndexExpr as questionmarks have no real data.
 }
 
-PredicateIndexExpr::PredicateIndexExpr(Value const value)
-    : IndexExpr(value, IndexExprKind::Predicate) {}
+PredicateIndexExpr::PredicateIndexExpr(Value const value) {
+  indexExprObj = new IndexExprImpl();
+  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  indexExprObj->initAsKind(value, IndexExprKind::Predicate);
+}
 
 PredicateIndexExpr::PredicateIndexExpr(IndexExpr const otherIndexExpr) {
   // Create new IndexExpr implementation object.
@@ -1087,7 +1080,11 @@ PredicateIndexExpr::PredicateIndexExpr(IndexExpr const otherIndexExpr) {
   indexExprObj->copy(otherIndexExpr.getObjPtr());
 }
 
-AffineIndexExpr::AffineIndexExpr(AffineExpr const value) : IndexExpr(value) {}
+AffineIndexExpr::AffineIndexExpr(AffineExpr const value) {
+  indexExprObj = new IndexExprImpl();
+  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  indexExprObj->initAsAffineExpr(value);
+}
 
 AffineIndexExpr::AffineIndexExpr(IndexExpr const otherIndexExpr) {
   // Create new IndexExpr implementation object.
@@ -1130,8 +1127,11 @@ AffineIndexExpr::AffineIndexExpr(IndexExpr const otherIndexExpr) {
   llvm_unreachable("bad path");
 }
 
-DimIndexExpr::DimIndexExpr(Value const value)
-    : IndexExpr(value, IndexExprKind::Dim) {}
+DimIndexExpr::DimIndexExpr(Value const value) {
+  indexExprObj = new IndexExprImpl();
+  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  indexExprObj->initAsKind(value, IndexExprKind::Dim);
+}
 
 DimIndexExpr::DimIndexExpr(IndexExpr const otherIndexExpr) {
   // Create new IndexExpr implementation object.
@@ -1175,8 +1175,11 @@ DimIndexExpr::DimIndexExpr(IndexExpr const otherIndexExpr) {
   llvm_unreachable("bad path");
 }
 
-SymbolIndexExpr::SymbolIndexExpr(Value const value)
-    : IndexExpr(value, IndexExprKind::Symbol) {}
+SymbolIndexExpr::SymbolIndexExpr(Value const value) {
+  indexExprObj = new IndexExprImpl();
+  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
+  indexExprObj->initAsKind(value, IndexExprKind::Symbol);
+}
 
 SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
   // Create new IndexExpr implementation object.
@@ -1332,4 +1335,3 @@ bool MemRefBoundIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
   }
   return successful;
 }
-

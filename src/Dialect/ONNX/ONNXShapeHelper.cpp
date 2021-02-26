@@ -222,8 +222,6 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   ends.resize(dataRank);
   outputDims.resize(dataRank);
 
-  printf("hi alex 1\n");
-
   // SmallVector<uint64_t, 1> index1D(1, 0);
   ArrayValueIndexCapture startsCapture(genericOp, operandAdaptor.starts());
   ArrayValueIndexCapture endsCapture(genericOp, operandAdaptor.ends());
@@ -251,23 +249,14 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     // Get dim.
     IndexExpr dimInput(dataBounds.getDim(ii));
 
-    printf("hi alex 1.1\n");
-
     // Now proceed with the computations for start/end/dim.
     // Calculation for start: start < 0 ? start + dim : start.
-    startInput.debugPrint("start input");
     IndexExpr startPos =
         IndexExpr::select(startInput < 0, startInput + dimInput, startInput);
-    startPos.debugPrint("start pos");
     // Step < 0: clamp(0, start, dim -1) else clamp(0, start, dim)
     IndexExpr neg = startPos.clamp(0, dimInput - 1);
     IndexExpr pos = startPos.clamp(0, dimInput);
-    neg.debugPrint("neg");
-    neg.debugPrint("pos");
-    stepInput.debugPrint("stepInput");
     IndexExpr startFinal = IndexExpr::select(stepInput < 0, neg, pos);
-
-    printf("hi alex 1.2\n");
 
     // Calculation for end: end<0 -> end + dim else -> end;
     // special case end <= -inf -> -1;  end >= inf -> dim;
@@ -282,16 +271,10 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     pos = endPos.clamp(0, dimInput);
     IndexExpr endFinal = IndexExpr::select(stepInput < 0, neg, pos);
 
-    printf("hi alex 1.3\n");
-    endFinal.debugPrint("end final");
-    startFinal.debugPrint("start final");
-    stepInput.debugPrint("step input");
     // Calculation for output size.
     IndexExpr dimOutputFinal = (endFinal - startFinal).ceilDiv(stepInput);
     // should use a max
     dimOutputFinal = dimOutputFinal.selectOrSelf(dimOutputFinal < 0, 0);
-
-    printf("hi alex 1.4\n");
 
     // Save results
     starts[ii] = startFinal;
@@ -299,8 +282,6 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     ends[ii] = endFinal;
     outputDims[ii] = dimOutputFinal;
   }
-
-  printf("hi alex 2\n");
 
   // Handle the default for the non-axis arrays; they are detected with 0 steps
   // (illegal value).
@@ -316,8 +297,6 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       outputDims[i] = dimInput;
     }
   }
-
-  printf("hi alex 3\n");
 
   // Save the final result.
   dimsForOutput(0) = outputDims;
