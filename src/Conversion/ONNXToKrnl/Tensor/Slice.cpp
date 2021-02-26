@@ -44,7 +44,7 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-    IndexExprContext childContext(shapeHelper.context);
+    IndexExprScope childScope(shapeHelper.scope);
 
     // Compute indices for the load and store op.
     // Load: "i * step + start" for all dim.
@@ -53,19 +53,16 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> storeIndices;
     for (int ii = 0; ii < outputRank; ++ii) {
       Value inductionVal = outputLoops.getInductionVar(ii);
-      IndexExpr inductionIndex =
-          childContext.createLoopInductionIndex(inductionVal);
-      IndexExpr start = childContext.createSymbolIndexFromParentContext(
-          shapeHelper.starts[ii]);
-      IndexExpr step = childContext.createSymbolIndexFromParentContext(
-          shapeHelper.steps[ii]);
+      IndexExpr inductionIndex = DimIndexExpr(inductionVal);
+      IndexExpr start = SymbolIndexExpr(shapeHelper.starts[ii]);
+      IndexExpr step = SymbolIndexExpr(shapeHelper.steps[ii]);
       loadIndices.emplace_back((step * inductionIndex) + start);
       storeIndices.emplace_back(inductionIndex);
     }
     // Load data and store in alloc data.
     Value loadVal =
-        childContext.createKrnlLoadOp(operandAdaptor.data(), loadIndices);
-    childContext.createKrnlStoreOp(loadVal, alloc, storeIndices);
+        childScope.createKrnlLoadOp(operandAdaptor.data(), loadIndices);
+    childScope.createKrnlStoreOp(loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
     return success();

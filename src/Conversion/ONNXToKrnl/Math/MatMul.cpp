@@ -32,7 +32,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
-    IndexExprContext outerContext(shapeHelper.context);
+    IndexExprScope outerScope(shapeHelper.scope);
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -53,8 +53,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Access function for the output, and set it to zero.
     SmallVector<IndexExpr, 4> resAccessFct;
-    outerContext.createLoopInductionIndicesFromArrayValues(
-        outputLoops.getAllInductionVar(), resAccessFct);
+    bool res = getIndexExprListFrom<DimIndexExpr>(outputLoops.getAllInductionVar(), resAccessFct);
+    //outerContext.createLoopInductionIndicesFromArrayValues(
+    //xxx    outputLoops.getAllInductionVar(), resAccessFct);
     // Insert res[...] = 0.
     // Create a local reduction value for res[...].
     Value reductionVal =
@@ -73,8 +74,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
 
-    IndexExpr k =
-        outerContext.createLoopInductionIndex(innerLoops.getInductionVar(0));
+    IndexExpr k = DimIndexExpr(innerLoops.getInductionVar(0));
     SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
     for (int i = 0; i < aRank; ++i) {
       // Add index if dim is not a padded dimension.
@@ -106,9 +106,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Add mat mul operation.
     Value loadedA =
-        outerContext.createKrnlLoadOp(operandAdaptor.A(), aAccessFct);
+        outerScope.createKrnlLoadOp(operandAdaptor.A(), aAccessFct);
     Value loadedB =
-        outerContext.createKrnlLoadOp(operandAdaptor.B(), bAccessFct);
+        outerScope.createKrnlLoadOp(operandAdaptor.B(), bAccessFct);
     Value loadedY =
         rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
     Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
@@ -119,7 +119,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     rewriter.restoreInsertionPoint(ipOuterLoopRegion);
     accumulated =
         rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-    outerContext.createKrnlStoreOp(accumulated, alloc, resAccessFct);
+    outerScope.createKrnlStoreOp(accumulated, alloc, resAccessFct);
 
     // Done.
     rewriter.replaceOp(op, alloc);

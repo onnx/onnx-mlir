@@ -31,7 +31,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
-    IndexExprContext outerContext(shapeHelper.context);
+    IndexExprScope outerScope(shapeHelper.scope);
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -65,25 +65,24 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     int kIndexStart = jIndexStart + indicesRank - (axisLit + 1);
 
     // Load the constants for the tests
-    IndexExpr zero = outerContext.createLiteralIndex(0);
-    IndexExpr axis = outerContext.createLiteralIndex(axisLit);
-    IndexExpr axisDim = outerContext.createSymbolIndexFromParentContext(
-        shapeHelper.dataDims[axisLit]);
+    IndexExpr zero = LiteralIndexExpr(0);
+    IndexExpr axis = LiteralIndexExpr(axisLit);
+    IndexExpr axisDim = SymbolIndexExpr(shapeHelper.dataDims[axisLit]);
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // compute the loop indices for the output
     SmallVector<IndexExpr, 4> outputAccessFct;
-    outerContext.createLoopInductionIndicesFromArrayValues(
+    getIndexExprListFrom<DimIndexExpr>(
         outputLoops.getAllInductionVar(), outputAccessFct);
 
     // Compute access function for indices[jjs].
     SmallVector<IndexExpr, 4> indicesAccessFct;
     for (int j = 0; j < indicesRank; ++j)
       indicesAccessFct.emplace_back(outputAccessFct[jIndexStart + j]);
-    Value indexVal = outerContext.createKrnlLoadOp(
-        operandAdaptor.indices(), indicesAccessFct);
+    Value indexVal =
+        outerScope.createKrnlLoadOp(operandAdaptor.indices(), indicesAccessFct);
     // Loaded value is an index that is not affine
-    IndexExpr index = outerContext.createNonAffineIndex(indexVal);
+    IndexExpr index = NonAffineIndexExpr(indexVal);
     // When index may be negative, add axis Dim to it.
     if (!shapeHelper.positiveConstantIndices) {
       index = index.selectOrSelf(index < zero, index + axisDim);
@@ -100,10 +99,10 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     for (int k = axisLit + 1; k < dataRank; ++k)
       dataAccessFct.emplace_back(outputAccessFct[kIndexStart + k]);
     Value data =
-        outerContext.createKrnlLoadOp(operandAdaptor.data(), dataAccessFct);
+        outerScope.createKrnlLoadOp(operandAdaptor.data(), dataAccessFct);
 
     // Save data into output
-    outerContext.createKrnlStoreOp(data, alloc, outputAccessFct);
+    outerScope.createKrnlStoreOp(data, alloc, outputAccessFct);
     rewriter.replaceOp(op, alloc);
     return success();
   }

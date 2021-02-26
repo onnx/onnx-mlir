@@ -735,7 +735,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.Compute(operands);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
-    IndexExprContext outerContext(shapeHelper.context);
+    IndexExprScope outerContext(shapeHelper.scope);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -753,20 +753,21 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(iterationBlock);
       // Handle the operation:
       for (auto arg : iterationBlock->getArguments())
-        outputAccessExprs.emplace_back(
-            outerContext.createLoopInductionIndex(arg));
+        outputAccessExprs.emplace_back(DimIndexExpr(arg));
     }
 
     // Load the first value.
     SmallVector<IndexExpr, 4> lhsAccessExprs;
-    shapeHelper.GetAccessExprs(
+    LogicalResult res = shapeHelper.GetAccessExprs(
         outerContext, operands[0], 0, outputAccessExprs, lhsAccessExprs);
+    assert(res.succeeded());
     Value lhs = outerContext.createKrnlLoadOp(operands[0], lhsAccessExprs);
 
-    // Load the sencond value.
+    // Load the second value.
     SmallVector<IndexExpr, 4> rhsAccessExprs;
-    shapeHelper.GetAccessExprs(
+    res = shapeHelper.GetAccessExprs(
         outerContext, operands[1], 1, outputAccessExprs, rhsAccessExprs);
+    assert(res.succeeded());
     Value rhs = outerContext.createKrnlLoadOp(operands[1], rhsAccessExprs);
 
     // Apply the element-wise function.
@@ -801,10 +802,9 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
-    auto shapecomputed = shapeHelper.Compute(operands);
-    (void)shapecomputed;
+    LogicalResult shapecomputed = shapeHelper.Compute(operands);
     assert(succeeded(shapecomputed));
-    IndexExprContext outerContext(shapeHelper.context);
+    IndexExprScope outerContext;
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -822,15 +822,15 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(iterationBlock);
       // Handle the operation:
       for (auto arg : iterationBlock->getArguments())
-        outputAccessExprs.emplace_back(
-            outerContext.createLoopInductionIndex(arg));
+        outputAccessExprs.emplace_back(DimIndexExpr(arg));
     }
 
     // Fold over operands for each of their scalar values.
     // Obtain the first operand.
     SmallVector<IndexExpr, 4> oprdAccessExprs;
-    shapeHelper.GetAccessExprs(
+    LogicalResult res = shapeHelper.GetAccessExprs(
         outerContext, operands[0], 0, outputAccessExprs, oprdAccessExprs);
+    assert(res.succeeded());
     Value accumulated =
         outerContext.createKrnlLoadOp(operands[0], oprdAccessExprs);
 
@@ -838,8 +838,9 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     for (unsigned i = 1; i < numArgs; i++) {
       // Obtain the next operand.
       SmallVector<IndexExpr, 4> oprdAccessExprs;
-      shapeHelper.GetAccessExprs(
+      LogicalResult res = shapeHelper.GetAccessExprs(
           outerContext, operands[i], i, outputAccessExprs, oprdAccessExprs);
+      assert(res.succeeded());
       Value next = outerContext.createKrnlLoadOp(operands[i], oprdAccessExprs);
       // Fold.
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(

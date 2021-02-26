@@ -60,7 +60,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       strides.emplace_back(stride.cast<IntegerAttr>().getInt());
 
     // Context for IndexExpr.
-    IndexExprContext ieContext(&rewriter, loc);
+    IndexExprScope ieScope(&rewriter, loc);
 
     // Spatial data starts from the second dimension.
     int spatialStartIndex = 2;
@@ -156,11 +156,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Compute the number of unsplit kernels. The number of kernels
     // must be a multiple of the number of groups.
     int64_t kernelsPerGroup = floor(kernelShape[0] / group);
-    IndexExpr kernelsPerGroupValue =
-        ieContext.createLiteralIndex(kernelsPerGroup);
+    IndexExpr kernelsPerGroupValue = LiteralIndexExpr(kernelsPerGroup);
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
-    IndexExpr subchannels =
-        ieContext.createDimIndexFromShapedType(kernelOperand, 1);
+    MemRefBoundIndexCapture kernelBounds(kernelOperand);
+    IndexExpr subchannels = kernelBounds.getDim(1);
 
     // 1. Define outer loops and emit empty optimization block:
     int64_t nOuterLoops =
@@ -184,11 +183,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
       // 2.1 Compute kernel order number: kernel = g * kernelsPerGroup + m;
       // If group is not set then the value of the kernel ID is
       // identical to that of the loop over kernels.
-      IndexExpr kernel = ieContext.createLoopInductionIndex(
-          outerLoops.getInductionVar(mIndex));
+      IndexExpr kernel = DimIndexExpr(outerLoops.getInductionVar(mIndex));
       if (group > 1) {
-        IndexExpr g = ieContext.createLoopInductionIndex(
-            outerLoops.getInductionVar(gIndex));
+        IndexExpr g = DimIndexExpr(outerLoops.getInductionVar(gIndex));
         kernel = g * kernelsPerGroupValue + kernel;
       }
       // Evaluate kernel to emit its SSA value at this location.
@@ -210,16 +207,16 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // 3.1 Emit: R[n][kernel][r1][r2] = 0;
         SmallVector<IndexExpr, 4> resultIndices;
         // n
-        resultIndices.emplace_back(ieContext.createLoopInductionIndex(
-            outerLoops.getInductionVar(nIndex)));
+        resultIndices.emplace_back(
+            DimIndexExpr(outerLoops.getInductionVar(nIndex)));
         // kernel
         resultIndices.emplace_back(kernel);
         // rX
         for (auto arg : spatialLoops.getIterateBlock()->getArguments())
-          resultIndices.emplace_back(ieContext.createLoopInductionIndex(arg));
+          resultIndices.emplace_back(DimIndexExpr(arg));
 
         // Initialize the output.
-        ieContext.createKrnlStoreOp(zero, alloc, resultIndices);
+        ieScope.createKrnlStoreOp(zero, alloc, resultIndices);
 
         // Create a local reduction value.
         Value reductionVal = rewriter.create<AllocaOp>(
@@ -230,24 +227,22 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // Prepare induction variables.
         SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
         {
+          MemRefBoundIndexCapture inputBounds(inputOperand);
           for (int i = 0; i < nSpatialLoops; ++i) {
             int j = i + spatialStartIndex;
             SmallVector<IndexExpr, 4> ic;
             // d0, output
             ic.emplace_back(resultIndices[j]);
             // s0, input dim
-            ic.emplace_back(
-                ieContext.createDimIndexFromShapedType(inputOperand, j));
+            ic.emplace_back(inputBounds.getDim(j));
             // s1, kernel dim
-            ic.emplace_back(
-                ieContext.createDimIndexFromShapedType(kernelOperand, j));
+            ic.emplace_back(kernelBounds.getDim(j));
             // s2, pad dim
-            ic.emplace_back(ieContext.createLiteralIndex(pads[i]));
+            ic.emplace_back(LiteralIndexExpr(pads[i]));
             // s3, stride dim
-            ic.emplace_back(ieContext.createLiteralIndex(strides[i]));
+            ic.emplace_back(LiteralIndexExpr(strides[i]));
             // s4, dilation dim
-            ic.emplace_back(
-                ieContext.createLiteralIndex((isDilated) ? dilations[i] : 1));
+            ic.emplace_back(LiteralIndexExpr((isDilated) ? dilations[i] : 1));
             IVExprs.emplace_back(ic);
           }
         }
@@ -259,7 +254,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
         SmallVector<IndexExpr, 4> windowStartExprs, kernelOffsetExprs;
         for (int i = 0; i < nSpatialLoops; ++i) {
           std::vector<mlir::IndexExpr> exprs = getIndexExprsForConvWindow(
-              ieContext, IVExprs[i], /*ceilMode=*/true, isDilated);
+              ieScope, IVExprs[i], /*ceilMode=*/true, isDilated);
           windowStartExprs.emplace_back(exprs[0]);
           kernelOffsetExprs.emplace_back(exprs[2]);
         }
@@ -303,21 +298,19 @@ struct ONNXConvOpLowering : public ConversionPattern {
           // 4.1 Prepare indices for accesing the data tensor.
           SmallVector<IndexExpr, 4> dataIndices;
           // n
-          dataIndices.emplace_back(ieContext.createLoopInductionIndex(
-              outerLoops.getInductionVar(nIndex)));
+          dataIndices.emplace_back(
+              DimIndexExpr(outerLoops.getInductionVar(nIndex)));
           // g * (C / group) + c
-          IndexExpr channelDepth = ieContext.createLoopInductionIndex(
-              innerLoops.getInductionVar(cIndex));
+          IndexExpr channelDepth =
+              DimIndexExpr(innerLoops.getInductionVar(cIndex));
           if (group > 1) {
-            IndexExpr g = ieContext.createLoopInductionIndex(
-                outerLoops.getInductionVar(gIndex));
+            IndexExpr g = DimIndexExpr(outerLoops.getInductionVar(gIndex));
             channelDepth = g * subchannels + channelDepth;
           }
           dataIndices.emplace_back(channelDepth);
           // h1 = cw1 * d1 + start1
           for (int i = 0; i < nSpatialLoops; ++i) {
-            IndexExpr cw1 = ieContext.createLoopInductionIndex(
-                innerLoops.getInductionVar(i + 1));
+            IndexExpr cw1 = DimIndexExpr(innerLoops.getInductionVar(i + 1));
             IndexExpr start1 = windowStartExprs[i];
             if (isDilated) {
               // h1 = cw1 * d1 + start1
@@ -335,21 +328,20 @@ struct ONNXConvOpLowering : public ConversionPattern {
           // kernel
           kernelIndices.emplace_back(kernel);
           // c
-          kernelIndices.emplace_back(ieContext.createLoopInductionIndex(
-              innerLoops.getInductionVar(cIndex)));
+          kernelIndices.emplace_back(
+              DimIndexExpr(innerLoops.getInductionVar(cIndex)));
           // k1 = h1 - kernelOffset1
           for (int i = 0; i < kernelShape.size() - spatialStartIndex; ++i) {
             // Since the window at borders may be smaller than the kernel, we
             // have to shift kernel indices with a suitalbe offset.
-            IndexExpr h1 = ieContext.createLoopInductionIndex(
-                innerLoops.getInductionVar(i + 1));
+            IndexExpr h1 = DimIndexExpr(innerLoops.getInductionVar(i + 1));
             kernelIndices.emplace_back(h1 - kernelOffsetExprs[i]);
           }
 
           // 4.3 Compute convolution.
-          auto loadData = ieContext.createKrnlLoadOp(inputOperand, dataIndices);
+          auto loadData = ieScope.createKrnlLoadOp(inputOperand, dataIndices);
           auto loadKernel =
-              ieContext.createKrnlLoadOp(kernelOperand, kernelIndices);
+              ieScope.createKrnlLoadOp(kernelOperand, kernelIndices);
           auto loadPartialSum =
               rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
@@ -366,11 +358,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
         if (hasBias) {
           SmallVector<IndexExpr, 4> biasIndices;
           biasIndices.emplace_back(kernel);
-          auto loadBias = ieContext.createKrnlLoadOp(biasOperand, biasIndices);
+          auto loadBias = ieScope.createKrnlLoadOp(biasOperand, biasIndices);
           auto resultWithBias = rewriter.create<AddFOp>(loc, result, loadBias);
-          ieContext.createKrnlStoreOp(resultWithBias, alloc, resultIndices);
+          ieScope.createKrnlStoreOp(resultWithBias, alloc, resultIndices);
         } else
-          ieContext.createKrnlStoreOp(result, alloc, resultIndices);
+          ieScope.createKrnlStoreOp(result, alloc, resultIndices);
       }
     }
     rewriter.replaceOp(op, alloc);

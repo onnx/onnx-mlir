@@ -45,9 +45,10 @@ struct ONNXShapeOpLowering : public ConversionPattern {
 
     // Iterate along the data shape storing dim value to result.
     for (int i = 0; i < dataRank; i++) {
-      IndexExprContext IEContext(&rewriter, loc);
-      IndexExpr storeIndex = IEContext.createLiteralIndex(i);
-      IndexExpr shapeVal = IEContext.createDimIndexFromShapedType(data, i);
+      IndexExprScope scope(&rewriter, loc);
+      IndexExpr storeIndex = LiteralIndexExpr(i);
+      MemRefBoundIndexCapture dataBounds(data);
+      IndexExpr shapeVal = dataBounds.getDim(i);
       Value storeVal = rewriter.create<IndexCastOp>(
           loc, shapeVal.getValue(), outputMemRefType.getElementType());
       rewriter.create<KrnlStoreOp>(loc, storeVal, alloc, storeIndex.getValue());

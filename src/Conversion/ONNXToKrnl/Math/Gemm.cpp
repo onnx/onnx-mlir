@@ -34,7 +34,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
-    IndexExprContext outerContext(shapeHelper.context);
+    IndexExprScope outerScope;
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -57,10 +57,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // Compute the access functions for res[n,m].
-    IndexExpr n =
-        outerContext.createLoopInductionIndex(outputLoops.getInductionVar(0));
-    IndexExpr m =
-        outerContext.createLoopInductionIndex(outputLoops.getInductionVar(1));
+    IndexExpr n = DimIndexExpr(outputLoops.getInductionVar(0));
+    IndexExpr m = DimIndexExpr(outputLoops.getInductionVar(1));
     SmallVector<IndexExpr, 4> resAccessFct({n, m});
 
     // Insert res[n,m] = 0.
@@ -79,8 +77,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
     {
-      IndexExpr k =
-          outerContext.createLoopInductionIndex(innerLoops.getInductionVar(0));
+      IndexExpr k = DimIndexExpr(innerLoops.getInductionVar(0));
       SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
       if (gemmOp.transA() != 0)
         aAccessFct = {k, n};
@@ -92,9 +89,9 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         bAccessFct = {k, m};
       // Add mat mul operation.
       Value loadedA =
-          outerContext.createKrnlLoadOp(operandAdaptor.A(), aAccessFct);
+          outerScope.createKrnlLoadOp(operandAdaptor.A(), aAccessFct);
       Value loadedB =
-          outerContext.createKrnlLoadOp(operandAdaptor.B(), bAccessFct);
+          outerScope.createKrnlLoadOp(operandAdaptor.B(), bAccessFct);
       Value loadedY =
           rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
       Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
@@ -112,8 +109,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     if (shapeHelper.hasBias) {
       for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
         // If dim > 1, use loop index, otherwise broadcast on 0's element.
-        IndexExpr dim = outerContext.createSymbolIndexFromParentContext(
-            shapeHelper.cDims[x]);
+        IndexExpr dim = SymbolIndexExpr(shapeHelper.cDims[x]);
         cAccessFct.emplace_back(IndexExpr::select(dim > 1, resAccessFct[x], 0));
       }
     }
@@ -123,13 +119,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     if (shapeHelper.hasBias) {
       // Res = AB*alpha + beta * C.
       Value loadedC =
-          outerContext.createKrnlLoadOp(operandAdaptor.C(), cAccessFct);
+          outerScope.createKrnlLoadOp(operandAdaptor.C(), cAccessFct);
       auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
       auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-      outerContext.createKrnlStoreOp(Y, alloc, resAccessFct);
+      outerScope.createKrnlStoreOp(Y, alloc, resAccessFct);
     } else {
       // No bias, just store alphaAB into res.
-      outerContext.createKrnlStoreOp(alphaAB, alloc, resAccessFct);
+      outerScope.createKrnlStoreOp(alphaAB, alloc, resAccessFct);
     }
 
     rewriter.replaceOp(op, alloc);

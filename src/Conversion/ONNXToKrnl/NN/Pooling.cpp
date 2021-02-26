@@ -235,7 +235,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     int kernelOffset = inputShape.size() - kernelShape.size();
 
     // Context for IndexExpr.
-    IndexExprContext ieContext(&rewriter, loc);
+    IndexExprScope ieScope(&rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc;
@@ -346,7 +346,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> outputIndices;
       for (int i = 0; i < outputShape.size(); ++i)
         outputIndices.emplace_back(
-            ieContext.createLoopInductionIndex(outputLoops.getInductionVar(i)));
+            DimIndexExpr(outputLoops.getInductionVar(i)));
 
       // 2.1 Emit: output[n][c][ho][wo] = identity
       // Create a local reduction value for output[n][c][ho][wo].
@@ -368,23 +368,22 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // Prepare induction variables.
       SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
       {
+        MemRefBoundIndexCapture inputBounds(inputOperand);
         for (int i = 0; i < kernelShape.size(); ++i) {
           int j = i + kernelOffset;
           SmallVector<IndexExpr, 4> ic;
           // d0, output
           ic.emplace_back(outputIndices[j]);
           // s0, input dim
-          ic.emplace_back(
-              ieContext.createDimIndexFromShapedType(inputOperand, j));
+          ic.emplace_back(inputBounds.getDim(j));
           // s1, kernel dim
-          ic.emplace_back(ieContext.createLiteralIndex(kernelShape[i]));
+          ic.emplace_back(LiteralIndexExpr(kernelShape[i]));
           // s2, pad dim
-          ic.emplace_back(ieContext.createLiteralIndex(pads[i]));
+          ic.emplace_back(LiteralIndexExpr(pads[i]));
           // s3, stride dim
-          ic.emplace_back(ieContext.createLiteralIndex(strides[i]));
+          ic.emplace_back(LiteralIndexExpr(strides[i]));
           // s4, dilation dim
-          ic.emplace_back(
-              ieContext.createLiteralIndex((isDilated) ? dilations[i] : 1));
+          ic.emplace_back(LiteralIndexExpr((isDilated) ? dilations[i] : 1));
           IVExprs.emplace_back(ic);
         }
       }
@@ -396,7 +395,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> windowStartExprs, windowEndExprs;
       for (int i = 0; i < kernelShape.size(); ++i) {
         std::vector<mlir::IndexExpr> exprs = getIndexExprsForConvWindow(
-            ieContext, IVExprs[i], ceilMode, isDilated);
+            ieScope, IVExprs[i], ceilMode, isDilated);
         windowStartExprs.emplace_back(exprs[0]);
         windowEndExprs.emplace_back(exprs[1]);
       }
@@ -460,8 +459,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             inputIndices.emplace_back(outputIndices[i]);
           for (int i = kernelOffset; i < inputShape.size(); ++i) {
             int j = i - kernelOffset;
-            IndexExpr hp = ieContext.createLoopInductionIndex(
-                poolingLoops.getInductionVar(j));
+            IndexExpr hp = DimIndexExpr(poolingLoops.getInductionVar(j));
             IndexExpr startH = windowStartExprs[j];
             if (isDilated) {
               // hi = hp * dH + startH
@@ -477,8 +475,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         // Apply pooling operation.
         //      output[n][c][ho][wo] =
         //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-        Value loadInput =
-            ieContext.createKrnlLoadOp(inputOperand, inputIndices);
+        Value loadInput = ieScope.createKrnlLoadOp(inputOperand, inputIndices);
         Value loadPartialOutput =
             rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
@@ -489,7 +486,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       rewriter.restoreInsertionPoint(ipOuterLoopRegion);
       Value output =
           rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-      ieContext.createKrnlStoreOp(output, alloc, outputIndices);
+      ieScope.createKrnlStoreOp(output, alloc, outputIndices);
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.
       SmallVector<Value, 4> outputIndicesInValue;

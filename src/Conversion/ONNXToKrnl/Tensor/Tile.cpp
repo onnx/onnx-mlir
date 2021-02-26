@@ -98,10 +98,11 @@ struct ONNXTileOpLowering : public ConversionPattern {
 
     for (int i = 0; i < outputRank; i++) {
       // Context is created for each dimension because they are independent
-      IndexExprContext IEContext(&rewriter, loc);
+      IndexExprScope IEContext(&rewriter, loc);
       Value loopVal = outputLoops.getInductionVar(i);
-      IndexExpr index = IEContext.createLoopInductionIndex(loopVal);
-      IndexExpr dimSize = IEContext.createDimIndexFromShapedType(input, i);
+      IndexExpr index = DimIndexExpr(loopVal);
+      MemRefBoundIndexCapture inputBounds(input);
+      IndexExpr dimSize = inputBounds.getDim(i);
       IndexExpr exprVal = index % dimSize;
       if (!exprVal.isAffine()) {
         isAffineLoad = false;

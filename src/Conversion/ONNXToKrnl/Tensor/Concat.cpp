@@ -68,12 +68,11 @@ struct ONNXConcatOpLowering : public ConversionPattern {
         if (r != axis || i == 0) {
           writeIndices.emplace_back(inputLoops.getInductionVar(r));
         } else {
-          IndexExprContext IEContext(&rewriter, loc);
-          IndexExpr writeOffset =
-              IEContext.createLoopInductionIndex(inputLoops.getInductionVar(r));
+          IndexExprScope IEContext(&rewriter, loc);
+          IndexExpr writeOffset = DimIndexExpr(inputLoops.getInductionVar(r));
           for (int j = 0; j < i; j++) {
-            writeOffset = writeOffset + IEContext.createDimIndexFromShapedType(
-                                            operands[j], r);
+            MemRefBoundIndexCapture operandJBounds(operands[j]);
+            writeOffset = writeOffset + operandJBounds.getDim(r);
           }
           writeIndices.emplace_back(writeOffset.getValue());
         }

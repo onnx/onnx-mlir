@@ -79,7 +79,7 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 ///
 /// This function returns {startH, endH, kernelOffset}.
 
-std::vector<IndexExpr> getIndexExprsForConvWindow(IndexExprContext &context,
+std::vector<IndexExpr> getIndexExprsForConvWindow(IndexExprScope &context,
     SmallVectorImpl<IndexExpr> &inputExprs, bool ceilMode, bool isDilated) {
   assert(inputExprs.size() == 6 && "Not enought inputs");
   IndexExpr windowStartExpr, windowEndExpr, kernelOffsetExpr;
@@ -104,7 +104,7 @@ std::vector<IndexExpr> getIndexExprsForConvWindow(IndexExprContext &context,
   windowEndExpr = IndexExpr::min(endExprs);
   // kernelOffsetExpr
   SmallVector<mlir::IndexExpr, 2> kernelExprs = {
-      context.createLiteralIndex(0), start2};
+      LiteralIndexExpr(0), start2};
   kernelOffsetExpr = IndexExpr::min(kernelExprs);
 
   return std::vector<IndexExpr>{
