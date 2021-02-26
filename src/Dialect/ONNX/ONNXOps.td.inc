@@ -5039,9 +5039,9 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
   "will throw errors. The output tensor has the same shape"
   "and contains the softmax values of the corresponding input."
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$input,
     DefaultValuedAttr<SI64Attr, "1">:$axis);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$output);
   let builders = [
     OpBuilderDAG<(ins "Value":$input, "IntegerAttr":$axis), [{
       auto elementType = input.getType().cast<TensorType>().getElementType();
