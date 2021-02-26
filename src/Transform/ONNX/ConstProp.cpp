@@ -493,9 +493,8 @@ DenseElementsAttr ConstPropUnsqueeze(
   RankedTensorType resType =
       constructRankedTensorType(resOperand.getType().cast<ShapedType>());
 
-  // Unqueeze does not change the order of access, so just copy the whole data.
-  return DenseElementsAttr::getFromRawBuffer(
-      resType, denseAttr.getRawData(), denseAttr.isSplat());
+  // Unqueeze does not change the order of access, so just reshape.
+  return denseAttr.reshape(resType);
 }
 
 //===----------------------------------------------------------------------===//
