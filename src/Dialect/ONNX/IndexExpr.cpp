@@ -49,9 +49,9 @@ IndexExprScope::IndexExprScope()
   getCurrentScopePtr() = this;
 }
 
-IndexExprScope::IndexExprScope(IndexExprScope &explicitParentScope)
+IndexExprScope::IndexExprScope(IndexExprScope &explicitEnclosingScope)
     : IndexExprScope() {
-  assert(&explicitParentScope == parentScope &&
+  assert(&explicitEnclosingScope == parentScope &&
          "provided parent scope was not the previously active scope");
 }
 
@@ -129,7 +129,7 @@ int IndexExprScope::addSymbol(Value const value) {
 
 bool IndexExprScope::isCurrentScope() { return getCurrentScopePtr() == this; }
 
-bool IndexExprScope::isParentOfCurrentScope() {
+bool IndexExprScope::isEnclosingScope() {
   for (IndexExprScope *s = getCurrentScopePtr()->parentScope; s;
        s = s->parentScope) {
     if (s == this)
@@ -442,6 +442,39 @@ IndexExprScope *IndexExpr::getScopePtr() const {
   return getObj().scope;
 }
 
+IndexExprKind IndexExpr::getKind() const { return getObj().kind; }
+
+bool IndexExpr::isInCurrentScope() const { return getScope().isCurrentScope(); }
+
+bool IndexExpr::canBeUsedInScope() const {
+  if (isInCurrentScope())
+    return true;
+  if (isLiteral()) {
+    return getScope().isEnclosingScope();
+  }
+  switch (getKind()) {
+  case IndexExprKind::NonAffine:
+  case IndexExprKind::Predicate:
+    // Its ok to use a nonafine index expressions from enclosing scopes.
+    return getScope().isEnclosingScope();
+    break;
+  case IndexExprKind::Questionmark:
+    return true;
+    printf(" kind(predicate)");
+    break;
+  case IndexExprKind::Affine:
+  case IndexExprKind::Dim:
+  case IndexExprKind::Symbol:
+    // Because affine/dim/symbols are specific to a current scope, they have to
+    // be converted to the current scope before being used. They cannot be used
+    // out of current scope.
+    return false;
+  default:
+    break;
+  }
+  llvm_unreachable("unkown kind");
+}
+
 ConversionPatternRewriter &IndexExpr::getRewriter() const {
   return getScope().getRewriter();
 }
@@ -490,8 +523,6 @@ IndexExprImpl *IndexExpr::getObjPtr() const {
   assert(indexExprObj);
   return indexExprObj;
 }
-
-IndexExprKind IndexExpr::getKind() const { return getObj().kind; }
 
 //===----------------------------------------------------------------------===//
 // Helpers for IndexExpressions
@@ -1119,7 +1150,7 @@ AffineIndexExpr::AffineIndexExpr(IndexExpr const otherIndexExpr) {
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
-  bool isSameScope = otherIndexExpr.getScope().isCurrentScope();
+  bool isSameScope = otherIndexExpr.isInCurrentScope();
   switch (otherIndexExpr.getKind()) {
   case IndexExprKind::Questionmark: {
     assert("cannot make an affine from a Questionmark");
@@ -1166,7 +1197,7 @@ DimIndexExpr::DimIndexExpr(IndexExpr const otherIndexExpr) {
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
-  bool isSameScope = otherIndexExpr.getScope().isCurrentScope();
+  bool isSameScope = otherIndexExpr.isInCurrentScope();
   switch (otherIndexExpr.getKind()) {
   case IndexExprKind::Questionmark: {
     assert("cannot make a dim from a Questionmark");
@@ -1214,7 +1245,7 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
-  bool isSameScope = otherIndexExpr.getScope().isCurrentScope();
+  bool isSameScope = otherIndexExpr.isInCurrentScope();
   switch (otherIndexExpr.getKind()) {
   case IndexExprKind::Questionmark: {
     assert("cannot make a symbol from a Questionmark");
@@ -1364,21 +1395,20 @@ bool MemRefBoundIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
 //===----------------------------------------------------------------------===//
 
 krnl_load::krnl_load(Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  IndexExprScope *currScope = IndexExprScope::getCurrentScopePtr();
-  assert(currScope && "expected an existing scope");
+  IndexExprScope &currScope = IndexExprScope::getCurrentScope();
   SmallVector<Value, 4> loadIndices;
   for (IndexExpr ie : indices)
     loadIndices.emplace_back(ie.getValue());
-  result = currScope->getRewriter().create<KrnlLoadOp>(
-      currScope->getLoc(), memref, loadIndices);
+  result = currScope.getRewriter().create<KrnlLoadOp>(
+      currScope.getLoc(), memref, loadIndices);
 }
 
-krnl_store::krnl_store(Value val, Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  IndexExprScope *currScope = IndexExprScope::getCurrentScopePtr();
-  assert(currScope && "expected an existing scope");
+krnl_store::krnl_store(
+    Value val, Value memref, SmallVectorImpl<IndexExpr> &indices) {
+  IndexExprScope &currScope = IndexExprScope::getCurrentScope();
   SmallVector<Value, 4> storeIndices;
   for (IndexExpr ie : indices)
     storeIndices.emplace_back(ie.getValue());
-  currScope->getRewriter().create<KrnlStoreOp>(
-      currScope->getLoc(), val, memref, storeIndices);
+  currScope.getRewriter().create<KrnlStoreOp>(
+      currScope.getLoc(), val, memref, storeIndices);
 }

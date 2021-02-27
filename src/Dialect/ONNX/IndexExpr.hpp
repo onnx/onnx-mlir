@@ -175,6 +175,14 @@ the same scope.
 
 namespace mlir {
 class IndexExpr;
+class UndefinedIndexExpr;
+class LiteralIndexExpr;
+class NonAffineIndexExpr;
+class QuestionmarkIndexExpr;
+class PredicateIndexExpr;
+class AffineIndexExpr;
+class DimIndexExpr;
+class SymbolIndexExpr;
 class IndexExprImpl;
 
 //===----------------------------------------------------------------------===//
@@ -205,24 +213,40 @@ enum class IndexExprKind {
 // a scope during which each of the dynamic dimensions are defined and all of
 // the symbols hold constant in that scope.
 class IndexExprScope {
+  friend class IndexExprImpl;
+  friend class IndexExpr;
+  friend class LiteralIndexExpr;
+
 public:
   // Constructor for a scope. Top level scope must provide rewriter (possibly
   // null) and location.
   IndexExprScope(ConversionPatternRewriter *rewriter, Location loc);
   // Default constructor can be used for subsequent nested scopes.
   IndexExprScope();
-  // While providing the parent scope is not necessary, it is provided to
+  // While providing the parent scope is not necessary, it is offered to
   // generate more explicit code.
-  IndexExprScope(IndexExprScope &explicitParentScope);
+  IndexExprScope(IndexExprScope &explicitEnclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
   ~IndexExprScope();
 
-  // Get current scope.
+  // Public getters.
+  static IndexExprScope &getCurrentScope();
+  ConversionPatternRewriter &getRewriter() const;
+  Location getLoc() const { return loc; }
+  bool isShapeInferencePass() const { return !rewriter; }
+
+  // Queries and getters.
+  bool isCurrentScope();
+  bool isEnclosingScope();
+  void getDimAndSymbolList(SmallVectorImpl<Value> &list) const;
+  int getNumDims() const { return dims.size(); }
+  int getNumSymbols() const { return symbols.size(); }
+
+private:
   static IndexExprScope *&getCurrentScopePtr() {
     thread_local IndexExprScope *scope = nullptr; // Thread local, null init.
     return scope;
   }
-  static IndexExprScope &getCurrentScope();
 
   // Add a new IndexExprImpl in the scope's container.
   void addIndexExprImpl(IndexExprImpl *obj);
@@ -235,17 +259,7 @@ public:
   static IndexExprImpl *hasCachedLiteralIndexExp(int64_t value);
   static void cacheLiteralIndexExp(int64_t value, IndexExprImpl *obj);
 
-  // Queries and getters.
-  bool isShapeInferencePass() const { return !rewriter; }
-  bool isCurrentScope();
-  bool isParentOfCurrentScope();
-  void getDimAndSymbolList(SmallVectorImpl<Value> &list) const;
-  int getNumDims() const { return dims.size(); }
-  int getNumSymbols() const { return symbols.size(); }
-  ConversionPatternRewriter &getRewriter() const;
-  Location getLoc() const { return loc; }
 
-private:
   // Dim and symbol mapping from index to value.
   SmallVector<Value, 4> dims;
   SmallVector<Value, 4> symbols;
@@ -313,15 +327,6 @@ private:
 //===----------------------------------------------------------------------===//
 // IndexExprExpr
 //===----------------------------------------------------------------------===//
-
-class UndefinedIndexExpr;
-class LiteralIndexExpr;
-class NonAffineIndexExpr;
-class QuestionmarkIndexExpr;
-class PredicateIndexExpr;
-class AffineIndexExpr;
-class DimIndexExpr;
-class SymbolIndexExpr;
 
 // Data structure that is the public interface for IndexExpr. It is a shallow
 // data structure that is simply a pointer to the actual data (IndexExprImpl).
@@ -435,6 +440,9 @@ protected:
   IndexExprImpl &getObj() const;
   IndexExprImpl *getObjPtr() const;
   IndexExprKind getKind() const;
+  bool isInCurrentScope() const;
+  bool canBeUsedInScope() const;
+
   // Support for operations: lambda function types.
   typedef std::function<IndexExpr(IndexExpr const, IndexExpr const)> F2;
   typedef std::function<IndexExpr(IndexExpr, IndexExpr const)> F2Self;
