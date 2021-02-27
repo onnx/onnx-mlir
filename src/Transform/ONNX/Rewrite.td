@@ -49,6 +49,19 @@ def createArrayAttrOfOneToRankOf : NativeCodeCall<
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
   "createArrayAttrOfNToM($_builder, 2, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
+def ONNXConstantOpNormalize: NativeCodeCall<
+  "normalizeConstantOp($_builder, $0, $1)">;
+
+def AttributeIsNotNull :
+    Constraint<CPred<" ($_self) ">, "Attribute is null">;
+
+// Intended to check whether there is at least one not-Null the attributes 
+// However, the current table gen can only support max 4 parameters
+// Multiple rules are used instead of one rule
+def AttributesNotAllNull :
+  Constraint<Neg<And<[CPred<"($0)">, CPred<" ($1) ">, CPred<" ($2) ">]>>,
+  "Attributes are not null">;
+
 def GetNullAttr :
    NativeCodeCall<"Attribute()">;
 
@@ -147,7 +160,6 @@ def FuseBatchNormTestModeConvPattern: Pat<
                  (ONNXAddOp
                     $var,
                     (ONNXConstantOpFromDenseAttr
-                       $res,
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
            (createArrayAttrOfOneToRankOf $w))),
      // b_
@@ -196,6 +208,20 @@ def GlobalAveragePoolPattern: Pat<
 def GlobalMaxPoolPattern: Pat<
   (ONNXGlobalMaxPoolOp $x),
   (ONNXReduceMaxOp $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
+>;
+
+def ConstantOpNormalizationPattern1: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $floatAttr),
+   [(AttributeIsNotNull:$floatAttr)]
+>;
+
+def ConstantOpNormalizationPattern2: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $intAttr),
+   [(AttributeIsNotNull:$intAttr)]
 >;
 
 #endif // ONNX_REWRITE

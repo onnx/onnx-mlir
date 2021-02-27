@@ -24,7 +24,7 @@ class SeqOf<list<Type> allowedTypes> :
                 "$_self.cast<SeqType>().getElementType()",  "SeqType">;
 
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
-  "getONNXConstantOpFromDenseAttr($_builder, $0.getDefiningOp()->getLoc(), $1)">;
+  "getONNXConstantOpFromDenseAttr($_builder, $_loc, $0)">;
 
 include "src/Interface/ShapeInferenceInterface.td"
 include "src/Interface/PromotableConstOperandsOpInterface.td"

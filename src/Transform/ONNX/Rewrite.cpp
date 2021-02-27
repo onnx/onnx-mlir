@@ -31,6 +31,69 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttr(
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 }
 
+// Create a DenseElementsAttr from a integer attribute.
+DenseElementsAttr createDenseElementsAttrFromIntegerAttr(
+    PatternRewriter &rewriter, Type elementType, IntegerAttr attr) {
+  SmallVector<int64_t, 1> dims(1, 1);
+  SmallVector<int64_t, 1> values(1, attr.getSInt());
+  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
+  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+}
+
+// Create a DenseElementsAttr from a String attribute.
+DenseElementsAttr createDenseElementsAttrFromStringAttr(
+    PatternRewriter &rewriter, Type elementType, StringAttr attr) {
+  SmallVector<int64_t, 1> dims(1, 1);
+  SmallVector<StringRef, 1> values(1, attr.getValue());
+  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
+  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+}
+
+// Create a DenseElementsAttr from a String attribute.
+DenseElementsAttr createDenseElementsAttrFromStringAttr(
+    PatternRewriter &rewriter, Type elementType, SmallVector<StringAttr> attrs) {
+  SmallVector<int64_t, 1> dims(1, attrs.size());
+  SmallVector<StringRef, 1> values;
+  for (auto attr :  attrs) {
+    values.push_back(attr.getValue());
+  }
+  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
+  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+}
+
+Value normalizeConstantOp(
+    PatternRewriter &rewriter, Value output, Attribute attr) {
+  DenseElementsAttr denseAttr;
+  Type elementType;
+  Type outputType = output.getType();
+  if (outputType.dyn_cast<ShapedType>()) {
+    elementType = outputType.cast<ShapedType>().getElementType();
+  } else {
+    elementType = outputType;
+  }
+
+  if (attr.dyn_cast<FloatAttr>()) {
+    FloatAttr myAttr = attr.cast<FloatAttr>();
+    denseAttr = createDenseElementsAttrFromFloatAttr(rewriter, elementType, myAttr);
+    return rewriter.create<ONNXConstantOp>(output.getLoc(), output.getType(), Attribute(), denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+  } else if (attr.dyn_cast<IntegerAttr>()) {
+    IntegerAttr myAttr = attr.cast<IntegerAttr>();
+    denseAttr = createDenseElementsAttrFromIntegerAttr(rewriter, elementType, myAttr);
+    return rewriter.create<ONNXConstantOp>(output.getLoc(), output.getType(), Attribute(), denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+  }  else if (attr.dyn_cast<StringAttr>()) {
+    StringAttr myAttr = attr.cast<StringAttr>();
+    denseAttr = createDenseElementsAttrFromStringAttr(rewriter, elementType, {myAttr});
+    return rewriter.create<ONNXConstantOp>(output.getLoc(), output.getType(), Attribute(), denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
+  } else if (attr.dyn_cast<ArrayAttr>()) {
+    ArrayAttr myAttr = attr.cast<ArrayAttr>();
+    //if (myAttr.getValue().begin().dyn_cast<FloatAttr>()) {
+    //  for (auto single : myAttr.getValue().getValue) {
+    // }
+    //}
+  }
+}
+    
+    
 // Create a DenseElementsAttr based on the shape of type.
 DenseElementsAttr createDenseElementsAttrFromShape(
     PatternRewriter &rewriter, Value value) {
@@ -115,13 +178,6 @@ DenseElementsAttr createDenseFloatAttrOfValue(
       llvm::makeArrayRef(wrapper));
 }
 
-/*
-Value createConstantOp_v11(
-    PatternRewriter &rewriter, Location loc, Attribute sparse, Attribute dense)
-{ rewriter.create<ONNXConstantOp>(loc, sparse, dense);
-}
-*/
-
 // Pad a ArrayAttr with zeros.
 //
 // pads = [B1, B2, ... Bk, E1, E2, ..., Ek]
@@ -186,4 +242,11 @@ void ONNXGlobalAveragePoolOp::getCanonicalizationPatterns(
 void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<GlobalMaxPoolPattern>(context);
+}
+
+/// on the ONNXSizeOp.
+void ONNXConstantOp::getCanonicalizationPatterns(
+    OwningRewritePatternList &results, MLIRContext *context) {
+  results.insert<ConstantOpNormalizationPattern1>(context);
+  results.insert<ConstantOpNormalizationPattern2>(context);
 }
