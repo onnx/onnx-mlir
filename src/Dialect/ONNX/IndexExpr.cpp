@@ -395,6 +395,10 @@ int64_t IndexExpr::getLiteral() const {
 AffineExpr IndexExpr::getAffineExpr() const {
   assert(!isShapeInferencePass() && "cannot get affine during shape inference");
   assert(!isPredType() && "no affine support for predicate type");
+  if (hasAffineExpr() ) {
+    // Already computed it, use it.
+    return getObj().affineExpr;
+  }
   if (isLiteral()) {
     // Create a literal.
     getObj().affineExpr = getRewriter().getAffineConstantExpr(getObj().intLit);
@@ -413,6 +417,7 @@ AffineExpr IndexExpr::getAffineExpr() const {
     int id = getScope().addDim(getObj().value);
     getObj().affineExpr = getRewriter().getAffineDimExpr(id);
   } else {
+    llvm_unreachable("requesting affine expr of incompatible InexeExpr");
     assert(
         hasAffineExpr() && "requesting affine expr of incompatible IndexExpr");
   }
