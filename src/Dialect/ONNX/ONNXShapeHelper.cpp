@@ -135,7 +135,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
 }
 
 LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(
-    IndexExprScope &outerContext, Value operand, unsigned operandIndex,
+    IndexExprScope &outerScope, Value operand, unsigned operandIndex,
     const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
   if (isUniBroadcasting && operandIndex == 0) {

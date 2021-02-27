@@ -97,8 +97,8 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // Alternative implementation can be found at the end of this file.
 
     for (int i = 0; i < outputRank; i++) {
-      // Context is created for each dimension because they are independent
-      IndexExprScope IEContext(&rewriter, loc);
+      // Scope is created for each dimension because they are independent
+      IndexExprScope IEScope(&rewriter, loc);
       DimIndexExpr index(outputLoops.getInductionVar(i));
       MemRefBoundIndexCapture inputBounds(input);
       DimIndexExpr dimSize(inputBounds.getDim(i));

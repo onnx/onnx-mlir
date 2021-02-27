@@ -88,10 +88,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       else
         bAccessFct = {k, m};
       // Add mat mul operation.
-      Value loadedA =
-          outerScope.createKrnlLoadOp(operandAdaptor.A(), aAccessFct);
-      Value loadedB =
-          outerScope.createKrnlLoadOp(operandAdaptor.B(), bAccessFct);
+      Value loadedA = krnl_load(operandAdaptor.A(), aAccessFct);
+      Value loadedB = krnl_load(operandAdaptor.B(), bAccessFct);
       Value loadedY =
           rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
       Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
@@ -118,14 +116,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
     if (shapeHelper.hasBias) {
       // Res = AB*alpha + beta * C.
-      Value loadedC =
-          outerScope.createKrnlLoadOp(operandAdaptor.C(), cAccessFct);
+      Value loadedC = krnl_load(operandAdaptor.C(), cAccessFct);
       auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
       auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-      outerScope.createKrnlStoreOp(Y, alloc, resAccessFct);
+      krnl_store(Y, alloc, resAccessFct);
     } else {
       // No bias, just store alphaAB into res.
-      outerScope.createKrnlStoreOp(alphaAB, alloc, resAccessFct);
+      krnl_store(alphaAB, alloc, resAccessFct);
     }
 
     rewriter.replaceOp(op, alloc);

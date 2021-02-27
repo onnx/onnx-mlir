@@ -61,8 +61,8 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     }
     // Load data and store in alloc data.
     Value loadVal =
-        childScope.createKrnlLoadOp(operandAdaptor.data(), loadIndices);
-    childScope.createKrnlStoreOp(loadVal, alloc, storeIndices);
+        krnl_load(operandAdaptor.data(), loadIndices);
+    krnl_store(loadVal, alloc, storeIndices);
 
     rewriter.replaceOp(op, alloc);
     return success();

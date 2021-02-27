@@ -217,13 +217,6 @@ public:
   // Destructor which release all IndexExpr associated with this scope.
   ~IndexExprScope();
 
-  // Code Create for Krnl load and store. Memref shape is expected to be of the
-  // same dimension than the indices array size. Each index expression will be
-  // transformed to a value to be used as indices to the memref.
-  Value createKrnlLoadOp(Value memref, SmallVectorImpl<IndexExpr> &indices);
-  void createKrnlStoreOp(
-      Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
-
   // Get current scope.
   static IndexExprScope *&getCurrentScopePtr() {
     thread_local IndexExprScope *scope = nullptr; // Thread local, null init.
@@ -578,5 +571,19 @@ bool getIndexExprListFrom(
   }
   return successful;
 }
+
+//===----------------------------------------------------------------------===//
+// Generating Krnl Load / Store
+//===----------------------------------------------------------------------===//
+
+struct krnl_load {
+  krnl_load(Value memref, SmallVectorImpl<IndexExpr> &indices);
+  Value result;
+  operator Value() { return result; }
+};
+
+struct krnl_store {
+  krnl_store(Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
+};
 
 } // namespace mlir

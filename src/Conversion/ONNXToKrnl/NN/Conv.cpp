@@ -59,7 +59,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     for (Attribute stride : stridesAttribute.getValue())
       strides.emplace_back(stride.cast<IntegerAttr>().getInt());
 
-    // Context for IndexExpr.
+    // Scope for IndexExpr.
     IndexExprScope ieScope(&rewriter, loc);
 
     // Spatial data starts from the second dimension.
@@ -216,7 +216,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
           resultIndices.emplace_back(DimIndexExpr(arg));
 
         // Initialize the output.
-        ieScope.createKrnlStoreOp(zero, alloc, resultIndices);
+        krnl_store(zero, alloc, resultIndices);
 
         // Create a local reduction value.
         Value reductionVal = rewriter.create<AllocaOp>(
@@ -339,9 +339,9 @@ struct ONNXConvOpLowering : public ConversionPattern {
           }
 
           // 4.3 Compute convolution.
-          auto loadData = ieScope.createKrnlLoadOp(inputOperand, dataIndices);
+          auto loadData = krnl_load(inputOperand, dataIndices);
           auto loadKernel =
-              ieScope.createKrnlLoadOp(kernelOperand, kernelIndices);
+              krnl_load(kernelOperand, kernelIndices);
           auto loadPartialSum =
               rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,
@@ -358,11 +358,11 @@ struct ONNXConvOpLowering : public ConversionPattern {
         if (hasBias) {
           SmallVector<IndexExpr, 4> biasIndices;
           biasIndices.emplace_back(kernel);
-          auto loadBias = ieScope.createKrnlLoadOp(biasOperand, biasIndices);
+          auto loadBias = krnl_load(biasOperand, biasIndices);
           auto resultWithBias = rewriter.create<AddFOp>(loc, result, loadBias);
-          ieScope.createKrnlStoreOp(resultWithBias, alloc, resultIndices);
+          krnl_store(resultWithBias, alloc, resultIndices);
         } else
-          ieScope.createKrnlStoreOp(result, alloc, resultIndices);
+          krnl_store(result, alloc, resultIndices);
       }
     }
     rewriter.replaceOp(op, alloc);

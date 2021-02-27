@@ -234,7 +234,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     // Kernel offset in the input shape.
     int kernelOffset = inputShape.size() - kernelShape.size();
 
-    // Context for IndexExpr.
+    // Scope for IndexExpr.
     IndexExprScope ieScope(&rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
@@ -475,7 +475,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         // Apply pooling operation.
         //      output[n][c][ho][wo] =
         //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-        Value loadInput = ieScope.createKrnlLoadOp(inputOperand, inputIndices);
+        Value loadInput = krnl_load(inputOperand, inputIndices);
         Value loadPartialOutput =
             rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
@@ -486,7 +486,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       rewriter.restoreInsertionPoint(ipOuterLoopRegion);
       Value output =
           rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-      ieScope.createKrnlStoreOp(output, alloc, outputIndices);
+      krnl_store(output, alloc, outputIndices);
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.
       SmallVector<Value, 4> outputIndicesInValue;
