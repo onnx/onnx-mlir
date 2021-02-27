@@ -37,14 +37,15 @@ using namespace mlir;
 IndexExprScope::IndexExprScope(
     ConversionPatternRewriter *rewriter, Location loc)
     : dims(), symbols(), rewriter(rewriter), loc(loc),
-      parentScope(getCurrentScopePtr()), container() {
+      parentScope(getCurrentScopePtr()), container(), zero(nullptr),
+      minusOne(nullptr), one(nullptr) {
   getCurrentScopePtr() = this;
 }
 
 IndexExprScope::IndexExprScope()
     : dims(), symbols(), rewriter(getCurrentScope().rewriter),
       loc(getCurrentScope().loc), parentScope(getCurrentScopePtr()),
-      container() {
+      container(), zero(nullptr), minusOne(nullptr), one(nullptr) {
   getCurrentScopePtr() = this;
 }
 
@@ -59,6 +60,7 @@ IndexExprScope::~IndexExprScope() {
   for (IndexExprImpl *obj : container)
     delete obj;
   container.clear();
+  // no need to clear the cached copies as they are also in the container.
   getCurrentScopePtr() = parentScope;
 }
 
@@ -66,6 +68,37 @@ IndexExprScope::~IndexExprScope() {
   IndexExprScope *currScope = getCurrentScopePtr();
   assert(currScope != nullptr && "expected nonnull scope");
   return *currScope;
+}
+
+//===----------------------------------------------------------------------===//
+// IndexExprScope support for cached literals.
+//===----------------------------------------------------------------------===//
+
+/*static*/ IndexExprImpl *IndexExprScope::hasCachedLiteralIndexExp(
+    int64_t value) {
+  IndexExprScope *currScope = getCurrentScopePtr();
+  if (!currScope)
+    return nullptr;
+  if (value == 0 && currScope->zero)
+    return currScope->zero;
+  if (value == 1 && currScope->one)
+    return currScope->one;
+  if (value == -1 && currScope->minusOne)
+    return currScope->minusOne;
+  return nullptr;
+}
+
+/*static*/ void IndexExprScope::cacheLiteralIndexExp(
+    int64_t value, IndexExprImpl *obj) {
+  IndexExprScope *currScope = getCurrentScopePtr();
+  if (!currScope)
+    return;
+  if (value == 0)
+    currScope->zero = obj;
+  if (value == 1)
+    currScope->one = obj;
+  if (value == -1)
+    currScope->minusOne = obj;
 }
 
 //===----------------------------------------------------------------------===//
@@ -986,19 +1019,24 @@ IndexExpr IndexExpr::selectOrSelf(
 
 UndefinedIndexExpr::UndefinedIndexExpr() : IndexExpr() {}
 
-LiteralIndexExpr::LiteralIndexExpr(int64_t const value) {
-  indexExprObj = new IndexExprImpl();
-  assert(indexExprObj && "failed to allocate IndexExpr implemtation");
-  indexExprObj->initAsLiteral(value);
-}
+LiteralIndexExpr::LiteralIndexExpr(int64_t const value) { init(value); }
 
 LiteralIndexExpr::LiteralIndexExpr(IndexExpr const otherIndexExpr) {
   assert(
       otherIndexExpr.isLiteral() && "cannot make a literal from non literal");
+  init(otherIndexExpr.getLiteral());
+}
+
+void LiteralIndexExpr::init(int64_t const value) {
+  indexExprObj = IndexExprScope::hasCachedLiteralIndexExp(value);
+  if (indexExprObj) {
+    // Scope had a cached version, we are done.
+    return;
+  }
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
-  indexExprObj->initAsLiteral(otherIndexExpr.getLiteral());
-  return;
+  indexExprObj->initAsLiteral(value);
+  IndexExprScope::cacheLiteralIndexExp(value, indexExprObj);
 }
 
 NonAffineIndexExpr::NonAffineIndexExpr(Value const value) {

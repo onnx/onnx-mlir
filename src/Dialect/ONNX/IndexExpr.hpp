@@ -233,9 +233,14 @@ public:
 
   // Add a new IndexExprImpl in the scope's container.
   void addIndexExprImpl(IndexExprImpl *obj);
+
   // Support functions for AffineExpr.
   int addDim(Value const value);
   int addSymbol(Value const value);
+
+  // Support for cached literals.
+  static IndexExprImpl *hasCachedLiteralIndexExp(int64_t value);
+  static void cacheLiteralIndexExp(int64_t value, IndexExprImpl *obj);
 
   // Queries and getters.
   bool isShapeInferencePass() const { return !rewriter; }
@@ -260,6 +265,8 @@ private:
   // Container of all index expr implementation records, to simplify
   // live range analysis. ALl will be deleted upon scope destruction.
   SmallVector<IndexExprImpl *, 20> container;
+  // Cached literals.
+  IndexExprImpl *zero, *minusOne, *one;
 };
 
 //===----------------------------------------------------------------------===//
@@ -467,6 +474,9 @@ class LiteralIndexExpr : public IndexExpr {
 public:
   LiteralIndexExpr(int64_t const value);
   LiteralIndexExpr(IndexExpr const otherIndexExpr);
+
+private:
+  void init(int64_t const value);
 };
 
 // Subclass to explicitly create non affine IndexExpr
