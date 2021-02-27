@@ -468,7 +468,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   // positions, prepended by 1s to fit the paddedRankSize.
   // (1,1,1... 1, aDim[0]...aDim[aRank-1])
 
-  IndexExpr one = LiteralIndexExpr(1);
+  LiteralIndexExpr one(1);
   MemRefBoundIndexCapture ABounds(A);
   int aOffset = paddedRank - aRank;
   for (int i = 0; i < aOffset; ++i) {
@@ -595,14 +595,14 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
     if (ArrayAttrSize(splitAttribute) != numOfResults)
       return op->emitError("Split size not equal to the number of results");
     for (int i = 0; i < numOfResults; ++i) {
-      IndexExpr dim = LiteralIndexExpr(ArrayAttrIntVal(splitAttribute, i));
+      LiteralIndexExpr dim(ArrayAttrIntVal(splitAttribute, i));
       splitDims.emplace_back(dim);
     }
   } else {
     // If split parameter is not specified, the dimension is split to
     // equal-sized parts.
     IndexExpr splitInputDim(inputBounds.getDim(axisIndex));
-    IndexExpr numOfPartitions = LiteralIndexExpr(numOfResults);
+    LiteralIndexExpr numOfPartitions(numOfResults);
     if (splitInputDim.isLiteral() &&
         (splitInputDim.getLiteral() % numOfResults != 0))
       return op->emitError("The dimension at the split axis is "

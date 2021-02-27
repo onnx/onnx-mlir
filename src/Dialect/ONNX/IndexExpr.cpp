@@ -1160,7 +1160,7 @@ DimIndexExpr::DimIndexExpr(IndexExpr const otherIndexExpr) {
     return;
   }
   case IndexExprKind::Dim: {
-    assert(!isSameScope && "should not replicate dims in the same scope");
+    // If replicated in the same scope, its not great but will not gen errors.
     indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Dim);
     return;
   }
@@ -1213,7 +1213,7 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
     return;
   }
   case IndexExprKind::Symbol: {
-    assert(!isSameScope && "should not replicate dims at the same scope");
+    // If replicated in the same scope, its not great but will not gen errors.
     indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Symbol);
     return;
   }

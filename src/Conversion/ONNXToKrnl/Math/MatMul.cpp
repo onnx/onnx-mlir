@@ -74,7 +74,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
 
-    IndexExpr k = DimIndexExpr(innerLoops.getInductionVar(0));
+    DimIndexExpr k(innerLoops.getInductionVar(0));
     SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
     for (int i = 0; i < aRank; ++i) {
       // Add index if dim is not a padded dimension.

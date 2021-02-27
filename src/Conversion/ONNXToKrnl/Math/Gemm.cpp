@@ -57,8 +57,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // Compute the access functions for res[n,m].
-    IndexExpr n = DimIndexExpr(outputLoops.getInductionVar(0));
-    IndexExpr m = DimIndexExpr(outputLoops.getInductionVar(1));
+    DimIndexExpr n(outputLoops.getInductionVar(0));
+    DimIndexExpr m(outputLoops.getInductionVar(1));
     SmallVector<IndexExpr, 4> resAccessFct({n, m});
 
     // Insert res[n,m] = 0.
@@ -77,7 +77,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
     {
-      IndexExpr k = DimIndexExpr(innerLoops.getInductionVar(0));
+      DimIndexExpr k(innerLoops.getInductionVar(0));
       SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
       if (gemmOp.transA() != 0)
         aAccessFct = {k, n};
@@ -109,7 +109,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     if (shapeHelper.hasBias) {
       for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
         // If dim > 1, use loop index, otherwise broadcast on 0's element.
-        IndexExpr dim = SymbolIndexExpr(shapeHelper.cDims[x]);
+        SymbolIndexExpr dim(shapeHelper.cDims[x]);
         cAccessFct.emplace_back(IndexExpr::select(dim > 1, resAccessFct[x], 0));
       }
     }

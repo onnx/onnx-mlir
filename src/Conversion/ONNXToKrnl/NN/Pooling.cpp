@@ -459,7 +459,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             inputIndices.emplace_back(outputIndices[i]);
           for (int i = kernelOffset; i < inputShape.size(); ++i) {
             int j = i - kernelOffset;
-            IndexExpr hp = DimIndexExpr(poolingLoops.getInductionVar(j));
+            DimIndexExpr hp(poolingLoops.getInductionVar(j));
             IndexExpr startH = windowStartExprs[j];
             if (isDilated) {
               // hi = hp * dH + startH

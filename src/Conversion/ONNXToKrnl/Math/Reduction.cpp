@@ -285,12 +285,12 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       IndexExprScope context(&rewriter, loc);
       IndexExpr inputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < inRank; i++) {
-        IndexExpr dimExpr = inputBounds.getDim(i);
+        DimIndexExpr dimExpr(inputBounds.getDim(i));
         inputSizeExpr = inputSizeExpr * dimExpr;
       }
       IndexExpr outputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < outRank; i++) {
-        IndexExpr dimExpr = allocBounds.getDim(i);
+        DimIndexExpr dimExpr(allocBounds.getDim(i));
         outputSizeExpr = outputSizeExpr * dimExpr;
       }
       IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);

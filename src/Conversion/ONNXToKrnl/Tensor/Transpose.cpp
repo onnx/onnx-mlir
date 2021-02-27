@@ -60,10 +60,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
         Value readVal = inputLoops.getInductionVar(i);
         Value writeVal =
             inputLoops.getInductionVar(ArrayAttrIntVal(permAttr, i));
-        IndexExpr readIndex = DimIndexExpr(readVal);
-        IndexExpr writeIndex = DimIndexExpr(writeVal);
-        readIndices.emplace_back(readIndex);
-        writeIndices.emplace_back(writeIndex);
+        readIndices.emplace_back(DimIndexExpr(readVal));
+        writeIndices.emplace_back(DimIndexExpr(writeVal));
       }
 
       // Copy data.

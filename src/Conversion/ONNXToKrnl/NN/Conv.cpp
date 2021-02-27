@@ -156,10 +156,10 @@ struct ONNXConvOpLowering : public ConversionPattern {
     // Compute the number of unsplit kernels. The number of kernels
     // must be a multiple of the number of groups.
     int64_t kernelsPerGroup = floor(kernelShape[0] / group);
-    IndexExpr kernelsPerGroupValue = LiteralIndexExpr(kernelsPerGroup);
+    LiteralIndexExpr kernelsPerGroupValue(kernelsPerGroup);
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
     MemRefBoundIndexCapture kernelBounds(kernelOperand);
-    IndexExpr subchannels = kernelBounds.getDim(1);
+    DimIndexExpr subchannels(kernelBounds.getDim(1));
 
     // 1. Define outer loops and emit empty optimization block:
     int64_t nOuterLoops =
@@ -185,7 +185,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
       // identical to that of the loop over kernels.
       IndexExpr kernel = DimIndexExpr(outerLoops.getInductionVar(mIndex));
       if (group > 1) {
-        IndexExpr g = DimIndexExpr(outerLoops.getInductionVar(gIndex));
+        DimIndexExpr g(outerLoops.getInductionVar(gIndex));
         kernel = g * kernelsPerGroupValue + kernel;
       }
       // Evaluate kernel to emit its SSA value at this location.
@@ -304,13 +304,13 @@ struct ONNXConvOpLowering : public ConversionPattern {
           IndexExpr channelDepth =
               DimIndexExpr(innerLoops.getInductionVar(cIndex));
           if (group > 1) {
-            IndexExpr g = DimIndexExpr(outerLoops.getInductionVar(gIndex));
+            DimIndexExpr g(outerLoops.getInductionVar(gIndex));
             channelDepth = g * subchannels + channelDepth;
           }
           dataIndices.emplace_back(channelDepth);
           // h1 = cw1 * d1 + start1
           for (int i = 0; i < nSpatialLoops; ++i) {
-            IndexExpr cw1 = DimIndexExpr(innerLoops.getInductionVar(i + 1));
+            DimIndexExpr cw1(innerLoops.getInductionVar(i + 1));
             IndexExpr start1 = windowStartExprs[i];
             if (isDilated) {
               // h1 = cw1 * d1 + start1
@@ -334,7 +334,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
           for (int i = 0; i < kernelShape.size() - spatialStartIndex; ++i) {
             // Since the window at borders may be smaller than the kernel, we
             // have to shift kernel indices with a suitalbe offset.
-            IndexExpr h1 = DimIndexExpr(innerLoops.getInductionVar(i + 1));
+            DimIndexExpr h1(innerLoops.getInductionVar(i + 1));
             kernelIndices.emplace_back(h1 - kernelOffsetExprs[i]);
           }
 

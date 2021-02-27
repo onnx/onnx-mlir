@@ -47,7 +47,6 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     ;
 
     // Creates loops, one for each input.
-    // IndexExpr writeOffset = IEContext.createLiteralIndex(0);
     for (int i = 0; i < inputNum; ++i) {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Operand info.

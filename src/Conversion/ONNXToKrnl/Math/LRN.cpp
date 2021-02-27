@@ -70,9 +70,9 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     // Compute the lower bound and upper bound for square_sum.
     const int loopIndexForC = 1;
     Value cValue = outputLoops.getInductionVar(loopIndexForC);
-    IndexExpr cIE = DimIndexExpr(cValue);
+    DimIndexExpr cIE(cValue);
     MemRefBoundIndexCapture inputBounds(input);
-    IndexExpr sizeIE = inputBounds.getDim(loopIndexForC);
+    DimIndexExpr sizeIE(inputBounds.getDim(loopIndexForC));
 
     SmallVector<IndexExpr, 2> lbMaxList;
     lbMaxList.emplace_back(LiteralIndexExpr(0));
