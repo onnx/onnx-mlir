@@ -91,8 +91,8 @@ Value normalizeConstantOp(
     denseAttr =
         createDenseElementsAttrFromFloatAttrs(rewriter, elementType, {attr});
   } else if (attr.dyn_cast<IntegerAttr>()) {
-    denseAttr =
-        createDenseElementsAttrFromIntegerAttr(rewriter, elementType, attr.cast<IntegerAttr>());
+    denseAttr = createDenseElementsAttrFromIntegerAttr(
+        rewriter, elementType, attr.cast<IntegerAttr>());
   } else if (attr.dyn_cast<StringAttr>()) {
     denseAttr =
         createDenseElementsAttrFromStringAttrs(rewriter, elementType, {attr});
