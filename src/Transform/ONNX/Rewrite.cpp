@@ -31,10 +31,20 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttr(
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 }
 
+// Create a DenseElementsAttr from a integer attribute.
+// The attribute is assumed to be SingedInteger
+DenseElementsAttr createDenseElementsAttrFromIntegerAttr(
+    PatternRewriter &rewriter, Type elementType, IntegerAttr attr) {
+  SmallVector<int64_t, 1> dims(1, 1);
+  SmallVector<int64_t, 1> values(1, attr.getSInt());
+  auto tensorType = mlir::RankedTensorType::get(dims, elementType);
+  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+}
+
 DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
     PatternRewriter &rewriter, Type elementType, SmallVector<Attribute> attrs) {
   SmallVector<int64_t, 1> dims(1, attrs.size());
-  SmallVector<int64_t, 1> values;
+  SmallVector<float, 1> values;
   for (auto attr : attrs) {
     values.push_back(attr.cast<FloatAttr>().getValue().convertToFloat());
   }
@@ -42,13 +52,13 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttrs(
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 }
 
-// Create a DenseElementsAttr from a integer attribute.
+// Integer attribute is assumed to be Signedless
 DenseElementsAttr createDenseElementsAttrFromIntegerAttrs(
     PatternRewriter &rewriter, Type elementType, SmallVector<Attribute> attrs) {
   SmallVector<int64_t, 1> dims(1, attrs.size());
   SmallVector<int64_t, 1> values;
   for (auto attr : attrs) {
-    values.push_back(attr.cast<IntegerAttr>().getSInt());
+    values.push_back(attr.cast<IntegerAttr>().getInt());
   }
   auto tensorType = mlir::RankedTensorType::get(dims, elementType);
   return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
@@ -82,7 +92,7 @@ Value normalizeConstantOp(
         createDenseElementsAttrFromFloatAttrs(rewriter, elementType, {attr});
   } else if (attr.dyn_cast<IntegerAttr>()) {
     denseAttr =
-        createDenseElementsAttrFromIntegerAttrs(rewriter, elementType, {attr});
+        createDenseElementsAttrFromIntegerAttr(rewriter, elementType, attr.cast<IntegerAttr>());
   } else if (attr.dyn_cast<StringAttr>()) {
     denseAttr =
         createDenseElementsAttrFromStringAttrs(rewriter, elementType, {attr});
@@ -265,4 +275,8 @@ void ONNXConstantOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   results.insert<ConstantOpNormalizationPattern1>(context);
   results.insert<ConstantOpNormalizationPattern2>(context);
+  results.insert<ConstantOpNormalizationPattern3>(context);
+  results.insert<ConstantOpNormalizationPattern4>(context);
+  results.insert<ConstantOpNormalizationPattern5>(context);
+  results.insert<ConstantOpNormalizationPattern6>(context);
 }

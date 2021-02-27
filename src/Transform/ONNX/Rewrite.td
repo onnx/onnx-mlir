@@ -224,4 +224,32 @@ def ConstantOpNormalizationPattern2: Pat<
    [(AttributeIsNotNull:$intAttr)]
 >;
 
+def ConstantOpNormalizationPattern3: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $stringAttr),
+   [(AttributeIsNotNull:$stringAttr)]
+>;
+
+def ConstantOpNormalizationPattern4: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $floatsAttr),
+   [(AttributeIsNotNull:$floatsAttr)]
+>;
+
+def ConstantOpNormalizationPattern5: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $intsAttr),
+   [(AttributeIsNotNull:$intsAttr)]
+>;
+
+def ConstantOpNormalizationPattern6: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $stringsAttr),
+   [(AttributeIsNotNull:$stringsAttr)]
+>;
+
 #endif // ONNX_REWRITE
