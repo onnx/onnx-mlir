@@ -625,6 +625,10 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
      Krnl operation to convert loop references to corresponding induction
      variable values. This is useful for accessing optimized loop induction
      variables, as they are not otherwise accessible during Krnl Dialect.
+
+     For example, this operation can be applied to loop references corresponding to
+     inter-tile iterations. The return values will be the starting index of the
+     current tile being iterated over.
   }];
 
   let arguments = (ins Variadic<AnyType> : $loops);
