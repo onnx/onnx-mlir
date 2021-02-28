@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 // both debug variables will be removed once debugging is complete.
-#define DEBUG 0
+#define DEBUG 1
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -1078,14 +1078,15 @@ NonAffineIndexExpr::NonAffineIndexExpr(IndexExpr const otherIndexExpr) {
   // Depending on what kind of index expr we got, take different actions.
   switch (otherIndexExpr.getKind()) {
   case IndexExprKind::Questionmark: {
-    assert("cannot make a non-affine from a Questionmark");
+    indexExprObj->initAsQuestionmark();
+    return;
   }
   case IndexExprKind::NonAffine: {
     indexExprObj->copy(otherIndexExpr.getObjPtr());
     return;
   }
   case IndexExprKind::Predicate: {
-    assert("cannot make a non-affine from a predicate");
+    llvm_unreachable("cannot make a non-affine from a predicate");
   }
   case IndexExprKind::Affine: {
     indexExprObj->initAsKind(
@@ -1158,14 +1159,15 @@ AffineIndexExpr::AffineIndexExpr(IndexExpr const otherIndexExpr) {
   bool isSameScope = otherIndexExpr.isInCurrentScope();
   switch (otherIndexExpr.getKind()) {
   case IndexExprKind::Questionmark: {
-    assert("cannot make an affine from a Questionmark");
+    indexExprObj->initAsQuestionmark();
+    return;
   }
   case IndexExprKind::NonAffine: {
-    assert("cannot make an affine from an non affine, affine are made of "
-           "literals, dims, and symbols");
+    llvm_unreachable("cannot make an affine from an non affine, affine are "
+                     "made of literals, dims, and symbols");
   }
   case IndexExprKind::Predicate: {
-    assert("cannot make an affine from a predicate");
+    llvm_unreachable("cannot make an affine from a predicate");
   }
   case IndexExprKind::Affine: {
     assert(isSameScope && "cannot can only import literals, dims and symbols "
@@ -1205,14 +1207,15 @@ DimIndexExpr::DimIndexExpr(IndexExpr const otherIndexExpr) {
   bool isSameScope = otherIndexExpr.isInCurrentScope();
   switch (otherIndexExpr.getKind()) {
   case IndexExprKind::Questionmark: {
-    assert("cannot make a dim from a Questionmark");
+    indexExprObj->initAsQuestionmark();
+    return;
   }
   case IndexExprKind::NonAffine: {
     indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Dim);
     return;
   }
   case IndexExprKind::Predicate: {
-    assert("cannot make an dim from a predicate");
+    llvm_unreachable("cannot make an dim from a predicate");
   }
   case IndexExprKind::Affine: {
     indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Dim);
@@ -1253,14 +1256,15 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
   bool isSameScope = otherIndexExpr.isInCurrentScope();
   switch (otherIndexExpr.getKind()) {
   case IndexExprKind::Questionmark: {
-    assert("cannot make a symbol from a Questionmark");
+    indexExprObj->initAsQuestionmark();
+    return;
   }
   case IndexExprKind::NonAffine: {
     indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Symbol);
     return;
   }
   case IndexExprKind::Predicate: {
-    assert("cannot make an symbol from a predicate");
+    llvm_unreachable("cannot make an symbol from a predicate");
   }
   case IndexExprKind::Affine: {
     indexExprObj->initAsKind(otherIndexExpr.getValue(), IndexExprKind::Symbol);
@@ -1344,7 +1348,7 @@ bool ArrayValueIndexCapture::getSymbolList(
   symbolList.clear();
   bool successful = true;
   for (int i = 0; i < num; ++i) {
-    IndexExpr index = getSymbol(i);
+    SymbolIndexExpr index = getSymbol(i);
     if (index.isUndefined())
       successful = false;
     symbolList.emplace_back(index);

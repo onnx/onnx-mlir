@@ -79,8 +79,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> indicesAccessFct;
     for (int j = 0; j < indicesRank; ++j)
       indicesAccessFct.emplace_back(outputAccessFct[jIndexStart + j]);
-    Value indexVal =
-        krnl_load(operandAdaptor.indices(), indicesAccessFct);
+    Value indexVal = krnl_load(operandAdaptor.indices(), indicesAccessFct);
     // Loaded value is an index that is not affine
     IndexExpr index = NonAffineIndexExpr(indexVal);
     // When index may be negative, add axis Dim to it.
@@ -98,8 +97,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     // Then add kks.
     for (int k = axisLit + 1; k < dataRank; ++k)
       dataAccessFct.emplace_back(outputAccessFct[kIndexStart + k]);
-    Value data =
-        krnl_load(operandAdaptor.data(), dataAccessFct);
+    Value data = krnl_load(operandAdaptor.data(), dataAccessFct);
 
     // Save data into output
     krnl_store(data, alloc, outputAccessFct);

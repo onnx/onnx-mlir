@@ -236,17 +236,17 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
     // Get end.
-    IndexExpr endInput(endsCapture.getSymbol(i));
+    SymbolIndexExpr endInput(endsCapture.getSymbol(i));
     if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
     // Get step.
-    IndexExpr stepInput(stepsCapture.getSymbol(i));
+    SymbolIndexExpr stepInput(stepsCapture.getSymbol(i));
     if (stepInput.isUndefined())
       return op->emitError("step input parameter could not be processed");
     if (stepInput.isLiteral() && stepInput.getLiteral() == 0)
       return op->emitError("step input parameter cannot be zero");
     // Get dim.
-    IndexExpr dimInput(dataBounds.getDim(ii));
+    DimIndexExpr dimInput(dataBounds.getDim(ii));
 
     // Now proceed with the computations for start/end/dim.
     // Calculation for start: start < 0 ? start + dim : start.
@@ -291,7 +291,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
       // fine).
       starts[i] = LiteralIndexExpr(0);
       steps[i] = LiteralIndexExpr(1);
-      IndexExpr dimInput(dataBounds.getDim(i));
+      DimIndexExpr dimInput(dataBounds.getDim(i));
       ends[i] = dimInput;
       outputDims[i] = dimInput;
     }
@@ -327,8 +327,8 @@ LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
   MemRefBoundIndexCapture inputBounds(input);
   ArrayValueIndexCapture repeatsCapture(genericOp, repeats);
   for (auto i = 0; i < inputRank; i++) {
-    IndexExpr dimInput(inputBounds.getDim(i));
-    IndexExpr repeatsValue(repeatsCapture.getSymbol(i));
+    DimIndexExpr dimInput(inputBounds.getDim(i));
+    SymbolIndexExpr repeatsValue(repeatsCapture.getSymbol(i));
     IndexExpr dimOutput = dimInput * repeatsValue;
     outputDims[i] = dimOutput;
   }
@@ -370,39 +370,31 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   // Scan dimensions of A with/without transpose.
   MemRefBoundIndexCapture ABounds(A);
   if (op->transA() == 0) {
-    aDims.emplace_back(ABounds.getDim(0));
-    aDims.emplace_back(ABounds.getDim(1));
+    aDims = {ABounds.getDim(0), ABounds.getDim(1)};
   } else {
-    aDims.emplace_back(ABounds.getDim(1));
-    aDims.emplace_back(ABounds.getDim(0));
+    aDims = {ABounds.getDim(1), ABounds.getDim(0)};
   }
   // Scan dimensions of B with/without transpose.
   MemRefBoundIndexCapture BBounds(B);
   if (op->transB() == 0) {
-    bDims.emplace_back(BBounds.getDim(0));
-    bDims.emplace_back(BBounds.getDim(1));
+    bDims = {BBounds.getDim(0), BBounds.getDim(1)};
   } else {
-    bDims.emplace_back(BBounds.getDim(1));
-    bDims.emplace_back(BBounds.getDim(0));
+    bDims = {BBounds.getDim(1), BBounds.getDim(0)};
   }
   // Set output dims of result, creating a copy of it to be safe.
-  outputDims.emplace_back(aDims[0].deepCopy());
-  outputDims.emplace_back(bDims[1].deepCopy());
+  outputDims = {aDims[0].deepCopy(), bDims[1].deepCopy()};
   // Bias C can be a (unidirectional) broadcast.
   MemRefBoundIndexCapture CBounds(C);
   if (hasBias) {
     if (cRank == 0) {
       // Broadcast for scalar: both dims are 1.
-      cDims.emplace_back(LiteralIndexExpr(1));
-      cDims.emplace_back(LiteralIndexExpr(1));
+      cDims = {LiteralIndexExpr(1), LiteralIndexExpr(1)};
     } else if (cRank == 1) {
       // First dim is the one padded.
-      cDims.emplace_back(LiteralIndexExpr(1));
-      cDims.emplace_back(CBounds.getDim(0));
+      cDims = {LiteralIndexExpr(1), CBounds.getDim(0)};
     } else {
       assert(cRank == 2 && "illegal path");
-      cDims.emplace_back(CBounds.getDim(0));
-      cDims.emplace_back(CBounds.getDim(1));
+      cDims = {CBounds.getDim(0), CBounds.getDim(1)};
     }
   }
   // Check static dimensions, if we can.
@@ -600,7 +592,7 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
   } else {
     // If split parameter is not specified, the dimension is split to
     // equal-sized parts.
-    IndexExpr splitInputDim(inputBounds.getDim(axisIndex));
+    DimIndexExpr splitInputDim(inputBounds.getDim(axisIndex));
     LiteralIndexExpr numOfPartitions(numOfResults);
     if (splitInputDim.isLiteral() &&
         (splitInputDim.getLiteral() % numOfResults != 0))
@@ -720,7 +712,7 @@ LogicalResult ONNXConcatOpShapeHelper::Compute(
   for (int i = 0; i < inputNum; ++i) {
     Value currentInput = operandAdaptor.getODSOperands(0)[i];
     MemRefBoundIndexCapture currInputBounds(currentInput);
-    IndexExpr currentSize(currInputBounds.getDim(axisIndex));
+    DimIndexExpr currentSize(currInputBounds.getDim(axisIndex));
     cumulativeAxisSize = cumulativeAxisSize + currentSize;
   }
 

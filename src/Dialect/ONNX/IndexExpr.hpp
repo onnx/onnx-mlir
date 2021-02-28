@@ -131,6 +131,11 @@ Note that in a computation, all expressions must use IndexExpr originating from
 the same scope for Dim, Symbol, and Affine. Literal and non-affine can be from
 enclosing scopes as well.
 
+Note that the current scope is kept in a thread private variable and does not
+need to be explicitly passed. It will be retrieved from the environment. Which also
+means that one can only geneate code in one index scope at a time.
+
+
 3) Code Sample
 ==============
 
@@ -151,14 +156,22 @@ enclosing scopes as well.
 // Get a value from an input operand (either a constant or a value to load).
 
     ArrayValueIndexCapture startsCapture(genericOp, operandAdaptor.starts());
-    IndexExpr startInput(startsCapture.getSymbol(i));
+    SymbolIndexExpr startInput(startsCapture.getSymbol(i));
 
-In the code above, we first capture the (hopefully compile time constant) values of the "starts"
-array (limited to 1D arrays at this time). Then we create a symbol index expression from the
-captured array value at index "i".
+In the code above, we first capture the (hopefully compile time constant) values
+of the "starts" array (limited to 1D arrays at this time). Then we create a
+symbol index expression from the captured array value at index "i". When
+constant, it will result in a literal. Otherwise it will result in a new Symbol
+variable.
 
 // Get a dimension from a memref.
-    dimInput = scope.CreateDimIndexFromMemref(data, dataShape, ii);
+    MemRefBoundIndexCapture dataBounds(data);
+    DimIndexExpr dimInput(dataBounds.getDim(ii));
+
+In the code above, we first capture the (hopefully constant) bounds of hte
+memref. We then create a Dim index expression from the memref's "ii" dimension.
+When constant, this will result in a literal. Otherwise, it will result in a new
+Dim variable.
 
 // Perform calculations.
 
@@ -175,8 +188,12 @@ captured array value at index "i".
 // Extract the shape of the output.
 
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::GetOutputDimsForType(outputDimIndices, outputDims);
+  IndexExpr::convertListOfIndexExprToIntegerDim(
+      shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
+
+In this code, we convert the IndexExpressions back to integer dims (with >=0 for
+compile time sizes, -1 for runtime sizes). 
 
 3d) Look at Slice.cpp on how to use IndexExpr for lowering.
 
@@ -189,8 +206,7 @@ captured array value at index "i".
 
   outputLoops(rewriter, loc, outputRank);
     outputLoops.createDefineOp();
-    for (int ii = 0; ii < outputRank; ++ii)
-      outputLoops.pushBounds(outerloopContex, 0, outputDims[ii]);
+    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
     outputLoops.createIterateOp();
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
@@ -201,14 +217,12 @@ captured array value at index "i".
 // Create indices with computations for a load.
 
     for (int ii = 0; ii < outputRank; ++ii) {
-      Value loopVal = outputLoops.getInductionVar(ii);
-      IndexExpr loopIndex = childContext.createLoopIterIndex(loopVal);
-      IndexExpr start = childContext.createSymbolIndexFromParentContext(
-          shapeHelper.starts[ii]);
-      IndexExpr step = childContext.createSymbolIndexFromParentContext(
-          shapeHelper.steps[ii]);
-      IndexExpr actualIndex = (step * loopIndex) + start;
-      loadIndices.emplace_back(actualIndex.getValue());
+      Value inductionVal = outputLoops.getInductionVar(ii);
+      DimIndexExpr inductionIndex(inductionVal);
+      IndexExpr start = SymbolIndexExpr(shapeHelper.starts[ii]);
+      IndexExpr step = SymbolIndexExpr(shapeHelper.steps[ii]);
+      loadIndices.emplace_back((step * inductionIndex) + start);
+      storeIndices.emplace_back(inductionIndex);
     }
 
 */
