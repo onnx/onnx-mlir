@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 set(LLVM_TARGET_DEFINITIONS PromotableConstOperandsOpInterface.td)
 onnx_mlir_tablegen(PromotableConstOperandsOpInterface.hpp.inc -gen-op-interface-decls)
 onnx_mlir_tablegen(PromotableConstOperandsOpInterface.cpp.inc -gen-op-interface-defs)

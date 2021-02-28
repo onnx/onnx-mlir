@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------------------- Loop.cpp - Lowering Loop Op ---------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -19,7 +23,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc = ONNXLoc<ONNXLoopOp>(op);
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     ONNXLoopOpAdaptor loopOpAdapter(operands, op->getAttrDictionary());
 

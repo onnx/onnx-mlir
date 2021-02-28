@@ -232,7 +232,7 @@ func private @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ADD_2:%.+]] = addf [[EXP_2]], %cst : f32
   // CHECK: [[DIV_2:%.+]] = divf [[SUB_2]], [[ADD_2]] : f32
   // CHECK: [[ZERO:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[CMP:%.+]] = cmpf "oge", [[X]], [[ZERO]] : f32
+  // CHECK: [[CMP:%.+]] = cmpf oge, [[X]], [[ZERO]] : f32
   // CHECK: [[TANH:%.+]] = select [[CMP]], [[DIV_1]], [[DIV_2]] : f32
   // CHECK: krnl.store [[TANH]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
@@ -391,7 +391,7 @@ func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
-  // CHECK: [[LTZERO:%.+]] = cmpf "olt", [[LOAD]], [[ZERO]] : f32
+  // CHECK: [[LTZERO:%.+]] = cmpf olt, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[RELU_RES:%.+]] = select [[LTZERO]], [[ZERO]], [[LOAD]] : f32
   // CHECK: krnl.store [[RELU_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
@@ -419,7 +419,7 @@ func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> t
   // CHECK: [[DIM_1:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: [[DIM_1_CAST:%.+]] = index_cast [[DIM_1]] : index to i64
   // CHECK: [[CONSTANT_2:%.+]] = constant 0 : i64
-  // CHECK: [[CMP_0:%.+]] = cmpi "eq", [[LOAD_0]], [[CONSTANT_2]] : i64
+  // CHECK: [[CMP_0:%.+]] = cmpi eq, [[LOAD_0]], [[CONSTANT_2]] : i64
   // CHECK: [[SELECT_0:%.+]] = select [[CMP_0]], [[DIM_1_CAST]], [[LOAD_0]] : i64
   // CHECK: [[MUL_1:%.+]] = muli [[TYPE_IN_BYTES_1]], [[SELECT_0]] : i64
 
@@ -427,7 +427,7 @@ func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> t
   // CHECK: [[LOAD_1:%.+]] = krnl.load %arg1[%[[CONSTANT_3]]] : memref<4xi64>
   // CHECK: [[CONSTANT_3:%.+]] = constant 10 : i64
   // CHECK: [[CONSTANT_4:%.+]] = constant 0 : i64
-  // CHECK: [[CMP_1:%.+]] = cmpi "eq", [[LOAD_1]], [[CONSTANT_4]] : i64
+  // CHECK: [[CMP_1:%.+]] = cmpi eq, [[LOAD_1]], [[CONSTANT_4]] : i64
   // CHECK: [[SELECT_1:%.+]] = select [[CMP_1]], [[CONSTANT_3]], [[LOAD_1]] : i64
   // CHECK: [[MUL_2:%.+]] = muli [[MUL_1]], [[SELECT_1]] : i64
 
@@ -442,22 +442,22 @@ func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>) -> t
   // CHECK: [[CONSTANT_8:%.+]] = constant -1 : i64
   // CHECK: [[TENSOR_SIZE_FROM_SHAPE:%.+]] = muli [[MUL_4]], [[CONSTANT_8]] : i64
 
-  // CHECK: [[CMP_2:%.+]] = cmpi "eq", [[SELECT_0]], [[CONSTANT_8]] : i64
+  // CHECK: [[CMP_2:%.+]] = cmpi eq, [[SELECT_0]], [[CONSTANT_8]] : i64
   // CHECK: [[DIVISIGNED_0:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
   // CHECK: [[SELECT_2:%.+]] = select [[CMP_2]], [[DIVISIGNED_0]], [[SELECT_0]] : i64
   // CHECK: [[CAST_0:%.+]] = index_cast [[SELECT_2]] : i64 to index
 
-  // CHECK: [[CMP_3:%.+]] = cmpi "eq", [[SELECT_1]], [[CONSTANT_8]] : i64
+  // CHECK: [[CMP_3:%.+]] = cmpi eq, [[SELECT_1]], [[CONSTANT_8]] : i64
   // CHECK: [[DIVISIGNED_1:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
   // CHECK: [[SELECT_3:%.+]] = select [[CMP_3]], [[DIVISIGNED_1]], [[SELECT_1]] : i64
   // CHECK: [[CAST_1:%.+]] = index_cast [[SELECT_3]] : i64 to index
 
-  // CHECK: [[CMP_4:%.+]] = cmpi "eq", [[LOAD_2]], [[CONSTANT_8]] : i64
+  // CHECK: [[CMP_4:%.+]] = cmpi eq, [[LOAD_2]], [[CONSTANT_8]] : i64
   // CHECK: [[DIVISIGNED_2:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
   // CHECK: [[SELECT_4:%.+]] = select [[CMP_4]], [[DIVISIGNED_2]], [[LOAD_2]] : i64
   // CHECK: [[CAST_2:%.+]] = index_cast [[SELECT_4]] : i64 to index
 
-  // CHECK: [[CMP_5:%.+]] = cmpi "eq", [[LOAD_3]], [[CONSTANT_8]] : i64
+  // CHECK: [[CMP_5:%.+]] = cmpi eq, [[LOAD_3]], [[CONSTANT_8]] : i64
   // CHECK: [[DIVISIGNED_3:%.+]] = divi_signed [[TENSOR_SIZE]], [[TENSOR_SIZE_FROM_SHAPE]] : i64
   // CHECK: [[SELECT_5:%.+]] = select [[CMP_5]], [[DIVISIGNED_3]], [[LOAD_3]] : i64
   // CHECK: [[CAST_3:%.+]] = index_cast [[SELECT_5]] : i64 to index
@@ -496,7 +496,7 @@ func private @test_max(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> 
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
   // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[LOAD2:%.+]] = krnl.load %arg1[%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[MAX:%.+]] = cmpf "ogt", [[LOAD1]], [[LOAD2]] : f32
+  // CHECK: [[MAX:%.+]] = cmpf ogt, [[LOAD1]], [[LOAD2]] : f32
   // CHECK: [[RELU_RES:%.+]] = select [[MAX]], [[LOAD1]], [[LOAD2]] : f32
   // CHECK: krnl.store [[RELU_RES]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
   // CHECK: return [[RES]] : memref<10x10xf32>
@@ -514,7 +514,7 @@ func private @test_min(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> 
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10) {
   // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[%arg2, %arg3] : memref<10x10xf32>
   // CHECK: [[LOAD2:%.+]] = krnl.load %arg1[%arg2, %arg3] : memref<10x10xf32>
-  // CHECK: [[MIN:%.+]] = cmpf "olt", [[LOAD1]], [[LOAD2]] : f32
+  // CHECK: [[MIN:%.+]] = cmpf olt, [[LOAD1]], [[LOAD2]] : f32
   // CHECK: [[RELU_RES:%.+]] = select [[MIN]], [[LOAD1]], [[LOAD2]] : f32
   // CHECK: krnl.store [[RELU_RES]], [[RES]][%arg2, %arg3] : memref<10x10xf32>
   // CHECK: return [[RES]] : memref<10x10xf32>
@@ -539,7 +539,7 @@ func private @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
   // CHECK: [[ALPHA:%.+]] = constant {{2.+}} : f32
   // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[CMP:%.+]] = cmpf "olt", [[LOAD]], [[ZERO]] : f32
+  // CHECK: [[CMP:%.+]] = cmpf olt, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[SUB:%.+]] = subf [[EXP]], [[ONE]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[SUB]] : f32
   // CHECK: [[SELECT:%.+]] = select [[CMP]], [[MUL]], [[LOAD]] : f32
@@ -564,7 +564,7 @@ func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32
-  // CHECK: [[CMP:%.+]] = cmpf "olt", [[LOAD]], [[ZERO]] : f32
+  // CHECK: [[CMP:%.+]] = cmpf olt, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[LOAD]] : f32
   // CHECK: [[SELECT:%.+]] = select [[CMP]], [[MUL]], [[LOAD]] : f32
   // CHECK: krnl.store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
@@ -590,7 +590,7 @@ func private @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ALPHA:%.+]] = constant {{1.+}} : f32
   // CHECK: [[GAMMA:%.+]] = constant {{2.+}} : f32
   // CHECK: [[EXP:%.+]] = exp [[LOAD]] : f32
-  // CHECK: [[CMP:%.+]] = cmpf "ogt", [[LOAD]], [[ZERO]] : f32
+  // CHECK: [[CMP:%.+]] = cmpf ogt, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[EXP]] : f32
   // CHECK: [[SUB:%.+]] = subf [[MUL]], [[ALPHA]] : f32
   // CHECK: [[SELECT:%.+]] = select [[CMP]], [[LOAD]], [[SUB]] : f32
@@ -620,9 +620,9 @@ func private @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[BETA:%.+]] = constant {{2.+}} : f32
   // CHECK: [[MUL:%.+]] = mulf [[ALPHA]], [[LOAD]] : f32
   // CHECK: [[ADD:%.+]] = addf [[MUL]], [[BETA]] : f32
-  // CHECK: [[CMP1:%.+]] = cmpf "ogt", [[ADD]], [[ZERO]] : f32
+  // CHECK: [[CMP1:%.+]] = cmpf ogt, [[ADD]], [[ZERO]] : f32
   // CHECK: [[SELECT1:%.+]] = select [[CMP1]], [[ADD]], [[ZERO]] : f32
-  // CHECK: [[CMP2:%.+]] = cmpf "olt", [[SELECT1]], [[ONE]] : f32
+  // CHECK: [[CMP2:%.+]] = cmpf olt, [[SELECT1]], [[ONE]] : f32
   // CHECK: [[SELECT2:%.+]] = select [[CMP2]], [[SELECT1]], [[ONE]] : f32
   // CHECK: krnl.store [[SELECT2]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
@@ -712,7 +712,7 @@ func private @test_reducemax(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: krnl.iterate([[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1, [[DEF_LOOPS2]]#2) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 2, [[DEF_LOOPS2]]#2 -> %arg3 = 0 to 2) {
   // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[%arg1, %arg2, %arg3] : memref<3x2x2xf32>
   // CHECK: [[LOAD2:%.+]] = krnl.load [[RES]][%arg1, %arg3] : memref<3x2xf32>
-  // CHECK: [[CMP:%.+]] = cmpf "ogt", [[LOAD2]], [[LOAD1]] : f32
+  // CHECK: [[CMP:%.+]] = cmpf ogt, [[LOAD2]], [[LOAD1]] : f32
   // CHECK: [[SELECT:%.+]] = select [[CMP]], [[LOAD2]], [[LOAD1]] : f32
   // CHECK: krnl.store [[SELECT]], [[RES]][%arg1, %arg3] : memref<3x2xf32>
   // CHECK: }
@@ -736,7 +736,7 @@ func private @test_reducemin(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   // CHECK: krnl.iterate([[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1, [[DEF_LOOPS2]]#2) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 2, [[DEF_LOOPS2]]#2 -> %arg3 = 0 to 2) {
   // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[%arg1, %arg2, %arg3] : memref<3x2x2xf32>
   // CHECK: [[LOAD2:%.+]] = krnl.load [[RES]][%arg1, %arg3] : memref<3x2xf32>
-  // CHECK: [[CMP:%.+]] = cmpf "olt", [[LOAD2]], [[LOAD1]] : f32
+  // CHECK: [[CMP:%.+]] = cmpf olt, [[LOAD2]], [[LOAD1]] : f32
   // CHECK: [[SELECT:%.+]] = select [[CMP]], [[LOAD2]], [[LOAD1]] : f32
   // CHECK: krnl.store [[SELECT]], [[RES]][%arg1, %arg3] : memref<3x2xf32>
   // CHECK: }
@@ -875,7 +875,7 @@ func private @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   // CHECK: krnl.iterate([[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK:   [[LOAD1:%.+]] = krnl.load [[MAX]][] : memref<f32>
   // CHECK:   [[LOAD2:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<10x10xf32>
-  // CHECK:   [[COND:%.+]] = cmpf "ogt", [[LOAD1]], [[LOAD2]] : f32
+  // CHECK:   [[COND:%.+]] = cmpf ogt, [[LOAD1]], [[LOAD2]] : f32
   // CHECK:   [[SELECT:%.+]] = select [[COND]], [[LOAD1]], [[LOAD2]] : f32
   // CHECK:   krnl.store [[SELECT]], [[MAX]][] : memref<f32>
   // CHECK: }
@@ -1017,9 +1017,9 @@ func private @test_sign_f(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK: [[ZERO:%.+]] = constant {{0.+}} : f32
   // CHECK: [[ONE:%.+]] = constant {{1.+}} : f32
   // CHECK: [[MINUS_ONE:%.+]] = constant {{-1.+}} : f32
-  // CHECK: [[GTZERO:%.+]] = cmpf "ogt", [[LOAD]], [[ZERO]] : f32
+  // CHECK: [[GTZERO:%.+]] = cmpf ogt, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[SELECT_PLUS:%.+]] = select [[GTZERO]], [[ONE]], [[MINUS_ONE]] : f32
-  // CHECK: [[EQZERO:%.+]] = cmpf "oeq", [[LOAD]], [[ZERO]] : f32
+  // CHECK: [[EQZERO:%.+]] = cmpf oeq, [[LOAD]], [[ZERO]] : f32
   // CHECK: [[SIGN_RES:%.+]] = select [[EQZERO]], [[ZERO]], [[SELECT_PLUS]] : f32
   // CHECK: krnl.store [[SIGN_RES]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
   // CHECK: return [[RES]] : memref<?x10xf32>
@@ -1043,9 +1043,9 @@ func private @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   // CHECK: [[ZERO:%.+]] = constant 0 : i32
   // CHECK: [[ONE:%.+]] = constant 1 : i32
   // CHECK: [[MINUS_ONE:%.+]] = constant -1 : i32
-  // CHECK: [[GTZERO:%.+]] = cmpi "sgt", [[LOAD]], [[ZERO]] : i32
+  // CHECK: [[GTZERO:%.+]] = cmpi sgt, [[LOAD]], [[ZERO]] : i32
   // CHECK: [[SELECT_PLUS:%.+]] = select [[GTZERO]], [[ONE]], [[MINUS_ONE]] : i32
-  // CHECK: [[EQZERO:%.+]] = cmpi "eq", [[LOAD]], [[ZERO]] : i32
+  // CHECK: [[EQZERO:%.+]] = cmpi eq, [[LOAD]], [[ZERO]] : i32
   // CHECK: [[SIGN_RES:%.+]] = select [[EQZERO]], [[ZERO]], [[SELECT_PLUS]] : i32
   // CHECK: krnl.store [[SIGN_RES]], [[RES]][%arg1, %arg2] : memref<?x10xi32>
   // CHECK: return [[RES]] : memref<?x10xi32>
@@ -1621,7 +1621,7 @@ func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xi32>
   // CHECK: [[ZERO:%.+]] = constant 0 : i32
-  // CHECK: [[LESS_THAN_ZERO:%.+]] = cmpi "slt", [[LOAD]], [[ZERO]] : i32
+  // CHECK: [[LESS_THAN_ZERO:%.+]] = cmpi slt, [[LOAD]], [[ZERO]] : i32
   // CHECK: [[NEGATIVE_LOAD:%.+]] = subi [[ZERO]], [[LOAD]] : i32
   // CHECK: [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[NEGATIVE_LOAD]], [[LOAD]] : i32
   // CHECK: krnl.store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xi32>
@@ -1841,7 +1841,7 @@ func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> t
 
   // CHECK:     [[INPUT_LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2, {{.*}}, {{.*}}] : memref<1x3x32x32xf32>
   // CHECK:     [[OUTPUT_LOAD:%.+]] = krnl.load [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK:     [[GREATER:%.+]] = cmpf "ogt", [[OUTPUT_LOAD]], [[INPUT_LOAD]] : f32
+  // CHECK:     [[GREATER:%.+]] = cmpf ogt, [[OUTPUT_LOAD]], [[INPUT_LOAD]] : f32
   // CHECK:     [[SELECT:%.+]] = select [[GREATER]], [[OUTPUT_LOAD]], [[INPUT_LOAD]] : f32
   // CHECK:     krnl.store [[SELECT]], [[REDUCTION_VAL]][] : memref<f32>
   // CHECK:   }
@@ -2038,7 +2038,7 @@ func private @test_gru_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:     {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = cmpf oge, {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:     krnl.store {{.*}}, [[ht]][] : memref<f32>
   // CHECK:     [[LOAD_ht:%.+]] = krnl.load [[ht]][] : memref<f32>
@@ -2224,7 +2224,7 @@ func private @test_gru_linear_before_reset(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:     {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = cmpf oge, {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:     krnl.store {{.*}}, [[ht]][] : memref<f32>
   // CHECK:     [[LOAD_ht:%.+]] = krnl.load [[ht]][] : memref<f32>
@@ -2487,7 +2487,7 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:      {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = cmpf oge, {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:      krnl.store {{.*}}, [[ct]][] : memref<f32>
   // CHECK:      [[ct_LOAD:%.+]] = krnl.load [[ct]][] : memref<f32>
@@ -2529,7 +2529,7 @@ func private @test_lstm_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: ten
   // CHECK:      {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:      {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:      {{.*}} = cmpf oge, {{.*}}, {{.*}} : f32
   // CHECK:      {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:      krnl.store {{.*}}, [[hCt]][] : memref<f32>
   // CHECK:      [[hCt_LOAD:%.+]] = krnl.load [[hCt]][] : memref<f32>
@@ -2718,7 +2718,7 @@ func private @test_rnn_general_computation(%arg0: tensor<4x3x2xf32>, %arg1: tens
   // CHECK:     {{.*}} = addf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = divf {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = constant 0.000000e+00 : f32
-  // CHECK:     {{.*}} = cmpf "oge", {{.*}}, {{.*}} : f32
+  // CHECK:     {{.*}} = cmpf oge, {{.*}}, {{.*}} : f32
   // CHECK:     {{.*}} = select {{.*}}, {{.*}}, {{.*}} : f32
   // CHECK:     krnl.store {{.*}}, [[Ht]][] : memref<f32>
 
@@ -3146,7 +3146,7 @@ func private @test_less(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> t
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1, [[DEF_LOOPS]]#2) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 3, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 4, [[DEF_LOOPS]]#2 -> %arg4 = 0 to 5) {
   // CHECK:   [[LHS:%.+]] = krnl.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
   // CHECK:   [[RHS:%.+]] = krnl.load %arg1[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
-  // CHECK:   [[LESS:%.+]] = cmpf "olt", [[LHS]], [[RHS]] : f32
+  // CHECK:   [[LESS:%.+]] = cmpf olt, [[LHS]], [[RHS]] : f32
   // CHECK:   krnl.store [[LESS]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xi1>
   // CHECK: }
   // CHECK: return [[RES]] : memref<3x4x5xi1>
@@ -3164,7 +3164,7 @@ func private @test_less_broadcast(%arg0: tensor<3x4x5xf32>, %arg1: tensor<5xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1, [[DEF_LOOPS]]#2) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 3, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 4, [[DEF_LOOPS]]#2 -> %arg4 = 0 to 5) {
   // CHECK:   [[LHS:%.+]] = krnl.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
   // CHECK:   [[RHS:%.+]] = krnl.load %arg1[%arg4] : memref<5xf32>
-  // CHECK:   [[LESS:%.+]] = cmpf "olt", [[LHS]], [[RHS]] : f32
+  // CHECK:   [[LESS:%.+]] = cmpf olt, [[LHS]], [[RHS]] : f32
   // CHECK:   krnl.store [[LESS]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xi1>
   // CHECK: }
   // CHECK: return [[RES]] : memref<3x4x5xi1>
@@ -3212,26 +3212,6 @@ func private @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-func private @test_atan(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
-  %0 = "onnx.Atan"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_atan
-  // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
-  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
-  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: [[C0_0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
-  // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: [[ATAN:%.+]] = atan [[LOAD]] : f32
-  // CHECK: krnl.store [[ATAN]], [[RES]][%arg1, %arg2] : memref<?x10xf32>
-  // CHECK: return [[RES]] : memref<?x10xf32>
-}
-
-// -----
-
 func private @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
   %0 = "onnx.Clip"(%arg0, %arg1, %arg2) : (tensor<3xf32>, tensor<f32>, tensor<f32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
@@ -3243,10 +3223,10 @@ func private @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<
 // CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 3) {
 // CHECK-DAG:         [[LOAD_INPUT_MEM_:%.+]] = krnl.load [[INPUT_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
 // CHECK-DAG:         [[LOAD_MIN_MEM_:%.+]] = krnl.load [[MIN_]][] : memref<f32>
-// CHECK:             [[VAR_4_:%.+]] = cmpf "olt", [[LOAD_INPUT_MEM_]], [[LOAD_MIN_MEM_]] : f32
+// CHECK:             [[VAR_4_:%.+]] = cmpf olt, [[LOAD_INPUT_MEM_]], [[LOAD_MIN_MEM_]] : f32
 // CHECK-DAG:         [[VAR_5_:%.+]] = select [[VAR_4_]], [[LOAD_MIN_MEM_]], [[LOAD_INPUT_MEM_]] : f32
 // CHECK-DAG:         [[LOAD_MAX_MEM_:%.+]] = krnl.load [[MAX_]][] : memref<f32>
-// CHECK:             [[VAR_7_:%.+]] = cmpf "olt", [[VAR_5_]], [[LOAD_MAX_MEM_]] : f32
+// CHECK:             [[VAR_7_:%.+]] = cmpf olt, [[VAR_5_]], [[LOAD_MAX_MEM_]] : f32
 // CHECK:             [[VAR_8_:%.+]] = select [[VAR_7_]], [[VAR_5_]], [[LOAD_MAX_MEM_]] : f32
 // CHECK:             krnl.store [[VAR_8_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
 // CHECK:           }
@@ -3268,7 +3248,7 @@ func private @test_clip_default_min(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %a
 // CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 3) {
 // CHECK-DAG:         [[LOAD_INPUT_MEM_:%.+]] = krnl.load [[INPUT_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
 // CHECK-DAG:         [[LOAD_MAX_MEM_:%.+]] = krnl.load [[MAX_]][] : memref<f32>
-// CHECK:             [[VAR_7_:%.+]] = cmpf "olt", [[LOAD_INPUT_MEM_]], [[LOAD_MAX_MEM_]] : f32
+// CHECK:             [[VAR_7_:%.+]] = cmpf olt, [[LOAD_INPUT_MEM_]], [[LOAD_MAX_MEM_]] : f32
 // CHECK:             [[VAR_8_:%.+]] = select [[VAR_7_]], [[LOAD_INPUT_MEM_]], [[LOAD_MAX_MEM_]] : f32
 // CHECK:             krnl.store [[VAR_8_]], [[RES_]]{{.}}[[I_0_]]{{.}} : memref<3xf32>
 // CHECK:           }
@@ -3309,7 +3289,7 @@ func @test_prelu_float(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> te
   // CHECK:   [[LOAD_X:%.+]] = krnl.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
   // CHECK:   [[LOAD_SLOPE:%.+]] = krnl.load %arg1[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
   // CHECK:   [[CST_0:%.+]] = constant 0.000000e+00 : f32
-  // CHECK:   [[LESS_THAN_ZERO:%.+]] = cmpf "olt", [[LOAD_X]], [[CST_0]] : f32
+  // CHECK:   [[LESS_THAN_ZERO:%.+]] = cmpf olt, [[LOAD_X]], [[CST_0]] : f32
   // CHECK:   [[MUL:%.+]] = mulf [[LOAD_SLOPE]], [[LOAD_X]] : f32
   // CHECK:   [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : f32
   // CHECK:   krnl.store [[SELECT]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xf32>
@@ -3331,7 +3311,7 @@ func @test_prelu_int(%arg0: tensor<3x4x5xi32>, %arg1: tensor<3x4x5xi32>) -> tens
   // CHECK:   [[LOAD_X:%.+]] = krnl.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xi32>
   // CHECK:   [[LOAD_SLOPE:%.+]] = krnl.load %arg1[%arg2, %arg3, %arg4] : memref<3x4x5xi32>
   // CHECK:   [[CST_0:%.+]] = constant 0 : i32
-  // CHECK:   [[LESS_THAN_ZERO:%.+]] = cmpi "slt", [[LOAD_X]], [[CST_0]] : i32
+  // CHECK:   [[LESS_THAN_ZERO:%.+]] = cmpi slt, [[LOAD_X]], [[CST_0]] : i32
   // CHECK:   [[MUL:%.+]] = muli [[LOAD_SLOPE]], [[LOAD_X]] : i32
   // CHECK:   [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : i32
   // CHECK:   krnl.store [[SELECT]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xi32>
@@ -3354,7 +3334,7 @@ func @test_prelu_broadcast1(%arg0: tensor<3x4x5xf32>, %arg1: tensor<5xf32>) -> t
   // CHECK:       [[LOAD_X:%.+]] = krnl.load %arg0[%arg2, %arg3, %arg4] : memref<3x4x5xf32>
   // CHECK:       [[LOAD_SLOPE:%.+]] = krnl.load %arg1[%arg4] : memref<5xf32>
   // CHECK-DAG:   [[CST_0:%.+]] = constant 0.000000e+00 : f32
-  // CHECK:       [[LESS_THAN_ZERO:%.+]] = cmpf "olt", [[LOAD_X]], [[CST_0]] : f32
+  // CHECK:       [[LESS_THAN_ZERO:%.+]] = cmpf olt, [[LOAD_X]], [[CST_0]] : f32
   // CHECK:       [[MUL:%.+]] = mulf [[LOAD_SLOPE]], [[LOAD_X]] : f32
   // CHECK:       [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : f32
   // CHECK:       krnl.store [[SELECT]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xf32>
@@ -3378,7 +3358,7 @@ func @test_prelu_broadcast2(%arg0: tensor<3x4x5xf32>, %arg1: tensor<1x5xf32>) ->
   // CHECK-DAG:   [[ZERO_INDEX:%.+]] = constant 0 : index
   // CHECK:       [[LOAD_SLOPE:%.+]] = krnl.load %arg1{{\[}}[[ZERO_INDEX]], %arg4] : memref<1x5xf32>
   // CHECK-DAG:   [[CST_0:%.+]] = constant 0.000000e+00 : f32
-  // CHECK:       [[LESS_THAN_ZERO:%.+]] = cmpf "olt", [[LOAD_X]], [[CST_0]] : f32
+  // CHECK:       [[LESS_THAN_ZERO:%.+]] = cmpf olt, [[LOAD_X]], [[CST_0]] : f32
   // CHECK:       [[MUL:%.+]] = mulf [[LOAD_SLOPE]], [[LOAD_X]] : f32
   // CHECK:       [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : f32
   // CHECK:       krnl.store [[SELECT]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xf32>
@@ -3401,7 +3381,7 @@ func @test_prelu_broadcast3(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x1x5xf32>) 
   // CHECK-DAG:   [[ZERO_INDEX:%.+]] = constant 0 : index
   // CHECK:       [[LOAD_SLOPE:%.+]] = krnl.load %arg1[%arg2, [[ZERO_INDEX]], %arg4] : memref<3x1x5xf32>
   // CHECK-DAG:   [[CST_0:%.+]] = constant 0.000000e+00 : f32
-  // CHECK:       [[LESS_THAN_ZERO:%.+]] = cmpf "olt", [[LOAD_X]], [[CST_0]] : f32
+  // CHECK:       [[LESS_THAN_ZERO:%.+]] = cmpf olt, [[LOAD_X]], [[CST_0]] : f32
   // CHECK:       [[MUL:%.+]] = mulf [[LOAD_SLOPE]], [[LOAD_X]] : f32
   // CHECK:       [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[MUL]], [[LOAD_X]] : f32
   // CHECK:       krnl.store [[SELECT]], [[RES]][%arg2, %arg3, %arg4] : memref<3x4x5xf32>

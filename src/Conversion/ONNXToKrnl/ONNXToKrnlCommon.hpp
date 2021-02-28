@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -297,3 +301,15 @@ bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
 /// %d0, %d1 and %d2. Their indices 0, 1, 2 correspond to `index` values
 /// 1, 2 and 4 in the MemRef shape respectively
 int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);
+
+/// This function returns a location with the corresponding ONNX operator name
+/// inside. This is useful when tracing what expanded MLIR instructions
+/// correspond to what ONNX operator.
+///
+///
+template <typename OP_TYPE>
+Location ONNXLoc(Operation *op) {
+  return NameLoc::get(
+      Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
+      op->getLoc());
+}

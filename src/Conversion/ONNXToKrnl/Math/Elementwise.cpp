@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Elementwise.cpp - Elementwise Ops -------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -93,8 +97,8 @@ struct ScalarOp<ONNXSqrtOp> {
 
 template <>
 struct ScalarOp<ONNXAtanOp> {
-  using FOp = AtanOp;
-  using IOp = AtanOp; // Not used.
+  using FOp = KrnlAtanOp;
+  using IOp = KrnlAtanOp; // Not used.
 };
 
 template <>
@@ -125,6 +129,42 @@ template <>
 struct ScalarOp<ONNXErfOp> {
   using FOp = KrnlErfOp;
   using IOp = KrnlErfOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAcosOp> {
+  using FOp = KrnlAcosOp;
+  using IOp = KrnlAcosOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAcoshOp> {
+  using FOp = KrnlAcoshOp;
+  using IOp = KrnlAcoshOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAsinOp> {
+  using FOp = KrnlAsinOp;
+  using IOp = KrnlAsinOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAsinhOp> {
+  using FOp = KrnlAsinhOp;
+  using IOp = KrnlAsinhOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXAtanhOp> {
+  using FOp = KrnlAtanhOp;
+  using IOp = KrnlAtanhOp; // Not used.
+};
+
+template <>
+struct ScalarOp<ONNXTanOp> {
+  using FOp = KrnlTanOp;
+  using IOp = KrnlTanOp; // Not used.
 };
 
 //===----------------------------------------------------------------------===//
@@ -623,7 +663,7 @@ struct ONNXElementwiseUnaryOpLowering : public ConversionPattern {
       : ConversionPattern(ElementwiseUnaryOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc = ONNXLoc<ElementwiseUnaryOp>(op);
     auto X = operands[0];
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -681,7 +721,10 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc =
+        NameLoc::get(Identifier::get(ElementwiseBinaryOp::getOperationName(),
+                         op->getContext()),
+            op->getLoc());
     auto numArgs = op->getNumOperands();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputElementType = outputMemRefType.getElementType();
@@ -747,7 +790,10 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       : ConversionPattern(ElementwiseVariadicOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc =
+        NameLoc::get(Identifier::get(ElementwiseVariadicOp::getOperationName(),
+                         op->getContext()),
+            op->getLoc());
     auto numArgs = op->getNumOperands();
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
     auto outputElementType = outputMemRefType.getElementType();
@@ -822,6 +868,11 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseVariadicOpLowering<mlir::ONNXDivOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXEluOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXErfOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcosOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAcoshOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAsinhOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXAtanhOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
@@ -846,6 +897,7 @@ void populateLoweringONNXElementwiseOpPattern(
       ONNXElementwiseUnaryOpLowering<mlir::ONNXSqrtOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSubOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXSumOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(ctx);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(

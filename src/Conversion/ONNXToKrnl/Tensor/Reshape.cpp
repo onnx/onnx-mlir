@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Reshape.cpp - Lowering Reshape Op -------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -29,7 +33,7 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     // attribute.
     SmallVector<int64_t, 4> shapeAttrValues;
     DenseElementsAttr shapeAttr =
-        reshapeOp.getAttr("shape").dyn_cast_or_null<DenseElementsAttr>();
+        reshapeOp->getAttr("shape").dyn_cast_or_null<DenseElementsAttr>();
     if (shapeAttr) {
       auto shapeAttrIt = shapeAttr.getValues<IntegerAttr>().begin();
       auto itEnd = shapeAttr.getValues<IntegerAttr>().end();

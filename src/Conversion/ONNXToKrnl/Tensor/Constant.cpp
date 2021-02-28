@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Constant.cpp - Lowering Constant Op -----------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -36,7 +40,7 @@ struct ONNXConstantOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc = ONNXLoc<ONNXConstantOp>(op);
     auto constantOp = llvm::dyn_cast<ONNXConstantOp>(op);
 
     if (constantOp.sparse_value().hasValue())

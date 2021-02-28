@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===--------------------------- MainUtils.cpp ---------------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -32,6 +36,9 @@
 using namespace std;
 using namespace onnx_mlir;
 
+llvm::cl::OptionCategory OnnxMlirOptions(
+    "ONNX MLIR Options", "These are frontend options.");
+
 namespace {
 
 llvm::Optional<std::string> getEnvVar(std::string name) {
@@ -39,6 +46,31 @@ llvm::Optional<std::string> getEnvVar(std::string name) {
     return std::string(envVerbose);
   return llvm::None;
 }
+
+// This definition is here rather than in main.cpp because otherwise it's not
+// found probably should be pulled out to a more common location
+// TODO: Find a respectable home for the wain
+
+// the option is used in this file, so defined here
+llvm::cl::opt<bool> preserveLocations("preserveLocations",
+    llvm::cl::desc("emit location data:"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> printIR("printIR",
+    llvm::cl::desc("print the IR to stdout:"), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
+    llvm::cl::desc("use types and shapes from ONNX model"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<string> mtriple("mtriple", llvm::cl::desc("Target architecture"),
+    llvm::cl::value_desc("<llvm target triple>"),
+    llvm::cl::cat(OnnxMlirOptions), llvm::cl::ValueRequired);
+
+llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
+    llvm::cl::value_desc("<llvm cpu value>"), llvm::cl::cat(OnnxMlirOptions),
+    llvm::cl::ValueRequired);
 
 // Runtime directory contains all the libraries, jars, etc. that are
 // necessary for running onnx-mlir. It's resolved in the following order:
@@ -115,7 +147,8 @@ struct Command {
 
   // Append a single string argument.
   Command &appendStr(const std::string &arg) {
-    _args.emplace_back(arg);
+    if (arg.size() > 0)
+      _args.emplace_back(arg);
     return *this;
   }
 
@@ -284,6 +317,15 @@ void genConstPackObj(const mlir::OwningModuleRef &module,
 #endif
 }
 
+string getTargetOptions() {
+  string targetOptions = "";
+  if (mtriple != "")
+    targetOptions = "--mtriple=" + mtriple;
+  if (mcpu != "")
+    targetOptions += " --mcpu=" + mcpu;
+  return targetOptions;
+}
+
 // Write LLVM optimized bitcode.
 void genLLVMBitcode(const mlir::OwningModuleRef &module,
     string optimizedBitcodePath, string outputBaseName) {
@@ -305,6 +347,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
   optBitcode.appendStr("-O3")
+      .appendStr(getTargetOptions())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)
       .exec();
@@ -317,6 +360,7 @@ void genModelObject(const mlir::OwningModuleRef &module, string bitcodePath,
   Command llvmToObj(/*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   llvmToObj.appendStr("-filetype=obj")
       .appendStr("-relocation-model=pic")
+      .appendStr(getTargetOptions())
       .appendList({"-o", modelObjPath})
       .appendStr(bitcodePath)
       .exec();
@@ -467,24 +511,6 @@ void addKrnlToLLVMPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createCanonicalizerPass());
 }
 
-// This definition is here rather than in main.cpp because otherwise it's not
-// found probably should be pulled out to a more common location
-// TODO: Find a respectable home for the wain
-llvm::cl::OptionCategory OnnxMlirOptions(
-    "ONNX MLIR Options", "These are frontend options.");
-// the option is used in this file, so defined here
-llvm::cl::opt<bool> preserveLocations("preserveLocations",
-    llvm::cl::desc("emit location data:"), llvm::cl::init(false),
-    llvm::cl::cat(OnnxMlirOptions));
-
-llvm::cl::opt<bool> printIR("printIR",
-    llvm::cl::desc("print the IR to stdout:"), llvm::cl::init(false),
-    llvm::cl::cat(OnnxMlirOptions));
-
-llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
-    llvm::cl::desc("use types and shapes from ONNX model"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
-
 void processInputFile(string inputFilename, EmissionTargetType emissionTarget,
     mlir::MLIRContext &context, mlir::OwningModuleRef &module) {
   // Decide if the input file is an ONNX model or a model specified
@@ -599,6 +625,7 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
   if (emissionTarget >= EmitLLVMIR)
     addKrnlToLLVMPasses(pm);
 
+  mlir::applyPassManagerCLOptions(pm);
   if (mlir::failed(pm.run(*module)))
     return 4;
 

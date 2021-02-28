@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------------- LowerKrnl.cpp - Krnl Dialect Lowering -----------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -42,7 +46,7 @@ void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
   builder.setInsertionPointAfter(iterateOp);
   SmallVector<std::pair<Value, AffineForOp>, 4> currentNestedForOps;
   auto boundMapAttrs =
-      iterateOp.getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
+      iterateOp->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
           .getValue();
   auto operandItr =
       iterateOp.operand_begin() + iterateOp.getNumOptimizedLoops();
