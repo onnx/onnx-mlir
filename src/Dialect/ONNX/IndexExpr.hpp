@@ -360,7 +360,7 @@ public:
   bool isPredType() const;
   bool isIndexType() const { return !isPredType(); }
   bool isShapeInferencePass() const;
-  bool hasContext() const;
+  bool hasContext() const; //xxx needed?
   bool hasAffineExpr() const;
   bool hasValue() const;
 

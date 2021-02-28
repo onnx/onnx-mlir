@@ -549,7 +549,8 @@ IndexExprImpl *IndexExpr::getObjPtr() const {
 // Used for add/sub/mult/ceilDiv/floorDiv
 IndexExpr IndexExpr::binaryOp(IndexExpr const b, bool affineWithLitB,
     bool canBeAffine, F2 litFct, F2 affineExprFct, F2 valueFct) const {
-  assert(getScopePtr() == b.getScopePtr() && "incompatible contexts");
+  assert(canBeUsedInScope() && "a cannot be used in current scope");
+  assert(b.canBeUsedInScope() && "b cannot be used in current scope");
   // Literal integer if a and b are literals. Affine if canBeAffine is true,
   // both a and b are affine, and possibly a and/or b are also constant.
   bool resIsLit = isLiteral() && b.isLiteral();
@@ -639,8 +640,7 @@ IndexExpr IndexExpr::compareOp(
       resIsLit = false;
     if (!vals[i].isAffine())
       resIsAffine = false;
-    assert(vals[0].getScopePtr() == vals[i].getScopePtr() &&
-           "incompatible contexts");
+    assert(vals[i].canBeUsedInScope() && "incompatible contexts");
   }
   if (resIsLit) {
     // Process int literals, if we only have literal values.
@@ -814,8 +814,10 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
     return res2;
   };
 
-  assert(getScopePtr() == min.getScopePtr() &&
-         getScopePtr() == max.getScopePtr() && "incompatible contexts");
+  assert(canBeUsedInScope() && "cannot be used in current scope");
+  assert(min.canBeUsedInScope() && "min cannot be used in current scope");
+  assert(max.canBeUsedInScope() && "max cannot be used in current scope");
+
   // Literal integer if a, b, and c are literals. Output is not affine (unless
   // all 3 are literals).
   bool resIsLit = isLiteral() && min.isLiteral() && max.isLiteral();
@@ -834,9 +836,9 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
 
 /*static*/ IndexExpr IndexExpr::select(IndexExpr const compare,
     IndexExpr const trueVal, IndexExpr const falseVal) {
-  assert(compare.getScopePtr() == trueVal.getScopePtr() &&
-         compare.getScopePtr() == falseVal.getScopePtr() &&
-         "incompatible contexts");
+  assert(compare.canBeUsedInScope() && "compare cannot be used in current scope");
+  assert(trueVal.canBeUsedInScope() && "trueVal cannot be used in current scope");
+  assert(falseVal.canBeUsedInScope() && "falseVal cannot be used in current scope");
   // When compare result is literal, just feed forward the right value.
   if (compare.isLiteral()) {
     if (compare.getLiteral())
