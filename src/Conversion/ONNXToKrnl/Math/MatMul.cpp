@@ -27,7 +27,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Get shape.
     ONNXMatMulOpAdaptor operandAdaptor(operands);
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
-    Location loc = op->getLoc();
+    auto loc = ONNXLoc<ONNXMatMulOp>(op);
     ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     (void)shapecomputed;
