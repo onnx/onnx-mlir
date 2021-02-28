@@ -942,7 +942,7 @@ private:
     auto *fnEntryBlock = funcOp.addEntryBlock();
 
     // Save caller context, while generating callee function body.
-    frontend_symbols_.pushScope(func_name_prefix);
+    SymbolMapping callerScope(std::move(frontend_symbols_));
     auto prev_ip = builder_.saveInsertionPoint();
     builder_.setInsertionPointToStart(fnEntryBlock);
 
@@ -965,7 +965,7 @@ private:
     builder_.create<mlir::ReturnOp>(UnknownLoc(), ret_vals);
 
     // Restore caller context
-    frontend_symbols_.popScope(func_name_prefix);
+    frontend_symbols_ = std::move(callerScope);
     builder_.restoreInsertionPoint(prev_ip);
 
     // Generate call statement
