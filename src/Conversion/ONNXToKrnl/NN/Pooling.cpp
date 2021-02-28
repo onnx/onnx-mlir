@@ -394,8 +394,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
       SmallVector<IndexExpr, 4> windowStartExprs, windowEndExprs;
       for (int i = 0; i < kernelShape.size(); ++i) {
-        std::vector<mlir::IndexExpr> exprs = getIndexExprsForConvWindow(
-            ieScope, IVExprs[i], ceilMode, isDilated);
+        std::vector<mlir::IndexExpr> exprs =
+            getIndexExprsForConvWindow(IVExprs[i], ceilMode, isDilated);
         windowStartExprs.emplace_back(exprs[0]);
         windowEndExprs.emplace_back(exprs[1]);
       }

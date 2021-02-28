@@ -83,13 +83,11 @@ struct ONNXOpBroadcastedShapeHelper {
   // Compute access indices to load/store value from/to a given 'operand'.
   // Used in a loop to access the operand.
   // Parameters:
-  //   - outerScope: shape helper scope obtained outside the loop.
   //   - operand: operand to access
   //   - operandIndex: index of the operand in 'inputsDims'
   //   - loopAccessExprs: IndexExprs for the loop's IVs
   //   - operandAccessExprs: access indices to access the operand.
-  LogicalResult GetAccessExprs(IndexExprScope &outerScope, Value operand,
-      unsigned operandIndex,
+  LogicalResult GetAccessExprs(Value operand, unsigned operandIndex,
       const SmallVectorImpl<IndexExpr> &outputAccessExprs,
       SmallVectorImpl<IndexExpr> &operandAccessExprs);
 

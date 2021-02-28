@@ -134,9 +134,8 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
   return success();
 }
 
-LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(
-    IndexExprScope &outerScope, Value operand, unsigned operandIndex,
-    const SmallVectorImpl<IndexExpr> &outputAccessExprs,
+LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
+    unsigned operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
   if (isUniBroadcasting && operandIndex == 0) {
     for (IndexExpr ie : outputAccessExprs)
@@ -233,7 +232,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     int ii = axesIntLit[i];
     // Get start, end, step, and dim index expressions.
     // Get start.
-    IndexExpr startInput(startsCapture.getSymbol(i));
+    SymbolIndexExpr startInput(startsCapture.getSymbol(i));
     if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
     // Get end.

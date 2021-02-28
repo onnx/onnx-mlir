@@ -275,7 +275,7 @@ IndexExpr IndexExpr::deepCopy() const {
 // IndexExpr list queries.
 //===----------------------------------------------------------------------===//
 bool IndexExpr::isDefined() const {
-  assert(!getObj().defined || hasContext());
+  assert(!getObj().defined || hasScope());
   return getObj().defined;
 }
 
@@ -319,7 +319,7 @@ bool IndexExpr::isShapeInferencePass() const {
   return getScope().isShapeInferencePass();
 }
 
-bool IndexExpr::hasContext() const { return getObj().scope != nullptr; }
+bool IndexExpr::hasScope() const { return getObj().scope != nullptr; }
 
 bool IndexExpr::hasAffineExpr() const {
   assert(isDefined());
@@ -438,7 +438,7 @@ Value IndexExpr::getValue() const {
 }
 
 IndexExprScope *IndexExpr::getScopePtr() const {
-  assert(hasContext());
+  assert(hasScope());
   return getObj().scope;
 }
 
@@ -836,9 +836,12 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
 
 /*static*/ IndexExpr IndexExpr::select(IndexExpr const compare,
     IndexExpr const trueVal, IndexExpr const falseVal) {
-  assert(compare.canBeUsedInScope() && "compare cannot be used in current scope");
-  assert(trueVal.canBeUsedInScope() && "trueVal cannot be used in current scope");
-  assert(falseVal.canBeUsedInScope() && "falseVal cannot be used in current scope");
+  assert(
+      compare.canBeUsedInScope() && "compare cannot be used in current scope");
+  assert(
+      trueVal.canBeUsedInScope() && "trueVal cannot be used in current scope");
+  assert(falseVal.canBeUsedInScope() &&
+         "falseVal cannot be used in current scope");
   // When compare result is literal, just feed forward the right value.
   if (compare.isLiteral()) {
     if (compare.getLiteral())

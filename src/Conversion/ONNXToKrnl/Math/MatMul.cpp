@@ -53,7 +53,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Access function for the output, and set it to zero.
     SmallVector<IndexExpr, 4> resAccessFct;
-    bool res = getIndexExprListFrom<DimIndexExpr>(outputLoops.getAllInductionVar(), resAccessFct);
+    bool res = getIndexExprListFrom<DimIndexExpr>(
+        outputLoops.getAllInductionVar(), resAccessFct);
     // Insert res[...] = 0.
     // Create a local reduction value for res[...].
     Value reductionVal =
@@ -103,10 +104,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     }
 
     // Add mat mul operation.
-    Value loadedA =
-        krnl_load(operandAdaptor.A(), aAccessFct);
-    Value loadedB =
-        krnl_load(operandAdaptor.B(), bAccessFct);
+    Value loadedA = krnl_load(operandAdaptor.A(), aAccessFct);
+    Value loadedB = krnl_load(operandAdaptor.B(), bAccessFct);
     Value loadedY =
         rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
     Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);

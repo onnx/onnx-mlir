@@ -67,7 +67,7 @@ struct ONNXConcatOpLowering : public ConversionPattern {
         if (r != axis || i == 0) {
           writeIndices.emplace_back(inputLoops.getInductionVar(r));
         } else {
-          IndexExprScope IEContext(&rewriter, loc);
+          IndexExprScope IEScope(&rewriter, loc);
           IndexExpr writeOffset = DimIndexExpr(inputLoops.getInductionVar(r));
           for (int j = 0; j < i; j++) {
             MemRefBoundIndexCapture operandJBounds(operands[j]);

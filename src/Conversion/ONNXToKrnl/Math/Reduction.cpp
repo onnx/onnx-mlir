@@ -282,7 +282,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       Type elementType = memRefOutType.getElementType();
       // Compute the divisor that is the number of elements participated in
       // reduction, i.e., 'divisor = size of input / size of output'.
-      IndexExprScope context(&rewriter, loc);
+      IndexExprScope scope(&rewriter, loc);
       IndexExpr inputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < inRank; i++) {
         DimIndexExpr dimExpr(inputBounds.getDim(i));

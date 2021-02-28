@@ -77,8 +77,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
         writeIndices.emplace_back(writeIndex);
       }
       // Insert copy.
-      Value loadData =
-          krnl_load(operandAdaptor.input(), readIndices);
+      Value loadData = krnl_load(operandAdaptor.input(), readIndices);
       krnl_store(loadData, allocs[i], writeIndices);
     }
     rewriter.replaceOp(op, allocs);

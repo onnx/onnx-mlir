@@ -254,7 +254,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
         SmallVector<IndexExpr, 4> windowStartExprs, kernelOffsetExprs;
         for (int i = 0; i < nSpatialLoops; ++i) {
           std::vector<mlir::IndexExpr> exprs = getIndexExprsForConvWindow(
-              ieScope, IVExprs[i], /*ceilMode=*/true, isDilated);
+              IVExprs[i], /*ceilMode=*/true, isDilated);
           windowStartExprs.emplace_back(exprs[0]);
           kernelOffsetExprs.emplace_back(exprs[2]);
         }
@@ -340,8 +340,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
           // 4.3 Compute convolution.
           auto loadData = krnl_load(inputOperand, dataIndices);
-          auto loadKernel =
-              krnl_load(kernelOperand, kernelIndices);
+          auto loadKernel = krnl_load(kernelOperand, kernelIndices);
           auto loadPartialSum =
               rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
           Value result = rewriter.create<AddFOp>(loc, loadPartialSum,

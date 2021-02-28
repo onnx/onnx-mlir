@@ -759,14 +759,14 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     // Load the first value.
     SmallVector<IndexExpr, 4> lhsAccessExprs;
     LogicalResult res = shapeHelper.GetAccessExprs(
-        outerScope, operands[0], 0, outputAccessExprs, lhsAccessExprs);
+        operands[0], 0, outputAccessExprs, lhsAccessExprs);
     assert(res.succeeded());
     Value lhs = krnl_load(operands[0], lhsAccessExprs);
 
     // Load the second value.
     SmallVector<IndexExpr, 4> rhsAccessExprs;
     res = shapeHelper.GetAccessExprs(
-        outerScope, operands[1], 1, outputAccessExprs, rhsAccessExprs);
+        operands[1], 1, outputAccessExprs, rhsAccessExprs);
     assert(res.succeeded());
     Value rhs = krnl_load(operands[1], rhsAccessExprs);
 
@@ -829,17 +829,16 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     // Obtain the first operand.
     SmallVector<IndexExpr, 4> oprdAccessExprs;
     LogicalResult res = shapeHelper.GetAccessExprs(
-        outerScope, operands[0], 0, outputAccessExprs, oprdAccessExprs);
+        operands[0], 0, outputAccessExprs, oprdAccessExprs);
     assert(res.succeeded());
-    Value accumulated =
-        krnl_load(operands[0], oprdAccessExprs);
+    Value accumulated = krnl_load(operands[0], oprdAccessExprs);
 
     // Iterate over the remaining operands.
     for (unsigned i = 1; i < numArgs; i++) {
       // Obtain the next operand.
       SmallVector<IndexExpr, 4> oprdAccessExprs;
       LogicalResult res = shapeHelper.GetAccessExprs(
-          outerScope, operands[i], i, outputAccessExprs, oprdAccessExprs);
+          operands[i], i, outputAccessExprs, oprdAccessExprs);
       assert(res.succeeded());
       Value next = krnl_load(operands[i], oprdAccessExprs);
       // Fold.

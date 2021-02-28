@@ -19,7 +19,7 @@
 =============
 
 IndexExpr is a single data structure that holds either an integer, an affine
-expression or a Value. It is used to compute shape inference, loop bounds, and
+expression, or a Value. It is used to compute shape inference, loop bounds, and
 index expressions in memory accesses. The main purpose of this data structure is
 to use a single function to either determine shape inference or the actual
 shapes when allocating/looping during the lowering.
@@ -50,9 +50,57 @@ all inputs are integer literals.
 
 Select(compA, compareOperator, compB, trueVal, falseVal) which corresponds to
 "compA operator compB ? trueVal : falseVal". The result can be statically
-determined when the compare can be evaluated at compile time.
+determined when the compare can be evaluated at compile time. Note that results
+of compare operations can either be literals (known at compile time) or runtime.
+Runtime IndexExpr have a "predicate" implicit type (1 bit integer) that can only
+be used where comparison are used (select, clamp).
 
-2) IndexExprContext
+Operators have been overloaded, with +, -, * as well as compare operators, and
+accept mixtures of integers and index expressions.
+
+Note that the IndexExpr type is used in all operations but the constructors. To
+construct an IndexExpr, the IndexExpr subclasses should be used. There are 8
+distinct subclasses.
+
+*  UndefinedIndexExpr: used to generate an undefined value. They are typically
+used when an error occurred.
+
+* LiteralIndexExpr: used to generate a literal value.
+
+* NonAffineIndexExpr: used to represent a general, non-affine result. Note that
+if the result's value can be deduced at compile time, that constant value will
+be used internally. So even though a user may attempt to create a non affine
+index expression internally, the IndexExpr used to represent that value will be
+actually the same as that of an LiteralIndexExpr.
+
+* QuestionmarkIndexExpr: used to represent a runtime value during phases where
+we are not interested in generating computations to represent the computed
+values.
+
+* PredicateIndexExpr: used to represent the outcome of a compare. Note that if
+the outcome can be deduced at compile time, a literal index expression is
+actually used to represent that compile time value.
+
+* AffineIndexExpr: expression that the compiler is able to determine as an MLIR
+affine expression. See affine dialect for more info about which expressions can
+be represented as affine function. In general, though, affine computations
+consits of Dim, Symbol, and literals.
+
+* DimIndexExpr: Dim expressions represent "variable" in the affine dialects. In
+our case, typical variables are runtime dimensions of memrefs/tensors during
+shape inference. Other typical variables are runtime loop indices inside of the
+loops. Note Dims are variable within a scope: a tensor dimension may be a
+variable/symbol during the shape inference computations, but then treated as
+constant/symbols within the loop iterations. Similarity, an index variable can
+be considered a variable during its loop, but could be considered as a constant
+in an inner-loop nested scope. For more details on the concept of Dim, please
+refer to the affine MLIR dialect.
+
+* SymbolIndexExpr: Symbols represent runtime values that are considered as a
+constant in a given scope. See affine dialect for more info.
+
+
+2) IndexExprScope
 ======================
 
 Each IndexExpr must be part of a single scope which holds all of the symbols
@@ -80,7 +128,8 @@ a new scope can be started for the b) part. The non-affine parts of a)
 becomes symbols.
 
 Note that in a computation, all expressions must use IndexExpr originating from
-the same scope.
+the same scope for Dim, Symbol, and Affine. Literal and non-affine can be from
+enclosing scopes as well.
 
 3) Code Sample
 ==============
@@ -95,14 +144,18 @@ the same scope.
 
     IndexExprContext outerloopContex(&rewriter, sliceOp.getLoc());
 
-3b) Computations on IndexExpr
+3b) Computations on IndexExpr (examples from processing of ONNXSliceOp)
 
 // IN ONNXShapeHelper.cpp
 
 // Get a value from an input operand (either a constant or a value to load).
 
-    startInput = scope.CreateSymbolIndexFromArrayAtIndex(
-        op, operandAdaptor.starts(), i);
+    ArrayValueIndexCapture startsCapture(genericOp, operandAdaptor.starts());
+    IndexExpr startInput(startsCapture.getSymbol(i));
+
+In the code above, we first capture the (hopefully compile time constant) values of the "starts"
+array (limited to 1D arrays at this time). Then we create a symbol index expression from the
+captured array value at index "i".
 
 // Get a dimension from a memref.
     dimInput = scope.CreateDimIndexFromMemref(data, dataShape, ii);
@@ -259,7 +312,6 @@ private:
   static IndexExprImpl *hasCachedLiteralIndexExp(int64_t value);
   static void cacheLiteralIndexExp(int64_t value, IndexExprImpl *obj);
 
-
   // Dim and symbol mapping from index to value.
   SmallVector<Value, 4> dims;
   SmallVector<Value, 4> symbols;
@@ -360,7 +412,6 @@ public:
   bool isPredType() const;
   bool isIndexType() const { return !isPredType(); }
   bool isShapeInferencePass() const;
-  bool hasContext() const; //xxx needed?
   bool hasAffineExpr() const;
   bool hasValue() const;
 
@@ -442,6 +493,8 @@ protected:
   IndexExprKind getKind() const;
   bool isInCurrentScope() const;
   bool canBeUsedInScope() const;
+
+  bool hasScope() const;
 
   // Support for operations: lambda function types.
   typedef std::function<IndexExpr(IndexExpr const, IndexExpr const)> F2;
