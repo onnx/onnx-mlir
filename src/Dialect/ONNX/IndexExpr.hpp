@@ -132,8 +132,8 @@ the same scope for Dim, Symbol, and Affine. Literal and non-affine can be from
 enclosing scopes as well.
 
 Note that the current scope is kept in a thread private variable and does not
-need to be explicitly passed. It will be retrieved from the environment. Which also
-means that one can only geneate code in one index scope at a time.
+need to be explicitly passed. It will be retrieved from the environment. Which
+also means that one can only geneate code in one index scope at a time.
 
 
 3) Code Sample
@@ -193,7 +193,7 @@ Dim variable.
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
 In this code, we convert the IndexExpressions back to integer dims (with >=0 for
-compile time sizes, -1 for runtime sizes). 
+compile time sizes, -1 for runtime sizes).
 
 3d) Look at Slice.cpp on how to use IndexExpr for lowering.
 
@@ -224,6 +224,21 @@ compile time sizes, -1 for runtime sizes).
       loadIndices.emplace_back((step * inductionIndex) + start);
       storeIndices.emplace_back(inductionIndex);
     }
+
+  4) Additional infrastructure
+
+   ArrayValueIndexCapture allows us to read 1D arrays and generate symbols out
+of them expressions that are either literals or runtime values (symbols).
+
+   MemRefBoundIndexCapture allows us to read memref or tensor 1D descriptors and
+generate out of them expressions that are either literals or runtime values
+(dims).
+
+Note that in both case, runtime values may be "questionmarks" during the shape
+inference part as no code may be generated during such phases.
+
+krnl_load / krnl_store allow us to generate kernel loads or store where the
+indices are represented by index expressions.
 
 */
 
