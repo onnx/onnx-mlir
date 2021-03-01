@@ -51,7 +51,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
               /usr/bin/python llvm-project onnx-mlir
 
 # Copy from onnx-mlir-test to squash removed source layer and
-# remove dependency on onnx-mlir-llvm-shared image
+# remove dependency on base image (onnx-mlir-llvm-shared)
 FROM scratch
 
 # Label the images for various checking and cleanup
