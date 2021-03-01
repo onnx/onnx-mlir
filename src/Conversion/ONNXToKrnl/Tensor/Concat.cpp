@@ -47,7 +47,6 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     ;
 
     // Creates loops, one for each input.
-    // IndexExpr writeOffset = IEContext.createLiteralIndex(0);
     for (int i = 0; i < inputNum; ++i) {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       // Operand info.
@@ -68,12 +67,11 @@ struct ONNXConcatOpLowering : public ConversionPattern {
         if (r != axis || i == 0) {
           writeIndices.emplace_back(inputLoops.getInductionVar(r));
         } else {
-          IndexExprContext IEContext(&rewriter, loc);
-          IndexExpr writeOffset =
-              IEContext.createLoopInductionIndex(inputLoops.getInductionVar(r));
+          IndexExprScope IEScope(&rewriter, loc);
+          IndexExpr writeOffset = DimIndexExpr(inputLoops.getInductionVar(r));
           for (int j = 0; j < i; j++) {
-            writeOffset = writeOffset + IEContext.createDimIndexFromShapedType(
-                                            operands[j], r);
+            MemRefBoundIndexCapture operandJBounds(operands[j]);
+            writeOffset = writeOffset + operandJBounds.getDim(r);
           }
           writeIndices.emplace_back(writeOffset.getValue());
         }

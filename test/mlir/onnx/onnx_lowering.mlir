@@ -1279,10 +1279,10 @@ func private @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : te
   %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-DAG: #[[ZERO_MAP2:.+]] = affine_map<(d0, d1) -> (0, d0)>
-  // CHECK-DAG: #{{.*}} = affine_map<(d0, d1) -> (32, d1 + 6)>
-  // CHECK-DAG: #[[ZERO_MAP4:.+]] = affine_map<(d0, d1, d2, d3) -> (0, d2)>
-  // CHECK-DAG: #{{.*}} = affine_map<(d0, d1, d2, d3) -> (64, d3 + 7)>
+  // CHECK-DAG: #[[ZERO_MAP2:.+]] = affine_map<(d0) -> (0, d0)>
+  // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (32, d0 + 6)>
+  // CHECK-DAG: #[[ZERO_MAP4:.+]] = affine_map<(d0, d1) -> (0, d1)>
+  // CHECK-DAG: #{{.*}} = affine_map<(d0, d1) -> (64, d1 + 7)>
   // CHECK-DAG: #[[BOUND:.+]] = affine_map<(d0)[s0, s1, s2, s3, s4] -> (s0 - ((s2 ceildiv s4) * s4 - s2), -(d0 * s3 - s2) + s0, d0 * s3 + (s1 - 1) * s4 - s2 - ((s2 ceildiv s4) * s4 - s2) + 1, d0 * s3 + (s1 - 1) * s4 - s2 - (d0 * s3 - s2) + 1)>
 
   // CHECK-LABEL: test_conv_no_bias_no_pad
@@ -1296,12 +1296,12 @@ func private @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : te
   // CHECK: krnl.iterate([[SPATIAL_LOOPS]]#0, [[SPATIAL_LOOPS]]#1) with ([[SPATIAL_LOOPS]]#0 -> %arg4 = 0 to 27, [[SPATIAL_LOOPS]]#1 -> %arg5 = 0 to 58) {
   // CHECK: [[REDUCTION_VAL:%.+]] = alloca() : memref<f32>
   // CHECK: krnl.store [[CONST1]], [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK: [[START1:%.+]] = affine.max #[[ZERO_MAP2]](%arg4, %arg4)
+  // CHECK: [[START1:%.+]] = affine.max #[[ZERO_MAP2]](%arg4)
   // CHECK: {{.*}} = affine.min {{.*}}
-  // CHECK: [[KERNEL_OFFSET1:%.+]] = affine.min #[[ZERO_MAP2]](%arg4, %arg4)
-  // CHECK: [[START2:%.+]] = affine.max #[[ZERO_MAP4]](%arg4, %arg4, %arg5, %arg5)
+  // CHECK: [[KERNEL_OFFSET1:%.+]] = affine.min #[[ZERO_MAP2]](%arg4)
+  // CHECK: [[START2:%.+]] = affine.max #[[ZERO_MAP4]](%arg4, %arg5)
   // CHECK: {{.*}} = affine.min {{.*}}
-  // CHECK: [[KERNEL_OFFSET2:%.+]] = affine.min #[[ZERO_MAP4]](%arg4, %arg4, %arg5, %arg5)
+  // CHECK: [[KERNEL_OFFSET2:%.+]] = affine.min #[[ZERO_MAP4]](%arg4, %arg5)
 
   // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
 
@@ -1375,7 +1375,7 @@ func private @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32>, %a
   // CHECK: [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
 
   // CHECK: krnl.iterate([[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg7 = 0 to 3, [[INNER_LOOPS]]#1 -> %arg8 = 0 to min #{{.*}}(%arg5)[{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}], [[INNER_LOOPS]]#2 -> %arg9 = 0 to min #{{.*}}(%arg6)[{{.*}}, {{.*}}, {{.*}}, {{.*}}, {{.*}}]) {
-  // CHECK: [[GROUP:%.+]] = affine.apply #{{.*}}(%arg3, %arg4, %arg5, %arg5, %arg6, %arg6, %arg3, %arg7)
+  // CHECK: [[GROUP:%.+]] = affine.apply #{{.*}}(%arg3, %arg4, %arg5, %arg6, %arg3, %arg7)
   // CHECK: [[DATA:%.+]] = krnl.load %arg0[%arg2, [[GROUP]], {{.*}}, {{.*}}] : memref<1x9x32x64xf32>
   // CHECK: }
   // CHECK: }
@@ -1433,13 +1433,13 @@ func private @test_conv_bias_group_pad_stride_dilation(%arg0 : tensor<1x9x32x64x
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
   // CHECK-DAG: #[[MAP0:.+]] = affine_map<(d0, d1) -> (d0 + d1)>
-  // CHECK-DAG: #[[MAP1:.+]] = affine_map<(d0, d1, d2, d3) -> (0, d2 * 2 - 2)>
-  // CHECK-DAG: #[[MAP2:.+]] = affine_map<(d0, d1, d2, d3) -> (32, d3 * 2 + 9)>
-  // CHECK-DAG: #[[MAP3:.+]] = affine_map<(d0, d1, d2, d3, d4, d5) -> (0, d4 * 2 - 2)>
-  // CHECK-DAG: #[[MAP4:.+]] = affine_map<(d0, d1, d2, d3, d4, d5) -> (64, d5 * 2 + 11)>
-  // CHECK-DAG: #[[MAP6:.+]] = affine_map<(d0, d1, d2, d3, d4, d5, d6, d7, d8) -> (d8 * 2)>
-  // CHECK-DAG: #[[MAP7:.+]] = affine_map<(d0, d1, d2, d3, d4, d5, d6, d7, d8, d9) -> (d9 * 2)>
-  // CHECK-DAG: #[[MAP8:.+]] = affine_map<(d0, d1, d2, d3, d4, d5, d6, d7, d8, d9) -> (d6 * 3 + d7)>
+  // CHECK-DAG: #[[MAP1:.+]] = affine_map<(d0, d1, d2) -> (0, d2 * 2 - 2)>
+  // CHECK-DAG: #[[MAP2:.+]] = affine_map<(d0, d1, d2) -> (32, d2 * 2 + 9)>
+  // CHECK-DAG: #[[MAP3:.+]] = affine_map<(d0, d1, d2, d3) -> (0, d3 * 2 - 2)>
+  // CHECK-DAG: #[[MAP4:.+]] = affine_map<(d0, d1, d2, d3) -> (64, d3 * 2 + 11)>
+  // CHECK-DAG: #[[MAP6:.+]] = affine_map<(d0, d1, d2, d3, d4, d5, d6) -> (d6 * 2)>
+  // CHECK-DAG: #[[MAP7:.+]] = affine_map<(d0, d1, d2, d3, d4, d5, d6, d7) -> (d7 * 2)>
+  // CHECK-DAG: #[[MAP8:.+]] = affine_map<(d0, d1, d2, d3, d4, d5, d6, d7) -> (d4 * 3 + d5)>
   // CHECK-DAG: #[[BOUND:.+]] = affine_map<(d0)[s0, s1, s2, s3, s4] -> ((s0 - ((s2 ceildiv s4) * s4 - s2) + 1) ceildiv s4, (-(d0 * s3 - s2) + s0 + 1) ceildiv s4, (d0 * s3 + (s1 - 1) * s4 - s2 - ((s2 ceildiv s4) * s4 - s2) + 2) ceildiv s4, (d0 * s3 + (s1 - 1) * s4 - s2 - (d0 * s3 - s2) + 2) ceildiv s4)>
 
   // CHECK-LABEL: test_conv_bias_group_pad_stride_dilation
@@ -1456,12 +1456,12 @@ func private @test_conv_bias_group_pad_stride_dilation(%arg0 : tensor<1x9x32x64x
   // CHECK:     krnl.store [[INITIALIZE_VALUE]], [[RES]][%arg3, [[MAP0_APPLY]], %arg6, %arg7] : memref<1x5x13x28xf32>
   // CHECK:     [[REDUCTION_VAL:%.+]] = alloca() : memref<f32>
   // CHECK:     krnl.store [[INITIALIZE_VALUE]], [[REDUCTION_VAL]][] : memref<f32>
-  // CHECK:     [[START1:%.+]] = affine.max #[[MAP1]](%arg4, %arg5, %arg6, %arg6)
+  // CHECK:     [[START1:%.+]] = affine.max #[[MAP1]](%arg4, %arg5, %arg6)
   // CHECK:     {{.*}} = affine.min {{.*}}
-  // CHECK:     [[OFFSET1:%.+]] = affine.min #[[MAP1]](%arg4, %arg5, %arg6, %arg6)
-  // CHECK:     [[START2:%.+]] = affine.max #[[MAP3]](%arg4, %arg5, %arg6, %arg6, %arg7, %arg7)
+  // CHECK:     [[OFFSET1:%.+]] = affine.min #[[MAP1]](%arg4, %arg5, %arg6)
+  // CHECK:     [[START2:%.+]] = affine.max #[[MAP3]](%arg4, %arg5, %arg6, %arg7)
   // CHECK:     {{.*}} = affine.min {{.*}}
-  // CHECK:     [[OFFSET2:%.+]] = affine.min #[[MAP3]](%arg4, %arg5, %arg6, %arg6, %arg7, %arg7)
+  // CHECK:     [[OFFSET2:%.+]] = affine.min #[[MAP3]](%arg4, %arg5, %arg6, %arg7)
 
   // CHECK:     [[INNER_LOOPS:%.+]]:3 = krnl.define_loops 3
   // CHECK-DAG: [[C2:%.+]] = constant 2 : index
@@ -1475,13 +1475,13 @@ func private @test_conv_bias_group_pad_stride_dilation(%arg0 : tensor<1x9x32x64x
   // CHECK-DAG: [[C2_3:%.+]] = constant 2 : index
   // CHECK-DAG: [[C2_4:%.+]] = constant 2 : index
   // CHECK:     krnl.iterate([[INNER_LOOPS]]#0, [[INNER_LOOPS]]#1, [[INNER_LOOPS]]#2) with ([[INNER_LOOPS]]#0 -> %arg8 = 0 to 3, [[INNER_LOOPS]]#1 -> %arg9 = 0 to min #[[BOUND]](%arg6){{\[}}[[C32]], [[C6]], [[C2]], [[C2_0]], [[C2_1]]{{\]}}, [[INNER_LOOPS]]#2 -> %arg10 = 0 to min #[[BOUND]](%arg7){{\[}}[[C64]], [[C7]], [[C2_2]], [[C2_3]], [[C2_4]]{{\]}}) {
-  // CHECK:       [[DILATION_SCALE1:%.+]] = affine.apply #[[MAP6]](%arg4, %arg5, %arg6, %arg6, %arg7, %arg7, %arg4, %arg8, %arg9)
+  // CHECK:       [[DILATION_SCALE1:%.+]] = affine.apply #[[MAP6]](%arg4, %arg5, %arg6, %arg7, %arg4, %arg8, %arg9)
   // CHECK:       [[R1:%.+]] = addi [[DILATION_SCALE1]], [[START1]] : index
-  // CHECK:       [[DILATION_SCALE2:%.+]] = affine.apply #[[MAP7]](%arg4, %arg5, %arg6, %arg6, %arg7, %arg7, %arg4, %arg8, %arg9, %arg10)
+  // CHECK:       [[DILATION_SCALE2:%.+]] = affine.apply #[[MAP7]](%arg4, %arg5, %arg6, %arg7, %arg4, %arg8, %arg9, %arg10)
   // CHECK:       [[R2:%.+]] = addi [[DILATION_SCALE2]], [[START2]] : index
   // CHECK:       [[K1:%.+]] = subi %arg9, [[OFFSET1]] : index
   // CHECK:       [[K2:%.+]] = subi %arg10, [[OFFSET2]] : index
-  // CHECK:       [[GROUP:%.+]] = affine.apply #[[MAP8]](%arg4, %arg5, %arg6, %arg6, %arg7, %arg7, %arg4, %arg8, %arg9, %arg10)
+  // CHECK:       [[GROUP:%.+]] = affine.apply #[[MAP8]](%arg4, %arg5, %arg6, %arg7, %arg4, %arg8, %arg9, %arg10)
 
   // CHECK:       [[DATA:%.+]] = krnl.load %arg0[%arg3, [[GROUP]], [[R1]], [[R2]]] : memref<1x9x32x64xf32>
   // CHECK:       [[KERNEL:%.+]] = krnl.load %arg1{{\[}}[[MAP0_APPLY]], %arg8, [[K1]], [[K2]]{{\]}} : memref<5x3x6x7xf32>
@@ -1716,10 +1716,10 @@ func private @test_pool_general_computation(%arg0 : tensor<1x3x32x32xf32>) -> te
   %0 = "onnx.AveragePool"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-DAG: #{{.*}} = affine_map<(d0, d1) -> (0, d0)>
+  // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (0, d0)>
+  // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (32, d0 + 2)>
+  // CHECK-DAG: #{{.*}} = affine_map<(d0, d1) -> (0, d1)>
   // CHECK-DAG: #{{.*}} = affine_map<(d0, d1) -> (32, d1 + 2)>
-  // CHECK-DAG: #{{.*}} = affine_map<(d0, d1, d2, d3) -> (0, d2)>
-  // CHECK-DAG: #{{.*}} = affine_map<(d0, d1, d2, d3) -> (32, d3 + 2)>
   // CHECK-DAG: #[[BOUND:.+]] = affine_map<(d0)[s0, s1, s2, s3, s4] -> (s0 - ((s2 ceildiv s4) * s4 - s2), -(d0 * s3 - s2) + s0, d0 * s3 + (s1 - 1) * s4 - s2 - ((s2 ceildiv s4) * s4 - s2) + 1, d0 * s3 + (s1 - 1) * s4 - s2 - (d0 * s3 - s2) + 1)>
 
   // CHECK-LABEL: @test_pool_general_computation
