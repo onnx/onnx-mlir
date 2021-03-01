@@ -2816,9 +2816,9 @@ LogicalResult ONNXSliceOp::inferShapes(
       auto constantDenseAttribute =
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
       builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<mlir::ONNXConstantOp>(
-          this->getLoc(), mlir::Attribute(), constantDenseAttribute,
-          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+      auto constantOp = builder.create<mlir::ONNXConstantOp>(this->getLoc(),
+          mlir::Attribute(), constantDenseAttribute, nullptr, nullptr, nullptr,
+          nullptr, nullptr, nullptr);
       mlir::Value constantResult = constantOp.output();
       this->setOperand(3, constantResult);
     }
@@ -2829,9 +2829,9 @@ LogicalResult ONNXSliceOp::inferShapes(
       auto constantDenseAttribute =
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
       builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<mlir::ONNXConstantOp>(
-          this->getLoc(), mlir::Attribute(), constantDenseAttribute,
-          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+      auto constantOp = builder.create<mlir::ONNXConstantOp>(this->getLoc(),
+          mlir::Attribute(), constantDenseAttribute, nullptr, nullptr, nullptr,
+          nullptr, nullptr, nullptr);
       mlir::Value constantResult = constantOp.output();
       this->setOperand(4, constantResult);
     }
@@ -2916,6 +2916,37 @@ LogicalResult ONNXExpandOp::inferShapes(
   }
 
   getResult().setType(RankedTensorType::get(resultShape, elementType));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// LayerNormalization
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXLayerNormalization. This method is
+/// required by the shape inference interface.
+LogicalResult ONNXLayerNormalizationOp::inferShapes(
+    std::function<void(mlir::Region &)> shapeInferenceFunc) {
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>() ||
+      !(getOperand(2).getType().isa<RankedTensorType>() ||
+          getOperand(2).getType().isa<NoneType>()))
+    return emitError("Input tensor(s) not ranked");
+
+  assert(getNumberOfResults() == 3);
+  auto opType = getOperand(0).getType().cast<RankedTensorType>();
+  auto ctx = getContext();
+  auto axisAttr = ArrayAttr::get(ctx, {this->axisAttr()});
+  auto outShapeType = getReductionOutputType(opType, axisAttr, 1);
+
+  getResult(0).setType(opType);
+  auto resultTypes = getResultTypes();
+  if (!resultTypes[1].isa<NoneType>()) {
+    getResult(1).setType(outShapeType);
+  }
+  if (!resultTypes[2].isa<NoneType>()) {
+    getResult(2).setType(outShapeType);
+  }
+
   return success();
 }
 

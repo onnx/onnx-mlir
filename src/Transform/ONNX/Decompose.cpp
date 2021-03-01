@@ -48,6 +48,97 @@ DenseElementsAttr createDenseArrayAttr(
 
 namespace {
 
+RankedTensorType getReductionOutputType(RankedTensorType operandTy,
+    ArrayRef<int64_t> reductionAxes, bool keepdims = true) {
+  int64_t rank = operandTy.getRank();
+
+  SmallVector<int64_t, 4> dims;
+  for (decltype(rank) i = 0; i < rank; ++i) {
+    if (std::find(reductionAxes.begin(), reductionAxes.end(), i) !=
+        reductionAxes.end()) {
+      if (keepdims)
+        dims.emplace_back(1); // reduction dimension
+    } else {
+      dims.emplace_back(operandTy.getShape()[i]);
+    }
+  }
+
+  return RankedTensorType::get(dims, operandTy.getElementType());
+}
+
+// Layer Normalization does an element-by-element normalization on the elements
+// in the given axis. Where X is the set of input elements, this looks something
+// like:
+//                 (X - mean(X)) * scale
+//          y = --------------------------- + bias
+//              sqrt(variance(X) + epsilon)
+struct ONNXLayerNormalizationOpPattern : public ::mlir::RewritePattern {
+  ONNXLayerNormalizationOpPattern(::mlir::MLIRContext *context)
+      : ::mlir::RewritePattern("onnx.LayerNormalization", 1, context) {}
+  ::mlir::LogicalResult matchAndRewrite(
+      ::mlir::Operation *op, ::mlir::PatternRewriter &rewriter) const override {
+    auto layerOp = llvm::dyn_cast<ONNXLayerNormalizationOp>(op);
+    auto loc = op->getLoc();
+
+    auto outType = op->getResultTypes()[0].dyn_cast<RankedTensorType>();
+    int64_t axis = layerOp.axis();
+    if (axis < 0) {
+      axis += outType.getRank();
+    }
+    auto reductionType = getReductionOutputType(outType, {axis});
+    auto reductionDim = ArrayAttr::get(op->getContext(), {layerOp.axisAttr()});
+
+    auto meanOp = rewriter.create<ONNXReduceMeanOp>(
+        loc, reductionType, layerOp.data(), reductionDim);
+    auto diffOp = rewriter.create<ONNXSubOp>(loc, layerOp.data(), meanOp);
+
+    auto diffSquaredOp = rewriter.create<ONNXMulOp>(loc, diffOp, diffOp);
+    auto varianceOp = rewriter.create<ONNXReduceMeanOp>(
+        loc, reductionType, diffSquaredOp, reductionDim);
+
+    // Epsilon is constrained to be an f32 type while element type isn't
+    auto epsilon = layerOp.epsilon();
+    if (layerOp.epsilonAttr().getType() != outType.getElementType()) {
+      const llvm::fltSemantics &semantics = outType.getElementType().isBF16()
+                                                ? APFloat::BFloat()
+                                                : APFloat::IEEEsingle();
+      bool losesInfo;
+      epsilon.convert(semantics, APFloat::rmNearestTiesToEven, &losesInfo);
+      if (losesInfo) {
+        op->emitWarning("Lost precision in converting epsilon to element type");
+      }
+    }
+    auto epsilonAttr = DenseElementsAttr::get(reductionType, {epsilon});
+    auto epsilonOp =
+        rewriter.create<ONNXConstantOp>(loc, reductionType, nullptr,
+            epsilonAttr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    Value denomOp = rewriter.create<ONNXAddOp>(loc, varianceOp, epsilonOp);
+    denomOp = rewriter.create<ONNXSqrtOp>(loc, denomOp);
+
+    Value normOp = rewriter.create<ONNXDivOp>(loc, diffOp, denomOp);
+    normOp = rewriter.create<ONNXMulOp>(loc, outType, normOp, layerOp.weight());
+    if (!layerOp.bias().getType().isa<NoneType>()) {
+      normOp = rewriter.create<ONNXAddOp>(loc, outType, normOp, layerOp.bias());
+    }
+
+    op->getResult(0).replaceAllUsesWith(normOp);
+    if (!layerOp.saved_mean().getType().isa<NoneType>()) {
+      op->getResult(1).replaceAllUsesWith(meanOp);
+    }
+
+    if (!layerOp.saved_inv_std_var().getType().isa<NoneType>()) {
+      auto one = rewriter.getI64IntegerAttr(1);
+      auto oneOp = rewriter.create<ONNXConstantOp>(loc, varianceOp.getType(),
+          nullptr, one, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+      auto invVarOp = rewriter.create<ONNXDivOp>(loc, oneOp, varianceOp);
+      op->getResult(2).replaceAllUsesWith(invVarOp);
+    }
+
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, FunctionPass> {
   void runOnFunction() final;
@@ -70,9 +161,11 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXReduceSumSquareOp>();
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
+  target.addIllegalOp<ONNXLayerNormalizationOp>();
 
   OwningRewritePatternList patterns;
   populateWithGenerated(context, patterns);
+  patterns.insert<ONNXLayerNormalizationOpPattern>(context);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();

@@ -5,3 +5,5 @@
  
 import_handler_map_["Gelu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGeluOp>;
+import_handler_map_["LayerNormalization"] =
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLayerNormalizationOp>;
