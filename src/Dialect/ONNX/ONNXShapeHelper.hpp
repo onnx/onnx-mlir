@@ -107,6 +107,14 @@ private:
   bool isUniBroadcasting;
 };
 
+// Shape for ArgMax
+struct ONNXArgMaxOpShapeHelper : public ONNXOpShapeHelper<ONNXArgMaxOp> {
+  ONNXArgMaxOpShapeHelper(
+      ONNXArgMaxOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXArgMaxOpAdaptor operandAdaptor);
+};
+
 // Shape for concat
 struct ONNXConcatOpShapeHelper : public ONNXOpShapeHelper<ONNXConcatOp> {
   ONNXConcatOpShapeHelper(

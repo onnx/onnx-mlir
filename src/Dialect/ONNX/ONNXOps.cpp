@@ -3006,7 +3006,23 @@ LogicalResult ONNXLessOp::inferShapes(
 
 LogicalResult ONNXArgMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!data().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  ONNXArgMaxOpShapeHelper shapeHelper(this, nullptr);
+  ONNXArgMaxOpAdaptor operandAdaptor(*this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan ArgMax parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExprContext::getOutputDimsForType(
+      shapeHelper.dimsForOutput(0), outputDims);
+
+  // ONNX spec specifies the reduced type as an int64
+  Type elementType = IntegerType::get(getContext(), 64);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+
+  return success();
 }
 
 LogicalResult ONNXArgMinOp::inferShapes(

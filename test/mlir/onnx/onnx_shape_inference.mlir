@@ -3,6 +3,22 @@
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test the default behavior of argmax when no information for the
+/// permutation of the axes is provided and when a permutation is provided.
+//===----------------------------------------------------------------------===//
+
+func @test_default_argmax(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi64> {
+  %0 = "onnx.ArgMax"(%arg0) : (tensor<2x3x4xf32>) -> tensor<*xi64>
+  "std.return"(%0) : (tensor<*xi64>) -> ()
+
+  // CHECK-LABEL: test_default_argmax
+  // CHECK: [[RES:%.+]] = "onnx.ArgMax"(%arg0) : (tensor<2x3x4xf32>) -> tensor<1x3x4xi64>
+  // CHECK: return [[RES]] : tensor<1x3x4xi64>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test the default behavior of transpose when no information for the
 /// permutation of the axes is provided and when a permutation is provided.
 //===----------------------------------------------------------------------===//
