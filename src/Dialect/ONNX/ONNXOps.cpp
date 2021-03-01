@@ -3020,7 +3020,7 @@ LogicalResult ONNXArgMaxOp::inferShapes(
     return emitError("Failed to scan ArgMax parameters successfully");
 
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(
+  IndexExpr::convertListOfIndexExprToIntegerDim(
       shapeHelper.dimsForOutput(0), outputDims);
 
   // ONNX spec specifies the reduced type as an int64

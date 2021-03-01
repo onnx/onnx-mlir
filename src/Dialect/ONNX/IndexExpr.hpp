@@ -570,9 +570,10 @@ public:
   UndefinedIndexExpr();
 };
 
-// Subclass to explicitly create non affine IndexExpr
+// Subclass to explicitly create non affine IndexExpr.
 class LiteralIndexExpr : public IndexExpr {
 public:
+  LiteralIndexExpr() : IndexExpr() {} // Make undefined.
   LiteralIndexExpr(int64_t const value);
   LiteralIndexExpr(IndexExpr const otherIndexExpr);
 
@@ -580,47 +581,62 @@ private:
   void init(int64_t const value);
 };
 
-// Subclass to explicitly create non affine IndexExpr
+// Subclass to explicitly create non affine IndexExpr.
 class NonAffineIndexExpr : public IndexExpr {
 public:
+  NonAffineIndexExpr() : IndexExpr() {} // Make undefined.
   NonAffineIndexExpr(Value const value);
   NonAffineIndexExpr(IndexExpr const otherIndexExpr);
 };
 
-// Subclass to explicitly create Questionmark IndexExpr
+// Subclass to explicitly create Questionmark IndexExpr.
 class QuestionmarkIndexExpr : public IndexExpr {
 public:
   QuestionmarkIndexExpr();
   QuestionmarkIndexExpr(IndexExpr const otherIndexExpr);
 };
 
-// Subclass to explicitly create Predicate IndexExpr
+// Subclass to explicitly create Predicate IndexExpr.
 class PredicateIndexExpr : public IndexExpr {
 public:
+  PredicateIndexExpr() : IndexExpr() {} // Make undefined.
   PredicateIndexExpr(Value const value);
   PredicateIndexExpr(IndexExpr const otherIndexExpr);
 };
 
-// Subclass to explicitly create Affine IndexExpr
+// Subclass to explicitly create Affine IndexExpr.
 class AffineIndexExpr : public IndexExpr {
 public:
+  AffineIndexExpr() : IndexExpr() {} // Make undefined.
   AffineIndexExpr(AffineExpr const value);
   AffineIndexExpr(IndexExpr const otherIndexExpr);
 };
 
-// Subclass to explicitly create Dim IndexExpr
+// Subclass to explicitly create Dim IndexExpr.
 class DimIndexExpr : public IndexExpr {
 public:
+  DimIndexExpr() : IndexExpr() {} // Make undefined.
   DimIndexExpr(Value const value);
   DimIndexExpr(IndexExpr const otherIndexExpr);
 };
 
-// Subclass to explicitly create IndexExpr
+// Subclass to explicitly create IndexExpr.
 class SymbolIndexExpr : public IndexExpr {
 public:
+  SymbolIndexExpr() : IndexExpr() {} // Make undefined.
   SymbolIndexExpr(Value const value);
   SymbolIndexExpr(IndexExpr const otherIndexExpr);
 };
+
+//===----------------------------------------------------------------------===//
+// Additional operators with integer values in first position
+//===----------------------------------------------------------------------===//
+
+inline IndexExpr operator+(int64_t const a, const IndexExpr b) { return b + a; }
+inline IndexExpr operator*(int64_t const a, const IndexExpr b) { return b * a; }
+inline IndexExpr operator-(int64_t const a, const IndexExpr b) {
+  return LiteralIndexExpr(a) - b;
+}
 
 //===----------------------------------------------------------------------===//
 // Capturing Index Expressions
@@ -654,13 +670,6 @@ private:
   MemRefBoundIndexCapture() { llvm_unreachable("forbidden constructor"); };
   Value tensorOrMemref;
 };
-
-// Additional operators with integer values in first position.
-inline IndexExpr operator+(int64_t const a, const IndexExpr b) { return b + a; }
-inline IndexExpr operator*(int64_t const a, const IndexExpr b) { return b * a; }
-inline IndexExpr operator-(int64_t const a, const IndexExpr b) {
-  return LiteralIndexExpr(a) - b;
-}
 
 //===----------------------------------------------------------------------===//
 // Processing lists

@@ -75,21 +75,21 @@ LogicalResult ONNXArgMaxOpShapeHelper::Compute(
 
   // Compute outputDims
   DimsExpr outputDims;
-
+  MemRefBoundIndexCapture dataBounds(data);
   int reducedRank = isKeepdims ? dataRank : dataRank - 1;
   outputDims.resize(reducedRank);
   for (auto i = 0; i < reducedRank; i++) {
-    IndexExpr dimOutput = nullptr;
+    DimIndexExpr dimOutput;
     if (isKeepdims) {
       if (i != axisValue)
-        dimOutput = context.createDimIndexFromShapedType(data, i);
+        dimOutput = dataBounds.getDim(i);
       else
-        dimOutput = context.createLiteralIndex(1);
+        dimOutput = LiteralIndexExpr(1);
     } else {
       if (i < axisValue)
-        dimOutput = context.createDimIndexFromShapedType(data, i);
+        dimOutput = dataBounds.getDim(i);
       else
-        dimOutput = context.createDimIndexFromShapedType(data, i + 1);
+        dimOutput = dataBounds.getDim(i + 1);
     }
     outputDims[i] = dimOutput;
   }
