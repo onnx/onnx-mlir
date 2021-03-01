@@ -141,19 +141,19 @@ also means that one can only geneate code in one index scope at a time.
 
 3a) Create a scope:
 
-// During shape inference: no rewriter.
+    // During shape inference: no rewriter.
 
-  IndexExprContext scope(nullptr, getLoc());
+    IndexExprContext scope(nullptr, getLoc());
 
-// During lowering.
+    // During lowering.
 
     IndexExprContext outerloopContex(&rewriter, sliceOp.getLoc());
 
 3b) Computations on IndexExpr (examples from processing of ONNXSliceOp)
 
-// IN ONNXShapeHelper.cpp
+    // IN ONNXShapeHelper.cpp
 
-// Get a value from an input operand (either a constant or a value to load).
+    // Get a value from an input operand (either a constant or a value to load).
 
     ArrayValueIndexCapture startsCapture(genericOp, operandAdaptor.starts());
     SymbolIndexExpr startInput(startsCapture.getSymbol(i));
@@ -164,7 +164,7 @@ symbol index expression from the captured array value at index "i". When
 constant, it will result in a literal. Otherwise it will result in a new Symbol
 variable.
 
-// Get a dimension from a memref.
+    // Get a dimension from a memref.
     MemRefBoundIndexCapture dataBounds(data);
     DimIndexExpr dimInput(dataBounds.getDim(ii));
 
@@ -173,7 +173,7 @@ memref. We then create a Dim index expression from the memref's "ii" dimension.
 When constant, this will result in a literal. Otherwise, it will result in a new
 Dim variable.
 
-// Perform calculations.
+    // Perform calculations.
 
     // Calculation for start: start < 0 ? start + dim : start.
     IndexExpr startPos =
@@ -185,36 +185,36 @@ Dim variable.
 
 3c) Look at Slice in ONNXOps.cpp on how to use IndexExpr for shape inferences.
 
-// Extract the shape of the output.
+    // Extract the shape of the output.
 
-  SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
-  getResult().setType(RankedTensorType::get(outputDims, elementType));
+    SmallVector<int64_t, 4> outputDims;
+    IndexExpr::convertListOfIndexExprToIntegerDim(
+        shapeHelper.dimsForOutput(0), outputDims);
+    getResult().setType(RankedTensorType::get(outputDims, elementType));
 
 In this code, we convert the IndexExpressions back to integer dims (with >=0 for
 compile time sizes, -1 for runtime sizes).
 
 3d) Look at Slice.cpp on how to use IndexExpr for lowering.
 
-// Create an alloc using dimensions as indices.
+    // Create an alloc using dimensions as indices.
 
     Value alloc = insertAllocAndDeallocSimple(
         rewriter, op, outputMemRefType, loc, outputDims);
 
-// Use indices to set loop sizes.
+    // Use indices to set loop sizes.
 
-  outputLoops(rewriter, loc, outputRank);
-    outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
-    outputLoops.createIterateOp();
-    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
+    outputLoops(rewriter, loc, outputRank);
+      outputLoops.createDefineOp();
+      outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
+      outputLoops.createIterateOp();
+      rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-// Create a sub-scope for computations inside the loop iteration.
+    // Create a sub-scope for computations inside the loop iteration.
 
     IndexExprContext childContext(outerloopContex);
 
-// Create indices with computations for a load.
+    // Create indices with computations for a load.
 
     for (int ii = 0; ii < outputRank; ++ii) {
       Value inductionVal = outputLoops.getInductionVar(ii);
@@ -225,7 +225,25 @@ compile time sizes, -1 for runtime sizes).
       storeIndices.emplace_back(inductionIndex);
     }
 
-  4) Additional infrastructure
+4) Scopes
+
+  Here is an example of how scopes work:
+
+    IndexExprScope outerScope; // outer scope
+      DimIndexExpr d1(dataBounds.getDim(2); // outer scope variable
+      // ...
+      {
+         IndexExprScope innerScope;
+         SymbolIndexExpr s1(d1); // in the inner scope, make a symbol out of the
+outer scope dim index expr d1.
+        // ...
+        // innerScope is deleted, and its enclosing scope becomes the active
+scope again.
+    }
+
+    // Back to the outer scope
+
+5) Additional infrastructure
 
    ArrayValueIndexCapture allows us to read 1D arrays and generate symbols out
 of them expressions that are either literals or runtime values (symbols).

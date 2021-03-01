@@ -72,7 +72,8 @@ public:
     OwningRewritePatternList patterns;
     patterns.insert<ConstantValueElision>(&getContext());
 
-    LogicalResult res = applyPatternsAndFoldGreedily(function, std::move(patterns));
+    LogicalResult res =
+        applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
 };
 } // end anonymous namespace
