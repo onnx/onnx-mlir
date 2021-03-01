@@ -37,7 +37,7 @@ ONNXConstantOp getONNXConstantOp(Value value) {
 template <class OP>
 ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
     OP *newOp, ConversionPatternRewriter *rewriter)
-    : op(newOp), context(rewriter, newOp->getLoc()), outputsDims() {
+    : op(newOp), scope(rewriter, newOp->getLoc()), outputsDims() {
   setNumberOfOutputs(op->getOperation()->getNumResults());
 }
 
@@ -47,7 +47,7 @@ ONNXOpShapeHelper<OP>::ONNXOpShapeHelper(
 
 ONNXOpBroadcastedShapeHelper::ONNXOpBroadcastedShapeHelper(
     ConversionPatternRewriter *rewriter, Location loc, bool uniBroadcasting)
-    : context(rewriter, loc), isUniBroadcasting(uniBroadcasting) {}
+    : scope(rewriter, loc), isUniBroadcasting(uniBroadcasting) {}
 
 LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
   // A temporary IndexExpr vector for the output.
@@ -67,13 +67,13 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
   for (int64_t i = 0; i < numOfInputs; ++i) {
     DimsExpr dims;
     int64_t r = operands[i].getType().cast<ShapedType>().getRank();
+    MemRefBoundIndexCapture bounds(operands[i]);
     // Prepend 1s.
     for (int64_t k = 0; k < outputRank - r; ++k)
-      dims.emplace_back(context.createLiteralIndex(1));
+      dims.emplace_back(LiteralIndexExpr(1));
     // Get from the input.
     for (int64_t k = outputRank - r; k < outputRank; ++k)
-      dims.emplace_back(context.createDimIndexFromShapedType(
-          operands[i], k - outputRank + r));
+      dims.emplace_back(bounds.getDim(k - outputRank + r));
     inputsDims.emplace_back(dims);
   }
 
@@ -134,9 +134,8 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
   return success();
 }
 
-LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(
-    IndexExprContext &outerContext, Value operand, unsigned operandIndex,
-    const SmallVectorImpl<IndexExpr> &outputAccessExprs,
+LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(Value operand,
+    unsigned operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
     SmallVectorImpl<IndexExpr> &operandAccessExprs) {
   if (isUniBroadcasting && operandIndex == 0) {
     for (IndexExpr ie : outputAccessExprs)
@@ -148,8 +147,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper::GetAccessExprs(
   for (decltype(operandRank) i = 0; i < operandRank; ++i) {
     // Shape helper may pretend 1s, thus adjust dimension index accordingly.
     auto dimIndex = outputRank - operandRank + i;
-    IndexExpr dim = outerContext.createSymbolIndexFromParentContext(
-        inputsDims[operandIndex][dimIndex]);
+    SymbolIndexExpr dim(inputsDims[operandIndex][dimIndex]);
 
     // Compute access index based on broadcasting rules.
     // If all other operand dims are 1, just use the output access index.
@@ -224,30 +222,31 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   outputDims.resize(dataRank);
 
   // SmallVector<uint64_t, 1> index1D(1, 0);
+  ArrayValueIndexCapture startsCapture(genericOp, operandAdaptor.starts());
+  ArrayValueIndexCapture endsCapture(genericOp, operandAdaptor.ends());
+  ArrayValueIndexCapture stepsCapture(genericOp, operandAdaptor.steps());
+  MemRefBoundIndexCapture dataBounds(data);
   for (uint64_t i = 0; i < sliceRank; i++) {
     // i is index in start/step/end/output
     // ii is logical index in mem/loop bounds
     int ii = axesIntLit[i];
     // Get start, end, step, and dim index expressions.
     // Get start.
-    IndexExpr startInput = context.createSymbolIndexFromArrayValueAtIndex(
-        genericOp, operandAdaptor.starts(), i);
+    SymbolIndexExpr startInput(startsCapture.getSymbol(i));
     if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
     // Get end.
-    IndexExpr endInput = context.createSymbolIndexFromArrayValueAtIndex(
-        genericOp, operandAdaptor.ends(), i);
+    SymbolIndexExpr endInput(endsCapture.getSymbol(i));
     if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
     // Get step.
-    IndexExpr stepInput = context.createSymbolIndexFromArrayValueAtIndex(
-        genericOp, operandAdaptor.steps(), i, 1);
+    SymbolIndexExpr stepInput(stepsCapture.getSymbol(i));
     if (stepInput.isUndefined())
       return op->emitError("step input parameter could not be processed");
     if (stepInput.isLiteral() && stepInput.getLiteral() == 0)
       return op->emitError("step input parameter cannot be zero");
     // Get dim.
-    IndexExpr dimInput = context.createDimIndexFromShapedType(data, ii);
+    DimIndexExpr dimInput(dataBounds.getDim(ii));
 
     // Now proceed with the computations for start/end/dim.
     // Calculation for start: start < 0 ? start + dim : start.
@@ -290,9 +289,9 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
     if (steps[i].isUndefined()) {
       // have one unset, put the defaults (start was already at zero, so we are
       // fine).
-      starts[i] = context.createLiteralIndex(0);
-      steps[i] = context.createLiteralIndex(1);
-      IndexExpr dimInput = context.createDimIndexFromShapedType(data, i);
+      starts[i] = LiteralIndexExpr(0);
+      steps[i] = LiteralIndexExpr(1);
+      DimIndexExpr dimInput(dataBounds.getDim(i));
       ends[i] = dimInput;
       outputDims[i] = dimInput;
     }
@@ -325,10 +324,11 @@ LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
   // Compute outputDims
   DimsExpr outputDims;
   outputDims.resize(inputRank);
+  MemRefBoundIndexCapture inputBounds(input);
+  ArrayValueIndexCapture repeatsCapture(genericOp, repeats);
   for (auto i = 0; i < inputRank; i++) {
-    IndexExpr dimInput = context.createDimIndexFromShapedType(input, i);
-    IndexExpr repeatsValue =
-        context.createSymbolIndexFromArrayValueAtIndex(genericOp, repeats, i);
+    DimIndexExpr dimInput(inputBounds.getDim(i));
+    SymbolIndexExpr repeatsValue(repeatsCapture.getSymbol(i));
     IndexExpr dimOutput = dimInput * repeatsValue;
     outputDims[i] = dimOutput;
   }
@@ -368,38 +368,33 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
       return op->emitError("Gemm with C should be a 1D or 2D tensor");
   }
   // Scan dimensions of A with/without transpose.
+  MemRefBoundIndexCapture ABounds(A);
   if (op->transA() == 0) {
-    aDims.emplace_back(context.createDimIndexFromShapedType(A, 0));
-    aDims.emplace_back(context.createDimIndexFromShapedType(A, 1));
+    aDims = {ABounds.getDim(0), ABounds.getDim(1)};
   } else {
-    aDims.emplace_back(context.createDimIndexFromShapedType(A, 1));
-    aDims.emplace_back(context.createDimIndexFromShapedType(A, 0));
+    aDims = {ABounds.getDim(1), ABounds.getDim(0)};
   }
   // Scan dimensions of B with/without transpose.
+  MemRefBoundIndexCapture BBounds(B);
   if (op->transB() == 0) {
-    bDims.emplace_back(context.createDimIndexFromShapedType(B, 0));
-    bDims.emplace_back(context.createDimIndexFromShapedType(B, 1));
+    bDims = {BBounds.getDim(0), BBounds.getDim(1)};
   } else {
-    bDims.emplace_back(context.createDimIndexFromShapedType(B, 1));
-    bDims.emplace_back(context.createDimIndexFromShapedType(B, 0));
+    bDims = {BBounds.getDim(1), BBounds.getDim(0)};
   }
   // Set output dims of result, creating a copy of it to be safe.
-  outputDims.emplace_back(context.createIndex(aDims[0]));
-  outputDims.emplace_back(context.createIndex(bDims[1]));
+  outputDims = {aDims[0].deepCopy(), bDims[1].deepCopy()};
   // Bias C can be a (unidirectional) broadcast.
+  MemRefBoundIndexCapture CBounds(C);
   if (hasBias) {
     if (cRank == 0) {
       // Broadcast for scalar: both dims are 1.
-      cDims.emplace_back(context.createLiteralIndex(1));
-      cDims.emplace_back(context.createLiteralIndex(1));
+      cDims = {LiteralIndexExpr(1), LiteralIndexExpr(1)};
     } else if (cRank == 1) {
       // First dim is the one padded.
-      cDims.emplace_back(context.createLiteralIndex(1));
-      cDims.emplace_back(context.createDimIndexFromShapedType(C, 0));
+      cDims = {LiteralIndexExpr(1), CBounds.getDim(0)};
     } else {
       assert(cRank == 2 && "illegal path");
-      cDims.emplace_back(context.createDimIndexFromShapedType(C, 0));
-      cDims.emplace_back(context.createDimIndexFromShapedType(C, 1));
+      cDims = {CBounds.getDim(0), CBounds.getDim(1)};
     }
   }
   // Check static dimensions, if we can.
@@ -463,20 +458,23 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   // Add the dims of A. All of the aDim[0]...aDim[aRank-1] are in the rightmost
   // positions, prepended by 1s to fit the paddedRankSize.
   // (1,1,1... 1, aDim[0]...aDim[aRank-1])
-  IndexExpr one = context.createLiteralIndex(1);
+
+  LiteralIndexExpr one(1);
+  MemRefBoundIndexCapture ABounds(A);
   int aOffset = paddedRank - aRank;
   for (int i = 0; i < aOffset; ++i) {
     aDims[i] = one;
     aPadDims[i] = true;
   }
   for (int i = 0; i < aRank; ++i) {
-    aDims[i + aOffset] = context.createDimIndexFromShapedType(A, i);
+    aDims[i + aOffset] = ABounds.getDim(i);
     aPadDims[i + aOffset] = false; // Pad false even if dim is sized 1.
   }
   // for B: two cases. If bRank = 1, we pad the rightmost position. Namely we
   // get (1...,1, bDim[0], 1). We use one padding credit for the rightmost
   // position. Otherwise, when bRank>1, we only pad the leading positions.
   // Namely we get (1,1,1...,1, bDim[0],.... bDim[bRank-1])
+  MemRefBoundIndexCapture BBounds(B);
   int bOffset = paddedRank - bRank;
   if (bRank == 1) {
     bDims[paddedRank - 1] = one;
@@ -488,7 +486,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
     bPadDims[i] = true;
   }
   for (int i = 0; i < bRank; ++i) {
-    bDims[i + bOffset] = context.createDimIndexFromShapedType(B, i);
+    bDims[i + bOffset] = BBounds.getDim(i);
     bPadDims[i + bOffset] = false; // Pad false even if dim is sized 1.
   }
   assert(aDims.size() == bDims.size() && "padded A&B must have same size");
@@ -583,20 +581,19 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
   // Checking value of split parameter.
   auto splitAttribute = op->split();
   SmallVector<IndexExpr, 4> splitDims;
+  MemRefBoundIndexCapture inputBounds(operandAdaptor.input());
   if (splitAttribute.hasValue()) {
     if (ArrayAttrSize(splitAttribute) != numOfResults)
       return op->emitError("Split size not equal to the number of results");
     for (int i = 0; i < numOfResults; ++i) {
-      IndexExpr dim =
-          context.createLiteralIndex(ArrayAttrIntVal(splitAttribute, i));
+      LiteralIndexExpr dim(ArrayAttrIntVal(splitAttribute, i));
       splitDims.emplace_back(dim);
     }
   } else {
     // If split parameter is not specified, the dimension is split to
     // equal-sized parts.
-    IndexExpr splitInputDim =
-        context.createDimIndexFromShapedType(operandAdaptor.input(), axisIndex);
-    IndexExpr numOfPartitions = context.createLiteralIndex(numOfResults);
+    DimIndexExpr splitInputDim(inputBounds.getDim(axisIndex));
+    LiteralIndexExpr numOfPartitions(numOfResults);
     if (splitInputDim.isLiteral() &&
         (splitInputDim.getLiteral() % numOfResults != 0))
       return op->emitError("The dimension at the split axis is "
@@ -615,9 +612,7 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
       if (j == axisIndex) {
         outputDims[j] = splitDims[i];
       } else {
-        IndexExpr dim =
-            context.createDimIndexFromShapedType(operandAdaptor.input(), j);
-        outputDims[j] = dim;
+        outputDims[j] = inputBounds.getDim(j);
       }
     }
     dimsForOutput(i) = outputDims;
@@ -638,8 +633,10 @@ LogicalResult ONNXGatherOpShapeHelper::Compute(
     ONNXGatherOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Read data and indices shapes as dim indices.
-  context.createDimIndicesFromShapedType(operandAdaptor.data(), dataDims);
-  context.createDimIndicesFromShapedType(operandAdaptor.indices(), indicesDims);
+  MemRefBoundIndexCapture dataBounds(operandAdaptor.data());
+  MemRefBoundIndexCapture indicesBounds(operandAdaptor.indices());
+  dataBounds.getDimList(dataDims);
+  indicesBounds.getDimList(indicesDims);
 
   // Read constant 'axis' attribute and normalize when negative.
   int64_t axisIndex = op->axis();
@@ -711,22 +708,22 @@ LogicalResult ONNXConcatOpShapeHelper::Compute(
     axisIndex = commonRank + axisIndex;
   }
 
-  IndexExpr cumulativeAxisSize = context.createLiteralIndex(0);
-
+  IndexExpr cumulativeAxisSize = LiteralIndexExpr(0);
   for (int i = 0; i < inputNum; ++i) {
     Value currentInput = operandAdaptor.getODSOperands(0)[i];
-    IndexExpr currentSize =
-        context.createDimIndexFromShapedType(currentInput, axisIndex);
+    MemRefBoundIndexCapture currInputBounds(currentInput);
+    DimIndexExpr currentSize(currInputBounds.getDim(axisIndex));
     cumulativeAxisSize = cumulativeAxisSize + currentSize;
   }
 
   DimsExpr outputDims;
+  MemRefBoundIndexCapture firstInputBounds(firstInput);
   outputDims.resize(commonRank);
   for (int i = 0; i < commonRank; i++) {
     if (i == axisIndex) {
       outputDims[i] = cumulativeAxisSize;
     } else {
-      outputDims[i] = context.createDimIndexFromShapedType(firstInput, i);
+      outputDims[i] = firstInputBounds.getDim(i);
     }
   }
 
@@ -767,11 +764,10 @@ LogicalResult ONNXTransposeOpShapeHelper::Compute(
 
   // Perform transposition according to perm attribute.
   DimsExpr transposedDims;
+  MemRefBoundIndexCapture dataBounds(operandAdaptor.data());
   for (decltype(rank) i = 0; i < rank; ++i) {
     int64_t inputIndex = ArrayAttrIntVal(permAttr, i);
-    IndexExpr inputDim =
-        context.createDimIndexFromShapedType(operandAdaptor.data(), inputIndex);
-    transposedDims.emplace_back(inputDim);
+    transposedDims.emplace_back(dataBounds.getDim(inputIndex));
   }
 
   // Set type for the first output.
@@ -796,10 +792,9 @@ LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
 
   // Perform transposition according to perm attribute.
   DimsExpr outputDims;
+  MemRefBoundIndexCapture XBounds(operandAdaptor.X());
   for (decltype(rank) i = 0; i < rank; ++i) {
-    IndexExpr inputDim =
-        context.createDimIndexFromShapedType(operandAdaptor.X(), i);
-    outputDims.emplace_back(inputDim);
+    outputDims.emplace_back(XBounds.getDim(i));
   }
 
   // Set type for the first output.
