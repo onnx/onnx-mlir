@@ -104,10 +104,23 @@ bool isKrnlMemcpy(Operation *op) {
 /// A krnl.memcpy acts as both load and store.
 bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
   auto result = getRef.getResult();
-  return (isLoad(op) && result == op->getOperands()[0]) ||
-         (isStore(op) && result == op->getOperands()[1]) ||
-         (isKrnlMemcpy(op) && (result == op->getOperands()[0] ||
-                                  result == op->getOperands()[1]));
+
+  // Is used by load/store/krnl.memcpy.
+  bool isUsedByLoadStore =
+      (isLoad(op) && result == op->getOperands()[0]) ||
+      (isStore(op) && result == op->getOperands()[1]) ||
+      (isKrnlMemcpy(op) &&
+          (result == op->getOperands()[0] || result == op->getOperands()[1]));
+
+  // If not used by a load/store or krnl memcpy, then it can be used by
+  // another operation. When this happens we assume that the lowering of the
+  // operation will involve a load/store.
+  if (!isUsedByLoadStore && !isLoad(op) && !isStore(op) && !isKrnlMemcpy(op))
+    for (const auto &operand : op->getOperands())
+      if (operand == result)
+        return true;
+
+  return isUsedByLoadStore;
 }
 
 /// Check if this value is an argument of one of the blocks nested around it.
