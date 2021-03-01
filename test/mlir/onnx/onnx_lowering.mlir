@@ -3446,3 +3446,38 @@ func private @test_loop_simple_main_graph(%arg0: tensor<i64>, %arg1: tensor<i1>,
   // CHECK:         }
   // CHECK:       }
 }
+
+// -----
+
+func private @test_argmax(%arg0 : tensor<10x?xf32>) -> tensor<*xi64> {
+  %0 = "onnx.ArgMax"(%arg0) {axis = 0: si64, keepdims = 1 : si64} : (tensor<10x?xf32>) -> tensor<*xi64>
+  "std.return"(%0) : (tensor<*xi64>) -> ()
+
+  // CHECK-LABEL: test_argmax
+  // CHECK: [[C1:%.+]] = constant 1 : index
+  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C1]] : memref<10x?xf32>
+  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<1x?xi64>
+  // CHECK: [[MINUS_ONE:%.+]] = constant -1 : i64
+  // CHECK: [[ZERO:%.+]] = constant 0 : i64
+  // CHECK: [[C0:%.+]] = constant 0 : index
+  // CHECK: [[DEF_INIT_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: krnl.iterate([[DEF_INIT_LOOPS]]#0, [[DEF_INIT_LOOPS]]#1) with ([[DEF_INIT_LOOPS]]#0 -> %arg1 = 0 to 1, [[DEF_INIT_LOOPS]]#1 -> %arg2 = 0 to [[DIM_0]]) {
+  // CHECK:   krnl.store [[MINUS_ONE]], [[RES]][%arg1, %arg2] : memref<1x?xi64>
+  // CHECK: }
+  // CHECK: [[DEF_CALC_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: [[C1_0:%.+]] = constant 1 : index
+  // CHECK: [[DIM_1:%.+]] = dim %arg0, [[C1_0]] : memref<10x?xf32>
+  // CHECK: krnl.iterate([[DEF_CALC_LOOPS]]#0, [[DEF_CALC_LOOPS]]#1) with ([[DEF_CALC_LOOPS]]#0 -> %arg1 = 0 to 10, [[DEF_CALC_LOOPS]]#1 -> %arg2 = 0 to [[DIM_1]]) {
+  // CHECK:   [[LOAD_1:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<10x?xf32>
+  // CHECK:   [[LOAD_2:%.+]] = krnl.load [[RES]]{{\[}}[[C0]], %arg2] : memref<1x?xi64>
+  // CHECK:   [[LESS_THAN_ZERO:%.+]] = cmpi slt, [[LOAD_2]], [[ZERO]] : i64
+  // CHECK:   [[SELECT_0:%.+]] = select [[LESS_THAN_ZERO]], [[ZERO]], [[LOAD_2]] : i64
+  // CHECK:   [[CAST_TO_INDEX:%.+]] = index_cast [[SELECT_0]] : i64 to index
+  // CHECK:   [[LOAD_3:%.+]] = krnl.load %arg0{{\[}}[[CAST_TO_INDEX]], %arg2] : memref<10x?xf32>
+  // CHECK:   [[MAX:%.+]] = cmpf ogt, [[LOAD_1]], [[LOAD_3]] : f32
+  // CHECK:   [[CAST_TO_INT:%.+]] = index_cast %arg1 : index to i64
+  // CHECK:   [[SELECT_1:%.+]] = select [[MAX]], [[CAST_TO_INT]], [[SELECT_0]] : i64
+  // CHECK:   krnl.store [[SELECT_1]], [[RES]]{{\[}}[[C0]], %arg2] : memref<1x?xi64>
+  // CHECK: }
+  // CHECK: return [[RES]] : memref<1x?xi64>
+}
