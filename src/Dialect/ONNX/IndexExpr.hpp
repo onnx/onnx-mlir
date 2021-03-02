@@ -319,19 +319,20 @@ class IndexExprScope {
 
 public:
   // Constructor for a scope. Top level scope must provide rewriter (possibly
-  // null) and location.
-  IndexExprScope(ConversionPatternRewriter *rewriter, Location loc);
-  // Default constructor can be used for subsequent nested scopes.
+  // null if we cannot geneate code at this time) and location.
+  IndexExprScope(OpBuilder *rewriter, Location loc);
+  IndexExprScope(OpBuilder &rewriter, Location loc);
+  // Constructor for subsequent nested scopes. Providing enclosing scope is not
+  // necessary; it is provided for convenience if a user prefer to name the
+  // enclosing scope explicitly.
   IndexExprScope();
-  // While providing the parent scope is not necessary, it is offered to
-  // generate more explicit code.
   IndexExprScope(IndexExprScope &explicitEnclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
   ~IndexExprScope();
 
   // Public getters.
   static IndexExprScope &getCurrentScope();
-  ConversionPatternRewriter &getRewriter() const;
+  OpBuilder &getRewriter() const;
   Location getLoc() const { return loc; }
   bool isShapeInferencePass() const { return !rewriter; }
 
@@ -363,7 +364,7 @@ private:
   SmallVector<Value, 4> dims;
   SmallVector<Value, 4> symbols;
   // Rewriter, null when during shape inference; otherwise used to create ops.
-  ConversionPatternRewriter *rewriter;
+  OpBuilder *rewriter;
   // Location for ops rewriting.
   Location loc;
   // Parent scope (used when creating a child scope).
@@ -391,7 +392,7 @@ struct IndexExprImpl {
   // Basic initialization calls.
   void initAsUndefined();
   void initAsQuestionmark();
-  void initAsLiteral(int64_t const value);
+  void initAsLiteral(int64_t const value, IndexExprKind const kind);
   void initAsKind(Value const value, IndexExprKind const kind);
   void initAsAffineExpr(AffineExpr const value);
   // Transformative initialization calls.
@@ -479,7 +480,7 @@ public:
   Value getValue() const;
   IndexExprScope &getScope() const { return *getScopePtr(); }
   IndexExprScope *getScopePtr() const;
-  ConversionPatternRewriter &getRewriter() const;
+  OpBuilder &getRewriter() const;
   Location getLoc() const { return getScope().getLoc(); }
 
   // Possibly Affine Operations. Return a new IndexExpr
@@ -506,6 +507,12 @@ public:
   IndexExpr operator>=(int64_t const b) const;
   IndexExpr operator>(IndexExpr const b) const;
   IndexExpr operator>(int64_t const b) const;
+  // Compare and/or, only for predicate index expression, which are 1 bit 0
+  // or 1. Because we use the comparison in non-branching code here, we perform
+  // the "arithmetic and/or". Logical disjunctive comparison must be made
+  // manually with branching code.
+  IndexExpr operator&(IndexExpr const b) const;
+  IndexExpr operator|(IndexExpr const b) const;
 
   // Return a new IndexExpr in the range min/max inclusively.
   IndexExpr clamp(IndexExpr const min, IndexExpr const max) const;
@@ -530,7 +537,13 @@ public:
 
   // Return min or max of a list of IndexExpr.
   static IndexExpr min(SmallVectorImpl<IndexExpr> &vals);
+  static IndexExpr min(IndexExpr const first, IndexExpr const second);
+  static IndexExpr min(IndexExpr const first, int64_t const second);
   static IndexExpr max(SmallVectorImpl<IndexExpr> &vals);
+  static IndexExpr max(IndexExpr const first, IndexExpr const second);
+  static IndexExpr max(IndexExpr const first, int64_t const second);
+
+  // Debug (enable using DEBUG=1 at top of file).
   void debugPrint(const std::string &msg) const;
 
 protected:
@@ -565,16 +578,19 @@ protected:
 // IndexExpr Subclasses for constructing specific IndexExpr kinds.
 //===----------------------------------------------------------------------===//
 
+// Subclass to explicitely create undefined index expressions, typically used to
+// return invalid values.
 class UndefinedIndexExpr : public IndexExpr {
 public:
   UndefinedIndexExpr();
 };
 
-// Subclass to explicitly create non affine IndexExpr.
+// Subclass to explicitly create affine literal IndexExpr. For predicate literal
+// values, use PredicateIndexExpr(true) or PredicateIndexExpr(false).
 class LiteralIndexExpr : public IndexExpr {
 public:
-  LiteralIndexExpr() : IndexExpr() {} // Make undefined.
-  LiteralIndexExpr(int64_t const value);
+  LiteralIndexExpr() : IndexExpr() {}    // Make undefined.
+  LiteralIndexExpr(int64_t const value); // Make an index constant value.
   LiteralIndexExpr(IndexExpr const otherIndexExpr);
 
 private:
@@ -584,7 +600,7 @@ private:
 // Subclass to explicitly create non affine IndexExpr.
 class NonAffineIndexExpr : public IndexExpr {
 public:
-  NonAffineIndexExpr() : IndexExpr() {} // Make undefined.
+  NonAffineIndexExpr() : IndexExpr() {} // Make undefined expression.
   NonAffineIndexExpr(Value const value);
   NonAffineIndexExpr(IndexExpr const otherIndexExpr);
 };
@@ -599,7 +615,8 @@ public:
 // Subclass to explicitly create Predicate IndexExpr.
 class PredicateIndexExpr : public IndexExpr {
 public:
-  PredicateIndexExpr() : IndexExpr() {} // Make undefined.
+  PredicateIndexExpr() : IndexExpr() {} // Make undefined predicate expression.
+  PredicateIndexExpr(bool const value); // Make a predicate constant value.
   PredicateIndexExpr(Value const value);
   PredicateIndexExpr(IndexExpr const otherIndexExpr);
 };
@@ -607,7 +624,7 @@ public:
 // Subclass to explicitly create Affine IndexExpr.
 class AffineIndexExpr : public IndexExpr {
 public:
-  AffineIndexExpr() : IndexExpr() {} // Make undefined.
+  AffineIndexExpr() : IndexExpr() {} // Make undefined expression.
   AffineIndexExpr(AffineExpr const value);
   AffineIndexExpr(IndexExpr const otherIndexExpr);
 };
@@ -615,7 +632,7 @@ public:
 // Subclass to explicitly create Dim IndexExpr.
 class DimIndexExpr : public IndexExpr {
 public:
-  DimIndexExpr() : IndexExpr() {} // Make undefined.
+  DimIndexExpr() : IndexExpr() {} // Make undefined expression.
   DimIndexExpr(Value const value);
   DimIndexExpr(IndexExpr const otherIndexExpr);
 };
@@ -623,7 +640,7 @@ public:
 // Subclass to explicitly create IndexExpr.
 class SymbolIndexExpr : public IndexExpr {
 public:
-  SymbolIndexExpr() : IndexExpr() {} // Make undefined.
+  SymbolIndexExpr() : IndexExpr() {} // Make undefined expression.
   SymbolIndexExpr(Value const value);
   SymbolIndexExpr(IndexExpr const otherIndexExpr);
 };

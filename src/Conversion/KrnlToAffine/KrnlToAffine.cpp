@@ -20,6 +20,7 @@
 #include "mlir/Transforms/LoopUtils.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Support/KrnlSupport.hpp"
 
@@ -336,36 +337,78 @@ public:
     bool zeroC = op.zeroC();
     // Init scope and emit constants.
     ScopedContext scope(rewriter, op.getLoc());
+    IndexExprScope indexScope(&rewriter, op.getLoc());
+
     // Generate the test for full/partial blocks
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-    MemRefBoundsCapture aBounds(A), bBounds(B), cBounds(C);
-    Value nBlock(cBounds.ub(0)), mBlock(cBounds.ub(1)), kBlock(aBounds.ub(1));
-    Value nUB(operandAdaptor.nUpperBound()), mUB(operandAdaptor.mUpperBound()),
-        kUB(operandAdaptor.kUpperBound()), nGI(operandAdaptor.nGlobalIndex()),
-        mGI(operandAdaptor.mGlobalIndex()), kGI(operandAdaptor.kGlobalIndex());
+    MemRefBoundIndexCapture aBounds(A), bBounds(B), cBounds(C);
+    IndexExpr nBlock(cBounds.getDim(0)), mBlock(cBounds.getDim(1)),
+        kBlock(aBounds.getDim(1));
+    assert(nBlock.isLiteral() && "n dim expected to be compile time constant");
+    assert(mBlock.isLiteral() && "m dim expected to be compile time constant");
+    assert(kBlock.isLiteral() && "k dim expected to be compile time constant");
+    SymbolIndexExpr nUB(operandAdaptor.nUpperBound()),
+        mUB(operandAdaptor.mUpperBound()), kUB(operandAdaptor.kUpperBound()),
+        nGI(operandAdaptor.nGlobalIndex()), mGI(operandAdaptor.mGlobalIndex()),
+        kGI(operandAdaptor.kGlobalIndex());
+
+    // Determine if the current tile is full.
+    PredicateIndexExpr nIsFullTile = (nGI <= (nUB - nBlock));
+    PredicateIndexExpr mIsFullTile = (mGI <= (mUB - mBlock));
+    PredicateIndexExpr kIsFullTile = (kGI <= (kUB - kBlock));
+
+    // Trip count in general: min(UB - GI, Block).
+    // Trip counts for full tiles: block by definition.
+    // Trip count for partial tiles: leftover = UB - GI in general. If UB is
+    // known at compile time, then without loss of generality, leftover = (UB-
+    // GI) % Block, and since GI is by definition a multiple of Block (GI is
+    // index at begining of tile), then leftover = UB % Block.
+
+    // When not literal, cheaper to take the subraction rather than the mod.
+    IndexExpr nPartialTrip = nUB.isLiteral() ? nUB % nBlock : nUB - nGI;
+    IndexExpr mPartialTrip = mUB.isLiteral() ? mUB % mBlock : mUB - mGI;
+    IndexExpr kPartialTrip = kUB.isLiteral() ? kUB % kBlock : kUB - kGI;
+
+    // Trip regardless of full/partial
+    IndexExpr nTrip = IndexExpr::min(nUB - nGI, nBlock);
+    IndexExpr mTrip = IndexExpr::min(mUB - mGI, mBlock);
+    IndexExpr kTrip = IndexExpr::min(kUB - kGI, kBlock);
+
     using namespace edsc::op;
-
-    Value nTrip = nUB - nGI;
-    nTrip = std_select(sge(nTrip, nBlock), nBlock, nTrip);
-    Value mTrip = mUB - mGI;
-    mTrip = std_select(sge(mTrip, mBlock), mBlock, mTrip);
-    Value kTrip = kUB - kGI;
-    kTrip = std_select(sge(kTrip, kBlock), kBlock, kTrip);
-
     if (simdize) {
-      if (zeroC) {
-        Value test = eq(kGI, std_constant_index(0));
-        Block *thenBlock, *elseBlock;
-        genIfThenElseWithoutParams(rewriter, test, thenBlock, elseBlock);
-        appendToBlock(thenBlock,
-            [&](ValueRange) { genSimd(rewriter, op, elementType, true, false); });
-        appendToBlock(elseBlock,
-            [&](ValueRange) { genSimd(rewriter, op, elementType, false, true); });
-      } else {
-        genSimd(rewriter, op, elementType, false, false);
-      }
+      // SIMD code generator.
+      PredicateIndexExpr fullTiles = (nIsFullTile & mIsFullTile) & kIsFullTile;
+      PredicateIndexExpr mustInit =
+          (zeroC) ? (kGI == 0) : PredicateIndexExpr(0);
+      Block *fullTileBlock, *partialTileBlock;
+      genIfThenElseWithoutParams(
+          rewriter, fullTiles, fullTileBlock, partialTileBlock);
+      // clang-format off
+      appendToBlock(fullTileBlock, [&](ValueRange args) {
+        genSimd(rewriter, op, elementType, nBlock, mBlock, kBlock, /*init*/ false,
+            /*unroll&jam*/false);
+      });
+      appendToBlock(partialTileBlock, [&](ValueRange args) {
+          genScalar(rewriter, op, elementType, nTrip, mTrip, kTrip, /*init*/ true,
+            /*unroll&jam*/false);
+      });
+      // clang-format on
+
     } else {
-      genScalar(rewriter, op, elementType, zeroC, false);
+      // Scalar code generator.
+      PredicateIndexExpr mustInit =
+          (zeroC) ? (kGI == 0) : PredicateIndexExpr(0);
+      // clang-format off
+      genIfThenElseWithoutParams(rewriter, mustInit,
+        /* mustInit then */ [&](ValueRange) {
+          genScalar(rewriter, op, elementType, nTrip, mTrip, kTrip, /*init*/ true,
+            /*unroll&jam*/false);
+        },
+        /* mustInit else */ [&](ValueRange) {
+          genScalar(rewriter, op, elementType, nTrip, mTrip, kTrip,
+            /*init*/ false, /*unroll&jam*/false);
+        });
+      // clang-format on
     }
     rewriter.eraseOp(op);
     return success();
@@ -373,17 +416,13 @@ public:
 
 private:
   void genScalar(PatternRewriter &rewriter, KrnlMatMulOp op, Type elementType,
-      bool zeroC, bool unrollJam) const {
+      IndexExpr N, IndexExpr M, IndexExpr K, bool zeroC, bool unrollJam) const {
     // Get operands.
-    KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
-    Value A = operandAdaptor.A();
-    Value B = operandAdaptor.B();
-    Value C = operandAdaptor.C();
+    KrnlMatMulOpAdaptor operandAdaptor(op);
+    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
 
     // Get the EDSC variables, and loop dimensions.
     AffineIndexedValue AA(A), BB(B), CC(C); // Obj we can load and store into.
-    MemRefBoundsCapture aBounds(A), bBounds(B), cBounds(C); // Get bounds.
-    Value N(cBounds.ub(0)), M(cBounds.ub(1)), K(aBounds.ub(1));
     MemRefType CTmpType = MemRefType::get({}, elementType);
 
     // For i, j loops.
@@ -392,7 +431,7 @@ private:
     Value fZero(std_constant_float(llvm::APFloat(0.0f), rewriter.getF32Type()));
     Value i, j;
     // clang-format off
-    affineLoopNestBuilder({zero, zero}, {N, M}, {1, 1}, [&](ValueRange ivs) {
+    affineLoopNestBuilder({zero, zero}, {N.getValue(), M.getValue()}, {1, 1}, [&](ValueRange ivs) {
       // Defines induction variables, and possibly initialize C.
       i = ivs[0]; 
       j = ivs[1];
@@ -405,7 +444,7 @@ private:
         TTmpC() = CC(i, j);
       }
       // Sum over k.
-      affineLoopBuilder(zero, K, 1, [&](Value k) {
+      affineLoopBuilder(zero, K.getValue(), 1, [&](Value k) {
         TTmpC() = AA(i, k) * BB(k, j) + TTmpC();
         //TTmpC() = std_fmaf(AA(i, k), BB(k, j), TTmpC());
       });
@@ -422,7 +461,11 @@ private:
   }
 
   void genSimd(PatternRewriter &rewriter, KrnlMatMulOp op, Type elementType,
-      bool zeroC, bool unrollJam) const {
+      IndexExpr nTrip, IndexExpr mTrip, IndexExpr kTrip, bool zeroC,
+      bool unrollJam) const {
+    // can simdize only if K is compile time
+    assert(mTrip.isLiteral() &&
+           "can only simdize with compile time blocking factor on simd axis");
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A = operandAdaptor.A();
@@ -430,7 +473,8 @@ private:
     Value C = operandAdaptor.C();
     MemRefType AType = A.getType().cast<MemRefType>();
     MemRefType CType = C.getType().cast<MemRefType>();
-    // Find literal value for sizes.
+    // Find literal value for sizes of the array. These sizes are compile time
+    // constant since its related to the tiling size, decided by the compiler.
     int64_t NLit = CType.getShape()[0];
     int64_t MLit = CType.getShape()[1];
     int64_t KLit = AType.getShape()[1];
@@ -443,15 +487,13 @@ private:
     Value CVec = vector_type_cast(CVecType, C);
     // Get the EDSC variables, and loop dimensions.
     AffineIndexedValue AA(A), BB(B), CC(C), BBVec(BVec), CCvec(CVec);
-    MemRefBoundsCapture aBounds(A), bBounds(B), cBounds(C); // Get bounds.
-    Value N(cBounds.ub(0)), M(cBounds.ub(1)), K(aBounds.ub(1));
     // Iterates over the I indices (j are simd dim).
     Value ii;
     using namespace edsc::op;
     Value zero = std_constant_index(0);
     Value fZero(std_constant_float(llvm::APFloat(0.0f), rewriter.getF32Type()));
     // clang-format off
-    affineLoopBuilder(zero, M, 1, [&](Value i) {
+    affineLoopBuilder(zero, mTrip.getValue(), 1, [&](Value i) {
       ii = i; // Saved for unroll and jam.
       // Alloca temp vector TmpC and save C(i)/0.0 into it.
       Value TmpC = std_alloca(CTmpType);
@@ -462,11 +504,23 @@ private:
         TTmpC() = CCvec(i);
       }
       // Sum over k.
-      affineLoopBuilder(zero, K, 1, [&](Value k) {
+      affineLoopBuilder(zero, kTrip.getValue(), 1, [&](Value k) {
         TTmpC() = vector_fma(vector_broadcast(vecType, AA(i, k)), BBVec(k), TTmpC());
       });
       // Store temp result into C(i)
-      CCvec(i) = TTmpC();
+      Value tmpResults = TTmpC();
+      int64_t mTripLit = mTrip.getLiteral();
+      if (MLit != mTripLit) {
+        // create vector constant
+        SmallVector<int64_t, 8> mask;
+        for(int64_t i=0; i<MLit; i++) 
+          mask.emplace_back((i<mTripLit) ? i : MLit+i);
+        // permute
+        Value originalCvec = CCvec(i);
+        tmpResults = rewriter.create<vector::ShuffleOp>(op.getLoc(), 
+          tmpResults, originalCvec, mask);
+      }
+      CCvec(i) = tmpResults;
     });
     // clang-format on
     if (unrollJam) {
@@ -477,8 +531,8 @@ private:
     }
   }
 
-  void genIfThenElseWithoutParams(PatternRewriter &rewriter, Value condition,
-      function_ref<void(ValueRange)> thenFn,
+  void genIfThenElseWithoutParams(PatternRewriter &rewriter,
+      IndexExpr condition, function_ref<void(ValueRange)> thenFn,
       function_ref<void(ValueRange)> elseFn) const {
 
     // Split current block in the if-conditional block, and the end block.
@@ -498,11 +552,11 @@ private:
 
     // Add the conditional
     appendToBlock(ifBlock, [&](ValueRange args) {
-      std_cond_br(condition, thenBlock, {}, elseBlock, {});
+      std_cond_br(condition.getValue(), thenBlock, {}, elseBlock, {});
     });
   }
-  void genIfThenElseWithoutParams(PatternRewriter &rewriter, Value condition,
-      Block *&thenBlock, Block *&elseBlock) const {
+  void genIfThenElseWithoutParams(PatternRewriter &rewriter,
+      IndexExpr condition, Block *&thenBlock, Block *&elseBlock) const {
 
     // Split current block in the if-conditional block, and the end block.
     Block *ifBlock = rewriter.getInsertionBlock();
@@ -515,7 +569,7 @@ private:
 
     // Add the conditional
     appendToBlock(ifBlock, [&](ValueRange) {
-      std_cond_br(condition, thenBlock, {}, elseBlock, {});
+      std_cond_br(condition.getValue(), thenBlock, {}, elseBlock, {});
     });
   }
 };
@@ -571,12 +625,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
           getFunction(), target, std::move(patterns), &unconverted))) {
-    printf("alex: failure\n");
     signalPassFailure();
   }
-  printf("alex start function dumping\n");
-  funcOp->dump();
-  printf("alex done function dumping\n");
 }
 } // namespace
 
