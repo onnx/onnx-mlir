@@ -70,7 +70,7 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode);
 ///   thus the first valid pixel location is 'ceil(pH / dH) * dH- pH'.
 ///
 /// This function returns {startH, endH, kernelOffset}.
-std::vector<IndexExpr> getIndexExprsForConvWindow(IndexExprContext &context,
+std::vector<IndexExpr> getIndexExprsForConvWindow(
     SmallVectorImpl<IndexExpr> &inputExprs, bool ceilMode, bool isDilated);
 
 /// The conv/pooling window can be smaller than the kernel when slicing it over
