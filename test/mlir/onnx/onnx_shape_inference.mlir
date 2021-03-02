@@ -3,6 +3,22 @@
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test the default behavior of argmax when no information for the
+/// permutation of the axes is provided and when a permutation is provided.
+//===----------------------------------------------------------------------===//
+
+func @test_default_argmax(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi64> {
+  %0 = "onnx.ArgMax"(%arg0) : (tensor<2x3x4xf32>) -> tensor<*xi64>
+  "std.return"(%0) : (tensor<*xi64>) -> ()
+
+  // CHECK-LABEL: test_default_argmax
+  // CHECK: [[RES:%.+]] = "onnx.ArgMax"(%arg0) : (tensor<2x3x4xf32>) -> tensor<1x3x4xi64>
+  // CHECK: return [[RES]] : tensor<1x3x4xi64>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test the default behavior of transpose when no information for the
 /// permutation of the axes is provided and when a permutation is provided.
 //===----------------------------------------------------------------------===//
@@ -1597,11 +1613,11 @@ func @test_less_unknown_dims_2(%arg0: tensor<?x?x5xf32>, %arg1: tensor<?x4x5xf32
 
 // -----
 
-func @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+func @test_clip2(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
   %0 = "onnx.Clip"(%arg0, %arg1, %arg2) : (tensor<3xf32>, tensor<f32>, tensor<f32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
-// CHECK-LABEL:  func @test_clip
+// CHECK-LABEL:  func @test_clip2
 // CHECK-SAME:   ([[INPUT_:%.+]]: tensor<3xf32>, [[MIN_:%.+]]: tensor<f32>, [[MAX_:%.+]]: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
 // CHECK:           [[RES_:%.+]] = "onnx.Clip"([[INPUT_]], [[MIN_]], [[MAX_]]) : (tensor<3xf32>, tensor<f32>, tensor<f32>) -> tensor<3xf32>
 // CHECK:           return [[RES_]] : tensor<3xf32>
