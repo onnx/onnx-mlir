@@ -7,22 +7,24 @@ import os
 import sys
 
 logging.basicConfig(
-    level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
+    level = logging.INFO, format = '[%(asctime)s] %(levelname)s: %(message)s')
 
-IMAGE_NAMES          = [ 'onnx-mlir-llvm-static',
-                         'onnx-mlir-llvm-shared',
-                         'onnx-mlir-dev',
-                         'onnx-mlir' ]
+docker_daemon_socket      = os.getenv('DOCKER_DAEMON_SOCKET')
+docker_registry_host_name = os.getenv('DOCKER_REGISTRY_HOST_NAME')
+docker_registry_user_name = os.getenv('DOCKER_REGISTRY_USER_NAME')
+github_repo_name          = os.getenv('GITHUB_REPO_NAME')
+github_repo_name2         = os.getenv('GITHUB_REPO_NAME').replace('-', '_')
+github_pr_number          = os.getenv('GITHUB_PR_NUMBER')
+github_pr_action          = os.getenv('GITHUB_PR_ACTION')
+github_pr_merged          = os.getenv('GITHUB_PR_MERGED')
+jenkins_build_result      = os.getenv('JENKINS_BUILD_RESULT')
 
-docker_daemon_socket = os.getenv('DOCKER_DAEMON_SOCKET')
-dockerhub_user_name  = os.getenv('DOCKERHUB_USER_NAME')
-jenkins_build_result = os.getenv('JENKINS_BUILD_RESULT')
+IMAGE_NAMES               = [ github_repo_name + '-llvm-static',
+                              github_repo_name + '-llvm-shared',
+                              github_repo_name + '-dev',
+                              github_repo_name ]
 
-onnx_mlir_pr_number  = os.getenv('ONNX_MLIR_PR_NUMBER')
-onnx_mlir_pr_action  = os.getenv('ONNX_MLIR_PR_ACTION')
-onnx_mlir_pr_merged  = os.getenv('ONNX_MLIR_PR_MERGED')
-
-docker_api           = docker.APIClient(base_url=docker_daemon_socket)
+docker_api                = docker.APIClient(base_url=docker_daemon_socket)
 
 # Cleanup docker images and containers associated with a pull request number.
 # For action open/reopen/synchronize, only dangling images and containers are
@@ -31,7 +33,7 @@ def cleanup_docker_images(pr_number, dangling):
     # First find all the dangling docker images associated with the
     # pull request number
     filters = { 'dangling': True,
-                'label': [ 'onnx_mlir_pr_number=' + pr_number ] }
+                'label': [ github_repo_name2 + '_pr_number=' + pr_number ] }
     images = docker_api.images(filters = filters, quiet = True)
 
     # When a build is aborted the cleanup may try to remove an intermediate
@@ -67,8 +69,12 @@ def cleanup_docker_images(pr_number, dangling):
     # they are cleaned by untagging the image. Untagging is done by simply
     # passing the full image name instead of the image sha256 to remove_image.
     if not dangling:
+        host_name = docker_registry_host_name
+        user_name = docker_registry_user_name
         for image_name in IMAGE_NAMES:
-            image_full = dockerhub_user_name + '/' + image_name + ':' + pr_number
+            image_full = ((host_name + '/' if host_name else '') +
+                          (user_name + '/' if user_name else '') +
+                          image_name + ':' + pr_number)
             images.append(image_full)
 
     for image in images:
@@ -105,18 +111,18 @@ def main():
     # full cleanup.
 
     dangling = False if (jenkins_build_result != 'UNKNOWN' and
-                         (onnx_mlir_pr_action == 'closed' or
-                          onnx_mlir_pr_action == 'push')) else True
+                         (github_pr_action == 'closed' or
+                          github_pr_action == 'push')) else True
 
     logging.info('Docker cleanup for pull request: #%s, ' +
                  'build result: %s, action: %s, merged: %s, dangling: %s',
-                 onnx_mlir_pr_number,
+                 github_pr_number,
                  jenkins_build_result,
-                 onnx_mlir_pr_action,
-                 onnx_mlir_pr_merged,
+                 github_pr_action,
+                 github_pr_merged,
                  dangling)
 
-    cleanup_docker_images(onnx_mlir_pr_number, dangling)
+    cleanup_docker_images(github_pr_number, dangling)
 
 if __name__ == "__main__":
     main()
