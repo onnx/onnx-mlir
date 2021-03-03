@@ -8,11 +8,11 @@ name: ONNX_MLIR_CI_$(SourceBranchName)_$(Date:yyyy.MM.dd)$(Rev:.rr)
 
 resources:
   repositories:
-  - repository: self 
   - repository: llvm-project
     type: git
-    name: llvm-project/llvm-project
+    name: llvm-project
     ref: refs/heads/tvp
+    trigger: none
 
 # Trigger CI and PR build on the master branch
 trigger:
