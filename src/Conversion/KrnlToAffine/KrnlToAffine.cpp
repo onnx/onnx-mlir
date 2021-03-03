@@ -303,6 +303,46 @@ class KrnlMatmulLowering : public OpRewritePattern<KrnlMatMulOp> {
 public:
   using OpRewritePattern<KrnlMatMulOp>::OpRewritePattern;
 
+  PredicateIndexExpr isFullTile(
+      IndexExpr UB, IndexExpr block, IndexExpr GI) const {
+    // Determine if the current tile is full. It is full if the begining of
+    // the tile (nGI) is smaller or equal to UB - bloc, namely
+    //   PredicateIndexExpr nIsFullTile = (nGI <= (nUB - nBlock));
+    // However, if UB is divisible by Block, then its full no matter what.
+    if (UB.isLiteral() && (UB.getLiteral() % block.getLiteral() == 0)) {
+      // Last tile is guaranteed to be full because UB is divisable by block.
+      return PredicateIndexExpr(true);
+    }
+    return GI <= (UB - block);
+  }
+
+  IndexExpr trip(IndexExpr UB, IndexExpr block, IndexExpr GI) const {
+    // Trip count in general: min(UB - GI, Block).
+    //   IndexExpr nTrip = IndexExpr::min(nUB - nGI, nBlock);
+    if (UB.isLiteral() && (UB.getLiteral() % block.getLiteral() == 0)) {
+      // Last tile is guaranteed to be full, so trip is always full.
+      return block;
+    }
+    return IndexExpr::min(UB - GI, block);
+  }
+
+  IndexExpr partialTrip(IndexExpr UB, IndexExpr block, IndexExpr GI) const {
+    // Trip count for partial tiles: leftover = UB - GI in general. If UB is
+    // known at compile time, then without loss of generality, leftover = (UB-
+    // GI) % Block, and since GI is by definition a multiple of Block (GI is
+    // index at begining of tile), then leftover = UB % Block.
+    //   IndexExpr nPartialTrip = nUB.isLiteral() ? nUB % nBlock : nUB - nGI;
+    if (UB.isLiteral()) {
+      IndexExpr partialTrip = UB % block;
+      assert(partialTrip.isLiteral() && "op on 2 literals has to be literal");
+      assert(partialTrip.getLiteral() > 0 &&
+             "here with zero partial trip, we have a problem");
+      return partialTrip;
+    }
+    // don't have to take the mod since we know we have a partial tile already.
+    return UB - GI;
+  }
+
   LogicalResult matchAndRewrite(
       KrnlMatMulOp op, PatternRewriter &rewriter) const override {
     Location loc = op.getLoc();
@@ -329,43 +369,26 @@ public:
         nGI(operandAdaptor.nGlobalIndex()), mGI(operandAdaptor.mGlobalIndex()),
         kGI(operandAdaptor.kGlobalIndex());
 
+    PredicateIndexExpr nIsFullTile = isFullTile(nUB, nBlock, nGI);
+    PredicateIndexExpr mIsFullTile = isFullTile(mUB, mBlock, mGI);
+    PredicateIndexExpr kIsFullTile = isFullTile(kUB, kBlock, kGI);
+    PredicateIndexExpr fullTiles = (nIsFullTile & mIsFullTile) & kIsFullTile;
+
     nBlock.debugPrint("N block");
     nUB.debugPrint("N UB");
     nGI.debugPrint("N GI");
+    nIsFullTile.debugPrint("n full tile");
 
     mBlock.debugPrint("M block");
     mUB.debugPrint("M UB");
     mGI.debugPrint("M GI");
+    mIsFullTile.debugPrint("m full tile");
 
     kBlock.debugPrint("K block");
     kUB.debugPrint("K UB");
     kGI.debugPrint("K GI");
-
-    // Math for tiles:
-
-    // 1) Determine if the current tile is full. It is full if the begining of
-    // the tile (nGI) is smaller or equal to UB - bloc, namely
-    //   PredicateIndexExpr nIsFullTile = (nGI <= (nUB - nBlock));
-
-    // 2) Trip count in general: min(UB - GI, Block).
-    //   IndexExpr nTrip = IndexExpr::min(nUB - nGI, nBlock);
-
-    // 3) Trip counts for full tiles: block by definition.
-
-    // 4) Trip count for partial tiles: leftover = UB - GI in general. If UB is
-    // known at compile time, then without loss of generality, leftover = (UB-
-    // GI) % Block, and since GI is by definition a multiple of Block (GI is
-    // index at begining of tile), then leftover = UB % Block.
-    //   IndexExpr nPartialTrip = nUB.isLiteral() ? nUB % nBlock : nUB - nGI;
-
-    PredicateIndexExpr nIsFullTile = (nGI <= (nUB - nBlock));
-    PredicateIndexExpr mIsFullTile = (mGI <= (mUB - mBlock));
-    PredicateIndexExpr kIsFullTile = (kGI <= (kUB - kBlock));
-    PredicateIndexExpr fullTiles = (nIsFullTile & mIsFullTile) & kIsFullTile;
-
-    nIsFullTile.debugPrint("n full tile");
-    mIsFullTile.debugPrint("m full tile");
     kIsFullTile.debugPrint("k full tile");
+
     fullTiles.debugPrint("full tile");
 
     using namespace edsc::op;
@@ -376,14 +399,14 @@ public:
       genIfThenElseWithoutParams(rewriter, !fullTiles,
         /* has some partial tiles */ [&](ValueRange) {
         // Trip regardless of full/partial for N & K
-        IndexExpr nTrip = IndexExpr::min(nUB - nGI, nBlock);
-        IndexExpr kTrip = IndexExpr::min(kUB - kGI, kBlock);
+        IndexExpr nTrip = trip(nUB, nBlock, nGI); // May or may not be full.
+        IndexExpr kTrip = trip(kUB, kBlock, kGI); // May or may not be full.
         // Test if SIMD dim (M) is full.
         genIfThenElseWithoutParams(rewriter, mIsFullTile,
           /* full SIMD */ [&](ValueRange) {
           genSimd(rewriter, op, elementType, nTrip, mBlock, kTrip, false);
         }, /* else partial SIMD */ [&](ValueRange) {
-          IndexExpr mPartialTrip = mUB.isLiteral() ? mUB % mBlock : mUB - mGI;
+          IndexExpr mPartialTrip = partialTrip(mUB, mBlock, mGI);
           if (mPartialTrip.isLiteral() && mPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2 
             // elements, use simd again.
@@ -402,9 +425,9 @@ public:
       // clang-format off
       genIfThenElseWithoutParams(rewriter, !fullTiles,
         /* partial */ [&](ValueRange) {
-        IndexExpr nTrip = IndexExpr::min(nUB - nGI, nBlock);
-        IndexExpr mTrip = IndexExpr::min(mUB - mGI, mBlock);
-        IndexExpr kTrip = IndexExpr::min(kUB - kGI, kBlock);
+        IndexExpr nTrip = trip(nUB, nBlock, nGI); // May or may not be full.
+        IndexExpr mTrip = trip(mUB, mBlock, mGI); // May or may not be full.
+        IndexExpr kTrip = trip(kUB, kBlock, kGI); // May or may not be full.
         genScalar(rewriter, op, elementType, nTrip, mTrip, kTrip, false);
       }, /* else  full */ [&](ValueRange) {
         genScalar(rewriter, op, elementType, nBlock, mBlock, kBlock, true);
