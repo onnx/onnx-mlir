@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 // both debug variables will be removed once debugging is complete.
-#define DEBUG 1
+#define DEBUG 0
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -178,7 +178,7 @@ void IndexExprImpl::initAsQuestionmark() {
 }
 
 void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
-  assert((kind == IndexExprKind::Affine || kind == IndexExprKind::Predicate) &&
+  assert((kind != IndexExprKind::Questionmark) &&
          "litterals are either affine or predicate");
   init(/*isDefined*/ true, /*literal*/ true, kind, val, AffineExpr(nullptr),
       Value(nullptr));
@@ -301,7 +301,8 @@ bool IndexExpr::isQuestionmark() const {
 bool IndexExpr::isAffine() const {
   assert(isDefined());
   // To catch predicate that are literals as affine.
-  if (isLiteral()) return true;
+  if (isLiteral())
+    return true;
   // Note that we do bitvector and to check affine properties.
   return (int)getKind() & (int)IndexExprKind::Affine;
 }
@@ -674,6 +675,10 @@ IndexExpr IndexExpr::operator|(IndexExpr const b) const {
   assert(b.isPredType() && "expected predicate index expression");
   Value res = getRewriter().create<OrOp>(getLoc(), getValue(), b.getValue());
   return PredicateIndexExpr(res);
+}
+
+IndexExpr IndexExpr::operator!() const {
+  return (*this == PredicateIndexExpr(false));
 }
 
 // The affine reduction lambda function processes the whole list and must init
@@ -1059,7 +1064,7 @@ IndexExpr IndexExpr::operator!=(int64_t const b) const {
 }
 
 IndexExpr IndexExpr::operator<=(IndexExpr const b) const {
-  return compareOp(CmpIPredicate::slt, b);
+  return compareOp(CmpIPredicate::sle, b);
 }
 
 IndexExpr IndexExpr::operator<=(int64_t const b) const {

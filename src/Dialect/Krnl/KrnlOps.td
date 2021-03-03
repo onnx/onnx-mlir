@@ -615,8 +615,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", []> {
     of the computations. Both indices and bounds are use to determine if the tile
     is full in each of the N, M, and K dimensions.
 
-    simdize is used to state if simdization is requested. 
-    ZeroC is used to indicate if the C matrix needs to be zeroed before computing.
+    Simdize is used to state if simdization is requested. 
   }];
 
   let arguments = (ins Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A, 
@@ -624,7 +623,6 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", []> {
     Arg<AnyMemRef, "Add C [NxM]", [MemRead, MemWrite]>:$C,
     Index: $nGlobalIndex, Index: $mGlobalIndex, Index: $kGlobalIndex,
     Index: $nUpperBound, Index: $mUpperBound, Index: $kUpperBound,
-    DefaultValuedAttr<BoolAttr, "true">:$zeroC,
     DefaultValuedAttr<BoolAttr, "true">:$simdize) ;
 
   let parser = ?;

@@ -513,6 +513,7 @@ public:
   // manually with branching code.
   IndexExpr operator&(IndexExpr const b) const;
   IndexExpr operator|(IndexExpr const b) const;
+  IndexExpr operator!() const;
 
   // Return a new IndexExpr in the range min/max inclusively.
   IndexExpr clamp(IndexExpr const min, IndexExpr const max) const;
