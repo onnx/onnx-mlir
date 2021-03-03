@@ -81,7 +81,7 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 
 std::vector<IndexExpr> getIndexExprsForConvWindow(
     SmallVectorImpl<IndexExpr> &inputExprs, bool ceilMode, bool isDilated) {
-  assert(inputExprs.size() == 6 && "Not enought inputs");
+  assert(inputExprs.size() == 6 && "Not enough inputs");
   IndexExpr windowStartExpr, windowEndExpr, kernelOffsetExpr;
   IndexExpr outputIndex = inputExprs[0];
   IndexExpr inputDim = inputExprs[1];
