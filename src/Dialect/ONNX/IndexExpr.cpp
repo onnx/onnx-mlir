@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 // both debug variables will be removed once debugging is complete.
-#define DEBUG 0
+#define DEBUG 1
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -404,7 +404,7 @@ AffineExpr IndexExpr::getAffineExpr() const {
     int id = getScope().addDim(getObj().value);
     getObj().affineExpr = getRewriter().getAffineDimExpr(id);
   } else {
-    llvm_unreachable("requesting affine expr of incompatible InexeExpr");
+    llvm_unreachable("requesting affine expr of incompatible IndexExpr");
     assert(
         hasAffineExpr() && "requesting affine expr of incompatible IndexExpr");
   }
