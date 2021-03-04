@@ -49,7 +49,7 @@ LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
     return op->emitError("Failed to scan " + OP::getOperationName() +
                          " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(
+  IndexExpr::convertListOfIndexExprToIntegerDim(
       shapeHelper.dimsForOutput(0), outputDims);
   auto elementType = typeOper.getType().cast<ShapedType>().getElementType();
   op->getResult().setType(RankedTensorType::get(outputDims, elementType));
@@ -68,12 +68,12 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
     return op->emitError("Failed to scan " + OP::getOperationName() +
                          " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(
+  IndexExpr::convertListOfIndexExprToIntegerDim(
       shapeHelper.dimsForOutput(0), outputDims);
   auto elementType = typeOper.getType().cast<ShapedType>().getElementType();
   for (int i = 0; i < op->getNumResults(); ++i) {
     SmallVector<int64_t, 4> outputDims;
-    IndexExprContext::getOutputDimsForType(
+    IndexExpr::convertListOfIndexExprToIntegerDim(
         shapeHelper.dimsForOutput(i), outputDims);
     op->getResults()[i].setType(RankedTensorType::get(outputDims, elementType));
   }
@@ -1448,7 +1448,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Transpose parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(
+  IndexExpr::convertListOfIndexExprToIntegerDim(
       shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
@@ -1624,7 +1624,8 @@ LogicalResult ONNXConvOp::inferShapes(
   }
 
   // Process strides, dilations, and pads.
-  processConvTypeParams<>(this, X());
+  LogicalResult res = processConvTypeParams<>(this, X());
+  assert(res.succeeded());
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -1754,7 +1755,8 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
   }
 
   // Process strides, dilations, and pads.
-  processConvTypeParams<>(this, X());
+  LogicalResult res = processConvTypeParams<>(this, X());
+  assert(res.succeeded());
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -1872,7 +1874,8 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
   }
 
   // Process strides, dilations, and pads.
-  processConvTypeParams<>(this, x());
+  LogicalResult res = processConvTypeParams<>(this, x());
+  assert(res.succeeded());
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -1979,7 +1982,8 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
     return emitError("column major storage order not supported at this time");
 
   // Process strides, dilations, and pads.
-  processConvTypeParams<>(this, X());
+  LogicalResult res = processConvTypeParams<>(this, X());
+  assert(res.succeeded());
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -2364,7 +2368,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(
+  IndexExpr::convertListOfIndexExprToIntegerDim(
       shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(
       RankedTensorType::get(outputDims, commonType.getElementType()));
@@ -2634,7 +2638,8 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
   }
 
   // Process strides, dilations, and pads.
-  processConvTypeParams<>(this, x());
+  LogicalResult res = processConvTypeParams<>(this, x());
+  assert(res.succeeded());
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -2843,7 +2848,7 @@ LogicalResult ONNXSliceOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Slice parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(
+  IndexExpr::convertListOfIndexExprToIntegerDim(
       shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
@@ -3051,7 +3056,23 @@ LogicalResult ONNXLessOp::inferShapes(
 
 LogicalResult ONNXArgMaxOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
+  if (!data().getType().isa<RankedTensorType>())
+    return emitError("Input tensor not ranked");
+
+  ONNXArgMaxOpShapeHelper shapeHelper(this, nullptr);
+  ONNXArgMaxOpAdaptor operandAdaptor(*this);
+  if (failed(shapeHelper.Compute(operandAdaptor)))
+    return emitError("Failed to scan ArgMax parameters successfully");
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::convertListOfIndexExprToIntegerDim(
+      shapeHelper.dimsForOutput(0), outputDims);
+
+  // ONNX spec specifies the reduced type as an int64
+  Type elementType = IntegerType::get(getContext(), 64);
+  getResult().setType(RankedTensorType::get(outputDims, elementType));
+
+  return success();
 }
 
 LogicalResult ONNXArgMinOp::inferShapes(
@@ -3201,7 +3222,7 @@ LogicalResult ONNXLRNOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan LRN parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExprContext::getOutputDimsForType(
+  IndexExpr::convertListOfIndexExprToIntegerDim(
       shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 

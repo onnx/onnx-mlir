@@ -59,7 +59,7 @@ FuncOp getContainingFunction(Operation *op) {
 
 /// Emit constant operation.
 Value emitConstantOp(
-    PatternRewriter &rewriter, Location loc, Type type, double value) {
+    OpBuilder &rewriter, Location loc, Type type, double value) {
   Attribute constantAttr;
 
   TypeSwitch<Type>(type)

@@ -276,19 +276,21 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 
     // 3. Define an Krnl loop to compute mean (optional).
     rewriter.restoreInsertionPoint(ipMainRegion);
+    MemRefBoundIndexCapture inputBounds(input);
+    MemRefBoundIndexCapture allocBounds(alloc);
     if (computeMean) {
       Type elementType = memRefOutType.getElementType();
       // Compute the divisor that is the number of elements participated in
       // reduction, i.e., 'divisor = size of input / size of output'.
-      IndexExprContext context(&rewriter, loc);
-      IndexExpr inputSizeExpr = context.createLiteralIndex(1);
+      IndexExprScope scope(&rewriter, loc);
+      IndexExpr inputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < inRank; i++) {
-        IndexExpr dimExpr = context.createDimIndexFromShapedType(input, i);
+        DimIndexExpr dimExpr(inputBounds.getDim(i));
         inputSizeExpr = inputSizeExpr * dimExpr;
       }
-      IndexExpr outputSizeExpr = context.createLiteralIndex(1);
+      IndexExpr outputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < outRank; i++) {
-        IndexExpr dimExpr = context.createDimIndexFromShapedType(alloc, i);
+        DimIndexExpr dimExpr(allocBounds.getDim(i));
         outputSizeExpr = outputSizeExpr * dimExpr;
       }
       IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
