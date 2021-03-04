@@ -408,7 +408,7 @@ public:
         }, /* else partial SIMD */ [&](ValueRange) {
           IndexExpr mPartialTrip = partialTrip(mUB, mBlock, mGI);
           if (mPartialTrip.isLiteral() && mPartialTrip.getLiteral() >=2) {
-            // has a known trip count along the simd dimension of at least 2 
+            // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
             genSimd(rewriter, op, elementType, nTrip, mPartialTrip, kTrip, false);
           } else {
@@ -416,7 +416,7 @@ public:
           }
         });
       }, /* else full */ [&](ValueRange) {
-        genSimd(rewriter, op, elementType, nBlock, mBlock, kBlock, 
+        genSimd(rewriter, op, elementType, nBlock, mBlock, kBlock,
             /*unroll&jam*/true);
       });
       // clang-format on
@@ -455,10 +455,10 @@ private:
     Value zero = std_constant_index(0);
     Value i, j;
     // clang-format off
-    affineLoopNestBuilder({zero, zero}, {N.getValue(), M.getValue()}, 
+    affineLoopNestBuilder({zero, zero}, {N.getValue(), M.getValue()},
         {1, 1}, [&](ValueRange ivs) {
       // Defines induction variables, and possibly initialize C.
-      i = ivs[0]; 
+      i = ivs[0];
       j = ivs[1];
       // Alloc and init temp c storage.
       Value TmpC = std_alloca(CTmpType);
@@ -528,11 +528,11 @@ private:
       if (MLit != mTripLit) {
         // create vector constant
         SmallVector<int64_t, 8> mask;
-        for(int64_t i=0; i<MLit; i++) 
+        for(int64_t i=0; i<MLit; i++)
           mask.emplace_back((i<mTripLit) ? i : MLit+i);
         // permute
         Value originalCvec = CCvec(i);
-        tmpResults = rewriter.create<vector::ShuffleOp>(op.getLoc(), 
+        tmpResults = rewriter.create<vector::ShuffleOp>(op.getLoc(),
           tmpResults, originalCvec, mask);
       }
       CCvec(i) = tmpResults;

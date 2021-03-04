@@ -356,16 +356,16 @@ def KrnlDimOp : Op<Krnl_Dialect, "dim"> {
 
     "krnl.dim"(%memref, %index)
 
-    The index identifies the dimension within the shape which is going to be 
+    The index identifies the dimension within the shape which is going to be
     emitted. Initially the krnl.dim operation depends on the alloc of the MemRef.
-    Unlike the std.dim operation which maintains a dependency on the alloc of 
-    the MemRef, the dimension emitted by krnl.dim will not depend on the alloc 
+    Unlike the std.dim operation which maintains a dependency on the alloc of
+    the MemRef, the dimension emitted by krnl.dim will not depend on the alloc
     operation of the MemRef once the krnl.dim operation is lowered.
 
-    Any changes to the original MemRef size after the krnl.dim has been 
-    lowered will not be picked up by the emitted dimension. This allows 
-    the original MemRef to be safely modified via code transformations or 
-    affine map normalization without the risk of changing the value already 
+    Any changes to the original MemRef size after the krnl.dim has been
+    lowered will not be picked up by the emitted dimension. This allows
+    the original MemRef to be safely modified via code transformations or
+    affine map normalization without the risk of changing the value already
     emitted via krnl.dim.
   }];
 
@@ -607,23 +607,23 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
 def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", []> {
   let summary = "Matmul operation for a single pannel.";
   let description = [{
-    Perform a matrix multiplication for a small tile A * B + C of sizes 
+    Perform a matrix multiplication for a small tile A * B + C of sizes
     [NxK] * [KxM] + [NxM].
-    
+
     The global indices n,m,k indicate the global indices of the first element in
     the current tile. The upper bounds n, m, k indicate the global upper bound
     of the computations. Both indices and bounds are use to determine if the tile
     is full in each of the N, M, and K dimensions.
 
-    Simdize is used to state if simdization is requested. 
+    Simdize is used to state if simdization is requested.
   }];
 
-  let arguments = (ins Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A, 
-    Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B, 
+  let arguments = (ins Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
+    Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B,
     Arg<AnyMemRef, "Add C [NxM]", [MemRead, MemWrite]>:$C,
     Index: $nGlobalIndex, Index: $mGlobalIndex, Index: $kGlobalIndex,
     Index: $nUpperBound, Index: $mUpperBound, Index: $kUpperBound,
-    DefaultValuedAttr<BoolAttr, "true">:$simdize) ;
+    DefaultValuedAttr<BoolAttr, "true">:$simdize);
 
   let parser = ?;
   let printer = ?;
