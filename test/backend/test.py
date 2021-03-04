@@ -125,6 +125,9 @@ test_to_enable_static_dynamic = {
     "test_and_bcast4v4d_cpu": (test_static_dynamic,),
 
     # Argmax
+    "test_argmax_no_keepdims_example_cpu": (test_static_dynamic,),
+    "test_argmax_keepdims_example_cpu": (test_static_dynamic,),
+    "test_argmax_default_axis_example_cpu": (test_static_dynamic,),
 
     # Argmin
 

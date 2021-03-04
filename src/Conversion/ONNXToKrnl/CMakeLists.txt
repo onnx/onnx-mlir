@@ -19,6 +19,7 @@ add_library(OMONNXToKrnl
         RNN/GRU.cpp
         RNN/LSTM.cpp
         RNN/RNN.cpp
+        Tensor/ArgMax.cpp
         Tensor/Expand.cpp
         Tensor/Identity.cpp
         Tensor/Reshape.cpp

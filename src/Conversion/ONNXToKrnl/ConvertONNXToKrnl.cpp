@@ -123,6 +123,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXMatMulOpPattern(patterns, &getContext());
   populateLoweringONNXLRNOpPattern(patterns, &getContext());
   // Tensor
+  populateLoweringONNXArgMaxOpPattern(patterns, &getContext());
   populateLoweringONNXExpandOpPattern(patterns, &getContext());
   populateLoweringONNXReshapeOpPattern(patterns, &getContext());
   populateLoweringONNXPadConstantValuePadOpPattern(patterns, &getContext());

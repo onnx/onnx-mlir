@@ -93,15 +93,15 @@ struct ONNXTileOpLowering : public ConversionPattern {
     // The store has simple affine subscript expression.
     // Alternative implementation is to iterate the input tensor and repeats.
     // The load of elements in input tensor can be reused explicitly.
-    // But the subscript of store is not contigous, or even not affine.
+    // But the subscript of store is not contigious, or even not affine.
     // Alternative implementation can be found at the end of this file.
 
     for (int i = 0; i < outputRank; i++) {
-      // Context is created for each dimension because they are independent
-      IndexExprContext IEContext(&rewriter, loc);
-      Value loopVal = outputLoops.getInductionVar(i);
-      IndexExpr index = IEContext.createLoopInductionIndex(loopVal);
-      IndexExpr dimSize = IEContext.createDimIndexFromShapedType(input, i);
+      // Scope is created for each dimension because they are independent
+      IndexExprScope IEScope(&rewriter, loc);
+      DimIndexExpr index(outputLoops.getInductionVar(i));
+      MemRefBoundIndexCapture inputBounds(input);
+      DimIndexExpr dimSize(inputBounds.getDim(i));
       IndexExpr exprVal = index % dimSize;
       if (!exprVal.isAffine()) {
         isAffineLoad = false;
