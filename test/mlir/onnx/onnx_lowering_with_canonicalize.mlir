@@ -257,7 +257,7 @@ func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 
 // CHECK-DAG:       [[VAR_22_:%.+]] = affine.apply #map0(){{.}}[[VAR_5_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_23_:%.+]] = select [[VAR_21_]], [[VAR_22_]], [[VAR_5_]] : index
-// CHECK-DAG:       [[VAR_24_:%.+]] = cmpi slt, [[VAR_5_]], [[CST_minus_2147483648_]] : index
+// CHECK-DAG:       [[VAR_24_:%.+]] = cmpi sle, [[VAR_5_]], [[CST_minus_2147483648_]] : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_25_:%.+]] = select [[VAR_24_]], [[CST_minus_1_]], [[VAR_23_]] : index
 // CHECK-DAG:       [[VAR_26_:%.+]] = cmpi sge, [[VAR_5_]], [[CST_2147483647_]] : index
@@ -303,7 +303,7 @@ func @compute_slice_all_dyn(%arg0 : tensor<2xi64>, %arg1 : tensor<2xi64>, %arg2 
 // CHECK-DAG:       [[VAR_62_:%.+]] = affine.apply #map1(){{.}}[[VAR_45_]]{{.}}
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_63_:%.+]] = select [[VAR_61_]], [[VAR_62_]], [[VAR_45_]] : index
-// CHECK-DAG:       [[VAR_64_:%.+]] = cmpi slt, [[VAR_45_]], [[CST_minus_2147483648_]] : index
+// CHECK-DAG:       [[VAR_64_:%.+]] = cmpi sle, [[VAR_45_]], [[CST_minus_2147483648_]] : index
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_65_:%.+]] = select [[VAR_64_]], [[CST_minus_1_]], [[VAR_63_]] : index
 // CHECK-DAG:       [[VAR_66_:%.+]] = cmpi sge, [[VAR_45_]], [[CST_2147483647_]] : index
