@@ -56,6 +56,6 @@ RUN cd llvm-project && mkdir build && cd build \
              -DLLVM_ENABLE_RTTI=ON \
              -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} \
     && cmake --build . --target -- ${MAKEFLAGS} \
-    && (cmake --build . --target check-mlir || [ "$(uname -m)" = "s390x" ]) \
+    && ([ "$(uname -m)" = "s390x" ] || cmake --build . --target check-mlir) \
     && rm -rf /tmp/* \
     && echo "llvm-project commit $(git rev-parse HEAD) successfully built"

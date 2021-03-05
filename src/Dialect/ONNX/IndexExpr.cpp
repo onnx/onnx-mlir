@@ -34,13 +34,15 @@ using namespace mlir;
 // IndexExprScope constructors.
 //===----------------------------------------------------------------------===//
 
-IndexExprScope::IndexExprScope(
-    ConversionPatternRewriter *rewriter, Location loc)
+IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
     : dims(), symbols(), rewriter(rewriter), loc(loc),
       parentScope(getCurrentScopePtr()), container(), zero(nullptr),
       minusOne(nullptr), one(nullptr) {
   getCurrentScopePtr() = this;
 }
+
+IndexExprScope::IndexExprScope(OpBuilder &rewriter, Location loc)
+    : IndexExprScope(&rewriter, loc){};
 
 IndexExprScope::IndexExprScope()
     : dims(), symbols(), rewriter(getCurrentScope().rewriter),
@@ -146,7 +148,7 @@ void IndexExprScope::getDimAndSymbolList(SmallVectorImpl<Value> &list) const {
     list.emplace_back(sym);
 }
 
-ConversionPatternRewriter &IndexExprScope::getRewriter() const {
+OpBuilder &IndexExprScope::getRewriter() const {
   assert(rewriter);
   return *rewriter;
 }
@@ -175,9 +177,11 @@ void IndexExprImpl::initAsQuestionmark() {
       AffineExpr(nullptr), Value(nullptr));
 }
 
-void IndexExprImpl::initAsLiteral(int64_t const val) {
-  init(/*isDefined*/ true, /*literal*/ true, IndexExprKind::Affine, val,
-      AffineExpr(nullptr), Value(nullptr));
+void IndexExprImpl::initAsLiteral(int64_t const val, const IndexExprKind kind) {
+  assert((kind != IndexExprKind::Questionmark) &&
+         "litterals are either affine or predicate");
+  init(/*isDefined*/ true, /*literal*/ true, kind, val, AffineExpr(nullptr),
+      Value(nullptr));
 }
 
 void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
@@ -193,7 +197,7 @@ void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
   if (getIntegerLiteralFromValue(val, valIntLit)) {
     // We have an integer. No need for symbol or dim. It is by default affine.
     // Ignore the predicate type as we treat all literal int as untyped.
-    initAsLiteral(valIntLit);
+    initAsLiteral(valIntLit, newKind);
     return;
   }
   // We have a value that is not a literal.
@@ -233,7 +237,7 @@ void IndexExprImpl::initAsAffineExpr(AffineExpr const val) {
       simplifyAffineExpr(val, scope->getNumDims(), scope->getNumSymbols());
   AffineConstantExpr constAffineExpr = simpleVal.dyn_cast<AffineConstantExpr>();
   if (constAffineExpr) {
-    initAsLiteral(constAffineExpr.getValue());
+    initAsLiteral(constAffineExpr.getValue(), IndexExprKind::Affine);
   } else {
     init(/*isDefined*/ true, /*literal*/ false, IndexExprKind::Affine, 0,
         AffineExpr(val), Value(nullptr));
@@ -296,6 +300,9 @@ bool IndexExpr::isQuestionmark() const {
 
 bool IndexExpr::isAffine() const {
   assert(isDefined());
+  // To catch predicate that are literals as affine.
+  if (isLiteral())
+    return true;
   // Note that we do bitvector and to check affine properties.
   return (int)getKind() & (int)IndexExprKind::Affine;
 }
@@ -397,7 +404,7 @@ AffineExpr IndexExpr::getAffineExpr() const {
     int id = getScope().addDim(getObj().value);
     getObj().affineExpr = getRewriter().getAffineDimExpr(id);
   } else {
-    llvm_unreachable("requesting affine expr of incompatible InexeExpr");
+    llvm_unreachable("requesting affine expr of incompatible IndexExpr");
     assert(
         hasAffineExpr() && "requesting affine expr of incompatible IndexExpr");
   }
@@ -415,9 +422,14 @@ Value IndexExpr::getValue() const {
   if (isLiteral()) {
     // Create a literal constant. Literal pred type should be used directly to
     // eliminate the comparison, so we don't intend to support them here.
-    assert(!isPredType() && "literal does not support affine expressions");
-    getObj().value =
-        getRewriter().create<ConstantIndexOp>(getLoc(), getObj().intLit);
+    if (isPredType()) {
+      bool boolValue = (getLiteral() != 0);
+      getObj().value = getRewriter().create<ConstantOp>(getLoc(),
+          getRewriter().getI1Type(), getRewriter().getBoolAttr(boolValue));
+    } else {
+      getObj().value =
+          getRewriter().create<ConstantIndexOp>(getLoc(), getLiteral());
+    }
   } else if (hasAffineExpr()) {
     // Has an affine expression: need to build a map, and then perform an
     // affine.apply.
@@ -475,9 +487,7 @@ bool IndexExpr::canBeUsedInScope() const {
   llvm_unreachable("unkown kind");
 }
 
-ConversionPatternRewriter &IndexExpr::getRewriter() const {
-  return getScope().getRewriter();
-}
+OpBuilder &IndexExpr::getRewriter() const { return getScope().getRewriter(); }
 
 void IndexExpr::debugPrint(const std::string &msg) const {
 #if DEBUG
@@ -581,32 +591,32 @@ IndexExpr IndexExpr::compareOp(
     switch (comparePred) {
     case CmpIPredicate::eq:
       if (aaa == bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     case CmpIPredicate::ne:
       if (aaa != bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     case CmpIPredicate::slt:
       if (aaa < bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     case CmpIPredicate::sle:
       if (aaa <= bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     case CmpIPredicate::sgt:
       if (aaa > bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     case CmpIPredicate::sge:
       if (aaa >= bbb)
-        return LiteralIndexExpr(1);
+        return PredicateIndexExpr(true);
       break;
     default:
       llvm_unreachable("unknown or illegal (unsigned) compare operator");
     }
-    return LiteralIndexExpr(0);
+    return PredicateIndexExpr(false);
   };
   F2 valueFct = [&](IndexExpr const aa, IndexExpr const bb) -> IndexExpr {
     Value compare = aa.getRewriter().create<CmpIOp>(
@@ -615,6 +625,60 @@ IndexExpr IndexExpr::compareOp(
   };
   // Cannot have affine results, disable and pass null lambda function.
   return binaryOp(b, false, false, litFct, nullptr, valueFct);
+}
+
+// Conjunction of two conditions: And
+IndexExpr IndexExpr::operator&(IndexExpr const b) const {
+  if (isLiteral()) {
+    if (getLiteral() == 0)
+      // false & b -> false
+      return PredicateIndexExpr(false);
+    // true & b -> b
+    return b.deepCopy();
+  }
+  if (b.isLiteral()) {
+    if (b.getLiteral() == 0)
+      // a & false -> false
+      return PredicateIndexExpr(false);
+    // a & true -> a
+    return deepCopy();
+  }
+  if (isQuestionmark() || b.isQuestionmark())
+    return QuestionmarkIndexExpr();
+  // Not literals or questionmark, we must have predicates.
+  assert(isPredType() && "expected predicate index expression");
+  assert(b.isPredType() && "expected predicate index expression");
+  Value res = getRewriter().create<AndOp>(getLoc(), getValue(), b.getValue());
+  return PredicateIndexExpr(res);
+}
+
+// Conjunction of two conditions: Or
+IndexExpr IndexExpr::operator|(IndexExpr const b) const {
+  if (isLiteral()) {
+    if (getLiteral() != 0)
+      // true | b -> true
+      return PredicateIndexExpr(true);
+    // false | b -> b
+    return b.deepCopy();
+  }
+  if (b.isLiteral()) {
+    if (b.getLiteral() != 0)
+      // a & true -> true
+      return PredicateIndexExpr(true);
+    // a & false -> a
+    return deepCopy();
+  }
+  if (isQuestionmark() || b.isQuestionmark())
+    return QuestionmarkIndexExpr();
+  // Not literals or questionmark, we must have predicates.
+  assert(isPredType() && "expected predicate index expression");
+  assert(b.isPredType() && "expected predicate index expression");
+  Value res = getRewriter().create<OrOp>(getLoc(), getValue(), b.getValue());
+  return PredicateIndexExpr(res);
+}
+
+IndexExpr IndexExpr::operator!() const {
+  return (*this == PredicateIndexExpr(false));
 }
 
 // The affine reduction lambda function processes the whole list and must init
@@ -900,6 +964,18 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   return reductionOp(vals, litFct, affineExprFct, valueFct);
 }
 
+/*static*/ IndexExpr IndexExpr::min(
+    IndexExpr const first, IndexExpr const second) {
+  SmallVector<IndexExpr, 2> list = {first, second};
+  return min(list);
+}
+
+/*static*/ IndexExpr IndexExpr::min(
+    IndexExpr const first, int64_t const second) {
+  SmallVector<IndexExpr, 2> list = {first, LiteralIndexExpr(second)};
+  return min(list);
+}
+
 /*static*/ IndexExpr IndexExpr::max(SmallVectorImpl<IndexExpr> &vals) {
   // Res is already an literal int, we are reducing into it.
   F2Self litFct = [](IndexExpr res, IndexExpr const aa) -> IndexExpr {
@@ -943,6 +1019,18 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   return reductionOp(vals, litFct, affineExprFct, valueFct);
 }
 
+/*static*/ IndexExpr IndexExpr::max(
+    IndexExpr const first, IndexExpr const second) {
+  SmallVector<IndexExpr, 2> list = {first, second};
+  return max(list);
+}
+
+/*static*/ IndexExpr IndexExpr::max(
+    IndexExpr const first, int64_t const second) {
+  SmallVector<IndexExpr, 2> list = {first, LiteralIndexExpr(second)};
+  return max(list);
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExpr Ops Derivatives
 //===----------------------------------------------------------------------===//
@@ -976,7 +1064,7 @@ IndexExpr IndexExpr::operator!=(int64_t const b) const {
 }
 
 IndexExpr IndexExpr::operator<=(IndexExpr const b) const {
-  return compareOp(CmpIPredicate::slt, b);
+  return compareOp(CmpIPredicate::sle, b);
 }
 
 IndexExpr IndexExpr::operator<=(int64_t const b) const {
@@ -1056,7 +1144,7 @@ void LiteralIndexExpr::init(int64_t const value) {
   }
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
-  indexExprObj->initAsLiteral(value);
+  indexExprObj->initAsLiteral(value, IndexExprKind::Affine);
   IndexExprScope::cacheLiteralIndexExp(value, indexExprObj);
 }
 
@@ -1072,7 +1160,8 @@ NonAffineIndexExpr::NonAffineIndexExpr(IndexExpr const otherIndexExpr) {
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   // If the index expression is a literal,  just copy it.
   if (otherIndexExpr.isLiteral()) {
-    indexExprObj->initAsLiteral(otherIndexExpr.getLiteral());
+    indexExprObj->initAsLiteral(
+        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
@@ -1120,6 +1209,12 @@ QuestionmarkIndexExpr::QuestionmarkIndexExpr(IndexExpr const otherIndexExpr)
   // Don't care about otherIndexExpr as questionmarks have no real data.
 }
 
+PredicateIndexExpr::PredicateIndexExpr(bool const value) {
+  indexExprObj = new IndexExprImpl();
+  assert(indexExprObj && "failed to allocate IndexExpr implementation");
+  indexExprObj->initAsLiteral(value, IndexExprKind::Predicate);
+}
+
 PredicateIndexExpr::PredicateIndexExpr(Value const value) {
   indexExprObj = new IndexExprImpl();
   assert(indexExprObj && "failed to allocate IndexExpr implemtation");
@@ -1132,7 +1227,8 @@ PredicateIndexExpr::PredicateIndexExpr(IndexExpr const otherIndexExpr) {
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   // If the index expression is a literal,  just copy it.
   if (otherIndexExpr.isLiteral()) {
-    indexExprObj->initAsLiteral(otherIndexExpr.getLiteral());
+    indexExprObj->initAsLiteral(
+        otherIndexExpr.getLiteral(), IndexExprKind::Predicate);
     return;
   }
   assert(otherIndexExpr.getKind() == IndexExprKind::Predicate &&
@@ -1152,7 +1248,8 @@ AffineIndexExpr::AffineIndexExpr(IndexExpr const otherIndexExpr) {
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   // If the index expression is a literal,  just copy it.
   if (otherIndexExpr.isLiteral()) {
-    indexExprObj->initAsLiteral(otherIndexExpr.getLiteral());
+    indexExprObj->initAsLiteral(
+        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
@@ -1200,7 +1297,8 @@ DimIndexExpr::DimIndexExpr(IndexExpr const otherIndexExpr) {
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   // If the index expression is a literal,  just copy it.
   if (otherIndexExpr.isLiteral()) {
-    indexExprObj->initAsLiteral(otherIndexExpr.getLiteral());
+    indexExprObj->initAsLiteral(
+        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
@@ -1249,7 +1347,8 @@ SymbolIndexExpr::SymbolIndexExpr(IndexExpr const otherIndexExpr) {
   assert(indexExprObj && "failed to allocate IndexExpr implementation");
   // If the index expression is a literal,  just copy it.
   if (otherIndexExpr.isLiteral()) {
-    indexExprObj->initAsLiteral(otherIndexExpr.getLiteral());
+    indexExprObj->initAsLiteral(
+        otherIndexExpr.getLiteral(), IndexExprKind::Affine);
     return;
   }
   // Depending on what kind of index expr we got, take different actions.
