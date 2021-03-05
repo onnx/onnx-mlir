@@ -1,6 +1,6 @@
 // RUN: onnx-mlir --EmitApollo %s -o %t 
 // RUN: FileCheck %s --input-file %t.s -check-prefix=CHECK-ASM
-// RUN: FileCheck %s --input-file %t.cpp -check-prefix=CHECK-CPP
+// RUN: FileCheck %s --input-file %t.tcp.cpp -check-prefix=CHECK-CPP
 
 // This is the template for e2e test for MNIST pipeline. It currently checks that
 // pipeline executes without crashes. This can be extended to perform more
