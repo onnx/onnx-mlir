@@ -56,15 +56,18 @@ bool IsIdentityPermuteVector(ArrayAttr permAttr) {
   return true;
 }
 
-/// Test if two axis arrays contain the same values or not.
-bool AreTheSameAxisArray(int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
+/// Test if a DenseElementsAttr and an Integer ArrayAttr contain the same values
+/// or not.
+bool AreSqueezeUnsqueezeAttrsEquiv(
+    int64_t rank, Attribute lhsAttr, ArrayAttr rhsAttr) {
+  auto lhsDenseElemAttr = lhsAttr.dyn_cast_or_null<DenseElementsAttr>();
   // false if one of the array attributes is null.
-  if (!(lhsAttr) || !(rhsAttr))
+  if (!(lhsAttr) || !(rhsAttr) || !(lhsDenseElemAttr))
     return false;
 
   SmallVector<int64_t, 4> lhs;
-  for (auto attr : lhsAttr.getValue()) {
-    int64_t axis = attr.cast<IntegerAttr>().getInt();
+  for (auto attr : lhsDenseElemAttr.getValues<IntegerAttr>()) {
+    int64_t axis = attr.getInt();
     if (axis < 0)
       axis += rank;
     lhs.emplace_back(axis);
@@ -102,7 +105,7 @@ void ONNXAddOp::getCanonicalizationPatterns(
     OwningRewritePatternList &results, MLIRContext *context) {
   // === TVP specific ===
   // Comment out conversion to Gemm as TTU does not support that
-  //results.insert<MulAddToGemmOptPattern>(context);
+  // results.insert<MulAddToGemmOptPattern>(context);
 }
 
 void ONNXGemmOp::getCanonicalizationPatterns(

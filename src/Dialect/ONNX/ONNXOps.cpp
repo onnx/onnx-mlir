@@ -2183,13 +2183,19 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
   auto operandTy = data().getType().cast<RankedTensorType>();
   int inRank = operandTy.getRank();
 
-  ArrayAttr axisAttrs = axesAttr();
   SmallVector<int, 4> axes;
-  int outRank = 0;
-  if (axisAttrs) {
-    outRank = inRank + axisAttrs.getValue().size();
-    for (auto axisAttr : axisAttrs.getValue()) {
-      int axis = axisAttr.cast<IntegerAttr>().getInt();
+  int outRank = inRank;
+
+  if (auto axesOp = getONNXConstantOp(this->axes())) {
+    auto axesAttr = axesOp.valueAttr().dyn_cast<DenseElementsAttr>();
+    if (!axesAttr) {
+      return emitError("Unsqueeze axes argument expected to be constant of "
+                       "DenseElementsAttr");
+    }
+
+    outRank += axesAttr.size();
+    for (auto dim : axesAttr.getValues<IntegerAttr>()) {
+      auto axis = dim.getInt();
       axis = axis >= 0 ? axis : (outRank + axis);
       // Valid range
       assert(axis >= -outRank && axis <= outRank - 1);
@@ -2198,8 +2204,9 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
       else
         return emitError("Duplicated axes");
     }
-  } else
-    return emitError("Axes attribute is required");
+  } else {
+    return emitError("Unsqueeze axes argument expected to be a constant");
+  }
 
   SmallVector<int64_t, 4> dims;
   for (int i = 0, j = 0; i < outRank || j < inRank; ++i) {
@@ -2209,6 +2216,7 @@ LogicalResult ONNXUnsqueezeOp::inferShapes(
       dims.emplace_back(operandTy.getShape()[j++]);
     }
   }
+
   getResult().setType(RankedTensorType::get(dims, operandTy.getElementType()));
   return success();
 }
