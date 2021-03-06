@@ -5,7 +5,7 @@
 func @test_f32(%arg : tensor<1x32x768xf32>) -> (tensor<1x32x768xf32>) {
     %39 = "onnx.Constant"() {value = dense<5.000000E-004> : tensor<768xf32>} : () -> tensor<768xf32>
     %40 = "onnx.Constant"() {value = dense<6.000000E-004> : tensor<768xf32>} : () -> tensor<768xf32>
-    %41, %saved_mean_1, %saved_inv_std_var_1 = "onnx.LayerNormalization"(%arg, %39, %40) {axis = -1 : i64, epsilon = 5.0E-06 : f32} : (tensor<1x32x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x32x768xf32>, tensor<*xf32>, tensor<*xf32>)
+    %41, %saved_mean_1, %saved_inv_std_var_1 = "onnx.LayerNormalization"(%arg, %39, %40) {axis = -1 : si64, epsilon = 5.0E-06 : f32} : (tensor<1x32x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x32x768xf32>, tensor<*xf32>, tensor<*xf32>)
     return %41 : tensor<1x32x768xf32>
 
     // CHECK-LABEL: test_f32
@@ -31,7 +31,7 @@ func @test_f32(%arg : tensor<1x32x768xf32>) -> (tensor<1x32x768xf32>) {
 func @test_bf16(%arg : tensor<1x32x768xbf16>) -> (tensor<1x32x768xbf16>) {
     %39 = "onnx.Constant"() {value = dense<5.000000E-004> : tensor<768xbf16>} : () -> tensor<768xbf16>
     %40 = "onnx.Constant"() {value = dense<6.000000E-004> : tensor<768xbf16>} : () -> tensor<768xbf16>
-    %41, %saved_mean_1, %saved_inv_std_var_1 = "onnx.LayerNormalization"(%arg, %39, %40) {axis = -1 : i64, epsilon = 5.0E-06 : f32} : (tensor<1x32x768xbf16>, tensor<768xbf16>, tensor<768xbf16>) -> (tensor<1x32x768xbf16>, tensor<*xbf16>, tensor<*xbf16>)
+    %41, %saved_mean_1, %saved_inv_std_var_1 = "onnx.LayerNormalization"(%arg, %39, %40) {axis = -1 : si64, epsilon = 5.0E-06 : f32} : (tensor<1x32x768xbf16>, tensor<768xbf16>, tensor<768xbf16>) -> (tensor<1x32x768xbf16>, tensor<*xbf16>, tensor<*xbf16>)
     return %41: tensor<1x32x768xbf16>
 
     // CHECK-LABEL: test_bf16
@@ -57,7 +57,7 @@ func @test_bf16(%arg : tensor<1x32x768xbf16>) -> (tensor<1x32x768xbf16>) {
 func @test_return_optional_inv_var(%arg : tensor<1x32x768xf32>) -> (tensor<1x32x768xf32>) {
     %39 = "onnx.Constant"() {value = dense<5.000000E-004> : tensor<768xf32>} : () -> tensor<768xf32>
     %40 = "onnx.Constant"() {value = dense<6.000000E-004> : tensor<768xf32>} : () -> tensor<768xf32>
-    %41, %saved_mean_1, %x = "onnx.LayerNormalization"(%arg, %39, %40) {axis = -1 : i64, epsilon = 5.0E-06 : f32} : (tensor<1x32x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x32x768xf32>, tensor<*xf32>, none)
+    %41, %saved_mean_1, %x = "onnx.LayerNormalization"(%arg, %39, %40) {axis = -1 : si64, epsilon = 5.0E-06 : f32} : (tensor<1x32x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x32x768xf32>, tensor<*xf32>, none)
     return %41 : tensor<1x32x768xf32>
 
     // CHECK-LABEL: test_return_optional_inv_var
@@ -81,7 +81,7 @@ func @test_return_optional_inv_var(%arg : tensor<1x32x768xf32>) -> (tensor<1x32x
     func @test_return_optional_inv_var_and_mean(%arg : tensor<1x32x768xf32>) -> (tensor<1x32x768xf32>) {
     %39 = "onnx.Constant"() {value = dense<5.000000E-004> : tensor<768xf32>} : () -> tensor<768xf32>
     %40 = "onnx.Constant"() {value = dense<6.000000E-004> : tensor<768xf32>} : () -> tensor<768xf32>
-    %41, %noop, %noop1 = "onnx.LayerNormalization"(%arg, %39, %40) {axis = -1 : i64, epsilon = 5.0E-06 : f32} : (tensor<1x32x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x32x768xf32>, none, none)
+    %41, %noop, %noop1 = "onnx.LayerNormalization"(%arg, %39, %40) {axis = -1 : si64, epsilon = 5.0E-06 : f32} : (tensor<1x32x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<1x32x768xf32>, none, none)
     return %41 : tensor<1x32x768xf32>
 
     // CHECK-LABEL: test_return_optional_inv_var_and_mean
@@ -104,7 +104,7 @@ func @test_return_optional_inv_var(%arg : tensor<1x32x768xf32>) -> (tensor<1x32x
 
 func @test_optional_bias_parameter(%arg : tensor<1x32x768xf32>, %bias : none) -> (tensor<1x32x768xf32>) {
     %39 = "onnx.Constant"() {value = dense<5.000000E-004> : tensor<768xf32>} : () -> tensor<768xf32>
-    %41, %saved_mean_1, %saved_inv_std_var_1 = "onnx.LayerNormalization"(%arg, %39, %bias) {axis = -1 : i64, epsilon = 5.0E-06 : f32} : (tensor<1x32x768xf32>, tensor<768xf32>, none) -> (tensor<1x32x768xf32>, tensor<*xf32>, tensor<*xf32>)
+    %41, %saved_mean_1, %saved_inv_std_var_1 = "onnx.LayerNormalization"(%arg, %39, %bias) {axis = -1 : si64, epsilon = 5.0E-06 : f32} : (tensor<1x32x768xf32>, tensor<768xf32>, none) -> (tensor<1x32x768xf32>, tensor<*xf32>, tensor<*xf32>)
     return %41 : tensor<1x32x768xf32>
 
     // CHECK-LABEL: test_optional_bias_parameter

@@ -86,7 +86,9 @@ struct ONNXLayerNormalizationOpPattern : public ::mlir::RewritePattern {
       axis += outType.getRank();
     }
     auto reductionType = getReductionOutputType(outType, {axis});
-    auto reductionDim = ArrayAttr::get(op->getContext(), {layerOp.axisAttr()});
+    auto axisAttr = IntegerAttr::get(
+        IntegerType::get(op->getContext(), 64), layerOp.axis());
+    auto reductionDim = ArrayAttr::get(op->getContext(), {axisAttr});
 
     auto meanOp = rewriter.create<ONNXReduceMeanOp>(
         loc, reductionType, layerOp.data(), reductionDim);

@@ -52,7 +52,7 @@ def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I64]>, AnyMemRef]>:$data,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, TensorOf<[I64]>]>:$weight,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef, TensorOf<[I64]>, NoneType]>:$bias,
-    DefaultValuedAttr<I64Attr, "-1">:$axis,
+    DefaultValuedAttr<SI64Attr, "-1">:$axis,
     DefaultValuedAttr<F32Attr, "1.0E-5">:$epsilon);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I64]>, AnyMemRef]>:$out,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[BF16]>, TensorOf<[F64]>, AnyMemRef, TensorOf<[I64]>, NoneType]>:$saved_mean,

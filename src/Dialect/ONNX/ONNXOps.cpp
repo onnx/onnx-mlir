@@ -121,7 +121,17 @@ RankedTensorType getReductionOutputType(RankedTensorType operandTy,
   SmallVector<int64_t, 4> axes;
   if (axesAttrs != llvm::None) {
     for (auto axisAttr : axesAttrs.getValue()) {
-      int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+      auto intAttr = axisAttr.cast<IntegerAttr>();
+      auto type = intAttr.getType();
+
+      int64_t axis = 0;
+      if (type.isSignlessInteger()) {
+        axis = intAttr.getInt();
+      } else {
+        assert(type.isSignedInteger());
+        axis = intAttr.getSInt();
+      }
+
       axis = axis >= 0 ? axis : (rank + axis);
       assert(axis >= -rank && axis <= rank - 1);
       if (std::find(axes.begin(), axes.end(), axis) == axes.end())
