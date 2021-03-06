@@ -356,17 +356,11 @@ def KrnlDimOp : Op<Krnl_Dialect, "dim"> {
 
     "krnl.dim"(%memref, %index)
 
-    The index identifies the dimension within the shape which is going to be
-    emitted. Initially the krnl.dim operation depends on the alloc of the MemRef.
-    Unlike the std.dim operation which maintains a dependency on the alloc of
-    the MemRef, the dimension emitted by krnl.dim will not depend on the alloc
-    operation of the MemRef once the krnl.dim operation is lowered.
+    The index identifies the dimension within the shape which is going to be emitted.
+    Initially the krnl.dim operation depends on the alloc of the MemRef.
+    Unlike the std.dim operation which maintains a dependency on the alloc of the MemRef, the dimension emitted by krnl.dim will not depend on the alloc operation of the MemRef once the krnl.dim operation is lowered.
 
-    Any changes to the original MemRef size after the krnl.dim has been
-    lowered will not be picked up by the emitted dimension. This allows
-    the original MemRef to be safely modified via code transformations or
-    affine map normalization without the risk of changing the value already
-    emitted via krnl.dim.
+    Any changes to the original MemRef size after the krnl.dim has been lowered will not be picked up by the emitted dimension. This allows the original MemRef to be safely modified via code transformations or affine map normalization without the risk of changing the value already emitted via krnl.dim.
   }];
 
   let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc, Index:$index);
@@ -599,101 +593,5 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
 
   let assemblyFormat = [{
     $value `,` $memref `[` $indices `]` attr-dict `:` type($memref)
-  }];
-}
-
-// =============================================================================
-
-def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", []> {
-  let summary = "Matmul operation for a single pannel.";
-  let description = [{
-    Perform a matrix multiplication for a small tile A * B + C of sizes
-    [NxK] * [KxM] + [NxM].
-
-    The global indices n,m,k indicate the global indices of the first element in
-    the current tile. The upper bounds n, m, k indicate the global upper bound
-    of the computations. Both indices and bounds are use to determine if the tile
-    is full in each of the N, M, and K dimensions.
-
-    Simdize is used to state if simdization is requested.
-  }];
-
-  let arguments = (ins Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
-    Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B,
-    Arg<AnyMemRef, "Add C [NxM]", [MemRead, MemWrite]>:$C,
-    Index: $nGlobalIndex, Index: $mGlobalIndex, Index: $kGlobalIndex,
-    Index: $nUpperBound, Index: $mUpperBound, Index: $kUpperBound,
-    DefaultValuedAttr<BoolAttr, "true">:$simdize);
-
-  let parser = ?;
-  let printer = ?;
-  let assemblyFormat = [{
-    $A `,` $B `,` $C `,`
-      `[` $nGlobalIndex `,` $mGlobalIndex `,` $kGlobalIndex `]` `,`
-      `[` $nUpperBound `,` $mUpperBound `,` $kUpperBound `]`
-      attr-dict `:` type($A) `,` type($B)`,` type($C)
-  }];
-}
-
-def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_buffer", [
-    TypesMatchWith<"type of 'padValue' matches element type of 'memref'",
-                  "memref", "padValue",
-                  "$_self.cast<MemRefType>().getElementType()">,
-    TypesMatchWith<"type of 'padValue' matches element type of 'bufferMemref'",
-                  "bufferMemref", "padValue",
-                  "$_self.cast<MemRefType>().getElementType()">,
-    SameVariadicOperandSize]> {
-  let summary = "Copy to buffer.";
-  let description = [{
-    Operation that copy a source memory to a buffer memory. Currently, source
-    and buffer must have the same rank. Starts indicate where the source data
-    starts to come from the source memory, sizes indicates the amount of data
-    to copy. 
-    
-    Padding indicates if extra values must be written from if the size
-    of the data to copy is smaller than the buffer size. Pad is given
-    in terms of modulo: amount to add up to the next index % pad == 0.
-    Pad pad of 1 means no padding, pad of 8 means pad to the next 
-    8 value boundary, pad of buffer size means fully pad the buffer.
-    For simplicity, pad of 0 also means pad to buffer size. When no padding 
-    amount is not provided, we assume that no padding is required.
-  }];
-
-  let arguments = (ins Arg<AnyMemRef, "buffer", [MemWrite]>:$bufferMemref,
-    Arg<AnyMemRef, "memory", [MemRead]>:$memref,
-    Variadic<Index>:$starts,
-    Variadic<Index>:$sizes,
-    AnyType: $padValue,
-    OptionalAttr<I64ArrayAttr>:$pads);
-
-  let parser = ?;
-  let printer = ?;
-    let assemblyFormat = [{
-    $bufferMemref `,` $memref
-      `[` $starts `]` `[` $sizes `]` `,`  $padValue  attr-dict
-     `:` type($bufferMemref) `,` type($memref)
-  }];
-}
-
-def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_buffer",
-    [SameVariadicOperandSize]> {
-  let summary = "Copy from buffer.";
-  let description = [{
-    Operation that copy a destination memory from a buffer memory. Currently, 
-    source and buffer must have the same rank. Starts indicate where the buffer
-    data starts to go into the destination memory, sizes indicates the amount
-    of data to copy.
-  }];
-
-  let arguments = (ins Arg<AnyMemRef, "buffer", [MemRead]>:$bufferMemref,
-    Arg<AnyMemRef, "memory", [MemWrite]>:$memref,
-    Variadic<Index>:$starts,
-    Variadic<Index>:$sizes);
-
-  let parser = ?;
-  let printer = ?;
-    let assemblyFormat = [{
-    $bufferMemref `,` $memref `[` $starts `]` `[` $sizes `]` attr-dict
-     `:` type($bufferMemref) `,` type($memref)
   }];
 }
