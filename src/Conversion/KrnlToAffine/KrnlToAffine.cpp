@@ -354,7 +354,7 @@ public:
     bool simdize = op.simdize();
     // Init scope and emit constants.
     ScopedContext scope(rewriter, op.getLoc());
-    IndexExprScope indexScope(&rewriter, op.getLoc());
+    IndexExprScope indexScope(rewriter, op.getLoc());
 
     // Generate the test for full/partial blocks
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
@@ -578,6 +578,126 @@ private:
   }
 };
 
+// KrnlCopyToBuffer will be lowered to vector and affine expressions
+class KrnlCopyToBufferLowering : public OpRewritePattern<KrnlCopyToBufferOp> {
+public:
+  using OpRewritePattern<KrnlCopyToBufferOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      KrnlCopyToBufferOp op, PatternRewriter &rewriter) const override {
+    KrnlCopyToBufferOpAdaptor operandAdaptor = KrnlCopyToBufferOpAdaptor(op);
+    Value buffMemref(operandAdaptor.bufferMemref());
+    Value sourceMemref(operandAdaptor.memref());
+    ValueRange starts(operandAdaptor.starts());
+    ValueRange sizes(operandAdaptor.sizes());
+    Value padVal(operandAdaptor.padValue());
+    auto sourceShape = sourceMemref.getType().cast<MemRefType>().getShape();
+    int64_t rank = sourceShape.size();
+    assert(starts.size() == rank && "starts rank differs from memref");
+    assert(sizes.size() == rank && "sizes rank differs from memref");
+    assert(buffMemref.getType().cast<MemRefType>().getShape().size() == rank &&
+           "buffer and memref should have the same rank");
+
+    ScopedContext scope(rewriter, op.getLoc());
+    IndexExprScope indexScope(rewriter, op.getLoc());
+    SmallVector<IndexExpr, 4> startIndices, sizeIndices, padUBIndices;
+    MemRefBoundIndexCapture buffBounds(buffMemref);
+    getIndexExprList<SymbolIndexExpr>(starts, startIndices);
+    getIndexExprList<SymbolIndexExpr>(sizes, sizeIndices);
+    ArrayAttributeIndexCapture padCapture(op.padsAttr(), 1);
+    LiteralIndexExpr one(1);
+    for (long i = 0; i < rank; ++i) {
+      IndexExpr amount = padCapture.getLiteral(i);
+      int64_t amountVal = amount.getLiteral(); // Will assert if undefined.
+      IndexExpr UB = buffBounds.getDim(i);
+      int64_t UBval = UB.getLiteral(); // Will assert if not literal.
+      if (amountVal == 1) {
+        // Add pad % 1... namely no pad, put one.
+        printf("hi alex dim %ld: no pad\n", i);
+        padUBIndices.emplace_back(one);
+      } else if (amountVal == 0 || amountVal == UBval) {
+        // Full pad (0 pad is the same as full pad).
+        if (sizeIndices[i].isLiteral() &&
+            sizeIndices[i].getLiteral() == UBval) {
+          // We are already filling the whole buffer with data, no need to pad.
+          printf("hi alex dim %ld: no pad because full\n", i);
+          padUBIndices.emplace_back(one);
+        } else {
+          // We will fill to the end, namely UB.
+          printf("hi alex dim %ld: pad to full\n", i);
+          padUBIndices.emplace_back(UB);
+        }
+      } else {
+        assert(amountVal > 0 && amountVal < UBval && "out of range pad");
+        IndexExpr newUB = (sizeIndices[i].ceilDiv(amount)) * amount;
+        printf("hi alex dim %ld: pad to next line\n", i);
+        newUB.debugPrint("new UB");
+        padUBIndices.emplace_back(newUB);
+      }
+    }
+    SmallVector<Value, 4> loopIndices;
+    genCopyLoops(buffMemref, sourceMemref, padVal, startIndices, sizeIndices,
+        padUBIndices, loopIndices, 0, rank, false);
+    rewriter.eraseOp(op);
+    return success();
+  }
+
+  void genCopyLoops(Value buffMemref, Value sourceMemref, Value padVal,
+      SmallVectorImpl<IndexExpr> &startIndices,
+      SmallVectorImpl<IndexExpr> &sizeIndices,
+      SmallVectorImpl<IndexExpr> &padUBIndices,
+      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank,
+      bool padPhase) const {
+    if (i == rank) {
+      // create new scope and import index expressions
+      IndexExprScope currScope;
+      SmallVector<IndexExpr, 4> currLoopIndices, currStartIndices;
+      getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
+      getIndexExprList<SymbolIndexExpr>(startIndices, currStartIndices);
+      Value sourceVal;
+      if (!padPhase) {
+        SmallVector<IndexExpr, 4> currLoadIndices;
+        for (long i = 0; i < rank; ++i) {
+          currLoadIndices.emplace_back(
+              currLoopIndices[i] + currStartIndices[i]);
+        }
+        sourceVal = krnl_load(sourceMemref, currLoadIndices);
+      } else {
+        sourceVal = padVal;
+      }
+      krnl_store(sourceVal, buffMemref, currLoopIndices);
+    } else {
+      IndexExprScope currScope;
+      using namespace edsc::op;
+      Value zero = std_constant_index(0);
+      Value size = sizeIndices[i].getValue();
+      if (!sizeIndices[i].isLiteralAndIdenticalTo(0)) {
+        // Loop to copy the data.
+        affineLoopBuilder(zero, size, 1, [&](Value index) {
+          IndexExprScope currScope;
+          loopIndices.emplace_back(index);
+          genCopyLoops(buffMemref, sourceMemref, padVal, startIndices,
+              sizeIndices, padUBIndices, loopIndices, i + 1, rank,
+              /*no pad phase*/ false);
+          loopIndices.pop_back_n(1);
+        });
+      }
+      if (!padUBIndices[i].isLiteralAndIdenticalTo(1)) {
+        // Need some padding at this level
+        affineLoopBuilder(
+            size, padUBIndices[i].getValue(), 1, [&](Value index) {
+              IndexExprScope currScope;
+              loopIndices.emplace_back(index);
+              genCopyLoops(buffMemref, sourceMemref, padVal, startIndices,
+                  sizeIndices, padUBIndices, loopIndices, i + 1, rank,
+                  /*pad phase*/ true);
+              loopIndices.pop_back_n(1);
+            });
+      }
+    }
+  }
+};
+
 void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   mlir::Operation *funcOp = getFunction();
@@ -619,6 +739,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   // krnl.dim operations must be lowered prior to this pass.
   target.addIllegalOp<KrnlDimOp>();
   target.addIllegalOp<KrnlMatMulOp>();
+  target.addIllegalOp<KrnlCopyToBufferOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::StandardOpsDialect,
       mlir::vector::VectorDialect>();
   OwningRewritePatternList patterns;
@@ -626,6 +747,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   patterns.insert<KrnlLoadLowering>(&getContext());
   patterns.insert<KrnlStoreLowering>(&getContext());
   patterns.insert<KrnlMatmulLowering>(&getContext());
+  patterns.insert<KrnlCopyToBufferLowering>(&getContext());
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
           getFunction(), target, std::move(patterns), &unconverted))) {

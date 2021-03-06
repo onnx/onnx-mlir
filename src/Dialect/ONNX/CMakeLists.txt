@@ -22,7 +22,9 @@ add_library(OMONNXOps
         ONNXShapeHelper.cpp
         ONNXShapeHelper.hpp
         IndexExpr.hpp
-        IndexExpr.cpp)
+        IndexExpr.cpp
+        IndexExprDetail.hpp
+        IndexExprDetail.cpp)
 
 target_include_directories(OMONNXOps
         PRIVATE

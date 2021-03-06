@@ -627,4 +627,47 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", []> {
 
   let parser = ?;
   let printer = ?;
+  let assemblyFormat = [{
+    $A `,` $B `,` $C `,`
+      `[` $nGlobalIndex `,` $mGlobalIndex `,` $kGlobalIndex `]` `,`
+      `[` $nUpperBound `,` $mUpperBound `,` $kUpperBound `]`
+      attr-dict `:` type($A) `,` type($B)`,` type($C)
+  }];
+}
+
+def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_buffer", [
+    TypesMatchWith<"type of 'padValue' matches element type of 'memref'",
+                  "memref", "padValue",
+                  "$_self.cast<MemRefType>().getElementType()">,
+    TypesMatchWith<"type of 'padValue' matches element type of 'bufferMemref'",
+                  "bufferMemref", "padValue",
+                  "$_self.cast<MemRefType>().getElementType()">,
+    SameVariadicOperandSize]> {
+  let summary = "Copy to buffer.";
+  let description = [{
+    Operation that copy a source mem-copy to a buffer. Currently, source
+    and buffer must have the same rank. Starts indicate where the data
+    starts to come from, sizes indicates the amount of data to copy.
+    Padding indicate if extra values must be written from if the size
+    of the data to copy is smaller than the buffer size. Pad is given
+    in terms of modulo: amount to add up to the next index % pad == 0.
+    Pad pad of 1 means no padding, pad of 8 means pad to the next 
+    8 value boundary, pad of buffer size means fully pad the buffer.
+    For simplicity, pad of 0 also means pad to buffer size.
+  }];
+
+  let arguments = (ins Arg<AnyMemRef, "buffer", [MemRead]>:$bufferMemref,
+    Arg<AnyMemRef, "memory", [MemRead]>:$memref,
+    Variadic<Index>:$starts,
+    Variadic<Index>:$sizes,
+    AnyType: $padValue,
+    OptionalAttr<I64ArrayAttr>:$pads);
+
+  let parser = ?;
+  let printer = ?;
+    let assemblyFormat = [{
+    $bufferMemref `,` $memref
+      `[` $starts `]` `[` $sizes `]` `,`  $padValue  attr-dict
+     `:` type($bufferMemref) `,` type($memref)
+  }];
 }
