@@ -645,18 +645,21 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_buffer", [
     SameVariadicOperandSize]> {
   let summary = "Copy to buffer.";
   let description = [{
-    Operation that copy a source mem-copy to a buffer. Currently, source
-    and buffer must have the same rank. Starts indicate where the data
-    starts to come from, sizes indicates the amount of data to copy.
-    Padding indicate if extra values must be written from if the size
+    Operation that copy a source memory to a buffer memory. Currently, source
+    and buffer must have the same rank. Starts indicate where the source data
+    starts to come from the source memory, sizes indicates the amount of data
+    to copy. 
+    
+    Padding indicates if extra values must be written from if the size
     of the data to copy is smaller than the buffer size. Pad is given
     in terms of modulo: amount to add up to the next index % pad == 0.
     Pad pad of 1 means no padding, pad of 8 means pad to the next 
     8 value boundary, pad of buffer size means fully pad the buffer.
-    For simplicity, pad of 0 also means pad to buffer size.
+    For simplicity, pad of 0 also means pad to buffer size. When no padding 
+    amount is not provided, we assume that no padding is required.
   }];
 
-  let arguments = (ins Arg<AnyMemRef, "buffer", [MemRead]>:$bufferMemref,
+  let arguments = (ins Arg<AnyMemRef, "buffer", [MemWrite]>:$bufferMemref,
     Arg<AnyMemRef, "memory", [MemRead]>:$memref,
     Variadic<Index>:$starts,
     Variadic<Index>:$sizes,
@@ -668,6 +671,29 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_buffer", [
     let assemblyFormat = [{
     $bufferMemref `,` $memref
       `[` $starts `]` `[` $sizes `]` `,`  $padValue  attr-dict
+     `:` type($bufferMemref) `,` type($memref)
+  }];
+}
+
+def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_buffer",
+    [SameVariadicOperandSize]> {
+  let summary = "Copy from buffer.";
+  let description = [{
+    Operation that copy a destination memory from a buffer memory. Currently, 
+    source and buffer must have the same rank. Starts indicate where the buffer
+    data starts to go into the destination memory, sizes indicates the amount
+    of data to copy.
+  }];
+
+  let arguments = (ins Arg<AnyMemRef, "buffer", [MemRead]>:$bufferMemref,
+    Arg<AnyMemRef, "memory", [MemWrite]>:$memref,
+    Variadic<Index>:$starts,
+    Variadic<Index>:$sizes);
+
+  let parser = ?;
+  let printer = ?;
+    let assemblyFormat = [{
+    $bufferMemref `,` $memref `[` $starts `]` `[` $sizes `]` attr-dict
      `:` type($bufferMemref) `,` type($memref)
   }];
 }

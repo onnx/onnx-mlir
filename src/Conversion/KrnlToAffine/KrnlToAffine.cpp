@@ -613,37 +613,33 @@ public:
       int64_t UBval = UB.getLiteral(); // Will assert if not literal.
       if (amountVal == 1) {
         // Add pad % 1... namely no pad, put one.
-        printf("hi alex dim %ld: no pad\n", i);
         padUBIndices.emplace_back(one);
       } else if (amountVal == 0 || amountVal == UBval) {
         // Full pad (0 pad is the same as full pad).
         if (sizeIndices[i].isLiteral() &&
             sizeIndices[i].getLiteral() == UBval) {
           // We are already filling the whole buffer with data, no need to pad.
-          printf("hi alex dim %ld: no pad because full\n", i);
           padUBIndices.emplace_back(one);
         } else {
           // We will fill to the end, namely UB.
-          printf("hi alex dim %ld: pad to full\n", i);
           padUBIndices.emplace_back(UB);
         }
       } else {
         assert(amountVal > 0 && amountVal < UBval && "out of range pad");
         IndexExpr newUB = (sizeIndices[i].ceilDiv(amount)) * amount;
-        printf("hi alex dim %ld: pad to next line\n", i);
-        newUB.debugPrint("new UB");
         padUBIndices.emplace_back(newUB);
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(buffMemref, sourceMemref, padVal, startIndices, sizeIndices,
-        padUBIndices, loopIndices, 0, rank, false);
+    LiteralIndexExpr zero(0);
+    genCopyLoops(buffMemref, sourceMemref, padVal, zero, startIndices,
+        sizeIndices, padUBIndices, loopIndices, 0, rank, false);
     rewriter.eraseOp(op);
     return success();
   }
 
   void genCopyLoops(Value buffMemref, Value sourceMemref, Value padVal,
-      SmallVectorImpl<IndexExpr> &startIndices,
+      IndexExpr zero, SmallVectorImpl<IndexExpr> &startIndices,
       SmallVectorImpl<IndexExpr> &sizeIndices,
       SmallVectorImpl<IndexExpr> &padUBIndices,
       SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank,
@@ -667,32 +663,98 @@ public:
       }
       krnl_store(sourceVal, buffMemref, currLoopIndices);
     } else {
-      IndexExprScope currScope;
       using namespace edsc::op;
-      Value zero = std_constant_index(0);
       Value size = sizeIndices[i].getValue();
       if (!sizeIndices[i].isLiteralAndIdenticalTo(0)) {
         // Loop to copy the data.
-        affineLoopBuilder(zero, size, 1, [&](Value index) {
-          IndexExprScope currScope;
+        affineLoopBuilder(zero.getValue(), size, 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, padVal, startIndices,
+          genCopyLoops(buffMemref, sourceMemref, padVal, zero, startIndices,
               sizeIndices, padUBIndices, loopIndices, i + 1, rank,
               /*no pad phase*/ false);
           loopIndices.pop_back_n(1);
         });
       }
       if (!padUBIndices[i].isLiteralAndIdenticalTo(1)) {
-        // Need some padding at this level
+        // Need some padding at this level.
         affineLoopBuilder(
             size, padUBIndices[i].getValue(), 1, [&](Value index) {
-              IndexExprScope currScope;
               loopIndices.emplace_back(index);
-              genCopyLoops(buffMemref, sourceMemref, padVal, startIndices,
+              genCopyLoops(buffMemref, sourceMemref, padVal, zero, startIndices,
                   sizeIndices, padUBIndices, loopIndices, i + 1, rank,
                   /*pad phase*/ true);
               loopIndices.pop_back_n(1);
             });
+      }
+      // For next level up of padding, if any, will not copy data anymore
+      sizeIndices[i] = zero;
+    }
+  }
+};
+
+// KrnlCopyFromBuffer will be lowered to vector and affine expressions
+class KrnlCopyFromBufferLowering
+    : public OpRewritePattern<KrnlCopyFromBufferOp> {
+public:
+  using OpRewritePattern<KrnlCopyFromBufferOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      KrnlCopyFromBufferOp op, PatternRewriter &rewriter) const override {
+    KrnlCopyFromBufferOpAdaptor operandAdaptor =
+        KrnlCopyFromBufferOpAdaptor(op);
+    Value buffMemref(operandAdaptor.bufferMemref());
+    Value sourceMemref(operandAdaptor.memref());
+    ValueRange starts(operandAdaptor.starts());
+    ValueRange sizes(operandAdaptor.sizes());
+    auto sourceShape = sourceMemref.getType().cast<MemRefType>().getShape();
+    int64_t rank = sourceShape.size();
+    assert(starts.size() == rank && "starts rank differs from memref");
+    assert(sizes.size() == rank && "sizes rank differs from memref");
+    assert(buffMemref.getType().cast<MemRefType>().getShape().size() == rank &&
+           "buffer and memref should have the same rank");
+
+    ScopedContext scope(rewriter, op.getLoc());
+    IndexExprScope indexScope(rewriter, op.getLoc());
+    SmallVector<IndexExpr, 4> startIndices, sizeIndices;
+    MemRefBoundIndexCapture buffBounds(buffMemref);
+    getIndexExprList<SymbolIndexExpr>(starts, startIndices);
+    getIndexExprList<SymbolIndexExpr>(sizes, sizeIndices);
+    LiteralIndexExpr one(1);
+    SmallVector<Value, 4> loopIndices;
+    LiteralIndexExpr zero(0);
+    genCopyLoops(buffMemref, sourceMemref, zero, startIndices, sizeIndices,
+        loopIndices, 0, rank);
+    rewriter.eraseOp(op);
+    return success();
+  }
+
+  void genCopyLoops(Value buffMemref, Value sourceMemref, IndexExpr zero,
+      SmallVectorImpl<IndexExpr> &startIndices,
+      SmallVectorImpl<IndexExpr> &sizeIndices,
+      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank) const {
+    if (i == rank) {
+      // create new scope and import index expressions
+      IndexExprScope currScope;
+      SmallVector<IndexExpr, 4> currLoopIndices, currStartIndices;
+      getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
+      getIndexExprList<SymbolIndexExpr>(startIndices, currStartIndices);
+      SmallVector<IndexExpr, 4> currStoreIndices;
+      for (long i = 0; i < rank; ++i) {
+        currStoreIndices.emplace_back(currLoopIndices[i] + currStartIndices[i]);
+      }
+      Value sourceVal = krnl_load(sourceMemref, currLoopIndices);
+      krnl_store(sourceVal, buffMemref, currStoreIndices);
+    } else {
+      using namespace edsc::op;
+      Value size = sizeIndices[i].getValue();
+      if (!sizeIndices[i].isLiteralAndIdenticalTo(0)) {
+        // Loop to copy the data.
+        affineLoopBuilder(zero.getValue(), size, 1, [&](Value index) {
+          loopIndices.emplace_back(index);
+          genCopyLoops(buffMemref, sourceMemref, zero, startIndices,
+              sizeIndices, loopIndices, i + 1, rank);
+          loopIndices.pop_back_n(1);
+        });
       }
     }
   }
@@ -740,6 +802,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   target.addIllegalOp<KrnlDimOp>();
   target.addIllegalOp<KrnlMatMulOp>();
   target.addIllegalOp<KrnlCopyToBufferOp>();
+  target.addIllegalOp<KrnlCopyFromBufferOp>();
   target.addLegalDialect<mlir::AffineDialect, mlir::StandardOpsDialect,
       mlir::vector::VectorDialect>();
   OwningRewritePatternList patterns;
@@ -748,6 +811,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   patterns.insert<KrnlStoreLowering>(&getContext());
   patterns.insert<KrnlMatmulLowering>(&getContext());
   patterns.insert<KrnlCopyToBufferLowering>(&getContext());
+  patterns.insert<KrnlCopyFromBufferLowering>(&getContext());
   DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
           getFunction(), target, std::move(patterns), &unconverted))) {
