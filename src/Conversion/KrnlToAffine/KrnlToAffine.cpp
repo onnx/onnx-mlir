@@ -416,8 +416,7 @@ public:
           }
         });
       }, /* else full */ [&](ValueRange) {
-        genSimd(rewriter, op, elementType, nBlock, mBlock, kBlock,
-            /*unroll&jam*/true);
+        genSimd(rewriter, op, elementType, nBlock, mBlock, kBlock, false); // true
       });
       // clang-format on
     } else {
@@ -430,7 +429,7 @@ public:
         IndexExpr kTrip = trip(kUB, kBlock, kGI); // May or may not be full.
         genScalar(rewriter, op, elementType, nTrip, mTrip, kTrip, false);
       }, /* else  full */ [&](ValueRange) {
-        genScalar(rewriter, op, elementType, nBlock, mBlock, kBlock, true);
+        genScalar(rewriter, op, elementType, nBlock, mBlock, kBlock, false); // true
       });
       // clang-format on
     }
@@ -549,19 +548,13 @@ private:
   void genIfThenElseWithoutParams(PatternRewriter &rewriter,
       IndexExpr condition, function_ref<void(ValueRange)> thenFn,
       function_ref<void(ValueRange)> elseFn) const {
+    // When the condition is known at compile time, still better to generate the
+    // if-the-else block because we can use the "append to block" primitive.
+    // Compile time branch are simplified and will go away during the
+    // canonicalize phase. However, the code for the compile-time impossible
+    // path will not be generated, as they may lead to code generated with facts
+    // that are known to be impossible when compile time knowledge is available.
     Block *ifBlock = rewriter.getInsertionBlock();
-    // Handle branches known at compile time.
-    if (false && condition.isLiteral()) {
-      if (condition.getLiteral() != 0) {
-        // Issue only the then path directly.
-        appendToBlock(ifBlock, [&](ValueRange args) { thenFn(args); });
-        //thenFn(ValueRange(Value(nullptr)));
-      } else {
-        appendToBlock(ifBlock, [&](ValueRange args) { elseFn(args); });
-       // elseFn(ValueRange(Value(nullptr)));
-      }
-      return;
-    }
     // Split current block in the if-conditional block, and the end block.
     auto opPosition = rewriter.getInsertionPoint();
     Block *endBlock = rewriter.splitBlock(ifBlock, opPosition);
@@ -575,8 +568,17 @@ private:
       std_cond_br(condition.getValue(), thenBlock, {}, elseBlock, {});
     });
     // Has to add the then/else code after fully creating the blocks
-    appendToBlock(thenBlock, [&](ValueRange args) { thenFn(args); });
-    appendToBlock(elseBlock, [&](ValueRange args) { elseFn(args); });
+    if (!condition.isLiteralAndIdenticalTo(0)) {
+      // If condition is known at compile time, and is false; then don't need
+      // the "then" clause. If that is not the case, the do it.
+      appendToBlock(thenBlock, [&](ValueRange args) { thenFn(args); });
+    }
+    if (!condition.isLiteralAndDifferentThan(0)) {
+      // If condition is known at compile time, and is true (i.e. != 0); then
+      // don't need the "then" clause. If that is not the case, the do it.
+      appendToBlock(elseBlock, [&](ValueRange args) { elseFn(args); });
+    }
+    rewriter.setInsertionPointToStart(endBlock);
   }
 };
 
