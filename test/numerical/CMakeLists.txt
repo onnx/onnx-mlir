@@ -77,8 +77,8 @@ target_link_libraries(TestLoop
         
 
 add_test(NAME OMTestConv COMMAND TestConv)
-add_test(NAME OMTestLoop COMMAND TestLoop)
 # ISSUE-TODO-namcvica-2020-12-23: Disable broken tests until they can be fixed upstream
+#add_test(NAME OMTestLoop COMMAND TestLoop)
 #add_test(NAME OMTestGRU COMMAND TestGRU)
 #add_test(NAME OMTestLSTM COMMAND TestLSTM)
 #add_test(NAME OMTestRNN COMMAND TestRNN)
