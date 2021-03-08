@@ -551,12 +551,14 @@ private:
       function_ref<void(ValueRange)> elseFn) const {
     Block *ifBlock = rewriter.getInsertionBlock();
     // Handle branches known at compile time.
-    if (condition.isLiteral()) {
+    if (false && condition.isLiteral()) {
       if (condition.getLiteral() != 0) {
         // Issue only the then path directly.
         appendToBlock(ifBlock, [&](ValueRange args) { thenFn(args); });
+        //thenFn(ValueRange(Value(nullptr)));
       } else {
         appendToBlock(ifBlock, [&](ValueRange args) { elseFn(args); });
+       // elseFn(ValueRange(Value(nullptr)));
       }
       return;
     }
@@ -742,8 +744,8 @@ public:
       for (long i = 0; i < rank; ++i) {
         currStoreIndices.emplace_back(currLoopIndices[i] + currStartIndices[i]);
       }
-      Value sourceVal = krnl_load(sourceMemref, currLoopIndices);
-      krnl_store(sourceVal, buffMemref, currStoreIndices);
+      Value sourceVal = krnl_load(buffMemref, currLoopIndices);
+      krnl_store(sourceVal, sourceMemref, currStoreIndices);
     } else {
       using namespace edsc::op;
       Value size = sizeIndices[i].getValue();
