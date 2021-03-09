@@ -562,8 +562,9 @@ public:
       SmallVector<KrnlGetRefOp, 4> secondGetRefList =
           getAllGetRefWithSameOffsetExcept(&secondGetRef, validSlotReusers);
 
-      // Do not merge the secondGetRef if secondGetRef has more reusers than
-      // the firstGetRef.
+      // Do not merge the secondGetRef if secondGetRef has any reusers. It
+      // means that the analysis has already been performed on secondGetRef
+      // and all the possible reuses have already been found for secondGetRef.
       if (secondGetRefList.size() > 1)
         continue;
 
