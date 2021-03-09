@@ -264,9 +264,8 @@ func @test_sqrt() -> memref<1x2xf32> {
 // CHECK-LABEL: @test_unsqueeze() -> memref<2x1x1xf32>
 func @test_unsqueeze() -> memref<2x1x1xf32> {
   %0 = "onnx.Constant"() {value = dense<[4.0, 16.0]> : tensor<2xf32>} : () -> memref<2xf32>
-  %1 = "onnx.Constant"() {value = dense<[1, 2]> : tensor<2xi64>} : () -> tensor<2xi64>
-  %2 = "onnx.Unsqueeze"(%0, %1) : (memref<2xf32>, tensor<2xi64>) -> memref<2x1x1xf32>
-  "std.return"(%2) : (memref<2x1x1xf32>) -> ()
+  %1 = "onnx.Unsqueeze"(%0) {axes = [1, 2]} : (memref<2xf32>) -> memref<2x1x1xf32>
+  "std.return"(%1) : (memref<2x1x1xf32>) -> ()
   // CHECK: {{.*}} = "onnx.Constant"() {value = dense<{{\[}}{{\[}}[4.000000e+00]{{\]}}, {{\[}}[1.600000e+01]{{\]}}{{\]}}> : tensor<2x1x1xf32>} : () -> memref<2x1x1xf32>
   // CHECK-NOT: {{.*}} = "onnx.Unsqueeze"{{.*}}
 }

@@ -30,21 +30,12 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
 
     // Assume that `axes` has been validated by shape inference.
     // So, here we just get it.
+    ArrayAttr axisAttrs = llvm::dyn_cast<ONNXUnsqueezeOp>(op).axesAttr();
     SmallVector<int, 4> axes;
-    if (auto axesOp = llvm::dyn_cast_or_null<KrnlGlobalOp>(
-            operandAdaptor.axes().getDefiningOp())) {
-      auto axesAttr = axesOp.value()->dyn_cast<DenseElementsAttr>();
-      if (!axesAttr) {
-        return op->emitError("Axes expected to be a DenseElementAttr");
-      }
-
-      for (auto attr : axesAttr.getValues<IntegerAttr>()) {
-        int axis = attr.getInt();
-        axis = axis >= 0 ? axis : (outRank + axis);
-        axes.emplace_back(axis);
-      }
-    } else {
-      return op->emitError("Axes argument expected to be a constant");
+    for (auto axisAttr : axisAttrs.getValue()) {
+      int axis = axisAttr.cast<IntegerAttr>().getInt();
+      axis = axis >= 0 ? axis : (outRank + axis);
+      axes.emplace_back(axis);
     }
 
     // Insert an allocation and deallocation for the result of this operation.

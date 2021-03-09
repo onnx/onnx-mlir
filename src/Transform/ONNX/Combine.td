@@ -39,8 +39,8 @@ def HasSameElementType : Constraint<
           "$1.cast<::mlir::TypeAttr>().getValue())">,
     "has same element type">;
 
-def AreSqueezeUnsqueezeAttrsEquiv: Constraint<
-    CPred<"AreSqueezeUnsqueezeAttrsEquiv($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
+def AreTheSameAxisArray: Constraint<
+    CPred<"AreTheSameAxisArray($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
     "Two axis arrays are the same">;
 
 //===----------------------------------------------------------------------===//
@@ -110,20 +110,20 @@ def RemoveIdentityTransposePattern:  Pat<
 /// Squeeze {axes = [a, b, c]} (Unsqueeze {axes = [a, b, c]} (%X)) = %X
 def RemoveSqueezeUnsqueezePattern:  Pat<
   // Squeeze and the unsqueeze with the same axes.
-  (ONNXSqueezeOp (ONNXUnsqueezeOp $val, (ONNXConstantOp:$res $_, $u_axes, $_, $_, $_, $_, $_, $_)), $s_axes),
+  (ONNXSqueezeOp (ONNXUnsqueezeOp $val, $u_axes), $s_axes),
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreSqueezeUnsqueezeAttrsEquiv $val, $u_axes, $s_axes), (HasOneUse $res) ]>;
+  [(AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
 
 /// Combine unsqueeze and squeeze.
 /// Unsqueeze {axes = [a, b, c]} (Squeeze {axes = [a, b, c]} (%X)) = %X
 def RemoveUnsqueezeSqueezePattern:  Pat<
   // Squeeze and the unsqueeze with the same axes.
-  (ONNXUnsqueezeOp (ONNXSqueezeOp:$res $val, $s_axes), (ONNXConstantOp:$constRes $_, $u_axes, $_, $_, $_, $_, $_, $_)),
+  (ONNXUnsqueezeOp (ONNXSqueezeOp:$res $val, $s_axes), $u_axes),
   // Remove the transpose.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreSqueezeUnsqueezeAttrsEquiv $res, $u_axes, $s_axes), (HasOneUse $constRes)]>;
+  [(AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
 
 #endif // ONNX_COMBINE
