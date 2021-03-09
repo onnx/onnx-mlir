@@ -67,14 +67,12 @@ Value subtractOrNeg(
   }
 }
 
-// Create an DenseElementsAttr of IntegerAttr(s) of values in [1, N].
-DenseElementsAttr createDenseElementsAttrOfOneToN(
-    PatternRewriter &rewriter, int N) {
+// Create an ArrayAttr of IntergerAttr(s) of values in [1, N].
+ArrayAttr createArrayAttrOfOneToN(PatternRewriter &rewriter, int N) {
   SmallVector<int64_t, 4> vals;
   for (int i = 1; i <= N; ++i)
     vals.emplace_back(i);
-
-  return rewriter.getI64TensorAttr(llvm::makeArrayRef(vals));
+  return rewriter.getI64ArrayAttr(vals);
 }
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [N, M].

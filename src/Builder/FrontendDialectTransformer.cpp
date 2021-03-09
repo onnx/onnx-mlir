@@ -705,38 +705,6 @@ private:
     }
   }
 
-  void ImportUnsqueeze(const onnx::NodeProto &node) {
-    int nOps = node.input().size();
-    int nIn = mlir::ONNXUnsqueezeOp::getNumberOfOperands();
-
-    if (nOps == nIn) {
-      buildOperation<mlir::ONNXUnsqueezeOp>(node);
-    } else {
-      // Axes can come in as either attributes or arguments
-      std::vector<mlir::Value> inputs;
-      getNodeInputs(node, inputs);
-
-      auto attributes = ImportNodeAttributes(node);
-      for (auto attr : attributes) {
-        if (auto denseAttr = attr.second.dyn_cast<mlir::ArrayAttr>()) {
-          auto axes = denseAttr.getValue();
-          auto axesAttr = mlir::DenseElementsAttr::get(
-              mlir::RankedTensorType::get(axes.size(), builder_.getI64Type()),
-              axes);
-          auto constantOp = builder_.create<mlir::ONNXConstantOp>(UnknownLoc(),
-              mlir::Attribute(), axesAttr, nullptr, nullptr, nullptr, nullptr,
-              nullptr, nullptr);
-
-          inputs.push_back(constantOp);
-          assert(attr.first == "axes");
-        }
-      }
-      int nOut = mlir::ONNXUnsqueezeOp::getNumberOfResults();
-      buildOutputAndOperation<mlir::ONNXUnsqueezeOp>(
-          node, inputs, nIn, nOut, attributes);
-    }
-  }
-
   /*!
    * Special handle for Dropout operations.
    */
@@ -772,9 +740,9 @@ private:
       auto tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-      auto constantOp = builder_.create<mlir::ONNXConstantOp>(UnknownLoc(),
-          mlir::Attribute(), constantDenseAttribute, nullptr, nullptr, nullptr,
-          nullptr, nullptr, nullptr);
+      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute,
+          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
       mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
       inputs.push_back(constantResult);
     }
@@ -790,9 +758,9 @@ private:
       auto tensorType = mlir::RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
-      auto constantOp = builder_.create<mlir::ONNXConstantOp>(UnknownLoc(),
-          mlir::Attribute(), constantDenseAttribute, nullptr, nullptr, nullptr,
-          nullptr, nullptr, nullptr);
+      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute,
+          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
       mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
       inputs.push_back(constantResult);
     }
@@ -820,9 +788,9 @@ private:
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
 
       // Use the special builder defined in ONNXOp.td.inc.
-      auto constantOp = builder_.create<mlir::ONNXConstantOp>(UnknownLoc(),
-          mlir::Attribute(), constantDenseAttribute, nullptr, nullptr, nullptr,
-          nullptr, nullptr, nullptr);
+      auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+          UnknownLoc(), mlir::Attribute(), constantDenseAttribute,
+          nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
       mlir::Value constantResult = *(constantOp.getODSResults(0).begin());
       std::vector<mlir::Value> inputs;
       for (const auto &item : node.input())
@@ -870,9 +838,9 @@ private:
       if (auto arrayAttr = attr.second.dyn_cast<mlir::ArrayAttr>()) {
         auto constantDenseAttribute =
             mlir::DenseElementsAttr::get(tensorType, arrayAttr.getValue());
-        auto constantOp = builder_.create<mlir::ONNXConstantOp>(UnknownLoc(),
-            mlir::Attribute(), constantDenseAttribute, nullptr, nullptr,
-            nullptr, nullptr, nullptr, nullptr);
+        auto constantOp = builder_.create<mlir::ONNXConstantOp>(
+            UnknownLoc(), mlir::Attribute(), constantDenseAttribute,
+            nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
         mlir::Value constantValue = constantOp.output();
 
         // Map from ONNX attributes to indices, which are
@@ -1130,7 +1098,7 @@ private:
 
     return mainFunc;
   }
-}; // namespace detail
+}; // class FrontendGenImpl
 } // namespace detail
 } // namespace onnx_mlir
 

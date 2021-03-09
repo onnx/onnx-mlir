@@ -33,6 +33,7 @@
 #include "mlir/Dialect/Nepal/Passes.h"
 #include "mlir/Target/Cpp/CppPrinter.h"
 #include "mlir/Target/LLVMIR/Export.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Dialect/LLVMIR/Transforms/Passes.h"
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <mlir/IR/SymbolTable.h>

@@ -309,7 +309,7 @@ import_handler_map_["Transpose"] =
 import_handler_map_["Unique"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUniqueOp>;
 import_handler_map_["Unsqueeze"] = 
-   &onnx_mlir::detail::FrontendGenImpl::ImportUnsqueeze;
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUnsqueezeOp>;
 import_handler_map_["Upsample"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleOp>;
 import_handler_map_["Where"] = 

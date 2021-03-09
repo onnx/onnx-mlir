@@ -74,15 +74,15 @@ public:
       return failure();
 
     if (denseElementsAttr.isSplat()) {
-      auto constantAttr = denseElementsAttr.getSplatValue();
-      if (!constantAttr)
+      auto constantFloatAttr = denseElementsAttr.getSplatValue<FloatAttr>();
+      if (!constantFloatAttr)
         return failure();
 
       for (auto &use : krnlGlobalOp.output().getUses()) {
         use.getOwner()->replaceAllUsesWith(krnlGlobalOp);
       }
 
-      rewriter.replaceOpWithNewOp<ConstantOp>(krnlGlobalOp, constantAttr);
+      rewriter.replaceOpWithNewOp<ConstantOp>(krnlGlobalOp, constantFloatAttr);
 
       return success();
     } else {
