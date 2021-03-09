@@ -57,11 +57,11 @@ struct ONNXOpShapeHelper {
   // Set the number of outputs.
   void setNumberOfOutputs(int n) { outputsDims.resize(n); }
 
-  // Data that must be present for every ShapeHelper operation. Op and context
+  // Data that must be present for every ShapeHelper operation. Op and scope
   // are initialized in the constructor, and outputsDims is computed by the
   // child's struct `Compute` function.
   OP *op;
-  IndexExprContext context;
+  IndexExprScope scope;
 
 private:
   SmallVector<DimsExpr, 1> outputsDims;
@@ -83,17 +83,15 @@ struct ONNXOpBroadcastedShapeHelper {
   // Compute access indices to load/store value from/to a given 'operand'.
   // Used in a loop to access the operand.
   // Parameters:
-  //   - outerContext: shape helper context obtained outside the loop.
   //   - operand: operand to access
   //   - operandIndex: index of the operand in 'inputsDims'
   //   - loopAccessExprs: IndexExprs for the loop's IVs
   //   - operandAccessExprs: access indices to access the operand.
-  LogicalResult GetAccessExprs(IndexExprContext &outerContext, Value operand,
-      unsigned operandIndex,
+  LogicalResult GetAccessExprs(Value operand, unsigned operandIndex,
       const SmallVectorImpl<IndexExpr> &outputAccessExprs,
       SmallVectorImpl<IndexExpr> &operandAccessExprs);
 
-  IndexExprContext context;
+  IndexExprScope scope;
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank.
   SmallVector<DimsExpr, 4> inputsDims;
@@ -105,6 +103,14 @@ private:
   // If unidirectional broadcasting, the other operands are always
   // unidirectional broadcastable to the first operand.
   bool isUniBroadcasting;
+};
+
+// Shape for ArgMax
+struct ONNXArgMaxOpShapeHelper : public ONNXOpShapeHelper<ONNXArgMaxOp> {
+  ONNXArgMaxOpShapeHelper(
+      ONNXArgMaxOp *newOp, ConversionPatternRewriter *rewriter);
+
+  LogicalResult Compute(ONNXArgMaxOpAdaptor operandAdaptor);
 };
 
 // Shape for concat
