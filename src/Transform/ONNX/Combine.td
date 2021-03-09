@@ -69,10 +69,6 @@ def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $arg1, $arg2, $rati
                                         [(replaceWithValue $arg),
                                          (ONNXConstantOp (GetNullAttr), (GetUnitAttr))]>;
 
-def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $v1, $v2), $m2, $m3),
-                             (ONNXPadConstantValuePadOp $m1, $v2, $m2, $m3),
-                             [(HasOneUse $res)]>;
-
 // ONNX_Op (onnx.Cast (%X, $type)) = ONNX_Op (%X)
 def CastEliminationPattern : Pat<
 	(ONNXCastOp $arg, $type),
