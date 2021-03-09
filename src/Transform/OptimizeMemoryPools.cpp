@@ -364,16 +364,16 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
 /// any of the live ranges of the GetRefs in firstGetRefList.
 bool checkLiveRangesIntersect(
     SmallVectorImpl<KrnlGetRefOp> &firstGetRefList, KrnlGetRefOp secondGetRef) {
+  // Get first and last ops for the live range of the secondGetRef.
+  Operation *firstOp = getLiveRangeFirstOp(secondGetRef);
+  Operation *lastOp = getLiveRangeLastOp(secondGetRef);
+
   // Check that the live range of each individual element in secondGetRefList
   // is independent from the individual live ranges of the elements
   // of the firstGetRefList.
   for (auto firstGetRef : firstGetRefList) {
     // Fetch the full live range for the first set of getref operations.
     std::vector<Operation *> liveRangeOpList = getLiveRange(firstGetRef);
-
-    // Get first and last ops for the live range of the secondGetRef.
-    Operation *firstOp = getLiveRangeFirstOp(secondGetRef);
-    Operation *lastOp = getLiveRangeLastOp(secondGetRef);
 
     // Check if either the first or last ops in the second live range are part
     // of the first live range.
@@ -491,9 +491,14 @@ public:
     if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
       return failure();
 
-    // List of all GetRefs which share the slot with firstGetRefList.
+    // List of all GetRefs which share the slot with firstGetRef.
     SmallVector<KrnlGetRefOp, 4> firstGetRefList =
         getAllGetRefWithSameOffset(&firstGetRef);
+
+    // All matches are discovered in one application so applying the rule to
+    // an already optimized set of getrefs will not find new reuses.
+    if (firstGetRefList.size() > 1)
+      return failure();
 
     // Get a GetRef, other than the current one, that uses the same static
     // memory pool.
@@ -574,7 +579,9 @@ public:
       // usage of any of the first getrefs. This means that for any store to a
       // getref in secondGetRefList, the value stored does not involve a load
       // from a getref in firstGetRefList (and vice-versa).
-      if (!getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList))
+      SmallVector<KrnlGetRefOp, 4> secondGetRefAsList;
+      secondGetRefAsList.emplace_back(secondGetRef);
+      if (!getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefAsList))
         continue;
 
       // Check live ranges do not intersect.
