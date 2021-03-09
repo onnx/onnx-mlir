@@ -14,6 +14,7 @@
 // This pass is applied before any other pass so that there is no need to
 // implement shape inference for the constpropd operation. Hence, it is expected
 // that there is no knowledge about tensor shape at this point
+//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/Matchers.h"
