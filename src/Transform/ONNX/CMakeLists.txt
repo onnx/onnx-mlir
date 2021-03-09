@@ -47,7 +47,10 @@ add_library(OMONNXRewrite
         ConstProp.cpp)
 target_include_directories(OMONNXRewrite
         PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNF_MLIR_SRC_ROOT})
+        ${ONNF_MLIR_SRC_ROOT}
+        ${ONNX_MLIR_SRC_ROOT}/include)
+target_link_libraries(OMONNXRewrite
+        OMTensorUtils)
 
 # Header dependencies
 add_dependencies(OMONNXRewrite
