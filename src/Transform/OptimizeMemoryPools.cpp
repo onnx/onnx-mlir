@@ -564,7 +564,7 @@ public:
 
       // Do not merge the secondGetRef if secondGetRef has more reusers than
       // the firstGetRef.
-      if (firstGetRefList.size() < secondGetRefList.size())
+      if (secondGetRefList.size() > 1)
         continue;
 
       // If the two getRefs are used by the same operation which we know
@@ -579,9 +579,7 @@ public:
       // usage of any of the first getrefs. This means that for any store to a
       // getref in secondGetRefList, the value stored does not involve a load
       // from a getref in firstGetRefList (and vice-versa).
-      SmallVector<KrnlGetRefOp, 4> secondGetRefAsList;
-      secondGetRefAsList.emplace_back(secondGetRef);
-      if (!getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefAsList))
+      if (!getRefUsesAreMutuallyDisjoint(firstGetRefList, secondGetRefList))
         continue;
 
       // Check live ranges do not intersect.
