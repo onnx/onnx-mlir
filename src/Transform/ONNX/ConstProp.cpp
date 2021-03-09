@@ -27,7 +27,7 @@
 #include "src/Pass/Passes.hpp"
 
 #include <fstream>
-#include <malloc.h>
+#include <stdlib.h>
 #include <math.h>
 
 using namespace mlir;
