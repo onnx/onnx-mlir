@@ -73,7 +73,7 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
 
-  let builders = [OpBuilderDAG<(ins "FuncOp":$function, "int":$numInputs, "int":$numOutputs)>];
+  let builders = [OpBuilder<(ins "FuncOp":$function, "int":$numInputs, "int":$numOutputs)>];
 
   let extraClassDeclaration = [{
     static ONNXEntryPointOp create(Location location, FuncOp& func,
@@ -97,7 +97,7 @@ def ONNXReturnOp : ONNX_Op<"Return", [NoSideEffect,
   let arguments = (ins Variadic<AnyType>:$operands);
 
   let builders = [
-    OpBuilderDAG<(ins),
+    OpBuilder<(ins),
     [{ build($_builder, $_state, llvm::None); }]>];
 
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
@@ -248,8 +248,8 @@ def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
            DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
   // A build method with the result type deduction.
-  let builders = [OpBuilderDAG<(ins "Value":$data, "ArrayAttr":$pads,
-                                    "FloatAttr":$constant_value, "StringAttr":$mode)>];
+  let builders = [OpBuilder<(ins "Value":$data, "ArrayAttr":$pads,
+                                 "FloatAttr":$constant_value, "StringAttr":$mode)>];
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;

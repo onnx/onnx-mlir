@@ -15,11 +15,11 @@ def ONNXAbsOp:ONNX_Op<"Abs",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$Y);
   let builders = [
-    OpBuilderDAG<(ins "Value":$X), [{
+    OpBuilder<(ins "Value":$X), [{
       auto elementType = X.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), X);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -94,7 +94,7 @@ def ONNXAddOp:ONNX_Op<"Add",
     AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$C);
   let builders = [
-    OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -105,7 +105,7 @@ def ONNXAddOp:ONNX_Op<"Add",
       }
       build($_builder, $_state, elementType, A, B);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -145,7 +145,7 @@ def ONNXAndOp:ONNX_Op<"And",
     AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
-    OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -156,7 +156,7 @@ def ONNXAndOp:ONNX_Op<"And",
       }
       build($_builder, $_state, elementType, A, B);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -494,7 +494,7 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
   }];
    let builders = [
-  OpBuilderDAG<(ins "Value":$input, "TypeAttr":$to), [{
+  OpBuilder<(ins "Value":$input, "TypeAttr":$to), [{
    auto resultType = mlir::UnrankedTensorType::get(to.getValue());
    build($_builder, $_state, resultType, input, to);
   }] >
@@ -660,7 +660,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     }
   }];
   let builders = [
-  OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value,
+  OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value,
     "FloatAttr":$value_float, "ArrayAttr":$value_floats,
     "IntegerAttr":$value_int, "ArrayAttr":$value_ints,
     "StringAttr":$value_string, "ArrayAttr":$value_strings), [{
@@ -1012,7 +1012,7 @@ def ONNXDivOp:ONNX_Op<"Div",
     AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$C);
   let builders = [
-    OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -1023,7 +1023,7 @@ def ONNXDivOp:ONNX_Op<"Div",
       }
       build($_builder, $_state, elementType, A, B);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -1169,7 +1169,7 @@ def ONNXEqualOp:ONNX_Op<"Equal",
     AnyTypeOf<[TensorOf<[I1]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
-    OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -1180,7 +1180,7 @@ def ONNXEqualOp:ONNX_Op<"Equal",
       }
       build($_builder, $_state, elementType, A, B);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -1237,11 +1237,11 @@ def ONNXExpOp:ONNX_Op<"Exp",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$output);
   let builders = [
-    OpBuilderDAG<(ins "Value":$input), [{
+    OpBuilder<(ins "Value":$input), [{
       auto elementType = input.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), input);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -1839,7 +1839,7 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
-    OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -1850,7 +1850,7 @@ def ONNXGreaterOp:ONNX_Op<"Greater",
       }
       build($_builder, $_state, elementType, A, B);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -2248,7 +2248,7 @@ def ONNXLessOp:ONNX_Op<"Less",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
-    OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -2259,7 +2259,7 @@ def ONNXLessOp:ONNX_Op<"Less",
       }
       build($_builder, $_state, elementType, A, B);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -2874,7 +2874,7 @@ def ONNXMulOp:ONNX_Op<"Mul",
     AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$C);
   let builders = [
-    OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -2885,7 +2885,7 @@ def ONNXMulOp:ONNX_Op<"Mul",
       }
       build($_builder, $_state, elementType, A, B);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -2948,11 +2948,11 @@ def ONNXNegOp:ONNX_Op<"Neg",
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[I32]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F64]>, AnyMemRef]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[I32]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F64]>, AnyMemRef]>:$Y);
   let builders = [
-    OpBuilderDAG<(ins "Value":$X), [{
+    OpBuilder<(ins "Value":$X), [{
       auto elementType = X.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), X);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -3104,7 +3104,7 @@ def ONNXOrOp:ONNX_Op<"Or",
     AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
-    OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -3115,7 +3115,7 @@ def ONNXOrOp:ONNX_Op<"Or",
       }
       build($_builder, $_state, elementType, A, B);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -3253,11 +3253,11 @@ def ONNXPadOp:ONNX_Op<"Pad",
     DefaultValuedAttr<StrAttr, "constant">:$mode);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef, NoneType]>:$output);
   let builders = [
-    OpBuilderDAG<(ins "Value":$data, "Value":$pads, "Value":$constant_value, "StringAttr":$mode), [{
+    OpBuilder<(ins "Value":$data, "Value":$pads, "Value":$constant_value, "StringAttr":$mode), [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, pads, constant_value, mode);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -3293,7 +3293,7 @@ def ONNXPowOp:ONNX_Op<"Pow",
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$Y);
   let results = (outs AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$Z);
   let builders = [
-    OpBuilderDAG<(ins "Value":$X, "Value":$Y), [{
+    OpBuilder<(ins "Value":$X, "Value":$Y), [{
       auto lhsTy = X.getType();
       auto rhsTy = Y.getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -3304,7 +3304,7 @@ def ONNXPowOp:ONNX_Op<"Pow",
       }
       build($_builder, $_state, elementType, X, Y);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -3790,11 +3790,11 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
   let builders = [
-    OpBuilderDAG<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
+    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -3858,11 +3858,11 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
   let builders = [
-    OpBuilderDAG<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
+    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -3982,11 +3982,11 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
   let builders = [
-    OpBuilderDAG<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
+    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -4022,11 +4022,11 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
     DefaultValuedAttr<SI64Attr, "1">:$keepdims);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, AnyMemRef]>:$reduced);
   let builders = [
-    OpBuilderDAG<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
+    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes, "IntegerAttr":$keepdims), [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes, keepdims);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -5043,11 +5043,11 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
     DefaultValuedAttr<SI64Attr, "1">:$axis);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$output);
   let builders = [
-    OpBuilderDAG<(ins "Value":$input, "IntegerAttr":$axis), [{
+    OpBuilder<(ins "Value":$input, "IntegerAttr":$axis), [{
       auto elementType = input.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), input, axis);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -5204,11 +5204,11 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$Y);
   let builders = [
-    OpBuilderDAG<(ins "Value":$X), [{
+    OpBuilder<(ins "Value":$X), [{
       auto elementType = X.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), X);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -5242,11 +5242,11 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
     OptionalAttr<I64ArrayAttr>:$axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$squeezed);
   let builders = [
-    OpBuilderDAG<(ins "Value":$data, "ArrayAttr":$axes), [{
+    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes), [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -5311,7 +5311,7 @@ def ONNXSubOp:ONNX_Op<"Sub",
     AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, AnyMemRef]>:$C);
   let builders = [
-    OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -5322,7 +5322,7 @@ def ONNXSubOp:ONNX_Op<"Sub",
       }
       build($_builder, $_state, elementType, A, B);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -5707,11 +5707,11 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
     I64ArrayAttr:$axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$expanded);
   let builders = [
-    OpBuilderDAG<(ins "Value":$data, "ArrayAttr":$axes), [{
+    OpBuilder<(ins "Value":$data, "ArrayAttr":$axes), [{
       auto elementType = data.getType().cast<TensorType>().getElementType();
       build($_builder, $_state, UnrankedTensorType::get(elementType), data, axes);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto elementType = operands[0].getType().cast<TensorType>().getElementType();
       std::vector<mlir::Type> outputTypes;
       outputTypes.emplace_back(UnrankedTensorType::get(elementType));
@@ -5795,7 +5795,7 @@ def ONNXXorOp:ONNX_Op<"Xor",
     AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$B);
   let results = (outs AnyTypeOf<[TensorOf<[I1]>, AnyMemRef]>:$C);
   let builders = [
-    OpBuilderDAG<(ins "Value":$A, "Value":$B), [{
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
       auto lhsTy = A.getType();
       auto rhsTy = B.getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);
@@ -5806,7 +5806,7 @@ def ONNXXorOp:ONNX_Op<"Xor",
       }
       build($_builder, $_state, elementType, A, B);
     }]>,
-    OpBuilderDAG<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
       auto lhsTy = operands[0].getType();
       auto rhsTy = operands[1].getType();
       auto elementType = getBroadcastedRankedType(lhsTy, rhsTy);

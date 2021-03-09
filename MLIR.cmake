@@ -187,12 +187,10 @@ find_mlir_lib(MLIRStandard)
 find_mlir_lib(MLIRStandardOpsTransforms)
 find_mlir_lib(MLIRStandardToLLVM)
 find_mlir_lib(MLIRSideEffectInterfaces)
-find_mlir_lib(MLIRTargetLLVMIR)
-find_mlir_lib(MLIRTargetLLVMIRModuleTranslation)
+find_mlir_lib(MLIRTargetLLVMIRExport)
+find_mlir_lib(MLIRTargetLLVMIRImport)
+find_mlir_lib(MLIRToLLVMIRTranslationRegistration)
 find_mlir_lib(MLIRLLVMAVX512ToLLVMIRTranslation)
-find_mlir_lib(MLIRLLVMArmNeonToLLVMIRTranslation)
-find_mlir_lib(MLIRLLVMArmSVEToLLVMIRTranslation)
-find_mlir_lib(MLIRLLVMTVPToLLVMIRTranslation)
 find_mlir_lib(MLIRLLVMToLLVMIRTranslation)
 find_mlir_lib(MLIRNVVMToLLVMIRTranslation)
 find_mlir_lib(MLIROpenMPToLLVMIRTranslation)
@@ -221,8 +219,6 @@ find_mlir_lib(MLIRLinalgEDSC)
 find_mlir_lib(MLIRViewLikeInterface)
 find_mlir_lib(MLIRPresburger)
 find_mlir_lib(MLIRTensor)
-find_mlir_lib(MLIRArmNeonToLLVM)
-find_mlir_lib(MLIRLLVMArmNeon)
 find_mlir_lib(MLIRArmNeon)
 find_mlir_lib(MLIRArmSVEToLLVM)
 find_mlir_lib(MLIRLLVMArmSVE)
@@ -278,13 +274,10 @@ set(MLIRLibs
         ${MLIROptLib}
         ${MLIRParser}
         ${MLIRPass}
-        ${MLIRTargetLLVMIR}
-        ${MLIRTargetLLVMIRModuleTranslation}
-        ${MLIRTargetLLVMIRModuleTranslation}
+        ${MLIRTargetLLVMIRExport}
+        ${MLIRTargetLLVMIRImport}
+        ${MLIRToLLVMIRTranslationRegistration}
         ${MLIRLLVMAVX512ToLLVMIRTranslation}
-        ${MLIRLLVMArmNeonToLLVMIRTranslation}
-        ${MLIRLLVMArmSVEToLLVMIRTranslation}
-        ${MLIRLLVMTVPToLLVMIRTranslation}
         ${MLIRLLVMToLLVMIRTranslation}
         ${MLIRNVVMToLLVMIRTranslation}
         ${MLIROpenMPToLLVMIRTranslation}
@@ -338,8 +331,6 @@ set(MLIRLibs
         ${MLIRPDLToPDLInterp}
         ${MLIRPDL}
         ${MLIRTensor}
-        ${MLIRArmNeonToLLVM}
-        ${MLIRLLVMArmNeon}
         ${MLIRArmNeon}
         ${MLIRArmSVEToLLVM}
         ${MLIRLLVMArmSVE}
