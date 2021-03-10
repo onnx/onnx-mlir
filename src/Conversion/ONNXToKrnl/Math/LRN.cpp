@@ -72,18 +72,16 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     Value cValue = outputLoops.getInductionVar(loopIndexForC);
     DimIndexExpr cIE(cValue);
     MemRefBoundIndexCapture inputBounds(input);
-    IndexExpr sizeIE(inputBounds.getDim(loopIndexForC));
-    SymbolIndexExpr sizeLitExpr = LiteralIndexExpr((int)sizeLit);
+    DimIndexExpr CIE(inputBounds.getDim(loopIndexForC));
+    SymbolIndexExpr sizeIE = LiteralIndexExpr((int)sizeLit);
 
     SmallVector<IndexExpr, 2> lbMaxList;
     lbMaxList.emplace_back(LiteralIndexExpr(0));
-    lbMaxList.emplace_back(
-        cIE - (sizeLitExpr - 1).floorDiv(LiteralIndexExpr(2)));
+    lbMaxList.emplace_back(cIE - (sizeIE - 1).floorDiv(LiteralIndexExpr(2)));
 
     SmallVector<IndexExpr, 2> ubMinList;
-    ubMinList.emplace_back(sizeIE);
-    ubMinList.emplace_back(
-        cIE + 1 + (sizeLitExpr - 1).ceilDiv(LiteralIndexExpr(2)));
+    ubMinList.emplace_back(CIE);
+    ubMinList.emplace_back(cIE + 1 + (sizeIE - 1).ceilDiv(LiteralIndexExpr(2)));
 
     // Initialize sum
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
