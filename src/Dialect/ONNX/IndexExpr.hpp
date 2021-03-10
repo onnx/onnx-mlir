@@ -188,7 +188,7 @@ Dim variable.
     // Extract the shape of the output.
 
     SmallVector<int64_t, 4> outputDims;
-    IndexExpr::convertListOfIndexExprToIntegerDim(
+    IndexExpr::getShape(
         shapeHelper.dimsForOutput(0), outputDims);
     getResult().setType(RankedTensorType::get(outputDims, elementType));
 
@@ -274,6 +274,7 @@ indices are represented by index expressions.
 #include <string>
 
 namespace mlir {
+
 class IndexExpr;
 class UndefinedIndexExpr;
 class LiteralIndexExpr;
@@ -319,19 +320,20 @@ class IndexExprScope {
 
 public:
   // Constructor for a scope. Top level scope must provide rewriter (possibly
-  // null) and location.
-  IndexExprScope(ConversionPatternRewriter *rewriter, Location loc);
-  // Default constructor can be used for subsequent nested scopes.
+  // null if we cannot geneate code at this time) and location.
+  IndexExprScope(OpBuilder *rewriter, Location loc);
+  IndexExprScope(OpBuilder &rewriter, Location loc);
+  // Constructor for subsequent nested scopes. Providing enclosing scope is not
+  // necessary; it is provided for convenience if a user prefer to name the
+  // enclosing scope explicitly.
   IndexExprScope();
-  // While providing the parent scope is not necessary, it is offered to
-  // generate more explicit code.
   IndexExprScope(IndexExprScope &explicitEnclosingScope);
   // Destructor which release all IndexExpr associated with this scope.
   ~IndexExprScope();
 
   // Public getters.
   static IndexExprScope &getCurrentScope();
-  ConversionPatternRewriter &getRewriter() const;
+  OpBuilder &getRewriter() const;
   Location getLoc() const { return loc; }
   bool isShapeInferencePass() const { return !rewriter; }
 
@@ -355,15 +357,11 @@ private:
   int addDim(Value const value);
   int addSymbol(Value const value);
 
-  // Support for cached literals.
-  static IndexExprImpl *hasCachedLiteralIndexExp(int64_t value);
-  static void cacheLiteralIndexExp(int64_t value, IndexExprImpl *obj);
-
   // Dim and symbol mapping from index to value.
   SmallVector<Value, 4> dims;
   SmallVector<Value, 4> symbols;
   // Rewriter, null when during shape inference; otherwise used to create ops.
-  ConversionPatternRewriter *rewriter;
+  OpBuilder *rewriter;
   // Location for ops rewriting.
   Location loc;
   // Parent scope (used when creating a child scope).
@@ -371,56 +369,6 @@ private:
   // Container of all index expr implementation records, to simplify
   // live range analysis. ALl will be deleted upon scope destruction.
   SmallVector<IndexExprImpl *, 20> container;
-  // Cached literals.
-  IndexExprImpl *zero, *minusOne, *one;
-};
-
-//===----------------------------------------------------------------------===//
-// IndexExprImpl
-//===----------------------------------------------------------------------===//
-
-// Implementation of the IndexExpr. In nearly all cases, the value described by
-// this data structure is constant. Sole exception is during the reduction
-// operations. IndexExpr are simply a pointer to this data structure. This data
-// structure is allocated in dynamic memory and resides in the scope. It will
-// be automaticaly destroyed at the same time as the scope.
-struct IndexExprImpl {
-  // Public constructor.
-  IndexExprImpl();
-
-  // Basic initialization calls.
-  void initAsUndefined();
-  void initAsQuestionmark();
-  void initAsLiteral(int64_t const value);
-  void initAsKind(Value const value, IndexExprKind const kind);
-  void initAsAffineExpr(AffineExpr const value);
-  // Transformative initialization calls.
-  void initAsKind(IndexExprImpl const *expr, IndexExprKind const kind);
-
-  // Copy.
-  void copy(IndexExprImpl const *other);
-
-  // Data.
-  IndexExprScope *scope;
-  // Defined implies having a valid intLit, affineExpr, or value expression.
-  bool defined;
-  // Literal implies having a valid intLit; may also have an affineExpr or
-  // value.
-  bool literal;
-  // Type of IndexExpr. Literal are by default affine.
-  IndexExprKind kind;
-  // Integer value, valid when "literal" is true.
-  int64_t intLit;
-  // Affine expression, may be defined for literal, symbols, dims, or affine
-  // expr.
-  AffineExpr affineExpr;
-  // Value expression, may be defined whenever the IndexExpr is defined.
-  Value value;
-
-private:
-  // Init for internal use only.
-  void init(bool isDefined, bool isIntLit, IndexExprKind type,
-      int64_t const intLit, AffineExpr const affineExpr, Value const value);
 };
 
 //===----------------------------------------------------------------------===//
@@ -430,7 +378,7 @@ private:
 // Data structure that is the public interface for IndexExpr. It is a shallow
 // data structure that is simply a pointer to the actual data (IndexExprImpl).
 class IndexExpr {
-public:
+
   friend class IndexExprScope;
   friend class NonAffineIndexExpr;
   friend class LiteralIndexExpr;
@@ -441,10 +389,12 @@ public:
   friend class DimIndexExpr;
   friend class SymbolIndexExpr;
 
-  // Default and shallow copy constructors.
+public:
+  // Default and shallow copy constructors. Index expressions are usually built
+  // using the subclasses listed as friend above.
   IndexExpr() : indexExprObj(nullptr) {} // Undefined index expression.
-  IndexExpr(IndexExprImpl *implObj) : indexExprObj(implObj) {}    // Shallow.
-  IndexExpr(IndexExpr const &obj) : IndexExpr(obj.getObjPtr()) {} // Shallow.
+  IndexExpr(IndexExprImpl *implObj) : indexExprObj(implObj) {}     // Shallow.
+  IndexExpr(IndexExpr const &obj) : IndexExpr(obj.indexExprObj) {} // Shallow.
   // To construct meaningful IndexExpr, use subclasses constructors.
   IndexExpr deepCopy() const;
 
@@ -457,8 +407,10 @@ public:
   bool isSymbol() const;
   bool isDim() const;
   bool isPredType() const;
-  bool isIndexType() const { return !isPredType(); }
-  bool isShapeInferencePass() const;
+  bool isIndexType() const;
+  bool isShapeInferencePass() const {
+    return getScope().isShapeInferencePass();
+  }
   bool hasAffineExpr() const;
   bool hasValue() const;
 
@@ -469,18 +421,16 @@ public:
   bool isLiteralAndDifferentThan(IndexExpr const b) const; // Values unequal.
 
   // Helpers for IndexExpressions
-  static void convertListOfIndexExprToIntegerDim(
-      SmallVectorImpl<IndexExpr> &indexExprList,
+  static void getShape(SmallVectorImpl<IndexExpr> &indexExprList,
       SmallVectorImpl<int64_t> &intDimList);
 
   // Getters.
+  IndexExprScope &getScope() const { return *getScopePtr(); }
+  OpBuilder &getRewriter() const { return getScope().getRewriter(); }
+  Location getLoc() const { return getScope().getLoc(); }
   int64_t getLiteral() const;
   AffineExpr getAffineExpr() const;
   Value getValue() const;
-  IndexExprScope &getScope() const { return *getScopePtr(); }
-  IndexExprScope *getScopePtr() const;
-  ConversionPatternRewriter &getRewriter() const;
-  Location getLoc() const { return getScope().getLoc(); }
 
   // Possibly Affine Operations. Return a new IndexExpr
   IndexExpr operator+(IndexExpr const b) const;
@@ -506,6 +456,13 @@ public:
   IndexExpr operator>=(int64_t const b) const;
   IndexExpr operator>(IndexExpr const b) const;
   IndexExpr operator>(int64_t const b) const;
+  // Compare and/or, only for predicate index expression, which are 1 bit 0
+  // or 1. Because we use the comparison in non-branching code here, we perform
+  // the "arithmetic and/or". Logical disjunctive comparison must be made
+  // manually with branching code.
+  IndexExpr operator&(IndexExpr const b) const;
+  IndexExpr operator|(IndexExpr const b) const;
+  IndexExpr operator!() const;
 
   // Return a new IndexExpr in the range min/max inclusively.
   IndexExpr clamp(IndexExpr const min, IndexExpr const max) const;
@@ -530,18 +487,25 @@ public:
 
   // Return min or max of a list of IndexExpr.
   static IndexExpr min(SmallVectorImpl<IndexExpr> &vals);
+  static IndexExpr min(IndexExpr const first, IndexExpr const second);
+  static IndexExpr min(IndexExpr const first, int64_t const second);
   static IndexExpr max(SmallVectorImpl<IndexExpr> &vals);
+  static IndexExpr max(IndexExpr const first, IndexExpr const second);
+  static IndexExpr max(IndexExpr const first, int64_t const second);
+
+  // Debug (enable using DEBUG=1 at top of file).
   void debugPrint(const std::string &msg) const;
 
 protected:
+  // Private queries.
+  bool hasScope() const;
+  bool isInCurrentScope() const;
+  bool canBeUsedInScope() const;
   // Copy / private setters.
+  IndexExprScope *getScopePtr() const;
   IndexExprImpl &getObj() const;
   IndexExprImpl *getObjPtr() const;
   IndexExprKind getKind() const;
-  bool isInCurrentScope() const;
-  bool canBeUsedInScope() const;
-
-  bool hasScope() const;
 
   // Support for operations: lambda function types.
   typedef std::function<IndexExpr(IndexExpr const, IndexExpr const)> F2;
@@ -565,16 +529,19 @@ protected:
 // IndexExpr Subclasses for constructing specific IndexExpr kinds.
 //===----------------------------------------------------------------------===//
 
+// Subclass to explicitely create undefined index expressions, typically used to
+// return invalid values.
 class UndefinedIndexExpr : public IndexExpr {
 public:
   UndefinedIndexExpr();
 };
 
-// Subclass to explicitly create non affine IndexExpr.
+// Subclass to explicitly create affine literal IndexExpr. For predicate literal
+// values, use PredicateIndexExpr(true) or PredicateIndexExpr(false).
 class LiteralIndexExpr : public IndexExpr {
 public:
-  LiteralIndexExpr() : IndexExpr() {} // Make undefined.
-  LiteralIndexExpr(int64_t const value);
+  LiteralIndexExpr() : IndexExpr() {}    // Make undefined.
+  LiteralIndexExpr(int64_t const value); // Make an index constant value.
   LiteralIndexExpr(IndexExpr const otherIndexExpr);
 
 private:
@@ -584,7 +551,7 @@ private:
 // Subclass to explicitly create non affine IndexExpr.
 class NonAffineIndexExpr : public IndexExpr {
 public:
-  NonAffineIndexExpr() : IndexExpr() {} // Make undefined.
+  NonAffineIndexExpr() : IndexExpr() {} // Make undefined expression.
   NonAffineIndexExpr(Value const value);
   NonAffineIndexExpr(IndexExpr const otherIndexExpr);
 };
@@ -599,7 +566,8 @@ public:
 // Subclass to explicitly create Predicate IndexExpr.
 class PredicateIndexExpr : public IndexExpr {
 public:
-  PredicateIndexExpr() : IndexExpr() {} // Make undefined.
+  PredicateIndexExpr() : IndexExpr() {} // Make undefined predicate expression.
+  PredicateIndexExpr(bool const value); // Make a predicate constant value.
   PredicateIndexExpr(Value const value);
   PredicateIndexExpr(IndexExpr const otherIndexExpr);
 };
@@ -607,7 +575,7 @@ public:
 // Subclass to explicitly create Affine IndexExpr.
 class AffineIndexExpr : public IndexExpr {
 public:
-  AffineIndexExpr() : IndexExpr() {} // Make undefined.
+  AffineIndexExpr() : IndexExpr() {} // Make undefined expression.
   AffineIndexExpr(AffineExpr const value);
   AffineIndexExpr(IndexExpr const otherIndexExpr);
 };
@@ -615,7 +583,7 @@ public:
 // Subclass to explicitly create Dim IndexExpr.
 class DimIndexExpr : public IndexExpr {
 public:
-  DimIndexExpr() : IndexExpr() {} // Make undefined.
+  DimIndexExpr() : IndexExpr() {} // Make undefined expression.
   DimIndexExpr(Value const value);
   DimIndexExpr(IndexExpr const otherIndexExpr);
 };
@@ -623,7 +591,7 @@ public:
 // Subclass to explicitly create IndexExpr.
 class SymbolIndexExpr : public IndexExpr {
 public:
-  SymbolIndexExpr() : IndexExpr() {} // Make undefined.
+  SymbolIndexExpr() : IndexExpr() {} // Make undefined expression.
   SymbolIndexExpr(Value const value);
   SymbolIndexExpr(IndexExpr const otherIndexExpr);
 };
@@ -642,6 +610,9 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr b) {
 // Capturing Index Expressions
 //===----------------------------------------------------------------------===//
 
+// Capture array of values given by an operand. Will find its definitition and
+// use it locate its constant values, or load dynamically if they are not
+// constant.
 class ArrayValueIndexCapture {
 public:
   ArrayValueIndexCapture(Operation *op, Value array);
@@ -659,6 +630,26 @@ private:
   bool hasDefault;
 };
 
+// Capture array of values given by attributes.
+class ArrayAttributeIndexCapture {
+public:
+  ArrayAttributeIndexCapture(ArrayAttr array);
+  ArrayAttributeIndexCapture(ArrayAttr array, int64_t defaultLiteral);
+
+  IndexExpr getLiteral(uint64_t i);
+
+private:
+  ArrayAttributeIndexCapture() { llvm_unreachable("forbidden constructor"); };
+
+  ArrayAttr array;
+  int64_t size;
+  int64_t defaultLiteral;
+  bool hasDefault;
+};
+
+// Capture memory bounds give by a tensor or memref. Locate its shape, return
+// constant values when available or generate the appropriate dim operation when
+// they are not constant at compile time.
 class MemRefBoundIndexCapture {
 public:
   MemRefBoundIndexCapture(Value tensorOrMemref);
@@ -672,21 +663,31 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// Processing lists
+// Make IndexExpressions of a given type from provided input list/range
 //===----------------------------------------------------------------------===//
 
 template <class INDEXEXPR>
-bool getIndexExprListFrom(
+void getIndexExprList(
     ArrayRef<BlockArgument> inputList, SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
-  bool successful = true;
-  for (auto item : inputList) {
-    IndexExpr indexExpr = INDEXEXPR(item);
-    if (indexExpr.isUndefined())
-      successful = false;
-    outputList.emplace_back(indexExpr);
-  }
-  return successful;
+  for (auto item : inputList)
+    outputList.emplace_back(INDEXEXPR(item));
+}
+
+template <class INDEXEXPR>
+void getIndexExprList(
+    ValueRange range, SmallVectorImpl<IndexExpr> &outputList) {
+  outputList.clear();
+  for (auto item : range)
+    outputList.emplace_back(INDEXEXPR(item));
+}
+
+template <class INDEXEXPR>
+void getIndexExprList(SmallVectorImpl<IndexExpr> &inputList,
+    SmallVectorImpl<IndexExpr> &outputList) {
+  outputList.clear();
+  for (auto item : inputList)
+    outputList.emplace_back(INDEXEXPR(item));
 }
 
 //===----------------------------------------------------------------------===//

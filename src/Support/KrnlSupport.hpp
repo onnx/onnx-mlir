@@ -43,7 +43,7 @@ FuncOp getContainingFunction(Operation *op);
 // Use this function for small values only to avoid unexpected loss in type
 // casting.
 Value emitConstantOp(
-    PatternRewriter &rewriter, Location loc, Type type, double value);
+    OpBuilder &rewriter, Location loc, Type type, double value);
 
 //===----------------------------------------------------------------------===//
 // Perform checks or get statistics about Krnl-level operations.
