@@ -15,6 +15,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/IR/IntegerSet.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/LoopUtils.h"
@@ -303,17 +304,19 @@ class KrnlMatmulLowering : public OpRewritePattern<KrnlMatMulOp> {
 public:
   using OpRewritePattern<KrnlMatMulOp>::OpRewritePattern;
 
-  PredicateIndexExpr isFullTile(
-      IndexExpr UB, IndexExpr block, IndexExpr GI) const {
+  // Affine expressions compared to >= 0
+  IndexExpr isFullTile(IndexExpr UB, IndexExpr block, IndexExpr GI) const {
     // Determine if the current tile is full. It is full if the begining of
     // the tile (nGI) is smaller or equal to UB - bloc, namely
     //   PredicateIndexExpr nIsFullTile = (nGI <= (nUB - nBlock));
     // However, if UB is divisible by Block, then its full no matter what.
     if (UB.isLiteral() && (UB.getLiteral() % block.getLiteral() == 0)) {
       // Last tile is guaranteed to be full because UB is divisable by block.
-      return PredicateIndexExpr(true);
+      return LiteralIndexExpr(1); // 1 >= 0 is true
     }
-    return GI <= (UB - block);
+    // true if GI <= (UB - block), namely UB - block - GI >= 0
+    IndexExpr res = UB - block - GI;
+    return res;
   }
 
   IndexExpr trip(IndexExpr UB, IndexExpr block, IndexExpr GI) const {
@@ -335,8 +338,6 @@ public:
     if (UB.isLiteral()) {
       IndexExpr partialTrip = UB % block;
       assert(partialTrip.isLiteral() && "op on 2 literals has to be literal");
-      assert(partialTrip.getLiteral() > 0 &&
-             "here with zero partial trip, we have a problem");
       return partialTrip;
     }
     // don't have to take the mod since we know we have a partial tile already.
@@ -365,48 +366,37 @@ public:
     assert(mBlock.isLiteral() && "m dim expected to be compile time constant");
     assert(kBlock.isLiteral() && "k dim expected to be compile time constant");
     SymbolIndexExpr nUB(operandAdaptor.nUpperBound()),
-        mUB(operandAdaptor.mUpperBound()), kUB(operandAdaptor.kUpperBound()),
-        nGI(operandAdaptor.nGlobalIndex()), mGI(operandAdaptor.mGlobalIndex()),
-        kGI(operandAdaptor.kGlobalIndex());
+        mUB(operandAdaptor.mUpperBound()), kUB(operandAdaptor.kUpperBound());
+    DimIndexExpr nGI(operandAdaptor.nGlobalIndex()),
+        mGI(operandAdaptor.mGlobalIndex()), kGI(operandAdaptor.kGlobalIndex());
 
-    PredicateIndexExpr nIsFullTile = isFullTile(nUB, nBlock, nGI);
-    PredicateIndexExpr mIsFullTile = isFullTile(mUB, mBlock, mGI);
-    PredicateIndexExpr kIsFullTile = isFullTile(kUB, kBlock, kGI);
-    PredicateIndexExpr fullTiles = (nIsFullTile & mIsFullTile) & kIsFullTile;
+    IndexExpr nIsFullTile = isFullTile(nUB, nBlock, nGI);
+    IndexExpr mIsFullTile = isFullTile(mUB, mBlock, mGI);
+    IndexExpr kIsFullTile = isFullTile(kUB, kBlock, kGI);
+    SmallVector<IndexExpr, 4> allFullTiles = {
+        nIsFullTile, mIsFullTile, kIsFullTile};
+    SmallVector<IndexExpr, 4> mFullTiles = {mIsFullTile};
 
-    nBlock.debugPrint("N block");
-    nUB.debugPrint("N UB");
-    nGI.debugPrint("N GI");
-    nIsFullTile.debugPrint("n full tile");
-
-    mBlock.debugPrint("M block");
-    mUB.debugPrint("M UB");
-    mGI.debugPrint("M GI");
-    mIsFullTile.debugPrint("m full tile");
-
-    kBlock.debugPrint("K block");
-    kUB.debugPrint("K UB");
-    kGI.debugPrint("K GI");
-    kIsFullTile.debugPrint("k full tile");
-
-    fullTiles.debugPrint("full tile");
+    IndexExpr nTrip = trip(nUB, nBlock, nGI); // May or may not be full.
+    IndexExpr mTrip = trip(mUB, mBlock, mGI); // May or may not be full.
+    IndexExpr kTrip = trip(kUB, kBlock, kGI); // May or may not be full.
+    IndexExpr mPartialTrip = partialTrip(mUB, mBlock, mGI);
 
     using namespace edsc::op;
 
     if (simdize) {
       // SIMD code generator.
       // clang-format off
-      genIfThenElseWithoutParams(rewriter, !fullTiles,
-        /* has some partial tiles */ [&](ValueRange) {
+      genIfThenElseWithoutParams(rewriter, allFullTiles,
+        /* then full */ [&](ValueRange) {
+        genSimd(rewriter, op, elementType, nBlock, mBlock, kBlock, true); // true
+      }, /* has some partial tiles */ [&](ValueRange) {
         // Trip regardless of full/partial for N & K
-        IndexExpr nTrip = trip(nUB, nBlock, nGI); // May or may not be full.
-        IndexExpr kTrip = trip(kUB, kBlock, kGI); // May or may not be full.
         // Test if SIMD dim (M) is full.
-        genIfThenElseWithoutParams(rewriter, mIsFullTile,
+        genIfThenElseWithoutParams(rewriter, mFullTiles,
           /* full SIMD */ [&](ValueRange) {
           genSimd(rewriter, op, elementType, nTrip, mBlock, kTrip, false);
         }, /* else partial SIMD */ [&](ValueRange) {
-          IndexExpr mPartialTrip = partialTrip(mUB, mBlock, mGI);
           if (mPartialTrip.isLiteral() && mPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
@@ -415,35 +405,35 @@ public:
             genScalar(rewriter, op, elementType, nTrip, mPartialTrip, kTrip, false);
           }
         });
-      }, /* else full */ [&](ValueRange) {
-        genSimd(rewriter, op, elementType, nBlock, mBlock, kBlock, false); // true
       });
       // clang-format on
     } else {
       // Scalar code generator.
       // clang-format off
-      genIfThenElseWithoutParams(rewriter, !fullTiles,
-        /* partial */ [&](ValueRange) {
-        IndexExpr nTrip = trip(nUB, nBlock, nGI); // May or may not be full.
-        IndexExpr mTrip = trip(mUB, mBlock, mGI); // May or may not be full.
-        IndexExpr kTrip = trip(kUB, kBlock, kGI); // May or may not be full.
+      genIfThenElseWithoutParams(rewriter, allFullTiles,
+        /* then full */ [&](ValueRange) {
+        genScalar(rewriter, op, elementType, nBlock, mBlock, kBlock, true); // true
+      }, /* else partial */ [&](ValueRange) {
         genScalar(rewriter, op, elementType, nTrip, mTrip, kTrip, false);
-      }, /* else  full */ [&](ValueRange) {
-        genScalar(rewriter, op, elementType, nBlock, mBlock, kBlock, false); // true
       });
       // clang-format on
     }
-
     rewriter.eraseOp(op);
     return success();
   }
 
 private:
   void genScalar(PatternRewriter &rewriter, KrnlMatMulOp op, Type elementType,
-      IndexExpr N, IndexExpr M, IndexExpr K, bool unrollJam) const {
+      IndexExpr NN, IndexExpr MM, IndexExpr KK, bool unrollJam) const {
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
+
+    IndexExprScope newScope;
+    SymbolIndexExpr N(NN), M(MM), K(KK);
+    N.debugPrint("inner N");
+    M.debugPrint("inner M");
+    K.debugPrint("inner K");
 
     // Get the EDSC variables, and loop dimensions.
     AffineIndexedValue AA(A), BB(B), CC(C); // Obj we can load and store into.
@@ -546,39 +536,43 @@ private:
   }
 
   void genIfThenElseWithoutParams(PatternRewriter &rewriter,
-      IndexExpr condition, function_ref<void(ValueRange)> thenFn,
+      SmallVectorImpl<IndexExpr> &conditions,
+      function_ref<void(ValueRange)> thenFn,
       function_ref<void(ValueRange)> elseFn) const {
-    // When the condition is known at compile time, still better to generate the
-    // if-the-else block because we can use the "append to block" primitive.
-    // Compile time branch are simplified and will go away during the
-    // canonicalize phase. However, the code for the compile-time impossible
-    // path will not be generated, as they may lead to code generated with facts
-    // that are known to be impossible when compile time knowledge is available.
-    Block *ifBlock = rewriter.getInsertionBlock();
-    // Split current block in the if-conditional block, and the end block.
-    auto opPosition = rewriter.getInsertionPoint();
-    Block *endBlock = rewriter.splitBlock(ifBlock, opPosition);
-    // Construct the empty Then / Else bock.
-    Block *thenBlock =
-        buildInNewBlock({}, [&](ValueRange args) { std_br(endBlock, {}); });
-    Block *elseBlock =
-        buildInNewBlock({}, [&](ValueRange args) { std_br(endBlock, {}); });
-    // Add the conditional to the If block
-    appendToBlock(ifBlock, [&](ValueRange args) {
-      std_cond_br(condition.getValue(), thenBlock, {}, elseBlock, {});
-    });
-    // Has to add the then/else code after fully creating the blocks
-    if (!condition.isLiteralAndIdenticalTo(0)) {
-      // If condition is known at compile time, and is false; then don't need
-      // the "then" clause. If that is not the case, the do it.
+
+    IndexExprScope &scope = IndexExprScope::getCurrentScope();
+    int64_t rank = conditions.size();
+    SmallVector<bool, 4> isEq(rank, false);
+    SmallVector<AffineExpr, 4> affineCond;
+    bool allTrue = true;
+    bool allFalse = true;
+    for (IndexExpr i : conditions) {
+      assert(i.isAffine() && "conditions expected to be affine");
+      affineCond.emplace_back(i.getAffineExpr());
+      if (i.isLiteral()) {
+        if (i.getLiteral() < 0) // Inequality is expr >= 0, test if false.
+          allTrue = false;
+        if (i.getLiteral() >= 0) // Inequality is expr >= 0, test if true.
+          allFalse = false;
+      } else {
+        allTrue = false;
+        allFalse = false;
+      }
+    }
+    auto inset = IntegerSet::get(
+        scope.getNumDims(), scope.getNumSymbols(), affineCond, isEq);
+    SmallVector<Value, 8> dimAndSymbolList;
+    scope.getDimAndSymbolList(dimAndSymbolList);
+    auto ifOp = rewriter.create<AffineIfOp>(
+        scope.getLoc(), inset, dimAndSymbolList, true);
+    Block *thenBlock = ifOp.getThenBlock();
+    Block *elseBlock = ifOp.getElseBlock();
+    if (!allFalse) {
       appendToBlock(thenBlock, [&](ValueRange args) { thenFn(args); });
     }
-    if (!condition.isLiteralAndDifferentThan(0)) {
-      // If condition is known at compile time, and is true (i.e. != 0); then
-      // don't need the "then" clause. If that is not the case, the do it.
+    if (!allTrue) {
       appendToBlock(elseBlock, [&](ValueRange args) { elseFn(args); });
     }
-    rewriter.setInsertionPointToStart(endBlock);
   }
 };
 
