@@ -201,6 +201,22 @@ mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(
         tensorType, llvm::makeArrayRef(arrayAttrInitializer));
     break;
   }
+  case (onnx::TensorProto::BOOL): {
+    // TensorProto::BOOL is represented in 8 bits
+    // Copy and convert to 1 bit representation
+    const auto &arrayAttrInitializer =
+        CreateArrayAttribute<int8_t>(initializer);
+    size_t size = arrayAttrInitializer.size();
+    llvm::SmallVector<bool> arrayAttr1Bit;
+    std::copy(arrayAttrInitializer.begin(), arrayAttrInitializer.end(),
+        std::back_inserter(arrayAttr1Bit));
+
+    auto elmType = builder.getI1Type();
+    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    denseElmAttr = mlir::DenseElementsAttr::get(
+        tensorType, llvm::makeArrayRef(arrayAttr1Bit));
+    break;
+  }
   default:
     llvm_unreachable(
         "Failed to import ONNX TensorProto due to unsupported data types.");

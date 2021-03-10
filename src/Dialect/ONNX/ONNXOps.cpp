@@ -3024,6 +3024,165 @@ LogicalResult ONNXOneHotEncoderOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Range
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXRange. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXRangeOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+  auto op0 = getOperand(0).getType().cast<RankedTensorType>();
+  getResult().setType(op0);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// TrainableDropout
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXTrainableDropout. This method is required
+/// by the shape inference interface.
+LogicalResult ONNXTrainableDropoutOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+  auto op0 = getOperand(0).getType().cast<RankedTensorType>();
+  getResult(0).setType(op0);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// SparseSoftmaxCrossEntropy
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXSparseSoftmaxCrossEntropy. This method is
+/// required by the shape inference interface.
+LogicalResult ONNXSparseSoftmaxCrossEntropyOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  auto op0 = getOperand(0).getType().cast<RankedTensorType>();
+  auto elementType = op0.getElementType();
+  SmallVector<int64_t, 2> resultShape = {1};
+  getResult(0).setType(RankedTensorType::get(resultShape, elementType));
+  getResult(1).setType(op0);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// SparseSoftmaxCrossEntropyGrad
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXSparseSoftmaxCrossEntropyGrad. This method
+/// is required by the shape inference interface.
+LogicalResult ONNXSparseSoftmaxCrossEntropyGradOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(2).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+  auto op0 = getOperand(0).getType().cast<RankedTensorType>();
+  auto op1 = getOperand(1).getType().cast<RankedTensorType>();
+  auto elementType = op0.getElementType();
+  getResult().setType(RankedTensorType::get(op1.getShape(), elementType));
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// GatherNDGrad
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXGatherNDGrad. This method is required by
+/// the shape inference interface.
+LogicalResult ONNXGatherNDGradOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(2).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+  auto op2 = getOperand(2).getType().cast<RankedTensorType>();
+  getResult().setType(op2);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// GatherGrad
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXGatherGrad. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXGatherGradOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(2).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  auto op2 = getOperand(2).getType().cast<RankedTensorType>();
+  getResult().setType(op2);
+  return success();
+}
+//===----------------------------------------------------------------------===//
+// GeluGrad
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXGeluGrad. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXGeluGradOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  auto op0 = getOperand(0).getType().cast<RankedTensorType>();
+  getResult().setType(op0);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// SoftmaxGrad
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXSoftmaxGrad. This method is required by
+/// the shape inference interface.
+LogicalResult ONNXSoftmaxGradOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  auto op0 = getOperand(0).getType().cast<RankedTensorType>();
+  getResult().setType(op0);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// DropoutGrad
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXDropoutGrad. This method is required by
+/// the shape inference interface.
+LogicalResult ONNXDropoutGradOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  auto op0 = getOperand(0).getType().cast<RankedTensorType>();
+  getResult().setType(op0);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// LayerNormalizationGrad
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXLayerNormalizationGrad. This method is
+/// required by the shape inference interface.
+LogicalResult ONNXLayerNormalizationGradOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>() ||
+      !getOperand(2).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  auto op0 = getOperand(0).getType().cast<RankedTensorType>();
+  auto op1 = getOperand(1).getType().cast<RankedTensorType>();
+  auto op2 = getOperand(2).getType().cast<RankedTensorType>();
+  getResult(0).setType(op0);
+  getResult(1).setType(op2);
+  getResult(2).setType(op0);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Gelu
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXGelu. This method is required by the
@@ -3038,6 +3197,27 @@ LogicalResult ONNXGeluOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// GatherND
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXGatherND. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXGatherNDOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+  auto op0 = getOperand(0).getType().cast<RankedTensorType>();
+  auto op1 = getOperand(1).getType().cast<RankedTensorType>();
+
+  auto elementType = op0.getElementType();
+  int64_t batchDim = op0.getShape()[0];
+  int64_t shape = op0.getShape()[2];
+  int64_t dynamicPredDim = op1.getShape()[1];
+  SmallVector<int64_t, 4> resultShape = {batchDim, dynamicPredDim, shape};
+  getResult().setType(RankedTensorType::get(resultShape, elementType));
+  return success();
+}
+
 // Less
 //===----------------------------------------------------------------------===//
 /// Infer the output shape of the ONNXLessOp. This method is required by the
@@ -3189,11 +3369,6 @@ LogicalResult ONNXGatherElementsOp::inferShapes(
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
 
-LogicalResult ONNXGatherNDOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
 LogicalResult ONNXGreaterOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
@@ -3330,11 +3505,6 @@ LogicalResult ONNXRandomUniformOp::inferShapes(
 }
 
 LogicalResult ONNXRandomUniformLikeOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  return emitError(NOT_IMPLEMENTED_MESSAGE);
-}
-
-LogicalResult ONNXRangeOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return emitError(NOT_IMPLEMENTED_MESSAGE);
 }
@@ -3661,6 +3831,105 @@ LogicalResult ONNXCustomOp::inferShapes(
   // getResult().setType(getOperand().getType());
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// SoftmaxCrossEntropy
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXSoftmaxCrossEntropy. This method is
+/// required by the shape inference interface.
+LogicalResult ONNXSoftmaxCrossEntropyOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  auto op0 = getOperand(0).getType().cast<RankedTensorType>();
+  auto elementType = op0.getElementType();
+  getResult(0).setType(op0);
+  getResult(1).setType(op0);
+  return success();
+}
+//===----------------------------------------------------------------------===//
+// SoftmaxCrossEntropyGrad
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXSoftmaxCrossEntropyGrad. This method is
+/// required by the shape inference interface.
+LogicalResult ONNXSoftmaxCrossEntropyGradOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>() ||
+      !getOperand(2).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  auto op0 = getOperand(2).getType().cast<RankedTensorType>();
+  auto elementType = op0.getElementType();
+  getResult().setType(op0);
+  return success();
+}
+//===----------------------------------------------------------------------===//
+// AdamOptimizer
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXAdamOptimizer. This method is required by
+/// the shape inference interface.
+LogicalResult ONNXAdamOptimizerOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(6).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  // R
+  auto op0 = getOperand(0).getType().cast<RankedTensorType>();
+  // T
+  auto op1 = getOperand(1).getType().cast<RankedTensorType>();
+  // weights
+  auto op2 = getOperand(2).getType().cast<RankedTensorType>();
+  // gradients
+  auto op3 = getOperand(3).getType().cast<RankedTensorType>();
+  // moment_1
+  auto op4 = getOperand(4).getType().cast<RankedTensorType>();
+  // moment_2
+  auto op5 = getOperand(5).getType().cast<RankedTensorType>();
+
+  // new_T
+  getResult(0).setType(op1);
+  // new_moment_1
+  getResult(1).setType(op4);
+  // new_moment_2
+  getResult(2).setType(op5);
+  // new_weights
+  getResult(3).setType(op2);
+  // new_gradients
+  getResult(4).setType(op3);
+
+  // Optional
+  // fp16_weights
+  auto op6Ty = getOperand(6).getType();
+  if (!op6Ty.isa<NoneType>()) {
+    // new_fp16_weights
+    getResult(5).setType(op6Ty.cast<RankedTensorType>());
+  }
+
+  return success();
+}
+//===----------------------------------------------------------------------===//
+// ReluGrad
+//===----------------------------------------------------------------------===//
+/// Infer the output shape of the ONNXReluGrad. This method is required by the
+/// shape inference interface.
+LogicalResult ONNXReluGradOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!getOperand(0).getType().isa<RankedTensorType>() ||
+      !getOperand(1).getType().isa<RankedTensorType>())
+    return emitError("Input tensor(s) not ranked");
+
+  auto op0 = getOperand(1).getType().cast<RankedTensorType>();
+  auto elementType = op0.getElementType();
+  auto op0Shape = op0.getShape();
+  getResult().setType(op0);
+
+  return success();
+}
+
 
 //===----------------------------------------------------------------------===//
 // ONNX type related code

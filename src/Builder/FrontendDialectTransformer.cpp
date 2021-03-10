@@ -602,12 +602,16 @@ private:
       }
 
     for (int i = 0; i < node.output().size(); i++) {
+      std::string nodeName = node.output()[i];
+      if (nodeName.empty()) {
+        nodeName = node.name() + "_out_" + std::to_string(i);
+      }
       if (variadicOut)
         frontend_symbols_.AddMapping(legalize_name(node.output()[i]),
             *(op.getODSResults(0).begin() + i));
       else
         frontend_symbols_.AddMapping(
-            legalize_name(node.output()[i]), *(op.getODSResults(i).begin()));
+            legalize_name(nodeName), *(op.getODSResults(i).begin()));
     }
   }
 
