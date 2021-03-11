@@ -1,6 +1,9 @@
 # Download Repos, build and check LLVM, build and check ONNX MLIR
 
 parameters:
+- name: BuildTools
+  type: string
+  default: '-G Ninja'
 - name: CMakeBuildTarget
   type: string
   default: ''
@@ -10,16 +13,12 @@ parameters:
 - name: CMakePrefixPath
   type: string
   default: ''
-- name: GeneratorString
-  type: string
-  default: 'Ninja'
 - name: Platform
   type: string
   default: ''
 - name: PythonExePath
   type: string
   default: '/usr/bin/python3'
-
 
 steps:
   - template: .azure-pipelines/templates/steps/SetupBuildEnv.yml@tools
@@ -33,7 +32,7 @@ steps:
     inputs:
       workingDirectory: '$(LLVMBuildDir)'
       cmakeArgs: >-
-        -G ${{ parameters.GeneratorString }}
+        ${{ parameters.BuildTools }}
         $(LLVMSourceDir)/llvm
         -DLLVM_ENABLE_PROJECTS=mlir
         -DLLVM_BUILD_EXAMPLES=ON
@@ -69,7 +68,7 @@ steps:
     inputs:
       workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
       cmakeArgs: >-
-        -G ${{ parameters.GeneratorString }}
+        ${{ parameters.BuildTools }}
         $(ONNXMLIRSourceDir)
         ${{ parameters.CMakeExternalLIT }}
         -DCMAKE_BUILD_TYPE=$(CMakeBuildConfiguration)

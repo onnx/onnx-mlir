@@ -78,14 +78,16 @@ jobs:
     demands:
     - Agent.OS -equals Windows_NT
   timeoutInMinutes: 180
+  workspace:
+    clean: outputs
 
   steps:
   - template: BuildOnnxMlir.yml
     parameters:
+      BuildTools: '-G "Visual Studio 16 2019" -A x64 -T host=x64'
       CMakeBuildTarget: 'onnx-mlir -- /m'
       CMakeExternalLIT: '-DLLVM_EXTERNAL_LIT="$(LLVMBuildDir)\$(CMakeBuildConfiguration)\bin\llvm-lit.py"'
       CMakePrefixPath: 'C:\protobuf\install\$(CMakeBuildConfiguration)'
-      GeneratorString: '"Visual Studio 16 2019" -A x64 -T host=x64'
       Platform: 'Windows'
       PythonExePath: '"C:/Program Files (x86)/Microsoft Visual Studio/Shared/Python36_64/python.EXE"'
 
@@ -112,10 +114,13 @@ jobs:
     demands:
     - ImageOverride -equals MMSUbuntu20.04
   timeoutInMinutes: 180
+  workspace:
+    clean: outputs
 
   steps:
   - template: BuildOnnxMlir.yml
     parameters:
+      BuildTools: '-G Ninja -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DLLVM_USE_LINKER=lld'
       CMakeBuildTarget: 'onnx-mlir'
       Platform: 'Ubuntu'
 
