@@ -64,15 +64,16 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     int jIndexStart = iIndexStart + axisLit;
     int kIndexStart = jIndexStart + indicesRank - (axisLit + 1);
 
-    // Load the constants for the tests
+    // Insert code inside the loop.
+    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
+    IndexExprScope innerLoopScope;
     LiteralIndexExpr zero(0);
     LiteralIndexExpr axis(axisLit);
     SymbolIndexExpr axisDim(shapeHelper.dataDims[axisLit]);
-    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // compute the loop indices for the output
     SmallVector<IndexExpr, 4> outputAccessFct;
-    getIndexExprListFrom<DimIndexExpr>(
+    getIndexExprList<DimIndexExpr>(
         outputLoops.getAllInductionVar(), outputAccessFct);
 
     // Compute access function for indices[jjs].
