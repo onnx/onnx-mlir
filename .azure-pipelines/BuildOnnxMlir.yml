@@ -22,6 +22,9 @@ parameters:
 
 
 steps:
+  - template: .azure-pipelines/templates/steps/SetupBuildEnv.yml@tools
+    parameters:
+      Platform: ${{ parameters.Platform }}
   - checkout: self
     submodules: recursive
   - checkout: llvm-project
