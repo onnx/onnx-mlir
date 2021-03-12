@@ -170,11 +170,10 @@ void getArrayFromAttributeOrFile(Operation *op, char *res) {
   ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
   assert(constOp && "Not a constant operation");
 
-  int64_t maxSizeInBytes = getMaxSizeInBytes(constOp.getResult().getType());
-  int64_t numElements = getNumberOfElements(
-      constOp.getResult().getType().cast<ShapedType>().getShape());
-  Type elementType =
-      constOp.getResult().getType().cast<ShapedType>().getElementType();
+  ShapedType shapedType = constOp.getResult().getType().cast<ShapedType>();
+  int64_t maxSizeInBytes = getMaxSizeInBytes(shapedType);
+  int64_t numElements = getNumberOfElements(shapedType.getShape());
+  Type elementType = shapedType.getElementType();
 
   Attribute fileNameAttr = op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR);
   if (fileNameAttr) {
@@ -212,11 +211,10 @@ void getArrayForFinalOutput(Operation *op, char *res) {
   ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
   assert(constOp && "Not a constant operation");
 
-  int64_t maxSizeInBytes = getMaxSizeInBytes(constOp.getResult().getType());
-  int64_t numElements = getNumberOfElements(
-      constOp.getResult().getType().cast<ShapedType>().getShape());
-  Type elementType =
-      constOp.getResult().getType().cast<ShapedType>().getElementType();
+  ShapedType shapedType = constOp.getResult().getType().cast<ShapedType>();
+  int64_t maxSizeInBytes = getMaxSizeInBytes(shapedType);
+  int64_t numElements = getNumberOfElements(shapedType.getShape());
+  Type elementType = shapedType.getElementType();
 
   Attribute fileNameAttr = op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR);
   if (fileNameAttr) {
