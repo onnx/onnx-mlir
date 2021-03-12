@@ -79,7 +79,8 @@ int32_t getAttrValue(Attribute attr) {
   return attr.cast<IntegerAttr>().getInt();
 }
 
-/// Get the element size in bytes.
+/// Get the element size in bytes. Use the biggest size to avoid loss in
+/// casting.
 int64_t getEltSizeInBytes(Type ty) {
   auto elementType = ty.cast<ShapedType>().getElementType();
 
@@ -102,6 +103,18 @@ int64_t getSizeInBytes(Type ty) {
   for (int i = 0; i < shape.size(); i++)
     size *= shape[i];
   size *= getEltSizeInBytes(shapedType);
+  return size;
+}
+
+/// Get the size of a tensor from its ranked type in bytes, using the largest
+/// precision.
+int64_t getMaxSizeInBytes(Type ty) {
+  ShapedType shapedType = ty.dyn_cast<ShapedType>();
+  auto shape = shapedType.getShape();
+  int64_t size = 1;
+  for (int i = 0; i < shape.size(); i++)
+    size *= shape[i];
+  size *= 8;
   return size;
 }
 
@@ -157,20 +170,91 @@ void getArrayFromAttributeOrFile(Operation *op, char *res) {
   ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
   assert(constOp && "Not a constant operation");
 
-  int64_t size = getSizeInBytes(constOp.getResult().getType());
+  int64_t maxSizeInBytes = getMaxSizeInBytes(constOp.getResult().getType());
+  int64_t numElements = getNumberOfElements(
+      constOp.getResult().getType().cast<ShapedType>().getShape());
+  Type elementType =
+      constOp.getResult().getType().cast<ShapedType>().getElementType();
 
   Attribute fileNameAttr = op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR);
   if (fileNameAttr) {
     StringRef fileName = fileNameAttr.cast<StringAttr>().getValue();
     std::string pathStr = std::string(fileName.begin(), fileName.end());
     std::ifstream file(pathStr, std::ios::binary);
-    file.read(res, size);
+    file.read(res, maxSizeInBytes);
   } else {
     DenseElementsAttr dataAttr =
         op->getAttrOfType<::mlir::Attribute>("value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>();
-    ArrayRef<char> rawData = dataAttr.getRawData();
-    std::copy(rawData.data(), rawData.data() + size, res);
+    if (elementType.isa<FloatType>()) {
+      // Use double to avoid the precision loss during computation.
+      double *resArr = (double *)res;
+      auto valueIt = dataAttr.getFloatValues().begin();
+      for (int64_t i = 0; i < numElements; ++i) {
+        double val = (double)(*valueIt++).convertToFloat();
+        *(resArr + i) = val;
+      }
+    } else if (elementType.isa<IntegerType>()) {
+      // Use int64_t to avoid the precision loss during computation.
+      int64_t *resArr = (int64_t *)res;
+      auto valueIt = dataAttr.getIntValues().begin();
+      for (int64_t i = 0; i < numElements; ++i) {
+        int64_t val = (*valueIt++).getSExtValue();
+        *(resArr + i) = val;
+      }
+    } else
+      llvm_unreachable("Unknown data type");
+  }
+}
+
+/// Get array with the exact data type for the final ONNXConstantOp.
+void getArrayForFinalOutput(Operation *op, char *res) {
+  ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
+  assert(constOp && "Not a constant operation");
+
+  int64_t maxSizeInBytes = getMaxSizeInBytes(constOp.getResult().getType());
+  int64_t numElements = getNumberOfElements(
+      constOp.getResult().getType().cast<ShapedType>().getShape());
+  Type elementType =
+      constOp.getResult().getType().cast<ShapedType>().getElementType();
+
+  Attribute fileNameAttr = op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR);
+  if (fileNameAttr) {
+    StringRef fileName = fileNameAttr.cast<StringAttr>().getValue();
+    std::string pathStr = std::string(fileName.begin(), fileName.end());
+    std::ifstream file(pathStr, std::ios::binary);
+    if (elementType.isa<FloatType>()) {
+      FloatType floatTy = elementType.cast<FloatType>();
+      if (floatTy.getWidth() == 32) {
+        char *resArr = (char *)malloc(maxSizeInBytes);
+        file.read(resArr, maxSizeInBytes);
+        double *resArrDouble = (double *)resArr;
+        float *resArrFloat = (float *)res;
+        for (int64_t i = 0; i < numElements; ++i)
+          *(resArrFloat + i) = (float)*(resArrDouble + i);
+        free(resArr);
+      } else if (floatTy.getWidth() == 64) {
+        file.read(res, maxSizeInBytes);
+      } else
+        llvm_unreachable("Unknown data type");
+    } else if (elementType.isa<IntegerType>()) {
+      IntegerType intTy = elementType.cast<IntegerType>();
+      if (intTy.getWidth() == 32) {
+        char *resArr = (char *)malloc(maxSizeInBytes);
+        file.read(resArr, maxSizeInBytes);
+        int64_t *resArrInt64 = (int64_t *)resArr;
+        int32_t *resArrInt32 = (int32_t *)res;
+        for (int64_t i = 0; i < numElements; ++i)
+          *(resArrInt32 + i) = (int32_t)(*(resArrInt64 + i));
+        free(resArr);
+      } else if (intTy.getWidth() == 64) {
+        file.read(res, maxSizeInBytes);
+      } else
+        llvm_unreachable("Unknown data type");
+    } else
+      llvm_unreachable("Unknown data type");
+  } else {
+    llvm_unreachable("Could not found input file");
   }
 }
 
@@ -182,11 +266,11 @@ RankedTensorType constructRankedTensorType(ShapedType type) {
 
 /// A helper function to construct a DenseElementsAttr from an array.
 static DenseElementsAttr createDenseElementsAttr(char *arr, Type outputType) {
-  int64_t size = getSizeInBytes(outputType);
+  int64_t sizeInBytes = getSizeInBytes(outputType);
   RankedTensorType resType =
       constructRankedTensorType(outputType.cast<ShapedType>());
   return DenseElementsAttr::getFromRawBuffer(
-      resType, ArrayRef<char>(arr, size), /*isSplat=*/false);
+      resType, ArrayRef<char>(arr, sizeInBytes), /*isSplat=*/false);
 }
 
 /// A helper function to create an ONNXConstantOp for a given data array.
@@ -194,7 +278,7 @@ static DenseElementsAttr createDenseElementsAttr(char *arr, Type outputType) {
 ONNXConstantOp CreateDenseONNXConstantOp(
     PatternRewriter &rewriter, Value replacingValue, char *vt) {
   Location loc = replacingValue.getLoc();
-  int64_t size = getSizeInBytes(replacingValue.getType());
+  int64_t maxSizeInBytes = getMaxSizeInBytes(replacingValue.getType());
 
   ONNXConstantOp constOp = rewriter.create<ONNXConstantOp>(
       loc, replacingValue.getType(), Attribute(), Attribute());
@@ -205,7 +289,7 @@ ONNXConstantOp CreateDenseONNXConstantOp(
   std::string pathStr = std::string(path.begin(), path.end());
 
   std::ofstream outfile(pathStr, std::ofstream::binary);
-  outfile.write(vt, size);
+  outfile.write(vt, maxSizeInBytes);
 
   // Store the file name.
   constOp.getOperation()->setAttr(
@@ -339,35 +423,19 @@ ONNXConstantOp ConstPropElementwiseBinary(
       replacingValue.getType().cast<ShapedType>().getShape();
 
   // Get lhs and rhs values.
-  char *lhsArray = (char *)malloc(getSizeInBytes(lhs.getType()));
+  char *lhsArray = (char *)malloc(getMaxSizeInBytes(lhs.getType()));
   getArrayFromAttributeOrFile(lhs.getDefiningOp(), lhsArray);
-  char *rhsArray = (char *)malloc(getSizeInBytes(rhs.getType()));
+  char *rhsArray = (char *)malloc(getMaxSizeInBytes(rhs.getType()));
   getArrayFromAttributeOrFile(rhs.getDefiningOp(), rhsArray);
 
   // Do calculation.
-  char *resArray = (char *)malloc(getSizeInBytes(replacingValue.getType()));
+  char *resArray = (char *)malloc(getMaxSizeInBytes(replacingValue.getType()));
   if (elementType.isa<FloatType>()) {
-    // FloatType
-    FloatType floatTy = elementType.cast<FloatType>();
-    if (floatTy.getWidth() == 32) {
-      IterateConstPropElementwiseBinary<ElementwiseBinaryOp, float>(
-          lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
-    } else if (floatTy.getWidth() == 64) {
-      IterateConstPropElementwiseBinary<ElementwiseBinaryOp, double>(
-          lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
-    } else
-      llvm_unreachable("Unknown data type");
+    IterateConstPropElementwiseBinary<ElementwiseBinaryOp, double>(
+        lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
   } else if (elementType.isa<IntegerType>()) {
-    // IntegerType
-    IntegerType intTy = elementType.cast<IntegerType>();
-    if (intTy.getWidth() == 32) {
-      IterateConstPropElementwiseBinary<ElementwiseBinaryOp, int32_t>(
-          lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
-    } else if (intTy.getWidth() == 64) {
-      IterateConstPropElementwiseBinary<ElementwiseBinaryOp, int64_t>(
-          lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
-    } else
-      llvm_unreachable("Unknown data type");
+    IterateConstPropElementwiseBinary<ElementwiseBinaryOp, int64_t>(
+        lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
   } else
     llvm_unreachable("Unknown data type");
 
@@ -428,36 +496,20 @@ ONNXConstantOp ConstPropElementwiseUnary(
   ShapedType replacingType = replacingValue.getType().cast<ShapedType>();
   ArrayRef<int64_t> replacingShape = replacingType.getShape();
   Type elementType = replacingType.getElementType();
-  int64_t size = getSizeInBytes(constValue.getType());
+  int64_t maxSizeInBytes = getMaxSizeInBytes(constValue.getType());
 
   // Get the const value.
-  char *constArray = (char *)malloc(size);
+  char *constArray = (char *)malloc(maxSizeInBytes);
   getArrayFromAttributeOrFile(constValue.getDefiningOp(), constArray);
 
   // Do calculation.
-  char *resArray = (char *)malloc(size);
+  char *resArray = (char *)malloc(maxSizeInBytes);
   if (elementType.isa<FloatType>()) {
-    // FloatType
-    FloatType floatTy = elementType.cast<FloatType>();
-    if (floatTy.getWidth() == 32) {
-      IterateConstPropElementwiseUnary<ElementwiseUnaryOp, float>(
-          constArray, resArray, replacingShape);
-    } else if (floatTy.getWidth() == 64) {
-      IterateConstPropElementwiseUnary<ElementwiseUnaryOp, double>(
-          constArray, resArray, replacingShape);
-    } else
-      llvm_unreachable("Unknown data type");
+    IterateConstPropElementwiseUnary<ElementwiseUnaryOp, double>(
+        constArray, resArray, replacingShape);
   } else if (elementType.isa<IntegerType>()) {
-    // IntegerType
-    IntegerType intTy = elementType.cast<IntegerType>();
-    if (intTy.getWidth() == 32) {
-      IterateConstPropElementwiseUnary<ElementwiseUnaryOp, int32_t>(
-          constArray, resArray, replacingShape);
-    } else if (intTy.getWidth() == 64) {
-      IterateConstPropElementwiseUnary<ElementwiseUnaryOp, int64_t>(
-          constArray, resArray, replacingShape);
-    } else
-      llvm_unreachable("Unknown data type");
+    IterateConstPropElementwiseUnary<ElementwiseUnaryOp, int64_t>(
+        constArray, resArray, replacingShape);
   } else
     llvm_unreachable("Unknown data type");
 
@@ -513,7 +565,7 @@ ONNXConstantOp ConstPropTranspose(
       constValue.getType().cast<ShapedType>().getShape();
   Type elementType =
       replacingValue.getType().cast<ShapedType>().getElementType();
-  int64_t size = getSizeInBytes(replacingValue.getType());
+  int64_t maxSizeInBytes = getMaxSizeInBytes(replacingValue.getType());
 
   // Get perm attribute.
   SmallVector<uint64_t, 4> perm;
@@ -524,33 +576,17 @@ ONNXConstantOp ConstPropTranspose(
     perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
   // Get the const value.
-  char *constArray = (char *)malloc(size);
+  char *constArray = (char *)malloc(maxSizeInBytes);
   getArrayFromAttributeOrFile(constValue.getDefiningOp(), constArray);
 
   // Do calculation.
-  char *resArray = (char *)malloc(size);
+  char *resArray = (char *)malloc(maxSizeInBytes);
   if (elementType.isa<FloatType>()) {
-    // FloatType
-    FloatType floatTy = elementType.cast<FloatType>();
-    if (floatTy.getWidth() == 32) {
-      IterateConstPropTranspose<float>(
-          constArray, constShape, perm, resArray, replacingShape);
-    } else if (floatTy.getWidth() == 64) {
-      IterateConstPropTranspose<double>(
-          constArray, constShape, perm, resArray, replacingShape);
-    } else
-      llvm_unreachable("Unknown data type");
+    IterateConstPropTranspose<double>(
+        constArray, constShape, perm, resArray, replacingShape);
   } else if (elementType.isa<IntegerType>()) {
-    // IntegerType
-    IntegerType intTy = elementType.cast<IntegerType>();
-    if (intTy.getWidth() == 32) {
-      IterateConstPropTranspose<int32_t>(
-          constArray, constShape, perm, resArray, replacingShape);
-    } else if (intTy.getWidth() == 64) {
-      IterateConstPropTranspose<int64_t>(
-          constArray, constShape, perm, resArray, replacingShape);
-    } else
-      llvm_unreachable("Unknown data type");
+    IterateConstPropTranspose<int64_t>(
+        constArray, constShape, perm, resArray, replacingShape);
   } else
     llvm_unreachable("Unknown data type");
 
@@ -573,7 +609,7 @@ ONNXConstantOp ConstPropUnsqueeze(
   Type elementType = replacingType.cast<ShapedType>().getElementType();
   Operation *inputOp = input.getDefiningOp();
 
-  char *resArray = (char *)malloc(getSizeInBytes(replacingValue.getType()));
+  char *resArray = (char *)malloc(getMaxSizeInBytes(replacingValue.getType()));
   getArrayFromAttributeOrFile(inputOp, resArray);
 
   // Construct a new ONNXConstantOp.
@@ -751,9 +787,9 @@ void ConstPropONNXToONNXPass::runOnFunction() {
     Operation *op = constOp.getOperation();
     if (op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR)) {
       int64_t size = getSizeInBytes(constOp.getResult().getType());
-      ShapedType type = constOp.getResult().getType().cast<ShapedType>();
       char *arr = (char *)malloc(size);
-      getArrayFromAttributeOrFile(op, arr);
+      getArrayForFinalOutput(op, arr);
+      ShapedType type = constOp.getResult().getType().cast<ShapedType>();
       DenseElementsAttr denseAttr = createDenseElementsAttr(arr, type);
       op->setAttr("value", denseAttr);
       op->removeAttr(FILE_NAME_ATTR);
