@@ -619,7 +619,7 @@ public:
   ArrayValueIndexCapture(Operation *op, Value array, int64_t defaultLiteral);
 
   IndexExpr getSymbol(uint64_t i);
-  bool getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
+  void getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
   ArrayValueIndexCapture() { llvm_unreachable("forbidden constructor"); };
@@ -637,12 +637,13 @@ public:
   ArrayAttributeIndexCapture(ArrayAttr array, int64_t defaultLiteral);
 
   IndexExpr getLiteral(uint64_t i);
+  int64_t size() { return arraySize; }
 
 private:
   ArrayAttributeIndexCapture() { llvm_unreachable("forbidden constructor"); };
 
   ArrayAttr array;
-  int64_t size;
+  int64_t arraySize;
   int64_t defaultLiteral;
   bool hasDefault;
 };
@@ -655,10 +656,18 @@ public:
   MemRefBoundIndexCapture(Value tensorOrMemref);
 
   IndexExpr getDim(uint64_t i);
-  bool getDimList(SmallVectorImpl<IndexExpr> &dimList);
+  IndexExpr getSymbol(uint64_t i);
+  void getDimList(SmallVectorImpl<IndexExpr> &dimList);
+  void getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
   MemRefBoundIndexCapture() { llvm_unreachable("forbidden constructor"); };
+
+  template <class INDEX>
+  IndexExpr get(uint64_t i);
+  template <class INDEX>
+  void getList(SmallVectorImpl<IndexExpr> &dimList);
+
   Value tensorOrMemref;
 };
 

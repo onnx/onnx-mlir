@@ -1211,18 +1211,12 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   return SymbolIndexExpr(loadVal);
 }
 
-bool ArrayValueIndexCapture::getSymbolList(
+void ArrayValueIndexCapture::getSymbolList(
     int num, SmallVectorImpl<IndexExpr> &symbolList) {
   // Clear output.
   symbolList.clear();
-  bool successful = true;
-  for (int i = 0; i < num; ++i) {
-    SymbolIndexExpr index = getSymbol(i);
-    if (index.isUndefined())
-      successful = false;
-    symbolList.emplace_back(index);
-  }
-  return successful;
+  for (int i = 0; i < num; ++i)
+    symbolList.emplace_back(getSymbol(i));
 }
 
 //===----------------------------------------------------------------------===//
@@ -1230,15 +1224,15 @@ bool ArrayValueIndexCapture::getSymbolList(
 //===----------------------------------------------------------------------===//
 
 ArrayAttributeIndexCapture::ArrayAttributeIndexCapture(ArrayAttr array)
-    : array(array), size((array) ? array.size() : 0), hasDefault(false) {}
+    : array(array), arraySize((array) ? array.size() : 0), hasDefault(false) {}
 
 ArrayAttributeIndexCapture::ArrayAttributeIndexCapture(
     ArrayAttr array, int64_t defaultLiteral)
-    : array(array), size((array) ? array.size() : 0),
+    : array(array), arraySize((array) ? array.size() : 0),
       defaultLiteral(defaultLiteral), hasDefault(true) {}
 
 IndexExpr ArrayAttributeIndexCapture::getLiteral(uint64_t i) {
-  if (i < size) {
+  if (i < arraySize) {
     int64_t val = (array.getValue()[i]).cast<IntegerAttr>().getInt();
     return LiteralIndexExpr(val);
   }
@@ -1255,6 +1249,23 @@ MemRefBoundIndexCapture::MemRefBoundIndexCapture(Value tensorOrMemref)
     : tensorOrMemref(tensorOrMemref) {}
 
 IndexExpr MemRefBoundIndexCapture::getDim(uint64_t i) {
+  return get<DimIndexExpr>(i);
+}
+
+IndexExpr MemRefBoundIndexCapture::getSymbol(uint64_t i) {
+  return get<SymbolIndexExpr>(i);
+}
+
+void MemRefBoundIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
+  return getList<DimIndexExpr>(dimList);
+}
+
+void MemRefBoundIndexCapture::getSymbolList(SmallVectorImpl<IndexExpr> &symbolList) {
+  return getList<SymbolIndexExpr>(symbolList);
+}
+
+template <class INDEX>
+IndexExpr MemRefBoundIndexCapture::get(uint64_t i) {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   if (shape[i] >= 0) {
@@ -1270,24 +1281,19 @@ IndexExpr MemRefBoundIndexCapture::getDim(uint64_t i) {
   }
   Value dynVal =
       scope.getRewriter().create<DimOp>(scope.getLoc(), tensorOrMemref, i);
-  return DimIndexExpr(dynVal);
+  return INDEX(dynVal);
 }
 
-bool MemRefBoundIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
+template <class INDEX>
+void MemRefBoundIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   // Clear output.
-  dimList.clear();
+  list.clear();
   // Scan type and shape, bail if incompatible.
   ShapedType type = tensorOrMemref.getType().cast<ShapedType>();
   int size = type.getShape().size();
   // Scan tensor or memref.
-  bool successful = true;
-  for (int i = 0; i < size; ++i) {
-    IndexExpr index = getDim(i);
-    if (index.isUndefined())
-      successful = false;
-    dimList.emplace_back(index);
-  }
-  return successful;
+  for (int i = 0; i < size; ++i)
+    list.emplace_back(get<INDEX>(i));
 }
 
 //===----------------------------------------------------------------------===//
