@@ -95,29 +95,6 @@ int64_t getEltSizeInBytes(Type ty) {
   return llvm::divideCeil(sizeInBits, 8);
 }
 
-/// Get the size of a tensor from its ranked type in bytes.
-int64_t getSizeInBytes(Type ty) {
-  ShapedType shapedType = ty.dyn_cast<ShapedType>();
-  auto shape = shapedType.getShape();
-  int64_t size = 1;
-  for (int i = 0; i < shape.size(); i++)
-    size *= shape[i];
-  size *= getEltSizeInBytes(shapedType);
-  return size;
-}
-
-/// Get the size of a tensor from its ranked type in bytes, using the largest
-/// precision.
-int64_t getMaxSizeInBytes(Type ty) {
-  ShapedType shapedType = ty.dyn_cast<ShapedType>();
-  auto shape = shapedType.getShape();
-  int64_t size = 1;
-  for (int i = 0; i < shape.size(); i++)
-    size *= shape[i];
-  size *= 8;
-  return size;
-}
-
 /// Get the number of elements.
 int64_t getNumberOfElements(ArrayRef<int64_t> shape) {
   int64_t count = 1;
@@ -125,6 +102,20 @@ int64_t getNumberOfElements(ArrayRef<int64_t> shape) {
     count *= shape[i];
   }
   return count;
+}
+
+/// Get the size of a tensor from its ranked type in bytes.
+int64_t getSizeInBytes(Type ty) {
+  ShapedType shapedType = ty.dyn_cast<ShapedType>();
+  auto shape = shapedType.getShape();
+  return getNumberOfElements(shape) * getEltSizeInBytes(shapedType);
+}
+
+/// Get the size of a tensor from its ranked type in bytes, using the largest
+/// precision.
+int64_t getMaxSizeInBytes(Type ty) {
+  auto shape = ty.dyn_cast<ShapedType>().getShape();
+  return getNumberOfElements(shape) * 8;
 }
 
 /// Compute strides for a given shape.
@@ -252,7 +243,7 @@ void getArrayForFinalOutput(Operation *op, char *res) {
     } else
       llvm_unreachable("Unknown data type");
   } else {
-    llvm_unreachable("Could not found input file");
+    llvm_unreachable("Could not find the input file");
   }
 }
 
