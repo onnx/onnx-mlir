@@ -16,10 +16,10 @@ resources:
   - repository: tools
     type: git
     name: tools
-    ref: refs/heads/master
+    ref: refs/heads/main
     trigger: none
 
-# Trigger CI and PR build on the master branch
+# Trigger CI and PR build on the apollo branch
 trigger:
 - apollo
 
