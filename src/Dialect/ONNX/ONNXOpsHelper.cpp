@@ -179,6 +179,11 @@ DenseElementsAttr getDenseElementAttributeFromValue(Value value) {
   return nullptr;
 }
 
+Value getONNXConstantOpFromDenseAttr(
+    PatternRewriter &rewriter, Location loc, Attribute dense) {
+  return rewriter.create<ONNXConstantOp>(loc, Attribute(), dense);
+}
+
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
   // From lib/Dialect/LinAlg/Transform/Promotion.cpp
   if (auto constantOp = value.getDefiningOp<ConstantOp>()) {
