@@ -29,12 +29,6 @@ void initOMPasses() {
         return mlir::createConstPropONNXToONNXPass();
       });
 
-  mlir::registerPass("attribute-promotion",
-      "Promote constant operands to attributes.",
-      []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createAttributePromotionPass();
-      });
-
   mlir::registerPass("elide-constants", "Elide values of constant operations.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createElideConstantValuePass();
