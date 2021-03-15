@@ -262,6 +262,39 @@ static DenseElementsAttr createDenseElementsAttr(char *arr, Type outputType) {
       resType, ArrayRef<char>(arr, sizeInBytes), /*isSplat=*/false);
 }
 
+/// A helper fucntion to check whether a value is produced by a dense
+/// ONNXConstantOp.
+bool isFromDenseONNXConstantOp(Value result) {
+  Operation *op = result.getDefiningOp();
+
+  ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
+  // Not a constant.
+  if (!constOp)
+    return false;
+
+  // If the dense attribute is null, there must be file_name attribute.
+  if (!(op->getAttrOfType<::mlir::Attribute>("value")))
+    if (!(op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR)))
+      return false;
+  // The other attributes must be null.
+  if (op->getAttrOfType<::mlir::Attribute>("sparse_value"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_float"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_floats"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_int"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_ints"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_string"))
+    return false;
+  if (op->getAttrOfType<::mlir::Attribute>("value_strings"))
+    return false;
+
+  return true;
+}
+
 /// A helper function to create an ONNXConstantOp for a given data array.
 /// This ONNXConstantOp is only used internally.
 ONNXConstantOp CreateDenseONNXConstantOp(
@@ -685,43 +718,23 @@ public:
   using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      ONNXSplitOp op, PatternRewriter &rewriter) const override {
-    Location loc = op.getLoc();
-    // The constant operation that produces the ONNXSplitOp's input.
-    Operation *constOp;
-
-    // 1. Match
-    ONNXSplitOp *splitOp = ::llvm::dyn_cast_or_null<::mlir::ONNXSplitOp>(&op);
-    {
-      constOp = splitOp->input().getDefiningOp();
-      ONNXConstantOp castedConstOp =
-          ::llvm::dyn_cast_or_null<::mlir::ONNXConstantOp>(constOp);
-      if (!castedConstOp)
-        return failure();
-      // Check whether the constant op is using a dense value or not.
-      Attribute sparseAttr =
-          constOp->getAttrOfType<::mlir::Attribute>("sparse_value");
-      if (sparseAttr)
-        return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-          diag << "entities '' failed to satisfy constraint: Attribute "
-                  "is null";
-        });
-    }
-
-    // 2. Rewrite
-
-    // Basic information.
-    unsigned numOfResults = splitOp->getNumResults();
-    Value input = splitOp->input();
+      ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
+    // Basic info.
+    unsigned numOfResults = splitOp.getNumResults();
+    Value input = splitOp.input();
     ShapedType inputType = input.getType().cast<ShapedType>();
     ArrayRef<int64_t> inputShape = inputType.getShape();
     Type elementType = inputType.getElementType();
+
+    if (!isFromDenseONNXConstantOp(input))
+      return failure();
+
     // Split axis.
-    uint64_t splitAxis = splitOp->axisAttr().getValue().getSExtValue();
+    uint64_t splitAxis = splitOp.axisAttr().getValue().getSExtValue();
     // Compute split offsets.
     SmallVector<int64_t, 4> splitOffsets;
     {
-      ArrayAttr splitAttr = splitOp->splitAttr();
+      ArrayAttr splitAttr = splitOp.splitAttr();
       if (!splitAttr)
         // If split attribute is not specified, split size is equally divided.
         assert(inputShape[splitAxis] % numOfResults == 0 &&
@@ -739,11 +752,11 @@ public:
 
     // Get the constant input value.
     char *inputArray = (char *)malloc(getMaxSizeInBytes(inputType));
-    getArrayFromAttributeOrFile(constOp, inputArray);
+    getArrayFromAttributeOrFile(input.getDefiningOp(), inputArray);
 
     SmallVector<Value, 4> replacingValues;
     for (int i = 0; i < numOfResults; ++i)
-      replacingValues.emplace_back(splitOp->getResults()[i]);
+      replacingValues.emplace_back(splitOp.getResults()[i]);
 
     // Do splitting.
     std::vector<Value> resValues;
@@ -759,7 +772,7 @@ public:
     // Clean up.
     free(inputArray);
 
-    rewriter.replaceOp(op, resValues);
+    rewriter.replaceOp(splitOp, resValues);
     return success();
   }
 };
