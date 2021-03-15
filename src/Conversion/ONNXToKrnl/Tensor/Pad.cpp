@@ -36,14 +36,18 @@ struct ONNXPadOpLowering : public ConversionPattern {
 
     DenseElementsAttr constantValAttr;
     if (getONNXConstantOp(myOp.constant_value())) {
-      constantValAttr = getONNXConstantOp(myOp.constant_value()).valueAttr().dyn_cast_or_null<DenseElementsAttr>();
+      constantValAttr = getONNXConstantOp(myOp.constant_value())
+                            .valueAttr()
+                            .dyn_cast_or_null<DenseElementsAttr>();
     }
     if (!constantValAttr)
       return emitError(loc, "unsupported value");
 
-    DenseElementsAttr padsAttributes; 
+    DenseElementsAttr padsAttributes;
     if (getONNXConstantOp(myOp.pads())) {
-      padsAttributes = getONNXConstantOp(myOp.pads()).valueAttr().dyn_cast_or_null<DenseElementsAttr>();
+      padsAttributes = getONNXConstantOp(myOp.pads())
+                           .valueAttr()
+                           .dyn_cast_or_null<DenseElementsAttr>();
     }
     if (!padsAttributes)
       return emitError(loc, "Pad: unknown pads");

@@ -2070,13 +2070,15 @@ LogicalResult ONNXPadOp::inferShapes(
   // Get pads from valueAttribute.
   SmallVector<int64_t, 2> padsInt(dataRank * 2, -1);
   if (getONNXConstantOp(pads())) {
-    DenseElementsAttr padsAttributes = getONNXConstantOp(pads()).valueAttr().dyn_cast_or_null<mlir::DenseElementsAttr>();
+    DenseElementsAttr padsAttributes =
+        getONNXConstantOp(pads())
+            .valueAttr()
+            .dyn_cast_or_null<mlir::DenseElementsAttr>();
     if (padsAttributes) {
       auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
       for (int64_t i = 0; i < dataRank * 2; ++i)
         padsInt[i] = (*valueIt++).getInt();
-      }
-    else {
+    } else {
       // Cannot infer if the pads is not constant
       return emitError("Pad: unknown pads ");
     }
