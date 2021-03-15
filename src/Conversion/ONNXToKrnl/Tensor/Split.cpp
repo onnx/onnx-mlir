@@ -55,7 +55,7 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       outputLoops.createDefineAndIterateOp(allocs[i]);
       rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
-      IndexExprContext childContext(shapeHelper.context);
+      IndexExprScope childScope(shapeHelper.scope);
 
       // Indices for the read and write.
       SmallVector<IndexExpr, 4> readIndices;
@@ -63,14 +63,13 @@ struct ONNXSplitOpLowering : public ConversionPattern {
       for (int r = 0; r < rank; ++r) {
         Value readVal = outputLoops.getInductionVar(r);
         // If not the split axis, same index for read and write
-        IndexExpr readIndex = childContext.createLoopInductionIndex(readVal);
-        IndexExpr writeIndex = childContext.createLoopInductionIndex(readVal);
+        IndexExpr readIndex = DimIndexExpr(readVal);
+        DimIndexExpr writeIndex(readVal);
         // If the split axis, compute read index for the split axis.
         if (r == axis) {
           for (int k = 0; k < i; ++k) {
             IndexExpr splitDim =
-                childContext.createSymbolIndexFromParentContext(
-                    shapeHelper.dimsForOutput(k)[r]);
+                SymbolIndexExpr(shapeHelper.dimsForOutput(k)[r]);
             readIndex = readIndex + splitDim;
           }
         }
@@ -78,9 +77,8 @@ struct ONNXSplitOpLowering : public ConversionPattern {
         writeIndices.emplace_back(writeIndex);
       }
       // Insert copy.
-      Value loadData =
-          childContext.createKrnlLoadOp(operandAdaptor.input(), readIndices);
-      childContext.createKrnlStoreOp(loadData, allocs[i], writeIndices);
+      Value loadData = krnl_load(operandAdaptor.input(), readIndices);
+      krnl_store(loadData, allocs[i], writeIndices);
     }
     rewriter.replaceOp(op, allocs);
     return success();

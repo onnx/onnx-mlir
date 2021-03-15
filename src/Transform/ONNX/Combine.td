@@ -67,11 +67,7 @@ def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
 // y, mask = onnx.Dropout(x) -> y, mask = x, none
 def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $arg1, $arg2, $ratio),
                                         [(replaceWithValue $arg),
-                                         (ONNXConstantOp (GetNullAttr), (GetUnitAttr))]>;
-
-def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $v1, $v2), $m2, $m3),
-                             (ONNXPadConstantValuePadOp $m1, $v2, $m2, $m3),
-                             [(HasOneUse $res)]>;
+                                         (ONNXConstantOp (GetNullAttr), (GetUnitAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr))]>;
 
 // ONNX_Op (onnx.Cast (%X, $type)) = ONNX_Op (%X)
 def CastEliminationPattern : Pat<

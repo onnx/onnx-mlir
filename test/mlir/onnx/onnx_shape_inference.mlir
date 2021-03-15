@@ -3,6 +3,22 @@
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test the default behavior of argmax when no information for the
+/// permutation of the axes is provided and when a permutation is provided.
+//===----------------------------------------------------------------------===//
+
+func @test_default_argmax(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi64> {
+  %0 = "onnx.ArgMax"(%arg0) : (tensor<2x3x4xf32>) -> tensor<*xi64>
+  "std.return"(%0) : (tensor<*xi64>) -> ()
+
+  // CHECK-LABEL: test_default_argmax
+  // CHECK: [[RES:%.+]] = "onnx.ArgMax"(%arg0) : (tensor<2x3x4xf32>) -> tensor<1x3x4xi64>
+  // CHECK: return [[RES]] : tensor<1x3x4xi64>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test the default behavior of transpose when no information for the
 /// permutation of the axes is provided and when a permutation is provided.
 //===----------------------------------------------------------------------===//
@@ -390,10 +406,6 @@ func @test_conv_transpose_2(%arg0 : tensor<1x64x36x48xf32>, %arg1 : tensor<64x1x
   // CHECK: return [[RES_ATTR]] : tensor<1x64x72x96xf32>
 }
 
-// -----
-
-//===----------------------------------------------------------------------===//
-/// Test shape inference for PadConstantValuePad.
 //===----------------------------------------------------------------------===//
 
 /// Test Pad_1
@@ -418,39 +430,6 @@ func @test_Pad_2(%arg0 : tensor<16x13xf32>) -> tensor<*xf32> {
   // CHECK-NEXT: [[NONE:%.+]] = constant unit
   // CHECK: [[RES:%.+]] = "onnx.Pad"(%arg0, [[NONE]], [[NONE]]) {mode = "edge", pads = [0, 2, 2, 4]} : (tensor<16x13xf32>, none, none) -> tensor<18x19xf32>
   // CHECK: return [[RES]] : tensor<18x19xf32>
-}
-
-/// Test PadConstantValuePad_1
-func @test_PadConstantValuePad_1(%arg0 : tensor<16x13xf32>) -> tensor<*xf32> {
-  %0 = "onnx.PadConstantValuePad"(%arg0) {constant_value = 0.000000e+00 : f32, mode = "constant", pads = [0, 0, 2, 0]} : (tensor<16x13xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_PadConstantValuePad_1
-  // CHECK: [[RES:%.+]] = "onnx.PadConstantValuePad"(%arg0) {constant_value = 0.000000e+00 : f32, mode = "constant", pads = [0, 0, 2, 0]} : (tensor<16x13xf32>) -> tensor<18x13xf32>
-  // CHECK: return [[RES]] : tensor<18x13xf32>
-}
-
-// -----
-
-/// Test PadConstantPad_1
-func @test_PadConstantPad_1(%arg0 : tensor<16x13xf32>, %arg1 : tensor<*xf32>) -> tensor<*xf32> {
-  %0 = "onnx.PadConstantPad"(%arg0, %arg1) {mode = "constant", pads = [0, 3, 2, 1]} : (tensor<16x13xf32>, tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-  // CHECK-LABEL: test_PadConstantPad_1
-  // CHECK: [[RES:%.+]] = "onnx.PadConstantPad"(%arg0, %arg1) {mode = "constant", pads = [0, 3, 2, 1]} : (tensor<16x13xf32>, tensor<*xf32>) -> tensor<18x17xf32>
-  // CHECK: return [[RES]] : tensor<18x17xf32>
-}
-
-// -----
-
-/// Test PadConstantPad_2
-func @test_PadConstantPad_2(%arg0 : tensor<16x?xf32>, %arg1 : tensor<*xf32>) -> tensor<*xf32> {
-  %0 = "onnx.PadConstantPad"(%arg0, %arg1) {mode = "constant", pads = [0, 3, 2, 1]} : (tensor<16x?xf32>, tensor<*xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-  // CHECK-LABEL: test_PadConstantPad_2
-  // CHECK: [[RES:%.+]] = "onnx.PadConstantPad"(%arg0, %arg1) {mode = "constant", pads = [0, 3, 2, 1]} : (tensor<16x?xf32>, tensor<*xf32>) -> tensor<18x?xf32>
-  // CHECK: return [[RES]] : tensor<18x?xf32>
 }
 
 // -----
@@ -1597,11 +1576,11 @@ func @test_less_unknown_dims_2(%arg0: tensor<?x?x5xf32>, %arg1: tensor<?x4x5xf32
 
 // -----
 
-func @test_clip(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
+func @test_clip2(%arg0: tensor<3xf32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
   %0 = "onnx.Clip"(%arg0, %arg1, %arg2) : (tensor<3xf32>, tensor<f32>, tensor<f32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
 
-// CHECK-LABEL:  func @test_clip
+// CHECK-LABEL:  func @test_clip2
 // CHECK-SAME:   ([[INPUT_:%.+]]: tensor<3xf32>, [[MIN_:%.+]]: tensor<f32>, [[MAX_:%.+]]: tensor<f32>) -> tensor<3xf32> attributes {input_names = ["x", "min", "max"], output_names = ["y"]} {
 // CHECK:           [[RES_:%.+]] = "onnx.Clip"([[INPUT_]], [[MIN_]], [[MAX_]]) : (tensor<3xf32>, tensor<f32>, tensor<f32>) -> tensor<3xf32>
 // CHECK:           return [[RES_]] : tensor<3xf32>
