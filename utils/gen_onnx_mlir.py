@@ -344,7 +344,8 @@ OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Gemm', 'Cast', 'Transpos
 # should proceed. The key is the operation's name and the value is a list of
 # tuples, whose first item is the attribute/operand name, and the second item is
 # the index at which such operand occurs in the list of the operation's inputs.
-OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
+OpsWithPromotableConstOperands = {}
+SavedOpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
                                   "Pad": [("pads", 1), ("constant_value", 2)],
                                   "Tile": [("repeats", 1)]}
 
