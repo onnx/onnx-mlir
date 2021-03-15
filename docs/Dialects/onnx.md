@@ -697,8 +697,8 @@ ONNX ConstantOfShape operation
 
 ONNX Constant operation
 
-"A constant tensor. Exactly one of the two attributes, either value or sparse_value,"
-"must be specified."
+"This operator produces a constant tensor. Exactly one of the provided attributes, either value, sparse_value,"
+"or value_* must be specified."
 
 #### Attributes:
 
@@ -706,12 +706,18 @@ ONNX Constant operation
 | :-------: | :-------: | ----------- |
 `sparse_value` | ::mlir::Attribute | any attribute
 `value` | ::mlir::Attribute | any attribute
+`value_float` | ::mlir::FloatAttr | 32-bit float attribute
+`value_floats` | ::mlir::ArrayAttr | 32-bit float array attribute
+`value_int` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`value_ints` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`value_string` | ::mlir::StringAttr | string attribute
+`value_strings` | ::mlir::ArrayAttr | string array attribute
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
 
 ### `onnx.ConvInteger` (::mlir::ONNXConvIntegerOp)
 

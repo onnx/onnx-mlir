@@ -269,8 +269,9 @@ ONNXConstantOp CreateDenseONNXConstantOp(
   Location loc = replacingValue.getLoc();
   int64_t maxSizeInBytes = getMaxSizeInBytes(replacingValue.getType());
 
-  ONNXConstantOp constOp = rewriter.create<ONNXConstantOp>(
-      loc, replacingValue.getType(), Attribute(), Attribute());
+  ONNXConstantOp constOp = rewriter.create<ONNXConstantOp>(loc,
+      replacingValue.getType(), Attribute(), Attribute(), FloatAttr(),
+      ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
 
   // Write to file.
   llvm::SmallVector<char, 10> path;
@@ -733,7 +734,9 @@ public:
               /*sparse_value=*/Attribute(),
               /*dense_value=*/
               ConstPropSplit(
-                  rewriter, splitOutput, denseAttr, axisAttr, splitAttr, i));
+                  rewriter, splitOutput, denseAttr, axisAttr, splitAttr, i),
+              FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(),
+              StringAttr(), ArrayAttr());
       returnValues.emplace_back(constOp);
     }
 

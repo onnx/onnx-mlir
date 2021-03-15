@@ -625,14 +625,21 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
 
 def ONNXConstantOp:ONNX_Op<"Constant",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Constant operation";
   let description = [{
-  "A constant tensor. Exactly one of the two attributes, either value or sparse_value,"
-  "must be specified."
+  "This operator produces a constant tensor. Exactly one of the provided attributes, either value, sparse_value,"
+  "or value_* must be specified."
   }];
   let arguments = (ins OptionalAttr<AnyAttr>:$sparse_value,
-    OptionalAttr<AnyAttr>:$value);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
+    OptionalAttr<AnyAttr>:$value,
+    OptionalAttr<F32Attr>:$value_float,
+    OptionalAttr<F32ArrayAttr>:$value_floats,
+    OptionalAttr<SI64Attr>:$value_int,
+    OptionalAttr<I64ArrayAttr>:$value_ints,
+    OptionalAttr<StrAttr>:$value_string,
+    OptionalAttr<StrArrayAttr>:$value_strings);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, AnyMemRef]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 0;
@@ -657,10 +664,12 @@ def ONNXConstantOp:ONNX_Op<"Constant",
   OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    } else {
     auto tensorType = sparse_value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    }
   }]>
   ];

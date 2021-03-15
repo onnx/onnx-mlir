@@ -58,7 +58,7 @@ def GetNullAttr : NativeCodeCall<"Attribute()">;
 
 // Create an dense ONNXConstantOp whose output type is the 1st argument's type.
 def CreateDenseONNXConstantOp:
-   NativeCodeCall<"$_builder.create<ONNXConstantOp>($0.getLoc(), $0.getType(), Attribute(), $1)">;
+   NativeCodeCall<"$_builder.create<ONNXConstantOp>($0.getLoc(), $0.getType(), Attribute(), $1, FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr())">;
 
 def CreateAddOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXAddOp>($_builder, $0, $1, $2)">;
@@ -91,7 +91,7 @@ def CreateUnsqueezeOfConst:
 // Use commutativity to normalize constants in the second position of Add.
 def AddConstCommutative1 : Pat<
   // From add(c, x).
-  (ONNXAddOp (ONNXConstantOp:$c $_, $_), $x),
+  (ONNXAddOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   // To add(x, c).
   (ONNXAddOp $x, $c),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
@@ -101,8 +101,8 @@ def AddConstCommutative1 : Pat<
 def AddConstAssociative1 : Pat<
   // From add(add(x, c1), c2).
   (ONNXAddOp
-    (ONNXAddOp $x,(ONNXConstantOp:$c1 $_, $_)),
-    (ONNXConstantOp:$c2 $_, $_)),
+    (ONNXAddOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_)),
   // To add(x, add(c1, c2)).
   (ONNXAddOp
     $x,
@@ -112,7 +112,7 @@ def AddConstAssociative1 : Pat<
 def AddConstAssociative2 : Pat<
   // From add(add(x, c), y).
   (ONNXAddOp
-    (ONNXAddOp $x,(ONNXConstantOp:$c $_, $_)),
+    (ONNXAddOp $x,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
     $y),
   // To add(add(x, y), c).
   (ONNXAddOp
@@ -124,7 +124,7 @@ def AddConstAssociative3 : Pat<
   // From add(x, add(y, c)).
   (ONNXAddOp
     $x,
-    (ONNXAddOp $y,(ONNXConstantOp:$c $_, $_))),
+    (ONNXAddOp $y,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_))),
   // To add(add(x, y), c).
   (ONNXAddOp
     (ONNXAddOp $x, $y),
@@ -134,8 +134,8 @@ def AddConstAssociative3 : Pat<
 def AddConstAssociative4 : Pat<
   // From add(add(x, c1), add(y, c2)).
   (ONNXAddOp
-    (ONNXAddOp $x,(ONNXConstantOp:$c1 $_, $_)),
-    (ONNXAddOp $y,(ONNXConstantOp:$c2 $_, $_))),
+    (ONNXAddOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp $y,(ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
   // To add(add(x, y), c1+c2).
   (ONNXAddOp
     (ONNXAddOp $x, $y),
@@ -145,7 +145,8 @@ def AddConstAssociative4 : Pat<
 // Constant Propagation for Add
 def AddConstProp : Pat<
     // From add(c1, c2).
-    (ONNXAddOp:$addOp (ONNXConstantOp:$lhs $s1, $v1), (ONNXConstantOp:$rhs $s2, $v2)),
+    (ONNXAddOp:$addOp (ONNXConstantOp:$lhs $s1, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$rhs $s2, $_, $_, $_, $_, $_, $_, $_)),
     // To c1+c2
     (CreateAddOfTwoConst $addOp, $lhs, $rhs),
     // Additional constraints (no sparse)
@@ -159,7 +160,8 @@ def AddConstProp : Pat<
 // Constant Propagation for Sub
 def SubConstProp : Pat<
     // From sub(c1, c2).
-    (ONNXSubOp:$subOp (ONNXConstantOp:$lhs $s1, $v1), (ONNXConstantOp:$rhs $s2, $v2)),
+    (ONNXSubOp:$subOp (ONNXConstantOp:$lhs $s1, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$rhs $s2, $_, $_, $_, $_, $_, $_, $_)),
     // To c1-c2
     (CreateSubOfTwoConst $subOp, $lhs, $rhs),
     [(AttributeIsNull:$s1), (AttributeIsNull:$s2)]>;
@@ -167,7 +169,7 @@ def SubConstProp : Pat<
 // Neg of constant is simly -const
 def NegofConst :  Pat<
     // From - (c)
-    (ONNXNegOp:$negOp (ONNXConstantOp:$constOp $s, $v)),
+    (ONNXNegOp:$negOp (ONNXConstantOp:$constOp $s, $v, $_, $_, $_, $_, $_, $_)),
     // To (-c)
     (CreateNegOfConst $negOp, $constOp),
     [(AttributeIsNull:$s)]>;
@@ -176,7 +178,7 @@ def NegofConst :  Pat<
 // with other add optimizations.
 def SubConstToNeg : Pat<
     // From x - c.
-    (ONNXSubOp:$subOp $x, (ONNXConstantOp:$constOp $s, $v)),
+    (ONNXSubOp:$subOp $x, (ONNXConstantOp:$constOp $s, $v, $_, $_, $_, $_, $_, $_)),
     // To x + (-c).
     (ONNXAddOp $x, (CreateNegOfConst $constOp, $constOp)),
     [(IsNotAConstant:$x), (AttributeIsNull:$s)]>;
@@ -184,7 +186,7 @@ def SubConstToNeg : Pat<
 // Constant Propagation for Sqrt
 def SqrtofConst :  Pat<
     // From  onnx.Sqrt(c)
-    (ONNXSqrtOp:$sqrtOp (ONNXConstantOp:$constOp $s, $v)),
+    (ONNXSqrtOp:$sqrtOp (ONNXConstantOp:$constOp $s, $v, $_, $_, $_, $_, $_, $_)),
     // To sqrt(c)
     (CreateSqrtOfConst $sqrtOp, $constOp),
     [(AttributeIsNull:$s)]>;
@@ -197,7 +199,7 @@ def SqrtofConst :  Pat<
 // Use commutativity to normalize constants in the second position of Mul.
 def MulConstCommutative1 : Pat<
   // From mul(c, x).
-  (ONNXMulOp (ONNXConstantOp:$c $_, $_), $x),
+  (ONNXMulOp (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_), $x),
   // To mul(x, c).
   (ONNXMulOp $x, $c),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
@@ -207,8 +209,8 @@ def MulConstCommutative1 : Pat<
 def MulConstAssociative1 : Pat<
   // From mul(mul(x, c1), c2).
   (ONNXMulOp
-    (ONNXMulOp $x,(ONNXConstantOp:$c1 $_, $_)),
-    (ONNXConstantOp:$c2 $_, $_)),
+    (ONNXMulOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_)),
   // To mul(x, mul(c1, c2)).
   (ONNXMulOp
     $x,
@@ -218,7 +220,7 @@ def MulConstAssociative1 : Pat<
 def MulConstAssociative2 : Pat<
   // From mul(mul(x, c), y).
   (ONNXMulOp
-    (ONNXMulOp $x,(ONNXConstantOp:$c $_, $_)),
+    (ONNXMulOp $x,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
     $y),
   // To mul(mul(x, y), c).
   (ONNXMulOp
@@ -230,7 +232,7 @@ def MulConstAssociative3 : Pat<
   // From mul(x, mul(y, c)).
   (ONNXMulOp
     $x,
-    (ONNXMulOp $y,(ONNXConstantOp:$c $_, $_))),
+    (ONNXMulOp $y,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_))),
   // To mul(mul(x, y), c).
   (ONNXMulOp
     (ONNXMulOp $x, $y),
@@ -240,8 +242,8 @@ def MulConstAssociative3 : Pat<
 def MulConstAssociative4 : Pat<
   // From mul(mul(x, c1), mul(y, c2)).
   (ONNXMulOp
-    (ONNXMulOp $x,(ONNXConstantOp:$c1 $_, $_)),
-    (ONNXMulOp $y,(ONNXConstantOp:$c2 $_, $_))),
+    (ONNXMulOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXMulOp $y,(ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
   // To mul(mul(x, y), c1+c2).
   (ONNXMulOp
     (ONNXMulOp $x, $y),
@@ -251,7 +253,8 @@ def MulConstAssociative4 : Pat<
 // Constant Propagation for Mul
 def MulConstProp : Pat<
     // From mul(c1, c2).
-    (ONNXMulOp:$mulOp (ONNXConstantOp:$lhs $s1, $v1), (ONNXConstantOp:$rhs $s2, $v2)),
+    (ONNXMulOp:$mulOp (ONNXConstantOp:$lhs $s1, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$rhs $s2, $_, $_, $_, $_, $_, $_, $_)),
     // To c1+c2
     (CreateMulOfTwoConst $mulOp, $lhs, $rhs),
     // Mulitional constraints (no sparse)
@@ -260,7 +263,8 @@ def MulConstProp : Pat<
 // Constant Propagation for Div 
 def DivConstProp : Pat<
     // From div(c1, c2).
-    (ONNXDivOp:$divOp (ONNXConstantOp:$lhs $s1, $v1), (ONNXConstantOp:$rhs $s2, $v2)),
+    (ONNXDivOp:$divOp (ONNXConstantOp:$lhs $s1, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$rhs $s2, $_, $_, $_, $_, $_, $_, $_)),
     // To c1/c2
     (CreateDivOfTwoConst $divOp, $lhs, $rhs),
     // Division constraints (no sparse)
@@ -274,7 +278,7 @@ def DivConstProp : Pat<
 // Neg of constant is simly -const
 def TransposeofConst :  Pat<
     // From TransposeOp(c, p)
-    (ONNXTransposeOp:$resOp (ONNXConstantOp:$constOp $s, $_), $_),
+    (ONNXTransposeOp:$resOp (ONNXConstantOp:$constOp $s, $_, $_, $_, $_, $_, $_, $_), $_),
     // To c' where c' is transposed attribute
     (CreateTransposeOfConst $resOp, $constOp),
     [(AttributeIsNull:$s)]>;
@@ -285,9 +289,9 @@ def TransposeofConst :  Pat<
 
 def UnsqueezeofConst :  Pat<
     // From Unsqueeze (c, axis)
-    (ONNXUnsqueezeOp:$resOp (ONNXConstantOp:$input $s, $v), $_),
+    (ONNXUnsqueezeOp:$resOp (ONNXConstantOp:$constOp $s, $v, $_, $_, $_, $_, $_, $_), $_),
     // To c' where c' is the unsqueezed value.
-    (CreateUnsqueezeOfConst $resOp, $input),
+    (CreateUnsqueezeOfConst $resOp, $constOp),
     [(AttributeIsNull:$s)]>;
 
 
