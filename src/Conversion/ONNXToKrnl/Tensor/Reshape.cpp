@@ -35,9 +35,9 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     SmallVector<int64_t, 4> shapeAttrValues;
     DenseElementsAttr shapeAttr;
     if (getONNXConstantOp(reshapeOp.shape())) {
-        shapeAttr = getONNXConstantOp(reshapeOp.shape())
-                        .valueAttr()
-                        .dyn_cast_or_null<DenseElementsAttr>();
+      shapeAttr = getONNXConstantOp(reshapeOp.shape())
+                      .valueAttr()
+                      .dyn_cast_or_null<DenseElementsAttr>();
     }
     if (shapeAttr) {
       auto shapeAttrIt = shapeAttr.getValues<IntegerAttr>().begin();
