@@ -430,6 +430,8 @@ public:
   Location getLoc() const { return getScope().getLoc(); }
   int64_t getLiteral() const;
   AffineExpr getAffineExpr() const;
+  void getAffineMapAndOperands(
+      AffineMap &map, SmallVectorImpl<Value> &operands) const;
   Value getValue() const;
 
   // Possibly Affine Operations. Return a new IndexExpr
@@ -495,6 +497,9 @@ public:
 
   // Debug (enable using DEBUG=1 at top of file).
   void debugPrint(const std::string &msg) const;
+
+  bool retrieveAffineMinMax(
+      bool &isMin, SmallVectorImpl<Value> &vals, AffineMap &map) const;
 
 protected:
   // Private queries.

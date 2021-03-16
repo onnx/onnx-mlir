@@ -72,6 +72,8 @@ struct IndexExprImpl {
   IndexExprKind getKind() const;
   int64_t getLiteral() const;
   AffineExpr getAffineExpr();
+  void getAffineMapAndOperands(
+      AffineMap &map, SmallVectorImpl<Value> &operands);
   Value getValue();
 
   // Data.

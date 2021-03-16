@@ -299,6 +299,38 @@ using namespace mlir::edsc;
 using namespace mlir::edsc::ops;
 using namespace mlir::edsc::intrinsics;
 
+static void affineLoopBuilder(ValueRange lbOperands, AffineMap &lbMap,
+    ValueRange ubOperands, AffineMap &ubMap, int64_t step,
+    function_ref<void(Value)> bodyBuilderFn) {
+  // Fetch the builder and location.
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  OpBuilder &builder = ScopedContext::getBuilderRef();
+  Location loc = ScopedContext::getLocation();
+
+  // Create the actual loop and call the body builder, if provided, after
+  // updating the scoped context.
+  builder.create<AffineForOp>(loc, lbOperands, lbMap, ubOperands, ubMap, step,
+      llvm::None,
+      [&](OpBuilder &nestedBuilder, Location nestedLoc, Value iv,
+          ValueRange itrArgs) {
+        if (bodyBuilderFn) {
+          ScopedContext nestedContext(nestedBuilder, nestedLoc);
+          OpBuilder::InsertionGuard guard(nestedBuilder);
+          bodyBuilderFn(iv);
+        }
+        nestedBuilder.create<AffineYieldOp>(nestedLoc);
+      });
+}
+
+static void affineLoopBuilder(IndexExpr lb, IndexExpr ub, int64_t step,
+    function_ref<void(Value)> bodyBuilderFn) {
+  AffineMap lbMap, ubMap;
+  SmallVector<Value, 8> lbOperands, ubOperands;
+  lb.getAffineMapAndOperands(lbMap, lbOperands);
+  ub.getAffineMapAndOperands(ubMap, ubOperands);
+  affineLoopBuilder(lbOperands, lbMap, ubOperands, ubMap, step, bodyBuilderFn);
+}
+
 // Affine expressions compared to >= 0
 static IndexExpr isFullTile(IndexExpr UB, IndexExpr block, IndexExpr GI) {
   // Determine if the current tile is full. It is full if the begining of
@@ -575,31 +607,31 @@ private:
 
     // For i, j loops.
     using namespace edsc::op;
-    Value zero = std_constant_index(0);
-    Value i, j;
+    LiteralIndexExpr zero(0);
+    Value jSaved;
     // clang-format off
-    affineLoopNestBuilder({zero, zero}, {N.getValue(), M.getValue()},
-        {1, 1}, [&](ValueRange ivs) {
-      // Defines induction variables, and possibly initialize C.
-      i = ivs[0];
-      j = ivs[1];
-      // Alloc and init temp c storage.
-      Value TmpC = std_alloca(CTmpType);
-      AffineIndexedValue TTmpC(TmpC);
-      TTmpC() = CC(i + CStart0.getValue(), j + CStart1.getValue());
-      // Sum over k.
-      affineLoopBuilder(zero, K.getValue(), 1, [&](Value k) {
-        TTmpC() = AA(i + AStart0.getValue(), k + AStart1.getValue()) *
-          BB(k + BStart0.getValue(), j + BStart1.getValue()) +
-          TTmpC();
+    affineLoopBuilder(zero, N, 1, [&](Value i) {
+      affineLoopBuilder(zero, M, 1, [&](Value j) {
+        // Defines induction variables, and possibly initialize C.
+        jSaved = j;
+        // Alloc and init temp c storage.
+        Value TmpC = std_alloca(CTmpType);
+        AffineIndexedValue TTmpC(TmpC);
+        TTmpC() = CC(i + CStart0.getValue(), j + CStart1.getValue());
+        // Sum over k.
+        affineLoopBuilder(zero, K, 1, [&](Value k) {
+          TTmpC() = AA(i + AStart0.getValue(), k + AStart1.getValue()) *
+            BB(k + BStart0.getValue(), j + BStart1.getValue()) +
+            TTmpC();
+        });
+        // Store temp result into C(i, j)
+        CC(i + CStart0.getValue(), j + CStart1.getValue()) = TTmpC();
       });
-      // Store temp result into C(i, j)
-      CC(i + CStart0.getValue(), j + CStart1.getValue()) = TTmpC();
     });
     // clang-format on
     if (unrollJam && M.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
-      auto lj = getForInductionVarOwner(j);
+      auto lj = getForInductionVarOwner(jSaved);
       LogicalResult res = loopUnrollJamByFactor(lj, M.getLiteral());
       assert(res.succeeded() && "failed to optimize");
     }
@@ -644,7 +676,6 @@ private:
     Value CVec =
         rewriter.create<KrnlVectorTypeCastOp>(op.getLoc(), CVecType, C);
 
-
     // IndexExprScope newScope;
     // SymbolIndexExpr nnTrip(nTrip), mmTrip(mTrip), kkTrip(kTrip);
     // DimIndexExpr nnStart(nStart), mmStart(mStart), kkStart(kStart);
@@ -654,16 +685,16 @@ private:
     // Iterates over the I indices (j are simd dim).
     Value iSaved;
     using namespace edsc::op;
-    Value zero = std_constant_index(0);
+    LiteralIndexExpr zero(0);
     // clang-format off
-    affineLoopBuilder(zero, nTrip.getValue(), 1, [&](Value i) {
+    affineLoopBuilder(zero, nTrip, 1, [&](Value i) {
       iSaved = i; // Saved for unroll and jam.
       // Alloca temp vector TmpC and save C(i)/0.0 into it.
       Value TmpC = std_alloca(CTmpType);
       AffineIndexedValue TTmpC(TmpC);
       TTmpC() = CCvec(i + CStart0.getValue(), CVecStart1.getValue());
       // Sum over k.
-      affineLoopBuilder(zero, kTrip.getValue(), 1, [&](Value k) {
+      affineLoopBuilder(zero, kTrip, 1, [&](Value k) {
         Value a = AA(i + AStart0.getValue(), k + AStart1.getValue());
         Value va = vector_broadcast(vecType, a);
         Value vb = BBVec(k + BStart0.getValue(), BVecStart1.getValue());
@@ -835,7 +866,7 @@ public:
         SmallVector<IndexExpr, 4> currLoadIndices;
         getIndexExprList<DimIndexExpr>(starts, currStarts);
         for (long i = 0; i < rank; ++i) {
-          currLoadIndices.emplace_back(currLoopIndices[i] /*aee + currStarts[i]*/);
+          currLoadIndices.emplace_back(currLoopIndices[i] + currStarts[i]);
         }
         Value sourceVal = krnl_load(sourceMemref, currLoadIndices);
         krnl_store(sourceVal, buffMemref, currLoopIndices);
@@ -848,7 +879,7 @@ public:
       if (readUBs[i].isLiteralAndIdenticalTo(0)) {
         // Nothing to read, skip.
       } else {
-        affineLoopBuilder(zero.getValue(), readUBVal, 1, [&](Value index) {
+        affineLoopBuilder(zero, readUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
           genCopyLoops(buffMemref, sourceMemref, padVal, zero, starts, readUBs,
               padUBs, loopIndices, i + 1, rank,
@@ -856,11 +887,10 @@ public:
           loopIndices.pop_back_n(1);
         });
       }
-      //aee
-      if (true || padUBs[i].isLiteralAndIdenticalTo(0)) {
+      if (padUBs[i].isLiteralAndIdenticalTo(0)) {
         // No padding needed.
       } else {
-        affineLoopBuilder(readUBVal, padUBs[i].getValue(), 1, [&](Value index) {
+        affineLoopBuilder(readUBs[i], padUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
           genCopyLoops(buffMemref, sourceMemref, padVal, zero, starts, readUBs,
               padUBs, loopIndices, i + 1, rank,
@@ -945,12 +975,11 @@ public:
       krnl_store(sourceVal, sourceMemref, currStoreIndices);
     } else {
       using namespace edsc::op;
-      Value writeUBVal = writeUBs[i].getValue();
       if (writeUBs[i].isLiteralAndIdenticalTo(0)) {
         // Nothing to write.
       } else {
         // Loop to copy the data.
-        affineLoopBuilder(zero.getValue(), writeUBVal, 1, [&](Value index) {
+        affineLoopBuilder(zero, writeUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
           genCopyLoops(buffMemref, sourceMemref, zero, starts, writeUBs,
               loopIndices, i + 1, rank);

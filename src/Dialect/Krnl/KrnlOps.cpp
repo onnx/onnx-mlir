@@ -328,8 +328,6 @@ void KrnlDummyCastOp::build(
 // KrnlVectorTypeCastOp
 //===----------------------------------------------------------------------===//
 
-//aee Value KrnlVectorTypeCastOp::getViewSource() { return source(); }
-
 bool KrnlVectorTypeCastOp::areCastCompatible(Type a, Type b) {
   auto aT = a.dyn_cast<MemRefType>();
   auto bT = b.dyn_cast<MemRefType>();

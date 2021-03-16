@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 // both debug variables will be removed once debugging is complete.
-#define DEBUG 1
+#define DEBUG 0
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/IndexExprDetail.hpp"
@@ -253,6 +253,11 @@ AffineExpr IndexExpr::getAffineExpr() const { return getObj().getAffineExpr(); }
 
 Value IndexExpr::getValue() const { return getObj().getValue(); }
 
+void IndexExpr::getAffineMapAndOperands(
+    AffineMap &map, SmallVectorImpl<Value> &operands) const {
+  getObj().getAffineMapAndOperands(map, operands);
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExpr private getter.
 //===----------------------------------------------------------------------===//
@@ -318,6 +323,7 @@ void IndexExpr::debugPrint(const std::string &msg) const {
     break;
   }
   printf(" scope(0x%llx)\n", (long long unsigned)getScopePtr());
+
 #endif
 }
 
