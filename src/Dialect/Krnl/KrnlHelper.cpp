@@ -16,7 +16,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/AffineExpr.h"
 
-#include "KrnlOps.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 #include "KrnlHelper.hpp"
 
@@ -167,12 +167,12 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
   if (expr.isLiteral()) {
     pushConstantBound(expr.getLiteral());
   } else if (expr.isAffine() && !expr.isPredType()) {
-    int dimNum = expr.getContext().getNumDims();
-    int symNum = expr.getContext().getNumSymbols();
+    int dimNum = expr.getScope().getNumDims();
+    int symNum = expr.getScope().getNumSymbols();
     AffineMap map = AffineMap::get(dimNum, symNum, {expr.getAffineExpr()},
         expr.getRewriter().getContext());
     SmallVector<Value, 4> list;
-    expr.getContext().getDimAndSymbolList(list);
+    expr.getScope().getDimAndSymbolList(list);
     pushAffineMapBound(map, list);
   } else {
     // Assume the expr is loop invariant if there is any outer loop
@@ -188,12 +188,12 @@ void KrnlIterateOperandPack::pushIndexExprsBound(
     AEVector.push_back(expr.getAffineExpr());
   }
   IndexExpr expr = exprVector.front();
-  int dimNum = expr.getContext().getNumDims();
-  int symNum = expr.getContext().getNumSymbols();
+  int dimNum = expr.getScope().getNumDims();
+  int symNum = expr.getScope().getNumSymbols();
   AffineMap map =
       AffineMap::get(dimNum, symNum, AEVector, builder.getContext());
   SmallVector<Value, 4> list;
-  expr.getContext().getDimAndSymbolList(list);
+  expr.getScope().getDimAndSymbolList(list);
   pushAffineMapBound(map, list);
 }
 

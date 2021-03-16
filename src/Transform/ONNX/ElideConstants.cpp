@@ -51,8 +51,9 @@ public:
       return emitError(loc, "Only support dense values at this time");
 
     if (constOp->value().hasValue()) {
-      auto newConstOp = rewriter.create<ONNXConstantOp>(
-          loc, constOp->getResult().getType(), nullptr, nullptr);
+      auto newConstOp = rewriter.create<ONNXConstantOp>(loc,
+          constOp->getResult().getType(), nullptr, nullptr, nullptr, nullptr,
+          nullptr, nullptr, nullptr, nullptr);
       rewriter.replaceOp(op, newConstOp.getResult());
     }
     return success();
@@ -72,7 +73,8 @@ public:
     OwningRewritePatternList patterns;
     patterns.insert<ConstantValueElision>(&getContext());
 
-    applyPatternsAndFoldGreedily(function, std::move(patterns));
+    LogicalResult res =
+        applyPatternsAndFoldGreedily(function, std::move(patterns));
   }
 };
 } // end anonymous namespace

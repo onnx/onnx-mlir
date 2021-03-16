@@ -67,7 +67,7 @@ version_dict = {'Abs': 6,
  'Compress': 11,
  'Concat': 11,
  'ConcatFromSequence': 11,
- 'Constant': 11,
+ 'Constant': 13,
  'ConstantOfShape': 9,
  'Conv': 11,
  'ConvInteger': 10,
@@ -333,7 +333,7 @@ OpsWithShapeInference=[
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Cast', 'Transpose',
+OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Gemm', 'Cast', 'Transpose',
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
                         'GlobalMaxPool', 'Squeeze', 'Unsqueeze']
 
@@ -404,10 +404,12 @@ custom_definition_misc = dict([ ('Constant',
   OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    } else {
     auto tensorType = sparse_value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    }
   }]>
   ];'''),

@@ -3,11 +3,11 @@
 import datetime
 import docker
 import fasteners
+import git
 import hashlib
 import json
 import logging
 import os
-import re
 import requests
 import sys
 
@@ -23,23 +23,20 @@ docker_registry_host_name   = os.getenv('DOCKER_REGISTRY_HOST_NAME')
 docker_registry_user_name   = os.getenv('DOCKER_REGISTRY_USER_NAME')
 docker_registry_login_name  = os.getenv('DOCKER_REGISTRY_LOGIN_NAME')
 docker_registry_login_token = os.getenv('DOCKER_REGISTRY_LOGIN_TOKEN')
-github_repo_access_token    = os.getenv('GITHUB_REPO_ACCESS_TOKEN')
 github_repo_name            = os.getenv('GITHUB_REPO_NAME')
 github_repo_name2           = os.getenv('GITHUB_REPO_NAME').replace('-', '_')
 github_pr_number            = os.getenv('GITHUB_PR_NUMBER')
 github_pr_number2           = os.getenv('GITHUB_PR_NUMBER2')
 
-LLVM_PROJECT_SHA1_FILE      = 'utils/clone-mlir.sh'
-LLVM_PROJECT_SHA1_REGEX     = 'git checkout ([0-9a-f]+)'
-LLVM_PROJECT_DOCKERFILE     = 'docker/Dockerfile.llvm-project'
-LLVM_PROJECT_GITHUB_URL     = 'https://api.github.com/repos/llvm/llvm-project'
-LLVM_PROJECT_IMAGE          = { 'static': github_repo_name + '-llvm-static',
-                                'shared': github_repo_name + '-llvm-shared' }
-BUILD_SHARED_LIBS           = { 'static': 'off',
-                                'shared': 'on' }
-LLVM_PROJECT_LABELS         = [ 'llvm_project_sha1',
-                                'llvm_project_sha1_date',
-                                'llvm_project_dockerfile_sha1' ]
+LLVM_PROJECT_IMAGE          = { 'dev': github_repo_name + '-llvm-static',
+                                'usr': github_repo_name + '-llvm-shared' }
+PROJECT_IMAGE               = { 'dev': github_repo_name + '-dev',
+                                'usr': github_repo_name }
+PROJECT_DOCKERFILE          = { 'dev': 'docker/Dockerfile.' + github_repo_name + '-dev',
+                                'usr': 'docker/Dockerfile.' + github_repo_name }
+PROJECT_LABELS              = [ github_repo_name2 + '_sha1',
+                                github_repo_name2 + '_sha1_date',
+                                github_repo_name2 + '_dockerfile_sha1' ]
 
 GITHUB_REPO_NAME            = github_repo_name.upper()
 GITHUB_REPO_NAME2           = github_repo_name2.upper()
@@ -59,31 +56,6 @@ def valid_sha1_date(sha1_date):
     except:
         return False
 
-# Extract a regex pattern from a file. Used to get llvm-project sha1
-# from utils/clone-mlir.sh.
-def extract_pattern_from_file(file_name, regex_pattern):
-    try:
-        for line in open(file_name):
-            matched = re.search(re.compile(regex_pattern), line)
-            if matched:
-                return matched.group(1)
-    except:
-        return ''
-
-# Get the author commit date of a commit sha
-def get_repo_sha1_date(github_repo, commit_sha1, access_token):
-    try:
-        resp = requests.get(
-            url = github_repo + '/commits/' + commit_sha1,
-            headers = { 'Accept': 'application/json',
-                        'Authorization': 'token ' + access_token
-            })
-        resp.raise_for_status()
-        return resp.json()['commit']['committer']['date']
-    except:
-        logging.info(sys.exc_info()[1])
-        return ''
-
 # Compute sha1 of a file
 def compute_file_sha1(file_name):
     sha1sum = hashlib.sha1()
@@ -95,14 +67,41 @@ def compute_file_sha1(file_name):
     except:
         return ''
 
+# Get project repo commit sha1 and date we are expecting to build
+# from the local pull request repo.
+def get_proj_repo_info(image_type, local_repo):
+    repo = git.Repo(local_repo)
+    exp_proj_repo_sha1 = repo.head.commit.hexsha
+    exp_proj_repo_sha1_date = datetime.datetime.utcfromtimestamp(
+        repo.head.commit.committed_date).isoformat() + 'Z'
+
+    exp_proj_repo_dockerfile_sha1 = compute_file_sha1(
+        PROJECT_DOCKERFILE[image_type])
+
+    # Labels used to filter local images
+    exp_proj_repo_filter = { 'label': [
+        github_repo_name2 + '_sha1=' + exp_proj_repo_sha1,
+        github_repo_name2 + '_dockerfile_sha1=' + exp_proj_repo_dockerfile_sha1 ] }
+
+    logging.info('%s expected', PROJECT_IMAGE[image_type])
+    logging.info('commit sha1:     %s', exp_proj_repo_sha1)
+    logging.info('commit date:     %s', exp_proj_repo_sha1_date)
+    logging.info('dockerfile sha1: %s', exp_proj_repo_dockerfile_sha1)
+    logging.info('image filter:    %s', exp_proj_repo_filter)
+
+    return { github_repo_name2 + '_sha1': exp_proj_repo_sha1,
+             github_repo_name2 + '_sha1_date': exp_proj_repo_sha1_date,
+             github_repo_name2 + '_dockerfile_sha1': exp_proj_repo_dockerfile_sha1,
+             github_repo_name2 + '_filter': exp_proj_repo_filter }
+
 # Make REST call to get the v1 or v2 manifest of an image from
 # private docker registry
 def get_image_manifest_private(host_name, user_name, image_name, image_tag,
                                schema_version, login_name, login_token):
     resp = requests.get(
-        url = 'https://' + host_name + '/v2/' +
-              (user_name + '/' if user_name else '') +
-              image_name + '/manifests/' + image_tag,
+        url = ('https://' + host_name + '/v2/' +
+               (user_name + '/' if user_name else '') +
+               image_name + '/manifests/' + image_tag),
         headers = { 'Accept': DOCKER_DIST_MANIFESTS[schema_version] },
         auth = (login_name, login_token))
     resp.raise_for_status()
@@ -112,10 +111,10 @@ def get_image_manifest_private(host_name, user_name, image_name, image_tag,
 # public docker registry
 def get_access_token(user_name, image_name, action, login_name, login_token):
     resp = requests.get(
-        url = 'https://auth.docker.io/token' +
-              '?service=registry.docker.io' +
-              '&scope=repository:' +
-              (user_name + '/' if user_name else '') + image_name + ':'+ action,
+        url = ('https://auth.docker.io/token' +
+               '?service=registry.docker.io' +
+               '&scope=repository:' +
+               (user_name + '/' if user_name else '') + image_name + ':'+ action),
         auth = (login_name, login_token))
     resp.raise_for_status()
     return resp.json()['token']
@@ -177,60 +176,38 @@ def get_remote_image_labels(host_name, user_name, image_name, image_tag,
         logging.info(sys.exc_info()[1])
         return ''
 
-# From the pull request source, extract expected llvm-project sha1, sha1 date,
-# and dockerfile sha1.
-def extract_llvm_info():
-    exp_llvm_project_sha1  = extract_pattern_from_file(LLVM_PROJECT_SHA1_FILE,
-                                                       LLVM_PROJECT_SHA1_REGEX)
-    exp_llvm_project_sha1_date = get_repo_sha1_date(LLVM_PROJECT_GITHUB_URL,
-                                                    exp_llvm_project_sha1,
-                                                    github_repo_access_token)
-    exp_llvm_project_dockerfile_sha1 = compute_file_sha1(LLVM_PROJECT_DOCKERFILE)
-
-    # Labels used to filter local images
-    exp_llvm_project_filter = { 'label': [
-        'llvm_project_sha1=' + exp_llvm_project_sha1,
-        'llvm_project_dockerfile_sha1=' + exp_llvm_project_dockerfile_sha1 ] }
-
-    logging.info('llvm-project expected')
-    logging.info('commit sha1:     %s', exp_llvm_project_sha1)
-    logging.info('commit date:     %s', exp_llvm_project_sha1_date)
-    logging.info('dockerfile sha1: %s', exp_llvm_project_dockerfile_sha1)
-    logging.info('image filter:    %s', exp_llvm_project_filter)
-
-    return { 'llvm_project_sha1': exp_llvm_project_sha1,
-             'llvm_project_sha1_date': exp_llvm_project_sha1_date,
-             'llvm_project_dockerfile_sha1': exp_llvm_project_dockerfile_sha1,
-             'llvm_project_filter': exp_llvm_project_filter }
-
-# Pull or build llvm-project images, which is required for building our
-# onnx-mlir dev and user images. Each pull request will be using its own
-# "private" llvm-project images, which have the pull request number as
-# the image tag.
-def setup_private_llvm(image_type, exp):
+# Build project dev and user images.
+def build_private_project(image_type, exp):
     host_name    = docker_registry_host_name
     user_name    = docker_registry_user_name
     login_name   = docker_registry_login_name
     login_token  = docker_registry_login_token
-    image_name   = LLVM_PROJECT_IMAGE[image_type]
+    image_name   = PROJECT_IMAGE[image_type]
     image_tag    = github_pr_number
     image_repo   = ((host_name + '/' if host_name else '') +
                     (user_name + '/' if user_name else '') +
                     image_name)
     image_full   = image_repo + ':' + image_tag
     image_arch   = image_repo + ':' + cpu_arch
-    image_filter = exp['llvm_project_filter']
-    image_labels = LLVM_PROJECT_LABELS
+    image_filter = exp[github_repo_name2 + '_filter']
+    image_labels = PROJECT_LABELS
 
-    # First look for a local llvm-project image for the pull request that
-    # was built by a previous build job. We can use it if it has both the
-    # expected llvm-project sha1 and Dockerfile.llvm-project sha1 (i.e.,
-    # the pull request did not modify the Dockerfile.llvm-project that was
-    # used to build the llvm-project image.
+    # First look for a local project image for the pull request that
+    # was built by a previous build job. We can use it if it has the
+    # expected project repo sha1, which means that the repo hasn't changed.
+    # This is useful for situations where we trigger the build by the
+    # "{test|publish} this please" comment phrase for various testing
+    # purposes without actually changing the repo itself, e.g.,
+    # testing different Jenkins job configurations.
+    #
+    # Note that, unlike the case with llvm-project images, we don't need
+    # to check the dockerfile sha1 used to built the onnx-mlir images
+    # because the dockerfile is part of onnx-mlir. If we changed it, then
+    # onnx-mlir commit sha1 would have changed.
     id = docker_api.images(name = image_full, filters = image_filter,
                            all = False, quiet = True)
 
-    # If a local useable llvm-project image was not found, see if we can
+    # If a local useable project image was not found, see if we can
     # pull one from the registry.
     if not id:
         # Acquire read lock to pull the arch image. This is to serialize
@@ -242,12 +219,10 @@ def setup_private_llvm(image_type, exp):
             labels = get_remote_image_labels(host_name, user_name, image_name, cpu_arch,
                                              image_labels, login_name, login_token)
 
-            # Image in registry has expected llvm-project commit sha1 and
-            # Dockerfile.llvm-project sha1, pull and tag it with pull request
-            # number for our private use.
+            # Image in registry has expected onnx-mlir commit sha1, pull and
+            # tag it with pull request number for our private use.
             if (labels and
-                labels['llvm_project_sha1'] == exp['llvm_project_sha1'] and
-                labels['llvm_project_dockerfile_sha1'] == exp['llvm_project_dockerfile_sha1']):
+                labels[github_repo_name2 + '_sha1'] == exp[github_repo_name2 + '_sha1']):
 
                 for line in docker_api.pull(image_repo, tag = cpu_arch,
                                             stream = True, decode = True):
@@ -268,66 +243,51 @@ def setup_private_llvm(image_type, exp):
                 logging.info('image %s (%s) tagged', image_full, id[0][0:19])
                 return
         except:
-            labels['llvm_project_sha1_date'] = ''
+            logging.info(sys.exc_info()[1])
         # Remove arch image and release lock regardless of exception or not
         finally:
             docker_rwlock.release_read_lock()
             logging.info('released read lock for pulling %s', image_arch)
 
-        # Build llvm-project locally if one of the following is true
+        # Build project locally if one of the following is true
         #
         # - image in registry does not exist
         # - pull image failed
-        # - image in registry has an invalid llvm-project commit sha1 date
-        #   (should never happen)
-        # - expected llvm-project commit sha1 date is invalid (fetch sha1
-        #   date failed)
-        # - image in registry has an llvm-project commit sha1 date earlier
-        #   than what we expect (registry image out of date)
+        # - image in registry has a project repo commit sha1 different
+        #   from what we expect
         #
-        # Note that if pull failed labels['llvm_project_sha1_date'] will
-        # be cleared to make valid_sha1_date false.
-        if (not labels or
-            not valid_sha1_date(labels['llvm_project_sha1_date']) or
-            not valid_sha1_date(exp['llvm_project_sha1_date']) or
-            labels['llvm_project_sha1_date'] <= exp['llvm_project_sha1_date']):
-            for line in docker_api.build(
-                    path = '.',
-                    dockerfile = LLVM_PROJECT_DOCKERFILE,
-                    tag = image_full,
-                    decode = True,
-                    rm = True,
-                    buildargs = {
-                        'BUILD_SHARED_LIBS': BUILD_SHARED_LIBS[image_type],
-                        'LLVM_PROJECT_SHA1': exp['llvm_project_sha1'],
-                        'LLVM_PROJECT_SHA1_DATE': exp['llvm_project_sha1_date'],
-                        'LLVM_PROJECT_DOCKERFILE_SHA1': exp['llvm_project_dockerfile_sha1'],
-                        GITHUB_REPO_NAME2 + '_PR_NUMBER': github_pr_number,
-                        GITHUB_REPO_NAME2 + '_PR_NUMBER2': github_pr_number2
-                    }):
-                print(line['stream'] if 'stream' in line else '',
-                      end='', flush=True)
-                if 'error' in line:
-                    raise Exception(line['error'])
+        for line in docker_api.build(
+                path = '.',
+                dockerfile = PROJECT_DOCKERFILE[image_type],
+                tag = image_repo + ':' + github_pr_number,
+                decode = True,
+                rm = True,
+                buildargs = {
+                    'BASE_IMAGE': ((host_name + '/' if host_name else '') +
+                                   (user_name + '/' if user_name else '') +
+                                   LLVM_PROJECT_IMAGE[image_type] + ':' +
+                                   github_pr_number),
+                    GITHUB_REPO_NAME2 + '_SHA1': exp[github_repo_name2 + '_sha1'],
+                    GITHUB_REPO_NAME2 + '_SHA1_DATE': exp[github_repo_name2 + '_sha1_date'],
+                    GITHUB_REPO_NAME2 + '_DOCKERFILE_SHA1': exp[github_repo_name2 + '_dockerfile_sha1'],
+                    GITHUB_REPO_NAME2 + '_PR_NUMBER': github_pr_number,
+                    GITHUB_REPO_NAME2 + '_PR_NUMBER2': github_pr_number2
+                }):
+            print(line['stream'] if 'stream' in line else '',
+                  end='', flush=True)
+            if 'error' in line:
+                raise Exception(line['error'])
 
-            id = docker_api.images(name = image_full,
-                                   all = False, quiet = True)
-            logging.info('image %s (%s) built', image_full, id[0][0:19])
-
-        # Registry image has an llvm-project commit sha1 date later than what
-        # we expect, the build source is out of date. Exit to fail the build,
-        # regardless of Dockerfile.llvm-project sha1 being expected or not.
-        else:
-            raise Exception('PR source out of date, rebase then rebuild')
+        id = docker_api.images(name = image_full, all = False, quiet = True)
+        logging.info('image %s (%s) built', image_full, id[0][0:19])
 
     # Found useable local image
     else:
         logging.info('image %s (%s) found', image_full, id[0][0:19])
 
 def main():
-    exp = extract_llvm_info()
-    setup_private_llvm('static', exp)
-    setup_private_llvm('shared', exp)
+    build_private_project('dev', get_proj_repo_info('dev', '.'))
+    build_private_project('usr', get_proj_repo_info('usr', '.'))
 
 if __name__ == "__main__":
     main()

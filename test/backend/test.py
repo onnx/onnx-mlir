@@ -125,6 +125,9 @@ test_to_enable_static_dynamic = {
     "test_and_bcast4v4d_cpu": (test_static_dynamic,),
 
     # Argmax
+    "test_argmax_no_keepdims_example_cpu": (test_static_dynamic,),
+    "test_argmax_keepdims_example_cpu": (test_static_dynamic,),
+    "test_argmax_default_axis_example_cpu": (test_static_dynamic,),
 
     # Argmin
 
@@ -749,6 +752,7 @@ test_to_enable_static_dynamic = {
     "test_shufflenet_cpu": (test_static,),
     "test_resnet50_cpu": (test_static,),
     "test_vgg19_cpu": (test_static,),
+    "test_inception_v1_cpu": (test_static,),
 }
 
 # test for static

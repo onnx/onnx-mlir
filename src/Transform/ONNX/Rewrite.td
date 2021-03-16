@@ -49,8 +49,33 @@ def createArrayAttrOfOneToRankOf : NativeCodeCall<
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
   "createArrayAttrOfNToM($_builder, 2, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
+def ONNXConstantOpNormalize: NativeCodeCall<
+  "normalizeConstantOp($_builder, $0, $1)">;
+
+def AttributeIsNotNull :
+    Constraint<CPred<" ($_self) ">, "Attribute is null">;
+
+// Intended to check whether there is at least one not-Null the attributes 
+// However, the current table gen can only support max 4 parameters
+// Multiple rules are used instead of one rule
+def AttributesNotAllNull :
+  Constraint<Neg<And<[CPred<"($0)">, CPred<" ($1) ">, CPred<" ($2) ">]>>,
+  "Attributes are not null">;
+
 def GetNullAttr :
    NativeCodeCall<"Attribute()">;
+
+def GetNullFloatAttr :
+        NativeCodeCall<"FloatAttr()">;
+
+def GetNullIntegerAttr :
+        NativeCodeCall<"IntegerAttr()">;
+
+def GetNullStringAttr :
+        NativeCodeCall<"StringAttr()">;
+
+def GetNullArrayAttr :
+        NativeCodeCall<"ArrayAttr()">;
 
 // Create a StringAttr from a string.
 class StringAttrOfValue<string val>:
@@ -134,8 +159,7 @@ def FuseBatchNormTestModeConvPattern: Pat<
               (ONNXSqrtOp
                  (ONNXAddOp
                     $var,
-                    (ONNXConstantOp
-                       (GetNullAttr),
+                    (ONNXConstantOpFromDenseAttr
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
            (createArrayAttrOfOneToRankOf $w))),
      // b_
@@ -157,16 +181,20 @@ def IsStaticShapeTensor:
 def ShapeToConstantPattern: Pat<
      (ONNXShapeOp $A),
      (ONNXConstantOp
-        (GetNullAttr),
-        (createDenseElementsAttrFromShape $A)),
+        (GetNullAttr), (createDenseElementsAttrFromShape $A),
+        (GetNullFloatAttr), (GetNullArrayAttr), (GetNullIntegerAttr),
+        (GetNullArrayAttr), (GetNullStringAttr), (GetNullArrayAttr)
+     ),
      [(IsStaticShapeTensor:$A)]
 >;
 
 def SizeToConstantPattern: Pat<
      (ONNXSizeOp $A),
      (ONNXConstantOp
-        (GetNullAttr),
-        (createDenseElementsAttrFromSize $A)),
+        (GetNullAttr), (createDenseElementsAttrFromSize $A),
+        (GetNullFloatAttr), (GetNullArrayAttr), (GetNullIntegerAttr),
+        (GetNullArrayAttr), (GetNullStringAttr), (GetNullArrayAttr)
+     ),
      [(IsStaticShapeTensor:$A)]
 >;
 
@@ -180,6 +208,48 @@ def GlobalAveragePoolPattern: Pat<
 def GlobalMaxPoolPattern: Pat<
   (ONNXGlobalMaxPoolOp $x),
   (ONNXReduceMaxOp $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
+>;
+
+def ConstantOpNormalizationPattern1: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $floatAttr),
+   [(AttributeIsNotNull:$floatAttr)]
+>;
+
+def ConstantOpNormalizationPattern2: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $intAttr),
+   [(AttributeIsNotNull:$intAttr)]
+>;
+
+def ConstantOpNormalizationPattern3: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $stringAttr),
+   [(AttributeIsNotNull:$stringAttr)]
+>;
+
+def ConstantOpNormalizationPattern4: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $floatsAttr),
+   [(AttributeIsNotNull:$floatsAttr)]
+>;
+
+def ConstantOpNormalizationPattern5: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $intsAttr),
+   [(AttributeIsNotNull:$intsAttr)]
+>;
+
+def ConstantOpNormalizationPattern6: Pat<
+   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr, 
+       $intsAttr, $stringAttr, $stringsAttr),
+   (ONNXConstantOpNormalize $res, $stringsAttr),
+   [(AttributeIsNotNull:$stringsAttr)]
 >;
 
 #endif // ONNX_REWRITE

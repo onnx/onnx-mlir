@@ -257,9 +257,9 @@ def process_line(i, line):
     # change a]] -> 1]*
     new_line = re.sub(r'(\d)\s*\]\]', '\g<1>]{{.}}', new_line)
     if re.match(r'\s+func', line) is not None:
-        # Split function line into 2 lines.
+        # Split function line into 2 lines. Should make private optional
         new_line = re.sub(
-            r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'\n// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\3', new_line)
+            r'(\s+)(func\sprivate\s+@[\w]+)\s*(\(.*)', r'\n// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\3', new_line)
         print(new_line)
     else:
         if line_color[i] == curr_parallel_color:
