@@ -85,5 +85,7 @@ int64_t ArrayAttrIntVal(ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
 
 DenseElementsAttr getDenseElementAttributeFromValue(Value value);
+Value getONNXConstantOpFromDenseAttr(
+    PatternRewriter &rewriter, Location loc, Attribute dense);
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
 Type getBroadcastedRankedType(Type type1, Type type2);

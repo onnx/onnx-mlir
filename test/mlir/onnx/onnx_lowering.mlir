@@ -801,11 +801,14 @@ func private @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   // CHECK: [[RES:%.+]] = alloc() : memref<10x10xf32>
   // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CST_0:%.+]] = constant 0xFF800000 : f32
-  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to 10) {
+  // CHECK: [[OUTER_LOOP:%.+]] = krnl.define_loops 1
+  // CHECK: krnl.iterate([[OUTER_LOOP]]) with ([[OUTER_LOOP]] -> %arg1 = 0 to 10) {
   // CHECK: krnl.store [[CST]], [[SUM]][] : memref<f32>
   // CHECK: krnl.store [[CST_0]], [[MAX]][] : memref<f32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: [[INNER_MAX_LOOP:%.+]] = krnl.define_loops 1
+  // CHECK: [[INNER_SUM_LOOP:%.+]] = krnl.define_loops 1
+  // CHECK: [[INNER_SOFTMAX_LOOP:%.+]] = krnl.define_loops 1
+  // CHECK: krnl.iterate([[INNER_MAX_LOOP]]) with ([[INNER_MAX_LOOP]] -> %arg2 = 0 to 10) {
   // CHECK:   [[LOAD1:%.+]] = krnl.load [[MAX]][] : memref<f32>
   // CHECK:   [[LOAD2:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<10x10xf32>
   // CHECK:   [[COND:%.+]] = cmpf ogt, [[LOAD1]], [[LOAD2]] : f32
@@ -813,7 +816,7 @@ func private @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   // CHECK:   krnl.store [[SELECT]], [[MAX]][] : memref<f32>
   // CHECK: }
   // CHECK: [[LOAD_MAX:%.+]] = krnl.load [[MAX]][] : memref<f32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+  // CHECK: krnl.iterate([[INNER_SUM_LOOP]]) with ([[INNER_SUM_LOOP]] -> %arg2 = 0 to 10) {
   // CHECK:   [[LOAD1]] = krnl.load [[SUM]][] : memref<f32>
   // CHECK:   [[LOAD2]] = krnl.load %arg0[%arg1, %arg2] : memref<10x10xf32>
   // CHECK:   [[SUB:%.+]] = subf [[LOAD2]], [[LOAD_MAX]] : f32
@@ -823,7 +826,8 @@ func private @test_softmax(%arg0 : tensor<10x10xf32>) -> tensor<*xf32> {
   // CHECK:   krnl.store [[EXP]], [[RES]][%arg1, %arg2] : memref<10x10xf32>
   // CHECK: }
   // CHECK: [[LOAD_SUM:%.+]] = krnl.load [[SUM]][] : memref<f32>
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
+
+  // CHECK: krnl.iterate([[INNER_SOFTMAX_LOOP]]) with ([[INNER_SOFTMAX_LOOP]] -> %arg2 = 0 to 10) {
   // CHECK:   [[LOAD1]] = krnl.load [[RES]][%arg1, %arg2] : memref<10x10xf32>
   // CHECK:   [[DIV:%.+]] = divf [[LOAD1]], [[LOAD_SUM]] : f32
   // CHECK:   krnl.store [[DIV]], [[RES]][%arg1, %arg2] : memref<10x10xf32>
@@ -1487,26 +1491,6 @@ func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   // CHECK: [[SELECT:%.+]] = select [[LESS_THAN_ZERO]], [[NEGATIVE_LOAD]], [[LOAD]] : i32
   // CHECK: krnl.store [[SELECT]], [[RES]][%arg1, %arg2] : memref<?x10xi32>
   // CHECK: return [[RES]] : memref<?x10xi32>
-}
-
-// -----
-
-func private @test_constant_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {
-  %0 = "onnx.PadConstantValuePad"(%arg0) {constant_value = 0.000000e+00 : f32, mode = "constant", pads = [0, 3, 2, 1]} : (tensor<16x16xf32>) -> tensor<18x20xf32>
-  return %0 : tensor<18x20xf32>
-  // CHECK-LABEL: test_constant_pad1
-  // CHECK: [[RES:%.+]] = alloc() : memref<18x20xf32>
-  // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 18, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 20) {
-  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: krnl.store [[CST]], [[RES]][%arg1, %arg2] : memref<18x20xf32>
-  // CHECK: }
-  // CHECK: [[DEF_LOOPS2:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 16, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 16) {
-  // CHECK: [[ADD:%.+]] = affine.apply #{{.*}}(%arg2)
-  // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<16x16xf32>
-  // CHECK: krnl.store [[LOAD]], [[RES]][%arg1, [[ADD]]] : memref<18x20xf32>
-  // CHECK: }
 }
 
 func private @test_pad1(%arg0: tensor<16x16xf32>) -> tensor<18x20xf32> {

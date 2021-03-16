@@ -47,16 +47,6 @@ func @test_identity_identity(%a0: tensor<10x10xf32>, %a1: tensor<10x10xf32>) -> 
 
 // -----
 
-// CHECK-LABEL: @test_constant_pad(%{{.*}}: tensor<?x?xf32>) -> tensor<*xf32> {
-func @test_constant_pad(%arg0 : tensor<?x?xf32>) -> tensor<*xf32> {
-  // CHECK-NEXT: [[SQUARE:%.+]] = "onnx.PadConstantValuePad"(%arg0) {constant_value = 0.000000e+00 : f32, mode = "constant", pads = [0, 2, 0, 0]} : (tensor<?x?xf32>) -> tensor<*xf32> 
-  %0 ="onnx.Constant"() {value=[0, 2, 0, 0]} : ()-> tensor<?xi64>
-  %2 = "onnx.PadConstantValue"(%arg0, %0) {constant_value=0. : f32, mode = "constant"} : (tensor<?x?xf32>, tensor<?xi64>)-> tensor<*xf32>
-  "std.return"(%2) : (tensor<*xf32>) -> ()
-}
-
-// -----
-
 //CHECK-LABEL: @test_gemm_add_fusion(%{{.*}}: tensor<128x128xf32>, %{{.*}}: tensor<128x128xf32>, %{{.*}}: tensor<128xf32>) -> tensor<*xf32> {
 func @test_gemm_add_fusion(%arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128xf32>) -> tensor<*xf32> {
   %cst = constant unit
@@ -350,4 +340,36 @@ func @test_should_not_remove_null_axes_squeeze_unsqueeze(%arg0 : tensor<1x10x1x1
   // CHECK: {{.*}} = "onnx.Squeeze"{{.*}}
   // CHECK: {{.*}} = "onnx.Unsqueeze"{{.*}}
   // CHECK: return {{.*}}
+}
+
+// -----
+
+func @test_constant_1() -> tensor<i64> {
+  %0 = "onnx.Constant"() {value_int = 1 : si64} : () -> tensor<i64>
+  return %0 : tensor<i64>
+// CHECK-LABEL:       func @test_constant_1
+// CHECK:           [[VAR_0:%.+]] = "onnx.Constant"() {value = dense<1> : tensor<1xi64>} : () -> tensor<i64>
+// CHECK:           return [[VAR_0]] : tensor<i64>
+}
+
+
+// -----
+
+func @test_constant_2() -> tensor<f32> {
+  %0 = "onnx.Constant"() {value_float = 2.0 : f32 } : () -> tensor<f32>
+  return %0 : tensor<f32>
+// CHECK-LABEL:     func @test_constant_2 
+// CHECK: [[VAR_0:%.+]] = "onnx.Constant"() {value = dense<2.000000e+00> : tensor<1xf32>} : () -> tensor<f32>
+// CHECK: return [[VAR_0]] : tensor<f32>
+}
+
+// -----
+
+func @test_constant_1() -> tensor<?xi64> {
+  %0 = "onnx.Constant"() {value_ints = [1, 2, 3] } : () -> tensor<?xi64>
+  return %0 : tensor<?xi64>
+// CHECK-LABEL:       func @test_constant_1       
+// CHECK-SAME:     () -> tensor<?xi64> {
+// CHECK:           [[VAR_0:%.+]] = "onnx.Constant"() {value = dense<[1, 2, 3]> : tensor<3xi64>} : () -> tensor<?xi64>
+// CHECK:           return [[VAR_0]] : tensor<?xi64>
 }
