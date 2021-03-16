@@ -14,13 +14,14 @@
 //===----------------------------------------------------------------------===//
 
 // both debug variables will be removed once debugging is complete.
-#define DEBUG 0
+#define DEBUG 1
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/IndexExprDetail.hpp"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/IR/Operation.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -280,8 +281,17 @@ void IndexExpr::debugPrint(const std::string &msg) const {
     printf(" literal(%lli)", getLiteral());
   if (hasAffineExpr())
     printf(" hasAffine");
-  if (hasValue())
+  if (hasValue()) {
     printf(" hasValue");
+    auto op = getValue().getDefiningOp();
+    if (op) {
+      std::string str;
+      llvm::raw_string_ostream os(str);
+      op->print(os);
+      printf("( \"%s\" )", str.c_str());
+    } else
+      printf("(op not found)");
+  }
   if (isAffine())
     printf(" is affine");
   switch (getKind()) {
@@ -1256,18 +1266,43 @@ IndexExpr MemRefBoundIndexCapture::getSymbol(uint64_t i) {
   return get<SymbolIndexExpr>(i);
 }
 
-void MemRefBoundIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
-  return getList<DimIndexExpr>(dimList);
+// Assert if not a literal.
+IndexExpr MemRefBoundIndexCapture::getLiteral(uint64_t i) {
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  if (shape[i] >= 0) {
+    // We have a constant dimension.
+    int64_t intVal = shape[i];
+    return LiteralIndexExpr(intVal);
+  }
+  llvm_unreachable("expected a literal");
 }
 
-void MemRefBoundIndexCapture::getSymbolList(SmallVectorImpl<IndexExpr> &symbolList) {
-  return getList<SymbolIndexExpr>(symbolList);
+void MemRefBoundIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
+  getList<DimIndexExpr>(dimList);
+}
+
+void MemRefBoundIndexCapture::getSymbolList(
+    SmallVectorImpl<IndexExpr> &symbolList) {
+  getList<SymbolIndexExpr>(symbolList);
+}
+
+void MemRefBoundIndexCapture::getLiteralList(
+    SmallVectorImpl<IndexExpr> &literalList) {
+  // Clear output.
+  literalList.clear();
+  // Scan type and shape.
+  int size = tensorOrMemref.getType().cast<ShapedType>().getShape().size();
+  // Scan tensor or memref.
+  for (int i = 0; i < size; ++i)
+    literalList.emplace_back(getLiteral(i));
 }
 
 template <class INDEX>
 IndexExpr MemRefBoundIndexCapture::get(uint64_t i) {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
+  assert(i < shape.size() && "index out of bound");
   if (shape[i] >= 0) {
     // We have a constant dimension.
     int64_t intVal = shape[i];
@@ -1288,9 +1323,8 @@ template <class INDEX>
 void MemRefBoundIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   // Clear output.
   list.clear();
-  // Scan type and shape, bail if incompatible.
-  ShapedType type = tensorOrMemref.getType().cast<ShapedType>();
-  int size = type.getShape().size();
+  // Scan type and shape.
+  int size = tensorOrMemref.getType().cast<ShapedType>().getShape().size();
   // Scan tensor or memref.
   for (int i = 0; i < size; ++i)
     list.emplace_back(get<INDEX>(i));

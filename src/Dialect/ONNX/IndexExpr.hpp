@@ -655,8 +655,10 @@ class MemRefBoundIndexCapture {
 public:
   MemRefBoundIndexCapture(Value tensorOrMemref);
 
+  IndexExpr getLiteral(uint64_t i); // Assert if bound is not compile time.
   IndexExpr getDim(uint64_t i);
   IndexExpr getSymbol(uint64_t i);
+  void getLiteralList(SmallVectorImpl<IndexExpr> &literalList);
   void getDimList(SmallVectorImpl<IndexExpr> &dimList);
   void getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
 
