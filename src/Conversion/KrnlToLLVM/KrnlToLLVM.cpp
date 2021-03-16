@@ -1188,7 +1188,7 @@ private:
 // KRNL to LLVM: KrnlVectorTypeCastOpLowering
 //===----------------------------------------------------------------------===//
 
-//struct KrnlVectorTypeCastOpLowering
+// struct KrnlVectorTypeCastOpLowering
 //    : public ConvertOpToLLVMPattern<KrnlVectorTypeCastOp> {
 //  using ConvertOpToLLVMPattern<KrnlVectorTypeCastOp>::ConvertOpToLLVMPattern;
 class KrnlVectorTypeCastOpLowering : public ConvertToLLVMPattern {
@@ -1198,8 +1198,7 @@ public:
       : ConvertToLLVMPattern(
             KrnlVectorTypeCastOp::getOperationName(), context, lowering_) {}
 
-  LogicalResult matchAndRewrite(Operation *op,
-      ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     auto krnlVectorTypeCastOp = cast<KrnlVectorTypeCastOp>(op);
     MemRefType sourceType =
