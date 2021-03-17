@@ -715,10 +715,11 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", []> {
     Index: $nGlobalStart, Index: $mGlobalStart, Index: $kGlobalStart,
     Index: $nGlobalUB, Index: $mGlobalUB, Index: $kGlobalUB,
     OptionalAttr<I64ArrayAttr>:$computeTileSize,
-    OptionalAttr<I64ArrayAttr>:$ATileSize,
-    OptionalAttr<I64ArrayAttr>:$BTileSize,
-    OptionalAttr<I64ArrayAttr>:$CTileSize,
+    OptionalAttr<I64ArrayAttr>:$aTileSize,
+    OptionalAttr<I64ArrayAttr>:$bTileSize,
+    OptionalAttr<I64ArrayAttr>:$cTileSize,
     DefaultValuedAttr<BoolAttr, "true">:$simdize,
+    DefaultValuedAttr<BoolAttr, "true">:$unroll,
     DefaultValuedAttr<BoolAttr, "false">:$overcompute);
 
   let parser = ?;

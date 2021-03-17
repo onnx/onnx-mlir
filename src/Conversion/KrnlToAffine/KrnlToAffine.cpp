@@ -611,6 +611,9 @@ public:
     Location loc = op.getLoc();
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
 
+    // Option.
+    bool fullUnrollAndJam = op.unroll();
+
     // Operands and types.
     Type elementType =
         operandAdaptor.A().getType().cast<MemRefType>().getElementType();
@@ -627,7 +630,7 @@ public:
     // specified by an optional argument. That allows A/B/C memrefs to be
     // padded if needed for SIMD/unroll and jam, for example.
     aBounds.getLiteralList(ATileSize);
-    ArrayAttributeIndexCapture ASizeCapture(op.ATileSizeAttr());
+    ArrayAttributeIndexCapture ASizeCapture(op.aTileSizeAttr());
     if (ASizeCapture.size()) {
       int memSize0 = ATileSize[0].getLiteral();
       int memSize1 = ATileSize[1].getLiteral();
@@ -638,7 +641,7 @@ public:
              "A tile size cannot be larger than the A buffer size (1 dim)");
     }
     bBounds.getLiteralList(BTileSize);
-    ArrayAttributeIndexCapture BSizeCapture(op.BTileSizeAttr());
+    ArrayAttributeIndexCapture BSizeCapture(op.bTileSizeAttr());
     if (BSizeCapture.size()) {
       int memSize0 = BTileSize[0].getLiteral();
       int memSize1 = BTileSize[1].getLiteral();
@@ -649,7 +652,7 @@ public:
              "B tile size cannot be larger than the B buffer size (1 dim)");
     }
     cBounds.getLiteralList(CTileSize);
-    ArrayAttributeIndexCapture CSizeCapture(op.CTileSizeAttr());
+    ArrayAttributeIndexCapture CSizeCapture(op.cTileSizeAttr());
     if (CSizeCapture.size()) {
       int memSize0 = CTileSize[0].getLiteral();
       int memSize1 = CTileSize[1].getLiteral();
@@ -754,6 +757,9 @@ public:
     SmallVector<IndexExpr, 4> allFullTiles = {
         nIsFullTile, mIsFullTile, kIsFullTile};
     SmallVector<IndexExpr, 4> mFullTiles = {mIsFullTile};
+    nIsFullTile.debugPrint("n full");
+    mIsFullTile.debugPrint("m full");
+    kIsFullTile.debugPrint("k full");
     // And if the tiles are not full, determine how many elements to compute.
     // With overcompute, this could be relaxed.
     IndexExpr nTrip = trip(
@@ -774,7 +780,7 @@ public:
         /* then full */ [&](ValueRange) {
         genSimd(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
           BVecStart1,  CStart0,  CVecStart1, nComputeTileSize, mComputeTileSize, 
-          kComputeTileSize,  vectorLen, false); // true
+          kComputeTileSize,  vectorLen, fullUnrollAndJam); 
       }, /* has some partial tiles */ [&](ValueRange) {
         // Trip regardless of full/partial for N & K
         // Test if SIMD dim (M) is full.
@@ -804,7 +810,7 @@ public:
         /* then full */ [&](ValueRange) {
         genScalar(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
           BStart1,  CStart0,  CStart1, nComputeTileSize, mComputeTileSize, 
-          kComputeTileSize, false); // true
+          kComputeTileSize, fullUnrollAndJam); 
       }, /* else partial */ [&](ValueRange) {
         genScalar(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
           BStart1,  CStart0,  CStart1, nTrip, mTrip, kTrip, false);
