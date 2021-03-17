@@ -473,7 +473,7 @@ inline bool omTensorAreTwoOmtsClose(
   // (rtol * b + atol) - abs(a - b)
   std::transform(eqAllclose.begin(), eqAllclose.end(), absoluteDiff.begin(),
       eqAllclose.begin(), std::minus<>());
-  bool satisfied = all_of(
+  bool satisfied = std::all_of(
       eqAllclose.begin(), eqAllclose.end(), [&](T eq) { return eq >= 0; });
 
   if (satisfied) {
