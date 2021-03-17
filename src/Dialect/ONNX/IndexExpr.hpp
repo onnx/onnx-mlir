@@ -235,10 +235,10 @@ compile time sizes, -1 for runtime sizes).
       {
          IndexExprScope innerScope;
          SymbolIndexExpr s1(d1); // in the inner scope, make a symbol out of the
-outer scope dim index expr d1.
+                                 // outer scope dim index expr d1.
         // ...
-        // innerScope is deleted, and its enclosing scope becomes the active
-scope again.
+        // innerScope is deleted, and its enclosing scope becomes
+        // the active scope again.
     }
 
     // Back to the outer scope
