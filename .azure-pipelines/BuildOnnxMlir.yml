@@ -93,8 +93,12 @@ steps:
     inputs:
       sourceFolder: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
       contents: |
-        bin/onnx-mlir*
-        bin/$(CMakeBuildConfiguration)/onnx-mlir*
+        bin/onnx-mlir
+        bin/onnx-mlir-opt
+        bin/$(CMakeBuildConfiguration)/onnx-mlir.exe
+        bin/$(CMakeBuildConfiguration)/onnx-mlir.pdb
+        bin/$(CMakeBuildConfiguration)/onnx-mlir-opt.exe
+        bin/$(CMakeBuildConfiguration)/onnx-mlir-opt.pdb
       targetFolder: '$(Build.ArtifactStagingDirectory)/onnx-mlir/bin'
       cleanTargetFolder: true
       flattenFolders: true
