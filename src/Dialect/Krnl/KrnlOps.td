@@ -639,3 +639,17 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
   }];
 
 }
+
+def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel"> {
+  let summary = "Krnl specialized kernel op";
+  let description = [{
+    Krnl operation to convert.
+  }];
+
+  let arguments = (ins Variadic<AnyType> : $loops);
+  let results = (outs );
+
+  let assemblyFormat = [{
+      `(` $loops `)` attr-dict `:` type($loops)
+  }];
+}

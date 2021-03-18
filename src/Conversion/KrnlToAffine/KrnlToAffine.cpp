@@ -388,11 +388,13 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
             loopsToTile, blockOp.tile_sizeAttr().getInt(), &tiledLoops))) {
       return failure();
     }
+
     assert(tiledLoops.size() == 2);
     assert(blockOp.getNumResults() == 2);
 
     // Record the tiled loop references, and their corresponding tiled
     // for loops in loopRefToLoop.
+    loopRefToOp.erase(loopRefToOp.find_as(blockOp.loop()));
     loopRefToOp[blockOp.getResult(0)] = tiledLoops[0];
     loopRefToOp[blockOp.getResult(1)] = tiledLoops[1];
 
@@ -404,6 +406,13 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     std::transform(permuteOp.operand_begin(), permuteOp.operand_end(),
         std::back_inserter(loopsToPermute),
         [&](const Value &val) { return loopRefToOp[val]; });
+
+    //    auto func = permuteOp->getParentOfType<FuncOp>();
+    //    auto tempInsertPt = func.body().front().without_terminator().end();
+    //    for (auto& forOp: loopsToPermute) {
+    //      auto &loopBody = forOp.getLoopBody().front();
+    //
+    //    }
 
     // Construct permutation map from integer array attribute.
     SmallVector<unsigned int, 4> permuteMap;
@@ -523,9 +532,10 @@ public:
  * @param builder operation builder.
  * @param mover loop body mover.
  */
-void markLoopBodyAsMovable(
-    KrnlIterateOp root, OpBuilder builder, LoopBodyMover &mover) {
+void markLoopBodyAsMovable(KrnlIterateOp root, OpBuilder builder,
+    LoopBodyMover &mover, Block::iterator staging) {
   auto &bodyRegion = root.bodyRegion();
+  builder.setInsertionPointAfter(&*staging);
 
   if (root.getNumOptimizedLoops() == 0)
     return;
@@ -544,14 +554,12 @@ void markLoopBodyAsMovable(
       if (movableBegin == delimeterOp->getIterator())
         continue;
 
-      // Extract region & transfer them into a movable op.
-      builder.setInsertionPoint(delimeterOp);
       auto movableOp = builder.create<KrnlMovableOp>(delimeterOp->getLoc());
       auto &movableRegion = movableOp.region();
       auto *entryBlock = new Block;
       movableRegion.push_back(entryBlock);
       entryBlock->getOperations().splice(entryBlock->end(),
-          block.getOperations(), movableBegin, movableOp->getIterator());
+          block.getOperations(), movableBegin, delimeterOp->getIterator());
       KrnlMovableOp::ensureTerminator(
           movableRegion, builder, delimeterOp->getLoc());
 
@@ -568,9 +576,17 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   FuncOp funcOp = getFunction();
 
+  auto stagingArea = funcOp.body().front().without_terminator().end();
   LoopBodyMover mover;
-  funcOp.walk(
-      [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
+  funcOp.walk([&](KrnlIterateOp op) {
+    markLoopBodyAsMovable(op, builder, mover, stagingArea);
+  });
+
+  //  llvm::SmallVector<Value, 4> loopsToDrop;
+  //  funcOp->walk([&](KrnlSpecializedKernel op) {
+  //    for (auto loop : op.getOperands())
+  //      loopsToDrop.emplace_back(loop);
+  //  });
 
   // Interpret krnl dialect operations while looping recursively through
   // operations within the current function, note that erasing operations while
@@ -585,6 +601,15 @@ void ConvertKrnlToAffinePass::runOnFunction() {
     return;
   }
 
+  funcOp->walk([&](KrnlSpecializedKernel op) {
+    builder.setInsertionPoint(op);
+    for (auto loopRef : op.getOperands())
+      opsToErase.insert(loopRefToOp[loopRef]);
+
+    builder.create<KrnlSpecializedKernel>(op.getLoc(), ValueRange{});
+    op->erase();
+  });
+
   // Remove lowered operations topologically; if ops are not removed
   // topologically, memory error will occur.
   size_t numOpsToRemove = opsToErase.size();
@@ -593,7 +618,16 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   // can only have a maximum of N passes through opsToErase.
   for (size_t i = 0; i < numOpsToRemove; i++) {
     for (auto op : opsToErase) {
-      if (op->use_empty()) {
+      bool safeToDelete = op->use_empty();
+      safeToDelete &= llvm::all_of(op->getRegions(), [](Region &region) {
+        return llvm::all_of(region.getBlocks(), [](Block &block) {
+          return (block.getOperations().size() == 0) ||
+                 (block.getOperations().size() == 1 &&
+                     block.getOperations().front().isKnownTerminator());
+        });
+      });
+
+      if (safeToDelete) {
         op->erase();
         opsToErase.erase(op);
         // Restart, itr has been invalidated.
