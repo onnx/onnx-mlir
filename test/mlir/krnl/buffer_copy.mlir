@@ -300,7 +300,7 @@ func @copy_to_nested(%p0 : index, %p1 : index) -> () {
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 40 step 10 {
 // CHECK:             affine.for [[I_1_:%.+]] = 0 to 10 {
 // CHECK:               affine.for [[I_2_:%.+]] = 0 to 60 {
-// CHECK:                 [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]]{{.}}[[I_1_]] + [[I_0_]], [[I_2_]]{{.}} : memref<40x60xf32>
+// CHECK:                 [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]]{{.*}} + {{.*}}, [[I_2_]]{{.}} : memref<40x60xf32>
 // CHECK:                 affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_1_]], [[I_2_]]{{.}} : memref<10x60xf32>
 // CHECK:               }
 // CHECK:             }
@@ -330,7 +330,7 @@ func @copy_to_nested_partial(%p0 : index, %p1 : index) -> () {
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 45 step 10 {
 // CHECK:             affine.for [[I_1_:%.+]] = 0 to min #map([[I_0_]]) {
 // CHECK:               affine.for [[I_2_:%.+]] = 0 to 60 {
-// CHECK:                 [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]]{{.}}[[I_1_]] + [[I_0_]], [[I_2_]]{{.}} : memref<45x60xf32>
+// CHECK:                 [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]]{{.*}} + {{.*}}, [[I_2_]]{{.}} : memref<45x60xf32>
 // CHECK:                 affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_1_]], [[I_2_]]{{.}} : memref<10x60xf32>
 // CHECK:               }
 // CHECK:             }
