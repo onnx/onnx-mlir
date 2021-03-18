@@ -149,9 +149,11 @@ find_mlir_lib(MLIRAffine)
 find_mlir_lib(MLIRAffineUtils)
 find_mlir_lib(MLIRAffineToStandard)
 find_mlir_lib(MLIRAffineTransforms)
+find_mlir_lib(MLIRAMX)
+find_mlir_lib(MLIRAMXTransforms)
 find_mlir_lib(MLIRAnalysis)
 find_mlir_lib(MLIRAVX512)
-find_mlir_lib(MLIRAVX512ToLLVM)
+find_mlir_lib(MLIRAVX512Transforms)
 find_mlir_lib(MLIRCallInterfaces)
 find_mlir_lib(MLIRControlFlowInterfaces)
 find_mlir_lib(MLIRCopyOpInterface)
@@ -161,7 +163,6 @@ find_mlir_lib(MLIREDSC)
 find_mlir_lib(MLIRExecutionEngine)
 find_mlir_lib(MLIRInferTypeOpInterface)
 find_mlir_lib(MLIRIR)
-find_mlir_lib(MLIRLLVMAVX512)
 find_mlir_lib(MLIRLLVMIR)
 find_mlir_lib(MLIRLoopAnalysis)
 find_mlir_lib(MLIRSCFToStandard)
@@ -171,6 +172,7 @@ find_mlir_lib(MLIRLinalgEDSC)
 find_mlir_lib(MLIRLinalgAnalysis)
 find_mlir_lib(MLIRLinalgTransforms)
 find_mlir_lib(MLIRLinalgUtils)
+find_mlir_lib(MLIRMemRef)
 find_mlir_lib(MLIRSCF)
 find_mlir_lib(MLIRSCFTransforms)
 find_mlir_lib(MLIRLLVMIRTransforms)
@@ -190,7 +192,6 @@ find_mlir_lib(MLIRSideEffectInterfaces)
 find_mlir_lib(MLIRTargetLLVMIRExport)
 find_mlir_lib(MLIRTargetLLVMIRImport)
 find_mlir_lib(MLIRToLLVMIRTranslationRegistration)
-find_mlir_lib(MLIRLLVMAVX512ToLLVMIRTranslation)
 find_mlir_lib(MLIRLLVMToLLVMIRTranslation)
 find_mlir_lib(MLIRNVVMToLLVMIRTranslation)
 find_mlir_lib(MLIROpenMPToLLVMIRTranslation)
@@ -253,10 +254,11 @@ set(MLIRLibs
         ${MLIRAffineToStandard}
         ${MLIRAffine}
         ${MLIRAffineUtils}
-        ${MLIRAVX512ToLLVM}
+        ${MLIRAMX}
+        ${MLIRAMXTransforms}
         ${MLIRAVX512}
+        ${MLIRAVX512Transforms}
         ${MLIRCopyOpInterface}
-        ${MLIRLLVMAVX512}
         ${MLIRLLVMIR}
         ${MLIRStandard}
         ${MLIRStandardOpsTransforms}
@@ -277,7 +279,6 @@ set(MLIRLibs
         ${MLIRTargetLLVMIRExport}
         ${MLIRTargetLLVMIRImport}
         ${MLIRToLLVMIRTranslationRegistration}
-        ${MLIRLLVMAVX512ToLLVMIRTranslation}
         ${MLIRLLVMToLLVMIRTranslation}
         ${MLIRNVVMToLLVMIRTranslation}
         ${MLIROpenMPToLLVMIRTranslation}
@@ -317,6 +318,7 @@ set(MLIRLibs
         ${MLIRLinalgAnalysis}
         ${MLIRLinalgTransforms}
         ${MLIRLinalgUtils}
+        ${MLIRMemRef}
         ${MLIRAffineEDSC}
         ${MLIRLinalgEDSC}
         ${MLIRViewLikeInterface}

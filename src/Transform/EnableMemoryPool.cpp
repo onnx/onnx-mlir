@@ -27,7 +27,7 @@ using namespace mlir;
 
 namespace {
 
-bool checkOpResultIsReturned(AllocOp *allocOp) {
+bool checkOpResultIsReturned(memref::AllocOp *allocOp) {
   FuncOp function = getContainingFunction(allocOp->getOperation());
 
   bool opIsReturned = false;
@@ -51,12 +51,12 @@ bool checkOpResultIsReturned(AllocOp *allocOp) {
  *  For now, to enable testing, offset will always be 0.
  */
 
-class KrnlEnableMemoryPool : public OpRewritePattern<AllocOp> {
+class KrnlEnableMemoryPool : public OpRewritePattern<memref::AllocOp> {
 public:
-  using OpRewritePattern<AllocOp>::OpRewritePattern;
+  using OpRewritePattern<memref::AllocOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      AllocOp allocOp, PatternRewriter &rewriter) const override {
+      memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
 
     auto memRefType = allocOp.getResult().getType().dyn_cast<MemRefType>();
@@ -79,7 +79,7 @@ public:
     if (checkOpResultIsUsedByGetRef(&allocOp))
       return failure();
 
-    AllocOp newAlloc;
+    memref::AllocOp newAlloc;
     SmallVector<int64_t, 1> memPoolShape;
     if (hasAllConstantDimensions(memRefType)) {
       // Compute total size.
@@ -89,7 +89,7 @@ public:
       memPoolShape.emplace_back(totalSize);
       auto memPoolMemRefType =
           MemRefType::get(memPoolShape, rewriter.getIntegerType(8));
-      newAlloc = rewriter.create<AllocOp>(
+      newAlloc = rewriter.create<memref::AllocOp>(
           loc, memPoolMemRefType, allocOp.alignmentAttr());
     } else {
       memPoolShape.emplace_back(-1);
@@ -98,12 +98,12 @@ public:
 
       Value dyanmicTotalSize =
           getDynamicMemRefSizeInBytes(memRefType, loc, rewriter, allocOp);
-      newAlloc = rewriter.create<AllocOp>(
+      newAlloc = rewriter.create<memref::AllocOp>(
           loc, memPoolMemRefType, dyanmicTotalSize, allocOp.alignmentAttr());
     }
 
     // Emit new dealloc.
-    auto dealloc = rewriter.create<DeallocOp>(loc, newAlloc);
+    auto dealloc = rewriter.create<memref::DeallocOp>(loc, newAlloc);
     auto parentBlock = allocOp.getOperation()->getBlock();
     dealloc.getOperation()->moveBefore(&parentBlock->back());
 
@@ -125,12 +125,12 @@ public:
   }
 };
 
-class KrnlEliminateOldDealloc : public OpRewritePattern<DeallocOp> {
+class KrnlEliminateOldDealloc : public OpRewritePattern<memref::DeallocOp> {
 public:
-  using OpRewritePattern<DeallocOp>::OpRewritePattern;
+  using OpRewritePattern<memref::DeallocOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      DeallocOp deallocOp, PatternRewriter &rewriter) const override {
+      memref::DeallocOp deallocOp, PatternRewriter &rewriter) const override {
     if (auto getRefOp = llvm::dyn_cast<KrnlGetRefOp>(
             deallocOp.getOperand().getDefiningOp())) {
       rewriter.eraseOp(deallocOp);

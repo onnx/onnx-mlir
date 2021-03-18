@@ -38,7 +38,7 @@ typedef std::map<Block *, llvm::SmallSet<int64_t, 16>>
 
 /// Get the total size in bytes used by the getref operations associated
 /// with a given memory pool.
-int64_t getAllocGetRefTotalSize(AllocOp *allocOp) {
+int64_t getAllocGetRefTotalSize(memref::AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
 
   int64_t totalSize = 0;
@@ -84,7 +84,7 @@ std::vector<Operation *> getGetRefStores(KrnlGetRefOp *getRef) {
 
 /// Returns a list of distinct krnl.getref operations in the current
 /// block that use the memory pool.
-SmallVector<KrnlGetRefOp, 4> getAllDistinctGetRefsForAlloc(AllocOp *allocOp) {
+SmallVector<KrnlGetRefOp, 4> getAllDistinctGetRefsForAlloc(memref::AllocOp *allocOp) {
   auto parentBlock = allocOp->getOperation()->getBlock();
   SmallVector<KrnlGetRefOp, 4> getRefs;
 
@@ -519,7 +519,7 @@ public:
       // The second krnl.getref properties:
       // - must use the same static memory pool as the first krnl.getref;
       // - the result must have the same memory footprint as the first.
-      AllocOp allocOfCandidate = getAllocOfGetRef(&candidate);
+      memref::AllocOp allocOfCandidate = getAllocOfGetRef(&candidate);
       if (allocOfCandidate == staticMemPool &&
           getMemRefSizeInBytes(firstGetRef.getResult()) ==
               getMemRefSizeInBytes(candidate.getResult())) {
@@ -633,19 +633,19 @@ public:
 //  %5 = "krnl.getref"(%1, 0)
 //  %6 = "krnl.getref"(%1, 0)
 //
-class KrnlCompactStaticMemoryPools : public OpRewritePattern<AllocOp> {
+class KrnlCompactStaticMemoryPools : public OpRewritePattern<memref::AllocOp> {
 public:
-  using OpRewritePattern<AllocOp>::OpRewritePattern;
+  using OpRewritePattern<memref::AllocOp>::OpRewritePattern;
 
   BlockToCompactedAlignments *blockToStaticPoolAlignments;
   KrnlCompactStaticMemoryPools(MLIRContext *context,
       BlockToCompactedAlignments *_blockToStaticPoolAlignments)
-      : OpRewritePattern<AllocOp>(context) {
+      : OpRewritePattern<memref::AllocOp>(context) {
     blockToStaticPoolAlignments = _blockToStaticPoolAlignments;
   }
 
   LogicalResult matchAndRewrite(
-      AllocOp allocOp, PatternRewriter &rewriter) const override {
+      memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
     auto loc = allocOp.getLoc();
 
     auto memPoolType = allocOp.getResult().getType().dyn_cast<MemRefType>();
@@ -700,7 +700,7 @@ public:
         MemRefType::get(newStaticMemPoolShape, rewriter.getIntegerType(8));
 
     // We need to emit a new alloc of smaller size.
-    AllocOp newStaticMemPool = rewriter.create<AllocOp>(
+    memref::AllocOp newStaticMemPool = rewriter.create<memref::AllocOp>(
         loc, newStaticMemPoolType, allocOp.alignmentAttr());
     newStaticMemPool.getOperation()->moveBefore(allocOp);
 

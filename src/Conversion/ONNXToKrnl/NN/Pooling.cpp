@@ -134,7 +134,7 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
     Location loc, bool insertDealloc, MemRefType memRefType, Value inputOperand,
     ArrayRef<int64_t> kernelShape, ArrayRef<int64_t> pads,
     ArrayRef<int64_t> strides, ArrayRef<int64_t> dilations, bool ceilMode) {
-  AllocOp alloc;
+  memref::AllocOp alloc;
 
   // Shape and rank information related to result and kernel.
   auto resultShape = memRefType.getShape();
@@ -146,7 +146,7 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
   SmallVector<Value, 2> allocOperands;
   for (int i = 0; i < kernelOffset; ++i) {
     if (resultShape[i] < 0) {
-      auto dim = rewriter.create<DimOp>(loc, inputOperand, i);
+      auto dim = rewriter.create<memref::DimOp>(loc, inputOperand, i);
       allocOperands.emplace_back(dim);
     }
   }
@@ -158,7 +158,7 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
       int spatialIndex = i - kernelOffset;
       // Prepare arguments for the affine map.
       SmallVector<Value, 4> dimArgs;
-      dimArgs.emplace_back(rewriter.create<DimOp>(loc, inputOperand, i));
+      dimArgs.emplace_back(rewriter.create<memref::DimOp>(loc, inputOperand, i));
       dimArgs.emplace_back(emitConstantOp(
           rewriter, loc, rewriter.getIndexType(), kernelShape[spatialIndex]));
       dimArgs.emplace_back(
@@ -175,10 +175,10 @@ Value insertAllocAndDeallocForPooling(ConversionPatternRewriter &rewriter,
       allocOperands.emplace_back(dimVal);
     }
   }
-  alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+  alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
   if (insertDealloc) {
     auto *parentBlock = alloc.getOperation()->getBlock();
-    auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+    auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return alloc;
@@ -350,7 +350,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
 
       // 2.1 Emit: output[n][c][ho][wo] = identity
       // Create a local reduction value for output[n][c][ho][wo].
-      Value reductionVal = rewriter.create<AllocaOp>(
+      Value reductionVal = rewriter.create<memref::AllocaOp>(
           loc, MemRefType::get({}, memRefType.getElementType()));
       rewriter.create<KrnlStoreOp>(
           loc, identity, reductionVal, ArrayRef<Value>{});

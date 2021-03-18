@@ -14,14 +14,14 @@ func private @test_reshape_attribute_promotion(%arg0 : tensor<?x10xf32>) -> tens
   // CHECK-DAG:   [[FLOAT_SIZE:%.+]] = constant 4 : i64
   // CHECK-DAG:   [[OUTPUT_SIZE:%.+]] = constant 20 : i64
 
-  // CHECK:       [[DIM_0_:%.+]] = dim %arg0, [[CST_0_]] : memref<?x10xf32>
+  // CHECK:       [[DIM_0_:%.+]] = memref.dim %arg0, [[CST_0_]] : memref<?x10xf32>
   // CHECK:       [[DIM_0_i64:%.+]] = index_cast [[DIM_0_]] : index to i64
   // CHECK:       [[MUL:%.+]] = muli [[DIM_0_i64]], [[FLOAT_SIZE]] : i64
   // CHECK:       [[INPUT_SIZE:%.+]] = muli [[MUL]], [[CST_10_]] : i64
 
   // CHECK:       [[UNKNOWN_DIM_VALUE:%.+]] = divi_signed [[INPUT_SIZE]], [[OUTPUT_SIZE]] : i64
   // CHECK:       [[UNKNOWN_DIM_VALUE_i64:%.+]] = index_cast [[UNKNOWN_DIM_VALUE]] : i64 to index
-  // CHECK:       [[RES_:%.+]] = alloc([[UNKNOWN_DIM_VALUE_i64]]) : memref<?x5xf32>
+  // CHECK:       [[RES_:%.+]] = memref.alloc([[UNKNOWN_DIM_VALUE_i64]]) : memref<?x5xf32>
   // CHECK:       "krnl.memcpy"([[RES_]], %arg0, [[INPUT_SIZE]]) : (memref<?x5xf32>, memref<?x10xf32>, i64) -> ()
   // CHECK:       return [[RES_]] : memref<?x5xf32>
 }

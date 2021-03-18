@@ -94,8 +94,8 @@ public:
   void runOnFunction() override {
     OwningRewritePatternList patterns;
     ConversionTarget target(getContext());
-    target.addLegalDialect<linalg::LinalgDialect, StandardOpsDialect,
-        ONNXOpsDialect>();
+    target.addLegalDialect<linalg::LinalgDialect, memref::MemRefDialect,
+      StandardOpsDialect, ONNXOpsDialect>();
 
     // Signal pass failure (for now) if there are any unconverted matrix
     // multiplications.

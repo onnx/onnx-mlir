@@ -73,6 +73,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::shape::ShapeDialect>();
   registry.insert<mlir::math::MathDialect>();
+  registry.insert<mlir::memref::MemRefDialect>();
   registry.insert<mlir::tvp::TVPDialect>();
   registry.insert<mlir::ONNXOpsDialect>();
   registry.insert<mlir::KrnlOpsDialect>();

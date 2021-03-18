@@ -60,7 +60,7 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
       for (int outIdx = 0, inIdx = 0; outIdx < memRefShape.size(); ++outIdx) {
         Value dimVal = nullptr;
         if (memRefShape[outIdx] < 0) {
-          Value index = rewriter.create<DimOp>(loc, data, inIdx);
+          Value index = rewriter.create<memref::DimOp>(loc, data, inIdx);
           dimVal = rewriter.create<IndexCastOp>(
               loc, index, rewriter.getIntegerType(64));
           allocOperands.emplace_back(index);
@@ -72,10 +72,10 @@ struct ONNXUnsqueezeOpLowering : public ConversionPattern {
         if (std::find(axes.begin(), axes.end(), outIdx) == axes.end())
           inIdx++;
       }
-      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+      alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
       if (insertDealloc) {
-        auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }

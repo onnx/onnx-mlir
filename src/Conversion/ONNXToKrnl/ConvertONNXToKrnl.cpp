@@ -64,15 +64,15 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect,
-      linalg::LinalgDialect, math::MathDialect, shape::ShapeDialect,
-      scf::SCFDialect>();
+      linalg::LinalgDialect, math::MathDialect, memref::MemRefDialect,
+      shape::ShapeDialect, scf::SCFDialect>();
 
   // Use krnl.load/store instead of std.load/store and affine.load/store.
   // krnl.load/store will be lowered to std.load/store and affine.load/store by
   // `convert-krnl-to-affine` pass.
-  target.addIllegalOp<mlir::LoadOp>();
+  target.addIllegalOp<mlir::memref::LoadOp>();
   target.addIllegalOp<mlir::AffineLoadOp>();
-  target.addIllegalOp<mlir::StoreOp>();
+  target.addIllegalOp<mlir::memref::StoreOp>();
   target.addIllegalOp<mlir::AffineStoreOp>();
 
   // std.tanh will be expanded.

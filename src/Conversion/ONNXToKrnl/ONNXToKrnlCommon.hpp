@@ -21,6 +21,7 @@
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/Linalg/IR/LinalgTypes.h"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/StandardOps/Transforms/FuncConversions.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
@@ -301,7 +302,7 @@ void populateLoweringONNXTileOpPattern(
 void populateLoweringONNXFlattenOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
-bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
+bool checkOpResultIsUsedByGetRef(memref::AllocOp *allocOp);
 
 /// This function returns the index in the list of alloc arguments of the
 /// dynamic dimension corresponding to `index` in the MemRef shape.
@@ -312,7 +313,7 @@ bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
 /// In the above alloc the list of alloc arguments is being represented by
 /// %d0, %d1 and %d2. Their indices 0, 1, 2 correspond to `index` values
 /// 1, 2 and 4 in the MemRef shape respectively
-int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);
+int64_t getAllocArgIndex(memref::AllocOp allocOp, int64_t index);
 
 /// This function returns a location with the corresponding ONNX operator name
 /// inside. This is useful when tracing what expanded MLIR instructions

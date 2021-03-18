@@ -5,6 +5,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/PatternMatch.h"
@@ -53,9 +54,9 @@ int64_t ConvertKrnlToStandardPass::kTVPGlobalMemrefNameCounter = 0;
 ///
 /// with
 ///
-///   global_memref "private" constant @tvp_global_memref1 : memref<10xf32> =
+///   memref.global "private" constant @tvp_global_memref1 : memref<10xf32> =
 ///     dense<[-0.631071984, ...]>
-///   %1 = get_global_memref @tvp_global_memref1 : memref<10xf32>
+///   %1 = memref.get_global @tvp_global_memref1 : memref<10xf32>
 class LowerKrnlGlobal : public OpRewritePattern<KrnlGlobalOp> {
 public:
   using OpRewritePattern<KrnlGlobalOp>::OpRewritePattern;
@@ -103,14 +104,14 @@ public:
       auto typeAttr = TypeAttr::get(returnType);
       auto constant = rewriter.getUnitAttr();
       auto globalMemrefOp =
-          rewriter.create<GlobalMemrefOp>(moduleOp.getLoc(), sym_name,
+          rewriter.create<memref::GlobalOp>(moduleOp.getLoc(), sym_name,
               sym_visibility, typeAttr, krnlGlobalOp.valueAttr(), constant);
 
       auto symRefAttr = FlatSymbolRefAttr::get(
           krnlGlobalOp.getContext(), sym_name.getValue());
 
       rewriter.setInsertionPoint(krnlGlobalOp);
-      rewriter.replaceOpWithNewOp<GetGlobalMemrefOp>(
+      rewriter.replaceOpWithNewOp<memref::GetGlobalOp>(
           krnlGlobalOp, returnType, symRefAttr);
 
       return success();

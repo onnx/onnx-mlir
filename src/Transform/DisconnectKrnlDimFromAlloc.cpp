@@ -98,9 +98,9 @@ public:
       // If dimension is static, then we can just emit the constant value.
       result = rewriter.create<ConstantOp>(loc,
           rewriter.getIntegerAttr(rewriter.getIndexType(), memRefShape[index]));
-    } else if (firstArgDefOp && isa<AllocOp>(firstArgDefOp)) {
+    } else if (firstArgDefOp && isa<memref::AllocOp>(firstArgDefOp)) {
       // Get defining operation for the MemRef argument.
-      AllocOp allocOp = dyn_cast<AllocOp>(krnlDimOp.alloc().getDefiningOp());
+      memref::AllocOp allocOp = dyn_cast<memref::AllocOp>(krnlDimOp.alloc().getDefiningOp());
 
       // If dimension is dynamic we need to return the input alloc Value which
       // corresponds to it.
@@ -111,7 +111,7 @@ public:
     } else if (memRefType.getAffineMaps().empty()) {
       // Use a standard DimOp since no map is present.
       result =
-          rewriter.create<DimOp>(loc, krnlDimOp.alloc(), krnlDimOp.index());
+          rewriter.create<memref::DimOp>(loc, krnlDimOp.alloc(), krnlDimOp.index());
     } else {
       llvm_unreachable(
           "dynamic sized MemRef with map must be defined by an AllocOp");

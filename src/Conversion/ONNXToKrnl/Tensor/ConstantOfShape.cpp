@@ -52,11 +52,11 @@ struct ONNXConstantOfShapeOpLowering : public ConversionPattern {
         allocOperands.emplace_back(dimIndex);
       }
       // Allocate memory.
-      alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+      alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
       // Insert deallocation if needed.
       if (insertDealloc) {
         Block *parentBlock = alloc.getDefiningOp()->getBlock();
-        DeallocOp dealloc = rewriter.create<DeallocOp>(loc, alloc);
+        memref::DeallocOp dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
         dealloc.getOperation()->moveBefore(&parentBlock->back());
       }
     }

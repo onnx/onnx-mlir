@@ -35,15 +35,15 @@ func @main_graph(%arg0: memref<1x3x3xf32>, %arg1: memref<1x16x3xf32>, %arg2: mem
     %c288_i64 = constant 288 : i64
     %c240_i64 = constant 240 : i64
     %c192_i64 = constant 192 : i64
-    %1 = alloc() : memref<1x3x4xf32>
-    %2 = alloc() {alignment = 4096 : i64} : memref<172032xi8>
+    %1 = memref.alloc() : memref<1x3x4xf32>
+    %2 = memref.alloc() {alignment = 4096 : i64} : memref<172032xi8>
     %6 = "krnl.getref"(%2, %c90112_i64) : (memref<172032xi8>, i64) -> memref<1x4x1x1x32x64xf32>
     %7 = "krnl.getref"(%2, %c57344_i64) : (memref<172032xi8>, i64) -> memref<1x4x1x1x32x64xf32>
     %8 = "krnl.getref"(%2, %c24576_i64) : (memref<172032xi8>, i64) -> memref<1x4x1x1x32x64xf32>
     %9 = "krnl.getref"(%2, %c16384_i64) : (memref<172032xi8>, i64) -> memref<1x1x1x1x32x64xf32>
     %10 = "krnl.getref"(%2, %c8192_i64) : (memref<172032xi8>, i64) -> memref<1x1x1x1x32x64xf32>
     %11 = "krnl.getref"(%2, %c0_i64) : (memref<172032xi8>, i64) -> memref<1x1x1x1x32x64xf32>
-    %12 = alloc() : memref<1024xi8>
+    %12 = memref.alloc() : memref<1024xi8>
     %18 = "krnl.getref"(%12, %c496_i64) : (memref<1024xi8>, i64) -> memref<1x4xf32>
     %19 = "krnl.getref"(%12, %c480_i64) : (memref<1024xi8>, i64) -> memref<1x4xf32>
     %20 = "krnl.getref"(%12, %c464_i64) : (memref<1024xi8>, i64) -> memref<1x4xf32>
@@ -139,20 +139,20 @@ func @main_graph(%arg0: memref<1x3x3xf32>, %arg1: memref<1x16x3xf32>, %arg2: mem
     }
     "unknown.bar"(%23, %25, %22, %24, %7) : (memref<1x4xf32>, memref<1x4xf32>, memref<1x4xf32>, memref<1x4xf32>, memref<1x4x1x1x32x64xf32>) -> ()
     "unknown.bar"(%19, %21, %18, %20, %6) : (memref<1x4xf32>, memref<1x4xf32>, memref<1x4xf32>, memref<1x4xf32>, memref<1x4x1x1x32x64xf32>) -> ()
-    dealloc %12 : memref<1024xi8>
-    dealloc %2 : memref<172032xi8>
+    memref.dealloc %12 : memref<1024xi8>
+    memref.dealloc %2 : memref<172032xi8>
     return %1 : memref<1x3x4xf32>
 }
 
-// CHECK: [[RES:%.+]] = alloc() : memref<1x3x4xf32>
-// CHECK: [[ALIGNED_MEM_POOL:%.+]] = alloc() {alignment = 4096 : i64} : memref<40960xi8>
+// CHECK: [[RES:%.+]] = memref.alloc() : memref<1x3x4xf32>
+// CHECK: [[ALIGNED_MEM_POOL:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<40960xi8>
 // CHECK: "krnl.getref"([[ALIGNED_MEM_POOL]], %c0_i64) : (memref<40960xi8>, i64) -> memref<1x4x1x1x32x64xf32>
 // CHECK: "krnl.getref"([[ALIGNED_MEM_POOL]], %c0_i64) : (memref<40960xi8>, i64) -> memref<1x4x1x1x32x64xf32>
 // CHECK: "krnl.getref"([[ALIGNED_MEM_POOL]], %c0_i64) : (memref<40960xi8>, i64) -> memref<1x4x1x1x32x64xf32>
 // CHECK: "krnl.getref"([[ALIGNED_MEM_POOL]], %c32768_i64) : (memref<40960xi8>, i64) -> memref<1x1x1x1x32x64xf32>
 // CHECK: "krnl.getref"([[ALIGNED_MEM_POOL]], %c32768_i64) : (memref<40960xi8>, i64) -> memref<1x1x1x1x32x64xf32>
 // CHECK: "krnl.getref"([[ALIGNED_MEM_POOL]], %c32768_i64) : (memref<40960xi8>, i64) -> memref<1x1x1x1x32x64xf32>
-// CHECK: [[MEM_POOL:%.+]] = alloc() : memref<512xi8>
+// CHECK: [[MEM_POOL:%.+]] = memref.alloc() : memref<512xi8>
 // CHECK: "krnl.getref"([[MEM_POOL]], %c0_i64) : (memref<512xi8>, i64) -> memref<1x4xf32>
 // CHECK: "krnl.getref"([[MEM_POOL]], %c16_i64) : (memref<512xi8>, i64) -> memref<1x4xf32>
 // CHECK: "krnl.getref"([[MEM_POOL]], %c32_i64) : (memref<512xi8>, i64) -> memref<1x4xf32>

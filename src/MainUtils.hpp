@@ -21,7 +21,6 @@
 #include "mlir/InitAllDialects.h"
 #include "mlir/Parser.h"
 #include "mlir/Pass/PassManager.h"
-#include "mlir/Target/LLVMIR.h"
 #include "mlir/Transforms/Passes.h"
 
 #include "src/Builder/FrontendDialectTransformer.hpp"

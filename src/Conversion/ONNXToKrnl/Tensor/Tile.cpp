@@ -24,7 +24,7 @@ using namespace mlir;
 Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
     ConversionPatternRewriter &rewriter, bool insertDealloc, Value inputOperand,
     Value repeatsOperand) {
-  AllocOp alloc;
+  memref::AllocOp alloc;
   auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
   auto inputRank = inputShape.size();
   auto outputShape = memRefType.getShape();
@@ -38,16 +38,16 @@ Value insertAllocAndDeallocForTile(MemRefType memRefType, Location loc,
           rewriter.create<KrnlLoadOp>(loc, repeatsOperand, repeatsMemRefVal);
       auto repeatsElementVal = rewriter.create<IndexCastOp>(
           loc, repeatsLoadVal, rewriter.getIndexType());
-      auto dimVal = rewriter.create<DimOp>(loc, inputOperand, i);
+      auto dimVal = rewriter.create<memref::DimOp>(loc, inputOperand, i);
       Value allocDimVal =
           rewriter.create<MulIOp>(loc, dimVal, repeatsElementVal);
       allocOperands.emplace_back(allocDimVal);
     }
   }
-  alloc = rewriter.create<AllocOp>(loc, memRefType, allocOperands);
+  alloc = rewriter.create<memref::AllocOp>(loc, memRefType, allocOperands);
   if (insertDealloc) {
     auto *parentBlock = alloc.getOperation()->getBlock();
-    auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+    auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
     dealloc.getOperation()->moveBefore(&parentBlock->back());
   }
   return alloc;
@@ -189,7 +189,7 @@ struct ONNXTileOpLoweringAlternative : public ConversionPattern {
 
     SmallVector<Value, 4> outputMemRefVal;
     for (int i = 0; i < inputRank; ++i) {
-      auto inputDimSizeVal = rewriter.create<DimOp>(loc, input, i);
+      auto inputDimSizeVal = rewriter.create<memref::DimOp>(loc, input, i);
       if (inputShape[i] != -1) {
         auto inputIndexAE = rewriter.getAffineDimExpr(0);
         auto repeatsIndexAE = rewriter.getAffineDimExpr(1);

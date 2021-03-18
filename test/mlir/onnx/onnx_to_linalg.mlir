@@ -3,9 +3,9 @@
 // CHECK-LABEL:   func @test_lowering(
 // CHECK-SAME:                        %[[VAL_0:.*]]: tensor<16x128xf32>,
 // CHECK-SAME:                        %[[VAL_1:.*]]: tensor<128x32xf32>) {
-// CHECK:           %[[VAL_2:.*]] = alloc() : memref<16x32xf32>
+// CHECK:           %[[VAL_2:.*]] = memref.alloc() : memref<16x32xf32>
 // CHECK:           linalg.matmul ins(%[[VAL_0]], %[[VAL_1]] : tensor<16x128xf32>, tensor<128x32xf32>) outs(%[[VAL_2]] : memref<16x32xf32>)
-// CHECK:           dealloc %[[VAL_2]] : memref<16x32xf32>
+// CHECK:           memref.dealloc %[[VAL_2]] : memref<16x32xf32>
 // CHECK:           return
 // CHECK:         }
 func @test_lowering(%arg0: tensor<16x128xf32>, %arg1: tensor<128x32xf32>) -> () {

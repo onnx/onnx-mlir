@@ -51,7 +51,7 @@ public:
 
     // Create MemRef to hold shape information.
     auto memRefType = MemRefType::get({rank}, rewriter.getIndexType());
-    auto newMemRefAlloc = rewriter.create<AllocOp>(loc, memRefType);
+    auto newMemRefAlloc = rewriter.create<memref::AllocOp>(loc, memRefType);
 
     SmallVector<mlir::Value, 4> fromExtentsOpOperands;
     for (int idx = 0; idx < rank; idx++) {

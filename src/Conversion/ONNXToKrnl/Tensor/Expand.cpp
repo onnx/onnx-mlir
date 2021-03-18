@@ -85,7 +85,7 @@ struct ONNXExpandOpLowering : public ConversionPattern {
 
       Value inDimIndex = emitConstantOp(
           rewriter, loc, rewriter.getIndexType(), i - outputDimensionOffset);
-      auto inputDim = rewriter.create<DimOp>(loc, input, inDimIndex);
+      auto inputDim = rewriter.create<memref::DimOp>(loc, input, inDimIndex);
       inputDimsArray.emplace_back(inputDim);
 
       // %ifOp.results() = affine.if %inputDim == 1 {
@@ -127,10 +127,10 @@ struct ONNXExpandOpLowering : public ConversionPattern {
       }
     }
     bool insertDealloc = checkInsertDealloc(op);
-    Value alloc = rewriter.create<AllocOp>(loc, memRefType, dynamicAllocDims);
+    Value alloc = rewriter.create<memref::AllocOp>(loc, memRefType, dynamicAllocDims);
     if (insertDealloc) {
       auto *parentBlock = alloc.getDefiningOp()->getBlock();
-      auto dealloc = rewriter.create<DeallocOp>(loc, alloc);
+      auto dealloc = rewriter.create<memref::DeallocOp>(loc, alloc);
       dealloc.getOperation()->moveBefore(&parentBlock->back());
     }
 

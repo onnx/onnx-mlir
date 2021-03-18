@@ -8,11 +8,11 @@ func private @test_geluf32(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
   // CHECK-LABEL: test_geluf32
   // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xf32>
-  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xf32>
+  // CHECK: [[DIM_0:%.+]] = memref.dim %arg0, [[C0]] : memref<?x10xf32>
+  // CHECK: [[RES:%.+]] = memref.alloc([[DIM_0]]) : memref<?x10xf32>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: [[C0_0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xf32>
+  // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_0]] : memref<?x10xf32>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xf32>
   // CHECK: [[ONE:%.+]] = constant 1.000000e+00 : f32
@@ -33,11 +33,11 @@ func private @test_gelubf16(%arg0 : tensor<?x10xbf16>) -> tensor<*xbf16> {
 
   // CHECK-LABEL: test_gelubf16
   // CHECK: [[C0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_0:%.+]] = dim %arg0, [[C0]] : memref<?x10xbf16>
-  // CHECK: [[RES:%.+]] = alloc([[DIM_0]]) : memref<?x10xbf16>
+  // CHECK: [[DIM_0:%.+]] = memref.dim %arg0, [[C0]] : memref<?x10xbf16>
+  // CHECK: [[RES:%.+]] = memref.alloc([[DIM_0]]) : memref<?x10xbf16>
   // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
   // CHECK: [[C0_0:%.+]] = constant 0 : index
-  // CHECK: [[DIM_2:%.+]] = dim %arg0, [[C0_0]] : memref<?x10xbf16>
+  // CHECK: [[DIM_2:%.+]] = memref.dim %arg0, [[C0_0]] : memref<?x10xbf16>
   // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to [[DIM_2]], [[DEF_LOOPS]]#1 -> %arg2 = 0 to 10) {
   // CHECK: [[LOAD:%.+]] = krnl.load %arg0[%arg1, %arg2] : memref<?x10xbf16>
   // CHECK: [[ONE:%.+]] = constant 1.000000e+00 : bf16
@@ -61,7 +61,7 @@ func @test_expandf32_2d_to_2d(%arg0: tensor<3x1xf32>) -> tensor<3x4xf32> {
     // CHECK: %[[NEW_SHAPE:.*]] = "krnl.global"()
     // CHECK: %[[NEW_DIM0:.*]] = krnl.load %[[NEW_SHAPE]][%c0]
     // CHECK: %[[NEW_DIM0_INDEX:.*]] = index_cast %[[NEW_DIM0]]
-    // CHECK: %[[DIM0:.*]] = dim [[ARG]], %c0{{.*}}
+    // CHECK: %[[DIM0:.*]] = memref.dim [[ARG]], %c0{{.*}}
     // CHECK: {{.*}} = affine.if #set()[%[[DIM0]]] -> index {
     // CHECK:           affine.yield %[[NEW_DIM0_INDEX]]
     // CHECK: } else {
@@ -70,14 +70,14 @@ func @test_expandf32_2d_to_2d(%arg0: tensor<3x1xf32>) -> tensor<3x4xf32> {
 
     // CHECK: %[[NEW_DIM1:.*]] = krnl.load %[[NEW_SHAPE]][%c1{{.*}}]
     // CHECK: %[[NEW_DIM1_INDEX:.*]] = index_cast %[[NEW_DIM1]]
-    // CHECK: %[[DIM1:.*]] = dim [[ARG]], %c1{{.*}}
+    // CHECK: %[[DIM1:.*]] = memref.dim [[ARG]], %c1{{.*}}
     // CHECK: {{.*}} = affine.if #set()[%[[DIM1]]] -> index {
     // CHECK:           affine.yield %[[NEW_DIM1_INDEX]]
     // CHECK: } else {
     // CHECK:           affine.yield %[[DIM1]]
     // CHECK: }
 
-    // CHECK: %[[DST:.*]] = alloc()
+    // CHECK: %[[DST:.*]] = memref.alloc()
     // CHECK: krnl.iterate({{.*}}) with ({{.*}} -> %[[INDEX0:.*]] = 0 to 3, {{.*}} -> %[[INDEX1:.*]] = 0 to 4) {
     // CHECK: %[[i:.*]] = affine.if #set()[%[[DIM0]]]
     // CHECK:    affine.yield %c0{{.*}}
@@ -107,7 +107,7 @@ func @test_expandbf16_2d_to_2d(%arg0: tensor<3x1xbf16>) -> tensor<3x4xbf16> {
     // CHECK: %[[NEW_SHAPE:.*]] = "krnl.global"()
     // CHECK: %[[NEW_DIM0:.*]] = krnl.load %[[NEW_SHAPE]][%c0]
     // CHECK: %[[NEW_DIM0_INDEX:.*]] = index_cast %[[NEW_DIM0]]
-    // CHECK: %[[DIM0:.*]] = dim [[ARG]], %c0{{.*}}
+    // CHECK: %[[DIM0:.*]] = memref.dim [[ARG]], %c0{{.*}}
     // CHECK: {{.*}} = affine.if #set()[%[[DIM0]]] -> index {
     // CHECK:           affine.yield %[[NEW_DIM0_INDEX]]
     // CHECK: } else {
@@ -116,14 +116,14 @@ func @test_expandbf16_2d_to_2d(%arg0: tensor<3x1xbf16>) -> tensor<3x4xbf16> {
 
     // CHECK: %[[NEW_DIM1:.*]] = krnl.load %[[NEW_SHAPE]][%c1{{.*}}]
     // CHECK: %[[NEW_DIM1_INDEX:.*]] = index_cast %[[NEW_DIM1]]
-    // CHECK: %[[DIM1:.*]] = dim [[ARG]], %c1{{.*}}
+    // CHECK: %[[DIM1:.*]] = memref.dim [[ARG]], %c1{{.*}}
     // CHECK: {{.*}} = affine.if #set()[%[[DIM1]]] -> index {
     // CHECK:           affine.yield %[[NEW_DIM1_INDEX]]
     // CHECK: } else {
     // CHECK:           affine.yield %[[DIM1]]
     // CHECK: }
 
-    // CHECK: %[[DST:.*]] = alloc()
+    // CHECK: %[[DST:.*]] = memref.alloc()
     // CHECK: krnl.iterate({{.*}}) with ({{.*}} -> %[[INDEX0:.*]] = 0 to 3, {{.*}} -> %[[INDEX1:.*]] = 0 to 4) {
     // CHECK: %[[i:.*]] = affine.if #set()[%[[DIM0]]]
     // CHECK:    affine.yield %c0{{.*}}
@@ -153,7 +153,7 @@ func @test_expandbf16_2d_to_3d(%arg0: tensor<3x1xbf16>) -> tensor<?x?x?xbf16> {
     // CHECK: %[[NEW_SHAPE:.*]] = "krnl.global"()
     // CHECK: %[[NEW_DIM1:.*]] = krnl.load %[[NEW_SHAPE]][%c1{{.*}}]
     // CHECK: %[[NEW_DIM1_INDEX:.*]] = index_cast %[[NEW_DIM1]]
-    // CHECK: %[[DIM0:.*]] = dim [[ARG]], %c0{{.*}}
+    // CHECK: %[[DIM0:.*]] = memref.dim [[ARG]], %c0{{.*}}
     // CHECK: {{.*}} = affine.if #set()[%[[DIM0]]] -> index {
     // CHECK:           affine.yield %[[NEW_DIM1_INDEX]]
     // CHECK: } else {
@@ -162,14 +162,14 @@ func @test_expandbf16_2d_to_3d(%arg0: tensor<3x1xbf16>) -> tensor<?x?x?xbf16> {
 
     // CHECK: %[[NEW_DIM2:.*]] = krnl.load %[[NEW_SHAPE]][%c2{{.*}}]
     // CHECK: %[[NEW_DIM2_INDEX:.*]] = index_cast %[[NEW_DIM2]]
-    // CHECK: %[[DIM1:.*]] = dim [[ARG]], %c1{{.*}}
+    // CHECK: %[[DIM1:.*]] = memref.dim [[ARG]], %c1{{.*}}
     // CHECK: {{.*}} = affine.if #set()[%[[DIM1]]] -> index {
     // CHECK:           affine.yield %[[NEW_DIM2_INDEX]]
     // CHECK: } else {
     // CHECK:           affine.yield %[[DIM1]]
     // CHECK: }
 
-    // CHECK: %[[DST:.*]] = alloc()
+    // CHECK: %[[DST:.*]] = memref.alloc()
     // CHECK: krnl.iterate({{.*}}) with ({{.*}} -> %[[INDEX0:.*]] = 0 to 2, {{.*}} -> %[[INDEX1:.*]] = 0 to 3, {{.*}} -> %[[INDEX2:.*]] = 0 to 6) {
     // CHECK: %[[i:.*]] = affine.if #set()[%[[DIM0]]]
     // CHECK:    affine.yield %c0{{.*}}
@@ -200,7 +200,7 @@ func @test_expandbf16_unknown_sized_input(%arg0: tensor<?x?xbf16>) -> tensor<?x?
     // CHECK: %[[NEW_SHAPE:.*]] = "krnl.global"()
     // CHECK: %[[NEW_DIM0:.*]] = krnl.load %[[NEW_SHAPE]][%c0]
     // CHECK: %[[NEW_DIM0_INDEX:.*]] = index_cast %[[NEW_DIM0]]
-    // CHECK: %[[DIM0:.*]] = dim [[ARG]], %c0{{.*}}
+    // CHECK: %[[DIM0:.*]] = memref.dim [[ARG]], %c0{{.*}}
     // CHECK: %[[DYN_SIZE:.*]] = affine.if #set()[%[[DIM0]]] -> index {
     // CHECK:           affine.yield %[[NEW_DIM0_INDEX]]
     // CHECK: } else {
@@ -209,15 +209,15 @@ func @test_expandbf16_unknown_sized_input(%arg0: tensor<?x?xbf16>) -> tensor<?x?
 
     // CHECK: %[[NEW_DIM1:.*]] = krnl.load %[[NEW_SHAPE]][%c1{{.*}}]
     // CHECK: %[[NEW_DIM1_INDEX:.*]] = index_cast %[[NEW_DIM1]]
-    // CHECK: %[[DIM1:.*]] = dim [[ARG]], %c1{{.*}}
+    // CHECK: %[[DIM1:.*]] = memref.dim [[ARG]], %c1{{.*}}
     // CHECK: {{.*}} = affine.if #set()[%[[DIM1]]] -> index {
     // CHECK:           affine.yield %[[NEW_DIM1_INDEX]]
     // CHECK: } else {
     // CHECK:           affine.yield %[[DIM1]]
     // CHECK: }
 
-    // CHECK: %[[DST:.*]] = alloc(%[[DYN_SIZE]])
-    // CHECK: %[[DYN_SIZE1:.*]] = dim %[[DST]], %c0{{.*}}
+    // CHECK: %[[DST:.*]] = memref.alloc(%[[DYN_SIZE]])
+    // CHECK: %[[DYN_SIZE1:.*]] = memref.dim %[[DST]], %c0{{.*}}
     // CHECK: krnl.iterate({{.*}}) with ({{.*}} -> %[[INDEX0:.*]] = 0 to %[[DYN_SIZE1]], {{.*}} -> %[[INDEX1:.*]] = 0 to 3) {
     // CHECK: %[[i:.*]] = affine.if #set()[%[[DIM0]]]
     // CHECK:    affine.yield %c0{{.*}}

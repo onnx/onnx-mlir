@@ -64,7 +64,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Insert res[n,m] = 0.
     // Create a local reduction value for res[n,m].
     Value reductionVal =
-        rewriter.create<AllocaOp>(loc, MemRefType::get({}, elementType));
+        rewriter.create<memref::AllocaOp>(loc, MemRefType::get({}, elementType));
     rewriter.create<KrnlStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
 
     // Create the inner reduction loop.
