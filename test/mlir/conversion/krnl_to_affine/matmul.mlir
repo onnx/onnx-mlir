@@ -11,7 +11,7 @@ func private @matmulKrnl_full_tiles(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C
       memref<4x6xf32>, memref<6x8xf32>, memref<4x8xf32>
     return
 // mlir2FileCheck.py -n'{"0": "B_VEC", "1": "C_VEC"}' -a'["A", "B", "C"]'
-// ignore-dag: #set = affine_set<() : (1 >= 0, 1 >= 0, 1 >= 0)>
+// CHECK-DAG: #set = affine_set<() : (1 >= 0, 1 >= 0, 1 >= 0)>
 // CHECK-LABEL:  func private @matmulKrnl_full_tiles
 // CHECK-SAME:   ([[A_:%.+]]: memref<4x6xf32>, [[B_:%.+]]: memref<6x8xf32>, [[C_:%.+]]: memref<4x8xf32>) {
 // CHECK:           affine.if #set() {
@@ -46,11 +46,11 @@ func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x
       memref<4x6xf32>, memref<6x8xf32>, memref<4x8xf32>
     return
 // mlir2FileCheck.py -a'["A", "B", "C"]'
-// ignore-dag: #map0 = affine_map<()[s0, s1] -> (s1 - s0, 4)>
-// ignore-dag: #map1 = affine_map<()[s0, s1] -> (s1 - s0, 6)>
-// ignore-dag: #map2 = affine_map<()[s0, s1] -> (s1 - s0)>
-// ignore-dag: #set0 = affine_set<()[s0, s1, s2, s3, s4, s5] : (s3 - s0 - 4 >= 0, s4 - s2 - 8 >= 0, s5 - s1 - 6 >= 0)>
-// ignore-dag: #set1 = affine_set<()[s0, s1] : (s1 - s0 - 8 >= 0)>
+// CHECK-DAG: #map0 = affine_map<()[s0, s1] -> (s1 - s0, 4)>
+// CHECK-DAG: #map1 = affine_map<()[s0, s1] -> (s1 - s0, 6)>
+// CHECK-DAG: #map2 = affine_map<()[s0, s1] -> (s1 - s0)>
+// CHECK-DAG: #set0 = affine_set<()[s0, s1, s2, s3, s4, s5] : (s3 - s0 - 4 >= 0, s4 - s2 - 8 >= 0, s5 - s1 - 6 >= 0)>
+// CHECK-DAG: #set1 = affine_set<()[s0, s1] : (s1 - s0 - 8 >= 0)>
 // CHECK-LABEL:  func @matmulKrnl_runtime
 // CHECK-SAME:   ([[A_:%.+]]: memref<4x6xf32>, [[B_:%.+]]: memref<6x8xf32>, [[C_:%.+]]: memref<4x8xf32>, [[PARAM_0_:%.+]]: index, [[PARAM_1_:%.+]]: index, [[PARAM_2_:%.+]]: index, [[PARAM_3_:%.+]]: index, [[PARAM_4_:%.+]]: index, [[PARAM_5_:%.+]]: index) {
 // CHECK:           affine.if #set0(){{.}}[[PARAM_0_]], [[PARAM_2_]], [[PARAM_1_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]]{{.}} {
@@ -99,10 +99,9 @@ func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x
 // CHECK:                   affine.for [[I_6_:%.+]] = 0 to min #map1(){{.}}[[PARAM_2_]], [[PARAM_5_]]{{.}} {
 // CHECK-DAG:                 [[LOAD_VAR_1_MEM_1_:%.+]] = affine.load [[B_]]{{.}}[[B_]]1 + symbol([[PARAM_2_]]) - (symbol([[PARAM_2_]]) floordiv 6) * 6, [[B_]]0 + symbol([[PARAM_1_]]) - (symbol([[PARAM_1_]]) floordiv 8) * 8] : memref<6x8xf32>
 // CHECK-DAG:                 [[LOAD_A_MEM_2_:%.+]] = affine.load [[A_]]{{.}}[[I_4_]] + symbol([[PARAM_0_]]) - (symbol([[PARAM_0_]]) floordiv 4) * 4, [[I_6_]] + symbol([[PARAM_2_]]) - (symbol([[PARAM_2_]]) floordiv 6) * 6] : memref<4x6xf32>
-// CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[LOAD_A_MEM_1_:%.+]] = mulf [[LOAD_A_MEM_2_]], [[LOAD_VAR_1_MEM_1_]] : f32
 // CHECK-DAG:                 [[VAR_6_1_:%.+]] = affine.load [[RES_2_]][] : memref<f32>
-// CHECK:                     [[LOAD_VAR_0_MEM_1_:%.+]] = addf [[LOAD_A_MEM_1_]], [[VAR_6_1_]] : f32
+// CHECK-DAG:                 [[LOAD_VAR_0_MEM_1_:%.+]] = addf [[LOAD_A_MEM_1_]], [[VAR_6_1_]] : f32
 // CHECK:                     affine.store [[LOAD_VAR_0_MEM_1_]], [[RES_2_]][] : memref<f32>
 // CHECK:                   }
 // CHECK:                   [[RES_1_:%.+]] = affine.load [[RES_2_]][] : memref<f32>
