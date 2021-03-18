@@ -445,24 +445,38 @@ inline bool omTensorAreTwoOmtsClose(
     return false;
   }
 
-  // Compute absolute difference, verify it's within tolerable range.
+  // Compute difference, verify it's within tolerable range.
+  // rtol * b + atol >= abs(a - b)
   auto anum = omTensorGetNumElems(a);
+  auto bnum = omTensorGetNumElems(b);
+  auto rtolT = omTensorCreateWithShape<T>(aShape);
+  auto atolT = omTensorCreateWithShape<T>(aShape);
+  for (const auto &idx : omTensorComputeIndexSet(rtolT)) {
+    omTensorGetElem<T>(rtolT, idx) = rtol;
+    omTensorGetElem<T>(atolT, idx) = atol;
+  }
   std::vector<T> absoluteDiff(anum);
+  std::vector<T> eqAllclose(anum);
+  // abs(a - b)
   std::transform((T *)a->_allocatedPtr, (T *)a->_allocatedPtr + anum,
       (T *)b->_allocatedPtr, absoluteDiff.begin(), std::minus<>());
   std::transform(absoluteDiff.begin(), absoluteDiff.end(), absoluteDiff.begin(),
       static_cast<T (*)(T)>(&std::abs));
-  bool atolSatisfied = std::all_of(
-      absoluteDiff.begin(), absoluteDiff.end(), [&](T a) { return a < atol; });
+  // rtol * abs(b)
+  std::transform((T *)b->_allocatedPtr, (T *)b->_allocatedPtr + bnum,
+      (T *)b->_allocatedPtr, static_cast<T (*)(T)>(&std::abs));
+  std::transform((T *)b->_allocatedPtr, (T *)b->_allocatedPtr + bnum,
+      (T *)rtolT->_allocatedPtr, eqAllclose.begin(), std::multiplies<>());
+  // rtol * abs(b) + atol
+  std::transform(eqAllclose.begin(), eqAllclose.end(),
+      (T *)atolT->_allocatedPtr, eqAllclose.begin(), std::plus<>());
+  // (rtol * b + atol) - abs(a - b)
+  std::transform(eqAllclose.begin(), eqAllclose.end(), absoluteDiff.begin(),
+      eqAllclose.begin(), std::minus<>());
+  bool satisfied = std::all_of(
+      eqAllclose.begin(), eqAllclose.end(), [&](T eq) { return eq >= 0; });
 
-  // Compute relative difference, verify it's within tolerable range.
-  std::vector<T> relativeDiff(anum);
-  std::transform(absoluteDiff.begin(), absoluteDiff.end(),
-      (T *)a->_allocatedPtr, relativeDiff.begin(), std::divides<>());
-  bool rtolSatisfied = all_of(
-      relativeDiff.begin(), relativeDiff.end(), [&](T a) { return a < rtol; });
-
-  if (atolSatisfied && rtolSatisfied) {
+  if (satisfied) {
     return true;
   } else {
     // Figure out where and what went wrong, this can be slow; but hopefully we
