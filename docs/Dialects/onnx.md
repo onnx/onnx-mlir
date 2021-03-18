@@ -3374,7 +3374,7 @@ ONNX Pad operation
 | Operand | Description |
 | :-----: | ----------- |
 `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
-`pads` | tensor of 64-bit signless integer values or memref of any type values or none type
+`pads` | tensor of 64-bit signless integer values or memref of any type values
 `constant_value` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values or none type
 
 #### Results:
@@ -4118,7 +4118,7 @@ ONNX Reshape operation
 | Operand | Description |
 | :-----: | ----------- |
 `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
-`shape` | tensor of 64-bit signless integer values or memref of any type values or none type
+`shape` | tensor of 64-bit signless integer values or memref of any type values
 
 #### Results:
 
@@ -5542,7 +5542,7 @@ ONNX Tile operation
 | Operand | Description |
 | :-----: | ----------- |
 `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
-`repeats` | tensor of 64-bit signless integer values or memref of any type values or none type
+`repeats` | tensor of 64-bit signless integer values or memref of any type values
 
 #### Results:
 
