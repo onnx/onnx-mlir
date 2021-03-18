@@ -4,29 +4,22 @@ parameters:
 - name: BuildTools
   type: string
   default: '-G Ninja'
-- name: CMakeBuildTarget
-  type: string
-  default: ''
-- name: CMakeExternalLIT
-  type: string
-  default: ''
 - name: CMakePrefixPath
   type: string
   default: ''
 - name: Platform
   type: string
   default: ''
-- name: PythonExePath
-  type: string
-  default: '/usr/bin/python3'
 
 steps:
   - template: .azure-pipelines/templates/steps/SetupBuildEnv.yml@tools
     parameters:
       Platform: ${{ parameters.Platform }}
   - checkout: self
+    clean: true
     submodules: recursive
   - checkout: llvm-project
+    clean: true
   - task: CMake@1
     displayName: 'CMake LLVM'
     inputs:
@@ -35,24 +28,28 @@ steps:
         ${{ parameters.BuildTools }}
         $(LLVMSourceDir)/llvm
         -DLLVM_ENABLE_PROJECTS=mlir
-        -DLLVM_BUILD_EXAMPLES=ON
         -DLLVM_TARGETS_TO_BUILD="host;Apollo"
         -DCMAKE_BUILD_TYPE=$(CMakeBuildConfiguration)
         -DLLVM_ENABLE_ASSERTIONS=ON
         -DLLVM_ENABLE_RTTI=ON
-        $(LLVMAdditionalCMakeOptions)
 
   - task: CMake@1
     displayName: 'Build LLVM'
     inputs:
       workingDirectory: '$(LLVMBuildDir)'
-      cmakeArgs: '--build . --config $(CMakeBuildConfiguration)'
+      ${{ if eq(parameters.Platform, 'Windows') }}:
+        cmakeArgs: '--build . --config $(CMakeBuildConfiguration) -- /m'
+      ${{ if eq(parameters.Platform, 'Ubuntu') }}:
+        cmakeArgs: '--build . --config $(CMakeBuildConfiguration)'
 
   - task: CMake@1
     displayName: 'Check LLVM'
     inputs:
       workingDirectory: '$(LLVMBuildDir)'
-      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-mlir'
+      ${{ if eq(parameters.Platform, 'Windows') }}:
+        cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-mlir -- /m'
+      ${{ if eq(parameters.Platform, 'Ubuntu') }}:
+        cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-mlir'
 
   # Delete the current build directory. This is a temporary workaround until dependency
   # issues are resolved, although cost is low since ONNX MLIR builds quickly.
@@ -70,23 +67,27 @@ steps:
       cmakeArgs: >-
         ${{ parameters.BuildTools }}
         $(ONNXMLIRSourceDir)
-        ${{ parameters.CMakeExternalLIT }}
         -DCMAKE_BUILD_TYPE=$(CMakeBuildConfiguration)
         -DADO_DOWNLOAD_ONNX_TEST_FILES=ON
-        -DPYTHON_EXECUTABLE=${{ parameters.PythonExePath }}
         -DCMAKE_PREFIX_PATH=${{ parameters.CMakePrefixPath }}
 
   - task: CMake@1
     displayName: 'Build ONNX MLIR'
     inputs:
       workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
-      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target ${{ parameters.CMakeBuildTarget }}'
+      ${{ if eq(parameters.Platform, 'Windows') }}:
+        cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target onnx-mlir -- /m'
+      ${{ if eq(parameters.Platform, 'Ubuntu') }}:
+        cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target onnx-mlir'
 
   - task: CMake@1
     displayName: 'Check ONNX MLIR'
     inputs:
       workingDirectory: '$(ONNXMLIRBuildDir)_$(CMakeBuildConfiguration)'
-      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-onnx-lit'
+      ${{ if eq(parameters.Platform, 'Windows') }}:
+        cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-onnx-lit -- /m'
+      ${{ if eq(parameters.Platform, 'Ubuntu') }}:
+        cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-onnx-lit'
 
   - task: CopyFiles@2
     displayName: 'Copy ONNX MLIR to Artifact Staging'

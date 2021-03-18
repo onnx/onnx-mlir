@@ -65,14 +65,12 @@ jobs:
         CMakeBuildConfiguration: 'Release'
         LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm'
         LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm'
-        LLVMAdditionalCMakeOptions: ''
       # Run the debug configuration for scheduled builds, CI/PR only use Release config to save VM cycles
       ${{ if or(eq(variables['Build.Reason'], 'Schedule'), eq(parameters.AlwaysBuildDebug, true)) }}:
         Debug:
           CMakeBuildConfiguration: 'Debug'
           LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm'
           LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm'
-          LLVMAdditionalCMakeOptions: ''
   pool:
     name: Default
     demands:
@@ -85,11 +83,8 @@ jobs:
   - template: BuildOnnxMlir.yml
     parameters:
       BuildTools: '-G "Visual Studio 16 2019" -A x64 -T host=x64'
-      CMakeBuildTarget: 'onnx-mlir -- /m'
-      CMakeExternalLIT: '-DLLVM_EXTERNAL_LIT="$(LLVMBuildDir)\$(CMakeBuildConfiguration)\bin\llvm-lit.py"'
       CMakePrefixPath: 'C:\protobuf\install\$(CMakeBuildConfiguration)'
       Platform: 'Windows'
-      PythonExePath: '"C:/Program Files (x86)/Microsoft Visual Studio/Shared/Python36_64/python.EXE"'
 
 - job: Build_And_Test_ONNX_MLIR_Ubuntu
   displayName: "Build and Test ONNX MLIR (Ubuntu)"
@@ -100,15 +95,12 @@ jobs:
         # For Linux split LLVM build directory. This saves time by eliminating builder trashing
         LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm_Release'
         LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm_Release'
-        LLVMAdditionalCMakeOptions: ''
       # Run the debug configuration for scheduled builds, CI/PR only use Release config to save VM cycles
       ${{ if or(eq(variables['Build.Reason'], 'Schedule'), eq(parameters.AlwaysBuildDebug, true)) }}:
         Debug:
           CMakeBuildConfiguration: 'Debug'
           LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm_Debug'
           LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm_Debug'
-          # Avoid running out of memory on server VMs during linking with GNU ld
-          LLVMAdditionalCMakeOptions: '-DLLVM_PARALLEL_LINK_JOBS=8'
   pool:
     name: 1ESHostedPool
     demands:
@@ -121,7 +113,6 @@ jobs:
   - template: BuildOnnxMlir.yml
     parameters:
       BuildTools: '-G Ninja -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DLLVM_USE_LINKER=lld'
-      CMakeBuildTarget: 'onnx-mlir'
       Platform: 'Ubuntu'
 
   # Pulled the following steps out of the template because they are currently Linux specific, until we get upstream fixes
