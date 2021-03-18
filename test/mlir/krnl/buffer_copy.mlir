@@ -218,8 +218,8 @@ func private @copy_to_runtime_start_indices(%p0 : index, %p1 : index) -> () {
   krnl.copy_to_tile_buffer %B, %AA [%p0, %p1], %f0 {padToNext=[1,1]}: memref<4x6xf32>, memref<39x56xf32>
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
-// ignore-dag: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
-// ignore-dag: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
+// CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
+// CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
 // CHECK-LABEL:  func private @copy_to_runtime_start_indices
 // CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = alloca() : memref<39x56xf32>
@@ -247,8 +247,8 @@ func private @copy_to_runtime_start_indices_pad3(%p0 : index, %p1 : index) -> ()
   krnl.copy_to_tile_buffer %B, %AA [%p0, %p1], %f0 {padToNext=[3,3]}: memref<4x6xf32>, memref<39x56xf32>
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
-// ignore-dag: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
-// ignore-dag: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
+// CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
+// CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
 // CHECK-LABEL:  func private @copy_to_runtime_start_indices_pad3
 // CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
 // CHECK-DAG:       [[ZERO_:%.+]] = constant 0.000000e+00 : f32
@@ -322,7 +322,7 @@ func @copy_to_nested_partial(%p0 : index, %p1 : index) -> () {
   }
   return
 
-// ignore-dag: #map = affine_map<(d0) -> (-d0 + 45, 10)>
+// CHECK-DAG: #map = affine_map<(d0) -> (-d0 + 45, 10)>
 // CHECK-LABEL:  func @copy_to_nested_partial
 // CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = alloca() : memref<45x60xf32>
@@ -465,8 +465,8 @@ func private @copy_from_partial_runtime(%p0 : index, %p1 : index) -> () {
 
   return
 // mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER", "cst": "ZERO"}' -a'["start0", "start1"]'
-// ignore-dag: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
-// ignore-dag: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
+// CHECK-DAG: #map0 = affine_map<()[s0] -> (-s0 + 39, 4)>
+// CHECK-DAG: #map1 = affine_map<()[s0] -> (-s0 + 56, 6)>
 // CHECK-LABEL:  func private @copy_from_partial_runtime
 // CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
 // CHECK-DAG:       [[ORGINAL_:%.+]] = alloca() : memref<39x56xf32>
