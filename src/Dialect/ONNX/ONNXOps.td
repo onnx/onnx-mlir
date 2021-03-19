@@ -15,7 +15,6 @@
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "src/Interface/ShapeInferenceInterface.td"
-include "src/Interface/PromotableConstOperandsOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
 

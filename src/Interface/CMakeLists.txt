@@ -57,7 +57,6 @@ target_include_directories(OMSpecializedKernelOpInterface
 add_dependencies(OMSpecializedKernelOpInterface
         OMSpecializedKernelOpInterfaceIncGen)
 
-install(TARGETS OMPromotableConstOperandsOpInterface DESTINATION lib)
 install(TARGETS OMShapeInferenceOpInterface          DESTINATION lib)
 install(TARGETS OMResultTypeInferenceOpInterface     DESTINATION lib)
 install(TARGETS OMHasOnnxSubgraphOpInterface         DESTINATION lib)
