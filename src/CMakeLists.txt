@@ -29,6 +29,7 @@ set(OMLibs
         OMPromotableConstOperandsOpInterface
         OMResultTypeInferenceOpInterface
         OMHasOnnxSubgraphOpInterface
+        OMSpecializedKernelOpInterface
         OMElideConstants
         OMElideKrnlGlobalConstants
         OMPackKrnlGlobalConstants

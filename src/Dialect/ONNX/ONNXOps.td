@@ -14,6 +14,10 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "src/Interface/ShapeInferenceInterface.td"
+include "src/Interface/PromotableConstOperandsOpInterface.td"
+include "src/Interface/ResultTypeInferenceOpInterface.td"
+include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
 def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
 
@@ -25,11 +29,6 @@ class SeqOf<list<Type> allowedTypes> :
 
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
   "getONNXConstantOpFromDenseAttr($_builder, $_loc, $0)">;
-
-include "src/Interface/ShapeInferenceInterface.td"
-include "src/Interface/PromotableConstOperandsOpInterface.td"
-include "src/Interface/ResultTypeInferenceOpInterface.td"
-include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";

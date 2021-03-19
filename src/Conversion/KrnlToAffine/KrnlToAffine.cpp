@@ -532,10 +532,9 @@ public:
  * @param builder operation builder.
  * @param mover loop body mover.
  */
-void markLoopBodyAsMovable(KrnlIterateOp root, OpBuilder builder,
-    LoopBodyMover &mover, Block::iterator staging) {
+void markLoopBodyAsMovable(
+    KrnlIterateOp root, OpBuilder builder, LoopBodyMover &mover) {
   auto &bodyRegion = root.bodyRegion();
-  builder.setInsertionPointAfter(&*staging);
 
   if (root.getNumOptimizedLoops() == 0)
     return;
@@ -576,17 +575,12 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   FuncOp funcOp = getFunction();
 
-  auto stagingArea = funcOp.body().front().without_terminator().end();
+  // We use the end of the function body as a staging area for movable ops.
+  builder.setInsertionPoint(
+      &funcOp.body().front(), funcOp.body().front().without_terminator().end());
   LoopBodyMover mover;
-  funcOp.walk([&](KrnlIterateOp op) {
-    markLoopBodyAsMovable(op, builder, mover, stagingArea);
-  });
-
-  //  llvm::SmallVector<Value, 4> loopsToDrop;
-  //  funcOp->walk([&](KrnlSpecializedKernel op) {
-  //    for (auto loop : op.getOperands())
-  //      loopsToDrop.emplace_back(loop);
-  //  });
+  funcOp.walk(
+      [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
 
   // Interpret krnl dialect operations while looping recursively through
   // operations within the current function, note that erasing operations while
@@ -601,13 +595,13 @@ void ConvertKrnlToAffinePass::runOnFunction() {
     return;
   }
 
-  funcOp->walk([&](KrnlSpecializedKernel op) {
-    builder.setInsertionPoint(op);
-    for (auto loopRef : op.getOperands())
-      opsToErase.insert(loopRefToOp[loopRef]);
-
-    builder.create<KrnlSpecializedKernel>(op.getLoc(), ValueRange{});
-    op->erase();
+  funcOp->walk([&](Operation *op) {
+    if (SpecializedKernelOpInterface kernelOp =
+            dyn_cast<SpecializedKernelOpInterface>(op)) {
+      for (auto loopRef : (OperandRange)kernelOp.getLoopRefs())
+        opsToErase.insert(loopRefToOp[loopRef]);
+      kernelOp.getLoopRefs().clear();
+    }
   });
 
   // Remove lowered operations topologically; if ops are not removed

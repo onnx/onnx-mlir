@@ -22,6 +22,7 @@
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OpDefinition.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "src/Interface/SpecializedKernelOpInterface.hpp"
 
 #include "KrnlHelper.hpp"
 #include "KrnlTypes.hpp"
