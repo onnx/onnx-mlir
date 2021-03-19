@@ -407,13 +407,6 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
         std::back_inserter(loopsToPermute),
         [&](const Value &val) { return loopRefToOp[val]; });
 
-    //    auto func = permuteOp->getParentOfType<FuncOp>();
-    //    auto tempInsertPt = func.body().front().without_terminator().end();
-    //    for (auto& forOp: loopsToPermute) {
-    //      auto &loopBody = forOp.getLoopBody().front();
-    //
-    //    }
-
     // Construct permutation map from integer array attribute.
     SmallVector<unsigned int, 4> permuteMap;
     for (const auto &attr : permuteOp.map().getAsRange<IntegerAttr>())
