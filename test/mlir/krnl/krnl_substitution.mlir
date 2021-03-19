@@ -7,23 +7,23 @@
 
 func @test_kernel_substitution() {
 // CHECK-LABEL:   test_kernel_substitution
-// CHECK:           affine.for [[VAR_arg0:%.+]] = 0 to 32 step 8 {
-// CHECK:             affine.for [[VAR_arg1:%.+]] = 0 to 18 step 6 {
-// CHECK:               [[VAR_0:%.+]] = alloc() : memref<10xf32>
-// CHECK:               affine.for [[VAR_arg2:%.+]] = 0 to 20 step 5 {
-// CHECK:                 [[VAR_1:%.+]] = alloca() : memref<10x10xf32>
-// CHECK:                 [[VAR_2:%.+]] = alloca() : memref<10x8xf32>
-// CHECK:                 affine.for [[VAR_arg3:%.+]] = #map0([[VAR_arg0]]) to #map1([[VAR_arg0]]) step 4 {
-// CHECK:                   affine.for [[VAR_arg4:%.+]] = #map0([[VAR_arg1]]) to #map2([[VAR_arg1]]) step 3 {
-// CHECK:                     affine.for [[VAR_arg5:%.+]] = #map0([[VAR_arg2]]) to #map3([[VAR_arg2]]) step 2 {
+// CHECK:           affine.for [[I_L2_TILE:%.+]] = 0 to 32 step 8 {
+// CHECK:             affine.for [[J_L2_TILE:%.+]] = 0 to 18 step 6 {
+// CHECK:               [[L2_CACHE_TILE:%.+]] = alloc() : memref<10xf32>
+// CHECK:               affine.for [[K_L2_TILE:%.+]] = 0 to 20 step 5 {
+// CHECK:                 [[L1_CACHE_TILE_A:%.+]] = alloca() : memref<10x10xf32>
+// CHECK:                 [[L1_CACHE_TILE_B:%.+]] = alloca() : memref<10x8xf32>
+// CHECK:                 affine.for [[I_L1_TILE:%.+]] = #map0([[I_L2_TILE]]) to #map1([[I_L2_TILE]]) step 4 {
+// CHECK:                   affine.for [[J_L1_TILE:%.+]] = #map0([[J_L2_TILE]]) to #map2([[J_L2_TILE]]) step 3 {
+// CHECK:                     affine.for [[K_L1_TILE:%.+]] = #map0([[K_L2_TILE]]) to #map3([[K_L2_TILE]]) step 2 {
 // CHECK:                       krnl.specialized_kernel() :
 // CHECK:                     }
 // CHECK:                   }
 // CHECK:                 }
-// CHECK:                 dealloc [[VAR_1]] : memref<10x10xf32>
-// CHECK:                 dealloc [[VAR_2]] : memref<10x8xf32>
+// CHECK:                 dealloc [[L1_CACHE_TILE_A]] : memref<10x10xf32>
+// CHECK:                 dealloc [[L1_CACHE_TILE_B]] : memref<10x8xf32>
 // CHECK:               }
-// CHECK:               dealloc [[VAR_0]] : memref<10xf32>
+// CHECK:               dealloc [[L2_CACHE_TILE]] : memref<10xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK:           return
