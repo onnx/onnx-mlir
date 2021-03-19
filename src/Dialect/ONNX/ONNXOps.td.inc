@@ -625,6 +625,7 @@ def ONNXConcatFromSequenceOp:ONNX_Op<"ConcatFromSequence",
 
 def ONNXConstantOp:ONNX_Op<"Constant",
   [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, OpInterface<"ResultTypeInferenceOpInterface">]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Constant operation";
   let description = [{
   "This operator produces a constant tensor. Exactly one of the provided attributes, either value, sparse_value,"
@@ -660,10 +661,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     }
   }];
   let builders = [
-  OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value,
-    "FloatAttr":$value_float, "ArrayAttr":$value_floats,
-    "IntegerAttr":$value_int, "ArrayAttr":$value_ints,
-    "StringAttr":$value_string, "ArrayAttr":$value_strings), [{
+  OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
     build($_builder, $_state, tensorType, sparse_value, value,

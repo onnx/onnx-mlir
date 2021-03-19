@@ -49,8 +49,7 @@ LogicalResult shapeHelperInferShapes(OP *op, Value typeOper) {
     return op->emitError("Failed to scan " + OP::getOperationName() +
                          " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   auto elementType = typeOper.getType().cast<ShapedType>().getElementType();
   op->getResult().setType(RankedTensorType::get(outputDims, elementType));
 
@@ -68,13 +67,11 @@ LogicalResult shapeHelperInferMultipleShapes(OP *op, Value typeOper) {
     return op->emitError("Failed to scan " + OP::getOperationName() +
                          " parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   auto elementType = typeOper.getType().cast<ShapedType>().getElementType();
   for (int i = 0; i < op->getNumResults(); ++i) {
     SmallVector<int64_t, 4> outputDims;
-    IndexExpr::convertListOfIndexExprToIntegerDim(
-        shapeHelper.dimsForOutput(i), outputDims);
+    IndexExpr::getShape(shapeHelper.dimsForOutput(i), outputDims);
     op->getResults()[i].setType(RankedTensorType::get(outputDims, elementType));
   }
   return success();
@@ -1458,8 +1455,7 @@ LogicalResult ONNXTransposeOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Transpose parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
@@ -2116,71 +2112,6 @@ LogicalResult ONNXPadOp::inferShapes(
   return success();
 }
 
-static Type padShapeInferenceHelper(Value data, ArrayAttr padsOpt) {
-  // Cannot infer shape if no shape exists.
-  if (!data.getType().isa<RankedTensorType>())
-    return (Type)NULL;
-  auto dataTy = data.getType().cast<RankedTensorType>();
-  auto dataShape = dataTy.getShape();
-  auto dataRank = dataShape.size();
-  SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
-  if (padsOpt) {
-    auto padsArray = padsOpt.getValue();
-    // Pads consists of two values for each axis of data.
-    // The two values specify the number of elements padded before and after
-    // respectively.
-    for (int i = 0; i < dataRank; ++i) {
-      int64_t p1 = (padsArray[i]).cast<IntegerAttr>().getInt();
-      int64_t p2 = (padsArray[i + dataRank]).cast<IntegerAttr>().getInt();
-      // Have to non-negative constant
-      if (p1 < 0 || p2 < 0)
-        return (Type)NULL;
-      if (outputShape[i] != -1)
-        outputShape[i] += p1 + p2;
-    }
-
-    return (RankedTensorType::get(outputShape, dataTy.getElementType()));
-  } else {
-    return (Type)NULL;
-  }
-}
-
-//===----------------------------------------------------------------------===//
-// PadConstantPad
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXPadConstantPadOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto outputType = padShapeInferenceHelper(data(), pads());
-  if (!outputType)
-    return emitError("missing output");
-  getResult().setType(outputType);
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
-// PadConstantValuePad
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXPadConstantValuePadOp::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  auto outputType = padShapeInferenceHelper(data(), pads());
-  if (!outputType)
-    return emitError("missing output");
-  getResult().setType(outputType);
-  return success();
-}
-
-void ONNXPadConstantValuePadOp::build(OpBuilder &builder, OperationState &state,
-    Value data, ArrayAttr pads, FloatAttr constant_value, StringAttr mode) {
-  Type outputType = padShapeInferenceHelper(data, pads);
-  if (!outputType) {
-    auto elementType = data.getType().cast<TensorType>().getElementType();
-    outputType = UnrankedTensorType::get(elementType);
-  }
-  build(builder, state, outputType, data, pads, constant_value, mode);
-}
-
 //===----------------------------------------------------------------------===//
 // Unsqueeze
 //===----------------------------------------------------------------------===//
@@ -2378,8 +2309,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Tile parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(
       RankedTensorType::get(outputDims, commonType.getElementType()));
 
@@ -2831,9 +2761,8 @@ LogicalResult ONNXSliceOp::inferShapes(
       auto constantDenseAttribute =
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
       builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<mlir::ONNXConstantOp>(this->getLoc(),
-          mlir::Attribute(), constantDenseAttribute, nullptr, nullptr, nullptr,
-          nullptr, nullptr, nullptr);
+      auto constantOp = builder.create<mlir::ONNXConstantOp>(
+          this->getLoc(), mlir::Attribute(), constantDenseAttribute);
       mlir::Value constantResult = constantOp.output();
       this->setOperand(3, constantResult);
     }
@@ -2844,9 +2773,8 @@ LogicalResult ONNXSliceOp::inferShapes(
       auto constantDenseAttribute =
           mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
       builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<mlir::ONNXConstantOp>(this->getLoc(),
-          mlir::Attribute(), constantDenseAttribute, nullptr, nullptr, nullptr,
-          nullptr, nullptr, nullptr);
+      auto constantOp = builder.create<mlir::ONNXConstantOp>(
+          this->getLoc(), mlir::Attribute(), constantDenseAttribute);
       mlir::Value constantResult = constantOp.output();
       this->setOperand(4, constantResult);
     }
@@ -2858,8 +2786,7 @@ LogicalResult ONNXSliceOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan Slice parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();
@@ -3255,8 +3182,7 @@ LogicalResult ONNXArgMaxOp::inferShapes(
     return emitError("Failed to scan ArgMax parameters successfully");
 
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
 
   // ONNX spec specifies the reduced type as an int64
   Type elementType = IntegerType::get(getContext(), 64);
@@ -3407,8 +3333,7 @@ LogicalResult ONNXLRNOp::inferShapes(
   if (failed(shapeHelper.Compute(operandAdaptor)))
     return emitError("Failed to scan LRN parameters successfully");
   SmallVector<int64_t, 4> outputDims;
-  IndexExpr::convertListOfIndexExprToIntegerDim(
-      shapeHelper.dimsForOutput(0), outputDims);
+  IndexExpr::getShape(shapeHelper.dimsForOutput(0), outputDims);
   getResult().setType(RankedTensorType::get(outputDims, elementType));
 
   return success();

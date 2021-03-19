@@ -333,7 +333,7 @@ OpsWithShapeInference=[
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Cast', 'Transpose',
+OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Gemm', 'Cast', 'Transpose',
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
                         'GlobalMaxPool', 'Squeeze', 'Unsqueeze']
 
@@ -401,10 +401,7 @@ custom_builder_ops_list = custom_builder_unranked_ops_list + custom_builder_broa
 #a dictionary to add any special definition for an operation
 custom_definition_misc = dict([ ('Constant',
  '''  let builders = [
-  OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value,
-    "FloatAttr":$value_float, "ArrayAttr":$value_floats,
-    "IntegerAttr":$value_int, "ArrayAttr":$value_ints,
-    "StringAttr":$value_string, "ArrayAttr":$value_strings), [{
+  OpBuilder<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
     build($_builder, $_state, tensorType, sparse_value, value,
