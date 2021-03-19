@@ -53,6 +53,9 @@ namespace {
 
 const StringRef FILE_NAME_ATTR = "file_name";
 
+/// Store paths of all temporary files.
+SmallVector<std::string, 4> tempFilePaths;
+
 /// A helper function to get a value of a given type from an attribute.
 template <typename T>
 T getAttrValue(Attribute attr) {
@@ -317,6 +320,8 @@ ONNXConstantOp CreateDenseONNXConstantOp(
   // Store the file name.
   constOp.getOperation()->setAttr(
       FILE_NAME_ATTR, rewriter.getStringAttr(pathStr));
+  tempFilePaths.emplace_back(pathStr);
+
   return constOp;
 }
 
@@ -820,6 +825,12 @@ void ConstPropONNXToONNXPass::runOnFunction() {
       free(arr);
     }
   });
+
+  // Remove temporary files.
+  for (std::string filePath : tempFilePaths)
+    llvm::sys::fs::remove(filePath);
+  tempFilePaths.clear();
+
 } // end anonymous namespace
 
 /*!
