@@ -9,7 +9,6 @@ add_public_tablegen_target(OMONNXOpsIncGen)
 # Header dependencies target for ONNXOps.hpp
 add_custom_target(OMONNXOpsInc
         DEPENDS OMONNXOpsIncGen
-                OMPromotableConstOperandsOpInterfaceIncGen
                 OMResultTypeInferenceOpInterfaceIncGen
                 ShapeInferenceOpInterfaceIncGen
                 OMHasOnnxSubgraphOpInterfaceIncGen)
@@ -40,7 +39,6 @@ add_dependencies(OMONNXOps OMONNXOpsInc OMKrnlOpsInc)
 
 # Linking dependencies:
 add_dependencies(OMONNXOps
-        OMPromotableConstOperandsOpInterface
         OMResultTypeInferenceOpInterface
         OMShapeInferenceOpInterface
         # TODO: remove unnecessary dependency due to

@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -32,8 +33,12 @@ struct ONNXReshapeOpLowering : public ConversionPattern {
     // If shape input was promoted to attribute, get its values from the
     // attribute.
     SmallVector<int64_t, 4> shapeAttrValues;
-    DenseElementsAttr shapeAttr =
-        reshapeOp->getAttr("shape").dyn_cast_or_null<DenseElementsAttr>();
+    DenseElementsAttr shapeAttr;
+    if (getONNXConstantOp(reshapeOp.shape())) {
+      shapeAttr = getONNXConstantOp(reshapeOp.shape())
+                      .valueAttr()
+                      .dyn_cast_or_null<DenseElementsAttr>();
+    }
     if (shapeAttr) {
       auto shapeAttrIt = shapeAttr.getValues<IntegerAttr>().begin();
       auto itEnd = shapeAttr.getValues<IntegerAttr>().end();
