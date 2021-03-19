@@ -534,7 +534,8 @@ public:
               /*dense_value=*/
               ConstPropSplit(
                   rewriter, splitOutput, denseAttr, axisAttr, splitAttr, i),
-                  nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+              FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(),
+              StringAttr(), ArrayAttr());
       returnValues.emplace_back(constOp);
     }
 

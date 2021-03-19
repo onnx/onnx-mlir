@@ -23,7 +23,6 @@ add_library(OMONNXToKrnl
         Tensor/Expand.cpp
         Tensor/Identity.cpp
         Tensor/Reshape.cpp
-        Tensor/PadConstantValuePad.cpp
         Tensor/Pad.cpp
         Tensor/Transpose.cpp
         Tensor/Squeeze.cpp

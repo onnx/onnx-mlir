@@ -53,7 +53,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Access function for the output, and set it to zero.
     SmallVector<IndexExpr, 4> resAccessFct;
-    bool res = getIndexExprListFrom<DimIndexExpr>(
+    getIndexExprList<DimIndexExpr>(
         outputLoops.getAllInductionVar(), resAccessFct);
     // Insert res[...] = 0.
     // Create a local reduction value for res[...].

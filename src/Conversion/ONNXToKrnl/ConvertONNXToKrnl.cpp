@@ -126,7 +126,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXArgMaxOpPattern(patterns, &getContext());
   populateLoweringONNXExpandOpPattern(patterns, &getContext());
   populateLoweringONNXReshapeOpPattern(patterns, &getContext());
-  populateLoweringONNXPadConstantValuePadOpPattern(patterns, &getContext());
   populateLoweringONNXPadOpPattern(patterns, &getContext());
   populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
   populateLoweringONNXTransposeOpPattern(patterns, &getContext());

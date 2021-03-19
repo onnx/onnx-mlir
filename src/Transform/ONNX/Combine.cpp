@@ -115,12 +115,6 @@ void ONNXIdentityOp::getCanonicalizationPatterns(
   results.insert<IdentityEliminationPattern>(context);
 }
 
-/// on the ONNXPadConstantValueOp.
-void ONNXPadConstantValueOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &result, MLIRContext *context) {
-  result.insert<ConstantPadPattern>(context);
-}
-
 /// on the ONNXCastOp.
 void ONNXCastOp::getCanonicalizationPatterns(
     OwningRewritePatternList &result, MLIRContext *context) {
