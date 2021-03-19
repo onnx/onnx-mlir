@@ -42,7 +42,10 @@ add_dependencies(OMONNXOps OMONNXOpsInc OMKrnlOpsInc)
 add_dependencies(OMONNXOps
         OMPromotableConstOperandsOpInterface
         OMResultTypeInferenceOpInterface
-        OMShapeInferenceOpInterface)
+        OMShapeInferenceOpInterface
+        # TODO: remove unnecessary dependency due to
+        # ONNX Krnl Helper having a dependence on KrnlOps.
+        OMSpecializedKernelOpInterface)
 
 add_onnx_mlir_dialect_doc(onnx ONNXOps.td)
 
