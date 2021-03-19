@@ -27,7 +27,6 @@ def ONNXConstantOpFromDenseAttr: NativeCodeCall<
   "getONNXConstantOpFromDenseAttr($_builder, $_loc, $0)">;
 
 include "src/Interface/ShapeInferenceInterface.td"
-include "src/Interface/PromotableConstOperandsOpInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
 

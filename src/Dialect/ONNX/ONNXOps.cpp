@@ -2078,30 +2078,30 @@ LogicalResult ONNXPadOp::inferShapes(
   SmallVector<int64_t, 4> outputShape(dataShape.begin(), dataShape.end());
 
   // Get pads from valueAttribute.
-  Attribute padattr = (*this)->getAttr("pads");
-  SmallVector<int64_t, 2> pads(dataRank * 2, -1);
-  // Sometimes it's an ArrayAttr and sometimes it's a DenseElementsAttr, so
-  // handle both cases.
-  if (ArrayAttr padsAttributes = padattr.dyn_cast_or_null<mlir::ArrayAttr>()) {
-    auto valueIt = padsAttributes.getValue().begin();
-    for (int64_t i = 0; i < dataRank * 2; ++i)
-      pads[i] = (*valueIt++).cast<IntegerAttr>().getInt();
-  } else if (DenseElementsAttr padsAttributes =
-                 padattr.dyn_cast_or_null<mlir::DenseElementsAttr>()) {
-    auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
-    for (int64_t i = 0; i < dataRank * 2; ++i)
-      pads[i] = (*valueIt++).getInt();
+  SmallVector<int64_t, 2> padsInt(dataRank * 2, -1);
+  if (getONNXConstantOp(pads())) {
+    DenseElementsAttr padsAttributes =
+        getONNXConstantOp(pads())
+            .valueAttr()
+            .dyn_cast_or_null<mlir::DenseElementsAttr>();
+    if (padsAttributes) {
+      auto valueIt = padsAttributes.getValues<IntegerAttr>().begin();
+      for (int64_t i = 0; i < dataRank * 2; ++i)
+        padsInt[i] = (*valueIt++).getInt();
+    } else {
+      // Cannot infer if the pads is not constant
+      return emitError("Pad: unknown pads ");
+    }
   } else {
-    // Cannot infer if the pads is not constant
-    return emitError("Pad: unknown pads ") << (*this)->getAttr("pads");
+    return emitError("Pad: unknown pads ");
   }
 
   // Pads consists of two values for each axis of data.
   // The two values specify the number of elements padded before and after
   // respectively.
   for (int64_t i = 0; i < dataRank; ++i) {
-    int64_t p1 = pads[i];
-    int64_t p2 = pads[i + dataRank];
+    int64_t p1 = padsInt[i];
+    int64_t p2 = padsInt[i + dataRank];
     // p1 and p2 can be positive or negative according to spec
     if (outputShape[i] != -1)
       outputShape[i] += p1 + p2;
