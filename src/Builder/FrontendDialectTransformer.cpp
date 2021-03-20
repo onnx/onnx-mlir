@@ -1084,6 +1084,41 @@ private:
     auto funcType = importGraph(graph, /*region=*/mainFunc.body(),
         /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
     mainFunc.setType(funcType);
+    auto inputs=funcType.getInputs();
+    printf("Function Signature: number of parameters is %d, results=%d\n",funcType.getNumInputs(),funcType.getNumResults());
+        std::string dstring;
+        llvm::raw_string_ostream dstream(dstring);
+        //dstream << "[" << std::endl;
+        dstream << "[ \n" ;
+    for(int i=0;i<funcType.getNumInputs();i++) {
+        std::string tstring;
+        llvm::raw_string_ostream tstream(tstring);
+        auto in=inputs[i];
+        in.print(tstream);
+        tstream.flush();
+        std::cout << tstring << std::endl;
+        mlir::TypeSwitch<Type>(in)
+            .Case<ShapedType>([&](ShapedType tensorTy) {
+                auto et=tensorTy.getElementType();
+                dstream << "    { type : ";
+                et.print(dstream);
+                dstream << " , dims [";
+                if (tensorTy.hasRank()) {
+                    int64_t rank=tensorTy.getRank();
+                    for (int j=0;j<rank;j++)
+                       dstream << tensorTy.getDimSize(j) << " , ";
+                    } else {
+
+                    }
+                dstream << "], ";
+              })
+           .Default([&](Type type) { llvm_unreachable("input is not a tensor"); });
+        //dstream << " ]" << std::endl;
+        dstream << " }\n";
+    }
+    dstream << "\n]";
+    dstream.flush();
+    std::cout << dstring << std::endl;
 
     // Emit entry point op describing inference function signature.
     auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
@@ -1096,7 +1131,6 @@ private:
 }; // class FrontendGenImpl
 } // namespace detail
 } // namespace onnx_mlir
-
 namespace onnx_mlir {
 
 void ImportFrontendModelFile(std::string model_fname,
