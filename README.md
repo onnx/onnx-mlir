@@ -172,7 +172,7 @@ The following environment variables need to be set before building onnx-mlir:
 - LLVM_PROJ_BUILD: Path to the build directory for LLVM (e.g. c:/repos/llvm-project/build)
 - LLVM_PROJ_SRC: Path to the source directory for LLVM (e.g. c:/repos/llvm-project)
 
-This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we will also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define.
+This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we can also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define but it is not required as long as LLVM_PROJ_BUILD is set correctly.
 
 To build ONNX MLIR, use the following command:
 
