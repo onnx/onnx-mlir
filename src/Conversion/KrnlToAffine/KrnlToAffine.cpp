@@ -591,7 +591,8 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   funcOp->walk([&](Operation *op) {
     if (SpecializedKernelOpInterface kernelOp =
             dyn_cast<SpecializedKernelOpInterface>(op)) {
-      for (auto loopRef : (OperandRange)kernelOp.getLoopRefs())
+      OperandRange loopRefs = kernelOp.getLoopRefs();
+      for (auto loopRef : loopRefs)
         opsToErase.insert(loopRefToOp[loopRef]);
       kernelOp.getLoopRefs().clear();
     }
