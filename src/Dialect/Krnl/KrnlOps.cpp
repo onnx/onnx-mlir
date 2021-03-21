@@ -323,6 +323,10 @@ void KrnlDummyCastOp::build(
   state.types.emplace_back(outType);
 }
 
+MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
+  return loopsMutable();
+}
+
 } // namespace mlir
 
 #define GET_OP_CLASSES
