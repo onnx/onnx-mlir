@@ -1086,7 +1086,6 @@ private:
         /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
     mainFunc.setType(funcType);
     auto inputs=funcType.getInputs();
-    printf("Function Signature: number of parameters is %d, results=%d\n",funcType.getNumInputs(),funcType.getNumResults());
     #include <map>
 
     std::string const sf32 = std::string("f32");
@@ -1095,29 +1094,29 @@ private:
     std::string const si64 = std::string("i64");
     std::string const si16 = std::string("i16");
 std::map<std::string, std::string> typeMap = {
-    { sf32, std::string("float") },
-    { sf64, std::string("double") },
-    { si32, std::string("integer") },    
-    { si64, std::string("long") },
-    { si16, std::string("short") }    
+    { sf32, std::string("\"float\"") },
+    { sf64, std::string("\"double\"") },
+    { si32, std::string("\"integer\"") },    
+    { si64, std::string("\"long\"") },
+    { si16, std::string("\"short\"") }    
   };
         std::string dstring;
         llvm::raw_string_ostream dstream(dstring);
         dstream << "[ \n" ;
     for(int i=0;i<funcType.getNumInputs();i++) {
-        std::string tstring;
-        llvm::raw_string_ostream tstream(tstring);
+        //std::string tstring;
+        //llvm::raw_string_ostream tstream(tstring);
         auto in=inputs[i];
-        in.print(tstream);
-        tstream.flush();
-        std::cout << tstring << std::endl;
+        //in.print(tstream);
+        //tstream.flush();
+        //std::cout << tstring << std::endl;
         std::string comma = std::string("");
         mlir::TypeSwitch<Type>(in)
             .Case<ShapedType>([&](ShapedType tensorTy) {
                 auto et=tensorTy.getElementType();
-                dstream << "    { type : ";
+                dstream << "    { \"type\" : ";
                 et.print(dstream);
-                dstream << " , dims [";
+                dstream << " , \"dims\" : [";
                 if (tensorTy.hasRank()) {
                     int64_t rank=tensorTy.getRank();
                     for (int j=0;j<rank;j++) {
