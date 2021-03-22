@@ -24,6 +24,7 @@
 #include <mpark/variant.hpp>
 namespace bstd = mpark;
 
+#include "llvm/ADT/TypeSwitch.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "onnx/defs/schema.h"
 
@@ -1086,9 +1087,22 @@ private:
     mainFunc.setType(funcType);
     auto inputs=funcType.getInputs();
     printf("Function Signature: number of parameters is %d, results=%d\n",funcType.getNumInputs(),funcType.getNumResults());
+    #include <map>
+
+    std::string const sf32 = std::string("f32");
+    std::string const sf64 = std::string("f64");
+    std::string const si32 = std::string("i32");
+    std::string const si64 = std::string("i64");
+    std::string const si16 = std::string("i16");
+std::map<std::string, std::string> typeMap = {
+    { sf32, std::string("float") },
+    { sf64, std::string("double") },
+    { si32, std::string("integer") },    
+    { si64, std::string("long") },
+    { si16, std::string("short") }    
+  };
         std::string dstring;
         llvm::raw_string_ostream dstream(dstring);
-        //dstream << "[" << std::endl;
         dstream << "[ \n" ;
     for(int i=0;i<funcType.getNumInputs();i++) {
         std::string tstring;
@@ -1097,6 +1111,7 @@ private:
         in.print(tstream);
         tstream.flush();
         std::cout << tstring << std::endl;
+        std::string comma = std::string("");
         mlir::TypeSwitch<Type>(in)
             .Case<ShapedType>([&](ShapedType tensorTy) {
                 auto et=tensorTy.getElementType();
@@ -1105,20 +1120,41 @@ private:
                 dstream << " , dims [";
                 if (tensorTy.hasRank()) {
                     int64_t rank=tensorTy.getRank();
-                    for (int j=0;j<rank;j++)
-                       dstream << tensorTy.getDimSize(j) << " , ";
+                    for (int j=0;j<rank;j++) {
+                       dstream << comma << tensorTy.getDimSize(j);
+                       comma = std::string(" , ");
+                       }
                     } else {
 
                     }
-                dstream << "], ";
+                dstream << "] ";
               })
            .Default([&](Type type) { llvm_unreachable("input is not a tensor"); });
-        //dstream << " ]" << std::endl;
         dstream << " }\n";
     }
     dstream << "\n]";
     dstream.flush();
-    std::cout << dstring << std::endl;
+    size_t start_pos = 0;
+    while((start_pos = dstring.find(sf32, start_pos)) != std::string::npos) {
+        dstring.replace(start_pos, sf32.length(), typeMap[sf32]);
+        start_pos += sf32.length();
+    }
+    start_pos=0;    
+    while((start_pos = dstring.find(sf64, start_pos)) != std::string::npos) {
+        dstring.replace(start_pos, sf64.length(), typeMap[sf64]);
+        start_pos += sf64.length();
+    }
+    start_pos=0;    
+    while((start_pos = dstring.find(si32, start_pos)) != std::string::npos) {
+        dstring.replace(start_pos, si32.length(), typeMap[si32]);
+        start_pos += si32.length();
+    }    
+    start_pos=0;    
+    while((start_pos = dstring.find(si16, start_pos)) != std::string::npos) {
+        dstring.replace(start_pos, si16.length(), typeMap[si16]);
+        start_pos += si16.length();
+    }    
+  std::cout << dstring << std::endl;
 
     // Emit entry point op describing inference function signature.
     auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
