@@ -11,6 +11,7 @@
 include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "src/Interface/SpecializedKernelOpInterface.td"
 
 def Krnl_Dialect : Dialect {
   let name = "krnl";
@@ -678,6 +679,23 @@ def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect]> 
     $source attr-dict `:` type($source) `to` type($result)
   }];
 
+}
+
+// =============================================================================
+
+def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
+                            [DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
+  let summary = "Krnl specialized kernel op";
+  let description = [{
+    Krnl operation to convert.
+  }];
+
+  let arguments = (ins Variadic<AnyType> : $loops);
+  let results = (outs );
+
+  let assemblyFormat = [{
+      `(` $loops `)` attr-dict `:` type($loops)
+  }];
 }
 
 // =============================================================================

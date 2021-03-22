@@ -403,6 +403,10 @@ OpFoldResult KrnlVectorTypeCastOp::fold(ArrayRef<Attribute> operands) {
   return succeeded(foldMemRefCast(*this)) ? getResult() : Value();
 }
 
+MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
+  return loopsMutable();
+}
+
 } // namespace mlir
 
 #define GET_OP_CLASSES

@@ -398,11 +398,13 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
             loopsToTile, blockOp.tile_sizeAttr().getInt(), &tiledLoops))) {
       return failure();
     }
+
     assert(tiledLoops.size() == 2);
     assert(blockOp.getNumResults() == 2);
 
     // Record the tiled loop references, and their corresponding tiled
     // for loops in loopRefToLoop.
+    loopRefToOp.erase(loopRefToOp.find_as(blockOp.loop()));
     loopRefToOp[blockOp.getResult(0)] = tiledLoops[0];
     loopRefToOp[blockOp.getResult(1)] = tiledLoops[1];
 
@@ -1259,14 +1261,12 @@ void markLoopBodyAsMovable(
       if (movableBegin == delimeterOp->getIterator())
         continue;
 
-      // Extract region & transfer them into a movable op.
-      builder.setInsertionPoint(delimeterOp);
       auto movableOp = builder.create<KrnlMovableOp>(delimeterOp->getLoc());
       auto &movableRegion = movableOp.region();
       auto *entryBlock = new Block;
       movableRegion.push_back(entryBlock);
       entryBlock->getOperations().splice(entryBlock->end(),
-          block.getOperations(), movableBegin, movableOp->getIterator());
+          block.getOperations(), movableBegin, delimeterOp->getIterator());
       KrnlMovableOp::ensureTerminator(
           movableRegion, builder, delimeterOp->getLoc());
 
@@ -1283,6 +1283,9 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   OpBuilder builder(&getContext());
   FuncOp funcOp = getFunction();
 
+  // We use the end of the function body as a staging area for movable ops.
+  builder.setInsertionPoint(
+      &funcOp.body().front(), funcOp.body().front().without_terminator().end());
   LoopBodyMover mover;
   funcOp.walk(
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
@@ -1300,6 +1303,16 @@ void ConvertKrnlToAffinePass::runOnFunction() {
     return;
   }
 
+  funcOp->walk([&](Operation *op) {
+    if (SpecializedKernelOpInterface kernelOp =
+            dyn_cast<SpecializedKernelOpInterface>(op)) {
+      OperandRange loopRefs = kernelOp.getLoopRefs();
+      for (auto loopRef : loopRefs)
+        opsToErase.insert(loopRefToOp[loopRef]);
+      kernelOp.getLoopRefs().clear();
+    }
+  });
+
   // Remove lowered operations topologically; if ops are not removed
   // topologically, memory error will occur.
   size_t numOpsToRemove = opsToErase.size();
@@ -1308,7 +1321,16 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   // can only have a maximum of N passes through opsToErase.
   for (size_t i = 0; i < numOpsToRemove; i++) {
     for (auto op : opsToErase) {
-      if (op->use_empty()) {
+      bool safeToDelete = op->use_empty();
+      safeToDelete &= llvm::all_of(op->getRegions(), [](Region &region) {
+        return llvm::all_of(region.getBlocks(), [](Block &block) {
+          return (block.getOperations().size() == 0) ||
+                 (block.getOperations().size() == 1 &&
+                     block.getOperations().front().isKnownTerminator());
+        });
+      });
+
+      if (safeToDelete) {
         op->erase();
         opsToErase.erase(op);
         // Restart, itr has been invalidated.
