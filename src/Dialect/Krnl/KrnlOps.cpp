@@ -407,9 +407,7 @@ MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
   return loopsMutable();
 }
 
-MutableOperandRange KrnlMatMulOp::getLoopRefs() {
-  return loopsMutable();
-}
+MutableOperandRange KrnlMatMulOp::getLoopRefs() { return loopsMutable(); }
 
 } // namespace mlir
 
