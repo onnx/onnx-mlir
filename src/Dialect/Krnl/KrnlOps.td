@@ -700,7 +700,8 @@ def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
 
 // =============================================================================
 
-def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", []> {
+def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", 
+      [DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
   let summary = "Matmul operation for a single pannel.";
   let description = [{
     Perform a matrix multiplication A * B + C
@@ -727,7 +728,9 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", []> {
     Simdize is used to state if simdization is requested.
   }];
 
-  let arguments = (ins Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
+  let arguments = (ins 
+    Variadic<AnyType> : $loops,
+    Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
     Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B,
     Arg<AnyMemRef, "Add C [NxM]", [MemRead, MemWrite]>:$C,
     Index: $nGlobalStart, Index: $mGlobalStart, Index: $kGlobalStart,
@@ -745,8 +748,9 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", []> {
   let assemblyFormat = [{
     $A `,` $B `,` $C `,`
       `[` $nGlobalStart `,` $mGlobalStart `,` $kGlobalStart `]` `,`
-      `[` $nGlobalUB  `,` $mGlobalUB `,` $kGlobalUB `]`
-      attr-dict `:` type($A) `,` type($B)`,` type($C)
+      `[` $nGlobalUB  `,` $mGlobalUB `,` $kGlobalUB `]` `,`
+      `(` $loops `)`
+      attr-dict `:` type($A) `,` type($B)`,` type($C) `,` `(` type($loops) `)`
   }];
 }
 
