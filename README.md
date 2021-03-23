@@ -187,7 +187,7 @@ set LLVM_PROJ_SRC=%root_dir%/llvm-project
 
 md onnx-mlir\build
 cd onnx-mlir\build
-call cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 -DLLVM_EXTERNAL_LIT="%root_dir%\llvm-project\build\Release\bin\llvm-lit.py" -DCMAKE_BUILD_TYPE=Release ..
+call cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 -DCMAKE_BUILD_TYPE=Release ..
 call cmake --build . --config Release --target onnx-mlir -- /m
 
 REM Run FileCheck tests
@@ -195,7 +195,7 @@ set LIT_OPTS=-v
 call cmake --build . --config Release --target check-onnx-lit
 ```
 
-After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory. 
+After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
 
 ## Using ONNX-MLIR
 
