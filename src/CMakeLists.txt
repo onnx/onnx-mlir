@@ -27,6 +27,7 @@ set(OMLibs
         OMShapeInferenceOpInterface
         OMResultTypeInferenceOpInterface
         OMHasOnnxSubgraphOpInterface
+        OMSpecializedKernelOpInterface
         OMElideConstants
         OMElideKrnlGlobalConstants
         OMPackKrnlGlobalConstants
