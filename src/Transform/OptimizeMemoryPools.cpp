@@ -785,7 +785,7 @@ public:
     auto function = getFunction();
 
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns;
+    OwningRewritePatternList patterns(&getContext());
     patterns.insert<KrnlOptimizeStaticMemoryPools>(
         &getContext(), &blockToStaticPoolAlignments);
     patterns.insert<KrnlCompactStaticMemoryPools>(

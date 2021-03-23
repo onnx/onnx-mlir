@@ -89,7 +89,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
 
   // Convert TensorType to MemRef
   TensorTypeConverter tensorToMemRefConverter;
@@ -107,9 +107,9 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Call MLIR FuncOp signature conversion when result type is
   // a ranked tensor.
   populateFuncOpTypeConversionPattern(
-      patterns, &getContext(), tensorToMemRefConverter);
+      patterns, tensorToMemRefConverter);
   populateCallOpTypeConversionPattern(
-      patterns, &getContext(), tensorToMemRefConverter);
+      patterns, tensorToMemRefConverter);
 
   // Frontend operation lowering.
   // ControlFlow
@@ -153,7 +153,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   patterns.insert<ONNXEntryPointLowering>(&getContext());
 
   // Expand std.tanh
-  populateExpandTanhPattern(patterns, &getContext());
+  populateExpandTanhPattern(patterns);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

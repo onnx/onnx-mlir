@@ -84,7 +84,7 @@ public:
     auto function = getFunction();
 
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns;
+    OwningRewritePatternList patterns(&getContext());
     patterns.insert<LowerKrnlShape>(&getContext());
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));

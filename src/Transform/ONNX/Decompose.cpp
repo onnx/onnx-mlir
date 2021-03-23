@@ -165,8 +165,8 @@ void DecomposeONNXToONNXPass::runOnFunction() {
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXLayerNormalizationOp>();
 
-  OwningRewritePatternList patterns;
-  populateWithGenerated(context, patterns);
+  OwningRewritePatternList patterns(context);
+  populateWithGenerated(patterns);
   patterns.insert<ONNXLayerNormalizationOpPattern>(context);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))

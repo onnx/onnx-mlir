@@ -63,8 +63,8 @@ func @test_enable_memory_pool_2(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf3
   // CHECK: [[LOAD7:%.+]] = krnl.load %arg1[%arg2, %arg3] : memref<10x20xf32>
   // CHECK: [[ADDF3:%.+]] = addf [[LOAD6]], [[LOAD7]] : f32
   // CHECK: krnl.store [[ADDF3]], [[RES]][%arg2, %arg3] : memref<10x20xf32>
-  // CHECK: memref.dealloc [[MEMPOOL1]] : memref<400xi8>
   // CHECK: memref.dealloc [[MEMPOOL0]] : memref<800xi8>
+  // CHECK: memref.dealloc [[MEMPOOL1]] : memref<400xi8>
   // CHECK: return [[RES]] : memref<10x20xf32>
 }
 
@@ -92,7 +92,9 @@ func @test_enable_memory_pool_3(%arg0: tensor<?x?xf32>, %arg1: tensor<?x10xf32>,
   // CHECK: krnl.define_loops 2
   // CHECK: krnl.iterate
   // CHECK: krnl.store {{.*}}, [[DATA1]][%arg3, %arg4] : memref<?x10xf32>
-  // CHECK: [[CMP1:%.+]] = affine.max {{.*}}([[DIM1]], [[DIM1]])
+  // CHECK: [[DIM2:%.+]] = memref.dim [[DATA1]], [[CONST0]] : memref<?x10xf32>
+  // CHECK: [[DIM3:%.+]] = memref.dim [[DATA1]], [[CONST0]] : memref<?x10xf32>
+  // CHECK: [[CMP1:%.+]] = affine.max {{.*}}([[DIM2]], [[DIM3]])
   // CHECK: [[TMP3:%.+]] = muli [[CMP1]], [[CONST4]] : index
   // CHECK: [[TMP4:%.+]] = muli [[TMP3]], [[CONST10]] : index
   // CHECK: [[MEMPOOL2:%.+]] = memref.alloc([[TMP4]]) : memref<?xi8>
@@ -100,13 +102,14 @@ func @test_enable_memory_pool_3(%arg0: tensor<?x?xf32>, %arg1: tensor<?x10xf32>,
   // CHECK: krnl.define_loops 2
   // CHECK: krnl.iterate
   // CHECK: krnl.store {{.*}}, [[DATA2]][%arg3, %arg4] : memref<?x10xf32>
-  // CHECK: [[DATA3:%.+]] = memref.alloc([[DIM1]]) : memref<?x10xf32>
+  // CHECK: [[DIM4:%.+]] = memref.dim [[DATA1]], [[CONST0]] : memref<?x10xf32>
+  // CHECK: [[DATA3:%.+]] = memref.alloc([[DIM4]]) : memref<?x10xf32>
   // CHECK: krnl.define_loops 2
   // CHECK: krnl.iterate
   // CHECK: krnl.define_loops 1
   // CHECK: krnl.iterate
   // CHECK: krnl.store {{.*}}, [[DATA3]][%arg3, %arg4] : memref<?x10xf32>
-  // CHECK: memref.dealloc [[MEMPOOL2]] : memref<?xi8>
   // CHECK: memref.dealloc [[MEMPOOL1]] : memref<?xi8>
+  // CHECK: memref.dealloc [[MEMPOOL2]] : memref<?xi8>
   // CHECK: return [[DATA3]] : memref<?x10xf32>
 }

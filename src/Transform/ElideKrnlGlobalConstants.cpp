@@ -62,7 +62,7 @@ public:
     auto function = getFunction();
 
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns;
+    OwningRewritePatternList patterns(&getContext());
     patterns.insert<KrnlConstGlobalValueElision>(
         &getContext(), KrnlConstGlobalValueElision::kDefaultElisionThreshold);
 

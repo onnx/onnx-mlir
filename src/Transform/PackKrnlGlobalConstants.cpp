@@ -66,7 +66,7 @@ public:
 
     // Remove value attributes from krnl constant op.
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns;
+    OwningRewritePatternList patterns(&getContext());
     patterns.insert<KrnlConstGlobalValueElision>(
         &getContext(), elisionThreshold);
     // Apply constant value elision.

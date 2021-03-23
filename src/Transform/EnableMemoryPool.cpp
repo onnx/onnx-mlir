@@ -153,7 +153,7 @@ public:
     auto function = getFunction();
 
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns;
+    OwningRewritePatternList patterns(&getContext());
     patterns.insert<KrnlEnableMemoryPool>(&getContext());
     patterns.insert<KrnlEliminateOldDealloc>(&getContext());
 

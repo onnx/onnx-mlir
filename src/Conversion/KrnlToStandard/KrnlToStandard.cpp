@@ -120,7 +120,7 @@ public:
 };
 
 void ConvertKrnlToStandardPass::runOnOperation() {
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   patterns.insert<LowerKrnlGlobal>(&getContext());
   applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
 }

@@ -567,8 +567,8 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   ConversionTarget target(getContext());
   target.addLegalDialect<ONNXOpsDialect>();
 
-  OwningRewritePatternList patterns;
-  populateWithGenerated(context, patterns);
+  OwningRewritePatternList patterns(context);
+  populateWithGenerated(patterns);
   patterns.insert<ConstPropSplitPattern>(&getContext());
 
   applyPatternsAndFoldGreedily(function, std::move(patterns));

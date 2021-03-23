@@ -488,7 +488,7 @@ public:
     auto function = getFunction();
 
     ConversionTarget target(getContext());
-    OwningRewritePatternList patterns;
+    OwningRewritePatternList patterns(&getContext());
     patterns.insert<KrnlBundleStaticMemoryPools>(
         &getContext(), &blockToStaticPool);
     patterns.insert<KrnlBundleDynamicMemoryPools>(

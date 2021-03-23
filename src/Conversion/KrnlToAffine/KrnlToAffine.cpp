@@ -618,7 +618,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
   target.addLegalOp<AffineStoreOp>();
   target.addLegalOp<memref::LoadOp>();
   target.addLegalOp<memref::StoreOp>();
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   patterns.insert<KrnlTerminatorLowering>(&getContext());
   patterns.insert<KrnlLoadLowering>(&getContext());
   patterns.insert<KrnlStoreLowering>(&getContext());
