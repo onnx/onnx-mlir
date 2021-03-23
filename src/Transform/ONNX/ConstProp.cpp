@@ -51,7 +51,13 @@ namespace {
 // ConstProp.td for example.
 //
 
+const bool USE_FILE = false;
+
 const StringRef FILE_NAME_ATTR = "file_name";
+const StringRef BUFFER_ID = "buffer_id";
+
+/// Store buffer pointers.
+SmallVector<char *, 4> bufferPtrs;
 
 /// Store paths of all temporary files.
 SmallVector<std::string, 4> tempFilePaths;
@@ -170,11 +176,16 @@ void getArrayFromAttributeOrFile(Operation *op, char *res) {
   Type elementType = shapedType.getElementType();
 
   Attribute fileNameAttr = op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR);
-  if (fileNameAttr) {
+  Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID);
+  if (USE_FILE && fileNameAttr) {
     StringRef fileName = fileNameAttr.cast<StringAttr>().getValue();
     std::string pathStr = std::string(fileName.begin(), fileName.end());
     std::ifstream file(pathStr, std::ios::binary);
     file.read(res, maxSizeInBytes);
+  } else if (!USE_FILE && bufferIDAttr) {
+    unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
+    char *arr = bufferPtrs[bufferId];
+    std::copy(arr, arr + maxSizeInBytes, res);
   } else {
     DenseElementsAttr dataAttr =
         op->getAttrOfType<::mlir::Attribute>("value")
@@ -211,7 +222,8 @@ void getArrayForFinalOutput(Operation *op, char *res) {
   Type elementType = shapedType.getElementType();
 
   Attribute fileNameAttr = op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR);
-  if (fileNameAttr) {
+  Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID);
+  if (USE_FILE && fileNameAttr) {
     StringRef fileName = fileNameAttr.cast<StringAttr>().getValue();
     std::string pathStr = std::string(fileName.begin(), fileName.end());
     std::ifstream file(pathStr, std::ios::binary);
@@ -245,8 +257,35 @@ void getArrayForFinalOutput(Operation *op, char *res) {
         llvm_unreachable("Unknown data type");
     } else
       llvm_unreachable("Unknown data type");
+  } else if (!USE_FILE && bufferIDAttr) {
+    unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
+    char *resArr = bufferPtrs[bufferId];
+    if (elementType.isa<FloatType>()) {
+      FloatType floatTy = elementType.cast<FloatType>();
+      if (floatTy.getWidth() == 32) {
+        double *resArrDouble = (double *)resArr;
+        float *resArrFloat = (float *)res;
+        for (int64_t i = 0; i < numElements; ++i)
+          *(resArrFloat + i) = (float)*(resArrDouble + i);
+      } else if (floatTy.getWidth() == 64) {
+        std::copy(resArr, resArr + maxSizeInBytes, res);
+      } else
+        llvm_unreachable("Unknown data type");
+    } else if (elementType.isa<IntegerType>()) {
+      IntegerType intTy = elementType.cast<IntegerType>();
+      if (intTy.getWidth() == 32) {
+        int64_t *resArrInt64 = (int64_t *)resArr;
+        int32_t *resArrInt32 = (int32_t *)res;
+        for (int64_t i = 0; i < numElements; ++i)
+          *(resArrInt32 + i) = (int32_t)(*(resArrInt64 + i));
+      } else if (intTy.getWidth() == 64) {
+        std::copy(resArr, resArr + maxSizeInBytes, res);
+      } else
+        llvm_unreachable("Unknown data type");
+    } else
+      llvm_unreachable("Unknown data type");
   } else {
-    llvm_unreachable("Could not find the input file");
+    llvm_unreachable("Could not find the input buffer");
   }
 }
 
@@ -275,9 +314,11 @@ bool isFromDenseONNXConstantOp(Value result) {
   if (!constOp)
     return false;
 
-  // If the dense attribute is null, there must be file_name attribute.
+  // If the dense attribute is null, there must be file_name or buffer_id
+  // attribute.
   if (!(op->getAttrOfType<::mlir::Attribute>("value")))
-    if (!(op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR)))
+    if (!(op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR)) &&
+        !(op->getAttrOfType<::mlir::Attribute>(BUFFER_ID)))
       return false;
   // The other attributes must be null.
   if (op->getAttrOfType<::mlir::Attribute>("sparse_value"))
@@ -309,18 +350,28 @@ ONNXConstantOp CreateDenseONNXConstantOp(
       replacingValue.getType(), Attribute(), Attribute(), FloatAttr(),
       ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
 
-  // Write to file.
-  llvm::SmallVector<char, 10> path;
-  llvm::sys::fs::createTemporaryFile("constprop", "tmp", path);
-  std::string pathStr = std::string(path.begin(), path.end());
+  if (USE_FILE) {
+    // Write to file.
+    llvm::SmallVector<char, 10> path;
+    llvm::sys::fs::createTemporaryFile("constprop", "tmp", path);
+    std::string pathStr = std::string(path.begin(), path.end());
 
-  std::ofstream outfile(pathStr, std::ofstream::binary);
-  outfile.write(vt, maxSizeInBytes);
+    std::ofstream outfile(pathStr, std::ofstream::binary);
+    outfile.write(vt, maxSizeInBytes);
 
-  // Store the file name.
-  constOp.getOperation()->setAttr(
-      FILE_NAME_ATTR, rewriter.getStringAttr(pathStr));
-  tempFilePaths.emplace_back(pathStr);
+    // Store the file name.
+    constOp.getOperation()->setAttr(
+        FILE_NAME_ATTR, rewriter.getStringAttr(pathStr));
+    tempFilePaths.emplace_back(pathStr);
+  } else {
+    // Use in-memory.
+    bufferPtrs.emplace_back(vt);
+    unsigned bufferId = bufferPtrs.size() - 1;
+    constOp.getOperation()->setAttr(BUFFER_ID,
+        IntegerAttr::get(
+            rewriter.getIntegerType(/*width=*/64, /*isSigned=*/false),
+            bufferId));
+  }
 
   return constOp;
 }
@@ -474,7 +525,8 @@ ONNXConstantOp ConstPropElementwiseBinary(
   // Clean up.
   free(lhsArray);
   free(rhsArray);
-  free(resArray);
+  if (USE_FILE)
+    free(resArray);
 
   return res;
 }
@@ -547,7 +599,8 @@ ONNXConstantOp ConstPropElementwiseUnary(
 
   // Clean up.
   free(constArray);
-  free(resArray);
+  if (USE_FILE)
+    free(resArray);
   return res;
 }
 
@@ -623,7 +676,8 @@ ONNXConstantOp ConstPropTranspose(
       CreateDenseONNXConstantOp(rewriter, replacingValue, resArray);
 
   free(constArray);
-  free(resArray);
+  if (USE_FILE)
+    free(resArray);
   return res;
 }
 
@@ -644,7 +698,8 @@ ONNXConstantOp ConstPropUnsqueeze(
   ONNXConstantOp res =
       CreateDenseONNXConstantOp(rewriter, replacingValue, resArray);
 
-  free(resArray);
+  if (USE_FILE)
+    free(resArray);
   return res;
 }
 
@@ -714,8 +769,9 @@ void IterateConstPropSplit(PatternRewriter &rewriter,
   }
 
   // Free temporary buffers.
-  for (int i = 0; i < numOfResults; ++i)
-    free(resBuffers[i]);
+  if (USE_FILE)
+    for (int i = 0; i < numOfResults; ++i)
+      free(resBuffers[i]);
 }
 
 class ConstPropSplitPattern : public OpRewritePattern<ONNXSplitOp> {
@@ -814,7 +870,8 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   // Create DenseElementsAttr and clean up helper attributes.
   function.walk([&](ONNXConstantOp constOp) {
     Operation *op = constOp.getOperation();
-    if (op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR)) {
+    if (op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR) ||
+        op->getAttrOfType<::mlir::Attribute>(BUFFER_ID)) {
       int64_t size = getSizeInBytes(constOp.getResult().getType());
       char *arr = (char *)malloc(size);
       getArrayForFinalOutput(op, arr);
@@ -822,14 +879,22 @@ void ConstPropONNXToONNXPass::runOnFunction() {
       DenseElementsAttr denseAttr = createDenseElementsAttr(arr, type);
       op->setAttr("value", denseAttr);
       op->removeAttr(FILE_NAME_ATTR);
+      op->removeAttr(BUFFER_ID);
       free(arr);
     }
   });
 
-  // Remove temporary files.
-  for (std::string filePath : tempFilePaths)
-    llvm::sys::fs::remove(filePath);
-  tempFilePaths.clear();
+  if (USE_FILE) {
+    // Remove temporary files.
+    for (std::string filePath : tempFilePaths)
+      llvm::sys::fs::remove(filePath);
+    tempFilePaths.clear();
+  } else {
+    // Remove temporary buffers.
+    for (char *ptr : bufferPtrs)
+      free(ptr);
+    bufferPtrs.clear();
+  }
 
 } // end anonymous namespace
 
