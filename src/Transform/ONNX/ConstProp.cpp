@@ -51,16 +51,10 @@ namespace {
 // ConstProp.td for example.
 //
 
-const bool USE_FILE = false;
-
-const StringRef FILE_NAME_ATTR = "file_name";
-const StringRef BUFFER_ID = "buffer_id";
+const StringRef BUFFER_ID_ATTR = "buffer_id";
 
 /// Store buffer pointers.
 SmallVector<char *, 4> bufferPtrs;
-
-/// Store paths of all temporary files.
-SmallVector<std::string, 4> tempFilePaths;
 
 /// A helper function to get a value of a given type from an attribute.
 template <typename T>
@@ -164,29 +158,35 @@ std::vector<int64_t> getAccessIndex(
   return res;
 }
 
-/// Get a data array from a given ONNXConstantOp. If data were stored to a file,
-/// get from the file. Otherwise, get from the dense attribute.
-void getArrayFromAttributeOrFile(Operation *op, char *res) {
+/// Allocate a buffer whose size is getting from a given Value's type.
+char *allocateBufferFor(Value value, bool useMaxSize = false) {
+  int64_t sizeInBytes;
+  if (useMaxSize)
+    sizeInBytes = getMaxSizeInBytes(value.getType().cast<ShapedType>());
+  else
+    sizeInBytes = getSizeInBytes(value.getType().cast<ShapedType>());
+  char *res = (char *)malloc(sizeInBytes);
+  return res;
+}
+
+/// Get a data array from a given ONNXConstantOp. If data were stored in memory,
+/// get from memory. Otherwise, get from the dense attribute.
+char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
   ONNXConstantOp constOp = llvm::dyn_cast_or_null<ONNXConstantOp>(op);
   assert(constOp && "Not a constant operation");
+  char *res;
 
   ShapedType shapedType = constOp.getResult().getType().cast<ShapedType>();
   int64_t maxSizeInBytes = getMaxSizeInBytes(shapedType);
   int64_t numElements = getNumberOfElements(shapedType.getShape());
   Type elementType = shapedType.getElementType();
 
-  Attribute fileNameAttr = op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR);
-  Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID);
-  if (USE_FILE && fileNameAttr) {
-    StringRef fileName = fileNameAttr.cast<StringAttr>().getValue();
-    std::string pathStr = std::string(fileName.begin(), fileName.end());
-    std::ifstream file(pathStr, std::ios::binary);
-    file.read(res, maxSizeInBytes);
-  } else if (!USE_FILE && bufferIDAttr) {
+  Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
+  if (bufferIDAttr) {
     unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
-    char *arr = bufferPtrs[bufferId];
-    std::copy(arr, arr + maxSizeInBytes, res);
+    res = bufferPtrs[bufferId];
   } else {
+    res = allocateBufferFor(constOp.getResult(), /*useMaxSize=*/true);
     DenseElementsAttr dataAttr =
         op->getAttrOfType<::mlir::Attribute>("value")
             .dyn_cast_or_null<mlir::DenseElementsAttr>();
@@ -208,7 +208,17 @@ void getArrayFromAttributeOrFile(Operation *op, char *res) {
       }
     } else
       llvm_unreachable("Unknown data type");
+
+    // Store the buffer pointer.
+    bufferPtrs.emplace_back(res);
+    unsigned bufferId = bufferPtrs.size() - 1;
+    // Add add an attribute to store the buffer id.
+    op->setAttr(BUFFER_ID_ATTR,
+        IntegerAttr::get(
+            rewriter.getIntegerType(/*width=*/64, /*isSigned=*/false),
+            bufferId));
   }
+  return res;
 }
 
 /// Get array with the exact data type for the final ONNXConstantOp.
@@ -221,43 +231,8 @@ void getArrayForFinalOutput(Operation *op, char *res) {
   int64_t numElements = getNumberOfElements(shapedType.getShape());
   Type elementType = shapedType.getElementType();
 
-  Attribute fileNameAttr = op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR);
-  Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID);
-  if (USE_FILE && fileNameAttr) {
-    StringRef fileName = fileNameAttr.cast<StringAttr>().getValue();
-    std::string pathStr = std::string(fileName.begin(), fileName.end());
-    std::ifstream file(pathStr, std::ios::binary);
-    if (elementType.isa<FloatType>()) {
-      FloatType floatTy = elementType.cast<FloatType>();
-      if (floatTy.getWidth() == 32) {
-        char *resArr = (char *)malloc(maxSizeInBytes);
-        file.read(resArr, maxSizeInBytes);
-        double *resArrDouble = (double *)resArr;
-        float *resArrFloat = (float *)res;
-        for (int64_t i = 0; i < numElements; ++i)
-          *(resArrFloat + i) = (float)*(resArrDouble + i);
-        free(resArr);
-      } else if (floatTy.getWidth() == 64) {
-        file.read(res, maxSizeInBytes);
-      } else
-        llvm_unreachable("Unknown data type");
-    } else if (elementType.isa<IntegerType>()) {
-      IntegerType intTy = elementType.cast<IntegerType>();
-      if (intTy.getWidth() == 32) {
-        char *resArr = (char *)malloc(maxSizeInBytes);
-        file.read(resArr, maxSizeInBytes);
-        int64_t *resArrInt64 = (int64_t *)resArr;
-        int32_t *resArrInt32 = (int32_t *)res;
-        for (int64_t i = 0; i < numElements; ++i)
-          *(resArrInt32 + i) = (int32_t)(*(resArrInt64 + i));
-        free(resArr);
-      } else if (intTy.getWidth() == 64) {
-        file.read(res, maxSizeInBytes);
-      } else
-        llvm_unreachable("Unknown data type");
-    } else
-      llvm_unreachable("Unknown data type");
-  } else if (!USE_FILE && bufferIDAttr) {
+  Attribute bufferIDAttr = op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR);
+  if (bufferIDAttr) {
     unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
     char *resArr = bufferPtrs[bufferId];
     if (elementType.isa<FloatType>()) {
@@ -314,11 +289,10 @@ bool isFromDenseONNXConstantOp(Value result) {
   if (!constOp)
     return false;
 
-  // If the dense attribute is null, there must be file_name or buffer_id
+  // If the dense attribute is null, there must be buffer_id
   // attribute.
   if (!(op->getAttrOfType<::mlir::Attribute>("value")))
-    if (!(op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR)) &&
-        !(op->getAttrOfType<::mlir::Attribute>(BUFFER_ID)))
+    if (!(op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR)))
       return false;
   // The other attributes must be null.
   if (op->getAttrOfType<::mlir::Attribute>("sparse_value"))
@@ -341,7 +315,7 @@ bool isFromDenseONNXConstantOp(Value result) {
 
 /// A helper function to create an ONNXConstantOp for a given data array.
 /// This ONNXConstantOp is only used internally.
-ONNXConstantOp CreateDenseONNXConstantOp(
+ONNXConstantOp CreateConstantOpAndStoreBufferPtr(
     PatternRewriter &rewriter, Value replacingValue, char *vt) {
   Location loc = replacingValue.getLoc();
   int64_t maxSizeInBytes = getMaxSizeInBytes(replacingValue.getType());
@@ -350,28 +324,21 @@ ONNXConstantOp CreateDenseONNXConstantOp(
       replacingValue.getType(), Attribute(), Attribute(), FloatAttr(),
       ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
 
-  if (USE_FILE) {
-    // Write to file.
-    llvm::SmallVector<char, 10> path;
-    llvm::sys::fs::createTemporaryFile("constprop", "tmp", path);
-    std::string pathStr = std::string(path.begin(), path.end());
-
-    std::ofstream outfile(pathStr, std::ofstream::binary);
-    outfile.write(vt, maxSizeInBytes);
-
-    // Store the file name.
-    constOp.getOperation()->setAttr(
-        FILE_NAME_ATTR, rewriter.getStringAttr(pathStr));
-    tempFilePaths.emplace_back(pathStr);
-  } else {
-    // Use in-memory.
+  // Store the buffer pointer.
+  unsigned bufferId = -1;
+  for (unsigned i = 0; i < bufferPtrs.size(); ++i)
+    if (bufferPtrs[i] == vt) {
+      bufferId = i;
+      break;
+    }
+  if (bufferId == -1) {
     bufferPtrs.emplace_back(vt);
-    unsigned bufferId = bufferPtrs.size() - 1;
-    constOp.getOperation()->setAttr(BUFFER_ID,
-        IntegerAttr::get(
-            rewriter.getIntegerType(/*width=*/64, /*isSigned=*/false),
-            bufferId));
+    bufferId = bufferPtrs.size() - 1;
   }
+  // Store the buffer id.
+  constOp.getOperation()->setAttr(BUFFER_ID_ATTR,
+      IntegerAttr::get(
+          rewriter.getIntegerType(/*width=*/64, /*isSigned=*/false), bufferId));
 
   return constOp;
 }
@@ -502,13 +469,11 @@ ONNXConstantOp ConstPropElementwiseBinary(
       replacingValue.getType().cast<ShapedType>().getShape();
 
   // Get lhs and rhs values.
-  char *lhsArray = (char *)malloc(getMaxSizeInBytes(lhs.getType()));
-  getArrayFromAttributeOrFile(lhs.getDefiningOp(), lhsArray);
-  char *rhsArray = (char *)malloc(getMaxSizeInBytes(rhs.getType()));
-  getArrayFromAttributeOrFile(rhs.getDefiningOp(), rhsArray);
+  char *lhsArray = getArrayFromAttributeOrBuffer(rewriter, lhs.getDefiningOp());
+  char *rhsArray = getArrayFromAttributeOrBuffer(rewriter, rhs.getDefiningOp());
 
   // Do calculation.
-  char *resArray = (char *)malloc(getMaxSizeInBytes(replacingValue.getType()));
+  char *resArray = allocateBufferFor(replacingValue, /*useMaxSize=*/true);
   if (elementType.isa<FloatType>()) {
     IterateConstPropElementwiseBinary<ElementwiseBinaryOp, double>(
         lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
@@ -520,13 +485,7 @@ ONNXConstantOp ConstPropElementwiseBinary(
 
   // Construct a new ONNXConstantOp.
   ONNXConstantOp res =
-      CreateDenseONNXConstantOp(rewriter, replacingValue, resArray);
-
-  // Clean up.
-  free(lhsArray);
-  free(rhsArray);
-  if (USE_FILE)
-    free(resArray);
+      CreateConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
   return res;
 }
@@ -579,11 +538,11 @@ ONNXConstantOp ConstPropElementwiseUnary(
   int64_t maxSizeInBytes = getMaxSizeInBytes(constValue.getType());
 
   // Get the const value.
-  char *constArray = (char *)malloc(maxSizeInBytes);
-  getArrayFromAttributeOrFile(constValue.getDefiningOp(), constArray);
+  char *constArray =
+      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
 
   // Do calculation.
-  char *resArray = (char *)malloc(maxSizeInBytes);
+  char *resArray = allocateBufferFor(replacingValue, /*useMaxSize=*/true);
   if (elementType.isa<FloatType>()) {
     IterateConstPropElementwiseUnary<ElementwiseUnaryOp, double>(
         constArray, resArray, replacingShape);
@@ -595,12 +554,8 @@ ONNXConstantOp ConstPropElementwiseUnary(
 
   // Construct a new ONNXConstantOp.
   ONNXConstantOp res =
-      CreateDenseONNXConstantOp(rewriter, replacingValue, resArray);
+      CreateConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  // Clean up.
-  free(constArray);
-  if (USE_FILE)
-    free(resArray);
   return res;
 }
 
@@ -657,11 +612,11 @@ ONNXConstantOp ConstPropTranspose(
     perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
 
   // Get the const value.
-  char *constArray = (char *)malloc(maxSizeInBytes);
-  getArrayFromAttributeOrFile(constValue.getDefiningOp(), constArray);
+  char *constArray =
+      getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
 
   // Do calculation.
-  char *resArray = (char *)malloc(maxSizeInBytes);
+  char *resArray = allocateBufferFor(replacingValue, /*useMaxSize=*/true);
   if (elementType.isa<FloatType>()) {
     IterateConstPropTranspose<double>(
         constArray, constShape, perm, resArray, replacingShape);
@@ -673,11 +628,8 @@ ONNXConstantOp ConstPropTranspose(
 
   // Construct a new ONNXConstantOp.
   ONNXConstantOp res =
-      CreateDenseONNXConstantOp(rewriter, replacingValue, resArray);
+      CreateConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  free(constArray);
-  if (USE_FILE)
-    free(resArray);
   return res;
 }
 
@@ -691,15 +643,12 @@ ONNXConstantOp ConstPropUnsqueeze(
   Type elementType = replacingType.cast<ShapedType>().getElementType();
   Operation *inputOp = input.getDefiningOp();
 
-  char *resArray = (char *)malloc(getMaxSizeInBytes(replacingValue.getType()));
-  getArrayFromAttributeOrFile(inputOp, resArray);
+  char *resArray = getArrayFromAttributeOrBuffer(rewriter, inputOp);
 
   // Construct a new ONNXConstantOp.
   ONNXConstantOp res =
-      CreateDenseONNXConstantOp(rewriter, replacingValue, resArray);
+      CreateConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
-  if (USE_FILE)
-    free(resArray);
   return res;
 }
 
@@ -724,8 +673,7 @@ void IterateConstPropSplit(PatternRewriter &rewriter,
   // Allocate temporary buffers.
   std::vector<char *> resBuffers;
   for (int i = 0; i < numOfResults; ++i) {
-    int64_t size = getMaxSizeInBytes(replacingValues[i].getType());
-    char *resArray = (char *)malloc(size);
+    char *resArray = allocateBufferFor(replacingValues[i], /*useMaxSize=*/true);
     resBuffers.emplace_back(resArray);
   }
 
@@ -763,15 +711,10 @@ void IterateConstPropSplit(PatternRewriter &rewriter,
 
   // Construct result values.
   for (int i = 0; i < numOfResults; ++i) {
-    ONNXConstantOp res =
-        CreateDenseONNXConstantOp(rewriter, replacingValues[i], resBuffers[i]);
+    ONNXConstantOp res = CreateConstantOpAndStoreBufferPtr(
+        rewriter, replacingValues[i], resBuffers[i]);
     resValues.emplace_back(res.getResult());
   }
-
-  // Free temporary buffers.
-  if (USE_FILE)
-    for (int i = 0; i < numOfResults; ++i)
-      free(resBuffers[i]);
 }
 
 class ConstPropSplitPattern : public OpRewritePattern<ONNXSplitOp> {
@@ -812,8 +755,8 @@ public:
     }
 
     // Get the constant input value.
-    char *inputArray = (char *)malloc(getMaxSizeInBytes(inputType));
-    getArrayFromAttributeOrFile(input.getDefiningOp(), inputArray);
+    char *inputArray =
+        getArrayFromAttributeOrBuffer(rewriter, input.getDefiningOp());
 
     SmallVector<Value, 4> replacingValues;
     for (int i = 0; i < numOfResults; ++i)
@@ -829,9 +772,6 @@ public:
           inputShape, replacingValues, splitAxis, splitOffsets);
     } else
       llvm_unreachable("Unknown data type");
-
-    // Clean up.
-    free(inputArray);
 
     rewriter.replaceOp(splitOp, resValues);
     return success();
@@ -870,31 +810,22 @@ void ConstPropONNXToONNXPass::runOnFunction() {
   // Create DenseElementsAttr and clean up helper attributes.
   function.walk([&](ONNXConstantOp constOp) {
     Operation *op = constOp.getOperation();
-    if (op->getAttrOfType<::mlir::Attribute>(FILE_NAME_ATTR) ||
-        op->getAttrOfType<::mlir::Attribute>(BUFFER_ID)) {
-      int64_t size = getSizeInBytes(constOp.getResult().getType());
-      char *arr = (char *)malloc(size);
+    if (op->getAttrOfType<::mlir::Attribute>(BUFFER_ID_ATTR)) {
+      char *arr = allocateBufferFor(constOp.getResult());
       getArrayForFinalOutput(op, arr);
       ShapedType type = constOp.getResult().getType().cast<ShapedType>();
       DenseElementsAttr denseAttr = createDenseElementsAttr(arr, type);
       op->setAttr("value", denseAttr);
-      op->removeAttr(FILE_NAME_ATTR);
-      op->removeAttr(BUFFER_ID);
+      op->removeAttr(BUFFER_ID_ATTR);
       free(arr);
     }
   });
 
-  if (USE_FILE) {
-    // Remove temporary files.
-    for (std::string filePath : tempFilePaths)
-      llvm::sys::fs::remove(filePath);
-    tempFilePaths.clear();
-  } else {
-    // Remove temporary buffers.
-    for (char *ptr : bufferPtrs)
-      free(ptr);
-    bufferPtrs.clear();
+  // Remove temporary buffers.
+  for (char *ptr : bufferPtrs) {
+    free(ptr);
   }
+  bufferPtrs.clear();
 
 } // end anonymous namespace
 
