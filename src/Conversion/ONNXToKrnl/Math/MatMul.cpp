@@ -21,27 +21,11 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   ONNXMatMulOpLowering(MLIRContext *ctx)
       : ConversionPattern(mlir::ONNXMatMulOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-
-    // Get shape.
-    ONNXMatMulOpAdaptor operandAdaptor(operands);
-    ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
-    auto loc = ONNXLoc<ONNXMatMulOp>(op);
-    ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
-    (void)shapecomputed;
-    assert(succeeded(shapecomputed));
-    IndexExprScope outerScope(shapeHelper.scope);
-
-    // Insert an allocation and deallocation for the output of this operation.
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    Type elementType = outputMemRefType.getElementType();
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
-
-    // Get the constants: zero.
-    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+  // Handle the generic cases, including when there are broadcasts.
+  void replaceGenericMatmul(ONNXMatMulOp &matMulOp,
+      ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zero,
+      ConversionPatternRewriter &rewriter, Location loc) const {
 
     // Non-reduction loop iterations: output-rank.
     int outerloopNum = shapeHelper.dimsForOutput(0).size();
@@ -117,6 +101,42 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     accumulated =
         rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
     krnl_store(accumulated, alloc, resAccessFct);
+  }
+
+  // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
+  // Implementation here uses the efficient 2d tiling with buffering approach.
+  void replace2x2Matmul(ONNXMatMulOp &matMulOp,
+      ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zero,
+      ConversionPatternRewriter &rewriter, Location loc) const {
+
+
+        
+      }
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+
+    // Get shape.
+    ONNXMatMulOpAdaptor operandAdaptor(operands);
+    ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
+    Location loc = ONNXLoc<ONNXMatMulOp>(op);
+    ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter);
+    LogicalResult shapecomputed = shapeHelper.Compute(operandAdaptor);
+    assert(succeeded(shapecomputed));
+    IndexExprScope outerScope(shapeHelper.scope);
+
+    // Insert an allocation and deallocation for the output of this operation.
+    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    Type elementType = outputMemRefType.getElementType();
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+
+    // Get the constants: zero.
+    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+
+    replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
+        alloc, zero, rewriter, loc);
 
     // Done.
     rewriter.replaceOp(op, alloc);

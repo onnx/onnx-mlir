@@ -660,6 +660,7 @@ class MemRefBoundIndexCapture {
 public:
   MemRefBoundIndexCapture(Value tensorOrMemref);
 
+  int64_t getRank() { return memRank; }
   IndexExpr getLiteral(uint64_t i); // Assert if bound is not compile time.
   IndexExpr getDim(uint64_t i);
   IndexExpr getSymbol(uint64_t i);
@@ -676,6 +677,7 @@ private:
   void getList(SmallVectorImpl<IndexExpr> &dimList);
 
   Value tensorOrMemref;
+  int64_t memRank;
 };
 
 //===----------------------------------------------------------------------===//

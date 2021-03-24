@@ -1262,7 +1262,9 @@ IndexExpr ArrayAttributeIndexCapture::getLiteral(uint64_t i) {
 //===----------------------------------------------------------------------===//
 
 MemRefBoundIndexCapture::MemRefBoundIndexCapture(Value tensorOrMemref)
-    : tensorOrMemref(tensorOrMemref) {}
+    : tensorOrMemref(tensorOrMemref) {
+  memRank = tensorOrMemref.getType().cast<ShapedType>().getShape().size();
+}
 
 IndexExpr MemRefBoundIndexCapture::getDim(uint64_t i) {
   return get<DimIndexExpr>(i);
@@ -1274,6 +1276,7 @@ IndexExpr MemRefBoundIndexCapture::getSymbol(uint64_t i) {
 
 // Assert if not a literal.
 IndexExpr MemRefBoundIndexCapture::getLiteral(uint64_t i) {
+  assert(i<memRank && "out of bound access");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   if (shape[i] >= 0) {
@@ -1297,10 +1300,8 @@ void MemRefBoundIndexCapture::getLiteralList(
     SmallVectorImpl<IndexExpr> &literalList) {
   // Clear output.
   literalList.clear();
-  // Scan type and shape.
-  int size = tensorOrMemref.getType().cast<ShapedType>().getShape().size();
   // Scan tensor or memref.
-  for (int i = 0; i < size; ++i)
+  for (int i = 0; i < memRank; ++i)
     literalList.emplace_back(getLiteral(i));
 }
 
@@ -1308,7 +1309,7 @@ template <class INDEX>
 IndexExpr MemRefBoundIndexCapture::get(uint64_t i) {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
-  assert(i < shape.size() && "index out of bound");
+  assert(i < memRank && "index out of bound");
   if (shape[i] >= 0) {
     // We have a constant dimension.
     int64_t intVal = shape[i];
@@ -1329,10 +1330,8 @@ template <class INDEX>
 void MemRefBoundIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   // Clear output.
   list.clear();
-  // Scan type and shape.
-  int size = tensorOrMemref.getType().cast<ShapedType>().getShape().size();
   // Scan tensor or memref.
-  for (int i = 0; i < size; ++i)
+  for (int i = 0; i < memRank; ++i)
     list.emplace_back(get<INDEX>(i));
 }
 
