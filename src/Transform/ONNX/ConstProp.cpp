@@ -53,7 +53,28 @@ namespace {
 
 const StringRef BUFFER_ID_ATTR = "buffer_id";
 
-/// Store buffer pointers.
+/// Buffers will be allocated to store intermediate constants during the const
+/// propagation. The use of buffers is to avoid creating dense attributes which
+/// are immortal by design in MLIR, leading to small memory footprint.
+///
+/// There are three helper functions to use when working with buffers:
+/// 1) getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op)
+///    - create a buffer from a dense attribute at the first time we reach the
+///      const 'op' and add the buffer to the buffer pool, or
+///    - get the buffer from the buffer pool if it was created.
+/// 2) createConstantOpAndStoreBufferPtr(..., char *buffer)
+///    - create a new ONNXConstantOp using the given buffer, and
+///    - add the buffer to the buffer pool.
+/// 3) allocateBufferFor(Value value, bool useMaxSize = false)
+///    - create a new buffer whose size is obtained from the type of 'value'.
+///
+/// Note that:
+///   - The buffers in the buffer pool will be automatically freed. Users don't
+///     need to take care about that.
+///   - If we create a buffer and do not put it on the buffer pool, please
+///     make sure that it is correctly freed.
+///
+/// Buffer pool to store buffer pointers.
 SmallVector<char *, 4> bufferPtrs;
 
 /// A helper function to get a value of a given type from an attribute.
@@ -213,7 +234,7 @@ char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
     // Store the buffer pointer.
     bufferPtrs.emplace_back(res);
     unsigned bufferId = bufferPtrs.size() - 1;
-    // Add add an attribute to store the buffer id.
+    // Add an attribute to store the buffer id.
     op->setAttr(BUFFER_ID_ATTR,
         IntegerAttr::get(
             rewriter.getIntegerType(/*width=*/64, /*isSigned=*/false),
@@ -316,7 +337,7 @@ bool isFromDenseONNXConstantOp(Value result) {
 
 /// A helper function to create an ONNXConstantOp for a given data array.
 /// This ONNXConstantOp is only used internally.
-ONNXConstantOp CreateConstantOpAndStoreBufferPtr(
+ONNXConstantOp createConstantOpAndStoreBufferPtr(
     PatternRewriter &rewriter, Value replacingValue, char *vt) {
   Location loc = replacingValue.getLoc();
   int64_t maxSizeInBytes = getMaxSizeInBytes(replacingValue.getType());
@@ -489,7 +510,7 @@ ONNXConstantOp ConstPropElementwiseBinary(
 
   // Construct a new ONNXConstantOp.
   ONNXConstantOp res =
-      CreateConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
   return res;
 }
@@ -561,7 +582,7 @@ ONNXConstantOp ConstPropElementwiseUnary(
 
   // Construct a new ONNXConstantOp.
   ONNXConstantOp res =
-      CreateConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
   return res;
 }
@@ -638,7 +659,7 @@ ONNXConstantOp ConstPropTranspose(
 
   // Construct a new ONNXConstantOp.
   ONNXConstantOp res =
-      CreateConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
   return res;
 }
@@ -657,7 +678,7 @@ ONNXConstantOp ConstPropUnsqueeze(
 
   // Construct a new ONNXConstantOp.
   ONNXConstantOp res =
-      CreateConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
+      createConstantOpAndStoreBufferPtr(rewriter, replacingValue, resArray);
 
   return res;
 }
@@ -722,7 +743,7 @@ void IterateConstPropSplit(PatternRewriter &rewriter,
 
   // Construct result values.
   for (int i = 0; i < numOfResults; ++i) {
-    ONNXConstantOp res = CreateConstantOpAndStoreBufferPtr(
+    ONNXConstantOp res = createConstantOpAndStoreBufferPtr(
         rewriter, replacingValues[i], resBuffers[i]);
     resValues.emplace_back(res.getResult());
   }
