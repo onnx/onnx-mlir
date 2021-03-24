@@ -12,9 +12,6 @@ parameters:
   default: ''
 
 steps:
-  - template: .azure-pipelines/templates/steps/SetupBuildEnv.yml@tools
-    parameters:
-      Platform: ${{ parameters.Platform }}
   - checkout: self
     clean: true
     submodules: recursive
@@ -67,9 +64,11 @@ steps:
       cmakeArgs: >-
         ${{ parameters.BuildTools }}
         $(ONNXMLIRSourceDir)
-        -DCMAKE_BUILD_TYPE=$(CMakeBuildConfiguration)
         -DADO_DOWNLOAD_ONNX_TEST_FILES=ON
+        -DCMAKE_BUILD_TYPE=$(CMakeBuildConfiguration)
         -DCMAKE_PREFIX_PATH=${{ parameters.CMakePrefixPath }}
+        -DONNX_USE_PROTOBUF_SHARED_LIBS=OFF
+        -DProtobuf_USE_STATIC_LIBS=ON
 
   - task: CMake@1
     displayName: 'Build ONNX MLIR'

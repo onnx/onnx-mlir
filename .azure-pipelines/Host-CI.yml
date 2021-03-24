@@ -18,6 +18,12 @@ resources:
     name: tools
     ref: refs/heads/main
     trigger: none
+  - repository: protobuf
+    type: github
+    name: protocolbuffers/protobuf
+    endpoint: ProtobufGitHubServiceConnection
+    ref: refs/tags/v3.12.3
+    trigger: none
 
 # Trigger CI and PR build on the apollo branch
 trigger:
@@ -76,14 +82,21 @@ jobs:
     demands:
     - Agent.OS -equals Windows_NT
   timeoutInMinutes: 180
-  workspace:
-    clean: outputs
 
   steps:
+  - template: .azure-pipelines/templates/steps/SetupBuildEnv.yml@tools
+    parameters:
+      Platform: 'Windows'
+
+  - template: .azure-pipelines/templates/steps/ProtobufBuildTemplateWindows.yml@tools
+    parameters:
+      BuildConfiguration: '$(CMakeBuildConfiguration)'
+      InstallDirectory: '$(Build.ArtifactStagingDirectory)/protobuf/$(CMakeBuildConfiguration)'
+
   - template: BuildOnnxMlir.yml
     parameters:
       BuildTools: '-G "Visual Studio 16 2019" -A x64 -T host=x64'
-      CMakePrefixPath: 'C:\protobuf\install\$(CMakeBuildConfiguration)'
+      CMakePrefixPath: '$(Build.ArtifactStagingDirectory)/protobuf/$(CMakeBuildConfiguration)'
       Platform: 'Windows'
 
 - job: Build_And_Test_ONNX_MLIR_Ubuntu
@@ -106,10 +119,12 @@ jobs:
     demands:
     - ImageOverride -equals MMSUbuntu20.04
   timeoutInMinutes: 180
-  workspace:
-    clean: outputs
 
   steps:
+  - template: .azure-pipelines/templates/steps/SetupBuildEnv.yml@tools
+    parameters:
+      Platform: 'Ubuntu'
+
   - template: BuildOnnxMlir.yml
     parameters:
       BuildTools: '-G Ninja -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DLLVM_USE_LINKER=lld'
