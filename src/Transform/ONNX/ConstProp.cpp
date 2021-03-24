@@ -186,6 +186,7 @@ char *getArrayFromAttributeOrBuffer(PatternRewriter &rewriter, Operation *op) {
     unsigned bufferId = bufferIDAttr.cast<IntegerAttr>().getUInt();
     res = bufferPtrs[bufferId];
   } else {
+    // Use maximum size (double or int64_t) to avoid the precision loss.
     res = allocateBufferFor(constOp.getResult(), /*useMaxSize=*/true);
     DenseElementsAttr dataAttr =
         op->getAttrOfType<::mlir::Attribute>("value")
@@ -473,11 +474,14 @@ ONNXConstantOp ConstPropElementwiseBinary(
   char *rhsArray = getArrayFromAttributeOrBuffer(rewriter, rhs.getDefiningOp());
 
   // Do calculation.
+  // Use maximum size (double or int64_t) to avoid the precision loss.
   char *resArray = allocateBufferFor(replacingValue, /*useMaxSize=*/true);
   if (elementType.isa<FloatType>()) {
+    // Use double to avoid the precision loss during computation.
     IterateConstPropElementwiseBinary<ElementwiseBinaryOp, double>(
         lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
   } else if (elementType.isa<IntegerType>()) {
+    // Use int64_t to avoid the precision loss during computation.
     IterateConstPropElementwiseBinary<ElementwiseBinaryOp, int64_t>(
         lhsArray, rhsArray, lhsShape, rhsShape, resArray, outputShape);
   } else
@@ -542,11 +546,14 @@ ONNXConstantOp ConstPropElementwiseUnary(
       getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
 
   // Do calculation.
+  // Use maximum size (double or int64_t) to avoid the precision loss.
   char *resArray = allocateBufferFor(replacingValue, /*useMaxSize=*/true);
   if (elementType.isa<FloatType>()) {
+    // Use double to avoid the precision loss during computation.
     IterateConstPropElementwiseUnary<ElementwiseUnaryOp, double>(
         constArray, resArray, replacingShape);
   } else if (elementType.isa<IntegerType>()) {
+    // Use int64_t to avoid the precision loss during computation.
     IterateConstPropElementwiseUnary<ElementwiseUnaryOp, int64_t>(
         constArray, resArray, replacingShape);
   } else
@@ -616,11 +623,14 @@ ONNXConstantOp ConstPropTranspose(
       getArrayFromAttributeOrBuffer(rewriter, constValue.getDefiningOp());
 
   // Do calculation.
+  // Use maximum size (double or int64_t) to avoid the precision loss.
   char *resArray = allocateBufferFor(replacingValue, /*useMaxSize=*/true);
   if (elementType.isa<FloatType>()) {
+    // Use double to avoid the precision loss during computation.
     IterateConstPropTranspose<double>(
         constArray, constShape, perm, resArray, replacingShape);
   } else if (elementType.isa<IntegerType>()) {
+    // Use int64_t to avoid the precision loss during computation.
     IterateConstPropTranspose<int64_t>(
         constArray, constShape, perm, resArray, replacingShape);
   } else
@@ -673,6 +683,7 @@ void IterateConstPropSplit(PatternRewriter &rewriter,
   // Allocate temporary buffers.
   std::vector<char *> resBuffers;
   for (int i = 0; i < numOfResults; ++i) {
+    // Use maximum size (double or int64_t) to avoid the precision loss.
     char *resArray = allocateBufferFor(replacingValues[i], /*useMaxSize=*/true);
     resBuffers.emplace_back(resArray);
   }
