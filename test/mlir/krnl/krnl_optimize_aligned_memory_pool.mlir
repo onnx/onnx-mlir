@@ -88,7 +88,7 @@ func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) 
   // CHECK: "krnl.getref"([[MEMPOOL_ALIGNED]], [[C0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<800xi8>, i64) -> memref<10x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL_ALIGNED]], [[C0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<800xi8>, i64) -> memref<10x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<800xi8>, i64) -> memref<10x10xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<800xi8>, i64) -> memref<10x10xf32>
 }
 

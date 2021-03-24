@@ -791,7 +791,8 @@ public:
     patterns.insert<KrnlCompactStaticMemoryPools>(
         &getContext(), &blockToStaticPoolAlignments);
 
-    applyPatternsAndFoldGreedily(function, std::move(patterns));
+    applyPatternsAndFoldGreedily(function, std::move(patterns),
+                                 /*useTopDown=*/false);
   }
 };
 } // namespace

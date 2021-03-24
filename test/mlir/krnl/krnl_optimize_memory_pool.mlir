@@ -391,16 +391,17 @@ func @analysis_krnl_memcpy(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %arg
 
   // CHECK-LABEL: analysis_krnl_memcpy
   // CHECK: [[C0:%.+]] = constant 0 : i64
+  // CHECK: [[C600:%.+]] = constant 600 : i64
   // CHECK: [[C400:%.+]] = constant 400 : i64
   // CHECK: [[C200:%.+]] = constant 200 : i64
-  // CHECK: [[MEMPOOL:%.+]] = memref.alloc() : memref<600xi8>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C200]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C200]]) : (memref<600xi8>, i64) -> memref<5x10xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<600xi8>, i64) -> memref<5x10xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C200]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
+  // CHECK: [[MEMPOOL:%.+]] = memref.alloc() : memref<800xi8>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<800xi8>, i64) -> memref<10x5xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C200]]) : (memref<800xi8>, i64) -> memref<10x5xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<800xi8>, i64) -> memref<10x5xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<800xi8>, i64) -> memref<5x10xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C200]]) : (memref<800xi8>, i64) -> memref<5x10xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<800xi8>, i64) -> memref<10x5xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C600]]) : (memref<800xi8>, i64) -> memref<10x5xf32>
 }
 
 // -----
@@ -500,16 +501,16 @@ func @multiple_shaped_memrefs(%arg0: memref<10x5xf32>, %arg1: memref<5x5xf32>, %
 
   // CHECK-LABEL: multiple_shaped_memrefs
   // CHECK: [[C0:%.+]] = constant 0 : i64
-  // CHECK: [[C200:%.+]] = constant 200 : i64
   // CHECK: [[C400:%.+]] = constant 400 : i64
+  // CHECK: [[C200:%.+]] = constant 200 : i64
   // CHECK: [[MEMPOOL:%.+]] = memref.alloc() : memref<600xi8>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C200]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<600xi8>, i64) -> memref<5x10xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C200]]) : (memref<600xi8>, i64) -> memref<5x10xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<600xi8>, i64) -> memref<5x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C200]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<600xi8>, i64) -> memref<10x5xf32>
 }
 
 // -----
@@ -599,12 +600,12 @@ func @unknown_op_reuse(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) -> me
 
   // CHECK-LABEL: unknown_op_reuse
   // CHECK: [[C0:%.+]] = constant 0 : i64
-  // CHECK: [[C400:%.+]] = constant 400 : i64
   // CHECK: [[C800:%.+]] = constant 800 : i64
+  // CHECK: [[C400:%.+]] = constant 400 : i64
   // CHECK: [[MEMPOOL:%.+]] = memref.alloc() : memref<1200xi8>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
-  // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[C800]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C400]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
+  // CHECK: "krnl.getref"([[MEMPOOL]], [[C0]]) : (memref<1200xi8>, i64) -> memref<10x10xf32>
 }

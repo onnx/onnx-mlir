@@ -494,7 +494,8 @@ public:
     patterns.insert<KrnlBundleDynamicMemoryPools>(
         &getContext(), &blockToDynamicPool);
 
-    applyPatternsAndFoldGreedily(function, std::move(patterns));
+    applyPatternsAndFoldGreedily(function, std::move(patterns),
+                                 /*useTopDown=*/false);
     BlockToMemPool::iterator it;
     for (it = blockToStaticPool.begin(); it != blockToStaticPool.end(); it++)
       free(it->second);
