@@ -11,6 +11,7 @@
 include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "src/Interface/SpecializedKernelOpInterface.td"
 
 def Krnl_Dialect : Dialect {
   let name = "krnl";
@@ -638,4 +639,19 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
       `(` $loops `)` attr-dict `:` functional-type($loops, results)
   }];
 
+}
+
+def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
+                            [DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
+  let summary = "Krnl specialized kernel op";
+  let description = [{
+    Krnl operation to convert.
+  }];
+
+  let arguments = (ins Variadic<AnyType> : $loops);
+  let results = (outs );
+
+  let assemblyFormat = [{
+      `(` $loops `)` attr-dict `:` type($loops)
+  }];
 }

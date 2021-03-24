@@ -92,19 +92,6 @@ Before running CMake for onnx-mlir, ensure that the bin directory to this protob
 set PATH=%root_dir%\protobuf\install\bin;%PATH%
 ```
 
-#### PDCurses
-Build a local version of the curses library, used by various commandline tools in onnx-mlir. These instructions assume you use [Public Domain Curses](https://pdcurses.org/).
-
-Run this from a Visual Studio developer command prompt since you will need access to the appropriate version of Visual Studio's nmake tool.
-
-```shell
-set root_dir=%cd%
-git clone https://github.com/wmcbrine/PDCurses.git
-set PDCURSES_SRCDIR=%root_dir%/PDCurses
-cd PDCurses
-call nmake -f wincon/Makefile.vc
-```
-
 #### MLIR
 Install MLIR (as a part of LLVM-Project):
 
@@ -137,7 +124,6 @@ call cmake --build . --config Release --target check-mlir
 
 #### ONNX-MLIR (this project)
 The following environment variables need to be set before building onnx-mlir:
-- CURSES_LIB_PATH: Path to curses library (e.g. c:/repos/PDCurses)
 - LLVM_PROJ_BUILD: Path to the build directory for LLVM (e.g. c:/repos/llvm-project/build)
 - LLVM_PROJ_SRC: Path to the source directory for LLVM (e.g. c:/repos/llvm-project)
 
@@ -151,7 +137,6 @@ git clone --recursive https://github.com/onnx/onnx-mlir.git
 
 REM Export environment variables pointing to LLVM-Projects.
 set root_dir=%cd%
-set CURSES_LIB_PATH=%root_dir%/PDCurses
 set LLVM_PROJ_BUILD=%root_dir%/llvm-project/build
 set LLVM_PROJ_SRC=%root_dir%/llvm-project
 

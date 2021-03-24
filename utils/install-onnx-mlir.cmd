@@ -1,6 +1,5 @@
 REM Export environment variables pointing to LLVM-Projects.
 set root_dir=%cd%
-set CURSES_LIB_PATH=%root_dir%/PDCurses
 set LLVM_PROJ_BUILD=%root_dir%/llvm-project/build
 set LLVM_PROJ_SRC=%root_dir%/llvm-project
 
