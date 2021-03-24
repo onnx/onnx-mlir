@@ -26,9 +26,7 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
-#include <fstream>
 #include <math.h>
-#include <stdlib.h>
 
 using namespace mlir;
 
