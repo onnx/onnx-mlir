@@ -877,8 +877,10 @@ public:
     }
 
     // Create wrapped output.
+    auto one = rewriter.create<LLVM::ConstantOp>(
+        loc, int32Ty, rewriter.getI32IntegerAttr(1));
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
-        API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput});
+        API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
 
     // Clean the global constant.
     auto globalBase = module.lookupSymbol<LLVM::GlobalOp>("packedConst");
@@ -916,7 +918,7 @@ private:
     // specifying its signature.
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
-        ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
+        ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int32Ty, int32Ty}),
         ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int32Ty}),
         ApiSpec(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
