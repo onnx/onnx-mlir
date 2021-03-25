@@ -1,29 +1,31 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Path to LLVM source folder.
-if(DEFINED ENV{LLVM_PROJ_SRC})
+if(DEFINED LLVM_PROJ_SRC)
+elseif(DEFINED ENV{LLVM_PROJ_SRC})
   set(LLVM_PROJ_SRC $ENV{LLVM_PROJ_SRC})
-  if(EXISTS ${LLVM_PROJ_SRC})
-    message(STATUS "LLVM_PROJ_SRC           : " ${LLVM_PROJ_SRC})
-  else()
-    message(FATAL_ERROR "The path specified by LLVM_PROJ_SRC does not exist: "
-            ${LLVM_PROJ_SRC})
-  endif()
 else()
   message(FATAL_ERROR "env variable LLVM_PROJ_SRC not set")
 endif()
+if(EXISTS ${LLVM_PROJ_SRC})
+message(STATUS "LLVM_PROJ_SRC           : " ${LLVM_PROJ_SRC})
+else()
+message(FATAL_ERROR "The path specified by LLVM_PROJ_SRC does not exist: "
+        ${LLVM_PROJ_SRC})
+endif()
 
 # Path to LLVM build folder
-if(DEFINED ENV{LLVM_PROJ_BUILD})
+if(DEFINED LLVM_PROJ_BUILD)
+elseif(DEFINED ENV{LLVM_PROJ_BUILD})
   set(LLVM_PROJ_BUILD $ENV{LLVM_PROJ_BUILD})
-  if(EXISTS ${LLVM_PROJ_BUILD})
-    message(STATUS "LLVM_PROJ_BUILD         : " ${LLVM_PROJ_BUILD})
-  else()
-    message(FATAL_ERROR "The path specified by LLVM_PROJ_BUILD does not exist: "
-            ${LLVM_PROJ_BUILD})
-  endif()
 else()
   message(FATAL_ERROR "env variable LLVM_PROJ_BUILD not set")
+endif()
+if(EXISTS ${LLVM_PROJ_BUILD})
+message(STATUS "LLVM_PROJ_BUILD         : " ${LLVM_PROJ_BUILD})
+else()
+message(FATAL_ERROR "The path specified by LLVM_PROJ_BUILD does not exist: "
+        ${LLVM_PROJ_BUILD})
 endif()
 
 # LLVM project lib folder
