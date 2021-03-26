@@ -57,8 +57,6 @@ variables:
   value: $(LLVMSourceDir)
 - name: LIT_OPTS
   value: '-v'
-- name: CURSES_LIB_PATH
-  value: C:/PDCurses
 - name: CTEST_OUTPUT_ON_FAILURE
   value: 1
 
@@ -78,9 +76,9 @@ jobs:
           LLVMBuildDir: '$(Build.BinariesDirectory)/build_llvm'
           LLVM_PROJ_BUILD: '$(Build.BinariesDirectory)/build_llvm'
   pool:
-    name: Default
+    name: 1ESHostedPool
     demands:
-    - Agent.OS -equals Windows_NT
+    - ImageOverride -equals MMS2019
   timeoutInMinutes: 180
 
   steps:
