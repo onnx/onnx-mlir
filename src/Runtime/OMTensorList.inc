@@ -31,7 +31,9 @@ struct OMTensorList {
    * Create an OMTensorList with specified OMTensor pointer array
    * and the size of the array
    */
-  OMTensorList(OMTensor *omts[], int n) : _omts(omts), _size(n){};
+  OMTensorList(OMTensor *omts[], int n) : _omts(omts), _size(n) {
+      _owning = false;
+  };
 
   /**
    * Constructor
@@ -60,6 +62,13 @@ struct OMTensorList {
   OMTensor **_omts; // OMTensor array
 
   size_t _size; // Number of elements in _omts.
+
+
+  int _owning; // indicates whether the OMTensorList owns the pointer to
+               // OMTensor array or not. OMTensorList struct will release the
+               // memory space referred to by '_omts' upon destruction if and
+               // only if it owns it.
+
 };
 
 /* OMTensorList creator */
@@ -69,6 +78,19 @@ OMTensorList *omTensorListCreate(OMTensor **tensors, int n) {
     return NULL;
   list->_omts = tensors;
   list->_size = n;
+  list->_owning = false;
+  return list;
+}
+
+/* OMTensorList creator with ownership */
+OMTensorList *omTensorListCreateWithOwnership(OMTensor **tensors, int n,
+    int owning) {
+  OMTensorList *list = (OMTensorList *)malloc(sizeof(struct OMTensorList));
+  if (!list)
+    return NULL;
+  list->_omts = tensors;
+  list->_size = n;
+  list->_owning = owning;
   return list;
 }
 
@@ -77,6 +99,8 @@ void omTensorListDestroy(OMTensorList *list) {
   for (int i = 0; i < list->_size; i++)
     if (list->_omts[i])
       omTensorDestroy(list->_omts[i]);
+  if (list->_owning)
+    free(list->_omts);
   free(list);
 }
 
