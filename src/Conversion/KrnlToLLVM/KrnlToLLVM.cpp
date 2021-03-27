@@ -158,6 +158,27 @@ static FlatSymbolRefAttr getOrInsertMalloc(
   return SymbolRefAttr::get("malloc", ctx);
 }
 
+static FlatSymbolRefAttr getOrInsertDealloc(
+    PatternRewriter &rewriter, ModuleOp module) {
+  // Insert the dealloc declaration if it is not already present.
+  auto deallocFunc = module.lookupSymbol<LLVM::LLVMFuncOp>("free");
+  auto ctx = rewriter.getContext();
+  LLVMTypeConverter converter(ctx);
+  if (!deallocFunc) {
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+    auto voidPtrType = LLVM::LLVMPointerType::get(
+        IntegerType::get(&converter.getContext(), 8));
+    SmallVector<Type, 2> callArgTypes = {voidPtrType};
+    auto llvmVoidTy = LLVM::LLVMVoidType::get(&converter.getContext());
+    deallocFunc =
+        rewriter.create<LLVM::LLVMFuncOp>(rewriter.getUnknownLoc(), "free",
+            LLVM::LLVMFunctionType::get(llvmVoidTy, callArgTypes,
+                /*isVarArg=*/false));
+  }
+  return SymbolRefAttr::get("free", ctx);
+}
+
 // This function emits a declaration of the form:
 //
 // declare float <mathFuncName>(float)
@@ -856,8 +877,22 @@ public:
     }
 
     // Create wrapped output.
+    auto one = rewriter.create<LLVM::ConstantOp>(
+        loc, int32Ty, rewriter.getI32IntegerAttr(1));
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
-        API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput});
+        API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
+
+    // Clean the global constant.
+    auto globalBase = module.lookupSymbol<LLVM::GlobalOp>("packedConst");
+    if (globalBase) {
+      Value basePtrAddr = rewriter.create<LLVM::AddressOfOp>(loc, globalBase);
+      Value alloc = rewriter.create<LLVM::LoadOp>(loc,
+          LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
+          basePtrAddr);
+      auto deallocSym = getOrInsertDealloc(rewriter, module);
+      auto dealloc = rewriter.create<LLVM::CallOp>(
+          loc, ArrayRef<Type>({}), deallocSym, ArrayRef<Value>(alloc));
+    }
 
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(
@@ -883,7 +918,7 @@ private:
     // specifying its signature.
     // clang-format off
     std::vector<ApiSpec> apiSpecs = {
-        ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", opaquePtrTy, {opaquePtrPtrTy, int32Ty}),
+        ApiSpec(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int32Ty, int32Ty}),
         ApiSpec(API::CREATE_OMTENSOR, "omTensorCreateEmptyDeprecated", opaquePtrTy, {int32Ty}),
         ApiSpec(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
         ApiSpec(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int32Ty, opaquePtrTy, opaquePtrTy}),
