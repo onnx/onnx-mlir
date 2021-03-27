@@ -81,8 +81,8 @@ func @single_chain_dataflow(%arg0: memref<10x10xf32>, %arg1: memref<10x10xf32>) 
   return %0 : memref<10x10xf32>
 
   // CHECK-LABEL: single_chain_dataflow
-  // CHECK: [[C0:%.+]] = constant 0 : i64
   // CHECK: [[C400:%.+]] = constant 400 : i64
+  // CHECK: [[C0:%.+]] = constant 0 : i64
   // CHECK: [[MEMPOOL:%.+]] = memref.alloc() : memref<800xi8>
   // CHECK: [[MEMPOOL_ALIGNED:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<400xi8>
   // CHECK: "krnl.getref"([[MEMPOOL_ALIGNED]], [[C0]]) : (memref<400xi8>, i64) -> memref<10x10xf32>

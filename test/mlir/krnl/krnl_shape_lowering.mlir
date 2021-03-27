@@ -10,8 +10,8 @@ func @test_krnl_shape_lowering(%arg0: memref<?x?xf32>) -> index {
   return %e : index
 
   // CHECK-LABEL: test_krnl_shape_lowering
-  // CHECK: %[[CONST1:.+]] = constant 1 : index
   // CHECK: %[[CONST0:.+]] = constant 0 : index
+  // CHECK: %[[CONST1:.+]] = constant 1 : index
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, %[[CONST0]] : memref<?x?xf32>
   // CHECK: [[ALLOC:%.+]] = memref.alloc([[DIM]]) : memref<?x10xf32>
   // CHECK: [[SHAPE:%.+]] = memref.alloc() : memref<2xindex>
@@ -40,8 +40,8 @@ func @test_krnl_shape_lowering_with_affine_map(%arg0: memref<?x?xf32>) -> index 
 
   // CHECK: #[[MAP0:.*]] = affine_map<(d0, d1) -> (d0 floordiv 2, d1 floordiv 4, d0 mod 2, d1 mod 4)>
   // CHECK-LABEL: test_krnl_shape_lowering_with_affine_map
-  // CHECK: %[[CONST1:.+]] = constant 1 : index
   // CHECK: %[[CONST0:.+]] = constant 0 : index
+  // CHECK: %[[CONST1:.+]] = constant 1 : index
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, %[[CONST0]] : memref<?x?xf32>
   // CHECK: [[ALLOC:%.+]] = memref.alloc([[DIM]]) : memref<?x10xf32, #[[MAP0]]>
   // CHECK: [[SHAPE:%.+]] = memref.alloc() : memref<2xindex>

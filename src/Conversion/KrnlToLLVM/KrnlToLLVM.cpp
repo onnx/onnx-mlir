@@ -1227,11 +1227,11 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
-  target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  target.addLegalOp<ModuleOp>();
   target.addIllegalOp<LLVM::DialectCastOp>();
 
   // Lower the MemRef types to a representation in LLVM.
-  LowerToLLVMOptions options;
+  LowerToLLVMOptions options(&getContext());
   options.emitCWrappers = true;
   LLVMTypeConverter typeConverter(&getContext(), options);
 

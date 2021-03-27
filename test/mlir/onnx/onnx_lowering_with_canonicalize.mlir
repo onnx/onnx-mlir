@@ -887,8 +887,8 @@ func private @test_reducemean_i32(%arg0 : tensor<3x2x2xi32>) -> tensor<*xi32> {
   "std.return"(%0) : (tensor<*xi32>) -> ()
 
   // CHECK-LABEL: test_reducemean_i32
-  // CHECK: [[DIVISOR:%.+]] = constant 2 : i32
   // CHECK: [[IDENTITY:%.+]] = constant 0 : i32
+  // CHECK: [[DIVISOR:%.+]] = constant 2 : i32
   // CHECK: [[RES:%.+]] = memref.alloc() : memref<3x2xi32>
   // CHECK: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
   // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2) {

@@ -29,13 +29,13 @@ func @test_pool_bundling(%arg0: memref<10x10xf32>, %arg1: memref<10x20xf32>) -> 
   return %0 : memref<10x20xf32>
 
   // CHECK-LABEL: test_pool_bundling
+  // CHECK: [[CONST_0:%.+]] = constant 0 : i64
+  // CHECK-DAG: [[CONST_0_INDEX:%.+]] = constant 0 : index
+  // CHECK: [[CONST_CST:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CONST_2400:%.+]] = constant 2400 : i64
   // CHECK: [[CONST_2000:%.+]] = constant 2000 : i64
   // CHECK: [[CONST_1200:%.+]] = constant 1200 : i64
   // CHECK: [[CONST_400:%.+]] = constant 400 : i64
-  // CHECK: [[CONST_0:%.+]] = constant 0 : i64
-  // CHECK: [[CONST_0_INDEX:%.+]] = constant 0 : index
-  // CHECK: [[CONST_CST:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[RES:%.+]] = memref.alloc() : memref<10x20xf32>
   // CHECK: [[MEMPOOL:%.+]] = memref.alloc() : memref<3200xi8>
   // CHECK: [[MEMREF1:%.+]] = "krnl.getref"([[MEMPOOL]], [[CONST_2400]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
@@ -85,10 +85,10 @@ func @test_dynamic_pool_bundling(%arg0: memref<?x?xf32>) -> memref<?x10xf32> {
   return %15 : memref<?x10xf32>
 
   // CHECK-LABEL: test_dynamic_pool_bundling
+  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[C0:%.+]] = constant 0 : index
   // CHECK: [[C4:%.+]] = constant 4 : index
   // CHECK: [[C10:%.+]] = constant 10 : index
-  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[C0_I64:%.+]] = constant 0 : i64
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, [[C0]] : memref<?x?xf32>
   // CHECK: [[MUL2:%.+]] = muli [[DIM]], [[C4]] : index
@@ -152,12 +152,12 @@ func @test_dynamic_and_static_pool_bundling(%arg0: memref<?x?xf32>, %arg1: memre
   return %15 : memref<?x10xf32>
 
   // CHECK-LABEL: test_dynamic_and_static_pool_bundling
+  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[C0:%.+]] = constant 0 : index
   // CHECK: [[C4:%.+]] = constant 4 : index
   // CHECK: [[C10:%.+]] = constant 10 : index
   // CHECK: [[C2000_I64:%.+]] = constant 2000 : i64
   // CHECK: [[C1600_I64:%.+]] = constant 1600 : i64
-  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[C0_I64:%.+]] = constant 0 : i64
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, [[C0]] : memref<?x?xf32>
   // CHECK: [[MUL2:%.+]] = muli [[DIM]], [[C4]] : index
@@ -245,11 +245,11 @@ func @static_mem_pool_rnn_subblock(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2
   return %0 : memref<1x3x4xf32>
 
   // CHECK-LABEL: static_mem_pool_rnn_subblock
+  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[C0:%.+]] = constant 0 : i64
   // CHECK: [[C12:%.+]] = constant 12 : i64
   // CHECK: [[C8:%.+]] = constant 8 : i64
   // CHECK: [[C4:%.+]] = constant 4 : i64
-  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[C0:%.+]] = constant 0 : i64
   // CHECK: [[RES:%.+]] = memref.alloc() : memref<1x3x4xf32>
   // CHECK: krnl.define_loops 1
   // CHECK: krnl.iterate
@@ -342,11 +342,11 @@ func @static_mem_pool_rnn_sub_and_main_block(%arg0: memref<1x3x2xf32>, %arg1: me
   return %0 : memref<1x3x4xf32>
 
   // CHECK-LABEL: static_mem_pool_rnn_sub_and_main_block
+  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
+  // CHECK: [[C0:%.+]] = constant 0 : i64
   // CHECK: [[C12:%.+]] = constant 12 : i64
   // CHECK: [[C8:%.+]] = constant 8 : i64
   // CHECK: [[C4:%.+]] = constant 4 : i64
-  // CHECK: [[CST:%.+]] = constant 0.000000e+00 : f32
-  // CHECK: [[C0:%.+]] = constant 0 : i64
   // CHECK: [[RES:%.+]] = memref.alloc() : memref<1x3x4xf32>
   // CHECK: [[STATIC_MEM_POOL_MAIN:%.+]] = memref.alloc() : memref<12xi8>
   // CHECK: [[MAIN_REF_0:%.+]] = "krnl.getref"([[STATIC_MEM_POOL_MAIN]], [[C8]]) : (memref<12xi8>, i64) -> memref<f32>
@@ -442,9 +442,9 @@ func @test_dynamic_pool_rnn(%arg0: memref<1x3x2xf32>, %arg1: memref<1x4x2xf32>, 
   return %0 : memref<1x3x?xf32>
 
   // CHECK-LABEL: test_dynamic_pool_rnn
-  // CHECK: [[C0:%.+]] = constant 0 : i64
   // CHECK: [[C1:%.+]] = constant 1 : index
   // CHECK: [[C2:%.+]] = constant 2 : index
+  // CHECK: [[C0:%.+]] = constant 0 : i64
   // CHECK: krnl.define_loops 1
   // CHECK: krnl.iterate
   // CHECK: krnl.define_loops 2

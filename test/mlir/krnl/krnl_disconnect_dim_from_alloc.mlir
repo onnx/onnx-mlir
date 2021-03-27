@@ -12,8 +12,8 @@ func @test_krnl_dim_lowering(%arg0: memref<?x?xf32>) -> index {
   return %e : index
 
   // CHECK-LABEL: test_krnl_dim_lowering
-  // CHECK: [[CONST10:%.+]] = constant 10 : index
   // CHECK: [[CONST0:%.+]] = constant 0 : index
+  // CHECK: [[CONST10:%.+]] = constant 10 : index
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, [[CONST0]] : memref<?x?xf32>
   // CHECK: [[SUM:%.+]] = addi [[DIM]], [[CONST10]] : index
   // CHECK: return [[SUM]] : index
@@ -34,8 +34,8 @@ func @test_krnl_dim_lowering_with_map(%arg0: memref<?x?xf32>) -> index {
   return %e : index
 
   // CHECK-LABEL: test_krnl_dim_lowering_with_map
-  // CHECK: [[CONST10:%.+]] = constant 10 : index
   // CHECK: [[CONST0:%.+]] = constant 0 : index
+  // CHECK: [[CONST10:%.+]] = constant 10 : index
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, [[CONST0]] : memref<?x?xf32>
   // CHECK: [[SUM:%.+]] = addi [[DIM]], [[CONST10]] : index
   // CHECK: return [[SUM]] : index

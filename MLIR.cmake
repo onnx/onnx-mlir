@@ -220,6 +220,7 @@ find_mlir_lib(MLIRTVP)
 find_mlir_lib(MLIRNepal)
 find_mlir_lib(MLIRTVPToLLVM)
 find_mlir_lib(MLIRTargetCpp)
+find_mlir_lib(MLIRDataLayoutInterfaces)
 
 find_mlir_lib(LLVMCore)
 find_mlir_lib(LLVMSupport)
@@ -333,6 +334,7 @@ set(MLIRLibs
         ${MLIRNepal}
         ${MLIRTVPToLLVM}
         ${MLIRTargetCpp}
+        ${MLIRDataLayoutInterfaces}
         # strict order verified
         ${LLVMBitWriter}
         ${LLVMObject}

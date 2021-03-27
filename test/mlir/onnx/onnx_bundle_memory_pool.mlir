@@ -10,12 +10,12 @@ func @test_bundle_memory_pool(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf32>
   return %5 : tensor<10x20xf32>
 
   // CHECK-LABEL: test_bundle_memory_pool
+  // CHECK: [[CONST0:%.+]] = constant 0 : i64
+  // CHECK: [[CONST00:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[CONST2400:%.+]] = constant 2400 : i64
   // CHECK: [[CONST2000:%.+]] = constant 2000 : i64
   // CHECK: [[CONST1200:%.+]] = constant 1200 : i64
   // CHECK: [[CONST400:%.+]] = constant 400 : i64
-  // CHECK: [[CONST0:%.+]] = constant 0 : i64
-  // CHECK: [[CONST00:%.+]] = constant 0.000000e+00 : f32
   // CHECK: [[RES:%.+]] = memref.alloc() : memref<10x20xf32>
   // CHECK: [[MEMPOOL:%.+]] = memref.alloc() : memref<3200xi8>
   // CHECK: "krnl.getref"([[MEMPOOL]], [[CONST2400]]) : (memref<3200xi8>, i64) -> memref<10x20xf32>
