@@ -60,9 +60,9 @@ elseif ((ONNX_USE_PROTOBUF_SHARED_LIBS AND Protobuf_USE_STATIC_LIBS)
     "ONNX_USE_PROTOBUF_SHARED_LIBS and Protobuf_USE_STATIC_LIBS must be opposites of each other.")
 endif()
 add_subdirectory(third_party/onnx)
-
-add_subdirectory(third_party/googletest)
-set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
+# Use googletest from llvm instead.
+#add_subdirectory(third_party/googletest)
+SET(BENCHMARK_ENABLE_GTEST_TESTS OFF)
 add_subdirectory(third_party/benchmark)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/variant)
