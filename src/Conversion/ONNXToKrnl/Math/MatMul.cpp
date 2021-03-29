@@ -147,9 +147,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     krnl_iterate({i, j, k}, {iiB, jjB, kkB}, {zero, zero, zero}, {I, J, K}, {},
         [&](ArrayRef<Value> args) {
           ValueRange indices = krnl_get_induction_var_value({iiB, jjB, kkB});
-          Value ii(indices[0]), jj(indices[1]), kk(indices[2]);
-          krnl_matmul({iiL, jjL, kkL}, A, B, C, ii, jj, kk, I.getValue(),
-              J.getValue(), K.getValue(), true, false, false);
+          NonAffineIndexExpr ii(indices[0]), jj(indices[1]), kk(indices[2]);
+          krnl_matmul({iiL, jjL, kkL}, A, B, C, {ii, jj, kk}, {I, J, K}, true,
+              false, false);
         });
   }
 

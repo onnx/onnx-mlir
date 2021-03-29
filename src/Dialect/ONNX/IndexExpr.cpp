@@ -344,6 +344,13 @@ void IndexExpr::debugPrint(const std::string &msg) const {
   }
 }
 
+/*static*/ void IndexExpr::getValues(ArrayRef<IndexExpr> indexExprArray,
+    SmallVectorImpl<Value> &valueList) {
+  valueList.clear();
+  for (IndexExpr const &expr : indexExprArray)
+    valueList.emplace_back(expr.getValue());
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExpr Op Support.
 //===----------------------------------------------------------------------===//
@@ -1276,7 +1283,7 @@ IndexExpr MemRefBoundIndexCapture::getSymbol(uint64_t i) {
 
 // Assert if not a literal.
 IndexExpr MemRefBoundIndexCapture::getLiteral(uint64_t i) {
-  assert(i<memRank && "out of bound access");
+  assert(i < memRank && "out of bound access");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   if (shape[i] >= 0) {

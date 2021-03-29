@@ -420,10 +420,6 @@ public:
   bool isLiteralAndDifferentThan(int64_t b) const;         // Values unequal.
   bool isLiteralAndDifferentThan(IndexExpr const b) const; // Values unequal.
 
-  // Helpers for IndexExpressions
-  static void getShape(SmallVectorImpl<IndexExpr> &indexExprList,
-      SmallVectorImpl<int64_t> &intDimList);
-
   // Getters.
   IndexExprScope &getScope() const { return *getScopePtr(); }
   OpBuilder &getRewriter() const { return getScope().getRewriter(); }
@@ -433,6 +429,12 @@ public:
   void getAffineMapAndOperands(
       AffineMap &map, SmallVectorImpl<Value> &operands) const;
   Value getValue() const;
+
+  // Helpers for list of IndexExpressions
+  static void getShape(SmallVectorImpl<IndexExpr> &indexExprList,
+      SmallVectorImpl<int64_t> &intDimList);
+  static void getValues(ArrayRef<IndexExpr> indexExprArray,
+      SmallVectorImpl<Value> &valueList);
 
   // Possibly Affine Operations. Return a new IndexExpr
   IndexExpr operator+(IndexExpr const b) const;
