@@ -21,6 +21,7 @@
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/IR/Operation.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -252,6 +253,11 @@ AffineExpr IndexExpr::getAffineExpr() const { return getObj().getAffineExpr(); }
 
 Value IndexExpr::getValue() const { return getObj().getValue(); }
 
+void IndexExpr::getAffineMapAndOperands(
+    AffineMap &map, SmallVectorImpl<Value> &operands) const {
+  getObj().getAffineMapAndOperands(map, operands);
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExpr private getter.
 //===----------------------------------------------------------------------===//
@@ -280,8 +286,17 @@ void IndexExpr::debugPrint(const std::string &msg) const {
     printf(" literal(%lli)", getLiteral());
   if (hasAffineExpr())
     printf(" hasAffine");
-  if (hasValue())
+  if (hasValue()) {
     printf(" hasValue");
+    auto op = getValue().getDefiningOp();
+    if (op) {
+      std::string str;
+      llvm::raw_string_ostream os(str);
+      op->print(os);
+      printf("( \"%s\" )", str.c_str());
+    } else
+      printf("(op not found)");
+  }
   if (isAffine())
     printf(" is affine");
   switch (getKind()) {
@@ -308,6 +323,7 @@ void IndexExpr::debugPrint(const std::string &msg) const {
     break;
   }
   printf(" scope(0x%llx)\n", (long long unsigned)getScopePtr());
+
 #endif
 }
 
@@ -1211,18 +1227,12 @@ IndexExpr ArrayValueIndexCapture::getSymbol(uint64_t i) {
   return SymbolIndexExpr(loadVal);
 }
 
-bool ArrayValueIndexCapture::getSymbolList(
+void ArrayValueIndexCapture::getSymbolList(
     int num, SmallVectorImpl<IndexExpr> &symbolList) {
   // Clear output.
   symbolList.clear();
-  bool successful = true;
-  for (int i = 0; i < num; ++i) {
-    SymbolIndexExpr index = getSymbol(i);
-    if (index.isUndefined())
-      successful = false;
-    symbolList.emplace_back(index);
-  }
-  return successful;
+  for (int i = 0; i < num; ++i)
+    symbolList.emplace_back(getSymbol(i));
 }
 
 //===----------------------------------------------------------------------===//
@@ -1230,15 +1240,15 @@ bool ArrayValueIndexCapture::getSymbolList(
 //===----------------------------------------------------------------------===//
 
 ArrayAttributeIndexCapture::ArrayAttributeIndexCapture(ArrayAttr array)
-    : array(array), size((array) ? array.size() : 0), hasDefault(false) {}
+    : array(array), arraySize((array) ? array.size() : 0), hasDefault(false) {}
 
 ArrayAttributeIndexCapture::ArrayAttributeIndexCapture(
     ArrayAttr array, int64_t defaultLiteral)
-    : array(array), size((array) ? array.size() : 0),
+    : array(array), arraySize((array) ? array.size() : 0),
       defaultLiteral(defaultLiteral), hasDefault(true) {}
 
 IndexExpr ArrayAttributeIndexCapture::getLiteral(uint64_t i) {
-  if (i < size) {
+  if (i < arraySize) {
     int64_t val = (array.getValue()[i]).cast<IntegerAttr>().getInt();
     return LiteralIndexExpr(val);
   }
@@ -1255,8 +1265,50 @@ MemRefBoundIndexCapture::MemRefBoundIndexCapture(Value tensorOrMemref)
     : tensorOrMemref(tensorOrMemref) {}
 
 IndexExpr MemRefBoundIndexCapture::getDim(uint64_t i) {
+  return get<DimIndexExpr>(i);
+}
+
+IndexExpr MemRefBoundIndexCapture::getSymbol(uint64_t i) {
+  return get<SymbolIndexExpr>(i);
+}
+
+// Assert if not a literal.
+IndexExpr MemRefBoundIndexCapture::getLiteral(uint64_t i) {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
+  if (shape[i] >= 0) {
+    // We have a constant dimension.
+    int64_t intVal = shape[i];
+    return LiteralIndexExpr(intVal);
+  }
+  llvm_unreachable("expected a literal");
+}
+
+void MemRefBoundIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
+  getList<DimIndexExpr>(dimList);
+}
+
+void MemRefBoundIndexCapture::getSymbolList(
+    SmallVectorImpl<IndexExpr> &symbolList) {
+  getList<SymbolIndexExpr>(symbolList);
+}
+
+void MemRefBoundIndexCapture::getLiteralList(
+    SmallVectorImpl<IndexExpr> &literalList) {
+  // Clear output.
+  literalList.clear();
+  // Scan type and shape.
+  int size = tensorOrMemref.getType().cast<ShapedType>().getShape().size();
+  // Scan tensor or memref.
+  for (int i = 0; i < size; ++i)
+    literalList.emplace_back(getLiteral(i));
+}
+
+template <class INDEX>
+IndexExpr MemRefBoundIndexCapture::get(uint64_t i) {
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  assert(i < shape.size() && "index out of bound");
   if (shape[i] >= 0) {
     // We have a constant dimension.
     int64_t intVal = shape[i];
@@ -1270,24 +1322,18 @@ IndexExpr MemRefBoundIndexCapture::getDim(uint64_t i) {
   }
   Value dynVal =
       scope.getRewriter().create<DimOp>(scope.getLoc(), tensorOrMemref, i);
-  return DimIndexExpr(dynVal);
+  return INDEX(dynVal);
 }
 
-bool MemRefBoundIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
+template <class INDEX>
+void MemRefBoundIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   // Clear output.
-  dimList.clear();
-  // Scan type and shape, bail if incompatible.
-  ShapedType type = tensorOrMemref.getType().cast<ShapedType>();
-  int size = type.getShape().size();
+  list.clear();
+  // Scan type and shape.
+  int size = tensorOrMemref.getType().cast<ShapedType>().getShape().size();
   // Scan tensor or memref.
-  bool successful = true;
-  for (int i = 0; i < size; ++i) {
-    IndexExpr index = getDim(i);
-    if (index.isUndefined())
-      successful = false;
-    dimList.emplace_back(index);
-  }
-  return successful;
+  for (int i = 0; i < size; ++i)
+    list.emplace_back(get<INDEX>(i));
 }
 
 //===----------------------------------------------------------------------===//
