@@ -67,15 +67,6 @@ else()
 endif()
 message(STATUS "LLVM_PROJ_BIN           : " ${LLVM_PROJ_BIN})
 
-# Include paths for MLIR
-# FIXME: Remove after migration
-set(LLVM_SRC_INCLUDE_PATH ${LLVM_MAIN_INCLUDE_DIR})
-# FIXME: Remove after migration
-set(LLVM_BIN_INCLUDE_PATH ${LLVM_INCLUDE_DIR})
-# FIXME: Remove after migration
-set(MLIR_SRC_INCLUDE_PATH ${MLIR_MAIN_SRC_DIR}/include)
-# FIXME: Remove after migration
-set(MLIR_BIN_INCLUDE_PATH ${MLIR_INCLUDE_DIR})
 # FIXME: Remove after migration
 set(MLIR_TOOLS_DIR ${LLVM_TOOLS_BINARY_DIR})
 
@@ -138,11 +129,9 @@ endif()
 get_property(MLIRLibs GLOBAL PROPERTY MLIR_ALL_LIBS)
 
 function(onnx_mlir_tablegen ofn)
+  include_directories(${ONNX_MLIR_SRC_ROOT})
   tablegen(MLIR
-          ${ARGV}
-          "-I${MLIR_SRC_INCLUDE_PATH}"
-          "-I${MLIR_BIN_INCLUDE_PATH}"
-          "-I${ONNX_MLIR_SRC_ROOT}")
+          ${ARGV})
   set(TABLEGEN_OUTPUT
           ${TABLEGEN_OUTPUT} ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
           PARENT_SCOPE)
