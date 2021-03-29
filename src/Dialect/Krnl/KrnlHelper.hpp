@@ -16,6 +16,7 @@
 
 #include <queue>
 
+#include "mlir/EDSC/Builders.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -207,6 +208,7 @@ public:
   // Get a reference to the code region of the optimization operation.
   // This allows us to set the insertion point to the inner block of the
   // loop nest optimization operation.
+  // Deprecated.
   Block *getOptimizationBlock() { return optBlock; }
 
   // Get a reference to the code region of the iteration operation.
@@ -248,5 +250,33 @@ private:
   // Saved insertion point in the code region of the KrnlIterateOp.
   Block *iterBlock;
 };
+
+//====---------------- EDSC Support ---------------------------------------===//
+
+ValueRange krnl_define_loop(int64_t originalLoopNum);
+ValueRange krnl_block(Value loop, int64_t blockSize);
+void krnl_permute(ArrayRef<Value> loops, ArrayRef<int64_t> map);
+ValueRange krnl_get_induction_var_value(ArrayRef<Value> loops);
+void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
+    ArrayRef<IndexExpr> lb, ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
+    function_ref<void(ArrayRef<Value> args)> bodyBuilderFn);
+void krnl_copy_to_buffer(Value bufferMemref, Value memref,
+    ArrayRef<Value> starts, Value padValue, ArrayRef<int64_t> tileSize,
+    ArrayRef<int64_t> padToNext);
+void krnl_copy_to_buffer(
+    Value bufferMemref, Value memref, ArrayRef<Value> starts, Value padValue);
+void krnl_copy_from_buffer(Value bufferMemref, Value memref,
+    ArrayRef<Value> starts, ArrayRef<int64_t> tileSize);
+void krnl_copy_from_buffer(
+    Value bufferMemref, Value memref, ArrayRef<Value> starts);
+void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
+    Value nGlobalStart, Value mGlobalStart, Value kGlobalStart, Value nGlobalUB,
+    Value mGlobalUB, Value kGlobalUB, ArrayRef<int64_t> computeTileSize,
+    ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
+    ArrayRef<int64_t> cTileSize, bool simdize, bool unroll, bool overcompute);
+void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
+    Value nGlobalStart, Value mGlobalStart, Value kGlobalStart, Value nGlobalUB,
+    Value mGlobalUB, Value kGlobalUB, bool simdize, bool unroll,
+    bool overcompute);
 
 } // namespace mlir

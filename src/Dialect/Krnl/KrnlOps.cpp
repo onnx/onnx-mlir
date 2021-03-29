@@ -57,7 +57,7 @@ void KrnlDefineLoopsOp::build(
   // dimensions in the associated integer set.
   result.types.append(num_loops, LoopType::get(builder.getContext()));
   result.addAttribute(
-      getNumLoopsAttrName(), builder.getI32IntegerAttr(num_loops));
+      getNumLoopsAttrName(), builder.getI64IntegerAttr(num_loops));
 }
 
 void print(OpAsmPrinter &p, KrnlDefineLoopsOp &op) {
@@ -315,7 +315,55 @@ void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
 }
 
 //===----------------------------------------------------------------------===//
-// KrnlIterateOp
+// KrnlBlockOp
+//===----------------------------------------------------------------------===//
+
+void KrnlBlockOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsLoop, int64_t odsTileSize) {
+  Type loopType = LoopType::get(odsBuilder.getContext());
+  TypeRange blockResType({loopType, loopType});
+  build(odsBuilder, odsState, blockResType, odsLoop,
+      odsBuilder.getI64IntegerAttr(odsTileSize));
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlPermuteOp
+//===----------------------------------------------------------------------===//
+
+void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, ArrayRef<Value> odsLoops,
+    ArrayRef<int64_t> odsMap) {
+  int64_t rank = odsLoops.size();
+  assert(rank >= 2 && "permute needs 2 or more loops");
+  assert(odsMap.size() == rank && "loop and size size must be identical");
+  for (int i = 0; i < rank; ++i) {
+    assert(odsMap[i] >= 0 && odsMap[i] < rank && "bad permute");
+    for (int j = i + 1; j < rank; ++j)
+      assert(
+          odsMap[i] != odsMap[j] && "map should be a strict permute pattern");
+  }
+  ValueRange loopRange(odsLoops);
+  ArrayAttr mapAttr = odsBuilder.getI64ArrayAttr(odsMap);
+  build(odsBuilder, odsState, loopRange, mapAttr);
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlDummyCastOp
+//===----------------------------------------------------------------------===//
+
+void KrnlGetInductionVariableValueOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, ArrayRef<Value> odsLoops) {
+  int64_t rank = odsLoops.size();
+  Type loopType = LoopType::get(odsBuilder.getContext());
+  SmallVector<Type, 6> types(rank, odsBuilder.getIndexType());
+  TypeRange typeRange(types);
+  ValueRange loopRange(odsLoops);
+  ArrayRef<NamedAttribute> noAttr({});
+  build(odsBuilder, odsState, typeRange, loopRange, noAttr);
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlDummyCastOp
 //===----------------------------------------------------------------------===//
 
 void KrnlDummyCastOp::build(
@@ -407,8 +455,94 @@ MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
   return loopsMutable();
 }
 
-MutableOperandRange KrnlMatMulOp::getLoopRefs() {
-  return loopsMutable();
+//===----------------------------------------------------------------------===//
+// KrnlMatMulOp
+//===----------------------------------------------------------------------===//
+
+void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, ArrayRef<Value> odsLoops, Value odsA,
+    Value odsB, Value odsC, Value nOdsGlobalStart, Value mOdsGlobalStart,
+    Value kOdsGlobalStart, Value nOdsGlobalUB, Value mOdsGlobalUB,
+    Value kOdsGlobalUB, ArrayRef<int64_t> odsComputeTileSize,
+    ArrayRef<int64_t> aOdsTileSize, ArrayRef<int64_t> bOdsTileSize,
+    ArrayRef<int64_t> cOdsTileSize, bool odsSimdize, bool odsUnroll,
+    bool odsOvercompute) {
+  // Compute tile size and loop indices: rank 3.
+  assert(odsLoops.size() == 3 && "need 3 loop indicess for intermost compute");
+  assert((odsComputeTileSize.size() == 0 || odsComputeTileSize.size() == 3) &&
+         "bad compute tile size");
+  // Validate optional tile sizes: rank of 0 (empty) or 2.
+  assert((aOdsTileSize.size() == 0 || aOdsTileSize.size() == 2) &&
+         "bad A tile size");
+  assert((bOdsTileSize.size() == 0 || bOdsTileSize.size() == 2) &&
+         "bad B tile size");
+  assert((cOdsTileSize.size() == 0 || cOdsTileSize.size() == 2) &&
+         "bad C tile size");
+  // Massage types.
+  ValueRange loopRange(odsLoops);
+  ArrayAttr computeTileSizeAttr =
+      odsBuilder.getI64ArrayAttr(odsComputeTileSize);
+  ArrayAttr aTileSizeAttr = odsBuilder.getI64ArrayAttr(aOdsTileSize);
+  ArrayAttr bTileSizeAttr = odsBuilder.getI64ArrayAttr(bOdsTileSize);
+  ArrayAttr cTileSizeAttr = odsBuilder.getI64ArrayAttr(cOdsTileSize);
+  build(odsBuilder, odsState, loopRange, odsA, odsB, odsC, nOdsGlobalStart,
+      mOdsGlobalStart, kOdsGlobalStart, nOdsGlobalUB, mOdsGlobalUB,
+      kOdsGlobalUB, computeTileSizeAttr, aTileSizeAttr, bTileSizeAttr,
+      cTileSizeAttr, odsSimdize, odsUnroll, odsOvercompute);
+}
+
+MutableOperandRange KrnlMatMulOp::getLoopRefs() { return loopsMutable(); }
+
+//===----------------------------------------------------------------------===//
+// KrnlCopyToBufferOp
+//===----------------------------------------------------------------------===//
+
+void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
+    ArrayRef<Value> odsStarts, Value odsPadValue, ArrayRef<int64_t> odsTileSize,
+    ArrayRef<int64_t> odsPadToNext) {
+  // Validate input.
+  auto memrefT = odsMemref.getType().dyn_cast<MemRefType>();
+  auto bufferT = odsBufferMemref.getType().dyn_cast<MemRefType>();
+  assert(memrefT && "memref should be a memref");
+  assert(bufferT && "buffer should be a memref");
+  auto rank = memrefT.getRank();
+  assert(bufferT.getRank() == rank && "buffer should have same rank as memref");
+  assert(odsStarts.size() == rank && "start should have same rank as memref");
+  assert((odsTileSize.size() == rank || odsTileSize.size() == 0) &&
+         "optional tile size should have same rank as memref");
+  assert((odsPadToNext.size() == rank || odsPadToNext.size() == 0) &&
+         "optional pad to next should have same rank as memref");
+  // Massage types.
+  ValueRange startsRange(odsStarts);
+  ArrayAttr tileSizeAttr = odsBuilder.getI64ArrayAttr(odsTileSize);
+  ArrayAttr padToNextAttr = odsBuilder.getI64ArrayAttr(odsPadToNext);
+  build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange,
+      odsPadValue, tileSizeAttr, padToNextAttr);
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlCopyFromBufferOp
+//===----------------------------------------------------------------------===//
+
+void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
+    ArrayRef<Value> odsStarts, ArrayRef<int64_t> odsTileSize) {
+  // Validate input.
+  auto memrefT = odsMemref.getType().dyn_cast<MemRefType>();
+  auto bufferT = odsBufferMemref.getType().dyn_cast<MemRefType>();
+  assert(memrefT && "memref should be a memref");
+  assert(bufferT && "buffer should be a memref");
+  auto rank = memrefT.getRank();
+  assert(bufferT.getRank() == rank && "buffer should have same rank as memref");
+  assert(odsStarts.size() == rank && "start should have same rank as memref");
+  assert((odsTileSize.size() == rank || odsTileSize.size() == 0) &&
+         "optional tile size should have same rank as memref");
+  // Massage types.
+  ValueRange startsRange(odsStarts);
+  ArrayAttr tileSizeAttr = odsBuilder.getI64ArrayAttr(odsTileSize);
+  build(odsBuilder, odsState, odsBufferMemref, odsMemref, startsRange,
+      tileSizeAttr);
 }
 
 } // namespace mlir

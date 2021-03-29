@@ -138,6 +138,8 @@ void printBound(AffineMapAttr boundMap,
 
 namespace mlir {
 
+//====---------------- KrnlIterateOperandPack -----------------------------===//
+
 void KrnlIterateOperandPack::pushConstantBound(int64_t bound) {
   if (boundMaps.size() % 2 == 0)
     _operands.emplace_back(inputLoops[boundMaps.size() / 2]);
@@ -196,6 +198,8 @@ void KrnlIterateOperandPack::pushIndexExprsBound(
   expr.getScope().getDimAndSymbolList(list);
   pushAffineMapBound(map, list);
 }
+
+//====---------------- BuildKrnlLoop --------------------------------------===//
 
 BuildKrnlLoop::BuildKrnlLoop(
     ConversionPatternRewriter &rewriter, Location loc, int loopNum)
@@ -340,6 +344,130 @@ BlockArgument &BuildKrnlLoop::getInductionVar(int originalLoopIndex) {
 ArrayRef<BlockArgument> BuildKrnlLoop::getAllInductionVar() {
   return ArrayRef<BlockArgument>(
       iterBlock->getArguments().begin(), iterBlock->getArguments().end());
+}
+
+//====---------------- EDSC Support ---------------------------------------===//
+// TODO: only in the EDSC scope
+
+ValueRange krnl_define_loop(int64_t originalLoopNum) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  KrnlDefineLoopsOp newOp =
+      ScopedContext::getBuilderRef().create<KrnlDefineLoopsOp>(
+          ScopedContext::getLocation(), originalLoopNum);
+  return newOp.getResults();
+}
+
+ValueRange krnl_block(Value loop, int64_t blockSize) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  return ScopedContext::getBuilderRef()
+      .create<KrnlBlockOp>(ScopedContext::getLocation(), loop, blockSize)
+      .getResults();
+}
+
+void krnl_permute(ArrayRef<Value> loops, ArrayRef<int64_t> map) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  ScopedContext::getBuilderRef().create<KrnlPermuteOp>(
+      ScopedContext::getLocation(), loops, map);
+}
+
+ValueRange krnl_get_induction_var_value(ArrayRef<Value> loops) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  return ScopedContext::getBuilderRef()
+      .create<KrnlGetInductionVariableValueOp>(
+          ScopedContext::getLocation(), loops)
+      .getResults();
+}
+
+void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
+    ArrayRef<IndexExpr> lb, ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
+    function_ref<void(ArrayRef<Value>)> bodyBuilderFn) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  assert(lb.size() == ub.size() && "expected matching number of lb & ub");
+  OpBuilder &builder = ScopedContext::getBuilderRef();
+  Location loc = ScopedContext::getLocation();
+  KrnlIterateOperandPack pack(builder, originalLoop, optimizedLoop);
+  for (int i = 0; i < lb.size(); ++i) {
+    pack.pushIndexExprBound(lb[i]);
+    pack.pushIndexExprBound(ub[i]);
+  }
+  KrnlIterateOp iterateOp =
+      builder.create<KrnlIterateOp>(ScopedContext::getLocation(), pack);
+  // auto savedInsertionPoint = builder.saveInsertionPoint();
+  Block *iterBlock = &iterateOp.bodyRegion().front();
+
+  if (bodyBuilderFn) { // Scope for the scoped context of the loop.
+    ScopedContext nestedContext(builder, loc);
+    builder.setInsertionPointToStart(iterBlock);
+    bodyBuilderFn(iterArgs);
+    // aee: not sure why it works without this?
+    // builder.restoreInsertionPoint(savedInsertionPoint);
+  }
+}
+
+void krnl_copy_to_buffer(Value bufferMemref, Value memref,
+    ArrayRef<Value> starts, Value padValue, ArrayRef<int64_t> tileSize,
+    ArrayRef<int64_t> padToNext) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  ScopedContext::getBuilderRef().create<KrnlCopyToBufferOp>(
+      ScopedContext::getLocation(), bufferMemref, memref, starts, padValue,
+      tileSize, padToNext);
+}
+
+void krnl_copy_to_buffer(
+    Value bufferMemref, Value memref, ArrayRef<Value> starts, Value padValue) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  ArrayRef<int64_t> empty;
+  ScopedContext::getBuilderRef().create<KrnlCopyToBufferOp>(
+      ScopedContext::getLocation(), bufferMemref, memref, starts, padValue,
+      empty, empty);
+}
+
+void krnl_copy_from_buffer(Value bufferMemref, Value memref,
+    ArrayRef<Value> starts, ArrayRef<int64_t> tileSize) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  ScopedContext::getBuilderRef().create<KrnlCopyFromBufferOp>(
+      ScopedContext::getLocation(), bufferMemref, memref, starts, tileSize);
+}
+void krnl_copy_from_buffer(
+    Value bufferMemref, Value memref, ArrayRef<Value> starts) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  ArrayRef<int64_t> empty;
+  ScopedContext::getBuilderRef().create<KrnlCopyFromBufferOp>(
+      ScopedContext::getLocation(), bufferMemref, memref, starts, empty);
+}
+
+void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
+    Value nGlobalStart, Value mGlobalStart, Value kGlobalStart, Value nGlobalUB,
+    Value mGlobalUB, Value kGlobalUB, ArrayRef<int64_t> computeTileSize,
+    ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
+    ArrayRef<int64_t> cTileSize, bool simdize, bool unroll, bool overcompute) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  ScopedContext::getBuilderRef().create<KrnlMatMulOp>(
+      ScopedContext::getLocation(), loops, A, B, C, nGlobalStart, mGlobalStart,
+      kGlobalStart, nGlobalUB, mGlobalUB, kGlobalUB, computeTileSize, aTileSize,
+      bTileSize, cTileSize, simdize, unroll, overcompute);
+}
+void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
+    Value nGlobalStart, Value mGlobalStart, Value kGlobalStart, Value nGlobalUB,
+    Value mGlobalUB, Value kGlobalUB, bool simdize, bool unroll,
+    bool overcompute) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  ArrayRef<int64_t> empty;
+  ScopedContext::getBuilderRef().create<KrnlMatMulOp>(
+      ScopedContext::getLocation(), loops, A, B, C, nGlobalStart, mGlobalStart,
+      kGlobalStart, nGlobalUB, mGlobalUB, kGlobalUB, empty, empty, empty, empty,
+      simdize, unroll, overcompute);
 }
 
 } // namespace mlir

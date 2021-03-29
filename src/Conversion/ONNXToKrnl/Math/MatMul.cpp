@@ -13,7 +13,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
+
+#include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
+#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
+#include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
 
 using namespace mlir;
 
@@ -104,15 +110,51 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   }
 
   // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
-  // Implementation here uses the efficient 2d tiling with buffering approach.
-  void replace2x2Matmul(ONNXMatMulOp &matMulOp,
+  // Implementation here uses the efficient 1d tiling plus kernel substitution.
+  void replace2x2Matmul2D(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zero,
+      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
 
+    using namespace mlir::edsc;
+    using namespace mlir::edsc::ops;
+    using namespace mlir::edsc::intrinsics;
 
-        
-      }
+    // Define scopes
+    ScopedContext scope(rewriter, loc);
+    IndexExprScope indexScope(rewriter, loc);
+    // Define blocking, with simdization along the j axis.
+    int64_t iRegTile(4), jRegTile(8), kRegTile(8);
+    // I, J, K loop.
+    ValueRange origLoop = krnl_define_loop(3);
+    Value i(origLoop[0]), j(origLoop[1]), k(origLoop[2]);
+    // Define blocked loop and permute.
+    ValueRange iRegBlock = krnl_block(i, iRegTile);
+    Value iiB(iRegBlock[0]), iiL(iRegBlock[1]);
+    ValueRange jRegBlock = krnl_block(j, jRegTile);
+    Value jjB(jRegBlock[0]), jjL(jRegBlock[1]);
+    ValueRange kRegBlock = krnl_block(k, kRegTile);
+    Value kkB(kRegBlock[0]), kkL(kRegBlock[1]);
+    krnl_permute({iiB, iiL, jjB, jjL, kkB, kkL}, {2, 5, 0, 3, 1, 4});
+    // Loop bounds
+    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
+    MemRefBoundIndexCapture ABounds(A), CBounds(C);
+    IndexExpr I = CBounds.getDim(0);
+    IndexExpr J = CBounds.getDim(1);
+    IndexExpr K = ABounds.getDim(1);
+    LiteralIndexExpr zero(0);
+
+    krnl_iterate({i, j, k}, {iiB, jjB, kkB}, {zero, zero, zero}, {I, J, K}, {},
+        [&](ArrayRef<Value> args) {
+          ValueRange indices = krnl_get_induction_var_value({iiB, jjB, kkB});
+          Value ii(indices[0]), jj(indices[1]), kk(indices[2]);
+          krnl_matmul({iiL, jjL, kkL}, A, B, C, ii, jj, kk, I.getValue(),
+              J.getValue(), K.getValue(), true, false, false);
+        });
+  }
+
+  // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
+  // Implementation here uses the efficient 2d tiling plus kernel substitution.
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -135,9 +177,13 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Get the constants: zero.
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
-        alloc, zero, rewriter, loc);
-
+    if (shapeHelper.aDims.size() == 2 && shapeHelper.bDims.size() == 2) {
+      replace2x2Matmul2D(matMulOp, operandAdaptor, elementType, shapeHelper,
+          alloc, zero, rewriter, loc);
+    } else {
+      replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
+          alloc, zero, rewriter, loc);
+    }
     // Done.
     rewriter.replaceOp(op, alloc);
     return success();

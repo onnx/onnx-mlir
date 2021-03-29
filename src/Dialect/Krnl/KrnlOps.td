@@ -261,7 +261,7 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
   let arguments = (ins
     AnyType:$loop, I64Attr:$tile_size);
   let results = (outs AnyType:$loop_block, AnyType:$loop_local);
-
+  let builders = [ OpBuilderDAG<(ins "Value": $loop, "int64_t":$tile_size)> ];
   let assemblyFormat = [{
       $loop $tile_size attr-dict `:` functional-type($loop, results)
   }];
@@ -328,6 +328,7 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
 
   let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
   let results = (outs);
+  let builders = [ OpBuilderDAG<(ins "ArrayRef<Value>": $loops, "ArrayRef<int64_t>":$map)> ];
   let assemblyFormat = [{
       `(` $loops `)` $map attr-dict `:` type($loops)
   }];
@@ -634,6 +635,7 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
   let arguments = (ins Variadic<AnyType> : $loops);
   let results = (outs Variadic<AnyType> : $ind_var_vals);
+  let builders = [ OpBuilderDAG<(ins "ArrayRef<Value>": $loops)> ];
 
   let assemblyFormat = [{
       `(` $loops `)` attr-dict `:` functional-type($loops, results)
@@ -743,6 +745,19 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul",
     DefaultValuedAttr<BoolAttr, "true">:$unroll,
     DefaultValuedAttr<BoolAttr, "false">:$overcompute);
 
+  let builders = [ OpBuilderDAG<(ins "ArrayRef<Value>": $loops, 
+      "Value": $A, "Value": $B, "Value": $C,
+      "Value": $nGlobalStart, "Value": $mGlobalStart, "Value": $kGlobalStart, 
+      "Value": $nGlobalUB, "Value": $mGlobalUB, "Value": $kGlobalUB,
+      "ArrayRef<int64_t>": $computeTileSize,
+      "ArrayRef<int64_t>": $aTileSize,
+      "ArrayRef<int64_t>": $bTileSize,
+      "ArrayRef<int64_t>": $cTileSize, 
+      "bool": $simdize,
+      "bool": $unroll, 
+      "bool": $overcompute 
+    )> ];
+
   let parser = ?;
   let printer = ?;
   let assemblyFormat = [{
@@ -810,6 +825,11 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     OptionalAttr<I64ArrayAttr>:$tileSize,
     OptionalAttr<I64ArrayAttr>:$padToNext);
 
+  let builders = [ OpBuilderDAG<(ins "Value": $bufferMemref, "Value": $memref, 
+      "ArrayRef<Value>": $starts, "Value": $padValue, 
+      "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext
+    )> ];
+
   let parser = ?;
   let printer = ?;
     let assemblyFormat = [{
@@ -837,6 +857,10 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     Arg<AnyMemRef, "memory", [MemWrite]>:$memref,
     Variadic<Index>:$starts,
     OptionalAttr<I64ArrayAttr>:$tileSize);
+
+  let builders = [ OpBuilderDAG<(ins "Value": $bufferMemref, "Value": $memref, 
+      "ArrayRef<Value>": $starts, "ArrayRef<int64_t>": $tileSize
+    )> ];
 
   let parser = ?;
   let printer = ?;
