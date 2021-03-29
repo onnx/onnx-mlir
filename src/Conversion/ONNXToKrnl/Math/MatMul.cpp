@@ -124,7 +124,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ScopedContext scope(rewriter, loc);
     IndexExprScope indexScope(rewriter, loc);
     // Define blocking, with simdization along the j axis.
-    int64_t iRegTile(4), jRegTile(8), kRegTile(8);
+    const int64_t iRegTile(4), jRegTile(8), kRegTile(8);
     // I, J, K loop.
     ValueRange origLoop = krnl_define_loop(3);
     Value i(origLoop[0]), j(origLoop[1]), k(origLoop[2]);
@@ -135,7 +135,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value jjB(jRegBlock[0]), jjL(jRegBlock[1]);
     ValueRange kRegBlock = krnl_block(k, kRegTile);
     Value kkB(kRegBlock[0]), kkL(kRegBlock[1]);
-    krnl_permute({iiB, iiL, jjB, jjL, kkB, kkL}, {2, 5, 0, 3, 1, 4});
+    krnl_permute({iiB, iiL, jjB, jjL, kkB, kkL}, {0, 3, 1, 4, 2, 5});
     // Loop bounds
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
     MemRefBoundIndexCapture ABounds(A), CBounds(C);
@@ -147,9 +147,14 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     krnl_iterate({i, j, k}, {iiB, jjB, kkB}, {zero, zero, zero}, {I, J, K}, {},
         [&](ArrayRef<Value> args) {
           ValueRange indices = krnl_get_induction_var_value({iiB, jjB, kkB});
-          NonAffineIndexExpr ii(indices[0]), jj(indices[1]), kk(indices[2]);
-          krnl_matmul({iiL, jjL, kkL}, A, B, C, {ii, jj, kk}, {I, J, K}, true,
-              false, false);
+          DimIndexExpr ii(indices[0]), jj(indices[1]), kk(indices[2]);
+          SmallVector<int64_t, 4> computeTile, aTile, bTile, cTile;
+          computeTile = {iRegTile, jRegTile, kRegTile};
+          aTile = {iRegTile, kRegTile};
+          bTile = {kRegTile, jRegTile};
+          cTile = {iRegTile, jRegTile};
+          krnl_matmul({iiL, jjL, kkL}, A, B, C, {ii, jj, kk}, {I, J, K},
+              computeTile, aTile, bTile, cTile, true, false, false);
         });
   }
 
