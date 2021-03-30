@@ -67,7 +67,7 @@ version_dict = {'Abs': 6,
  'Compress': 11,
  'Concat': 11,
  'ConcatFromSequence': 11,
- 'Constant': 11,
+ 'Constant': 13,
  'ConstantOfShape': 9,
  'Conv': 11,
  'ConvInteger': 10,
@@ -333,20 +333,9 @@ OpsWithShapeInference=[
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Cast', 'Transpose',
+OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Gemm', 'Cast', 'Transpose',
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
-                        'GlobalMaxPool']
-
-# Operations who have operands that, if produced by constant operations, should
-# be promoted to become an attribute (via attribute promotion).
-#
-# For each operation, a key/value pair is used to specify how attribute promotion
-# should proceed. The key is the operation's name and the value is a list of
-# tuples, whose first item is the attribute/operand name, and the second item is
-# the index at which such operand occurs in the list of the operation's inputs.
-OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
-                                  "Pad": [("pads", 1), ("constant_value", 2)],
-                                  "Tile": [("repeats", 1)]}
+                        'GlobalMaxPool', 'Squeeze', 'Unsqueeze']
 
 OpsWithHelpers = {
   "Loop": """
@@ -404,10 +393,12 @@ custom_definition_misc = dict([ ('Constant',
   OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    } else {
     auto tensorType = sparse_value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    }
   }]>
   ];'''),
@@ -429,9 +420,6 @@ tblgen_types = ('AnyI1', 'AnyI8', 'AnyI16', 'AnyI32', 'AnyI64', 'BF16', 'F16', '
 )
 
 MAX_NUM_TYPES=20
-
-SNIPPETS = collect_snippets()
-SAMPLE_IMPLEMENTATIONS = collect_sample_implementations()
 
 def should_render_domain(domain):  # type: (Text) -> bool
     return True
@@ -630,13 +618,6 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
             types = ["AnyMemRef", "AnyTensor"]
         '''
 
-        # If operand is promotable to an attribute, then it must be
-        # nullable in case it migrates to be an attribute.
-        if schema.name in OpsWithPromotableConstOperands:
-            idxs = dict(OpsWithPromotableConstOperands[schema.name]).values()
-            if i in idxs and not OpSchema.FormalParameterOption.Optional == value.option:
-                types.append("NoneType")
-
         if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")
         elif OpSchema.FormalParameterOption.Variadic == value.option:
@@ -673,6 +654,9 @@ def get_attrs(schema):
 
     name_to_type = OrderedDict()
     for _, attr in sorted(schema.attributes.items()):
+        if attr.type == OpSchema.AttrType.GRAPH:
+          continue
+
         qualified_attr_name = "{}.{}".format(schema.name, attr.name)
         if qualified_attr_name in special_attr_defaults:
             name_to_type[attr.name] = get_attr_type_with_default(
@@ -887,6 +871,14 @@ def gen_op_def(schema):
     indent = inc_indent()
     s = 'def ONNX{0}Op:ONNX_Op<"{0}",\n'.format(schema.name)
 
+    regions = OrderedDict()
+    for _, attr in sorted(schema.attributes.items()):
+      if attr.type == OpSchema.AttrType.GRAPH:
+        if attr.required:
+          regions[attr.name] = "SizedRegion<1>"
+        else:
+          regions[attr.name] = "AnyRegion"
+
     # Generate decl for op traits.
     traits = ["NoSideEffect"]
     # OpsWithShapeInference:
@@ -894,10 +886,10 @@ def gen_op_def(schema):
     # Dummy implementations are added to ONNXOps.cpp
     # Error will be report if these operations are encountered at runtime
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
-    if schema.name in OpsWithPromotableConstOperands.keys():
-        traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
     if schema.name in OpsWithResultTypeInference.keys():
         traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
+    if len(regions):
+        traits.append("OpInterface<\"HasOnnxSubgraphOpInterface\">")
     s += inc_indent(indent) + '[{}]> {{\n'.format(join_args(traits))
 
     # Generate decl for canonicalizer.
@@ -926,6 +918,7 @@ def gen_op_def(schema):
     # Generate ins (consisting of operands and attributes).
     ins = get_operands_or_results(schema, type_str_dict, is_input=True)
     ins.update(get_attrs(schema))
+
     ins_strs = ["{1}:${0}".format(*i) for i in ins.items()]
     s += indent + 'let arguments = (ins {});\n'.format(
         (',\n' + inc_indent(indent)).join(ins_strs))
@@ -935,6 +928,12 @@ def gen_op_def(schema):
     outs_strs = ["{1}:${0}".format(*i) for i in outs.items()]
     s += indent + 'let results = (outs {});\n'.format(
         (',\n' + inc_indent(indent)).join(outs_strs))
+
+    regions_strs = ["{1}:${0}".format(*i) for i in regions.items()]
+
+    if len(regions):
+        s += indent + 'let regions = (region {});\n'.format(
+            (',\n' + inc_indent(indent)).join(regions_strs))
 
     # custom_builder_broadcast_ops_list
 
@@ -1024,17 +1023,21 @@ def gen_op_def(schema):
     # Generate input/output number.
     s = get_numberof_inout(s, indent, schema)
 
-    # Generate promotable const operand interface impl.
-    if schema.name in OpsWithPromotableConstOperands:
-        s = get_promotable_const_operands_func(
-            s, indent, OpsWithPromotableConstOperands[schema.name])
-
     if schema.name in OpsWithResultTypeInference:
         s = get_type_inference_func(
             s, indent, OpsWithResultTypeInference[schema.name])
 
     if schema.name in OpsWithHelpers:
         s += OpsWithHelpers[schema.name]
+
+    if len(regions):
+        s += indent + "int64_t getSubgraphRegionIdx(const std::string& name) {\n"
+        indent = inc_indent(indent)
+        for idx, region_name in enumerate(regions.keys()):
+          s += indent + "if (name == \"{}\") return {};\n".format(region_name, idx)
+        s += indent + "assert(false && \"region with the specified name does not exist\");\n"
+        indent = dec_indent(indent)
+        s += indent + "}\n"
 
     s += indent + '}];\n'
 

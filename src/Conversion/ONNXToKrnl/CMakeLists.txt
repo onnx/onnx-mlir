@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 add_library(OMONNXToKrnl
         ONNXToKrnlCommon.cpp
         ONNXToKrnlCommon.hpp
@@ -5,6 +7,7 @@ add_library(OMONNXToKrnl
         Math/Clip.cpp
         Math/Elementwise.cpp
         Math/Gemm.cpp
+        Math/LRN.cpp
         Math/MatMul.cpp
         Math/Reduction.cpp
         Math/Softmax.cpp
@@ -16,9 +19,9 @@ add_library(OMONNXToKrnl
         RNN/GRU.cpp
         RNN/LSTM.cpp
         RNN/RNN.cpp
+        Tensor/ArgMax.cpp
         Tensor/Identity.cpp
         Tensor/Reshape.cpp
-        Tensor/PadConstantValuePad.cpp
         Tensor/Pad.cpp
         Tensor/Transpose.cpp
         Tensor/Squeeze.cpp

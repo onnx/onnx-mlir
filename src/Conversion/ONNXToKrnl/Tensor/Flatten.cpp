@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Flatten.cpp - Lowering Flatten Op
 //-------------------===//
 //
@@ -104,7 +108,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     // Generate the load of input
     SmallVector<Value, 4> inputMemRefVal(iterationBlock.getArguments().begin(),
         iterationBlock.getArguments().end());
-    auto inputVal = rewriter.create<AffineLoadOp>(loc, input, inputMemRefVal);
+    auto inputVal = rewriter.create<KrnlLoadOp>(loc, input, inputMemRefVal);
 
     // Generate the store for output
     // Define affine map for first dim of output
@@ -157,9 +161,9 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     // Create the store
     SmallVector<Value, 2> outputMemRefVal = {firstDimVal, secondDimVal};
     if (hasAllConstantDimensions(outputMemRefType))
-      rewriter.create<AffineStoreOp>(loc, inputVal, alloc, outputMemRefVal);
+      rewriter.create<KrnlStoreOp>(loc, inputVal, alloc, outputMemRefVal);
     else
-      rewriter.create<StoreOp>(loc, inputVal, alloc, outputMemRefVal);
+      rewriter.create<KrnlStoreOp>(loc, inputVal, alloc, outputMemRefVal);
 
     rewriter.replaceOp(op, alloc);
     return success();

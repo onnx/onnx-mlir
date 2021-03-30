@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering -------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -27,10 +31,11 @@ public:
   LogicalResult matchAndRewrite(
       ONNXEntryPointOp op, PatternRewriter &rewriter) const override {
     rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(op,
-        op.getAttrOfType<SymbolRefAttr>(
+        op->getAttrOfType<SymbolRefAttr>(
             ONNXEntryPointOp::getEntryPointFuncAttrName()),
-        op.getAttrOfType<IntegerAttr>(ONNXEntryPointOp::getNumInputsAttrName()),
-        op.getAttrOfType<IntegerAttr>(
+        op->getAttrOfType<IntegerAttr>(
+            ONNXEntryPointOp::getNumInputsAttrName()),
+        op->getAttrOfType<IntegerAttr>(
             ONNXEntryPointOp::getNumOutputsAttrName()));
     return success();
   }
@@ -59,6 +64,14 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // this lowering.
   target.addLegalDialect<KrnlOpsDialect, AffineDialect, StandardOpsDialect,
       shape::ShapeDialect, scf::SCFDialect>();
+
+  // Use krnl.load/store instead of std.load/store and affine.load/store.
+  // krnl.load/store will be lowered to std.load/store and affine.load/store by
+  // `convert-krnl-to-affine` pass.
+  target.addIllegalOp<mlir::LoadOp>();
+  target.addIllegalOp<mlir::AffineLoadOp>();
+  target.addIllegalOp<mlir::StoreOp>();
+  target.addIllegalOp<mlir::AffineStoreOp>();
 
   // std.tanh will be expanded.
   target.addIllegalOp<mlir::TanhOp>();
@@ -106,9 +119,10 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   populateLoweringONNXReductionOpPattern(patterns, &getContext());
   populateLoweringONNXSoftmaxOpPattern(patterns, &getContext());
   populateLoweringONNXMatMulOpPattern(patterns, &getContext());
+  populateLoweringONNXLRNOpPattern(patterns, &getContext());
   // Tensor
+  populateLoweringONNXArgMaxOpPattern(patterns, &getContext());
   populateLoweringONNXReshapeOpPattern(patterns, &getContext());
-  populateLoweringONNXPadConstantValuePadOpPattern(patterns, &getContext());
   populateLoweringONNXPadOpPattern(patterns, &getContext());
   populateLoweringONNXUnsqueezeOpPattern(patterns, &getContext());
   populateLoweringONNXTransposeOpPattern(patterns, &getContext());

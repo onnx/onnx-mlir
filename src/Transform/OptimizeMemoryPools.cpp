@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-- OptimizeMemoryPools.cpp - Optimize Memory Pools -------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -16,6 +20,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallSet.h"
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -24,8 +29,12 @@
 using namespace mlir;
 namespace {
 
-// Handling of static memory pool on a block-basis in each function.
-typedef std::map<Block *, bool> BlockToCompactedFlag;
+// Handling of static memory pool on a block-basis in each function. For each
+// block we need to keep track of the memory pools which have been compacted
+// already. There can be several such memory pools, one for each alignment
+// present in the program.
+typedef std::map<Block *, llvm::SmallSet<int64_t, 16>>
+    BlockToCompactedAlignments;
 
 /// Get the total size in bytes used by the getref operations associated
 /// with a given memory pool.
@@ -63,13 +72,7 @@ std::vector<Operation *> getGetRefStores(KrnlGetRefOp *getRef) {
   auto parentBlock = getRef->getOperation()->getBlock();
   std::vector<Operation *> stores;
 
-  parentBlock->walk([&stores, getRef](StoreOp op) {
-    for (const auto &operand : op.getOperands())
-      if (operand == getRef->getResult())
-        stores.emplace_back(op);
-  });
-
-  parentBlock->walk([&stores, getRef](AffineStoreOp op) {
+  parentBlock->walk([&stores, getRef](KrnlStoreOp op) {
     for (const auto &operand : op.getOperands())
       if (operand == getRef->getResult())
         stores.emplace_back(op);
@@ -166,8 +169,7 @@ bool getRefUsesAreDisjoint(
         // Add value to dependent values list.
         dependentOps.insert(definingOperation);
 
-        if (llvm::dyn_cast<AffineLoadOp>(definingOperation) ||
-            llvm::dyn_cast<LoadOp>(definingOperation)) {
+        if (llvm::dyn_cast<KrnlLoadOp>(definingOperation)) {
           // Check that the MemRef operand of this load operation is
           // not in the firstGetRefList.
           Value loadOperand = definingOperation->getOperands()[0];
@@ -362,16 +364,16 @@ bool liveRangesInSameLoopNest(Operation *firstOp, Operation *lastOp,
 /// any of the live ranges of the GetRefs in firstGetRefList.
 bool checkLiveRangesIntersect(
     SmallVectorImpl<KrnlGetRefOp> &firstGetRefList, KrnlGetRefOp secondGetRef) {
+  // Get first and last ops for the live range of the secondGetRef.
+  Operation *firstOp = getLiveRangeFirstOp(secondGetRef);
+  Operation *lastOp = getLiveRangeLastOp(secondGetRef);
+
   // Check that the live range of each individual element in secondGetRefList
   // is independent from the individual live ranges of the elements
   // of the firstGetRefList.
   for (auto firstGetRef : firstGetRefList) {
     // Fetch the full live range for the first set of getref operations.
     std::vector<Operation *> liveRangeOpList = getLiveRange(firstGetRef);
-
-    // Get first and last ops for the live range of the secondGetRef.
-    Operation *firstOp = getLiveRangeFirstOp(secondGetRef);
-    Operation *lastOp = getLiveRangeLastOp(secondGetRef);
 
     // Check if either the first or last ops in the second live range are part
     // of the first live range.
@@ -434,11 +436,11 @@ class KrnlOptimizeStaticMemoryPools : public OpRewritePattern<KrnlGetRefOp> {
 public:
   using OpRewritePattern<KrnlGetRefOp>::OpRewritePattern;
 
-  BlockToCompactedFlag *blockToStaticPoolFlag;
-  KrnlOptimizeStaticMemoryPools(
-      MLIRContext *context, BlockToCompactedFlag *_blockToStaticPoolFlag)
+  BlockToCompactedAlignments *blockToStaticPoolAlignments;
+  KrnlOptimizeStaticMemoryPools(MLIRContext *context,
+      BlockToCompactedAlignments *_blockToStaticPoolAlignments)
       : OpRewritePattern<KrnlGetRefOp>(context) {
-    blockToStaticPoolFlag = _blockToStaticPoolFlag;
+    blockToStaticPoolAlignments = _blockToStaticPoolAlignments;
   }
 
   LogicalResult matchAndRewrite(
@@ -475,10 +477,13 @@ public:
     // Get parent block.
     Block *parentBlock = firstGetRef.getOperation()->getBlock();
 
-    // Check if this block has already been compacted. If it has then
-    // skip its optimization.
-    if (blockToStaticPoolFlag->count(parentBlock) > 0 &&
-        blockToStaticPoolFlag->at(parentBlock))
+    // Get alignment of the static memory pool.
+    int64_t alignment = getAllocAlignment(staticMemPool);
+
+    // Check if this block has already been compacted for the alignment of the
+    // current memory pool. If it has then skip its optimization.
+    if (blockToStaticPoolAlignments->count(parentBlock) > 0 &&
+        blockToStaticPoolAlignments->at(parentBlock).count(alignment) > 0)
       return failure();
 
     // TODO: relax this condition.
@@ -486,9 +491,14 @@ public:
     if (!llvm::dyn_cast_or_null<FuncOp>(parentBlock->getParentOp()))
       return failure();
 
-    // List of all GetRefs which share the slot with firstGetRefList.
+    // List of all GetRefs which share the slot with firstGetRef.
     SmallVector<KrnlGetRefOp, 4> firstGetRefList =
         getAllGetRefWithSameOffset(&firstGetRef);
+
+    // All matches are discovered in one application so applying the rule to
+    // an already optimized set of getrefs will not find new reuses.
+    if (firstGetRefList.size() > 1)
+      return failure();
 
     // Get a GetRef, other than the current one, that uses the same static
     // memory pool.
@@ -514,7 +524,8 @@ public:
       // The second krnl.getref properties:
       // - must use the same static memory pool as the first krnl.getref;
       // - the result must have the same memory footprint as the first.
-      if (getAllocOfGetRef(&candidate) == staticMemPool &&
+      AllocOp allocOfCandidate = getAllocOfGetRef(&candidate);
+      if (allocOfCandidate == staticMemPool &&
           getMemRefSizeInBytes(firstGetRef.getResult()) ==
               getMemRefSizeInBytes(candidate.getResult())) {
         getRefCandidates.emplace_back(candidate);
@@ -551,9 +562,10 @@ public:
       SmallVector<KrnlGetRefOp, 4> secondGetRefList =
           getAllGetRefWithSameOffsetExcept(&secondGetRef, validSlotReusers);
 
-      // Do not merge the secondGetRef if secondGetRef has more reusers than
-      // the firstGetRef.
-      if (firstGetRefList.size() < secondGetRefList.size())
+      // Do not merge the secondGetRef if secondGetRef has any reusers. It
+      // means that the analysis has already been performed on secondGetRef
+      // and all the possible reuses have already been found for secondGetRef.
+      if (secondGetRefList.size() > 1)
         continue;
 
       // If the two getRefs are used by the same operation which we know
@@ -631,11 +643,11 @@ class KrnlCompactStaticMemoryPools : public OpRewritePattern<AllocOp> {
 public:
   using OpRewritePattern<AllocOp>::OpRewritePattern;
 
-  BlockToCompactedFlag *blockToStaticPoolFlag;
-  KrnlCompactStaticMemoryPools(
-      MLIRContext *context, BlockToCompactedFlag *_blockToStaticPoolFlag)
+  BlockToCompactedAlignments *blockToStaticPoolAlignments;
+  KrnlCompactStaticMemoryPools(MLIRContext *context,
+      BlockToCompactedAlignments *_blockToStaticPoolAlignments)
       : OpRewritePattern<AllocOp>(context) {
-    blockToStaticPoolFlag = _blockToStaticPoolFlag;
+    blockToStaticPoolAlignments = _blockToStaticPoolAlignments;
   }
 
   LogicalResult matchAndRewrite(
@@ -644,6 +656,10 @@ public:
 
     auto memPoolType = allocOp.getResult().getType().dyn_cast<MemRefType>();
     auto memPoolShape = memPoolType.getShape();
+
+    // This is a memory pool if it is used by at least one getref.
+    if (getAllocGetRefNum(&allocOp) < 1)
+      return failure();
 
     // Only handle alloc ops that return a constant shaped MemRef.
     if (!hasAllConstantDimensions(memPoolType))
@@ -657,17 +673,16 @@ public:
     if (memPoolShape.size() != 1)
       return failure();
 
-    // This is a memory pool if it is used by at least one getref.
-    if (getAllocGetRefNum(&allocOp) < 1)
-      return failure();
-
     // Get parent block.
     Block *parentBlock = allocOp.getOperation()->getBlock();
 
-    // Check if this block has already been compacted. If it has then
-    // skip its processing.
-    if (blockToStaticPoolFlag->count(parentBlock) > 0 &&
-        blockToStaticPoolFlag->at(parentBlock))
+    // Get alignment.
+    int64_t alignment = getAllocAlignment(allocOp);
+
+    // Check if this block has already been compacted for current alignment.
+    // If it has then skip its processing.
+    if (blockToStaticPoolAlignments->count(parentBlock) > 0 &&
+        blockToStaticPoolAlignments->at(parentBlock).count(alignment) > 0)
       return failure();
 
     // If this is not the top block, fail.
@@ -691,8 +706,8 @@ public:
         MemRefType::get(newStaticMemPoolShape, rewriter.getIntegerType(8));
 
     // We need to emit a new alloc of smaller size.
-    AllocOp newStaticMemPool =
-        rewriter.create<AllocOp>(loc, newStaticMemPoolType);
+    AllocOp newStaticMemPool = rewriter.create<AllocOp>(
+        loc, newStaticMemPoolType, allocOp.alignmentAttr());
     newStaticMemPool.getOperation()->moveBefore(allocOp);
 
     // Changes are required, memory pool needs to be compacted.
@@ -748,7 +763,11 @@ public:
     rewriter.replaceOp(allocOp, newStaticMemPool.getResult());
 
     // Update compacted flag.
-    blockToStaticPoolFlag->insert(std::pair<Block *, bool>(parentBlock, true));
+    if (blockToStaticPoolAlignments->count(parentBlock) == 0)
+      blockToStaticPoolAlignments->insert(
+          std::pair<Block *, llvm::SmallSet<int64_t, 16>>(
+              parentBlock, llvm::SmallSet<int64_t, 16>()));
+    blockToStaticPoolAlignments->at(parentBlock).insert(alignment);
 
     return success();
   }
@@ -759,7 +778,7 @@ public:
  */
 class KrnlOptimizeMemoryPoolsPass
     : public PassWrapper<KrnlOptimizeMemoryPoolsPass, FunctionPass> {
-  BlockToCompactedFlag blockToStaticPoolFlag;
+  BlockToCompactedAlignments blockToStaticPoolAlignments;
 
 public:
   void runOnFunction() override {
@@ -768,9 +787,9 @@ public:
     ConversionTarget target(getContext());
     OwningRewritePatternList patterns;
     patterns.insert<KrnlOptimizeStaticMemoryPools>(
-        &getContext(), &blockToStaticPoolFlag);
+        &getContext(), &blockToStaticPoolAlignments);
     patterns.insert<KrnlCompactStaticMemoryPools>(
-        &getContext(), &blockToStaticPoolFlag);
+        &getContext(), &blockToStaticPoolAlignments);
 
     applyPatternsAndFoldGreedily(function, std::move(patterns));
   }

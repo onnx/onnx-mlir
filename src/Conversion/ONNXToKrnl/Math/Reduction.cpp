@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------------- Reduction.cpp - Lowering Reduction Ops ----------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -224,7 +228,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 
     Value identity =
         getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
-    rewriter.create<AffineStoreOp>(loc, identity, alloc, loopIVs);
+    rewriter.create<KrnlStoreOp>(loc, identity, alloc, loopIVs);
 
     // 2. Define an Krnl loop to do reduction.
     rewriter.setInsertionPointAfter(iterateOpInit);
@@ -264,27 +268,29 @@ struct ONNXReductionOpLowering : public ConversionPattern {
     }
 
     Value next, accumulated;
-    next = rewriter.create<AffineLoadOp>(loc, input, inLoopIVs);
-    accumulated = rewriter.create<AffineLoadOp>(loc, alloc, outLoopIVs);
+    next = rewriter.create<KrnlLoadOp>(loc, input, inLoopIVs);
+    accumulated = rewriter.create<KrnlLoadOp>(loc, alloc, outLoopIVs);
     accumulated = emitScalarOpFor<ONNXReductionOp>(
         rewriter, loc, op, memRefOutType.getElementType(), {accumulated, next});
-    rewriter.create<AffineStoreOp>(loc, accumulated, alloc, outLoopIVs);
+    rewriter.create<KrnlStoreOp>(loc, accumulated, alloc, outLoopIVs);
 
     // 3. Define an Krnl loop to compute mean (optional).
     rewriter.restoreInsertionPoint(ipMainRegion);
+    MemRefBoundIndexCapture inputBounds(input);
+    MemRefBoundIndexCapture allocBounds(alloc);
     if (computeMean) {
       Type elementType = memRefOutType.getElementType();
       // Compute the divisor that is the number of elements participated in
       // reduction, i.e., 'divisor = size of input / size of output'.
-      IndexExprContext context(&rewriter, loc);
-      IndexExpr inputSizeExpr = context.createLiteralIndex(1);
+      IndexExprScope scope(&rewriter, loc);
+      IndexExpr inputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < inRank; i++) {
-        IndexExpr dimExpr = context.createDimIndexFromShapedType(input, i);
+        DimIndexExpr dimExpr(inputBounds.getDim(i));
         inputSizeExpr = inputSizeExpr * dimExpr;
       }
-      IndexExpr outputSizeExpr = context.createLiteralIndex(1);
+      IndexExpr outputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < outRank; i++) {
-        IndexExpr dimExpr = context.createDimIndexFromShapedType(alloc, i);
+        DimIndexExpr dimExpr(allocBounds.getDim(i));
         outputSizeExpr = outputSizeExpr * dimExpr;
       }
       IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
@@ -303,7 +309,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
       meanLoops.createDefineAndIterateOp(alloc);
       rewriter.setInsertionPointToStart(meanLoops.getIterateBlock());
       auto meanIVs = meanLoops.getAllInductionVar();
-      auto loadData = rewriter.create<AffineLoadOp>(loc, alloc, meanIVs);
+      auto loadData = rewriter.create<KrnlLoadOp>(loc, alloc, meanIVs);
       Value meanVal;
       if (elementType.isa<FloatType>())
         meanVal = rewriter.create<DivFOp>(loc, loadData, divisor);
@@ -311,7 +317,7 @@ struct ONNXReductionOpLowering : public ConversionPattern {
         meanVal = rewriter.create<SignedDivIOp>(loc, loadData, divisor);
       else
         llvm_unreachable("unsupported element type");
-      rewriter.create<AffineStoreOp>(loc, meanVal, alloc, meanIVs);
+      rewriter.create<KrnlStoreOp>(loc, meanVal, alloc, meanIVs);
     }
 
     rewriter.replaceOp(op, alloc);

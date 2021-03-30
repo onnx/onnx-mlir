@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====---------- KrnlSupport.hpp - Krnl-level support functions -----------===//
 //
 // Copyright 2020 The IBM Research Authors.
@@ -39,7 +43,7 @@ FuncOp getContainingFunction(Operation *op);
 // Use this function for small values only to avoid unexpected loss in type
 // casting.
 Value emitConstantOp(
-    PatternRewriter &rewriter, Location loc, Type type, double value);
+    OpBuilder &rewriter, Location loc, Type type, double value);
 
 //===----------------------------------------------------------------------===//
 // Perform checks or get statistics about Krnl-level operations.
@@ -96,6 +100,9 @@ Value getDynamicMemRefSizeInBytes(
 
 /// Get order number of dynamic index.
 int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);
+
+/// Get AllocOp alignment if it exists otherwise return zero.
+int64_t getAllocAlignment(AllocOp allocOp);
 
 //===----------------------------------------------------------------------===//
 // Live range analysis support.

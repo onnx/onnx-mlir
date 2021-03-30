@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Pooling.cpp - Lowering Pooling Ops ------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -100,7 +104,7 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
     ArrayRef<Value> poolDimValues) {
   // AveragePool's result type is FloatType, so it's safe to use DivFOp, SubFOp.
   bool countIncludePad = getCountIncludePad<ONNXAveragePoolOp>(poolOp);
-  Value numerator = rewriter.create<AffineLoadOp>(loc, alloc, resultIndices);
+  Value numerator = rewriter.create<KrnlLoadOp>(loc, alloc, resultIndices);
   Value denominator;
   if (countIncludePad) {
     int64_t kernelSize = 1;
@@ -120,7 +124,7 @@ void postProcessPoolingWindow<ONNXAveragePoolOp>(
 
   Value average = rewriter.create<DivFOp>(loc, numerator, denominator);
 
-  rewriter.create<AffineStoreOp>(loc, average, alloc, resultIndices);
+  rewriter.create<KrnlStoreOp>(loc, average, alloc, resultIndices);
 }
 
 //===----------------------------------------------------------------------===//
@@ -230,8 +234,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     // Kernel offset in the input shape.
     int kernelOffset = inputShape.size() - kernelShape.size();
 
-    // Context for IndexExpr.
-    IndexExprContext ieContext(&rewriter, loc);
+    // Scope for IndexExpr.
+    IndexExprScope ieScope(&rewriter, loc);
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc;
@@ -342,10 +346,14 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> outputIndices;
       for (int i = 0; i < outputShape.size(); ++i)
         outputIndices.emplace_back(
-            ieContext.createLoopInductionIndex(outputLoops.getInductionVar(i)));
+            DimIndexExpr(outputLoops.getInductionVar(i)));
 
       // 2.1 Emit: output[n][c][ho][wo] = identity
-      ieContext.createStoreOp(identity, alloc, outputIndices);
+      // Create a local reduction value for output[n][c][ho][wo].
+      Value reductionVal = rewriter.create<AllocaOp>(
+          loc, MemRefType::get({}, memRefType.getElementType()));
+      rewriter.create<KrnlStoreOp>(
+          loc, identity, reductionVal, ArrayRef<Value>{});
 
       // 2.2 Emit affine maps which express the lower and upper bounds for the
       // pooling window's dimensions.
@@ -360,23 +368,22 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // Prepare induction variables.
       SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
       {
+        MemRefBoundIndexCapture inputBounds(inputOperand);
         for (int i = 0; i < kernelShape.size(); ++i) {
           int j = i + kernelOffset;
           SmallVector<IndexExpr, 4> ic;
           // d0, output
           ic.emplace_back(outputIndices[j]);
           // s0, input dim
-          ic.emplace_back(
-              ieContext.createDimIndexFromShapedType(inputOperand, j));
+          ic.emplace_back(inputBounds.getDim(j));
           // s1, kernel dim
-          ic.emplace_back(ieContext.createLiteralIndex(kernelShape[i]));
+          ic.emplace_back(LiteralIndexExpr(kernelShape[i]));
           // s2, pad dim
-          ic.emplace_back(ieContext.createLiteralIndex(pads[i]));
+          ic.emplace_back(LiteralIndexExpr(pads[i]));
           // s3, stride dim
-          ic.emplace_back(ieContext.createLiteralIndex(strides[i]));
+          ic.emplace_back(LiteralIndexExpr(strides[i]));
           // s4, dilation dim
-          ic.emplace_back(
-              ieContext.createLiteralIndex((isDilated) ? dilations[i] : 1));
+          ic.emplace_back(LiteralIndexExpr((isDilated) ? dilations[i] : 1));
           IVExprs.emplace_back(ic);
         }
       }
@@ -387,8 +394,8 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       //   endH = min(H, ho * sH + (kH - 1) * dH  + 1 - pbH)
       SmallVector<IndexExpr, 4> windowStartExprs, windowEndExprs;
       for (int i = 0; i < kernelShape.size(); ++i) {
-        std::vector<mlir::IndexExpr> exprs = getIndexExprsForConvWindow(
-            ieContext, IVExprs[i], ceilMode, isDilated);
+        std::vector<mlir::IndexExpr> exprs =
+            getIndexExprsForConvWindow(IVExprs[i], ceilMode, isDilated);
         windowStartExprs.emplace_back(exprs[0]);
         windowEndExprs.emplace_back(exprs[1]);
       }
@@ -441,7 +448,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
       // Create a krnl iterate.
       poolingLoops.createIterateOp();
 
-      auto ipOuterLoops = rewriter.saveInsertionPoint();
+      auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
       rewriter.setInsertionPointToStart(poolingLoops.getIterateBlock());
       {
         // 2.4 Emit the body of the pooling loop nest.
@@ -452,8 +459,7 @@ struct ONNXPoolOpLowering : public ConversionPattern {
             inputIndices.emplace_back(outputIndices[i]);
           for (int i = kernelOffset; i < inputShape.size(); ++i) {
             int j = i - kernelOffset;
-            IndexExpr hp = ieContext.createLoopInductionIndex(
-                poolingLoops.getInductionVar(j));
+            DimIndexExpr hp(poolingLoops.getInductionVar(j));
             IndexExpr startH = windowStartExprs[j];
             if (isDilated) {
               // hi = hp * dH + startH
@@ -469,15 +475,20 @@ struct ONNXPoolOpLowering : public ConversionPattern {
         // Apply pooling operation.
         //      output[n][c][ho][wo] =
         //        emitScalarOpFor(output[n][c][ho][wo], input[n, c, hi, wi]);
-        Value loadInput = ieContext.createLoadOp(inputOperand, inputIndices);
-        Value loadPartialOutput = ieContext.createLoadOp(alloc, outputIndices);
+        Value loadInput = krnl_load(inputOperand, inputIndices);
+        Value loadPartialOutput =
+            rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
         Value output = emitScalarOpFor<PoolOp>(rewriter, loc, op,
             outputElementType, {loadPartialOutput, loadInput});
-        ieContext.createStoreOp(output, alloc, outputIndices);
+        rewriter.create<KrnlStoreOp>(
+            loc, output, reductionVal, ArrayRef<Value>{});
       }
+      rewriter.restoreInsertionPoint(ipOuterLoopRegion);
+      Value output =
+          rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+      krnl_store(output, alloc, outputIndices);
 
       // 2.5 Post-processing for the pooling window, e.g. taking average.
-      rewriter.restoreInsertionPoint(ipOuterLoops);
       SmallVector<Value, 4> outputIndicesInValue;
       for (IndexExpr expr : outputIndices)
         outputIndicesInValue.emplace_back(expr.getValue());

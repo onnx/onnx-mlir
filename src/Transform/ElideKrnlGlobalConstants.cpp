@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===- ElideKrnlGlobalConstants.cpp - Krnl Constant lobal Value Elision ---===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -35,7 +39,7 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
 
   if (op.value().hasValue()) {
     const auto &valAttr = op.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
-    if (valAttr.getNumElements() > elisionThreshold) {
+    if (valAttr.getNumElements() > elisionThreshold && !valAttr.isSplat()) {
       IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
       auto newGlobalOp = rewriter.create<KrnlGlobalOp>(loc,
           op.getResult().getType(), /*shape=*/op.shape(),

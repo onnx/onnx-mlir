@@ -12,10 +12,11 @@
 #else
 #define ONNX_OPS
 
-#ifdef OP_BASE
-#else
 include "mlir/IR/OpBase.td"
-#endif // OP_BASE
+include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "src/Interface/ShapeInferenceInterface.td"
+include "src/Interface/ResultTypeInferenceOpInterface.td"
+include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
 def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
 
@@ -25,20 +26,8 @@ class SeqOf<list<Type> allowedTypes> :
   ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
                 "$_self.cast<SeqType>().getElementType()",  "SeqType">;
 
-#ifdef SHAPE_INFERENCE_INTERFACE
-#else
-include "src/Interface/ShapeInferenceInterface.td"
-#endif // SHAPE_INFERENCE_INTERFACE
-
-#ifdef PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
-#else
-include "src/Interface/PromotableConstOperandsOpInterface.td"
-#endif // PROMOTABLE_CONST_OPERANDS_OP_INTERFACE
-
-#ifdef RESULT_TYPE_INFERENCE_OP_INTERFACE
-#else
-include "src/Interface/ResultTypeInferenceOpInterface.td"
-#endif // RESULT_TYPE_INFERENCE_OP_INTERFACE
+def ONNXConstantOpFromDenseAttr: NativeCodeCall<
+  "getONNXConstantOpFromDenseAttr($_builder, $_loc, $0)">;
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
@@ -96,6 +85,25 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     static StringRef getNumOutputsAttrName() { return "numOutputs"; }
   }];
 }
+
+def ONNXReturnOp : ONNX_Op<"Return", [NoSideEffect,
+                                ReturnLike, Terminator]> {
+  let summary = "ONNX return operation";
+  let description = [{
+    The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
+    The operation takes variable number of operands and produces no results.
+
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$operands);
+
+  let builders = [
+    OpBuilderDAG<(ins),
+    [{ build($_builder, $_state, llvm::None); }]>];
+
+  let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
+}
+
 
 //===----------------------------------------------------------------------===//
 // ONNX Operations for handling optional arguments
@@ -171,87 +179,6 @@ def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
     }
     static std::vector<int> getTypeMap() {
       return {20};
-    }
-  }];
-}
-
-def ONNXPadConstantValueOp : ONNX_Op<"PadConstantValue",
-    [NoSideEffect ]> {
-  let summary = "ONNX Pad operation with constant padding value";
-  let hasCanonicalizer = 1;
-  let description = [{ "this operation is introduced to handle situation"
-    " in which the padding value is a constant.
-    " The value will become an attribute."
-    "This operation is also used to handle the optional value input is missing and the default value 0."
-    "is used."
-   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-           AnyTypeOf<[AnyMemRef, AnyTensor]>:$pads,
-           DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
-           DefaultValuedAttr<StrAttr, "constant">:$mode);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {0};
-    }
-  }];
-}
-
-def ONNXPadConstantPadOp : ONNX_Op<"PadConstantPad",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface> ]> {
-  let summary = "ONNX Pad operation with constant padding value";
-  let description = [{ "this operation is introduced to handle situation"
-    " in which the padding value and padding are constants"
-    "They will become attributes."
-   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-           AnyTypeOf<[AnyMemRef, AnyTensor]>:$constant_value,
-           I64ArrayAttr:$pads,
-           DefaultValuedAttr<StrAttr, "constant">:$mode);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {0};
-    }
-  }];
-}
-
-def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface> ]> {
-  let summary = "ONNX Pad operation with constant padding value";
-  let description = [{ "this operation is introduced to handle situation"
-    " in which the padding value and padding are constants"
-    "They will become attributes."
-   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-           I64ArrayAttr:$pads,
-           DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
-           DefaultValuedAttr<StrAttr, "constant">:$mode);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
-  // A build method with the result type deduction.
-  let builders = [OpBuilderDAG<(ins "Value":$data, "ArrayAttr":$pads,
-                                    "FloatAttr":$constant_value, "StringAttr":$mode)>];
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {0};
     }
   }];
 }

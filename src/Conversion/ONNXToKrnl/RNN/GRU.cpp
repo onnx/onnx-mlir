@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------------- GRU.cpp - Lowering GRU Op --------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -350,16 +354,16 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
       if (!state.linearBeforeReset && (i == GATES - 1))
         continue;
       Value xwAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-      rewriter.create<AffineStoreOp>(loc, zero, xwAlloc, ArrayRef<Value>{});
+      rewriter.create<KrnlStoreOp>(loc, zero, xwAlloc, ArrayRef<Value>{});
       xwZRH.emplace_back(xwAlloc);
       Value hrAlloc = rewriter.create<AllocOp>(loc, scalarMemRefType);
-      rewriter.create<AffineStoreOp>(loc, zero, hrAlloc, ArrayRef<Value>{});
+      rewriter.create<KrnlStoreOp>(loc, zero, hrAlloc, ArrayRef<Value>{});
       hrZRH.emplace_back(hrAlloc);
     }
 
     // Initialize the global buffer for Xt*(Wh^T).
     if (!state.linearBeforeReset)
-      rewriter.create<AffineStoreOp>(loc, zero, xwHMemRef, mIVs);
+      rewriter.create<KrnlStoreOp>(loc, zero, xwHMemRef, mIVs);
 
     { // Emit instructions for Xt*(Wz^T), Xt*(Wr^T), Xt*(Wh^T)
       // input_size is the reduction dimension.
@@ -391,24 +395,24 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
         }
 
         Value loadX =
-            rewriter.create<AffineLoadOp>(loc, operandAdaptor.X(), xIVs);
+            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.X(), xIVs);
         for (unsigned i = 0; i < GATES; ++i) {
           // Xt * W[zrh]
-          Value loadW = rewriter.create<AffineLoadOp>(
-              loc, operandAdaptor.W(), wZRHIVs[i]);
+          Value loadW =
+              rewriter.create<KrnlLoadOp>(loc, operandAdaptor.W(), wZRHIVs[i]);
           Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
           Value loadXW;
           if (!state.linearBeforeReset && (i == GATES - 1))
             // in case of not linearBeforeReset, load from the global buffer.
-            loadXW = rewriter.create<AffineLoadOp>(loc, xwHMemRef, mIVs);
+            loadXW = rewriter.create<KrnlLoadOp>(loc, xwHMemRef, mIVs);
           else
-            loadXW = rewriter.create<AffineLoadOp>(loc, xwZRH[i]);
+            loadXW = rewriter.create<KrnlLoadOp>(loc, xwZRH[i]);
           Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
           if (!state.linearBeforeReset && (i == GATES - 1))
             // in case of not linearBeforeReset, store to the global buffer.
-            rewriter.create<AffineStoreOp>(loc, nextXW, xwHMemRef, mIVs);
+            rewriter.create<KrnlStoreOp>(loc, nextXW, xwHMemRef, mIVs);
           else
-            rewriter.create<AffineStoreOp>(
+            rewriter.create<KrnlStoreOp>(
                 loc, nextXW, xwZRH[i], ArrayRef<Value>{});
         }
       }
@@ -444,17 +448,17 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
         }
 
         // Ht-1 * R[zrh]
-        Value loadH = rewriter.create<AffineLoadOp>(loc, state.ht, hIVs);
+        Value loadH = rewriter.create<KrnlLoadOp>(loc, state.ht, hIVs);
         for (unsigned i = 0; i < GATES; ++i) {
           // Ht-1*(Rh^T) is unnecessary if not linearBeforeReset
           if (!state.linearBeforeReset && (i == GATES - 1))
             continue;
-          Value loadR = rewriter.create<AffineLoadOp>(
-              loc, operandAdaptor.R(), rZRHIVs[i]);
+          Value loadR =
+              rewriter.create<KrnlLoadOp>(loc, operandAdaptor.R(), rZRHIVs[i]);
           Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
-          Value loadHR = rewriter.create<AffineLoadOp>(loc, hrZRH[i]);
+          Value loadHR = rewriter.create<KrnlLoadOp>(loc, hrZRH[i]);
           Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
-          rewriter.create<AffineStoreOp>(
+          rewriter.create<KrnlStoreOp>(
               loc, nextHR, hrZRH[i], ArrayRef<Value>{});
         }
       }
@@ -462,57 +466,57 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
     }
 
     // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)
-    Value loadXWZ = rewriter.create<AffineLoadOp>(loc, xwZRH[0]);
-    Value loadHRZ = rewriter.create<AffineLoadOp>(loc, hrZRH[0]);
+    Value loadXWZ = rewriter.create<KrnlLoadOp>(loc, xwZRH[0]);
+    Value loadHRZ = rewriter.create<KrnlLoadOp>(loc, hrZRH[0]);
     Value zt = rewriter.create<AddFOp>(loc, loadXWZ, loadHRZ);
     if (hasBiasForInput) {
       Value loadWB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), wbZRHIVs[0]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), wbZRHIVs[0]);
       zt = rewriter.create<AddFOp>(loc, zt, loadWB);
       Value loadRB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), rbZRHIVs[0]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), rbZRHIVs[0]);
       zt = rewriter.create<AddFOp>(loc, zt, loadRB);
     }
     zt = applyActivation(rewriter, loc, activationPack.f, zt);
-    rewriter.create<AffineStoreOp>(loc, zt, ztMemRef, mIVs);
+    rewriter.create<KrnlStoreOp>(loc, zt, ztMemRef, mIVs);
 
     // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)
-    Value loadXWR = rewriter.create<AffineLoadOp>(loc, xwZRH[1]);
-    Value loadHRR = rewriter.create<AffineLoadOp>(loc, hrZRH[1]);
+    Value loadXWR = rewriter.create<KrnlLoadOp>(loc, xwZRH[1]);
+    Value loadHRR = rewriter.create<KrnlLoadOp>(loc, hrZRH[1]);
     Value rt = rewriter.create<AddFOp>(loc, loadXWR, loadHRR);
     if (hasBiasForInput) {
       Value loadWB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), wbZRHIVs[1]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), wbZRHIVs[1]);
       rt = rewriter.create<AddFOp>(loc, rt, loadWB);
       Value loadRB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), rbZRHIVs[1]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), rbZRHIVs[1]);
       rt = rewriter.create<AddFOp>(loc, rt, loadRB);
     }
     rt = applyActivation(rewriter, loc, activationPack.f, rt);
 
     if (!state.linearBeforeReset) {
       // compute and store (rt . Ht-1) to a global buffer.
-      Value loadH = rewriter.create<AffineLoadOp>(loc, state.ht, stateIVs);
+      Value loadH = rewriter.create<KrnlLoadOp>(loc, state.ht, stateIVs);
       Value rtHt = rewriter.create<MulFOp>(loc, rt, loadH);
-      rewriter.create<AffineStoreOp>(loc, rtHt, rhMemRef, mIVs);
+      rewriter.create<KrnlStoreOp>(loc, rtHt, rhMemRef, mIVs);
     } else {
       // compute ht = g(Xt*(Wh^T) + (rt (.) (Ht-1*(Rh^T) + Rbh)) + Wbh)
-      Value ht = rewriter.create<AffineLoadOp>(loc, xwZRH[2]);
-      Value linear = rewriter.create<AffineLoadOp>(loc, hrZRH[2]);
+      Value ht = rewriter.create<KrnlLoadOp>(loc, xwZRH[2]);
+      Value linear = rewriter.create<KrnlLoadOp>(loc, hrZRH[2]);
       if (hasBiasForInput) {
         Value loadRB =
-            rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), rbZRHIVs[2]);
+            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), rbZRHIVs[2]);
         linear = rewriter.create<AddFOp>(loc, linear, loadRB);
       }
       Value reset = rewriter.create<MulFOp>(loc, rt, linear);
       ht = rewriter.create<AddFOp>(loc, ht, reset);
       if (hasBiasForInput) {
         Value loadWB =
-            rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), wbZRHIVs[2]);
+            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), wbZRHIVs[2]);
         ht = rewriter.create<AddFOp>(loc, ht, loadWB);
       }
       ht = applyActivation(rewriter, loc, activationPack.g, ht);
-      rewriter.create<AffineStoreOp>(loc, ht, htMemRef, mIVs);
+      rewriter.create<KrnlStoreOp>(loc, ht, htMemRef, mIVs);
     }
 
     // Deallocate the temporary results of matrix multiplications.
@@ -547,7 +551,7 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
           std::vector<Value>{hiddenIV, constantIndices[2], hiddenDimVal});
 
       Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-      rewriter.create<AffineStoreOp>(loc, zero, rhrHMemRef, mIVs);
+      rewriter.create<KrnlStoreOp>(loc, zero, rhrHMemRef, mIVs);
       {
         // Emit instructions for 'rtHt*(Rh^T)'.
         // hidden_size is the reduction dimension.
@@ -567,13 +571,13 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
           SmallVector<Value, 3> rIVs = {directionIV, rOffsetIV, reductionIV};
 
           // 'rtHt*(Rh^T)'
-          Value loadRtHt = rewriter.create<AffineLoadOp>(loc, rhMemRef, rhIVs);
+          Value loadRtHt = rewriter.create<KrnlLoadOp>(loc, rhMemRef, rhIVs);
           Value loadR =
-              rewriter.create<AffineLoadOp>(loc, operandAdaptor.R(), rIVs);
+              rewriter.create<KrnlLoadOp>(loc, operandAdaptor.R(), rIVs);
           Value rhrVal = rewriter.create<MulFOp>(loc, loadRtHt, loadR);
-          Value loadRHR = rewriter.create<AffineLoadOp>(loc, rhrHMemRef, mIVs);
+          Value loadRHR = rewriter.create<KrnlLoadOp>(loc, rhrHMemRef, mIVs);
           Value nextRHR = rewriter.create<AddFOp>(loc, loadRHR, rhrVal);
-          rewriter.create<AffineStoreOp>(loc, nextRHR, rhrHMemRef, mIVs);
+          rewriter.create<KrnlStoreOp>(loc, nextRHR, rhrHMemRef, mIVs);
         }
         rewriter.restoreInsertionPoint(ipReductionLoops);
       }
@@ -600,42 +604,42 @@ void calculateState<ONNXGRUOp, GruState, GruActivationPack>(
     Value ht;
     if (!state.linearBeforeReset) {
       //   ht = g(Xt*(Wh^T) + (rt (.) Ht-1)*(Rh^T) + Rbh + Wbh)
-      ht = rewriter.create<AffineLoadOp>(loc, xwHMemRef, mIVs);
-      Value linear = rewriter.create<AffineLoadOp>(loc, rhrHMemRef, mIVs);
+      ht = rewriter.create<KrnlLoadOp>(loc, xwHMemRef, mIVs);
+      Value linear = rewriter.create<KrnlLoadOp>(loc, rhrHMemRef, mIVs);
       ht = rewriter.create<AddFOp>(loc, ht, linear);
       if (hasBiasForInput) {
         Value rHiddenIV = rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
             std::vector<Value>{/*iv=*/hiddenIV,
                 /*index=*/constantIndices[5], /*size=*/hiddenDimVal});
-        Value loadRB = rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(),
+        Value loadRB = rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(),
             SmallVector<Value, 2>{directionIV, rHiddenIV});
         ht = rewriter.create<AddFOp>(loc, ht, loadRB);
 
         Value wHiddenIV = rewriter.create<AffineApplyOp>(loc, accessByOffsetMap,
             std::vector<Value>{/*iv=*/hiddenIV,
                 /*index=*/constantIndices[2], /*size=*/hiddenDimVal});
-        Value loadWB = rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(),
+        Value loadWB = rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(),
             SmallVector<Value, 2>{directionIV, wHiddenIV});
         ht = rewriter.create<AddFOp>(loc, ht, loadWB);
       }
       ht = applyActivation(rewriter, loc, activationPack.g, ht);
     } else
-      ht = rewriter.create<AffineLoadOp>(loc, htMemRef, mIVs);
+      ht = rewriter.create<KrnlLoadOp>(loc, htMemRef, mIVs);
 
     // Ht = (1 - zt) (.) ht + zt (.) Ht-1
-    Value zt = rewriter.create<AffineLoadOp>(loc, ztMemRef, mIVs);
-    Value loadH = rewriter.create<AffineLoadOp>(loc, state.ht, stateIVs);
+    Value zt = rewriter.create<KrnlLoadOp>(loc, ztMemRef, mIVs);
+    Value loadH = rewriter.create<KrnlLoadOp>(loc, state.ht, stateIVs);
     Value one = emitConstantOp(rewriter, loc, elementType, 1);
     Value subZt = rewriter.create<SubFOp>(loc, one, zt);
     Value mulHt = rewriter.create<MulFOp>(loc, subZt, ht);
     Value mulH = rewriter.create<MulFOp>(loc, zt, loadH);
     Value Ht = rewriter.create<AddFOp>(loc, mulHt, mulH);
-    rewriter.create<AffineStoreOp>(loc, Ht, state.ht, stateIVs);
+    rewriter.create<KrnlStoreOp>(loc, Ht, state.ht, stateIVs);
 
     // Store the current Ht if required.
     if (!isNoneType(state.allH)) {
       SmallVector<Value, 4> allHIVs{sequenceIV, directionIV, batchIV, hiddenIV};
-      rewriter.create<AffineStoreOp>(loc, Ht, state.allH, allHIVs);
+      rewriter.create<KrnlStoreOp>(loc, Ht, state.allH, allHIVs);
     }
   }
   rewriter.restoreInsertionPoint(ipStateLoops);

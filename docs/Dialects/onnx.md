@@ -697,8 +697,8 @@ ONNX ConstantOfShape operation
 
 ONNX Constant operation
 
-"A constant tensor. Exactly one of the two attributes, either value or sparse_value,"
-"must be specified."
+"This operator produces a constant tensor. Exactly one of the provided attributes, either value, sparse_value,"
+"or value_* must be specified."
 
 #### Attributes:
 
@@ -706,12 +706,18 @@ ONNX Constant operation
 | :-------: | :-------: | ----------- |
 `sparse_value` | ::mlir::Attribute | any attribute
 `value` | ::mlir::Attribute | any attribute
+`value_float` | ::mlir::FloatAttr | 32-bit float attribute
+`value_floats` | ::mlir::ArrayAttr | 32-bit float array attribute
+`value_int` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+`value_ints` | ::mlir::ArrayAttr | 64-bit integer array attribute
+`value_string` | ::mlir::StringAttr | string attribute
+`value_strings` | ::mlir::ArrayAttr | string array attribute
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+`output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
 
 ### `onnx.ConvInteger` (::mlir::ONNXConvIntegerOp)
 
@@ -1953,13 +1959,6 @@ ONNX If operation
 
 "If conditional"
 
-#### Attributes:
-
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-`else_branch` | ::mlir::Attribute | any attribute
-`then_branch` | ::mlir::Attribute | any attribute
-
 #### Operands:
 
 | Operand | Description |
@@ -2585,12 +2584,6 @@ ONNX Loop operation
 "time being the inner looping dimension), with each successive layer consuming"
 "the scan_outputs from the previous layer, possibly going through several"
 "point-wise operators (e.g. dropout, residual connections, linear layer)."
-
-#### Attributes:
-
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-`body` | ::mlir::Attribute | any attribute
 
 #### Operands:
 
@@ -3284,92 +3277,6 @@ ONNX PRelu operation
 | :----: | ----------- |
 `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or memref of any type values
 
-### `onnx.PadConstantPad` (::mlir::ONNXPadConstantPadOp)
-
-ONNX Pad operation with constant padding value
-
-"this operation is introduced to handle situation"
-   " in which the padding value and padding are constants"
-   "They will become attributes."
-
-#### Attributes:
-
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`mode` | ::mlir::StringAttr | string attribute
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
-`constant_value` | memref of any type values or tensor of any type values
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
-
-### `onnx.PadConstantValue` (::mlir::ONNXPadConstantValueOp)
-
-ONNX Pad operation with constant padding value
-
-"this operation is introduced to handle situation"
-   " in which the padding value is a constant.
-   " The value will become an attribute."
-   "This operation is also used to handle the optional value input is missing and the default value 0."
-   "is used."
-
-#### Attributes:
-
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-`constant_value` | ::mlir::FloatAttr | 32-bit float attribute
-`mode` | ::mlir::StringAttr | string attribute
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
-`pads` | memref of any type values or tensor of any type values
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
-
-### `onnx.PadConstantValuePad` (::mlir::ONNXPadConstantValuePadOp)
-
-ONNX Pad operation with constant padding value
-
-"this operation is introduced to handle situation"
-   " in which the padding value and padding are constants"
-   "They will become attributes."
-
-#### Attributes:
-
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-`pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
-`constant_value` | ::mlir::FloatAttr | 32-bit float attribute
-`mode` | ::mlir::StringAttr | string attribute
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-`data` | memref of any type values or tensor of any type values
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-`output` | memref of any type values or tensor of any type values
-
 ### `onnx.Pad` (::mlir::ONNXPadOp)
 
 ONNX Pad operation
@@ -3467,7 +3374,7 @@ ONNX Pad operation
 | Operand | Description |
 | :-----: | ----------- |
 `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values
-`pads` | tensor of 64-bit signless integer values or memref of any type values or none type
+`pads` | tensor of 64-bit signless integer values or memref of any type values
 `constant_value` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or memref of any type values or none type
 
 #### Results:
@@ -4211,7 +4118,7 @@ ONNX Reshape operation
 | Operand | Description |
 | :-----: | ----------- |
 `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
-`shape` | tensor of 64-bit signless integer values or memref of any type values or none type
+`shape` | tensor of 64-bit signless integer values or memref of any type values
 
 #### Results:
 
@@ -4252,6 +4159,27 @@ ONNX Resize operation
 | Result | Description |
 | :----: | ----------- |
 `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
+
+### `onnx.Return` (::mlir::ONNXReturnOp)
+
+ONNX return operation
+
+
+Syntax:
+
+```
+operation ::= `onnx.Return` attr-dict ($operands^ `:` type($operands))?
+```
+
+The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
+The operation takes variable number of operands and produces no results.
+
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+`operands` | any type
 
 ### `onnx.ReverseSequence` (::mlir::ONNXReverseSequenceOp)
 
@@ -4602,7 +4530,6 @@ ONNX Scan operation
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
-`body` | ::mlir::Attribute | any attribute
 `num_scan_inputs` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 `scan_input_axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
 `scan_input_directions` | ::mlir::ArrayAttr | 64-bit integer array attribute
@@ -5615,7 +5542,7 @@ ONNX Tile operation
 | Operand | Description |
 | :-----: | ----------- |
 `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of stirng type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or memref of any type values
-`repeats` | tensor of 64-bit signless integer values or memref of any type values or none type
+`repeats` | tensor of 64-bit signless integer values or memref of any type values
 
 #### Results:
 

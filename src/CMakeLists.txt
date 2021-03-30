@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 add_subdirectory(Interface)
 add_subdirectory(Dialect)
 add_subdirectory(Support)
@@ -23,9 +25,9 @@ set(OMLibs
         OMONNXRewrite
         OMShapeInference
         OMShapeInferenceOpInterface
-        OMAttributePromotion
-        OMPromotableConstOperandsOpInterface
         OMResultTypeInferenceOpInterface
+        OMHasOnnxSubgraphOpInterface
+        OMSpecializedKernelOpInterface
         OMElideConstants
         OMElideKrnlGlobalConstants
         OMPackKrnlGlobalConstants

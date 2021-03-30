@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------------------- Loop.cpp - Lowering Loop Op ---------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -9,7 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/IR/BlockAndValueMapping.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include <mlir/IR/BlockAndValueMapping.h>
 
 struct ONNXLoopOpLowering : public ConversionPattern {
   explicit ONNXLoopOpLowering(MLIRContext *ctx)
@@ -17,12 +23,11 @@ struct ONNXLoopOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    auto loc = op->getLoc();
+    auto loc = ONNXLoc<ONNXLoopOp>(op);
     auto loopOp = dyn_cast<ONNXLoopOp>(op);
     ONNXLoopOpAdaptor loopOpAdapter(operands, op->getAttrDictionary());
 
-    auto func = loopOp.getLoopBodyFunc();
-    auto &loopBody = func.getBody();
+    auto &loopBody = loopOp.body();
 
     // Allocate memory for two kinds of outputs:
     // - final values of loop carried dependencies, and
@@ -53,7 +58,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     BuildKrnlLoop loop(rewriter, loc, 1);
     loop.createDefineOp();
     Value maxTripCount =
-        rewriter.create<LoadOp>(loc, loopOpAdapter.M()).getResult();
+        rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M()).getResult();
     maxTripCount = rewriter.create<IndexCastOp>(
         loc, maxTripCount, rewriter.getIndexType());
     loop.pushBounds(0, maxTripCount);
@@ -63,7 +68,7 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     {
       OpBuilder::InsertionGuard insertGuard(rewriter);
 
-      auto condReg = rewriter.create<AffineLoadOp>(loc, cond).getResult();
+      auto condReg = rewriter.create<KrnlLoadOp>(loc, cond).getResult();
       auto ifOp = rewriter.create<scf::IfOp>(loc, condReg, false);
       rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
 
@@ -76,20 +81,59 @@ struct ONNXLoopOpLowering : public ConversionPattern {
           rewriter
               .create<AllocOp>(loc, MemRefType::get({}, rewriter.getI64Type()))
               .getResult();
-      rewriter.create<StoreOp>(loc, iv, ivMemRef);
+      rewriter.create<KrnlStoreOp>(loc, iv, ivMemRef);
 
       // Make the call to loop body function.
       SmallVector<Value, 4> params = {ivMemRef, loopOpAdapter.cond()};
       for (auto value : llvm::make_range(outputs.begin(),
                outputs.begin() + loopOpAdapter.v_initial().size()))
         params.emplace_back(value);
-      auto callOp = rewriter.create<CallOp>(loc, func, params);
+
+      auto &loopBodyEntryBlock = loopBody.front();
+      BlockAndValueMapping mapper;
+      for (unsigned i = 0, e = params.size(); i != e; ++i) {
+        // Verify that the types of the provided values match the function
+        // argument types.
+        BlockArgument regionArg = loopBodyEntryBlock.getArgument(i);
+        mapper.map(regionArg, params[i]);
+      }
+
+      auto &thenRegion = ifOp.thenRegion();
+      auto &thenBlock = thenRegion.front();
+
+      // Split the insertion block into two, where the second block
+      // `postInsertBlock` contains only the terminator operation, insert loop
+      // body right before `postInsertBlock`, after all other operations created
+      // within the if Op.
+      Block *postInsertBlock = thenBlock.splitBlock(thenBlock.getTerminator());
+      assert(loopBody.getBlocks().size() == 1 &&
+             "Currently only support loop body with 1 block.");
+      thenRegion.getBlocks().splice(
+          postInsertBlock->getIterator(), loopBody.getBlocks());
+      auto newBlocks = llvm::make_range(
+          std::next(thenBlock.getIterator()), postInsertBlock->getIterator());
+      auto &loopBodyBlock = *newBlocks.begin();
+
+      auto loopBodyTerminator = loopBodyBlock.getTerminator();
+
+      // Within inlined blocks, substitute reference to block arguments with
+      // values produced by the lowered loop operation bootstrapping IR.
+      auto remapOperands = [&](Operation *op1) {
+        for (auto &operand : op1->getOpOperands())
+          if (auto mappedOp = mapper.lookupOrNull(operand.get()))
+            operand.set(mappedOp);
+      };
+      for (auto &block : thenRegion.getBlocks())
+        block.walk(remapOperands);
+      auto resultsRange =
+          llvm::SmallVector<Value, 4>(loopBodyTerminator->getOperands().begin(),
+              loopBodyTerminator->getOperands().end());
+      rewriter.setInsertionPointToStart(postInsertBlock);
 
       // Cast loop body outputs from tensor type to memref type in case it has
       // not already been lowered via dummy_cast. Eventually, dummy cast becomes
       // a cast from memref type to a memref type when everything is lowered and
       // thus becomes redundant.
-      auto resultsRange = callOp.getResults();
       SmallVector<Value, 4> bodyOutputs(
           resultsRange.begin(), resultsRange.end());
       for (int i = 0; i < bodyOutputs.size(); i++) {
@@ -128,8 +172,20 @@ struct ONNXLoopOpLowering : public ConversionPattern {
         emitCopy(rewriter, loc, std::get<0>(scanIntermediateToFinal),
             std::get<1>(scanIntermediateToFinal),
             /*writePrefix=*/{origIV});
-    }
 
+      // Remove loop body terminator op.
+      rewriter.eraseOp(loopBodyTerminator);
+
+      // Merge the post insert block into the cloned entry block.
+      loopBodyBlock.getOperations().splice(
+          loopBodyBlock.end(), postInsertBlock->getOperations());
+      rewriter.eraseBlock(postInsertBlock);
+
+      // Merge the loop body block into the then block.
+      thenBlock.getOperations().splice(
+          thenBlock.end(), loopBodyBlock.getOperations());
+      rewriter.eraseBlock(&loopBodyBlock);
+    }
     rewriter.replaceOp(op, outputs);
     return success();
   }
@@ -187,7 +243,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
               // termination.
               assert(!loopOpAdapter.M().getType().isa<NoneType>());
               Value maxTripCount =
-                  rewriter.create<LoadOp>(loc, loopOpAdapter.M()).getResult();
+                  rewriter.create<KrnlLoadOp>(loc, loopOpAdapter.M())
+                      .getResult();
               allocParams.emplace_back(rewriter.create<IndexCastOp>(
                   loc, maxTripCount, rewriter.getIndexType()));
             } else {
@@ -231,8 +288,8 @@ struct ONNXLoopOpLowering : public ConversionPattern {
     }
     SmallVector<Value, 4> writeIV(writePrefix.begin(), writePrefix.end());
     writeIV.insert(writeIV.end(), readIV.begin(), readIV.end());
-    auto val = rewriter.create<AffineLoadOp>(loc, src, readIV).getResult();
-    rewriter.create<AffineStoreOp>(loc, val, dest, writeIV);
+    auto val = rewriter.create<KrnlLoadOp>(loc, src, readIV).getResult();
+    rewriter.create<KrnlStoreOp>(loc, val, dest, writeIV);
   }
 };
 

@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====---------- KrnlSupport.cpp - Krnl-level support functions -----------===//
 //
 // Copyright 2020 The IBM Research Authors.
@@ -55,7 +59,7 @@ FuncOp getContainingFunction(Operation *op) {
 
 /// Emit constant operation.
 Value emitConstantOp(
-    PatternRewriter &rewriter, Location loc, Type type, double value) {
+    OpBuilder &rewriter, Location loc, Type type, double value) {
   Attribute constantAttr;
 
   TypeSwitch<Type>(type)
@@ -86,16 +90,10 @@ Value emitConstantOp(
 //===----------------------------------------------------------------------===//
 
 /// Operation is a LoadOp or AffineLoadOp.
-bool isLoad(Operation *op) {
-  return llvm::dyn_cast_or_null<LoadOp>(op) ||
-         llvm::dyn_cast_or_null<AffineLoadOp>(op);
-}
+bool isLoad(Operation *op) { return llvm::dyn_cast_or_null<KrnlLoadOp>(op); }
 
 /// Operation is a StoreOp or AffineStoreOp.
-bool isStore(Operation *op) {
-  return llvm::dyn_cast_or_null<StoreOp>(op) ||
-         llvm::dyn_cast_or_null<AffineStoreOp>(op);
-}
+bool isStore(Operation *op) { return llvm::dyn_cast_or_null<KrnlStoreOp>(op); }
 
 /// Operation is a KrnlMemcpyOp.
 bool isKrnlMemcpy(Operation *op) {
@@ -106,10 +104,23 @@ bool isKrnlMemcpy(Operation *op) {
 /// A krnl.memcpy acts as both load and store.
 bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
   auto result = getRef.getResult();
-  return (isLoad(op) && result == op->getOperands()[0]) ||
-         (isStore(op) && result == op->getOperands()[1]) ||
-         (isKrnlMemcpy(op) && (result == op->getOperands()[0] ||
-                                  result == op->getOperands()[1]));
+
+  // Is used by load/store/krnl.memcpy.
+  bool isUsedByLoadStore =
+      (isLoad(op) && result == op->getOperands()[0]) ||
+      (isStore(op) && result == op->getOperands()[1]) ||
+      (isKrnlMemcpy(op) &&
+          (result == op->getOperands()[0] || result == op->getOperands()[1]));
+
+  // If not used by a load/store or krnl memcpy, then it can be used by
+  // another operation. When this happens we assume that the lowering of the
+  // operation will involve a load/store.
+  if (!isUsedByLoadStore && !isLoad(op) && !isStore(op) && !isKrnlMemcpy(op))
+    for (const auto &operand : op->getOperands())
+      if (operand == result)
+        return true;
+
+  return isUsedByLoadStore;
 }
 
 /// Check if this value is an argument of one of the blocks nested around it.
@@ -308,6 +319,14 @@ int64_t getAllocArgIndex(AllocOp allocOp, int64_t index) {
   }
 
   return -1;
+}
+
+/// Get alignment of an AllocOp if it exists else return zero.
+int64_t getAllocAlignment(AllocOp allocOp) {
+  if (IntegerAttr alignmentAttr = allocOp.alignmentAttr())
+    return alignmentAttr.getInt();
+
+  return 0;
 }
 
 //===----------------------------------------------------------------------===//

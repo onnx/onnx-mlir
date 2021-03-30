@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -93,6 +97,13 @@ Value emitNegativeInfinityConstantOp(
     ConversionPatternRewriter &rewriter, Location loc, Type type);
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i);
+
+/// Get a dimension value from a memref. Emit a constant if the dimension is
+/// constant. Otherwise, emit a dim op.
+/// If the return type is different from IndexType, emit a cast op to cast the
+/// output of the dim op.
+Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
+    Value operand, int64_t axis, Type type);
 
 //===----------------------------------------------------------------------===//
 // This is to get a scalar operation of a given type for a specific operation.
@@ -193,6 +204,9 @@ void populateLoweringONNXElementwiseOpPattern(
 void populateLoweringONNXGemmOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXLRNOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 void populateLoweringONNXMatMulOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
@@ -223,6 +237,8 @@ void populateLoweringONNXRNNOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 // `Tensor` directory methods:
+void populateLoweringONNXArgMaxOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
 
 void populateLoweringONNXUnsqueezeOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
@@ -287,3 +303,15 @@ bool checkOpResultIsUsedByGetRef(AllocOp *allocOp);
 /// %d0, %d1 and %d2. Their indices 0, 1, 2 correspond to `index` values
 /// 1, 2 and 4 in the MemRef shape respectively
 int64_t getAllocArgIndex(AllocOp allocOp, int64_t index);
+
+/// This function returns a location with the corresponding ONNX operator name
+/// inside. This is useful when tracing what expanded MLIR instructions
+/// correspond to what ONNX operator.
+///
+///
+template <typename OP_TYPE>
+Location ONNXLoc(Operation *op) {
+  return NameLoc::get(
+      Identifier::get(OP_TYPE::getOperationName(), op->getContext()),
+      op->getLoc());
+}

@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------------- RNN.cpp - Lowering RNN Op --------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -229,8 +233,8 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
 
     // Initialize matrix multiplication result.
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
-    rewriter.create<AffineStoreOp>(loc, zero, xwI, mIVs);
-    rewriter.create<AffineStoreOp>(loc, zero, hrI, mIVs);
+    rewriter.create<KrnlStoreOp>(loc, zero, xwI, mIVs);
+    rewriter.create<KrnlStoreOp>(loc, zero, hrI, mIVs);
 
     { // Emit instructions for matrix multiplication Xt*(Wi^T).
       // input_size is the reduction dimension.
@@ -252,13 +256,13 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
 
         // Xt * Wi
         Value loadX =
-            rewriter.create<AffineLoadOp>(loc, operandAdaptor.X(), xIVs);
+            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.X(), xIVs);
         Value loadW =
-            rewriter.create<AffineLoadOp>(loc, operandAdaptor.W(), wIIVs);
+            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.W(), wIIVs);
         Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
-        Value loadXW = rewriter.create<AffineLoadOp>(loc, xwI, mIVs);
+        Value loadXW = rewriter.create<KrnlLoadOp>(loc, xwI, mIVs);
         Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
-        rewriter.create<AffineStoreOp>(loc, nextXW, xwI, mIVs);
+        rewriter.create<KrnlStoreOp>(loc, nextXW, xwI, mIVs);
       }
       rewriter.restoreInsertionPoint(ipReductionLoops);
     }
@@ -281,13 +285,13 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
         SmallVector<Value, 3> rIIVs = {directionIV, hiddenIV, reductionIV};
 
         // Ht-1 * Riofc
-        Value loadH = rewriter.create<AffineLoadOp>(loc, state.ht, hIVs);
+        Value loadH = rewriter.create<KrnlLoadOp>(loc, state.ht, hIVs);
         Value loadR =
-            rewriter.create<AffineLoadOp>(loc, operandAdaptor.R(), rIIVs);
+            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.R(), rIIVs);
         Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
-        Value loadHR = rewriter.create<AffineLoadOp>(loc, hrI, mIVs);
+        Value loadHR = rewriter.create<KrnlLoadOp>(loc, hrI, mIVs);
         Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
-        rewriter.create<AffineStoreOp>(loc, nextHR, hrI, mIVs);
+        rewriter.create<KrnlStoreOp>(loc, nextHR, hrI, mIVs);
       }
       rewriter.restoreInsertionPoint(ipReductionLoops);
     }
@@ -331,24 +335,24 @@ void calculateState<ONNXRNNOp, RnnState, RnnActivationPack>(
     SmallVector<Value, 2> mIVs = {batchIV, hiddenIV};
 
     // Emit instructions for 'Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)'
-    Value loadXWI = rewriter.create<AffineLoadOp>(loc, xwI, mIVs);
-    Value loadHRI = rewriter.create<AffineLoadOp>(loc, hrI, mIVs);
+    Value loadXWI = rewriter.create<KrnlLoadOp>(loc, xwI, mIVs);
+    Value loadHRI = rewriter.create<KrnlLoadOp>(loc, hrI, mIVs);
     Value Ht = rewriter.create<AddFOp>(loc, loadXWI, loadHRI);
     if (hasBiasForInput) {
       Value loadWB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), wbiIVs);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), wbiIVs);
       Ht = rewriter.create<AddFOp>(loc, Ht, loadWB);
       Value loadRB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), rbiIVs);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), rbiIVs);
       Ht = rewriter.create<AddFOp>(loc, Ht, loadRB);
     }
     Ht = applyActivation(rewriter, loc, activationPack.f, Ht);
-    rewriter.create<AffineStoreOp>(loc, Ht, state.ht, hIVs);
+    rewriter.create<KrnlStoreOp>(loc, Ht, state.ht, hIVs);
 
     // Store the current Ht if required.
     if (!isNoneType(state.allH)) {
       SmallVector<Value, 4> allHIVs{sequenceIV, directionIV, batchIV, hiddenIV};
-      rewriter.create<AffineStoreOp>(loc, Ht, state.allH, allHIVs);
+      rewriter.create<KrnlStoreOp>(loc, Ht, state.allH, allHIVs);
     }
   }
   rewriter.restoreInsertionPoint(ipStateLoops);

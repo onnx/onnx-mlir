@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # Path to LLVM source folder.
 if(DEFINED ENV{LLVM_PROJ_SRC})
   set(LLVM_PROJ_SRC $ENV{LLVM_PROJ_SRC})
@@ -102,24 +104,13 @@ endif()
 
 # Threading libraries required due to parallel pass execution.
 find_package(Threads REQUIRED)
-# libcurses and libz required by libLLVMSupport
-if(MSVC)
-  if(DEFINED ENV{CURSES_LIB_PATH})
-    find_library(CURSES_LIBRARIES
-            NAMES pdcurses
-            PATHS $ENV{CURSES_LIB_PATH}
-            NO_DEFAULT_PATH)
-    if(CURSES_LIBRARIES)
-      message(STATUS "CURSES_LIBRARIES: ${CURSES_LIBRARIES}")
-    else()
-      message(FATAL_ERROR "Could not find curses library at $ENV{CURSES_LIB_PATH}")
-    endif()
-  else()
-      message(FATAL_ERROR "Expected CURSES_LIB_PATH environment variable to be set to location of pdcurses.lib")
-  endif()
-else()
+set(MLIR_SYSTEM_LIBS ${CMAKE_THREAD_LIBS_INIT})
+
+# libcurses and libz required by libLLVMSupport on non-windows platforms
+if(NOT MSVC)
   find_package(Curses REQUIRED)
   find_package(ZLIB REQUIRED)
+  set(MLIR_SYSTEM_LIBS ${MLIR_SYSTEM_LIBS} ${ZLIB_LIBRARIES} ${CURSES_LIBRARIES})
 endif()
 
 # Set output library path
@@ -268,7 +259,7 @@ set(MLIRLibs
         ${MLIREDSC}
         ${MLIRExecutionEngine}
         ${MLIRIR}
-        ${MLIRLLVMIRTransforms}        
+        ${MLIRLLVMIRTransforms}
         ${MLIRSCFToStandard}
         ${MLIRSCF}
         ${MLIRSCFTransforms}
@@ -328,9 +319,7 @@ set(MLIRLibs
         ${LLVMMLIRTableGen}
         ${LLVMSupport}
         ${LLVMDemangle}
-        ${CMAKE_THREAD_LIBS_INIT}
-        ${CURSES_LIBRARIES}
-        ${ZLIB_LIBRARIES})
+        ${MLIR_SYSTEM_LIBS})
 
 if (USE_INSTALLED_LLVM)
   set(LLVM_CMAKE_DIR

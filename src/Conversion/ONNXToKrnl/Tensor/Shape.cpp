@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------------Shape.cpp - Lowering Shape Op----------------------=== //
 //
 // Copyright 2020 The IBM Research Authors.
@@ -41,12 +45,13 @@ struct ONNXShapeOpLowering : public ConversionPattern {
 
     // Iterate along the data shape storing dim value to result.
     for (int i = 0; i < dataRank; i++) {
-      IndexExprContext IEContext(&rewriter, loc);
-      IndexExpr storeIndex = IEContext.createLiteralIndex(i);
-      IndexExpr shapeVal = IEContext.createDimIndexFromShapedType(data, i);
+      IndexExprScope scope(&rewriter, loc);
+      LiteralIndexExpr storeIndex(i);
+      MemRefBoundIndexCapture dataBounds(data);
+      DimIndexExpr shapeVal(dataBounds.getDim(i));
       Value storeVal = rewriter.create<IndexCastOp>(
           loc, shapeVal.getValue(), outputMemRefType.getElementType());
-      rewriter.create<StoreOp>(loc, storeVal, alloc, storeIndex.getValue());
+      rewriter.create<KrnlStoreOp>(loc, storeVal, alloc, storeIndex.getValue());
     }
     rewriter.replaceOp(op, alloc);
     return success();

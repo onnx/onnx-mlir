@@ -1,3 +1,5 @@
+<!--- SPDX-License-Identifier: Apache-2.0 -->
+
 # ONNX MLIR
 The Open Neural Network Exchange implementation in MLIR (http://onnx.ai/onnx-mlir/).
 
@@ -63,7 +65,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 496fb70b141ccbfaba9761294f3b4b97717096a3 && cd ..
+cd llvm-project && git checkout 980d28d9556a671081719f82aea3de5db4328688 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -135,19 +137,6 @@ Before running CMake for onnx-mlir, ensure that the bin directory to this protob
 set PATH=%root_dir%\protobuf\install\bin;%PATH%
 ```
 
-#### PDCurses
-Build a local version of the curses library, used by various commandline tools in onnx-mlir. These instructions assume you use [Public Domain Curses](https://pdcurses.org/).
-
-Run this from a Visual Studio developer command prompt since you will need access to the appropriate version of Visual Studio's nmake tool.
-
-```shell
-set root_dir=%cd%
-git clone https://github.com/wmcbrine/PDCurses.git
-set PDCURSES_SRCDIR=%root_dir%/PDCurses
-cd PDCurses
-call nmake -f wincon/Makefile.vc
-```
-
 #### MLIR
 Install MLIR (as a part of LLVM-Project):
 
@@ -155,7 +144,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 496fb70b141ccbfaba9761294f3b4b97717096a3 && cd ..
+cd llvm-project && git checkout 980d28d9556a671081719f82aea3de5db4328688 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -180,11 +169,10 @@ call cmake --build . --config Release --target check-mlir
 
 #### ONNX-MLIR (this project)
 The following environment variables need to be set before building onnx-mlir:
-- CURSES_LIB_PATH: Path to curses library (e.g. c:/repos/PDCurses)
 - LLVM_PROJ_BUILD: Path to the build directory for LLVM (e.g. c:/repos/llvm-project/build)
 - LLVM_PROJ_SRC: Path to the source directory for LLVM (e.g. c:/repos/llvm-project)
 
-This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we will also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define.
+This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we can also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define but it is not required as long as LLVM_PROJ_BUILD is set correctly.
 
 To build ONNX MLIR, use the following command:
 
@@ -194,13 +182,12 @@ git clone --recursive https://github.com/onnx/onnx-mlir.git
 
 REM Export environment variables pointing to LLVM-Projects.
 set root_dir=%cd%
-set CURSES_LIB_PATH=%root_dir%/PDCurses
 set LLVM_PROJ_BUILD=%root_dir%/llvm-project/build
 set LLVM_PROJ_SRC=%root_dir%/llvm-project
 
 md onnx-mlir\build
 cd onnx-mlir\build
-call cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 -DLLVM_EXTERNAL_LIT="%root_dir%\llvm-project\build\Release\bin\llvm-lit.py" -DCMAKE_BUILD_TYPE=Release ..
+call cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 -DCMAKE_BUILD_TYPE=Release ..
 call cmake --build . --config Release --target onnx-mlir -- /m
 
 REM Run FileCheck tests
@@ -208,7 +195,7 @@ set LIT_OPTS=-v
 call cmake --build . --config Release --target check-onnx-lit
 ```
 
-After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory. 
+After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
 
 ## Using ONNX-MLIR
 
@@ -266,3 +253,7 @@ You will need to install python 3.x if its not default in your environment, and 
 You will also need `pybind11` which may need to be installed (mac: `brew install pybind` for example) and you may need to indicate where to find the software (Mac, POWER, possibly other platforms: `export pybind11_DIR=<your path to pybind>`). Then install the `third_party/onnx` software (Mac: `pip install -e third_party/onnx`) typed in the top directory.
 
 On Macs/POWER and possibly other platforms, there is currently an issue that arises when installing ONNX. If you get an error during the build, try a fix where you edit the top CMakefile as reported in this PR: `https://github.com/onnx/onnx/pull/2482/files`.
+
+## Slack channel
+
+We have a slack channel established under the Linux Foundation AI and Data Workspace, named `#onnx-mlir-discussion`. THis channel can be used for asking quick questions related to this project. A direct link is [here](https://lfaifoundation.slack.com/archives/C01J4NAL4A2).

@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------------- Matmul.cpp - Lowering Matmul Op --------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -23,12 +27,12 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Get shape.
     ONNXMatMulOpAdaptor operandAdaptor(operands);
     ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
-    Location loc = op->getLoc();
+    auto loc = ONNXLoc<ONNXMatMulOp>(op);
     ONNXMatMulOpShapeHelper shapeHelper(&matMulOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
-    IndexExprContext outerContext(shapeHelper.context);
+    IndexExprScope outerScope(shapeHelper.scope);
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -49,10 +53,13 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Access function for the output, and set it to zero.
     SmallVector<IndexExpr, 4> resAccessFct;
-    outerContext.createLoopInductionIndicesFromArrayValues(
+    getIndexExprList<DimIndexExpr>(
         outputLoops.getAllInductionVar(), resAccessFct);
     // Insert res[...] = 0.
-    outerContext.createStoreOp(zero, alloc, resAccessFct);
+    // Create a local reduction value for res[...].
+    Value reductionVal =
+        rewriter.create<AllocaOp>(loc, MemRefType::get({}, elementType));
+    rewriter.create<KrnlStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
 
     // Create the inner reduction loop; trip count is last dim of A.
     BuildKrnlLoop innerLoops(rewriter, loc, 1);
@@ -63,9 +70,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     innerLoops.createIterateOp();
 
     // Now start writing code inside the inner loop: get A & B access functions.
+    auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
-    IndexExpr k =
-        outerContext.createLoopInductionIndex(innerLoops.getInductionVar(0));
+
+    DimIndexExpr k(innerLoops.getInductionVar(0));
     SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
     for (int i = 0; i < aRank; ++i) {
       // Add index if dim is not a padded dimension.
@@ -96,12 +104,19 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     }
 
     // Add mat mul operation.
-    Value loadedA = outerContext.createLoadOp(operandAdaptor.A(), aAccessFct);
-    Value loadedB = outerContext.createLoadOp(operandAdaptor.B(), bAccessFct);
-    Value loadedY = outerContext.createLoadOp(alloc, resAccessFct);
+    Value loadedA = krnl_load(operandAdaptor.A(), aAccessFct);
+    Value loadedB = krnl_load(operandAdaptor.B(), bAccessFct);
+    Value loadedY =
+        rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
     Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
     Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-    outerContext.createStoreOp(accumulated, alloc, resAccessFct);
+    rewriter.create<KrnlStoreOp>(
+        loc, accumulated, reductionVal, ArrayRef<Value>{});
+
+    rewriter.restoreInsertionPoint(ipOuterLoopRegion);
+    accumulated =
+        rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+    krnl_store(accumulated, alloc, resAccessFct);
 
     // Done.
     rewriter.replaceOp(op, alloc);

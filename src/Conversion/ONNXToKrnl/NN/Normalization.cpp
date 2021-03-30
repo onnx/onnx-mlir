@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------- Normalization.cpp - Lowering Normalization Ops -----------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -76,10 +80,10 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       loopCIVs.emplace_back(rewriter.create<ConstantIndexOp>(loc, 0));
     }
 
-    auto scaleVal = rewriter.create<AffineLoadOp>(loc, scale, loopCIVs);
-    auto biasVal = rewriter.create<AffineLoadOp>(loc, bias, loopCIVs);
-    auto meanVal = rewriter.create<AffineLoadOp>(loc, mean, loopCIVs);
-    auto varianceVal = rewriter.create<AffineLoadOp>(loc, variance, loopCIVs);
+    auto scaleVal = rewriter.create<KrnlLoadOp>(loc, scale, loopCIVs);
+    auto biasVal = rewriter.create<KrnlLoadOp>(loc, bias, loopCIVs);
+    auto meanVal = rewriter.create<KrnlLoadOp>(loc, mean, loopCIVs);
+    auto varianceVal = rewriter.create<KrnlLoadOp>(loc, variance, loopCIVs);
 
     // Create a KrnlIterateOp along the other dimensions.
     SmallVector<int64_t, 4> axes;
@@ -113,7 +117,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
       loopIVs.emplace_back(args[0]);
     }
 
-    auto xVal = rewriter.create<AffineLoadOp>(loc, operand, loopIVs);
+    auto xVal = rewriter.create<KrnlLoadOp>(loc, operand, loopIVs);
     // normalize
     auto dividend = rewriter.create<SubFOp>(loc, xVal, meanVal);
     auto adjustedVarianceVal =
@@ -124,7 +128,7 @@ struct ONNXBatchNormalizationTestModeOpLowering : public ConversionPattern {
     auto scaleNormVal = rewriter.create<MulFOp>(loc, scaleVal, normVal);
     auto shiftScaleNormVal =
         rewriter.create<AddFOp>(loc, scaleNormVal, biasVal);
-    rewriter.create<AffineStoreOp>(loc, shiftScaleNormVal, alloc, loopIVs);
+    rewriter.create<KrnlStoreOp>(loc, shiftScaleNormVal, alloc, loopIVs);
 
     rewriter.replaceOp(op, alloc);
 

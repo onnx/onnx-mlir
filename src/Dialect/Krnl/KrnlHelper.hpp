@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====---------------- KrnlHelper.hpp - Krnl Dialect Helper----------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -97,6 +101,10 @@ struct KrnlIterateOperandPack {
 
   void pushAffineMapBound(mlir::AffineMap map, ArrayRef<Value> operands);
 
+  void pushIndexExprBound(IndexExpr expr);
+
+  void pushIndexExprsBound(SmallVectorImpl<IndexExpr> &exprVector);
+
   llvm::SmallVector<mlir::Value, 8> getOperands() const { return _operands; }
 
   mlir::ArrayAttr getAttributes() const {
@@ -166,6 +174,9 @@ public:
   int pushBounds(int64_t lowerBound, int64_t upperBound);
   int pushBounds(int64_t lowerBound, Value upperBound);
   int pushBounds(int64_t lowerBound, IndexExpr upperBound);
+  int pushBounds(int64_t lowerBound, SmallVectorImpl<IndexExpr> &upperBound);
+  int pushBounds(SmallVectorImpl<IndexExpr> &lowerBound,
+      SmallVectorImpl<IndexExpr> &upperBound);
   int pushBounds(int64_t lowerBound, AffineMap upperBound,
       ArrayRef<Value> operandsForUpperBoundMap);
   int pushBounds(Value lowerBound, Value upperBound);

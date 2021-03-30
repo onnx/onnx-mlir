@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===----------------- Gemm.cpp - Lowering Gemm Op
 //-------------------------===//
 //
@@ -30,7 +34,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
-    IndexExprContext outerContext(shapeHelper.context);
+    IndexExprScope outerScope;
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -53,14 +57,15 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     // Compute the access functions for res[n,m].
-    IndexExpr n =
-        outerContext.createLoopInductionIndex(outputLoops.getInductionVar(0));
-    IndexExpr m =
-        outerContext.createLoopInductionIndex(outputLoops.getInductionVar(1));
+    DimIndexExpr n(outputLoops.getInductionVar(0));
+    DimIndexExpr m(outputLoops.getInductionVar(1));
     SmallVector<IndexExpr, 4> resAccessFct({n, m});
 
     // Insert res[n,m] = 0.
-    outerContext.createStoreOp(zero, alloc, resAccessFct);
+    // Create a local reduction value for res[n,m].
+    Value reductionVal =
+        rewriter.create<AllocaOp>(loc, MemRefType::get({}, elementType));
+    rewriter.create<KrnlStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
 
     // Create the inner reduction loop.
     BuildKrnlLoop innerLoops(rewriter, loc, 1);
@@ -68,52 +73,57 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     innerLoops.pushBounds(0, shapeHelper.aDims[1]);
     innerLoops.createIterateOp();
 
+    // Now start writing code inside the inner loop: get A & B access functions.
+    auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
+    rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
+    {
+      DimIndexExpr k(innerLoops.getInductionVar(0));
+      SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
+      if (gemmOp.transA() != 0)
+        aAccessFct = {k, n};
+      else
+        aAccessFct = {n, k};
+      if (gemmOp.transB() != 0)
+        bAccessFct = {m, k};
+      else
+        bAccessFct = {k, m};
+      // Add mat mul operation.
+      Value loadedA = krnl_load(operandAdaptor.A(), aAccessFct);
+      Value loadedB = krnl_load(operandAdaptor.B(), bAccessFct);
+      Value loadedY =
+          rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+      Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
+      Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
+      rewriter.create<KrnlStoreOp>(
+          loc, accumulated, reductionVal, ArrayRef<Value>{});
+    }
+    rewriter.restoreInsertionPoint(ipOuterLoopRegion);
+    Value loadedAB =
+        rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
+
     // Write code after the completion of the inner loop.
     // Compute the c access function using the broadcast rules.
     SmallVector<IndexExpr, 4> cAccessFct;
     if (shapeHelper.hasBias) {
       for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
         // If dim > 1, use loop index, otherwise broadcast on 0's element.
-        IndexExpr dim = outerContext.createSymbolIndexFromParentContext(
-            shapeHelper.cDims[x]);
+        SymbolIndexExpr dim(shapeHelper.cDims[x]);
         cAccessFct.emplace_back(IndexExpr::select(dim > 1, resAccessFct[x], 0));
       }
     }
 
     // Calculate reduction(AB)*alpha.
-    Value loadedAB = outerContext.createLoadOp(alloc, resAccessFct);
     Value alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
     if (shapeHelper.hasBias) {
       // Res = AB*alpha + beta * C.
-      Value loadedC = outerContext.createLoadOp(operandAdaptor.C(), cAccessFct);
+      Value loadedC = krnl_load(operandAdaptor.C(), cAccessFct);
       auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
       auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-      outerContext.createStoreOp(Y, alloc, resAccessFct);
+      krnl_store(Y, alloc, resAccessFct);
     } else {
       // No bias, just store alphaAB into res.
-      outerContext.createStoreOp(alphaAB, alloc, resAccessFct);
+      krnl_store(alphaAB, alloc, resAccessFct);
     }
-
-    // Now start writing code inside the inner loop: get A & B access functions.
-    rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
-    IndexExpr k =
-        outerContext.createLoopInductionIndex(innerLoops.getInductionVar(0));
-    SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
-    if (gemmOp.transA() != 0)
-      aAccessFct = {k, n};
-    else
-      aAccessFct = {n, k};
-    if (gemmOp.transB() != 0)
-      bAccessFct = {m, k};
-    else
-      bAccessFct = {k, m};
-    // Add mat mul operation.
-    Value loadedA = outerContext.createLoadOp(operandAdaptor.A(), aAccessFct);
-    Value loadedB = outerContext.createLoadOp(operandAdaptor.B(), bAccessFct);
-    Value loadedY = outerContext.createLoadOp(alloc, resAccessFct);
-    Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
-    Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-    outerContext.createStoreOp(accumulated, alloc, resAccessFct);
 
     rewriter.replaceOp(op, alloc);
 

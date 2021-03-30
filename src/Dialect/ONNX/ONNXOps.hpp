@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------------------- ONNXOps.hpp - ONNX Operations -------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -20,7 +24,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
-#include "src/Interface/PromotableConstOperandsOpInterface.hpp"
+#include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 #include "src/Interface/ShapeInferenceInterface.hpp"
 

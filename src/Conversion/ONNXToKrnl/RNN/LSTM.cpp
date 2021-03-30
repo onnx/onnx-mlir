@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===--------------- LSTM.cpp - Lowering LSTM Op --------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -303,8 +307,8 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     // Initialize matrix multiplication result.
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
     for (unsigned i = 0; i < 4; ++i) {
-      rewriter.create<AffineStoreOp>(loc, zero, xwIOFC[i], mIVs);
-      rewriter.create<AffineStoreOp>(loc, zero, hrIOFC[i], mIVs);
+      rewriter.create<KrnlStoreOp>(loc, zero, xwIOFC[i], mIVs);
+      rewriter.create<KrnlStoreOp>(loc, zero, hrIOFC[i], mIVs);
     }
 
     { // Emit instructions for matrix multiplications.
@@ -339,15 +343,15 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
         }
 
         Value loadX =
-            rewriter.create<AffineLoadOp>(loc, operandAdaptor.X(), xIVs);
+            rewriter.create<KrnlLoadOp>(loc, operandAdaptor.X(), xIVs);
         for (unsigned i = 0; i < 4; ++i) {
           // Xt * Wiofc
-          Value loadW = rewriter.create<AffineLoadOp>(
-              loc, operandAdaptor.W(), wIOFCIVs[i]);
+          Value loadW =
+              rewriter.create<KrnlLoadOp>(loc, operandAdaptor.W(), wIOFCIVs[i]);
           Value xwVal = rewriter.create<MulFOp>(loc, loadX, loadW);
-          Value loadXW = rewriter.create<AffineLoadOp>(loc, xwIOFC[i], mIVs);
+          Value loadXW = rewriter.create<KrnlLoadOp>(loc, xwIOFC[i], mIVs);
           Value nextXW = rewriter.create<AddFOp>(loc, loadXW, xwVal);
-          rewriter.create<AffineStoreOp>(loc, nextXW, xwIOFC[i], mIVs);
+          rewriter.create<KrnlStoreOp>(loc, nextXW, xwIOFC[i], mIVs);
         }
       }
       rewriter.restoreInsertionPoint(ipReductionLoops);
@@ -382,15 +386,15 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
           rIOFCIVs.emplace_back(rIVs);
         }
 
-        Value loadH = rewriter.create<AffineLoadOp>(loc, state.ht, hIVs);
+        Value loadH = rewriter.create<KrnlLoadOp>(loc, state.ht, hIVs);
         for (unsigned i = 0; i < 4; ++i) {
           // Ht-1 * Riofc
-          Value loadR = rewriter.create<AffineLoadOp>(
-              loc, operandAdaptor.R(), rIOFCIVs[i]);
+          Value loadR =
+              rewriter.create<KrnlLoadOp>(loc, operandAdaptor.R(), rIOFCIVs[i]);
           Value hrVal = rewriter.create<MulFOp>(loc, loadH, loadR);
-          Value loadHR = rewriter.create<AffineLoadOp>(loc, hrIOFC[i], mIVs);
+          Value loadHR = rewriter.create<KrnlLoadOp>(loc, hrIOFC[i], mIVs);
           Value nextHR = rewriter.create<AddFOp>(loc, loadHR, hrVal);
-          rewriter.create<AffineStoreOp>(loc, nextHR, hrIOFC[i], mIVs);
+          rewriter.create<KrnlStoreOp>(loc, nextHR, hrIOFC[i], mIVs);
         }
       }
       rewriter.restoreInsertionPoint(ipReductionLoops);
@@ -462,56 +466,56 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     }
 
     // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
-    Value loadC = rewriter.create<AffineLoadOp>(loc, state.ct, cIVs);
-    Value loadXWI = rewriter.create<AffineLoadOp>(loc, xwIOFC[0], mIVs);
-    Value loadHRI = rewriter.create<AffineLoadOp>(loc, hrIOFC[0], mIVs);
+    Value loadC = rewriter.create<KrnlLoadOp>(loc, state.ct, cIVs);
+    Value loadXWI = rewriter.create<KrnlLoadOp>(loc, xwIOFC[0], mIVs);
+    Value loadHRI = rewriter.create<KrnlLoadOp>(loc, hrIOFC[0], mIVs);
     Value it = rewriter.create<AddFOp>(loc, loadXWI, loadHRI);
     if (hasPeepholes) {
       Value loadP =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.P(), pIOFIVs[0]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.P(), pIOFIVs[0]);
       Value PC = rewriter.create<MulFOp>(loc, loadP, loadC);
       it = rewriter.create<AddFOp>(loc, it, PC);
     }
     if (hasBiasForInput) {
       Value loadWB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[0]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[0]);
       it = rewriter.create<AddFOp>(loc, it, loadWB);
       Value loadRB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[0]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[0]);
       it = rewriter.create<AddFOp>(loc, it, loadRB);
     }
     it = applyActivation(rewriter, loc, activationPack.f, it);
 
     // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
-    Value loadXWF = rewriter.create<AffineLoadOp>(loc, xwIOFC[2], mIVs);
-    Value loadHRF = rewriter.create<AffineLoadOp>(loc, hrIOFC[2], mIVs);
+    Value loadXWF = rewriter.create<KrnlLoadOp>(loc, xwIOFC[2], mIVs);
+    Value loadHRF = rewriter.create<KrnlLoadOp>(loc, hrIOFC[2], mIVs);
     Value ft = rewriter.create<AddFOp>(loc, loadXWF, loadHRF);
     if (hasPeepholes) {
       Value loadP =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.P(), pIOFIVs[2]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.P(), pIOFIVs[2]);
       Value PC = rewriter.create<MulFOp>(loc, loadP, loadC);
       ft = rewriter.create<AddFOp>(loc, ft, PC);
     }
     if (hasBiasForInput) {
       Value loadWB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[2]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[2]);
       ft = rewriter.create<AddFOp>(loc, ft, loadWB);
       Value loadRB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[2]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[2]);
       ft = rewriter.create<AddFOp>(loc, ft, loadRB);
     }
     ft = applyActivation(rewriter, loc, activationPack.f, ft);
 
     // ct = g(Xt*(Wc^T) + Ht-1*(Rc^T) + Wbc + Rbc)
-    Value loadXWC = rewriter.create<AffineLoadOp>(loc, xwIOFC[3], mIVs);
-    Value loadHRC = rewriter.create<AffineLoadOp>(loc, hrIOFC[3], mIVs);
+    Value loadXWC = rewriter.create<KrnlLoadOp>(loc, xwIOFC[3], mIVs);
+    Value loadHRC = rewriter.create<KrnlLoadOp>(loc, hrIOFC[3], mIVs);
     Value ct = rewriter.create<AddFOp>(loc, loadXWC, loadHRC);
     if (hasBiasForInput) {
       Value loadWB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[3]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[3]);
       ct = rewriter.create<AddFOp>(loc, ct, loadWB);
       Value loadRB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[3]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[3]);
       ct = rewriter.create<AddFOp>(loc, ct, loadRB);
     }
     ct = applyActivation(rewriter, loc, activationPack.g, ct);
@@ -520,24 +524,24 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     Value FtCt1 = rewriter.create<MulFOp>(loc, ft, loadC);
     Value itct = rewriter.create<MulFOp>(loc, it, ct);
     Value Ct = rewriter.create<AddFOp>(loc, FtCt1, itct);
-    rewriter.create<AffineStoreOp>(loc, Ct, state.ct, cIVs);
+    rewriter.create<KrnlStoreOp>(loc, Ct, state.ct, cIVs);
 
     // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
-    Value loadXWO = rewriter.create<AffineLoadOp>(loc, xwIOFC[1], mIVs);
-    Value loadHRO = rewriter.create<AffineLoadOp>(loc, hrIOFC[1], mIVs);
+    Value loadXWO = rewriter.create<KrnlLoadOp>(loc, xwIOFC[1], mIVs);
+    Value loadHRO = rewriter.create<KrnlLoadOp>(loc, hrIOFC[1], mIVs);
     Value ot = rewriter.create<AddFOp>(loc, loadXWO, loadHRO);
     if (hasPeepholes) {
       Value loadP =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.P(), pIOFIVs[1]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.P(), pIOFIVs[1]);
       Value PC = rewriter.create<MulFOp>(loc, loadP, Ct);
       ot = rewriter.create<AddFOp>(loc, ot, PC);
     }
     if (hasBiasForInput) {
       Value loadWB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[1]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), wbIOFCIVs[1]);
       ot = rewriter.create<AddFOp>(loc, ot, loadWB);
       Value loadRB =
-          rewriter.create<AffineLoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[1]);
+          rewriter.create<KrnlLoadOp>(loc, operandAdaptor.B(), rbIOFCIVs[1]);
       ot = rewriter.create<AddFOp>(loc, ot, loadRB);
     }
     ot = applyActivation(rewriter, loc, activationPack.f, ot);
@@ -545,12 +549,12 @@ void calculateState<ONNXLSTMOp, LstmState, LstmActivationPack>(
     // Ht = ot (.) h(Ct)
     Value hCt = applyActivation(rewriter, loc, activationPack.h, Ct);
     Value Ht = rewriter.create<MulFOp>(loc, ot, hCt);
-    rewriter.create<AffineStoreOp>(loc, Ht, state.ht, hIVs);
+    rewriter.create<KrnlStoreOp>(loc, Ht, state.ht, hIVs);
 
     // Store the current Ht if required.
     if (!isNoneType(state.allH)) {
       SmallVector<Value, 4> allHIVs{sequenceIV, directionIV, batchIV, hiddenIV};
-      rewriter.create<AffineStoreOp>(loc, Ht, state.allH, allHIVs);
+      rewriter.create<KrnlStoreOp>(loc, Ht, state.allH, allHIVs);
     }
   }
   rewriter.restoreInsertionPoint(ipStateLoops);

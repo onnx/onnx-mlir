@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 add_subdirectory(jni)
 
 # Create static libcruntime.a to be embedded in model.so to make model.so self contained.

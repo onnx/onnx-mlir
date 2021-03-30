@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===--------------------- FrontendDialectHelper.cpp ----------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -14,48 +18,6 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 namespace onnx_mlir {
-
-void replaceAll(
-    std::string &str, const std::string &from, const std::string &to) {
-  if (from.empty())
-    return;
-  size_t start_pos = 0;
-  while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
-    str.replace(start_pos, from.length(), to);
-    start_pos += to.length(); // In case 'to' contains 'from', like replacing
-                              // 'x' with 'yx'
-  }
-}
-
-std::string legalize_name(std::string name) {
-  std::replace(name.begin(), name.end(), '/', '_');
-  std::replace(name.begin(), name.end(), '-', '_');
-  replaceAll(name, ":", "_colon_");
-  // If tensor name starts with a number, prepend n to make it a legal c++
-  // identifier.
-  if (name.size() > 0 && isdigit(name.at(0)))
-    name.insert(0, 1, 'n');
-  return name;
-}
-
-mlir::Value OnnxMlirSymbolMapping::GetTensorByOnnxName(
-    const std::string &name) {
-  assert(onnx_name2onnx_mlir_tensor.find(legalize_name(name)) !=
-             onnx_name2onnx_mlir_tensor.end() &&
-         "Tensor not found");
-  return onnx_name2onnx_mlir_tensor.at(legalize_name(name));
-}
-
-void OnnxMlirSymbolMapping::AddMapping(
-    const std::string &name, mlir::Value tensor) {
-  assert(onnx_name2onnx_mlir_tensor.count(legalize_name(name)) == 0 &&
-         "Tensor already exists.");
-  onnx_name2onnx_mlir_tensor.emplace(legalize_name(name), tensor);
-}
-
-bool OnnxMlirSymbolMapping::ContainKey(std::string name) {
-  return onnx_name2onnx_mlir_tensor.count(name) != 0;
-}
 
 template <typename T>
 struct TransformValueToONNXData {
@@ -164,8 +126,7 @@ mlir::Value InitializedTensorMapping::EmitInitializerForInputTensor(
       onnxTensorProtoToDenseElmAttr(builder, initializer);
 
   // Create ConstantOp for dense array.
-  return builder.create<mlir::ONNXConstantOp>(
-      loc, denseElmAttr.getType(), nullptr, denseElmAttr);
+  return builder.create<mlir::ONNXConstantOp>(loc, nullptr, denseElmAttr);
 }
 
 mlir::DenseElementsAttr onnxTensorProtoToDenseElmAttr(

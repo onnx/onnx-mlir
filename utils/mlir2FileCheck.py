@@ -184,7 +184,11 @@ def process_line(i, line):
     def_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)()\s+=')
     def_op_pat = re.compile(r'=\s+(?:\w+\.)?(\w+)')
     use_qual_pat = re.compile(r'%([a-zA-Z0-9][a-zA-Z0-9_\-]*)(:\d+)?')
-    # Keep only function related text, which start by def with a space
+    # If we have an affine map, print it now unmodified.
+    if re.match(r'#\w+\s=\saffine_(map|set)<.*>', line) is not None:
+        print("// CHECK-DAG:", line)
+        return
+    # Keep only function related text, which start by def with a space.
     if re.match(r'\s+', line) is None:
         return
     new_line = line
@@ -195,7 +199,7 @@ def process_line(i, line):
         # Have a function: reset dictionary and ref counts
         name_dict = prepare_name_dict.copy()
         refcount_dict.clear()
-        print("/// reset dict with dic", name_dict, "refcount", refcount_dict)
+        #print("/// reset dict with dic", name_dict, "refcount", refcount_dict)
         new_line = process_name(new_line, def_arg_pat, "PARAM", ":", 1)
     # Special handling of loop iterations.
     elif re.match(r'\s+(\w+\.)?for', line) is not None:
@@ -257,9 +261,11 @@ def process_line(i, line):
     # change a]] -> 1]*
     new_line = re.sub(r'(\d)\s*\]\]', '\g<1>]{{.}}', new_line)
     if re.match(r'\s+func', line) is not None:
-        # Split function line into 2 lines.
+        # Split function line into 2 lines. Should make private optional
         new_line = re.sub(
-            r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'\n// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\3', new_line)
+            r'(\s+)(func\s+@[\w]+)\s*(\(.*)', r'// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\3', new_line)
+        new_line = re.sub(
+            r'(\s+)(func\sprivate\s+@[\w]+)\s*(\(.*)', r'// CHECK-LABEL:\1\2\n// CHECK-SAME: \1\3', new_line)
         print(new_line)
     else:
         if line_color[i] == curr_parallel_color:
@@ -287,6 +293,8 @@ def main(argv):
     global def_set, line_color, curr_color, curr_parallel_color
     debug = 0
     check = 0
+    input_command = "mlir2FileCheck.py"
+    
     try:
         opts, args = getopt.getopt(
             argv, "hdca:n:", ["help", "debug", "check", "args=", "names="])
@@ -306,6 +314,7 @@ def main(argv):
                 return
             check = 1
         elif opt in ("-a", "--args"):
+            input_command += " -a\'" + arg + "\'"
             arg_names = json.loads(arg)
             print("//  use arg names:", arg_names)
             i = 0
@@ -313,6 +322,7 @@ def main(argv):
                 prepare_name_def("arg" + str(i), new_name.upper())
                 i += 1
         elif opt in ("-n", "--names"):
+            input_command += " -n\'" + arg + "\'"
             user_dict = json.loads(arg)
             print("//  use name dictionary:", user_dict)
             for orig_name, new_name in user_dict.items():
@@ -346,6 +356,7 @@ def main(argv):
 
     # Process the input.
     curr_parallel_color = -1
+    print("\n// " + input_command)
     for i, line in enumerate(lines):
         process_line(i, line)
 

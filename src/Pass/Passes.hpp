@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------- Passes.hpp - ONNX MLIR Passes Definition ------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -21,9 +25,6 @@ std::unique_ptr<Pass> createDecomposeONNXToONNXPass();
 std::unique_ptr<Pass> createShapeInferencePass();
 
 std::unique_ptr<Pass> createConstPropONNXToONNXPass();
-
-/// Pass for promoting constant operands to attributes.
-std::unique_ptr<Pass> createAttributePromotionPass();
 
 /// Pass for eliding the values of constant operations.
 std::unique_ptr<Pass> createElideConstantValuePass();

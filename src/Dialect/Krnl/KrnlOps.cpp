@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------------- KrnlOps.cpp - Krnl Operations -----------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -18,6 +22,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Matchers.h"
+#include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
@@ -57,7 +62,7 @@ void KrnlDefineLoopsOp::build(
 
 void print(OpAsmPrinter &p, KrnlDefineLoopsOp &op) {
   auto numLoopAttr =
-      op.getAttrOfType<IntegerAttr>(KrnlDefineLoopsOp::getNumLoopsAttrName());
+      op->getAttrOfType<IntegerAttr>(KrnlDefineLoopsOp::getNumLoopsAttrName());
   p << "krnl.define_loops " << numLoopAttr.getValue().getSExtValue();
 }
 
@@ -135,7 +140,7 @@ void print(OpAsmPrinter &p, KrnlIterateOp &op) {
 
   auto inductionVars = op.bodyRegion().begin()->getArguments();
   auto boundItr =
-      op.getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
+      op->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
           .getValue()
           .begin();
   auto operandItr = op.operand_begin() + numOptimizedLoops;
@@ -318,6 +323,91 @@ void KrnlDummyCastOp::build(
   state.operands.emplace_back(in);
   state.types.emplace_back(outType);
 }
+
+//===----------------------------------------------------------------------===//
+// KrnlVectorTypeCastOp
+//===----------------------------------------------------------------------===//
+
+bool KrnlVectorTypeCastOp::areCastCompatible(Type a, Type b) {
+  auto aT = a.dyn_cast<MemRefType>();
+  auto bT = b.dyn_cast<MemRefType>();
+
+  if (!aT || !bT)
+    return false;
+
+  if (aT.getAffineMaps() != bT.getAffineMaps())
+    return false;
+
+  if (aT.getMemorySpace() != bT.getMemorySpace())
+    return false;
+
+  if (aT.getRank() != bT.getRank())
+    return false;
+
+  // With rank 0, there is no vec cast.
+  if (aT.getRank() == 0)
+    return false;
+
+  // Should have the same shape up until the last n-1 dimensions.
+  // Replace this by std::equal.
+  for (unsigned i = 0, e = aT.getRank() - 1; i < e; ++i)
+    if (aT.getDimSize(i) != bT.getDimSize(i))
+      return false;
+
+  // Source memref can't have vector element type.
+  if (auto shapedEltType = aT.getElementType().dyn_cast<ShapedType>())
+    return false;
+
+  auto shapedEltTypeB = bT.getElementType().dyn_cast<ShapedType>();
+  if (!shapedEltTypeB)
+    return false;
+
+  auto eltA = aT.getElementType();
+  auto eltB = shapedEltTypeB.getElementType();
+  if (eltA != eltB)
+    return false;
+
+  int64_t lastDimA = aT.getShape().back();
+  int64_t lastDimB = bT.getShape().back();
+
+  // If one of them is dynamic but not the other, they are incompatible.
+  if (lastDimA * lastDimB < 0)
+    return false;
+
+  if (lastDimA != MemRefType::kDynamicSize &&
+      lastDimB != MemRefType::kDynamicSize &&
+      lastDimA / shapedEltTypeB.getNumElements() != lastDimB)
+    return false;
+
+  return true;
+}
+
+/// This is a common class used for patterns of the form
+/// "someop(memrefcast) -> someop".  It folds the source of any memref_cast
+/// into the root operation directly.
+static LogicalResult foldMemRefCast(Operation *op) {
+  bool folded = false;
+  for (OpOperand &operand : op->getOpOperands()) {
+    auto cast = operand.get().getDefiningOp<MemRefCastOp>();
+    if (cast && !cast.getOperand().getType().isa<UnrankedMemRefType>()) {
+      operand.set(cast.getOperand());
+      folded = true;
+    }
+  }
+  return success(folded);
+}
+
+OpFoldResult KrnlVectorTypeCastOp::fold(ArrayRef<Attribute> operands) {
+  if (Value folded = impl::foldCastOp(*this))
+    return folded;
+  return succeeded(foldMemRefCast(*this)) ? getResult() : Value();
+}
+
+MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
+  return loopsMutable();
+}
+
+MutableOperandRange KrnlMatMulOp::getLoopRefs() { return loopsMutable(); }
 
 } // namespace mlir
 

@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===- ElideKrnlGlobalConstants.cpp - Krnl Constant lobal Value Elision ---===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -52,7 +56,7 @@ public:
       assert(op.value()->isa<DenseElementsAttr>());
       const auto &denseAttr = op.valueAttr().cast<DenseElementsAttr>();
       auto numElements = denseAttr.getNumElements();
-      if (numElements <= elisionThreshold)
+      if (numElements <= elisionThreshold || denseAttr.isSplat())
         return;
 
       // TODO(tjingrant) verify we can actually use the raw data.

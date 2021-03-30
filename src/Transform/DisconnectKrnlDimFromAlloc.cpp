@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===-------- DisconnectKrnlDimFromAlloc.cpp ------------------------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -75,7 +79,7 @@ public:
       return failure();
 
     // Get the integer value of the index.
-    int64_t index = indexOp.getAttrOfType<IntegerAttr>("value").getInt();
+    int64_t index = indexOp->getAttrOfType<IntegerAttr>("value").getInt();
 
     // Get the shape of the MemRef argument.
     auto memRefType = krnlDimOp.alloc().getType().dyn_cast<MemRefType>();

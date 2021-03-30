@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===--------- ExecutionSession.hpp - ExecutionSession Declaration --------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -13,6 +17,7 @@
 
 #include <cassert>
 #include <dlfcn.h>
+#include <memory>
 #include <string>
 
 #include "OnnxMlirRuntime.h"

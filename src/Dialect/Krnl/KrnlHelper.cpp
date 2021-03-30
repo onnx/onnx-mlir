@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //====---------------- KrnlHelper.cpp - Krnl Dialect Helper----------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
@@ -12,7 +16,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/AffineExpr.h"
 
-#include "KrnlOps.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 #include "KrnlHelper.hpp"
 
@@ -158,6 +162,41 @@ void KrnlIterateOperandPack::pushAffineMapBound(
     _operands.emplace_back(operand);
 }
 
+// Bound could be a constant, Value or AffineMap
+void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
+  if (expr.isLiteral()) {
+    pushConstantBound(expr.getLiteral());
+  } else if (expr.isAffine() && !expr.isPredType()) {
+    int dimNum = expr.getScope().getNumDims();
+    int symNum = expr.getScope().getNumSymbols();
+    AffineMap map = AffineMap::get(dimNum, symNum, {expr.getAffineExpr()},
+        expr.getRewriter().getContext());
+    SmallVector<Value, 4> list;
+    expr.getScope().getDimAndSymbolList(list);
+    pushAffineMapBound(map, list);
+  } else {
+    // Assume the expr is loop invariant if there is any outer loop
+    pushOperandBound(expr.getValue());
+  }
+}
+
+void KrnlIterateOperandPack::pushIndexExprsBound(
+    SmallVectorImpl<IndexExpr> &exprVector) {
+  SmallVector<AffineExpr, 4> AEVector;
+  for (IndexExpr expr : exprVector) {
+    assert(!expr.isPredType() && "no affine support for predicate type");
+    AEVector.push_back(expr.getAffineExpr());
+  }
+  IndexExpr expr = exprVector.front();
+  int dimNum = expr.getScope().getNumDims();
+  int symNum = expr.getScope().getNumSymbols();
+  AffineMap map =
+      AffineMap::get(dimNum, symNum, AEVector, builder.getContext());
+  SmallVector<Value, 4> list;
+  expr.getScope().getDimAndSymbolList(list);
+  pushAffineMapBound(map, list);
+}
+
 BuildKrnlLoop::BuildKrnlLoop(
     ConversionPatternRewriter &rewriter, Location loc, int loopNum)
     : rewriter(rewriter), loc(loc), originalLoopNum(loopNum), pack(NULL),
@@ -202,9 +241,23 @@ int BuildKrnlLoop::pushBounds(int64_t lowerBound, Value upperBound) {
 
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, IndexExpr upperBound) {
   if (upperBound.isLiteral()) {
-    return pushBounds(0, upperBound.getLiteral());
+    return pushBounds(lowerBound, upperBound.getLiteral());
   }
-  return pushBounds(0, upperBound.getValue());
+  return pushBounds(lowerBound, upperBound.getValue());
+}
+
+int BuildKrnlLoop::pushBounds(
+    int64_t lowerBound, SmallVectorImpl<IndexExpr> &upperBound) {
+  pack->pushConstantBound(lowerBound);
+  pack->pushIndexExprsBound(upperBound);
+  return pushCount++;
+}
+
+int BuildKrnlLoop::pushBounds(SmallVectorImpl<IndexExpr> &lowerBound,
+    SmallVectorImpl<IndexExpr> &upperBound) {
+  pack->pushIndexExprsBound(lowerBound);
+  pack->pushIndexExprsBound(upperBound);
+  return pushCount++;
 }
 
 int BuildKrnlLoop::pushBounds(int64_t lowerBound, AffineMap upperBound,

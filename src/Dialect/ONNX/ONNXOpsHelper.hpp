@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===------- ONNXOpsHelper.hpp - Helper functions for ONNX dialects -------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -66,7 +70,7 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode);
 ///   thus the first valid pixel location is 'ceil(pH / dH) * dH- pH'.
 ///
 /// This function returns {startH, endH, kernelOffset}.
-std::vector<IndexExpr> getIndexExprsForConvWindow(IndexExprContext &context,
+std::vector<IndexExpr> getIndexExprsForConvWindow(
     SmallVectorImpl<IndexExpr> &inputExprs, bool ceilMode, bool isDilated);
 
 /// The conv/pooling window can be smaller than the kernel when slicing it over
@@ -81,5 +85,7 @@ int64_t ArrayAttrIntVal(ArrayAttr a, int i);
 int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i);
 
 DenseElementsAttr getDenseElementAttributeFromValue(Value value);
+Value getONNXConstantOpFromDenseAttr(
+    PatternRewriter &rewriter, Location loc, Attribute dense);
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit);
 Type getBroadcastedRankedType(Type type1, Type type2);

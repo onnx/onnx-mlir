@@ -37,6 +37,10 @@ def HasSameElementType : Constraint<
           "$1.cast<::mlir::TypeAttr>().getValue())">,
     "has same element type">;
 
+def AreTheSameAxisArray: Constraint<
+    CPred<"AreTheSameAxisArray($0.getType().cast<ShapedType>().getRank(), $1, $2)">,
+    "Two axis arrays are the same">;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -63,11 +67,7 @@ def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
 // y, mask = onnx.Dropout(x) -> y, mask = x, none
 def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $arg1, $arg2, $ratio),
                                         [(replaceWithValue $arg),
-                                         (ONNXConstantOp (GetNullAttr), (GetUnitAttr))]>;
-
-def ConstantPadPattern : Pat<(ONNXPadConstantValueOp $m1, (ONNXConstantOp:$res $v1, $v2), $m2, $m3),
-                             (ONNXPadConstantValuePadOp $m1, $v2, $m2, $m3),
-                             [(HasOneUse $res)]>;
+                                         (ONNXConstantOp (GetNullAttr), (GetUnitAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr))]>;
 
 // ONNX_Op (onnx.Cast (%X, $type)) = ONNX_Op (%X)
 def CastEliminationPattern : Pat<
@@ -97,5 +97,25 @@ def RemoveIdentityTransposePattern:  Pat<
   // Check that we have indeed a identity transpose pattern.
   [(IsIdentityPermuteAttribute:$p)]>;
 
+
+/// Combine squeeze and unsqueeze.
+/// Squeeze {axes = [a, b, c]} (Unsqueeze {axes = [a, b, c]} (%X)) = %X
+def RemoveSqueezeUnsqueezePattern:  Pat<
+  // Squeeze and the unsqueeze with the same axes.
+  (ONNXSqueezeOp (ONNXUnsqueezeOp $val, $u_axes), $s_axes),
+  // Remove the transpose.
+  (replaceWithValue $val),
+  // Check that both ops use the same `axes`.
+  [(AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
+
+/// Combine unsqueeze and squeeze.
+/// Unsqueeze {axes = [a, b, c]} (Squeeze {axes = [a, b, c]} (%X)) = %X
+def RemoveUnsqueezeSqueezePattern:  Pat<
+  // Squeeze and the unsqueeze with the same axes.
+  (ONNXUnsqueezeOp (ONNXSqueezeOp:$res $val, $s_axes), $u_axes),
+  // Remove the transpose.
+  (replaceWithValue $val),
+  // Check that both ops use the same `axes`.
+  [(AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
 
 #endif // ONNX_COMBINE

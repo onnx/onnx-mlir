@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===------- ONNXOpsHelper.cpp - Helper functions for ONNX dialects -------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -75,9 +79,9 @@ AffineMap getConvDimMap(Builder &builder, bool ceilMode) {
 ///
 /// This function returns {startH, endH, kernelOffset}.
 
-std::vector<IndexExpr> getIndexExprsForConvWindow(IndexExprContext &context,
+std::vector<IndexExpr> getIndexExprsForConvWindow(
     SmallVectorImpl<IndexExpr> &inputExprs, bool ceilMode, bool isDilated) {
-  assert(inputExprs.size() == 6 && "Not enought inputs");
+  assert(inputExprs.size() == 6 && "Not enough inputs");
   IndexExpr windowStartExpr, windowEndExpr, kernelOffsetExpr;
   IndexExpr outputIndex = inputExprs[0];
   IndexExpr inputDim = inputExprs[1];
@@ -99,8 +103,7 @@ std::vector<IndexExpr> getIndexExprsForConvWindow(IndexExprContext &context,
   SmallVector<mlir::IndexExpr, 2> endExprs = {end1, end2};
   windowEndExpr = IndexExpr::min(endExprs);
   // kernelOffsetExpr
-  SmallVector<mlir::IndexExpr, 2> kernelExprs = {
-      context.createLiteralIndex(0), start2};
+  SmallVector<mlir::IndexExpr, 2> kernelExprs = {LiteralIndexExpr(0), start2};
   kernelOffsetExpr = IndexExpr::min(kernelExprs);
 
   return std::vector<IndexExpr>{
@@ -174,6 +177,11 @@ DenseElementsAttr getDenseElementAttributeFromValue(Value value) {
     if (globalOp.value().hasValue())
       return globalOp.valueAttr().dyn_cast<DenseElementsAttr>();
   return nullptr;
+}
+
+Value getONNXConstantOpFromDenseAttr(
+    PatternRewriter &rewriter, Location loc, Attribute dense) {
+  return rewriter.create<ONNXConstantOp>(loc, Attribute(), dense);
 }
 
 bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {

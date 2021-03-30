@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Size.cpp - Lowering Size Op
 //-------------------===//
 //
@@ -61,7 +65,7 @@ struct ONNXSizeOpLowering : public ConversionPattern {
       }
     }
 
-    rewriter.create<AffineStoreOp>(loc, noElements, alloc, llvm::None);
+    rewriter.create<KrnlStoreOp>(loc, noElements, alloc, llvm::None);
     rewriter.replaceOp(op, alloc);
     return success();
   }

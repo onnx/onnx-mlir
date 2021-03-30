@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "mlir/Pass/Pass.h"
 
 #include "src/Pass/Passes.hpp"
@@ -23,12 +27,6 @@ void initOMPasses() {
       "ConstProp ONNX operations into composition of other ONNX operations.",
       []() -> std::unique_ptr<mlir::Pass> {
         return mlir::createConstPropONNXToONNXPass();
-      });
-
-  mlir::registerPass("attribute-promotion",
-      "Promote constant operands to attributes.",
-      []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::createAttributePromotionPass();
       });
 
   mlir::registerPass("elide-constants", "Elide values of constant operations.",

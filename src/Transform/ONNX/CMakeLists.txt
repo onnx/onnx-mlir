@@ -1,14 +1,4 @@
-add_library(OMAttributePromotion
-        AttributePromotion.cpp)
-target_include_directories(OMAttributePromotion
-        PRIVATE ${ONNX_MLIR_SRC_ROOT} ${ONNX_MLIR_BIN_ROOT}
-        ${ONNF_MLIR_SRC_ROOT})
-# Header dependencies
-add_dependencies(OMAttributePromotion
-        OMONNXOpsInc OMPromotableConstOperandsOpInterfaceIncGen)
-# Linking dependencies
-add_dependencies(OMAttributePromotion
-        OMPromotableConstOperandsOpInterface)
+# SPDX-License-Identifier: Apache-2.0
 
 add_library(OMElideConstants
         ElideConstants.cpp)
@@ -67,7 +57,6 @@ add_dependencies(OMShapeInference ShapeInferenceOpInterfaceIncGen)
 # Linking dependencies
 add_dependencies(OMShapeInference OMShapeInferenceOpInterface)
 
-install(TARGETS OMAttributePromotion DESTINATION lib)
 install(TARGETS OMElideConstants     DESTINATION lib)
 install(TARGETS OMONNXRewrite        DESTINATION lib)
 install(TARGETS OMShapeInference     DESTINATION lib)

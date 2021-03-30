@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
 // Copyright 2019 The IBM Research Authors.
@@ -47,7 +51,7 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(inputLoops.getIterateBlock());
     {
       // Get a child IndexExpr context.
-      IndexExprContext childContext(shapeHelper.context);
+      IndexExprScope childScope(shapeHelper.scope);
 
       // Get read/write indices.
       SmallVector<IndexExpr, 4> readIndices;
@@ -56,15 +60,13 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
         Value readVal = inputLoops.getInductionVar(i);
         Value writeVal =
             inputLoops.getInductionVar(ArrayAttrIntVal(permAttr, i));
-        IndexExpr readIndex = childContext.createLoopInductionIndex(readVal);
-        IndexExpr writeIndex = childContext.createLoopInductionIndex(writeVal);
-        readIndices.emplace_back(readIndex);
-        writeIndices.emplace_back(writeIndex);
+        readIndices.emplace_back(DimIndexExpr(readVal));
+        writeIndices.emplace_back(DimIndexExpr(writeVal));
       }
 
       // Copy data.
-      Value loadData = childContext.createLoadOp(data, readIndices);
-      childContext.createStoreOp(loadData, alloc, writeIndices);
+      Value loadData = krnl_load(data, readIndices);
+      krnl_store(loadData, alloc, writeIndices);
     }
 
     rewriter.replaceOp(op, alloc);
