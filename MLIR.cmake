@@ -55,15 +55,7 @@ message(STATUS "LLVM_PROJECT_LIB        : " ${LLVM_PROJECT_LIB})
 if (ENV{LLVM_PROJ_BIN})
   set(LLVM_PROJ_BIN $ENV{LLVM_PROJ_BIN})
 else()
-  if(MSVC)
-    if (CMAKE_BUILD_TYPE)
-      set(LLVM_PROJ_BIN ${LLVM_PROJ_BUILD}/${CMAKE_BUILD_TYPE}/bin)
-    else()
-      set(LLVM_PROJ_BIN ${LLVM_PROJ_BUILD}/Release/bin)
-    endif()
-  else()
-    set(LLVM_PROJ_BIN ${LLVM_PROJ_BUILD}/bin)
-  endif()
+  set(LLVM_PROJ_BIN ${LLVM_TOOLS_BINARY_DIR})
 endif()
 message(STATUS "LLVM_PROJ_BIN           : " ${LLVM_PROJ_BIN})
 
@@ -71,21 +63,15 @@ message(STATUS "LLVM_PROJ_BIN           : " ${LLVM_PROJ_BIN})
 set(MLIR_TOOLS_DIR ${LLVM_TOOLS_BINARY_DIR})
 
 # ONNX-MLIR tools folder
-if(MSVC)
-  if (CMAKE_BUILD_TYPE)
-    set(ONNX_MLIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE})
-  else()
-    set(ONNX_MLIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin/Release)
-  endif()
-else()
-  set(ONNX_MLIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin)
-endif()
+set(ONNX_MLIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 message(STATUS "ONNX_MLIR_TOOLS_DIR     : " ${ONNX_MLIR_TOOLS_DIR})
+# Set output library path
+set(ONNX_MLIR_LIB_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR})
+
 set(ONNX_MLIR_LIT_TEST_SRC_DIR ${ONNX_MLIR_SRC_ROOT}/test/mlir)
 set(ONNX_MLIR_LIT_TEST_BUILD_DIR ${CMAKE_BINARY_DIR}/test/mlir)
 
-set(MLIR_INCLUDE_PATHS ${LLVM_INCLUDE_DIRS};${MLIR_INCLUDE_DIRS})
-include_directories(${MLIR_INCLUDE_PATHS})
+include_directories(${LLVM_INCLUDE_DIRS};${MLIR_INCLUDE_DIRS})
 
 # If we're pointing at an LLVM build, then assume we want to install into the same
 # install location
@@ -111,17 +97,6 @@ if(NOT MSVC)
   # FIXME Should be added to LLVMConfig.cmake
   find_package(Curses REQUIRED)
   set(MLIR_SYSTEM_LIBS ${MLIR_SYSTEM_LIBS} ${ZLIB_LIBRARIES} ${CURSES_LIBRARIES})
-endif()
-
-# Set output library path
-if(MSVC)
-  if (CMAKE_BUILD_TYPE)
-    set(ONNX_MLIR_LIB_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${CMAKE_BUILD_TYPE})
-  else()
-    set(ONNX_MLIR_LIB_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Release)
-  endif()
-else()
-    set(ONNX_MLIR_LIB_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 endif()
 
 # FIXME: Remove after migration
