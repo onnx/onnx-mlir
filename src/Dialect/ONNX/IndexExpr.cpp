@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 // both debug variables will be removed once debugging is complete.
-#define DEBUG 0
+#define DEBUG 1
 
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 #include "src/Dialect/ONNX/IndexExprDetail.hpp"
@@ -205,6 +205,14 @@ bool IndexExpr::isLiteralAndDifferentThan(IndexExpr const b) const {
   return getLiteral() != b.getLiteral();
 }
 
+// All element in list are literals.
+/*static*/ bool IndexExpr::isLiteral(SmallVectorImpl<IndexExpr> &list) {
+  for (IndexExpr i : list)
+    if (!i.isLiteral())
+      return false;
+  return true;
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExpr private queries.
 //===----------------------------------------------------------------------===//
@@ -344,8 +352,8 @@ void IndexExpr::debugPrint(const std::string &msg) const {
   }
 }
 
-/*static*/ void IndexExpr::getValues(ArrayRef<IndexExpr> indexExprArray,
-    SmallVectorImpl<Value> &valueList) {
+/*static*/ void IndexExpr::getValues(
+    ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<Value> &valueList) {
   valueList.clear();
   for (IndexExpr const &expr : indexExprArray)
     valueList.emplace_back(expr.getValue());

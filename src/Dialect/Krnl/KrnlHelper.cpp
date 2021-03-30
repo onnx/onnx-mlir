@@ -382,6 +382,33 @@ ValueRange krnl_get_induction_var_value(ArrayRef<Value> loops) {
       .getResults();
 }
 
+void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<IndexExpr> lb,
+    ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
+    function_ref<void(ArrayRef<Value>)> bodyBuilderFn) {
+  using namespace mlir::edsc;
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  assert(lb.size() == ub.size() && "expected matching number of lb & ub");
+  OpBuilder &builder = ScopedContext::getBuilderRef();
+  Location loc = ScopedContext::getLocation();
+  KrnlIterateOperandPack pack(builder, originalLoop);
+  for (int i = 0; i < lb.size(); ++i) {
+    pack.pushIndexExprBound(lb[i]);
+    pack.pushIndexExprBound(ub[i]);
+  }
+  KrnlIterateOp iterateOp =
+      builder.create<KrnlIterateOp>(ScopedContext::getLocation(), pack);
+  // auto savedInsertionPoint = builder.saveInsertionPoint();
+  Block *iterBlock = &iterateOp.bodyRegion().front();
+
+  if (bodyBuilderFn) { // Scope for the scoped context of the loop.
+    ScopedContext nestedContext(builder, loc);
+    builder.setInsertionPointToStart(iterBlock);
+    bodyBuilderFn(iterArgs);
+    // aee: not sure why it works without this?
+    // builder.restoreInsertionPoint(savedInsertionPoint);
+  }
+}
+
 void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
     ArrayRef<IndexExpr> lb, ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
     function_ref<void(ArrayRef<Value>)> bodyBuilderFn) {

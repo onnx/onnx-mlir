@@ -577,7 +577,7 @@ static IndexExpr isFullTile(IndexExpr UB, IndexExpr block, IndexExpr GI) {
 
 static IndexExpr trip(IndexExpr UB, IndexExpr block, IndexExpr GI) {
   // Trip count in general: min(UB - GI, Block).
-  UB.debugPrint("trip up");
+  UB.debugPrint("trip UB");
   block.debugPrint("trip block");
   GI.debugPrint("trip GI");
   //   IndexExpr nTrip = IndexExpr::min(nUB - nGI, nBlock);
@@ -601,6 +601,16 @@ static IndexExpr partialTrip(IndexExpr UB, IndexExpr block, IndexExpr GI) {
   }
   // don't have to take the mod since we know we have a partial tile already.
   return UB - GI;
+}
+
+static IndexExpr startInBuffer(
+    IndexExpr globalStart, IndexExpr tileSize, IndexExpr globalUB) {
+  if (tileSize.isLiteral() && globalUB.isLiteral() &&
+      tileSize.getLiteral() == globalUB.getLiteral()) {
+    // No need to take the mod when the tile size is the entire data.
+    return globalStart;
+  }
+  return globalStart % tileSize;
 }
 
 // KrnlMatmul will be lowered to vector and affine expressions
@@ -734,18 +744,15 @@ public:
 
     // Compute the start for each matrices (A[NxK], B[KxM], C[NxM]). Starts are
     // the offset in the buffers A, B, and C.
-    IndexExpr AStart0(nGlobalStart % ATileSize[0]);
-    IndexExpr AStart1(kGlobalStart % ATileSize[1]);
-    IndexExpr BStart0(kGlobalStart % BTileSize[0]);
-    IndexExpr BStart1(mGlobalStart % BTileSize[1]);
-    IndexExpr CStart0(nGlobalStart % CTileSize[0]);
-    IndexExpr CStart1(mGlobalStart % CTileSize[1]);
+    IndexExpr AStart0 = startInBuffer(nGlobalStart, ATileSize[0], nGlobalUB);
+    IndexExpr AStart1 = startInBuffer(kGlobalStart, ATileSize[1], kGlobalUB);
+    IndexExpr BStart0 = startInBuffer(kGlobalStart, BTileSize[0], kGlobalUB);
+    IndexExpr BStart1 = startInBuffer(mGlobalStart, BTileSize[1], mGlobalUB);
+    IndexExpr CStart0 = startInBuffer(nGlobalStart, CTileSize[0], nGlobalUB);
+    IndexExpr CStart1 = startInBuffer(mGlobalStart, CTileSize[1], mGlobalUB);
 
     // Simdize along M for the full compute tile
     IndexExpr vectorLen = mComputeTileSize;
-    IndexExpr BVecStart1 = BStart1.ceilDiv(vectorLen);
-    IndexExpr CVecStart1 = CStart1.ceilDiv(vectorLen);
-
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling
     // within the buffer always results in full tiles. In other words, partial
@@ -781,7 +788,7 @@ public:
       genIfThenElseWithoutParams(rewriter, allFullTiles,
         /* then full */ [&](ValueRange) {
         genSimd(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
-          BVecStart1,  CStart0,  CVecStart1, nComputeTileSize, mComputeTileSize, 
+          BStart1,  CStart0,  CStart1, nComputeTileSize, mComputeTileSize,
           kComputeTileSize,  vectorLen, fullUnrollAndJam); 
       }, /* has some partial tiles */ [&](ValueRange) {
         // Trip regardless of full/partial for N & K
@@ -789,14 +796,14 @@ public:
         genIfThenElseWithoutParams(rewriter, mFullTiles,
           /* full SIMD */ [&](ValueRange) {
           genSimd(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
-            BVecStart1,  CStart0,  CVecStart1, nTrip, mComputeTileSize, kTrip, 
+            BStart1,  CStart0,  CStart1, nTrip, mComputeTileSize, kTrip,
             vectorLen, false);
         }, /* else partial SIMD */ [&](ValueRange) {
           if (mPartialTrip.isLiteral() && mPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
             genSimd(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
-              BVecStart1,  CStart0,  CVecStart1, nTrip, mPartialTrip, kTrip, 
+              BStart1,  CStart0,  CStart1, nTrip, mPartialTrip, kTrip,
               vectorLen, false);
           } else {
             genScalar(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
@@ -874,8 +881,8 @@ private:
 
   void genSimd(PatternRewriter &rewriter, KrnlMatMulOp op, Type elementType,
       IndexExpr AStart0, IndexExpr AStart1, IndexExpr BStart0,
-      IndexExpr BVecStart1, IndexExpr CStart0, IndexExpr CVecStart1,
-      IndexExpr nTrip, IndexExpr mTrip, IndexExpr kTrip, IndexExpr vectorLen,
+      IndexExpr BStart1, IndexExpr CStart0, IndexExpr CStart1, IndexExpr nTrip,
+      IndexExpr mTrip, IndexExpr kTrip, IndexExpr vectorLen,
       bool unrollJam) const {
     // can simdize only if K is compile time
     assert(mTrip.isLiteral() &&
@@ -897,26 +904,16 @@ private:
     // constant since its related to the tiling size, decided by the compiler.
     int64_t KLitB = BType.getShape()[0];
     int64_t MLitB = BType.getShape()[1];
-    assert(MLitB % VL == 0 && "expected M dim to be a multiple of VL");
-    // Typecast B to memrefs of K x (M/VL) x vector<VL>.
-    MemRefType BVecType = MemRefType::get({KLitB, MLitB / VL}, vecType);
-    Value BVec =
-        rewriter.create<KrnlVectorTypeCastOp>(op.getLoc(), BVecType, B);
 
     int64_t NLitC = CType.getShape()[0];
     int64_t MLitC = CType.getShape()[1];
-    assert(MLitC % VL == 0 && "expected M dim to be a multiple of VL");
-    // Typecast C to memrefs of N x (M/VL) x vector<VL>.
-    MemRefType CVecType = MemRefType::get({NLitC, MLitC / VL}, vecType);
-    Value CVec =
-        rewriter.create<KrnlVectorTypeCastOp>(op.getLoc(), CVecType, C);
 
     // IndexExprScope newScope;
     // SymbolIndexExpr nnTrip(nTrip), mmTrip(mTrip), kkTrip(kTrip);
     // DimIndexExpr nnStart(nStart), mmStart(mStart), kkStart(kStart);
 
     // Get the EDSC variables, and loop dimensions.
-    AffineIndexedValue AA(A), BB(B), CC(C), BBVec(BVec), CCvec(CVec);
+    AffineIndexedValue AA(A), BB(B), CC(C);
     // Iterates over the I indices (j are simd dim).
     Value iSaved;
     using namespace edsc::op;
@@ -927,12 +924,17 @@ private:
       // Alloca temp vector TmpC and save C(i)/0.0 into it.
       Value TmpC = std_alloca(CTmpType);
       AffineIndexedValue TTmpC(TmpC);
-      TTmpC() = CCvec(i + CStart0.getValue(), CVecStart1.getValue());
+      //TTmpC() = CCvec(i + CStart0.getValue(), CStart1.getValue());
+      SmallVector<Value, 4> CvecIndices = {i + CStart0.getValue(), CStart1.getValue()};
+      Value vc = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType, C, CvecIndices);
+      TTmpC() = vc;
       // Sum over k.
       affineLoopBuilder(zero, kTrip, 1, [&](Value k) {
         Value a = AA(i + AStart0.getValue(), k + AStart1.getValue());
         Value va = vector_broadcast(vecType, a);
-        Value vb = BBVec(k + BStart0.getValue(), BVecStart1.getValue());
+        //Value vb = BBVec(k + BStart0.getValue(), BStart1.getValue());
+        SmallVector<Value, 4> BvecIndices = {k + BStart0.getValue(), BStart1.getValue()};
+        Value vb = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType, B, BvecIndices);
         TTmpC() = vector_fma(va, vb, TTmpC());
       });
       // Store temp result into C(i)
@@ -944,11 +946,13 @@ private:
         for(int64_t i=0; i<VL; i++)
           mask.emplace_back((i<mTripLit) ? i : VL+i);
         // permute
-        Value originalCvec = CCvec(i + CStart0.getValue(), CVecStart1.getValue());
+        //Value originalCvec = CCvec(i + CStart0.getValue(), CVecStart1.getValue());
+        Value originalCvec = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType, C, CvecIndices);
         tmpResults = rewriter.create<vector::ShuffleOp>(op.getLoc(),
           tmpResults, originalCvec, mask);
       }
-      CCvec(i + CStart0.getValue(), CVecStart1.getValue()) = tmpResults;
+      //CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
+      rewriter.create<AffineVectorStoreOp>(op.getLoc(), tmpResults, C, CvecIndices);
     });
     // clang-format on
     if (unrollJam && nTrip.isLiteral()) {

@@ -123,8 +123,28 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Define scopes
     ScopedContext scope(rewriter, loc);
     IndexExprScope indexScope(rewriter, loc);
+
+    // Prepare: loop bounds and zero
+    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
+    MemRefBoundIndexCapture ABounds(A), CBounds(C);
+    IndexExpr I = CBounds.getDim(0);
+    IndexExpr J = CBounds.getDim(1);
+    IndexExpr K = ABounds.getDim(1);
+    LiteralIndexExpr zero(0);
+
+    // Initialize alloc/C to zero.
+    ValueRange zLoop = krnl_define_loop(2);
+    Value zi(zLoop[0]), zj(zLoop[1]);
+    krnl_iterate({zi, zj}, {zero, zero}, {I, J}, {}, [&](ArrayRef<Value> args) {
+      ValueRange indices = krnl_get_induction_var_value({zi, zj});
+      DimIndexExpr zii(indices[0]), zjj(indices[1]);
+      SmallVector<IndexExpr> storeIndices({zii, zjj});
+      krnl_store(zeroVal, alloc, storeIndices);
+    });
+
+    // Compute.
     // Define blocking, with simdization along the j axis.
-    const int64_t iRegTile(4), jRegTile(8), kRegTile(8);
+    const int64_t iRegTile(4), jRegTile(8), kRegTile(2);
     // I, J, K loop.
     ValueRange origLoop = krnl_define_loop(3);
     Value i(origLoop[0]), j(origLoop[1]), k(origLoop[2]);
@@ -136,25 +156,15 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ValueRange kRegBlock = krnl_block(k, kRegTile);
     Value kkB(kRegBlock[0]), kkL(kRegBlock[1]);
     krnl_permute({iiB, iiL, jjB, jjL, kkB, kkL}, {0, 3, 1, 4, 2, 5});
-    // Loop bounds
-    Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
-    MemRefBoundIndexCapture ABounds(A), CBounds(C);
-    IndexExpr I = CBounds.getDim(0);
-    IndexExpr J = CBounds.getDim(1);
-    IndexExpr K = ABounds.getDim(1);
-    LiteralIndexExpr zero(0);
 
     krnl_iterate({i, j, k}, {iiB, jjB, kkB}, {zero, zero, zero}, {I, J, K}, {},
         [&](ArrayRef<Value> args) {
           ValueRange indices = krnl_get_induction_var_value({iiB, jjB, kkB});
           DimIndexExpr ii(indices[0]), jj(indices[1]), kk(indices[2]);
-          SmallVector<int64_t, 4> computeTile, aTile, bTile, cTile;
+          SmallVector<int64_t, 4> computeTile;
           computeTile = {iRegTile, jRegTile, kRegTile};
-          aTile = {iRegTile, kRegTile};
-          bTile = {kRegTile, jRegTile};
-          cTile = {iRegTile, jRegTile};
           krnl_matmul({iiL, jjL, kkL}, A, B, C, {ii, jj, kk}, {I, J, K},
-              computeTile, aTile, bTile, cTile, true, false, false);
+              computeTile, {}, {}, {}, true, false, false);
         });
   }
 
@@ -182,7 +192,9 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Get the constants: zero.
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    if (shapeHelper.aDims.size() == 2 && shapeHelper.bDims.size() == 2) {
+    if (shapeHelper.aDims.size() == 2 && shapeHelper.bDims.size() == 2 &&
+        IndexExpr::isLiteral(shapeHelper.aDims) &&
+        IndexExpr::isLiteral(shapeHelper.bDims)) {
       replace2x2Matmul2D(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
     } else {

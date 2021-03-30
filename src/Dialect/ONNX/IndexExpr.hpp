@@ -419,6 +419,8 @@ public:
   bool isLiteralAndIdenticalTo(IndexExpr const b) const;   // Values equal.
   bool isLiteralAndDifferentThan(int64_t b) const;         // Values unequal.
   bool isLiteralAndDifferentThan(IndexExpr const b) const; // Values unequal.
+  // All element in list are literals.
+  static bool isLiteral(SmallVectorImpl<IndexExpr> &list);
 
   // Getters.
   IndexExprScope &getScope() const { return *getScopePtr(); }
@@ -433,8 +435,8 @@ public:
   // Helpers for list of IndexExpressions
   static void getShape(SmallVectorImpl<IndexExpr> &indexExprList,
       SmallVectorImpl<int64_t> &intDimList);
-  static void getValues(ArrayRef<IndexExpr> indexExprArray,
-      SmallVectorImpl<Value> &valueList);
+  static void getValues(
+      ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<Value> &valueList);
 
   // Possibly Affine Operations. Return a new IndexExpr
   IndexExpr operator+(IndexExpr const b) const;

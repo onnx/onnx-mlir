@@ -260,6 +260,9 @@ ValueRange krnl_get_induction_var_value(ArrayRef<Value> loops);
 void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
     ArrayRef<IndexExpr> lb, ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
     function_ref<void(ArrayRef<Value> args)> bodyBuilderFn);
+void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<IndexExpr> lb,
+    ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
+    function_ref<void(ArrayRef<Value> args)> bodyBuilderFn);
 void krnl_copy_to_buffer(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, Value padValue, ArrayRef<int64_t> tileSize,
     ArrayRef<int64_t> padToNext);
