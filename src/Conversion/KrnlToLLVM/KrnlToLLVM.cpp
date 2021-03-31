@@ -404,10 +404,15 @@ public:
 
       // Allocate the memory where the constants will be used from.
       // This is a region of local memory and needs to be emitted as an alloca.
+      int alignment = 0;
+      if (krnlGlobalOp.alignmentAttr())
+        alignment = krnlGlobalOp.alignmentAttr().getValue().getSExtValue();
+
       auto one = rewriter.create<LLVM::ConstantOp>(
           loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
       alloc = rewriter.create<LLVM::AllocaOp>(loc,
-          LLVM::LLVMPointerType::get(llvmGlobalType), one, /*alignment=*/0);
+          LLVM::LLVMPointerType::get(llvmGlobalType), one,
+          /*alignment=*/alignment);
 
       // Copy constant value into the local alloca:
       //  - Bitcast alloc to i8*

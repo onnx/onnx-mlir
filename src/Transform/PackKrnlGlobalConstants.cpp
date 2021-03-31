@@ -51,17 +51,30 @@ public:
     // Packing constant arrays to packedConst.
     std::vector<char> packedConst;
     module.walk([&](KrnlGlobalOp op) {
+      // Do not support packing aligned constants at this moment.
+      if (op.alignmentAttr() &&
+          op.alignmentAttr().getValue().getSExtValue() != 0) {
+        return;
+      }
       assert(op.value());
       op.offsetAttr(builder.getI64IntegerAttr(packedConst.size()));
-      assert(op.value()->isa<DenseElementsAttr>());
-      const auto &denseAttr = op.valueAttr().cast<DenseElementsAttr>();
-      auto numElements = denseAttr.getNumElements();
-      if (numElements <= elisionThreshold || denseAttr.isSplat())
-        return;
+      assert(op.value()->isa<DenseElementsAttr>() ||
+             op.value()->isa<OpaqueElementsAttr>());
+      if (op.value()->isa<DenseElementsAttr>()) {
+        const auto &denseAttr = op.valueAttr().cast<DenseElementsAttr>();
+        auto numElements = denseAttr.getNumElements();
+        if (numElements <= elisionThreshold || denseAttr.isSplat())
+          return;
 
-      // TODO(tjingrant) verify we can actually use the raw data.
-      std::vector<char> rawData = denseAttr.getRawData();
-      packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
+        // TODO(tjingrant) verify we can actually use the raw data.
+        std::vector<char> rawData = denseAttr.getRawData();
+        packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
+      } else {
+        const auto &opaqueAttr = op.valueAttr().cast<OpaqueElementsAttr>();
+        StringRef bytes = opaqueAttr.getValue();
+        packedConst.insert(
+            packedConst.end(), bytes.bytes_begin(), bytes.bytes_end());
+      }
     });
 
     // Remove value attributes from krnl constant op.

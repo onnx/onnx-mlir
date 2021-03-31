@@ -41,9 +41,11 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
     const auto &valAttr = op.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
     if (valAttr.getNumElements() > elisionThreshold && !valAttr.isSplat()) {
       IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
+      IntegerAttr alignmentAttr = op.alignment() ? op.alignmentAttr() : nullptr;
       auto newGlobalOp = rewriter.create<KrnlGlobalOp>(loc,
           op.getResult().getType(), /*shape=*/op.shape(),
-          /*name=*/op.name(), /*value=*/nullptr, /*offset=*/offsetAttr);
+          /*name=*/op.name(), /*value=*/nullptr, /*offset=*/offsetAttr,
+          /*alignment=*/alignmentAttr);
       rewriter.replaceOp(op, newGlobalOp.getResult());
     }
   }
