@@ -1,0 +1,418 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@2.40">
+  <actions>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobAction plugin="pipeline-model-definition@1.8.4"/>
+    <org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction plugin="pipeline-model-definition@1.8.4">
+      <jobProperties/>
+      <triggers/>
+      <parameters/>
+      <options>
+        <string>skipDefaultCheckout</string>
+      </options>
+    </org.jenkinsci.plugins.pipeline.modeldefinition.actions.DeclarativeJobPropertyTrackerAction>
+  </actions>
+  <description>This job is triggered by the Generic Webhook Trigger Plugin with the following GitHub events and actions:&#xd;
+&#xd;
+o Event: pull_request, Action: opened, reopened, or synchronize&#xd;
+  - the pull request is (re)built&#xd;
+o Event: pull_request, Action: closed (with or without merging the pull request)&#xd;
+  - if closed without merging, all docker images and containers related to the pull request are removed&#xd;
+  - if closed by merging, only dangling docker images and containers related to the pull request are removed, final cleanup will be done by the immediately following push event&#xd;
+o Event: issue_comment, Action: created&#xd;
+  - if the comment body includes the phrase &quot;test this please&quot;, the pull request is rebuilt&#xd;
+  - if the comment body includes the phrase &quot;publish this please&quot;, the pull request is rebuilt and published&#xd;
+o Event: push, Action: N/A (merging the pull request)&#xd;
+  - the merged master is built and published if necessary&#xd;
+  - all docker images and containers related to the pull request are removed&#xd;
+&#xd;
+Note that a pull request contains two branches:&#xd;
+&#xd;
+origin/pr/${github_webhook_payload_number}/head&#xd;
+origin/pr/${github_webhook_payload_number}/merge&#xd;
+&#xd;
+The &quot;head&quot; branch is the actual branch that is to be merged. The &quot;merge&quot; branch is the grafted pull request branch. We can build either branch. However, for posting commit status back to github, we must use the &quot;head&quot; SHA.&#xd;
+&#xd;
+The GitHub Plugin has a &quot;bug&quot; that it would use the SHA we are building to post the commit status. So if we build the &quot;merge&quot; branch, it would post to the wrong &quot;merge&quot; SHA. The GitHub Pull Request Builder Plugin handles building either branch correctly.</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.plugins.jira.JiraProjectProperty plugin="jira@3.2"/>
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.33.1">
+      <projectUrl>https://github.com/onnx/onnx-mlir/</projectUrl>
+      <displayName></displayName>
+    </com.coravy.hudson.plugins.github.GithubProjectProperty>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>GITHUB_PR_NUMBER_PULL_REQUEST</name>
+          <description></description>
+          <defaultValue>${GITHUB_PR_NUMBER_PULL_REQUEST}</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>GITHUB_PR_NUMBER_ISSUE_COMMENT</name>
+          <description></description>
+          <defaultValue>${GITHUB_PR_NUMBER_ISSUE_COMMENT}</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>GITHUB_PR_NUMBER_PUSH</name>
+          <description></description>
+          <defaultValue>${GITHUB_PR_NUMBER_PUSH}</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+    <jenkins.branch.RateLimitBranchProperty_-JobPropertyImpl plugin="branch-api@2.6.3">
+      <durationName>minute</durationName>
+      <count>1</count>
+      <userBoost>false</userBoost>
+    </jenkins.branch.RateLimitBranchProperty_-JobPropertyImpl>
+    <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+      <triggers>
+        <org.jenkinsci.plugins.gwt.GenericTrigger plugin="generic-webhook-trigger@1.72">
+          <spec></spec>
+          <genericVariables>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <expressionType>JSONPath</expressionType>
+              <key>github_webhook_payload</key>
+              <value>$</value>
+              <regexpFilter></regexpFilter>
+              <defaultValue></defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <expressionType>JSONPath</expressionType>
+              <key>github_webhook_payload_action</key>
+              <value>$.action</value>
+              <regexpFilter></regexpFilter>
+              <defaultValue>none</defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <expressionType>JSONPath</expressionType>
+              <key>github_webhook_payload_issue_pull_request_url</key>
+              <value>$.issue.pull_request.url</value>
+              <regexpFilter></regexpFilter>
+              <defaultValue>none</defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <expressionType>JSONPath</expressionType>
+              <key>github_webhook_payload_comment_body</key>
+              <value>$.comment.body</value>
+              <regexpFilter></regexpFilter>
+              <defaultValue>none</defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <expressionType>JSONPath</expressionType>
+              <key>GITHUB_PR_NUMBER_PULL_REQUEST</key>
+              <value>$.number</value>
+              <regexpFilter></regexpFilter>
+              <defaultValue>none</defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <expressionType>JSONPath</expressionType>
+              <key>GITHUB_PR_NUMBER_ISSUE_COMMENT</key>
+              <value>$.issue.number</value>
+              <regexpFilter></regexpFilter>
+              <defaultValue>none</defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <expressionType>JSONPath</expressionType>
+              <key>GITHUB_PR_NUMBER_PUSH</key>
+              <value>$.ref</value>
+              <regexpFilter>.*/</regexpFilter>
+              <defaultValue>none</defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+          </genericVariables>
+          <regexpFilterText>${x_github_event}:${github_webhook_payload_action}:${github_webhook_payload_issue_pull_request_url}:${github_webhook_payload_comment_body}:${GITHUB_PR_NUMBER_PUSH}</regexpFilterText>
+          <regexpFilterExpression>(pull_request:(opened|reopened|synchronize|closed):.*:.*:.*)|(issue_comment:created:.*pull.*:.*(test|publish) this please.*:.*)|(push:.*:.*:.*:master)</regexpFilterExpression>
+          <genericHeaderVariables>
+            <org.jenkinsci.plugins.gwt.GenericHeaderVariable>
+              <key>x-github-delivery</key>
+              <regexpFilter></regexpFilter>
+            </org.jenkinsci.plugins.gwt.GenericHeaderVariable>
+            <org.jenkinsci.plugins.gwt.GenericHeaderVariable>
+              <key>x-github-event</key>
+              <regexpFilter></regexpFilter>
+            </org.jenkinsci.plugins.gwt.GenericHeaderVariable>
+          </genericHeaderVariables>
+          <printPostContent>true</printPostContent>
+          <printContributedVariables>true</printContributedVariables>
+          <causeString>[${github_webhook_payload_sender_login}] [${x_github_event}:${github_webhook_payload_action}]</causeString>
+          <token></token>
+          <tokenCredentialId>github-onnx-mlir-to-jenkins-gwt</tokenCredentialId>
+          <silentResponse>true</silentResponse>
+          <overrideQuietPeriod>false</overrideQuietPeriod>
+        </org.jenkinsci.plugins.gwt.GenericTrigger>
+      </triggers>
+    </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2.90">
+    <script>/* Script here should be minimal. It mainly does two things:
+ *
+ * 1. Check if webhook event is sent by one of the admins
+ * 2. Check out the PR source to load the Jenkinsfile and
+ *    pass control to it.
+ */
+def jenkinsfile
+def auth_ok
+
+node {
+    /* In order to checkout the PR source to load the Jenkinsfile,
+     * we need to find out various bits about the PR depending on
+     * the webhook event received.
+     */
+    set_environ_vars(&quot;${x_github_event}&quot;)
+    set_build_name(&quot;${x_github_event}&quot;)
+
+    /* Check for authorization, i.e., where the user triggered
+     * the event is one of the admins.
+     */
+    auth_ok = true
+    withCredentials([
+        string(credentialsId: &apos;ONNX-MLIR-GitHub-Admins&apos;,
+               variable:      &apos;GITHUB_REPO_ADMINS&apos;),
+        string(credentialsId: &apos;jenkins-buildbot-access-token&apos;,
+               variable:      &apos;GITHUB_REOP_ACCESS_TOKEN&apos;) ]) {
+        /* User triggering the event is not one of the admins */
+        if (GITHUB_REPO_ADMINS.indexOf(GITHUB_PR_SENDER) &lt; 0) {
+            /* Just post the comment once */
+            if (CPU_ARCH == &apos;s390x&apos;)
+                post_pr_comment(&quot;${GITHUB_PR_COMMENT_URL}&quot;,
+                                &quot;${GITHUB_REOP_ACCESS_TOKEN}&quot;,
+                                &apos;Can one of the admins verify this patch?&apos;)
+            auth_ok = false
+        }
+    }
+    if (!auth_ok) return
+    
+    /* We ask for this directory */
+    env.JENKINS_SCRIPTSPACE = &quot;${JENKINS_HOME}/workspace/${JOB_NAME}@script/pr_${GITHUB_PR_NUMBER}&quot;
+    ws(&quot;${JENKINS_SCRIPTSPACE}&quot;) {
+        /* We may get one with @2, @3, etc. appended */
+        env.JENKINS_SCRIPTSPACE_AT = &quot;${WORKSPACE}&quot;
+        
+        /* Checkout the PR source */
+        checkout_pr_source(GITHUB_PR_REPO_URL,
+                           GITHUB_PR_REMOTE,
+                           GITHUB_PR_REFSPEC,
+                           GITHUB_PR_BRANCH,
+                           false)
+
+        set_environ_vars2(&quot;${x_github_event}&quot;)
+
+        /* Load the Jenkinsfile in the source code repo but do not
+         * run it yet. Since we are still inside the current node
+         * block so running the loaded Jenkinsfile immediately will
+         * consume another executor.
+         *
+         * For the assignment to work, the loaded Jenkinsfile must
+         * have the &quot;return this&quot; statement after all the function
+         * definitions.
+         */
+        jenkinsfile = load &quot;.buildbot/Jenkinsfile&quot;
+        
+        /* We no longer need the script directory once the Jenkinsfile
+         * is loaded so cleanup
+         */
+        deleteDir()
+        dir(&quot;${JENKINS_SCRIPTSPACE_AT}@tmp&quot;) {
+            deleteDir()
+        }
+    }
+}
+
+/* Run the loaded Jenkinsfile by calling its special &quot;call&quot; function */
+if (auth_ok) jenkinsfile()
+
+/* Set various environment variables related to the pull request.
+ * These are derived from the GitHub webhook payload without 
+ * the need for the PR source code.
+ */
+def set_environ_vars(event) {
+    env.CPU_ARCH = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
+                      uname -m&quot;&quot;&quot;).trim().replace(&apos;x86_&apos;, &apos;amd&apos;)
+    env.GITHUB_REPO_NAME = &apos;onnx-mlir&apos;
+    env.GITHUB_CONTEXT = &quot;Jenkins Linux ${CPU_ARCH}&quot;
+    env.GITHUB_EVENT = event
+    
+    switch(event) {
+        case &apos;pull_request&apos;:
+            env.GITHUB_PR_SENDER      = &quot;${github_webhook_payload_sender_login}&quot;
+            env.GITHUB_PR_NUMBER      = &quot;${github_webhook_payload_number}&quot;
+            env.GITHUB_PR_NUMBER2     = &quot;${github_webhook_payload_number}&quot;
+            env.GITHUB_PR_REPO_URL    = &quot;${github_webhook_payload_repository_clone_url}&quot;
+            env.GITHUB_PR_REMOTE      = &apos;origin&apos;
+            env.GITHUB_PR_REFSPEC     = &apos;+refs/pull/*:refs/remotes/origin/pr/*&apos;
+            env.GITHUB_PR_BRANCH      = &quot;origin/pr/${GITHUB_PR_NUMBER}/head&quot;
+            env.GITHUB_PR_ACTION      = &quot;${github_webhook_payload_action}&quot;
+            env.GITHUB_PR_PHRASE      = &apos;none&apos;
+            env.GITHUB_PR_TITLE       = &quot;${github_webhook_payload_pull_request_title}&quot;
+            env.GITHUB_PR_REQUEST_URL = &quot;${github_webhook_payload_pull_request_url}&quot;
+            env.GITHUB_PR_COMMENT_URL = &quot;${github_webhook_payload_pull_request_comments_url}&quot;
+            env.GITHUB_PR_MERGED      = &quot;${github_webhook_payload_pull_request_merged}&quot;
+            break
+        case &apos;issue_comment&apos;:
+            env.GITHUB_PR_SENDER      = &quot;${github_webhook_payload_sender_login}&quot;
+            env.GITHUB_PR_NUMBER      = &quot;${github_webhook_payload_issue_number}&quot;
+            env.GITHUB_PR_NUMBER2     = &quot;${github_webhook_payload_issue_number}&quot;
+            env.GITHUB_PR_REPO_URL    = &quot;${github_webhook_payload_repository_clone_url}&quot;
+            env.GITHUB_PR_REMOTE      = &apos;origin&apos;
+            env.GITHUB_PR_REFSPEC     = &apos;+refs/pull/*:refs/remotes/origin/pr/*&apos;
+            env.GITHUB_PR_BRANCH      = &quot;origin/pr/${GITHUB_PR_NUMBER}/head&quot;
+            env.GITHUB_PR_ACTION      = &quot;${github_webhook_payload_action}&quot;
+            env.GITHUB_PR_PHRASE      = (&quot;${github_webhook_payload_comment_body}&quot; =~ /.*(test|publish) this please.*/)[0][1]
+            env.GITHUB_PR_TITLE       = &quot;${github_webhook_payload_issue_title}&quot;
+            env.GITHUB_PR_REQUEST_URL = &quot;${github_webhook_payload_issue_pull_request_url}&quot;
+            env.GITHUB_PR_COMMENT_URL = &quot;${github_webhook_payload_issue_comments_url}&quot;
+            env.GITHUB_PR_MERGED      = &apos;none&apos;
+            break
+        case &apos;push&apos;:
+            env.GITHUB_PR_SENDER      = &quot;${github_webhook_payload_sender_login}&quot;
+            env.GITHUB_PR_NUMBER      = &quot;${GITHUB_PR_NUMBER_PUSH}&quot;
+            def match = &quot;${github_webhook_payload_head_commit_message}&quot; =~ /.*#(\d+)( from.*|\)\n+|\)$)/
+            env.GITHUB_PR_NUMBER2     = match ? match[0][1] : &apos;none&apos;
+            env.GITHUB_PR_REPO_URL    = &quot;${github_webhook_payload_repository_clone_url}&quot;
+            env.GITHUB_PR_REMOTE      = &apos;&apos;
+            env.GITHUB_PR_REFSPEC     = &apos;&apos;
+            env.GITHUB_PR_BRANCH      = &quot;${github_webhook_payload_ref}&quot;
+            env.GITHUB_PR_ACTION      = &apos;push&apos;
+            env.GITHUB_PR_PHRASE      = &apos;push&apos;
+            env.GITHUB_PR_TITLE       = &quot;${github_webhook_payload_head_commit_message}&quot;
+            env.GITHUB_PR_REQUEST_URL = &apos;none&apos;
+            env.GITHUB_PR_COMMENT_URL = &quot;${github_webhook_payload_repository_issue_comment_url}&quot;.replace(&apos;comments{/number}&apos;, &quot;${GITHUB_PR_NUMBER2}/comments&quot;)
+            env.GITHUB_PR_MERGED      = &apos;none&apos;
+            break
+    }
+
+    println &quot;CPU_ARCH                 = ${CPU_ARCH}&quot;
+    println &quot;GITHUB_REPO_NAME         = ${GITHUB_REPO_NAME}&quot;
+    println &quot;GITHUB_CONTEXT           = ${GITHUB_CONTEXT}&quot;
+    println &quot;GITHUB_EVENT             = ${GITHUB_EVENT}&quot;
+    println &quot;GITHUB_PR_SENDER         = ${GITHUB_PR_SENDER}&quot;
+    println &quot;GITHUB_PR_NUMBER         = ${GITHUB_PR_NUMBER}&quot;
+    println &quot;GITHUB_PR_NUMBER2        = ${GITHUB_PR_NUMBER2}&quot;
+    println &quot;GITHUB_PR_REPO_URL       = ${GITHUB_PR_REPO_URL}&quot;
+    println &quot;GITHUB_PR_REMOTE         = ${GITHUB_PR_REMOTE}&quot;
+    println &quot;GITHUB_PR_REFSPEC        = ${GITHUB_PR_REFSPEC}&quot;
+    println &quot;GITHUB_PR_BRANCH         = ${GITHUB_PR_BRANCH}&quot;
+    println &quot;GITHUB_PR_ACTION         = ${GITHUB_PR_ACTION}&quot;
+    println &quot;GITHUB_PR_PHRASE         = ${GITHUB_PR_PHRASE}&quot;
+    println &quot;GITHUB_PR_TITLE          = ${GITHUB_PR_TITLE}&quot;
+    println &quot;GITHUB_PR_REQUEST_URL    = ${GITHUB_PR_REQUEST_URL}&quot;
+    println &quot;GITHUB_PR_COMMENT_URL    = ${GITHUB_PR_COMMENT_URL}&quot;
+    println &quot;GITHUB_PR_MERGED         = ${GITHUB_PR_MERGED}&quot;
+    
+    /* Backward compatibility, remove when generalized scripts merged */
+    env.X_GITHUB_EVENT           = GITHUB_EVENT
+    env.ONNX_MLIR_PR_SENDER      = GITHUB_PR_SENDER
+    env.ONNX_MLIR_PR_NUMBER      = GITHUB_PR_NUMBER
+    env.ONNX_MLIR_PR_NUMBER2     = GITHUB_PR_NUMBER2
+    env.ONNX_MLIR_PR_REPO_URL    = GITHUB_PR_REPO_URL
+    env.ONNX_MLIR_PR_REMOTE      = GITHUB_PR_REMOTE
+    env.ONNX_MLIR_PR_REFSPEC     = GITHUB_PR_REFSPEC
+    env.ONNX_MLIR_PR_BRANCH      = GITHUB_PR_BRANCH
+    env.ONNX_MLIR_PR_ACTION      = GITHUB_PR_ACTION
+    env.ONNX_MLIR_PR_PHRASE      = GITHUB_PR_PHRASE
+    env.ONNX_MLIR_PR_TITLE       = GITHUB_PR_TITLE
+    env.ONNX_MLIR_PR_REQUEST_URL = GITHUB_PR_REQUEST_URL
+    env.ONNX_MLIR_PR_COMMENT_URL = GITHUB_PR_COMMENT_URL
+    env.ONNX_MLIR_PR_MERGED      = GITHUB_PR_MERGED
+}
+
+/* Set various environment variables related to the pull request.
+ * These need the PR source code repo to be present.
+ */
+def set_environ_vars2(event) {
+   /* Note that the push event from merging a PR is just a push on master
+    * branch and is not tied to the specific PR. Only the commit message
+    * indicates which PR is merged. So the commit message is used as the
+    * title. The push event also does not have its own statuses url since
+    * the PR is merged and closed. So the PR&apos;s statuses url will be used.
+    *
+    * Also note the $ sign in sh(...). It&apos;s first interpreted by Jenkins.
+    * So if we want bash specific interpretation such as $(git ...),
+    * we need to escape the $ sign.
+    */
+    env.GITHUB_PR_COMMIT_MESSAGE = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
+        git -C ${JENKINS_SCRIPTSPACE_AT} log --oneline --format=%B -n 1 HEAD&quot;&quot;&quot;).trim()
+
+    switch(event) {
+        case &apos;pull_request&apos;:
+            env.GITHUB_PR_COMMIT_SHA1 = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
+                git -C ${JENKINS_SCRIPTSPACE_AT} rev-parse HEAD&quot;&quot;&quot;).trim()
+            break
+        case &apos;issue_comment&apos;:
+            env.GITHUB_PR_COMMIT_SHA1 = sh(returnStdout: true, script: &quot;&quot;&quot;#!/bin/bash +x
+                git -C ${JENKINS_SCRIPTSPACE_AT} rev-parse HEAD&quot;&quot;&quot;).trim()
+            break
+        case &apos;push&apos;:
+            env.GITHUB_PR_COMMIT_SHA1 = &quot;${github_webhook_payload_commits_0_id}&quot;
+            break
+    }
+    
+    env.GITHUB_PR_STATUS_URL = &quot;${github_webhook_payload_repository_statuses_url}&quot;.replace(&apos;{sha}&apos;, &quot;${GITHUB_PR_COMMIT_SHA1}&quot;)
+
+    println &quot;GITHUB_PR_COMMIT_MESSAGE = ${GITHUB_PR_COMMIT_MESSAGE}&quot;
+    println &quot;GITHUB_PR_COMMIT_SHA1    = ${GITHUB_PR_COMMIT_SHA1}&quot;
+    println &quot;GITHUB_PR_STATUS_URL     = ${GITHUB_PR_STATUS_URL}&quot;
+    
+    /* Backward compatibility, remove when generalized scripts merged */
+    env.ONNX_MLIR_PR_COMMIT_MESSAGE = GITHUB_PR_COMMIT_MESSAGE
+    env.ONNX_MLIR_PR_COMMIT_SHA1    = GITHUB_PR_COMMIT_SHA1
+    env.ONNX_MLIR_PR_STATUS_URL     = GITHUB_PR_STATUS_URL
+}
+
+/* Set build name appearing on the build history */
+def set_build_name(event) {
+    def title  = &quot;${GITHUB_PR_TITLE}&quot;
+    def pr     = (event == &apos;pull_request&apos;) ? &apos;PR &apos; : &apos;pr &apos;
+    def phrase = (event == &apos;issue_comment&apos;) ?
+                 &quot;${GITHUB_PR_PHRASE}&quot; : &quot;${GITHUB_PR_ACTION}&quot;
+    currentBuild.displayName = &quot;#${BUILD_NUMBER} &quot; + pr +
+                               &quot;#${GITHUB_PR_NUMBER2} &quot; +
+                               &quot;[${GITHUB_PR_SENDER}] &quot; +
+                               &quot;[${phrase}] &quot; +
+                               title.substring(0,Math.min(title.length(),32)) +
+                               (title.length() &gt; 32 ? &apos;...&apos; : &apos;&apos;)
+}
+
+/* Post a comment on the pull request issue page when an event
+ * is not triggered by one of the admins. Note that only an admin
+ * can initiate a merge so this function will never be called
+ * for the push event.
+ */
+def post_pr_comment(url, token, msg) {
+    def data = &quot;&quot;&quot;
+        { &quot;body&quot;: &quot;${msg}&quot; }
+    &quot;&quot;&quot;
+
+    sh &apos;&apos;&apos;#!/bin/bash +x
+        curl -s &apos;&apos;&apos; + url + &apos;&apos;&apos; \
+             -X POST \
+             -H &quot;Accept: application/json&quot; \
+             -H &quot;Authorization: token &apos;&apos;&apos; + token + &apos;&apos;&apos;&quot; \
+             -d \&apos; &apos;&apos;&apos; + data + &apos;&apos;&apos; \&apos; | \
+        jq &apos;{url: .url, created_at: .created_at, updated_at: .updated_at, body: .body}&apos;
+    &apos;&apos;&apos;
+}
+
+/* Checkout pull request source without submodules for the purpose
+ * of loading the Jenkinsfile.
+ */
+def checkout_pr_source(url, remote, refspec, branch, recursive) {
+    checkout([
+        $class: &apos;GitSCM&apos;,
+        userRemoteConfigs: [[ url: url, name: remote, refspec: refspec ]],
+        branches: [[ name: branch ]],
+        extensions: [
+            [ $class: &apos;CloneOption&apos;, noTags: false, shallow: true ],
+            [ $class: &apos;SubmoduleOption&apos;, recursiveSubmodules: recursive ],
+            [ $class: &apos;CleanBeforeCheckout&apos;, deleteUntrackedNestedRepositories: true ]
+        ]
+    ])
+}
+</script>
+    <sandbox>false</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

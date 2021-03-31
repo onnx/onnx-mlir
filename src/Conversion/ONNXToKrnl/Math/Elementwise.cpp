@@ -762,14 +762,14 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> lhsAccessExprs;
     LogicalResult res = shapeHelper.GetAccessExprs(
         operands[0], 0, outputAccessExprs, lhsAccessExprs);
-    assert(res.succeeded());
+    assert(succeeded(res));
     Value lhs = krnl_load(operands[0], lhsAccessExprs);
 
     // Load the second value.
     SmallVector<IndexExpr, 4> rhsAccessExprs;
     res = shapeHelper.GetAccessExprs(
         operands[1], 1, outputAccessExprs, rhsAccessExprs);
-    assert(res.succeeded());
+    assert(succeeded(res));
     Value rhs = krnl_load(operands[1], rhsAccessExprs);
 
     // Apply the element-wise function.
@@ -834,7 +834,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     SmallVector<IndexExpr, 4> oprdAccessExprs;
     LogicalResult res = shapeHelper.GetAccessExprs(
         operands[0], 0, outputAccessExprs, oprdAccessExprs);
-    assert(res.succeeded());
+    assert(succeeded(res));
     Value accumulated = krnl_load(operands[0], oprdAccessExprs);
 
     // Iterate over the remaining operands.
@@ -843,7 +843,7 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> oprdAccessExprs;
       LogicalResult res = shapeHelper.GetAccessExprs(
           operands[i], i, outputAccessExprs, oprdAccessExprs);
-      assert(res.succeeded());
+      assert(succeeded(res));
       Value next = krnl_load(operands[i], oprdAccessExprs);
       // Fold.
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(

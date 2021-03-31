@@ -143,8 +143,8 @@ def call() {
             env.JENKINS_BUILD_RESULT = 'UNKNOWN'
           }
 
-          call_build_script("${JENKINS_STOP_PREVIOUS_BUILD}")
-          call_build_script("${JENKINS_CLEANUP_BUILD_STATES}")
+          sh "${JENKINS_STOP_PREVIOUS_BUILD}"
+          sh "${JENKINS_CLEANUP_BUILD_STATES}"
 
           post_build_status("${GITHUB_EVENT}", 'pending')
         }
@@ -154,7 +154,7 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          call_build_script("${JENKINS_BUILD_LLVM_PROJECT}")
+          sh "${JENKINS_BUILD_LLVM_PROJECT}"
         }
       }
 
@@ -162,7 +162,7 @@ def call() {
         when { not { environment name: 'GITHUB_PR_ACTION',
                      value: 'closed' } }
         steps {
-          call_build_script("${JENKINS_BUILD_PROJECT}")
+          sh "${JENKINS_BUILD_PROJECT}"
         }
       }
 
@@ -173,7 +173,7 @@ def call() {
                        value: 'publish' }
         }
         steps {
-          call_build_script("${JENKINS_PUBLISH_DOCKER_IMAGES}")
+          sh "${JENKINS_PUBLISH_DOCKER_IMAGES}"
         }
       }
     } // stages
@@ -193,7 +193,7 @@ def call() {
           env.JENKINS_BUILD_RESULT = "${currentBuild.currentResult}"
 
           try {
-              call_build_script("${JENKINS_CLEANUP_BUILD_STATES}")
+              sh "${JENKINS_CLEANUP_BUILD_STATES}"
 
               deleteDir()
               dir("${JENKINS_WORKSPACE_AT}@tmp") {
@@ -207,11 +207,6 @@ def call() {
     } // post
   } // pipeline
 } // call
-
-/* Call external script */
-def call_build_script(script) {
-    sh "${script}"
-}
 
 /* Set build status appearing on the GitHub pull request page */
 def post_build_status(event, state) {

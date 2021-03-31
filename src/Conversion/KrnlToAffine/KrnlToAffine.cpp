@@ -46,7 +46,7 @@ namespace {
 // block and their parent loop operations; we do so by moving IR blocks while
 // Krnl Dialect lowering proceeds.
 //
-// Consider the following example, where we specify the recepie for a
+// Consider the following example, where we specify the recipe for a
 // 2-dimensional tiled loop, and insert memory allocation/deallocation aimed to
 // set up and clean up per-tile temporary buffer:
 //
@@ -97,7 +97,7 @@ namespace {
 //   }
 // }
 //
-// Since the tiling has not taken place yet, tile coordinat iteration loops have
+// Since the tiling has not taken place yet, tile coordinate iteration loops have
 // not been materialized, therefore the alloc and dealloc operations do not fit
 // in the IR presently yet. Instead, they will be placed within a krnl.movable
 // op region, to indicate that their positioning is subject to change.
@@ -135,7 +135,7 @@ public:
    * - a particular set of loop nests expected in the destination loop body.
    *     This is helpful because we're only adjusting the relative positioning
    *     of IR blocks with respect to the concrete loops as we lowering the Krnl
-   *     Dialect by applying the optimization recepies. Therefore, clearly
+   *     Dialect by applying the optimization recipes. Therefore, clearly
    *     moving IR blocks alone is sufficient to achieve our goal, and recording
    *     the position of expected loop nests in the destination loop body simply
    *     helps determine the correct relative position of IR blocks with respect
@@ -171,7 +171,7 @@ public:
    * materialized, and therefore we can transfer operations to its loop body as
    * specified by moving plan.
    * @param loopRef Krnl loop ref corresponding to the concrete loop being
-   * materailized.
+   * materialized.
    * @param loopRefToOp A dictionary keeping track of the correspondence between
    * Krnl loop references and concrete loops.
    * @param erase whether to erase entries in the moving plan corresponding to
@@ -875,7 +875,7 @@ private:
       // Unroll and jam. Seems to support only one operation at this time.
       auto lj = getForInductionVarOwner(jSaved);
       LogicalResult res = loopUnrollJamByFactor(lj, M.getLiteral());
-      assert(res.succeeded() && "failed to optimize");
+      assert(succeeded(res) && "failed to optimize");
     }
   }
 
@@ -959,7 +959,7 @@ private:
       // Unroll and jam. Seems to support only one operation at this time.
       auto li = getForInductionVarOwner(iSaved);
       LogicalResult res = loopUnrollJamByFactor(li, nTrip.getLiteral());
-      assert(res.succeeded() && "failed to optimize");
+      assert(succeeded(res) && "failed to optimize");
     }
   }
 

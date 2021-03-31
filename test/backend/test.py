@@ -752,6 +752,7 @@ test_to_enable_static_dynamic = {
     "test_shufflenet_cpu": (test_static,),
     "test_resnet50_cpu": (test_static,),
     "test_vgg19_cpu": (test_static,),
+    "test_densenet121_cpu": (test_static,),
     "test_inception_v1_cpu": (test_static,),
 }
 
@@ -770,7 +771,7 @@ if args.dynamic :
 
 # User case specify one test case with BCKEND_TEST env
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
-    test_to_enable = [TEST_CASE_BY_USER]
+    test_to_enable = TEST_CASE_BY_USER.split()
 
 # determine the dynamic input and dim
 def determine_dynamic_parameters(test_name):
