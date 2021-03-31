@@ -868,7 +868,7 @@ private:
       // Unroll and jam. Seems to support only one operation at this time.
       auto lj = getForInductionVarOwner(jSaved);
       LogicalResult res = loopUnrollJamByFactor(lj, M.getLiteral());
-      assert(res.succeeded() && "failed to optimize");
+      assert(succeeded(res) && "failed to optimize");
     }
   }
 
@@ -955,7 +955,7 @@ private:
       // Unroll and jam. Seems to support only one operation at this time.
       auto li = getForInductionVarOwner(iSaved);
       LogicalResult res = loopUnrollJamByFactor(li, nTrip.getLiteral());
-      assert(res.succeeded() && "failed to optimize");
+      assert(succeeded(res) && "failed to optimize");
     }
   }
 
