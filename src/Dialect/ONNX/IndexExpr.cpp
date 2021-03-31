@@ -1349,26 +1349,3 @@ void MemRefBoundIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   for (int i = 0; i < memRank; ++i)
     list.emplace_back(get<INDEX>(i));
 }
-
-//===----------------------------------------------------------------------===//
-// Generating Krnl Load / Store
-//===----------------------------------------------------------------------===//
-
-krnl_load::krnl_load(Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  IndexExprScope &currScope = IndexExprScope::getCurrentScope();
-  SmallVector<Value, 4> loadIndices;
-  for (IndexExpr ie : indices)
-    loadIndices.emplace_back(ie.getValue());
-  result = currScope.getRewriter().create<KrnlLoadOp>(
-      currScope.getLoc(), memref, loadIndices);
-}
-
-krnl_store::krnl_store(
-    Value val, Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  IndexExprScope &currScope = IndexExprScope::getCurrentScope();
-  SmallVector<Value, 4> storeIndices;
-  for (IndexExpr ie : indices)
-    storeIndices.emplace_back(ie.getValue());
-  currScope.getRewriter().create<KrnlStoreOp>(
-      currScope.getLoc(), val, memref, storeIndices);
-}

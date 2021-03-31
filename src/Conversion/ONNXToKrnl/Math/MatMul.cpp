@@ -33,6 +33,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zero,
       ConversionPatternRewriter &rewriter, Location loc) const {
 
+    // Scope for krnl EDSC ops
+    using namespace mlir::edsc;
+    ScopedContext scope(rewriter, loc);
+
     // Non-reduction loop iterations: output-rank.
     int outerloopNum = shapeHelper.dimsForOutput(0).size();
     BuildKrnlLoop outputLoops(rewriter, loc, outerloopNum);
@@ -122,7 +126,6 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Define scopes
     ScopedContext scope(rewriter, loc);
-    IndexExprScope indexScope(rewriter, loc);
 
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
@@ -192,15 +195,15 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Get the constants: zero.
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    if (shapeHelper.aDims.size() == 2 && shapeHelper.bDims.size() == 2 &&
-        IndexExpr::isLiteral(shapeHelper.aDims) &&
-        IndexExpr::isLiteral(shapeHelper.bDims)) {
-      replace2x2Matmul2D(matMulOp, operandAdaptor, elementType, shapeHelper,
-          alloc, zero, rewriter, loc);
-    } else {
-      replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
-          alloc, zero, rewriter, loc);
-    }
+    // if (shapeHelper.aDims.size() == 2 && shapeHelper.bDims.size() == 2 &&
+    //    IndexExpr::isLiteral(shapeHelper.aDims) &&
+    //    IndexExpr::isLiteral(shapeHelper.bDims)) {
+    //  replace2x2Matmul2D(matMulOp, operandAdaptor, elementType, shapeHelper,
+    //      alloc, zero, rewriter, loc);
+    //} else {
+    replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
+        alloc, zero, rewriter, loc);
+    //}
     // Done.
     rewriter.replaceOp(op, alloc);
     return success();

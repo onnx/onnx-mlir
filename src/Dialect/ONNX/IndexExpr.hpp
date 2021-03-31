@@ -712,18 +712,4 @@ void getIndexExprList(SmallVectorImpl<IndexExpr> &inputList,
     outputList.emplace_back(INDEXEXPR(item));
 }
 
-//===----------------------------------------------------------------------===//
-// Generating Krnl Load / Store
-//===----------------------------------------------------------------------===//
-
-struct krnl_load {
-  krnl_load(Value memref, SmallVectorImpl<IndexExpr> &indices);
-  Value result;
-  operator Value() { return result; }
-};
-
-struct krnl_store {
-  krnl_store(Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
-};
-
 } // namespace mlir
