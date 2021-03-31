@@ -25,10 +25,9 @@ set(OMLibs
         OMONNXRewrite
         OMShapeInference
         OMShapeInferenceOpInterface
-        OMAttributePromotion
-        OMPromotableConstOperandsOpInterface
         OMResultTypeInferenceOpInterface
         OMHasOnnxSubgraphOpInterface
+        OMSpecializedKernelOpInterface
         OMElideConstants
         OMElideKrnlGlobalConstants
         OMPackKrnlGlobalConstants

@@ -735,7 +735,7 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.Compute(operands);
     (void)shapecomputed;
     assert(succeeded(shapecomputed));
-    IndexExprContext outerContext(shapeHelper.context);
+    IndexExprScope outerScope(shapeHelper.scope);
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -753,28 +753,29 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(iterationBlock);
       // Handle the operation:
       for (auto arg : iterationBlock->getArguments())
-        outputAccessExprs.emplace_back(
-            outerContext.createLoopInductionIndex(arg));
+        outputAccessExprs.emplace_back(DimIndexExpr(arg));
     }
 
     // Load the first value.
     SmallVector<IndexExpr, 4> lhsAccessExprs;
-    shapeHelper.GetAccessExprs(
-        outerContext, operands[0], 0, outputAccessExprs, lhsAccessExprs);
-    Value lhs = outerContext.createKrnlLoadOp(operands[0], lhsAccessExprs);
+    LogicalResult res = shapeHelper.GetAccessExprs(
+        operands[0], 0, outputAccessExprs, lhsAccessExprs);
+    assert(succeeded(res));
+    Value lhs = krnl_load(operands[0], lhsAccessExprs);
 
-    // Load the sencond value.
+    // Load the second value.
     SmallVector<IndexExpr, 4> rhsAccessExprs;
-    shapeHelper.GetAccessExprs(
-        outerContext, operands[1], 1, outputAccessExprs, rhsAccessExprs);
-    Value rhs = outerContext.createKrnlLoadOp(operands[1], rhsAccessExprs);
+    res = shapeHelper.GetAccessExprs(
+        operands[1], 1, outputAccessExprs, rhsAccessExprs);
+    assert(succeeded(res));
+    Value rhs = krnl_load(operands[1], rhsAccessExprs);
 
     // Apply the element-wise function.
     Value result = emitScalarOpFor<ElementwiseBinaryOp>(
         rewriter, loc, op, outputElementType, {lhs, rhs});
 
     // Store result in the resulting array.
-    outerContext.createKrnlStoreOp(result, alloc, outputAccessExprs);
+    krnl_store(result, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 
@@ -801,10 +802,9 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
 
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
-    auto shapecomputed = shapeHelper.Compute(operands);
-    (void)shapecomputed;
+    LogicalResult shapecomputed = shapeHelper.Compute(operands);
     assert(succeeded(shapecomputed));
-    IndexExprContext outerContext(shapeHelper.context);
+    IndexExprScope outerScope;
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc = insertAllocAndDeallocSimple(
@@ -822,32 +822,32 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
       rewriter.setInsertionPointToStart(iterationBlock);
       // Handle the operation:
       for (auto arg : iterationBlock->getArguments())
-        outputAccessExprs.emplace_back(
-            outerContext.createLoopInductionIndex(arg));
+        outputAccessExprs.emplace_back(DimIndexExpr(arg));
     }
 
     // Fold over operands for each of their scalar values.
     // Obtain the first operand.
     SmallVector<IndexExpr, 4> oprdAccessExprs;
-    shapeHelper.GetAccessExprs(
-        outerContext, operands[0], 0, outputAccessExprs, oprdAccessExprs);
-    Value accumulated =
-        outerContext.createKrnlLoadOp(operands[0], oprdAccessExprs);
+    LogicalResult res = shapeHelper.GetAccessExprs(
+        operands[0], 0, outputAccessExprs, oprdAccessExprs);
+    assert(succeeded(res));
+    Value accumulated = krnl_load(operands[0], oprdAccessExprs);
 
     // Iterate over the remaining operands.
     for (unsigned i = 1; i < numArgs; i++) {
       // Obtain the next operand.
       SmallVector<IndexExpr, 4> oprdAccessExprs;
-      shapeHelper.GetAccessExprs(
-          outerContext, operands[i], i, outputAccessExprs, oprdAccessExprs);
-      Value next = outerContext.createKrnlLoadOp(operands[i], oprdAccessExprs);
+      LogicalResult res = shapeHelper.GetAccessExprs(
+          operands[i], i, outputAccessExprs, oprdAccessExprs);
+      assert(succeeded(res));
+      Value next = krnl_load(operands[i], oprdAccessExprs);
       // Fold.
       accumulated = emitScalarOpFor<ElementwiseVariadicOp>(
           rewriter, loc, op, outputElementType, {accumulated, next});
     }
 
     // Store result in the resulting array.
-    outerContext.createKrnlStoreOp(accumulated, alloc, outputAccessExprs);
+    krnl_store(accumulated, alloc, outputAccessExprs);
 
     rewriter.replaceOp(op, alloc);
 

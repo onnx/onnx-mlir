@@ -1,29 +1,35 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Path to LLVM source folder.
-if(DEFINED ENV{LLVM_PROJ_SRC})
+if(DEFINED LLVM_PROJ_SRC)
+  # Just use it...
+elseif(DEFINED ENV{LLVM_PROJ_SRC})
   set(LLVM_PROJ_SRC $ENV{LLVM_PROJ_SRC})
-  if(EXISTS ${LLVM_PROJ_SRC})
-    message(STATUS "LLVM_PROJ_SRC           : " ${LLVM_PROJ_SRC})
-  else()
-    message(FATAL_ERROR "The path specified by LLVM_PROJ_SRC does not exist: "
-            ${LLVM_PROJ_SRC})
-  endif()
 else()
-  message(FATAL_ERROR "env variable LLVM_PROJ_SRC not set")
+  message(FATAL_ERROR "LLVM_PROJ_SRC is not configured.  Please set the env variable "
+  "LLVM_PROJ_SRC or the corresponding cmake configuration option to reference an LLVM source tree.")
+endif()
+if(EXISTS ${LLVM_PROJ_SRC})
+  message(STATUS "LLVM_PROJ_SRC           : " ${LLVM_PROJ_SRC})
+else()
+  message(FATAL_ERROR "The path specified by LLVM_PROJ_SRC does not exist: "
+        ${LLVM_PROJ_SRC})
 endif()
 
 # Path to LLVM build folder
-if(DEFINED ENV{LLVM_PROJ_BUILD})
+if(DEFINED LLVM_PROJ_BUILD)
+  # Just use it...
+elseif(DEFINED ENV{LLVM_PROJ_BUILD})
   set(LLVM_PROJ_BUILD $ENV{LLVM_PROJ_BUILD})
-  if(EXISTS ${LLVM_PROJ_BUILD})
-    message(STATUS "LLVM_PROJ_BUILD         : " ${LLVM_PROJ_BUILD})
-  else()
-    message(FATAL_ERROR "The path specified by LLVM_PROJ_BUILD does not exist: "
-            ${LLVM_PROJ_BUILD})
-  endif()
 else()
-  message(FATAL_ERROR "env variable LLVM_PROJ_BUILD not set")
+  message(FATAL_ERROR "LLVM_PROJ_BUILD is not configured.  Please set the env variable "
+  "LLVM_PROJ_BUILD or the corresponding cmake configuration option to reference an LLVM build.")
+endif()
+if(EXISTS ${LLVM_PROJ_BUILD})
+  message(STATUS "LLVM_PROJ_BUILD         : " ${LLVM_PROJ_BUILD})
+else()
+  message(FATAL_ERROR "The path specified by LLVM_PROJ_BUILD does not exist: "
+        ${LLVM_PROJ_BUILD})
 endif()
 
 # LLVM project lib folder
@@ -104,24 +110,13 @@ endif()
 
 # Threading libraries required due to parallel pass execution.
 find_package(Threads REQUIRED)
-# libcurses and libz required by libLLVMSupport
-if(MSVC)
-  if(DEFINED ENV{CURSES_LIB_PATH})
-    find_library(CURSES_LIBRARIES
-            NAMES pdcurses
-            PATHS $ENV{CURSES_LIB_PATH}
-            NO_DEFAULT_PATH)
-    if(CURSES_LIBRARIES)
-      message(STATUS "CURSES_LIBRARIES: ${CURSES_LIBRARIES}")
-    else()
-      message(FATAL_ERROR "Could not find curses library at $ENV{CURSES_LIB_PATH}")
-    endif()
-  else()
-      message(FATAL_ERROR "Expected CURSES_LIB_PATH environment variable to be set to location of pdcurses.lib")
-  endif()
-else()
+set(MLIR_SYSTEM_LIBS ${CMAKE_THREAD_LIBS_INIT})
+
+# libcurses and libz required by libLLVMSupport on non-windows platforms
+if(NOT MSVC)
   find_package(Curses REQUIRED)
   find_package(ZLIB REQUIRED)
+  set(MLIR_SYSTEM_LIBS ${MLIR_SYSTEM_LIBS} ${ZLIB_LIBRARIES} ${CURSES_LIBRARIES})
 endif()
 
 # Set output library path
@@ -270,7 +265,7 @@ set(MLIRLibs
         ${MLIREDSC}
         ${MLIRExecutionEngine}
         ${MLIRIR}
-        ${MLIRLLVMIRTransforms}        
+        ${MLIRLLVMIRTransforms}
         ${MLIRSCFToStandard}
         ${MLIRSCF}
         ${MLIRSCFTransforms}
@@ -330,9 +325,7 @@ set(MLIRLibs
         ${LLVMMLIRTableGen}
         ${LLVMSupport}
         ${LLVMDemangle}
-        ${CMAKE_THREAD_LIBS_INIT}
-        ${CURSES_LIBRARIES}
-        ${ZLIB_LIBRARIES})
+        ${MLIR_SYSTEM_LIBS})
 
 if (USE_INSTALLED_LLVM)
   set(LLVM_CMAKE_DIR

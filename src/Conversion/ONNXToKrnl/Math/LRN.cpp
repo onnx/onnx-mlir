@@ -43,11 +43,11 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     float biasLit = lrnOp.bias().convertToFloat();
     float alphaLit = lrnOp.alpha().convertToFloat();
     float betaLit = lrnOp.beta().convertToFloat();
-    float sizeLit = (float)lrnOp.size();
+    int sizeLit = lrnOp.size();
     auto f32Type = FloatType::getF32(rewriter.getContext());
     Value biasValue = emitConstantOp(rewriter, loc, f32Type, biasLit);
     Value alphaDivSizeValue =
-        emitConstantOp(rewriter, loc, f32Type, alphaLit / sizeLit);
+        emitConstantOp(rewriter, loc, f32Type, alphaLit / (float)sizeLit);
     Value betaValue = emitConstantOp(rewriter, loc, f32Type, betaLit);
 
     Value alloc = insertAllocAndDeallocSimple(
@@ -65,24 +65,23 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     // and i<= min(C - 1, c + ceil((size - 1) / 2)).
 
     // Get a child IndexExpr context.
-    IndexExprContext childContext(shapeHelper.context);
+    IndexExprScope childScope(shapeHelper.scope);
 
     // Compute the lower bound and upper bound for square_sum.
     const int loopIndexForC = 1;
     Value cValue = outputLoops.getInductionVar(loopIndexForC);
-    IndexExpr cIE = childContext.createLoopInductionIndex(cValue);
-    IndexExpr sizeIE =
-        childContext.createDimIndexFromShapedType(input, loopIndexForC);
+    DimIndexExpr cIE(cValue);
+    MemRefBoundIndexCapture inputBounds(input);
+    DimIndexExpr CIE(inputBounds.getDim(loopIndexForC));
+    SymbolIndexExpr sizeIE = LiteralIndexExpr(sizeLit);
 
     SmallVector<IndexExpr, 2> lbMaxList;
-    lbMaxList.emplace_back(childContext.createLiteralIndex(0));
-    lbMaxList.emplace_back(
-        cIE - (sizeIE - 1).floorDiv(childContext.createLiteralIndex(2)));
+    lbMaxList.emplace_back(LiteralIndexExpr(0));
+    lbMaxList.emplace_back(cIE - (sizeIE - 1).floorDiv(LiteralIndexExpr(2)));
 
     SmallVector<IndexExpr, 2> ubMinList;
-    ubMinList.emplace_back(sizeIE);
-    ubMinList.emplace_back(
-        cIE + 1 + (sizeIE - 1).ceilDiv(childContext.createLiteralIndex(2)));
+    ubMinList.emplace_back(CIE);
+    ubMinList.emplace_back(cIE + 1 + (sizeIE - 1).ceilDiv(LiteralIndexExpr(2)));
 
     // Initialize sum
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);

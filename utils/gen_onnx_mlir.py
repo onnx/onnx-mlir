@@ -67,7 +67,7 @@ version_dict = {'Abs': 6,
  'Compress': 11,
  'Concat': 11,
  'ConcatFromSequence': 11,
- 'Constant': 11,
+ 'Constant': 13,
  'ConstantOfShape': 9,
  'Conv': 11,
  'ConvInteger': 10,
@@ -333,20 +333,9 @@ OpsWithShapeInference=[
 ]
 
 # Operations supporting canonicalization.
-OpsWithCanonicalizer = ['Add', 'Identity', 'Gemm', 'Cast', 'Transpose',
+OpsWithCanonicalizer = ['Add', 'Constant', 'Identity', 'Gemm', 'Cast', 'Transpose',
                         'Dropout', 'Shape', 'Size', 'GlobalAveragePool',
                         'GlobalMaxPool', 'Squeeze', 'Unsqueeze']
-
-# Operations who have operands that, if produced by constant operations, should
-# be promoted to become an attribute (via attribute promotion).
-#
-# For each operation, a key/value pair is used to specify how attribute promotion
-# should proceed. The key is the operation's name and the value is a list of
-# tuples, whose first item is the attribute/operand name, and the second item is
-# the index at which such operand occurs in the list of the operation's inputs.
-OpsWithPromotableConstOperands = {"Reshape": [("shape", 1)],
-                                  "Pad": [("pads", 1), ("constant_value", 2)],
-                                  "Tile": [("repeats", 1)]}
 
 OpsWithHelpers = {
   "Loop": """
@@ -404,10 +393,12 @@ custom_definition_misc = dict([ ('Constant',
   OpBuilderDAG<(ins "Attribute":$sparse_value, "Attribute":$value), [{
    if (value) {
     auto tensorType = value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    } else {
     auto tensorType = sparse_value.getType();
-    build($_builder, $_state, tensorType, sparse_value, value);
+    build($_builder, $_state, tensorType, sparse_value, value,
+      FloatAttr(), ArrayAttr(), IntegerAttr(), ArrayAttr(), StringAttr(), ArrayAttr());
    }
   }]>
   ];'''),
@@ -626,13 +617,6 @@ def get_operands_or_results(schema, type_str_dict,  is_input):
         else:
             types = ["AnyMemRef", "AnyTensor"]
         '''
-
-        # If operand is promotable to an attribute, then it must be
-        # nullable in case it migrates to be an attribute.
-        if schema.name in OpsWithPromotableConstOperands:
-            idxs = dict(OpsWithPromotableConstOperands[schema.name]).values()
-            if i in idxs and not OpSchema.FormalParameterOption.Optional == value.option:
-                types.append("NoneType")
 
         if OpSchema.FormalParameterOption.Optional == value.option:
             types.append("NoneType")
@@ -902,8 +886,6 @@ def gen_op_def(schema):
     # Dummy implementations are added to ONNXOps.cpp
     # Error will be report if these operations are encountered at runtime
     traits.append("DeclareOpInterfaceMethods<ShapeInferenceOpInterface>")
-    if schema.name in OpsWithPromotableConstOperands.keys():
-        traits.append("OpInterface<\"PromotableConstOperandsOpInterface\">")
     if schema.name in OpsWithResultTypeInference.keys():
         traits.append("OpInterface<\"ResultTypeInferenceOpInterface\">")
     if len(regions):
@@ -1040,11 +1022,6 @@ def gen_op_def(schema):
 
     # Generate input/output number.
     s = get_numberof_inout(s, indent, schema)
-
-    # Generate promotable const operand interface impl.
-    if schema.name in OpsWithPromotableConstOperands:
-        s = get_promotable_const_operands_func(
-            s, indent, OpsWithPromotableConstOperands[schema.name])
 
     if schema.name in OpsWithResultTypeInference:
         s = get_type_inference_func(

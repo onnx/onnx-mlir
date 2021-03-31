@@ -14,6 +14,9 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "src/Interface/ShapeInferenceInterface.td"
+include "src/Interface/ResultTypeInferenceOpInterface.td"
+include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
 def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
 
@@ -23,10 +26,8 @@ class SeqOf<list<Type> allowedTypes> :
   ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
                 "$_self.cast<SeqType>().getElementType()",  "SeqType">;
 
-include "src/Interface/ShapeInferenceInterface.td"
-include "src/Interface/PromotableConstOperandsOpInterface.td"
-include "src/Interface/ResultTypeInferenceOpInterface.td"
-include "src/Interface/HasOnnxSubgraphOpInterface.td"
+def ONNXConstantOpFromDenseAttr: NativeCodeCall<
+  "getONNXConstantOpFromDenseAttr($_builder, $_loc, $0)">;
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
@@ -178,87 +179,6 @@ def ONNXBatchNormalizationTestModeOp: ONNX_Op<"BatchNormalizationTestMode",
     }
     static std::vector<int> getTypeMap() {
       return {20};
-    }
-  }];
-}
-
-def ONNXPadConstantValueOp : ONNX_Op<"PadConstantValue",
-    [NoSideEffect ]> {
-  let summary = "ONNX Pad operation with constant padding value";
-  let hasCanonicalizer = 1;
-  let description = [{ "this operation is introduced to handle situation"
-    " in which the padding value is a constant.
-    " The value will become an attribute."
-    "This operation is also used to handle the optional value input is missing and the default value 0."
-    "is used."
-   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-           AnyTypeOf<[AnyMemRef, AnyTensor]>:$pads,
-           DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
-           DefaultValuedAttr<StrAttr, "constant">:$mode);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {0};
-    }
-  }];
-}
-
-def ONNXPadConstantPadOp : ONNX_Op<"PadConstantPad",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface> ]> {
-  let summary = "ONNX Pad operation with constant padding value";
-  let description = [{ "this operation is introduced to handle situation"
-    " in which the padding value and padding are constants"
-    "They will become attributes."
-   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-           AnyTypeOf<[AnyMemRef, AnyTensor]>:$constant_value,
-           I64ArrayAttr:$pads,
-           DefaultValuedAttr<StrAttr, "constant">:$mode);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {0};
-    }
-  }];
-}
-
-def ONNXPadConstantValuePadOp : ONNX_Op<"PadConstantValuePad",
-    [NoSideEffect, DeclareOpInterfaceMethods<ShapeInferenceOpInterface> ]> {
-  let summary = "ONNX Pad operation with constant padding value";
-  let description = [{ "this operation is introduced to handle situation"
-    " in which the padding value and padding are constants"
-    "They will become attributes."
-   }];
-  let arguments = (ins AnyTypeOf<[AnyMemRef, AnyTensor]>:$data,
-           I64ArrayAttr:$pads,
-           DefaultValuedAttr<F32Attr, "0.0">:$constant_value,
-           DefaultValuedAttr<StrAttr, "constant">:$mode);
-  let results = (outs AnyTypeOf<[AnyMemRef, AnyTensor]>:$output);
-  // A build method with the result type deduction.
-  let builders = [OpBuilderDAG<(ins "Value":$data, "ArrayAttr":$pads,
-                                    "FloatAttr":$constant_value, "StringAttr":$mode)>];
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 1;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {0};
     }
   }];
 }

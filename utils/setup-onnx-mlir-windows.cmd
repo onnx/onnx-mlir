@@ -15,17 +15,6 @@ cd ..
 cp -r %onnx-mlir_dir% onnx-mlir 
 set root_dir=%cd%
 
-REM Build PDcurses
-cd /d %root_dir%
-git clone https://github.com/wmcbrine/PDCurses.git
-set PDCURSES_SRCDIR=%root_dir%/PDCurses
-cd PDCurses
-call nmake -f wincon/Makefile.vc
-IF NOT %ERRORLEVEL% EQU 0 (
-    @echo "Build PDCurses failed."
-    EXIT 1
-)
-
 REM Build LLVM
 cd /d %root_dir%
 call onnx-mlir/utils/install-mlir.cmd

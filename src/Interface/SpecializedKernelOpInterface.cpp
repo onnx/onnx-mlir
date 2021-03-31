@@ -2,24 +2,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------ PromotableConstOperandsOpInterface.cpp --------------===//
-//===-------- Promotable Const Operands Op Interface Definition -----------===//
+//===------------------- HasOnnxSubgraphOpInterface.hpp ------------------===//
+//===------------- Has Onnx Subgraph Op Interface Definition -------------===//
 //
 // Copyright 2020 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains the definition of the promotable const operands op
-// interface.
+// This file contains the definition of the HasOnnxSubgraph Op Interface.
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Interface/PromotableConstOperandsOpInterface.hpp"
+#include "src/Interface/SpecializedKernelOpInterface.hpp"
 
 using namespace mlir;
 
 //===----------------------------------------------------------------------===//
-// Promotable Const Operands Op Interface
+// Has Onnx Subgraph Op Interface
 //===----------------------------------------------------------------------===//
 
-#include "src/Interface/PromotableConstOperandsOpInterface.cpp.inc"
+#include "src/Interface/SpecializedKernelOpInterface.cpp.inc"
