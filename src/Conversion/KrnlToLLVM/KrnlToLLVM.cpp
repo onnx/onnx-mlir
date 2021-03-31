@@ -392,9 +392,30 @@ public:
 
         assert(krnlGlobalOp.value().hasValue() &&
                "Krnl Global must always have a value");
-        global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
-            /*isConstant=*/true, LLVM::Linkage::Internal, name,
-            krnlGlobalOp.value().getValue());
+        if (krnlGlobalOp.value().getValue().isa<OpaqueElementsAttr>()) {
+          // LLVM::GlobalOp does not support OpaqueElementsAttr.
+          // Both StringAttr and OpaqueElementsAttr use StringRef for internal
+          // data array. Thus, it looks safe to use StringAtrr instead of
+          // OpaqueElementsAttr.
+          StringRef data = krnlGlobalOp.value()
+                               .getValue()
+                               .cast<OpaqueElementsAttr>()
+                               .getValue();
+          // Check data size.
+          int64_t sizeInBytes = numElements * getMemRefEltSizeInBytes(memRefTy);
+          assert(data.size() == sizeInBytes && "Data size mismatch.");
+
+          auto llvmArrayI8Ty = LLVM::LLVMArrayType::get(
+              IntegerType::get(context, 8), sizeInBytes);
+          global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+              /*isConstant=*/true, LLVM::Linkage::Internal, name,
+              StringAttr::get(data, context));
+        } else {
+          // DenseElementsAttr
+          global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
+              /*isConstant=*/true, LLVM::Linkage::Internal, name,
+              krnlGlobalOp.value().getValue());
+        }
       }
 
       // Some frequently used types.
