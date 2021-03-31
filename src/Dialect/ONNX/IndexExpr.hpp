@@ -235,10 +235,10 @@ compile time sizes, -1 for runtime sizes).
       {
          IndexExprScope innerScope;
          SymbolIndexExpr s1(d1); // in the inner scope, make a symbol out of the
-outer scope dim index expr d1.
+                                 // outer scope dim index expr d1.
         // ...
-        // innerScope is deleted, and its enclosing scope becomes the active
-scope again.
+        // innerScope is deleted, and its enclosing scope becomes
+        // the active scope again.
     }
 
     // Back to the outer scope
@@ -430,6 +430,8 @@ public:
   Location getLoc() const { return getScope().getLoc(); }
   int64_t getLiteral() const;
   AffineExpr getAffineExpr() const;
+  void getAffineMapAndOperands(
+      AffineMap &map, SmallVectorImpl<Value> &operands) const;
   Value getValue() const;
 
   // Possibly Affine Operations. Return a new IndexExpr
@@ -495,6 +497,9 @@ public:
 
   // Debug (enable using DEBUG=1 at top of file).
   void debugPrint(const std::string &msg) const;
+
+  bool retrieveAffineMinMax(
+      bool &isMin, SmallVectorImpl<Value> &vals, AffineMap &map) const;
 
 protected:
   // Private queries.
@@ -619,7 +624,7 @@ public:
   ArrayValueIndexCapture(Operation *op, Value array, int64_t defaultLiteral);
 
   IndexExpr getSymbol(uint64_t i);
-  bool getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
+  void getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
   ArrayValueIndexCapture() { llvm_unreachable("forbidden constructor"); };
@@ -637,12 +642,13 @@ public:
   ArrayAttributeIndexCapture(ArrayAttr array, int64_t defaultLiteral);
 
   IndexExpr getLiteral(uint64_t i);
+  int64_t size() { return arraySize; }
 
 private:
   ArrayAttributeIndexCapture() { llvm_unreachable("forbidden constructor"); };
 
   ArrayAttr array;
-  int64_t size;
+  int64_t arraySize;
   int64_t defaultLiteral;
   bool hasDefault;
 };
@@ -654,11 +660,21 @@ class MemRefBoundIndexCapture {
 public:
   MemRefBoundIndexCapture(Value tensorOrMemref);
 
+  IndexExpr getLiteral(uint64_t i); // Assert if bound is not compile time.
   IndexExpr getDim(uint64_t i);
-  bool getDimList(SmallVectorImpl<IndexExpr> &dimList);
+  IndexExpr getSymbol(uint64_t i);
+  void getLiteralList(SmallVectorImpl<IndexExpr> &literalList);
+  void getDimList(SmallVectorImpl<IndexExpr> &dimList);
+  void getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
   MemRefBoundIndexCapture() { llvm_unreachable("forbidden constructor"); };
+
+  template <class INDEX>
+  IndexExpr get(uint64_t i);
+  template <class INDEX>
+  void getList(SmallVectorImpl<IndexExpr> &dimList);
+
   Value tensorOrMemref;
 };
 

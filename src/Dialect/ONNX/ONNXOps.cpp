@@ -1621,7 +1621,7 @@ LogicalResult ONNXConvOp::inferShapes(
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, X());
-  assert(res.succeeded());
+  assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -1752,7 +1752,7 @@ LogicalResult ONNXConvTransposeOp::inferShapes(
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, X());
-  assert(res.succeeded());
+  assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -1871,7 +1871,7 @@ LogicalResult ONNXQLinearConvOp::inferShapes(
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, x());
-  assert(res.succeeded());
+  assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -1979,7 +1979,7 @@ LogicalResult ONNXMaxPoolSingleOutOp::inferShapes(
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, X());
-  assert(res.succeeded());
+  assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();
@@ -2571,7 +2571,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes(
 
   // Process strides, dilations, and pads.
   LogicalResult res = processConvTypeParams<>(this, x());
-  assert(res.succeeded());
+  assert(succeeded(res));
   auto dilationsOpt = dilations();
   auto stridesOpt = strides();
   auto padsOpt = pads();

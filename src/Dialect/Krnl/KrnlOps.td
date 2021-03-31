@@ -642,6 +642,48 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
 }
 
+// =============================================================================
+
+def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect]> {
+  let summary = "vector type cast operation";
+  let description = [{
+    The "vector_type_cast" operation converts a memref from an non-vector
+    element type to another memref of a vector elemental type while not changing
+    the source memref's element type. The last dimension size of the source
+    dimension is divided (floor division) by the vector size to obtain the
+    corresponding dimension for target memref type.
+
+    %MV = vector_type_cast %M : memref<64x16xf32> to memref<64x2xvector<8xf32>>
+    %AV = vector_type_cast %A : memref<?x?xf32> to memref<?x?xvector<8xf32>>
+  }];
+
+  let arguments = (ins AnyMemRef:$source);
+  let results = (outs AnyMemRef:$result);
+
+  let parser = ?;
+  let printer = ?;
+
+  let verifier = [{ return impl::verifyCastOp(*this, areCastCompatible); }];
+
+  let extraClassDeclaration = [{
+    /// Return true if `a` and `b` are valid operand and result pairs for
+    /// the operation.
+    static bool areCastCompatible(Type a, Type b);
+
+    /// The result of a vector_type_cast is always a memref.
+    MemRefType getType() { return getResult().getType().cast<MemRefType>(); }
+  }];
+
+  let hasFolder = 1;
+
+  let assemblyFormat = [{
+    $source attr-dict `:` type($source) `to` type($result)
+  }];
+
+}
+
+// =============================================================================
+
 def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
                             [DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
   let summary = "Krnl specialized kernel op";
@@ -654,5 +696,153 @@ def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
 
   let assemblyFormat = [{
       `(` $loops `)` attr-dict `:` type($loops)
+  }];
+}
+
+// =============================================================================
+
+def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", 
+      [DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
+  let summary = "Matmul operation for a single pannel.";
+  let description = [{
+    Perform a matrix multiplication A * B + C
+    for a small tile A * B + C of sizes
+    [NxK] * [KxM] + [NxM].
+
+    The n/m/k starts indicate the global indices of the first element
+    of a tile in the original computations. The n/m/k upper bounds indicate
+    the upper bounds in the original computations.
+
+    If the A, B, or C buffers are larger than the actual data tile they
+    contain (see copy_to_tile_buffer), then the actual tile size must be
+    given using an optional attribute: ATileSize, BTileSize, or CTileSize.
+    These optional tile size have a rank of 2, and their values must be
+    equal or smaller than their corresponding buffer memrefs.
+
+    If the computation are further tiled with respect to the size of the
+    buffers A, B, or C, then the actual computation tile is given by
+    the optional tile attribute computeTileSize. Its rank is 3, for the
+    N, M, and K dimension. The actual A, B, and C buffer tile size must
+    be a multiple of the N, M, and K computeTileSizes, in their respective
+    dimensions (A: NxK], B: [KxM], C: [NxM]).
+
+    Simdize is used to state if simdization is requested.
+  }];
+
+  let arguments = (ins 
+    Variadic<AnyType> : $loops,
+    Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
+    Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B,
+    Arg<AnyMemRef, "Add C [NxM]", [MemRead, MemWrite]>:$C,
+    Index: $nGlobalStart, Index: $mGlobalStart, Index: $kGlobalStart,
+    Index: $nGlobalUB, Index: $mGlobalUB, Index: $kGlobalUB,
+    OptionalAttr<I64ArrayAttr>:$computeTileSize,
+    OptionalAttr<I64ArrayAttr>:$aTileSize,
+    OptionalAttr<I64ArrayAttr>:$bTileSize,
+    OptionalAttr<I64ArrayAttr>:$cTileSize,
+    DefaultValuedAttr<BoolAttr, "true">:$simdize,
+    DefaultValuedAttr<BoolAttr, "true">:$unroll,
+    DefaultValuedAttr<BoolAttr, "false">:$overcompute);
+
+  let parser = ?;
+  let printer = ?;
+  let assemblyFormat = [{
+    $A `,` $B `,` $C `,`
+      `[` $nGlobalStart `,` $mGlobalStart `,` $kGlobalStart `]` `,`
+      `[` $nGlobalUB  `,` $mGlobalUB `,` $kGlobalUB `]` `,`
+      `(` $loops `)`
+      attr-dict `:` type($A) `,` type($B)`,` type($C) `,` `(` type($loops) `)`
+  }];
+}
+
+def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
+    TypesMatchWith<"type of 'padValue' matches element type of 'memref'",
+                  "memref", "padValue",
+                  "$_self.cast<MemRefType>().getElementType()">,
+    TypesMatchWith<"type of 'padValue' matches element type of 'bufferMemref'",
+                  "bufferMemref", "padValue",
+                  "$_self.cast<MemRefType>().getElementType()">,
+    SameVariadicOperandSize]> {
+  let summary = "Copy to buffer.";
+  let description = [{
+    Operation that copy a source memory to a buffer memory. Source memory
+    and buffer must have the same rank. Starts indicate where the source data
+    starts to come from within the source memory. Start values must be at
+    multiples of buffer size in all dimensions. The buffer rank and
+    dimensions are compile time constants.
+
+    The buffer will be entirely filled with the source data. By default,
+    the amount of data to copy is given by the size of the buffer.
+    In some cases, we may want to oversize a buffer for better cache,
+    simd, or loop unroll and jam reasons. If that is the case, the
+    actual tile size of the data to be copied over is given by an
+    optional tileSize attribute. This attributes has the same rank as
+    the buffer size, and each dimension must be smaller or equal to
+    the actual buffer size.
+    
+    If there is not enough data in the source memory to fill the buffer,
+    because the operation reaches the upper bounds of the source memory,
+    several actions may happen.
+
+    * If padToNext attribute is given, the pad value will be copied from
+      the last source data of to the next index for which index modulo padToNext
+      is zero, i.e. to the end of a "cache line" of side padToLine. Pad
+      of 1 means no padding, pad of buffer size means fully pad the buffer.
+      Default is no padding (1). PadValue is used to initialized the padded
+      areas.
+
+    * If overreadToNext attribute is given, the copy may read source past
+      its upperbound value. This enable optimized code, e.g. using SIMD
+      read operations even if going past the last value of the source
+      memory, or unrolling and jaming copy loops to reduce memory latency.
+      overreadToNext is expressed like padToNext: value of 1 means no
+      reading past boundary; value of buffer size enables reading
+      as many additional sourve value as needed to fill the full
+      buffer. Default is buffer-size.
+
+    padToNext and overreadToNext are of the same rank as source and memory
+    memrefs.
+  }];
+
+  let arguments = (ins Arg<AnyMemRef, "buffer", [MemWrite]>:$bufferMemref,
+    Arg<AnyMemRef, "memory", [MemRead]>:$memref,
+    Variadic<Index>:$starts,
+    AnyType: $padValue,
+    OptionalAttr<I64ArrayAttr>:$tileSize,
+    OptionalAttr<I64ArrayAttr>:$padToNext);
+
+  let parser = ?;
+  let printer = ?;
+    let assemblyFormat = [{
+    $bufferMemref `,` $memref `[` $starts `]` `,`  $padValue  attr-dict
+     `:` type($bufferMemref) `,` type($memref)
+  }];
+}
+
+def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
+    [SameVariadicOperandSize]> {
+  let summary = "Copy from buffer.";
+  let description = [{
+    Operation that copy a destination memory from a buffer memory.  Source
+    and buffer memories must have the same rank. Starts indicate where the buffer
+    data starts to go into the destination memory. Start values must be at
+    multiples of buffer size in all dimensions. The buffer rank and dimensions
+    are compile time constants. If the buffer was oversized with respect
+    of the actual data contained in the tile, the actual tile size can
+    be given using the tileSize optional attribute. This attributes has
+    the same rank as the buffer size, and each dimension must be smaller or
+    equal to the actual buffer size.
+  }];
+
+  let arguments = (ins Arg<AnyMemRef, "buffer", [MemRead]>:$bufferMemref,
+    Arg<AnyMemRef, "memory", [MemWrite]>:$memref,
+    Variadic<Index>:$starts,
+    OptionalAttr<I64ArrayAttr>:$tileSize);
+
+  let parser = ?;
+  let printer = ?;
+    let assemblyFormat = [{
+    $bufferMemref `,` $memref `[` $starts `]`  attr-dict
+     `:` type($bufferMemref) `,` type($memref)
   }];
 }
