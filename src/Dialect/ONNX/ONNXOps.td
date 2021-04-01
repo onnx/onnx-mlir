@@ -18,7 +18,7 @@ include "src/Interface/ShapeInferenceInterface.td"
 include "src/Interface/ResultTypeInferenceOpInterface.td"
 include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
-def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
+def StringType : Type<CPred<"$_self.isa<StringType>()">, "string type">;
 
 def IsSeqTypePred : CPred<"$_self.isa<SeqType>()">;
 
