@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # TODO: remove for release.
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug CACHE STRING "build type")
-endif()
+# if(NOT CMAKE_BUILD_TYPE)
+#   set(CMAKE_BUILD_TYPE Debug CACHE STRING "build type")
+# endif()
 
 # Require 3.3 and set policy CMP0057 for IN_LIST operator support
 cmake_minimum_required(VERSION 3.3)
