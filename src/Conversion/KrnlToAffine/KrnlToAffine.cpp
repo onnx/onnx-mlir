@@ -642,7 +642,7 @@ public:
     // Tile sizes for A/B/C are determined by their memref unless explicitly
     // specified by an optional argument. That allows A/B/C memrefs to be
     // padded if needed for SIMD/unroll and jam, for example.
-    aBounds.getSymbolList(aTileSize); // aee why lit
+    aBounds.getSymbolList(aTileSize);
     ArrayAttributeIndexCapture ASizeCapture(op.aTileSizeAttr());
     if (ASizeCapture.size())
       aTileSize = {ASizeCapture.getLiteral(0), ASizeCapture.getLiteral(1)};

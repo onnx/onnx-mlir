@@ -193,10 +193,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
-    int64_t aRank = A.getType().cast<ShapedType>().getShape().size();
-    int64_t bRank = B.getType().cast<ShapedType>().getShape().size();
+    MemRefBoundIndexCapture aBounds(A), bBounds(B);
 
-    if (aRank == 2 && bRank == 2) {
+    if (aBounds.getRank() == 2 && bBounds.getRank() == 2 &&
+        aBounds.areAllLiteral() && bBounds.areAllLiteral()) {
       replace2x2Matmul2D(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
     } else {

@@ -419,8 +419,6 @@ void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
     ScopedContext nestedContext(builder, loc);
     builder.setInsertionPointToStart(iterBlock);
     bodyBuilderFn(iterArgs);
-    // aee: not sure why it works without this?
-    // builder.restoreInsertionPoint(savedInsertionPoint);
   }
 }
 
