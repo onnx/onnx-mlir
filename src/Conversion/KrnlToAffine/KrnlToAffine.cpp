@@ -97,10 +97,11 @@ namespace {
 //   }
 // }
 //
-// Since the tiling has not taken place yet, tile coordinate iteration loops have
-// not been materialized, therefore the alloc and dealloc operations do not fit
-// in the IR presently yet. Instead, they will be placed within a krnl.movable
-// op region, to indicate that their positioning is subject to change.
+// Since the tiling has not taken place yet, tile coordinate iteration loops
+// have not been materialized, therefore the alloc and dealloc operations do not
+// fit in the IR presently yet. Instead, they will be placed within a
+// krnl.movable op region, to indicate that their positioning is subject to
+// change.
 //
 // krnl.movable {
 //   %alloc = alloc() : memref<10 x f32>;
@@ -437,8 +438,8 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     loopToUnroll.walk([](KrnlMovableOp op) {
       llvm_unreachable("Loop to unroll must not contain movable op.");
     });
-    loopUnrollFull(loopToUnroll);
-
+    LogicalResult res = loopUnrollFull(loopToUnroll);
+    assert(succeeded(res) && "failed to unroll");
     opsToErase.insert(op);
     return success();
   } else if (auto convertOp =
@@ -635,179 +636,143 @@ public:
     IndexExprScope indexScope(rewriter, op.getLoc());
 
     // Gather A, B, C tile sizes.
-    SmallVector<IndexExpr, 2> ATileSize, BTileSize, CTileSize;
+    SmallVector<IndexExpr, 2> aTileSize, bTileSize, cTileSize;
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
     MemRefBoundIndexCapture aBounds(A), bBounds(B), cBounds(C);
     // Tile sizes for A/B/C are determined by their memref unless explicitly
     // specified by an optional argument. That allows A/B/C memrefs to be
     // padded if needed for SIMD/unroll and jam, for example.
-    aBounds.getLiteralList(ATileSize);
+    aBounds.getSymbolList(aTileSize); // aee why lit
     ArrayAttributeIndexCapture ASizeCapture(op.aTileSizeAttr());
-    if (ASizeCapture.size()) {
-      int memSize0 = ATileSize[0].getLiteral();
-      int memSize1 = ATileSize[1].getLiteral();
-      ATileSize = {ASizeCapture.getLiteral(0), ASizeCapture.getLiteral(1)};
-      assert(ATileSize[0].getLiteral() <= memSize0 &&
-             "A tile size cannot be larger than the A buffer size (0 dim)");
-      assert(ATileSize[1].getLiteral() <= memSize1 &&
-             "A tile size cannot be larger than the A buffer size (1 dim)");
-    }
-    bBounds.getLiteralList(BTileSize);
+    if (ASizeCapture.size())
+      aTileSize = {ASizeCapture.getLiteral(0), ASizeCapture.getLiteral(1)};
+    bBounds.getLiteralList(bTileSize);
     ArrayAttributeIndexCapture BSizeCapture(op.bTileSizeAttr());
-    if (BSizeCapture.size()) {
-      int memSize0 = BTileSize[0].getLiteral();
-      int memSize1 = BTileSize[1].getLiteral();
-      BTileSize = {BSizeCapture.getLiteral(0), BSizeCapture.getLiteral(1)};
-      assert(BTileSize[0].getLiteral() <= memSize0 &&
-             "B tile size cannot be larger than the B buffer size (0 dim)");
-      assert(BTileSize[1].getLiteral() <= memSize1 &&
-             "B tile size cannot be larger than the B buffer size (1 dim)");
-    }
-    cBounds.getLiteralList(CTileSize);
+    if (BSizeCapture.size())
+      bTileSize = {BSizeCapture.getLiteral(0), BSizeCapture.getLiteral(1)};
+    cBounds.getLiteralList(cTileSize);
     ArrayAttributeIndexCapture CSizeCapture(op.cTileSizeAttr());
-    if (CSizeCapture.size()) {
-      int memSize0 = CTileSize[0].getLiteral();
-      int memSize1 = CTileSize[1].getLiteral();
-      CTileSize = {CSizeCapture.getLiteral(0), CSizeCapture.getLiteral(1)};
-      assert(CTileSize[0].getLiteral() <= memSize0 &&
-             "C tile size cannot be larger than the C buffer size (0 dim)");
-      assert(CTileSize[1].getLiteral() <= memSize1 &&
-             "C tile size cannot be larger than the C buffer size (1 dim)");
-    }
-    ATileSize[0].debugPrint("a tile size 0");
-    ATileSize[1].debugPrint("a tile size 1");
-    BTileSize[0].debugPrint("b tile size 0");
-    BTileSize[1].debugPrint("b tile size 1");
-    CTileSize[0].debugPrint("c tile size 0");
-    CTileSize[1].debugPrint("c tile size 1");
+    if (CSizeCapture.size())
+      cTileSize = {CSizeCapture.getLiteral(0), CSizeCapture.getLiteral(1)};
     // Check consitency. If the dimensions were padded differently for
     // A, B, or C, and the optional A/B/C TileSize attributes were given,
     // we take the these optional sizes into consideration. Meaning, we
     // don't really care about the padded dimensions, we only care about
     // the actual data.
-    assert(ATileSize[0].getLiteral() == CTileSize[0].getLiteral() &&
-           "N dim mismatch");
-    assert(ATileSize[1].getLiteral() == BTileSize[0].getLiteral() &&
-           "K dim mismatch");
-    assert(BTileSize[1].getLiteral() == CTileSize[1].getLiteral() &&
-           "M dim mismatch");
+    bool literalTileSizes = false;
+    if (IndexExpr::isLiteral(aTileSize) && IndexExpr::isLiteral(bTileSize) &&
+        IndexExpr::isLiteral(cTileSize)) {
+      literalTileSizes = true;
+      assert(aTileSize[0].getLiteral() == cTileSize[0].getLiteral() &&
+             "I dim mismatch");
+      assert(aTileSize[1].getLiteral() == bTileSize[0].getLiteral() &&
+             "K dim mismatch");
+      assert(bTileSize[1].getLiteral() == cTileSize[1].getLiteral() &&
+             "J dim mismatch");
+    }
 
     // Gather N, M, K compute tile size. This is the size of the computations,
     // if the tile is full. Because computation in the buffers could be further
     // subtiled, the default size can be overridden from the tile sizes using
     // the computeTileSize attribute. Tiles may not be full if they are at the
     // outer boundaries of the original data.
-    IndexExpr nComputeTileSize = CTileSize[0];
-    IndexExpr mComputeTileSize = CTileSize[1];
-    IndexExpr kComputeTileSize = ATileSize[1];
+    IndexExpr iComputeTileSize = cTileSize[0];
+    IndexExpr jComputeTileSize = cTileSize[1];
+    IndexExpr kComputeTileSize = aTileSize[1];
     ArrayAttributeIndexCapture computeSizeCapture(op.computeTileSizeAttr());
     if (computeSizeCapture.size()) {
-      int64_t nSize = nComputeTileSize.getLiteral();
-      int64_t mSize = mComputeTileSize.getLiteral();
-      int64_t kSize = kComputeTileSize.getLiteral();
-      nComputeTileSize = computeSizeCapture.getLiteral(0);
-      mComputeTileSize = computeSizeCapture.getLiteral(1);
+      iComputeTileSize = computeSizeCapture.getLiteral(0);
+      jComputeTileSize = computeSizeCapture.getLiteral(1);
       kComputeTileSize = computeSizeCapture.getLiteral(2);
-      assert(nComputeTileSize.getLiteral() <= nSize &&
-             "read n TileSize cannot be larger than the n size");
-      assert(mComputeTileSize.getLiteral() <= mSize &&
-             "read m TileSize cannot be larger than the n size");
-      assert(kComputeTileSize.getLiteral() <= kSize &&
-             "read k TileSize cannot be larger than the n size");
     }
-    // A,B,C tile dimensions must be multiples of n/m/k compute tile sizes. This
-    // means: no partial tiles allowed when organizing the sub-tiling within the
-    // buffers. This is not a statement about data, as A, B, C buffers can be
-    // padded, as long as their logical sizes are given explicitly.
-    assert(ATileSize[0].getLiteral() % nComputeTileSize.getLiteral() == 0 &&
-           "A tile size not multiple of n compute tile size");
-    assert(ATileSize[1].getLiteral() % kComputeTileSize.getLiteral() == 0 &&
-           "A tile size not multiple of k compute tile size");
-    assert(BTileSize[0].getLiteral() % kComputeTileSize.getLiteral() == 0 &&
-           "B tile size not multiple of k compute tile size");
-    assert(BTileSize[1].getLiteral() % mComputeTileSize.getLiteral() == 0 &&
-           "B tile size not multiple of m compute tile size");
-    assert(CTileSize[0].getLiteral() % nComputeTileSize.getLiteral() == 0 &&
-           "C tile size not multiple of n compute tile size");
-    assert(CTileSize[1].getLiteral() % mComputeTileSize.getLiteral() == 0 &&
-           "C tile size not multiple of m compute tile size");
 
     // Now get global start indices, which would define the first element of the
     // tiles in the original computations.
-    DimIndexExpr nGlobalStart(operandAdaptor.nGlobalStart()),
-        mGlobalStart(operandAdaptor.mGlobalStart()),
-        kGlobalStart(operandAdaptor.kGlobalStart());
+    DimIndexExpr iComputeStart(operandAdaptor.iComputeStart()),
+        jComputeStart(operandAdaptor.jComputeStart()),
+        kComputeStart(operandAdaptor.kComputeStart());
     // And get the global upper bound of the original computations.
-    DimIndexExpr nGlobalUB(operandAdaptor.nGlobalUB()),
-        mGlobalUB(operandAdaptor.mGlobalUB()),
+    SymbolIndexExpr iGlobalUB(operandAdaptor.iGlobalUB()),
+        jGlobalUB(operandAdaptor.jGlobalUB()),
         kGlobalUB(operandAdaptor.kGlobalUB());
-
-    // Compute the start for each matrices (A[NxK], B[KxM], C[NxM]). Starts are
-    // the offset in the buffers A, B, and C.
-    IndexExpr AStart0 = startInBuffer(nGlobalStart, ATileSize[0], nGlobalUB);
-    IndexExpr AStart1 = startInBuffer(kGlobalStart, ATileSize[1], kGlobalUB);
-    IndexExpr BStart0 = startInBuffer(kGlobalStart, BTileSize[0], kGlobalUB);
-    IndexExpr BStart1 = startInBuffer(mGlobalStart, BTileSize[1], mGlobalUB);
-    IndexExpr CStart0 = startInBuffer(nGlobalStart, CTileSize[0], nGlobalUB);
-    IndexExpr CStart1 = startInBuffer(mGlobalStart, CTileSize[1], mGlobalUB);
+    // A[i, k]; B[k, j]; C[i, j]
+    IndexExpr AStart0 =
+        iComputeStart - DimIndexExpr(operandAdaptor.aMemStart0());
+    IndexExpr AStart1 =
+        kComputeStart - DimIndexExpr(operandAdaptor.aMemStart1());
+    IndexExpr BStart0 =
+        kComputeStart - DimIndexExpr(operandAdaptor.bMemStart0());
+    IndexExpr BStart1 =
+        jComputeStart - DimIndexExpr(operandAdaptor.bMemStart1());
+    IndexExpr CStart0 =
+        iComputeStart - DimIndexExpr(operandAdaptor.cMemStart0());
+    IndexExpr CStart1 =
+        jComputeStart - DimIndexExpr(operandAdaptor.cMemStart1());
 
     // Simdize along M for the full compute tile
-    IndexExpr vectorLen = mComputeTileSize;
+    IndexExpr vectorLen = jComputeTileSize;
     // Now determine if we have full/partial tiles. This is determined by the
     // outer dimensions of the original computations, as by definition tiling
     // within the buffer always results in full tiles. In other words, partial
     // tiles only occurs because of "runing out" of the original data.
-    IndexExpr nIsFullTile =
-        isFullTile(nGlobalUB, nComputeTileSize, nGlobalStart);
-    IndexExpr mIsFullTile =
-        isFullTile(mGlobalUB, mComputeTileSize, mGlobalStart);
+    IndexExpr iIsFullTile =
+        isFullTile(iGlobalUB, iComputeTileSize, iComputeStart);
+    IndexExpr jIsFullTile =
+        isFullTile(jGlobalUB, jComputeTileSize, jComputeStart);
     IndexExpr kIsFullTile =
-        isFullTile(kGlobalUB, kComputeTileSize, kGlobalStart);
-    SmallVector<IndexExpr, 4> allFullTiles = {
-        nIsFullTile, mIsFullTile, kIsFullTile};
-    SmallVector<IndexExpr, 4> mFullTiles = {mIsFullTile};
-    nIsFullTile.debugPrint("n full");
-    mIsFullTile.debugPrint("m full");
-    kIsFullTile.debugPrint("k full");
+        isFullTile(kGlobalUB, kComputeTileSize, kComputeStart);
+    SmallVector<IndexExpr, 3> allFullTiles = {
+        iIsFullTile, jIsFullTile, kIsFullTile};
+
+    SmallVector<IndexExpr, 1> jFullTiles = {jIsFullTile};
     // And if the tiles are not full, determine how many elements to compute.
     // With overcompute, this could be relaxed.
-    IndexExpr nTrip = trip(
-        nGlobalUB, nComputeTileSize, nGlobalStart); // May or may not be full.
-    IndexExpr mTrip = trip(
-        mGlobalUB, mComputeTileSize, mGlobalStart); // May or may not be full.
+    IndexExpr iTrip = trip(
+        iGlobalUB, iComputeTileSize, iComputeStart); // May or may not be full.
+    IndexExpr jTrip = trip(
+        jGlobalUB, jComputeTileSize, jComputeStart); // May or may not be full.
     IndexExpr kTrip = trip(
-        kGlobalUB, kComputeTileSize, kGlobalStart); // May or may not be full.
-    IndexExpr mPartialTrip =
-        partialTrip(mGlobalUB, mComputeTileSize, mGlobalStart);
+        kGlobalUB, kComputeTileSize, kComputeStart); // May or may not be full.
+    IndexExpr jPartialTrip =
+        partialTrip(jGlobalUB, jComputeTileSize, jComputeStart);
 
     using namespace edsc::op;
 
+    // Currently, there is a bug in unroll and jam which crashes if there is an
+    // affine if/then/else. No crash if only if-then.
+    if (iIsFullTile.isLiteralAndGreaterThan(-1) &&
+        jIsFullTile.isLiteralAndGreaterThan(-1) &&
+        kIsFullTile.isLiteralAndGreaterThan(-1)) {
+      // this is ok, only a if-then below.
+    } else {
+      fullUnrollAndJam = false;
+    }
     if (simdize) {
       // SIMD code generator.
       // clang-format off
       genIfThenElseWithoutParams(rewriter, allFullTiles,
         /* then full */ [&](ValueRange) {
         genSimd(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
-          BStart1,  CStart0,  CStart1, nComputeTileSize, mComputeTileSize,
+          BStart1,  CStart0,  CStart1, iComputeTileSize, jComputeTileSize,
           kComputeTileSize,  vectorLen, fullUnrollAndJam); 
       }, /* has some partial tiles */ [&](ValueRange) {
         // Trip regardless of full/partial for N & K
         // Test if SIMD dim (M) is full.
-        genIfThenElseWithoutParams(rewriter, mFullTiles,
+        genIfThenElseWithoutParams(rewriter, jFullTiles,
           /* full SIMD */ [&](ValueRange) {
           genSimd(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
-            BStart1,  CStart0,  CStart1, nTrip, mComputeTileSize, kTrip,
+            BStart1,  CStart0,  CStart1, iTrip, jComputeTileSize, kTrip,
             vectorLen, false);
         }, /* else partial SIMD */ [&](ValueRange) {
-          if (mPartialTrip.isLiteral() && mPartialTrip.getLiteral() >=2) {
+          if (false && jPartialTrip.isLiteral() && jPartialTrip.getLiteral() >=2) {
             // has a known trip count along the simd dimension of at least 2
             // elements, use simd again.
             genSimd(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
-              BStart1,  CStart0,  CStart1, nTrip, mPartialTrip, kTrip,
+              BStart1,  CStart0,  CStart1, iTrip, jPartialTrip, kTrip,
               vectorLen, false);
           } else {
             genScalar(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
-              BStart1,  CStart0,  CStart1, nTrip, mPartialTrip, kTrip, false);
+              BStart1,  CStart0,  CStart1, iTrip, jPartialTrip, kTrip, false);
           }
         });
       });
@@ -818,11 +783,11 @@ public:
       genIfThenElseWithoutParams(rewriter, allFullTiles,
         /* then full */ [&](ValueRange) {
         genScalar(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
-          BStart1,  CStart0,  CStart1, nComputeTileSize, mComputeTileSize, 
+          BStart1,  CStart0,  CStart1, iComputeTileSize, jComputeTileSize, 
           kComputeTileSize, fullUnrollAndJam); 
       }, /* else partial */ [&](ValueRange) {
         genScalar(rewriter, op, elementType, AStart0,  AStart1,  BStart0,
-          BStart1,  CStart0,  CStart1, nTrip, mTrip, kTrip, false);
+          BStart1,  CStart0,  CStart1, iTrip, jTrip, kTrip, false);
       });
       // clang-format on
     }
@@ -832,16 +797,12 @@ public:
 
 private:
   void genScalar(PatternRewriter &rewriter, KrnlMatMulOp op, Type elementType,
-      IndexExpr AStart0, IndexExpr AStart1, IndexExpr BStart0,
-      IndexExpr BStart1, IndexExpr CStart0, IndexExpr CStart1, IndexExpr N,
-      IndexExpr M, IndexExpr K, bool unrollJam) const {
+      IndexExpr aStart0, IndexExpr aStart1, IndexExpr bStart0,
+      IndexExpr bStart1, IndexExpr cStart0, IndexExpr cStart1, IndexExpr I,
+      IndexExpr J, IndexExpr K, bool unrollJam) const {
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-
-    // IndexExprScope newScope;
-    // SymbolIndexExpr NN(N), MM(M), KK(K);
-    // DimIndexExpr nnStart(nStart), mmStart(mStart), kkStart(kStart);
 
     // Get the EDSC variables, and loop dimensions.
     AffineIndexedValue AA(A), BB(B), CC(C); // Obj we can load and store into.
@@ -852,65 +813,50 @@ private:
     LiteralIndexExpr zero(0);
     Value jSaved;
     // clang-format off
-    affineLoopBuilder(zero, N, 1, [&](Value i) {
-      affineLoopBuilder(zero, M, 1, [&](Value j) {
+    affineLoopBuilder(zero, I, 1, [&](Value i) {
+      affineLoopBuilder(zero, J, 1, [&](Value j) {
         // Defines induction variables, and possibly initialize C.
         jSaved = j;
         // Alloc and init temp c storage.
         Value TmpC = std_alloca(CTmpType);
         AffineIndexedValue TTmpC(TmpC);
-        TTmpC() = CC(i + CStart0.getValue(), j + CStart1.getValue());
+        TTmpC() = CC(i + cStart0.getValue(), j + cStart1.getValue());
         // Sum over k.
         affineLoopBuilder(zero, K, 1, [&](Value k) {
-          TTmpC() = AA(i + AStart0.getValue(), k + AStart1.getValue()) *
-            BB(k + BStart0.getValue(), j + BStart1.getValue()) +
+          TTmpC() = AA(i + aStart0.getValue(), k + aStart1.getValue()) *
+            BB(k + bStart0.getValue(), j + bStart1.getValue()) +
             TTmpC();
         });
         // Store temp result into C(i, j)
-        CC(i + CStart0.getValue(), j + CStart1.getValue()) = TTmpC();
+        CC(i + cStart0.getValue(), j + cStart1.getValue()) = TTmpC();
       });
     });
     // clang-format on
-    if (unrollJam && M.isLiteral()) {
+    if (unrollJam && J.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
-      auto lj = getForInductionVarOwner(jSaved);
-      LogicalResult res = loopUnrollJamByFactor(lj, M.getLiteral());
+      auto jLoop = getForInductionVarOwner(jSaved);
+      LogicalResult res = loopUnrollJamUpToFactor(jLoop, J.getLiteral());
       assert(succeeded(res) && "failed to optimize");
     }
   }
 
   void genSimd(PatternRewriter &rewriter, KrnlMatMulOp op, Type elementType,
-      IndexExpr AStart0, IndexExpr AStart1, IndexExpr BStart0,
-      IndexExpr BStart1, IndexExpr CStart0, IndexExpr CStart1, IndexExpr nTrip,
-      IndexExpr mTrip, IndexExpr kTrip, IndexExpr vectorLen,
-      bool unrollJam) const {
+      IndexExpr aStart0, IndexExpr aStart1, IndexExpr bStart0,
+      IndexExpr bStart1, IndexExpr cStart0, IndexExpr cStart1, IndexExpr I,
+      IndexExpr J, IndexExpr K, IndexExpr vectorLen, bool unrollJam) const {
     // can simdize only if K is compile time
-    assert(mTrip.isLiteral() &&
+    assert(J.isLiteral() &&
            "can only simdize with compile time blocking factor on simd axis");
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A = operandAdaptor.A();
     Value B = operandAdaptor.B();
     Value C = operandAdaptor.C();
-    MemRefType BType = B.getType().cast<MemRefType>();
-    MemRefType CType = C.getType().cast<MemRefType>();
 
     // Generate the vector type conversions.
     int64_t VL = vectorLen.getLiteral();
     VectorType vecType = VectorType::get({VL}, elementType);
     MemRefType CTmpType = MemRefType::get({}, vecType);
-
-    // Find literal value for sizes of the array. These sizes are compile time
-    // constant since its related to the tiling size, decided by the compiler.
-    int64_t KLitB = BType.getShape()[0];
-    int64_t MLitB = BType.getShape()[1];
-
-    int64_t NLitC = CType.getShape()[0];
-    int64_t MLitC = CType.getShape()[1];
-
-    // IndexExprScope newScope;
-    // SymbolIndexExpr nnTrip(nTrip), mmTrip(mTrip), kkTrip(kTrip);
-    // DimIndexExpr nnStart(nStart), mmStart(mStart), kkStart(kStart);
 
     // Get the EDSC variables, and loop dimensions.
     AffineIndexedValue AA(A), BB(B), CC(C);
@@ -919,46 +865,44 @@ private:
     using namespace edsc::op;
     LiteralIndexExpr zero(0);
     // clang-format off
-    affineLoopBuilder(zero, nTrip, 1, [&](Value i) {
+    affineLoopBuilder(zero, I, 1, [&](Value i) {
       iSaved = i; // Saved for unroll and jam.
       // Alloca temp vector TmpC and save C(i)/0.0 into it.
       Value TmpC = std_alloca(CTmpType);
       AffineIndexedValue TTmpC(TmpC);
-      //TTmpC() = CCvec(i + CStart0.getValue(), CStart1.getValue());
-      SmallVector<Value, 4> CvecIndices = {i + CStart0.getValue(), CStart1.getValue()};
-      Value vc = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType, C, CvecIndices);
+      SmallVector<Value, 4> cVecIndices = {i + cStart0.getValue(), cStart1.getValue()};
+      Value vc = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType, C, cVecIndices);
       TTmpC() = vc;
       // Sum over k.
-      affineLoopBuilder(zero, kTrip, 1, [&](Value k) {
-        Value a = AA(i + AStart0.getValue(), k + AStart1.getValue());
+      affineLoopBuilder(zero, K, 1, [&](Value k) {
+        Value a = AA(i + aStart0.getValue(), k + aStart1.getValue());
         Value va = vector_broadcast(vecType, a);
         //Value vb = BBVec(k + BStart0.getValue(), BStart1.getValue());
-        SmallVector<Value, 4> BvecIndices = {k + BStart0.getValue(), BStart1.getValue()};
-        Value vb = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType, B, BvecIndices);
+        SmallVector<Value, 4> bVecIndices = {k + bStart0.getValue(), bStart1.getValue()};
+        Value vb = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType, B, bVecIndices);
         TTmpC() = vector_fma(va, vb, TTmpC());
       });
       // Store temp result into C(i)
       Value tmpResults = TTmpC();
-      int64_t mTripLit = mTrip.getLiteral();
-      if (mTripLit != VL) {
+      int64_t JLit = J.getLiteral();
+      if (JLit != VL) {
         // create vector constant
         SmallVector<int64_t, 8> mask;
         for(int64_t i=0; i<VL; i++)
-          mask.emplace_back((i<mTripLit) ? i : VL+i);
+          mask.emplace_back((i<JLit) ? i : VL+i);
         // permute
-        //Value originalCvec = CCvec(i + CStart0.getValue(), CVecStart1.getValue());
-        Value originalCvec = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType, C, CvecIndices);
+        Value originalCvec = rewriter.create<AffineVectorLoadOp>(op.getLoc(), vecType, C, cVecIndices);
         tmpResults = rewriter.create<vector::ShuffleOp>(op.getLoc(),
           tmpResults, originalCvec, mask);
       }
       //CCvec(i + CStart0.getValue(), CStart1.getValue()) = tmpResults;
-      rewriter.create<AffineVectorStoreOp>(op.getLoc(), tmpResults, C, CvecIndices);
+      rewriter.create<AffineVectorStoreOp>(op.getLoc(), tmpResults, C, cVecIndices);
     });
     // clang-format on
-    if (unrollJam && nTrip.isLiteral()) {
+    if (unrollJam && I.isLiteral()) {
       // Unroll and jam. Seems to support only one operation at this time.
-      auto li = getForInductionVarOwner(iSaved);
-      LogicalResult res = loopUnrollJamByFactor(li, nTrip.getLiteral());
+      auto iLoop = getForInductionVarOwner(iSaved);
+      LogicalResult res = loopUnrollJamUpToFactor(iLoop, I.getLiteral());
       assert(succeeded(res) && "failed to optimize");
     }
   }

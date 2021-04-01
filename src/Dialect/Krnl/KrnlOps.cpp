@@ -460,14 +460,15 @@ MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
 //===----------------------------------------------------------------------===//
 
 void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
-    ::mlir::OperationState &odsState, ArrayRef<Value> odsLoops, Value odsA,
-    Value odsB, Value odsC, Value nOdsGlobalStart, Value mOdsGlobalStart,
-    Value kOdsGlobalStart, Value nOdsGlobalUB, Value mOdsGlobalUB,
-    Value kOdsGlobalUB, ArrayRef<int64_t> odsComputeTileSize,
-    ArrayRef<int64_t> aOdsTileSize, ArrayRef<int64_t> bOdsTileSize,
-    ArrayRef<int64_t> cOdsTileSize, bool odsSimdize, bool odsUnroll,
-    bool odsOvercompute) {
-  // Compute tile size and loop indices: rank 3.
+    ::mlir::OperationState &odsState, Value odsA, Value aOdsStart0,
+    Value aOdsStart1, Value odsB, Value bOdsStart0, Value bOdsStart1,
+    Value odsC, Value cOdsStart0, Value cOdsStart1, ArrayRef<Value> odsLoops,
+    Value iOdsComputeStart, Value jOdsComputeStart, Value kOdsComputeStart,
+    Value iOdsGlobalUB, Value jOdsGlobalUB, Value kOdsGlobalUB,
+    ArrayRef<int64_t> odsComputeTileSize, ArrayRef<int64_t> aOdsTileSize,
+    ArrayRef<int64_t> bOdsTileSize, ArrayRef<int64_t> cOdsTileSize,
+    bool odsSimdize, bool odsUnroll, bool odsOvercompute) {
+  // Validate compute tile size and loop indices: rank 3.
   assert(odsLoops.size() == 3 && "need 3 loop indicess for intermost compute");
   assert((odsComputeTileSize.size() == 0 || odsComputeTileSize.size() == 3) &&
          "bad compute tile size");
@@ -485,8 +486,10 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
   ArrayAttr aTileSizeAttr = odsBuilder.getI64ArrayAttr(aOdsTileSize);
   ArrayAttr bTileSizeAttr = odsBuilder.getI64ArrayAttr(bOdsTileSize);
   ArrayAttr cTileSizeAttr = odsBuilder.getI64ArrayAttr(cOdsTileSize);
-  build(odsBuilder, odsState, loopRange, odsA, odsB, odsC, nOdsGlobalStart,
-      mOdsGlobalStart, kOdsGlobalStart, nOdsGlobalUB, mOdsGlobalUB,
+
+  build(odsBuilder, odsState, odsA, aOdsStart0, aOdsStart1, odsB, bOdsStart0,
+      bOdsStart1, odsC, cOdsStart0, cOdsStart1, loopRange, iOdsComputeStart,
+      jOdsComputeStart, kOdsComputeStart, iOdsGlobalUB, jOdsGlobalUB,
       kOdsGlobalUB, computeTileSizeAttr, aTileSizeAttr, bTileSizeAttr,
       cTileSizeAttr, odsSimdize, odsUnroll, odsOvercompute);
 }

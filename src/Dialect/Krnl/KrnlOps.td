@@ -708,11 +708,19 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul",
   let description = [{
     Perform a matrix multiplication A * B + C
     for a small tile A * B + C of sizes
-    [NxK] * [KxM] + [NxM].
+    [IxK] * [KxJ] + [IxJ].
 
-    The n/m/k starts indicate the global indices of the first element
-    of a tile in the original computations. The n/m/k upper bounds indicate
-    the upper bounds in the original computations.
+    The i/j/k ComputeStarts indicate the global indices of the first element
+    of a tile to be computed in the original computations.
+    The i/j/k GlobalUBs indicate the upper bounds in the original computations.
+
+    We provide 3 buffers for matrix multipy: A, B, and C. For each buffer,
+    we indicate the global indices pointing the beginning of the buffer.
+    If no buffers are used, i.e. the computation starts directly in the orginal
+    memory, the global index is 0. If a buffer for A is used to put data into
+    it starting at indices [i1, k1], where i1 & k1 are the global indices in
+    the original computations, then aMemStart0 and aMemStart1 are i1 & k1,
+    respectively.
 
     If the A, B, or C buffers are larger than the actual data tile they
     contain (see copy_to_tile_buffer), then the actual tile size must be
@@ -723,32 +731,97 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul",
     If the computation are further tiled with respect to the size of the
     buffers A, B, or C, then the actual computation tile is given by
     the optional tile attribute computeTileSize. Its rank is 3, for the
-    N, M, and K dimension. The actual A, B, and C buffer tile size must
-    be a multiple of the N, M, and K computeTileSizes, in their respective
-    dimensions (A: NxK], B: [KxM], C: [NxM]).
+    I, J, and K dimension. The actual A, B, and C buffer tile size 
+    (possibly specified by the optional parameters) must be a multiple of
+    the I, J, and K computeTileSizes, in their respective
+    dimensions (A: IxK], B: [KxJ], C: [IxJ]).
 
     Simdize is used to state if simdization is requested.
+    Unrolling is used to unroll and jam loops as warrented.
+
+    Below is an example calculating a matrix multiply with pre-zeroed
+    C matrix with the sizes below. 
+    %A: memref<40x60xf32>, %B: memref<60x80xf32>, %C: memref<40x80xf32>
+
+    // 3 tiled loops.
+    %ii, %jj, %kk = krnl.define_loops 3
+    %ib, %il = krnl.block %ii 10 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %jb, %jl = krnl.block %jj 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %kb, %kl = krnl.block %kk 10 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    // 3 subtiles.
+    %ilb, %ill = krnl.block %il 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %jlb, %jll = krnl.block %jl 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %klb, %kll = krnl.block %kl 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    // Permute.
+    krnl.permute(%ib, %ilb, %ill, %jb, %jlb, %jll, %kb, %klb, %kll) 
+        [0, 3, 6, 1, 4, 7, 2, 5, 8] : 
+        !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, 
+        !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
+    // Outer 2 for i, j.
+    krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 40, %jj -> %j = 0 to 80, %kk -> %k = 0 to 60) {
+        %i1, %j1 = krnl.get_induction_var_value(%ib, %jb) : (!krnl.loop,!krnl.loop) -> (index, index)
+        // Fill C buffer.
+        %Cbuff = alloca(): memref<10x8xf32>  // n x m_simd
+        krnl.copy_to_tile_buffer %Cbuff, %C[%i1, %j1], %f0 : memref<10x8xf32>,  memref<40x80xf32>
+        // Outer 1 for k.
+        krnl.iterate(%kb) with () {
+            %k1 = krnl.get_induction_var_value(%kb) : (!krnl.loop) -> (index)
+            // Fill A and B buffer
+            %Abuff = alloca(): memref<10x10xf32> // n x k
+            %Bbuff = alloca(): memref<10x8xf32>  // k x m_simd     
+            krnl.copy_to_tile_buffer %Abuff, %A[%i1, %k1], %f0 : memref<10x10xf32>, memref<40x60xf32>
+            krnl.copy_to_tile_buffer %Bbuff, %B[%k1, %j1], %f0 : memref<10x8xf32>,  memref<60x80xf32>
+
+            // Inner iterations for subtiles.
+            krnl.iterate(%ilb, %jlb, %klb) with () {
+                %i2, %j2, %k2 = krnl.get_induction_var_value(%ilb, %jlb, %klb) : 
+                (!krnl.loop,!krnl.loop,!krnl.loop) -> (index,index,index)
+
+                krnl.matmul %Abuff[%i1, %k1], %Bbuff[%k1, %j1], %Cbuff[%i1, %j1], 
+                    (%ill, %jll, %kll), (%i2, %j2, %k2), (%c40, %c80, %c60) 
+                    { computeTileSize=[5,4,5], simdize=false, unroll=false } : 
+                    memref<10x10xf32>, memref<10x8xf32>, memref<10x8xf32>, 
+                    (!krnl.loop,!krnl.loop,!krnl.loop)        
+            }
+        }
+        // Copy back the data into C.
+        krnl.copy_from_tile_buffer %Cbuff, %C[%i1, %j1] : memref<10x8xf32>, memref<40x80xf32>
+    }
+
   }];
 
   let arguments = (ins 
-    Variadic<AnyType> : $loops,
+    // Buffer/memory used and indices that correspoond to the begining 
+    // of each buffer/memory.
     Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
+    Index: $aMemStart0, Index: $aMemStart1,
     Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B,
-    Arg<AnyMemRef, "Add C [NxM]", [MemRead, MemWrite]>:$C,
-    Index: $nGlobalStart, Index: $mGlobalStart, Index: $kGlobalStart,
-    Index: $nGlobalUB, Index: $mGlobalUB, Index: $kGlobalUB,
+    Index: $bMemStart0, Index: $bMemStart1,
+    Arg<AnyMemRef, "Add into C [NxM]", [MemRead, MemWrite]>:$C,
+    Index: $cMemStart0, Index: $cMemStart1,
+    // Loops involved, and indices pointing to the start of the compute
+    // subtile. 
+    Variadic<AnyType> : $loops,
+    Index: $iComputeStart, Index: $jComputeStart, Index: $kComputeStart,
+    // Global upper bound for the entire computations.
+    Index: $iGlobalUB, Index: $jGlobalUB, Index: $kGlobalUB,
+    // Optional argument to override defaults.
     OptionalAttr<I64ArrayAttr>:$computeTileSize,
     OptionalAttr<I64ArrayAttr>:$aTileSize,
     OptionalAttr<I64ArrayAttr>:$bTileSize,
     OptionalAttr<I64ArrayAttr>:$cTileSize,
+    // Optimizations.
     DefaultValuedAttr<BoolAttr, "true">:$simdize,
     DefaultValuedAttr<BoolAttr, "true">:$unroll,
     DefaultValuedAttr<BoolAttr, "false">:$overcompute);
 
-  let builders = [ OpBuilderDAG<(ins "ArrayRef<Value>": $loops, 
-      "Value": $A, "Value": $B, "Value": $C,
-      "Value": $nGlobalStart, "Value": $mGlobalStart, "Value": $kGlobalStart, 
-      "Value": $nGlobalUB, "Value": $mGlobalUB, "Value": $kGlobalUB,
+  let builders = [ OpBuilderDAG<(ins 
+      "Value": $A, "Value": $aStart0, "Value": $aStart1,
+      "Value": $B, "Value": $bStart0, "Value": $bStart1,
+      "Value": $C, "Value": $cStart0, "Value": $cStart1,
+      "ArrayRef<Value>": $loops,
+      "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart, 
+      "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
       "ArrayRef<int64_t>": $computeTileSize,
       "ArrayRef<int64_t>": $aTileSize,
       "ArrayRef<int64_t>": $bTileSize,
@@ -761,11 +834,13 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul",
   let parser = ?;
   let printer = ?;
   let assemblyFormat = [{
-    $A `,` $B `,` $C `,`
-      `[` $nGlobalStart `,` $mGlobalStart `,` $kGlobalStart `]` `,`
-      `[` $nGlobalUB  `,` $mGlobalUB `,` $kGlobalUB `]` `,`
-      `(` $loops `)`
-      attr-dict `:` type($A) `,` type($B)`,` type($C) `,` `(` type($loops) `)`
+    $A `[` $aMemStart0 `,` $aMemStart1 `]` `,`
+    $B `[` $bMemStart0 `,` $bMemStart1 `]` `,`
+    $C `[` $cMemStart0 `,` $cMemStart1 `]` `,`
+    `(` $loops `)` `,`
+    `(` $iComputeStart `,` $jComputeStart `,` $kComputeStart `)` `,`
+    `(` $iGlobalUB `,` $jGlobalUB `,` $kGlobalUB `)` 
+    attr-dict `:` type($A) `,` type($B)`,` type($C) `,` `(` type($loops) `)`
   }];
 }
 

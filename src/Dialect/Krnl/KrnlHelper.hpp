@@ -271,22 +271,25 @@ void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> lb,
 void krnl_copy_to_buffer(Value bufferMemref, Value memref,
     ArrayRef<Value> starts, Value padValue, ArrayRef<int64_t> tileSize,
     ArrayRef<int64_t> padToNext);
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
-    ArrayRef<Value> starts, Value padValue);
+void krnl_copy_to_buffer(
+    Value bufferMemref, Value memref, ArrayRef<Value> starts, Value padValue);
 
 void krnl_copy_from_buffer(Value bufferMemref, Value memref,
     ArrayRef<Value> starts, ArrayRef<int64_t> tileSize);
 void krnl_copy_from_buffer(
     Value bufferMemref, Value memref, ArrayRef<Value> starts);
 
-void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
-    ArrayRef<Value> globalStarts, ArrayRef<Value> globalUBs,
-    ArrayRef<int64_t> computeTileSize, ArrayRef<int64_t> aTileSize,
-    ArrayRef<int64_t> bTileSize, ArrayRef<int64_t> cTileSize, bool simdize,
-    bool unroll, bool overcompute);
-void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
-    ArrayRef<Value> globalStarts, ArrayRef<Value> globalUBs,
-    bool simdize, bool unroll, bool overcompute);
+void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
+    ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
+    ArrayRef<Value> loops, ArrayRef<Value> computeStarts,
+    ArrayRef<Value> globalUBs, ArrayRef<int64_t> computeTileSize,
+    ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
+    ArrayRef<int64_t> cTileSize, bool simdize, bool unroll, bool overcompute);
+
+void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
+    ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
+    ArrayRef<Value> loops, ArrayRef<Value> computeStarts,
+    ArrayRef<Value> globalUBs, bool simdize, bool unroll, bool overcompute);
 
 //====---------------- EDSC Support with IndexExpr -----------------------===//
 
@@ -310,14 +313,5 @@ void krnl_copy_from_buffer(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, ArrayRef<int64_t> tileSize);
 void krnl_copy_from_buffer(
     Value bufferMemref, Value memref, ArrayRef<Value> starts);
-
-void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
-    ArrayRef<IndexExpr> globalStarts, ArrayRef<IndexExpr> globalUBs,
-    ArrayRef<int64_t> computeTileSize, ArrayRef<int64_t> aTileSize,
-    ArrayRef<int64_t> bTileSize, ArrayRef<int64_t> cTileSize, bool simdize,
-    bool unroll, bool overcompute);
-void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
-    ArrayRef<IndexExpr> globalStarts, ArrayRef<IndexExpr> globalUBs,
-    bool simdize, bool unroll, bool overcompute);
 
 } // namespace mlir

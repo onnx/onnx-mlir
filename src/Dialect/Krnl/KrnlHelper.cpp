@@ -460,28 +460,35 @@ void krnl_copy_from_buffer(
   krnl_copy_from_buffer(bufferMemref, memref, starts, empty);
 }
 
-void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
-    ArrayRef<Value> globalStarts, ArrayRef<Value> globalUBs,
-    ArrayRef<int64_t> computeTileSize, ArrayRef<int64_t> aTileSize,
-    ArrayRef<int64_t> bTileSize, ArrayRef<int64_t> cTileSize, bool simdize,
-    bool unroll, bool overcompute) {
+void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
+    ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
+    ArrayRef<Value> loops, ArrayRef<Value> computeStarts,
+    ArrayRef<Value> globalUBs, ArrayRef<int64_t> computeTileSize,
+    ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
+    ArrayRef<int64_t> cTileSize, bool simdize, bool unroll, bool overcompute) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  assert(globalStarts.size() == 3 && "global starts needs 3 dim");
+  assert(aStart.size() == 2 && "A start needs 2 dim");
+  assert(bStart.size() == 2 && "B start needs 2 dim");
+  assert(cStart.size() == 2 && "C start needs 2 dim");
+  assert(loops.size() == 3 && "loops needs 3 dim");
+  assert(computeStarts.size() == 3 && "compute starts needs 3 dim");
   assert(globalUBs.size() == 3 && "global UBs needs 3 dim");
   ScopedContext::getBuilderRef().create<KrnlMatMulOp>(
-      ScopedContext::getLocation(), loops, A, B, C, globalStarts[0],
-      globalStarts[1], globalStarts[2], globalUBs[0], globalUBs[1],
+      ScopedContext::getLocation(), A, aStart[0], aStart[1], B, bStart[0],
+      bStart[1], C, cStart[0], cStart[1], loops, computeStarts[0],
+      computeStarts[1], computeStarts[2], globalUBs[0], globalUBs[1],
       globalUBs[2], computeTileSize, aTileSize, bTileSize, cTileSize, simdize,
       unroll, overcompute);
 }
 
-void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
-    ArrayRef<Value> globalStarts, ArrayRef<Value> globalUBs, bool simdize,
-    bool unroll, bool overcompute) {
+void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
+    ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
+    ArrayRef<Value> loops, ArrayRef<Value> computeStarts,
+    ArrayRef<Value> globalUBs, bool simdize, bool unroll, bool overcompute) {
   ArrayRef<int64_t> empty;
-  krnl_matmul(loops, A, B, C, globalStarts, globalUBs, empty, empty, empty,
-      empty, simdize, unroll, overcompute);
+  krnl_matmul(A, aStart, B, bStart, C, cStart, loops, computeStarts, globalUBs,
+      empty, empty, empty, empty, simdize, unroll, overcompute);
 }
 
 //====---------------- EDSC Support with IndexExpr -----------------------===//
@@ -520,8 +527,6 @@ void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
     ScopedContext nestedContext(builder, loc);
     builder.setInsertionPointToStart(iterBlock);
     bodyBuilderFn(iterArgs);
-    // aee: not sure why it works without this?
-    // builder.restoreInsertionPoint(savedInsertionPoint);
   }
 }
 
@@ -537,7 +542,8 @@ void krnl_copy_to_buffer(Value bufferMemref, Value memref,
     ArrayRef<int64_t> padToNext) {
   SmallVector<Value, 4> startValues;
   IndexExpr::getValues(starts, startValues);
-  krnl_copy_to_buffer(bufferMemref, memref, startValues, padValue, tileSize, padToNext);
+  krnl_copy_to_buffer(
+      bufferMemref, memref, startValues, padValue, tileSize, padToNext);
 }
 
 void krnl_copy_to_buffer(Value bufferMemref, Value memref,
@@ -556,26 +562,6 @@ void krnl_copy_from_buffer(
     Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts) {
   ArrayRef<int64_t> empty;
   krnl_copy_from_buffer(bufferMemref, memref, starts, empty);
-}
-
-void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
-    ArrayRef<IndexExpr> globalStarts, ArrayRef<IndexExpr> globalUBs,
-    ArrayRef<int64_t> computeTileSize, ArrayRef<int64_t> aTileSize,
-    ArrayRef<int64_t> bTileSize, ArrayRef<int64_t> cTileSize, bool simdize,
-    bool unroll, bool overcompute) {
-  SmallVector<Value, 4> globalStartValues, globalUBValues;
-  IndexExpr::getValues(globalStarts, globalStartValues);
-  IndexExpr::getValues(globalUBs, globalUBValues);
-  krnl_matmul(loops, A, B, C, globalStartValues, globalUBValues,
-      computeTileSize, aTileSize, bTileSize, cTileSize, simdize, unroll,
-      overcompute);
-}
-void krnl_matmul(ArrayRef<Value> loops, Value A, Value B, Value C,
-    ArrayRef<IndexExpr> globalStarts, ArrayRef<IndexExpr> globalUBs,
-    bool simdize, bool unroll, bool overcompute) {
-  ArrayRef<int64_t> empty;
-  krnl_matmul(loops, A, B, C, globalStarts, globalUBs, empty, empty, empty,
-      empty, simdize, unroll, overcompute);
 }
 
 } // namespace mlir

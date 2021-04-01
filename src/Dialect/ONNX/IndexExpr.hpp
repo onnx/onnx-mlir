@@ -419,6 +419,10 @@ public:
   bool isLiteralAndIdenticalTo(IndexExpr const b) const;   // Values equal.
   bool isLiteralAndDifferentThan(int64_t b) const;         // Values unequal.
   bool isLiteralAndDifferentThan(IndexExpr const b) const; // Values unequal.
+  bool isLiteralAndGreaterThan(int64_t b) const;           // Values unequal.
+  bool isLiteralAndGreaterThan(IndexExpr const b) const;   // Values unequal.
+  bool isLiteralAndSmallerThan(int64_t b) const;           // Values unequal.
+  bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values unequal.
   // All element in list are literals.
   static bool isLiteral(SmallVectorImpl<IndexExpr> &list);
 

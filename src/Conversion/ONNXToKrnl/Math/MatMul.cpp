@@ -129,45 +129,42 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(alloc);
-    MemRefBoundIndexCapture ABounds(A), CBounds(C);
-    IndexExpr I = CBounds.getDim(0);
-    IndexExpr J = CBounds.getDim(1);
-    IndexExpr K = ABounds.getDim(1);
-    LiteralIndexExpr zero(0);
+    MemRefBoundsCapture aBounds(A), cBounds(C);
+    Value I(cBounds.ub(0)), J(cBounds.ub(1)), K(aBounds.ub(1));
+    Value zero = std_constant_index(0);
 
     // Initialize alloc/C to zero.
     ValueRange zLoop = krnl_define_loop(2);
     Value zi(zLoop[0]), zj(zLoop[1]);
     krnl_iterate({zi, zj}, {zero, zero}, {I, J}, {}, [&](ArrayRef<Value> args) {
       ValueRange indices = krnl_get_induction_var_value({zi, zj});
-      DimIndexExpr zii(indices[0]), zjj(indices[1]);
-      SmallVector<IndexExpr> storeIndices({zii, zjj});
+      Value zii(indices[0]), zjj(indices[1]);
+      SmallVector<Value> storeIndices({zii, zjj});
       krnl_store(zeroVal, alloc, storeIndices);
     });
 
     // Compute.
     // Define blocking, with simdization along the j axis.
-    const int64_t iRegTile(4), jRegTile(8), kRegTile(2);
+    const int64_t iRegTile(4), jRegTile(8), kRegTile(4);
     // I, J, K loop.
     ValueRange origLoop = krnl_define_loop(3);
-    Value i(origLoop[0]), j(origLoop[1]), k(origLoop[2]);
+    Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
     // Define blocked loop and permute.
-    ValueRange iRegBlock = krnl_block(i, iRegTile);
-    Value iiB(iRegBlock[0]), iiL(iRegBlock[1]);
-    ValueRange jRegBlock = krnl_block(j, jRegTile);
-    Value jjB(jRegBlock[0]), jjL(jRegBlock[1]);
-    ValueRange kRegBlock = krnl_block(k, kRegTile);
-    Value kkB(kRegBlock[0]), kkL(kRegBlock[1]);
-    krnl_permute({iiB, iiL, jjB, jjL, kkB, kkL}, {0, 3, 1, 4, 2, 5});
+    ValueRange iRegBlock = krnl_block(ii, iRegTile);
+    Value ii1(iRegBlock[0]), ii2(iRegBlock[1]);
+    ValueRange jRegBlock = krnl_block(jj, jRegTile);
+    Value jj1(jRegBlock[0]), jj2(jRegBlock[1]);
+    ValueRange kRegBlock = krnl_block(kk, kRegTile);
+    Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
+    krnl_permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
 
-    krnl_iterate({i, j, k}, {iiB, jjB, kkB}, {zero, zero, zero}, {I, J, K}, {},
-        [&](ArrayRef<Value> args) {
-          ValueRange indices = krnl_get_induction_var_value({iiB, jjB, kkB});
-          DimIndexExpr ii(indices[0]), jj(indices[1]), kk(indices[2]);
-          SmallVector<int64_t, 4> computeTile;
-          computeTile = {iRegTile, jRegTile, kRegTile};
-          krnl_matmul({iiL, jjL, kkL}, A, B, C, {ii, jj, kk}, {I, J, K},
-              computeTile, {}, {}, {}, true, false, false);
+    krnl_iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero}, {I, J, K},
+        {}, [&](ArrayRef<Value> args) {
+          ValueRange indices = krnl_get_induction_var_value({ii1, jj1, kk1});
+          Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
+          krnl_matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
+              {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
+              {iRegTile, jRegTile, kRegTile}, {}, {}, {}, true, true, false);
         });
   }
 
@@ -195,15 +192,17 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Get the constants: zero.
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    // if (shapeHelper.aDims.size() == 2 && shapeHelper.bDims.size() == 2 &&
-    //    IndexExpr::isLiteral(shapeHelper.aDims) &&
-    //    IndexExpr::isLiteral(shapeHelper.bDims)) {
-    //  replace2x2Matmul2D(matMulOp, operandAdaptor, elementType, shapeHelper,
-    //      alloc, zero, rewriter, loc);
-    //} else {
-    replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
-        alloc, zero, rewriter, loc);
-    //}
+    Value A(operandAdaptor.A()), B(operandAdaptor.B());
+    int64_t aRank = A.getType().cast<ShapedType>().getShape().size();
+    int64_t bRank = B.getType().cast<ShapedType>().getShape().size();
+
+    if (aRank == 2 && bRank == 2) {
+      replace2x2Matmul2D(matMulOp, operandAdaptor, elementType, shapeHelper,
+          alloc, zero, rewriter, loc);
+    } else {
+      replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
+          alloc, zero, rewriter, loc);
+    }
     // Done.
     rewriter.replaceOp(op, alloc);
     return success();

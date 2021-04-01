@@ -175,34 +175,42 @@ bool IndexExpr::hasValue() const { return getObj().hasValue(); }
 
 bool IndexExpr::isLiteralAndIdenticalTo(int64_t b) const {
   // When dealing with non-literal, don't test and return false.
-  if (!isLiteral())
-    return false;
-  // We have a literal, now make sure they are the same
-  return getLiteral() == b;
-}
-
-bool IndexExpr::isLiteralAndDifferentThan(int64_t b) const {
-  // When dealing with non-literal, don't test and return false.
-  if (!isLiteral())
-    return false;
-  // We have a literal, now make sure they are different
-  return getLiteral() != b;
+  return isLiteral() && (getLiteral() == b);
 }
 
 bool IndexExpr::isLiteralAndIdenticalTo(IndexExpr const b) const {
   // When dealing with non-literal, don't test and return false.
-  if (!isLiteral() || !b.isLiteral())
-    return false;
-  // We have literals, now make sure they are the same
-  return getLiteral() == b.getLiteral();
+  return b.isLiteral() && isLiteralAndIdenticalTo(b.getLiteral());
+}
+
+bool IndexExpr::isLiteralAndDifferentThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return false.
+  return isLiteral() && (getLiteral() != b);
 }
 
 bool IndexExpr::isLiteralAndDifferentThan(IndexExpr const b) const {
   // When dealing with non-literal, don't test and return false.
-  if (!isLiteral() || !b.isLiteral())
-    return false;
-  // We have literals, now make sure they are different
-  return getLiteral() != b.getLiteral();
+  return b.isLiteral() && isLiteralAndDifferentThan(b.getLiteral());
+}
+
+bool IndexExpr::isLiteralAndGreaterThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return false.
+  return isLiteral() && (getLiteral() > b);
+}
+
+bool IndexExpr::isLiteralAndGreaterThan(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return false.
+  return b.isLiteral() && isLiteralAndGreaterThan(b.getLiteral());
+}
+
+bool IndexExpr::isLiteralAndSmallerThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return false.
+  return isLiteral() && (getLiteral() < b);
+}
+
+bool IndexExpr::isLiteralAndSmallerThan(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return false.
+  return b.isLiteral() && isLiteralAndSmallerThan(b.getLiteral());
 }
 
 // All element in list are literals.
