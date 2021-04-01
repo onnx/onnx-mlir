@@ -32,6 +32,9 @@ namespace bstd = mpark;
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 
 #include "FrontendDialectTransformer.hpp"
+#include <map>
+#include <fstream>
+#include <iostream>
 
 namespace onnx_mlir {
 namespace detail {
@@ -1052,25 +1055,8 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
-  /*!
-   * Import ONNX main computation graph.
-   * @param graph onnx graph proto.
-   * @return A function corresponding to the imported computation graph.
-   */
-  mlir::FuncOp importGraph(const onnx::GraphProto &graph) {
-    const std::string &name = "main_graph";
-    auto mainFunc = mlir::FuncOp::create(UnknownLoc(), name,
-        /*type=*/builder_.getFunctionType({}, {}), /*attrs=*/{});
-    module_.push_back(mainFunc);
-    // Create and set insertion point to entry block.
-    mainFunc.body().push_back(new Block);
-    builder_.setInsertionPointToStart(&mainFunc.body().back());
-
-    auto funcType = importGraph(graph, /*region=*/mainFunc.body(),
-        /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
-    mainFunc.setType(funcType);
+void genSignatureFunction(mlir::FunctionType funcType) {
     auto inputs = funcType.getInputs();
-#include <map>
 
     std::string const sf32 = std::string("f32");
     std::string const sf64 = std::string("f64");
@@ -1078,12 +1064,12 @@ private:
     std::string const si64 = std::string("i64");
     std::string const si16 = std::string("i16");
     std::map<std::string, std::string> typeMap = {
-        {sf32, std::string("\"float\"")}, {sf64, std::string("\"double\"")},
-        {si32, std::string("\"integer\"")}, {si64, std::string("\"long\"")},
-        {si16, std::string("\"short\"")}};
+        {sf32, std::string("\\\"float\\\"")}, {sf64, std::string("\\\"double\\\"")},
+        {si32, std::string("\\\"integer\\\"")}, {si64, std::string("\\\"long\\\"")},
+        {si16, std::string("\\\"short\\\"")}};
     std::string dstring;
     llvm::raw_string_ostream dstream(dstring);
-    dstream << "[ \n";
+    dstream << "\"[ \"\n";
     for (int i = 0; i < funcType.getNumInputs(); i++) {
       // std::string tstring;
       // llvm::raw_string_ostream tstream(tstring);
@@ -1095,9 +1081,9 @@ private:
       mlir::TypeSwitch<Type>(in)
           .Case<ShapedType>([&](ShapedType tensorTy) {
             auto et = tensorTy.getElementType();
-            dstream << "    { \"type\" : ";
+            dstream << "\"    { \\\"type\\\" : ";
             et.print(dstream);
-            dstream << " , \"dims\" : [";
+            dstream << " , \\\"dims\\\" : [";
             if (tensorTy.hasRank()) {
               int64_t rank = tensorTy.getRank();
               for (int j = 0; j < rank; j++) {
@@ -1110,9 +1096,9 @@ private:
           })
           .Default(
               [&](Type type) { llvm_unreachable("input is not a tensor"); });
-      dstream << " }\n";
+      dstream << " }\"\n";
     }
-    dstream << "\n]";
+    dstream << "\n\"]\"";
     dstream.flush();
     size_t start_pos = 0;
     while ((start_pos = dstring.find(sf32, start_pos)) != std::string::npos) {
@@ -1135,6 +1121,40 @@ private:
       start_pos += si16.length();
     }
     std::cout << dstring << std::endl;
+    char* tempFn = tmpnam(NULL);
+    char t[12]= "sigXXXXXX.c";
+    char fname[256];
+    sprintf(fname,"%s.c",tempFn);
+    std::cout << fname << std::endl;
+    //std::ofstream sigfile(mkstemps(t,2));
+    std::ofstream sigfile;
+    //sigfile.open(tempFn,std::ios::out);
+    int slen=dstring.length()+1;
+    sigfile.open(fname,std::ios::out);
+    sigfile << "    char _signature["<< slen << "]=" << dstring  << " ;\n" << "char* getModelSig() {\n"  << "    return _signature;\n" << "}\n";
+    sigfile.flush();
+    sigfile.close();
+  }
+
+
+  /*!
+   * Import ONNX main computation graph.
+   * @param graph onnx graph proto.
+   * @return A function corresponding to the imported computation graph.
+   */
+  mlir::FuncOp importGraph(const onnx::GraphProto &graph) {
+    const std::string &name = "main_graph";
+    auto mainFunc = mlir::FuncOp::create(UnknownLoc(), name,
+        /*type=*/builder_.getFunctionType({}, {}), /*attrs=*/{});
+    module_.push_back(mainFunc);
+    // Create and set insertion point to entry block.
+    mainFunc.body().push_back(new Block);
+    builder_.setInsertionPointToStart(&mainFunc.body().back());
+
+    auto funcType = importGraph(graph, /*region=*/mainFunc.body(),
+        /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
+    mainFunc.setType(funcType);
+    genSignatureFunction(funcType);
 
     // Emit entry point op describing inference function signature.
     auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
