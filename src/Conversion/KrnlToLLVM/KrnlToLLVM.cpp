@@ -479,9 +479,11 @@ public:
           rewriter.create<LLVM::AddressOfOp>(loc, base);
       Value constPackBasePtr = rewriter.create<LLVM::LoadOp>(
           loc, base.getType(), constPackBasePtrAddr);
-      auto offset = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-          rewriter.getI64IntegerAttr(
-              krnlGlobalOp.offsetAttr().getValue().getSExtValue()));
+      int64_t iOffset = 0;
+      if (krnlGlobalOp.offsetAttr())
+        iOffset = krnlGlobalOp.offsetAttr().getValue().getSExtValue();
+      auto offset = rewriter.create<LLVM::ConstantOp>(
+          loc, llvmI64Ty, rewriter.getI64IntegerAttr(iOffset));
       alloc = rewriter.create<LLVM::GEPOp>(
           loc, llvmI8PtrTy, constPackBasePtr, ValueRange({offset}));
     }
