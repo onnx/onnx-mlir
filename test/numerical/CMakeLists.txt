@@ -15,6 +15,21 @@ target_link_libraries(TestConv
         ExecutionSession
         OMTensorUtils)
 
+add_executable(TestMatMul2D TestMatMul2D.cpp)
+        target_compile_definitions(TestMatMul2D PRIVATE RTMEMREF_INTERNAL_API)
+        target_include_directories(TestMatMul2D
+                PRIVATE
+                ${ONNX_MLIR_BIN_ROOT}
+                ${ONNX_MLIR_SRC_ROOT}/include)
+        target_link_libraries(TestMatMul2D
+                ${OMLibs}
+                ${MLIRLibs}
+                ${CMAKE_DL_LIBS}
+                rapidcheck
+                MainUtils
+                ExecutionSession
+                OMTensorUtils)
+        
 add_executable(TestLSTM TestLSTM.cpp)
 target_compile_definitions(TestLSTM PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(TestLSTM
@@ -77,6 +92,7 @@ target_link_libraries(TestLoop
         
 
 add_test(NAME OMTestConv COMMAND TestConv)
+add_test(NAME OMTestMatMul2D COMMAND TestMatMul2D)
 add_test(NAME OMTestLoop COMMAND TestLoop)
 add_test(NAME OMTestGRU COMMAND TestGRU)
 add_test(NAME OMTestLSTM COMMAND TestLSTM)

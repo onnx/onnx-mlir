@@ -29,7 +29,6 @@ struct ONNXSliceOpLowering : public ConversionPattern {
 
     ONNXSliceOpShapeHelper shapeHelper(&sliceOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
-    (void)shapecomputed;
     assert(succeeded(shapecomputed));
 
     auto outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -45,6 +44,9 @@ struct ONNXSliceOpLowering : public ConversionPattern {
     rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
 
     IndexExprScope childScope(shapeHelper.scope);
+    // Scope for krnl EDSC ops
+    using namespace mlir::edsc;
+    ScopedContext scope(rewriter, loc);
 
     // Compute indices for the load and store op.
     // Load: "i * step + start" for all dim.
