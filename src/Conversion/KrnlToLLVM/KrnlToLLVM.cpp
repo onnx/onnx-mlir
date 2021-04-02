@@ -403,7 +403,7 @@ public:
                                .getValue();
           // Check data size.
           int64_t sizeInBytes = numElements * getMemRefEltSizeInBytes(memRefTy);
-          assert(data.size() == sizeInBytes && "Data size mismatch.");
+          assert((data.size() == sizeInBytes) && "Data size mismatch.");
 
           auto llvmArrayI8Ty = LLVM::LLVMArrayType::get(
               IntegerType::get(context, 8), sizeInBytes);
