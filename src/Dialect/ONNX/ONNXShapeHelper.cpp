@@ -504,28 +504,27 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   // Get info.
   Value A = operandAdaptor.A();
   Value B = operandAdaptor.B();
-  int aRank = A.getType().cast<ShapedType>().getShape().size();
-  int bRank = B.getType().cast<ShapedType>().getShape().size();
+  MemRefBoundIndexCapture ABounds(A);
+  MemRefBoundIndexCapture BBounds(B);
 
   // Size all the arrays to padded length.
-  int paddedRank = std::max(aRank, bRank);
+  int paddedRank = std::max(ABounds.getRank(), BBounds.getRank());
   paddedRank = std::max(paddedRank, 2);
   aDims.resize(paddedRank);
   bDims.resize(paddedRank);
   aPadDims.resize(paddedRank, false);
   bPadDims.resize(paddedRank, false);
+
   // Add the dims of A. All of the aDim[0]...aDim[aRank-1] are in the rightmost
   // positions, prepended by 1s to fit the paddedRankSize.
   // (1,1,1... 1, aDim[0]...aDim[aRank-1])
-
   LiteralIndexExpr one(1);
-  MemRefBoundIndexCapture ABounds(A);
-  int aOffset = paddedRank - aRank;
+  int aOffset = paddedRank - ABounds.getRank();
   for (int i = 0; i < aOffset; ++i) {
     aDims[i] = one;
     aPadDims[i] = true;
   }
-  for (int i = 0; i < aRank; ++i) {
+  for (int i = 0; i < ABounds.getRank(); ++i) {
     aDims[i + aOffset] = ABounds.getDim(i);
     aPadDims[i + aOffset] = false; // Pad false even if dim is sized 1.
   }
@@ -533,9 +532,8 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   // get (1...,1, bDim[0], 1). We use one padding credit for the rightmost
   // position. Otherwise, when bRank>1, we only pad the leading positions.
   // Namely we get (1,1,1...,1, bDim[0],.... bDim[bRank-1])
-  MemRefBoundIndexCapture BBounds(B);
-  int bOffset = paddedRank - bRank;
-  if (bRank == 1) {
+  int bOffset = paddedRank - BBounds.getRank();
+  if (BBounds.getRank() == 1) {
     bDims[paddedRank - 1] = one;
     bPadDims[paddedRank - 1] = true;
     bOffset--;
@@ -544,7 +542,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
     bDims[i] = one;
     bPadDims[i] = true;
   }
-  for (int i = 0; i < bRank; ++i) {
+  for (int i = 0; i < BBounds.getRank(); ++i) {
     bDims[i + bOffset] = BBounds.getDim(i);
     bPadDims[i + bOffset] = false; // Pad false even if dim is sized 1.
   }
@@ -602,7 +600,7 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   if (!bPadDims[bM])
     outputDims.emplace_back(bDims[bM]);
   // For the case where both aRank == bRank == 1
-  if (aRank == 1 && bRank == 1) {
+  if (ABounds.getRank() == 1 && BBounds.getRank() == 1) {
     outputDims.emplace_back(one);
   }
   // Save the final result.
