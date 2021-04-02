@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --decompose-onnx %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --decompose-onnx %s -split-input-file | FileCheck %s
 
 // -----
 
@@ -15,8 +15,8 @@ func @test_f32(%arg : tensor<1x32x768xf32>) -> (tensor<1x32x768xf32>) {
     // CHECK: %[[DIFF:.*]] = "onnx.Sub"(%arg0, %[[MEAN]]) : (tensor<1x32x768xf32>, tensor<1x32x1xf32>) -> tensor<1x32x768xf32>
     // CHECK: %[[SQUARED:.*]] = "onnx.Mul"(%[[DIFF]], %[[DIFF]]) : (tensor<1x32x768xf32>, tensor<1x32x768xf32>) -> tensor<1x32x768xf32>
     // CHECK: %[[VARIANCE:.*]] = "onnx.ReduceMean"(%[[SQUARED]]) {axes = [-1], keepdims = 1 : si64} : (tensor<1x32x768xf32>) -> tensor<1x32x1xf32>
-    // CHECK: %[[EPSILON:.*]] = "onnx.Constant"() {value = dense<5.000000e-06> : tensor<1x32x1xf32>} : () -> tensor<1x32x1xf32>
-    // CHECK: %[[DENOM1:.*]] = "onnx.Add"(%[[VARIANCE]], %[[EPSILON]]) : (tensor<1x32x1xf32>, tensor<1x32x1xf32>) -> tensor<1x32x1xf32>
+    // CHECK: %[[EPSILON:.*]] = "onnx.Constant"() {value = dense<5.000000e-06> : tensor<1xf32>} : () -> tensor<1xf32>
+    // CHECK: %[[DENOM1:.*]] = "onnx.Add"(%[[VARIANCE]], %[[EPSILON]]) : (tensor<1x32x1xf32>, tensor<1xf32>) -> tensor<1x32x1xf32>
     // CHECK: %[[DENOM2:.*]] = "onnx.Sqrt"(%[[DENOM1]]) : (tensor<1x32x1xf32>) -> tensor<*xf32>
     // CHECK: %[[SCALED:.*]] = "onnx.Div"(%[[DIFF]], %[[DENOM2]]) : (tensor<1x32x768xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK: %[[SCALED1:.*]] = "onnx.Mul"(%[[SCALED]], %[[SCALE]]) : (tensor<*xf32>, tensor<768xf32>) -> tensor<1x32x768xf32>
@@ -41,8 +41,8 @@ func @test_bf16(%arg : tensor<1x32x768xbf16>) -> (tensor<1x32x768xbf16>) {
     // CHECK: %[[DIFF:.*]] = "onnx.Sub"(%arg0, %[[MEAN]]) : (tensor<1x32x768xbf16>, tensor<1x32x1xbf16>) -> tensor<1x32x768xbf16>
     // CHECK: %[[SQUARED:.*]] = "onnx.Mul"(%[[DIFF]], %[[DIFF]]) : (tensor<1x32x768xbf16>, tensor<1x32x768xbf16>) -> tensor<1x32x768xbf16>
     // CHECK: %[[VARIANCE:.*]] = "onnx.ReduceMean"(%[[SQUARED]]) {axes = [-1], keepdims = 1 : si64} : (tensor<1x32x768xbf16>) -> tensor<1x32x1xbf16>
-    // CHECK: %[[EPSILON:.*]] = "onnx.Constant"() {value = dense<5.006790e-06> : tensor<1x32x1xbf16>} : () -> tensor<1x32x1xbf16>
-    // CHECK: %[[DENOM1:.*]] = "onnx.Add"(%[[VARIANCE]], %[[EPSILON]]) : (tensor<1x32x1xbf16>, tensor<1x32x1xbf16>) -> tensor<1x32x1xbf16>
+    // CHECK: %[[EPSILON:.*]] = "onnx.Constant"() {value = dense<5.006790e-06> : tensor<1xbf16>} : () -> tensor<1xbf16>
+    // CHECK: %[[DENOM1:.*]] = "onnx.Add"(%[[VARIANCE]], %[[EPSILON]]) : (tensor<1x32x1xbf16>, tensor<1xbf16>) -> tensor<1x32x1xbf16>
     // CHECK: %[[DENOM2:.*]] = "onnx.Sqrt"(%[[DENOM1]]) : (tensor<1x32x1xbf16>) -> tensor<*xbf16>
     // CHECK: %[[SCALED:.*]] = "onnx.Div"(%[[DIFF]], %[[DENOM2]]) : (tensor<1x32x768xbf16>, tensor<*xbf16>) -> tensor<*xbf16>
     // CHECK: %[[SCALED1:.*]] = "onnx.Mul"(%[[SCALED]], %[[SCALE]]) : (tensor<*xbf16>, tensor<768xbf16>) -> tensor<1x32x768xbf16>
@@ -67,8 +67,8 @@ func @test_return_optional_inv_var(%arg : tensor<1x32x768xf32>) -> (tensor<1x32x
     // CHECK: %[[DIFF:.*]] = "onnx.Sub"(%arg0, %[[MEAN]]) : (tensor<1x32x768xf32>, tensor<1x32x1xf32>) -> tensor<1x32x768xf32>
     // CHECK: %[[SQUARED:.*]] = "onnx.Mul"(%[[DIFF]], %[[DIFF]]) : (tensor<1x32x768xf32>, tensor<1x32x768xf32>) -> tensor<1x32x768xf32>
     // CHECK: %[[VARIANCE:.*]] = "onnx.ReduceMean"(%[[SQUARED]]) {axes = [-1], keepdims = 1 : si64} : (tensor<1x32x768xf32>) -> tensor<1x32x1xf32>
-    // CHECK: %[[EPSILON:.*]] = "onnx.Constant"() {value = dense<5.000000e-06> : tensor<1x32x1xf32>} : () -> tensor<1x32x1xf32>
-    // CHECK: %[[DENOM1:.*]] = "onnx.Add"(%[[VARIANCE]], %[[EPSILON]]) : (tensor<1x32x1xf32>, tensor<1x32x1xf32>) -> tensor<1x32x1xf32>
+    // CHECK: %[[EPSILON:.*]] = "onnx.Constant"() {value = dense<5.000000e-06> : tensor<1xf32>} : () -> tensor<1xf32>
+    // CHECK: %[[DENOM1:.*]] = "onnx.Add"(%[[VARIANCE]], %[[EPSILON]]) : (tensor<1x32x1xf32>, tensor<1xf32>) -> tensor<1x32x1xf32>
     // CHECK: %[[DENOM2:.*]] = "onnx.Sqrt"(%[[DENOM1]]) : (tensor<1x32x1xf32>) -> tensor<*xf32>
     // CHECK: %[[SCALED:.*]] = "onnx.Div"(%[[DIFF]], %[[DENOM2]]) : (tensor<1x32x768xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK: %[[SCALED1:.*]] = "onnx.Mul"(%[[SCALED]], %[[SCALE]]) : (tensor<*xf32>, tensor<768xf32>) -> tensor<1x32x768xf32>
@@ -91,8 +91,8 @@ func @test_return_optional_inv_var(%arg : tensor<1x32x768xf32>) -> (tensor<1x32x
     // CHECK: %[[DIFF:.*]] = "onnx.Sub"(%arg0, %[[MEAN]]) : (tensor<1x32x768xf32>, tensor<1x32x1xf32>) -> tensor<1x32x768xf32>
     // CHECK: %[[SQUARED:.*]] = "onnx.Mul"(%[[DIFF]], %[[DIFF]]) : (tensor<1x32x768xf32>, tensor<1x32x768xf32>) -> tensor<1x32x768xf32>
     // CHECK: %[[VARIANCE:.*]] = "onnx.ReduceMean"(%[[SQUARED]]) {axes = [-1], keepdims = 1 : si64} : (tensor<1x32x768xf32>) -> tensor<1x32x1xf32>
-    // CHECK: %[[EPSILON:.*]] = "onnx.Constant"() {value = dense<5.000000e-06> : tensor<1x32x1xf32>} : () -> tensor<1x32x1xf32>
-    // CHECK: %[[DENOM1:.*]] = "onnx.Add"(%[[VARIANCE]], %[[EPSILON]]) : (tensor<1x32x1xf32>, tensor<1x32x1xf32>) -> tensor<1x32x1xf32>
+    // CHECK: %[[EPSILON:.*]] = "onnx.Constant"() {value = dense<5.000000e-06> : tensor<1xf32>} : () -> tensor<1xf32>
+    // CHECK: %[[DENOM1:.*]] = "onnx.Add"(%[[VARIANCE]], %[[EPSILON]]) : (tensor<1x32x1xf32>, tensor<1xf32>) -> tensor<1x32x1xf32>
     // CHECK: %[[DENOM2:.*]] = "onnx.Sqrt"(%[[DENOM1]]) : (tensor<1x32x1xf32>) -> tensor<*xf32>
     // CHECK: %[[SCALED:.*]] = "onnx.Div"(%[[DIFF]], %[[DENOM2]]) : (tensor<1x32x768xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK: %[[SCALED1:.*]] = "onnx.Mul"(%[[SCALED]], %[[SCALE]]) : (tensor<*xf32>, tensor<768xf32>) -> tensor<1x32x768xf32>
@@ -113,8 +113,8 @@ func @test_optional_bias_parameter(%arg : tensor<1x32x768xf32>, %bias : none) ->
     // CHECK: %[[DIFF:.*]] = "onnx.Sub"(%arg0, %[[MEAN]]) : (tensor<1x32x768xf32>, tensor<1x32x1xf32>) -> tensor<1x32x768xf32>
     // CHECK: %[[SQUARED:.*]] = "onnx.Mul"(%[[DIFF]], %[[DIFF]]) : (tensor<1x32x768xf32>, tensor<1x32x768xf32>) -> tensor<1x32x768xf32>
     // CHECK: %[[VARIANCE:.*]] = "onnx.ReduceMean"(%[[SQUARED]]) {axes = [-1], keepdims = 1 : si64} : (tensor<1x32x768xf32>) -> tensor<1x32x1xf32>
-    // CHECK: %[[EPSILON:.*]] = "onnx.Constant"() {value = dense<5.000000e-06> : tensor<1x32x1xf32>} : () -> tensor<1x32x1xf32>
-    // CHECK: %[[DENOM1:.*]] = "onnx.Add"(%[[VARIANCE]], %[[EPSILON]]) : (tensor<1x32x1xf32>, tensor<1x32x1xf32>) -> tensor<1x32x1xf32>
+    // CHECK: %[[EPSILON:.*]] = "onnx.Constant"() {value = dense<5.000000e-06> : tensor<1xf32>} : () -> tensor<1xf32>
+    // CHECK: %[[DENOM1:.*]] = "onnx.Add"(%[[VARIANCE]], %[[EPSILON]]) : (tensor<1x32x1xf32>, tensor<1xf32>) -> tensor<1x32x1xf32>
     // CHECK: %[[DENOM2:.*]] = "onnx.Sqrt"(%[[DENOM1]]) : (tensor<1x32x1xf32>) -> tensor<*xf32>
     // CHECK: %[[SCALED:.*]] = "onnx.Div"(%[[DIFF]], %[[DENOM2]]) : (tensor<1x32x768xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK: %[[SCALED1:.*]] = "onnx.Mul"(%[[SCALED]], %[[SCALE]]) : (tensor<*xf32>, tensor<768xf32>) -> tensor<1x32x768xf32>

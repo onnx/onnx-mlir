@@ -80,12 +80,17 @@ struct ONNXLayerNormalizationOpPattern : public ::mlir::RewritePattern {
     auto layerOp = llvm::dyn_cast<ONNXLayerNormalizationOp>(op);
     auto loc = op->getLoc();
 
-    auto outType = op->getResultTypes()[0].dyn_cast<RankedTensorType>();
-    int64_t axis = layerOp.axis();
-    if (axis < 0) {
-      axis += outType.getRank();
+    auto outType = op->getResultTypes()[0].dyn_cast<TensorType>();
+    auto reductionType = outType;
+    if (op->getResultTypes()[0].isa<RankedTensorType>()) {
+      auto rankedType = op->getResultTypes()[0].dyn_cast<RankedTensorType>();
+      int64_t axis = layerOp.axis();
+      if (axis < 0) {
+        axis += rankedType.getRank();
+      }
+      reductionType = getReductionOutputType(rankedType, {axis});
     }
-    auto reductionType = getReductionOutputType(outType, {axis});
+
     auto axisAttr = IntegerAttr::get(
         IntegerType::get(op->getContext(), 64), layerOp.axis());
     auto reductionDim = ArrayAttr::get(op->getContext(), {axisAttr});
@@ -110,10 +115,11 @@ struct ONNXLayerNormalizationOpPattern : public ::mlir::RewritePattern {
         op->emitWarning("Lost precision in converting epsilon to element type");
       }
     }
-    auto epsilonAttr = DenseElementsAttr::get(reductionType, {epsilon});
-    auto epsilonOp =
-        rewriter.create<ONNXConstantOp>(loc, reductionType, nullptr,
-            epsilonAttr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    auto epsilonType =
+        RankedTensorType::get({1}, reductionType.getElementType());
+    auto epsilonAttr = DenseElementsAttr::get(epsilonType, epsilon);
+    auto epsilonOp = rewriter.create<ONNXConstantOp>(loc, epsilonType, nullptr,
+        epsilonAttr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     Value denomOp = rewriter.create<ONNXAddOp>(loc, varianceOp, epsilonOp);
     denomOp = rewriter.create<ONNXSqrtOp>(loc, denomOp);
 
