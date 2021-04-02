@@ -195,8 +195,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
     MemRefBoundIndexCapture aBounds(A), bBounds(B);
 
-    if (aBounds.getRank() == 2 && bBounds.getRank() == 2 &&
-        aBounds.areAllLiteral() && bBounds.areAllLiteral()) {
+    if (aBounds.getRank() == 2 && bBounds.getRank() == 2) {
       replace2x2Matmul2D(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
     } else {

@@ -646,11 +646,11 @@ public:
     ArrayAttributeIndexCapture ASizeCapture(op.aTileSizeAttr());
     if (ASizeCapture.size())
       aTileSize = {ASizeCapture.getLiteral(0), ASizeCapture.getLiteral(1)};
-    bBounds.getLiteralList(bTileSize);
+    bBounds.getSymbolList(bTileSize);
     ArrayAttributeIndexCapture BSizeCapture(op.bTileSizeAttr());
     if (BSizeCapture.size())
       bTileSize = {BSizeCapture.getLiteral(0), BSizeCapture.getLiteral(1)};
-    cBounds.getLiteralList(cTileSize);
+    cBounds.getSymbolList(cTileSize);
     ArrayAttributeIndexCapture CSizeCapture(op.cTileSizeAttr());
     if (CSizeCapture.size())
       cTileSize = {CSizeCapture.getLiteral(0), CSizeCapture.getLiteral(1)};
