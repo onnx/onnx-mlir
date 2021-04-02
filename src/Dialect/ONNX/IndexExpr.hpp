@@ -419,10 +419,12 @@ public:
   bool isLiteralAndIdenticalTo(IndexExpr const b) const;   // Values equal.
   bool isLiteralAndDifferentThan(int64_t b) const;         // Values unequal.
   bool isLiteralAndDifferentThan(IndexExpr const b) const; // Values unequal.
-
-  // Helpers for IndexExpressions
-  static void getShape(SmallVectorImpl<IndexExpr> &indexExprList,
-      SmallVectorImpl<int64_t> &intDimList);
+  bool isLiteralAndGreaterThan(int64_t b) const;           // Values unequal.
+  bool isLiteralAndGreaterThan(IndexExpr const b) const;   // Values unequal.
+  bool isLiteralAndSmallerThan(int64_t b) const;           // Values unequal.
+  bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values unequal.
+  // All element in list are literals.
+  static bool isLiteral(SmallVectorImpl<IndexExpr> &list);
 
   // Getters.
   IndexExprScope &getScope() const { return *getScopePtr(); }
@@ -433,6 +435,12 @@ public:
   void getAffineMapAndOperands(
       AffineMap &map, SmallVectorImpl<Value> &operands) const;
   Value getValue() const;
+
+  // Helpers for list of IndexExpressions
+  static void getShape(SmallVectorImpl<IndexExpr> &indexExprList,
+      SmallVectorImpl<int64_t> &intDimList);
+  static void getValues(
+      ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<Value> &valueList);
 
   // Possibly Affine Operations. Return a new IndexExpr
   IndexExpr operator+(IndexExpr const b) const;
@@ -660,6 +668,8 @@ class MemRefBoundIndexCapture {
 public:
   MemRefBoundIndexCapture(Value tensorOrMemref);
 
+  int64_t getRank() { return memRank; }
+  bool areAllLiteral();
   IndexExpr getLiteral(uint64_t i); // Assert if bound is not compile time.
   IndexExpr getDim(uint64_t i);
   IndexExpr getSymbol(uint64_t i);
@@ -676,6 +686,7 @@ private:
   void getList(SmallVectorImpl<IndexExpr> &dimList);
 
   Value tensorOrMemref;
+  int64_t memRank;
 };
 
 //===----------------------------------------------------------------------===//
@@ -705,19 +716,5 @@ void getIndexExprList(SmallVectorImpl<IndexExpr> &inputList,
   for (auto item : inputList)
     outputList.emplace_back(INDEXEXPR(item));
 }
-
-//===----------------------------------------------------------------------===//
-// Generating Krnl Load / Store
-//===----------------------------------------------------------------------===//
-
-struct krnl_load {
-  krnl_load(Value memref, SmallVectorImpl<IndexExpr> &indices);
-  Value result;
-  operator Value() { return result; }
-};
-
-struct krnl_store {
-  krnl_store(Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
-};
 
 } // namespace mlir

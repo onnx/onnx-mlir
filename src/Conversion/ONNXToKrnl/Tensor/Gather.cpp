@@ -29,8 +29,10 @@ struct ONNXGatherOpLowering : public ConversionPattern {
 
     ONNXGatherOpShapeHelper shapeHelper(&gatherOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
-    (void)shapecomputed;
     assert(succeeded(shapecomputed));
+    // Scope for krnl EDSC ops
+    using namespace mlir::edsc;
+    ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope(shapeHelper.scope);
 
     // Insert an allocation and deallocation for the output of this operation.
