@@ -1285,8 +1285,11 @@ IndexExpr ArrayAttributeIndexCapture::getLiteral(uint64_t i) {
 //===----------------------------------------------------------------------===//
 
 MemRefBoundIndexCapture::MemRefBoundIndexCapture(Value tensorOrMemref)
-    : tensorOrMemref(tensorOrMemref) {
-  memRank = tensorOrMemref.getType().cast<ShapedType>().getShape().size();
+    : tensorOrMemref(tensorOrMemref), memRank(0) {
+  ShapedType shapedType =
+      tensorOrMemref.getType().dyn_cast_or_null<ShapedType>();
+  if (shapedType)
+    memRank = shapedType.getShape().size();
 }
 
 bool MemRefBoundIndexCapture::areAllLiteral() {
