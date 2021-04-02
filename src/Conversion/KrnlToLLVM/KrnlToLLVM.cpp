@@ -1400,7 +1400,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   {
     OwningRewritePatternList patterns;
-    vector::populateVectorToVectorCanonicalizationPatterns(patterns, &getContext());
+    vector::populateVectorToVectorCanonicalizationPatterns(
+        patterns, &getContext());
     vector::populateVectorSlicesLoweringPatterns(patterns, &getContext());
     vector::populateVectorContractLoweringPatterns(patterns, &getContext());
     applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));

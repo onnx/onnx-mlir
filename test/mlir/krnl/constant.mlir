@@ -78,11 +78,12 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : () -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK: [[CONST1:%.+]] = llvm.mlir.constant(1 : i64) : i64
+  // CHECK-DAG: [[CONST_5:%.+]] = llvm.mlir.constant(24 : i64) : i64
+  // CHECK-DAG: [[CONST1:%.+]] = llvm.mlir.constant(1 : i64) : i64
   // CHECK: [[ALLOCA:%.+]] = llvm.alloca [[CONST1]] x !llvm.array<3 x array<2 x f32>> : (i64) -> !llvm.ptr<array<3 x array<2 x f32>>>
   // CHECK: [[I8ALLOCA:%.+]] = llvm.bitcast [[ALLOCA]] : !llvm.ptr<array<3 x array<2 x f32>>> to !llvm.ptr<i8>
 
-  // CHECK: [[GLOBAL_ADDR:%.+]] = llvm.mlir.addressof [[GLOBAL_CONST]] : !llvm.ptr<array<3 x array<2 x f32>>>
+  // CHECK: [[GLOBAL_ADDR:%.+]] = llvm.mlir.addressof [[GLOBAL_CONST:.*]] : !llvm.ptr<array<3 x array<2 x f32>>>
   // CHECK: [[I8GLOBAL:%.+]] = llvm.bitcast [[GLOBAL_ADDR]] : !llvm.ptr<array<3 x array<2 x f32>>> to !llvm.ptr<i8>
 
   /// Size of the constant tensor in bytes.
@@ -137,7 +138,6 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   // CHECK: [[RES_MEMREF_7:%.+]] = llvm.insertvalue [[CONST_1]], [[RES_MEMREF_6]][4, 1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
 
   /// Copy result in a MemRef:
-  // CHECK: [[CONST_5:%.+]] = llvm.mlir.constant(24 : i64) : i64
   // CHECK: [[OUT_DATA:%.+]] = llvm.extractvalue [[RES_MEMREF_7]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
   // CHECK: [[TYPED_OUT_DATA:%.+]] = llvm.bitcast [[OUT_DATA]] : !llvm.ptr<f32> to !llvm.ptr<i8>
   // CHECK: [[GLOBAL_DATA:%.+]] = llvm.extractvalue [[MEMREF5]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
