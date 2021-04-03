@@ -638,7 +638,8 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
   }
 
   // Checking value of split parameter.
-  auto splitAttribute = op->split();
+  // ToFix split() becomes Value
+  Optional<ArrayAttr> splitAttribute;
   SmallVector<IndexExpr, 4> splitDims;
   MemRefBoundIndexCapture inputBounds(operandAdaptor.input());
   if (splitAttribute.hasValue()) {
