@@ -62,7 +62,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
 
     // Scope for krnl EDSC ops
     using namespace edsc;
-    //using namespace edsc::intrinsics;
+    // using namespace edsc::intrinsics;
     ScopedContext scope(rewriter, loc);
     // Scope for IndexExpr.
     IndexExprScope ieScope(&rewriter, loc);
