@@ -32,8 +32,10 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
-    (void)shapecomputed;
     assert(succeeded(shapecomputed));
+    // Scope for krnl EDSC ops
+    using namespace mlir::edsc;
+    ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope;
 
     // Insert an allocation and deallocation for the output of this operation.

@@ -234,6 +234,9 @@ struct ONNXPoolOpLowering : public ConversionPattern {
     // Kernel offset in the input shape.
     int kernelOffset = inputShape.size() - kernelShape.size();
 
+    // Scope for krnl EDSC ops
+    using namespace mlir::edsc;
+    ScopedContext scope(rewriter, loc);
     // Scope for IndexExpr.
     IndexExprScope ieScope(&rewriter, loc);
 
