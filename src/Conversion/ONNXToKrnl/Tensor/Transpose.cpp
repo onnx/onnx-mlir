@@ -52,6 +52,9 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     {
       // Get a child IndexExpr context.
       IndexExprScope childScope(shapeHelper.scope);
+      // Scope for krnl EDSC ops
+      using namespace mlir::edsc;
+      ScopedContext scope(rewriter, loc);
 
       // Get read/write indices.
       SmallVector<IndexExpr, 4> readIndices;
