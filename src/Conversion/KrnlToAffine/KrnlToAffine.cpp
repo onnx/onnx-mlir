@@ -1041,10 +1041,8 @@ public:
       SmallVectorImpl<IndexExpr> &readUBs, SmallVectorImpl<IndexExpr> &padUBs,
       SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank,
       bool padPhase) const {
-    using namespace mlir::edsc::intrinsics;
     if (i == rank) {
       // create new scope and import index expressions
-      using namespace mlir::edsc::intrinsics;
       IndexExprScope currScope;
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
@@ -1149,7 +1147,6 @@ public:
       SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank) const {
     if (i == rank) {
       // create new scope and import index expressions
-      using namespace mlir::edsc::intrinsics;
       IndexExprScope currScope;
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
