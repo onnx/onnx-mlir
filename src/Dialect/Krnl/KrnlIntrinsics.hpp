@@ -19,8 +19,8 @@
 #include "mlir/EDSC/Builders.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "llvm/ADT/ArrayRef.h"
 
 namespace mlir {
 namespace edsc {
