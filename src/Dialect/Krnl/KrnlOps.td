@@ -154,18 +154,19 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
   let printer = ?;
 }
 
-def KrnlGlobalOp : Op<Krnl_Dialect, "global"> {
+def KrnlGlobalOp : Op<Krnl_Dialect, "global", [MemRefsNormalizable]> {
   let summary = "Krnl global operation";
   let description = [{
     Operation for holding global data values. A global constant can have a
     meaningful name recorded as its `name` attribute. Its content is stored
-    in the `value` dense element attribute. Alternatively, if the constants
-    are packed together, `offset` records the byte offset in the global
-    constant pool from which the current constant is to be read.
+    in the `value` dense/opaque element attribute. Alternatively, if the
+    constants are packed together, `offset` records the byte offset in the
+    global constant pool from which the current constant is to be read.
   }];
 
   let arguments = (ins AnyAttr:$shape,
-    StrAttr:$name, OptionalAttr<AnyAttr>:$value, OptionalAttr<I64Attr>:$offset);
+    StrAttr:$name, OptionalAttr<AnyAttr>:$value, OptionalAttr<I64Attr>:$offset,
+    OptionalAttr<I64Attr>:$alignment);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
   let parser = ?;
@@ -944,4 +945,3 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
      `:` type($bufferMemref) `,` type($memref)
   }];
 }
-
