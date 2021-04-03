@@ -736,8 +736,8 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.Compute(operands);
     assert(succeeded(shapecomputed));
     // Scope for krnl EDSC ops
-    using namespace edsc;
-    using namespace edsc::intrinsics;
+    using namespace mlir::edsc;
+    using namespace mlir::edsc::intrinsics;
     ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope(shapeHelper.scope);
 
@@ -808,8 +808,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
     LogicalResult shapecomputed = shapeHelper.Compute(operands);
     assert(succeeded(shapecomputed));
-    using namespace edsc;
-    using namespace edsc::intrinsics;
+    using namespace mlir::edsc;
+    using namespace mlir::edsc::intrinsics;
     ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope;
 

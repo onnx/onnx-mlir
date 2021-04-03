@@ -737,7 +737,7 @@ public:
     IndexExpr jPartialTrip =
         partialTrip(jGlobalUB, jComputeTileSize, jComputeStart);
 
-    using namespace edsc::op;
+    using namespace mlir::edsc::op;
 
     // Currently, there is a bug in unroll and jam which crashes if there is an
     // affine if/then/else. No crash if only if-then.
@@ -805,12 +805,12 @@ private:
     KrnlMatMulOpAdaptor operandAdaptor(op);
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
 
-    // Get the EDSC variables, and loop dimensions.
+    // Get the mlir::edsc variables, and loop dimensions.
     AffineIndexedValue AA(A), BB(B), CC(C); // Obj we can load and store into.
     MemRefType CTmpType = MemRefType::get({}, elementType);
 
     // For i, j loops.
-    using namespace edsc::op;
+    using namespace mlir::edsc::op;
     LiteralIndexExpr zero(0);
     Value jSaved;
     // clang-format off
@@ -863,7 +863,7 @@ private:
     AffineIndexedValue AA(A), BB(B), CC(C);
     // Iterates over the I indices (j are simd dim).
     Value iSaved;
-    using namespace edsc::op;
+    using namespace mlir::edsc::op;
     LiteralIndexExpr zero(0);
     // clang-format off
     affineLoopBuilder(zero, I, 1, [&](Value i) {
@@ -1041,10 +1041,10 @@ public:
       SmallVectorImpl<IndexExpr> &readUBs, SmallVectorImpl<IndexExpr> &padUBs,
       SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank,
       bool padPhase) const {
-    using namespace edsc::intrinsics;
+    using namespace mlir::edsc::intrinsics;
     if (i == rank) {
       // create new scope and import index expressions
-      using namespace edsc::intrinsics;
+      using namespace mlir::edsc::intrinsics;
       IndexExprScope currScope;
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
@@ -1060,7 +1060,7 @@ public:
         krnl_store(padVal, buffMemref, currLoopIndices);
       }
     } else {
-      using namespace edsc::op;
+      using namespace mlir::edsc::op;
       Value readUBVal = readUBs[i].getValue();
       if (readUBs[i].isLiteralAndIdenticalTo(0)) {
         // Nothing to read, skip.
@@ -1149,7 +1149,7 @@ public:
       SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank) const {
     if (i == rank) {
       // create new scope and import index expressions
-      using namespace edsc::intrinsics;
+      using namespace mlir::edsc::intrinsics;
       IndexExprScope currScope;
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
@@ -1161,7 +1161,7 @@ public:
       Value sourceVal = krnl_load(buffMemref, currLoopIndices);
       krnl_store(sourceVal, sourceMemref, currStoreIndices);
     } else {
-      using namespace edsc::op;
+      using namespace mlir::edsc::op;
       if (writeUBs[i].isLiteralAndIdenticalTo(0)) {
         // Nothing to write.
       } else {
