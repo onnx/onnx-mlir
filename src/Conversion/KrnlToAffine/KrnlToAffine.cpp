@@ -1044,6 +1044,7 @@ public:
     using namespace edsc::intrinsics;
     if (i == rank) {
       // create new scope and import index expressions
+      using namespace edsc::intrinsics;
       IndexExprScope currScope;
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
@@ -1148,6 +1149,7 @@ public:
       SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank) const {
     if (i == rank) {
       // create new scope and import index expressions
+      using namespace edsc::intrinsics;
       IndexExprScope currScope;
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
