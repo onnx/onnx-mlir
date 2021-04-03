@@ -23,8 +23,8 @@
 #include "src/Dialect/ONNX/IndexExpr.hpp"
 
 namespace mlir {
-namespace edsc {
-namespace intrinsics {
+// namespace edsc {
+// namespace intrinsics {
 
 //====---------------- EDSC Support with Value ---------------------------===//
 
@@ -89,6 +89,6 @@ void krnl_copy_from_buffer(Value bufferMemref, Value memref,
 void krnl_copy_from_buffer(
     Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts);
 
-} // namespace intrinsics
-} // namespace edsc
+//} // namespace intrinsics
+//} // namespace edsc
 } // namespace mlir

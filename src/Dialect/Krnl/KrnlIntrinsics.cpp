@@ -19,8 +19,8 @@ using namespace mlir;
 // using namespace mlir::edsc;
 // using namespace mlir::edsc::intrinsics;
 namespace mlir {
-namespace edsc {
-namespace intrinsics {
+// namespace edsc {
+// namespace intrinsics {
 
 //====---------------- EDSC Support with Value ---------------------------===//
 
@@ -236,6 +236,6 @@ void krnl_copy_from_buffer(
   ArrayRef<int64_t> empty;
   krnl_copy_from_buffer(bufferMemref, memref, starts, empty);
 }
-} // namespace intrinsics
-} // namespace edsc
+//} // namespace intrinsics
+//} // namespace edsc
 } // namespace mlir

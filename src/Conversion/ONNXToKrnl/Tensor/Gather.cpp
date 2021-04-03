@@ -33,7 +33,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     assert(succeeded(shapecomputed));
     // Scope for krnl EDSC ops
     using namespace edsc;
-    using namespace edsc::intrinsics;
+    //using namespace edsc::intrinsics;
     ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope(shapeHelper.scope);
 
