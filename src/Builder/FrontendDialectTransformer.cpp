@@ -32,9 +32,9 @@ namespace bstd = mpark;
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 
 #include "FrontendDialectTransformer.hpp"
-#include <map>
 #include <fstream>
 #include <iostream>
+#include <map>
 
 namespace onnx_mlir {
 namespace detail {
@@ -1055,7 +1055,7 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
-std::string getSignature(mlir::FunctionType funcType) {
+  std::string getSignature(mlir::FunctionType funcType) {
     auto inputs = funcType.getInputs();
 
     std::string const sf32 = std::string("f32");
@@ -1120,8 +1120,8 @@ std::string getSignature(mlir::FunctionType funcType) {
       dstring.replace(start_pos, si16.length(), typeMap[si16]);
       start_pos += si16.length();
     }
-  return dstring;
-  }
+    return dstring;
+    }
 
 
   /*!
