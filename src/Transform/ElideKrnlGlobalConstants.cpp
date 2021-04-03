@@ -37,13 +37,37 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
     mlir::KrnlGlobalOp op, mlir::PatternRewriter &rewriter) const {
   auto loc = op.getLoc();
 
-  if (op.value().hasValue()) {
+  // Only elide if value is available.
+  if (!op.value().hasValue())
+    return success();
+
+  // Only elide dense and opaque attributes.
+  if (!(op.value()->isa<DenseElementsAttr>() ||
+          op.value()->isa<OpaqueElementsAttr>()))
+    return success();
+
+  if (op.value()->isa<DenseElementsAttr>()) {
+    // Elide the dense attribute.
     const auto &valAttr = op.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
     if (valAttr.getNumElements() > elisionThreshold && !valAttr.isSplat()) {
       IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
+      IntegerAttr alignmentAttr = op.alignment() ? op.alignmentAttr() : nullptr;
       auto newGlobalOp = rewriter.create<KrnlGlobalOp>(loc,
           op.getResult().getType(), /*shape=*/op.shape(),
-          /*name=*/op.name(), /*value=*/nullptr, /*offset=*/offsetAttr);
+          /*name=*/op.name(), /*value=*/nullptr, /*offset=*/offsetAttr,
+          /*alignment=*/alignmentAttr);
+      rewriter.replaceOp(op, newGlobalOp.getResult());
+    }
+  } else {
+    // Elide the opaque attribute.
+    const auto &valAttr = op.valueAttr().dyn_cast_or_null<OpaqueElementsAttr>();
+    if (valAttr.getValue().size() > elisionThreshold) {
+      IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
+      IntegerAttr alignmentAttr = op.alignment() ? op.alignmentAttr() : nullptr;
+      auto newGlobalOp = rewriter.create<KrnlGlobalOp>(loc,
+          op.getResult().getType(), /*shape=*/op.shape(),
+          /*name=*/op.name(), /*value=*/nullptr, /*offset=*/offsetAttr,
+          /*alignment=*/alignmentAttr);
       rewriter.replaceOp(op, newGlobalOp.getResult());
     }
   }

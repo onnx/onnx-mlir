@@ -60,7 +60,8 @@ struct ONNXConstantOpLowering : public ConversionPattern {
         /*name=*/
         rewriter.getStringAttr("constant_" + std::to_string(constantID)),
         /*value=*/constantOp.value().getValue(),
-        /*offset=*/nullptr);
+        /*offset=*/nullptr,
+        /*alignment=*/nullptr);
 
     // Increment constant ID:
     constantID++;
