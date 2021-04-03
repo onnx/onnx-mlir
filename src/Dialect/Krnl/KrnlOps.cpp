@@ -460,25 +460,14 @@ MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
 //===----------------------------------------------------------------------===//
 
 void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
-    ::mlir::OperationState &odsState, Value odsA, Value aOdsStart0,
-    Value aOdsStart1, Value odsB, Value bOdsStart0, Value bOdsStart1,
-    Value odsC, Value cOdsStart0, Value cOdsStart1, ArrayRef<Value> odsLoops,
-    Value iOdsComputeStart, Value jOdsComputeStart, Value kOdsComputeStart,
-    Value iOdsGlobalUB, Value jOdsGlobalUB, Value kOdsGlobalUB,
+    ::mlir::OperationState &odsState, Value odsA, ArrayRef<Value> aOdsStart,
+    Value odsB, ArrayRef<Value> bOdsStart, Value odsC,
+    ArrayRef<Value> cOdsStart, ArrayRef<Value> odsLoops, Value iOdsComputeStart,
+    Value jOdsComputeStart, Value kOdsComputeStart, Value iOdsGlobalUB,
+    Value jOdsGlobalUB, Value kOdsGlobalUB,
     ArrayRef<int64_t> odsComputeTileSize, ArrayRef<int64_t> aOdsTileSize,
     ArrayRef<int64_t> bOdsTileSize, ArrayRef<int64_t> cOdsTileSize,
     bool odsSimdize, bool odsUnroll, bool odsOvercompute) {
-  // Validate compute tile size and loop indices: rank 3.
-  assert(odsLoops.size() == 3 && "need 3 loop indicess for intermost compute");
-  assert((odsComputeTileSize.size() == 0 || odsComputeTileSize.size() == 3) &&
-         "bad compute tile size");
-  // Validate optional tile sizes: rank of 0 (empty) or 2.
-  assert((aOdsTileSize.size() == 0 || aOdsTileSize.size() == 2) &&
-         "bad A tile size");
-  assert((bOdsTileSize.size() == 0 || bOdsTileSize.size() == 2) &&
-         "bad B tile size");
-  assert((cOdsTileSize.size() == 0 || cOdsTileSize.size() == 2) &&
-         "bad C tile size");
   // Massage types.
   ValueRange loopRange(odsLoops);
   ArrayAttr computeTileSizeAttr =
@@ -487,11 +476,42 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
   ArrayAttr bTileSizeAttr = odsBuilder.getI64ArrayAttr(bOdsTileSize);
   ArrayAttr cTileSizeAttr = odsBuilder.getI64ArrayAttr(cOdsTileSize);
 
-  build(odsBuilder, odsState, odsA, aOdsStart0, aOdsStart1, odsB, bOdsStart0,
-      bOdsStart1, odsC, cOdsStart0, cOdsStart1, loopRange, iOdsComputeStart,
-      jOdsComputeStart, kOdsComputeStart, iOdsGlobalUB, jOdsGlobalUB,
-      kOdsGlobalUB, computeTileSizeAttr, aTileSizeAttr, bTileSizeAttr,
-      cTileSizeAttr, odsSimdize, odsUnroll, odsOvercompute);
+  build(odsBuilder, odsState, odsA, aOdsStart, odsB, bOdsStart, odsC, cOdsStart,
+      loopRange, iOdsComputeStart, jOdsComputeStart, kOdsComputeStart,
+      iOdsGlobalUB, jOdsGlobalUB, kOdsGlobalUB, computeTileSizeAttr,
+      aTileSizeAttr, bTileSizeAttr, cTileSizeAttr, odsSimdize, odsUnroll,
+      odsOvercompute);
+}
+
+static LogicalResult verify(KrnlMatMulOp op) {
+  KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
+  int64_t aRank =
+      operandAdaptor.A().getType().cast<MemRefType>().getShape().size();
+  int64_t bRank =
+      operandAdaptor.B().getType().cast<MemRefType>().getShape().size();
+  int64_t cRank =
+      operandAdaptor.C().getType().cast<MemRefType>().getShape().size();
+  if (operandAdaptor.aMemStart().size() != aRank)
+    return op.emitOpError("aMemStart should have same rank as memref A");
+  if (operandAdaptor.bMemStart().size() != bRank)
+    return op.emitOpError("bMemStart should have same rank as memref A");
+  if (operandAdaptor.cMemStart().size() != cRank)
+    return op.emitOpError("cMemStart should have same rank as memref A");
+  if (operandAdaptor.loops().size() != 3)
+    return op.emitOpError("loops rank should be 3 (i,j,k)");
+  ArrayAttr computeAttr = operandAdaptor.computeTileSize();
+  if (computeAttr && !(computeAttr.size() == 0 || computeAttr.size() == 3))
+    return op.emitOpError("computeTileSize rank should be 0 or 3");
+  ArrayAttr aTileAttr = operandAdaptor.aTileSize();
+  if (aTileAttr && !(aTileAttr.size() == 0 || aTileAttr.size() == 2))
+    return op.emitOpError("aTileSize rank should be 0 or 2");
+  ArrayAttr bTileAttr = operandAdaptor.bTileSize();
+  if (bTileAttr && !(bTileAttr.size() == 0 || bTileAttr.size() == 2))
+    return op.emitOpError("bTileSize rank should be 0 or 2");
+  ArrayAttr cTileAttr = operandAdaptor.cTileSize();
+  if (cTileAttr && !(cTileAttr.size() == 0 || cTileAttr.size() == 2))
+    return op.emitOpError("cTileSize rank should be 0 or 2");
+  return success();
 }
 
 MutableOperandRange KrnlMatMulOp::getLoopRefs() { return loopsMutable(); }

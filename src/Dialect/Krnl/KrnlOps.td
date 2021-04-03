@@ -703,8 +703,8 @@ def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
 
 // =============================================================================
 
-def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", 
-      [DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
+def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments, 
+       DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
   let summary = "Matmul operation for a single pannel.";
   let description = [{
     Perform a matrix multiplication A * B + C
@@ -795,11 +795,11 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul",
     // Buffer/memory used and indices that correspoond to the begining 
     // of each buffer/memory.
     Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
-    Index: $aMemStart0, Index: $aMemStart1,
+    Variadic<Index>: $aMemStart,
     Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B,
-    Index: $bMemStart0, Index: $bMemStart1,
+    Variadic<Index>: $bMemStart,
     Arg<AnyMemRef, "Add into C [NxM]", [MemRead, MemWrite]>:$C,
-    Index: $cMemStart0, Index: $cMemStart1,
+    Variadic<Index>: $cMemStart,
     // Loops involved, and indices pointing to the start of the compute
     // subtile. 
     Variadic<AnyType> : $loops,
@@ -817,9 +817,9 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul",
     DefaultValuedAttr<BoolAttr, "false">:$overcompute);
 
   let builders = [ OpBuilderDAG<(ins 
-      "Value": $A, "Value": $aStart0, "Value": $aStart1,
-      "Value": $B, "Value": $bStart0, "Value": $bStart1,
-      "Value": $C, "Value": $cStart0, "Value": $cStart1,
+      "Value": $A, "ArrayRef<Value>": $aStart,
+      "Value": $B, "ArrayRef<Value>": $bStart,
+      "Value": $C, "ArrayRef<Value>": $cStart,
       "ArrayRef<Value>": $loops,
       "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart, 
       "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
@@ -834,10 +834,12 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul",
 
   let parser = ?;
   let printer = ?;
+  let verifier = [{ return ::verify(*this); }];
+
   let assemblyFormat = [{
-    $A `[` $aMemStart0 `,` $aMemStart1 `]` `,`
-    $B `[` $bMemStart0 `,` $bMemStart1 `]` `,`
-    $C `[` $cMemStart0 `,` $cMemStart1 `]` `,`
+    $A `[` $aMemStart `]` `,`
+    $B `[` $bMemStart `]` `,`
+    $C `[` $cMemStart `]` `,`
     `(` $loops `)` `,`
     `(` $iComputeStart `,` $jComputeStart `,` $kComputeStart `)` `,`
     `(` $iGlobalUB `,` $jGlobalUB `,` $kGlobalUB `)` 

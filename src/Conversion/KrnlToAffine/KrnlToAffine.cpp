@@ -697,17 +697,17 @@ public:
         kGlobalUB(operandAdaptor.kGlobalUB());
     // A[i, k]; B[k, j]; C[i, j]
     IndexExpr AStart0 =
-        iComputeStart - DimIndexExpr(operandAdaptor.aMemStart0());
+        iComputeStart - DimIndexExpr(operandAdaptor.aMemStart()[0]);
     IndexExpr AStart1 =
-        kComputeStart - DimIndexExpr(operandAdaptor.aMemStart1());
+        kComputeStart - DimIndexExpr(operandAdaptor.aMemStart()[1]);
     IndexExpr BStart0 =
-        kComputeStart - DimIndexExpr(operandAdaptor.bMemStart0());
+        kComputeStart - DimIndexExpr(operandAdaptor.bMemStart()[0]);
     IndexExpr BStart1 =
-        jComputeStart - DimIndexExpr(operandAdaptor.bMemStart1());
+        jComputeStart - DimIndexExpr(operandAdaptor.bMemStart()[0]);
     IndexExpr CStart0 =
-        iComputeStart - DimIndexExpr(operandAdaptor.cMemStart0());
+        iComputeStart - DimIndexExpr(operandAdaptor.cMemStart()[0]);
     IndexExpr CStart1 =
-        jComputeStart - DimIndexExpr(operandAdaptor.cMemStart1());
+        jComputeStart - DimIndexExpr(operandAdaptor.cMemStart()[1]);
 
     // Simdize along M for the full compute tile
     IndexExpr vectorLen = jComputeTileSize;

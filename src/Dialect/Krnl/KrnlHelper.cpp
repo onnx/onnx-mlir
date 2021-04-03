@@ -466,18 +466,11 @@ void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
     ArrayRef<int64_t> cTileSize, bool simdize, bool unroll, bool overcompute) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  assert(aStart.size() == 2 && "A start needs 2 dim");
-  assert(bStart.size() == 2 && "B start needs 2 dim");
-  assert(cStart.size() == 2 && "C start needs 2 dim");
-  assert(loops.size() == 3 && "loops needs 3 dim");
-  assert(computeStarts.size() == 3 && "compute starts needs 3 dim");
-  assert(globalUBs.size() == 3 && "global UBs needs 3 dim");
   ScopedContext::getBuilderRef().create<KrnlMatMulOp>(
-      ScopedContext::getLocation(), A, aStart[0], aStart[1], B, bStart[0],
-      bStart[1], C, cStart[0], cStart[1], loops, computeStarts[0],
-      computeStarts[1], computeStarts[2], globalUBs[0], globalUBs[1],
-      globalUBs[2], computeTileSize, aTileSize, bTileSize, cTileSize, simdize,
-      unroll, overcompute);
+      ScopedContext::getLocation(), A, aStart, B, bStart, C, cStart, loops,
+      computeStarts[0], computeStarts[1], computeStarts[2], globalUBs[0],
+      globalUBs[1], globalUBs[2], computeTileSize, aTileSize, bTileSize,
+      cTileSize, simdize, unroll, overcompute);
 }
 
 void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
