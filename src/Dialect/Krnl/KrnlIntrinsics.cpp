@@ -12,32 +12,31 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/EDSC/Builders.h"
-#include "mlir/IR/BuiltinTypes.h"
+#include "src/Dialect/Krnl/KrnlIntrinsics.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
 
-namespace mlir {
-namespace edsc {
-namespace intrinsics {
+using namespace mlir;
+// using namespace mlir::edsc;
+using namespace mlir::edsc::intrinsics;
 
 //====---------------- EDSC Support with Value ---------------------------===//
 
-Value krnl_load(Value memref, ArrayRef<Value> indices) {
+Value mlir::edsc::intrinsics::krnl_load(Value memref, ArrayRef<Value> indices) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   return ScopedContext::getBuilderRef().create<KrnlLoadOp>(
       ScopedContext::getLocation(), memref, indices);
 }
 
-void krnl_store(Value val, Value memref, ArrayRef<Value> indices) {
+void mlir::edsc::intrinsics::krnl_store(
+    Value val, Value memref, ArrayRef<Value> indices) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlStoreOp>(
       ScopedContext::getLocation(), val, memref, indices);
 }
 
-ValueRange krnl_define_loop(int64_t originalLoopNum) {
+ValueRange mlir::edsc::intrinsics::krnl_define_loop(int64_t originalLoopNum) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   KrnlDefineLoopsOp newOp =
@@ -46,7 +45,7 @@ ValueRange krnl_define_loop(int64_t originalLoopNum) {
   return newOp.getResults();
 }
 
-ValueRange krnl_block(Value loop, int64_t blockSize) {
+ValueRange mlir::edsc::intrinsics::krnl_block(Value loop, int64_t blockSize) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   return ScopedContext::getBuilderRef()
@@ -54,14 +53,16 @@ ValueRange krnl_block(Value loop, int64_t blockSize) {
       .getResults();
 }
 
-void krnl_permute(ArrayRef<Value> loops, ArrayRef<int64_t> map) {
+void mlir::edsc::intrinsics::krnl_permute(
+    ArrayRef<Value> loops, ArrayRef<int64_t> map) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlPermuteOp>(
       ScopedContext::getLocation(), loops, map);
 }
 
-ValueRange krnl_get_induction_var_value(ArrayRef<Value> loops) {
+ValueRange mlir::edsc::intrinsics::krnl_get_induction_var_value(
+    ArrayRef<Value> loops) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   return ScopedContext::getBuilderRef()
@@ -70,8 +71,9 @@ ValueRange krnl_get_induction_var_value(ArrayRef<Value> loops) {
       .getResults();
 }
 
-void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
-    ArrayRef<Value> lb, ArrayRef<Value> ub, ArrayRef<Value> iterArgs,
+void mlir::edsc::intrinsics::krnl_iterate(ArrayRef<Value> originalLoop,
+    ArrayRef<Value> optimizedLoop, ArrayRef<Value> lb, ArrayRef<Value> ub,
+    ArrayRef<Value> iterArgs,
     function_ref<void(ArrayRef<Value>)> bodyBuilderFn) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
@@ -95,16 +97,16 @@ void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
   }
 }
 
-void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> lb,
-    ArrayRef<Value> ub, ArrayRef<Value> iterArgs,
+void mlir::edsc::intrinsics::krnl_iterate(ArrayRef<Value> originalLoop,
+    ArrayRef<Value> lb, ArrayRef<Value> ub, ArrayRef<Value> iterArgs,
     function_ref<void(ArrayRef<Value>)> bodyBuilderFn) {
   // When no optimized loops are given, use original for the optimized.
   krnl_iterate(originalLoop, originalLoop, lb, ub, iterArgs, bodyBuilderFn);
 }
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
-    ArrayRef<Value> starts, Value padValue, ArrayRef<int64_t> tileSize,
-    ArrayRef<int64_t> padToNext) {
+void mlir::edsc::intrinsics::krnl_copy_to_buffer(Value bufferMemref,
+    Value memref, ArrayRef<Value> starts, Value padValue,
+    ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlCopyToBufferOp>(
@@ -112,27 +114,28 @@ void krnl_copy_to_buffer(Value bufferMemref, Value memref,
       tileSize, padToNext);
 }
 
-void krnl_copy_to_buffer(
+void mlir::edsc::intrinsics::krnl_copy_to_buffer(
     Value bufferMemref, Value memref, ArrayRef<Value> starts, Value padValue) {
   ArrayRef<int64_t> empty;
-  krnl_copy_to_buffer(bufferMemref, memref, starts, padValue, empty, empty);
+  mlir::edsc::intrinsics::krnl_copy_to_buffer(
+      bufferMemref, memref, starts, padValue, empty, empty);
 }
 
-void krnl_copy_from_buffer(Value bufferMemref, Value memref,
-    ArrayRef<Value> starts, ArrayRef<int64_t> tileSize) {
+void mlir::edsc::intrinsics::krnl_copy_from_buffer(Value bufferMemref,
+    Value memref, ArrayRef<Value> starts, ArrayRef<int64_t> tileSize) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlCopyFromBufferOp>(
       ScopedContext::getLocation(), bufferMemref, memref, starts, tileSize);
 }
-void krnl_copy_from_buffer(
+void mlir::edsc::intrinsics::krnl_copy_from_buffer(
     Value bufferMemref, Value memref, ArrayRef<Value> starts) {
   ArrayRef<int64_t> empty;
   krnl_copy_from_buffer(bufferMemref, memref, starts, empty);
 }
 
-void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
-    ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
+void mlir::edsc::intrinsics::krnl_matmul(Value A, ArrayRef<Value> aStart,
+    Value B, ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
     ArrayRef<Value> loops, ArrayRef<Value> computeStarts,
     ArrayRef<Value> globalUBs, ArrayRef<int64_t> computeTileSize,
     ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
@@ -153,8 +156,8 @@ void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
       unroll, overcompute);
 }
 
-void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
-    ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
+void mlir::edsc::intrinsics::krnl_matmul(Value A, ArrayRef<Value> aStart,
+    Value B, ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
     ArrayRef<Value> loops, ArrayRef<Value> computeStarts,
     ArrayRef<Value> globalUBs, bool simdize, bool unroll, bool overcompute) {
   ArrayRef<int64_t> empty;
@@ -164,20 +167,23 @@ void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
 
 //====---------------- EDSC Support with IndexExpr -----------------------===//
 
-Value krnl_load(Value memref, ArrayRef<IndexExpr> indices) {
+Value mlir::edsc::intrinsics::krnl_load(
+    Value memref, ArrayRef<IndexExpr> indices) {
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
   return krnl_load(memref, indexValues);
 }
 
-void krnl_store(Value val, Value memref, ArrayRef<IndexExpr> indices) {
+void mlir::edsc::intrinsics::krnl_store(
+    Value val, Value memref, ArrayRef<IndexExpr> indices) {
   SmallVector<Value, 4> indexValues;
   IndexExpr::getValues(indices, indexValues);
   krnl_store(val, memref, indexValues);
 }
 
-void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
-    ArrayRef<IndexExpr> lb, ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
+void mlir::edsc::intrinsics::krnl_iterate(ArrayRef<Value> originalLoop,
+    ArrayRef<Value> optimizedLoop, ArrayRef<IndexExpr> lb,
+    ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
     function_ref<void(ArrayRef<Value>)> bodyBuilderFn) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
@@ -201,40 +207,37 @@ void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
   }
 }
 
-void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<IndexExpr> lb,
-    ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
+void mlir::edsc::intrinsics::krnl_iterate(ArrayRef<Value> originalLoop,
+    ArrayRef<IndexExpr> lb, ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
     function_ref<void(ArrayRef<Value>)> bodyBuilderFn) {
   // When no optimized loops are given, use original for the optimized.
   krnl_iterate(originalLoop, originalLoop, lb, ub, iterArgs, bodyBuilderFn);
 }
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
-    ArrayRef<IndexExpr> starts, Value padValue, ArrayRef<int64_t> tileSize,
-    ArrayRef<int64_t> padToNext) {
+void mlir::edsc::intrinsics::krnl_copy_to_buffer(Value bufferMemref,
+    Value memref, ArrayRef<IndexExpr> starts, Value padValue,
+    ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext) {
   SmallVector<Value, 4> startValues;
   IndexExpr::getValues(starts, startValues);
   krnl_copy_to_buffer(
       bufferMemref, memref, startValues, padValue, tileSize, padToNext);
 }
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
-    ArrayRef<IndexExpr> starts, Value padValue) {
+void mlir::edsc::intrinsics::krnl_copy_to_buffer(Value bufferMemref,
+    Value memref, ArrayRef<IndexExpr> starts, Value padValue) {
   ArrayRef<int64_t> empty;
   krnl_copy_to_buffer(bufferMemref, memref, starts, padValue, empty, empty);
 }
 
-void krnl_copy_from_buffer(Value bufferMemref, Value memref,
-    ArrayRef<IndexExpr> starts, ArrayRef<int64_t> tileSize) {
+void mlir::edsc::intrinsics::krnl_copy_from_buffer(Value bufferMemref,
+    Value memref, ArrayRef<IndexExpr> starts, ArrayRef<int64_t> tileSize) {
   SmallVector<Value, 4> startValues;
   IndexExpr::getValues(starts, startValues);
   krnl_copy_from_buffer(bufferMemref, memref, starts, tileSize);
 }
-void krnl_copy_from_buffer(
+
+void mlir::edsc::intrinsics::krnl_copy_from_buffer(
     Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts) {
   ArrayRef<int64_t> empty;
   krnl_copy_from_buffer(bufferMemref, memref, starts, empty);
 }
-
-} // namespace intrinsics
-} // namespace edsc
-} // namespace mlir

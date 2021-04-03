@@ -87,7 +87,7 @@ void krnl_copy_to_buffer(Value bufferMemref, Value memref,
 void krnl_copy_from_buffer(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, ArrayRef<int64_t> tileSize);
 void krnl_copy_from_buffer(
-    Value bufferMemref, Value memref, ArrayRef<Value> starts);
+    Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts);
 
 } // namespace intrinsics
 } // namespace edsc
