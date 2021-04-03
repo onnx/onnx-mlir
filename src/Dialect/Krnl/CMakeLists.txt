@@ -15,7 +15,9 @@ add_library(OMKrnlOps
         KrnlTypes.hpp
         KrnlTypes.cpp
         KrnlHelper.hpp
-        KrnlHelper.cpp)
+        KrnlHelper.cpp
+        KrnlIntrinsics.hpp
+        KrnlIntrinsics.cpp)
 target_include_directories(OMKrnlOps
         PRIVATE
         ${ONNX_MLIR_SRC_ROOT}

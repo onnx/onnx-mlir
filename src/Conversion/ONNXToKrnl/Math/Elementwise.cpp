@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlIntrinsics.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
@@ -175,12 +176,12 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
   ONNXCastOp castOp = llvm::dyn_cast<ONNXCastOp>(op);
-  auto mlirtype = castOp.toAttr().getValue();
+  auto mlirType = castOp.toAttr().getValue();
   Value operand = scalarOperands[0];
   auto origtype = operand.getType();
 
   // check output type is the same as expected output type
-  if (elementType != mlirtype)
+  if (elementType != mlirType)
     llvm_unreachable("output type different from expected output type");
 
   // if same input and output type, return input
@@ -735,7 +736,8 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.Compute(operands);
     assert(succeeded(shapecomputed));
     // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
+    using namespace edsc;
+    using namespace edsc::intrinsics;
     ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope(shapeHelper.scope);
 
@@ -806,7 +808,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
     LogicalResult shapecomputed = shapeHelper.Compute(operands);
     assert(succeeded(shapecomputed));
-    using namespace mlir::edsc;
+    using namespace edsc;
+    using namespace edsc::intrinsics;
     ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope;
 

@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlIntrinsics.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
@@ -31,7 +32,8 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
     assert(succeeded(shapecomputed));
     // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
+    using namespace edsc;
+    using namespace edsc::intrinsics;
     ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope(shapeHelper.scope);
 

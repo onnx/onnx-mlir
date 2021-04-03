@@ -16,20 +16,15 @@
 // both debug variables will be removed once debugging is complete.
 #define DEBUG 0
 
-#include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "src/Dialect/ONNX/IndexExprDetail.hpp"
-
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Operation.h"
-#include "mlir/Support/LLVM.h"
 #include "mlir/Support/MathExtras.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/TypeSwitch.h"
+#include "src/Dialect/ONNX/IndexExpr.hpp"
+#include "src/Dialect/ONNX/IndexExprDetail.hpp"
 
 using namespace mlir;
 
@@ -1284,7 +1279,7 @@ IndexExpr ArrayAttributeIndexCapture::getLiteral(uint64_t i) {
 // Capturing Index Expressions: MemRef Bounds
 //===----------------------------------------------------------------------===//
 
-MemRefBoundIndexCapture::MemRefBoundIndexCapture(Value tensorOrMemref)
+MemRefBoundsIndexCapture::MemRefBoundsIndexCapture(Value tensorOrMemref)
     : tensorOrMemref(tensorOrMemref), memRank(0) {
   ShapedType shapedType =
       tensorOrMemref.getType().dyn_cast_or_null<ShapedType>();
@@ -1292,7 +1287,7 @@ MemRefBoundIndexCapture::MemRefBoundIndexCapture(Value tensorOrMemref)
     memRank = shapedType.getShape().size();
 }
 
-bool MemRefBoundIndexCapture::areAllLiteral() {
+bool MemRefBoundsIndexCapture::areAllLiteral() {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   for (int i = 0; i < memRank; ++i)
@@ -1301,16 +1296,16 @@ bool MemRefBoundIndexCapture::areAllLiteral() {
   return true;
 }
 
-IndexExpr MemRefBoundIndexCapture::getDim(uint64_t i) {
+IndexExpr MemRefBoundsIndexCapture::getDim(uint64_t i) {
   return get<DimIndexExpr>(i);
 }
 
-IndexExpr MemRefBoundIndexCapture::getSymbol(uint64_t i) {
+IndexExpr MemRefBoundsIndexCapture::getSymbol(uint64_t i) {
   return get<SymbolIndexExpr>(i);
 }
 
 // Assert if not a literal.
-IndexExpr MemRefBoundIndexCapture::getLiteral(uint64_t i) {
+IndexExpr MemRefBoundsIndexCapture::getLiteral(uint64_t i) {
   assert(i < memRank && "out of bound access");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
@@ -1322,16 +1317,16 @@ IndexExpr MemRefBoundIndexCapture::getLiteral(uint64_t i) {
   llvm_unreachable("expected a literal");
 }
 
-void MemRefBoundIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
+void MemRefBoundsIndexCapture::getDimList(SmallVectorImpl<IndexExpr> &dimList) {
   getList<DimIndexExpr>(dimList);
 }
 
-void MemRefBoundIndexCapture::getSymbolList(
+void MemRefBoundsIndexCapture::getSymbolList(
     SmallVectorImpl<IndexExpr> &symbolList) {
   getList<SymbolIndexExpr>(symbolList);
 }
 
-void MemRefBoundIndexCapture::getLiteralList(
+void MemRefBoundsIndexCapture::getLiteralList(
     SmallVectorImpl<IndexExpr> &literalList) {
   // Clear output.
   literalList.clear();
@@ -1341,7 +1336,7 @@ void MemRefBoundIndexCapture::getLiteralList(
 }
 
 template <class INDEX>
-IndexExpr MemRefBoundIndexCapture::get(uint64_t i) {
+IndexExpr MemRefBoundsIndexCapture::get(uint64_t i) {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   assert(i < memRank && "index out of bound");
@@ -1362,7 +1357,7 @@ IndexExpr MemRefBoundIndexCapture::get(uint64_t i) {
 }
 
 template <class INDEX>
-void MemRefBoundIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
+void MemRefBoundsIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   // Clear output.
   list.clear();
   // Scan tensor or memref.

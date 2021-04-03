@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlIntrinsics.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
@@ -53,7 +54,8 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
       // Get a child IndexExpr context.
       IndexExprScope childScope(shapeHelper.scope);
       // Scope for krnl EDSC ops
-      using namespace mlir::edsc;
+      using namespace edsc;
+      using namespace edsc::intrinsics;
       ScopedContext scope(rewriter, loc);
 
       // Get read/write indices.

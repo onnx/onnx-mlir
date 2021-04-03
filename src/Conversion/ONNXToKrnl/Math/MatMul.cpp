@@ -12,14 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
-#include "src/Dialect/Krnl/KrnlHelper.hpp"
-#include "src/Dialect/ONNX/IndexExpr.hpp"
-#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
-
-#include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
-#include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
+
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlIntrinsics.hpp"
+#include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
 
@@ -34,7 +31,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter, Location loc) const {
 
     // Scope for krnl EDSC ops
-    using namespace mlir::edsc;
+    using namespace edsc;
+    using namespace edsc::intrinsics;
     ScopedContext scope(rewriter, loc);
 
     // Non-reduction loop iterations: output-rank.
@@ -121,7 +119,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter, Location loc) const {
 
     using namespace mlir::edsc;
-    using namespace mlir::edsc::ops;
+    // using namespace mlir::edsc::ops;
     using namespace mlir::edsc::intrinsics;
 
     // Define scopes
@@ -193,7 +191,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
     Value A(operandAdaptor.A()), B(operandAdaptor.B());
-    MemRefBoundIndexCapture aBounds(A), bBounds(B);
+    MemRefBoundsIndexCapture aBounds(A), bBounds(B);
 
     if (aBounds.getRank() == 2 && bBounds.getRank() == 2) {
       replace2x2Matmul2D(matMulOp, operandAdaptor, elementType, shapeHelper,
