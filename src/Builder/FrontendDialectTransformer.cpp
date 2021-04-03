@@ -1121,8 +1121,7 @@ private:
       start_pos += si16.length();
     }
     return dstring;
-    }
-
+  }
 
   /*!
    * Import ONNX main computation graph.
