@@ -718,23 +718,22 @@ public:
     auto numOutputs = op->getAttrOfType<IntegerAttr>(
                             KrnlEntryPointOp::getNumOutputsAttrName())
                           .getInt();
-    auto sigAttr = op->getAttrOfType<StringAttr>(
-                            KrnlEntryPointOp::getSignatureAttrName());
+    auto sigAttr =
+        op->getAttrOfType<StringAttr>(KrnlEntryPointOp::getSignatureAttrName());
     auto signature = sigAttr.getValue();
 
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
     auto int32Ty = IntegerType::get(context, 32);
     auto int64Ty = IntegerType::get(context, 64);
-    //auto stringTy = MemRefType::get(context);
-    
+    // auto stringTy = MemRefType::get(context);
+
     // create global to hold signature
 
     auto sigArrayType = LLVM::LLVMArrayType::get(
         IntegerType::get(context, 8), signature.size());
     rewriter.create<LLVM::GlobalOp>(loc, sigArrayType,
-        /*isConstant=*/true, LLVM::Linkage::External,
-        "_signature", sigAttr);
-    
+        /*isConstant=*/true, LLVM::Linkage::External, "_signature", sigAttr);
+
     // Rewrite Krnl Entry Point Operation to an LLVM function with a dynamic
     // signature. The signature is dynamic because it remains the same no matter
     // what the model input/output schema look like. Such dynamic signature

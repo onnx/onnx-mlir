@@ -582,7 +582,8 @@ ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
     mlir::FuncOp &func, int numInputs, int numOutputs, std::string signature) {
   mlir::OperationState state(location, "onnx.EntryPoint");
   OpBuilder builder(location->getContext());
-  mlir::ONNXEntryPointOp::build(builder, state, func, numInputs, numOutputs, signature);
+  mlir::ONNXEntryPointOp::build(
+      builder, state, func, numInputs, numOutputs, signature);
   Operation *op = mlir::Operation::create(state);
   auto onnxEntryOp = llvm::cast<mlir::ONNXEntryPointOp>(op);
   return onnxEntryOp;
