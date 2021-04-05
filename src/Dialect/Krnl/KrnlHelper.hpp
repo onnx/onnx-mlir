@@ -291,12 +291,12 @@ void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
 Value krnl_load(Value memref, ArrayRef<IndexExpr> indices);
 void krnl_store(Value val, Value memref, ArrayRef<IndexExpr> indices);
 
-void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
-    ArrayRef<IndexExpr> lb, ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
-    function_ref<void(ArrayRef<Value> args)> bodyBuilderFn);
-void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<IndexExpr> lb,
-    ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
-    function_ref<void(ArrayRef<Value> args)> bodyBuilderFn);
+void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
+    ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
+    function_ref<void(ValueRange args)> bodyBuilderFn);
+void krnl_iterate(ValueRange originalLoops, ArrayRef<IndexExpr> lbs,
+    ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
+    function_ref<void(ValueRange args)> bodyBuilderFn);
 
 void krnl_copy_to_buffer(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, Value padValue, ArrayRef<int64_t> tileSize,
@@ -307,6 +307,6 @@ void krnl_copy_to_buffer(Value bufferMemref, Value memref,
 void krnl_copy_from_buffer(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, ArrayRef<int64_t> tileSize);
 void krnl_copy_from_buffer(
-    Value bufferMemref, Value memref, ArrayRef<Value> starts);
+    Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts);
 
 } // namespace mlir

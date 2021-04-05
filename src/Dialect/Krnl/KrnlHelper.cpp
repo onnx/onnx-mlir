@@ -498,18 +498,24 @@ void krnl_store(Value val, Value memref, ArrayRef<IndexExpr> indices) {
   krnl_store(val, memref, ValueRange(indexValues));
 }
 
-void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
-    ArrayRef<IndexExpr> lb, ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
-    function_ref<void(ArrayRef<Value>)> bodyBuilderFn) {
+void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
+    ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
+    function_ref<void(ValueRange)> bodyBuilderFn) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
-  assert(lb.size() == ub.size() && "expected matching number of lb & ub");
+  assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
   OpBuilder &builder = ScopedContext::getBuilderRef();
   Location loc = ScopedContext::getLocation();
-  KrnlIterateOperandPack pack(builder, originalLoop, optimizedLoop);
-  for (int i = 0; i < lb.size(); ++i) {
-    pack.pushIndexExprBound(lb[i]);
-    pack.pushIndexExprBound(ub[i]);
+  // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
+  SmallVector<Value, 4> origLoops, optLoops;
+  for (auto org : originalLoops)
+    origLoops.emplace_back(org);
+  for (auto opt : optimizedLoops)
+    optLoops.emplace_back(opt);
+  KrnlIterateOperandPack pack(builder, origLoops, optLoops);
+  for (int i = 0; i < lbs.size(); ++i) {
+    pack.pushIndexExprBound(lbs[i]);
+    pack.pushIndexExprBound(ubs[i]);
   }
   KrnlIterateOp iterateOp =
       builder.create<KrnlIterateOp>(ScopedContext::getLocation(), pack);
@@ -523,11 +529,11 @@ void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
   }
 }
 
-void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<IndexExpr> lb,
-    ArrayRef<IndexExpr> ub, ArrayRef<Value> iterArgs,
-    function_ref<void(ArrayRef<Value>)> bodyBuilderFn) {
+void krnl_iterate(ValueRange originalLoops, ArrayRef<IndexExpr> lbs,
+    ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
+    function_ref<void(ValueRange)> bodyBuilderFn) {
   // When no optimized loops are given, use original for the optimized.
-  krnl_iterate(originalLoop, originalLoop, lb, ub, iterArgs, bodyBuilderFn);
+  krnl_iterate(originalLoops, originalLoops, lbs, ubs, iterArgs, bodyBuilderFn);
 }
 
 void krnl_copy_to_buffer(Value bufferMemref, Value memref,
@@ -549,7 +555,7 @@ void krnl_copy_from_buffer(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, ArrayRef<int64_t> tileSize) {
   SmallVector<Value, 4> startValues;
   IndexExpr::getValues(starts, startValues);
-  krnl_copy_from_buffer(bufferMemref, memref, starts, tileSize);
+  krnl_copy_from_buffer(bufferMemref, memref, startValues, tileSize);
 }
 void krnl_copy_from_buffer(
     Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts) {
