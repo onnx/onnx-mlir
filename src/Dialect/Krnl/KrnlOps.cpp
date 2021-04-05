@@ -331,7 +331,7 @@ void KrnlBlockOp::build(::mlir::OpBuilder &odsBuilder,
 //===----------------------------------------------------------------------===//
 
 void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
-    ::mlir::OperationState &odsState, ArrayRef<Value> odsLoops,
+    ::mlir::OperationState &odsState, ValueRange odsLoops,
     ArrayRef<int64_t> odsMap) {
   int64_t rank = odsLoops.size();
   assert(rank >= 2 && "permute needs 2 or more loops");
@@ -459,9 +459,9 @@ MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
 //===----------------------------------------------------------------------===//
 
 void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
-    ::mlir::OperationState &odsState, Value odsA, ArrayRef<Value> aOdsStart,
-    Value odsB, ArrayRef<Value> bOdsStart, Value odsC,
-    ArrayRef<Value> cOdsStart, ArrayRef<Value> odsLoops, Value iOdsComputeStart,
+    ::mlir::OperationState &odsState, Value odsA, ValueRange aOdsStart,
+    Value odsB, ValueRange bOdsStart, Value odsC,
+    ValueRange cOdsStart, ValueRange odsLoops, Value iOdsComputeStart,
     Value jOdsComputeStart, Value kOdsComputeStart, Value iOdsGlobalUB,
     Value jOdsGlobalUB, Value kOdsGlobalUB,
     ArrayRef<int64_t> odsComputeTileSize, ArrayRef<int64_t> aOdsTileSize,
@@ -523,7 +523,7 @@ MutableOperandRange KrnlMatMulOp::getLoopRefs() { return loopsMutable(); }
 
 void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
-    ArrayRef<Value> odsStarts, Value odsPadValue, ArrayRef<int64_t> odsTileSize,
+    ValueRange odsStarts, Value odsPadValue, ArrayRef<int64_t> odsTileSize,
     ArrayRef<int64_t> odsPadToNext) {
   // Validate input.
   auto memrefT = odsMemref.getType().dyn_cast<MemRefType>();
@@ -551,7 +551,7 @@ void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
 
 void KrnlCopyFromBufferOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsBufferMemref, Value odsMemref,
-    ArrayRef<Value> odsStarts, ArrayRef<int64_t> odsTileSize) {
+    ValueRange odsStarts, ArrayRef<int64_t> odsTileSize) {
   // Validate input.
   auto memrefT = odsMemref.getType().dyn_cast<MemRefType>();
   auto bufferT = odsBufferMemref.getType().dyn_cast<MemRefType>();

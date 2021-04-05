@@ -381,7 +381,7 @@ ValueRange krnl_block(Value loop, int64_t blockSize) {
       .getResults();
 }
 
-void krnl_permute(ArrayRef<Value> loops, ArrayRef<int64_t> map) {
+void krnl_permute(ValueRange loops, ArrayRef<int64_t> map) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlPermuteOp>(
@@ -434,9 +434,8 @@ void krnl_iterate(ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
   krnl_iterate(originalLoops, originalLoops, lbs, ubs, iterArgs, bodyBuilderFn);
 }
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
-    ArrayRef<Value> starts, Value padValue, ArrayRef<int64_t> tileSize,
-    ArrayRef<int64_t> padToNext) {
+void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
+    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlCopyToBufferOp>(
@@ -445,28 +444,27 @@ void krnl_copy_to_buffer(Value bufferMemref, Value memref,
 }
 
 void krnl_copy_to_buffer(
-    Value bufferMemref, Value memref, ArrayRef<Value> starts, Value padValue) {
+    Value bufferMemref, Value memref, ValueRange starts, Value padValue) {
   ArrayRef<int64_t> empty;
   krnl_copy_to_buffer(bufferMemref, memref, starts, padValue, empty, empty);
 }
 
-void krnl_copy_from_buffer(Value bufferMemref, Value memref,
-    ArrayRef<Value> starts, ArrayRef<int64_t> tileSize) {
+void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts,
+    ArrayRef<int64_t> tileSize) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlCopyFromBufferOp>(
       ScopedContext::getLocation(), bufferMemref, memref, starts, tileSize);
 }
 void krnl_copy_from_buffer(
-    Value bufferMemref, Value memref, ArrayRef<Value> starts) {
+    Value bufferMemref, Value memref, ValueRange starts) {
   ArrayRef<int64_t> empty;
   krnl_copy_from_buffer(bufferMemref, memref, starts, empty);
 }
 
-void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
-    ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
-    ArrayRef<Value> loops, ArrayRef<Value> computeStarts,
-    ArrayRef<Value> globalUBs, ArrayRef<int64_t> computeTileSize,
+void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
+    Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
+    ValueRange globalUBs, ArrayRef<int64_t> computeTileSize,
     ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
     ArrayRef<int64_t> cTileSize, bool simdize, bool unroll, bool overcompute) {
   using namespace mlir::edsc;
@@ -478,10 +476,9 @@ void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
       cTileSize, simdize, unroll, overcompute);
 }
 
-void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
-    ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
-    ArrayRef<Value> loops, ArrayRef<Value> computeStarts,
-    ArrayRef<Value> globalUBs, bool simdize, bool unroll, bool overcompute) {
+void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
+    Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
+    ValueRange globalUBs, bool simdize, bool unroll, bool overcompute) {
   ArrayRef<int64_t> empty;
   krnl_matmul(A, aStart, B, bStart, C, cStart, loops, computeStarts, globalUBs,
       empty, empty, empty, empty, simdize, unroll, overcompute);

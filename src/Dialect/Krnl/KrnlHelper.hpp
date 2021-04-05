@@ -258,8 +258,7 @@ void krnl_store(Value val, Value memref, ValueRange indices);
 
 ValueRange krnl_define_loop(int64_t originalLoopNum);
 ValueRange krnl_block(Value loop, int64_t blockSize);
-void krnl_permute(ArrayRef<Value> loops, ArrayRef<int64_t> map);
-// ValueRange krnl_get_induction_var_value(ArrayRef<Value> loops);
+void krnl_permute(ValueRange loops, ArrayRef<int64_t> map);
 ValueRange krnl_get_induction_var_value(ValueRange loops);
 
 void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
@@ -268,28 +267,24 @@ void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
 void krnl_iterate(ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
     ValueRange iterArgs, function_ref<void(ValueRange args)> bodyBuilderFn);
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
-    ArrayRef<Value> starts, Value padValue, ArrayRef<int64_t> tileSize,
-    ArrayRef<int64_t> padToNext);
+void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
+    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext);
 void krnl_copy_to_buffer(
-    Value bufferMemref, Value memref, ArrayRef<Value> starts, Value padValue);
+    Value bufferMemref, Value memref, ValueRange starts, Value padValue);
 
-void krnl_copy_from_buffer(Value bufferMemref, Value memref,
-    ArrayRef<Value> starts, ArrayRef<int64_t> tileSize);
-void krnl_copy_from_buffer(
-    Value bufferMemref, Value memref, ArrayRef<Value> starts);
+void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts,
+    ArrayRef<int64_t> tileSize);
+void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts);
 
-void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
-    ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
-    ArrayRef<Value> loops, ArrayRef<Value> computeStarts,
-    ArrayRef<Value> globalUBs, ArrayRef<int64_t> computeTileSize,
+void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
+    Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
+    ValueRange globalUBs, ArrayRef<int64_t> computeTileSize,
     ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
     ArrayRef<int64_t> cTileSize, bool simdize, bool unroll, bool overcompute);
 
-void krnl_matmul(Value A, ArrayRef<Value> aStart, Value B,
-    ArrayRef<Value> bStart, Value C, ArrayRef<Value> cStart,
-    ArrayRef<Value> loops, ArrayRef<Value> computeStarts,
-    ArrayRef<Value> globalUBs, bool simdize, bool unroll, bool overcompute);
+void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
+    Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
+    ValueRange globalUBs, bool simdize, bool unroll, bool overcompute);
 
 //====---------------- EDSC Support with IndexExpr -----------------------===//
 

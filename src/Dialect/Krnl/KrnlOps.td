@@ -329,7 +329,7 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
 
   let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
   let results = (outs);
-  let builders = [ OpBuilderDAG<(ins "ArrayRef<Value>": $loops, "ArrayRef<int64_t>":$map)> ];
+  let builders = [ OpBuilderDAG<(ins "ValueRange": $loops, "ArrayRef<int64_t>":$map)> ];
   let assemblyFormat = [{
       `(` $loops `)` $map attr-dict `:` type($loops)
   }];
@@ -834,10 +834,10 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     DefaultValuedAttr<BoolAttr, "false">:$overcompute);
 
   let builders = [ OpBuilderDAG<(ins 
-      "Value": $A, "ArrayRef<Value>": $aStart, // Both same rank.
-      "Value": $B, "ArrayRef<Value>": $bStart, // Both same rank.
-      "Value": $C, "ArrayRef<Value>": $cStart, // Both same rank.
-      "ArrayRef<Value>": $loops, // Rank 3: (i,j,k).
+      "Value": $A, "ValueRange": $aStart, // Both same rank.
+      "Value": $B, "ValueRange": $bStart, // Both same rank.
+      "Value": $C, "ValueRange": $cStart, // Both same rank.
+      "ValueRange": $loops, // Rank 3: (i,j,k).
       "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart, 
       "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
       "ArrayRef<int64_t>": $computeTileSize, // Rank 3: (i,j,k).
@@ -921,7 +921,7 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     OptionalAttr<I64ArrayAttr>:$padToNext);
 
   let builders = [ OpBuilderDAG<(ins "Value": $bufferMemref, "Value": $memref, 
-      "ArrayRef<Value>": $starts, "Value": $padValue, 
+      "ValueRange": $starts, "Value": $padValue, 
       "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext
     )> ];
 
@@ -954,7 +954,7 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     OptionalAttr<I64ArrayAttr>:$tileSize);
 
   let builders = [ OpBuilderDAG<(ins "Value": $bufferMemref, "Value": $memref, 
-      "ArrayRef<Value>": $starts, "ArrayRef<int64_t>": $tileSize
+      "ValueRange": $starts, "ArrayRef<int64_t>": $tileSize
     )> ];
 
   let parser = ?;
