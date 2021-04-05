@@ -308,10 +308,12 @@ static LogicalResult verify(KrnlIterateOp op) {
 //===----------------------------------------------------------------------===//
 
 void KrnlEntryPointOp::build(mlir::OpBuilder &builder, OperationState &state,
-    SymbolRefAttr funcAttr, IntegerAttr numInputs, IntegerAttr numOutputs) {
+    SymbolRefAttr funcAttr, IntegerAttr numInputs, IntegerAttr numOutputs,
+    StringAttr signature) {
   state.addAttribute(KrnlEntryPointOp::getEntryPointFuncAttrName(), funcAttr);
   state.addAttribute(KrnlEntryPointOp::getNumInputsAttrName(), numInputs);
   state.addAttribute(KrnlEntryPointOp::getNumOutputsAttrName(), numOutputs);
+  state.addAttribute(KrnlEntryPointOp::getSignatureAttrName(), signature);
 }
 
 //===----------------------------------------------------------------------===//
