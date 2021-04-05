@@ -733,8 +733,10 @@ struct ONNXElementwiseBinaryOpLowering : public ConversionPattern {
     // Shape helper.
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc, isUniBroadcasting);
     auto shapecomputed = shapeHelper.Compute(operands);
-    (void)shapecomputed;
     assert(succeeded(shapecomputed));
+    // Scope for krnl EDSC ops
+    using namespace mlir::edsc;
+    ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope(shapeHelper.scope);
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -804,6 +806,8 @@ struct ONNXElementwiseVariadicOpLowering : public ConversionPattern {
     ONNXOpBroadcastedShapeHelper shapeHelper(&rewriter, loc);
     LogicalResult shapecomputed = shapeHelper.Compute(operands);
     assert(succeeded(shapecomputed));
+    using namespace mlir::edsc;
+    ScopedContext scope(rewriter, loc);
     IndexExprScope outerScope;
 
     // Insert an allocation and deallocation for the result of this operation.

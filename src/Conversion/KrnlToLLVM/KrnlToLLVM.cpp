@@ -22,6 +22,7 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
@@ -392,9 +393,30 @@ public:
 
         assert(krnlGlobalOp.value().hasValue() &&
                "Krnl Global must always have a value");
-        global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
-            /*isConstant=*/true, LLVM::Linkage::Internal, name,
-            krnlGlobalOp.value().getValue());
+        if (krnlGlobalOp.value().getValue().isa<OpaqueElementsAttr>()) {
+          // LLVM::GlobalOp does not support OpaqueElementsAttr.
+          // Both StringAttr and OpaqueElementsAttr use StringRef for internal
+          // data array. Thus, it looks safe to use StringAtrr instead of
+          // OpaqueElementsAttr.
+          StringRef data = krnlGlobalOp.value()
+                               .getValue()
+                               .cast<OpaqueElementsAttr>()
+                               .getValue();
+          // Check data size.
+          int64_t sizeInBytes = numElements * getMemRefEltSizeInBytes(memRefTy);
+          assert((data.size() == sizeInBytes) && "Data size mismatch.");
+
+          auto llvmArrayI8Ty = LLVM::LLVMArrayType::get(
+              IntegerType::get(context, 8), sizeInBytes);
+          global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+              /*isConstant=*/true, LLVM::Linkage::Internal, name,
+              StringAttr::get(data, context));
+        } else {
+          // DenseElementsAttr
+          global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
+              /*isConstant=*/true, LLVM::Linkage::Internal, name,
+              krnlGlobalOp.value().getValue());
+        }
       }
 
       // Some frequently used types.
@@ -404,10 +426,15 @@ public:
 
       // Allocate the memory where the constants will be used from.
       // This is a region of local memory and needs to be emitted as an alloca.
+      int alignment = 0;
+      if (krnlGlobalOp.alignmentAttr())
+        alignment = krnlGlobalOp.alignmentAttr().getValue().getSExtValue();
+
       auto one = rewriter.create<LLVM::ConstantOp>(
           loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
       alloc = rewriter.create<LLVM::AllocaOp>(loc,
-          LLVM::LLVMPointerType::get(llvmGlobalType), one, /*alignment=*/0);
+          LLVM::LLVMPointerType::get(llvmGlobalType), one,
+          /*alignment=*/alignment);
 
       // Copy constant value into the local alloca:
       //  - Bitcast alloc to i8*
@@ -453,9 +480,11 @@ public:
           rewriter.create<LLVM::AddressOfOp>(loc, base);
       Value constPackBasePtr = rewriter.create<LLVM::LoadOp>(
           loc, base.getType(), constPackBasePtrAddr);
-      auto offset = rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-          rewriter.getI64IntegerAttr(
-              krnlGlobalOp.offsetAttr().getValue().getSExtValue()));
+      int64_t iOffset = 0;
+      if (krnlGlobalOp.offsetAttr())
+        iOffset = krnlGlobalOp.offsetAttr().getValue().getSExtValue();
+      auto offset = rewriter.create<LLVM::ConstantOp>(
+          loc, llvmI64Ty, rewriter.getI64IntegerAttr(iOffset));
       alloc = rewriter.create<LLVM::GEPOp>(
           loc, llvmI8PtrTy, constPackBasePtr, ValueRange({offset}));
     }
@@ -1357,12 +1386,14 @@ public:
 void mlir::populateAffineAndKrnlToLLVMConversion(
     OwningRewritePatternList &patterns, MLIRContext *ctx,
     LLVMTypeConverter &typeConverter) {
+
   populateAffineToStdConversionPatterns(patterns, ctx);
   populateLoopToStdConversionPatterns(patterns, ctx);
 
   populateShapeToStandardConversionPatterns(patterns, ctx);
   populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
+  populateVectorToLLVMMatrixConversionPatterns(typeConverter, patterns);
   populateStdExpandOpsPatterns(ctx, patterns);
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
@@ -1394,6 +1425,15 @@ struct ConvertKrnlToLLVMPass
 } // end anonymous namespace
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
+
+  {
+    OwningRewritePatternList patterns;
+    vector::populateVectorToVectorCanonicalizationPatterns(
+        patterns, &getContext());
+    vector::populateVectorSlicesLoweringPatterns(patterns, &getContext());
+    vector::populateVectorContractLoweringPatterns(patterns, &getContext());
+    applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
+  }
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVM::LLVMDialect>();
