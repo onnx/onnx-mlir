@@ -25,6 +25,8 @@
 namespace onnx_mlir {
 
 typedef OMTensorList *(*entryPointFuncType)(OMTensorList *);
+typedef void (*loadConstantFuncType)();
+typedef void (*destroyConstantFuncType)();
 
 class ExecutionSession {
 public:
@@ -42,5 +44,11 @@ protected:
 
   // Entry point function.
   entryPointFuncType _entryPointFunc = nullptr;
+
+  // Load constant function.
+  loadConstantFuncType _loadConstantFunc;
+
+  // Destroy constant function.
+  destroyConstantFuncType _destroyConstantFunc;
 };
 } // namespace onnx_mlir

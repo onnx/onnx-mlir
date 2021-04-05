@@ -44,6 +44,27 @@ ExecutionSession::ExecutionSession(
     dlclose(_sharedLibraryHandle);
     throw std::runtime_error(errStr.str());
   }
+
+  _loadConstantFunc =
+      (loadConstantFuncType)dlsym(_sharedLibraryHandle, "load_constants");
+  dlsymError = dlerror();
+  if (dlsymError) {
+    std::stringstream errStr;
+    errStr << "Cannot load symbol load_constants: " << dlsymError << std::endl;
+    dlclose(_sharedLibraryHandle);
+    throw std::runtime_error(errStr.str());
+  }
+
+  _destroyConstantFunc =
+      (destroyConstantFuncType)dlsym(_sharedLibraryHandle, "destroy_constants");
+  dlsymError = dlerror();
+  if (dlsymError) {
+    std::stringstream errStr;
+    errStr << "Cannot load symbol destroy_constants: " << dlsymError
+           << std::endl;
+    dlclose(_sharedLibraryHandle);
+    throw std::runtime_error(errStr.str());
+  }
 }
 
 std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>>
@@ -55,7 +76,9 @@ ExecutionSession::run(
     omts.emplace_back(inOmt.get());
   auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
 
+  _loadConstantFunc();
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
+  _destroyConstantFunc();
 
   std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> outs;
 
