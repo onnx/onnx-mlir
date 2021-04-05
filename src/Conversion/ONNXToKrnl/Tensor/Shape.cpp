@@ -47,7 +47,7 @@ struct ONNXShapeOpLowering : public ConversionPattern {
     for (int i = 0; i < dataRank; i++) {
       IndexExprScope scope(&rewriter, loc);
       LiteralIndexExpr storeIndex(i);
-      MemRefBoundIndexCapture dataBounds(data);
+      MemRefBoundsIndexCapture dataBounds(data);
       DimIndexExpr shapeVal(dataBounds.getDim(i));
       Value storeVal = rewriter.create<IndexCastOp>(
           loc, shapeVal.getValue(), outputMemRefType.getElementType());
