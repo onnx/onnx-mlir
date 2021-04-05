@@ -1165,8 +1165,8 @@ public:
           nullptr);
 
       // Create an LLVM function to load packed constants into memory.
-      // This function is expected to call by onnx-mlir users before any call to
-      // the entry point function.
+      // This function is expected to be called by onnx-mlir users before any
+      // call to the entry point function.
       auto loadConstantFuncTy = LLVM::LLVMFunctionType::get(voidTy, {}, false);
       auto loadConstantFunc = rewriter.create<LLVM::LLVMFuncOp>(
           loc, "load_constants", loadConstantFuncTy);
@@ -1194,8 +1194,8 @@ public:
       }
 
       // Create an LLVM function to destroy packed constants in memory.
-      // This function is expected to call by onnx-mlir users after all calls to
-      // the entry point function finish to avoid memory leak.
+      // This function is expected to be called by onnx-mlir users after all
+      // calls to the entry point function finished to avoid memory leak.
       auto loadDestroyFuncTy = LLVM::LLVMFunctionType::get(voidTy, {}, false);
       auto loadDestroyFunc = rewriter.create<LLVM::LLVMFuncOp>(
           loc, "destroy_constants", loadDestroyFuncTy);
