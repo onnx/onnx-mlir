@@ -128,12 +128,13 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   let description = [{The "krnl.entry_point" function indicates the main entry
                            point of ONNX model.}];
   let builders = [ OpBuilderDAG<(ins "SymbolRefAttr":$funcAttr, "IntegerAttr":$numInputs,
-                                     "IntegerAttr":$numOutputs)> ];
+                                     "IntegerAttr":$numOutputs, "StringAttr":$signature)> ];
 
   let extraClassDeclaration = [{
     static StringRef getEntryPointFuncAttrName() { return "func"; }
     static StringRef getNumInputsAttrName() { return "numInputs"; }
     static StringRef getNumOutputsAttrName() { return "numOutputs"; }
+    static StringRef getSignatureAttrName() { return "signature"; }
   }];
 
   // No custom parsing/printing form.

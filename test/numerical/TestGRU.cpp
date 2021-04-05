@@ -114,9 +114,11 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 
   // Emit the entry point operation which specifies the number of user
   // inputs and outputs.
+  std::string signature("");
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
       /*numInputs=*/5,
-      /*numOutputs=*/2);
+      /*numOutputs=*/2,
+      /*signature*/signature);
   module.push_back(entryPoint);
 
   OwningModuleRef moduleRef(module);
