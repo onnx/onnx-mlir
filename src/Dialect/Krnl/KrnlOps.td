@@ -636,8 +636,7 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
   let arguments = (ins Variadic<AnyType> : $loops);
   let results = (outs Variadic<AnyType> : $ind_var_vals);
-  let builders = [ OpBuilderDAG<(ins "ArrayRef<Value>": $loops)>,
-   OpBuilderDAG<(ins "ValueRange": $loops)>];
+  let builders = [ OpBuilderDAG<(ins "ValueRange": $loops)>];
 
   let assemblyFormat = [{
       `(` $loops `)` attr-dict `:` functional-type($loops, results)

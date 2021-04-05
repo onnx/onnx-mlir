@@ -348,19 +348,8 @@ void KrnlPermuteOp::build(::mlir::OpBuilder &odsBuilder,
 }
 
 //===----------------------------------------------------------------------===//
-// KrnlDummyCastOp
+// KrnlGetInductionVariableValueOp
 //===----------------------------------------------------------------------===//
-
-void KrnlGetInductionVariableValueOp::build(::mlir::OpBuilder &odsBuilder,
-    ::mlir::OperationState &odsState, ArrayRef<Value> odsLoops) {
-  int64_t rank = odsLoops.size();
-  Type loopType = LoopType::get(odsBuilder.getContext());
-  SmallVector<Type, 6> types(rank, odsBuilder.getIndexType());
-  TypeRange typeRange(types);
-  ValueRange loopRange(odsLoops);
-  ArrayRef<NamedAttribute> noAttr({});
-  build(odsBuilder, odsState, typeRange, loopRange, noAttr);
-}
 
 void KrnlGetInductionVariableValueOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, ValueRange odsLoops) {
@@ -371,7 +360,6 @@ void KrnlGetInductionVariableValueOp::build(::mlir::OpBuilder &odsBuilder,
   ArrayRef<NamedAttribute> noAttr({});
   build(odsBuilder, odsState, typeRange, odsLoops, noAttr);
 }
-
 
 //===----------------------------------------------------------------------===//
 // KrnlDummyCastOp
