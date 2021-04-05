@@ -161,7 +161,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
     int64_t kernelsPerGroup = floor(kernelShape[0] / group);
     LiteralIndexExpr kernelsPerGroupValue(kernelsPerGroup);
     auto zero = emitConstantOp(rewriter, loc, memRefType.getElementType(), 0);
-    MemRefBoundIndexCapture kernelBounds(kernelOperand);
+    MemRefBoundsIndexCapture kernelBounds(kernelOperand);
     DimIndexExpr subchannels(kernelBounds.getDim(1));
 
     // 1. Define outer loops and emit empty optimization block:
@@ -230,7 +230,7 @@ struct ONNXConvOpLowering : public ConversionPattern {
         // Prepare induction variables.
         SmallVector<SmallVector<IndexExpr, 4>, 4> IVExprs;
         {
-          MemRefBoundIndexCapture inputBounds(inputOperand);
+          MemRefBoundsIndexCapture inputBounds(inputOperand);
           for (int i = 0; i < nSpatialLoops; ++i) {
             int j = i + spatialStartIndex;
             SmallVector<IndexExpr, 4> ic;
