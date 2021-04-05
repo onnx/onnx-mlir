@@ -253,20 +253,30 @@ private:
 
 //====---------------- EDSC Support with Value ---------------------------===//
 
-Value krnl_load(Value memref, ArrayRef<Value> indices);
-void krnl_store(Value val, Value memref, ArrayRef<Value> indices);
+// Value krnl_load(Value memref, ArrayRef<Value> indices);
+Value krnl_load(Value memref, ValueRange indices);
+// void krnl_store(Value val, Value memref, ArrayRef<Value> indices);
+void krnl_store(Value val, Value memref, ValueRange indices);
 
 ValueRange krnl_define_loop(int64_t originalLoopNum);
 ValueRange krnl_block(Value loop, int64_t blockSize);
 void krnl_permute(ArrayRef<Value> loops, ArrayRef<int64_t> map);
-ValueRange krnl_get_induction_var_value(ArrayRef<Value> loops);
+// ValueRange krnl_get_induction_var_value(ArrayRef<Value> loops);
+ValueRange krnl_get_induction_var_value(ValueRange loops);
 
+#if 0
 void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> optimizedLoop,
     ArrayRef<Value> lb, ArrayRef<Value> ub, ArrayRef<Value> iterArgs,
     function_ref<void(ArrayRef<Value> args)> bodyBuilderFn);
 void krnl_iterate(ArrayRef<Value> originalLoop, ArrayRef<Value> lb,
     ArrayRef<Value> ub, ArrayRef<Value> iterArgs,
     function_ref<void(ArrayRef<Value> args)> bodyBuilderFn);
+#endif
+void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
+    ValueRange lbs, ValueRange ubs, ValueRange iterArgs,
+    function_ref<void(ValueRange args)> bodyBuilderFn);
+void krnl_iterate(ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
+    ValueRange iterArgs, function_ref<void(ValueRange args)> bodyBuilderFn);
 
 void krnl_copy_to_buffer(Value bufferMemref, Value memref,
     ArrayRef<Value> starts, Value padValue, ArrayRef<int64_t> tileSize,

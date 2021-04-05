@@ -362,6 +362,17 @@ void KrnlGetInductionVariableValueOp::build(::mlir::OpBuilder &odsBuilder,
   build(odsBuilder, odsState, typeRange, loopRange, noAttr);
 }
 
+void KrnlGetInductionVariableValueOp::build(::mlir::OpBuilder &odsBuilder,
+    ::mlir::OperationState &odsState, ValueRange odsLoops) {
+  int64_t rank = odsLoops.size();
+  Type loopType = LoopType::get(odsBuilder.getContext());
+  SmallVector<Type, 6> types(rank, odsBuilder.getIndexType());
+  TypeRange typeRange(types);
+  ArrayRef<NamedAttribute> noAttr({});
+  build(odsBuilder, odsState, typeRange, odsLoops, noAttr);
+}
+
+
 //===----------------------------------------------------------------------===//
 // KrnlDummyCastOp
 //===----------------------------------------------------------------------===//
