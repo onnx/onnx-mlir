@@ -74,11 +74,13 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
 
-  let builders = [OpBuilderDAG<(ins "FuncOp":$function, "int":$numInputs, "int":$numOutputs, "std::string":$signature)>];
+  let builders = [OpBuilderDAG<(ins "FuncOp":$function, "int":$numInputs,
+                                    "int":$numOutputs, "std::string":$signature)>];
 
   let extraClassDeclaration = [{
     static ONNXEntryPointOp create(Location location, FuncOp& func,
-                                   int numInputs, int numOutputs, std::string signature);
+                                   int numInputs, int numOutputs,
+                                   std::string signature);
 
     static StringRef getEntryPointFuncAttrName() { return "func"; }
     static StringRef getNumInputsAttrName() { return "numInputs"; }
