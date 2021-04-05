@@ -638,7 +638,7 @@ public:
     // Gather A, B, C tile sizes.
     SmallVector<IndexExpr, 2> aTileSize, bTileSize, cTileSize;
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-    MemRefBoundIndexCapture aBounds(A), bBounds(B), cBounds(C);
+    MemRefBoundsIndexCapture aBounds(A), bBounds(B), cBounds(C);
     int64_t aRank(aBounds.getRank()), bRank(bBounds.getRank()),
         cRank(cBounds.getRank());
     // Tile sizes for A/B/C are determined by their memref unless explicitly
@@ -654,7 +654,6 @@ public:
       bTileSize = {bSizeCapture.getLiteral(0), bSizeCapture.getLiteral(1)};
     else
       bTileSize = {bBounds.getSymbol(bRank - 2), bBounds.getSymbol(bRank - 1)};
-    cBounds.getLiteralList(cTileSize);
     ArrayAttributeIndexCapture cSizeCapture(op.cTileSizeAttr());
     if (cSizeCapture.size())
       cTileSize = {cSizeCapture.getLiteral(0), cSizeCapture.getLiteral(1)};
@@ -1011,8 +1010,8 @@ public:
     ScopedContext scope(rewriter, op.getLoc());
     IndexExprScope indexScope(rewriter, op.getLoc());
     SmallVector<IndexExpr, 4> starts, bufferReadUBs, bufferPadUBs;
-    MemRefBoundIndexCapture buffBounds(buffMemref);
-    MemRefBoundIndexCapture sourceBounds(sourceMemref);
+    MemRefBoundsIndexCapture buffBounds(buffMemref);
+    MemRefBoundsIndexCapture sourceBounds(sourceMemref);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     ArrayAttributeIndexCapture padCapture(op.padToNextAttr(), 1);
     assert((padCapture.size() == 0 || padCapture.size() == rank) &&
@@ -1153,8 +1152,8 @@ public:
     ScopedContext scope(rewriter, op.getLoc());
     IndexExprScope indexScope(rewriter, op.getLoc());
     SmallVector<IndexExpr, 4> starts, bufferWriteUBs;
-    MemRefBoundIndexCapture buffBounds(buffMemref);
-    MemRefBoundIndexCapture sourceBounds(sourceMemref);
+    MemRefBoundsIndexCapture buffBounds(buffMemref);
+    MemRefBoundsIndexCapture sourceBounds(sourceMemref);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     SmallVector<Value, 4> loopIndices;
     LiteralIndexExpr zero(0);
