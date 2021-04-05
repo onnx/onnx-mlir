@@ -66,7 +66,8 @@ bool isOMMatmulTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   // inputs and outputs.
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
       /*numInputs=*/2,
-      /*numOutputs=*/1);
+      /*numOutputs=*/1,
+      /*signature*/signature);
   module.push_back(entryPoint);
 
   OwningModuleRef moduleRef(module);
