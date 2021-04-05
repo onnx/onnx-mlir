@@ -638,7 +638,7 @@ public:
     // Gather A, B, C tile sizes.
     SmallVector<IndexExpr, 2> aTileSize, bTileSize, cTileSize;
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), C(operandAdaptor.C());
-    MemRefBoundIndexCapture aBounds(A), bBounds(B), cBounds(C);
+    MemRefBoundsIndexCapture aBounds(A), bBounds(B), cBounds(C);
     // Tile sizes for A/B/C are determined by their memref unless explicitly
     // specified by an optional argument. That allows A/B/C memrefs to be
     // padded if needed for SIMD/unroll and jam, for example.
@@ -646,11 +646,11 @@ public:
     ArrayAttributeIndexCapture ASizeCapture(op.aTileSizeAttr());
     if (ASizeCapture.size())
       aTileSize = {ASizeCapture.getLiteral(0), ASizeCapture.getLiteral(1)};
-    bBounds.getLiteralList(bTileSize);
+    bBounds.getSymbolList(bTileSize);
     ArrayAttributeIndexCapture BSizeCapture(op.bTileSizeAttr());
     if (BSizeCapture.size())
       bTileSize = {BSizeCapture.getLiteral(0), BSizeCapture.getLiteral(1)};
-    cBounds.getLiteralList(cTileSize);
+    cBounds.getSymbolList(cTileSize);
     ArrayAttributeIndexCapture CSizeCapture(op.cTileSizeAttr());
     if (CSizeCapture.size())
       cTileSize = {CSizeCapture.getLiteral(0), CSizeCapture.getLiteral(1)};
@@ -972,8 +972,8 @@ public:
     ScopedContext scope(rewriter, op.getLoc());
     IndexExprScope indexScope(rewriter, op.getLoc());
     SmallVector<IndexExpr, 4> starts, bufferReadUBs, bufferPadUBs;
-    MemRefBoundIndexCapture buffBounds(buffMemref);
-    MemRefBoundIndexCapture sourceBounds(sourceMemref);
+    MemRefBoundsIndexCapture buffBounds(buffMemref);
+    MemRefBoundsIndexCapture sourceBounds(sourceMemref);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     ArrayAttributeIndexCapture padCapture(op.padToNextAttr(), 1);
     assert((padCapture.size() == 0 || padCapture.size() == rank) &&
@@ -1114,8 +1114,8 @@ public:
     ScopedContext scope(rewriter, op.getLoc());
     IndexExprScope indexScope(rewriter, op.getLoc());
     SmallVector<IndexExpr, 4> starts, bufferWriteUBs;
-    MemRefBoundIndexCapture buffBounds(buffMemref);
-    MemRefBoundIndexCapture sourceBounds(sourceMemref);
+    MemRefBoundsIndexCapture buffBounds(buffMemref);
+    MemRefBoundsIndexCapture sourceBounds(sourceMemref);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     SmallVector<Value, 4> loopIndices;
     LiteralIndexExpr zero(0);
