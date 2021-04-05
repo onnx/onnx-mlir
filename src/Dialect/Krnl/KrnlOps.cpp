@@ -460,13 +460,13 @@ MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
 
 void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
     ::mlir::OperationState &odsState, Value odsA, ValueRange aOdsStart,
-    Value odsB, ValueRange bOdsStart, Value odsC,
-    ValueRange cOdsStart, ValueRange odsLoops, Value iOdsComputeStart,
-    Value jOdsComputeStart, Value kOdsComputeStart, Value iOdsGlobalUB,
-    Value jOdsGlobalUB, Value kOdsGlobalUB,
-    ArrayRef<int64_t> odsComputeTileSize, ArrayRef<int64_t> aOdsTileSize,
-    ArrayRef<int64_t> bOdsTileSize, ArrayRef<int64_t> cOdsTileSize,
-    bool odsSimdize, bool odsUnroll, bool odsOvercompute) {
+    Value odsB, ValueRange bOdsStart, Value odsC, ValueRange cOdsStart,
+    ValueRange odsLoops, Value iOdsComputeStart, Value jOdsComputeStart,
+    Value kOdsComputeStart, Value iOdsGlobalUB, Value jOdsGlobalUB,
+    Value kOdsGlobalUB, ArrayRef<int64_t> odsComputeTileSize,
+    ArrayRef<int64_t> aOdsTileSize, ArrayRef<int64_t> bOdsTileSize,
+    ArrayRef<int64_t> cOdsTileSize, bool odsSimdize, bool odsUnroll,
+    bool odsOvercompute) {
   // Massage types.
   ValueRange loopRange(odsLoops);
   ArrayAttr computeTileSizeAttr =
