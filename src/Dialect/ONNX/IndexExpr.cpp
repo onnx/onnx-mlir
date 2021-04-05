@@ -175,34 +175,50 @@ bool IndexExpr::hasValue() const { return getObj().hasValue(); }
 
 bool IndexExpr::isLiteralAndIdenticalTo(int64_t b) const {
   // When dealing with non-literal, don't test and return false.
-  if (!isLiteral())
-    return false;
-  // We have a literal, now make sure they are the same
-  return getLiteral() == b;
-}
-
-bool IndexExpr::isLiteralAndDifferentThan(int64_t b) const {
-  // When dealing with non-literal, don't test and return false.
-  if (!isLiteral())
-    return false;
-  // We have a literal, now make sure they are different
-  return getLiteral() != b;
+  return isLiteral() && (getLiteral() == b);
 }
 
 bool IndexExpr::isLiteralAndIdenticalTo(IndexExpr const b) const {
   // When dealing with non-literal, don't test and return false.
-  if (!isLiteral() || !b.isLiteral())
-    return false;
-  // We have literals, now make sure they are the same
-  return getLiteral() == b.getLiteral();
+  return b.isLiteral() && isLiteralAndIdenticalTo(b.getLiteral());
+}
+
+bool IndexExpr::isLiteralAndDifferentThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return false.
+  return isLiteral() && (getLiteral() != b);
 }
 
 bool IndexExpr::isLiteralAndDifferentThan(IndexExpr const b) const {
   // When dealing with non-literal, don't test and return false.
-  if (!isLiteral() || !b.isLiteral())
-    return false;
-  // We have literals, now make sure they are different
-  return getLiteral() != b.getLiteral();
+  return b.isLiteral() && isLiteralAndDifferentThan(b.getLiteral());
+}
+
+bool IndexExpr::isLiteralAndGreaterThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return false.
+  return isLiteral() && (getLiteral() > b);
+}
+
+bool IndexExpr::isLiteralAndGreaterThan(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return false.
+  return b.isLiteral() && isLiteralAndGreaterThan(b.getLiteral());
+}
+
+bool IndexExpr::isLiteralAndSmallerThan(int64_t b) const {
+  // When dealing with non-literal, don't test and return false.
+  return isLiteral() && (getLiteral() < b);
+}
+
+bool IndexExpr::isLiteralAndSmallerThan(IndexExpr const b) const {
+  // When dealing with non-literal, don't test and return false.
+  return b.isLiteral() && isLiteralAndSmallerThan(b.getLiteral());
+}
+
+// All element in list are literals.
+/*static*/ bool IndexExpr::isLiteral(SmallVectorImpl<IndexExpr> &list) {
+  for (IndexExpr i : list)
+    if (!i.isLiteral())
+      return false;
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
@@ -342,6 +358,13 @@ void IndexExpr::debugPrint(const std::string &msg) const {
     } else
       intDimList.emplace_back(-1);
   }
+}
+
+/*static*/ void IndexExpr::getValues(
+    ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<Value> &valueList) {
+  valueList.clear();
+  for (IndexExpr const &expr : indexExprArray)
+    valueList.emplace_back(expr.getValue());
 }
 
 //===----------------------------------------------------------------------===//
@@ -1262,7 +1285,21 @@ IndexExpr ArrayAttributeIndexCapture::getLiteral(uint64_t i) {
 //===----------------------------------------------------------------------===//
 
 MemRefBoundIndexCapture::MemRefBoundIndexCapture(Value tensorOrMemref)
-    : tensorOrMemref(tensorOrMemref) {}
+    : tensorOrMemref(tensorOrMemref), memRank(0) {
+  ShapedType shapedType =
+      tensorOrMemref.getType().dyn_cast_or_null<ShapedType>();
+  if (shapedType)
+    memRank = shapedType.getShape().size();
+}
+
+bool MemRefBoundIndexCapture::areAllLiteral() {
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  for (int i = 0; i < memRank; ++i)
+    if (shape[i] < 0)
+      return false;
+  return true;
+}
 
 IndexExpr MemRefBoundIndexCapture::getDim(uint64_t i) {
   return get<DimIndexExpr>(i);
@@ -1274,6 +1311,7 @@ IndexExpr MemRefBoundIndexCapture::getSymbol(uint64_t i) {
 
 // Assert if not a literal.
 IndexExpr MemRefBoundIndexCapture::getLiteral(uint64_t i) {
+  assert(i < memRank && "out of bound access");
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
   if (shape[i] >= 0) {
@@ -1297,10 +1335,8 @@ void MemRefBoundIndexCapture::getLiteralList(
     SmallVectorImpl<IndexExpr> &literalList) {
   // Clear output.
   literalList.clear();
-  // Scan type and shape.
-  int size = tensorOrMemref.getType().cast<ShapedType>().getShape().size();
   // Scan tensor or memref.
-  for (int i = 0; i < size; ++i)
+  for (int i = 0; i < memRank; ++i)
     literalList.emplace_back(getLiteral(i));
 }
 
@@ -1308,7 +1344,7 @@ template <class INDEX>
 IndexExpr MemRefBoundIndexCapture::get(uint64_t i) {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
-  assert(i < shape.size() && "index out of bound");
+  assert(i < memRank && "index out of bound");
   if (shape[i] >= 0) {
     // We have a constant dimension.
     int64_t intVal = shape[i];
@@ -1329,32 +1365,7 @@ template <class INDEX>
 void MemRefBoundIndexCapture::getList(SmallVectorImpl<IndexExpr> &list) {
   // Clear output.
   list.clear();
-  // Scan type and shape.
-  int size = tensorOrMemref.getType().cast<ShapedType>().getShape().size();
   // Scan tensor or memref.
-  for (int i = 0; i < size; ++i)
+  for (int i = 0; i < memRank; ++i)
     list.emplace_back(get<INDEX>(i));
-}
-
-//===----------------------------------------------------------------------===//
-// Generating Krnl Load / Store
-//===----------------------------------------------------------------------===//
-
-krnl_load::krnl_load(Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  IndexExprScope &currScope = IndexExprScope::getCurrentScope();
-  SmallVector<Value, 4> loadIndices;
-  for (IndexExpr ie : indices)
-    loadIndices.emplace_back(ie.getValue());
-  result = currScope.getRewriter().create<KrnlLoadOp>(
-      currScope.getLoc(), memref, loadIndices);
-}
-
-krnl_store::krnl_store(
-    Value val, Value memref, SmallVectorImpl<IndexExpr> &indices) {
-  IndexExprScope &currScope = IndexExprScope::getCurrentScope();
-  SmallVector<Value, 4> storeIndices;
-  for (IndexExpr ie : indices)
-    storeIndices.emplace_back(ie.getValue());
-  currScope.getRewriter().create<KrnlStoreOp>(
-      currScope.getLoc(), val, memref, storeIndices);
 }
