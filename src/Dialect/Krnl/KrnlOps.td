@@ -737,6 +737,17 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     the I, J, and K computeTileSizes, in their respective
     dimensions (A: IxK], B: [KxJ], C: [IxJ]).
 
+    Note that the buffers A, B, and C can be of higher dimensionality than
+    the traditional 2D mentioned up to now, because of broadcasting rules.
+    At this time, we only support broadcast of arrays having ranks of 2 or
+    more. Because of the broadcast rules, the higher dimenstions have a
+    constant index during one matrix multiply. These fixed indices are
+    given as prefix dimensions in the starting indices for A, B, and C
+    as described above. E.g. if A has a rank of 3, and B has a rank of 2,
+    the starting indices for A are [d, i1, k1] where i1 and k1 are as
+    above, and d is index pointing to the current instance of the IxK
+    A matrix to be computed. B start indices would be unchanged at [k1, j1].
+
     Simdize is used to state if simdization is requested.
     Unrolling is used to unroll and jam loops as warrented.
 
@@ -759,36 +770,42 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
         !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, 
         !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
     // Outer 2 for i, j.
-    krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 40, %jj -> %j = 0 to 80, %kk -> %k = 0 to 60) {
-        %i1, %j1 = krnl.get_induction_var_value(%ib, %jb) : (!krnl.loop,!krnl.loop) -> (index, index)
+    krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 40, 
+                                 %jj -> %j = 0 to 80, 
+                                 %kk -> %k = 0 to 60) {
+        %i1, %j1 = krnl.get_induction_var_value(%ib, %jb) : 
+          (!krnl.loop,!krnl.loop) -> (index, index)
         // Fill C buffer.
         %Cbuff = alloca(): memref<10x8xf32>  // n x m_simd
-        krnl.copy_to_tile_buffer %Cbuff, %C[%i1, %j1], %f0 : memref<10x8xf32>,  memref<40x80xf32>
+        krnl.copy_to_tile_buffer %Cbuff, %C[%i1, %j1], %f0 : 
+          memref<10x8xf32>, memref<40x80xf32>
         // Outer 1 for k.
         krnl.iterate(%kb) with () {
             %k1 = krnl.get_induction_var_value(%kb) : (!krnl.loop) -> (index)
             // Fill A and B buffer
-            %Abuff = alloca(): memref<10x10xf32> // n x k
-            %Bbuff = alloca(): memref<10x8xf32>  // k x m_simd     
-            krnl.copy_to_tile_buffer %Abuff, %A[%i1, %k1], %f0 : memref<10x10xf32>, memref<40x60xf32>
-            krnl.copy_to_tile_buffer %Bbuff, %B[%k1, %j1], %f0 : memref<10x8xf32>,  memref<60x80xf32>
+            %Abuff = alloca(): memref<10x10xf32> // i x k
+            %Bbuff = alloca(): memref<10x8xf32>  // k x j_simd     
+            krnl.copy_to_tile_buffer %Abuff, %A[%i1, %k1], %f0 :
+              memref<10x10xf32>, memref<40x60xf32>
+            krnl.copy_to_tile_buffer %Bbuff, %B[%k1, %j1], %f0 :
+              memref<10x8xf32>, memref<60x80xf32>
 
             // Inner iterations for subtiles.
             krnl.iterate(%ilb, %jlb, %klb) with () {
-                %i2, %j2, %k2 = krnl.get_induction_var_value(%ilb, %jlb, %klb) : 
+                %i2, %j2, %k2 = krnl.get_induction_var_value(%ilb, %jlb, %klb) :
                 (!krnl.loop,!krnl.loop,!krnl.loop) -> (index,index,index)
 
-                krnl.matmul %Abuff[%i1, %k1], %Bbuff[%k1, %j1], %Cbuff[%i1, %j1], 
-                    (%ill, %jll, %kll), (%i2, %j2, %k2), (%c40, %c80, %c60) 
-                    { computeTileSize=[5,4,5], simdize=false, unroll=false } : 
-                    memref<10x10xf32>, memref<10x8xf32>, memref<10x8xf32>, 
-                    (!krnl.loop,!krnl.loop,!krnl.loop)        
+                krnl.matmul %Abuff[%i1, %k1], %Bbuff[%k1, %j1], %Cbuff[%i1, %j1],
+                    (%ill, %jll, %kll), (%i2, %j2, %k2), (%c40, %c80, %c60)
+                    { computeTileSize=[5,4,5], simdize=false, unroll=false } :
+                    memref<10x10xf32>, memref<10x8xf32>, memref<10x8xf32>,
+                    (!krnl.loop,!krnl.loop,!krnl.loop)
             }
         }
         // Copy back the data into C.
-        krnl.copy_from_tile_buffer %Cbuff, %C[%i1, %j1] : memref<10x8xf32>, memref<40x80xf32>
+        krnl.copy_from_tile_buffer %Cbuff, %C[%i1, %j1] :
+          memref<10x8xf32>, memref<40x80xf32>
     }
-
   }];
 
   let arguments = (ins 
@@ -817,16 +834,16 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     DefaultValuedAttr<BoolAttr, "false">:$overcompute);
 
   let builders = [ OpBuilderDAG<(ins 
-      "Value": $A, "ArrayRef<Value>": $aStart,
-      "Value": $B, "ArrayRef<Value>": $bStart,
-      "Value": $C, "ArrayRef<Value>": $cStart,
-      "ArrayRef<Value>": $loops,
+      "Value": $A, "ArrayRef<Value>": $aStart, // Both same rank.
+      "Value": $B, "ArrayRef<Value>": $bStart, // Both same rank.
+      "Value": $C, "ArrayRef<Value>": $cStart, // Both same rank.
+      "ArrayRef<Value>": $loops, // Rank 3: (i,j,k).
       "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart, 
       "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
-      "ArrayRef<int64_t>": $computeTileSize,
-      "ArrayRef<int64_t>": $aTileSize,
-      "ArrayRef<int64_t>": $bTileSize,
-      "ArrayRef<int64_t>": $cTileSize, 
+      "ArrayRef<int64_t>": $computeTileSize, // Rank 3: (i,j,k).
+      "ArrayRef<int64_t>": $aTileSize, // Rank 2: (rightmost 2 dims).
+      "ArrayRef<int64_t>": $bTileSize, // Rank 2: (rightmost 2 dims).
+      "ArrayRef<int64_t>": $cTileSize, // Rank 2: (rightmost 2 dims).
       "bool": $simdize,
       "bool": $unroll, 
       "bool": $overcompute 

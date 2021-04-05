@@ -491,6 +491,8 @@ static LogicalResult verify(KrnlMatMulOp op) {
       operandAdaptor.B().getType().cast<MemRefType>().getShape().size();
   int64_t cRank =
       operandAdaptor.C().getType().cast<MemRefType>().getShape().size();
+  if (!(aRank >= 2 && bRank >= 2 && cRank >= 2))
+    return op.emitOpError("currently only support ranks >=2");
   if (operandAdaptor.aMemStart().size() != aRank)
     return op.emitOpError("aMemStart should have same rank as memref A");
   if (operandAdaptor.bMemStart().size() != bRank)
