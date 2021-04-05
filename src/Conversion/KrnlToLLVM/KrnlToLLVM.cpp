@@ -80,6 +80,21 @@ static onnx::TensorProto::DataType llvmTypeToOnnxType(mlir::Type elemType) {
   llvm_unreachable("Unexpected LLVM type, cannot be converted to ONNX type.");
 }
 
+// Helper function to insert an entry block to LLVM function.
+// (TODO): upstream this to MLIR.
+Block &createEntryBlock(
+    Type &dynEntryPoint, LLVM::LLVMFuncOp &dynamicEntryPointFunc) {
+  // Add entry block:
+  auto *entryPointEntryBlock = new Block();
+  auto dynEntryPointFuncType = dynEntryPoint.cast<LLVM::LLVMFunctionType>();
+  dynamicEntryPointFunc.push_back(entryPointEntryBlock);
+  llvm::SmallVector<Type, 4> argTypes;
+  for (size_t i = 0; i < dynEntryPointFuncType.getNumParams(); i++)
+    argTypes.emplace_back(dynEntryPointFuncType.getParamType(i));
+  entryPointEntryBlock->addArguments(argTypes);
+  return *entryPointEntryBlock;
+}
+
 static FlatSymbolRefAttr getOrInsertExternFunc(StringRef funcName,
     ModuleOp module, mlir::Type funcType, PatternRewriter &rewriter) {
   auto *context = module.getContext();
@@ -910,18 +925,6 @@ public:
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
         API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
 
-    // Clean the global constant.
-    auto globalBase = module.lookupSymbol<LLVM::GlobalOp>("packedConst");
-    if (globalBase) {
-      Value basePtrAddr = rewriter.create<LLVM::AddressOfOp>(loc, globalBase);
-      Value alloc = rewriter.create<LLVM::LoadOp>(loc,
-          LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
-          basePtrAddr);
-      auto deallocSym = getOrInsertDealloc(rewriter, module);
-      auto dealloc = rewriter.create<LLVM::CallOp>(
-          loc, ArrayRef<Type>({}), deallocSym, ArrayRef<Value>(alloc));
-    }
-
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(
         loc, SmallVector<Value, 1>(1, wrappedOutput));
@@ -991,21 +994,6 @@ private:
     if (returnVals.getNumResults() == 1)
       return returnVals.getResult(0);
     return nullptr;
-  }
-
-  // Helper function to insert an entry block to LLVM function.
-  // (TODO): upstream this to MLIR.
-  Block &createEntryBlock(
-      Type &dynEntryPoint, LLVM::LLVMFuncOp &dynamicEntryPointFunc) const {
-    // Add entry block:
-    auto *entryPointEntryBlock = new Block();
-    auto dynEntryPointFuncType = dynEntryPoint.cast<LLVM::LLVMFunctionType>();
-    dynamicEntryPointFunc.push_back(entryPointEntryBlock);
-    llvm::SmallVector<Type, 4> argTypes;
-    for (size_t i = 0; i < dynEntryPointFuncType.getNumParams(); i++)
-      argTypes.emplace_back(dynEntryPointFuncType.getParamType(i));
-    entryPointEntryBlock->addArguments(argTypes);
-    return *entryPointEntryBlock;
   }
 
   void fillPtrToMemRefWithOMTensor(Value &rtMemRef, Value &ptrToMemRef,
@@ -1164,6 +1152,7 @@ public:
     auto packedConstOp = llvm::dyn_cast<KrnlPackedConstantOp>(op);
     LLVM::GlobalOp globalBase;
     // Some frequently used types.
+    auto voidTy = LLVM::LLVMVoidType::get(context);
     auto llvmI8PtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
     auto llvmI64Ty = IntegerType::get(context, 64);
     {
@@ -1173,6 +1162,62 @@ public:
       globalBase = rewriter.create<LLVM::GlobalOp>(loc, llvmI8PtrTy,
           /*isConstant=*/false, LLVM::Linkage::Internal, "packedConst",
           nullptr);
+
+      // Create an LLVM function to load packed constants into memory.
+      // This function is expected to call by onnx-mlir users before any call to
+      // the entry point function.
+      auto loadConstantFuncTy = LLVM::LLVMFunctionType::get(voidTy, {}, false);
+      auto loadConstantFunc = rewriter.create<LLVM::LLVMFuncOp>(
+          loc, "load_constants", loadConstantFuncTy);
+      auto &loadConstantBlock =
+          createEntryBlock(loadConstantFuncTy, loadConstantFunc);
+      {
+        OpBuilder::InsertionGuard insertGuard(rewriter);
+        rewriter.setInsertionPointToStart(&loadConstantBlock);
+
+        //  - Initialize the global constant base.
+        Value basePtrAddr = rewriter.create<LLVM::AddressOfOp>(loc, globalBase);
+        auto getEmbeddedConstPoolRef = getOrInsertExternFunc(
+            KrnlPackedConstantOp::getEmbeddedDataLoaderMethodName(), module,
+            LLVM::LLVMFunctionType::get(
+                llvmI8PtrTy, {llvmI64Ty}, /*isVarArg=*/false),
+            rewriter);
+        auto constPackSize = rewriter.create<LLVM::ConstantOp>(loc,
+            IntegerType::get(context, 64), packedConstOp.size_in_bytesAttr());
+        Value alloc = rewriter
+                          .create<CallOp>(loc, getEmbeddedConstPoolRef,
+                              llvmI8PtrTy, ArrayRef<Value>({constPackSize}))
+                          .getResult(0);
+        rewriter.create<LLVM::StoreOp>(loc, alloc, basePtrAddr);
+        rewriter.create<LLVM::ReturnOp>(loc, ArrayRef<Value>{});
+      }
+
+      // Create an LLVM function to destroy packed constants in memory.
+      // This function is expected to call by onnx-mlir users after all calls to
+      // the entry point function finish to avoid memory leak.
+      auto loadDestroyFuncTy = LLVM::LLVMFunctionType::get(voidTy, {}, false);
+      auto loadDestroyFunc = rewriter.create<LLVM::LLVMFuncOp>(
+          loc, "destroy_constants", loadDestroyFuncTy);
+      auto &loadDestroyBlock =
+          createEntryBlock(loadDestroyFuncTy, loadDestroyFunc);
+      {
+        OpBuilder::InsertionGuard insertGuard(rewriter);
+        rewriter.setInsertionPointToStart(&loadDestroyBlock);
+
+        // Clean the global constant.
+        auto globalBase = module.lookupSymbol<LLVM::GlobalOp>("packedConst");
+        if (globalBase) {
+          Value basePtrAddr =
+              rewriter.create<LLVM::AddressOfOp>(loc, globalBase);
+          Value alloc = rewriter.create<LLVM::LoadOp>(loc,
+              LLVM::LLVMPointerType::get(IntegerType::get(context, 8)),
+              basePtrAddr);
+          auto deallocSym = getOrInsertDealloc(rewriter, module);
+          auto dealloc = rewriter.create<LLVM::CallOp>(
+              loc, ArrayRef<Type>({}), deallocSym, ArrayRef<Value>(alloc));
+        }
+        rewriter.create<LLVM::ReturnOp>(loc, ArrayRef<Value>{});
+      }
     }
 
     auto mainFunc = module.lookupSymbol<FuncOp>("main_graph");
@@ -1181,20 +1226,6 @@ public:
     rewriter.setInsertionPoint(
         &mainFunc.getBody().front(), mainFunc.getBody().front().begin());
 
-    //  - Initialize the global constant base.
-    Value basePtrAddr = rewriter.create<LLVM::AddressOfOp>(loc, globalBase);
-    auto getEmbeddedConstPoolRef = getOrInsertExternFunc(
-        KrnlPackedConstantOp::getEmbeddedDataLoaderMethodName(), module,
-        LLVM::LLVMFunctionType::get(
-            llvmI8PtrTy, {llvmI64Ty}, /*isVarArg=*/false),
-        rewriter);
-    auto constPackSize = rewriter.create<LLVM::ConstantOp>(
-        loc, IntegerType::get(context, 64), packedConstOp.size_in_bytesAttr());
-    Value alloc = rewriter
-                      .create<CallOp>(loc, getEmbeddedConstPoolRef, llvmI8PtrTy,
-                          ArrayRef<Value>({constPackSize}))
-                      .getResult(0);
-    rewriter.create<LLVM::StoreOp>(loc, alloc, basePtrAddr);
     {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       rewriter.setInsertionPointToStart(module.getBody());
