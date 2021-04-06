@@ -90,9 +90,11 @@ bool isOMConvTheSameAsNaiveImplFor(const int N, const int C, const int H,
 
   // Emit the entry point operation which specifies the number of user
   // inputs and outputs.
+  std::string signature("");
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
       /*numInputs=*/2,
-      /*numOutputs=*/1);
+      /*numOutputs=*/1,
+      /*signature*/signature);
   module.push_back(entryPoint);
 
   OwningModuleRef moduleRef(module);

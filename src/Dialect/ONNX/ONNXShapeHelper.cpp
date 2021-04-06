@@ -75,7 +75,7 @@ LogicalResult ONNXArgMaxOpShapeHelper::Compute(
 
   // Compute outputDims
   DimsExpr outputDims;
-  MemRefBoundIndexCapture dataBounds(data);
+  MemRefBoundsIndexCapture dataBounds(data);
   int reducedRank = isKeepdims ? dataRank : dataRank - 1;
   outputDims.resize(reducedRank);
   for (auto i = 0; i < reducedRank; i++) {
@@ -126,7 +126,7 @@ LogicalResult ONNXOpBroadcastedShapeHelper::Compute(ArrayRef<Value> operands) {
   for (int64_t i = 0; i < numOfInputs; ++i) {
     DimsExpr dims;
     int64_t r = operands[i].getType().cast<ShapedType>().getRank();
-    MemRefBoundIndexCapture bounds(operands[i]);
+    MemRefBoundsIndexCapture bounds(operands[i]);
     // Prepend 1s.
     for (int64_t k = 0; k < outputRank - r; ++k)
       dims.emplace_back(LiteralIndexExpr(1));
@@ -284,7 +284,7 @@ LogicalResult ONNXSliceOpShapeHelper::Compute(
   ArrayValueIndexCapture startsCapture(genericOp, operandAdaptor.starts());
   ArrayValueIndexCapture endsCapture(genericOp, operandAdaptor.ends());
   ArrayValueIndexCapture stepsCapture(genericOp, operandAdaptor.steps());
-  MemRefBoundIndexCapture dataBounds(data);
+  MemRefBoundsIndexCapture dataBounds(data);
   for (uint64_t i = 0; i < sliceRank; i++) {
     // i is index in start/step/end/output
     // ii is logical index in mem/loop bounds
@@ -383,7 +383,7 @@ LogicalResult ONNXTileOpShapeHelper::Compute(ONNXTileOpAdaptor operandAdaptor) {
   // Compute outputDims
   DimsExpr outputDims;
   outputDims.resize(inputRank);
-  MemRefBoundIndexCapture inputBounds(input);
+  MemRefBoundsIndexCapture inputBounds(input);
   ArrayValueIndexCapture repeatsCapture(genericOp, repeats);
   for (auto i = 0; i < inputRank; i++) {
     DimIndexExpr dimInput(inputBounds.getDim(i));
@@ -427,14 +427,14 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
       return op->emitError("Gemm with C should be a 1D or 2D tensor");
   }
   // Scan dimensions of A with/without transpose.
-  MemRefBoundIndexCapture ABounds(A);
+  MemRefBoundsIndexCapture ABounds(A);
   if (op->transA() == 0) {
     aDims = {ABounds.getDim(0), ABounds.getDim(1)};
   } else {
     aDims = {ABounds.getDim(1), ABounds.getDim(0)};
   }
   // Scan dimensions of B with/without transpose.
-  MemRefBoundIndexCapture BBounds(B);
+  MemRefBoundsIndexCapture BBounds(B);
   if (op->transB() == 0) {
     bDims = {BBounds.getDim(0), BBounds.getDim(1)};
   } else {
@@ -443,7 +443,7 @@ LogicalResult ONNXGemmOpShapeHelper::Compute(ONNXGemmOpAdaptor operandAdaptor) {
   // Set output dims of result, creating a copy of it to be safe.
   outputDims = {aDims[0].deepCopy(), bDims[1].deepCopy()};
   // Bias C can be a (unidirectional) broadcast.
-  MemRefBoundIndexCapture CBounds(C);
+  MemRefBoundsIndexCapture CBounds(C);
   if (hasBias) {
     if (cRank == 0) {
       // Broadcast for scalar: both dims are 1.
@@ -504,8 +504,8 @@ LogicalResult ONNXMatMulOpShapeHelper::Compute(
   // Get info.
   Value A = operandAdaptor.A();
   Value B = operandAdaptor.B();
-  MemRefBoundIndexCapture ABounds(A);
-  MemRefBoundIndexCapture BBounds(B);
+  MemRefBoundsIndexCapture ABounds(A);
+  MemRefBoundsIndexCapture BBounds(B);
 
   // Size all the arrays to padded length.
   int paddedRank = std::max(ABounds.getRank(), BBounds.getRank());
@@ -638,7 +638,7 @@ LogicalResult ONNXSplitOpShapeHelper::Compute(
   // Checking value of split parameter.
   auto splitAttribute = op->split();
   SmallVector<IndexExpr, 4> splitDims;
-  MemRefBoundIndexCapture inputBounds(operandAdaptor.input());
+  MemRefBoundsIndexCapture inputBounds(operandAdaptor.input());
   if (splitAttribute.hasValue()) {
     if (ArrayAttrSize(splitAttribute) != numOfResults)
       return op->emitError("Split size not equal to the number of results");
@@ -690,8 +690,8 @@ LogicalResult ONNXGatherOpShapeHelper::Compute(
     ONNXGatherOpAdaptor operandAdaptor) {
   // Shape inference indicated by passing a null rewriter pointer.
   // Read data and indices shapes as dim indices.
-  MemRefBoundIndexCapture dataBounds(operandAdaptor.data());
-  MemRefBoundIndexCapture indicesBounds(operandAdaptor.indices());
+  MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
+  MemRefBoundsIndexCapture indicesBounds(operandAdaptor.indices());
   dataBounds.getDimList(dataDims);
   indicesBounds.getDimList(indicesDims);
 
@@ -768,13 +768,13 @@ LogicalResult ONNXConcatOpShapeHelper::Compute(
   IndexExpr cumulativeAxisSize = LiteralIndexExpr(0);
   for (int i = 0; i < inputNum; ++i) {
     Value currentInput = operandAdaptor.getODSOperands(0)[i];
-    MemRefBoundIndexCapture currInputBounds(currentInput);
+    MemRefBoundsIndexCapture currInputBounds(currentInput);
     DimIndexExpr currentSize(currInputBounds.getDim(axisIndex));
     cumulativeAxisSize = cumulativeAxisSize + currentSize;
   }
 
   DimsExpr outputDims;
-  MemRefBoundIndexCapture firstInputBounds(firstInput);
+  MemRefBoundsIndexCapture firstInputBounds(firstInput);
   outputDims.resize(commonRank);
   for (int i = 0; i < commonRank; i++) {
     if (i == axisIndex) {
@@ -821,7 +821,7 @@ LogicalResult ONNXTransposeOpShapeHelper::Compute(
 
   // Perform transposition according to perm attribute.
   DimsExpr transposedDims;
-  MemRefBoundIndexCapture dataBounds(operandAdaptor.data());
+  MemRefBoundsIndexCapture dataBounds(operandAdaptor.data());
   for (decltype(rank) i = 0; i < rank; ++i) {
     int64_t inputIndex = ArrayAttrIntVal(permAttr, i);
     transposedDims.emplace_back(dataBounds.getDim(inputIndex));
@@ -849,7 +849,7 @@ LogicalResult ONNXLRNOpShapeHelper::Compute(ONNXLRNOpAdaptor operandAdaptor) {
 
   // Perform transposition according to perm attribute.
   DimsExpr outputDims;
-  MemRefBoundIndexCapture XBounds(operandAdaptor.X());
+  MemRefBoundsIndexCapture XBounds(operandAdaptor.X());
   for (decltype(rank) i = 0; i < rank; ++i) {
     outputDims.emplace_back(XBounds.getDim(i));
   }
