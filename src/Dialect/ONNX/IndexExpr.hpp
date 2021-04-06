@@ -664,9 +664,9 @@ private:
 // Capture memory bounds give by a tensor or memref. Locate its shape, return
 // constant values when available or generate the appropriate dim operation when
 // they are not constant at compile time.
-class MemRefBoundIndexCapture {
+class MemRefBoundsIndexCapture {
 public:
-  MemRefBoundIndexCapture(Value tensorOrMemref);
+  MemRefBoundsIndexCapture(Value tensorOrMemref);
 
   int64_t getRank() { return memRank; }
   bool areAllLiteral();
@@ -678,7 +678,7 @@ public:
   void getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
-  MemRefBoundIndexCapture() { llvm_unreachable("forbidden constructor"); };
+  MemRefBoundsIndexCapture() { llvm_unreachable("forbidden constructor"); };
 
   template <class INDEX>
   IndexExpr get(uint64_t i);
