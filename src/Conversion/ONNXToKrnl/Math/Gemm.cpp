@@ -13,7 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 using namespace mlir;
@@ -23,34 +25,71 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   ONNXGemmOpLowering(MLIRContext *ctx)
       : ConversionPattern(GemmOp::getOperationName(), 1, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-
-    // Get shape.
-    ONNXGemmOpAdaptor operandAdaptor(operands);
-    ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
-    Location loc = op->getLoc();
-    ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter);
-    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
-    assert(succeeded(shapecomputed));
+  void genericGemmV2(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
+      Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
+      Value zeroVal, Value alphaVal, Value betaVal,
+      ConversionPatternRewriter &rewriter, Location loc) const {
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
+    using namespace mlir::edsc::intrinsics;
     ScopedContext scope(rewriter, loc);
-    IndexExprScope outerScope;
 
-    // Insert an allocation and deallocation for the output of this operation.
-    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
-    Type elementType = outputMemRefType.getElementType();
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+    // R is result (alloc).
+    Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
+    MemRefBoundsCapture rBound(R);
 
-    // Get the constants: zero, alpha,and beta.
-    float alphaLit = gemmOp.alpha().convertToFloat();
-    float betaLit = gemmOp.beta().convertToFloat();
-    Value alpha = emitConstantOp(rewriter, loc, elementType, alphaLit);
-    Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
-    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+    // Outer loops.
+    ValueRange outerLoops = krnl_define_loop(2);
+    krnl_iterate(
+        outerLoops, rBound.getLbs(), rBound.getUbs(), {}, [&](ValueRange args) {
+          // Outer loop indices.
+          ValueRange outerIndices = krnl_get_induction_var_value(outerLoops);
+          // Create temp and set to zero.
+          Value red = std_alloca(MemRefType::get({}, elementType));
+          SmallVector<Value, 2> redAccess; // Empty.
+          krnl_store(zeroVal, red, redAccess);
+          // Inner loop
+          ValueRange innerLoop = krnl_define_loop(1);
+          Value lb = std_constant_index(0);
+          Value ub = shapeHelper.aDims[1].getValue();
+          krnl_iterate(innerLoop, {lb}, {ub}, {}, [&](ValueRange args) {
+            ValueRange innerIndex = krnl_get_induction_var_value(innerLoop);
+            Value i(outerIndices[0]), j(outerIndices[1]), k(innerIndex[0]);
+            // Handle transposed accesses.
+            SmallVector<Value, 2> aAccess, bAccess;
+            if (gemmOp.transA() != 0)
+              aAccess = {k, i};
+            else
+              aAccess = {i, k};
+            if (gemmOp.transB() != 0)
+              bAccess = {j, k};
+            else
+              bAccess = {k, j};
+            Value tmp = std_mulf(krnl_load(A, aAccess), krnl_load(B, bAccess));
+            krnl_store(
+                std_addf(tmp, krnl_load(red, redAccess)), red, redAccess);
+          });
+          // Handle alpha/beta coefficients.
+          Value res = std_mulf(alphaVal, krnl_load(red, redAccess));
+          if (shapeHelper.hasBias) {
+            SmallVector<IndexExpr, 2> cAccess;
+            for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
+              // If dim > 1, use loop index, otherwise broadcast on 0's element.
+              SymbolIndexExpr dim(shapeHelper.cDims[x]);
+              cAccess.emplace_back(
+                  IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0));
+            }
+            Value c = krnl_load(operandAdaptor.C(), cAccess);
+            res = std_addf(res, std_mulf(betaVal, c));
+          }
+          krnl_store(res, R, outerIndices);
+        });
+  }
 
+  void genericGemm(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
+      Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
+      Value zeroVal, Value alphaVal, Value betaVal,
+      ConversionPatternRewriter &rewriter, Location loc) const {
     // Loop iterations N=0 & M-1 going over each of the res[n, m] values.
     BuildKrnlLoop outputLoops(rewriter, loc, 2);
     outputLoops.createDefineOp();
@@ -67,7 +106,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Create a local reduction value for res[n,m].
     Value reductionVal =
         rewriter.create<AllocaOp>(loc, MemRefType::get({}, elementType));
-    rewriter.create<KrnlStoreOp>(loc, zero, reductionVal, ArrayRef<Value>{});
+    rewriter.create<KrnlStoreOp>(loc, zeroVal, reductionVal, ArrayRef<Value>{});
 
     // Create the inner reduction loop.
     BuildKrnlLoop innerLoops(rewriter, loc, 1);
@@ -75,7 +114,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     innerLoops.pushBounds(0, shapeHelper.aDims[1]);
     innerLoops.createIterateOp();
 
-    // Now start writing code inside the inner loop: get A & B access functions.
+    // Now start writing code inside the inner loop: get A & B access
+    // functions.
     auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
     {
@@ -115,17 +155,49 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     }
 
     // Calculate reduction(AB)*alpha.
-    Value alphaAB = rewriter.create<MulFOp>(loc, alpha, loadedAB);
+    Value alphaAB = rewriter.create<MulFOp>(loc, alphaVal, loadedAB);
     if (shapeHelper.hasBias) {
       // Res = AB*alpha + beta * C.
       Value loadedC = krnl_load(operandAdaptor.C(), cAccessFct);
-      auto betaC = rewriter.create<MulFOp>(loc, beta, loadedC);
+      auto betaC = rewriter.create<MulFOp>(loc, betaVal, loadedC);
       auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
       krnl_store(Y, alloc, resAccessFct);
     } else {
       // No bias, just store alphaAB into res.
       krnl_store(alphaAB, alloc, resAccessFct);
     }
+  }
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+
+    // Get shape.
+    ONNXGemmOpAdaptor operandAdaptor(operands);
+    ONNXGemmOp gemmOp = llvm::cast<ONNXGemmOp>(op);
+    Location loc = op->getLoc();
+    ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter);
+    auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    assert(succeeded(shapecomputed));
+    // Scope for krnl EDSC ops
+    using namespace mlir::edsc;
+    ScopedContext scope(rewriter, loc);
+    IndexExprScope outerScope;
+
+    // Insert an allocation and deallocation for the output of this operation.
+    MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
+    Type elementType = outputMemRefType.getElementType();
+    Value alloc = insertAllocAndDeallocSimple(
+        rewriter, op, outputMemRefType, loc, shapeHelper.dimsForOutput(0));
+
+    // Get the constants: zero, alpha,and beta.
+    float alphaLit = gemmOp.alpha().convertToFloat();
+    float betaLit = gemmOp.beta().convertToFloat();
+    Value alpha = emitConstantOp(rewriter, loc, elementType, alphaLit);
+    Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
+    Value zero = emitConstantOp(rewriter, loc, elementType, 0);
+
+    genericGemmV2(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
+        alpha, beta, rewriter, loc);
 
     rewriter.replaceOp(op, alloc);
 
