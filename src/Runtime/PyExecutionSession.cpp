@@ -83,9 +83,7 @@ std::vector<py::array> PyExecutionSession::pyRun(
   }
 
   auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
-  _loadConstantFunc();
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
-  _destroyConstantFunc();
 
   std::vector<py::array> outputPyArrays;
   for (int i = 0; i < omTensorListGetSize(wrappedOutput); i++) {

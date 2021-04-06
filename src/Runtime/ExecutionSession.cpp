@@ -65,6 +65,9 @@ ExecutionSession::ExecutionSession(
     dlclose(_sharedLibraryHandle);
     throw std::runtime_error(errStr.str());
   }
+
+  // Load the constants of the model.
+  _loadConstantFunc();
 }
 
 std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>>
@@ -76,9 +79,7 @@ ExecutionSession::run(
     omts.emplace_back(inOmt.get());
   auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
 
-  _loadConstantFunc();
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
-  _destroyConstantFunc();
 
   std::vector<std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>> outs;
 
@@ -89,5 +90,9 @@ ExecutionSession::run(
   return std::move(outs);
 }
 
-ExecutionSession::~ExecutionSession() { dlclose(_sharedLibraryHandle); }
+ExecutionSession::~ExecutionSession() {
+  // Clean up the loaded constants.
+  _destroyConstantFunc();
+  dlclose(_sharedLibraryHandle);
+}
 } // namespace onnx_mlir

@@ -46,9 +46,9 @@ protected:
   entryPointFuncType _entryPointFunc = nullptr;
 
   // Load constant function.
-  loadConstantFuncType _loadConstantFunc;
+  loadConstantFuncType _loadConstantFunc = nullptr;
 
   // Destroy constant function.
-  destroyConstantFuncType _destroyConstantFunc;
+  destroyConstantFuncType _destroyConstantFunc = nullptr;
 };
 } // namespace onnx_mlir
