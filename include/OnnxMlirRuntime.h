@@ -93,6 +93,8 @@
  * #include <stdio.h>
  *
  * OMTensorList *run_main_graph(OMTensorList *);
+ * void load_constants();
+ * void destroy_constants();
  *
  * int main() {
  *   // Shared shape & rank.
