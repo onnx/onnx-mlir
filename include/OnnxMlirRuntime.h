@@ -53,6 +53,30 @@
  * Intuitively, the model takes a list of tensors as input and returns a list of
  * ensors as output.
  *
+ * \subsection constants Constants
+ *
+ * A model often has many constant values (e.g. for learned weights) and the
+ * number of constants is large.
+ *
+ * Constants of a model must be loaded into memory before any call to the entry
+ * point function. We can call the entry point function multiple times with the
+ * same loaded constants. Then, the constants must be destroyed to avoid memory
+ * leak.
+ *
+ * To load constants, all compiled model will have the same exact C function
+ * signature equivalent to:
+ *
+ * ```c
+ * void load_constants();
+ * ```
+ *
+ * To destroy constants, all compiled model will have the same exact C function
+ * signature equivalent to:
+ *
+ * ```c
+ * void destroy_constants();
+ * ```
+ *
  * \subsection invoke-models-using-c-runtime-api Invoke Models Using C Runtime
  * API
  *
@@ -85,8 +109,12 @@
  *   // Construct a list of omts as input.
  *   OMTensor *list[2] = {x1, x2};
  *   OMTensorList *input = omTensorListCreate(list, 2);
+ *   // Load constants of the model.
+ *   load_constants();
  *   // Call the compiled onnx model function.
  *   OMTensorList *outputList = run_main_graph(input);
+ *   // Destroy the constants.
+ *   destroy_constants();
  *   // Get the first omt as output.
  *   OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);
  *   float *outputPtr = (float *)omTensorGetDataPtr(y);
