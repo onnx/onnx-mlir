@@ -1055,30 +1055,11 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
-  std::string getSignature(mlir::FunctionType funcType) {
-    auto inputs = funcType.getInputs();
 
-    std::string const sf32 = std::string("f32");
-    std::string const sf64 = std::string("f64");
-    std::string const si32 = std::string("i32");
-    std::string const si64 = std::string("i64");
-    std::string const si16 = std::string("i16");
-    std::map<std::string, std::string> typeMap = {
-        {sf32, std::string("\"float\"")}, {sf64, std::string("\"double\"")},
-        {si32, std::string("\"integer\"")}, {si64, std::string("\"long\"")},
-        {si16, std::string("\"short\"")}};
-    std::string dstring;
-    llvm::raw_string_ostream dstream(dstring);
-    dstream << "[ ";
-    for (int i = 0; i < funcType.getNumInputs(); i++) {
-      // std::string tstring;
-      // llvm::raw_string_ostream tstream(tstring);
-      auto in = inputs[i];
-      // in.print(tstream);
-      // tstream.flush();
-      // std::cout << tstring << std::endl;
+      //auto in = inputs[i];
+      void concatTypeString(Type argType, llvm::raw_ostream &dstream) {
       std::string comma = std::string("");
-      mlir::TypeSwitch<Type>(in)
+      mlir::TypeSwitch<Type>(argType)
           .Case<ShapedType>([&](ShapedType tensorTy) {
             auto et = tensorTy.getElementType();
             dstream << "   { \"type\" : ";
@@ -1097,6 +1078,30 @@ private:
           .Default(
               [&](Type type) { llvm_unreachable("input is not a tensor"); });
       dstream << " }\n";
+      }
+
+  std::string getSignature(mlir::FunctionType funcType) {
+    auto inputs = funcType.getInputs();
+    auto outputs = funcType.getResults();
+
+    std::string const sf32 = std::string("f32");
+    std::string const sf64 = std::string("f64");
+    std::string const si32 = std::string("i32");
+    std::string const si64 = std::string("i64");
+    std::string const si16 = std::string("i16");
+    std::map<std::string, std::string> typeMap = {
+        {sf32, std::string("\"float\"")}, {sf64, std::string("\"double\"")},
+        {si32, std::string("\"integer\"")}, {si64, std::string("\"long\"")},
+        {si16, std::string("\"short\"")}};
+    std::string dstring;
+    llvm::raw_string_ostream dstream(dstring);
+    dstream << "[ ";
+    for (int i = 0; i < funcType.getNumInputs(); i++) {
+       concatTypeString(inputs[i],dstream);
+    }
+    dstream << "\n] @ [";
+    for (int i = 0; i < funcType.getNumResults(); i++) {
+       concatTypeString(outputs[i],dstream);
     }
     dstream << "\n]";
     dstream.flush();
