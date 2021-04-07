@@ -1016,6 +1016,12 @@ public:
     getIndexExprList<DimIndexExpr>(startVals, starts);
     ArrayAttributeIndexCapture padCapture(op.padToNextAttr(), 1);
     ArrayAttributeIndexCapture readSizeCapture(op.tileSizeAttr());
+    // Handle possible transpose by having an indirect array for indices
+    // used in conjunction with source.
+    SmallVector<int64_t, 4> srcIndexMap, srcLoopMap;
+    generateIndexMap(srcIndexMap, srcRank, op.transpose());
+    generateIndexMap(srcLoopMap, buffRank, op.transpose());
+
     // Overread not currently used, will if we simdize reads or
     // unroll and jam loops.
     // ArrayAttributeIndexCapture overCapture(op.overreadToNextAttr(), 1);
@@ -1026,7 +1032,7 @@ public:
     // This is only done on the dimensions shared between src memref and buffer.
     LiteralIndexExpr zero(0);
     for (long buffIndex = 0; buffIndex < buffRank; ++buffIndex) {
-      long srcIndex = srcOffset + buffIndex;
+      long srcIndex = srcIndexMap[srcOffset + buffIndex];
       // Compute how many values to read.
       IndexExpr sourceBound =
           sourceBounds.getSymbol(srcIndex); // Source memref size.
@@ -1069,14 +1075,16 @@ public:
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(buffMemref, sourceMemref, padVal, zero, starts, bufferReadUBs,
-        bufferPadUBs, loopIndices, 0, buffRank, false);
+    genCopyLoops(buffMemref, sourceMemref, srcIndexMap, srcLoopMap, padVal,
+        zero, starts, bufferReadUBs, bufferPadUBs, loopIndices, 0, buffRank,
+        false);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(Value buffMemref, Value sourceMemref, Value padVal,
-      IndexExpr zero, SmallVectorImpl<IndexExpr> &starts,
+  void genCopyLoops(Value buffMemref, Value sourceMemref,
+      SmallVectorImpl<int64_t> &srcIndexMap, SmallVectorImpl<int64_t> &srcLoopMap,
+      Value padVal, IndexExpr zero, SmallVectorImpl<IndexExpr> &starts,
       SmallVectorImpl<IndexExpr> &readUBs, SmallVectorImpl<IndexExpr> &padUBs,
       SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t buffRank,
       bool padPhase) const {
@@ -1099,7 +1107,8 @@ public:
             // indices to starts.
             int64_t buffIndex = srcIndex - srcOffset;
             currLoadIndices.emplace_back(
-                currLoopIndices[buffIndex] + currStarts[srcIndex]);
+                currLoopIndices[srcLoopMap[buffIndex]] +
+                currStarts[srcIndexMap[srcIndex]]);
           }
         }
         Value sourceVal = krnl_load(sourceMemref, currLoadIndices);
@@ -1115,8 +1124,9 @@ public:
       } else {
         affineLoopBuilder(zero, readUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, padVal, zero, starts, readUBs,
-              padUBs, loopIndices, i + 1, buffRank,
+          genCopyLoops(buffMemref, sourceMemref, srcIndexMap, srcLoopMap,
+              padVal, zero, starts, readUBs, padUBs, loopIndices, i + 1,
+              buffRank,
               /*no pad phase*/ false);
           loopIndices.pop_back_n(1);
         });
@@ -1126,8 +1136,9 @@ public:
       } else {
         affineLoopBuilder(readUBs[i], padUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, padVal, zero, starts, readUBs,
-              padUBs, loopIndices, i + 1, buffRank,
+          genCopyLoops(buffMemref, sourceMemref, srcIndexMap, srcLoopMap,
+              padVal, zero, starts, readUBs, padUBs, loopIndices, i + 1,
+              buffRank,
               /*pad phase*/ true);
           loopIndices.pop_back_n(1);
         });

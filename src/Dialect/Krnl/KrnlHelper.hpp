@@ -251,6 +251,11 @@ private:
   Block *iterBlock;
 };
 
+//====---------------- Support for simple transpose ----------------------===//
+
+void generateIndexMap(
+    SmallVectorImpl<int64_t> &map, int64_t size, bool transposeInner2);
+
 //====---------------- EDSC Support with Value ---------------------------===//
 
 Value krnl_load(Value memref, ValueRange indices);

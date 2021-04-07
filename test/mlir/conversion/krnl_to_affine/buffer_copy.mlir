@@ -65,6 +65,38 @@ func private @copy_to_larger_source(%p0 : index, %p1 : index) -> () {
 
 // -----
 
+// Same with transpose
+func private @copy_to_larger_transposed_source(%p0 : index, %p1 : index) -> () {
+  //A source, B buffer
+  %A = alloca() : memref<5x10x60x40xf32>
+  %B = alloca() : memref<4x6xf32>
+  %f0 = constant 0.0 : f32
+
+  %i2 = constant 2 : index
+  %i3 = constant 3 : index
+  %i10 = constant 10 : index
+  %i12 = constant 12 : index
+  krnl.copy_to_tile_buffer %B, %A [%i2, %i3, %i10, %i12], %f0 {transpose=true}: 
+    memref<4x6xf32>, memref<5x10x60x40xf32>
+  return
+
+// mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
+// CHECK-LABEL:  func private @copy_to_larger_transposed_source
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-DAG:       [[ORGINAL_:%.+]] = alloca() : memref<5x10x60x40xf32>
+// CHECK-DAG:       [[BUFFER_:%.+]] = alloca() : memref<4x6xf32>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to 4 {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 6 {
+// CHECK:               [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]][2, 3, [[I_1_]] + 12, [[I_0_]] + 10] : memref<5x10x60x40xf32>
+// CHECK:               affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return
+// CHECK:         }
+}
+
+// -----
+
 func private @copy_to_nopad(%p0 : index, %p1 : index) -> () {
   %A = alloca() : memref<40x60xf32>
   %B = alloca() : memref<4x6xf32>
@@ -199,6 +231,45 @@ func private @copy_to_pad_partial(%p0 : index, %p1 : index) -> () {
 // CHECK:           affine.for [[I_3_:%.+]] = 3 to 4 {
 // CHECK:             affine.for [[I_4_:%.+]] = 0 to 6 {
 // CHECK:               affine.store [[ZERO_]], [[BUFFER_]]{{.}}[[I_3_]], [[I_4_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           return
+// CHECK:         }
+}
+
+// -----
+
+// Same, transposed
+func private @copy_to_pad_partial_transposed(%p0 : index, %p1 : index) -> () {
+  %AA = alloca() : memref<56x39xf32>
+  %B = alloca() : memref<4x6xf32>
+  %f0 = constant 0.0 : f32
+  %i36 = constant 36 : index
+  %i54 = constant 54 : index
+
+  // same, padding to full
+  krnl.copy_to_tile_buffer %B, %AA [%i36, %i54], %f0 {padToNext=[4,6], transpose=true}: 
+    memref<4x6xf32>, memref<56x39xf32>
+  return
+
+// mlir2FileCheck.py -n'{"0": "ORGINAL", "1": "BUFFER"}' -a'["start0", "start1"]'
+// CHECK-LABEL:  func private @copy_to_pad_partial_transposed
+// CHECK-SAME:   ([[START0_:%.+]]: index, [[START1_:%.+]]: index) {
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = constant 0.000000e+00 : f32
+// CHECK-DAG:       [[ORGINAL_:%.+]] = alloca() : memref<56x39xf32>
+// CHECK-DAG:       [[BUFFER_:%.+]] = alloca() : memref<4x6xf32>
+// CHECK:           affine.for [[I_0_:%.+]] = 0 to -15 {
+// CHECK:             affine.for [[I_1_:%.+]] = 0 to 26 {
+// CHECK:               [[LOAD_ORGINAL_MEM_:%.+]] = affine.load [[ORGINAL_]]{{.}}[[I_1_]] + 54, [[I_0_]] + 36] : memref<56x39xf32>
+// CHECK:               affine.store [[LOAD_ORGINAL_MEM_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:             affine.for [[I_2_:%.+]] = 26 to 6 {
+// CHECK:               affine.store [[CST_0_dot_000000_]], [[BUFFER_]]{{.}}[[I_0_]], [[I_2_]]{{.}} : memref<4x6xf32>
+// CHECK:             }
+// CHECK:           }
+// CHECK:           affine.for [[I_3_:%.+]] = -15 to 4 {
+// CHECK:             affine.for [[I_4_:%.+]] = 0 to 6 {
+// CHECK:               affine.store [[CST_0_dot_000000_]], [[BUFFER_]]{{.}}[[I_3_]], [[I_4_]]{{.}} : memref<4x6xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK:           return

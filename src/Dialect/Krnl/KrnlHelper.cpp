@@ -346,6 +346,21 @@ ArrayRef<BlockArgument> BuildKrnlLoop::getAllInductionVar() {
       iterBlock->getArguments().begin(), iterBlock->getArguments().end());
 }
 
+//====---------------- Support for simple transpose ----------------------===//
+
+// create an identity
+void generateIndexMap(
+    SmallVectorImpl<int64_t> &map, int64_t size, bool transposeInner2) {
+  for (int i = 0; i < size; ++i)
+    map.emplace_back(i); // Indentity map.
+  if (size < 2)
+    return;
+  if (transposeInner2) {
+    map[size - 2] = size - 1;
+    map[size - 1] = size - 2;
+  }
+}
+
 // TODO: only in the EDSC scope
 
 //====---------------- EDSC Support with Value ---------------------------===//

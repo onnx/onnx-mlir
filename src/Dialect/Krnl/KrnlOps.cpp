@@ -538,15 +538,15 @@ void KrnlCopyToBufferOp::build(::mlir::OpBuilder &odsBuilder,
 static LogicalResult verify(KrnlCopyToBufferOp op) {
   KrnlCopyToBufferOpAdaptor opAdaptor = KrnlCopyToBufferOpAdaptor(op);
   MemRefBoundsIndexCapture buffCapture(opAdaptor.buffer());
+  MemRefBoundsIndexCapture srcCapture(opAdaptor.source());
   int64_t bufferRank = buffCapture.getRank();
-  int64_t sourceRank =
-      opAdaptor.source().getType().cast<MemRefType>().getShape().size();
+  int64_t srcRank = srcCapture.getRank();
   int64_t startRank = opAdaptor.starts().size();
   if (!buffCapture.areAllLiteral())
     return op.emitOpError("buffer expect constant dimensions");
-  if (sourceRank < bufferRank)
+  if (srcRank < bufferRank)
     return op.emitOpError("Rank of memref cannot be smaller than buffer");
-  if (startRank != sourceRank)
+  if (startRank != srcRank)
     return op.emitOpError("Rank of starts and memrefs must be identical");
   if (opAdaptor.tileSize()) {
     int64_t tRank = opAdaptor.tileSize().size();
@@ -563,6 +563,7 @@ static LogicalResult verify(KrnlCopyToBufferOp op) {
       return op.emitOpError(
           "To transpose buffer, its rank must be greater than 1");
   }
+
   return success();
 }
 

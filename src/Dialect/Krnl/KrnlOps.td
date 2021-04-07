@@ -872,11 +872,11 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
                   "$_self.cast<MemRefType>().getElementType()">]> {
   let summary = "Copy to buffer.";
   let description = [{
-    Operation that copy a source memory to a buffer memory. Source memory
-    and buffer must have the same rank. Starts indicate where the source data
-    starts to come from within the source memory. Start values must be at
-    multiples of buffer size in all dimensions. The buffer rank and
-    dimensions are compile time constants.
+    Operation that copy a source memory to a buffer memory.
+    Starts indicate where the source data starts to come from within
+    the source memory. Start values must be at multiples of buffer size
+    in all dimensions. The buffer rank and dimensions are compile time
+    constants.
 
     The buffer will be entirely filled with the source data. By default,
     the amount of data to copy is given by the size of the buffer.
@@ -936,15 +936,15 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     []> {
   let summary = "Copy from buffer.";
   let description = [{
-    Operation that copy a destination memory from a buffer memory.  Source
-    and buffer memories must have the same rank. Starts indicate where the buffer
-    data starts to go into the destination memory. Start values must be at
-    multiples of buffer size in all dimensions. The buffer rank and dimensions
-    are compile time constants. If the buffer was oversized with respect
-    of the actual data contained in the tile, the actual tile size can
-    be given using the tileSize optional attribute. This attributes has
-    the same rank as the buffer size, and each dimension must be smaller or
-    equal to the actual buffer size.
+    Operation that copy a destination memory from a buffer memory.
+    Starts indicate where the buffer data starts to go into the destination
+    memory. Start values must be at multiples of buffer size in all dimensions.
+    The buffer rank and dimensions are compile time constants.
+    
+    If the buffer was oversized with respect of the actual data contained
+    in the tile, the actual tile size can be given using the tileSize
+    optional attribute. This attributes has the same rank as the buffer size,
+    and each dimension must be smaller or equal to the actual buffer size.
   }];
 
   let arguments = (ins Arg<AnyMemRef, "buffer", [MemRead]>:$buffer,
