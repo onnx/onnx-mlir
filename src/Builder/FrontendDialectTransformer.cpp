@@ -1096,12 +1096,18 @@ private:
     std::string dstring;
     llvm::raw_string_ostream dstream(dstring);
     dstream << "[ ";
+    std::string comma = std::string("");
     for (int i = 0; i < funcType.getNumInputs(); i++) {
+       dstream << comma;
        concatTypeString(inputs[i],dstream);
+       comma = std::string(" , ");
     }
     dstream << "\n] @ [";
+    comma = std::string("");
     for (int i = 0; i < funcType.getNumResults(); i++) {
+       dstream << comma;
        concatTypeString(outputs[i],dstream);
+       comma = std::string(" , ");
     }
     dstream << "\n]";
     dstream.flush();

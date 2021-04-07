@@ -759,20 +759,20 @@ public:
     auto splitSig = signature.split('@');
     llvm::StringRef inSig = splitSig.first;
     llvm::StringRef outSig = splitSig.second;
-    mlir::StringAttr inSigAttr = mlir::StringAttr::get(inSig,context);
-    mlir::StringAttr outSigAttr = mlir::StringAttr::get(outSig,context);
+    mlir::StringAttr inSigAttr = mlir::StringAttr::get(inSig, context);
+    mlir::StringAttr outSigAttr = mlir::StringAttr::get(outSig, context);
 
-    auto inSigArrayType = LLVM::LLVMArrayType::get(
-        IntegerType::get(context, 8), inSig.size());
+    auto inSigArrayType =
+        LLVM::LLVMArrayType::get(IntegerType::get(context, 8), inSig.size());
     rewriter.create<LLVM::GlobalOp>(loc, inSigArrayType,
-        /*isConstant=*/true, LLVM::Linkage::External, "_in_signature", inSigAttr);
+        /*isConstant=*/true, LLVM::Linkage::External, "_in_signature",
+        inSigAttr);
 
-    auto outSigArrayType = LLVM::LLVMArrayType::get(
-        IntegerType::get(context, 8), outSig.size());
+    auto outSigArrayType =
+        LLVM::LLVMArrayType::get(IntegerType::get(context, 8), outSig.size());
     rewriter.create<LLVM::GlobalOp>(loc, outSigArrayType,
-        /*isConstant=*/true, LLVM::Linkage::External, "_out_signature", outSigAttr);
-
-
+        /*isConstant=*/true, LLVM::Linkage::External, "_out_signature",
+        outSigAttr);
 
     // Rewrite Krnl Entry Point Operation to an LLVM function with a dynamic
     // signature. The signature is dynamic because it remains the same no matter
