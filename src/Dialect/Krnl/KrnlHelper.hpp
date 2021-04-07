@@ -268,9 +268,10 @@ void krnl_iterate(ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
     ValueRange iterArgs, function_ref<void(ValueRange args)> bodyBuilderFn);
 
 void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
-    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext);
-void krnl_copy_to_buffer(
-    Value bufferMemref, Value memref, ValueRange starts, Value padValue);
+    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext,
+    bool transpose = false);
+void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
+    Value padValue, bool transpose = false);
 
 void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts,
     ArrayRef<int64_t> tileSize);

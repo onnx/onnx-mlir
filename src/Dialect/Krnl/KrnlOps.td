@@ -850,8 +850,6 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
       "bool": $overcompute 
     )> ];
 
-  let parser = ?;
-  let printer = ?;
   let verifier = [{ return ::verify(*this); }];
 
   let assemblyFormat = [{
@@ -866,13 +864,12 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
 }
 
 def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
-    TypesMatchWith<"type of 'padValue' matches element type of 'memref'",
-                  "memref", "padValue",
+    TypesMatchWith<"type of 'padValue' matches element type of 'source'",
+                  "source", "padValue",
                   "$_self.cast<MemRefType>().getElementType()">,
-    TypesMatchWith<"type of 'padValue' matches element type of 'bufferMemref'",
-                  "bufferMemref", "padValue",
-                  "$_self.cast<MemRefType>().getElementType()">,
-    SameVariadicOperandSize]> {
+    TypesMatchWith<"type of 'padValue' matches element type of 'buffer'",
+                  "buffer", "padValue",
+                  "$_self.cast<MemRefType>().getElementType()">]> {
   let summary = "Copy to buffer.";
   let description = [{
     Operation that copy a source memory to a buffer memory. Source memory
@@ -914,28 +911,29 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     memrefs.
   }];
 
-  let arguments = (ins Arg<AnyMemRef, "buffer", [MemWrite]>:$bufferMemref,
-    Arg<AnyMemRef, "memory", [MemRead]>:$memref,
-    Variadic<Index>:$starts,
-    AnyType: $padValue,
-    OptionalAttr<I64ArrayAttr>:$tileSize,
-    OptionalAttr<I64ArrayAttr>:$padToNext);
+  let arguments = (ins Arg<AnyMemRef, "buffer", [MemWrite]>:$buffer,
+    Arg<AnyMemRef, "memory", [MemRead]>:$source,
+    Variadic<Index>:$starts, // Rank of source.
+    AnyType: $padValue, // Rank of bufffer.
+    OptionalAttr<I64ArrayAttr>:$tileSize, // Rank of bufffer.
+    OptionalAttr<I64ArrayAttr>:$padToNext, // Rank of bufffer.
+    DefaultValuedAttr<BoolAttr, "false">:$transpose);
 
-  let builders = [ OpBuilderDAG<(ins "Value": $bufferMemref, "Value": $memref, 
+  let builders = [ OpBuilderDAG<(ins "Value": $buffer, "Value": $source, 
       "ValueRange": $starts, "Value": $padValue, 
-      "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext
+      "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext,
+      "bool": $transpose
     )> ];
 
-  let parser = ?;
-  let printer = ?;
+  let verifier = [{ return ::verify(*this); }];
     let assemblyFormat = [{
-    $bufferMemref `,` $memref `[` $starts `]` `,`  $padValue  attr-dict
-     `:` type($bufferMemref) `,` type($memref)
+    $buffer `,` $source `[` $starts `]` `,`  $padValue  attr-dict
+     `:` type($buffer) `,` type($source)
   }];
 }
 
 def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
-    [SameVariadicOperandSize]> {
+    []> {
   let summary = "Copy from buffer.";
   let description = [{
     Operation that copy a destination memory from a buffer memory.  Source
@@ -949,19 +947,17 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     equal to the actual buffer size.
   }];
 
-  let arguments = (ins Arg<AnyMemRef, "buffer", [MemRead]>:$bufferMemref,
-    Arg<AnyMemRef, "memory", [MemWrite]>:$memref,
-    Variadic<Index>:$starts,
-    OptionalAttr<I64ArrayAttr>:$tileSize);
+  let arguments = (ins Arg<AnyMemRef, "buffer", [MemRead]>:$buffer,
+    Arg<AnyMemRef, "dest", [MemWrite]>:$dest,
+    Variadic<Index>:$starts, // Rank of destination.
+    OptionalAttr<I64ArrayAttr>:$tileSize); // Rank of buffer.
 
-  let builders = [ OpBuilderDAG<(ins "Value": $bufferMemref, "Value": $memref, 
+  let builders = [ OpBuilderDAG<(ins "Value": $buffer, "Value": $dest, 
       "ValueRange": $starts, "ArrayRef<int64_t>": $tileSize
     )> ];
 
-  let parser = ?;
-  let printer = ?;
+  let verifier = [{ return ::verify(*this); }];
     let assemblyFormat = [{
-    $bufferMemref `,` $memref `[` $starts `]`  attr-dict
-     `:` type($bufferMemref) `,` type($memref)
+    $buffer `,` $dest `[` $starts `]`  attr-dict `:` type($buffer) `,` type($dest)
   }];
 }

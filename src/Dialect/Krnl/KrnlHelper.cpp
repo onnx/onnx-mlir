@@ -435,18 +435,20 @@ void krnl_iterate(ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
 }
 
 void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
-    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext) {
+    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext,
+    bool transpose) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlCopyToBufferOp>(
       ScopedContext::getLocation(), bufferMemref, memref, starts, padValue,
-      tileSize, padToNext);
+      tileSize, padToNext, transpose);
 }
 
-void krnl_copy_to_buffer(
-    Value bufferMemref, Value memref, ValueRange starts, Value padValue) {
+void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
+    Value padValue, bool transpose) {
   ArrayRef<int64_t> empty;
-  krnl_copy_to_buffer(bufferMemref, memref, starts, padValue, empty, empty);
+  krnl_copy_to_buffer(
+      bufferMemref, memref, starts, padValue, empty, empty, transpose);
 }
 
 void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts,

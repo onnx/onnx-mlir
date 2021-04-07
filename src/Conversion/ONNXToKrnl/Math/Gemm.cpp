@@ -65,6 +65,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
               bAccess = {j, k};
             else
               bAccess = {k, j};
+            // Perform the reduction by adding a*b to reduction.
             Value tmp = std_mulf(krnl_load(A, aAccess), krnl_load(B, bAccess));
             krnl_store(
                 std_addf(tmp, krnl_load(red, redAccess)), red, redAccess);
