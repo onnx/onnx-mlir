@@ -935,7 +935,7 @@ public:
         API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
 
     // Clean the global constant.
-    auto globalBase = module.lookupSymbol<LLVM::GlobalOp>("packedConst");
+    /*auto globalBase = module.lookupSymbol<LLVM::GlobalOp>("packedConst");
     if (globalBase) {
       Value basePtrAddr = rewriter.create<LLVM::AddressOfOp>(loc, globalBase);
       Value alloc = rewriter.create<LLVM::LoadOp>(loc,
@@ -944,7 +944,7 @@ public:
       auto deallocSym = getOrInsertDealloc(rewriter, module);
       auto dealloc = rewriter.create<LLVM::CallOp>(
           loc, ArrayRef<Type>({}), deallocSym, ArrayRef<Value>(alloc));
-    }
+    }*/
 
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(
