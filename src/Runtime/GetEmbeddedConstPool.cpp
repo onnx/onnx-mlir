@@ -55,12 +55,12 @@ void *getEmbeddedConstPool(int64_t size_in_byte) {
 extern char _binary_param_bin_start;
 extern char _binary_param_bin_end;
 
-void *getEmbeddedConstPool(int64_t _) {
+void *getEmbeddedConstPool(int64_t _) { 
   checkEndianness();
-  auto size = (unsigned int)(&_binary_param_bin_end - &_binary_param_bin_start);
-  void *buffer = malloc(size);
-  memcpy(buffer, &_binary_param_bin_start, size);
-  return buffer;
+  //auto size = (unsigned int)(&_binary_param_bin_end - &_binary_param_bin_start);
+  //void *buffer = malloc(size);
+  //memcpy(buffer, &_binary_param_bin_start, size);
+  return &_binary_param_bin_start;
 }
 
 #else
