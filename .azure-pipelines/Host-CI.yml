@@ -91,7 +91,7 @@ jobs:
       BuildConfiguration: '$(CMakeBuildConfiguration)'
       InstallDirectory: '$(Build.ArtifactStagingDirectory)/protobuf/$(CMakeBuildConfiguration)'
 
-  - template: BuildOnnxMlir.yml
+  - template: .azure-pipelines/templates/steps/ONNXMLIRBuildTemplate.yml@tools
     parameters:
       BuildTools: '-G "Visual Studio 16 2019" -A x64 -T host=x64'
       CMakePrefixPath: '$(Build.ArtifactStagingDirectory)/protobuf/$(CMakeBuildConfiguration)'
@@ -123,7 +123,7 @@ jobs:
     parameters:
       Platform: 'Ubuntu'
 
-  - template: BuildOnnxMlir.yml
+  - template: .azure-pipelines/templates/steps/ONNXMLIRBuildTemplate.yml@tools
     parameters:
       BuildTools: '-G Ninja -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DLLVM_USE_LINKER=lld'
       Platform: 'Ubuntu'
