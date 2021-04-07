@@ -14,6 +14,9 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "src/Interface/ShapeInferenceInterface.td"
+include "src/Interface/ResultTypeInferenceOpInterface.td"
+include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
 def StringType : Type<CPred<"$_self.isa<StringType>()">, "stirng type">;
 
@@ -25,10 +28,6 @@ class SeqOf<list<Type> allowedTypes> :
 
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
   "getONNXConstantOpFromDenseAttr($_builder, $_loc, $0)">;
-
-include "src/Interface/ShapeInferenceInterface.td"
-include "src/Interface/ResultTypeInferenceOpInterface.td"
-include "src/Interface/HasOnnxSubgraphOpInterface.td"
 
 def ONNX_Dialect : Dialect {
   let name = "onnx";
@@ -75,15 +74,18 @@ def ONNXEntryPointOp: ONNX_Op<"EntryPoint"> {
     The "onnx.EntryPoint" function indicates the main entry point of ONNX model.
   }];
 
-  let builders = [OpBuilder<(ins "FuncOp":$function, "int":$numInputs, "int":$numOutputs)>];
+  let builders = [OpBuilder<(ins "FuncOp":$function, "int":$numInputs,
+                                 "int":$numOutputs, "std::string":$signature)>];
 
   let extraClassDeclaration = [{
     static ONNXEntryPointOp create(Location location, FuncOp& func,
-                                   int numInputs, int numOutputs);
+                                   int numInputs, int numOutputs,
+                                   std::string signature);
 
     static StringRef getEntryPointFuncAttrName() { return "func"; }
     static StringRef getNumInputsAttrName() { return "numInputs"; }
     static StringRef getNumOutputsAttrName() { return "numOutputs"; }
+    static StringRef getSignatureAttrName() { return "signature"; }
   }];
 }
 

@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "mlir/Pass/Pass.h"
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/Program.h>
 #include "mlir/Dialect/Affine/Passes.h"
@@ -482,6 +483,7 @@ void compileModuleToJniJar(
 void registerDialects(mlir::MLIRContext &context) {
   // Load our Dialect in this MLIR Context.
   context.getOrLoadDialect<mlir::AffineDialect>();
+  context.getOrLoadDialect<mlir::vector::VectorDialect>();
   context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
   context.getOrLoadDialect<mlir::scf::SCFDialect>();
   context.getOrLoadDialect<mlir::StandardOpsDialect>();
@@ -555,6 +557,7 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
 }
 
 void addKrnlToLLVMPasses(mlir::OpPassManager &pm) {
+  pm.addNestedPass<FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(mlir::createLowerToCFGPass());
   pm.addPass(mlir::createConvertKrnlToLLVMPass());

@@ -194,5 +194,5 @@ module  {
     %6 = "onnx.Add"(%5, %arg4) : (tensor<*xbf16>, tensor<256xbf16>) -> tensor<256x256xbf16>
     return %6 : tensor<256x256xbf16>
   }
-  "onnx.EntryPoint"() {func = @main_graph, numInputs = 5 : i32, numOutputs = 1 : i32} : () -> ()
+  "onnx.EntryPoint"() {func = @main_graph, numInputs = 5 : i32, numOutputs = 1 : i32, signature = "[    ]"} : () -> ()
 }

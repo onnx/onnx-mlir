@@ -23,4 +23,8 @@ target_include_directories(OMKrnlOps
         ${ONNX_MLIR_SRC_ROOT})
 add_dependencies(OMKrnlOps OMKrnlOpsInc)
 
+# Linking dependencies:
+add_dependencies(OMKrnlOps
+        OMSpecializedKernelOpInterface)
+
 install(TARGETS OMKrnlOps DESTINATION lib)

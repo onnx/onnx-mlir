@@ -100,7 +100,7 @@ struct ONNXTileOpLowering : public ConversionPattern {
       // Scope is created for each dimension because they are independent
       IndexExprScope IEScope(&rewriter, loc);
       DimIndexExpr index(outputLoops.getInductionVar(i));
-      MemRefBoundIndexCapture inputBounds(input);
+      MemRefBoundsIndexCapture inputBounds(input);
       DimIndexExpr dimSize(inputBounds.getDim(i));
       IndexExpr exprVal = index % dimSize;
       if (!exprVal.isAffine()) {

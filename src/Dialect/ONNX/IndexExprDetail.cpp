@@ -258,6 +258,45 @@ AffineExpr IndexExprImpl::getAffineExpr() {
   return affineExpr;
 }
 
+void IndexExprImpl::getAffineMapAndOperands(
+    AffineMap &map, SmallVectorImpl<Value> &operands) {
+  // Init.
+  operands.clear();
+  assert(isDefined() && !isQuestionmark() && !isPredType() &&
+         "expected lit/affine/non-affine index expr");
+  // Handle literal cases.
+  if (isLiteral()) {
+    map = getRewriter().getConstantAffineMap(intLit);
+    return;
+  }
+  // Handle affine cases.
+  if (isAffine()) {
+    map = AffineMap::get(getScope().getNumDims(), getScope().getNumSymbols(),
+        {getAffineExpr()}, getRewriter().getContext());
+    getScope().getDimAndSymbolList(operands);
+    return;
+  }
+  // Non Affine, check if by any chance we have a min / max, in which case we
+  // will extract the correct info.
+  if (AffineMinOp affineMinOp = getValue().getDefiningOp<AffineMinOp>()) {
+    map = affineMinOp.getAffineMap();
+    for (Value val : affineMinOp.getMapOperands())
+      operands.emplace_back(val);
+    return;
+  }
+  if (AffineMaxOp affineMaxOp = getValue().getDefiningOp<AffineMaxOp>()) {
+    map = affineMaxOp.getAffineMap();
+    for (Value val : affineMaxOp.getMapOperands())
+      operands.emplace_back(val);
+    return;
+  }
+  // Non affine only known by its value, make a trivial map from it. Hope its ok
+  // not to add the symbol in the global scope table, pretty sure it is.
+  map = getRewriter().getSymbolIdentityMap();
+  operands.emplace_back(getValue());
+  return;
+}
+
 Value IndexExprImpl::getValue() {
   assert(!isShapeInferencePass() && "cannot get affine during shape inference");
 

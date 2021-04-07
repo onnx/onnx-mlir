@@ -276,8 +276,8 @@ struct ONNXReductionOpLowering : public ConversionPattern {
 
     // 3. Define an Krnl loop to compute mean (optional).
     rewriter.restoreInsertionPoint(ipMainRegion);
-    MemRefBoundIndexCapture inputBounds(input);
-    MemRefBoundIndexCapture allocBounds(alloc);
+    MemRefBoundsIndexCapture inputBounds(input);
+    MemRefBoundsIndexCapture allocBounds(alloc);
     if (computeMean) {
       Type elementType = memRefOutType.getElementType();
       // Compute the divisor that is the number of elements participated in
