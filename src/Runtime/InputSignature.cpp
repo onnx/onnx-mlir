@@ -19,11 +19,11 @@
 
 extern char _in_signature;
 
-char* inputSignature() {
-  int size = strlen(&_in_signature)+1;
+char *inputSignature() {
+  int size = strlen(&_in_signature) + 1;
   char *buffer;
 
   buffer = (char *)malloc(size);
-  memcpy(buffer, &_in_signature, size+1);
+  memcpy(buffer, &_in_signature, size + 1);
   return buffer;
 }

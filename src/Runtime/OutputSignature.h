@@ -9,7 +9,7 @@
 // =============================================================================
 //
 // This file contains runtime API declarations to extract get the output
-// signature of the model as a JSON string 
+// signature of the model as a JSON string
 //
 //===----------------------------------------------------------------------===//
 
