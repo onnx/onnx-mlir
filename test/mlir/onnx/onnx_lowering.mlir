@@ -1022,37 +1022,6 @@ func private @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 
 // -----
 
-// 2-D x 2-D
-func private @test_matmul1(%arg0 : tensor<10x5xf32>, %arg1 : tensor<5x10xf32>) -> tensor<*xf32> {
-  %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<10x5xf32>, tensor<5x10xf32>) -> tensor<*xf32>
-  "std.return"(%0) : (tensor<*xf32>) -> ()
-
-//CHECK-LABEL:  func private @test_matmul1
-//CHECK-SAME:   ([[A_:%.+]]: memref<10x5xf32>, [[B_:%.+]]: memref<5x10xf32>) -> memref<10x10xf32> {
-//CHECK:           [[RES_:%.+]] = memref.alloc() : memref<10x10xf32>
-//CHECK:           [[VAR_cst_:%.+]] = constant 0.000000e+00 : f32
-//CHECK:           [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
-//CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10) {
-//CHECK:             [[REDUCTION_VAL:%.+]] = memref.alloca() : memref<f32>
-//CHECK:             krnl.store [[VAR_cst_]], [[REDUCTION_VAL]][] : memref<f32>
-//CHECK:             [[LOOP_1_:%.+]] = krnl.define_loops 1
-//CHECK:             krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_2_:%.+]] = 0 to 5) {
-//CHECK:               [[LOAD_A_MEM_:%.+]] = krnl.load [[A_]]{{.}}[[I_0_]], [[I_2_]]{{.}} : memref<10x5xf32>
-//CHECK:               [[LOAD_B_MEM_:%.+]] = krnl.load [[B_]]{{.}}[[I_2_]], [[I_1_]]{{.}} : memref<5x10xf32>
-//CHECK:               [[LOAD_RES_MEM_:%.+]] = krnl.load [[REDUCTION_VAL]][] : memref<f32>
-//CHECK:               [[VAR_6_:%.+]] = mulf [[LOAD_A_MEM_]], [[LOAD_B_MEM_]] : f32
-//CHECK:               [[VAR_7_:%.+]] = addf [[LOAD_RES_MEM_]], [[VAR_6_]] : f32
-//CHECK:               krnl.store [[VAR_7_]], [[REDUCTION_VAL]][] : memref<f32>
-//CHECK:             }
-//CHECK:             [[LOAD_REDUCTION:%.+]] = krnl.load [[REDUCTION_VAL]][] : memref<f32>
-//CHECK:             krnl.store [[LOAD_REDUCTION]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<10x10xf32>
-//CHECK:           }
-//CHECK:           return [[RES_]] : memref<10x10xf32>
-//CHECK:         }
-}
-
-// -----
-
 // 2-D x N-D
 func private @test_matmul2(%arg0 : tensor<10x5xf32>, %arg1 : tensor<2x3x5x10xf32>) -> tensor<*xf32> {
   %0 ="onnx.MatMul"(%arg0, %arg1) : (tensor<10x5xf32>, tensor<2x3x5x10xf32>) -> tensor<*xf32>

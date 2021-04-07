@@ -11,6 +11,7 @@
 include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "src/Interface/SpecializedKernelOpInterface.td"
 
 def Krnl_Dialect : Dialect {
   let name = "krnl";
@@ -127,12 +128,13 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   let description = [{The "krnl.entry_point" function indicates the main entry
                            point of ONNX model.}];
   let builders = [ OpBuilder<(ins "SymbolRefAttr":$funcAttr, "IntegerAttr":$numInputs,
-                                  "IntegerAttr":$numOutputs)> ];
+                                  "IntegerAttr":$numOutputs, "StringAttr":$signature)> ];
 
   let extraClassDeclaration = [{
     static StringRef getEntryPointFuncAttrName() { return "func"; }
     static StringRef getNumInputsAttrName() { return "numInputs"; }
     static StringRef getNumOutputsAttrName() { return "numOutputs"; }
+    static StringRef getSignatureAttrName() { return "signature"; }
   }];
 
   // No custom parsing/printing form.
@@ -153,18 +155,19 @@ def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
   let printer = ?;
 }
 
-def KrnlGlobalOp : Op<Krnl_Dialect, "global"> {
+def KrnlGlobalOp : Op<Krnl_Dialect, "global", [MemRefsNormalizable]> {
   let summary = "Krnl global operation";
   let description = [{
     Operation for holding global data values. A global constant can have a
     meaningful name recorded as its `name` attribute. Its content is stored
-    in the `value` dense element attribute. Alternatively, if the constants
-    are packed together, `offset` records the byte offset in the global
-    constant pool from which the current constant is to be read.
+    in the `value` dense/opaque element attribute. Alternatively, if the
+    constants are packed together, `offset` records the byte offset in the
+    global constant pool from which the current constant is to be read.
   }];
 
   let arguments = (ins AnyAttr:$shape,
-    StrAttr:$name, OptionalAttr<AnyAttr>:$value, OptionalAttr<I64Attr>:$offset);
+    StrAttr:$name, OptionalAttr<AnyAttr>:$value, OptionalAttr<I64Attr>:$offset,
+    OptionalAttr<I64Attr>:$alignment);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
   let parser = ?;
@@ -260,7 +263,7 @@ def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
   let arguments = (ins
     AnyType:$loop, I64Attr:$tile_size);
   let results = (outs AnyType:$loop_block, AnyType:$loop_local);
-
+  let builders = [ OpBuilder<(ins "Value": $loop, "int64_t":$tile_size)> ];
   let assemblyFormat = [{
       $loop $tile_size attr-dict `:` functional-type($loop, results)
   }];
@@ -327,6 +330,7 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
 
   let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
   let results = (outs);
+  let builders = [ OpBuilder<(ins "ValueRange": $loops, "ArrayRef<int64_t>":$map)> ];
   let assemblyFormat = [{
       `(` $loops `)` $map attr-dict `:` type($loops)
   }];
@@ -633,9 +637,331 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
   let arguments = (ins Variadic<AnyType> : $loops);
   let results = (outs Variadic<AnyType> : $ind_var_vals);
+  let builders = [ OpBuilder<(ins "ValueRange": $loops)>];
 
   let assemblyFormat = [{
       `(` $loops `)` attr-dict `:` functional-type($loops, results)
   }];
 
+}
+
+// =============================================================================
+
+def KrnlVectorTypeCastOp : Op<Krnl_Dialect, "vector_type_cast", [NoSideEffect]> {
+  let summary = "vector type cast operation";
+  let description = [{
+    The "vector_type_cast" operation converts a memref from an non-vector
+    element type to another memref of a vector elemental type while not changing
+    the source memref's element type. The last dimension size of the source
+    dimension is divided (floor division) by the vector size to obtain the
+    corresponding dimension for target memref type.
+
+    %MV = vector_type_cast %M : memref<64x16xf32> to memref<64x2xvector<8xf32>>
+    %AV = vector_type_cast %A : memref<?x?xf32> to memref<?x?xvector<8xf32>>
+  }];
+
+  let arguments = (ins AnyMemRef:$source);
+  let results = (outs AnyMemRef:$result);
+
+  let parser = ?;
+  let printer = ?;
+
+  let verifier = [{ return impl::verifyCastOp(*this, areCastCompatible); }];
+
+  let extraClassDeclaration = [{
+    /// Return true if `a` and `b` are valid operand and result pairs for
+    /// the operation.
+    static bool areCastCompatible(Type a, Type b);
+
+    /// The result of a vector_type_cast is always a memref.
+    MemRefType getType() { return getResult().getType().cast<MemRefType>(); }
+  }];
+
+  let hasFolder = 1;
+
+  let assemblyFormat = [{
+    $source attr-dict `:` type($source) `to` type($result)
+  }];
+
+}
+
+// =============================================================================
+
+def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
+                            [DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
+  let summary = "Krnl specialized kernel op";
+  let description = [{
+    Krnl operation to convert.
+  }];
+
+  let arguments = (ins Variadic<AnyType> : $loops);
+  let results = (outs );
+
+  let assemblyFormat = [{
+      `(` $loops `)` attr-dict `:` type($loops)
+  }];
+}
+
+// =============================================================================
+
+def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments, 
+       DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
+  let summary = "Matmul operation for a single pannel.";
+  let description = [{
+    Perform a matrix multiplication A * B + C
+    for a small tile A * B + C of sizes
+    [IxK] * [KxJ] + [IxJ].
+
+    The i/j/k ComputeStarts indicate the global indices of the first element
+    of a tile to be computed in the original computations.
+    The i/j/k GlobalUBs indicate the upper bounds in the original computations.
+
+    We provide 3 buffers for matrix multipy: A, B, and C. For each buffer,
+    we indicate the global indices pointing the beginning of the buffer.
+    If no buffers are used, i.e. the computation starts directly in the orginal
+    memory, the global index is 0. If a buffer for A is used to put data into
+    it starting at indices [i1, k1], where i1 & k1 are the global indices in
+    the original computations, then aMemStart0 and aMemStart1 are i1 & k1,
+    respectively.
+
+    If the A, B, or C buffers are larger than the actual data tile they
+    contain (see copy_to_tile_buffer), then the actual tile size must be
+    given using an optional attribute: ATileSize, BTileSize, or CTileSize.
+    These optional tile size have a rank of 2, and their values must be
+    equal or smaller than their corresponding buffer memrefs.
+
+    If the computation are further tiled with respect to the size of the
+    buffers A, B, or C, then the actual computation tile is given by
+    the optional tile attribute computeTileSize. Its rank is 3, for the
+    I, J, and K dimension. The actual A, B, and C buffer tile size 
+    (possibly specified by the optional parameters) must be a multiple of
+    the I, J, and K computeTileSizes, in their respective
+    dimensions (A: IxK], B: [KxJ], C: [IxJ]).
+
+    Note that the buffers A, B, and C can be of higher dimensionality than
+    the traditional 2D mentioned up to now, because of broadcasting rules.
+    At this time, we only support broadcast of arrays having ranks of 2 or
+    more. Because of the broadcast rules, the higher dimenstions have a
+    constant index during one matrix multiply. These fixed indices are
+    given as prefix dimensions in the starting indices for A, B, and C
+    as described above. E.g. if A has a rank of 3, and B has a rank of 2,
+    the starting indices for A are [d, i1, k1] where i1 and k1 are as
+    above, and d is index pointing to the current instance of the IxK
+    A matrix to be computed. B start indices would be unchanged at [k1, j1].
+
+    Simdize is used to state if simdization is requested.
+    Unrolling is used to unroll and jam loops as warrented.
+
+    Below is an example calculating a matrix multiply with pre-zeroed
+    C matrix with the sizes below. 
+    %A: memref<40x60xf32>, %B: memref<60x80xf32>, %C: memref<40x80xf32>
+
+    // 3 tiled loops.
+    %ii, %jj, %kk = krnl.define_loops 3
+    %ib, %il = krnl.block %ii 10 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %jb, %jl = krnl.block %jj 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %kb, %kl = krnl.block %kk 10 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    // 3 subtiles.
+    %ilb, %ill = krnl.block %il 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %jlb, %jll = krnl.block %jl 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    %klb, %kll = krnl.block %kl 5 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
+    // Permute.
+    krnl.permute(%ib, %ilb, %ill, %jb, %jlb, %jll, %kb, %klb, %kll) 
+        [0, 3, 6, 1, 4, 7, 2, 5, 8] : 
+        !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, 
+        !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
+    // Outer 2 for i, j.
+    krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 40, 
+                                 %jj -> %j = 0 to 80, 
+                                 %kk -> %k = 0 to 60) {
+        %i1, %j1 = krnl.get_induction_var_value(%ib, %jb) : 
+          (!krnl.loop,!krnl.loop) -> (index, index)
+        // Fill C buffer.
+        %Cbuff = alloca(): memref<10x8xf32>  // n x m_simd
+        krnl.copy_to_tile_buffer %Cbuff, %C[%i1, %j1], %f0 : 
+          memref<10x8xf32>, memref<40x80xf32>
+        // Outer 1 for k.
+        krnl.iterate(%kb) with () {
+            %k1 = krnl.get_induction_var_value(%kb) : (!krnl.loop) -> (index)
+            // Fill A and B buffer
+            %Abuff = alloca(): memref<10x10xf32> // i x k
+            %Bbuff = alloca(): memref<10x8xf32>  // k x j_simd     
+            krnl.copy_to_tile_buffer %Abuff, %A[%i1, %k1], %f0 :
+              memref<10x10xf32>, memref<40x60xf32>
+            krnl.copy_to_tile_buffer %Bbuff, %B[%k1, %j1], %f0 :
+              memref<10x8xf32>, memref<60x80xf32>
+
+            // Inner iterations for subtiles.
+            krnl.iterate(%ilb, %jlb, %klb) with () {
+                %i2, %j2, %k2 = krnl.get_induction_var_value(%ilb, %jlb, %klb) :
+                (!krnl.loop,!krnl.loop,!krnl.loop) -> (index,index,index)
+
+                krnl.matmul %Abuff[%i1, %k1], %Bbuff[%k1, %j1], %Cbuff[%i1, %j1],
+                    (%ill, %jll, %kll), (%i2, %j2, %k2), (%c40, %c80, %c60)
+                    { computeTileSize=[5,4,5], simdize=false, unroll=false } :
+                    memref<10x10xf32>, memref<10x8xf32>, memref<10x8xf32>,
+                    (!krnl.loop,!krnl.loop,!krnl.loop)
+            }
+        }
+        // Copy back the data into C.
+        krnl.copy_from_tile_buffer %Cbuff, %C[%i1, %j1] :
+          memref<10x8xf32>, memref<40x80xf32>
+    }
+  }];
+
+  let arguments = (ins 
+    // Buffer/memory used and indices that correspoond to the begining 
+    // of each buffer/memory.
+    Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
+    Variadic<Index>: $aMemStart,
+    Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B,
+    Variadic<Index>: $bMemStart,
+    Arg<AnyMemRef, "Add into C [NxM]", [MemRead, MemWrite]>:$C,
+    Variadic<Index>: $cMemStart,
+    // Loops involved, and indices pointing to the start of the compute
+    // subtile. 
+    Variadic<AnyType> : $loops,
+    Index: $iComputeStart, Index: $jComputeStart, Index: $kComputeStart,
+    // Global upper bound for the entire computations.
+    Index: $iGlobalUB, Index: $jGlobalUB, Index: $kGlobalUB,
+    // Optional argument to override defaults.
+    OptionalAttr<I64ArrayAttr>:$computeTileSize,
+    OptionalAttr<I64ArrayAttr>:$aTileSize,
+    OptionalAttr<I64ArrayAttr>:$bTileSize,
+    OptionalAttr<I64ArrayAttr>:$cTileSize,
+    // Optimizations.
+    DefaultValuedAttr<BoolAttr, "true">:$simdize,
+    DefaultValuedAttr<BoolAttr, "true">:$unroll,
+    DefaultValuedAttr<BoolAttr, "false">:$overcompute);
+
+  let builders = [ OpBuilder<(ins 
+      "Value": $A, "ValueRange": $aStart, // Both same rank.
+      "Value": $B, "ValueRange": $bStart, // Both same rank.
+      "Value": $C, "ValueRange": $cStart, // Both same rank.
+      "ValueRange": $loops, // Rank 3: (i,j,k).
+      "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart, 
+      "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
+      "ArrayRef<int64_t>": $computeTileSize, // Rank 3: (i,j,k).
+      "ArrayRef<int64_t>": $aTileSize, // Rank 2: (rightmost 2 dims).
+      "ArrayRef<int64_t>": $bTileSize, // Rank 2: (rightmost 2 dims).
+      "ArrayRef<int64_t>": $cTileSize, // Rank 2: (rightmost 2 dims).
+      "bool": $simdize,
+      "bool": $unroll, 
+      "bool": $overcompute 
+    )> ];
+
+  let parser = ?;
+  let printer = ?;
+  let verifier = [{ return ::verify(*this); }];
+
+  let assemblyFormat = [{
+    $A `[` $aMemStart `]` `,`
+    $B `[` $bMemStart `]` `,`
+    $C `[` $cMemStart `]` `,`
+    `(` $loops `)` `,`
+    `(` $iComputeStart `,` $jComputeStart `,` $kComputeStart `)` `,`
+    `(` $iGlobalUB `,` $jGlobalUB `,` $kGlobalUB `)` 
+    attr-dict `:` type($A) `,` type($B)`,` type($C) `,` `(` type($loops) `)`
+  }];
+}
+
+def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
+    TypesMatchWith<"type of 'padValue' matches element type of 'memref'",
+                  "memref", "padValue",
+                  "$_self.cast<MemRefType>().getElementType()">,
+    TypesMatchWith<"type of 'padValue' matches element type of 'bufferMemref'",
+                  "bufferMemref", "padValue",
+                  "$_self.cast<MemRefType>().getElementType()">,
+    SameVariadicOperandSize]> {
+  let summary = "Copy to buffer.";
+  let description = [{
+    Operation that copy a source memory to a buffer memory. Source memory
+    and buffer must have the same rank. Starts indicate where the source data
+    starts to come from within the source memory. Start values must be at
+    multiples of buffer size in all dimensions. The buffer rank and
+    dimensions are compile time constants.
+
+    The buffer will be entirely filled with the source data. By default,
+    the amount of data to copy is given by the size of the buffer.
+    In some cases, we may want to oversize a buffer for better cache,
+    simd, or loop unroll and jam reasons. If that is the case, the
+    actual tile size of the data to be copied over is given by an
+    optional tileSize attribute. This attributes has the same rank as
+    the buffer size, and each dimension must be smaller or equal to
+    the actual buffer size.
+    
+    If there is not enough data in the source memory to fill the buffer,
+    because the operation reaches the upper bounds of the source memory,
+    several actions may happen.
+
+    * If padToNext attribute is given, the pad value will be copied from
+      the last source data of to the next index for which index modulo padToNext
+      is zero, i.e. to the end of a "cache line" of side padToLine. Pad
+      of 1 means no padding, pad of buffer size means fully pad the buffer.
+      Default is no padding (1). PadValue is used to initialized the padded
+      areas.
+
+    * If overreadToNext attribute is given, the copy may read source past
+      its upperbound value. This enable optimized code, e.g. using SIMD
+      read operations even if going past the last value of the source
+      memory, or unrolling and jaming copy loops to reduce memory latency.
+      overreadToNext is expressed like padToNext: value of 1 means no
+      reading past boundary; value of buffer size enables reading
+      as many additional sourve value as needed to fill the full
+      buffer. Default is buffer-size.
+
+    padToNext and overreadToNext are of the same rank as source and memory
+    memrefs.
+  }];
+
+  let arguments = (ins Arg<AnyMemRef, "buffer", [MemWrite]>:$bufferMemref,
+    Arg<AnyMemRef, "memory", [MemRead]>:$memref,
+    Variadic<Index>:$starts,
+    AnyType: $padValue,
+    OptionalAttr<I64ArrayAttr>:$tileSize,
+    OptionalAttr<I64ArrayAttr>:$padToNext);
+
+  let builders = [ OpBuilder<(ins "Value": $bufferMemref, "Value": $memref, 
+      "ValueRange": $starts, "Value": $padValue, 
+      "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext
+    )> ];
+
+  let parser = ?;
+  let printer = ?;
+    let assemblyFormat = [{
+    $bufferMemref `,` $memref `[` $starts `]` `,`  $padValue  attr-dict
+     `:` type($bufferMemref) `,` type($memref)
+  }];
+}
+
+def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
+    [SameVariadicOperandSize]> {
+  let summary = "Copy from buffer.";
+  let description = [{
+    Operation that copy a destination memory from a buffer memory.  Source
+    and buffer memories must have the same rank. Starts indicate where the buffer
+    data starts to go into the destination memory. Start values must be at
+    multiples of buffer size in all dimensions. The buffer rank and dimensions
+    are compile time constants. If the buffer was oversized with respect
+    of the actual data contained in the tile, the actual tile size can
+    be given using the tileSize optional attribute. This attributes has
+    the same rank as the buffer size, and each dimension must be smaller or
+    equal to the actual buffer size.
+  }];
+
+  let arguments = (ins Arg<AnyMemRef, "buffer", [MemRead]>:$bufferMemref,
+    Arg<AnyMemRef, "memory", [MemWrite]>:$memref,
+    Variadic<Index>:$starts,
+    OptionalAttr<I64ArrayAttr>:$tileSize);
+
+  let builders = [ OpBuilder<(ins "Value": $bufferMemref, "Value": $memref, 
+      "ValueRange": $starts, "ArrayRef<int64_t>": $tileSize
+    )> ];
+
+  let parser = ?;
+  let printer = ?;
+    let assemblyFormat = [{
+    $bufferMemref `,` $memref `[` $starts `]`  attr-dict
+     `:` type($bufferMemref) `,` type($memref)
+  }];
 }

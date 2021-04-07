@@ -8,9 +8,12 @@ target_include_directories(OMSimplifyKrnl PRIVATE
         ${ONNF_MLIR_SRC_ROOT})
 
 # Linking dependency:
-add_dependencies(OMKrnlOps OMSimplifyKrnl)
+add_dependencies(OMKrnlOps
+        OMSimplifyKrnl)
 
 # Header dependency:
-add_dependencies(OMSimplifyKrnl OMKrnlOpsInc)
+add_dependencies(OMSimplifyKrnl
+        OMSpecializedKernelOpInterfaceIncGen
+        OMKrnlOpsInc)
 
 install(TARGETS OMSimplifyKrnl DESTINATION lib)

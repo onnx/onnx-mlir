@@ -21,5 +21,5 @@ module {
     %1 = "onnx.Mul"(%arg0, %0) {onnx_node_name = "mul0"} : (tensor<?x784xf32>, tensor<f32>) -> tensor<?x784xf32>
     return %1 : tensor<?x784xf32>
   }
-  "onnx.EntryPoint"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32} : () -> ()
+  "onnx.EntryPoint"() {func = @main_graph, numInputs = 1 : i32, numOutputs = 1 : i32, signature = "[    ]"} : () -> ()
 }

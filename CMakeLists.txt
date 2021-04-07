@@ -33,9 +33,38 @@ if (MSVC)
   # like onnx
   set(CMAKE_CXX_FLAGS "-wd4244 -wd4267 -wd4530 -wd4624 /bigobj")
 endif()
+
+# The onnx build on windows requires the provision of either static or shared libs for protobuf
+# and to achieve that there are several different flags that need to be set in protobuf, onnx
+# as well as cmake (for find_package). At the very minimum ONNX_USE_PROTOBUF_SHARED_LIBS and
+# Protobuf_USE_STATIC_LIBS need to be opposites of each other, but onnx does not currently set them
+# up that way (onnx doesn't set Protobuf_USE_STATIC_LIBS at all and cmake interprets that as setting
+# Protobuf_USE_STATIC_LIBS to OFF). If/when onnx is updated to correctly set up both variables,
+# this can be removed (see https://github.com/onnx/onnx/issues/3345).
+if (NOT DEFINED ONNX_USE_PROTOBUF_SHARED_LIBS AND NOT DEFINED Protobuf_USE_STATIC_LIBS)
+  set(ONNX_USE_PROTOBUF_SHARED_LIBS OFF)
+  set(Protobuf_USE_STATIC_LIBS ON)
+elseif (NOT DEFINED Protobuf_USE_STATIC_LIBS)
+  if (ONNX_USE_PROTOBUF_SHARED_LIBS)
+    set(Protobuf_USE_STATIC_LIBS OFF)
+  else()
+    set(Protobuf_USE_STATIC_LIBS ON)
+  endif()
+elseif (NOT DEFINED ONNX_USE_PROTOBUF_SHARED_LIBS)
+  if (Protobuf_USE_STATIC_LIBS)
+    set(ONNX_USE_PROTOBUF_SHARED_LIBS OFF)
+  else()
+    set(ONNX_USE_PROTOBUF_SHARED_LIBS ON)
+  endif()
+elseif ((ONNX_USE_PROTOBUF_SHARED_LIBS AND Protobuf_USE_STATIC_LIBS)
+         OR (NOT ONNX_USE_PROTOBUF_SHARED_LIBS AND NOT Protobuf_USE_STATIC_LIBS))
+  message(FATAL_ERROR
+    "ONNX_USE_PROTOBUF_SHARED_LIBS and Protobuf_USE_STATIC_LIBS must be opposites of each other.")
+endif()
 add_subdirectory(third_party/onnx)
+
 add_subdirectory(third_party/googletest)
-SET(BENCHMARK_ENABLE_GTEST_TESTS OFF)
+set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
 add_subdirectory(third_party/benchmark)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/variant)

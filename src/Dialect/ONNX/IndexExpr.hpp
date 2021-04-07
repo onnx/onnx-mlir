@@ -235,10 +235,10 @@ compile time sizes, -1 for runtime sizes).
       {
          IndexExprScope innerScope;
          SymbolIndexExpr s1(d1); // in the inner scope, make a symbol out of the
-outer scope dim index expr d1.
+                                 // outer scope dim index expr d1.
         // ...
-        // innerScope is deleted, and its enclosing scope becomes the active
-scope again.
+        // innerScope is deleted, and its enclosing scope becomes
+        // the active scope again.
     }
 
     // Back to the outer scope
@@ -419,10 +419,12 @@ public:
   bool isLiteralAndIdenticalTo(IndexExpr const b) const;   // Values equal.
   bool isLiteralAndDifferentThan(int64_t b) const;         // Values unequal.
   bool isLiteralAndDifferentThan(IndexExpr const b) const; // Values unequal.
-
-  // Helpers for IndexExpressions
-  static void getShape(SmallVectorImpl<IndexExpr> &indexExprList,
-      SmallVectorImpl<int64_t> &intDimList);
+  bool isLiteralAndGreaterThan(int64_t b) const;           // Values unequal.
+  bool isLiteralAndGreaterThan(IndexExpr const b) const;   // Values unequal.
+  bool isLiteralAndSmallerThan(int64_t b) const;           // Values unequal.
+  bool isLiteralAndSmallerThan(IndexExpr const b) const;   // Values unequal.
+  // All element in list are literals.
+  static bool isLiteral(SmallVectorImpl<IndexExpr> &list);
 
   // Getters.
   IndexExprScope &getScope() const { return *getScopePtr(); }
@@ -430,7 +432,15 @@ public:
   Location getLoc() const { return getScope().getLoc(); }
   int64_t getLiteral() const;
   AffineExpr getAffineExpr() const;
+  void getAffineMapAndOperands(
+      AffineMap &map, SmallVectorImpl<Value> &operands) const;
   Value getValue() const;
+
+  // Helpers for list of IndexExpressions
+  static void getShape(SmallVectorImpl<IndexExpr> &indexExprList,
+      SmallVectorImpl<int64_t> &intDimList);
+  static void getValues(
+      ArrayRef<IndexExpr> indexExprArray, SmallVectorImpl<Value> &valueList);
 
   // Possibly Affine Operations. Return a new IndexExpr
   IndexExpr operator+(IndexExpr const b) const;
@@ -495,6 +505,9 @@ public:
 
   // Debug (enable using DEBUG=1 at top of file).
   void debugPrint(const std::string &msg) const;
+
+  bool retrieveAffineMinMax(
+      bool &isMin, SmallVectorImpl<Value> &vals, AffineMap &map) const;
 
 protected:
   // Private queries.
@@ -619,7 +632,7 @@ public:
   ArrayValueIndexCapture(Operation *op, Value array, int64_t defaultLiteral);
 
   IndexExpr getSymbol(uint64_t i);
-  bool getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
+  void getSymbolList(int num, SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
   ArrayValueIndexCapture() { llvm_unreachable("forbidden constructor"); };
@@ -637,12 +650,13 @@ public:
   ArrayAttributeIndexCapture(ArrayAttr array, int64_t defaultLiteral);
 
   IndexExpr getLiteral(uint64_t i);
+  int64_t size() { return arraySize; }
 
 private:
   ArrayAttributeIndexCapture() { llvm_unreachable("forbidden constructor"); };
 
   ArrayAttr array;
-  int64_t size;
+  int64_t arraySize;
   int64_t defaultLiteral;
   bool hasDefault;
 };
@@ -650,16 +664,29 @@ private:
 // Capture memory bounds give by a tensor or memref. Locate its shape, return
 // constant values when available or generate the appropriate dim operation when
 // they are not constant at compile time.
-class MemRefBoundIndexCapture {
+class MemRefBoundsIndexCapture {
 public:
-  MemRefBoundIndexCapture(Value tensorOrMemref);
+  MemRefBoundsIndexCapture(Value tensorOrMemref);
 
+  int64_t getRank() { return memRank; }
+  bool areAllLiteral();
+  IndexExpr getLiteral(uint64_t i); // Assert if bound is not compile time.
   IndexExpr getDim(uint64_t i);
-  bool getDimList(SmallVectorImpl<IndexExpr> &dimList);
+  IndexExpr getSymbol(uint64_t i);
+  void getLiteralList(SmallVectorImpl<IndexExpr> &literalList);
+  void getDimList(SmallVectorImpl<IndexExpr> &dimList);
+  void getSymbolList(SmallVectorImpl<IndexExpr> &symbolList);
 
 private:
-  MemRefBoundIndexCapture() { llvm_unreachable("forbidden constructor"); };
+  MemRefBoundsIndexCapture() { llvm_unreachable("forbidden constructor"); };
+
+  template <class INDEX>
+  IndexExpr get(uint64_t i);
+  template <class INDEX>
+  void getList(SmallVectorImpl<IndexExpr> &dimList);
+
   Value tensorOrMemref;
+  int64_t memRank;
 };
 
 //===----------------------------------------------------------------------===//
@@ -689,19 +716,5 @@ void getIndexExprList(SmallVectorImpl<IndexExpr> &inputList,
   for (auto item : inputList)
     outputList.emplace_back(INDEXEXPR(item));
 }
-
-//===----------------------------------------------------------------------===//
-// Generating Krnl Load / Store
-//===----------------------------------------------------------------------===//
-
-struct krnl_load {
-  krnl_load(Value memref, SmallVectorImpl<IndexExpr> &indices);
-  Value result;
-  operator Value() { return result; }
-};
-
-struct krnl_store {
-  krnl_store(Value val, Value memref, SmallVectorImpl<IndexExpr> &indices);
-};
 
 } // namespace mlir

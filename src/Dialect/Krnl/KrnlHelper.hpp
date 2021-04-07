@@ -16,6 +16,7 @@
 
 #include <queue>
 
+#include "mlir/EDSC/Builders.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -207,6 +208,7 @@ public:
   // Get a reference to the code region of the optimization operation.
   // This allows us to set the insertion point to the inner block of the
   // loop nest optimization operation.
+  // Deprecated.
   Block *getOptimizationBlock() { return optBlock; }
 
   // Get a reference to the code region of the iteration operation.
@@ -248,5 +250,63 @@ private:
   // Saved insertion point in the code region of the KrnlIterateOp.
   Block *iterBlock;
 };
+
+//====---------------- EDSC Support with Value ---------------------------===//
+
+Value krnl_load(Value memref, ValueRange indices);
+void krnl_store(Value val, Value memref, ValueRange indices);
+
+ValueRange krnl_define_loop(int64_t originalLoopNum);
+ValueRange krnl_block(Value loop, int64_t blockSize);
+void krnl_permute(ValueRange loops, ArrayRef<int64_t> map);
+ValueRange krnl_get_induction_var_value(ValueRange loops);
+
+void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
+    ValueRange lbs, ValueRange ubs, ValueRange iterArgs,
+    function_ref<void(ValueRange args)> bodyBuilderFn);
+void krnl_iterate(ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
+    ValueRange iterArgs, function_ref<void(ValueRange args)> bodyBuilderFn);
+
+void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
+    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext);
+void krnl_copy_to_buffer(
+    Value bufferMemref, Value memref, ValueRange starts, Value padValue);
+
+void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts,
+    ArrayRef<int64_t> tileSize);
+void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts);
+
+void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
+    Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
+    ValueRange globalUBs, ArrayRef<int64_t> computeTileSize,
+    ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
+    ArrayRef<int64_t> cTileSize, bool simdize, bool unroll, bool overcompute);
+
+void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
+    Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
+    ValueRange globalUBs, bool simdize, bool unroll, bool overcompute);
+
+//====---------------- EDSC Support with IndexExpr -----------------------===//
+
+Value krnl_load(Value memref, ArrayRef<IndexExpr> indices);
+void krnl_store(Value val, Value memref, ArrayRef<IndexExpr> indices);
+
+void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
+    ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
+    function_ref<void(ValueRange args)> bodyBuilderFn);
+void krnl_iterate(ValueRange originalLoops, ArrayRef<IndexExpr> lbs,
+    ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
+    function_ref<void(ValueRange args)> bodyBuilderFn);
+
+void krnl_copy_to_buffer(Value bufferMemref, Value memref,
+    ArrayRef<IndexExpr> starts, Value padValue, ArrayRef<int64_t> tileSize,
+    ArrayRef<int64_t> padToNext);
+void krnl_copy_to_buffer(Value bufferMemref, Value memref,
+    ArrayRef<IndexExpr> starts, Value padValue);
+
+void krnl_copy_from_buffer(Value bufferMemref, Value memref,
+    ArrayRef<IndexExpr> starts, ArrayRef<int64_t> tileSize);
+void krnl_copy_from_buffer(
+    Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts);
 
 } // namespace mlir

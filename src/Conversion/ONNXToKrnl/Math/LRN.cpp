@@ -71,7 +71,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     const int loopIndexForC = 1;
     Value cValue = outputLoops.getInductionVar(loopIndexForC);
     DimIndexExpr cIE(cValue);
-    MemRefBoundIndexCapture inputBounds(input);
+    MemRefBoundsIndexCapture inputBounds(input);
     DimIndexExpr CIE(inputBounds.getDim(loopIndexForC));
     SymbolIndexExpr sizeIE = LiteralIndexExpr(sizeLit);
 
