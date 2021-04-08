@@ -63,7 +63,6 @@ struct ONNXConstantOpLowering : public ConversionPattern {
           /*shape=*/rewriter.getI64ArrayAttr(shape),
           /*name=*/
           rewriter.getStringAttr("constant_" + std::to_string(constantID)),
-          ///*value=*/constantOp.value().getValue(),
           /*value=*/nullptr,
           /*offset=*/nullptr,
           /*alignment=*/nullptr);
@@ -81,7 +80,6 @@ struct ONNXConstantOpLowering : public ConversionPattern {
           /*shape=*/rewriter.getI64ArrayAttr(shape),
           /*name=*/
           rewriter.getStringAttr("constant_" + std::to_string(constantID)),
-          ///*value=*/constantOp.value().getValue(),
           /*value=*/denseAttr,
           /*offset=*/nullptr,
           /*alignment=*/nullptr);
