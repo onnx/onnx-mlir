@@ -100,7 +100,9 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // R is result (alloc).
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
     MemRefBoundsCapture aBound(A), rBound(R);
-    Value I(rBound.ub(0)), J(rBound.ub(1)), K(aBound.ub(1));
+    bool aTrans = gemmOp.transA();
+    bool bTrans = gemmOp.transB();
+    Value I(rBound.ub(0)), J(rBound.ub(1)), K(aBound.ub(aTrans ? 0 : 1));
     Value zero = std_constant_index(0);
 
     // Initialize alloc/R to zero.
@@ -140,6 +142,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Tile K.
     ValueRange kCacheBlock = krnl_block(kk, kCacheTile);
     Value kk1(kCacheBlock[0]), kk2(kCacheBlock[1]);
+    // (cache) jj1 kk1, ii1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
     krnl_permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
         {/*i*/ 2, 4, 5, /*j*/ 0, 3, 6, /*k*/ 1, 7});
 
@@ -148,11 +151,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         {jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {}, [&](ValueRange args) {
           ValueRange j1_k1_indices = krnl_get_induction_var_value({jj1, kk1});
           Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
-          krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal);
+          krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, bTrans);
           krnl_iterate({ii}, {ii1}, {zero}, {I}, {}, [&](ValueRange args) {
             ValueRange i1_index = krnl_get_induction_var_value({ii1});
             Value i1(i1_index[0]);
-            krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal);
+            krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, aTrans);
             krnl_iterate(
                 {}, {jj2, ii2}, (ValueRange){}, {}, {}, [&](ValueRange args) {
                   ValueRange j2_i2_indices =
@@ -167,7 +170,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           });
         });
 
-    // Define blocked loop and permute.
+    // Perform the alpha/beta computations.
     ValueRange outerLoops = krnl_define_loop(2);
     krnl_iterate(
         outerLoops, rBound.getLbs(), rBound.getUbs(), {}, [&](ValueRange args) {
@@ -301,7 +304,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    // AEE DEGUG: add "true ||" to force the simple nonoptimized, working solution
+    // AEE DEGUG: add "true ||" to force the simple nonoptimized, working
+    // solution
     if (gemmOp.transA() || gemmOp.transB()) {
       genericGemmV2(gemmOp, operandAdaptor, elementType, shapeHelper, alloc,
           zero, alpha, beta, rewriter, loc);

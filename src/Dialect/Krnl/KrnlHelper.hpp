@@ -272,11 +272,22 @@ void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
 void krnl_iterate(ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
     ValueRange iterArgs, function_ref<void(ValueRange args)> bodyBuilderFn);
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
-    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext,
+void krnl_copy_to_buffer(
+    // Buffer and source memory. Source memref may have a higher rank than
+    // buffer.
+    Value bufferMemref, Value sourceMemref,
+    // Indices that points to the first data to be copied from source. Starts
+    // has the same rank as sourceMemref.
+    ValueRange starts,
+    // If padding is needed, value to pad.
+    Value padValue,
+    // Now the bufferMemref may be larger than the actual data to be stored in
+    // the buffer, if the user want to pad the data to a higher size. TileSize
+    // enables the user to
+    ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext,
     bool transpose = false);
-void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
-    Value padValue, bool transpose = false);
+void krnl_copy_to_buffer(Value bufferMemref, Value sourceMemref,
+    ValueRange starts, Value padValue, bool transpose = false);
 
 void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts,
     ArrayRef<int64_t> tileSize);
