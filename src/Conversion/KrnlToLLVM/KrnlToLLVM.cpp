@@ -934,7 +934,9 @@ public:
     auto wrappedOutput = callApi(rewriter, loc, apiRegistry,
         API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
 
+#if ! __linux__
     // Clean the global constant.
+    // on linux the buffer is not created, so no need to clean up
     auto globalBase = module.lookupSymbol<LLVM::GlobalOp>("packedConst");
     if (globalBase) {
       Value basePtrAddr = rewriter.create<LLVM::AddressOfOp>(loc, globalBase);
@@ -945,6 +947,7 @@ public:
       auto dealloc = rewriter.create<LLVM::CallOp>(
           loc, ArrayRef<Type>({}), deallocSym, ArrayRef<Value>(alloc));
     }
+#endif    
 
     // Return wrapped output.
     rewriter.create<LLVM::ReturnOp>(
