@@ -442,15 +442,6 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     assert(succeeded(res) && "failed to unroll");
     opsToErase.insert(op);
     return success();
-  } else if (auto convertOp =
-                 dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
-    auto zippedOperandsResults = llvm::zip(op->getOperands(), op->getResults());
-    for (const auto &operandAndResult : zippedOperandsResults) {
-      auto operand = std::get<0>(operandAndResult);
-      auto result = std::get<1>(operandAndResult);
-      result.replaceAllUsesWith(loopRefToOp[operand].getInductionVar());
-    }
-    opsToErase.insert(op);
   }
 
   return success();
@@ -1258,6 +1249,19 @@ void ConvertKrnlToAffinePass::runOnFunction() {
       for (auto loopRef : loopRefs)
         opsToErase.insert(loopRefToOp[loopRef]);
       kernelOp.getLoopRefs().clear();
+    }
+
+    if (auto convertOp =
+            dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
+      auto zippedOperandsResults =
+          llvm::zip(op->getOperands(), op->getResults());
+      convertOp->dump();
+      for (const auto &operandAndResult : zippedOperandsResults) {
+        auto operand = std::get<0>(operandAndResult);
+        auto result = std::get<1>(operandAndResult);
+        result.replaceAllUsesWith(loopRefToOp[operand].getInductionVar());
+      }
+      opsToErase.insert(op);
     }
   });
 
