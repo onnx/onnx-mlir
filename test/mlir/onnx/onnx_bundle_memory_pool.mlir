@@ -1,5 +1,6 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --enable-memory-pool --bundle-memory-pools --canonicalize %s -split-input-file | FileCheck %s
-// XFAIL: *
+// ISSUE-TODO-namcvica-2021-04-07: Required until https://github.com/onnx/onnx-mlir/issues/582 is fixed upstream
+// UNSUPPORTED: system-windows, system-linux
 
 func @test_bundle_memory_pool(%arg0: tensor<10x10xf32>, %arg1: tensor<10x20xf32>) -> tensor<10x20xf32> {
   %0 = "onnx.Add"(%arg0, %arg0) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
