@@ -8,7 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.jar.JarFile;
 
-public class DynEntryPoint {
+public class OMModel {
     static String libname = "libmodel.so";
 
     static {
@@ -18,9 +18,9 @@ public class DynEntryPoint {
         String libPath = null;
         try {
             // Get path name of jar
-            jar = new File(DynEntryPoint.class.getProtectionDomain()
-                                              .getCodeSource()
-                                              .getLocation().toURI());
+            jar = new File(OMModel.class.getProtectionDomain()
+                                        .getCodeSource()
+                                        .getLocation().toURI());
             jarDir = jar.getParentFile().getAbsolutePath();
             libPath = jarDir + "/" + libname;
 
@@ -57,8 +57,18 @@ public class DynEntryPoint {
     }
 
     private static native OMTensorList main_graph_jni(OMTensorList list);
+    private static native String input_signature_jni();
+    private static native String output_signature_jni();
     
-    public static OMTensorList main_graph(OMTensorList list) {
+    public static OMTensorList mainGraph(OMTensorList list) {
         return main_graph_jni(list);
+    }
+
+    public static String inputSignature() {
+        return input_signature_jni();
+    }
+
+    public static String outputSignature() {
+        return output_signature_jni();
     }
 }

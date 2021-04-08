@@ -124,9 +124,11 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
 
   // Emit the entry point operation which specifies the number of user
   // inputs and outputs.
+  std::string signature("");
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
       /*numInputs=*/7,
-      /*numOutputs=*/3);
+      /*numOutputs=*/3,
+      /*signature*/signature);
   module.push_back(entryPoint);
 
   OwningModuleRef moduleRef(module);
