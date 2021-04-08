@@ -683,16 +683,17 @@ public:
     // don't really care about the padded dimensions, we only care about
     // the actual data.
     bool literalTileSizes = false;
-    if (IndexExpr::isLiteral(aTileSize) && IndexExpr::isLiteral(bTileSize) &&
-        IndexExpr::isLiteral(cTileSize)) {
-      literalTileSizes = true;
-      assert(aTileSize[0].getLiteral() == cTileSize[0].getLiteral() &&
-             "I dim mismatch");
-      assert(aTileSize[1].getLiteral() == bTileSize[0].getLiteral() &&
-             "K dim mismatch");
-      assert(bTileSize[1].getLiteral() == cTileSize[1].getLiteral() &&
-             "J dim mismatch");
-    }
+    //    if (IndexExpr::isLiteral(aTileSize) && IndexExpr::isLiteral(bTileSize)
+    //    &&
+    //        IndexExpr::isLiteral(cTileSize)) {
+    //      literalTileSizes = true;
+    //      assert(aTileSize[0].getLiteral() == cTileSize[0].getLiteral() &&
+    //             "I dim mismatch");
+    //      assert(aTileSize[1].getLiteral() == bTileSize[0].getLiteral() &&
+    //             "K dim mismatch");
+    //      assert(bTileSize[1].getLiteral() == cTileSize[1].getLiteral() &&
+    //             "J dim mismatch");
+    //    }
 
     // Gather N, M, K compute tile size. This is the size of the computations,
     // if the tile is full. Because computation in the buffers could be further
