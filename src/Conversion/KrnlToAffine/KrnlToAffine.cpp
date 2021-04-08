@@ -1287,7 +1287,6 @@ void ConvertKrnlToAffinePass::runOnFunction() {
             dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
       auto zippedOperandsResults =
           llvm::zip(op->getOperands(), op->getResults());
-      convertOp->dump();
       for (const auto &operandAndResult : zippedOperandsResults) {
         auto operand = std::get<0>(operandAndResult);
         auto result = std::get<1>(operandAndResult);
