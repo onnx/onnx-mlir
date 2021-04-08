@@ -1055,8 +1055,37 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
+  // construct JSON type from the argument type
+  // for example - a 3D array of f32 might produce something like
+  //     {"type" : "float" , "dims" : [4, 256, 16]}
+  // actually, this function would produce
+  //     {"type" : "f32" , "dims" : [4, 256, 16]}
+  //  for this example. The "f32" is mapped to "float" in getSignature, below
+  void concatTypeString(Type argType, llvm::raw_ostream &dstream) {
+    std::string comma = std::string("");
+    mlir::TypeSwitch<Type>(argType)
+        .Case<ShapedType>([&](ShapedType tensorTy) {
+          auto et = tensorTy.getElementType();
+          dstream << "   { \"type\" : ";
+          et.print(dstream);
+          dstream << " , \"dims\" : [";
+          if (tensorTy.hasRank()) {
+            int64_t rank = tensorTy.getRank();
+            for (int j = 0; j < rank; j++) {
+              dstream << comma << tensorTy.getDimSize(j);
+              comma = std::string(" , ");
+            }
+          } else {
+          }
+          dstream << "] ";
+        })
+        .Default([&](Type type) { llvm_unreachable("input is not a tensor"); });
+    dstream << " }\n";
+  }
+
   std::string getSignature(mlir::FunctionType funcType) {
     auto inputs = funcType.getInputs();
+    auto outputs = funcType.getResults();
 
     std::string const sf32 = std::string("f32");
     std::string const sf64 = std::string("f64");
@@ -1070,33 +1099,18 @@ private:
     std::string dstring;
     llvm::raw_string_ostream dstream(dstring);
     dstream << "[ ";
+    std::string comma = std::string("");
     for (int i = 0; i < funcType.getNumInputs(); i++) {
-      // std::string tstring;
-      // llvm::raw_string_ostream tstream(tstring);
-      auto in = inputs[i];
-      // in.print(tstream);
-      // tstream.flush();
-      // std::cout << tstring << std::endl;
-      std::string comma = std::string("");
-      mlir::TypeSwitch<Type>(in)
-          .Case<ShapedType>([&](ShapedType tensorTy) {
-            auto et = tensorTy.getElementType();
-            dstream << "   { \"type\" : ";
-            et.print(dstream);
-            dstream << " , \"dims\" : [";
-            if (tensorTy.hasRank()) {
-              int64_t rank = tensorTy.getRank();
-              for (int j = 0; j < rank; j++) {
-                dstream << comma << tensorTy.getDimSize(j);
-                comma = std::string(" , ");
-              }
-            } else {
-            }
-            dstream << "] ";
-          })
-          .Default(
-              [&](Type type) { llvm_unreachable("input is not a tensor"); });
-      dstream << " }\n";
+      dstream << comma;
+      concatTypeString(inputs[i], dstream);
+      comma = std::string(" , ");
+    }
+    dstream << "\n] @ [";
+    comma = std::string("");
+    for (int i = 0; i < funcType.getNumResults(); i++) {
+      dstream << comma;
+      concatTypeString(outputs[i], dstream);
+      comma = std::string(" , ");
     }
     dstream << "\n]";
     dstream.flush();

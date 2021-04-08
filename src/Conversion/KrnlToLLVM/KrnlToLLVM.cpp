@@ -753,14 +753,26 @@ public:
     auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
     auto int32Ty = IntegerType::get(context, 32);
     auto int64Ty = IntegerType::get(context, 64);
-    // auto stringTy = MemRefType::get(context);
 
     // create global to hold signature
 
-    auto sigArrayType = LLVM::LLVMArrayType::get(
-        IntegerType::get(context, 8), signature.size());
-    rewriter.create<LLVM::GlobalOp>(loc, sigArrayType,
-        /*isConstant=*/true, LLVM::Linkage::External, "_signature", sigAttr);
+    auto splitSig = signature.split('@');
+    llvm::StringRef inSig = splitSig.first;
+    llvm::StringRef outSig = splitSig.second;
+    mlir::StringAttr inSigAttr = mlir::StringAttr::get(inSig, context);
+    mlir::StringAttr outSigAttr = mlir::StringAttr::get(outSig, context);
+
+    auto inSigArrayType =
+        LLVM::LLVMArrayType::get(IntegerType::get(context, 8), inSig.size());
+    rewriter.create<LLVM::GlobalOp>(loc, inSigArrayType,
+        /*isConstant=*/true, LLVM::Linkage::External, "_in_signature",
+        inSigAttr);
+
+    auto outSigArrayType =
+        LLVM::LLVMArrayType::get(IntegerType::get(context, 8), outSig.size());
+    rewriter.create<LLVM::GlobalOp>(loc, outSigArrayType,
+        /*isConstant=*/true, LLVM::Linkage::External, "_out_signature",
+        outSigAttr);
 
     // Rewrite Krnl Entry Point Operation to an LLVM function with a dynamic
     // signature. The signature is dynamic because it remains the same no matter
@@ -1197,8 +1209,8 @@ public:
     Value basePtrAddr = rewriter.create<LLVM::AddressOfOp>(loc, globalBase);
     auto getEmbeddedConstPoolRef = getOrInsertExternFunc(
         KrnlPackedConstantOp::getEmbeddedDataLoaderMethodName(), module,
-        LLVM::LLVMFunctionType::get(
-            llvmI8PtrTy, {llvmI64Ty}, /*isVarArg=*/false),
+        LLVM::LLVMFunctionType::get(llvmI8PtrTy, {llvmI64Ty},
+            /*isVarArg=*/false),
         rewriter);
     auto constPackSize = rewriter.create<LLVM::ConstantOp>(
         loc, IntegerType::get(context, 64), packedConstOp.size_in_bytesAttr());
