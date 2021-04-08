@@ -454,7 +454,6 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     for (const auto &attr : permuteOp.map().getAsRange<IntegerAttr>())
       permuteMap.emplace_back(attr.getValue().getSExtValue());
 
-    op->getParentOfType<FuncOp>()->dump();
     // Perform loop permutation.
     permuteLoops(loopsToPermute, permuteMap);
 
