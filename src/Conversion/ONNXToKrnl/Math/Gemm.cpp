@@ -87,6 +87,110 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         });
   }
 
+  void tiledTransposedGemm(ONNXGemmOp &gemmOp,
+      ONNXGemmOpAdaptor &operandAdaptor, Type elementType,
+      ONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
+      Value alphaVal, Value betaVal, ConversionPatternRewriter &rewriter,
+      Location loc) const {
+    // Scope for krnl EDSC ops
+    using namespace mlir::edsc;
+    using namespace mlir::edsc::intrinsics;
+    ScopedContext scope(rewriter, loc);
+
+    // R is result (alloc).
+    Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
+    MemRefBoundsCapture aBound(A), rBound(R);
+    Value I(rBound.ub(0)), J(rBound.ub(1)), K(aBound.ub(1));
+    Value zero = std_constant_index(0);
+
+    // Initialize alloc/R to zero.
+    ValueRange zeroLoop = krnl_define_loop(2);
+    krnl_iterate(zeroLoop, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
+      ValueRange indices = krnl_get_induction_var_value(zeroLoop);
+      krnl_store(zeroVal, R, indices);
+    });
+
+    // Prepare for the computations.
+    // 1) Define blocking, with simdization along the j axis.
+    const int64_t iCacheTile(64), jCacheTile(128), kCacheTile(128);
+    const int64_t iRegTile(4), jRegTile(8);
+    // 2) Alloc data for tiles.
+    MemRefType aTileType =
+        MemRefType::get({iCacheTile, kCacheTile}, elementType);
+    MemRefType bTileType =
+        MemRefType::get({kCacheTile, jCacheTile}, elementType);
+    // Because the sizes are compile time, no need to pass a dynamic indices.
+    SmallVector<IndexExpr> empty;
+    Value aBuff =
+        insertAllocAndDeallocSimple(rewriter, gemmOp, aTileType, loc, empty);
+    Value bBuff =
+        insertAllocAndDeallocSimple(rewriter, gemmOp, bTileType, loc, empty);
+    // 3) introduce the loops and permute them
+    // I, J, K loop.
+    ValueRange origLoop = krnl_define_loop(3);
+    Value ii(origLoop[0]), jj(origLoop[1]), kk(origLoop[2]);
+    // Tile I.
+    ValueRange iCacheBlock = krnl_block(ii, iCacheTile);
+    ValueRange iRegBlock = krnl_block(iCacheBlock[1], iRegTile);
+    Value ii1(iCacheBlock[0]), ii2(iRegBlock[0]), ii3(iRegBlock[1]);
+    // Tile J.
+    ValueRange jCacheBlock = krnl_block(jj, jCacheTile);
+    ValueRange jRegBlock = krnl_block(jCacheBlock[1], jRegTile);
+    Value jj1(jCacheBlock[0]), jj2(jRegBlock[0]), jj3(jRegBlock[1]);
+    // Tile K.
+    ValueRange kCacheBlock = krnl_block(kk, kCacheTile);
+    Value kk1(kCacheBlock[0]), kk2(kCacheBlock[1]);
+    krnl_permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
+        {/*i*/ 2, 4, 5, /*j*/ 0, 3, 6, /*k*/ 1, 7});
+
+    // Compute: A[i, k] * b[k, j] -> R[i, j])
+    krnl_iterate(
+        {jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {}, [&](ValueRange args) {
+          ValueRange j1_k1_indices = krnl_get_induction_var_value({jj1, kk1});
+          Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
+          krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal);
+          krnl_iterate({ii}, {ii1}, {zero}, {I}, {}, [&](ValueRange args) {
+            ValueRange i1_index = krnl_get_induction_var_value({ii1});
+            Value i1(i1_index[0]);
+            krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal);
+            krnl_iterate(
+                {}, {jj2, ii2}, (ValueRange){}, {}, {}, [&](ValueRange args) {
+                  ValueRange j2_i2_indices =
+                      krnl_get_induction_var_value({jj2, ii2});
+                  Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
+                  krnl_matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, R, {zero, zero},
+                      /*loops*/ {ii3, jj3, kk2}, /*compute start*/ {i2, j2, k1},
+                      /*ubs*/ {I, J, K},
+                      /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
+                      /* a/b/c tiles*/ {}, {}, {}, true, true, false);
+                });
+          });
+        });
+
+    // Define blocked loop and permute.
+    ValueRange outerLoops = krnl_define_loop(2);
+    krnl_iterate(
+        outerLoops, rBound.getLbs(), rBound.getUbs(), {}, [&](ValueRange args) {
+          // Outer loop indices.
+          ValueRange outerIndices = krnl_get_induction_var_value(outerLoops);
+
+          // Handle alpha/beta coefficients.
+          Value res = std_mulf(alphaVal, krnl_load(R, outerIndices));
+          if (shapeHelper.hasBias) {
+            SmallVector<IndexExpr, 2> cAccess;
+            for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
+              // If dim > 1, use loop index, otherwise broadcast on 0's element.
+              SymbolIndexExpr dim(shapeHelper.cDims[x]);
+              cAccess.emplace_back(
+                  IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0));
+            }
+            Value c = krnl_load(operandAdaptor.C(), cAccess);
+            res = std_addf(res, std_mulf(betaVal, c));
+          }
+          krnl_store(res, R, outerIndices);
+        });
+  }
+
   void genericGemm(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
       Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
       Value zeroVal, Value alphaVal, Value betaVal,
@@ -197,8 +301,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    genericGemmV2(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
-        alpha, beta, rewriter, loc);
+    tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc,
+        zero, alpha, beta, rewriter, loc);
 
     rewriter.replaceOp(op, alloc);
 

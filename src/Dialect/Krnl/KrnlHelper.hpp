@@ -282,11 +282,31 @@ void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts,
     ArrayRef<int64_t> tileSize);
 void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts);
 
-void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
-    Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
-    ValueRange globalUBs, ArrayRef<int64_t> computeTileSize,
+void krnl_matmul(
+    // The a/b/cStart are the indices at the begining of the buffer/mem A/B/C.
+    Value A, ValueRange aStart, Value B, ValueRange bStart, Value C,
+    ValueRange cStart,
+    // Loops are the krnl loop indices that this matmul replaces
+    ValueRange loops,
+    // the computeStarts indicate the i/j/k indices pointing to the begining of
+    // the matmul computation.
+    ValueRange computeStarts,
+    // The globalUBs are the global bounds on the original I, J, K dimensions.
+    ValueRange globalUBs,
+    // If not the full A, B, C buffers are used by this matmul, meaning the
+    // matmul uses a subtile of the buffers, this compute tile size specifies
+    // the actual size of the i/j/k computations. Empty means compute tiles
+    // encompass the entire buffer A, B, and C as defined by their tile sizes.
+    ArrayRef<int64_t> computeTileSize,
+    // If buffers A, B, or C were padded, then the tile sizes give the size of
+    // the non-padded data, basically the size of the data when the tile is
+    // full. Partial tiles (due to computation on the edges of the matrices) are
+    // handled differently (using the UBs), so no need to worry about this.
+    // Empty means no padding was used.
     ArrayRef<int64_t> aTileSize, ArrayRef<int64_t> bTileSize,
-    ArrayRef<int64_t> cTileSize, bool simdize, bool unroll, bool overcompute);
+    ArrayRef<int64_t> cTileSize,
+    // Optimizations for code gen.
+    bool simdize, bool unroll, bool overcompute);
 
 void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
     Value C, ValueRange cStart, ValueRange loops, ValueRange computeStarts,
