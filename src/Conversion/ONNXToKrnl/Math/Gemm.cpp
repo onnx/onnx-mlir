@@ -301,9 +301,15 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc,
-        zero, alpha, beta, rewriter, loc);
-
+    // AEE DEGUG: add "true ||" to force the simple nonoptimized, working solution
+    if (gemmOp.transA() || gemmOp.transB()) {
+      genericGemmV2(gemmOp, operandAdaptor, elementType, shapeHelper, alloc,
+          zero, alpha, beta, rewriter, loc);
+    } else {
+      // AEE transpose not yet implemented
+      tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
+          alloc, zero, alpha, beta, rewriter, loc);
+    }
     rewriter.replaceOp(op, alloc);
 
     return success();
