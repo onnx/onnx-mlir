@@ -442,6 +442,7 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     opsToErase.insert(op);
     return success();
   } else if (auto permuteOp = dyn_cast_or_null<KrnlPermuteOp>(op)) {
+    // TODO(tjingrant): call it whenever an operation lowering completes.
     removeOps(opsToErase);
     // Collect loops to permute.
     SmallVector<AffineForOp, 4> loopsToPermute;
