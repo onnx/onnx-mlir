@@ -27,8 +27,6 @@ add_library(OMTensorUtils
         OMTensor.inc
         OMTensorList.cpp
         OMTensorList.inc
-        OMSignature.cpp
-        OMSignature.inc
         OnnxDataType.cpp)
 set_target_properties(OMTensorUtils PROPERTIES
         POSITION_INDEPENDENT_CODE TRUE)
