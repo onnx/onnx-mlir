@@ -192,7 +192,7 @@ call cmake --build . --config Release --target onnx-mlir -- /m
 
 REM Run FileCheck tests
 set LIT_OPTS=-v
-call cmake --build . --config Release --target check-onnx-lit
+call cmake --build . --config Release --target check-onnx-lit -- /m
 ```
 
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.
