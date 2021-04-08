@@ -1055,7 +1055,12 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
-  // auto in = inputs[i];
+  // construct JSON type from the argument type
+  // for example - a 3D array of f32 might produce something like
+  //     {"type" : "float" , "dims" : [4, 256, 16]}
+  // actually, this function would produce
+  //     {"type" : "f32" , "dims" : [4, 256, 16]}
+  //  for this example. The "f32" is mapped to "float" in getSignature, below
   void concatTypeString(Type argType, llvm::raw_ostream &dstream) {
     std::string comma = std::string("");
     mlir::TypeSwitch<Type>(argType)
