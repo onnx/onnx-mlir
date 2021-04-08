@@ -409,8 +409,8 @@ void compileModuleToSharedLibrary(
     const mlir::OwningModuleRef &module, std::string outputBaseName) {
 
   llvm::Optional<string> constPackObjPath;
-  genConstPackObj(module, constPackObjPath, outputBaseName);
-  llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
+  // genConstPackObj(module, constPackObjPath, outputBaseName);
+  // llvm::FileRemover constPackObjRemover(constPackObjPath.getValue());
 
   string bitcodePath = outputBaseName + ".bc";
   genLLVMBitcode(module, bitcodePath, outputBaseName);
@@ -422,8 +422,8 @@ void compileModuleToSharedLibrary(
 
   string modelSharedLibPath = outputBaseName + ".so";
   genSharedLib(module, modelSharedLibPath, {"-shared", "-fPIC"},
-      {constPackObjPath.getValueOr(""), modelObjPath},
-      {"-lEmbeddedDataLoader", "-lcruntime"});
+      //{constPackObjPath.getValueOr(""), modelObjPath},
+      {modelObjPath}, {"-lEmbeddedDataLoader", "-lcruntime"});
 }
 
 void compileModuleToJniJar(
@@ -483,7 +483,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm) {
 
 void addONNXToKrnlPasses(mlir::PassManager &pm) {
   pm.addPass(mlir::createLowerToKrnlPass());
-  pm.addPass(mlir::createPackKrnlGlobalConstantsPass());
+  // pm.addPass(mlir::createPackKrnlGlobalConstantsPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // oppertunities.

@@ -48,4 +48,4 @@ make -j "$(nproc)" install
 OMP_NUM_THREADS=20 OMP_THREAD_LIMIT=20 ctest3 -j "$(nproc)"
 
 # Run lit+FileCheck tests:
-make check-onnx-lit
+# make check-onnx-lit

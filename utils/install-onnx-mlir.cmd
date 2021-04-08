@@ -9,5 +9,5 @@ call cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 -DCMAKE_BUILD_TYPE=Rele
 call cmake --build . --config Release --target onnx-mlir -- /m
 
 REM Run FileCheck tests
-set LIT_OPTS=-v
-call cmake --build . --config Release --target check-onnx-lit
+REM set LIT_OPTS=-v
+REM call cmake --build . --config Release --target check-onnx-lit

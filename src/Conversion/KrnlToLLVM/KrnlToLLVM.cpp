@@ -407,7 +407,7 @@ public:
           assert((data.size() == sizeInBytes) && "Data size mismatch.");
 
           auto llvmArrayI8Ty = LLVM::LLVMArrayType::get(
-              IntegerType::get(context, 8), sizeInBytes);
+              IntegerType::get(context, 8), data.size());
           global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
               /*isConstant=*/true, LLVM::Linkage::Internal, name,
               StringAttr::get(data, context));
