@@ -1,3 +1,18 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===------------- jniwrapper.c - JNI wrapper Implementation -------------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains implementation of the JNI wrapper to allow Java users
+// to call the model execution API.
+//
+//===----------------------------------------------------------------------===//
+
 #include <assert.h>
 #ifdef __APPLE__
 #include <stdlib.h>
@@ -7,7 +22,7 @@
 #include <string.h>
 
 #include "OnnxMlirRuntime.h"
-#include "com_ibm_onnxmlir_DynEntryPoint.h"
+#include "com_ibm_onnxmlir_OMModel.h"
 #include "jnilog.h"
 
 extern OMTensorList *run_main_graph(OMTensorList *);
@@ -346,7 +361,7 @@ jobject omtl_native_to_java(
   return java_omtl;
 }
 
-JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_DynEntryPoint_main_1graph_1jni(
+JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMModel_main_1graph_1jni(
     JNIEnv *env, jclass cls, jobject java_iomtl) {
 
   /* Find and initialize Java method IDs in struct jniapi */
@@ -367,4 +382,30 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_DynEntryPoint_main_1graph_1jni(
   omTensorListDestroy(jni_iomtl);
   omTensorListDestroy(jni_oomtl);
   return java_oomtl;
+}
+
+JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_input_1signature_1jni(
+    JNIEnv *env, jclass cls) {
+
+  /* Call model input signature API */
+  CHECK_CALL(const char *, jni_isig, omInputSignature(), NULL);
+
+  /* Convert to Java String object */
+  JNI_TYPE_VAR_CALL(
+      env, jstring, jstr_isig, (*env)->NewStringUTF(env, jni_isig));
+
+  return jstr_isig;
+}
+
+JNIEXPORT jstring JNICALL Java_com_ibm_onnxmlir_OMModel_output_1signature_1jni(
+    JNIEnv *env, jclass cls) {
+
+  /* Call model output signature API */
+  CHECK_CALL(const char *, jni_osig, omOutputSignature(), NULL);
+
+  /* Convert to Java String object */
+  JNI_TYPE_VAR_CALL(
+      env, jstring, jstr_osig, (*env)->NewStringUTF(env, jni_osig));
+
+  return jstr_osig;
 }
