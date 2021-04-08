@@ -59,12 +59,23 @@ struct ONNXConstantOpLowering : public ConversionPattern {
         /*shape=*/rewriter.getI64ArrayAttr(shape),
         /*name=*/
         rewriter.getStringAttr("constant_" + std::to_string(constantID)),
-        /*value=*/constantOp.value().getValue(),
+        ///*value=*/constantOp.value().getValue(),
+        /*value=*/nullptr,
         /*offset=*/nullptr,
         /*alignment=*/nullptr);
 
     // Increment constant ID:
     constantID++;
+
+    /// Create an opaque attr.
+    DenseElementsAttr denseAttr =
+        constantOp.value().getValue().cast<DenseElementsAttr>();
+    std::vector<char> rawData = denseAttr.getRawData();
+    OpaqueElementsAttr opaqueAttr =
+        OpaqueElementsAttr::get(constantGlobal.getOperation()->getDialect(),
+            RankedTensorType::get(shape, memRefType.getElementType()),
+            StringRef((char *)rawData.data(), rawData.size()));
+    constantGlobal.valueAttr(opaqueAttr);
 
     // Check if the variable is returned.
     if (checkOpResultIsReturned(&constantOp)) {
