@@ -1,7 +1,5 @@
 include (CTest)
 
-find_package (Python3 REQUIRED COMPONENTS Interpreter)
-
 set (DATASET_LIST test_data_set_0
                   test_data_set_1
                   test_data_set_2)

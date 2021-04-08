@@ -1,16 +1,14 @@
 # Documentation example requires ONNX package installation, which has been
 # flaky on non-x86 platforms, so only perform this test on x86 arch.
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
-    find_package(PythonInterp 3 REQUIRED)
-
     add_custom_target(OMInstallOnnx
-            COMMAND ${PYTHON_EXECUTABLE} setup.py -q install --user
+            COMMAND ${Python3_EXECUTABLE} setup.py -q install --user
             WORKING_DIRECTORY ${ONNX_MLIR_SRC_ROOT}/third_party/onnx)
 
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/gen_add_onnx.py
             ${CMAKE_CURRENT_BINARY_DIR}/gen_add_onnx.py COPYONLY)
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/add.onnx
-            COMMAND ${PYTHON_EXECUTABLE} gen_add_onnx.py
+            COMMAND ${Python3_EXECUTABLE} gen_add_onnx.py
             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     add_custom_target(OMGenerateAddModel
             DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/add.onnx)
