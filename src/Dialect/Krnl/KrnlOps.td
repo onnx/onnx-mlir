@@ -160,9 +160,7 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [MemRefsNormalizable]> {
   let description = [{
     Operation for holding global data values. A global constant can have a
     meaningful name recorded as its `name` attribute. Its content is stored
-    in the `value` dense/opaque element attribute. Alternatively, if the
-    constants are packed together, `offset` records the byte offset in the
-    global constant pool from which the current constant is to be read.
+    in the `value` dense/opaque element attribute.
   }];
 
   let arguments = (ins AnyAttr:$shape,
@@ -170,51 +168,6 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [MemRefsNormalizable]> {
     OptionalAttr<I64Attr>:$alignment);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 
-  let parser = ?;
-  let printer = ?;
-}
-
-def KrnlPackedConstantOp : Op<Krnl_Dialect, "packed_const"> {
-  let summary = "Krnl packed constant operation";
-  let description = [{
-    Operation for holding packed constants.
-  }];
-
-  let arguments = (ins I64Attr:$size_in_bytes,
-                       BoolAttr:$is_le,
-                       OptionalAttr<AnyIntElementsAttr<8>>:$value,
-                       OptionalAttr<StrAttr>:$file_name);
-  let results = (outs I64:$output);
-
-  let extraClassDeclaration = [{
-    // The *path* to the file storing the constant pack on disk is encoded
-    // as a global variable in the LLVM module of the lowered model.
-    // getConstPackFilePathSymbolName returns the name of this symbol;
-    // getConstPackFilePathStrLenSymbolName returns the name of the symbol holding
-    // a constant value equal to the length of the file path.
-    static StringRef getConstPackFilePathSymbolName() { return "constPackFilePath"; }
-    static StringRef getConstPackFilePathStrLenSymbolName() { return "constPackFilePathStrLen"; }
-
-    // The *name* of the file storing the constant pack is also recorded for
-    // convenience. Similarly, getConstPackFileNameSymbolName and
-    // getConstPackFileNameStrLenSymbolName returns records the symbol holding
-    // the string constant representing the filename and the length of this
-    // string constant.
-    static StringRef getConstPackFileNameSymbolName() { return "constPackFileName"; }
-    static StringRef getConstPackFileNameStrLenSymbolName() { return "constPackFileNameStrLen"; }
-
-    // We record whether the constant pack is stored in LE byte order as a
-    // int8 symbol; it is to be interpreted as a boolean switch - with 0
-    // meaning that the constant pack is not stored in LE byte order and
-    // non-0 values meaning that it is stored in LE byte order.
-    static StringRef getConstPackIsLESymbolName() { return "constPackIsLE"; }
-    // The name of a function we call to read packed constants embedded within
-    // the current binary executable/library, or in the case of unsupported platform,
-    // from a binary constant pack file.
-    static StringRef getEmbeddedDataLoaderMethodName() {
-      return "getEmbeddedConstPool";
-    }
-  }];
   let parser = ?;
   let printer = ?;
 }
@@ -330,7 +283,7 @@ def KrnlPermuteOp : Op<Krnl_Dialect, "permute"> {
 
   let arguments = (ins Variadic<AnyType>:$loops, I64ArrayAttr:$map);
   let results = (outs);
-  let builders = [ OpBuilderDAG<(ins "ArrayRef<Value>": $loops, "ArrayRef<int64_t>":$map)> ];
+  let builders = [ OpBuilderDAG<(ins "ValueRange": $loops, "ArrayRef<int64_t>":$map)> ];
   let assemblyFormat = [{
       `(` $loops `)` $map attr-dict `:` type($loops)
   }];
@@ -637,7 +590,7 @@ def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"
 
   let arguments = (ins Variadic<AnyType> : $loops);
   let results = (outs Variadic<AnyType> : $ind_var_vals);
-  let builders = [ OpBuilderDAG<(ins "ArrayRef<Value>": $loops)> ];
+  let builders = [ OpBuilderDAG<(ins "ValueRange": $loops)>];
 
   let assemblyFormat = [{
       `(` $loops `)` attr-dict `:` functional-type($loops, results)
@@ -704,8 +657,8 @@ def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
 
 // =============================================================================
 
-def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", 
-      [DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
+def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments, 
+       DeclareOpInterfaceMethods<SpecializedKernelOpInterface>]> {
   let summary = "Matmul operation for a single pannel.";
   let description = [{
     Perform a matrix multiplication A * B + C
@@ -738,6 +691,17 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul",
     the I, J, and K computeTileSizes, in their respective
     dimensions (A: IxK], B: [KxJ], C: [IxJ]).
 
+    Note that the buffers A, B, and C can be of higher dimensionality than
+    the traditional 2D mentioned up to now, because of broadcasting rules.
+    At this time, we only support broadcast of arrays having ranks of 2 or
+    more. Because of the broadcast rules, the higher dimenstions have a
+    constant index during one matrix multiply. These fixed indices are
+    given as prefix dimensions in the starting indices for A, B, and C
+    as described above. E.g. if A has a rank of 3, and B has a rank of 2,
+    the starting indices for A are [d, i1, k1] where i1 and k1 are as
+    above, and d is index pointing to the current instance of the IxK
+    A matrix to be computed. B start indices would be unchanged at [k1, j1].
+
     Simdize is used to state if simdization is requested.
     Unrolling is used to unroll and jam loops as warrented.
 
@@ -760,47 +724,53 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul",
         !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, 
         !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
     // Outer 2 for i, j.
-    krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 40, %jj -> %j = 0 to 80, %kk -> %k = 0 to 60) {
-        %i1, %j1 = krnl.get_induction_var_value(%ib, %jb) : (!krnl.loop,!krnl.loop) -> (index, index)
+    krnl.iterate(%ib, %jb) with (%ii -> %i = 0 to 40, 
+                                 %jj -> %j = 0 to 80, 
+                                 %kk -> %k = 0 to 60) {
+        %i1, %j1 = krnl.get_induction_var_value(%ib, %jb) : 
+          (!krnl.loop,!krnl.loop) -> (index, index)
         // Fill C buffer.
         %Cbuff = alloca(): memref<10x8xf32>  // n x m_simd
-        krnl.copy_to_tile_buffer %Cbuff, %C[%i1, %j1], %f0 : memref<10x8xf32>,  memref<40x80xf32>
+        krnl.copy_to_tile_buffer %Cbuff, %C[%i1, %j1], %f0 : 
+          memref<10x8xf32>, memref<40x80xf32>
         // Outer 1 for k.
         krnl.iterate(%kb) with () {
             %k1 = krnl.get_induction_var_value(%kb) : (!krnl.loop) -> (index)
             // Fill A and B buffer
-            %Abuff = alloca(): memref<10x10xf32> // n x k
-            %Bbuff = alloca(): memref<10x8xf32>  // k x m_simd     
-            krnl.copy_to_tile_buffer %Abuff, %A[%i1, %k1], %f0 : memref<10x10xf32>, memref<40x60xf32>
-            krnl.copy_to_tile_buffer %Bbuff, %B[%k1, %j1], %f0 : memref<10x8xf32>,  memref<60x80xf32>
+            %Abuff = alloca(): memref<10x10xf32> // i x k
+            %Bbuff = alloca(): memref<10x8xf32>  // k x j_simd     
+            krnl.copy_to_tile_buffer %Abuff, %A[%i1, %k1], %f0 :
+              memref<10x10xf32>, memref<40x60xf32>
+            krnl.copy_to_tile_buffer %Bbuff, %B[%k1, %j1], %f0 :
+              memref<10x8xf32>, memref<60x80xf32>
 
             // Inner iterations for subtiles.
             krnl.iterate(%ilb, %jlb, %klb) with () {
-                %i2, %j2, %k2 = krnl.get_induction_var_value(%ilb, %jlb, %klb) : 
+                %i2, %j2, %k2 = krnl.get_induction_var_value(%ilb, %jlb, %klb) :
                 (!krnl.loop,!krnl.loop,!krnl.loop) -> (index,index,index)
 
-                krnl.matmul %Abuff[%i1, %k1], %Bbuff[%k1, %j1], %Cbuff[%i1, %j1], 
-                    (%ill, %jll, %kll), (%i2, %j2, %k2), (%c40, %c80, %c60) 
-                    { computeTileSize=[5,4,5], simdize=false, unroll=false } : 
-                    memref<10x10xf32>, memref<10x8xf32>, memref<10x8xf32>, 
-                    (!krnl.loop,!krnl.loop,!krnl.loop)        
+                krnl.matmul %Abuff[%i1, %k1], %Bbuff[%k1, %j1], %Cbuff[%i1, %j1],
+                    (%ill, %jll, %kll), (%i2, %j2, %k2), (%c40, %c80, %c60)
+                    { computeTileSize=[5,4,5], simdize=false, unroll=false } :
+                    memref<10x10xf32>, memref<10x8xf32>, memref<10x8xf32>,
+                    (!krnl.loop,!krnl.loop,!krnl.loop)
             }
         }
         // Copy back the data into C.
-        krnl.copy_from_tile_buffer %Cbuff, %C[%i1, %j1] : memref<10x8xf32>, memref<40x80xf32>
+        krnl.copy_from_tile_buffer %Cbuff, %C[%i1, %j1] :
+          memref<10x8xf32>, memref<40x80xf32>
     }
-
   }];
 
   let arguments = (ins 
     // Buffer/memory used and indices that correspoond to the begining 
     // of each buffer/memory.
     Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
-    Index: $aMemStart0, Index: $aMemStart1,
+    Variadic<Index>: $aMemStart,
     Arg<AnyMemRef, "Mult B [KxM]", [MemRead]>:$B,
-    Index: $bMemStart0, Index: $bMemStart1,
+    Variadic<Index>: $bMemStart,
     Arg<AnyMemRef, "Add into C [NxM]", [MemRead, MemWrite]>:$C,
-    Index: $cMemStart0, Index: $cMemStart1,
+    Variadic<Index>: $cMemStart,
     // Loops involved, and indices pointing to the start of the compute
     // subtile. 
     Variadic<AnyType> : $loops,
@@ -818,16 +788,16 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul",
     DefaultValuedAttr<BoolAttr, "false">:$overcompute);
 
   let builders = [ OpBuilderDAG<(ins 
-      "Value": $A, "Value": $aStart0, "Value": $aStart1,
-      "Value": $B, "Value": $bStart0, "Value": $bStart1,
-      "Value": $C, "Value": $cStart0, "Value": $cStart1,
-      "ArrayRef<Value>": $loops,
+      "Value": $A, "ValueRange": $aStart, // Both same rank.
+      "Value": $B, "ValueRange": $bStart, // Both same rank.
+      "Value": $C, "ValueRange": $cStart, // Both same rank.
+      "ValueRange": $loops, // Rank 3: (i,j,k).
       "Value": $iComputeStart, "Value": $jComputeStart, "Value": $kComputeStart, 
       "Value": $iGlobalUB, "Value": $jGlobalUB, "Value": $kGlobalUB,
-      "ArrayRef<int64_t>": $computeTileSize,
-      "ArrayRef<int64_t>": $aTileSize,
-      "ArrayRef<int64_t>": $bTileSize,
-      "ArrayRef<int64_t>": $cTileSize, 
+      "ArrayRef<int64_t>": $computeTileSize, // Rank 3: (i,j,k).
+      "ArrayRef<int64_t>": $aTileSize, // Rank 2: (rightmost 2 dims).
+      "ArrayRef<int64_t>": $bTileSize, // Rank 2: (rightmost 2 dims).
+      "ArrayRef<int64_t>": $cTileSize, // Rank 2: (rightmost 2 dims).
       "bool": $simdize,
       "bool": $unroll, 
       "bool": $overcompute 
@@ -835,10 +805,12 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul",
 
   let parser = ?;
   let printer = ?;
+  let verifier = [{ return ::verify(*this); }];
+
   let assemblyFormat = [{
-    $A `[` $aMemStart0 `,` $aMemStart1 `]` `,`
-    $B `[` $bMemStart0 `,` $bMemStart1 `]` `,`
-    $C `[` $cMemStart0 `,` $cMemStart1 `]` `,`
+    $A `[` $aMemStart `]` `,`
+    $B `[` $bMemStart `]` `,`
+    $C `[` $cMemStart `]` `,`
     `(` $loops `)` `,`
     `(` $iComputeStart `,` $jComputeStart `,` $kComputeStart `)` `,`
     `(` $iGlobalUB `,` $jGlobalUB `,` $kGlobalUB `)` 
@@ -903,7 +875,7 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     OptionalAttr<I64ArrayAttr>:$padToNext);
 
   let builders = [ OpBuilderDAG<(ins "Value": $bufferMemref, "Value": $memref, 
-      "ArrayRef<Value>": $starts, "Value": $padValue, 
+      "ValueRange": $starts, "Value": $padValue, 
       "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext
     )> ];
 
@@ -936,7 +908,7 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     OptionalAttr<I64ArrayAttr>:$tileSize);
 
   let builders = [ OpBuilderDAG<(ins "Value": $bufferMemref, "Value": $memref, 
-      "ArrayRef<Value>": $starts, "ArrayRef<int64_t>": $tileSize
+      "ValueRange": $starts, "ArrayRef<int64_t>": $tileSize
     )> ];
 
   let parser = ?;

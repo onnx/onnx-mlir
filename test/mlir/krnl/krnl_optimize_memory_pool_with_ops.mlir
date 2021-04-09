@@ -7,7 +7,6 @@
 #map4 = affine_map<(d0) -> (d0 + 20)>
 #map5 = affine_map<(d0) -> (d0 + 24)>
 #map6 = affine_map<(d0) -> (d0 + 28)>
-%0 = "krnl.packed_const"() {file_name = "/tmp/packed_const-98a39c.tmp", is_le = false, size_in_bytes = 0 : i64} : () -> i64
 func @main_graph(%arg0: memref<1x3x3xf32>, %arg1: memref<1x16x3xf32>, %arg2: memref<1x16x4xf32>, %arg3: memref<1x32xf32>) -> memref<1x3x4xf32> {
     %c0_i64 = constant 0 : i64
     %c163840_i64 = constant 163840 : i64

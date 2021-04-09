@@ -115,7 +115,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
   // Handle the cases with 2x2 matrices both for A, B, and C without broadcast.
   // Implementation here uses the efficient 1d tiling plus kernel substitution.
-  void replace2x2Matmul2D(ONNXMatMulOp &matMulOp,
+  void replace2x2Matmul2d(ONNXMatMulOp &matMulOp,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
       ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
@@ -136,7 +136,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Initialize alloc/C to zero.
     ValueRange zLoop = krnl_define_loop(2);
     Value zi(zLoop[0]), zj(zLoop[1]);
-    krnl_iterate({zi, zj}, {zero, zero}, {I, J}, {}, [&](ArrayRef<Value> args) {
+    krnl_iterate({zi, zj}, {zero, zero}, {I, J}, {}, [&](ValueRange args) {
       ValueRange indices = krnl_get_induction_var_value({zi, zj});
       Value zii(indices[0]), zjj(indices[1]);
       SmallVector<Value> storeIndices({zii, zjj});
@@ -159,7 +159,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     krnl_permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
 
     krnl_iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero}, {I, J, K},
-        {}, [&](ArrayRef<Value> args) {
+        {}, [&](ValueRange args) {
           ValueRange indices = krnl_get_induction_var_value({ii1, jj1, kk1});
           Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
           krnl_matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
@@ -196,7 +196,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     MemRefBoundsIndexCapture aBounds(A), bBounds(B);
 
     if (aBounds.getRank() == 2 && bBounds.getRank() == 2) {
-      replace2x2Matmul2D(matMulOp, operandAdaptor, elementType, shapeHelper,
+      replace2x2Matmul2d(matMulOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, rewriter, loc);
     } else {
       replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,

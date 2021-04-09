@@ -118,7 +118,7 @@ bool isOMGRUTheSameAsNaiveImplFor(const int direction, const int S, const int B,
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
       /*numInputs=*/5,
       /*numOutputs=*/2,
-      /*signature*/signature);
+      /*signature*/ signature);
   module.push_back(entryPoint);
 
   OwningModuleRef moduleRef(module);
@@ -315,11 +315,12 @@ int main(int argc, char *argv[]) {
     // LinearBeforeReset.
     const auto L = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for sequence.
-    const auto isDynS = *rc::gen::element(true, false);
+    const auto isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
-    const auto isDynB = *rc::gen::element(true, false);
+    const auto isDynB = *rc::gen::element(0, 1);
 
-    RC_ASSERT(isOMGRUTheSameAsNaiveImplFor(D, S, B, I, H, L, isDynS, isDynB));
+    RC_ASSERT(isOMGRUTheSameAsNaiveImplFor(
+        D, S, B, I, H, L, isDynS == 0, isDynB == 0));
   });
 
   // Exhaustive test case generation.
