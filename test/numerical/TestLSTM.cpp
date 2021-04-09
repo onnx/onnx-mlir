@@ -128,7 +128,7 @@ bool isOMLSTMTheSameAsNaiveImplFor(const int direction, const int S,
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
       /*numInputs=*/7,
       /*numOutputs=*/3,
-      /*signature*/signature);
+      /*signature*/ signature);
   module.push_back(entryPoint);
 
   OwningModuleRef moduleRef(module);
@@ -322,11 +322,12 @@ int main(int argc, char *argv[]) {
     // Hidden size.
     const auto H = *rc::gen::inRange(30, 40);
     // Whether test dynamic dimension for sequence.
-    const auto isDynS = *rc::gen::element(true, false);
+    const auto isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
-    const auto isDynB = *rc::gen::element(true, false);
+    const auto isDynB = *rc::gen::element(0, 1);
 
-    RC_ASSERT(isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H, isDynS, isDynB));
+    RC_ASSERT(
+        isOMLSTMTheSameAsNaiveImplFor(D, S, B, I, H, isDynS == 0, isDynB == 0));
   });
 
   // Exhaustive test case generation.
