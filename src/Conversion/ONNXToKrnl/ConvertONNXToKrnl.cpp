@@ -112,6 +112,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Frontend operation lowering.
   // ControlFlow
   populateLoweringONNXLoopOpPattern(patterns, &getContext());
+  populateLoweringONNXScanOpPattern(patterns, &getContext());
   // Math
   populateLoweringONNXClipOpPattern(patterns, &getContext());
   populateLoweringONNXElementwiseOpPattern(patterns, &getContext());

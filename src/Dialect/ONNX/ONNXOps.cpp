@@ -3322,7 +3322,9 @@ LogicalResult ONNXScanOp::inferShapes(
     // dimension, which is very likely just the trip count specified as an
     // input to Loop operation, but we need to eliminate the possibility of
     // early termination to be sure.
-    unsqueezedShape.insert(unsqueezedShape.begin(), -1);
+    auto scanExtent =
+        scan_inputs().front().getType().cast<ShapedType>().getDimSize(0);
+    unsqueezedShape.insert(unsqueezedShape.begin(), scanExtent);
     std::get<0>(vScanOutputValToTy)
         .setType(RankedTensorType::get(
             unsqueezedShape, rankedScanTy.getElementType()));
@@ -3340,8 +3342,7 @@ mlir::Operation::operand_range ONNXScanOp::v_initial() {
 mlir::Operation::operand_range ONNXScanOp::scan_inputs() {
   auto numVInit = initial_state_and_scan_inputs().size() - num_scan_inputs();
   auto operands = getOperands();
-  return llvm::make_range(
-      operands.begin() + numVInit, operands.end());
+  return llvm::make_range(operands.begin() + numVInit, operands.end());
 }
 
 // Helper function to obtain subset of op results corresponding to the final

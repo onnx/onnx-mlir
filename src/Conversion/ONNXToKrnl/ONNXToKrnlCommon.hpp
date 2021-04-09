@@ -193,6 +193,9 @@ struct TensorTypeConverter : public TypeConverter {
 void populateLoweringONNXLoopOpPattern(
     OwningRewritePatternList &patterns, MLIRContext *ctx);
 
+void populateLoweringONNXScanOpPattern(
+    OwningRewritePatternList &patterns, MLIRContext *ctx);
+
 // `Math` directory methods:
 
 void populateLoweringONNXClipOpPattern(
