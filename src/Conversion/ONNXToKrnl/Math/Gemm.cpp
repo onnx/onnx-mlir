@@ -25,14 +25,14 @@ struct ONNXGemmOpLowering : public ConversionPattern {
   ONNXGemmOpLowering(MLIRContext *ctx)
       : ConversionPattern(GemmOp::getOperationName(), 1, ctx) {}
 
-  void genericGemmV2(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
+  void genericGemm(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
       Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
       Value zeroVal, Value alphaVal, Value betaVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
     using namespace mlir::edsc::intrinsics;
-    ScopedContext scope(rewriter, loc);
+    // ScopedContext scope(rewriter, loc);
 
     // R is result (alloc).
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
@@ -95,7 +95,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
     using namespace mlir::edsc::intrinsics;
-    ScopedContext scope(rewriter, loc);
+    // ScopedContext scope(rewriter, loc);
 
     // R is result (alloc).
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
@@ -184,7 +184,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
             SmallVector<IndexExpr, 2> cAccess;
             for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
               // If dim > 1, use loop index, otherwise broadcast on 0's element.
-              IndexExpr dim = shapeHelper.cDims[x];
+              SymbolIndexExpr dim(shapeHelper.cDims[x]);
               cAccess.emplace_back(
                   IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0));
             }
@@ -195,7 +195,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         });
   }
 
-  void genericGemm(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
+  void genericGemm_old(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
       Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
       Value zeroVal, Value alphaVal, Value betaVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
@@ -268,8 +268,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     if (shapeHelper.hasBias) {
       // Res = AB*alpha + beta * C.
       Value loadedC = krnl_load(operandAdaptor.C(), cAccessFct);
-      auto betaC = rewriter.create<MulFOp>(loc, betaVal, loadedC);
-      auto Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
+      Value betaC = rewriter.create<MulFOp>(loc, betaVal, loadedC);
+      Value Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
       krnl_store(Y, alloc, resAccessFct);
     } else {
       // No bias, just store alphaAB into res.
@@ -305,16 +305,14 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    // AEE DEGUG: add "true ||" to force the simple nonoptimized, working
-    // solution
-    if (gemmOp.transA() || gemmOp.transB()) {
-      genericGemmV2(gemmOp, operandAdaptor, elementType, shapeHelper, alloc,
-          zero, alpha, beta, rewriter, loc);
-    } else {
-      // AEE transpose not yet implemented
+    if (true) {
       tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, alpha, beta, rewriter, loc);
+    } else {
+      genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
+          alpha, beta, rewriter, loc);
     }
+
     rewriter.replaceOp(op, alloc);
 
     return success();
