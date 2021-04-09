@@ -1304,7 +1304,6 @@ int64_t MemRefBoundsIndexCapture::getShape(int64_t i) {
   return shape[i];
 }
 
-
 bool MemRefBoundsIndexCapture::areAllLiteral() {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();

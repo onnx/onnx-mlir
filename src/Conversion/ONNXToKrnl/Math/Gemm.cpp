@@ -121,12 +121,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         MemRefType::get({iCacheTile, kCacheTile}, elementType);
     MemRefType bTileType =
         MemRefType::get({kCacheTile, jCacheTile}, elementType);
-    // Because the sizes are compile time, no need to pass a dynamic indices.
-    SmallVector<IndexExpr> empty;
-    Value aBuff =
-        insertAllocAndDeallocSimple(rewriter, gemmOp, aTileType, loc, empty);
-    Value bBuff =
-        insertAllocAndDeallocSimple(rewriter, gemmOp, bTileType, loc, empty);
+    // IntegerAttr alignAttr =
+    //    IntegerAttr::get(IntegerType::get(rewriter, 64), 128);
+
+    Value aBuff = std_alloc(aTileType, ValueRange{});
+    Value bBuff = std_alloc(bTileType, ValueRange{});
+
     // 3) introduce the loops and permute them
     // I, J, K loop.
     ValueRange origLoop = krnl_define_loop(3);
@@ -193,6 +193,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           }
           krnl_store(res, R, outerIndices);
         });
+    rewriter.create<DeallocOp>(loc, aBuff);
+    rewriter.create<DeallocOp>(loc, bBuff);
   }
 
   void genericGemm_old(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
@@ -305,6 +307,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
+    if (IndexExpr::isLiteral(shapeHelper.aDims) &&
+        IndexExpr::isLiteral(shapeHelper.bDims)) {
+      // printf("hi alex: gemm of size I/J/K, %d,%d,%d\n",
+      //    (int)shapeHelper.aDims[0].getLiteral(),
+      //    (int)(int)shapeHelper.bDims[1].getLiteral(),
+      //    (int)shapeHelper.aDims[1].getLiteral());
+    }
     if (true) {
       tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, alpha, beta, rewriter, loc);
