@@ -10,7 +10,7 @@ if(Java_Development_FOUND AND JNI_FOUND)
 
   # Target for Java runtime jar
   add_jar(javaruntime
-          src/com/ibm/onnxmlir/DynEntryPoint.java
+          src/com/ibm/onnxmlir/OMModel.java
 	  src/com/ibm/onnxmlir/OMTensorList.java
           src/com/ibm/onnxmlir/OMTensor.java
           OUTPUT_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
@@ -18,7 +18,7 @@ if(Java_Development_FOUND AND JNI_FOUND)
   # Target for JNI runtime lib
   add_library(jniruntime STATIC
           jniwrapper.c jnilog.c jnidummy.c
-          com_ibm_onnxmlir_DynEntryPoint.h jnilog.h)
+          com_ibm_onnxmlir_OMModel.h jnilog.h)
   set_target_properties(jniruntime PROPERTIES
           POSITION_INDEPENDENT_CODE TRUE)
   target_include_directories(jniruntime PRIVATE

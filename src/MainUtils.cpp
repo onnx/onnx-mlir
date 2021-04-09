@@ -450,7 +450,7 @@ void compileModuleToJniJar(
   genSharedLib(module, modelSharedLibPath,
       {"-shared", "-fPIC", "-z", "noexecstack"},
       {constPackObjPath.getValueOr(""), modelObjPath, jniObjPath},
-      {"-lEmbeddedDataLoader", "-lcruntime", "-ljniruntime"});
+      {"-ljniruntime", "-lEmbeddedDataLoader", "-lcruntime"});
   llvm::FileRemover modelSharedLibRemover(modelSharedLibPath);
 
   string modelJniJarPath = outputBaseName + ".jar";
