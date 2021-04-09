@@ -19,25 +19,21 @@
 #include <string>
 #include <vector>
 
-#include "mlir/Pass/Pass.h"
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/Program.h>
-#include "mlir/Dialect/Affine/Passes.h"
-#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
-#include "mlir/Dialect/TVP/TVPDialect.h"
-#include "mlir/Dialect/TVP/Passes.h"
 #include "mlir/Conversion/AffineToTVP/AffineToTVPPass.h"
-#include "mlir/Conversion/VectorToTVP/ConvertVectorToTVP.h"
 #include "mlir/Conversion/StandardToTVP/ConvertStandardToTVP.h"
 #include "mlir/Conversion/TVPToLLVM/ConvertTVPToLLVM.h"
-#include "mlir/Dialect/Nepal/IR/NepalDialect.h"
-#include "mlir/Dialect/Nepal/Passes.h"
-#include "mlir/Target/Cpp/CppPrinter.h"
-#include "mlir/Target/LLVMIR/Export.h"
-#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Conversion/VectorToTVP/ConvertVectorToTVP.h"
+#include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/Transforms/Passes.h"
-#include <mlir/Dialect/LLVMIR/LLVMDialect.h>
-#include <mlir/IR/SymbolTable.h>
+#include "mlir/Dialect/Nepal/Passes.h"
+#include "mlir/Dialect/TVP/Passes.h"
+#include "mlir/IR/SymbolTable.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Export.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Program.h"
 
 #include "src/ExternalUtil.hpp"
 #include "src/MainUtils.hpp"
@@ -88,10 +84,11 @@ llvm::cl::opt<string> mcpu("mcpu", llvm::cl::desc("Target cpu"),
     llvm::cl::ValueRequired);
 
 llvm::cl::opt<bool> npu("npu", llvm::cl::desc("Execute passes specific to NPU"),
-  llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<int> virtualVectorSize("virtual-vector-size", llvm::cl::desc("Virtual vector size to affine-super-vectorize size"),
-  llvm::cl::init(256), llvm::cl::cat(OnnxMlirOptions));
+llvm::cl::opt<int> virtualVectorSize("virtual-vector-size",
+    llvm::cl::desc("Virtual vector size to affine-super-vectorize size"),
+    llvm::cl::init(256), llvm::cl::cat(OnnxMlirOptions));
 
 // Runtime directory contains all the libraries, jars, etc. that are
 // necessary for running onnx-mlir. It's resolved in the following order:
@@ -541,7 +538,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm) {
     pm.addNestedPass<FuncOp>(mlir::createKrnlOptimizeMemoryPoolsPass());
   }
   // MAKUDRYA-ISSUE_TODO: see comment above.
-  //pm.addPass(mlir::createCanonicalizerPass());
+  // pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
@@ -642,7 +639,8 @@ void emitOutputFiles(string outputBaseName, EmissionTargetType emissionTarget,
         (outputBaseName + ".onnx.mlir").c_str());
 
     // Apply specific passes to clean up the code where necessary.
-    mlir::PassManager cleanSourcePM(&context, mlir::OpPassManager::Nesting::Implicit);
+    mlir::PassManager cleanSourcePM(
+        &context, mlir::OpPassManager::Nesting::Implicit);
     if (emissionTarget == EmitONNXIR || emissionTarget == EmitONNXBasic)
       cleanSourcePM.addNestedPass<FuncOp>(mlir::createElideConstantValuePass());
     if (emissionTarget == EmitMLIR)
@@ -695,8 +693,9 @@ int compileModule(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
   return 0;
 }
 
-int compileModuleApollo(mlir::OwningModuleRef &module, mlir::MLIRContext &context,
-    std::string outputBaseName, EmissionTargetType emissionTarget) {
+int compileModuleApollo(mlir::OwningModuleRef &module,
+    mlir::MLIRContext &context, std::string outputBaseName,
+    EmissionTargetType emissionTarget) {
   mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Explicit);
   pm.enableCrashReproducerGeneration(outputBaseName + ".crash.mlir", true);
 #ifdef NDEBUG
@@ -746,7 +745,8 @@ int compileModuleApollo(mlir::OwningModuleRef &module, mlir::MLIRContext &contex
 
   string mlirTranslatePath = getToolPath("mlir-translate");
   Command mlirTranslateCommand(
-      /*exePath=*/!mlirTranslatePath.empty() ? mlirTranslatePath : kMlirTranslatePath);
+      /*exePath=*/!mlirTranslatePath.empty() ? mlirTranslatePath
+                                             : kMlirTranslatePath);
   string mlirTranslateInput = outputBaseName + ".final.mlir";
   string mlirTranslateoOutput = outputBaseName + ".ll";
   mlirTranslateCommand.appendStr("--mlir-to-llvmir")
@@ -756,8 +756,7 @@ int compileModuleApollo(mlir::OwningModuleRef &module, mlir::MLIRContext &contex
 
   string llcPath = getToolPath("llc");
   Command llcCommand(
-      /*exePath=*/!llcPath.empty() ? llcPath
-                                             : kLlcPath);
+      /*exePath=*/!llcPath.empty() ? llcPath : kLlcPath);
   string llcInput = mlirTranslateoOutput;
   string llcOutput = outputBaseName + ".s";
   llcCommand.appendStr("-mtriple=apollo-none-none")
