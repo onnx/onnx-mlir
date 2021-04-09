@@ -1105,7 +1105,10 @@ private:
       concatTypeString(inputs[i], dstream);
       comma = std::string(" , ");
     }
-    dstream << "\n] @ [";
+    dstream << "\n]";
+    dstream.flush();
+    dstring.push_back('\0'); // null terminate the input signature string
+    dstream << "@[";
     comma = std::string("");
     for (int i = 0; i < funcType.getNumResults(); i++) {
       dstream << comma;
@@ -1114,6 +1117,7 @@ private:
     }
     dstream << "\n]";
     dstream.flush();
+    dstring.push_back('\0'); // null terminate the output signature string
     size_t start_pos = 0;
     while ((start_pos = dstring.find(sf32, start_pos)) != std::string::npos) {
       dstring.replace(start_pos, sf32.length(), typeMap[sf32]);

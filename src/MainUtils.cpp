@@ -19,11 +19,12 @@
 #include <string>
 #include <vector>
 
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/Program.h>
-#include <mlir/Dialect/LLVMIR/LLVMDialect.h>
-#include <mlir/IR/SymbolTable.h>
+#include "mlir/Target/LLVMIR.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Program.h"
 
 #include "src/ExternalUtil.hpp"
 #include "src/MainUtils.hpp"
