@@ -30,7 +30,6 @@ set(OMLibs
         OMSpecializedKernelOpInterface
         OMElideConstants
         OMElideKrnlGlobalConstants
-        OMPackKrnlGlobalConstants
         OMEnableMemoryPool
         OMBundleMemoryPools
         OMOptimizeMemoryPools
@@ -78,7 +77,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
 add_dependencies(onnx-mlir OMKrnlOpsInc OMONNXOpsInc)
 
 add_dependencies(onnx-mlir cruntime)
-add_dependencies(onnx-mlir EmbeddedDataLoader)
 
 target_include_directories(onnx-mlir PRIVATE ${ONNX_MLIR_SRC_ROOT})
 target_include_directories(onnx-mlir PRIVATE ${CMAKE_BINARY_DIR})
