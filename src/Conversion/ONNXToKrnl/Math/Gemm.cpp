@@ -307,7 +307,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    //if (IndexExpr::isLiteral(shapeHelper.aDims) &&
+    // if (IndexExpr::isLiteral(shapeHelper.aDims) &&
     //    IndexExpr::isLiteral(shapeHelper.bDims)) {
     //  printf("hi alex: gemm of size I/J/K, %d,%d,%d\n",
     //      (int)shapeHelper.aDims[0].getLiteral(),
