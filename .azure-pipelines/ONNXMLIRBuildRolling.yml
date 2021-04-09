@@ -1,0 +1,54 @@
+name: ONNX_MLIR.$(Build.SourceBranchName).Rolling.Release.$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
+
+resources:
+  repositories:
+  - repository: llvm-project
+    type: git
+    name: llvm-project
+    ref: refs/heads/tvp
+    trigger: tvp
+  - repository: tools
+    type: git
+    name: tools
+    ref: refs/heads/main
+    trigger: none
+  - repository: protobuf
+    type: github
+    name: protocolbuffers/protobuf
+    endpoint: ProtobufGitHubServiceConnection
+    ref: refs/tags/v3.12.3
+    trigger: none
+
+trigger:
+  batch: true
+  branches:
+    include:
+    - apollo
+
+schedules:
+- cron: "0 12 * * *"
+  displayName: 5:00 AM (UTC - 7) daily build
+  branches:
+    include:
+    - apollo
+  always: true
+
+variables:
+- name: CTEST_OUTPUT_ON_FAILURE
+  value: 1
+- name: System.PreferGitFromPath
+  value: true
+
+jobs:
+- template: .azure-pipelines/templates/ONNXMLIRJobTemplate.yml@tools
+  parameters:
+    ${{ if eq(variables['Build.Reason'], 'Schedule')) }}:
+      BuildConfigurations:
+      - Debug
+      - Release
+    ${{ if ne(variables['Build.Reason'], 'Schedule')) }}:
+      BuildConfigurations:
+      - Release
+    Platforms:
+    - Ubuntu
+    - Windows

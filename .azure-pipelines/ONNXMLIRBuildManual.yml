@@ -1,0 +1,45 @@
+name: ONNX_MLIR.$(Build.SourceBranchName).${{ parameters.BuildLabel }}.$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
+
+resources:
+  repositories:
+  - repository: llvm-project
+    type: git
+    name: llvm-project
+    ref: refs/heads/tvp
+    trigger: none
+  - repository: tools
+    type: git
+    name: tools
+    ref: refs/heads/main
+    trigger: none
+  - repository: protobuf
+    type: github
+    name: protocolbuffers/protobuf
+    endpoint: ProtobufGitHubServiceConnection
+    ref: refs/tags/v3.12.3
+    trigger: none
+
+trigger: none
+
+parameters:
+- name: Platforms
+  type: object
+  default: ['Ubuntu', 'Windows']
+- name: BuildConfigurations
+  type: object
+  default: ['Release']
+- name: BuildLabel
+  type: string
+  default: 'Manual'
+
+variables:
+- name: CTEST_OUTPUT_ON_FAILURE
+  value: 1
+- name: System.PreferGitFromPath
+  value: true
+
+jobs:
+- template: .azure-pipelines/templates/ONNXMLIRJobTemplate.yml@tools
+  parameters:
+    Platforms: ${{ parameters.Platforms }}
+    BuildConfigurations: ${{ parameters.BuildConfigurations }}
