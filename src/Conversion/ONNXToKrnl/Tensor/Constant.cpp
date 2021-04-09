@@ -54,36 +54,15 @@ struct ONNXConstantOpLowering : public ConversionPattern {
     for (int i = 0; i < shape.size(); ++i)
       numElements *= shape[i];
 
-    DenseElementsAttr denseAttr =
-        constantOp.value().getValue().cast<DenseElementsAttr>();
-    KrnlGlobalOp constantGlobal;
-    if (!denseAttr.isSplat()) {
-      // Emit the constant global in Krnl dialect.
-      constantGlobal = rewriter.create<KrnlGlobalOp>(loc, memRefType,
-          /*shape=*/rewriter.getI64ArrayAttr(shape),
-          /*name=*/
-          rewriter.getStringAttr("constant_" + std::to_string(constantID)),
-          /*value=*/nullptr,
-          /*offset=*/nullptr,
-          /*alignment=*/nullptr);
+    // Emit the constant global in Krnl dialect.
+    auto constantGlobal = rewriter.create<KrnlGlobalOp>(loc, memRefType,
+        /*shape=*/rewriter.getI64ArrayAttr(shape),
+        /*name=*/
+        rewriter.getStringAttr("constant_" + std::to_string(constantID)),
+        /*value=*/constantOp.value().getValue(),
+        /*offset=*/nullptr,
+        /*alignment=*/nullptr);
 
-      /// Create an opaque attr and add its to the constant op.
-      std::vector<char> rawData = denseAttr.getRawData();
-      OpaqueElementsAttr opaqueAttr =
-          OpaqueElementsAttr::get(constantGlobal.getOperation()->getDialect(),
-              RankedTensorType::get(shape, memRefType.getElementType()),
-              StringRef((char *)rawData.data(), rawData.size()));
-      constantGlobal.valueAttr(opaqueAttr);
-    } else {
-      // Emit the constant global in Krnl dialect.
-      constantGlobal = rewriter.create<KrnlGlobalOp>(loc, memRefType,
-          /*shape=*/rewriter.getI64ArrayAttr(shape),
-          /*name=*/
-          rewriter.getStringAttr("constant_" + std::to_string(constantID)),
-          /*value=*/denseAttr,
-          /*offset=*/nullptr,
-          /*alignment=*/nullptr);
-    }
     // Increment constant ID:
     constantID++;
 

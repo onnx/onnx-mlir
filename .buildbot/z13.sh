@@ -70,7 +70,7 @@ LLVM_PROJ_BUILD=${LLVM_PROJECT_ROOT}/build      \
 cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} .. \
 
 make -j$(nproc)
-# make -j$(nproc) check-onnx-lit
+make -j$(nproc) check-onnx-lit
 make check-onnx-backend
 make check-onnx-backend-dynamic
 make ARGS=-j$(nproc) test

@@ -31,11 +31,11 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
        LLVM_PROJ_BUILD=${LLVM_PROJECT_ROOT}/build \
        cmake .. \
     && make -j$(nproc) \
-    # && LIT_OPTS=-v make -j$(nproc) check-onnx-lit \
+    && LIT_OPTS=-v make -j$(nproc) check-onnx-lit \
     && make check-onnx-backend \
     && make check-onnx-backend-dynamic \
     && make ARGS=-j$(nproc) test \
-    # && make check-doc \
+    && make check-doc \
     && make onnx-mlir-doc \
     && rm -rf /tmp/*
 
