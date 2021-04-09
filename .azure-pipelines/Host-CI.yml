@@ -16,7 +16,7 @@ resources:
   - repository: tools
     type: git
     name: tools
-    ref: refs/heads/onnx
+    ref: refs/heads/main
     trigger: none
   - repository: protobuf
     type: github
