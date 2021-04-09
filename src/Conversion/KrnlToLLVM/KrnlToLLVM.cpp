@@ -736,6 +736,27 @@ public:
     }
   };
 
+  static void genSignatureFunction(PatternRewriter &rewriter, MLIRContext *context, std::string funcName, LLVM::GlobalOp sigvar, Location loc){      
+    auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
+    llvm::SmallVector<Type, 1> outputsType{opaquePtrTy};
+
+    auto funcType = rewriter.getFunctionType(llvm::None, outputsType);
+    llvm::SmallVector<NamedAttribute, 1> attrs;
+    auto funcOp =
+        rewriter.create<FuncOp>(UnknownLoc::get(context), funcName, funcType, attrs);
+
+    auto entryBlock = funcOp.addEntryBlock();
+
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(entryBlock);
+
+
+    auto sigAddr = rewriter.create<LLVM::AddressOfOp>(loc,sigvar);
+  auto sigVoidPtr = rewriter.create<LLVM::BitcastOp>(loc,opaquePtrTy,sigAddr);
+  llvm::SmallVector<Value, 1> results = {sigVoidPtr};
+  rewriter.create<ReturnOp>(UnknownLoc::get(context), results);
+}
+
   LogicalResult matchAndRewrite(
       KrnlEntryPointOp op, PatternRewriter &rewriter) const override {
 
@@ -755,7 +776,6 @@ public:
     auto int64Ty = IntegerType::get(context, 64);
 
     // create global to hold signature
-
     auto splitSig = signature.split('@');
     llvm::StringRef inSig = splitSig.first;
     llvm::StringRef outSig = splitSig.second;
@@ -764,17 +784,19 @@ public:
 
     auto inSigArrayType =
         LLVM::LLVMArrayType::get(IntegerType::get(context, 8), inSig.size());
-    rewriter.create<LLVM::GlobalOp>(loc, inSigArrayType,
+    auto insig = rewriter.create<LLVM::GlobalOp>(loc, inSigArrayType,
         /*isConstant=*/true, LLVM::Linkage::External, "_in_signature",
         inSigAttr);
 
     auto outSigArrayType =
         LLVM::LLVMArrayType::get(IntegerType::get(context, 8), outSig.size());
-    rewriter.create<LLVM::GlobalOp>(loc, outSigArrayType,
+    auto outsig = rewriter.create<LLVM::GlobalOp>(loc, outSigArrayType,
         /*isConstant=*/true, LLVM::Linkage::External, "_out_signature",
         outSigAttr);
-
-    // Rewrite Krnl Entry Point Operation to an LLVM function with a dynamic
+  genSignatureFunction(rewriter, context, "omInputSignature", insig, loc);    
+  genSignatureFunction(rewriter, context, "omOutputSignature", outsig, loc);    
+  
+ // Rewrite Krnl Entry Point Operation to an LLVM function with a dynamic
     // signature. The signature is dynamic because it remains the same no matter
     // what the model input/output schema look like. Such dynamic signature
     // takes a opaque ptr as input, representing a ptr to a data structure
