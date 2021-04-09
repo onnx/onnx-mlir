@@ -16,7 +16,7 @@ resources:
   - repository: tools
     type: git
     name: tools
-    ref: refs/heads/main
+    ref: refs/heads/onnx
     trigger: none
   - repository: protobuf
     type: github
@@ -96,36 +96,3 @@ jobs:
     parameters:
       BuildConfiguration: '$(CMakeBuildConfiguration)'
       Platform: 'Ubuntu'
-
-  # Pulled the following steps out of the template because they are currently Linux specific, until we get upstream fixes
-  - script: |
-      pip3 install --user --no-use-pep517 -e $(Build.SourcesDirectory)/onnx-mlir/third_party/onnx
-      pip3 install --user --no-deps onnxruntime
-    displayName: 'Install ONNX Python Module'
-
-  - task: CMake@1
-    displayName: 'Check ONNX Docs'
-    inputs:
-      workingDirectory: '$(Build.BinariesDirectory)/onnx-mlir'
-      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-doc'
-
-# ISSUE-TODO-stilis-2021/03/23: #356: Memory pool operations in onnx-mlir are broken due to algorithm changes in mlir
-#  - task: CMake@1
-#    displayName: 'End-To-End Test ONNX'
-#    inputs:
-#      workingDirectory: '$(Build.BinariesDirectory)/onnx-mlir'
-#      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target check-onnx-backend'
-
-# ISSUE-TODO-stilis-2021/03/23: #356: Memory pool operations in onnx-mlir are broken due to algorithm changes in mlir
-#  - task: CMake@1
-#    displayName: 'Build Unit Tests'
-#    inputs:
-#      workingDirectory: '$(Build.BinariesDirectory)/onnx-mlir'
-#      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target test/unit/all test/numerical/all test/mlir/all third_party/benchmark/test/all'
-
-# ISSUE-TODO-stilis-2021/03/23: #356: Memory pool operations in onnx-mlir are broken due to algorithm changes in mlir
-#  - task: CMake@1
-#    displayName: 'ONNX MLIR Unit Tests'
-#    inputs:
-#      workingDirectory: '$(Build.BinariesDirectory)/onnx-mlir'
-#      cmakeArgs: '--build . --config $(CMakeBuildConfiguration) --target test'
