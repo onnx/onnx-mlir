@@ -138,6 +138,11 @@ void print(OpAsmPrinter &p, KrnlIterateOp &op) {
   p.printOperands(op.operand_begin(), op.operand_begin() + numOptimizedLoops);
   p << ") with (";
 
+  // In the event where body region has been lowered, do not print body.
+  if (op.bodyRegion().empty()) {
+    p << ")";
+    return;
+  }
   auto inductionVars = op.bodyRegion().begin()->getArguments();
   auto boundItr =
       op->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
