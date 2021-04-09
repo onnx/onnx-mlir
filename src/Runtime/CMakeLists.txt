@@ -11,8 +11,6 @@ add_library(cruntime STATIC
         OMTensor.inc
         OMTensorList.c
         OMTensorList.inc
-        OMSignature.c
-        OMSignature.inc
         OnnxDataType.cpp)
 set_target_properties(cruntime PROPERTIES
         LANGUAGE C)
