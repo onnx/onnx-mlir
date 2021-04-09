@@ -395,7 +395,8 @@ public:
                "Krnl Global must always have a value");
 
         int64_t sizeInBytes = numElements * getMemRefEltSizeInBytes(memRefTy);
-        StringAttr llvmStringAttr;
+        auto llvmArrayI8Ty =
+            LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
         if (krnlGlobalOp.value().getValue().isa<OpaqueElementsAttr>()) {
           // LLVM::GlobalOp does not support OpaqueElementsAttr.
           // Both StringAttr and OpaqueElementsAttr use StringRef for internal
@@ -408,22 +409,30 @@ public:
           // Check data size.
           assert((data.size() == sizeInBytes) && "Data size mismatch.");
 
-          llvmStringAttr = StringAttr::get(data, context);
+          StringAttr llvmStringAttr = StringAttr::get(data, context);
+          global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+              /*isConstant=*/true, LLVM::Linkage::Internal, name,
+              llvmStringAttr);
         } else if (krnlGlobalOp.value().getValue().isa<DenseElementsAttr>()) {
           DenseElementsAttr denseAttr =
               krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
-          std::vector<char> rawData = denseAttr.getRawData();
-          // Check data size.
-          assert((rawData.size() == sizeInBytes) && "Data size mismatch.");
+          if (!denseAttr.isSplat()) {
+            std::vector<char> rawData = denseAttr.getRawData();
+            // Check data size.
+            assert((rawData.size() == sizeInBytes) && "Data size mismatch.");
 
-          StringRef data = StringRef((char *)rawData.data(), rawData.size());
-          llvmStringAttr = StringAttr::get(data, context);
+            StringRef data = StringRef((char *)rawData.data(), rawData.size());
+            StringAttr llvmStringAttr = StringAttr::get(data, context);
+            global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+                /*isConstant=*/true, LLVM::Linkage::Internal, name,
+                llvmStringAttr);
+          } else {
+            global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+                /*isConstant=*/true, LLVM::Linkage::Internal, name,
+                krnlGlobalOp.value().getValue());
+          }
         } else
           llvm_unreachable("Unsupported attribute type");
-        auto llvmArrayI8Ty =
-            LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
-        global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
-            /*isConstant=*/true, LLVM::Linkage::Internal, name, llvmStringAttr);
       }
 
       // Some frequently used types.
