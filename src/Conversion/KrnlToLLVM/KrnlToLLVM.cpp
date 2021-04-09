@@ -427,7 +427,7 @@ public:
                 /*isConstant=*/true, LLVM::Linkage::Internal, name,
                 llvmStringAttr);
           } else {
-            global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+            global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
                 /*isConstant=*/true, LLVM::Linkage::Internal, name,
                 krnlGlobalOp.value().getValue());
           }
