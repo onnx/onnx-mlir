@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# TODO: remove for release.
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug CACHE STRING "build type")
-endif()
+# Match the minimum required version of LLVM and MLIR
+cmake_minimum_required(VERSION 3.13.4)
 
-# Require 3.3 and set policy CMP0057 for IN_LIST operator support
-cmake_minimum_required(VERSION 3.3)
-cmake_policy(SET CMP0057 NEW)
 project(onnx-mlir)
+
+if (NOT CMAKE_BUILD_TYPE)
+  message(STATUS "No build type selected, default to Debug")
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type (default Debug)" FORCE)
+endif()
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 
@@ -18,6 +18,10 @@ set(ONNX_MLIR_BIN_ROOT "${CMAKE_CURRENT_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# Lit test suite requires at least python 3.6
+set(LLVM_MINIMUM_PYTHON_VERSION 3.6)
+find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
 include(CTest)
 include(MLIR.cmake)
