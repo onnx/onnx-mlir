@@ -307,13 +307,13 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    if (IndexExpr::isLiteral(shapeHelper.aDims) &&
-        IndexExpr::isLiteral(shapeHelper.bDims)) {
-      // printf("hi alex: gemm of size I/J/K, %d,%d,%d\n",
-      //    (int)shapeHelper.aDims[0].getLiteral(),
-      //    (int)(int)shapeHelper.bDims[1].getLiteral(),
-      //    (int)shapeHelper.aDims[1].getLiteral());
-    }
+    //if (IndexExpr::isLiteral(shapeHelper.aDims) &&
+    //    IndexExpr::isLiteral(shapeHelper.bDims)) {
+    //  printf("hi alex: gemm of size I/J/K, %d,%d,%d\n",
+    //      (int)shapeHelper.aDims[0].getLiteral(),
+    //      (int)(int)shapeHelper.bDims[1].getLiteral(),
+    //      (int)shapeHelper.aDims[1].getLiteral());
+    //}
     if (true) {
       tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, alpha, beta, rewriter, loc);
