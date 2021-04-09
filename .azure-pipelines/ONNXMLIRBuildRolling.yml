@@ -42,11 +42,11 @@ variables:
 jobs:
 - template: .azure-pipelines/templates/ONNXMLIRJobTemplate.yml@tools
   parameters:
-    ${{ if eq(variables['Build.Reason'], 'Schedule')) }}:
+    ${{ if eq(variables['Build.Reason'], 'Schedule') }}:
       BuildConfigurations:
       - Debug
       - Release
-    ${{ if ne(variables['Build.Reason'], 'Schedule')) }}:
+    ${{ if ne(variables['Build.Reason'], 'Schedule') }}:
       BuildConfigurations:
       - Release
     Platforms:
