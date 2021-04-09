@@ -2,6 +2,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+//===----------- jnilog.h - JNI wrapper simple logging header- -----------===//
+//
+// Copyright 2019-2020 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains macro definitions of simple logging routines used by the
+// JNI wrapper.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef __JNILOG_H__
 #define __JNILOG_H__
 
