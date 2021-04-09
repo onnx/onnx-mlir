@@ -143,8 +143,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     ValueRange kCacheBlock = krnl_block(kk, kCacheTile);
     Value kk1(kCacheBlock[0]), kk2(kCacheBlock[1]);
     // (cache) jj1 kk1, ii1,    (reg) jj2, ii2,    (matmul) ii3, jj3, kk3
-    krnl_permute({ii1, ii2, ii3, jj1, jj2, jj3, kk1, kk2},
-        {/*i*/ 2, 4, 5, /*j*/ 0, 3, 6, /*k*/ 1, 7});
+    krnl_permute({jj1, jj2, jj3, kk1, kk2, ii1, ii2, ii3},
+        {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
 
     // Compute: A[i, k] * b[k, j] -> R[i, j])
     krnl_iterate(
@@ -162,7 +162,8 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                       krnl_get_induction_var_value({jj2, ii2});
                   Value j2(j2_i2_indices[0]), i2(j2_i2_indices[1]);
                   krnl_matmul(aBuff, {i1, k1}, bBuff, {k1, j1}, R, {zero, zero},
-                      /*loops*/ {ii3, jj3, kk2}, /*compute start*/ {i2, j2, k1},
+                      /*loops*/ {ii3, jj3, kk2},
+                      /*compute start*/ {i2, j2, k1},
                       /*ubs*/ {I, J, K},
                       /*compute tile*/ {iRegTile, jRegTile, kCacheTile},
                       /* a/b/c tiles*/ {}, {}, {}, true, true, false);
@@ -183,7 +184,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
             SmallVector<IndexExpr, 2> cAccess;
             for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
               // If dim > 1, use loop index, otherwise broadcast on 0's element.
-              SymbolIndexExpr dim(shapeHelper.cDims[x]);
+              IndexExpr dim = shapeHelper.cDims[x];
               cAccess.emplace_back(
                   IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0));
             }
@@ -257,7 +258,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     if (shapeHelper.hasBias) {
       for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
         // If dim > 1, use loop index, otherwise broadcast on 0's element.
-        SymbolIndexExpr dim(shapeHelper.cDims[x]);
+        IndexExpr dim = shapeHelper.cDims[x];
         cAccessFct.emplace_back(IndexExpr::select(dim > 1, resAccessFct[x], 0));
       }
     }

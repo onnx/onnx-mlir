@@ -683,21 +683,6 @@ public:
     else
       cTileSize = {cBounds.getSymbol(cRank - 2), cBounds.getSymbol(cRank - 1)};
 
-    // Check consitency. If the dimensions were padded differently for
-    // A, B, or C, and the optional A/B/C TileSize attributes were given,
-    // we take the these optional sizes into consideration. Meaning, we
-    // don't really care about the padded dimensions, we only care about
-    // the actual data.
-    if (IndexExpr::isLiteral(aTileSize) && IndexExpr::isLiteral(bTileSize) &&
-        IndexExpr::isLiteral(cTileSize)) {
-      assert(aTileSize[0].getLiteral() == cTileSize[0].getLiteral() &&
-             "I dim mismatch");
-      assert(aTileSize[1].getLiteral() == bTileSize[0].getLiteral() &&
-             "K dim mismatch");
-      assert(bTileSize[1].getLiteral() == cTileSize[1].getLiteral() &&
-             "J dim mismatch");
-    }
-
     // Gather N, M, K compute tile size. This is the size of the computations,
     // if the tile is full. Because computation in the buffers could be further
     // subtiled, the default size can be overridden from the tile sizes using
@@ -1106,11 +1091,11 @@ public:
   }
 
   void genCopyLoops(Value buffMemref, Value sourceMemref,
-      SmallVectorImpl<int64_t> &srcIndexMap, SmallVectorImpl<int64_t> &srcLoopMap,
-      Value padVal, IndexExpr zero, SmallVectorImpl<IndexExpr> &starts,
-      SmallVectorImpl<IndexExpr> &readUBs, SmallVectorImpl<IndexExpr> &padUBs,
-      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t buffRank,
-      bool padPhase) const {
+      SmallVectorImpl<int64_t> &srcIndexMap,
+      SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zero,
+      SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
+      SmallVectorImpl<IndexExpr> &padUBs, SmallVectorImpl<Value> &loopIndices,
+      int64_t i, int64_t buffRank, bool padPhase) const {
     if (i == buffRank) {
       // create new scope and import index expressions
       IndexExprScope currScope;
