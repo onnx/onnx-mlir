@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # Documentation example requires ONNX package installation, which has been
 # flaky on non-x86 platforms, so only perform this test on x86 arch.
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
