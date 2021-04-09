@@ -246,6 +246,36 @@ private:
   llvm::DenseMap<mlir::Value, llvm::SmallVector<Movable, 4>> movingPlan;
 };
 
+void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
+  // Remove lowered operations topologically; if ops are not removed
+  // topologically, memory error will occur.
+  size_t numOpsToRemove = opsToErase.size();
+  // Given N operations to remove topologically, and that we remove
+  // at least one operation during each pass through opsToErase, we
+  // can only have a maximum of N passes through opsToErase.
+  for (size_t i = 0; i < numOpsToRemove; i++) {
+    for (auto op : opsToErase) {
+      bool safeToDelete = op->use_empty();
+      safeToDelete &= llvm::all_of(op->getRegions(), [](Region &region) {
+        return llvm::all_of(region.getBlocks(), [](Block &block) {
+          return (block.getOperations().size() == 0) ||
+                 (block.getOperations().size() == 1 &&
+                     block.getOperations().front().isKnownTerminator());
+        });
+      });
+
+      if (safeToDelete) {
+        op->erase();
+        opsToErase.erase(op);
+        // Restart, itr has been invalidated.
+        break;
+      }
+    }
+    if (opsToErase.empty())
+      break;
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // Krnl to Affine Rewrite Patterns: KrnlTerminator operation.
 //===----------------------------------------------------------------------===//
@@ -412,6 +442,8 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     opsToErase.insert(op);
     return success();
   } else if (auto permuteOp = dyn_cast_or_null<KrnlPermuteOp>(op)) {
+    // TODO(tjingrant): call it whenever an operation lowering completes.
+    removeOps(opsToErase);
     // Collect loops to permute.
     SmallVector<AffineForOp, 4> loopsToPermute;
     std::transform(permuteOp.operand_begin(), permuteOp.operand_end(),
@@ -442,15 +474,6 @@ LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     assert(succeeded(res) && "failed to unroll");
     opsToErase.insert(op);
     return success();
-  } else if (auto convertOp =
-                 dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
-    auto zippedOperandsResults = llvm::zip(op->getOperands(), op->getResults());
-    for (const auto &operandAndResult : zippedOperandsResults) {
-      auto operand = std::get<0>(operandAndResult);
-      auto result = std::get<1>(operandAndResult);
-      result.replaceAllUsesWith(loopRefToOp[operand].getInductionVar());
-    }
-    opsToErase.insert(op);
   }
 
   return success();
@@ -1297,35 +1320,20 @@ void ConvertKrnlToAffinePass::runOnFunction() {
         opsToErase.insert(loopRefToOp[loopRef]);
       kernelOp.getLoopRefs().clear();
     }
-  });
 
-  // Remove lowered operations topologically; if ops are not removed
-  // topologically, memory error will occur.
-  size_t numOpsToRemove = opsToErase.size();
-  // Given N operations to remove topologically, and that we remove
-  // at least one operation during each pass through opsToErase, we
-  // can only have a maximum of N passes through opsToErase.
-  for (size_t i = 0; i < numOpsToRemove; i++) {
-    for (auto op : opsToErase) {
-      bool safeToDelete = op->use_empty();
-      safeToDelete &= llvm::all_of(op->getRegions(), [](Region &region) {
-        return llvm::all_of(region.getBlocks(), [](Block &block) {
-          return (block.getOperations().size() == 0) ||
-                 (block.getOperations().size() == 1 &&
-                     block.getOperations().front().isKnownTerminator());
-        });
-      });
-
-      if (safeToDelete) {
-        op->erase();
-        opsToErase.erase(op);
-        // Restart, itr has been invalidated.
-        break;
+    if (auto convertOp =
+            dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
+      auto zippedOperandsResults =
+          llvm::zip(op->getOperands(), op->getResults());
+      for (const auto &operandAndResult : zippedOperandsResults) {
+        auto operand = std::get<0>(operandAndResult);
+        auto result = std::get<1>(operandAndResult);
+        result.replaceAllUsesWith(loopRefToOp[operand].getInductionVar());
       }
+      opsToErase.insert(op);
     }
-    if (opsToErase.empty())
-      break;
-  }
+  });
+  removeOps(opsToErase);
   assert(opsToErase.empty());
 
   // Move loop body under appropriate newly created affine loops.
@@ -1361,6 +1369,7 @@ void ConvertKrnlToAffinePass::runOnFunction() {
           getFunction(), target, std::move(patterns), &unconverted)))
     signalPassFailure();
 }
+
 } // namespace
 
 std::unique_ptr<Pass> mlir::createConvertKrnlToAffinePass() {
