@@ -8,7 +8,7 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   "std.return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK: llvm.func @llvm.memcpy.p0i8.p0i8.i64(!llvm.ptr<i8>, !llvm.ptr<i8>, i64, i1)
-  // CHECK: llvm.mlir.global internal constant [[GLOBAL_CONST:@.+]](dense<{{.*}}[0.000000e+00, 0.000000e+00], [1.000000e+00, 1.100000e+00], [2.000000e+00, 2.100000e+00]{{.*}}> : tensor<3x2xf32>) : !llvm.array<3 x array<2 x f32>>
+  // CHECK: llvm.mlir.global internal constant [[GLOBAL_CONST:@.+]]("\00\00\00\00\00\00\00\00?\80\00\00?\8C\CC\CD@\00\00\00@\06ff")
   // CHECK: llvm.func @test_constant({{.*}}) -> !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)> {
 
   // CHECK: [[CONST_3:%.+]] = llvm.mlir.constant(3 : index) : i64
@@ -32,8 +32,8 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   // CHECK: [[ALLOCA:%.+]] = llvm.alloca [[CONST1]] x !llvm.array<3 x array<2 x f32>> : (i64) -> !llvm.ptr<array<3 x array<2 x f32>>> 
   // CHECK: [[I8ALLOCA:%.+]] = llvm.bitcast [[ALLOCA]] : !llvm.ptr<array<3 x array<2 x f32>>> to !llvm.ptr<i8> 
   
-  // CHECK: [[GLOBAL_ADDR:%.+]] = llvm.mlir.addressof [[GLOBAL_CONST]] : !llvm.ptr<array<3 x array<2 x f32>>>  
-  // CHECK: [[I8GLOBAL:%.+]] = llvm.bitcast [[GLOBAL_ADDR]] : !llvm.ptr<array<3 x array<2 x f32>>> to !llvm.ptr<i8> 
+  // CHECK: [[GLOBAL_ADDR:%.+]] = llvm.mlir.addressof [[GLOBAL_CONST]] : !llvm.ptr<array<24 x i8>>
+  // CHECK: [[I8GLOBAL:%.+]] = llvm.bitcast [[GLOBAL_ADDR]] : !llvm.ptr<array<24 x i8>> to !llvm.ptr<i8>
 
   /// Size of the constant tensor in bytes.
   // CHECK: [[CONST4:%.+]] = llvm.mlir.constant(4 : i64) : i64
@@ -83,8 +83,8 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   // CHECK: [[ALLOCA:%.+]] = llvm.alloca [[CONST1]] x !llvm.array<3 x array<2 x f32>> : (i64) -> !llvm.ptr<array<3 x array<2 x f32>>>
   // CHECK: [[I8ALLOCA:%.+]] = llvm.bitcast [[ALLOCA]] : !llvm.ptr<array<3 x array<2 x f32>>> to !llvm.ptr<i8>
 
-  // CHECK: [[GLOBAL_ADDR:%.+]] = llvm.mlir.addressof [[GLOBAL_CONST:.*]] : !llvm.ptr<array<3 x array<2 x f32>>>
-  // CHECK: [[I8GLOBAL:%.+]] = llvm.bitcast [[GLOBAL_ADDR]] : !llvm.ptr<array<3 x array<2 x f32>>> to !llvm.ptr<i8>
+  // CHECK: [[GLOBAL_ADDR:%.+]] = llvm.mlir.addressof [[GLOBAL_CONST]] : !llvm.ptr<array<24 x i8>>
+  // CHECK: [[I8GLOBAL:%.+]] = llvm.bitcast [[GLOBAL_ADDR]] : !llvm.ptr<array<24 x i8>> to !llvm.ptr<i8>
 
   /// Size of the constant tensor in bytes.
   // CHECK: [[CONST4:%.+]] = llvm.mlir.constant(4 : i64) : i64
