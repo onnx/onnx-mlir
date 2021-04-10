@@ -567,20 +567,23 @@ void ONNXOpsDialect::printType(
 
 void ONNXEntryPointOp::build(mlir::OpBuilder &builder,
     mlir::OperationState &state, mlir::FuncOp function, int numInputs,
-    int numOutputs) {
+    int numOutputs, std::string signature) {
   state.addAttribute(ONNXEntryPointOp::getEntryPointFuncAttrName(),
       builder.getSymbolRefAttr(function));
   state.addAttribute(ONNXEntryPointOp::getNumInputsAttrName(),
       builder.getI32IntegerAttr(numInputs));
   state.addAttribute(ONNXEntryPointOp::getNumOutputsAttrName(),
       builder.getI32IntegerAttr(numOutputs));
+  state.addAttribute(ONNXEntryPointOp::getSignatureAttrName(),
+      builder.getStringAttr(signature));
 }
 
 ONNXEntryPointOp ONNXEntryPointOp::create(mlir::Location location,
-    mlir::FuncOp &func, int numInputs, int numOutputs) {
+    mlir::FuncOp &func, int numInputs, int numOutputs, std::string signature) {
   mlir::OperationState state(location, "onnx.EntryPoint");
   OpBuilder builder(location->getContext());
-  mlir::ONNXEntryPointOp::build(builder, state, func, numInputs, numOutputs);
+  mlir::ONNXEntryPointOp::build(
+      builder, state, func, numInputs, numOutputs, signature);
   Operation *op = mlir::Operation::create(state);
   auto onnxEntryOp = llvm::cast<mlir::ONNXEntryPointOp>(op);
   return onnxEntryOp;

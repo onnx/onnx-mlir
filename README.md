@@ -162,9 +162,9 @@ call cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 ..\llvm ^
    -DLLVM_ENABLE_RTTI=ON ^
    -DLLVM_ENABLE_ZLIB=OFF
 
-call cmake --build . --config Release --target -- /m
-call cmake --build . --config Release --target install
-call cmake --build . --config Release --target check-mlir
+call cmake --build . --config Release -- /m
+call cmake --build . --config Release --target install -- /m
+call cmake --build . --config Release --target check-mlir -- /m
 ```
 
 #### ONNX-MLIR (this project)
@@ -192,7 +192,7 @@ call cmake --build . --config Release --target onnx-mlir -- /m
 
 REM Run FileCheck tests
 set LIT_OPTS=-v
-call cmake --build . --config Release --target check-onnx-lit
+call cmake --build . --config Release --target check-onnx-lit -- /m
 ```
 
 After the above commands succeed, an `onnx-mlir` executable should appear in the `bin` directory.

@@ -31,7 +31,7 @@ tool_dirs = [
     config.onnx_mlir_tools_dir, config.mlir_tools_dir, config.llvm_tools_dir
 ]
 tool_names = [
-    'onnx-mlir', 'onnx-mlir-opt', 'mlir-opt', 'mlir-translate', "binary-decoder"
+    'onnx-mlir', 'onnx-mlir-opt', 'mlir-opt', 'mlir-translate', 'binary-decoder'
 ]
 tools = [ToolSubst(s, unresolved='ignore') for s in tool_names]
 llvm_config.add_tool_substitutions(tools, tool_dirs)

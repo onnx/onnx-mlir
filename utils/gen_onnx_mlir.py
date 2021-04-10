@@ -1145,8 +1145,8 @@ def build_operator_schemas():
                             found = True
                             break
                     if not found:
-                        print("Your onnx may be too old."
-                           "right version for opertion {} not found".format(
+                        print("Your onnx installation may be too old. "
+                           "The desired version for operation {} is not found.".format(
                             schema.name))
                         sys.exit()
             processed_supportmap.append((_support, processed_namemap))
