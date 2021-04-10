@@ -88,7 +88,6 @@ struct ONNXScanOpLowering : public ConversionPattern {
       auto &scanBodyEntryBlock = scanBody.front();
       BlockAndValueMapping mapper;
       for (unsigned i = 0, e = params.size(); i != e; ++i) {
-        params[i].dump();
         // Verify that the types of the provided values match the function
         // argument types.
         BlockArgument regionArg = scanBodyEntryBlock.getArgument(i);
