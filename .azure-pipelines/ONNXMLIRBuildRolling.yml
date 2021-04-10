@@ -6,7 +6,11 @@ resources:
     type: git
     name: llvm-project
     ref: refs/heads/tvp
-    trigger: tvp
+    trigger:
+      batch: true
+      branches:
+        include:
+        - tvp
   - repository: tools
     type: git
     name: tools
