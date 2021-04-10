@@ -26,11 +26,15 @@ namespace bstd = mpark;
 
 #include "mlir/IR/BuiltinOps.h"
 #include "onnx/defs/schema.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
 
 #include "FrontendDialectTransformer.hpp"
+#include <fstream>
+#include <iostream>
+#include <map>
 
 namespace onnx_mlir {
 namespace detail {
@@ -1051,6 +1055,92 @@ private:
     ret_vals.push_back(tensor_val);
   }
 
+  // construct JSON type from the argument type
+  // for example - a 3D array of f32 might produce something like
+  //     {"type" : "float" , "dims" : [4, 256, 16]}
+  // actually, this function would produce
+  //     {"type" : "f32" , "dims" : [4, 256, 16]}
+  //  for this example. The "f32" is mapped to "float" in getSignature, below
+  void concatTypeString(Type argType, llvm::raw_ostream &dstream) {
+    std::string comma = std::string("");
+    mlir::TypeSwitch<Type>(argType)
+        .Case<ShapedType>([&](ShapedType tensorTy) {
+          auto et = tensorTy.getElementType();
+          dstream << "   { \"type\" : ";
+          et.print(dstream);
+          dstream << " , \"dims\" : [";
+          if (tensorTy.hasRank()) {
+            int64_t rank = tensorTy.getRank();
+            for (int j = 0; j < rank; j++) {
+              dstream << comma << tensorTy.getDimSize(j);
+              comma = std::string(" , ");
+            }
+          } else {
+          }
+          dstream << "] ";
+        })
+        .Default([&](Type type) { llvm_unreachable("input is not a tensor"); });
+    dstream << " }\n";
+  }
+
+  std::string getSignature(mlir::FunctionType funcType) {
+    auto inputs = funcType.getInputs();
+    auto outputs = funcType.getResults();
+
+    std::string const sf32 = std::string("f32");
+    std::string const sf64 = std::string("f64");
+    std::string const si32 = std::string("i32");
+    std::string const si64 = std::string("i64");
+    std::string const si16 = std::string("i16");
+    std::map<std::string, std::string> typeMap = {
+        {sf32, std::string("\"float\"")}, {sf64, std::string("\"double\"")},
+        {si32, std::string("\"integer\"")}, {si64, std::string("\"long\"")},
+        {si16, std::string("\"short\"")}};
+    std::string dstring;
+    llvm::raw_string_ostream dstream(dstring);
+    dstream << "[ ";
+    std::string comma = std::string("");
+    for (int i = 0; i < funcType.getNumInputs(); i++) {
+      dstream << comma;
+      concatTypeString(inputs[i], dstream);
+      comma = std::string(" , ");
+    }
+    dstream << "\n]";
+    dstream.flush();
+    dstring.push_back('\0'); // null terminate the input signature string
+    dstream << "@[";
+    comma = std::string("");
+    for (int i = 0; i < funcType.getNumResults(); i++) {
+      dstream << comma;
+      concatTypeString(outputs[i], dstream);
+      comma = std::string(" , ");
+    }
+    dstream << "\n]";
+    dstream.flush();
+    dstring.push_back('\0'); // null terminate the output signature string
+    size_t start_pos = 0;
+    while ((start_pos = dstring.find(sf32, start_pos)) != std::string::npos) {
+      dstring.replace(start_pos, sf32.length(), typeMap[sf32]);
+      start_pos += sf32.length();
+    }
+    start_pos = 0;
+    while ((start_pos = dstring.find(sf64, start_pos)) != std::string::npos) {
+      dstring.replace(start_pos, sf64.length(), typeMap[sf64]);
+      start_pos += sf64.length();
+    }
+    start_pos = 0;
+    while ((start_pos = dstring.find(si32, start_pos)) != std::string::npos) {
+      dstring.replace(start_pos, si32.length(), typeMap[si32]);
+      start_pos += si32.length();
+    }
+    start_pos = 0;
+    while ((start_pos = dstring.find(si16, start_pos)) != std::string::npos) {
+      dstring.replace(start_pos, si16.length(), typeMap[si16]);
+      start_pos += si16.length();
+    }
+    return dstring;
+  }
+
   /*!
    * Import ONNX main computation graph.
    * @param graph onnx graph proto.
@@ -1068,11 +1158,13 @@ private:
     auto funcType = importGraph(graph, /*region=*/mainFunc.body(),
         /*op=*/mainFunc.getOperation(), /*useStdReturn=*/true);
     mainFunc.setType(funcType);
+    std::string sig = getSignature(funcType);
 
     // Emit entry point op describing inference function signature.
     auto entryPoint = mlir::ONNXEntryPointOp::create(UnknownLoc(), mainFunc,
         /*numInputs=*/funcType.getNumInputs(),
-        /*numOutputs=*/funcType.getNumResults());
+        /*numOutputs=*/funcType.getNumResults(),
+        /*signature=*/sig);
     module_.push_back(entryPoint);
 
     return mainFunc;
@@ -1080,7 +1172,6 @@ private:
 }; // class FrontendGenImpl
 } // namespace detail
 } // namespace onnx_mlir
-
 namespace onnx_mlir {
 
 void ImportFrontendModelFile(std::string model_fname,
