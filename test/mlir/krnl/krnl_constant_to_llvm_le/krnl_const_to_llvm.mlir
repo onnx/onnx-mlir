@@ -5,9 +5,16 @@ func @test_krnl_aligned_const() -> memref<1x4xf32> {
   %0 = "krnl.global"() {name = "constant_0", shape = [1, 4], value = dense<[[0., 1., 2., 3.]]> : tensor<1x4xf32>, alignment = 1024} : () -> memref<1x4xf32>
   return %0 : memref<1x4xf32>
   // CHECK-LABEL: test_krnl_aligned_const
+  /// Allocate an aligned buffer.
   // CHECK: [[ALLOC:%.+]] = llvm.alloca {{.*}} x !llvm.array<1 x array<4 x f32>> {alignment = 1024 : i64} : (i64) -> !llvm.ptr<array<1 x array<4 x f32>>>
   // CHECK: [[ALLOC_PTR:%.+]] = llvm.bitcast [[ALLOC]] : !llvm.ptr<array<1 x array<4 x f32>>> to !llvm.ptr<i8>
   // CHECK: llvm.call @llvm.memcpy.p0i8.p0i8.i64([[ALLOC_PTR]], %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64, i1) -> ()
+
+  /// Insert the constant value in the local MemRef.
+  // CHECK: [[TYPED_ALLOC:%.+]] = llvm.bitcast [[ALLOC]] : !llvm.ptr<array<1 x array<4 x f32>>> to !llvm.ptr<f32>
+  // CHECK: [[LOCAL_MEMREF:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[LOCAL_MEMREF0:%.+]] = llvm.insertvalue [[TYPED_ALLOC]], [[LOCAL_MEMREF]][0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[LOCAL_MEMREF1:%.+]] = llvm.insertvalue [[TYPED_ALLOC]], [[LOCAL_MEMREF0]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
 }
 
 // -----
