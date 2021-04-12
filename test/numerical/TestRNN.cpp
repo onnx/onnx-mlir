@@ -107,9 +107,11 @@ bool isOMRNNTheSameAsNaiveImplFor(const int direction, const int S, const int B,
 
   // Emit the entry point operation which specifies the number of user
   // inputs and outputs.
+  std::string signature("");
   auto entryPoint = ONNXEntryPointOp::create(UnknownLoc::get(&ctx), funcOp,
       /*numInputs=*/5,
-      /*numOutputs=*/2);
+      /*numOutputs=*/2,
+      /*signature*/ signature);
   module.push_back(entryPoint);
 
   OwningModuleRef moduleRef(module);
@@ -223,11 +225,12 @@ int main(int argc, char *argv[]) {
     // Hidden size.
     const auto H = *rc::gen::inRange(30, 40);
     // Whether test dynamic dimension for sequence.
-    const auto isDynS = *rc::gen::element(true, false);
+    const auto isDynS = *rc::gen::element(0, 1);
     // Whether test dynamic dimension for batch size.
-    const auto isDynB = *rc::gen::element(true, false);
+    const auto isDynB = *rc::gen::element(0, 1);
 
-    RC_ASSERT(isOMRNNTheSameAsNaiveImplFor(D, S, B, I, H, isDynS, isDynB));
+    RC_ASSERT(
+        isOMRNNTheSameAsNaiveImplFor(D, S, B, I, H, isDynS == 0, isDynB == 0));
   });
 
   // Exhaustive test case generation.

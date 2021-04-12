@@ -36,7 +36,9 @@ public:
         op->getAttrOfType<IntegerAttr>(
             ONNXEntryPointOp::getNumInputsAttrName()),
         op->getAttrOfType<IntegerAttr>(
-            ONNXEntryPointOp::getNumOutputsAttrName()));
+            ONNXEntryPointOp::getNumOutputsAttrName()),
+        op->getAttrOfType<StringAttr>(
+            ONNXEntryPointOp::getSignatureAttrName()));
     return success();
   }
 };
