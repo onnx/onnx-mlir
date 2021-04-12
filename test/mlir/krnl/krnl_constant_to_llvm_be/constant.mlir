@@ -7,7 +7,6 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   %1 = "onnx.Relu"(%0) : (tensor<*xf32>) -> tensor<*xf32>
   "std.return"(%1) : (tensor<*xf32>) -> ()
 
-  // CHECK: llvm.func @llvm.memcpy.p0i8.p0i8.i64(!llvm.ptr<i8>, !llvm.ptr<i8>, i64, i1)
   // CHECK: llvm.mlir.global internal constant [[GLOBAL_CONST:@.+]]("\00\00\00\00\00\00\00\00?\80\00\00?\8C\CC\CD@\00\00\00@\06ff")
   // CHECK: llvm.func @test_constant({{.*}}) -> !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)> {
 
@@ -28,31 +27,13 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   // CHECK: [[RES_MEMREF_6:%.+]] = llvm.insertvalue [[CONST_2]], [[RES_MEMREF_5]][4, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
   // CHECK: [[RES_MEMREF_7:%.+]] = llvm.insertvalue [[CONST_1]], [[RES_MEMREF_6]][4, 1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
 
-  // CHECK: [[CONST1:%.+]] = llvm.mlir.constant(1 : i64) : i64
-  // CHECK: [[ALLOCA:%.+]] = llvm.alloca [[CONST1]] x !llvm.array<3 x array<2 x f32>> : (i64) -> !llvm.ptr<array<3 x array<2 x f32>>> 
-  // CHECK: [[I8ALLOCA:%.+]] = llvm.bitcast [[ALLOCA]] : !llvm.ptr<array<3 x array<2 x f32>>> to !llvm.ptr<i8> 
-  
   // CHECK: [[GLOBAL_ADDR:%.+]] = llvm.mlir.addressof [[GLOBAL_CONST]] : !llvm.ptr<array<24 x i8>>
-  // CHECK: [[I8GLOBAL:%.+]] = llvm.bitcast [[GLOBAL_ADDR]] : !llvm.ptr<array<24 x i8>> to !llvm.ptr<i8>
-
-  /// Size of the constant tensor in bytes.
-  // CHECK: [[CONST4:%.+]] = llvm.mlir.constant(4 : i64) : i64
-  // CHECK: [[CONST6:%.+]] = llvm.mlir.constant(6 : i64) : i64
-  // CHECK: [[CONST_MUL1:%.+]] = llvm.mul [[CONST4]], [[CONST6]] : i64
-  // CHECK: [[GLOBAL_SIZE_BYTES:%.+]] = llvm.sext [[CONST_MUL1]] : i64 to i64
-
-  /// Volatile flag
-  // CHECK: [[CONST0:%.+]] = llvm.mlir.constant(false) : i1
-
-  // CHECK: llvm.call @llvm.memcpy.p0i8.p0i8.i64([[I8ALLOCA]], [[I8GLOBAL]], [[GLOBAL_SIZE_BYTES]], [[CONST0]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64, i1) -> ()
-
-  /// Prepare data for MemRef insertion.
-  // CHECK: [[TYPED_ALLOCA:%.+]] = llvm.bitcast [[ALLOCA]] : !llvm.ptr<array<3 x array<2 x f32>>> to !llvm.ptr<f32>
+  // CHECK: [[TYPED_GLOBAL:%.+]] = llvm.bitcast [[GLOBAL_ADDR]] : !llvm.ptr<array<24 x i8>> to !llvm.ptr<f32>
 
   /// Insert the constant value in the local MemRef.
-  // CHECK: [[LOCAL_MEMREF:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)> 
-  // CHECK: [[LOCAL_MEMREF0:%.+]] = llvm.insertvalue [[TYPED_ALLOCA]], [[LOCAL_MEMREF]][0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)> 
-  // CHECK: [[LOCAL_MEMREF1:%.+]] = llvm.insertvalue [[TYPED_ALLOCA]], [[LOCAL_MEMREF0]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[LOCAL_MEMREF:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[LOCAL_MEMREF0:%.+]] = llvm.insertvalue [[TYPED_GLOBAL]], [[LOCAL_MEMREF]][0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[LOCAL_MEMREF1:%.+]] = llvm.insertvalue [[TYPED_GLOBAL]], [[LOCAL_MEMREF0]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
 
   /// Insert offset.
   // CHECK: [[CONST00:%.+]] = llvm.mlir.constant(0 : index) : i64
@@ -78,32 +59,18 @@ func @test_constant(%arg0 : tensor<3x2xf32>) -> tensor<*xf32> {
   %0 = "onnx.Constant"() {value = dense<[[0.0, 0.0], [1.0, 1.1], [2.0, 2.1]]> : tensor<3x2xf32>} : () -> tensor<*xf32>
   "std.return"(%0) : (tensor<*xf32>) -> ()
 
+  // CHECK: llvm.func @llvm.memcpy.p0i8.p0i8.i64(!llvm.ptr<i8>, !llvm.ptr<i8>, i64, i1)
+  // CHECK: llvm.mlir.global internal constant [[GLOBAL_CONST:@.+]]("\00\00\00\00\00\00\00\00?\80\00\00?\8C\CC\CD@\00\00\00@\06ff")
+  // CHECK: llvm.func @test_constant({{.*}}) -> !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)> {
+
   // CHECK-DAG: [[CONST_5:%.+]] = llvm.mlir.constant(24 : i64) : i64
-  // CHECK-DAG: [[CONST1:%.+]] = llvm.mlir.constant(1 : i64) : i64
-  // CHECK: [[ALLOCA:%.+]] = llvm.alloca [[CONST1]] x !llvm.array<3 x array<2 x f32>> : (i64) -> !llvm.ptr<array<3 x array<2 x f32>>>
-  // CHECK: [[I8ALLOCA:%.+]] = llvm.bitcast [[ALLOCA]] : !llvm.ptr<array<3 x array<2 x f32>>> to !llvm.ptr<i8>
-
   // CHECK: [[GLOBAL_ADDR:%.+]] = llvm.mlir.addressof [[GLOBAL_CONST]] : !llvm.ptr<array<24 x i8>>
-  // CHECK: [[I8GLOBAL:%.+]] = llvm.bitcast [[GLOBAL_ADDR]] : !llvm.ptr<array<24 x i8>> to !llvm.ptr<i8>
-
-  /// Size of the constant tensor in bytes.
-  // CHECK: [[CONST4:%.+]] = llvm.mlir.constant(4 : i64) : i64
-  // CHECK: [[CONST6:%.+]] = llvm.mlir.constant(6 : i64) : i64
-  // CHECK: [[CONST_MUL1:%.+]] = llvm.mul [[CONST4]], [[CONST6]] : i64
-  // CHECK: [[GLOBAL_SIZE_BYTES:%.+]] = llvm.sext [[CONST_MUL1]] : i64 to i64
-
-  /// Volatile flag
-  // CHECK: [[CONST0:%.+]] = llvm.mlir.constant(false) : i1
-
-  // CHECK: llvm.call @llvm.memcpy.p0i8.p0i8.i64([[I8ALLOCA]], [[I8GLOBAL]], [[GLOBAL_SIZE_BYTES]], [[CONST0]]) : (!llvm.ptr<i8>, !llvm.ptr<i8>, i64, i1) -> ()
-
-  /// Prepare data for MemRef insertion.
-  // CHECK: [[TYPED_ALLOCA:%.+]] = llvm.bitcast [[ALLOCA]] : !llvm.ptr<array<3 x array<2 x f32>>> to !llvm.ptr<f32>
+  // CHECK: [[TYPED_GLOBAL:%.+]] = llvm.bitcast [[GLOBAL_ADDR]] : !llvm.ptr<array<24 x i8>> to !llvm.ptr<f32>
 
   /// Insert the constant value in the local MemRef.
   // CHECK: [[LOCAL_MEMREF:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[LOCAL_MEMREF0:%.+]] = llvm.insertvalue [[TYPED_ALLOCA]], [[LOCAL_MEMREF]][0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[LOCAL_MEMREF1:%.+]] = llvm.insertvalue [[TYPED_ALLOCA]], [[LOCAL_MEMREF0]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[LOCAL_MEMREF0:%.+]] = llvm.insertvalue [[TYPED_GLOBAL]], [[LOCAL_MEMREF]][0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[LOCAL_MEMREF1:%.+]] = llvm.insertvalue [[TYPED_GLOBAL]], [[LOCAL_MEMREF0]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
 
   /// Insert offset.
   // CHECK: [[CONST00:%.+]] = llvm.mlir.constant(0 : index) : i64
