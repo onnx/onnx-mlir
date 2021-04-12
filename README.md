@@ -65,7 +65,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 15d1ee36720ff24323f55452ae3cfb63f318c3f3 && cd ..
+cd llvm-project && git checkout d28af7c654d8db0b68c175db5ce212d74fb5e9bc && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -144,7 +144,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX MLIR.
-cd llvm-project && git checkout 15d1ee36720ff24323f55452ae3cfb63f318c3f3 && cd ..
+cd llvm-project && git checkout d28af7c654d8db0b68c175db5ce212d74fb5e9bc && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
