@@ -18,6 +18,9 @@
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
+// Used to trace which op are used, good for profiling apps.
+#define DEBUG 1
+
 using namespace mlir;
 
 template <typename GemmOp>
@@ -114,7 +117,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // Prepare for the computations.
     // 1) Define blocking, with simdization along the j axis.
-    const int64_t iCacheTile(64), jCacheTile(128), kCacheTile(128);
+    const int64_t iCacheTile(64), jCacheTile(128), kCacheTile(512);
     const int64_t iRegTile(4), jRegTile(8);
     // 2) Alloc data for tiles.
     MemRefType aTileType =
@@ -151,11 +154,17 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         {jj, kk}, {jj1, kk1}, {zero, zero}, {J, K}, {}, [&](ValueRange args) {
           ValueRange j1_k1_indices = krnl_get_induction_var_value({jj1, kk1});
           Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
-          krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, bTrans);
+          if (bTrans)
+            krnl_copy_to_buffer(bBuff, B, {j1, k1}, zeroVal, bTrans);
+          else
+            krnl_copy_to_buffer(bBuff, B, {k1, j1}, zeroVal, bTrans);
           krnl_iterate({ii}, {ii1}, {zero}, {I}, {}, [&](ValueRange args) {
             ValueRange i1_index = krnl_get_induction_var_value({ii1});
             Value i1(i1_index[0]);
-            krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, aTrans);
+            if (aTrans)
+              krnl_copy_to_buffer(aBuff, A, {k1, i1}, zeroVal, aTrans);
+            else
+              krnl_copy_to_buffer(aBuff, A, {i1, k1}, zeroVal, aTrans);
             krnl_iterate(
                 {}, {jj2, ii2}, (ValueRange){}, {}, {}, [&](ValueRange args) {
                   ValueRange j2_i2_indices =
@@ -307,13 +316,22 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Value beta = emitConstantOp(rewriter, loc, elementType, betaLit);
     Value zero = emitConstantOp(rewriter, loc, elementType, 0);
 
-    // if (IndexExpr::isLiteral(shapeHelper.aDims) &&
-    //    IndexExpr::isLiteral(shapeHelper.bDims)) {
-    //  printf("hi alex: gemm of size I/J/K, %d,%d,%d\n",
-    //      (int)shapeHelper.aDims[0].getLiteral(),
-    //      (int)(int)shapeHelper.bDims[1].getLiteral(),
-    //      (int)shapeHelper.aDims[1].getLiteral());
-    //}
+#if DEBUG
+    bool aTrans = gemmOp.transA();
+    bool bTrans = gemmOp.transB();
+    if (IndexExpr::isLiteral(shapeHelper.aDims) &&
+        IndexExpr::isLiteral(shapeHelper.bDims)) {
+      printf("hi alex: gemm of size I/J/K, %d,%d,%d%s%s\n",
+          (int)shapeHelper.aDims[0].getLiteral(),
+          (int)(int)shapeHelper.bDims[1].getLiteral(),
+          (int)shapeHelper.aDims[1].getLiteral(), (aTrans ? ", a trans" : ""),
+          (bTrans ? ", a trans" : ""));
+    } else {
+      printf("hi alex: gemm of unkown sizes %s%s\n",
+          (aTrans ? ", a trans" : ""), (bTrans ? ", a trans" : ""));
+    }
+#endif
+
     if (true) {
       tiledTransposedGemm(gemmOp, operandAdaptor, elementType, shapeHelper,
           alloc, zero, alpha, beta, rewriter, loc);

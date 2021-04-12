@@ -25,16 +25,22 @@ using namespace std;
 // Returns whether onnx-mlir compiled Gemm is producing the same results
 // as a naive implementation of Gemm for a specific set of Gemm
 // parameters/configuration. Gemm: A[IxK] * B[KxJ] = C[IxJ]
-bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K) {
+bool isOMGemmTheSameAsNaiveImplFor(
+    const int I, const int J, const int K, const int aTrans, const int bTrans) {
   MLIRContext ctx;
   registerDialects(ctx);
   static int testNum = 0;
-  printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
+  printf("attempt %d with i %d, j %d, k %d %s %s\n", ++testNum, I, J, K,
+      (aTrans ? ", aTrans" : ""), (bTrans ? ", bTrans" : ""));
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
   llvm::SmallVector<int64_t, 4> aShape = {I, K};
+  if (aTrans)
+    aShape = {K, I};
   llvm::SmallVector<int64_t, 1> bShape = {K, J};
+  if (bTrans)
+    bShape = {J, K};
   llvm::SmallVector<int64_t, 4> cShape = {I, J};
   llvm::SmallVector<int64_t, 4> yShape = {I, J};
   auto aType = RankedTensorType::get(aShape, builder.getF32Type());
@@ -58,14 +64,17 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K) {
   auto bVal = entryBlock->getArgument(1);
   auto cVal = entryBlock->getArgument(2);
 
-  float alphaVal = 1.0;
-  float betaVal = 1.0;
+  float alphaVal = 1.2;
+  float betaVal = 0.8;
   FloatAttr alphaAttr = FloatAttr::get(builder.getF32Type(), alphaVal);
   FloatAttr betaAttr = FloatAttr::get(builder.getF32Type(), betaVal);
-  IntegerAttr transAttr = IntegerAttr::get(builder.getIntegerType(64, true), 0);
+  IntegerAttr aTransAttr =
+      IntegerAttr::get(builder.getIntegerType(64, true), aTrans);
+  IntegerAttr bTransAttr =
+      IntegerAttr::get(builder.getIntegerType(64, true), bTrans);
   auto GemmOp = builder.create<ONNXGemmOp>(UnknownLoc::get(&ctx),
       /*Y=*/yType, /*A=*/aVal, /*B=*/bVal, /*C=*/cVal, alphaAttr, betaAttr,
-      transAttr, transAttr);
+      aTransAttr, bTransAttr);
 
   llvm::SmallVector<Value, 1> results = {GemmOp.getResult()};
   builder.create<ReturnOp>(UnknownLoc::get(&ctx), results);
@@ -104,9 +113,16 @@ bool isOMGemmTheSameAsNaiveImplFor(const int I, const int J, const int K) {
     for (int64_t j = 0; j < J; ++j) {
       omTensorGetElem<float>(ref, {i, j}) = 0;
       for (int64_t k = 0; k < K; k++) {
-        omTensorGetElem<float>(ref, {i, j}) +=
-            omTensorGetElem<float>(a.get(), {i, k}) *
-            omTensorGetElem<float>(b.get(), {k, j});
+        float aVal, bVal;
+        if (aTrans)
+          aVal = omTensorGetElem<float>(a.get(), {k, i});
+        else
+          aVal = omTensorGetElem<float>(a.get(), {i, k});
+        if (bTrans)
+          bVal = omTensorGetElem<float>(b.get(), {j, k});
+        else
+          bVal = omTensorGetElem<float>(b.get(), {k, j});
+        omTensorGetElem<float>(ref, {i, j}) += aVal * bVal;
       }
     }
   }
@@ -133,17 +149,19 @@ int main(int argc, char *argv[]) {
 
   printf("RapidCheck test case generation.\n");
   rc::check("Gemm implementation correctness", []() {
+    const auto aTrans = *rc::gen::inRange(0, 2);
+    const auto bTrans = *rc::gen::inRange(0, 2);
     const auto I = *rc::gen::inRange(1, 50);
     const auto J = *rc::gen::inRange(1, 50);
     const auto K = *rc::gen::inRange(1, 50);
 
-    RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(I, J, K));
+    RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(I, J, K, aTrans, bTrans));
   });
 
   printf("\n\nExhaustive test case generation.\n");
-  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024));
-  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048));
-  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088));
+  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 0));
+  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048, 0, 0));
+  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088, 0, 0));
 
   return 0;
 }
