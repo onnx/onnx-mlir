@@ -56,16 +56,14 @@ bool isOMGemmTheSameAsNaiveImplFor(
       (aTrans ? ", aTrans" : ""), (bTrans ? ", bTrans" : ""));
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
-  OpBuilder builder(&ctx);;
+  OpBuilder builder(&ctx);
+
   llvm::SmallVector<int64_t, 4> aShape({I, K}), bShape({K, J});
-  std::vector<long long> aaShape({I, K}), bbShape({K, J});
   if (aTrans) {
     aShape = {K, I};
-    aaShape = {K, I};
   }
   if (bTrans) {
     bShape = {J, K};
-    bbShape = {J, K};
   }
   llvm::SmallVector<int64_t, 4> cShape = {I, J};
   llvm::SmallVector<int64_t, 4> yShape = {I, J};
@@ -122,10 +120,12 @@ bool isOMGemmTheSameAsNaiveImplFor(
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto aOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(aaShape), omTensorDestroy);
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(aShape)),
+      omTensorDestroy);
   inputs.emplace_back(move(aOmt));
   auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>(bbShape), omTensorDestroy);
+      omTensorCreateWithRandomData<float>(llvm::makeArrayRef(bShape)),
+      omTensorDestroy);
   inputs.emplace_back(move(bOmt));
   auto cOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>({I, J}), omTensorDestroy);
