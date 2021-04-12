@@ -88,21 +88,25 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
     }                                                                          \
   } while (0)
 
-#define LOG_BUF(type, buf, data, n)   LOG_BUF_ONNX_TYPE(type, buf, data, n, 0)
-#define LOG_XBUF(type, buf, data, n)  LOG_BUF_ONNX_TYPE(type, buf, data, n, 1)
+#define LOG_BUF(type, buf, data, n) LOG_BUF_ONNX_TYPE(type, buf, data, n, 0)
+#define LOG_XBUF(type, buf, data, n) LOG_BUF_ONNX_TYPE(type, buf, data, n, 1)
 
-#define LOG_CHAR_BUF(buf, data, n)    LOG_BUF_C_TYPE(char,   "%c",     buf, data, n)
-#define LOG_CHAR_XBUF(buf, data, n)   LOG_BUF_C_TYPE(char,   " %02x",  buf, data, n)
-#define LOG_SHORT_BUF(buf, data, n)   LOG_BUF_C_TYPE(short,  " %d",    buf, data, n)
-#define LOG_SHORT_XBUF(buf, data, n)  LOG_BUF_C_TYPE(short,  " %04x",  buf, data, n)
-#define LOG_INT_BUF(buf, data, n)     LOG_BUF_C_TYPE(int,    " %d",    buf, data, n)
-#define LOG_INT_XBUF(buf, data, n)    LOG_BUF_C_TYPE(int,    " %08x",  buf, data, n)
-#define LOG_LONG_BUF(buf, data, n)    LOG_BUF_C_TYPE(long,   " %ld",   buf, data, n)
-#define LOG_LONG_XBUF(buf, data, n)   LOG_BUF_C_TYPE(long,   " %016x", buf, data, n)
-#define LOG_FLAT_BUF(buf, data, n)    LOG_BUF_C_TYPE(float,  " %f",    buf, data, n)
-#define LOG_FLOAT_XBUF(buf, data, n)  LOG_BUF_C_TYPE(float,  " %08x",  buf, data, n)
-#define LOG_DOUBLE_BUF(buf, data, n)  LOG_BUF_C_TYPE(double, " %lf",   buf, data, n)
-#define LOG_DOUBLE_XBUF(buf, data, n) LOG_BUF_C_TYPE(double, " %016x", buf, data, n)
+#define LOG_CHAR_BUF(buf, data, n) LOG_BUF_C_TYPE(char, "%c", buf, data, n)
+#define LOG_CHAR_XBUF(buf, data, n) LOG_BUF_C_TYPE(char, " %02x", buf, data, n)
+#define LOG_SHORT_BUF(buf, data, n) LOG_BUF_C_TYPE(short, " %d", buf, data, n)
+#define LOG_SHORT_XBUF(buf, data, n)                                           \
+  LOG_BUF_C_TYPE(short, " %04x", buf, data, n)
+#define LOG_INT_BUF(buf, data, n) LOG_BUF_C_TYPE(int, " %d", buf, data, n)
+#define LOG_INT_XBUF(buf, data, n) LOG_BUF_C_TYPE(int, " %08x", buf, data, n)
+#define LOG_LONG_BUF(buf, data, n) LOG_BUF_C_TYPE(long, " %ld", buf, data, n)
+#define LOG_LONG_XBUF(buf, data, n) LOG_BUF_C_TYPE(long, " %016x", buf, data, n)
+#define LOG_FLAT_BUF(buf, data, n) LOG_BUF_C_TYPE(float, " %f", buf, data, n)
+#define LOG_FLOAT_XBUF(buf, data, n)                                           \
+  LOG_BUF_C_TYPE(float, " %08x", buf, data, n)
+#define LOG_DOUBLE_BUF(buf, data, n)                                           \
+  LOG_BUF_C_TYPE(double, " %lf", buf, data, n)
+#define LOG_DOUBLE_XBUF(buf, data, n)                                          \
+  LOG_BUF_C_TYPE(double, " %016x", buf, data, n)
 
 /* Main macro for log output */
 #define LOG_PRINTF(level, ...)                                                 \
