@@ -21,7 +21,6 @@
 #define SHARED_LIB_BASE string("./TestGemm_main_graph")
 
 using namespace std;
-#define DEBUG 0
 
 template <typename TYPE>
 void omPrintAsPython(OMTensor *tensor, string name) {
@@ -137,12 +136,6 @@ bool isOMGemmTheSameAsNaiveImplFor(
   auto &b = inputs.at(1);
   auto &c = inputs.at(2);
 
-#if DEBUG
-  omPrintAsPython<float>(a.get(), "A");
-  omPrintAsPython<float>(b.get(), "B");
-  omPrintAsPython<float>(c.get(), "C");
-#endif
-
   for (int64_t i = 0; i < I; ++i) {
     for (int64_t j = 0; j < J; ++j) {
       omTensorGetElem<float>(ref, {i, j}) = 0;
@@ -170,10 +163,6 @@ bool isOMGemmTheSameAsNaiveImplFor(
 
   auto outputs = sess.run(move(inputs));
   auto &Gemm = outputs.at(0);
-#if DEBUG
-  omPrintAsPython<float>(Gemm.get(), "Gemm");
-  omPrintAsPython<float>(ref, "Ref");
-#endif
   float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
 
@@ -184,9 +173,6 @@ int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
-#if DEBUG
-  isOMGemmTheSameAsNaiveImplFor(3, 4, 5, 1, 0);
-#else
   printf("RapidCheck test case generation.\n");
   rc::check("Gemm implementation correctness", []() {
     const auto aTrans = *rc::gen::inRange(0, 2);
@@ -202,6 +188,5 @@ int main(int argc, char *argv[]) {
   assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 1));
   assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048, 0, 1));
   assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088, 0, 1));
-#endif
   return 0;
 }
