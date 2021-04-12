@@ -864,13 +864,14 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     memrefs.
   }];
 
-  let arguments = (ins Arg<AnyMemRef, "buffer", [MemWrite]>:$buffer,
-    Arg<AnyMemRef, "memory", [MemRead]>:$source,
-    Variadic<Index>:$starts, // Rank of source.
+  let arguments = (ins 
+    Arg<AnyMemRef, "buffer", [MemWrite]>:$buffer, // Buffer.
+    Arg<AnyMemRef, "memory", [MemRead]>:$source, // Source, possibly tranposed.
+    Variadic<Index>:$starts, // Rank of source, possibly transposed.
     AnyType: $padValue, // Rank of bufffer.
     OptionalAttr<I64ArrayAttr>:$tileSize, // Rank of bufffer.
     OptionalAttr<I64ArrayAttr>:$padToNext, // Rank of bufffer.
-    DefaultValuedAttr<BoolAttr, "false">:$transpose);
+    DefaultValuedAttr<BoolAttr, "false">:$transpose); // Transposed or not.
 
   let builders = [ OpBuilderDAG<(ins "Value": $buffer, "Value": $source, 
       "ValueRange": $starts, "Value": $padValue, 

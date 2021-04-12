@@ -36,10 +36,10 @@ bool isOMGemmTheSameAsNaiveImplFor(
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
   OpBuilder builder(&ctx);
   llvm::SmallVector<int64_t, 4> aShape = {I, K};
-  if (aTrans)
-    aShape = {K, I};
   llvm::SmallVector<int64_t, 1> bShape = {K, J};
-  if (bTrans)
+  if (aTrans != 0)
+    aShape = {K, I};
+  if (bTrans != 0)
     bShape = {J, K};
   llvm::SmallVector<int64_t, 4> cShape = {I, J};
   llvm::SmallVector<int64_t, 4> yShape = {I, J};
@@ -114,14 +114,14 @@ bool isOMGemmTheSameAsNaiveImplFor(
       omTensorGetElem<float>(ref, {i, j}) = 0;
       for (int64_t k = 0; k < K; k++) {
         float aVal, bVal;
-        if (aTrans)
-          aVal = omTensorGetElem<float>(a.get(), {k, i});
-        else
+        if (aTrans == 0)
           aVal = omTensorGetElem<float>(a.get(), {i, k});
-        if (bTrans)
-          bVal = omTensorGetElem<float>(b.get(), {j, k});
         else
+          aVal = omTensorGetElem<float>(a.get(), {k, i});
+        if (bTrans == 0)
           bVal = omTensorGetElem<float>(b.get(), {k, j});
+        else
+          bVal = omTensorGetElem<float>(b.get(), {j, k});
         omTensorGetElem<float>(ref, {i, j}) += aVal * bVal;
       }
     }
@@ -159,6 +159,7 @@ int main(int argc, char *argv[]) {
   });
 
   printf("\n\nExhaustive test case generation.\n");
+  assert(isOMGemmTheSameAsNaiveImplFor(15, 24, 6, 1, 0));
   assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 0));
   assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048, 0, 0));
   assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088, 0, 0));

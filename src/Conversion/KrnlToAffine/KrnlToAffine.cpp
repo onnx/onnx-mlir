@@ -1114,9 +1114,12 @@ public:
             // Dimensions that are shared by source memref & buffer, add loop
             // indices to starts.
             int64_t buffIndex = srcIndex - srcOffset;
+            printf("hi alex: iter %d: writing with buff %d src %d: loop index "
+                   "%d, curr start %d\n",
+                (int)srcIndex, (int)buffIndex, (int)srcIndex,
+                (int)srcLoopMap[buffIndex], (int)srcIndex);
             currLoadIndices.emplace_back(
-                currLoopIndices[srcLoopMap[buffIndex]] +
-                currStarts[srcIndexMap[srcIndex]]);
+                currLoopIndices[srcLoopMap[buffIndex]] + currStarts[srcIndex]);
           }
         }
         Value sourceVal = krnl_load(sourceMemref, currLoadIndices);

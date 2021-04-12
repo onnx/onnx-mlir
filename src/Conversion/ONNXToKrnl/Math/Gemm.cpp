@@ -19,7 +19,7 @@
 #include "src/Dialect/ONNX/ONNXShapeHelper.hpp"
 
 // Used to trace which op are used, good for profiling apps.
-#define DEBUG 1
+#define DEBUG 0
 
 using namespace mlir;
 
@@ -323,12 +323,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
         IndexExpr::isLiteral(shapeHelper.bDims)) {
       printf("hi alex: gemm of size I/J/K, %d,%d,%d%s%s\n",
           (int)shapeHelper.aDims[0].getLiteral(),
-          (int)(int)shapeHelper.bDims[1].getLiteral(),
+          (int)shapeHelper.bDims[1].getLiteral(),
           (int)shapeHelper.aDims[1].getLiteral(), (aTrans ? ", a trans" : ""),
-          (bTrans ? ", a trans" : ""));
+          (bTrans ? ", b trans" : ""));
     } else {
       printf("hi alex: gemm of unkown sizes %s%s\n",
-          (aTrans ? ", a trans" : ""), (bTrans ? ", a trans" : ""));
+          (aTrans ? ", a trans" : ""), (bTrans ? ", b trans" : ""));
     }
 #endif
 
