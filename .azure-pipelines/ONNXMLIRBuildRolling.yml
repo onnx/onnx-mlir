@@ -2,6 +2,10 @@ name: ONNX_MLIR.$(Build.SourceBranchName).Rolling.Release.$(Year:yyyy).$(Month).
 
 resources:
   repositories:
+  - repository: onnx-mlir
+    type: git
+    name: onnx-mlir
+    ref: refs/heads/apollo
   - repository: llvm-project
     type: git
     name: llvm-project
@@ -14,13 +18,11 @@ resources:
     type: git
     name: tools
     ref: refs/heads/main
-    trigger: none
   - repository: protobuf
     type: github
     name: protocolbuffers/protobuf
     endpoint: ProtobufGitHubServiceConnection
     ref: refs/tags/v3.12.3
-    trigger: none
 
 trigger:
   batch: true
