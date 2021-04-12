@@ -21,6 +21,29 @@
 #define SHARED_LIB_BASE string("./TestGemm_main_graph")
 
 using namespace std;
+#define DEBUG 0
+
+template <typename TYPE>
+void omPrintAsPython(OMTensor *tensor, string name) {
+  int rank = omTensorGetRank(tensor);
+  int64_t *shape = omTensorGetShape(tensor);
+
+  if (rank == 2) {
+    cout << name << " = np.array([";
+    for (int64_t i = 0; i < shape[0]; ++i) {
+      if (i)
+        cout << ", ";
+      cout << "[";
+      for (int64_t j = 0; j < shape[1]; ++j) {
+        if (j)
+          cout << ", ";
+        cout << omTensorGetElem<TYPE>(tensor, {i, j});
+      }
+      cout << "]";
+    }
+    cout << "])\n";
+  }
+}
 
 // Returns whether onnx-mlir compiled Gemm is producing the same results
 // as a naive implementation of Gemm for a specific set of Gemm
@@ -34,13 +57,17 @@ bool isOMGemmTheSameAsNaiveImplFor(
       (aTrans ? ", aTrans" : ""), (bTrans ? ", bTrans" : ""));
 
   auto module = ModuleOp::create(UnknownLoc::get(&ctx));
-  OpBuilder builder(&ctx);
-  llvm::SmallVector<int64_t, 4> aShape = {I, K};
-  llvm::SmallVector<int64_t, 1> bShape = {K, J};
-  if (aTrans != 0)
+  OpBuilder builder(&ctx);;
+  llvm::SmallVector<int64_t, 4> aShape({I, K}), bShape({K, J});
+  std::vector<long long> aaShape({I, K}), bbShape({K, J});
+  if (aTrans) {
     aShape = {K, I};
-  if (bTrans != 0)
+    aaShape = {K, I};
+  }
+  if (bTrans) {
     bShape = {J, K};
+    bbShape = {J, K};
+  }
   llvm::SmallVector<int64_t, 4> cShape = {I, J};
   llvm::SmallVector<int64_t, 4> yShape = {I, J};
   auto aType = RankedTensorType::get(aShape, builder.getF32Type());
@@ -96,10 +123,10 @@ bool isOMGemmTheSameAsNaiveImplFor(
 
   std::vector<unique_ptr<OMTensor, decltype(&omTensorDestroy)>> inputs;
   auto aOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>({I, K}), omTensorDestroy);
+      omTensorCreateWithRandomData<float>(aaShape), omTensorDestroy);
   inputs.emplace_back(move(aOmt));
   auto bOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
-      omTensorCreateWithRandomData<float>({K, J}), omTensorDestroy);
+      omTensorCreateWithRandomData<float>(bbShape), omTensorDestroy);
   inputs.emplace_back(move(bOmt));
   auto cOmt = unique_ptr<OMTensor, decltype(&omTensorDestroy)>(
       omTensorCreateWithRandomData<float>({I, J}), omTensorDestroy);
@@ -109,6 +136,13 @@ bool isOMGemmTheSameAsNaiveImplFor(
   auto &a = inputs.at(0);
   auto &b = inputs.at(1);
   auto &c = inputs.at(2);
+
+#if DEBUG
+  omPrintAsPython<float>(a.get(), "A");
+  omPrintAsPython<float>(b.get(), "B");
+  omPrintAsPython<float>(c.get(), "C");
+#endif
+
   for (int64_t i = 0; i < I; ++i) {
     for (int64_t j = 0; j < J; ++j) {
       omTensorGetElem<float>(ref, {i, j}) = 0;
@@ -136,7 +170,10 @@ bool isOMGemmTheSameAsNaiveImplFor(
 
   auto outputs = sess.run(move(inputs));
   auto &Gemm = outputs.at(0);
-
+#if DEBUG
+  omPrintAsPython<float>(Gemm.get(), "Gemm");
+  omPrintAsPython<float>(ref, "Ref");
+#endif
   float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : 1e-5;
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : 1e-5;
 
@@ -147,6 +184,9 @@ int main(int argc, char *argv[]) {
   setExecPath(argv[0], (void *)main);
   llvm::FileRemover remover(SHARED_LIB_BASE + ".so");
 
+#if DEBUG
+  isOMGemmTheSameAsNaiveImplFor(3, 4, 5, 1, 0);
+#else
   printf("RapidCheck test case generation.\n");
   rc::check("Gemm implementation correctness", []() {
     const auto aTrans = *rc::gen::inRange(0, 2);
@@ -158,11 +198,10 @@ int main(int argc, char *argv[]) {
     RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(I, J, K, aTrans, bTrans));
   });
 
-  printf("\n\nExhaustive test case generation.\n");
-  assert(isOMGemmTheSameAsNaiveImplFor(15, 24, 6, 1, 0));
-  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 0));
-  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048, 0, 0));
-  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088, 0, 0));
-
+  printf("\n\nIndividual test case generation (benchmarks).\n");
+  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 1));
+  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048, 0, 1));
+  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088, 0, 1));
+#endif
   return 0;
 }

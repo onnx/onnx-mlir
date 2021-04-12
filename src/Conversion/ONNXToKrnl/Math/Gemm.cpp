@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------- Gemm.cpp - Lowering Gemm Op
-//-------------------------===//
+//===----------------- Gemm.cpp - Lowering Gemm Op ------------------------===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
