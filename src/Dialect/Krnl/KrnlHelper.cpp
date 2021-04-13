@@ -515,7 +515,7 @@ void krnl_store(Value val, Value memref, ArrayRef<IndexExpr> indices) {
   krnl_store(val, memref, ValueRange(indexValues));
 }
 
-void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
+void krnl_iterate_ie(ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
     function_ref<void(ValueRange)> bodyBuilderFn) {
   using namespace mlir::edsc;
@@ -546,14 +546,15 @@ void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
   }
 }
 
-void krnl_iterate(ValueRange originalLoops, ArrayRef<IndexExpr> lbs,
+void krnl_iterate_ie(ValueRange originalLoops, ArrayRef<IndexExpr> lbs,
     ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
     function_ref<void(ValueRange)> bodyBuilderFn) {
   // When no optimized loops are given, use original for the optimized.
-  krnl_iterate(originalLoops, originalLoops, lbs, ubs, iterArgs, bodyBuilderFn);
+  krnl_iterate_ie(
+      originalLoops, originalLoops, lbs, ubs, iterArgs, bodyBuilderFn);
 }
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
+void krnl_copy_to_buffer_ie(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, Value padValue, ArrayRef<int64_t> tileSize,
     ArrayRef<int64_t> padToNext) {
   SmallVector<Value, 4> startValues;
@@ -562,22 +563,22 @@ void krnl_copy_to_buffer(Value bufferMemref, Value memref,
       bufferMemref, memref, startValues, padValue, tileSize, padToNext);
 }
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
+void krnl_copy_to_buffer_ie(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, Value padValue) {
   ArrayRef<int64_t> empty;
-  krnl_copy_to_buffer(bufferMemref, memref, starts, padValue, empty, empty);
+  krnl_copy_to_buffer_ie(bufferMemref, memref, starts, padValue, empty, empty);
 }
 
-void krnl_copy_from_buffer(Value bufferMemref, Value memref,
+void krnl_copy_from_buffer_ie(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, ArrayRef<int64_t> tileSize) {
   SmallVector<Value, 4> startValues;
   IndexExpr::getValues(starts, startValues);
   krnl_copy_from_buffer(bufferMemref, memref, startValues, tileSize);
 }
-void krnl_copy_from_buffer(
+void krnl_copy_from_buffer_ie(
     Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts) {
   ArrayRef<int64_t> empty;
-  krnl_copy_from_buffer(bufferMemref, memref, starts, empty);
+  krnl_copy_from_buffer_ie(bufferMemref, memref, starts, empty);
 }
 
 } // namespace mlir
