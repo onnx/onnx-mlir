@@ -178,8 +178,16 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                 });
           });
         });
+    rewriter.create<DeallocOp>(loc, aBuff);
+    rewriter.create<DeallocOp>(loc, bBuff);
 
     // Perform the alpha/beta computations.
+    float alphaLit = gemmOp.alpha().convertToFloat();
+    float betaLit = gemmOp.beta().convertToFloat();
+    if (alphaLit == 1.0 && (betaLit == 0.0 || !shapeHelper.hasBias)) {
+      // No need for the multiply/add.
+      return;
+    }
     ValueRange outerLoops = krnl_define_loop(2);
     krnl_iterate(
         outerLoops, rBound.getLbs(), rBound.getUbs(), {}, [&](ValueRange args) {
@@ -187,7 +195,9 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           ValueRange outerIndices = krnl_get_induction_var_value(outerLoops);
 
           // Handle alpha/beta coefficients.
-          Value res = std_mulf(alphaVal, krnl_load(R, outerIndices));
+          Value res = krnl_load(R, outerIndices);
+          if (alphaLit != 1.0)
+            res = std_mulf(alphaVal, res);
           if (shapeHelper.hasBias) {
             SmallVector<IndexExpr, 2> cAccess;
             for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
@@ -197,94 +207,12 @@ struct ONNXGemmOpLowering : public ConversionPattern {
                   IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0));
             }
             Value c = krnl_load(operandAdaptor.C(), cAccess);
-            res = std_addf(res, std_mulf(betaVal, c));
+            if (betaLit != 1.0)
+              c = std_mulf(betaVal, c);
+            res = std_addf(res, c);
           }
           krnl_store(res, R, outerIndices);
         });
-    rewriter.create<DeallocOp>(loc, aBuff);
-    rewriter.create<DeallocOp>(loc, bBuff);
-  }
-
-  void genericGemm_old(ONNXGemmOp &gemmOp, ONNXGemmOpAdaptor &operandAdaptor,
-      Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
-      Value zeroVal, Value alphaVal, Value betaVal,
-      ConversionPatternRewriter &rewriter, Location loc) const {
-    // Loop iterations N=0 & M-1 going over each of the res[n, m] values.
-    BuildKrnlLoop outputLoops(rewriter, loc, 2);
-    outputLoops.createDefineOp();
-    outputLoops.pushAllBounds(shapeHelper.dimsForOutput(0));
-    outputLoops.createIterateOp();
-    rewriter.setInsertionPointToStart(outputLoops.getIterateBlock());
-
-    // Compute the access functions for res[n,m].
-    DimIndexExpr n(outputLoops.getInductionVar(0));
-    DimIndexExpr m(outputLoops.getInductionVar(1));
-    SmallVector<IndexExpr, 4> resAccessFct({n, m});
-
-    // Insert res[n,m] = 0.
-    // Create a local reduction value for res[n,m].
-    Value reductionVal =
-        rewriter.create<AllocaOp>(loc, MemRefType::get({}, elementType));
-    rewriter.create<KrnlStoreOp>(loc, zeroVal, reductionVal, ArrayRef<Value>{});
-
-    // Create the inner reduction loop.
-    BuildKrnlLoop innerLoops(rewriter, loc, 1);
-    innerLoops.createDefineOp();
-    innerLoops.pushBounds(0, shapeHelper.aDims[1]);
-    innerLoops.createIterateOp();
-
-    // Now start writing code inside the inner loop: get A & B access
-    // functions.
-    auto ipOuterLoopRegion = rewriter.saveInsertionPoint();
-    rewriter.setInsertionPointToStart(innerLoops.getIterateBlock());
-    {
-      DimIndexExpr k(innerLoops.getInductionVar(0));
-      SmallVector<IndexExpr, 4> aAccessFct, bAccessFct;
-      if (gemmOp.transA() != 0)
-        aAccessFct = {k, n};
-      else
-        aAccessFct = {n, k};
-      if (gemmOp.transB() != 0)
-        bAccessFct = {m, k};
-      else
-        bAccessFct = {k, m};
-      // Add mat mul operation.
-      Value loadedA = krnl_load(operandAdaptor.A(), aAccessFct);
-      Value loadedB = krnl_load(operandAdaptor.B(), bAccessFct);
-      Value loadedY =
-          rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-      Value AB = rewriter.create<MulFOp>(loc, loadedA, loadedB);
-      Value accumulated = rewriter.create<AddFOp>(loc, loadedY, AB);
-      rewriter.create<KrnlStoreOp>(
-          loc, accumulated, reductionVal, ArrayRef<Value>{});
-    }
-    rewriter.restoreInsertionPoint(ipOuterLoopRegion);
-    Value loadedAB =
-        rewriter.create<KrnlLoadOp>(loc, reductionVal, ArrayRef<Value>{});
-
-    // Write code after the completion of the inner loop.
-    // Compute the c access function using the broadcast rules.
-    SmallVector<IndexExpr, 4> cAccessFct;
-    if (shapeHelper.hasBias) {
-      for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
-        // If dim > 1, use loop index, otherwise broadcast on 0's element.
-        IndexExpr dim = shapeHelper.cDims[x];
-        cAccessFct.emplace_back(IndexExpr::select(dim > 1, resAccessFct[x], 0));
-      }
-    }
-
-    // Calculate reduction(AB)*alpha.
-    Value alphaAB = rewriter.create<MulFOp>(loc, alphaVal, loadedAB);
-    if (shapeHelper.hasBias) {
-      // Res = AB*alpha + beta * C.
-      Value loadedC = krnl_load(operandAdaptor.C(), cAccessFct);
-      Value betaC = rewriter.create<MulFOp>(loc, betaVal, loadedC);
-      Value Y = rewriter.create<AddFOp>(loc, alphaAB, betaC);
-      krnl_store(Y, alloc, resAccessFct);
-    } else {
-      // No bias, just store alphaAB into res.
-      krnl_store(alphaAB, alloc, resAccessFct);
-    }
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -319,15 +247,23 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     bool aTrans = gemmOp.transA();
     bool bTrans = gemmOp.transB();
     if (IndexExpr::isLiteral(shapeHelper.aDims) &&
-        IndexExpr::isLiteral(shapeHelper.bDims)) {
-      printf("hi alex: gemm of size I/J/K, %d,%d,%d%s%s\n",
+        IndexExpr::isLiteral(shapeHelper.bDims) &&
+        IndexExpr::isLiteral(shapeHelper.cDims)) {
+      int cDim0 = shapeHelper.hasBias ? shapeHelper.cDims[0].getLiteral() : -1;
+      int cDim1 = shapeHelper.hasBias ? shapeHelper.cDims[1].getLiteral() : -1;
+      printf(
+          "hi alex: gemm of size I/J/K, %d,%d,%d%s%s, alpha %f%s, beta %f%s, "
+          "c, %d, %d\n",
           (int)shapeHelper.aDims[0].getLiteral(),
           (int)shapeHelper.bDims[1].getLiteral(),
           (int)shapeHelper.aDims[1].getLiteral(), (aTrans ? ", a trans" : ""),
-          (bTrans ? ", b trans" : ""));
+          (bTrans ? ", b trans" : ""), (double)alphaLit,
+          (alphaLit == 1.0 ? " (skip)" : ""), (double)betaLit,
+          (betaLit == 1.0 ? " (skip)" : ""), cDim0, cDim1);
     } else {
-      printf("hi alex: gemm of unkown sizes %s%s\n",
-          (aTrans ? ", a trans" : ""), (bTrans ? ", b trans" : ""));
+      printf("hi alex: gemm of unkown sizes %s%s, alpha %f, beta %f\n",
+          (aTrans ? ", a trans" : ""), (bTrans ? ", b trans" : ""),
+          (double)alphaLit, (double)betaLit);
     }
 #endif
 
