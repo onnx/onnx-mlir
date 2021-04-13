@@ -184,9 +184,12 @@ int main(int argc, char *argv[]) {
     RC_ASSERT(isOMGemmTheSameAsNaiveImplFor(I, J, K, aTrans, bTrans));
   });
 
-  printf("\n\nIndividual test case generation (benchmarks).\n");
-  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 1));
-  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048, 0, 1));
-  assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088, 0, 1));
+  if (false) {
+    // Was too slow on some machines, disable test.
+    printf("\n\nIndividual test case generation (benchmarks).\n");
+    assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 1024, 0, 1));
+    assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 2048, 0, 1));
+    assert(isOMGemmTheSameAsNaiveImplFor(1, 1000, 25088, 0, 1));
+  }
   return 0;
 }
