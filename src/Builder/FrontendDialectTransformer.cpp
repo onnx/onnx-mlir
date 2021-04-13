@@ -1061,7 +1061,7 @@ private:
   // actually, this function would produce
   //     {"type" : "f32" , "dims" : [4, 256, 16]}
   //  for this example. The "f32" is mapped to "float" in getSignature, below
-  
+  //
   void concatTypeString(Type argType, llvm::raw_ostream &dstream) {
     std::string comma = std::string("");
     mlir::TypeSwitch<Type>(argType)
