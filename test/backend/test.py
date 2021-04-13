@@ -68,7 +68,7 @@ from PyRuntime import ExecutionSession
 # In our directories, the python files that generate the tests are found here
 # onnx-mlir/third_party/onnx/onnx/backend/test/case/node
 
-# Set value for each benchmark to: test_disabled, test_static, 
+# Set value for each benchmark to: test_disabled, test_static,
 #   test_dynamic, test_static_dynamic, test_static_dynamicNA.
 # The test_static_dynamicNA values indicates tests for which the dynamic test
 # makes no sense, e.g. where we build an array of constant but we don't even
@@ -91,521 +91,521 @@ test_static_dynamicNA = test_static # static tests for which dyn not available.
 # Input and dimension indices start from 0. -1 means all inputs or all dimensions.
 
 test_to_enable_static_dynamic = {
-    #
-    # ############################################################
-    # # Elementary ops, ordered alphabetically.
-    #
-    # # Abs
-    # "test_abs_cpu": (test_static_dynamic,),
-    #
-    # # Acos
-    # "test_acos_cpu": (test_static_dynamic,),
-    # "test_acos_example_cpu": (test_static_dynamic,),
-    #
-    # # Acosh
-    # "test_acosh_cpu": (test_static_dynamic,),
-    # "test_acosh_example_cpu": (test_static_dynamic,),
-    #
-    # # Adagrad
-    #
-    # # Adam
-    #
-    # # Add
-    # "test_add_cpu": (test_static_dynamic,),
-    # "test_add_bcast_cpu": (test_static_dynamic,),
-    #
-    # # And
-    # "test_and2d_cpu": (test_static_dynamic,),
-    # "test_and3d_cpu": (test_static_dynamic,),
-    # "test_and4d_cpu": (test_static_dynamic,),
-    # "test_and_bcast3v1d_cpu": (test_static_dynamic,),
-    # "test_and_bcast3v2d_cpu": (test_static_dynamic,),
-    # "test_and_bcast4v2d_cpu": (test_static_dynamic,),
-    # "test_and_bcast4v3d_cpu": (test_static_dynamic,),
-    # "test_and_bcast4v4d_cpu": (test_static_dynamic,),
-    #
-    # # Argmax
-    # "test_argmax_no_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_argmax_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_argmax_default_axis_example_cpu": (test_static_dynamic,),
-    #
-    # # Argmin
-    #
-    # # Asin
-    # "test_asin_cpu": (test_static_dynamic,),
-    # "test_asin_example_cpu": (test_static_dynamic,),
-    #
-    # # Asinh
-    # "test_asinh_cpu": (test_static_dynamic,),
-    # "test_asinh_example_cpu": (test_static_dynamic,),
-    #
-    # # Atan
-    # "test_atan_example_cpu": (test_static_dynamic,),
-    # "test_atan_cpu": (test_static_dynamic,),
-    #
-    # # Atanh
-    # "test_atanh_cpu": (test_static_dynamic,),
-    # "test_atanh_example_cpu": (test_static_dynamic,),
-    #
-    # # AveragePool
-    # "test_averagepool_1d_default_cpu": (test_static_dynamic,),
-    # "test_averagepool_2d_ceil_cpu": (test_static_dynamic,),
-    # "test_averagepool_2d_default_cpu": (test_static_dynamic,),
-    # "test_averagepool_2d_pads_count_include_pad_cpu": (test_static_dynamic,),
-    # "test_averagepool_2d_pads_cpu": (test_static_dynamic,),
-    # "test_averagepool_2d_precomputed_pads_count_include_pad_cpu": (test_static_dynamic,),
-    # "test_averagepool_2d_precomputed_pads_cpu": (test_static_dynamic,),
-    # "test_averagepool_2d_precomputed_same_upper_cpu": (test_static_dynamic,),
-    # "test_averagepool_2d_precomputed_strides_cpu": (test_static_dynamic,),
-    # "test_averagepool_2d_same_lower_cpu": (test_static_dynamic,),
-    # "test_averagepool_2d_same_upper_cpu": (test_static_dynamic,),
-    # "test_averagepool_2d_strides_cpu": (test_static_dynamic,),
-    # "test_averagepool_3d_default_cpu": (test_static_dynamic,),
-    #
-    # # BatchNormalization (test mode)
-    # "test_batchnorm_epsilon_cpu": (test_static_dynamic,),
-    # "test_batchnorm_example_cpu": (test_static_dynamic,),
-    #
-    # # Bitshift left/right
-    #
-    # # Cast
-    # "test_cast_FLOAT_to_DOUBLE_cpu": (test_static_dynamic,),
-    # "test_cast_DOUBLE_to_FLOAT_cpu": (test_static_dynamic,),
-    # "test_cast_FLOAT_to_FLOAT16_cpu": (test_disabled,), # appers unsupported at this time
-    # "test_cast_FLOAT16_to_FLOAT_cpu": (test_disabled,), # appers unsupported at this time
-    # "test_cast_FLOAT16_to_DOUBLE_cpu": (test_disabled,), # appers unsupported at this time
-    # "test_cast_DOUBLE_to_FLOAT16_cpu": (test_disabled,), # appers unsupported at this time
-    # "test_cast_FLOAT_to_STRING_cpu": (test_disabled,), # appers unsupported at this time
-    # "test_cast_STRING_to_FLOAT_cpu": (test_disabled,), # appers unsupported at this time
-    #
-    # # Ceil
-    # "test_ceil_example_cpu": (test_static_dynamic,),
-    # "test_ceil_cpu": (test_static_dynamic,),
-    #
-    # # Celu
-    #
-    # # Clip
-    # "test_clip_cpu": (test_static_dynamic,),
-    # "test_clip_example_cpu": (test_static_dynamic,),
-    # "test_clip_inbounds_cpu": (test_static_dynamic,),
-    # "test_clip_outbounds_cpu": (test_static_dynamic,),
-    # "test_clip_splitbounds_cpu": (test_static_dynamic,),
-    # "test_clip_default_min_cpu": (test_static_dynamic,),
-    # "test_clip_default_max_cpu": (test_static_dynamic,),
-    # "test_clip_cpu": (test_static_dynamic,),
-    # "test_clip_default_inbounds_cpu": (test_static_dynamic,),
-    # #"test_clip_default_int8_min_cpu": (test_static_dynamic,),
-    #
-    # # Compress
-    #
-    # # Concat
-    # "test_concat_1d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
-    # "test_concat_2d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
-    # "test_concat_2d_axis_1_cpu": (test_static_dynamic,{0:{1}}),
-    # "test_concat_3d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
-    # "test_concat_3d_axis_1_cpu": (test_static_dynamic,{0:{1}}),
-    # "test_concat_3d_axis_2_cpu": (test_static_dynamic,{0:{2}}),
-    # "test_concat_1d_axis_negative_1_cpu": (test_static_dynamic,{0:{0}}),
-    # "test_concat_2d_axis_negative_1_cpu": (test_static_dynamic,{0:{1}}),
-    # "test_concat_2d_axis_negative_2_cpu": (test_static_dynamic,{0:{0}}),
-    # "test_concat_3d_axis_negative_1_cpu": (test_static_dynamic,{0:{2}}),
-    # "test_concat_3d_axis_negative_2_cpu": (test_static_dynamic,{0:{1}}),
-    # "test_concat_3d_axis_negative_3_cpu": (test_static_dynamic,{0:{0}}),
-    #
-    # # Constant (dynamic NA)
-    # "test_constant_cpu": (test_static_dynamicNA,),
-    #
-    # # ConstantOfShape (dynamic NA)
-    # "test_constantofshape_float_ones_cpu": (test_static_dynamicNA,),
-    # "test_constantofshape_int_zeros_cpu": (test_static_dynamicNA,),
-    #
-    # # Conv
-    # "test_basic_conv_without_padding_cpu": (test_static_dynamic,{0:{0}}),
-    # "test_conv_with_strides_no_padding_cpu": (test_static_dynamic,{0:{0}}),
-    # "test_conv_with_strides_padding_cpu": (test_static_dynamic,{0:{0}}),
-    # "test_conv_with_strides_and_asymmetric_padding_cpu": (test_static_dynamic,{0:{0}}),
-    #
-    # # ConvInteger
-    #
-    # # ConvTranspose
-    #
-    # # Cos
-    # "test_cos_example_cpu": (test_static_dynamic,),
-    # "test_cos_cpu": (test_static_dynamic,),
-    #
-    # # Cosh
-    # "test_cosh_cpu": (test_static_dynamic,),
-    # "test_cosh_example_cpu": (test_static_dynamic,),
-    #
-    # # CumSum
-    #
-    # # DepthOfSpace
-    #
-    # # DequatizeLinear
-    #
-    # # Det
-    #
-    # # Div
-    # "test_div_cpu": (test_static_dynamic,),
-    # "test_div_bcast_cpu": (test_static_dynamic,),
-    # "test_div_example_cpu": (test_static_dynamic,),
-    #
-    # # Dropout
-    # "test_dropout_default_cpu": (test_static_dynamic,),
-    # "test_dropout_default_ratio_cpu": (test_static_dynamic,),
-    # # Other dopout test case failed: implementation is missing
-    # # mask is not supported for inference
-    # #"test_dropout_default_mask_cpu": (test_static_dynamic,),
-    # #"test_dropout_default_mask_ratio_cpu": (test_static_dynamic,),
-    #
-    # # Error: input arrays contain a mixture of endianness configuration
-    # #"test_training_dropout_default_cpu": (test_static_dynamic,),
-    #
-    # #"test_training_dropout_default_mask_cpu": (test_static_dynamic,),
-    #
-    # # Error: input arrays contain a mixture of endianness configuration
-    # #"test_training_dropout_default_cpu": (test_static_dynamic,),
-    #
-    # #"test_training_dropout_mask_cpu": (test_static_dynamic,),
-    #
-    # # Error: input arrays contain a mixture of endianness configuration
-    # #"test_training_dropout_zero_ratio_cpu": (test_static_dynamic,),
-    #
-    # #"test_training_dropout_zero_ratio_mask_cpu": (test_static_dynamic,),
-    #
-    # # DynamicQuantizeLinear
-    #
-    # # Edge
-    #
-    # # EinSum
-    #
-    # # Elu
-    # "test_elu_cpu": (test_static_dynamic,),
-    # "test_elu_default_cpu": (test_static_dynamic,),
-    # "test_elu_example_cpu": (test_static_dynamic,),
-    #
-    # # Equal
-    #
-    # # Erf
-    # "test_erf_cpu": (test_static_dynamic,),
-    #
-    # # Exp
-    # "test_exp_cpu": (test_static_dynamic,),
-    # "test_exp_example_cpu": (test_static_dynamic,),
-    #
-    # # Expand
-    #
-    # # Eyelike
-    #
-    # # Flatten
-    # "test_flatten_axis0_cpu": (test_static_dynamic,),
-    # "test_flatten_axis1_cpu": (test_static_dynamic,),
-    # "test_flatten_axis2_cpu": (test_static_dynamic,),
-    # "test_flatten_axis3_cpu": (test_static_dynamic,),
-    # "test_flatten_default_axis_cpu": (test_static_dynamic,),
-    # "test_flatten_negative_axis1_cpu": (test_static_dynamic,),
-    # "test_flatten_negative_axis2_cpu": (test_static_dynamic,),
-    # "test_flatten_negative_axis3_cpu": (test_static_dynamic,),
-    # "test_flatten_negative_axis4_cpu": (test_static_dynamic,),
-    #
-    # # Floor
-    # "test_floor_example_cpu": (test_static_dynamic,),
-    # "test_floor_cpu": (test_static_dynamic,),
-    #
-    # # Gather
-    # "test_gather_0_cpu": (test_static_dynamic,),
-    # "test_gather_1_cpu": (test_static_dynamic,),
-    # "test_gather_negative_indices_cpu": (test_static_dynamic,),
-    #
-    # # Gemm
-    # "test_gemm_all_attributes_cpu": (test_static_dynamic,),
-    # "test_gemm_alpha_cpu": (test_static_dynamic,),
-    # "test_gemm_beta_cpu": (test_static_dynamic,),
-    # "test_gemm_default_matrix_bias_cpu": (test_static_dynamic,),
-    # "test_gemm_default_no_bias_cpu": (test_static_dynamic,),
-    # "test_gemm_default_scalar_bias_cpu": (test_static_dynamic,),
-    # "test_gemm_default_single_elem_vector_bias_cpu": (test_static_dynamic,),
-    # "test_gemm_default_vector_bias_cpu": (test_static_dynamic,),
-    # "test_gemm_default_zero_bias_cpu": (test_static_dynamic,),
-    # "test_gemm_transposeA_cpu": (test_static_dynamic,),
-    # "test_gemm_transposeB_cpu": (test_static_dynamic,),
-    #
-    # # Global Average Pool
-    # "test_globalaveragepool_cpu": (test_static_dynamic,),
-    # "test_globalaveragepool_precomputed_cpu": (test_static_dynamic,),
-    #
-    # # Global Max Pool
-    # "test_globalmaxpool_cpu": (test_static_dynamic,),
-    # "test_globalmaxpool_precomputed_cpu": (test_static_dynamic,),
-    #
-    # # Greater
-    #
-    # # GRU
-    # "test_gru_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    # "test_gru_seq_length_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    # "test_gru_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    #
-    # # Hard Max
-    #
-    # # Hard Sigmoid
-    # "test_hardsigmoid_cpu": (test_static_dynamic,),
-    # "test_hardsigmoid_default_cpu": (test_static_dynamic,),
-    # "test_hardsigmoid_example_cpu": (test_static_dynamic,),
-    #
-    # # Identity
-    # "test_identity_cpu": (test_static_dynamic,),
-    #
-    # # Instance Norm
-    #
-    # # Is Inf Neg/Pos
-    #
-    # # Is Nan
-    #
-    # # Leaky Relu
-    # "test_leakyrelu_cpu": (test_static_dynamic,),
-    # "test_leakyrelu_default_cpu": (test_static_dynamic,),
-    # "test_leakyrelu_example_cpu": (test_static_dynamic,),
-    #
-    # # Less
-    # "test_less_cpu": (test_static_dynamic,),
-    # "test_less_bcast_cpu": (test_static_dynamic,),
-    #
-    # # Log
-    # "test_log_example_cpu": (test_static_dynamic,),
-    # "test_log_cpu": (test_static_dynamic,),
-    #
-    # # LogSoftmax
-    # "test_logsoftmax_axis_0_cpu": (test_static_dynamic,),
-    # "test_logsoftmax_axis_1_cpu": (test_static_dynamic,),
-    # "test_logsoftmax_axis_2_cpu": (test_static_dynamic,),
-    # "test_logsoftmax_example_1_cpu": (test_static_dynamic,),
-    # "test_logsoftmax_default_axis_cpu": (test_static_dynamic,),
-    # "test_logsoftmax_negative_axis_cpu": (test_static_dynamic,),
-    # "test_logsoftmax_large_number_cpu": (test_static_dynamic,),
-    #
-    # # LRN
-    # "test_lrn_cpu": (test_static_dynamic,),
-    # "test_lrn_default_cpu": (test_static_dynamic,),
-    #
-    #
-    # # LSTM
-    # "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    # "test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    # "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    #
-    # # Matmul
-    # "test_matmul_2d_cpu": (test_static_dynamic,),
-    # "test_matmul_3d_cpu": (test_static_dynamic,),
-    # "test_matmul_4d_cpu": (test_static_dynamic,),
-    #
-    # # Matmul Integer
-    #
-    # # Max
-    # "test_max_example_cpu": (test_static_dynamic,),
-    # "test_max_one_input_cpu": (test_static_dynamic,),
-    # "test_max_two_inputs_cpu": (test_static_dynamic,),
-    #
-    # # MaxPoolSingleOut
-    # "test_maxpool_1d_default_cpu": (test_static_dynamic,),
-    # "test_maxpool_2d_ceil_cpu": (test_static_dynamic,),
-    # "test_maxpool_2d_default_cpu": (test_static_dynamic,),
-    # "test_maxpool_2d_dilations_cpu": (test_static_dynamic,),
-    # "test_maxpool_2d_pads_cpu": (test_static_dynamic,),
-    # "test_maxpool_2d_precomputed_pads_cpu": (test_static_dynamic,),
-    # "test_maxpool_2d_precomputed_same_upper_cpu": (test_static_dynamic,),
-    # "test_maxpool_2d_precomputed_strides_cpu": (test_static_dynamic,),
-    # "test_maxpool_2d_same_lower_cpu": (test_static_dynamic,),
-    # "test_maxpool_2d_same_upper_cpu": (test_static_dynamic,),
-    # "test_maxpool_2d_strides_cpu": (test_static_dynamic,),
-    # "test_maxpool_3d_default_cpu": (test_static_dynamic,),
-    #
-    # # Mean
-    #
-    # # Min
-    # "test_min_example_cpu": (test_static_dynamic,),
-    # "test_min_one_input_cpu": (test_static_dynamic,),
-    # "test_min_two_inputs_cpu": (test_static_dynamic,),
-    #
-    # # Mod
-    #
-    # # Momentum
-    #
-    # # Mul
-    # "test_mul_cpu": (test_static_dynamic,),
-    # "test_mul_bcast_cpu": (test_static_dynamic,),
-    # "test_mul_example_cpu": (test_static_dynamic,),
-    #
-    # # Multinomial (NMV)
-    #
-    # # Neg
-    # "test_neg_example_cpu": (test_static_dynamic,),
-    # "test_neg_cpu": (test_static_dynamic,),
-    #
-    # # Negative Log Likelihood Loss
-    #
-    # # Non Max Supression
-    #
-    # # Non Zero
-    #
-    # # Not
-    #
-    # # One Hot
-    #
-    # # Or
-    # "test_or2d_cpu": (test_static_dynamic,),
-    # "test_or3d_cpu": (test_static_dynamic,),
-    # "test_or4d_cpu": (test_static_dynamic,),
-    # "test_or_bcast3v1d_cpu": (test_static_dynamic,),
-    # "test_or_bcast3v2d_cpu": (test_static_dynamic,),
-    # "test_or_bcast4v2d_cpu": (test_static_dynamic,),
-    # "test_or_bcast4v3d_cpu": (test_static_dynamic,),
-    # "test_or_bcast4v4d_cpu": (test_static_dynamic,),
-    #
-    # # Pad (not working)
-    # #"test_constant_pad_cpu": test_static_dynamic,
-    # #"test_edge_pad_cpu": test_static_dynamic,
-    # #"test_reflect_pad_cpu": test_static_dynamic,
-    #
-    # # Pow
-    # "test_pow_cpu": (test_static_dynamic,),
-    # "test_pow_example_cpu": (test_static_dynamic,),
-    # "test_pow_bcast_scalar_cpu": (test_static_dynamic,),
-    # "test_pow_bcast_array_cpu": (test_static_dynamic,),
-    # # Does not support integer power yet
-    #
-    # # PRelu
-    # "test_prelu_example_cpu": (test_static_dynamic,),
-    # "test_prelu_broadcast_cpu": (test_static_dynamic,),
-    #
-    # # QLinear Conv
-    #
-    # # QLinear Matmul
-    #
-    # # Quantize Linear
-    #
-    # # Reciprocal Op:
-    # "test_reciprocal_cpu": (test_static_dynamic,),
-    # "test_reciprocal_example_cpu": (test_static_dynamic,),
-    #
-    # # ReduceL1
-    # "test_reduce_l1_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_l1_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_l1_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_l1_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_l1_keep_dims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_l1_keep_dims_random_cpu": (test_static,),
-    # "test_reduce_l1_negative_axes_keep_dims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_l1_negative_axes_keep_dims_random_cpu": (test_static_dynamic,),
-    #
-    # # ReduceL2
-    # "test_reduce_l2_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_l2_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_l2_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_l2_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_l2_keep_dims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_l2_keep_dims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_l2_negative_axes_keep_dims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_l2_negative_axes_keep_dims_random_cpu": (test_static_dynamic,),
-    #
-    # # ReduceLogSum
-    # "test_reduce_log_sum_asc_axes_cpu": (test_static_dynamic,),
-    # "test_reduce_log_sum_cpu": (test_static_dynamic,),
-    # "test_reduce_log_sum_default_cpu": (test_static_dynamic,),
-    # "test_reduce_log_sum_desc_axes_cpu": (test_static_dynamic,),
-    #
-    # # ReduceLogSumExp
-    # "test_reduce_log_sum_exp_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_log_sum_exp_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_log_sum_exp_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_log_sum_exp_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_log_sum_exp_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_log_sum_exp_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_log_sum_exp_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_log_sum_exp_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_log_sum_negative_axes_cpu": (test_static_dynamic,),
-    #
-    # # ReduceMax
-    # "test_reduce_max_default_axes_keepdim_example_cpu": (test_static_dynamic,),
-    # "test_reduce_max_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_max_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_max_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_max_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_max_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_max_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_max_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
-    #
-    # # ReduceMean
-    # "test_reduce_mean_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_mean_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_mean_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_mean_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_mean_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_mean_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_mean_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_mean_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
-    #
-    # # ReduceMin
-    # "test_reduce_min_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_min_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_min_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_min_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_min_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_min_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_min_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_min_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
-    #
-    # # ReduceProd
-    # "test_reduce_prod_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_prod_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_prod_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_prod_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_prod_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_prod_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_prod_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_prod_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
-    #
-    # # ReduceSum
-    # "test_reduce_sum_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
-    #
-    # # ReduceSumSquare
-    # "test_reduce_sum_square_default_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_square_default_axes_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_square_do_not_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_square_do_not_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_square_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_square_keepdims_random_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_square_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
-    # "test_reduce_sum_square_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
-    #
-    # # Relu
-    # "test_relu_cpu": (test_static_dynamic,),
-    #
-    # # Reshape
-    # "test_reshape_extended_dims_cpu": (test_static_dynamic,{0:{-1}}),
-    # "test_reshape_negative_dim_cpu": (test_static_dynamic,{0:{-1}}),
-    # "test_reshape_negative_extended_dims_cpu": (test_static_dynamic,{0:{-1}}),
-    # "test_reshape_one_dim_cpu": (test_static_dynamic,{0:{-1}}),
-    # "test_reshape_reduced_dims_cpu": (test_static_dynamic,{0:{-1}}),
-    # "test_reshape_reordered_all_dims_cpu": (test_static_dynamic,{0:{-1}}),
-    # "test_reshape_reordered_last_dims_cpu": (test_static_dynamic,{0:{-1}}),
-    # "test_reshape_zero_and_negative_dim_cpu": (test_static_dynamic,{0:{-1}}),
-    # "test_reshape_zero_dim_cpu": (test_static_dynamic,{0:{-1}}),
-    #
-    # # Resize
-    #
-    # # Reverse Sequence
-    #
-    # # RNN
-    # "test_rnn_seq_length_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    # "test_simple_rnn_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
-    # "test_simple_rnn_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
+
+    ############################################################
+    # Elementary ops, ordered alphabetically.
+
+    # Abs
+    "test_abs_cpu": (test_static_dynamic,),
+
+    # Acos
+    "test_acos_cpu": (test_static_dynamic,),
+    "test_acos_example_cpu": (test_static_dynamic,),
+
+    # Acosh
+    "test_acosh_cpu": (test_static_dynamic,),
+    "test_acosh_example_cpu": (test_static_dynamic,),
+
+    # Adagrad
+
+    # Adam
+
+    # Add
+    "test_add_cpu": (test_static_dynamic,),
+    "test_add_bcast_cpu": (test_static_dynamic,),
+
+    # And
+    "test_and2d_cpu": (test_static_dynamic,),
+    "test_and3d_cpu": (test_static_dynamic,),
+    "test_and4d_cpu": (test_static_dynamic,),
+    "test_and_bcast3v1d_cpu": (test_static_dynamic,),
+    "test_and_bcast3v2d_cpu": (test_static_dynamic,),
+    "test_and_bcast4v2d_cpu": (test_static_dynamic,),
+    "test_and_bcast4v3d_cpu": (test_static_dynamic,),
+    "test_and_bcast4v4d_cpu": (test_static_dynamic,),
+
+    # Argmax
+    "test_argmax_no_keepdims_example_cpu": (test_static_dynamic,),
+    "test_argmax_keepdims_example_cpu": (test_static_dynamic,),
+    "test_argmax_default_axis_example_cpu": (test_static_dynamic,),
+
+    # Argmin
+
+    # Asin
+    "test_asin_cpu": (test_static_dynamic,),
+    "test_asin_example_cpu": (test_static_dynamic,),
+
+    # Asinh
+    "test_asinh_cpu": (test_static_dynamic,),
+    "test_asinh_example_cpu": (test_static_dynamic,),
+
+    # Atan
+    "test_atan_example_cpu": (test_static_dynamic,),
+    "test_atan_cpu": (test_static_dynamic,),
+
+    # Atanh
+    "test_atanh_cpu": (test_static_dynamic,),
+    "test_atanh_example_cpu": (test_static_dynamic,),
+
+    # AveragePool
+    "test_averagepool_1d_default_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_ceil_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_default_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_pads_count_include_pad_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_pads_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_precomputed_pads_count_include_pad_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_precomputed_pads_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_precomputed_same_upper_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_precomputed_strides_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_same_lower_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_same_upper_cpu": (test_static_dynamic,),
+    "test_averagepool_2d_strides_cpu": (test_static_dynamic,),
+    "test_averagepool_3d_default_cpu": (test_static_dynamic,),
+
+    # BatchNormalization (test mode)
+    "test_batchnorm_epsilon_cpu": (test_static_dynamic,),
+    "test_batchnorm_example_cpu": (test_static_dynamic,),
+
+    # Bitshift left/right
+
+    # Cast
+    "test_cast_FLOAT_to_DOUBLE_cpu": (test_static_dynamic,),
+    "test_cast_DOUBLE_to_FLOAT_cpu": (test_static_dynamic,),
+    "test_cast_FLOAT_to_FLOAT16_cpu": (test_disabled,), # appers unsupported at this time
+    "test_cast_FLOAT16_to_FLOAT_cpu": (test_disabled,), # appers unsupported at this time
+    "test_cast_FLOAT16_to_DOUBLE_cpu": (test_disabled,), # appers unsupported at this time
+    "test_cast_DOUBLE_to_FLOAT16_cpu": (test_disabled,), # appers unsupported at this time
+    "test_cast_FLOAT_to_STRING_cpu": (test_disabled,), # appers unsupported at this time
+    "test_cast_STRING_to_FLOAT_cpu": (test_disabled,), # appers unsupported at this time
+
+    # Ceil
+    "test_ceil_example_cpu": (test_static_dynamic,),
+    "test_ceil_cpu": (test_static_dynamic,),
+
+    # Celu
+
+    # Clip
+    "test_clip_cpu": (test_static_dynamic,),
+    "test_clip_example_cpu": (test_static_dynamic,),
+    "test_clip_inbounds_cpu": (test_static_dynamic,),
+    "test_clip_outbounds_cpu": (test_static_dynamic,),
+    "test_clip_splitbounds_cpu": (test_static_dynamic,),
+    "test_clip_default_min_cpu": (test_static_dynamic,),
+    "test_clip_default_max_cpu": (test_static_dynamic,),
+    "test_clip_cpu": (test_static_dynamic,),
+    "test_clip_default_inbounds_cpu": (test_static_dynamic,),
+    #"test_clip_default_int8_min_cpu": (test_static_dynamic,),
+
+    # Compress
+
+    # Concat
+    "test_concat_1d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
+    "test_concat_2d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
+    "test_concat_2d_axis_1_cpu": (test_static_dynamic,{0:{1}}),
+    "test_concat_3d_axis_0_cpu": (test_static_dynamic,{0:{0}}),
+    "test_concat_3d_axis_1_cpu": (test_static_dynamic,{0:{1}}),
+    "test_concat_3d_axis_2_cpu": (test_static_dynamic,{0:{2}}),
+    "test_concat_1d_axis_negative_1_cpu": (test_static_dynamic,{0:{0}}),
+    "test_concat_2d_axis_negative_1_cpu": (test_static_dynamic,{0:{1}}),
+    "test_concat_2d_axis_negative_2_cpu": (test_static_dynamic,{0:{0}}),
+    "test_concat_3d_axis_negative_1_cpu": (test_static_dynamic,{0:{2}}),
+    "test_concat_3d_axis_negative_2_cpu": (test_static_dynamic,{0:{1}}),
+    "test_concat_3d_axis_negative_3_cpu": (test_static_dynamic,{0:{0}}),
+
+    # Constant (dynamic NA)
+    "test_constant_cpu": (test_static_dynamicNA,),
+
+    # ConstantOfShape (dynamic NA)
+    "test_constantofshape_float_ones_cpu": (test_static_dynamicNA,),
+    "test_constantofshape_int_zeros_cpu": (test_static_dynamicNA,),
+
+    # Conv
+    "test_basic_conv_without_padding_cpu": (test_static_dynamic,{0:{0}}),
+    "test_conv_with_strides_no_padding_cpu": (test_static_dynamic,{0:{0}}),
+    "test_conv_with_strides_padding_cpu": (test_static_dynamic,{0:{0}}),
+    "test_conv_with_strides_and_asymmetric_padding_cpu": (test_static_dynamic,{0:{0}}),
+
+    # ConvInteger
+
+    # ConvTranspose
+
+    # Cos
+    "test_cos_example_cpu": (test_static_dynamic,),
+    "test_cos_cpu": (test_static_dynamic,),
+
+    # Cosh
+    "test_cosh_cpu": (test_static_dynamic,),
+    "test_cosh_example_cpu": (test_static_dynamic,),
+
+    # CumSum
+
+    # DepthOfSpace
+
+    # DequatizeLinear
+
+    # Det
+
+    # Div
+    "test_div_cpu": (test_static_dynamic,),
+    "test_div_bcast_cpu": (test_static_dynamic,),
+    "test_div_example_cpu": (test_static_dynamic,),
+
+    # Dropout
+    "test_dropout_default_cpu": (test_static_dynamic,),
+    "test_dropout_default_ratio_cpu": (test_static_dynamic,),
+    # Other dopout test case failed: implementation is missing
+    # mask is not supported for inference
+    #"test_dropout_default_mask_cpu": (test_static_dynamic,),
+    #"test_dropout_default_mask_ratio_cpu": (test_static_dynamic,),
+
+    # Error: input arrays contain a mixture of endianness configuration
+    #"test_training_dropout_default_cpu": (test_static_dynamic,),
+
+    #"test_training_dropout_default_mask_cpu": (test_static_dynamic,),
+
+    # Error: input arrays contain a mixture of endianness configuration
+    #"test_training_dropout_default_cpu": (test_static_dynamic,),
+
+    #"test_training_dropout_mask_cpu": (test_static_dynamic,),
+
+    # Error: input arrays contain a mixture of endianness configuration
+    #"test_training_dropout_zero_ratio_cpu": (test_static_dynamic,),
+
+    #"test_training_dropout_zero_ratio_mask_cpu": (test_static_dynamic,),
+
+    # DynamicQuantizeLinear
+
+    # Edge
+
+    # EinSum
+
+    # Elu
+    "test_elu_cpu": (test_static_dynamic,),
+    "test_elu_default_cpu": (test_static_dynamic,),
+    "test_elu_example_cpu": (test_static_dynamic,),
+
+    # Equal
+
+    # Erf
+    "test_erf_cpu": (test_static_dynamic,),
+
+    # Exp
+    "test_exp_cpu": (test_static_dynamic,),
+    "test_exp_example_cpu": (test_static_dynamic,),
+
+    # Expand
+
+    # Eyelike
+
+    # Flatten
+    "test_flatten_axis0_cpu": (test_static_dynamic,),
+    "test_flatten_axis1_cpu": (test_static_dynamic,),
+    "test_flatten_axis2_cpu": (test_static_dynamic,),
+    "test_flatten_axis3_cpu": (test_static_dynamic,),
+    "test_flatten_default_axis_cpu": (test_static_dynamic,),
+    "test_flatten_negative_axis1_cpu": (test_static_dynamic,),
+    "test_flatten_negative_axis2_cpu": (test_static_dynamic,),
+    "test_flatten_negative_axis3_cpu": (test_static_dynamic,),
+    "test_flatten_negative_axis4_cpu": (test_static_dynamic,),
+
+    # Floor
+    "test_floor_example_cpu": (test_static_dynamic,),
+    "test_floor_cpu": (test_static_dynamic,),
+
+    # Gather
+    "test_gather_0_cpu": (test_static_dynamic,),
+    "test_gather_1_cpu": (test_static_dynamic,),
+    "test_gather_negative_indices_cpu": (test_static_dynamic,),
+
+    # Gemm
+    "test_gemm_all_attributes_cpu": (test_static_dynamic,),
+    "test_gemm_alpha_cpu": (test_static_dynamic,),
+    "test_gemm_beta_cpu": (test_static_dynamic,),
+    "test_gemm_default_matrix_bias_cpu": (test_static_dynamic,),
+    "test_gemm_default_no_bias_cpu": (test_static_dynamic,),
+    "test_gemm_default_scalar_bias_cpu": (test_static_dynamic,),
+    "test_gemm_default_single_elem_vector_bias_cpu": (test_static_dynamic,),
+    "test_gemm_default_vector_bias_cpu": (test_static_dynamic,),
+    "test_gemm_default_zero_bias_cpu": (test_static_dynamic,),
+    "test_gemm_transposeA_cpu": (test_static_dynamic,),
+    "test_gemm_transposeB_cpu": (test_static_dynamic,),
+
+    # Global Average Pool
+    "test_globalaveragepool_cpu": (test_static_dynamic,),
+    "test_globalaveragepool_precomputed_cpu": (test_static_dynamic,),
+
+    # Global Max Pool
+    "test_globalmaxpool_cpu": (test_static_dynamic,),
+    "test_globalmaxpool_precomputed_cpu": (test_static_dynamic,),
+
+    # Greater
+
+    # GRU
+    "test_gru_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_gru_seq_length_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_gru_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
+
+    # Hard Max
+
+    # Hard Sigmoid
+    "test_hardsigmoid_cpu": (test_static_dynamic,),
+    "test_hardsigmoid_default_cpu": (test_static_dynamic,),
+    "test_hardsigmoid_example_cpu": (test_static_dynamic,),
+
+    # Identity
+    "test_identity_cpu": (test_static_dynamic,),
+
+    # Instance Norm
+
+    # Is Inf Neg/Pos
+
+    # Is Nan
+
+    # Leaky Relu
+    "test_leakyrelu_cpu": (test_static_dynamic,),
+    "test_leakyrelu_default_cpu": (test_static_dynamic,),
+    "test_leakyrelu_example_cpu": (test_static_dynamic,),
+
+    # Less
+    "test_less_cpu": (test_static_dynamic,),
+    "test_less_bcast_cpu": (test_static_dynamic,),
+
+    # Log
+    "test_log_example_cpu": (test_static_dynamic,),
+    "test_log_cpu": (test_static_dynamic,),
+
+    # LogSoftmax
+    "test_logsoftmax_axis_0_cpu": (test_static_dynamic,),
+    "test_logsoftmax_axis_1_cpu": (test_static_dynamic,),
+    "test_logsoftmax_axis_2_cpu": (test_static_dynamic,),
+    "test_logsoftmax_example_1_cpu": (test_static_dynamic,),
+    "test_logsoftmax_default_axis_cpu": (test_static_dynamic,),
+    "test_logsoftmax_negative_axis_cpu": (test_static_dynamic,),
+    "test_logsoftmax_large_number_cpu": (test_static_dynamic,),
+
+    # LRN
+    "test_lrn_cpu": (test_static_dynamic,),
+    "test_lrn_default_cpu": (test_static_dynamic,),
+
+
+    # LSTM
+    "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_lstm_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_lstm_with_peepholes_cpu": (test_static_dynamic,{0:{0,1,2}}),
+
+    # Matmul
+    "test_matmul_2d_cpu": (test_static_dynamic,),
+    "test_matmul_3d_cpu": (test_static_dynamic,),
+    "test_matmul_4d_cpu": (test_static_dynamic,),
+
+    # Matmul Integer
+
+    # Max
+    "test_max_example_cpu": (test_static_dynamic,),
+    "test_max_one_input_cpu": (test_static_dynamic,),
+    "test_max_two_inputs_cpu": (test_static_dynamic,),
+
+    # MaxPoolSingleOut
+    "test_maxpool_1d_default_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_ceil_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_default_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_dilations_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_pads_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_precomputed_pads_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_precomputed_same_upper_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_precomputed_strides_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_same_lower_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_same_upper_cpu": (test_static_dynamic,),
+    "test_maxpool_2d_strides_cpu": (test_static_dynamic,),
+    "test_maxpool_3d_default_cpu": (test_static_dynamic,),
+
+    # Mean
+
+    # Min
+    "test_min_example_cpu": (test_static_dynamic,),
+    "test_min_one_input_cpu": (test_static_dynamic,),
+    "test_min_two_inputs_cpu": (test_static_dynamic,),
+
+    # Mod
+
+    # Momentum
+
+    # Mul
+    "test_mul_cpu": (test_static_dynamic,),
+    "test_mul_bcast_cpu": (test_static_dynamic,),
+    "test_mul_example_cpu": (test_static_dynamic,),
+
+    # Multinomial (NMV)
+
+    # Neg
+    "test_neg_example_cpu": (test_static_dynamic,),
+    "test_neg_cpu": (test_static_dynamic,),
+
+    # Negative Log Likelihood Loss
+
+    # Non Max Supression
+
+    # Non Zero
+
+    # Not
+
+    # One Hot
+
+    # Or
+    "test_or2d_cpu": (test_static_dynamic,),
+    "test_or3d_cpu": (test_static_dynamic,),
+    "test_or4d_cpu": (test_static_dynamic,),
+    "test_or_bcast3v1d_cpu": (test_static_dynamic,),
+    "test_or_bcast3v2d_cpu": (test_static_dynamic,),
+    "test_or_bcast4v2d_cpu": (test_static_dynamic,),
+    "test_or_bcast4v3d_cpu": (test_static_dynamic,),
+    "test_or_bcast4v4d_cpu": (test_static_dynamic,),
+
+    # Pad (not working)
+    #"test_constant_pad_cpu": test_static_dynamic,
+    #"test_edge_pad_cpu": test_static_dynamic,
+    #"test_reflect_pad_cpu": test_static_dynamic,
+
+    # Pow
+    "test_pow_cpu": (test_static_dynamic,),
+    "test_pow_example_cpu": (test_static_dynamic,),
+    "test_pow_bcast_scalar_cpu": (test_static_dynamic,),
+    "test_pow_bcast_array_cpu": (test_static_dynamic,),
+    # Does not support integer power yet
+
+    # PRelu
+    "test_prelu_example_cpu": (test_static_dynamic,),
+    "test_prelu_broadcast_cpu": (test_static_dynamic,),
+
+    # QLinear Conv
+
+    # QLinear Matmul
+
+    # Quantize Linear
+
+    # Reciprocal Op:
+    "test_reciprocal_cpu": (test_static_dynamic,),
+    "test_reciprocal_example_cpu": (test_static_dynamic,),
+
+    # ReduceL1
+    "test_reduce_l1_default_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_l1_default_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_l1_do_not_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_l1_do_not_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_l1_keep_dims_example_cpu": (test_static_dynamic,),
+    "test_reduce_l1_keep_dims_random_cpu": (test_static,),
+    "test_reduce_l1_negative_axes_keep_dims_example_cpu": (test_static_dynamic,),
+    "test_reduce_l1_negative_axes_keep_dims_random_cpu": (test_static_dynamic,),
+
+    # ReduceL2
+    "test_reduce_l2_default_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_l2_default_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_l2_do_not_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_l2_do_not_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_l2_keep_dims_example_cpu": (test_static_dynamic,),
+    "test_reduce_l2_keep_dims_random_cpu": (test_static_dynamic,),
+    "test_reduce_l2_negative_axes_keep_dims_example_cpu": (test_static_dynamic,),
+    "test_reduce_l2_negative_axes_keep_dims_random_cpu": (test_static_dynamic,),
+
+    # ReduceLogSum
+    "test_reduce_log_sum_asc_axes_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_default_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_desc_axes_cpu": (test_static_dynamic,),
+
+    # ReduceLogSumExp
+    "test_reduce_log_sum_exp_default_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_exp_default_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_exp_do_not_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_exp_do_not_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_exp_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_exp_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_exp_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_exp_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_log_sum_negative_axes_cpu": (test_static_dynamic,),
+
+    # ReduceMax
+    "test_reduce_max_default_axes_keepdim_example_cpu": (test_static_dynamic,),
+    "test_reduce_max_default_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_max_do_not_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_max_do_not_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_max_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_max_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_max_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_max_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+
+    # ReduceMean
+    "test_reduce_mean_default_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_mean_default_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_mean_do_not_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_mean_do_not_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_mean_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_mean_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_mean_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_mean_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+
+    # ReduceMin
+    "test_reduce_min_default_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_min_default_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_min_do_not_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_min_do_not_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_min_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_min_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_min_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_min_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+
+    # ReduceProd
+    "test_reduce_prod_default_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_prod_default_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_prod_do_not_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_prod_do_not_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_prod_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_prod_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_prod_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_prod_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+
+    # ReduceSum
+    "test_reduce_sum_default_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_sum_default_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_sum_do_not_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_sum_do_not_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_sum_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_sum_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_sum_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_sum_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+
+    # ReduceSumSquare
+    "test_reduce_sum_square_default_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_sum_square_default_axes_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_sum_square_do_not_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_sum_square_do_not_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_sum_square_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_sum_square_keepdims_random_cpu": (test_static_dynamic,),
+    "test_reduce_sum_square_negative_axes_keepdims_example_cpu": (test_static_dynamic,),
+    "test_reduce_sum_square_negative_axes_keepdims_random_cpu": (test_static_dynamic,),
+
+    # Relu
+    "test_relu_cpu": (test_static_dynamic,),
+
+    # Reshape
+    "test_reshape_extended_dims_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_reshape_negative_dim_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_reshape_negative_extended_dims_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_reshape_one_dim_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_reshape_reduced_dims_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_reshape_reordered_all_dims_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_reshape_reordered_last_dims_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_reshape_zero_and_negative_dim_cpu": (test_static_dynamic,{0:{-1}}),
+    "test_reshape_zero_dim_cpu": (test_static_dynamic,{0:{-1}}),
+
+    # Resize
+
+    # Reverse Sequence
+
+    # RNN
+    "test_rnn_seq_length_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_simple_rnn_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
+    "test_simple_rnn_with_initial_bias_cpu": (test_static_dynamic,{0:{0,1,2}}),
 
     # Roi Align
 
@@ -768,7 +768,7 @@ test_for_dynamic = [ key for (key, value) in test_to_enable_static_dynamic.items
 
 if args.dynamic :
     print("dynamic shape is enabled")
-    test_to_enable = test_for_dynamic 
+    test_to_enable = test_for_dynamic
 
 # User case specify one test case with BCKEND_TEST env
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
@@ -786,7 +786,7 @@ def determine_dynamic_parameters(test_name):
     if test_name_cpu in test_for_dynamic:
         if len(test_to_enable_static_dynamic[test_name_cpu]) > 1:
             selected_list = test_to_enable_static_dynamic[test_name_cpu][1]
-    return selected_list 
+    return selected_list
 
 def execute_commands(cmds, dynamic_inputs_dims):
     if (args.verbose):
@@ -809,7 +809,7 @@ def execute_commands(cmds, dynamic_inputs_dims):
                    first_dim = False
                 else:
                    env_string += "," + str(dim_index)
-        my_env["IMPORTER_FORCE_DYNAMIC"] = env_string 
+        my_env["IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env)
 
 
