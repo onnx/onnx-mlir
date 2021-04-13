@@ -19,11 +19,12 @@
 #include <string>
 #include <vector>
 
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
-#include <llvm/Support/FileSystem.h>
-#include <llvm/Support/Program.h>
-#include <mlir/Dialect/LLVMIR/LLVMDialect.h>
-#include <mlir/IR/SymbolTable.h>
+#include "mlir/Target/LLVMIR.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Program.h"
 
 #include "src/ExternalUtil.hpp"
 #include "src/MainUtils.hpp"
@@ -257,7 +258,7 @@ void genLLVMBitcode(const mlir::OwningModuleRef &module,
   // Use the LLVM's 'opt' command to optimize the bitcode.
   string optPath = getToolPath("opt");
   Command optBitcode(/*exePath=*/!optPath.empty() ? optPath : kOptPath);
-  optBitcode.appendStr("-O3")
+  optBitcode.appendStr("-O2")
       .appendStr(getTargetOptions())
       .appendList({"-o", optimizedBitcodePath})
       .appendStr(unoptimizedBitcodePath)

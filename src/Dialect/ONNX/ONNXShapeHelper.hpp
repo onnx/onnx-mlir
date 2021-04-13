@@ -141,7 +141,9 @@ struct ONNXTileOpShapeHelper : public ONNXOpShapeHelper<ONNXTileOp> {
   LogicalResult Compute(ONNXTileOpAdaptor operandAdaptor);
 };
 
-// Shape for GemmOp.
+// Shape for GemmOp. Rank of C is known, and its rank can be 0, 1, or 2. Each
+// of the dimensions of C can have 1 (broadcast) or many (same size as position
+// requires).
 struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<ONNXGemmOp> {
   ONNXGemmOpShapeHelper(ONNXGemmOp *newOp, ConversionPatternRewriter *rewriter);
 
@@ -151,7 +153,7 @@ struct ONNXGemmOpShapeHelper : public ONNXOpShapeHelper<ONNXGemmOp> {
   SmallVector<IndexExpr, 4> aDims; // Dim of A, after applying transpose.
   SmallVector<IndexExpr, 4> bDims; // Dim of B, after applying transpose.
   SmallVector<IndexExpr, 4> cDims; // Dim of C, padding "1" when broadcast.
-  bool hasBias;                    // Whether ther eis a bias (aka C exists).
+  bool hasBias;                    // Whether there is a bias (aka C exists).
   int cRank; // Dim of the original C (not padding dims by 1).
 };
 
