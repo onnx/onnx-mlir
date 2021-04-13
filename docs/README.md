@@ -42,7 +42,7 @@ cmake --build . --target check-mlir
 ```
 
 #### ONNX-MLIR (this project)
-Two environment variables need to be set:
+The following environment variables can be set before building onnx-mlir (or alternatively, they need to be passed as CMake variables):
 - LLVM_PROJ_SRC should point to the llvm-project src directory (e.g., llvm-project/).
 - LLVM_PROJ_BUILD should point to the llvm-project build directory (e.g., llvm-project/build).
 
@@ -77,19 +77,32 @@ Run all the commands from a shell started from **"Developer Command Prompt for V
 #### Protobuf
 Build protobuf as a static library.
 
+[same-as-file]: <> (utils/install-protobuf.cmd)
 ```shell
-set root_dir=%cd%
 git clone --recurse-submodules https://github.com/protocolbuffers/protobuf.git
-cd protobuf
-cd cmake
-cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 -DCMAKE_BUILD_TYPE=Release -Dprotobuf_MSVC_STATIC_RUNTIME=OFF -Dprotobuf_BUILD_TESTS=OFF -Dprotobuf_BUILD_EXAMPLES=OFF -Dprotobuf_WITH_ZLIB=OFF -DCMAKE_INSTALL_PREFIX="%root_dir%\protobuf\install"
-call msbuild protobuf.sln /m /p:Configuration=Release
-call msbuild INSTALL.vcxproj /p:Configuration=Release
+REM Check out a specific branch that is known to work with ONNX MLIR.
+REM This corresponds to the v3.11.4 tag
+cd protobuf && git checkout d0bfd5221182da1a7cc280f3337b5e41a89539cf && cd ..
+
+set root_dir=%cd%
+md protobuf_build
+cd protobuf_build
+call cmake %root_dir%\protobuf\cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 ^
+   -DCMAKE_INSTALL_PREFIX="%root_dir%\protobuf_install" ^
+   -DCMAKE_BUILD_TYPE=Release ^
+   -Dprotobuf_BUILD_EXAMPLES=OFF ^
+   -Dprotobuf_BUILD_SHARED_LIBS=OFF ^
+   -Dprotobuf_BUILD_TESTS=OFF ^
+   -Dprotobuf_MSVC_STATIC_RUNTIME=OFF ^
+   -Dprotobuf_WITH_ZLIB=OFF
+
+call cmake --build . --config Release -- /m
+call cmake --build . --config Release --target install -- /m
 ```
 
 Before running CMake for onnx-mlir, ensure that the bin directory to this protobuf is before any others in your PATH:
 ```shell
-set PATH=%root_dir%\protobuf\install\bin;%PATH%
+set PATH=%root_dir%\protobuf_install\bin;%PATH%
 ```
 
 #### MLIR
@@ -107,7 +120,7 @@ cd llvm-project && git checkout 15d1ee36720ff24323f55452ae3cfb63f318c3f3 && cd .
 set root_dir=%cd%
 md llvm-project\build
 cd llvm-project\build
-call cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 ..\llvm ^
+call cmake %root_dir%\llvm-project\llvm -G "Visual Studio 16 2019" -A x64 -T host=x64 ^
    -DCMAKE_INSTALL_PREFIX="%root_dir%\llvm-project\build\install" ^
    -DLLVM_ENABLE_PROJECTS=mlir ^
    -DLLVM_BUILD_EXAMPLES=ON ^
@@ -123,30 +136,36 @@ call cmake --build . --config Release --target check-mlir -- /m
 ```
 
 #### ONNX-MLIR (this project)
-The following environment variables need to be set before building onnx-mlir:
+The following environment variables can be set before building onnx-mlir (or alternatively, they need to be passed as CMake variables):
 - LLVM_PROJ_BUILD: Path to the build directory for LLVM (e.g. c:/repos/llvm-project/build)
 - LLVM_PROJ_SRC: Path to the source directory for LLVM (e.g. c:/repos/llvm-project)
 
 This project uses lit ([LLVM's Integrated Tester](http://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running CMake, we can also specify the path to the lit tool from LLVM using the LLVM_EXTERNAL_LIT define but it is not required as long as LLVM_PROJ_BUILD is set correctly.
 
-To build ONNX MLIR, use the following command:
+To build ONNX MLIR, use the following commands:
 
-[same-as-file]: <> ({"ref": "utils/install-onnx-mlir.cmd", "skip-doc": 2})
+[same-as-file]: <> ({"ref": "utils/build-onnx-mlir.cmd", "skip-doc": 2})
 ```shell
 git clone --recursive https://github.com/onnx/onnx-mlir.git
 
-REM Export environment variables pointing to LLVM-Projects.
 set root_dir=%cd%
-set LLVM_PROJ_BUILD=%root_dir%/llvm-project/build
-set LLVM_PROJ_SRC=%root_dir%/llvm-project
 
 md onnx-mlir\build
 cd onnx-mlir\build
-call cmake -G "Visual Studio 16 2019" -A x64 -T host=x64 -DCMAKE_BUILD_TYPE=Release ..
-call cmake --build . --config Release --target onnx-mlir -- /m
+call cmake %root_dir%\onnx-mlir -G "Visual Studio 16 2019" -A x64 -T host=x64 ^
+   -DCMAKE_BUILD_TYPE=Release ^
+   -DCMAKE_PREFIX_PATH=%root_dir%\protobuf_install ^
+   -DLLVM_LIT_ARGS=-v ^
+   -DLLVM_PROJ_BUILD=%root_dir%\llvm-project\build ^
+   -DLLVM_PROJ_SRC=%root_dir%\llvm-project
 
-REM Run FileCheck tests
-set LIT_OPTS=-v
+call cmake --build . --config Release --target onnx-mlir -- /m
+```
+
+To test ONNX MLIR, use the following command:
+
+[same-as-file]: <> ({"ref": "utils/check-onnx-mlir.cmd", "skip-ref": 1})
+```shell
 call cmake --build . --config Release --target check-onnx-lit -- /m
 ```
 
