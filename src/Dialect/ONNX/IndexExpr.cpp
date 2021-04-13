@@ -1292,6 +1292,18 @@ MemRefBoundsIndexCapture::MemRefBoundsIndexCapture(Value tensorOrMemref)
     memRank = shapedType.getShape().size();
 }
 
+bool MemRefBoundsIndexCapture::isLiteral(int64_t i) {
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  return (shape[i] >= 0);
+}
+
+int64_t MemRefBoundsIndexCapture::getShape(int64_t i) {
+  ArrayRef<int64_t> shape =
+      tensorOrMemref.getType().cast<ShapedType>().getShape();
+  return shape[i];
+}
+
 bool MemRefBoundsIndexCapture::areAllLiteral() {
   ArrayRef<int64_t> shape =
       tensorOrMemref.getType().cast<ShapedType>().getShape();
