@@ -274,9 +274,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       genericGemm(gemmOp, operandAdaptor, elementType, shapeHelper, alloc, zero,
           alpha, beta, rewriter, loc);
     }
-
     rewriter.replaceOp(op, alloc);
-
     return success();
   }
 };
