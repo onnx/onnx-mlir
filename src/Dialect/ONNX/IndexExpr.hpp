@@ -669,7 +669,9 @@ public:
   MemRefBoundsIndexCapture(Value tensorOrMemref);
 
   int64_t getRank() { return memRank; }
+  bool isLiteral(int64_t i);
   bool areAllLiteral();
+  int64_t getShape(int64_t i);
   IndexExpr getLiteral(uint64_t i); // Assert if bound is not compile time.
   IndexExpr getDim(uint64_t i);
   IndexExpr getSymbol(uint64_t i);

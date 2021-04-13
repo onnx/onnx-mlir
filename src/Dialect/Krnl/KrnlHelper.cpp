@@ -346,6 +346,21 @@ ArrayRef<BlockArgument> BuildKrnlLoop::getAllInductionVar() {
       iterBlock->getArguments().begin(), iterBlock->getArguments().end());
 }
 
+//====---------------- Support for simple transpose ----------------------===//
+
+// create an identity
+void generateIndexMap(
+    SmallVectorImpl<int64_t> &map, int64_t size, bool transposeInner2) {
+  for (int i = 0; i < size; ++i)
+    map.emplace_back(i); // Indentity map.
+  if (size < 2)
+    return;
+  if (transposeInner2) {
+    map[size - 2] = size - 1;
+    map[size - 1] = size - 2;
+  }
+}
+
 // TODO: only in the EDSC scope
 
 //====---------------- EDSC Support with Value ---------------------------===//
@@ -435,18 +450,20 @@ void krnl_iterate(ValueRange originalLoops, ValueRange lbs, ValueRange ubs,
 }
 
 void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
-    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext) {
+    Value padValue, ArrayRef<int64_t> tileSize, ArrayRef<int64_t> padToNext,
+    bool transpose) {
   using namespace mlir::edsc;
   assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
   ScopedContext::getBuilderRef().create<KrnlCopyToBufferOp>(
       ScopedContext::getLocation(), bufferMemref, memref, starts, padValue,
-      tileSize, padToNext);
+      tileSize, padToNext, transpose);
 }
 
-void krnl_copy_to_buffer(
-    Value bufferMemref, Value memref, ValueRange starts, Value padValue) {
+void krnl_copy_to_buffer(Value bufferMemref, Value memref, ValueRange starts,
+    Value padValue, bool transpose) {
   ArrayRef<int64_t> empty;
-  krnl_copy_to_buffer(bufferMemref, memref, starts, padValue, empty, empty);
+  krnl_copy_to_buffer(
+      bufferMemref, memref, starts, padValue, empty, empty, transpose);
 }
 
 void krnl_copy_from_buffer(Value bufferMemref, Value memref, ValueRange starts,
