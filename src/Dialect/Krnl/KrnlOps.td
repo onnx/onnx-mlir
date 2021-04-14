@@ -182,7 +182,7 @@ def KrnlPackedConstantOp : Op<Krnl_Dialect, "packed_const"> {
 
   let arguments = (ins I64Attr:$size_in_bytes,
                        BoolAttr:$is_le,
-                       OptionalAttr<AnyIntElementsAttr<8>>:$value,
+                       OptionalAttr<AnyIntElementsAttr>:$value,
                        OptionalAttr<StrAttr>:$file_name);
   let results = (outs I64:$output);
 

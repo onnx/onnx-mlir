@@ -147,8 +147,8 @@ find_mlir_lib(MLIRAffineTransforms)
 find_mlir_lib(MLIRAMX)
 find_mlir_lib(MLIRAMXTransforms)
 find_mlir_lib(MLIRAnalysis)
-find_mlir_lib(MLIRAVX512)
-find_mlir_lib(MLIRAVX512Transforms)
+find_mlir_lib(MLIRX86Vector)
+find_mlir_lib(MLIRX86VectorTransforms)
 find_mlir_lib(MLIRCallInterfaces)
 find_mlir_lib(MLIRControlFlowInterfaces)
 find_mlir_lib(MLIRCopyOpInterface)
@@ -168,6 +168,7 @@ find_mlir_lib(MLIRLinalgAnalysis)
 find_mlir_lib(MLIRLinalgTransforms)
 find_mlir_lib(MLIRLinalgUtils)
 find_mlir_lib(MLIRMemRef)
+find_mlir_lib(MLIRMemRefUtils)
 find_mlir_lib(MLIRSCF)
 find_mlir_lib(MLIRSCFTransforms)
 find_mlir_lib(MLIRLLVMIRTransforms)
@@ -252,8 +253,8 @@ set(MLIRLibs
         ${MLIRAffineUtils}
         ${MLIRAMX}
         ${MLIRAMXTransforms}
-        ${MLIRAVX512}
-        ${MLIRAVX512Transforms}
+        ${MLIRX86Vector}
+        ${MLIRX86VectorTransforms}
         ${MLIRCopyOpInterface}
         ${MLIRLLVMIR}
         ${MLIRStandard}
@@ -315,6 +316,7 @@ set(MLIRLibs
         ${MLIRLinalgTransforms}
         ${MLIRLinalgUtils}
         ${MLIRMemRef}
+	${MLIRMemRefUtils}
         ${MLIRAffineEDSC}
         ${MLIRLinalgEDSC}
         ${MLIRViewLikeInterface}

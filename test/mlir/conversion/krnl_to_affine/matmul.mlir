@@ -69,9 +69,9 @@ func @matmulKrnl_runtime(%A: memref<4x6xf32>, %B: memref<6x8xf32>, %C: memref<4x
     return
 // mlir2FileCheck.py -a'["A", "B", "C"]'
 // CHECK-DAG: #map0 = affine_map<(d0)[s0] -> (d0 + s0)>
-// CHECK-DAG: #map1 = affine_map<()[s0, s1] -> (-s1 + s0, 4)>
-// CHECK-DAG: #map2 = affine_map<()[s0, s1] -> (-s1 + s0, 6)>
-// CHECK-DAG: #map3 = affine_map<()[s0, s1] -> (-s1 + s0)>
+// CHECK-DAG: #map1 = affine_map<()[s0, s1] -> (s0 - s1, 4)>
+// CHECK-DAG: #map2 = affine_map<()[s0, s1] -> (s0 - s1, 6)>
+// CHECK-DAG: #map3 = affine_map<()[s0, s1] -> (s0 - s1)>
 // CHECK-DAG: #set0 = affine_set<()[s0, s1, s2, s3, s4, s5] : (-s3 + s0 - 4 >= 0, -s5 + s1 - 8 >= 0, -s4 + s2 - 6 >= 0)>
 // CHECK-DAG: #set1 = affine_set<()[s0, s1] : (-s1 + s0 - 8 >= 0)>
 // CHECK-LABEL:  func @matmulKrnl_runtime
