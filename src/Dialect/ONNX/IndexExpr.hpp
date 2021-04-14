@@ -344,6 +344,9 @@ public:
   int getNumDims() const { return dims.size(); }
   int getNumSymbols() const { return symbols.size(); }
 
+  // Debug (enable using DEBUG=1 at top of file).
+  void debugPrint(const std::string &msg) const;
+
 private:
   static IndexExprScope *&getCurrentScopePtr() {
     thread_local IndexExprScope *scope = nullptr; // Thread local, null init.
