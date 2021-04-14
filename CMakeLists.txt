@@ -61,8 +61,6 @@ elseif ((ONNX_USE_PROTOBUF_SHARED_LIBS AND Protobuf_USE_STATIC_LIBS)
 endif()
 add_subdirectory(third_party/onnx)
 
-set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
-add_subdirectory(third_party/benchmark)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/variant)
 add_subdirectory(third_party/rapidcheck)
