@@ -174,8 +174,8 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
     AffineExpr affineExpr = expr.getAffineExpr();
     int dimNum = expr.getScope().getNumDims();
     int symNum = expr.getScope().getNumSymbols();
-    AffineMap map = AffineMap::get(dimNum, symNum, {affineExpr},
-        expr.getRewriter().getContext());
+    AffineMap map = AffineMap::get(
+        dimNum, symNum, {affineExpr}, expr.getRewriter().getContext());
     SmallVector<Value, 4> list;
     expr.getScope().getDimAndSymbolList(list);
     pushAffineMapBound(map, list);
