@@ -711,6 +711,7 @@ int compileModuleApollo(mlir::OwningModuleRef &module, mlir::MLIRContext &contex
   addKrnlToAffinePasses(pm);
 
   // Outlining passes
+  pm.addPass(mlir::createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(mlir::createAffineForToTVPPass());
   pm.addPass(mlir::createTVPKernelOutliningPass());
   pm.addNestedPass<tvp::TVPModuleOp>(mlir::createAssignKernelIdsPass());
