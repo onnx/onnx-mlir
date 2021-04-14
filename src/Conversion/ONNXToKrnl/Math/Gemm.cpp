@@ -104,7 +104,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     bool bTrans = gemmOp.transB();
     IndexExpr I = shapeHelper.dimsForOutput()[0];
     IndexExpr J = shapeHelper.dimsForOutput()[1];
-    IndexExpr K = shapeHelper.aDims[aTrans ? 0 : 1];
+    IndexExpr K = shapeHelper.aDims[1]; // aDims are already transposed.
     LiteralIndexExpr zero(0);
 
     // Initialize alloc/R to zero.
