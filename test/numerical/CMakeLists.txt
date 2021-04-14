@@ -29,7 +29,22 @@ add_executable(TestMatMul2D TestMatMul2D.cpp)
                 MainUtils
                 ExecutionSession
                 OMTensorUtils)
-        
+
+add_executable(TestGemm TestGemm.cpp)
+        target_compile_definitions(TestGemm PRIVATE RTMEMREF_INTERNAL_API)
+        target_include_directories(TestGemm
+                PRIVATE
+                ${ONNX_MLIR_BIN_ROOT}
+                ${ONNX_MLIR_SRC_ROOT}/include)
+        target_link_libraries(TestGemm
+                ${OMLibs}
+                ${MLIRLibs}
+                ${CMAKE_DL_LIBS}
+                rapidcheck
+                MainUtils
+                ExecutionSession
+                OMTensorUtils)
+
 add_executable(TestLSTM TestLSTM.cpp)
 target_compile_definitions(TestLSTM PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(TestLSTM
@@ -93,6 +108,7 @@ target_link_libraries(TestLoop
 
 add_test(NAME OMTestConv COMMAND TestConv)
 add_test(NAME OMTestMatMul2D COMMAND TestMatMul2D)
+add_test(NAME OMTestGemm COMMAND TestGemm)
 add_test(NAME OMTestLoop COMMAND TestLoop)
 add_test(NAME OMTestGRU COMMAND TestGRU)
 add_test(NAME OMTestLSTM COMMAND TestLSTM)

@@ -683,21 +683,6 @@ public:
     else
       cTileSize = {cBounds.getSymbol(cRank - 2), cBounds.getSymbol(cRank - 1)};
 
-    // Check consitency. If the dimensions were padded differently for
-    // A, B, or C, and the optional A/B/C TileSize attributes were given,
-    // we take the these optional sizes into consideration. Meaning, we
-    // don't really care about the padded dimensions, we only care about
-    // the actual data.
-    if (IndexExpr::isLiteral(aTileSize) && IndexExpr::isLiteral(bTileSize) &&
-        IndexExpr::isLiteral(cTileSize)) {
-      assert(aTileSize[0].getLiteral() == cTileSize[0].getLiteral() &&
-             "I dim mismatch");
-      assert(aTileSize[1].getLiteral() == bTileSize[0].getLiteral() &&
-             "K dim mismatch");
-      assert(bTileSize[1].getLiteral() == cTileSize[1].getLiteral() &&
-             "J dim mismatch");
-    }
-
     // Gather N, M, K compute tile size. This is the size of the computations,
     // if the tile is full. Because computation in the buffers could be further
     // subtiled, the default size can be overridden from the tile sizes using
@@ -1021,15 +1006,16 @@ public:
       KrnlCopyToBufferOp op, PatternRewriter &rewriter) const override {
     // Get info from operands.
     KrnlCopyToBufferOpAdaptor operandAdaptor = KrnlCopyToBufferOpAdaptor(op);
-    Value buffMemref(operandAdaptor.bufferMemref());
-    Value sourceMemref(operandAdaptor.memref());
+    Value buffMemref(operandAdaptor.buffer());
+    Value sourceMemref(operandAdaptor.source());
     ValueRange startVals(operandAdaptor.starts());
     Value padVal(operandAdaptor.padValue());
-    int64_t rank = sourceMemref.getType().cast<MemRefType>().getShape().size();
-    assert(startVals.size() == rank && "starts rank differs from memref");
-    assert(buffMemref.getType().cast<MemRefType>().getShape().size() == rank &&
-           "buffer and memref should have the same rank");
-
+    int64_t srcRank =
+        sourceMemref.getType().cast<MemRefType>().getShape().size();
+    int64_t buffRank =
+        buffMemref.getType().cast<MemRefType>().getShape().size();
+    int64_t srcOffset = srcRank - buffRank;
+    assert(srcOffset >= 0 && "offset expected non negative");
     ScopedContext scope(rewriter, op.getLoc());
     IndexExprScope indexScope(rewriter, op.getLoc());
     SmallVector<IndexExpr, 4> starts, bufferReadUBs, bufferPadUBs;
@@ -1037,11 +1023,13 @@ public:
     MemRefBoundsIndexCapture sourceBounds(sourceMemref);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     ArrayAttributeIndexCapture padCapture(op.padToNextAttr(), 1);
-    assert((padCapture.size() == 0 || padCapture.size() == rank) &&
-           "optional padToNext rank differs from memref");
     ArrayAttributeIndexCapture readSizeCapture(op.tileSizeAttr());
-    assert((readSizeCapture.size() == 0 || readSizeCapture.size() == rank) &&
-           "optional readTileSize rank differs from memref");
+    // Handle possible transpose by having an indirect array for indices
+    // used in conjunction with source.
+    SmallVector<int64_t, 4> srcIndexMap, srcLoopMap;
+    generateIndexMap(srcIndexMap, srcRank, op.transpose());
+    generateIndexMap(srcLoopMap, buffRank, op.transpose());
+
     // Overread not currently used, will if we simdize reads or
     // unroll and jam loops.
     // ArrayAttributeIndexCapture overCapture(op.overreadToNextAttr(), 1);
@@ -1049,23 +1037,28 @@ public:
     // Determine here bufferReadUBs, which determine how many values of source
     // memeref to copy into the buffer. Also determine bufferPadUBs, which is
     // the upper bound past bufferReadUBs that must be padded.
+    // This is only done on the dimensions shared between src memref and buffer.
     LiteralIndexExpr zero(0);
-    for (long i = 0; i < rank; ++i) {
+    for (long buffIndex = 0; buffIndex < buffRank; ++buffIndex) {
+      long srcIndex = srcIndexMap[srcOffset + buffIndex];
       // Compute how many values to read.
-      IndexExpr sourceBound = sourceBounds.getSymbol(i); // Source memref size.
-      IndexExpr blockSize = buffBounds.getSymbol(i);     // Buffer memref size.
+      IndexExpr sourceBound =
+          sourceBounds.getSymbol(srcIndex); // Source memref size.
+      IndexExpr blockSize =
+          buffBounds.getSymbol(buffIndex); // Buffer memref size.
       if (readSizeCapture.size()) {
         int64_t memSize = blockSize.getLiteral();
-        blockSize = readSizeCapture.getLiteral(i); // Size from param.
+        blockSize = readSizeCapture.getLiteral(buffIndex); // Size from param.
         assert(blockSize.getLiteral() <= memSize &&
                "readTileSize cannot be larger than the buffer size");
       }
-      IndexExpr startGI = starts[i]; // Global index in source memref of tile.
+      IndexExpr startGI =
+          starts[srcIndex]; // Global index in source memref of tile.
       IndexExpr bufferRead = trip(sourceBound, blockSize, startGI);
       bufferRead.debugPrint("buffer read");
       bufferReadUBs.emplace_back(bufferRead);
       // Determine the UB until which to pad
-      IndexExpr padToNext = padCapture.getLiteral(i);
+      IndexExpr padToNext = padCapture.getLiteral(buffIndex);
       int64_t padToNextLit =
           padToNext.getLiteral(); // Will assert if undefined.
       int64_t blockSizeLit = blockSize.getLiteral(); // Will assert if not lit.
@@ -1090,18 +1083,20 @@ public:
       }
     }
     SmallVector<Value, 4> loopIndices;
-    genCopyLoops(buffMemref, sourceMemref, padVal, zero, starts, bufferReadUBs,
-        bufferPadUBs, loopIndices, 0, rank, false);
+    genCopyLoops(buffMemref, sourceMemref, srcIndexMap, srcLoopMap, padVal,
+        zero, starts, bufferReadUBs, bufferPadUBs, loopIndices, 0, buffRank,
+        false);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(Value buffMemref, Value sourceMemref, Value padVal,
-      IndexExpr zero, SmallVectorImpl<IndexExpr> &starts,
-      SmallVectorImpl<IndexExpr> &readUBs, SmallVectorImpl<IndexExpr> &padUBs,
-      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank,
-      bool padPhase) const {
-    if (i == rank) {
+  void genCopyLoops(Value buffMemref, Value sourceMemref,
+      SmallVectorImpl<int64_t> &srcIndexMap,
+      SmallVectorImpl<int64_t> &srcLoopMap, Value padVal, IndexExpr zero,
+      SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &readUBs,
+      SmallVectorImpl<IndexExpr> &padUBs, SmallVectorImpl<Value> &loopIndices,
+      int64_t i, int64_t buffRank, bool padPhase) const {
+    if (i == buffRank) {
       // create new scope and import index expressions
       IndexExprScope currScope;
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
@@ -1109,8 +1104,19 @@ public:
       if (!padPhase) {
         SmallVector<IndexExpr, 4> currLoadIndices;
         getIndexExprList<DimIndexExpr>(starts, currStarts);
-        for (long i = 0; i < rank; ++i) {
-          currLoadIndices.emplace_back(currLoopIndices[i] + currStarts[i]);
+        int64_t srcRank = starts.size();
+        int64_t srcOffset = srcRank - buffRank;
+        for (long srcIndex = 0; srcIndex < srcRank; ++srcIndex) {
+          if (srcIndex < srcOffset) {
+            // Dimensions that are unique to source memref, just use starts.
+            currLoadIndices.emplace_back(currStarts[srcIndex]);
+          } else {
+            // Dimensions that are shared by source memref & buffer, add loop
+            // indices to starts.
+            int64_t buffIndex = srcIndex - srcOffset;
+            currLoadIndices.emplace_back(
+                currLoopIndices[srcLoopMap[buffIndex]] + currStarts[srcIndex]);
+          }
         }
         Value sourceVal = krnl_load(sourceMemref, currLoadIndices);
         krnl_store(sourceVal, buffMemref, currLoopIndices);
@@ -1125,8 +1131,9 @@ public:
       } else {
         affineLoopBuilder(zero, readUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, padVal, zero, starts, readUBs,
-              padUBs, loopIndices, i + 1, rank,
+          genCopyLoops(buffMemref, sourceMemref, srcIndexMap, srcLoopMap,
+              padVal, zero, starts, readUBs, padUBs, loopIndices, i + 1,
+              buffRank,
               /*no pad phase*/ false);
           loopIndices.pop_back_n(1);
         });
@@ -1136,8 +1143,9 @@ public:
       } else {
         affineLoopBuilder(readUBs[i], padUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, padVal, zero, starts, readUBs,
-              padUBs, loopIndices, i + 1, rank,
+          genCopyLoops(buffMemref, sourceMemref, srcIndexMap, srcLoopMap,
+              padVal, zero, starts, readUBs, padUBs, loopIndices, i + 1,
+              buffRank,
               /*pad phase*/ true);
           loopIndices.pop_back_n(1);
         });
@@ -1161,62 +1169,77 @@ public:
       KrnlCopyFromBufferOp op, PatternRewriter &rewriter) const override {
     KrnlCopyFromBufferOpAdaptor operandAdaptor =
         KrnlCopyFromBufferOpAdaptor(op);
-    Value buffMemref(operandAdaptor.bufferMemref());
-    Value sourceMemref(operandAdaptor.memref());
+    Value buffMemref(operandAdaptor.buffer());
+    Value destMemref(operandAdaptor.dest());
     ValueRange startVals(operandAdaptor.starts());
-    int64_t rank = sourceMemref.getType().cast<MemRefType>().getShape().size();
-    assert(startVals.size() == rank && "starts rank differs from memref");
-    assert(buffMemref.getType().cast<MemRefType>().getShape().size() == rank &&
-           "buffer and memref should have the same rank");
+    int64_t destRank =
+        destMemref.getType().cast<MemRefType>().getShape().size();
+    int64_t buffRank =
+        buffMemref.getType().cast<MemRefType>().getShape().size();
+    int64_t destOffset = destRank - buffRank;
+    assert(destOffset >= 0 && "offset expected non negative");
     ArrayAttributeIndexCapture writeSizeCapture(op.tileSizeAttr());
-    assert((writeSizeCapture.size() == 0 || writeSizeCapture.size() == rank) &&
-           "optional writeTileSize rank differs from memref");
 
     ScopedContext scope(rewriter, op.getLoc());
     IndexExprScope indexScope(rewriter, op.getLoc());
     SmallVector<IndexExpr, 4> starts, bufferWriteUBs;
     MemRefBoundsIndexCapture buffBounds(buffMemref);
-    MemRefBoundsIndexCapture sourceBounds(sourceMemref);
+    MemRefBoundsIndexCapture destBounds(destMemref);
     getIndexExprList<DimIndexExpr>(startVals, starts);
     SmallVector<Value, 4> loopIndices;
     LiteralIndexExpr zero(0);
 
-    for (long i = 0; i < rank; ++i) {
+    for (long buffIndex = 0; buffIndex < buffRank; ++buffIndex) {
+      long destIndex = destOffset + buffIndex;
       // Compute how many values to read.
-      IndexExpr sourceBound = sourceBounds.getSymbol(i); // Source memref size.
-      IndexExpr blockSize = buffBounds.getSymbol(i);     // Buffer memref size.
+      IndexExpr destBound =
+          destBounds.getSymbol(destIndex); // Source memref size.
+      IndexExpr blockSize =
+          buffBounds.getSymbol(buffIndex); // Buffer memref size.
       if (writeSizeCapture.size()) {
         int64_t memSize = blockSize.getLiteral();
-        blockSize = writeSizeCapture.getLiteral(i); // Size from param.
+        blockSize = writeSizeCapture.getLiteral(buffIndex); // Size from param.
         assert(blockSize.getLiteral() <= memSize &&
                "writeTileSize cannot be larger than the buffer size");
       }
-      IndexExpr startGI = starts[i]; // Global index in source memref of tile.
-      IndexExpr bufferWrite = trip(sourceBound, blockSize, startGI);
+      IndexExpr startGI =
+          starts[destIndex]; // Global index in dest memref of tile.
+      IndexExpr bufferWrite = trip(destBound, blockSize, startGI);
       bufferWrite.debugPrint("buffer wrote");
       bufferWriteUBs.emplace_back(bufferWrite);
     }
-    genCopyLoops(buffMemref, sourceMemref, zero, starts, bufferWriteUBs,
-        loopIndices, 0, rank);
+    genCopyLoops(buffMemref, destMemref, zero, starts, bufferWriteUBs,
+        loopIndices, 0, buffRank);
     rewriter.eraseOp(op);
     return success();
   }
 
-  void genCopyLoops(Value buffMemref, Value sourceMemref, IndexExpr zero,
+  void genCopyLoops(Value buffMemref, Value destMemref, IndexExpr zero,
       SmallVectorImpl<IndexExpr> &starts, SmallVectorImpl<IndexExpr> &writeUBs,
-      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t rank) const {
-    if (i == rank) {
+      SmallVectorImpl<Value> &loopIndices, int64_t i, int64_t buffRank) const {
+    if (i == buffRank) {
       // create new scope and import index expressions
       IndexExprScope currScope;
       SmallVector<IndexExpr, 4> currLoopIndices, currStarts;
       getIndexExprList<DimIndexExpr>(loopIndices, currLoopIndices);
       getIndexExprList<SymbolIndexExpr>(starts, currStarts);
+      int64_t destRank = starts.size();
+      int64_t destOffset = destRank - buffRank;
       SmallVector<IndexExpr, 4> currStoreIndices;
-      for (long i = 0; i < rank; ++i) {
-        currStoreIndices.emplace_back(currLoopIndices[i] + currStarts[i]);
+      for (long destIndex = 0; destIndex < destRank; ++destIndex) {
+        if (destIndex < destOffset) {
+          // Dimensions that are unique to source memref, just use starts.
+          currStoreIndices.emplace_back(currStarts[destIndex]);
+        } else {
+          // Dimensions that are shared by source memref & buffer, add loop
+          // indices to starts.
+          int64_t buffIndex = destIndex - destOffset;
+          currStoreIndices.emplace_back(
+              currLoopIndices[buffIndex] + currStarts[destIndex]);
+        }
       }
-      Value sourceVal = krnl_load(buffMemref, currLoopIndices);
-      krnl_store(sourceVal, sourceMemref, currStoreIndices);
+      Value destVal = krnl_load(buffMemref, currLoopIndices);
+      krnl_store(destVal, destMemref, currStoreIndices);
     } else {
       using namespace edsc::op;
       if (writeUBs[i].isLiteralAndIdenticalTo(0)) {
@@ -1225,8 +1248,8 @@ public:
         // Loop to copy the data.
         affineLoopBuilder(zero, writeUBs[i], 1, [&](Value index) {
           loopIndices.emplace_back(index);
-          genCopyLoops(buffMemref, sourceMemref, zero, starts, writeUBs,
-              loopIndices, i + 1, rank);
+          genCopyLoops(buffMemref, destMemref, zero, starts, writeUBs,
+              loopIndices, i + 1, buffRank);
           loopIndices.pop_back_n(1);
         });
       }
@@ -1300,10 +1323,10 @@ void ConvertKrnlToAffinePass::runOnFunction() {
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
 
   // Interpret krnl dialect operations while looping recursively through
-  // operations within the current function, note that erasing operations while
-  // iterating is tricky because it can invalidate the iterator, so we collect
-  // the operations to be erased in a small ptr set `opsToErase`, and only erase
-  // after iteration completes.
+  // operations within the current function, note that erasing operations
+  // while iterating is tricky because it can invalidate the iterator, so we
+  // collect the operations to be erased in a small ptr set `opsToErase`, and
+  // only erase after iteration completes.
   llvm::SmallDenseMap<Value, AffineForOp, 4> loopRefToOp;
   llvm::SmallPtrSet<Operation *, 4> opsToErase;
   if (failed(interpretOperation(
