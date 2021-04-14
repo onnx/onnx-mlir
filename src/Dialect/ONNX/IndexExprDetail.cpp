@@ -271,8 +271,10 @@ void IndexExprImpl::getAffineMapAndOperands(
   }
   // Handle affine cases.
   if (isAffine()) {
+    // Important to get the affine expressions before getting the dims/symbols.
+    getAffineExpr();
     map = AffineMap::get(getScope().getNumDims(), getScope().getNumSymbols(),
-        {getAffineExpr()}, getRewriter().getContext());
+        {affineExpr}, getRewriter().getContext());
     getScope().getDimAndSymbolList(operands);
     return;
   }

@@ -328,22 +328,25 @@ void krnl_matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
 Value krnl_load(Value memref, ArrayRef<IndexExpr> indices);
 void krnl_store(Value val, Value memref, ArrayRef<IndexExpr> indices);
 
-void krnl_iterate(ValueRange originalLoops, ValueRange optimizedLoops,
+// Use _ie suffix below as often the typecheck has issues distinguising between
+// Value and IndexExpr calls.
+
+void krnl_iterate_ie(ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
     function_ref<void(ValueRange args)> bodyBuilderFn);
-void krnl_iterate(ValueRange originalLoops, ArrayRef<IndexExpr> lbs,
+void krnl_iterate_ie(ValueRange originalLoops, ArrayRef<IndexExpr> lbs,
     ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
     function_ref<void(ValueRange args)> bodyBuilderFn);
 
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
+void krnl_copy_to_buffer_ie(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, Value padValue, ArrayRef<int64_t> tileSize,
     ArrayRef<int64_t> padToNext);
-void krnl_copy_to_buffer(Value bufferMemref, Value memref,
+void krnl_copy_to_buffer_ie(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, Value padValue);
 
-void krnl_copy_from_buffer(Value bufferMemref, Value memref,
+void krnl_copy_from_buffer_ie(Value bufferMemref, Value memref,
     ArrayRef<IndexExpr> starts, ArrayRef<int64_t> tileSize);
-void krnl_copy_from_buffer(
+void krnl_copy_from_buffer_ie(
     Value bufferMemref, Value memref, ArrayRef<IndexExpr> starts);
 
 } // namespace mlir
