@@ -375,6 +375,7 @@ public:
         typeConverter->convertType(memRefTy.getElementType());
     auto globalType = constantElementType;
 
+    // The llvm type of the global (example: [2 x [8 x float]])
     if (shape.empty()) {
       globalType = LLVM::LLVMArrayType::get(globalType.cast<Type>(), 1);
     } else {
@@ -382,73 +383,78 @@ public:
         globalType = LLVM::LLVMArrayType::get(
             globalType.cast<Type>(), ArrayAttrIntVal(shape, i));
     }
-    // The llvm type of the global (example: [2 x [8 x float]])
     auto llvmGlobalType = globalType.cast<Type>();
 
-    mlir::Value alloc;
-    if (krnlGlobalOp.value().hasValue()) {
-      {
-        OpBuilder::InsertionGuard insertGuard(rewriter);
-        rewriter.setInsertionPointToStart(module.getBody());
+    if (!krnlGlobalOp.value().hasValue())
+      llvm_unreachable("Krnl Global must always have a value");
 
-        assert(krnlGlobalOp.value().hasValue() &&
-               "Krnl Global must always have a value");
+    int64_t sizeInBytes = numElements * getMemRefEltSizeInBytes(memRefTy);
+    {
+      OpBuilder::InsertionGuard insertGuard(rewriter);
+      rewriter.setInsertionPointToStart(module.getBody());
 
-        int64_t sizeInBytes = numElements * getMemRefEltSizeInBytes(memRefTy);
-        auto llvmArrayI8Ty =
-            LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
-        if (krnlGlobalOp.value().getValue().isa<OpaqueElementsAttr>()) {
-          // LLVM::GlobalOp does not support OpaqueElementsAttr.
-          // Both StringAttr and OpaqueElementsAttr use StringRef for internal
-          // data array. Thus, it looks safe to use StringAtrr instead of
-          // OpaqueElementsAttr.
-          StringRef data = krnlGlobalOp.value()
-                               .getValue()
-                               .cast<OpaqueElementsAttr>()
-                               .getValue();
+      auto llvmArrayI8Ty =
+          LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
+      if (krnlGlobalOp.value().getValue().isa<OpaqueElementsAttr>()) {
+        // LLVM::GlobalOp does not support OpaqueElementsAttr.
+        // Both StringAttr and OpaqueElementsAttr use StringRef for internal
+        // data array. Thus, it looks safe to use StringAtrr instead of
+        // OpaqueElementsAttr.
+        StringRef data = krnlGlobalOp.value()
+                             .getValue()
+                             .cast<OpaqueElementsAttr>()
+                             .getValue();
+        // Check data size.
+        assert((data.size() == sizeInBytes) && "Data size mismatch.");
+
+        StringAttr llvmStringAttr = StringAttr::get(data, context);
+        global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
+            /*isConstant=*/true, LLVM::Linkage::Internal, name, llvmStringAttr);
+      } else if (krnlGlobalOp.value().getValue().isa<DenseElementsAttr>()) {
+        DenseElementsAttr denseAttr =
+            krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
+        if (!denseAttr.isSplat()) {
+          std::vector<char> rawData = denseAttr.getRawData();
           // Check data size.
-          assert((data.size() == sizeInBytes) && "Data size mismatch.");
+          assert((rawData.size() == sizeInBytes) && "Data size mismatch.");
 
+          StringRef data = StringRef((char *)rawData.data(), rawData.size());
           StringAttr llvmStringAttr = StringAttr::get(data, context);
           global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
               /*isConstant=*/true, LLVM::Linkage::Internal, name,
               llvmStringAttr);
-        } else if (krnlGlobalOp.value().getValue().isa<DenseElementsAttr>()) {
-          DenseElementsAttr denseAttr =
-              krnlGlobalOp.value().getValue().cast<DenseElementsAttr>();
-          if (!denseAttr.isSplat()) {
-            std::vector<char> rawData = denseAttr.getRawData();
-            // Check data size.
-            assert((rawData.size() == sizeInBytes) && "Data size mismatch.");
+        } else {
+          global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
+              /*isConstant=*/true, LLVM::Linkage::Internal, name,
+              krnlGlobalOp.value().getValue());
+        }
+      } else
+        llvm_unreachable("Unsupported attribute type");
+    }
 
-            StringRef data = StringRef((char *)rawData.data(), rawData.size());
-            StringAttr llvmStringAttr = StringAttr::get(data, context);
-            global = rewriter.create<LLVM::GlobalOp>(loc, llvmArrayI8Ty,
-                /*isConstant=*/true, LLVM::Linkage::Internal, name,
-                llvmStringAttr);
-          } else {
-            global = rewriter.create<LLVM::GlobalOp>(loc, llvmGlobalType,
-                /*isConstant=*/true, LLVM::Linkage::Internal, name,
-                krnlGlobalOp.value().getValue());
-          }
-        } else
-          llvm_unreachable("Unsupported attribute type");
-      }
+    // Prepare data to be inserted into MemRef.
+    // If global needs alignment, we need to allocate a new buffer that is
+    // aligned. This is a region of local memory and needs to be emitted as an
+    // alloca.
+    // - Otherwise, no preparation is needed, directly use the global.
 
+    int alignment = 0;
+    if (krnlGlobalOp.alignmentAttr())
+      alignment = krnlGlobalOp.alignmentAttr().getValue().getSExtValue();
+    Value typedGlobal;
+
+    // Get the address of the global.
+    Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
+    auto llvmConstantElementType = constantElementType.cast<Type>();
+
+    if (alignment != 0) {
       // Some frequently used types.
       auto llvmI8PtrTy =
           LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
       auto llvmI64Ty = IntegerType::get(context, 64);
-
-      // Allocate the memory where the constants will be used from.
-      // This is a region of local memory and needs to be emitted as an alloca.
-      int alignment = 0;
-      if (krnlGlobalOp.alignmentAttr())
-        alignment = krnlGlobalOp.alignmentAttr().getValue().getSExtValue();
-
       auto one = rewriter.create<LLVM::ConstantOp>(
           loc, llvmI64Ty, rewriter.getI64IntegerAttr(1));
-      alloc = rewriter.create<LLVM::AllocaOp>(loc,
+      Value alloc = rewriter.create<LLVM::AllocaOp>(loc,
           LLVM::LLVMPointerType::get(llvmGlobalType), one,
           /*alignment=*/alignment);
 
@@ -457,17 +463,11 @@ public:
       Value int8PtrAlloc =
           rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, alloc);
       //  - Bitcast global to i8*
-      Value globalValue = rewriter.create<LLVM::AddressOfOp>(loc, global);
       Value i8PtrGlobal =
           rewriter.create<LLVM::BitcastOp>(loc, llvmI8PtrTy, globalValue);
       //  - Set size.
-      Value memRefElementSize =
-          rewriter.create<LLVM::ConstantOp>(loc, llvmI64Ty,
-              rewriter.getI64IntegerAttr(getMemRefEltSizeInBytes(memRefTy)));
-      Value numElementsValue = rewriter.create<LLVM::ConstantOp>(
-          loc, llvmI64Ty, rewriter.getI64IntegerAttr(numElements));
-      Value totalElementsSize = rewriter.create<LLVM::MulOp>(
-          loc, memRefElementSize, numElementsValue);
+      Value totalElementsSize = rewriter.create<LLVM::ConstantOp>(
+          loc, llvmI64Ty, rewriter.getI64IntegerAttr(sizeInBytes));
       Value int64Size =
           rewriter.create<LLVM::SExtOp>(loc, llvmI64Ty, totalElementsSize);
       //  - Set volatile.
@@ -478,16 +478,18 @@ public:
       auto memcpyRef = getOrInsertMemcpy(rewriter, module);
       rewriter.create<CallOp>(loc, memcpyRef, ArrayRef<Type>({}),
           ArrayRef<Value>({int8PtrAlloc, i8PtrGlobal, int64Size, isVolatile}));
-    } else
-      llvm_unreachable("Krnl Global must always have a value");
-    // Prepare data to be inserted into MemRef.
-    auto llvmConstantElementType = constantElementType.cast<Type>();
-    Value typedAlloc = rewriter.create<LLVM::BitcastOp>(
-        loc, LLVM::LLVMPointerType::get(llvmConstantElementType), alloc);
+      //  - Use the allocated buffer.
+      typedGlobal = rewriter.create<LLVM::BitcastOp>(
+          loc, LLVM::LLVMPointerType::get(llvmConstantElementType), alloc);
+    } else {
+      // Bitcast the global to the MemRefType's element type.
+      typedGlobal = rewriter.create<LLVM::BitcastOp>(loc,
+          LLVM::LLVMPointerType::get(llvmConstantElementType), globalValue);
+    }
 
     // Create llvm MemRef from original MemRef and fill the data pointers.
     auto llvmMemRef = MemRefDescriptor::fromStaticShape(
-        rewriter, loc, *getTypeConverter(), memRefTy, typedAlloc);
+        rewriter, loc, *getTypeConverter(), memRefTy, typedGlobal);
 
     rewriter.replaceOp(op, {llvmMemRef});
     return success();
@@ -1204,15 +1206,18 @@ public:
     if (!targetStructType)
       return failure();
     Location loc = op->getLoc();
+    // Get memRefDescriptor, the new memref descriptor.
     MemRefDescriptor memRefDescriptor =
         MemRefDescriptor::undef(rewriter, loc, targetStructType);
     auto targetElementPtrType = memRefDescriptor.getElementPtrType();
 
+    // Set the new memref to the same buffer as the source memref.
     Value srcBuffer = srcMemRefDesc.allocatedPtr(rewriter, loc);
     Value targetBuffer = rewriter.create<LLVM::BitcastOp>(
         loc, targetElementPtrType, ArrayRef<Value>(srcBuffer));
     memRefDescriptor.setAllocatedPtr(rewriter, loc, targetBuffer);
 
+    // Set the new memref alignment to the same value as source memref.
     Value srcBufferAligned = srcMemRefDesc.alignedPtr(rewriter, loc);
     Value targetBufAligned = rewriter.create<LLVM::BitcastOp>(
         loc, targetElementPtrType, ArrayRef<Value>(srcBufferAligned));
@@ -1250,6 +1255,8 @@ public:
           createIndexConstant(rewriter, loc, targetType.getShape().back()));
     } else {
       // We need to divide the dynamic size on the source by the vector width.
+      // There is the implicit expectation that the last dimension of the
+      // original memory is a multiple of the vector length.
       Value vecWidth = createIndexConstant(rewriter, loc,
           targetType.getElementType().cast<ShapedType>().getNumElements());
       sizes.push_back(rewriter.create<LLVM::UDivOp>(loc,
