@@ -169,9 +169,12 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
   if (expr.isLiteral()) {
     pushConstantBound(expr.getLiteral());
   } else if (expr.isAffine() && !expr.isPredType()) {
+    // Compute affine expression before getting the dim/sym as it may itself add
+    // dim/symbols.
+    AffineExpr affineExpr = expr.getAffineExpr();
     int dimNum = expr.getScope().getNumDims();
     int symNum = expr.getScope().getNumSymbols();
-    AffineMap map = AffineMap::get(dimNum, symNum, {expr.getAffineExpr()},
+    AffineMap map = AffineMap::get(dimNum, symNum, {affineExpr},
         expr.getRewriter().getContext());
     SmallVector<Value, 4> list;
     expr.getScope().getDimAndSymbolList(list);
@@ -185,6 +188,8 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr) {
 void KrnlIterateOperandPack::pushIndexExprsBound(
     SmallVectorImpl<IndexExpr> &exprVector) {
   SmallVector<AffineExpr, 4> AEVector;
+  // Important to get the affine expressions before getting the num Dim/Symbols
+  // as it may add some dims and symbol itself.
   for (IndexExpr expr : exprVector) {
     assert(!expr.isPredType() && "no affine support for predicate type");
     AEVector.push_back(expr.getAffineExpr());

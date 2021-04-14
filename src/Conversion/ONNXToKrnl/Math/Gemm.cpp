@@ -100,11 +100,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
 
     // R is result (alloc).
     Value A(operandAdaptor.A()), B(operandAdaptor.B()), R(alloc);
-    MemRefBoundsIndexCapture aBound(A), rBound(R);
     bool aTrans = gemmOp.transA();
     bool bTrans = gemmOp.transB();
-    IndexExpr I(rBound.getDim(0)), J(rBound.getDim(1)),
-        K(aBound.getDim(aTrans ? 0 : 1));
+    IndexExpr I = shapeHelper.dimsForOutput()[0];
+    IndexExpr J = shapeHelper.dimsForOutput()[1];
+    IndexExpr K = shapeHelper.aDims[aTrans ? 0 : 1];
     LiteralIndexExpr zero(0);
 
     // Initialize alloc/R to zero.
@@ -199,10 +199,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       if (alphaLit != 1.0)
         res = std_mulf(alphaVal, res);
       if (shapeHelper.hasBias) {
+        IndexExprScope innerScope;
         SmallVector<IndexExpr, 2> cAccess;
         for (int x = 2 - shapeHelper.cRank; x < 2; ++x) {
           // If dim > 1, use loop index, otherwise broadcast on 0's element.
-          SymbolIndexExpr dim(shapeHelper.cDims[x]);
+          DimIndexExpr dim(shapeHelper.cDims[x]);
           cAccess.emplace_back(
               IndexExpr::select(dim > 1, DimIndexExpr(outerIndices[x]), 0));
         }
@@ -224,11 +225,11 @@ struct ONNXGemmOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ONNXGemmOpShapeHelper shapeHelper(&gemmOp, &rewriter);
     auto shapecomputed = shapeHelper.Compute(operandAdaptor);
+    shapeHelper.scope.debugPrint("initial scope");
     assert(succeeded(shapecomputed));
     // Scope for krnl EDSC ops
     using namespace mlir::edsc;
     ScopedContext scope(rewriter, loc);
-    IndexExprScope outerScope;
 
     // Insert an allocation and deallocation for the output of this operation.
     MemRefType outputMemRefType = convertToMemRefType(*op->result_type_begin());
@@ -252,7 +253,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
       int cDim0 = shapeHelper.hasBias ? shapeHelper.cDims[0].getLiteral() : -1;
       int cDim1 = shapeHelper.hasBias ? shapeHelper.cDims[1].getLiteral() : -1;
       printf(
-          "hi alex: gemm of size I/J/K, %d,%d,%d%s%s, alpha %f%s, beta %f%s, "
+          "OP-STATS: gemm of size I/J/K, %d,%d,%d%s%s, alpha %f%s, beta %f%s, "
           "c, %d, %d\n",
           (int)shapeHelper.aDims[0].getLiteral(),
           (int)shapeHelper.bDims[1].getLiteral(),
@@ -261,7 +262,7 @@ struct ONNXGemmOpLowering : public ConversionPattern {
           (alphaLit == 1.0 ? " (skip)" : ""), (double)betaLit,
           (betaLit == 1.0 ? " (skip)" : ""), cDim0, cDim1);
     } else {
-      printf("hi alex: gemm of unkown sizes %s%s, alpha %f, beta %f\n",
+      printf("OP-STATS: gemm of unkown sizes %s%s, alpha %f, beta %f\n",
           (aTrans ? ", a trans" : ""), (bTrans ? ", b trans" : ""),
           (double)alphaLit, (double)betaLit);
     }

@@ -52,7 +52,7 @@ struct ONNXOpShapeHelper {
   }
 
   // Return output dims for the N-th output.
-  DimsExpr &dimsForOutput(int n) { return outputsDims[n]; }
+  DimsExpr &dimsForOutput(int n = 0) { return outputsDims[n]; }
 
   // Set the number of outputs.
   void setNumberOfOutputs(int n) { outputsDims.resize(n); }
