@@ -1,28 +1,40 @@
 # SPDX-License-Identifier: Apache-2.0
 
-configure_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
-  ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
-  @ONLY
-  )
-
 if (NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
-  file(GENERATE
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test.py
-    INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test.py
-    )
-  file(GENERATE
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config.py
-    INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
-    )
+  foreach(ONNX_MLIR_BUILD_MODE ${CMAKE_CONFIGURATION_TYPES})
+    string(REPLACE ${CMAKE_CFG_INTDIR} ${ONNX_MLIR_BUILD_MODE}
+      ONNX_MLIR_LIBRARY_PATH_CONFIGURED
+      ${ONNX_MLIR_LIBRARY_PATH})
+    string(REPLACE ${CMAKE_CFG_INTDIR} ${ONNX_MLIR_BUILD_MODE}
+      ONNX_MLIR_RUNTIME_PATH_CONFIGURED
+      ${ONNX_MLIR_RUNTIME_PATH})
+
+    configure_file(
+      ${CMAKE_CURRENT_SOURCE_DIR}/test.py
+      ${CMAKE_CURRENT_BINARY_DIR}/${ONNX_MLIR_BUILD_MODE}/test.py
+      COPYONLY
+      )
+
+    configure_file(
+      ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
+      ${CMAKE_CURRENT_BINARY_DIR}/${ONNX_MLIR_BUILD_MODE}/test_config.py.cfg
+      @ONLY
+      )
+  endforeach()
 else()
-  file(GENERATE
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test.py
-    INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test.py
+  set(ONNX_MLIR_LIBRARY_PATH_CONFIGURED ${ONNX_MLIR_LIBRARY_PATH})
+  set(ONNX_MLIR_RUNTIME_PATH_CONFIGURED ${ONNX_MLIR_RUNTIME_PATH})
+
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/test.py
+    ${CMAKE_CURRENT_BINARY_DIR}/test.py
+    COPYONLY
     )
-  file(GENERATE
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py
-    INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
+
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
+    ${CMAKE_CURRENT_BINARY_DIR}/test_config.py
+    @ONLY
     )
 endif()
 
