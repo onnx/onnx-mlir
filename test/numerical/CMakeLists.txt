@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
+include(CTest)
+
 add_executable(TestConv TestConv.cpp)
 target_compile_definitions(TestConv PRIVATE RTMEMREF_INTERNAL_API)
 target_include_directories(TestConv

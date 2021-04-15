@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# Set LLVM_DEFAULT_EXTERNAL_LIT to an empty string to avoid warnings about the path
+# when using multi-config generators such as VS or Xcode
+set(LLVM_DEFAULT_EXTERNAL_LIT "")
 set(LLVM_LIT_OUTPUT_DIR ${LLVM_PROJ_BIN})
+
+set_llvm_build_mode()
+set(ONNX_MLIR_TOOLS_DIR ${ONNX_MLIR_BIN_ROOT}/bin/${LLVM_BUILD_MODE})
 
 configure_lit_site_cfg(${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
                        ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py
