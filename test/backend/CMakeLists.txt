@@ -1,20 +1,30 @@
 # SPDX-License-Identifier: Apache-2.0
 
-file(GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test.py
-  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test.py
-  )
-
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
   ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
   @ONLY
   )
 
-file(GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config.py
-  INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
-  )
+if (NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
+  file(GENERATE
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test.py
+    INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test.py
+    )
+  file(GENERATE
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config.py
+    INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
+    )
+else()
+  file(GENERATE
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test.py
+    INPUT ${CMAKE_CURRENT_SOURCE_DIR}/test.py
+    )
+  file(GENERATE
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py
+    INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
+    )
+endif()
 
 # Detect pytest-xdist for parallel backend tests
 execute_process(

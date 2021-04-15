@@ -69,10 +69,17 @@ configure_file(
   @ONLY
   )
 
-file(GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/ExternalUtil.hpp
-  INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
-  )
+if (NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
+  file(GENERATE
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/ExternalUtil.hpp
+    INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
+    )
+else()
+  file(GENERATE
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp
+    INPUT ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
+    )
+endif()
 
 add_custom_target(ExternalUtil
   DEPENDS
