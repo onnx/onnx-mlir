@@ -43,8 +43,12 @@ def stop_previous_build(job_name, build_number, pr_number):
         running_builds = jenkins_server.get_running_builds()
         stopping = False
         for build in running_builds:
-            # Skip ourselves
-            if (build['name'] == job_name and build['number'] == int(build_number)):
+            # Skip ourselves and higher numbered builds. It's possible
+            # multiple builds for the same pull request were triggered.
+            # Because even though there is a rate limit, the triggered
+            # builds might be running very slowly for whatever reason.
+            # So a lower numbered build might get to this script first!
+            if (build['name'] == job_name and build['number'] >= int(build_number)):
                 continue
             build_info = jenkins_server.get_build_info(build['name'],
                                                        build['number'])
@@ -83,8 +87,13 @@ def stop_previous_build(job_name, build_number, pr_number):
                         jenkins_server.stop_build(build['name'], build['number'])
 
                         # Only one previous build can be running so stop looping if
-                        # we found one
-                        break
+                        # we found one.
+                        #
+                        # Actually there can be multiple previous builds running
+                        # (see comments above about skipping ourselves and higher
+                        # numbered builds). So continue looping.
+                        #
+                        #break
                 if stopping:
                     break
             if stopping:
