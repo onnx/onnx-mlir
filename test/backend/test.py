@@ -68,7 +68,7 @@ from PyRuntime import ExecutionSession
 # In our directories, the python files that generate the tests are found here
 # onnx-mlir/third_party/onnx/onnx/backend/test/case/node
 
-# Set value for each benchmark to: test_disabled, test_static, 
+# Set value for each benchmark to: test_disabled, test_static,
 #   test_dynamic, test_static_dynamic, test_static_dynamicNA.
 # The test_static_dynamicNA values indicates tests for which the dynamic test
 # makes no sense, e.g. where we build an array of constant but we don't even
@@ -311,7 +311,7 @@ test_to_enable_static_dynamic = {
     # Floor
     "test_floor_example_cpu": (test_static_dynamic,),
     "test_floor_cpu": (test_static_dynamic,),
-    
+
     # Gather
     "test_gather_0_cpu": (test_static_dynamic,),
     "test_gather_1_cpu": (test_static_dynamic,),
@@ -386,7 +386,7 @@ test_to_enable_static_dynamic = {
     # LRN
     "test_lrn_cpu": (test_static_dynamic,),
     "test_lrn_default_cpu": (test_static_dynamic,),
-    
+
 
     # LSTM
     "test_lstm_defaults_cpu": (test_static_dynamic,{0:{0,1,2}}),
@@ -612,6 +612,7 @@ test_to_enable_static_dynamic = {
     # Round
 
     # Scan
+    "test_scan9_sum_cpu": (test_static, ),
 
     # Scatter Element
 
@@ -621,8 +622,8 @@ test_to_enable_static_dynamic = {
     "test_selu_example_cpu": (test_static_dynamic,),
 
     # Shape
-    "test_shape_cpu": (test_static_dynamic,), 
-    "test_shape_example_cpu": (test_static_dynamic,), 
+    "test_shape_cpu": (test_static_dynamic,),
+    "test_shape_example_cpu": (test_static_dynamic,),
 
     # Shrink
 
@@ -670,7 +671,7 @@ test_to_enable_static_dynamic = {
     "test_split_variable_parts_1d_cpu": (test_static_dynamic,),
     "test_split_variable_parts_2d_cpu": (test_static_dynamic,),
     "test_split_variable_parts_default_axis_cpu": (test_static_dynamic,),
-    
+
     # Sqrt
     "test_sqrt_cpu": (test_static_dynamic,),
     "test_sqrt_example_cpu": (test_static_dynamic,),
@@ -767,7 +768,7 @@ test_for_dynamic = [ key for (key, value) in test_to_enable_static_dynamic.items
 
 if args.dynamic :
     print("dynamic shape is enabled")
-    test_to_enable = test_for_dynamic 
+    test_to_enable = test_for_dynamic
 
 # User case specify one test case with BCKEND_TEST env
 if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "" :
@@ -785,7 +786,7 @@ def determine_dynamic_parameters(test_name):
     if test_name_cpu in test_for_dynamic:
         if len(test_to_enable_static_dynamic[test_name_cpu]) > 1:
             selected_list = test_to_enable_static_dynamic[test_name_cpu][1]
-    return selected_list 
+    return selected_list
 
 def execute_commands(cmds, dynamic_inputs_dims):
     if (args.verbose):
@@ -808,7 +809,7 @@ def execute_commands(cmds, dynamic_inputs_dims):
                    first_dim = False
                 else:
                    env_string += "," + str(dim_index)
-        my_env["IMPORTER_FORCE_DYNAMIC"] = env_string 
+        my_env["IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env)
 
 
