@@ -880,7 +880,7 @@ class DummyBackend(onnx.backend.base.Backend):
         dynamic_inputs_dims = determine_dynamic_parameters(name)
         execute_commands([TEST_DRIVER, model_name], dynamic_inputs_dims)
         if not os.path.exists(exec_name) :
-            print("Failed " + test_config.TEST_DRIVER + ": " + name)
+            print("Failed " + test_config.TEST_DRIVER_PATH + ": " + name)
         return EndiannessAwareExecutionSession(exec_name,
                                                    "run_main_graph")
 
