@@ -2,10 +2,6 @@ name: ONNX_MLIR.$(Build.SourceBranchName).${{ parameters.BuildLabel }}.$(Year:yy
 
 resources:
   repositories:
-  - repository: onnx-mlir
-    type: git
-    name: onnx-mlir
-    ref: refs/heads/apollo
   - repository: llvm-project
     type: git
     name: llvm-project
