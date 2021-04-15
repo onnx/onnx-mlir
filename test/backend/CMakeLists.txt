@@ -17,7 +17,7 @@ if (NOT "${CMAKE_CFG_INTDIR}" STREQUAL ".")
 
     configure_file(
       ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
-      ${CMAKE_CURRENT_BINARY_DIR}/${ONNX_MLIR_BUILD_MODE}/test_config.py.cfg
+      ${CMAKE_CURRENT_BINARY_DIR}/${ONNX_MLIR_BUILD_MODE}/test_config.py
       @ONLY
       )
   endforeach()
