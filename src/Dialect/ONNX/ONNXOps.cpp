@@ -1848,7 +1848,8 @@ LogicalResult ONNXQLinearConvOp::inferShapes() {
 
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
-    groupAttr(builder.getI64IntegerAttr(group));
+    groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+        APInt(64, group, /*isSigned=*/true)));
 
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (xShape[1] != -1 && weightShape[1] != -1 &&
@@ -2737,7 +2738,7 @@ LogicalResult ONNXConvIntegerOp::inferShapes() {
   // Check if the attribute actually exists. If it does not then add it.
   if (!groupAttr())
     groupAttr(IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
-        APInt(64, 1, /*isSigned=*/true)));
+        APInt(64, group, /*isSigned=*/true)));
 
   // Check that the X.shape[1] == (W.shape[1] * group) == C condition holds.
   if (xShape[1] != -1 && weightShape[1] != -1 &&
